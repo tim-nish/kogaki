@@ -143,6 +143,38 @@ export function claimRegisterRefusal(entries, legs) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// RECOVERABILITY (kogaki#1494, owner decision 2026-10-21). The Path Review's
+// claim judgment gains one criterion: a claim's proposition and a waypoint's
+// point are recoverable from the Claim's served material under the Brief's
+// renderings record. The entry is the HARNESS'S, computed by
+// src/compose.mjs `recoverabilityOf` at the `review_path` state and attached
+// beside the judged review — one entry per Leg, `holds`, or `fails` naming
+// the field and the first word nothing recovers. Checked here for its shape
+// alone, where it is carried, exactly as the claim register is.
+export const RECOVERABILITY_VERDICTS = ["holds", "fails"];
+
+export function recoverabilityRefusal(entries, legs) {
+  const legList = (Array.isArray(legs) ? legs : []).filter((l) => l && typeof l === "object");
+  if (!Array.isArray(entries) || entries.length !== legList.length) {
+    return `recoverability must be an array of exactly ${legList.length} entr${legList.length === 1 ? "y" : "ies"}, one per Leg in Leg order`;
+  }
+  for (let i = 0; i < legList.length; i++) {
+    const e = entries[i];
+    const at = `recoverability[${i}] (leg ${legList[i].leg_id})`;
+    if (!e || typeof e !== "object" || Array.isArray(e) || e.leg_id !== legList[i].leg_id) {
+      return `${at} does not name its Leg — entries ride in the Candidate's own Leg order`;
+    }
+    if (!RECOVERABILITY_VERDICTS.includes(e.verdict)) {
+      return `${at}: verdict ${JSON.stringify(e.verdict)} is not one of ${RECOVERABILITY_VERDICTS.join("/")}`;
+    }
+    if (e.verdict === "fails" && (typeof e.word !== "string" || e.word === "" || typeof e.field !== "string" || e.field === "")) {
+      return `${at} fails and does not name the field and the word nothing recovers`;
+    }
+  }
+  return null;
+}
+
 // Pure; exported for the check. Returns { error } or { candidates } — the
 // input candidates with `review` attached to each. IT WRITES NOTHING and COUNTS
 // NOTHING (kogaki#1307): the same reasoning attached twice is the same result.
@@ -180,7 +212,7 @@ export function attachReview(candidates, review) {
       // Leg, checked below by `claimRegisterRefusal` against the Candidate's
       // own Legs — the one field this loop's "non-empty string" rule does not
       // apply to, named here rather than left to fail the generic check.
-      if (k === "claim_register") continue;
+      if (k === "claim_register" || k === "recoverability") continue;
       if (typeof v !== "string" || v === "") {
         return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
           + `not non-empty prose — a boolean or number is a verdict wearing a type` };
@@ -199,6 +231,13 @@ export function attachReview(candidates, review) {
     {
       const crErr = claimRegisterRefusal(r.claim_register, c.legs);
       if (crErr) return { error: `candidate ${c.candidate_id}: ${crErr}` };
+    }
+    // RECOVERABILITY (kogaki#1494): the Harness's entry, shape-checked where
+    // carried. A review attached before the `review_path` state computed it
+    // carries none and is refused nothing.
+    if ("recoverability" in r) {
+      const rcErr = recoverabilityRefusal(r.recoverability, c.legs);
+      if (rcErr) return { error: `candidate ${c.candidate_id}: ${rcErr}` };
     }
     // THE DISCHARGE (kogaki#1283) — one entry per Closure row carrying
     // `discharged_by`, named by the row's own text and its discharging Leg.

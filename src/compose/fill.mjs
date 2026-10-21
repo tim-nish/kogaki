@@ -10,6 +10,7 @@
 //
 import { validateLegs } from "./leg-schema.mjs";
 import { definedTermsOf } from "./defined-terms.mjs";
+import { renderedTermIntroducedRefusal } from "./renderings.mjs";
 import {
   CONCEDED_ROW_FIELDS, briefJourneyStrands, briefStrandIds, fillSlot,
   journeyPlacements, legRecord, placements,
@@ -18,10 +19,21 @@ import {
 // ---- the fill: reader_path, strand_coverage, journey_coverage, closure ----
 // Pure over the record; exported for the check. Returns `{ record, placed,
 // total }` or `{ error }`.
-export function fillBrief(record, { legs, coverage = {}, obligations = [], unused = {}, readerStart }) {
+export function fillBrief(record, { legs, coverage = {}, obligations = [], unused = {}, readerStart, renderings = null }) {
   const v = validateLegs(legs, readerStart, obligations, definedTermsOf(record));
   if (v.error) return { error: v.error };
   legs = v.legs;
+  // THE RENDERINGS RECORD (kogaki#1494): `introduces` carries only terms the
+  // article keeps, so a term the record renders is refused here, naming the
+  // term and the entry, before anything is written. A caller with no record
+  // (a run that predates it) writes none.
+  if (renderings !== null) {
+    if (!Array.isArray(renderings) || renderings.some((e) => !e || typeof e.term !== "string" || typeof e.as !== "string")) {
+      return { error: `the renderings record is a list of { term, as } entries; received ${JSON.stringify(renderings)} (kogaki#1494)` };
+    }
+    const introduced = renderedTermIntroducedRefusal(legs, renderings);
+    if (introduced) return { error: introduced };
+  }
   const strandIds = briefStrandIds(record);
   if (strandIds.length === 0) return { error: "the Brief carries no Strands — not a minted Brief" };
   // materials may reference only the closed set's Strands (plus the Thesis,
@@ -127,6 +139,10 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
   }
 
   let out = record;
+  // WRITTEN BESIDE THE READER PATH COMPOSED UNDER IT (kogaki#1494). Not a slot:
+  // the record is composed at `differentiation`, and a Brief adopted before
+  // the field carries none.
+  if (Array.isArray(renderings)) out = { ...out, renderings: renderings.map((e) => ({ term: e.term.trim(), as: e.as.trim() })) };
   for (const [key, value] of [
     ["reader_path", legs.map(legRecord)],
     ["strand_coverage", strandCoverage],

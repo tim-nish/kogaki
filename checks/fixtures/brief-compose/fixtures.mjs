@@ -2,9 +2,11 @@
 // builder, the fixture Brief reader, the Reader start text, the kogaki#1260
 // path and the kogaki#1276 Move library. Moved verbatim from
 // checks/check-brief-compose.sh; the Move library is now written on first use.
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { composeBrief } from "../../../src/brief.mjs";
 import { legRecord, briefRecordText, readerStateMap } from "../../../src/compose.mjs";
 import { stringifyYaml } from "../../../src/yaml.mjs";
 import { readBrief } from "../../../src/draft.mjs";
@@ -85,3 +87,50 @@ export const cand1276 = (id, leg2Extra = {}) => ({
   reader_start: START_1276, reasoning: { leg_validity: "x" },
   legs: [leg1276("s1", { opens_section: "Intro" }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
 });
+
+// ---- kogaki#1494 fixture: the `differentiation` state run over a minted Brief
+// whose settled set carries two source terms, "bamboo shoots" (L1) and "zebra"
+// (L2), and whose Thesis carries "zebra". Both judged records are SUPPLIED by
+// flag -- the renderings record as given, the Differentiation record a fixed
+// valid one -- so no judge runs. The state's renderer is driven in a child
+// `node`, because a refusal ends its process. Returns the child's status, its
+// stderr, the renderings record the run carries, and whether the Differentiation
+// record was reached.
+export const THESIS_1494 = "A zebra crossing decides the defense.";
+export const CLAIMS_1494 = {
+  L1: "Bamboo shoots raise the cost of every attack.",
+  L2: "A zebra crossing slows the defense only where the cost is high.",
+};
+export function runDifferentiation({ renderings }) {
+  const dir = mkdtempSync(join(tmpdir(), "kogaki-1494-diff-"));
+  const strands = [{ display_id: "L1", slug: "bamboo", cite: "fixture" }, { display_id: "L2", slug: "zebra", cite: "fixture" }];
+  const briefPath = join(dir, "brief.yaml");
+  writeFileSync(briefPath, composeBrief({ slug: "fixture", strands, thesis: THESIS_1494, composePath: "audiences/dev-to-zenn.md" }));
+  const runState = join(dir, "run.json");
+  writeFileSync(runState, JSON.stringify({ stage: "minted", strands,
+    strand_renderings: { bamboo: { headline: CLAIMS_1494.L1 }, zebra: { headline: CLAIMS_1494.L2 } } }));
+  const renderingsPath = join(dir, "renderings.json");
+  writeFileSync(renderingsPath, JSON.stringify({ version: "1", renderings }));
+  const diffPath = join(dir, "differentiation.json");
+  writeFileSync(diffPath, JSON.stringify({ version: "1", reader_start: START_1276, leg1_survivors: ["m_open"],
+    entries: [1, 2, 3].map((n) => ({ unit_number: n, dimension: ["knowledge", "question", "trust"][n - 1], opening_move: "m_open", reader_experience: `exp ${n}` })) }));
+  const out = join(dir, "rec.json");
+  const driver = `
+    import { readFileSync, writeFileSync } from "node:fs";
+    import { STATE_WORK } from "./src/brief/renderers.mjs";
+    const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+    const st = table.states.find((s) => s.id === "differentiation");
+    const rec = { _dir: ${JSON.stringify(dir)}, brief_run_state: ${JSON.stringify(runState)}, judgments: {},
+      artifacts_written: [{ state: "mint", path: ${JSON.stringify(briefPath)} }] };
+    await STATE_WORK.differentiation(rec, st, { "moves-dir": ${JSON.stringify(fitMoveLibrary())},
+      renderings: ${JSON.stringify(renderingsPath)}, differentiation: ${JSON.stringify(diffPath)} }, table);
+    writeFileSync(${JSON.stringify(out)}, JSON.stringify(rec));
+  `;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", driver], { encoding: "utf8", timeout: 60000 });
+  const rec = existsSync(out) ? JSON.parse(readFileSync(out, "utf8")) : {};
+  return {
+    status: r.status, stderr: `${r.stderr || ""}${r.error ? r.error.message : ""}`,
+    renderings: rec.brief_renderings ? JSON.parse(readFileSync(rec.brief_renderings, "utf8")) : null,
+    differentiationRan: rec.brief_differentiation === diffPath,
+  };
+}

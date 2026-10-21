@@ -12,7 +12,7 @@ import { cmdAdoptCandidate, cmdAssemble, selectionOptionIds } from "../assemble.
 import {
   audienceLanguage, briefJourneyStrands, briefStrandIds, definedTermsOf, definedTermsRefusal,
   deriveReaderStatesBefore, dischargeRows, loadMoveContracts, personaPriorKnowledgeLine,
-  readerPersona,
+  readerPersona, recoverabilityOf, renderingsRefusal,
 } from "../compose.mjs";
 import { DISCHARGE_VERDICTS, REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
@@ -29,6 +29,46 @@ import {
   fail, judged, needBrief, needRunState, readJson, readMintedBrief, refuseJudgment,
   strandClaims, validateDifferentiationRecord, writeJudgeInput,
 } from "./run-state.mjs";
+
+// THE RENDERINGS RECORD'S JUDGMENT (kogaki#1494), asked from inside the
+// `differentiation` state: the `renderings_unit` row over the settled Strands'
+// claims, the Thesis and the Brief's Defined Terms. The record is validated by
+// `renderingsRefusal`, so a re-ask carries its text. Returns the record's path.
+async function judgeRenderings(rec, st, table, args, { record, thesis, language }) {
+  const row = table.renderings_unit
+    || fail(`${st.id}: src/brief-workflow.json declares no renderings_unit row for the Brief's renderings record (kogaki#1494)`);
+  const claims = strandClaims(readJson(needRunState(rec, st)));
+  const validate = (p) => {
+    let r;
+    try { r = readJson(p); }
+    catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+    if (!r || r.version !== "1") {
+      refuseJudgment(`\`version\` must be "1" (src/candidate-schema.json, \`renderings_record\`); received ${JSON.stringify(r && r.version)}`);
+    }
+    const err = renderingsRefusal(r.renderings, { thesis: thesis || "", claims: claims.map((c) => c.claim) });
+    if (err) refuseJudgment(err);
+  };
+  const composeInputFor = () => writeJudgeInput(rec, row, {
+    state: st.id, unit: row.id, thesis, strand_claims: claims,
+    defined_terms: Array.isArray(record && record.defined_terms) ? record.defined_terms : [],
+    language,
+  });
+  return await judged(rec, row, table, args, "renderings", composeInputFor, validate);
+}
+
+// The served Strand claims of the run, from the run state `enter` wrote; a run
+// record carrying no run state serves none.
+function servedClaims(rec) {
+  return rec.brief_run_state ? strandClaims(readJson(rec.brief_run_state)) : [];
+}
+
+// The renderings record's entries, as the `differentiation` state wrote it. A
+// run that predates the record carries none, which renders nothing.
+function renderingsFor(rec) {
+  if (!rec.brief_renderings) return [];
+  const r = readJson(resolve(BRIEF_REPO, rec.brief_renderings));
+  return Array.isArray(r && r.renderings) ? r.renderings : [];
+}
 
 // ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
 // id, exactly as Terrain's STATE_WORK is: a new state is a table
@@ -123,6 +163,13 @@ export const STATE_WORK = {
     // refused by name before the ask where it is missing.
     const language = audienceLanguage(resolve(BRIEF_REPO, readerFile));
     if (language.error) fail(`${st.id}: ${language.error}`);
+    // THE RENDERINGS RECORD, ASKED FIRST (kogaki#1494, owner decision
+    // 2026-10-21): the source terms the article will not keep, each with the
+    // plain phrase it uses instead, from the `renderings_unit` row over the
+    // settled Strands' claims and the Defined Terms. It is composed here so it
+    // stands before any reader-path unit runs; every unit, the Path Review's
+    // recoverability entry and adoption read it from `brief_renderings`.
+    rec.brief_renderings = await judgeRenderings(rec, st, table, args, { record, thesis, language: language.language });
     const validate = (p) => {
       let record;
       try { record = readJson(p); }
@@ -326,6 +373,8 @@ export const STATE_WORK = {
       moves_you_may_bind: library.moves,
       units: unitCount,
       language: language.language,
+      strand_claims: servedClaims(rec),
+      renderings: renderingsFor(rec),
     });
     // THE UNIT'S OWN ROW (kogaki#1203), read fresh per unit build rather than
     // reusing `st`: `st`'s own `input_shape`/`refusal` state the ASSEMBLED
@@ -344,6 +393,11 @@ export const STATE_WORK = {
       || fail(`${st.id} has no differentiation record — \`differentiation\` writes it and precedes `
         + "this state."));
     const survivorCount = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
+    // THE SERVED CLAIMS AND THE RENDERINGS RECORD (kogaki#1494): every unit
+    // composes its claims and points under the record, so each is handed the
+    // words it renders and the served claims it renders them from.
+    const strandClaimList = servedClaims(rec);
+    const renderings = renderingsFor(rec);
     const units = Array.from({ length: unitCount }, (_, i) => i + 1).map((n) => {
       const input = {
         state: st.id,
@@ -356,6 +410,8 @@ export const STATE_WORK = {
         // same value the assignment block above the marker renders.
         reader_start: differentiation.reader_start,
         language: language.language,
+        strand_claims: strandClaimList,
+        renderings,
       };
       const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
         || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `
@@ -439,6 +495,20 @@ export const STATE_WORK = {
       if (reviewed.length === 0) fail(`${st.id}: the path-review job ended \`done\` and its result carries no reviewed Candidate.`);
       const r = attachReview(reviewed, review, {});
       if (r.error) fail(`${st.id}: ${r.error}`);
+      // RECOVERABILITY, THE HARNESS'S OWN ENTRY (kogaki#1494): every claim's
+      // proposition and every waypoint's point read against its Strand's
+      // served claim under the renderings record, one entry per Leg, naming
+      // the first word nothing recovers. Computed here rather than asked of
+      // the judge, and attached beside the judged review it rides with. A run
+      // serving no claim has no material to read against, and attaches none.
+      const served = servedClaims(rec);
+      if (served.length > 0) {
+        const material = Object.fromEntries(served.map((c) => [c.id, c.claim]));
+        const renderings = renderingsFor(rec);
+        for (const c of reviewed) {
+          review[c.candidate_id] = { ...review[c.candidate_id], recoverability: recoverabilityOf(c.legs, { material, renderings }) };
+        }
+      }
       const out = join(rec._dir, "brief-review.json");
       writeFileSync(out, JSON.stringify(review, null, 2) + "\n");
       rec.brief_review = relFromRepo(resolve(out));
@@ -574,6 +644,9 @@ export const STATE_WORK = {
       reviewed: rec.brief_reviewed,
       candidate: chosen,
       specialization,
+      // THE RENDERINGS RECORD (kogaki#1494), written into the Brief beside the
+      // adopted Reader Path; a run that predates it passes none.
+      ...(rec.brief_renderings ? { renderings: resolve(BRIEF_REPO, rec.brief_renderings) } : {}),
       // THE SELECTION IS THE HARNESS'S OWN CAPTURE FILE, passed whole.
       // `validateOwnerAnswer` filters it by gate id and binds the answer to the
       // option set it was offered against, so the file holding both gates'

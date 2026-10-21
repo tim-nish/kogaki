@@ -226,6 +226,13 @@
         "one_of": ["defined", "ordinary"],
         "description": "Every noun of the Thesis and of each Strand's claim, one entry per term (one or more words, in the form an `introduces` entry's `term` takes), each with `class` `defined` -- used in a sense this article gives it -- or `ordinary` -- used in the sense the reader already holds. Written once by the mint and never again (kogaki#1331). Composition refuses a `defined` term in a claim, a waypoint's point or a heading before the Leg whose `introduces` carries it. It lives in the Brief and ends there: nothing of it reaches the Packet. A Brief minted before the field carries none and defines nothing."
       },
+      "renderings": {
+        "required": false,
+        "filled_at": "differentiation",
+        "caption": "The source's own words this article does not keep, each with the plain phrase it uses instead. A word not listed here keeps the source's wording.",
+        "entry_keys": ["term", "as"],
+        "description": "The renderings record (kogaki#1494, owner decision 2026-10-21): one entry per term of the served material the article will not keep, `term` the served word and `as` the plain phrase the article uses in its place. Composed once at the `differentiation` state, before any reader-path unit runs, from the settled Strands and the Defined Terms (the `renderings_unit` row of src/brief-workflow.json); every reader-path unit composes under it and the Path Review judges each claim and point recoverable from its served material under it. Written into the Brief at adoption, beside the Reader Path composed under it; it is not a slot, so a Brief adopted before the field carries none and renders nothing. A term an `introduces` entry carries is refused here at adoption: `introduces` carries only terms the article keeps."
+      },
       "reader_start": {
         "required": true,
         "filled_at": "adoption",
@@ -282,6 +289,14 @@
     "fields": {
       "version": "the literal \"1\"",
       "defined_terms": "a list, one entry per noun of the Thesis and of each Strand claim the input carries: `term` (one or more words, exactly as they occur in that text, in the form an `introduces` entry's `term` takes, so `non-member fallback` is one term) and `class`, one of `defined` (this article gives the word a sense the reader does not already hold -- a word used in a CI-specific or article-specific sense is `defined` even when it is everyday English) or `ordinary` (the reader already holds the sense the article uses). No other key, no prose, no term twice, and no term that occurs whole-word in neither the Thesis nor a claim."
+    }
+  },
+  "renderings_record": {
+    "note": "THE DIFFERENTIATION STATE'S SECOND JUDGED RECORD (kogaki#1494, owner decision 2026-10-21): the `renderings_unit` row of src/brief-workflow.json asks for it before the Differentiation record, and src/compose.mjs `renderingsRefusal` refuses an entry against the same two fields. Every reader-path unit receives it, the Path Review's recoverability entry reads it, and adoption writes it into the Brief as `renderings`.",
+    "version": "1",
+    "fields": {
+      "version": "the literal \"1\"",
+      "renderings": "a list, one entry per term of the Strand claims in the input that the article will NOT keep: `term` (one or more words, exactly as they occur in a claim, in the form an `introduces` entry's `term` takes) and `as` (the plain phrase the article uses in its place, in the article's language). A term absent from the list keeps the served word; a term the Thesis carries is kept, because the Thesis is the article's title. No other key, no prose, no term twice, no entry whose `as` is its own term, no term that occurs whole-word in no claim, and no term the Thesis carries. An empty list is a record in which the article keeps every served word."
     }
   }
 }
