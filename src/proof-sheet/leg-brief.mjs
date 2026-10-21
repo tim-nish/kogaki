@@ -39,6 +39,14 @@
 // is already the article's own rendering of the source, so there is nothing to map. The run's
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
+// THE TERMS FILE (kogaki#1498, owner decision 2026-10-21). Optional and absent by default:
+// `--terms <file>` names a JSON object mapping a term to `coined` or `established`. Where it is
+// given, the Leg call's input carries it as `introduces_given_kinds`, and an `introduces` entry
+// whose term the file names and whose kind differs from the file's is refused naming the term.
+// A term the file does not name is classified by the model, as without the file. Where it is
+// not given, the input, the prompt and the validator are what they were. The run's
+// `brief.json` records the file's path and hash, or `terms: null`.
+//
 // THE RECORD. Written by the production `briefRecordText` writer: the composed fields and,
 // for every field the parser requires that this composition does not compose, a fixed
 // constant marked as such in a comment. `/paragraph-plan` and `/draft` read it unchanged.
@@ -60,9 +68,11 @@
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
-  introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf } from "../compose.mjs";
+  introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
+  parseIntroducesEntry } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
@@ -158,13 +168,58 @@ export function legCallExtraction(x) {
   };
 }
 
-export function legPathUnitInput({ paragraphs, extractions, readerStart, language }) {
+export function legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds = null }) {
   return {
     reader_start: readerStart,
     language,
     paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${i + 1}`, text,
       extraction: legCallExtraction(extractions[i]) })),
+    ...(givenKinds ? { introduces_given_kinds: givenKinds } : {}),
   };
+}
+
+// ---------------------------------------------------------------------------
+// THE TERMS FILE (see the header).
+
+const TERM_KINDS = ["coined", "established"];
+
+// Read and check a terms file. Returns `{ path, sha256, kinds }` or `{ error }`.
+export function readTermsFile(path) {
+  let text;
+  try { text = readFileSync(path, "utf8"); }
+  catch (e) { return { error: `the terms file at ${path} cannot be read (${e.message})` }; }
+  let doc;
+  try { doc = JSON.parse(text); }
+  catch (e) { return { error: `the terms file at ${path} is not JSON (${e.message})` }; }
+  if (!isMap(doc)) return { error: `the terms file at ${path} is not a JSON object mapping a term to coined or established` };
+  // An empty file fixes nothing, so it would read "terms: fixed (0)" over a Brief the model
+  // classified whole; it is refused rather than recorded as fixed.
+  if (!Object.keys(doc).length) return { error: `the terms file at ${path} names no term — leave --terms off to let the model classify every term` };
+  for (const [term, kind] of Object.entries(doc)) {
+    if (term.trim() === "") return { error: `the terms file at ${path} names an empty term` };
+    if (!TERM_KINDS.includes(kind)) {
+      return { error: `the terms file at ${path} gives "${term}" the kind ${JSON.stringify(kind)} — a kind is coined or established` };
+    }
+  }
+  return { path: resolve(path), sha256: createHash("sha256").update(text).digest("hex"), kinds: doc };
+}
+
+// An `introduces` entry whose term the given kinds name, carrying another kind. Terms match
+// trimmed and case-folded. Returns the refusal, or null.
+export function givenKindsRefusal(leg, givenKinds) {
+  if (!isMap(givenKinds)) return null;
+  const given = new Map(Object.entries(givenKinds).map(([t, k]) => [t.trim().toLowerCase(), [t, k]]));
+  for (const raw of Array.isArray(leg.introduces) ? leg.introduces : []) {
+    const p = parseIntroducesEntry(raw);
+    if (p.error || !given.has(p.term.toLowerCase())) continue;
+    const [term, kind] = given.get(p.term.toLowerCase());
+    if (p.kind !== kind) {
+      return `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: the \`introduces\` entry "${p.term}" carries kind ${JSON.stringify(p.kind ?? null)}, `
+        + `and the terms file gives "${term}" the kind "${kind}" — a term the terms file names carries the file's kind, `
+        + "given in the input as `introduces_given_kinds` (kogaki#1498)";
+    }
+  }
+  return null;
 }
 
 function unitPrompt(row, input) {
@@ -283,6 +338,8 @@ export function validateLegPathUnit(record, inputs) {
   }
   const anchored = anchoredRefusal(full, inputs.segments, n);
   if (anchored) return { error: anchored };
+  const kinds = givenKindsRefusal(leg, inputs.given_kinds);
+  if (kinds) return { error: kinds };
   return {};
 }
 
@@ -382,9 +439,12 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
 
 // COMPOSE the Leg's Brief. Writes `<out>/brief.yaml` and returns `{ brief, runDir }`, or
 // `{ stopped, runDir }`.
-export function runLegBrief({ extractions: extractorRun, out, leg = null, slug = null, audience = null }) {
+export function runLegBrief({ extractions: extractorRun, out, leg = null, slug = null, audience = null, terms = null }) {
   const material = readExtractorRun(resolve(extractorRun), leg);
   if (material.error) fail(material.error);
+  const termsFile = terms ? readTermsFile(terms) : null;
+  if (termsFile && termsFile.error) fail(`${termsFile.error}. Nothing was started.`);
+  const givenKinds = termsFile ? termsFile.kinds : null;
   const { paragraphs, extractions } = material;
   const name = slug || material.passage;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
@@ -421,14 +481,16 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   const readerStart = readerStartText(rs.record);
 
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
-    input: legPathUnitInput({ paragraphs, extractions, readerStart, language }), recordArray: "legs",
+    input: legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds }), recordArray: "legs",
     validatorExport: "validateLegPathUnit", bounds,
-    inputs: { paragraph_count: paragraphs.length, reader_start: readerStart, segments: segmentContents(extractions) } });
+    inputs: { paragraph_count: paragraphs.length, reader_start: readerStart, segments: segmentContents(extractions),
+      ...(givenKinds ? { given_kinds: givenKinds } : {}) } });
   if (lp.stopped) return { stopped: lp.stopped, runDir };
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, readerStart, leg: lp.record.legs[0] }));
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true });
+  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
+    terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(givenKinds).length } : null });
   return { brief: briefPath, runDir };
 }
 
@@ -473,13 +535,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.stdout.write(`${text}\n`);
     if (text.includes("REFUSED:")) process.exitCode = 1;
   } else if (args._cmd === "run" && str("extractions") && str("out")) {
-    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience") });
+    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience"),
+      terms: str("terms") });
     if (r.brief) console.log(`Brief written: ${r.brief}`);
     console.log(`run directory: ${r.runDir}`);
     if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
   } else {
     fail("usage: node src/proof-sheet/leg-brief.mjs run --extractions <an Extractor run directory> --out <dir> "
-      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>]\n"
+      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>] [--terms <a JSON object of term to coined|established>]\n"
       + "       node src/proof-sheet/leg-brief.mjs diff");
   }
 }

@@ -43,6 +43,13 @@
 #       rather than passing; the run hands the validator the Extractions' Segment content and
 #       records `anchored: true` in its `brief.json`; and the rendered Leg call carries the
 #       Segment-content sentence in place of production's renderings-record sentence.
+#   (j) THE TERMS FILE (kogaki#1498): run with `--terms` naming one term `established`, the
+#       Leg call's input carries it as `introduces_given_kinds`, a first answer classifying the
+#       term `coined` is refused naming the term, the answer agreeing with the file passes, and
+#       `brief.json` records the file's path, hash and count; the validator, handed the kinds
+#       directly, refuses a disagreeing entry naming the term and passes an agreeing one and a
+#       term the file does not name; an empty terms file is refused; without `--terms` the input carries no
+#       `introduces_given_kinds` and `brief.json` records `terms: null`.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -115,6 +122,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] };
+    // (j) given kinds: a first answer that disagrees with the file, the retry that agrees.
+    if (input.introduces_given_kinds) {
+      record.legs[0].introduces = [retried
+        ? { term: "ownership boundary", kind: "established", source: "software licensing" }
+        : { term: "ownership boundary", kind: "coined", meaning: "where the installer's ownership ends" }];
+    }
   }
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
   process.exit(0);
@@ -291,6 +304,57 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   const legP = prompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
   ok(legP.includes("THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495)") && !legP.includes("THE RENDERINGS RECORD (kogaki#1494)"),
     "(i) the Leg call does not carry the Segment-content sentence in place of production's renderings-record sentence");
+}
+
+// (j) the terms file
+{
+  const bj0 = runDir && existsSync(join(runDir, "brief.json")) ? JSON.parse(readFileSync(join(runDir, "brief.json"), "utf8")) : {};
+  ok(bj0.terms === null, `(j) a run without --terms does not record \`terms: null\`: ${JSON.stringify(bj0.terms)}`);
+  const prompts0 = existsSync(join(root, "prompts.jsonl")) ? readFileSync(join(root, "prompts.jsonl"), "utf8") : "";
+  ok(prompts0 !== "" && !prompts0.includes("introduces_given_kinds"), "(j) a run without --terms carries `introduces_given_kinds` in a prompt");
+
+  const termsPath = join(root, "terms.json");
+  const termsText = JSON.stringify({ "Ownership Boundary": "established" });
+  writeFileSync(termsPath, termsText);
+  const jroot = join(root, "j");
+  mkdirSync(jroot, { recursive: true });
+  const jr = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "run", "--extractions", xrun, "--out", join(jroot, "out"), "--terms", termsPath],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSL_FIXTURE_DIR: jroot }, timeout: 300000 });
+  ok(jr.status === 0, `(j) the run with --terms exited ${jr.status}: ${jr.stdout}${jr.stderr}`);
+  const jrun = (jr.stdout.match(/^run directory: (.+)$/m) || [])[1];
+  const lp = jrun && existsSync(join(jrun, "leg-path", "attempts.json")) ? JSON.parse(readFileSync(join(jrun, "leg-path", "attempts.json"), "utf8")) : {};
+  ok(lp.attempts === 2 && Array.isArray(lp.refusals) && lp.refusals.length === 1
+    && /the `introduces` entry "ownership boundary" carries kind "coined", and the terms file gives "Ownership Boundary" the kind "established"/.test(lp.refusals[0]),
+    `(j) a record classifying the file's term \`coined\` was not refused naming the term: ${JSON.stringify(lp)}`);
+  const ans = jrun && existsSync(join(jrun, "leg-path", "answer.json")) ? JSON.parse(readFileSync(join(jrun, "leg-path", "answer.json"), "utf8")) : {};
+  ok(((ans.legs || [])[0] || {}).introduces?.[0]?.kind === "established", `(j) the record agreeing with the file did not pass: ${JSON.stringify(ans)}`);
+  const jprompts = existsSync(join(jroot, "prompts.jsonl")) ? readFileSync(jroot + "/prompts.jsonl", "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  const jleg = jprompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
+  const marker = "----- INPUT (JSON) -----";
+  let jin = null;
+  try { jin = JSON.parse(jleg.slice(jleg.indexOf(marker) + marker.length)); } catch { /* reported below */ }
+  ok(jin && JSON.stringify(jin.introduces_given_kinds) === termsText, `(j) the Leg call's input does not carry the file's kinds as \`introduces_given_kinds\`: ${JSON.stringify(jin && jin.introduces_given_kinds)}`);
+  const bj = jrun && existsSync(join(jrun, "brief.json")) ? JSON.parse(readFileSync(join(jrun, "brief.json"), "utf8")) : {};
+  const { createHash } = await import("node:crypto");
+  ok(bj.terms && bj.terms.path === termsPath && bj.terms.sha256 === createHash("sha256").update(termsText).digest("hex") && bj.terms.count === 1,
+    `(j) brief.json does not record the terms file's path, hash and count: ${JSON.stringify(bj.terms)}`);
+
+  const leg = (entry) => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", reader_state_after: "knowledge: holds it", introduces: [entry],
+    claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
+    waypoints: [{ point: "first", serves: ["L1"] }, { point: "second", serves: ["L2"] }] }] });
+  const kIn = { ...inputs, given_kinds: { "ownership boundary": "established" } };
+  const coined = { term: "ownership boundary", kind: "coined", meaning: "where it ends" };
+  const est = { term: "ownership boundary", kind: "established", source: "licensing" };
+  const refused = LB.validateLegPathUnit(leg(coined), kIn).error || "";
+  ok(/"ownership boundary" carries kind "coined", and the terms file gives "ownership boundary" the kind "established"/.test(refused),
+    `(j) the validator did not refuse a disagreeing kind naming the term: ${refused}`);
+  ok(!LB.validateLegPathUnit(leg(est), kIn).error, `(j) the validator refused an entry agreeing with the file: ${LB.validateLegPathUnit(leg(est), kIn).error}`);
+  ok(!LB.validateLegPathUnit(leg({ ...coined, term: "handover" }), kIn).error, "(j) the validator refused a term the file does not name");
+  ok(!LB.validateLegPathUnit(leg(coined), inputs).error, "(j) the validator refused a kind with no terms file given");
+  writeFileSync(join(root, "bad-terms.json"), JSON.stringify({ x: "borrowed" }));
+  ok(/gives "x" the kind "borrowed"/.test(LB.readTermsFile(join(root, "bad-terms.json")).error || ""), "(j) a terms file with a kind outside coined, established was not refused");
+  writeFileSync(join(root, "empty-terms.json"), "{}");
+  ok(/names no term/.test(LB.readTermsFile(join(root, "empty-terms.json")).error || ""), "(j) an empty terms file was not refused");
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }

@@ -66,6 +66,12 @@
 #       (a stream line every 200 ms, as a live stream-json call writes),
 #       the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries
 #       the binary's whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
+#   (p) the terms file (kogaki#1498): the resumed run (h) is started with `--terms` naming one
+#       term, its `run.json` carries the file's path, hash and count, the resumed Brief stage is
+#       handed the same `--terms`, and its sheet's Brief card reads "Conditions: terms: fixed (1)";
+#       a resume after the file changed is refused naming it, the record untouched;
+#       the main run, given none, records `terms: null` and its Brief card reads
+#       "Conditions: terms: model".
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -743,7 +749,11 @@ writeFileSync(goodJudge, fakeModelSrc(null, "seen-resume.jsonl"));
 chmodSync(goodJudge, 0o755);
 
 const hOut = join(hRoot, "out");
-const r1 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(hRoot, "leg-fixture.md"), "--out", hOut, "--provenance", map],
+const hTerms = join(hRoot, "terms.json");
+const hTermsText = JSON.stringify({ "ownership boundary": "established" });
+writeFileSync(hTerms, hTermsText);
+const r1 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(hRoot, "leg-fixture.md"), "--out", hOut, "--provenance", map,
+  "--terms", hTerms],
   { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: stopJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
 const hRunDir = (r1.stdout.match(/^run directory: (.+)$/m) || [])[1];
 ok(!!hRunDir, `(h) the first run printed no run directory: ${r1.stdout}${r1.stderr}`);
@@ -769,6 +779,27 @@ if (hRunDir) {
   ok(hRef.includes("<p>no attempt was refused</p>") && !hRef.includes("<table"), "(o) the resumed run, refused nowhere, does not render \"no attempt was refused\"");
   const extractCmd = JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8"));
   ok(extractCmd.length > extractDoneBefore.length, "(h) the resumed extract stage replaced command.json instead of appending to it");
+
+  // (p) the terms file, carried through the record and the resume to the Brief stage and the sheet
+  const { createHash } = await import("node:crypto");
+  ok(run1.terms && run1.terms.path === hTerms && run1.terms.sha256 === createHash("sha256").update(hTermsText).digest("hex") && run1.terms.count === 1,
+    `(p) run.json built with --terms does not carry the file's path, hash and count: ${JSON.stringify(run1.terms)}`);
+  ok(JSON.stringify(run2.terms) === JSON.stringify(run1.terms), `(p) the resumed run.json does not keep the terms record: ${JSON.stringify(run2.terms)}`);
+  const briefCmd = JSON.parse(readOr(join(hRunDir, "brief", "command.json"), "[]"));
+  ok(briefCmd.length > 0 && briefCmd.every((c) => c.argv.join(" ").includes(`--terms ${hTerms}`)), `(p) the resumed Brief stage was not handed --terms: ${JSON.stringify(briefCmd.map((c) => c.argv))}`);
+  ok(hSheet.includes("Conditions: terms: fixed (1)") && !hSheet.includes("terms: model"), "(p) the sheet of a run given a terms file does not read \"terms: fixed (1)\"");
+  writeFileSync(hTerms, JSON.stringify({ "ownership boundary": "coined" }));
+  const r2b = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
+  ok(r2b.status !== 0 && /the terms file at .* has changed since the run started/.test(r2b.stderr)
+    && JSON.stringify(JSON.parse(readFileSync(join(hRunDir, "run.json"), "utf8")).terms) === JSON.stringify(run1.terms),
+    `(p) a resume over a terms file changed since the run started was not refused: ${r2b.status} ${r2b.stderr}`);
+}
+if (runDir) {
+  const run0 = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
+  ok(run0.terms === null, `(p) run.json built without --terms does not record \`terms: null\`: ${JSON.stringify(run0.terms)}`);
+  const sheet0 = readOr(join(runDir, "sheet.html"), "");
+  ok(sheet0.includes("Conditions: terms: model") && !sheet0.includes("terms: fixed"), "(p) the sheet of a run given no terms file does not read \"terms: model\"");
 }
 
 // (i) THE AUDIENCE (kogaki#1396): run.json always names the Audience path the run used, and
