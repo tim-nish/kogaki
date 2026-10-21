@@ -162,7 +162,7 @@ claim, and do not open a new subject.
 This is the whole of what you may speak of as already available: a term you
 introduce here, a term or claim re-activated from a Leg you depend on, or a
 re-activated Journey. Each line carries what crosses with it — a term with
-its meaning, a claim as a plain restatement, a Journey as its served text.
+its meaning where the Brief gives one, a claim as a plain restatement, a Journey as its served text.
 Where a term comes from is the Brief's own record, not material for the prose.
 Nothing not listed here is material for this Leg: the reader may hold more, but what they
 hold and do not see below is not yours to speak of or rely on.

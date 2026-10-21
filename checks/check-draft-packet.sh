@@ -59,7 +59,8 @@
 #   (h) THE CROSSING LINE CARRIES A TERM AND ITS MEANING (kogaki#1491): a Leg
 #       introducing one `coined` and one `established` entry renders a
 #       "What crosses into this Leg" block carrying each term with its
-#       meaning -- read first, so the absences below are read over a block
+#       meaning, a coined line's `nearest` clause set apart from its meaning by
+#       a period -- read first, so the absences below are read over a block
 #       known to hold the lines in scope -- and carrying neither "coined" nor
 #       "established" nor "present it as a name"; "may be handed this name as
 #       given" is on the established line and on no other line of the block.
@@ -253,7 +254,8 @@ if (!r.error) {
 
 // (h) one crossing-line form for both kinds: term and meaning, no presentation instruction (kogaki#1491).
 {
-  const COINED = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" };
+  const COINED = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", nearest: "guard clause",
+    differs: "nothing ever feeds it a failing input" };
   const ESTABLISHED = { term: "default-deny", kind: "established", source: "firewall configuration practice",
     meaning: "every request is refused unless a rule admits it" };
   const gText = briefRecordText({
@@ -277,6 +279,7 @@ if (!r.error) {
     const coinedLine = lines.find((l) => l.startsWith(`- ${COINED.term} — `));
     const establishedLine = lines.find((l) => l.startsWith(`- ${ESTABLISHED.term} — `));
     if (!coinedLine || !coinedLine.includes(COINED.meaning)) fails.push(`(h) the crossing block does not carry the coined term with its meaning: ${JSON.stringify(crosses)}`);
+    else if (!coinedLine.includes(`${COINED.meaning}. nearest existing term: ${COINED.nearest}.`)) fails.push(`(h) the coined line does not set its nearest clause apart from its meaning with a period: ${JSON.stringify(coinedLine)}`);
     else if (!establishedLine || !establishedLine.includes(ESTABLISHED.meaning)) fails.push(`(h) the crossing block does not carry the established term with its meaning: ${JSON.stringify(crosses)}`);
     else {
       for (const bad of ["coined", "established", "present it as a name"]) {

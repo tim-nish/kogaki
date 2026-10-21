@@ -255,7 +255,7 @@ export function introduceLine(raw, authorityOn) {
   }
   let line = `- ${p.term}${meaning}`;
   if (authorityOn && p.nearest) {
-    line += ` nearest existing term: ${p.nearest}.`;
+    line = `${line.replace(/\.\s*$/, "")}. nearest existing term: ${p.nearest}.`;
     if (p.differs) line += ` differs: ${p.differs}`;
   }
   return line;
