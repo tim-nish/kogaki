@@ -38,6 +38,12 @@ paragraph opens and what it establishes arrive as the Paragraph Waypoints the
 ParagraphPlan stage generated from a paragraph Move; the register carries no
 rule that dictates either.
 
+THE REGISTER YIELDS TO THE PLAN (kogaki#1493, owner ruling 2026-10-21). The
+paragraph directly before `{{register}}` sits outside the rendered register,
+so no edit to an Audience file removes it: where a register rule and a
+numbered or italic line conflict, the line holds for that sentence, and the
+conflict is the Writer's to settle, never a refusal or a judge's stop.
+
 LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
 the Brief's `introduces` and `re-activate` explicitly admit crosses into this
 Leg's Packet; nothing else the reader holds does, and no sentence here is
@@ -199,6 +205,12 @@ Prose that writes its own heading is refused when the Leg is recorded.
 **Language.** {{language}}
 
 **The reader's own world.** {{reader_own_world}}
+
+**What the register below governs.** The register governs how sentences read
+inside the structure the numbered lines and the italic lines above give: it
+adds, removes and reorders no point and no operation. Where a register rule
+and one of those lines conflict, the line holds and the rule yields for that
+sentence. Do not return a refusal for such a conflict.
 
 {{register}}
 
