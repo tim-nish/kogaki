@@ -35,6 +35,14 @@
 #       the source of the `proposition` and the `point`, forbids a characterisation of the
 #       paragraph in them, and names `what_it_does` and `reader` beside `reader_state_after`,
 #       `purpose` and `rationale` and never as a `proposition`'s source.
+#   (i) THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495): the Leg validator, handed each
+#       paragraph's Segment `content`, refuses a Leg Waypoint whose point carries a word in no
+#       Segment `content` of its paragraph, naming the word and the Segments, and the same for a
+#       Claim's proposition; a point built from the Segment's own words, a word the Leg
+#       `introduces` and function words passes; a validator handed no Segment content refuses
+#       rather than passing; the run hands the validator the Extractions' Segment content and
+#       records `anchored: true` in its `brief.json`; and the rendered Leg call carries the
+#       Segment-content sentence in place of production's renderings-record sentence.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -76,7 +84,8 @@ for (const [i] of PARAS.entries()) {
   writeFileSync(join(xrun, `p${i + 1}`, "answer.json"), JSON.stringify({
     version: "1", paragraph: i + 1, what_it_does: `WHAT-${i + 1}`, name: `move_${i + 1}`,
     reader: dims.map((d) => ({ dimension: d, before: `B${i + 1}-${d}`, after: d === "knowledge" ? `A${i + 1}-${d}` : "unchanged", segment: d === "knowledge" ? "1" : "" })),
-    segments: [{ content: `CONTENT-${i + 1}`, does: `DOES-${i + 1}`, relation: "" }],
+    // The Segment content carries the fake judge's words, so its Leg is recoverable (kogaki#1495).
+    segments: [{ content: `CONTENT-${i + 1} CLAIM-${i + 1} POINT-${i + 1}`, does: `DOES-${i + 1}`, relation: "" }],
     why_this_order: `ORDER-${i + 1}`, presupposes: `PRESUPPOSES-${i + 1}`, breaks: [`BREAKS-${i + 1} - the reader loses it`],
     description: `DESCRIPTION-${i + 1}`, notes: `NOTES-${i + 1}`,
   }));
@@ -194,7 +203,7 @@ else {
     }
     ok(x.what_it_does === `WHAT-${i + 1}` && Array.isArray(x.reader) && x.reader.length === 5,
       `(g) paragraph ${i + 1}'s Extraction in the Leg call's input lost \`what_it_does\` or its \`reader\` rows`);
-    ok(JSON.stringify(x.segments) === JSON.stringify([{ content: `CONTENT-${i + 1}` }]),
+    ok(JSON.stringify(x.segments) === JSON.stringify([{ content: `CONTENT-${i + 1} CLAIM-${i + 1} POINT-${i + 1}` }]),
       `(g) paragraph ${i + 1}'s Extraction in the Leg call's input does not carry its Segment content clauses alone: ${JSON.stringify(x.segments)}`);
   }
   ok(!/ORDER-\d|BREAKS-\d/.test(leg), "(g) the Leg call's rendered prompt still carries a `why_this_order` or `breaks` text");
@@ -229,7 +238,7 @@ const argvs = existsSync(join(root, "argv.jsonl")) ? readFileSync(join(root, "ar
 ok(argvs.length === 3 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }), `(e) a call ran without \`--tools ""\`: ${JSON.stringify(argvs)}`);
 
 // (f) the validators, directly
-const inputs = { paragraph_count: 2, reader_start: "knowledge: holds nothing yet" };
+const inputs = { paragraph_count: 2, reader_start: "knowledge: holds nothing yet", segments: [["one first"], ["two second"]] };
 const good = () => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", reader_state_after: "knowledge: holds it",
   claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
   waypoints: [{ point: "first", serves: ["L1"] }, { point: "second", serves: ["L2"] }] }] });
@@ -246,6 +255,43 @@ const m5 = good(); m5.legs[0].reader_state_after = "The reader now holds it.";
 ok(/reader_state_after is not written as `dimension: value` lines/.test(LB.validateLegPathUnit(m5, inputs).error || ""), "(f) a reader_state_after that is not dimension lines was not refused by validateLegs");
 ok(/reader_start is not written as `dimension: value` lines/.test(LB.validateLegReaderStartUnit({ version: "1", reader_start: ["A sentence."] }).error || ""), "(f) a malformed Reader start was not refused by readerStateShapeRefusal");
 ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: holds nothing"] }).error, "(f) a good Reader start was refused");
+
+// (i) the recoverability criterion over the Segment content
+{
+  const segs = [["The installer copies the kit.", "The consumer's tree receives it."], ["The next run copies it again."]];
+  const leg = (point2, proposition1 = "The installer copies the kit") => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r",
+    reader_state_after: "knowledge: holds it",
+    introduces: ["copy — the kit as it stands in the consumer's tree"],
+    claims: [{ type: "strand", strand: "L1", proposition: proposition1 }, { type: "strand", strand: "L2", proposition: "The next run copies it" }],
+    waypoints: [{ point: "The installer copies the kit into the consumer's tree", serves: ["L1"] }, { point: point2, serves: ["L2"] }] }] });
+  const iIn = { paragraph_count: 2, reader_start: "knowledge: holds nothing yet", segments: segs };
+  const pass = LB.validateLegPathUnit(leg("The next run copies the copy again"), iIn);
+  ok(!pass.error, `(i) a point built from its Segment's own words, an introduced term and function words was refused: ${pass.error}`);
+  const bad = LB.validateLegPathUnit(leg("The next run overwrites the copy again"), iIn).error || "";
+  ok(/`waypoints\[1\]\.point` carries "overwrites", which is in no Segment `content` of paragraph 2's Segment 1/.test(bad),
+    `(i) a point carrying a word in no Segment content of its paragraph was not refused naming the word and the Segment: ${bad}`);
+  const badClaim = LB.validateLegPathUnit(leg("The next run copies it again", "The installer ships the kit"), iIn).error || "";
+  ok(/`claims\[0\]\.proposition` carries "ships", which is in no Segment `content` of paragraph 1's Segments 1–2/.test(badClaim),
+    `(i) a proposition carrying a word in no Segment content of its paragraph was not refused naming the word and the Segments: ${badClaim}`);
+  // a word of ANOTHER paragraph's Segment is not this paragraph's material
+  const cross = LB.validateLegPathUnit(leg("The next run copies the consumer's tree"), iIn).error || "";
+  ok(/carries "consumer's", which is in no Segment `content` of paragraph 2's/.test(cross),
+    `(i) a point recovered only from another paragraph's Segment content passed: ${cross}`);
+  const none = LB.validateLegPathUnit(leg("The next run copies it again"), { paragraph_count: 2, reader_start: "knowledge: holds nothing yet" }).error || "";
+  ok(/handed no paragraph\(s\) of Segment content/.test(none), `(i) a validator handed no Segment content did not refuse: ${none}`);
+  ok(JSON.stringify(LB.segmentContents([{ segments: [{ content: "a", does: "x" }, { content: "b" }] }, {}])) === JSON.stringify([["a", "b"], []]),
+    "(i) segmentContents does not read each paragraph's Segment content clauses alone");
+  const bj = runDir && existsSync(join(runDir, "brief.json")) ? JSON.parse(readFileSync(join(runDir, "brief.json"), "utf8")) : {};
+  ok(bj.anchored === true, `(i) the run's brief.json does not record \`anchored: true\`: ${JSON.stringify(bj)}`);
+  const unitsPath = runDir ? join(runDir, "leg-path", "reader-path-job-units.json") : "";
+  const v = unitsPath && existsSync(unitsPath) ? (JSON.parse(readFileSync(unitsPath, "utf8")).validator || {}) : {};
+  ok(v.export === "validateLegPathUnit" && JSON.stringify((v.inputs || {}).segments) === JSON.stringify([1, 2, 3].map((n) => [`CONTENT-${n} CLAIM-${n} POINT-${n}`])),
+    `(i) the run did not hand the Leg validator the Extractions' Segment content: ${JSON.stringify(v.inputs)}`);
+  const prompts = existsSync(join(root, "prompts.jsonl")) ? readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  const legP = prompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
+  ok(legP.includes("THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495)") && !legP.includes("THE RENDERINGS RECORD (kogaki#1494)"),
+    "(i) the Leg call does not carry the Segment-content sentence in place of production's renderings-record sentence");
+}
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
 console.log("ok proof-sheet-leg-brief");

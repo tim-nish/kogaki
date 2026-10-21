@@ -32,6 +32,8 @@
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
 #       stopped Draft stage still draws the card with the stop in its Output.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
+#   (i) the Brief card badge (kogaki#1495): on a built sheet it reads "substitute, anchored", and an
+#       older run whose Leg Brief record carries no `anchored` reads "Proof Sheet substitute".
 #   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each
 #       record its language, hand it to the Leg Brief composer and the Packet, and the Brief
 #       and the Draft carry it; another Audience's language replaces it throughout; an Audience
@@ -179,7 +181,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
         after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
-      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
+      // the Segment content carries every word the fake Leg call writes (kogaki#1495)
+      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does: CLAIM-" + p.number + ", POINT-" + p.number + ", in English or Japanese.",
         does: "states one consequence of an act the reader did not ask for.",
         relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
@@ -197,7 +200,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does + " (in " + input.language + ")" })),
+      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")" })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
@@ -297,7 +300,8 @@ else {
     const c = cards[key];
     ok(c.includes(`<b>${name}`), `(e) the ${name} card draws no title`);
     const badge = S.SHEET_CELL_BADGE[key];
-    const wantLabel = badge.type === "substitute" ? "Proof Sheet substitute" : "production";
+    // the Brief card reads "substitute, anchored" on a run composed under kogaki#1495's criterion
+    const wantLabel = (badge.type === "substitute" ? "Proof Sheet substitute" : "production") + (key === "brief" ? S.ANCHORED_SUFFIX : "");
     ok(c.includes(`<span class="badge ${badge.type}"`) && c.includes(`>${wantLabel}<`), `(e) the ${name} card carries no "${wantLabel}" badge`);
     const folded = key === "move" || key === "brief";
     ok(folded ? /<details class="part out"><summary>Output<\/summary>/.test(c) : /<details class="part out" open><summary>Output<\/summary>/.test(c),
@@ -696,7 +700,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
         after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
-      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
+      // the Segment content carries every word the fake Leg call writes (kogaki#1495)
+      segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does: CLAIM-" + p.number + ", POINT-" + p.number + ", in English or Japanese.",
         does: "states one consequence of an act the reader did not ask for.",
         relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
@@ -714,7 +719,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does + " (in " + input.language + ")" })),
+      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")" })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
@@ -807,6 +812,27 @@ if (iRunDir) {
   const sh = built.written ? readFileSync(built.written, "utf8") : "";
   ok(sh.includes("unreadable: the run record names no audience") && !sh.includes(`sha ${S.contentHash(defaultAudienceText)}`),
     "(i) a run record naming no Audience resolved a substitute from the live setting instead of showing itself unreadable");
+
+  // THE ANCHORED BADGE IS THE RUN'S OWN (kogaki#1495): the built sheet's Brief card reads
+  // "substitute, anchored", and an older run whose Leg Brief record carries no `anchored`
+  // reads "Proof Sheet substitute" alone.
+  const briefBadge = (html) => { const at = html.indexOf('id="card-0-brief"'); return at < 0 ? "" : (html.slice(at).match(/<span class="badge [^"]*"[^>]*>([^<]*)</) || [])[1] || ""; };
+  ok(briefBadge(readFileSync(join(iRunDir, "sheet.html"), "utf8")) === "Proof Sheet substitute, anchored",
+    `(i) the built sheet's Brief card badge does not read "substitute, anchored": ${JSON.stringify(briefBadge(readFileSync(join(iRunDir, "sheet.html"), "utf8")))}`);
+  const olderRun = join(root, "unanchored-run");
+  cpSync(iRunDir, olderRun, { recursive: true });
+  const orec = JSON.parse(readFileSync(join(olderRun, "run.json"), "utf8"));
+  const ob = orec.stages.find((st) => st.stage === "brief");
+  const olderBriefRun = join(root, "unanchored-leg-brief-run");
+  cpSync(ob.leg_brief_run, olderBriefRun, { recursive: true });
+  const obj = JSON.parse(readFileSync(join(olderBriefRun, "brief.json"), "utf8"));
+  delete obj.anchored;
+  writeFileSync(join(olderBriefRun, "brief.json"), JSON.stringify(obj));
+  ob.leg_brief_run = olderBriefRun;
+  writeFileSync(join(olderRun, "run.json"), JSON.stringify(orec));
+  const ob2 = S.buildSheet({ runs: [olderRun], provenance: map, out: join(root, "unanchored.html") });
+  const osh = ob2.written ? readFileSync(ob2.written, "utf8") : "";
+  ok(briefBadge(osh) === "Proof Sheet substitute", `(i) an older run's Brief card, its record carrying no \`anchored\`, does not read "Proof Sheet substitute" alone: ${JSON.stringify(briefBadge(osh))}`);
 }
 
 // (j) THE ARTICLE'S LANGUAGE (kogaki#1417): two Leg runs over the same Passage under the same
