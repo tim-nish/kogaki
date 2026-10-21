@@ -1,5 +1,19 @@
 # SPEC-draft-pipeline — the Brief's composed structure: Thesis, Strands, and the leg sequence
 
+**Status:** v47, amended 2026-10-21 (kogaki#1493) — **A REGISTER RULE
+YIELDS TO A PLANNED LINE.** The Audience's `register` was rendered into the
+Packet with no statement of what it may govern, so a rule written into an
+Audience file could contradict a Paragraph Waypoint's point or operation and
+the Writer had no rule saying which held. The owner decided (2026-10-21): the
+Audience is a weak constraint, which may influence the prose inside the
+structure a Move provides but must not modify or extend that structure, and
+the judge is not to stop on each conflict. So the Packet template states,
+directly before `{{register}}` and outside it, that the line holds and the rule
+yields for that sentence, with no refusal raised for the conflict; no judge or
+check reads the conflict (§4.14). Carriers: `src/packet-template.md`,
+`checks/check-draft-packet.sh`.
+**deferred slots minted by this amendment: none.**
+
 **Status:** v46, amended 2026-10-21 (kogaki#1488) — **THE REGISTER CARRIES NO
 VOICE RULE.** The Audience's `register` held a Voice paragraph, carried over
 from the Persona's `prose` block, telling the Writer to qualify in the first
@@ -1702,6 +1716,17 @@ empty asks the template for no register rule at all. The "article so far"
 block follows the same line: it carries the Leg's own Section's prose and one
 fixed header naming what it is, never an instruction, because continuity is a
 question of register the Audience's `register` already answers.
+
+**The Register governs inside the plan's structure, never over it**
+(kogaki#1493). Every rule the Register carries governs how the sentences read
+inside the structure the Packet's numbered lines and italic lines give — the
+points and operations the Brief and the ParagraphPlan fixed — and adds,
+removes or reorders none of them. Where a Register rule and one of those lines
+conflict, the line holds and the rule yields for that sentence. The template
+states this in one paragraph directly before `{{register}}`, outside the
+rendered Register, so no edit to an Audience file removes it. The yield is the
+Writer's: no refusal is raised for the conflict, and no judge or check reads
+it.
 
 **Deterministic** means the same inputs render the same bytes: no timestamp, no
 run id, and prior Legs' prose in the **Brief's recorded order** rather than from
