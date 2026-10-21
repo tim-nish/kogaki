@@ -1708,7 +1708,7 @@ provenance reaching the write instruction and, from there, the prose.
 > reach the Writer: the `kind` stays on the Brief's record, where the
 > claim-register judge and the adoption refusals read it, and where a term is
 > introduced is fixed by the Paragraph Waypoint whose `point` first uses it.
-> `checks/check-draft-packet.sh` (g) carries the rendering.
+> `checks/check-draft-packet.sh` (h) carries the rendering.
 
 **Every block the template renders is a Harness contract; every rule of how
 the prose reads is the Audience's Register** (kogaki#1321, kogaki#1370). The
