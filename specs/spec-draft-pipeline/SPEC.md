@@ -1676,6 +1676,18 @@ naming both files; it refuses a Brief whose waypoint carries `move` or
 `segments` by name (§4.1). `checks/check-draft-packet.sh` carries the
 rendering and every refusal.
 
+**A `performs` Paragraph Waypoint renders as an italic operation line, and
+its realisation brings in nothing the points do not give** (kogaki#1448,
+kogaki#1492). The line names the operation alone and carries no Serves; the
+template tells the Writer to perform it in the paragraph's own words, to assert
+nothing, and to bring in no part of the subject that the paragraph's points do
+not give. No Segment, Extraction content or Move field reaches the Writer to
+fill it. *Status: a bound under test* (owner decision 2026-10-21): it is a
+sentence the Writer reads, with no judge behind it, adopted to observe whether
+the Writer's constraints were the cause. The case to re-read after the next run
+is the 2026-10-20 Leg run, paragraph 2, whose operation line was realised with
+a reason and a description of the cases that no point gave.
+
 **The Journey block renders material for a concrete example** (kogaki#1323,
 owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
 clause or several sentences. Nothing here is a claim, and nothing here is a

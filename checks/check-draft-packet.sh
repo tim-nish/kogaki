@@ -51,6 +51,11 @@
 #       any case; the same render from a copy of that Audience with the
 #       pre-kogaki#1488 Voice paragraph restored is refused by the same
 #       predicate, so the absence is not vacuous.
+#   (g) A PERFORMS LINE BRINGS IN NO PART OF THE SUBJECT (kogaki#1492): the
+#       waypoints block of the Packet (d) renders carries "no part of the
+#       subject that the paragraph's points do not give", and the same render
+#       from the template with that bound removed does not, so the phrase is
+#       read from the Packet and not from the template's source.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the
 # paragraph is the written prose's, and the review item `opens-from-copied`
@@ -152,6 +157,7 @@ for (const [label, para] of [
 
 // (d) a performs Paragraph Waypoint renders as an operation line, with no point and no Serves.
 const PERFORMS = "flags the case as hard and announces a simplification by way of a pair of cases.";
+const PERFORMS_BOUND = "no part of the subject that the paragraph's points do not give";
 {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 0
     ? { ...w, paragraph_waypoints: [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"] }] } : w)) };
@@ -171,6 +177,13 @@ const PERFORMS = "flags the case as hard and announces a simplification by way o
       || !block.includes("Perform it in the paragraph's own words") || !block.includes("It asserts nothing")) {
       fails.push("(d) the Packet's waypoints block does not tell the Writer an italic line is performed in the paragraph's own words and asserts nothing");
     }
+    if (!block.includes(PERFORMS_BOUND)) fails.push("(g) the Packet's waypoints block does not bound an italic line to no part of the subject that the paragraph's points do not give");
+    const unbound = template.replace(/ It brings in no part of the subject[\s\S]*?nothing of its content\.\n/, "\n");
+    const split0 = unbound === template ? { error: "the fixture could not remove the bound from the template" } : splitPacketTemplate(unbound);
+    const r0 = split0.error ? { error: split0.error } : renderPacket({ template: split0.packet, brief, leg: l, priorSections: [],
+      section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
+    if (r0.error) fails.push(`(g) the Packet rendered without the bound did not render: ${r0.error}`);
+    else if (flat(r0.packet).includes(PERFORMS_BOUND)) fails.push("(g) the Packet rendered without the bound still carries it");
   }
 }
 
@@ -235,5 +248,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492).");
 JS
