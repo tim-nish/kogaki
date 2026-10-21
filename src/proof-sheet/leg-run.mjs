@@ -27,6 +27,11 @@
 // ParagraphPlan job to `<run>/paragraph-plan/` (`--run-dir`) and the Draft workspace to
 // `<run>/draft/` (`--workspace`).
 //
+// THE TERMS FILE (kogaki#1498): `--terms <file>`, optional and absent by default, is handed to
+// the Leg Brief composer, which fixes each `introduces` kind the file names (src/proof-sheet/
+// leg-brief.mjs). The run record carries its path and hash as `terms`, or `terms: null`, and a
+// resumed run hands the composer the path its record names.
+//
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
 // markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
@@ -47,6 +52,7 @@ import { legParagraphs, writeJson } from "./extract.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { buildSheet } from "./leg-sheet.mjs";
 import { audienceLanguage } from "../compose.mjs";
+import { readTermsFile } from "./leg-brief.mjs";
 
 export const STAGES = ["extract", "ingest", "brief", "paragraph-plan", "draft"];
 export const RUN_FILE = "run.json";
@@ -198,6 +204,7 @@ function recordedLanguage(audiencePath) {
 // stage directory's existing `command.json` as the log it appends to, so a resumed attempt
 // keeps the stopped one rather than replacing it.
 function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, priorStages }) {
+  const termsArgs = record.terms ? ["--terms", record.terms.path] : [];
   const save = () => writeJson(join(runDir, RUN_FILE), record);
   const dirOf = (stage) => { const d = join(runDir, stage); mkdirSync(d, { recursive: true }); return d; };
   const stage = (name, body) => {
@@ -245,7 +252,7 @@ function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, prio
   // 3. The Leg Brief composer.
   const brief = stage("brief", (d, env, log) => {
     const c = runCommand(d, "leg-brief", [process.execPath, "src/proof-sheet/leg-brief.mjs", "run", "--extractions", ex.extractor_run,
-      "--out", d, "--slug", slug, ...audienceArgs], env, log);
+      "--out", d, "--slug", slug, ...audienceArgs, ...termsArgs], env, log);
     const legBriefRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || null;
     if (c.exit !== 0 || !legBriefRun) return { stopped: stopLine(c), leg_brief_run: legBriefRun };
     return { brief: join(d, "brief.yaml"), leg_brief_run: legBriefRun };
@@ -287,13 +294,15 @@ function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, prio
 }
 
 // RUN ONE LEG. Returns `{ runDir, stopped?, sheet }`.
-export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null }) {
+export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null, terms = null }) {
   if (resume) return resumeLeg(resume, { provenance });
   let text;
   try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
   const paragraphs = legParagraphs(text);
   if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to run`);
   if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
+  const termsFile = terms ? readTermsFile(terms) : null;
+  if (termsFile && termsFile.error) fail(`${termsFile.error}. Nothing was started.`);
   const slug = passage || basename(legPath, extname(legPath)).replace(/\.passage$/, "");
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
@@ -303,7 +312,9 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
   chmodSync(join(runDir, RECORDER_FILE), 0o755);
   const audiencePath = resolvedAudience(audience);
   const record = { leg: resolve(legPath), passage: slug, paragraphs: paragraphs.length, audience: audiencePath,
-    language: recordedLanguage(audiencePath), model_command: realPath, started_at: new Date().toISOString(), stages: [] };
+    language: recordedLanguage(audiencePath), model_command: realPath,
+    terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(termsFile.kinds).length } : null,
+    started_at: new Date().toISOString(), stages: [] };
   runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
@@ -354,14 +365,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
-    + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] "
+    + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] [--terms <a JSON object of term to coined|established>] "
     + "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map>";
   if (args._cmd !== "run" || !str("provenance") || (str("resume") ? (str("leg") || str("out")) : (!str("leg") || !str("out")))) {
     fail(usage);
   }
   const r = str("resume")
     ? resumeLeg(str("resume"), { provenance: str("provenance") })
-    : runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance") });
+    : runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
+      terms: str("terms") });
   console.log(`run directory: ${r.runDir}`);
   console.log(`sheet written: ${r.sheet}`);
   if (r.stopped) { console.log(`the run stopped at ${r.stopped}`); process.exitCode = 1; }

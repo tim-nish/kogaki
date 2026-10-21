@@ -526,12 +526,23 @@ function moveCard(r, idx) {
   }, idx);
 }
 
+// THE BRIEF'S TERMS CONDITION (kogaki#1498): "terms: fixed (<n>)" where the run was given a
+// terms file fixing <n> `introduces` kinds, "terms: model" where the model classified every
+// term. Read from the run record's own `terms`, never from a file on disk now.
+export function termsCondition(run) {
+  const t = run && run.terms;
+  return t && Number.isInteger(t.count) ? `terms: fixed (${t.count})` : "terms: model";
+}
+
 // CARD 3 — BRIEF. Output (folded, kogaki#1487): the Brief file, whole, with its path and hash. Inputs: Extraction (the reader state and claims the Leg Brief composer reads).
 // Prompt/Calls: the composer's two calls, Reader start and Leg path, each titled by what it
 // produced.
 function briefCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
+  const t = r.run.terms;
   const output = (r.briefText ? "" : stageNote(r, "brief"))
+    + `<p class="meta brief-conditions">Conditions: ${esc(termsCondition(r.run))}`
+    + (t ? ` · ${esc(rel(t.path))} · sha ${esc(String(t.sha256 || "").slice(0, 12))}` : "") + `</p>`
     + `<p class="meta">${esc(rel(r.briefPath))} · sha ${contentHash(r.briefText)}</p>` + pre(r.briefText || "(not written)");
 
   const readerStartMarker = "`leg_reader_start_unit` judgment point";
