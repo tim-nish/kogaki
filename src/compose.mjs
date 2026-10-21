@@ -60,7 +60,7 @@ export {
   validateOwnerAnswer,
 } from "./compose/specialization.mjs";
 export {
-  parseIntroducesEntry, introducedTermInReaderStart, opensSectionRefusal,
+  parseIntroducesEntry, introducedMeaning, introducedTermInReaderStart, opensSectionRefusal,
   opensSectionIntroducedTermRefusal, sectionHeadingsWithLastAfterState,
   sectionGroupingRefusal, targetLegIndex, closureLedgerRefusal,
   readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,

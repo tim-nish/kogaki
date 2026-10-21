@@ -149,7 +149,7 @@ const fails = [];
 const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap, waypointsRefusal } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS, paragraphPlanShapeRefusal,
-  validateParagraphPlanUnit, planLeg } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
+  validateParagraphPlanUnit, planLeg, introducedTerms } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
 const { parseYaml, stringifyYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
 const { JOIN_TYPES } = await import(pathToFileURL(join(repo, "src", "compose", "record.mjs")).href);
 const { waypointLines } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
@@ -662,6 +662,20 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const plan = existsSync(r.planPath) ? readFileSync(r.planPath, "utf8") : "";
   if (!plan.includes(`the ${TERM.term}, ${TERM.meaning}, is rewritten`)) {
     fails.push("(r) the ParagraphPlan file does not carry the first use of the term with its meaning in apposition");
+  }
+  // The meaning is read by the Packet's own rule (PR #1507 round 1): a legacy anchored entry's
+  // anchor is its meaning, an established term with none rides null and never its `source`.
+  const read = introducedTerms(["stamp file — the file the hash is written to",
+    { term: "fork", kind: "established", source: "git" }, "bare term"]);
+  const wantRead = [{ term: "stamp file", meaning: "the file the hash is written to" },
+    { term: "fork", meaning: null }, { term: "bare term", meaning: null }];
+  if (JSON.stringify(read) !== JSON.stringify(wantRead)) fails.push(`(r) the introduced terms are not read by the Packet's meaning rule: ${JSON.stringify(read)}`);
+  // A null meaning is the planner's to give, and the judge reads whether one is given.
+  if (!plans.length || !plans.every((p) => p.includes("the meaning is yours to give, in your own words"))) {
+    fails.push("(r) a plan prompt's row does not give the planner a null meaning to write in its own words");
+  }
+  if (!judges.length || !judges.every((p) => p.includes("judge whether a meaning is given, never whether it matches"))) {
+    fails.push("(r) a judge prompt's row does not judge whether a meaning is given rather than whether it matches");
   }
 }
 

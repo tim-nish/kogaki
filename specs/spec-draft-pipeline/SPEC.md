@@ -2343,7 +2343,7 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
    point in view — and generates the Paragraph Waypoints of the one paragraph
    carrying that Leg Waypoint: one per Segment of the bound Move, in the
    Move's order, or, where the Move carries no Segments, the points its
-   `technique` gives — the Leg composer's own rule (§4.1) — from three inputs
+   `technique` gives — the Leg composer's own rule (§4.1) — from four inputs
    and nothing else: the Leg Waypoint's own `point`, the bound
    Move's Segments or `technique`, the Audience's `persona`, and the Leg's
    `introduces`, each term with its meaning. A Leg
@@ -2373,8 +2373,9 @@ a fatal stop naming the Move and the role**, never a default.
 
 > **Status (kogaki#1497, owner decision 2026-10-21):** the plan call reads
 > the Leg's `introduces` as its fourth input, each term with its meaning
-> (`null` where the Leg gives none; an established term's `source` never
-> rides), beside the persona. Where a Leg Waypoint's `point` is the first in
+> read by `introducedMeaning`, the rule the Packet's crossing line reads
+> (`null` where the Leg gives none, and the planner then gives it in its own
+> words; an established term's `source` never rides), beside the persona. Where a Leg Waypoint's `point` is the first in
 > the Leg to use an introduced term, the planner binds a fitting Move with a
 > Segment whose `does` defines or names, and the Paragraph Waypoint on that
 > Segment carries the term with its meaning in its noun phrase; where no
@@ -2382,7 +2383,8 @@ a fatal stop naming the Move and the role**, never a default.
 > term carries its meaning in apposition, in the planner's words. A `coined`
 > and an `established` term are treated alike. The judge's FIFTH gains the
 > complement: a Paragraph Waypoint that first uses an introduced term and
-> gives no meaning for it does not fit, naming the term.
+> gives no meaning for it does not fit, naming the term; the judge reads
+> whether a meaning is given, never whether it matches the input's.
 > `checks/check-paragraph-plan.sh` (r) carries both.
 
 **A Leg Waypoint is one paragraph, and a Paragraph Waypoint is one Segment of

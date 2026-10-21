@@ -54,7 +54,7 @@ import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveContracts, loadMoveIds,
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
-  paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry } from "./compose.mjs";
+  paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning } from "./compose.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -163,12 +163,13 @@ export function planLeg(leg) {
 // THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497). The plan call binds a Move
 // whose Segment can define a term at the point that first uses it, or carries the meaning in
 // that Paragraph Waypoint's noun phrase, so it is handed each term with its meaning and
-// nothing else: `kind` is treated alike (the reader holds neither until the point gives it),
-// and an established term's `source` is Brief-side material (kogaki#1404), so it rides as no
-// meaning. A bare or anchored term rides with no meaning, as the Packet renders it.
+// nothing else: `kind` is treated alike (the reader holds neither until the point gives it).
+// The meaning is `introducedMeaning`'s, the rule the Packet's crossing line reads: an
+// established term's `source` is never it (kogaki#1404), a legacy anchored entry's anchor is,
+// and a term the Leg gives no meaning rides `null`, for the planner to give in its own words.
 export function introducedTerms(entries) {
   return (entries || []).map((raw) => parseIntroducesEntry(raw)).filter((p) => !p.error && p.term)
-    .map((p) => ({ term: p.term, meaning: typeof p.meaning === "string" && p.meaning.trim() !== "" ? p.meaning.trim() : null }));
+    .map((p) => ({ term: p.term, meaning: introducedMeaning(p) }));
 }
 
 // EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS TWO FIELDS (kogaki#1414, reverting the

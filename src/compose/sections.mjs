@@ -54,6 +54,22 @@ export function parseIntroducesEntry(raw) {
   return { term, anchor };
 }
 
+// THE MEANING AN INTRODUCED TERM CARRIES (kogaki#1282, owner decision
+// 2026-10-06; amended kogaki#1404; moved here from src/draft/journeys.mjs by
+// kogaki#1497, so the Packet's crossing line and the ParagraphPlan read it alike): a typed `coined` entry names its own
+// `meaning`; a typed `established` entry's `source` is a Brief-side
+// justification for the "established" kind and never the term's meaning
+// (src/leg-schema.json, `introduces_item`) — an established entry carries a
+// `meaning` only where the Brief gave it one, and none otherwise; the legacy
+// bare/anchored form's anchor IS its meaning anchor (the form
+// `parseIntroducesEntry` refuses with no text after the separator). A bare
+// term with no anchor carries none, stated rather than invented.
+export function introducedMeaning(p) {
+  if (!p || p.error) return null;
+  if (p.kind === "coined" || p.kind === "established") return p.meaning || null;
+  return p.anchor || null;
+}
+
 // THE WHOLE-WORD, CASE-INSENSITIVE MATCH ITSELF, shared by every mechanical
 // introduced-term refusal (Reader start, kogaki#1225; a Section heading,
 // kogaki#1327). The boundary is "not adjacent to a letter or digit" rather
