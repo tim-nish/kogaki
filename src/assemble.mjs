@@ -989,6 +989,9 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
     obligations: c.obligations || [],
     unused: c.unused || {},
     readerStart: c.reader_start,
+    // THE RENDERINGS RECORD (kogaki#1494), written beside the Reader Path
+    // composed under it; `null` where the run carries none.
+    renderings: instantiation.renderings === undefined ? null : instantiation.renderings,
   });
   if (filled.error) return filled;
   let out = filled.record;
@@ -1116,6 +1119,16 @@ export function cmdAdoptCandidate(args) {
   if (typeof args.selection === "string" && args.selection !== "") {
     try { instantiation.selection = JSON.parse(readFileSync(args.selection, "utf8")); }
     catch (e) { fail(`the selection capture at ${args.selection} cannot be read (${e.message}) — the Candidate gate's owner answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
+  }
+  // THE RENDERINGS RECORD (kogaki#1494): the `differentiation` state's judged
+  // record, read whole; its `renderings` list is what adoption writes into the
+  // Brief and refuses an `introduces` entry against. Absent, the run predates
+  // it and nothing is written.
+  if (typeof args.renderings === "string" && args.renderings !== "") {
+    let r;
+    try { r = JSON.parse(readFileSync(args.renderings, "utf8")); }
+    catch (e) { fail(`the renderings record at ${args.renderings} cannot be read (${e.message}) — an unreadable record is not an absent one and is not treated as one (kogaki#1494)`); }
+    instantiation.renderings = r && r.renderings;
   }
   // `--ratification` IS REFUSED BY NAME (kogaki#1108), never ignored. The
   // specialization-ratification gate is gone and the record is disclosure; a

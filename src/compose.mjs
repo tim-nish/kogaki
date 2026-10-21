@@ -72,6 +72,10 @@ export {
   definedTermBeforeIntroductionRefusal,
 } from "./compose/defined-terms.mjs";
 export {
+  RENDERING_KEYS, renderingsRefusal, renderingsOf, renderedTermIntroducedRefusal,
+  FUNCTION_WORDS, wordsOf, wordForms, recoverabilityOf,
+} from "./compose/renderings.mjs";
+export {
   BRIEF_RECORD_FILE, briefRecordDeclaration, briefRecordKeys, briefSlotKeys,
   readerStateMap, readerStateText, legRecord, briefLegs, PARAGRAPH_PLAN_FILE,
   sha256, paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText,

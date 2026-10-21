@@ -44,33 +44,33 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## leg -- the Brief's Leg
 
-| field | compose_path | review_path | reader_path_unit | review_path_unit | reader_path_fit_unit | defined_terms_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:waypoints | packet:claims | packet:journeys | packet:section_placement | packet:reader_target_line | packet:crosses_here | packet:budget | packet:figure_reason | review:claims | review:waypoints | review:introduces | review:already-knows | review:attribute-leak |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `leg_id` | unread | copied | content | copied | copied | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `materials` | unread | unread | content | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `purpose` | unread | unread | content | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `reader_state_after` | content | unread | content | unread | excluded | unread | structural | excluded | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `reaches_target` | unread | unread | content | unread | excluded | unread | unread | unread | unread |  |  |  |  | structural |  |  |  |  |  |  |  |  |
-| `names` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `depends_on` | unread | unread | content | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `rationale` | unread | unread | content | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `move` | unread | unread | copied | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `no_move_fits` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `claims` | unread | excluded | content | excluded | unread | unread | unread | unread | content | content | content |  |  |  |  |  |  | excluded |  |  |  |  |
-| `waypoints` | unread | unread | content | unread | excluded | unread | structural | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `journeys` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  | content |  |  |  |  |  |  |  |  |  |  |
-| `entailed` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `entailment_reasoning` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `bridges` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `introduces` | unread | excluded | content | excluded | excluded | excluded | unread | unread | content |  |  |  |  |  | content |  |  |  |  | excluded | excluded |  |
-| `re-activate` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  | content |  |  |  |  |  |  |  |
-| `opens_section` | unread | unread | content | unread | excluded | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |  |  |  |  |
-| `figure` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  | content |  |  |  |  |  |
-| `figure_roles` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `budget` | unread | unread | content | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  | structural |  |  |  |  |  |  |
-| `reader_state_before` | unread | unread | structural | unread | excluded | unread | structural | excluded | structural |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `waypoints.point` | unread | unread | content | unread | unread | unread | content | excluded | content | content |  |  |  |  |  |  |  |  | excluded |  |  | excluded |
-| `waypoints.serves` | unread | unread | copied | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| field | compose_path | review_path | reader_path_unit | review_path_unit | reader_path_fit_unit | defined_terms_unit | renderings_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:waypoints | packet:claims | packet:journeys | packet:section_placement | packet:reader_target_line | packet:crosses_here | packet:budget | packet:figure_reason | review:claims | review:waypoints | review:introduces | review:already-knows | review:attribute-leak |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `leg_id` | unread | copied | content | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `materials` | unread | unread | content | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `purpose` | unread | unread | content | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `reader_state_after` | content | unread | content | unread | excluded | unread | unread | structural | excluded | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `reaches_target` | unread | unread | content | unread | excluded | unread | unread | unread | unread | unread |  |  |  |  | structural |  |  |  |  |  |  |  |  |
+| `names` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `depends_on` | unread | unread | content | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `rationale` | unread | unread | content | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `move` | unread | unread | copied | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `no_move_fits` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `claims` | unread | excluded | content | excluded | unread | unread | unread | unread | unread | content | content | content |  |  |  |  |  |  | excluded |  |  |  |  |
+| `waypoints` | unread | unread | content | unread | excluded | unread | unread | structural | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `journeys` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  | content |  |  |  |  |  |  |  |  |  |  |
+| `entailed` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `entailment_reasoning` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `bridges` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `introduces` | unread | excluded | content | excluded | excluded | excluded | excluded | unread | unread | content |  |  |  |  |  | content |  |  |  |  | excluded | excluded |  |
+| `re-activate` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  | content |  |  |  |  |  |  |  |
+| `opens_section` | unread | unread | content | unread | excluded | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |  |  |  |  |
+| `figure` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  | content |  |  |  |  |  |
+| `figure_roles` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `budget` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  | structural |  |  |  |  |  |  |
+| `reader_state_before` | unread | unread | structural | unread | excluded | unread | unread | structural | excluded | structural |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `waypoints.point` | unread | unread | content | unread | unread | unread | unread | content | excluded | content | content |  |  |  |  |  |  |  |  | excluded |  |  | excluded |
+| `waypoints.serves` | unread | unread | copied | unread | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
 - `review_path` is src/brief-workflow.json `review_path`.
@@ -78,6 +78,7 @@ it does not read, and empty where the stage does not read the schema at all.
 - `review_path_unit` is src/brief-workflow.json `review_path_unit`.
 - `reader_path_fit_unit` is src/brief-workflow.json `reader_path_fit_unit`.
 - `defined_terms_unit` is src/brief-workflow.json `defined_terms_unit`.
+- `renderings_unit` is src/brief-workflow.json `renderings_unit`.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `leg_path_unit` is src/proof-sheet/extraction-workflow.json `leg_path_unit`.

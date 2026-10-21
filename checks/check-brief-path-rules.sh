@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
 # check-brief-path-rules — the Brief record's own rules over a whole path.
 #   (am) the Journey use boundary in the record and Packet (kogaki#1286).
-#   (an) review_path's Discharge item; the question chain retired
-#        (kogaki#1283, kogaki#1325).
-#   (av) adoption writes brief.yaml in list or map form, no line over 120
-#        characters (kogaki#1328).
+#   (an) review_path's Discharge item; the question chain retired (kogaki#1283,
+#        kogaki#1325).
+#   (av) adoption writes brief.yaml in list or map form (kogaki#1328).
 #   (aw) the Brief's Defined Terms (kogaki#1331).
 #   (ax) no Move information reaches the Brief (kogaki#1375).
 #   (ay) Thesis attainment at composition (kogaki#1330).
 #   (az) a Leg Waypoint's point is read alone (kogaki#1449).
+#   (ba) recoverability under the renderings record; adoption refusing an
+#        introduces entry the record renders (kogaki#1494).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { STATE_WORK } from "./src/brief/renderers.mjs";
 import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict } from "./src/brief.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
 import * as compose from "./src/compose.mjs";
@@ -354,10 +357,71 @@ const fails = [];
   }
 }
 
+// (ba) kogaki#1494 — the Path Review's recoverability criterion, run through the
+// `review_path` state's own resumption over a Candidate whose waypoint point
+// carries "registers": a word in no served claim, no renderings entry and no
+// `introduces`. The same point passes once the record declares "registers" as
+// the rendering of a served word. Then adoption refuses an `introduces` entry
+// whose term the record renders, naming the term and the entry.
+{
+  const material = "Each defense records whether attack is the more effective means.";
+  const point = "Each defense registers whether attack is the more effective means.";
+  const legs = [leg1276("s1", { opens_section: "Intro", claims: [{ type: "strand", strand: "L1", proposition: material }],
+    waypoints: [{ point, serves: ["L1"] }] }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true,
+    claims: [{ type: "strand", strand: "L1", proposition: "attack is the more effective means" }],
+    waypoints: [{ point: "attack is the more effective means", serves: ["L1"] }] })];
+  const reviewPath = (renderings) => {
+    const dir = mkdtempSync(join(tmpdir(), "kogaki-1494-review-"));
+    const strands = [{ display_id: "L1", slug: "defense", cite: "fixture" }];
+    const runState = join(dir, "run.json");
+    writeFileSync(runState, JSON.stringify({ stage: "minted", strands, strand_renderings: { defense: { headline: material } } }));
+    const candsPath = join(dir, "brief-candidates.json");
+    writeFileSync(candsPath, JSON.stringify([{ ...cand1276("c1"), legs }]));
+    const renderingsPath = join(dir, "renderings.json");
+    writeFileSync(renderingsPath, JSON.stringify({ version: "1", renderings }));
+    const resultPath = join(dir, "review-result.json");
+    writeFileSync(resultPath, JSON.stringify({ unreviewed: [], review: { c1: { ...Object.fromEntries(REVIEW_AREAS.map((a) => [a, a])),
+      claim_register: legs.map((l) => ({ leg_id: l.leg_id, verdict: "holds" })) } } }));
+    const rec = { _dir: dir, brief_run_state: runState, brief_candidates: candsPath, brief_renderings: renderingsPath, judgments: {} };
+    const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+    const st = table.states.find((x) => x.id === "review_path");
+    return STATE_WORK.review_path(rec, st, { "review-result": resultPath }, table)
+      .then(() => JSON.parse(readFileSync(resolve(rec.brief_review), "utf8")).c1.recoverability);
+  };
+  const failing = await reviewPath([]);
+  const f0 = failing && failing[0];
+  if (!f0 || f0.verdict !== "fails" || f0.word !== "registers" || f0.field !== "waypoints[0].point") {
+    fails.push(`(ba) the Path Review did not fail leg s1 naming "registers" in waypoints[0].point: ${JSON.stringify(failing)}`);
+  }
+  if (!failing || !failing[1] || failing[1].verdict !== "holds") fails.push(`(ba) leg s2, every word served, did not hold: ${JSON.stringify(failing)}`);
+  const declared = await reviewPath([{ term: "records", as: "registers" }]);
+  if (!declared || !declared[0] || declared[0].verdict !== "holds") fails.push(`(ba) the same point with "registers" declared as the rendering of a served word did not pass: ${JSON.stringify(declared)}`);
+  const legsIntro = legs.map((l, i) => (i === 0 ? { ...l, introduces: ["registers — the word the article uses for records"] } : l));
+  const viaLedger = compose.recoverabilityOf(legsIntro, { material: { L1: material } });
+  if (viaLedger[0].verdict !== "holds") fails.push(`(ba) a word the Leg's introduces hands it was not recovered: ${JSON.stringify(viaLedger)}`);
+
+  // adoption: an introduces entry whose term the record renders is refused, naming both.
+  const minted = compose.parseBriefRecord(composeBrief({ slug: "t", strands: [{ display_id: "L1", slug: "defense", cite: "fixture" }],
+    thesis: "Attack decides.", composePath: "audiences/dev-to-zenn.md" }), "brief.yaml").record;
+  const renderings = [{ term: "records", as: "registers" }];
+  const bad = compose.fillBrief(minted, { legs: legs.map((l, i) => (i === 0 ? { ...l, introduces: ["records"] } : l)), readerStart: START_1276, renderings });
+  if (!bad.error) fails.push("(ba) adoption did not refuse an introduces entry whose term the renderings record renders");
+  else if (!/introduces "records", which the renderings record renders/.test(bad.error) || !/\{ term: "records", as: "registers" \}/.test(bad.error)) {
+    fails.push(`(ba) the adoption refusal did not name the term and the entry: ${bad.error}`);
+  }
+  const good = compose.fillBrief(minted, { legs, readerStart: START_1276, renderings });
+  if (good.error) fails.push(`(ba) adoption refused a path whose introduces carries no rendered term: ${good.error}`);
+  else if (JSON.stringify(good.record.renderings) !== JSON.stringify(renderings)) fails.push(`(ba) adoption did not write the renderings record into the Brief: ${JSON.stringify(good.record.renderings)}`);
+  else {
+    const read = compose.parseBriefRecord(briefRecordText(good.record), "brief.yaml");
+    if (read.error || JSON.stringify(read.record.renderings) !== JSON.stringify(renderings)) fails.push(`(ba) the adopted Brief's renderings do not read back: ${read.error || JSON.stringify(read.record.renderings)}`);
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-path-rules");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); review_path's Discharge item and the retired question chain (kogaki#1283, kogaki#1325); adoption writing brief.yaml in list or map form with no line over 120 characters (kogaki#1328); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); and a Leg Waypoint's point read alone (kogaki#1449).");
+console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); review_path's Discharge item and the retired question chain (kogaki#1283, kogaki#1325); adoption writing brief.yaml in list or map form with no line over 120 characters (kogaki#1328); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); and recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494).");
 JS

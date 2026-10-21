@@ -2471,6 +2471,10 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
   is planning is not copied downstream "just a little", because each copy then
   needs its own assessment. A Brief minted before the field carries none and
   defines nothing.
+- **`renderings`** — the article's **renderings record** (kogaki#1494, owner
+  decision 2026-10-21): the source terms the article will not keep, each with
+  the plain phrase it uses instead. Composed at Differentiation and written
+  into the Brief at adoption; §5.1.4 states it.
 - **`reader_path`** — the ordered Legs of §4.1. **Each reader state is written
   once per boundary**: a Leg carries its `reader_state_after` and no
   before-state, which is the previous after-state (or `reader_start`) and is
@@ -2698,6 +2702,73 @@ text.
 carrier holds: which block authors which field and why, why a refusal rather
 than a default, whose text the vocabulary guard reaches, and what shape an
 owner surface takes — four judgments about authorship and audience.
+
+#### 5.1.4 The renderings record and recoverability
+
+**Origin: kogaki#1494, owner decision 2026-10-21.** Two sources can bring
+vocabulary into an article: the Audience and the Strands. A Strand carries the
+source's own technical terms and expressions, and until this record the Brief
+chose which of them the article keeps one claim at a time, in its own words.
+Renaming a term and rewording a proposition were the same act, so neither could
+be judged: on the two 2026-10-20 Proof Sheet runs over one passage, the same
+material produced two Briefs whose points differed in vocabulary alone, a word
+in no served material ("registers") reached the Paragraph Waypoints, and every
+paragraph of the Draft followed it.
+
+**The record.** The Brief carries `renderings`: one entry per source term the
+article will **not** keep, `{ term, as }` — `term` the served material's word,
+`as` the plain phrase the article uses in its place — and nothing else. **A term
+absent from the record keeps the served word.** A term the Thesis carries is
+always kept, because the Thesis is the article's title. The record is the
+terminology mapping table the owner placed **at or before the Candidate stage**:
+it is composed once, at the `differentiation` state and before any reader-path
+unit runs, by the `renderings_unit` judgment over the settled Strands' claims,
+the Thesis and the Defined Terms (§5.1). Its shape is declared in
+`src/candidate-schema.json` beside the defined-terms record, and an entry
+carrying another key, no `as`, a term rendered as itself, a term in no Strand
+claim or a term the Thesis carries is refused by name.
+
+**Composition under it.** Every reader-path unit receives the record and the
+served claims beside it, and composes its claims and points under it: a served
+word is used as served or as its declared rendering, and no third form.
+
+**Recoverability.** The Path Review's claim judgment gains one criterion: a
+claim's `proposition` and a waypoint's `point` are **recoverable from the
+Claim's served material under the renderings record**. A word in the point that
+is neither in the material, nor a declared rendering of a word in it, nor in the
+`introduces` of its Leg or an earlier one, nor a function word, **fails, naming
+the word** — "registers" on the 2026-10-20 run fails it; "existing technology"
+for "bamboo shoots" passes under its entry. The entry is one per Leg and rides
+the review beside the claim register; words compare across regular inflection,
+so a served word's own forms are recovered from it.
+
+**It is computed, and it gates nothing.** The Harness computes the entry at the
+`review_path` state from each Candidate's claims and points, the run's served
+claims and the record, and attaches it beside the judged review — the review
+judge is not asked it. That is the Issue's own design: a word either occurs in
+the material, its renderings or the ledger or it does not, and the 2026-10-20
+drift went unnamed precisely because only a reading judged it. It stops no
+Candidate: like the review areas of §4.6, it is evidence carried to the human
+gate, and pin resolution stays the sole mechanical instrument that refuses on
+grounding.
+
+**`introduces` carries only terms the article keeps.** An `introduces` entry
+whose term is the `term` of a renderings entry is refused at adoption, naming
+both: a term the article does not keep has nothing to introduce.
+
+**What this does not reach.** Editing the record after adoption without
+re-composing the Brief is deferred by the owner, who named the cost — an
+incomplete record means completing the Brief once before revising it. The
+Writer's lexical choices stay the Writer's: the vocabulary is fixed from the
+Strand through the plan, and the Writer alone realises it. The Move-boundary
+statement (§4) is untouched — no Move information enters the record.
+
+`necessity:` the record's shape is carried by `src/candidate-schema.json` and
+refused by `src/compose.mjs`; the criterion is computed by
+`src/compose.mjs` `recoverabilityOf` and asserted by
+`checks/check-brief-path-rules.sh`. What no carrier holds: why the table sits at
+Differentiation rather than at the Writer, and why a term the Thesis carries is
+kept.
 
 ### 5.2 Closure
 
