@@ -10,7 +10,10 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { parseReactivateEntry, parseIntroducesEntry, audienceRecord } from "../compose.mjs";
+import { parseReactivateEntry, parseIntroducesEntry, introducedMeaning, audienceRecord } from "../compose.mjs";
+// `introducedMeaning` lives beside `parseIntroducesEntry` (kogaki#1497), so the ParagraphPlan
+// reads a term's meaning by the same rule; re-exported for the Packet renderer.
+export { introducedMeaning };
 import { settingValue } from "../workflow/judge.mjs";
 
 // ---------------------------------------------------------------------------
@@ -259,21 +262,6 @@ export function introduceLine(raw, authorityOn) {
     if (p.differs) line += ` differs: ${p.differs}`;
   }
   return line;
-}
-
-// THE MEANING A CROSSING TERM CARRIES (kogaki#1282, owner decision
-// 2026-10-06; amended kogaki#1404): a typed `coined` entry names its own
-// `meaning`; a typed `established` entry's `source` is a Brief-side
-// justification for the "established" kind and never the term's meaning
-// (src/leg-schema.json, `introduces_item`) — an established entry carries a
-// `meaning` only where the Brief gave it one, and none otherwise; the legacy
-// bare/anchored form's anchor IS its meaning anchor (the form
-// `parseIntroducesEntry` refuses with no text after the separator). A bare
-// term with no anchor carries none, stated rather than invented.
-export function introducedMeaning(p) {
-  if (!p || p.error) return null;
-  if (p.kind === "coined" || p.kind === "established") return p.meaning || null;
-  return p.anchor || null;
 }
 
 // THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the

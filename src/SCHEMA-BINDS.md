@@ -62,7 +62,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `entailed` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `entailment_reasoning` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `bridges` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `introduces` | unread | excluded | content | excluded | excluded | excluded | excluded | unread | unread | content |  |  |  |  |  | content |  |  |  |  | excluded | excluded |  |
+| `introduces` | unread | excluded | content | excluded | excluded | excluded | excluded | content | excluded | content |  |  |  |  |  | content |  |  |  |  | excluded | excluded |  |
 | `re-activate` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  | content |  |  |  |  |  |  |  |
 | `opens_section` | unread | unread | content | unread | excluded | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |  |  |  |  |
 | `figure` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  | content |  |  |  |  |  |
