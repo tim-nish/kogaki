@@ -116,7 +116,11 @@ an operation the paragraph performs on the reader's reading at that place --
 announcing what follows, flagging that the material is hard, signalling a
 turn. Perform it in the paragraph's own words, in its place among the points.
 It asserts nothing: it adds no claim, no cause and no verdict, and it does not
-anticipate what a later point establishes.
+anticipate what a later point establishes. It brings in no part of the subject
+that the paragraph's points do not give: no reason for the operation, and
+nothing of what follows beyond the operation's name. A concession that the
+matter is complex says that and no more; an announcement of a simplification
+names that a simplification follows and nothing of its content.
 
 An *Opens from* line under a numbered line carries one word -- consequence,
 grounds, contrast, elaboration, summary or none -- naming how that paragraph's
