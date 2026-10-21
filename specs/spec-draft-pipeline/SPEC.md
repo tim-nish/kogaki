@@ -1714,6 +1714,16 @@ term counts as `established`, not Writer material, and the crossing block
 never renders it: the defect this closes is exactly `source` text composed as
 provenance reaching the write instruction and, from there, the prose.
 
+> **Status (kogaki#1491, owner decision 2026-10-21):** the crossing line
+> carries a term and its meaning and nothing on how the prose presents it.
+> Both kinds render `- <term> — <meaning>`; an established line adds only
+> "The reader may be handed this name as given.", and a coined line keeps
+> its `nearest` and `differs`. The words `coined` and `established` no longer
+> reach the Writer: the `kind` stays on the Brief's record, where the
+> claim-register judge and the adoption refusals read it, and where a term is
+> introduced is fixed by the Paragraph Waypoint whose `point` first uses it.
+> `checks/check-draft-packet.sh` (i) carries the rendering.
+
 **Every block the template renders is a Harness contract; every rule of how
 the prose reads is the Audience's Register** (kogaki#1321, kogaki#1370). The
 heading rule, the budget, the round trip, the refusal form, the waypoints and
