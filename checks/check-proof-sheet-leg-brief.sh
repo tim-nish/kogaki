@@ -48,7 +48,7 @@
 #       term `coined` is refused naming the term, the answer agreeing with the file passes, and
 #       `brief.json` records the file's path, hash and count; the validator, handed the kinds
 #       directly, refuses a disagreeing entry naming the term and passes an agreeing one and a
-#       term the file does not name; without `--terms` the input carries no
+#       term the file does not name; an empty terms file is refused; without `--terms` the input carries no
 #       `introduces_given_kinds` and `brief.json` records `terms: null`.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
@@ -353,6 +353,8 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   ok(!LB.validateLegPathUnit(leg(coined), inputs).error, "(j) the validator refused a kind with no terms file given");
   writeFileSync(join(root, "bad-terms.json"), JSON.stringify({ x: "borrowed" }));
   ok(/gives "x" the kind "borrowed"/.test(LB.readTermsFile(join(root, "bad-terms.json")).error || ""), "(j) a terms file with a kind outside coined, established was not refused");
+  writeFileSync(join(root, "empty-terms.json"), "{}");
+  ok(/names no term/.test(LB.readTermsFile(join(root, "empty-terms.json")).error || ""), "(j) an empty terms file was not refused");
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }

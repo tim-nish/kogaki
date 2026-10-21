@@ -69,6 +69,7 @@
 #   (p) the terms file (kogaki#1498): the resumed run (h) is started with `--terms` naming one
 #       term, its `run.json` carries the file's path, hash and count, the resumed Brief stage is
 #       handed the same `--terms`, and its sheet's Brief card reads "Conditions: terms: fixed (1)";
+#       a resume after the file changed is refused naming it, the record untouched;
 #       the main run, given none, records `terms: null` and its Brief card reads
 #       "Conditions: terms: model".
 #
@@ -787,6 +788,12 @@ if (hRunDir) {
   const briefCmd = JSON.parse(readOr(join(hRunDir, "brief", "command.json"), "[]"));
   ok(briefCmd.length > 0 && briefCmd.every((c) => c.argv.join(" ").includes(`--terms ${hTerms}`)), `(p) the resumed Brief stage was not handed --terms: ${JSON.stringify(briefCmd.map((c) => c.argv))}`);
   ok(hSheet.includes("Conditions: terms: fixed (1)") && !hSheet.includes("terms: model"), "(p) the sheet of a run given a terms file does not read \"terms: fixed (1)\"");
+  writeFileSync(hTerms, JSON.stringify({ "ownership boundary": "coined" }));
+  const r2b = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
+  ok(r2b.status !== 0 && /the terms file at .* has changed since the run started/.test(r2b.stderr)
+    && JSON.stringify(JSON.parse(readFileSync(join(hRunDir, "run.json"), "utf8")).terms) === JSON.stringify(run1.terms),
+    `(p) a resume over a terms file changed since the run started was not refused: ${r2b.status} ${r2b.stderr}`);
 }
 if (runDir) {
   const run0 = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));

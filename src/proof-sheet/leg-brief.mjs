@@ -192,6 +192,9 @@ export function readTermsFile(path) {
   try { doc = JSON.parse(text); }
   catch (e) { return { error: `the terms file at ${path} is not JSON (${e.message})` }; }
   if (!isMap(doc)) return { error: `the terms file at ${path} is not a JSON object mapping a term to coined or established` };
+  // An empty file fixes nothing, so it would read "terms: fixed (0)" over a Brief the model
+  // classified whole; it is refused rather than recorded as fixed.
+  if (!Object.keys(doc).length) return { error: `the terms file at ${path} names no term — leave --terms off to let the model classify every term` };
   for (const [term, kind] of Object.entries(doc)) {
     if (term.trim() === "") return { error: `the terms file at ${path} names an empty term` };
     if (!TERM_KINDS.includes(kind)) {

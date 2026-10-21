@@ -30,7 +30,8 @@
 // THE TERMS FILE (kogaki#1498): `--terms <file>`, optional and absent by default, is handed to
 // the Leg Brief composer, which fixes each `introduces` kind the file names (src/proof-sheet/
 // leg-brief.mjs). The run record carries its path and hash as `terms`, or `terms: null`, and a
-// resumed run hands the composer the path its record names.
+// resumed run hands the composer the path its record names — refused where the file no longer
+// hashes to the recorded value, so the record and the sheet never name kinds the run did not use.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
@@ -331,6 +332,13 @@ export function resumeLeg(runDir, { provenance }) {
   if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was resumed.`);
   const prior = JSON.parse(readFileSync(runFile, "utf8"));
   const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
+  if (prior.terms) {
+    const now = readTermsFile(prior.terms.path);
+    if (now.error) fail(`${now.error}. Nothing was resumed.`);
+    if (now.sha256 !== prior.terms.sha256) {
+      fail(`the terms file at ${prior.terms.path} has changed since the run started (recorded sha ${prior.terms.sha256.slice(0, 12)}, now ${now.sha256.slice(0, 12)}) — restore it, or start a new run. Nothing was resumed.`);
+    }
+  }
   const record = { ...prior, stages: [] };
   delete record.stopped;
   delete record.finished_at;
