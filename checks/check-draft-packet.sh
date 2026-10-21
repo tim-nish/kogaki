@@ -51,7 +51,12 @@
 #       any case; the same render from a copy of that Audience with the
 #       pre-kogaki#1488 Voice paragraph restored is refused by the same
 #       predicate, so the absence is not vacuous.
-#   (g) A REGISTER RULE YIELDS TO A PLANNED LINE (kogaki#1493): in the Write
+#   (g) A PERFORMS LINE BRINGS IN NO PART OF THE SUBJECT (kogaki#1492): the
+#       waypoints block of the Packet (d) renders carries "no part of the
+#       subject that the paragraph's points do not give", and the same render
+#       from the template with that bound removed does not, so the phrase is
+#       read from the Packet and not from the template's source.
+#   (h) A REGISTER RULE YIELDS TO A PLANNED LINE (kogaki#1493): in the Write
 #       block of the Packet rendered from `audiences/dev-to-zenn.md`, the
 #       precedence paragraph -- from "**What the register below governs.**" to
 #       the blank line -- carries "the line holds and the rule yields" and
@@ -162,6 +167,7 @@ for (const [label, para] of [
 
 // (d) a performs Paragraph Waypoint renders as an operation line, with no point and no Serves.
 const PERFORMS = "flags the case as hard and announces a simplification by way of a pair of cases.";
+const PERFORMS_BOUND = "no part of the subject that the paragraph's points do not give";
 {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 0
     ? { ...w, paragraph_waypoints: [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"] }] } : w)) };
@@ -181,6 +187,13 @@ const PERFORMS = "flags the case as hard and announces a simplification by way o
       || !block.includes("Perform it in the paragraph's own words") || !block.includes("It asserts nothing")) {
       fails.push("(d) the Packet's waypoints block does not tell the Writer an italic line is performed in the paragraph's own words and asserts nothing");
     }
+    if (!block.includes(PERFORMS_BOUND)) fails.push("(g) the Packet's waypoints block does not bound an italic line to no part of the subject that the paragraph's points do not give");
+    const unbound = template.replace(/ It brings in no part of the subject[\s\S]*?nothing of its content\.\n/, "\n");
+    const split0 = unbound === template ? { error: "the fixture could not remove the bound from the template" } : splitPacketTemplate(unbound);
+    const r0 = split0.error ? { error: split0.error } : renderPacket({ template: split0.packet, brief, leg: l, priorSections: [],
+      section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
+    if (r0.error) fails.push(`(g) the Packet rendered without the bound did not render: ${r0.error}`);
+    else if (flat(r0.packet).includes(PERFORMS_BOUND)) fails.push("(g) the Packet rendered without the bound still carries it");
   }
 }
 
@@ -241,7 +254,7 @@ if (!r.error) {
   }
 }
 
-// (g) the precedence paragraph stands before the register, and an Audience edit does not remove it (kogaki#1493).
+// (h) the precedence paragraph stands before the register, and an Audience edit does not remove it (kogaki#1493).
 const PRECEDENCE_HEAD = "**What the register below governs.**";
 const precedence = (packet, firstRule) => {
   const w = writeBlock(packet);
@@ -259,26 +272,30 @@ const precedence = (packet, firstRule) => {
 let shipped = null;
 if (!r.error) {
   const p = precedence(r.packet, "**Sentences:**");
-  if (p.error) fails.push(`(g) ${p.error}`);
+  if (p.error) fails.push(`(h) ${p.error}`);
   else shipped = p.para;
 }
 {
   const UNRELATED = "Write about the weather in Osaka.";
   const dir = mkdtempSync(join(tmpdir(), "draft-packet-precedence-"));
   const audience = join(dir, "one-sentence.md");
-  writeFileSync(audience, readFileSync("audiences/dev-to-zenn.md", "utf8").replace(/\nregister: \|[\s\S]*$/, `\nregister: |\n  ${UNRELATED}\n`));
+  const shippedAudience = readFileSync("audiences/dev-to-zenn.md", "utf8");
+  // Only the `register` block is replaced -- its indented lines and blank lines -- so a key after it survives.
+  const oneSentence = shippedAudience.replace(/\nregister: \|\n(?:(?: {2}.*)?\n)*/, `\nregister: |\n  ${UNRELATED}\n\n`);
+  if (oneSentence === shippedAudience) fails.push("(h) the fixture could not replace the `register` block of audiences/dev-to-zenn.md");
+  writeFileSync(audience, oneSentence);
   const other = readBrief(text.replace("compose_path: audiences/dev-to-zenn.md", `compose_path: ${audience}`), "theses/packet-brief/brief.yaml");
-  if (other.record?.compose_path !== audience) fails.push("(g) the fixture could not point the Brief at the one-sentence Audience");
+  if (other.record?.compose_path !== audience) fails.push("(h) the fixture could not point the Brief at the one-sentence Audience");
   else {
     const split = splitPacketTemplate(template);
     const o = renderPacket({ template: split.packet, brief: other, leg: other.legs[0], priorSections: [],
       section: sectionOfLeg(other.legs).get(other.legs[0].leg_id), sections: sectionsOf(other.legs) });
-    if (o.error) fails.push(`(g) the one-sentence Audience's Packet did not render: ${o.error}`);
+    if (o.error) fails.push(`(h) the one-sentence Audience's Packet did not render: ${o.error}`);
     else {
       const p = precedence(o.packet, UNRELATED);
-      if (p.error) fails.push(`(g) one-sentence Audience: ${p.error}`);
-      else if (shipped !== null && p.para !== shipped) fails.push(`(g) the precedence paragraph changed with the Audience: ${flat(p.para)}`);
-      if (writeBlock(o.packet)?.includes("**Sentences:**")) fails.push("(g) the one-sentence Audience's Packet still carries the dev-to-zenn register");
+      if (p.error) fails.push(`(h) one-sentence Audience: ${p.error}`);
+      else if (shipped !== null && p.para !== shipped) fails.push(`(h) the precedence paragraph changed with the Audience: ${flat(p.para)}`);
+      if (writeBlock(o.packet)?.includes("**Sentences:**")) fails.push("(h) the one-sentence Audience's Packet still carries the dev-to-zenn register");
     }
   }
 }
@@ -287,5 +304,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493).");
 JS
