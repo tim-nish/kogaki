@@ -9,6 +9,7 @@
 #   (j)-(k) the target after-state is read off the marked Leg, and the mark
 #           reaches the Packet through legRecord and readBrief.
 #   (l)-(m) at most one conceded row per path, one open row per Leg.
+#   (n) a row no waypoint serves is named, with its Leg, to Path Review.
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -274,10 +275,39 @@ const fails = [];
   else if (!/at most one row open at any given Leg/.test(rFull.error)) fails.push(`(m) validateLegs's refusal did not name the rule: ${rFull.error}`);
 }
 
+// (n) a Leg party to a Closure row with no waypoint serving it is named, with the row,
+// in the Path Review's input (kogaki#1496). The Packet renders the row as material and
+// asks for no sentence, so a row no point answers is read here, at the Brief.
+{
+  const { dischargeRows } = compose;
+  const ROW = "why the installer's copy is overwritten on every run";
+  const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    // No waypoint of any Leg speaks to the row.
+    waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }] }));
+  const obligations = [{ text: ROW, introduced_by: "leg1", discharged_by: "leg3" }];
+  if (legs.some((l) => l.waypoints.some((w) => w.point.includes("overwritten")))) fails.push("(n) the fixture's waypoints serve the row, so the case is not the one (n) names");
+  const rows = dischargeRows(legs, obligations);
+  if (rows.length !== 1) fails.push(`(n) the Path Review's discharge input carries ${rows.length} entries for one discharged row`);
+  else {
+    const [e] = rows;
+    if (e.row !== ROW) fails.push(`(n) the Path Review's discharge input does not name the row: ${JSON.stringify(e)}`);
+    if (e.discharging_leg !== "leg3") fails.push(`(n) the Path Review's discharge input does not name the discharging Leg: ${JSON.stringify(e)}`);
+    if (e.introduced_by !== "leg1") fails.push(`(n) the Path Review's discharge input does not name the introducing Leg: ${JSON.stringify(e)}`);
+    if (JSON.stringify(e.claims) !== JSON.stringify(["claim of leg3"])) fails.push(`(n) the discharge input does not carry the discharging Leg's own claims: ${JSON.stringify(e.claims)}`);
+  }
+  // The input rides into the per-Candidate review prompt, whose judgment point reads it.
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const unit = JSON.stringify(table.review_path_unit || {});
+  if (!/discharge_rows/.test(unit) || !/one entry per Closure row carrying `discharged_by`/.test(unit)) {
+    fails.push("(n) the review_path_unit row no longer reads `discharge_rows` with one entry per discharged Closure row");
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-closure");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-closure — the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's, the Reader target derivation reading the marked Leg regardless of position, the mark reaching the Packet, and the Closure ledger's at-most-one conceded row and one open row per Leg (kogaki#1229, kogaki#1231, kogaki#1232).");
+console.log("ok: check-brief-closure — the Thesis Closure row reaching only the Reader target Leg, the reaches_target marking rule (zero/two/first-Leg refused), a closing Leg introducing nothing and raising nothing, a closing Leg's orientation/knowledge held at the target Leg's, the Reader target derivation reading the marked Leg regardless of position, the mark reaching the Packet, the Closure ledger's at-most-one conceded row and one open row per Leg, and the Path Review's input naming a Closure row and its discharging Leg where no waypoint serves the row (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496).");
 JS

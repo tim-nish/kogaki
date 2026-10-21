@@ -177,12 +177,12 @@ hold and do not see below is not yours to speak of or rely on.
 
 ## This Leg's Closure
 
-Honor the rows below in the prose rather than restating them as fields.
-
 The Brief's Closure ledger carries the promises the article makes to the
 reader — the Thesis's, and each Leg's own. The rows below are the ones THIS
 LEG is a party to: where it introduces a promise, discharges one (keeps it),
-or concedes one (tells the reader it is left open).
+or concedes one (leaves it open). They are given so you know what a point you
+write discharges or leaves open. They add no sentence of their own: where a
+row needs one, the waypoints above carry it.
 
 {{closure_rows}}
 
@@ -214,13 +214,9 @@ sentence. Do not return a refusal for such a conflict.
 {{register}}
 
 **The round trip — claims only.** Each claim above must be recoverable from
-what you write. Where making one plain loses something, either restore the
-loss or **concede it explicitly in the prose**. A concession is part of the
-output; a silent omission is not a simplification, it is a loss. This rule
-answers for a claim's loss alone: it is not licence for a sentence about what
-you could not read or could not perform. A waypoint you cannot reach from
-what this Packet gives you is answered below, as a refusal — never as a
-concession, and never as prose.
+what you write. A silent omission is not a simplification, it is a loss.
+Where making a claim plain loses something you cannot restore, answer it
+below, as a refusal — never as a sentence the waypoints do not carry.
 
 **When a step cannot be performed.** If a waypoint cannot be reached from
 the material this Packet gives you, or material it should carry is

@@ -1659,7 +1659,9 @@ where this Leg is `introduced_by`, `discharged_by` or `conceded_by`, as their
 prose text — the Thesis row on its establishing Legs — never a copy of the
 whole ledger. A Leg party to no row renders the block **empty rather than
 absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
-own empty case states.
+own empty case states. The rows render as material and the block asks for no
+sentence of its own; a row needing one is carried by a waypoint (§5.2,
+kogaki#1496).
 
 **No Move field renders, and the waypoints block takes the Move block's place**
 (kogaki#1311). The Move's `before`/`after` were excluded from the start, for
@@ -2296,6 +2298,41 @@ that belongs to Move has responsibility only up to CandidatePath creation")
 holds for the Leg Move; the paragraph Move's responsibility ends here, and the
 Writer never reads a Move (2026-10-12).
 
+**And its converse: the Brief selects Moves and composes Waypoints, and hands
+everything else forward as material** (kogaki#1496, owner decision 2026-10-21:
+"Brief is responsible for Move selection and Waypoint creation, but has no
+authority to add explanatory prose outside the Move"). The boundary above
+says how far a Move reaches; this says what else may fix a paragraph's
+structure, and the answer is nothing beside the Paragraph Waypoints and the
+italic lines. Everything else the Brief hands the Writer arrives as
+**material** — a term with its meaning, a claim as a restatement, a Journey as
+its served text, a Closure row as the promise it is — and never as an
+instruction on what to add or how to present it. A line that asks the Writer
+for a sentence the plan does not carry competes with the plan, the way the
+retired Voice paragraph's hedge did (kogaki#1488), and the paragraph it
+touches is rebuilt around it while the Move's Segments are still honoured. A
+concern the Brief has about the prose acts through Move selection, the
+waypoints it composes and the noun phrases inside them.
+
+Every block of the Leg Packet (§4.14), sorted under that rule:
+
+| Packet block | sorted as |
+|---|---|
+| the waypoints, with their Paragraph Waypoints, *Opens from* and italic lines | **structure** — the plan; the only lines that fix what a paragraph says and in what order |
+| the claims this Leg asserts | material — each claim as its proposition |
+| the Journey material | material — the served text, edited, never a claim to recover |
+| the Section, and the reader-target line | material — where the Leg sits and whether it may still introduce anything |
+| what crosses into this Leg | material — a term with its meaning, a claim as its restatement, a Journey as its served text |
+| this Leg's Closure | material — the promises this Leg is party to, so the Writer knows what a point it writes discharges or leaves open; the block adds no sentence of its own (kogaki#1496 retired "Honor the rows below in the prose") |
+| the article so far | material — the prose already recorded |
+| Write: budget, heading, language, the reader's own world, the register | how sentences read inside the plan, never what they add; the register yields to a planned line (kogaki#1493) |
+| Write: the round trip | each claim recoverable from what is written; a loss the Writer cannot restore is a refusal, never a concession the plan does not carry (kogaki#1496 retired "concede it explicitly in the prose") |
+| Write: when a step cannot be performed | the refusal — the one exit, and it is not prose |
+
+A Packet line added later is sorted into this table in the act that adds it,
+and a line sorted as anything but structure that asks the Writer to add a
+sentence is the defect this paragraph names.
+
 **The loop.** One Detached Job unit per Leg, in Reader Path order, on the shared
 supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
 `judgePrompt`. Each attempt makes two calls:
@@ -2832,6 +2869,18 @@ backwards authoring, because what is judged is whether the opening Move's
 `before` requires anything Reader start does not hold (§4.12.2). The Move it
 binds is one the exclusion of §5.1.1 did not remove — stated to the composer
 as the judgment-class `first_leg_binds_a_survivor` path rule.
+
+**A row that needs a sentence of its own gets a waypoint** (kogaki#1496, owner
+decision 2026-10-21: Closure "should influence Move selection, Waypoint
+creation, and noun phrases within Waypoints rather than independently adding
+prose"). The Packet renders a Leg's rows as material (§4.19's sorting), and
+asks for no sentence from them. Where keeping or conceding a promise needs a
+sentence the Leg's other points do not already make, the Brief's reader-path
+unit composes a waypoint of the discharging or conceding Leg for it, and the
+row reaches the prose through that waypoint and its Paragraph Waypoints. The
+Path Review's `discharge` item (§4.12.2) already names each discharged row and
+its discharging Leg beside that Leg's claims, which is where a row no point
+answers is read; it is unchanged by this paragraph.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
 obligation is worth entering, and whether a discharge or a concession is the
