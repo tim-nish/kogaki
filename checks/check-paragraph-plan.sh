@@ -107,6 +107,19 @@
 #       sentence by the words "its own Leg Waypoint's point and Claim".
 #       Whether a LIVE planner keeps to it, or a live judge refuses a coined
 #       term, is the model's.
+#   (r) A TERM THE LEG INTRODUCES IS GIVEN ITS MEANING AT ITS FIRST USE
+#       (kogaki#1497): over a Leg whose `introduces` carries one coined term
+#       and whose second Leg Waypoint's `point` uses it, the rendered plan
+#       prompt carries `terms_this_leg_introduces` with the term and its
+#       meaning beside the persona, and the plan row carries the first-use
+#       rule; a Leg introducing nothing is handed an empty list. A first plan
+#       attempt whose first-use Paragraph Waypoint carries the term without
+#       its meaning is refused by the fake judge -- which refuses only where
+#       the row it was handed carries FIFTH's complement and the input names
+#       the term -- naming the term; the refusal reaches the next attempt,
+#       whose Paragraph Waypoint carries the meaning in apposition, fits, and
+#       is written. Whether a LIVE planner binds a defining Segment, or a live
+#       judge refuses a bare first use, is the model's.
 #   (k) THE INGEST'S MOVE IS READ (kogaki#1418): `p1`, the Move case (a) and
 #       its neighbours bind, is admitted by `tools/move_ingest.py`'s write gate
 #       (`save_accepted`, validating through the Adapter's src/move-validate.mjs)
@@ -220,6 +233,10 @@ const legs = [
     { point: "The next run overwrites any edit made to the copy.", serves: ["L1", "L2"] }]),
   leg("s2", [{ strand: "L2", proposition: C2 }], [{ point: "The copy is the installer's, not the consumer's.", serves: ["L2"] }]),
 ];
+// (r)'s Legs: s1 introduces one coined term, and its second Leg Waypoint's point first uses it.
+const TERM = { term: "kit stamp", kind: "coined", meaning: "the hash the installer writes beside the copy" };
+const termLegs = [{ ...legs[0], introduces: [TERM], waypoints: [legs[0].waypoints[0],
+  { point: "The next run overwrites any edit made to the copy and rewrites its kit stamp.", serves: ["L1", "L2"] }] }, legs[1]];
 const briefText = (ls) => briefRecordText({
   slug: "plan-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") },
@@ -272,8 +289,18 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const purposeRule = prompt.includes("the reader's resulting reading");
     const purposeAt = (w) => (w.paragraph_waypoints || []).findIndex((pw) => / so that /.test(String(pw.performs || "")));
     const purposeWp = mode === "performs-purpose" && purposeRule ? leg.waypoints.find((w) => purposeAt(w) >= 0) : undefined;
-    const refuse = (mode === "ok" && leg.leg_id === "s2" && n === 1) || restatesDescription || lostSegment || carriesRelation || performsOnSubject || Boolean(purposeWp);
-    const why = purposeWp ? "PURPOSE-SENTENCE Paragraph Waypoint " + (purposeAt(purposeWp) + 1) + " carries performs with the clause \\\"so that"
+    // (r): refuses a first use of an introduced term that gives no meaning for it, only where the
+    // row it was handed carries FIFTH's complement and the input names the term (kogaki#1497).
+    const termRule = prompt.includes("first uses an introduced term and gives no meaning for it does not fit");
+    const terms = body("leg_you_must_judge").terms_this_leg_introduces || [];
+    const pws = leg.waypoints.flatMap((w) => w.paragraph_waypoints || []);
+    const bareTerm = mode === "introduces" && termRule ? terms.find((t) => {
+      const first = pws.find((pw) => String(pw.point || "").includes(t.term));
+      return first && !String(first.point).includes(t.meaning);
+    }) : undefined;
+    const refuse = (mode === "ok" && leg.leg_id === "s2" && n === 1) || Boolean(bareTerm) || restatesDescription || lostSegment || carriesRelation || performsOnSubject || Boolean(purposeWp);
+    const why = bareTerm ? "TERM-SENTENCE the Paragraph Waypoint that first uses \\\"" + bareTerm.term + "\\\" gives no meaning for it."
+      : purposeWp ? "PURPOSE-SENTENCE Paragraph Waypoint " + (purposeAt(purposeWp) + 1) + " carries performs with the clause \\\"so that"
         + purposeWp.paragraph_waypoints[purposeAt(purposeWp)].performs.split(" so that")[1] + "\\\"."
       : performsOnSubject ? "PERFORMS-SENTENCE Paragraph Waypoint 1 carries performs, and Segment 1's does defines a term on the subject."
       : carriesRelation ? "RELATION-SENTENCE Paragraph Waypoint 2 carries its Segment's relation as content."
@@ -311,6 +338,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         : restated ? [{ point: "RESTATED: sets up the point.", serves: [...w.serves] }]
         : mode === "mismatch" ? [unrelated ? { point: ${JSON.stringify(UNRELATED_FIRST_POINT)}, serves: [...w.serves] } : pw(1), pw(2)]
         : mode === "relation" ? [pw(1), carried ? { point: "PW-s1-1-2 the overwrite is the consumer's edit, and answers what the setup opened.", serves: [...w.serves] } : pw(2), pw(3)]
+        : mode === "introduces" && w.point.includes(${JSON.stringify(TERM.term)})
+        ? [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-1 the " + ${JSON.stringify(TERM.term)}
+          + (planN === 1 ? "" : ", " + ${JSON.stringify(TERM.meaning)} + ",") + " is rewritten by the next run.", serves: [...w.serves] }]
         : mode === "segments3" ? [pw(1), pw(2), pw(3)] : [pw(1)] };
   }) });
 });
@@ -595,6 +625,46 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!judges.length || !judges.every((p) => p.includes(own))) fails.push(`(q) a judge prompt's row does not carry "${own}"`);
 }
 
+// (r) A TERM THE LEG INTRODUCES IS GIVEN ITS MEANING AT ITS FIRST USE (kogaki#1497): Leg s1
+// introduces "kit stamp" and its second Leg Waypoint's point first uses it. The plan call is
+// handed the term and its meaning beside the persona; the first attempt's first-use Paragraph
+// Waypoint carries the bare term and the judge refuses naming it; the second attempt carries
+// the meaning in apposition, fits, and is written.
+{
+  const r = runStage("introduces", termLegs, "introduces", moves);
+  if (r.started.status !== 0) fails.push(`(r) start failed: ${(r.started.stderr || "").slice(0, 400)}`);
+  else if (!r.awaited || r.awaited.status !== 0) fails.push(`(r) await did not finish the job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
+  const plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
+  const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
+  const inputOf = (p) => JSON.parse(p.slice(p.lastIndexOf("{", p.lastIndexOf('"leg_you_must_plan"'))));
+  const s1Plans = plans.filter((p) => inputOf(p).leg_you_must_plan.leg_id === "s1");
+  const s2Plans = plans.filter((p) => inputOf(p).leg_you_must_plan.leg_id === "s2");
+  const want = JSON.stringify([{ term: TERM.term, meaning: TERM.meaning }]);
+  if (!s1Plans.length || !s1Plans.every((p) => JSON.stringify(inputOf(p).terms_this_leg_introduces) === want)) {
+    fails.push(`(r) Leg s1's plan input does not carry the introduced term and its meaning: ${s1Plans.length ? JSON.stringify(inputOf(s1Plans[0]).terms_this_leg_introduces) : "no plan prompt"}`);
+  }
+  if (s1Plans.length && (!inputOf(s1Plans[0]).persona || Object.hasOwn(inputOf(s1Plans[0]).leg_you_must_plan, "introduces"))) {
+    fails.push("(r) the introduced terms do not ride beside the persona, outside the Leg");
+  }
+  if (!s2Plans.length || JSON.stringify(inputOf(s2Plans[0]).terms_this_leg_introduces) !== "[]") {
+    fails.push("(r) Leg s2, which introduces nothing, is not handed an empty list of introduced terms");
+  }
+  if (!plans.length || !plans.every((p) => p.includes("WHERE A LEG WAYPOINT FIRST USES A TERM THE LEG INTRODUCES"))) {
+    fails.push("(r) a plan prompt's row does not carry the first-use rule for an introduced term");
+  }
+  if (s1Plans.length !== 2 || !s1Plans[1].includes(`TERM-SENTENCE the Paragraph Waypoint that first uses "${TERM.term}" gives no meaning for it.`)) {
+    fails.push(`(r) the judge's refusal naming the bare first use of "${TERM.term}" was not put into Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
+  }
+  const s1Judges = judges.filter((p) => p.includes('"leg_id": "s1"'));
+  if (!s1Judges.length || !s1Judges.every((p) => p.includes(`"term": "${TERM.term}"`) && p.includes(TERM.meaning))) {
+    fails.push("(r) Leg s1's judge input does not carry the introduced term and its meaning");
+  }
+  const plan = existsSync(r.planPath) ? readFileSync(r.planPath, "utf8") : "";
+  if (!plan.includes(`the ${TERM.term}, ${TERM.meaning}, is rewritten`)) {
+    fails.push("(r) the ParagraphPlan file does not carry the first use of the term with its meaning in apposition");
+  }
+}
+
 // (p) A SEGMENT THAT ACTS ON THE READING CARRIES \`performs\` (kogaki#1448): bound to p5, whose
 // Segment 1 announces a simplification, the planner answers a \`performs\` Paragraph Waypoint on
 // Segment 1 and a \`point\` one after it, and the file and the judge's input carry it; bound to
@@ -804,5 +874,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; both rows state that a Segment's relation is never part of what the Paragraph Waypoint says, and a Paragraph Waypoint carrying its Segment's relation as content is refused naming it (kogaki#1446); the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); every Leg Waypoint after the first carries a join and no first one does, the plan reader and the plan call's validator refuse a missing, empty or misplaced join, a sentence and a word outside the set by name, the Brief refuses one, both rows name the closed set with one definition per word and neither carries the retired noun-phrase test, the judge's SEVENTH admits none and contrast where the paragraph defers the previous after, a plan answering a sentence for join is refused naming the entry and re-planned (kogaki#1477), and the Packet renders each join as its Opens-from line under the template's instruction (kogaki#1411); a Segment that acts on the reader's reading carries a performs Paragraph Waypoint the plan file and the judge's input carry, a performs entry on a defining Segment is refused naming it, and a Leg Waypoint with no point entry is refused (kogaki#1448); a performs entry carrying a clause stating the reader's resulting reading is refused naming the entry and the clause, and the bare operation fits (kogaki#1485); both rows state that a Paragraph Waypoint's words come from its own Leg Waypoint's point and Claim (kogaki#1449); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief with point and serves only and no Move information, the bound Move staying in the run directory; the plan call carries the bound Move's segments (each Segment's number, does and relation as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's does is refused by the judge same as any other does-not-fit; both rows state that a Segment's relation is never part of what the Paragraph Waypoint says, and a Paragraph Waypoint carrying its Segment's relation as content is refused naming it (kogaki#1446); the 2026-10-16 paragraph 2 plan, whose first point lost its Segment, is refused by the judge's per-Segment check and re-planned; a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); every Leg Waypoint after the first carries a join and no first one does, the plan reader and the plan call's validator refuse a missing, empty or misplaced join, a sentence and a word outside the set by name, the Brief refuses one, both rows name the closed set with one definition per word and neither carries the retired noun-phrase test, the judge's SEVENTH admits none and contrast where the paragraph defers the previous after, a plan answering a sentence for join is refused naming the entry and re-planned (kogaki#1477), and the Packet renders each join as its Opens-from line under the template's instruction (kogaki#1411); a Segment that acts on the reader's reading carries a performs Paragraph Waypoint the plan file and the judge's input carry, a performs entry on a defining Segment is refused naming it, and a Leg Waypoint with no point entry is refused (kogaki#1448); a performs entry carrying a clause stating the reader's resulting reading is refused naming the entry and the clause, and the bare operation fits (kogaki#1485); both rows state that a Paragraph Waypoint's words come from its own Leg Waypoint's point and Claim (kogaki#1449); the plan call is handed the Leg's introduced terms with their meanings beside the persona, and a first use of an introduced term with no meaning is refused naming the term while one carrying it in apposition fits (kogaki#1497); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
 JS

@@ -54,7 +54,7 @@ import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveContracts, loadMoveIds,
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
-  paragraphWaypointsRefusal, joinRefusal, undeclaredKey } from "./compose.mjs";
+  paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry } from "./compose.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -156,7 +156,19 @@ export function planLeg(leg) {
       serves: [...w.serves],
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
     })),
+    introduces: introducedTerms(leg.introduces),
   };
+}
+
+// THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497). The plan call binds a Move
+// whose Segment can define a term at the point that first uses it, or carries the meaning in
+// that Paragraph Waypoint's noun phrase, so it is handed each term with its meaning and
+// nothing else: `kind` is treated alike (the reader holds neither until the point gives it),
+// and an established term's `source` is Brief-side material (kogaki#1404), so it rides as no
+// meaning. A bare or anchored term rides with no meaning, as the Packet renders it.
+export function introducedTerms(entries) {
+  return (entries || []).map((raw) => parseIntroducesEntry(raw)).filter((p) => !p.error && p.term)
+    .map((p) => ({ term: p.term, meaning: typeof p.meaning === "string" && p.meaning.trim() !== "" ? p.meaning.trim() : null }));
 }
 
 // EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS TWO FIELDS (kogaki#1414, reverting the
@@ -175,11 +187,15 @@ export function segmentsForPlanCall(segments) {
   return segments.map((s, i) => ({ segment: i + 1, does: String(s.does).trim(), relation: String(s.relation ?? "").trim() }));
 }
 
+// The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
+// like the persona, they say what the reader does not yet hold, never what a point says.
 export function paragraphPlanUnitInput(leg, moves, persona) {
+  const { introduces, ...planned } = leg;
   return {
-    leg_you_must_plan: leg,
+    leg_you_must_plan: planned,
     paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    terms_this_leg_introduces: introduces || [],
   };
 }
 
@@ -274,6 +290,8 @@ export function noParagraphMoveFitsRefusal(failures) {
 // for it (kogaki#1378: the same four criteria the Leg judge judges); every Leg Waypoint
 // after the first also carries its `join`, a relation word judged against the previous
 // entry's bound Move's `after` and its own first Paragraph Waypoint (kogaki#1411, kogaki#1477).
+// The Leg's introduced terms ride beside it, so FIFTH can refuse a first use with no meaning
+// (kogaki#1497).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   return {
@@ -290,6 +308,7 @@ export function paragraphPlanJudgeInput(record, inputs, unitId) {
           paragraph_waypoints: e.paragraph_waypoints };
       }),
     },
+    terms_this_leg_introduces: leg.introduces || [],
   };
 }
 
