@@ -73,6 +73,15 @@
 #       the main run, given none, records `terms: null` and its Brief card reads
 #       "Conditions: terms: model".
 #
+#   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and
+#       Moves byte for byte, records the source run and the copied stage's sha256, and no
+#       Extractor call reaches the model binary; `--from paragraph-plan` also carries the Brief and
+#       makes no Extractor or Brief call; the sheet badges each copied stage's card "copied from
+#       <source>"; a copied Extraction with one Segment's content clause edited is recorded as
+#       paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner".
+#       The paragraph tables (o) render with no details element and no "Review" heading, and the
+#       run header (p) reads "terms fixed from <file> (1)" or "terms by the Brief's own draw".
+#
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
 # (check-proof-sheet-extract.sh, check-proof-sheet-leg-brief.sh, check-paragraph-plan.sh,
@@ -82,7 +91,7 @@ cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync, statSync, cpSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -554,11 +563,16 @@ else {
     "(o) the review block does not sit between the comparison table and the Extraction card");
   const review = reviewAt >= 0 ? html.slice(reviewAt, starts[ORDER.indexOf("extraction")]) : "";
   const rpart = (cls) => {
-    const a = review.indexOf(`<details class="rpart ${cls}" open>`);
+    const a = review.indexOf(`<div class="rpart ${cls}">`);
     if (a < 0) return "";
-    const b = review.indexOf('<details class="rpart', a + 1);
+    const b = review.indexOf('<div class="rpart', a + 1);
     return review.slice(a, b >= 0 ? b : undefined);
   };
+  // (o) THE PARAGRAPH TABLES ARE PLAIN (kogaki#1512): three headings and no section heading,
+  // no details element anywhere between the comparison table and the first card.
+  ok(!review.includes("<details") && !review.includes("<h3>Review</h3>")
+    && ["Segments", "Refused attempts", "Bindings"].every((h) => review.includes(`<h3>${h}</h3>`)),
+    "(o) the paragraph tables carry a details element or a Review heading, or lack their own three headings");
   const segPart = rpart("segments");
   ok((segPart.match(/<th>content clause<\/th>/g) || []).length === 3 && [1, 2, 3].every((i) => segPart.includes(`CONTENT-${i}-1`) && segPart.includes(`paragraph ${i} — name_an_act_then_its_cost_${i}`)),
     "(o) the review block does not carry one Segments table per paragraph, headed by its paragraph and Move");
@@ -578,12 +592,13 @@ else {
     ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.why)),
       `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the record's why`);
     const at = bindPart.indexOf(row);
-    const fold = at >= 0 ? bindPart.slice(at, bindPart.indexOf("</details>", at) + 10) : "";
+    const sAt = at >= 0 ? bindPart.indexOf('<tr class="states">', at) : -1;
+    const fold = sAt >= 0 ? bindPart.slice(sAt, bindPart.indexOf("</table>", sAt) + 8) : "";
     const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
     const lines = Object.keys(mv.before || {}).map((d) => [mv.before[d], (mv.after || {})[d]]);
-    ok(/<details class="sub"><summary>before \/ after<\/summary>/.test(fold) && lines.length > 0
+    ok(fold.includes('<p class="meta">before / after</p>') && lines.length > 0
       && lines.every(([bf, af]) => fold.includes(escHtml(String(bf))) && fold.includes(escHtml(String(af ?? "")))),
-      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no folded before / after block with the Move's lines`);
+      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no before / after table with the Move's lines`);
   }
   // An attempt whose judge answer is unreadable is a row carrying the job record's refusal,
   // never a silence read as "no attempt was refused".
@@ -595,7 +610,7 @@ else {
   writeFileSync(join(unreadable, "paragraph-plan", "calls.jsonl"), ppCalls.map((c) => JSON.stringify(c)).join("\n") + "\n");
   const uBuilt = S.buildSheet({ runs: [unreadable], provenance: map, out: join(root, "unreadable.html") });
   const uHtml = uBuilt.written ? readFileSync(uBuilt.written, "utf8") : "";
-  const uRef = uHtml.slice(uHtml.indexOf('<details class="rpart refused" open>'), uHtml.indexOf('<details class="rpart bindings"'));
+  const uRef = uHtml.slice(uHtml.indexOf('<div class="rpart refused">'), uHtml.indexOf('<div class="rpart bindings"'));
   const uJob = JSON.parse(readOr(join(unreadable, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
   const uRefusal = (((uJob.units || [])[0] || {}).refusals || [])[0];
   ok(firstJudge >= 0 && !uRef.includes("no attempt was refused") && uRef.includes(`href="#attempt-0-1"`) && uRef.includes("no readable verdicts")
@@ -775,7 +790,7 @@ if (hRunDir) {
   ok(p1Calls.length === 1, `(h) the resumed run's extract/calls.jsonl does not hold exactly one paragraph-1 call: ${p1Calls.length} of ${extractCalls.length} total`);
   ok(existsSync(join(hRunDir, "sheet.html")), "(h) the resumed run did not write a sheet");
   const hSheet = readOr(join(hRunDir, "sheet.html"), "");
-  const hRef = hSheet.slice(hSheet.indexOf('<details class="rpart refused" open>'), hSheet.indexOf('<details class="rpart bindings"'));
+  const hRef = hSheet.slice(hSheet.indexOf('<div class="rpart refused">'), hSheet.indexOf('<div class="rpart bindings"'));
   ok(hRef.includes("<p>no attempt was refused</p>") && !hRef.includes("<table"), "(o) the resumed run, refused nowhere, does not render \"no attempt was refused\"");
   const extractCmd = JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8"));
   ok(extractCmd.length > extractDoneBefore.length, "(h) the resumed extract stage replaced command.json instead of appending to it");
@@ -787,6 +802,9 @@ if (hRunDir) {
   ok(JSON.stringify(run2.terms) === JSON.stringify(run1.terms), `(p) the resumed run.json does not keep the terms record: ${JSON.stringify(run2.terms)}`);
   const briefCmd = JSON.parse(readOr(join(hRunDir, "brief", "command.json"), "[]"));
   ok(briefCmd.length > 0 && briefCmd.every((c) => c.argv.join(" ").includes(`--terms ${hTerms}`)), `(p) the resumed Brief stage was not handed --terms: ${JSON.stringify(briefCmd.map((c) => c.argv))}`);
+  const termsAt = hSheet.match(/<p class="terms">terms fixed from ([^<]*) \(1\)<\/p>/);
+  ok(!!termsAt && termsAt[1].endsWith(escHtml(basename(hTerms))) && !hSheet.includes("terms by the Brief's own draw"),
+    "(p) the sheet of a run given a terms file does not carry the run header's \"terms fixed from <file> (1)\" line");
   ok(hSheet.includes("Conditions: terms: fixed (1)") && !hSheet.includes("terms: model"), "(p) the sheet of a run given a terms file does not read \"terms: fixed (1)\"");
   writeFileSync(hTerms, JSON.stringify({ "ownership boundary": "coined" }));
   const r2b = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map],
@@ -799,7 +817,85 @@ if (runDir) {
   const run0 = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
   ok(run0.terms === null, `(p) run.json built without --terms does not record \`terms: null\`: ${JSON.stringify(run0.terms)}`);
   const sheet0 = readOr(join(runDir, "sheet.html"), "");
+  ok(sheet0.includes(`<p class="terms">terms by the Brief's own draw</p>`) && !sheet0.includes("terms fixed from"),
+    "(p) the sheet of a run given no terms file does not carry the run header's \"terms by the Brief's own draw\" line");
   ok(sheet0.includes("Conditions: terms: model") && !sheet0.includes("terms: fixed"), "(p) the sheet of a run given no terms file does not read \"terms: model\"");
+}
+
+// (q) STAGE REUSE (kogaki#1512): a run started with `--reuse <the main run> --from <stage>`
+// copies the stages before <stage> byte for byte and records their hashes and the source run;
+// the gate it is held to is the model binary's own log -- no Extractor call (and from
+// `paragraph-plan`, no Brief call) reaches the binary -- not only the copied files existing.
+// A copied Extraction with one Segment field changed is recorded by paragraph, Segment and
+// field, and its Segments row is badged on the sheet.
+if (runDir) {
+  const LR = await imp("src/proof-sheet/leg-run.mjs");
+  const { relFromRepo } = await imp("src/workflow/run-record.mjs");
+  const reuseRun = (source, from, tag) => {
+    const qRoot = join(root, `reuse-${tag}`);
+    mkdirSync(qRoot, { recursive: true });
+    const rq = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--reuse", source, "--from", from, "--out", join(qRoot, "out"), "--provenance", map],
+      { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: qRoot }, timeout: 600000 });
+    const dir = (rq.stdout.match(/^run directory: (.+)$/m) || [])[1];
+    const seenQ = existsSync(join(qRoot, "seen.jsonl")) ? readFileSync(join(qRoot, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+    return { rq, dir, seen: seenQ, run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null,
+      html: dir ? readOr(join(dir, "sheet.html"), "") : "" };
+  };
+  const cardOf = (html, key, next) => { const a = html.indexOf(`id="card-0-${key}"`); return a >= 0 ? html.slice(a, html.indexOf(`id="card-0-${next}"`, a)) : ""; };
+  // The Moves are compared as the Move files; the library's INDEX.md names its own directory.
+  const isMove = (f) => f.endsWith(".yaml");
+  const sameFiles = (a, b, keep) => existsSync(a) && existsSync(b) && LR.dirSha256(a, keep) === LR.dirSha256(b, keep);
+  const srcRel = relFromRepo(runDir, repo);
+
+  const q1 = reuseRun(runDir, "brief", "brief");
+  ok(q1.rq.status === 0 && !!q1.run, `(q) the run reusing --from brief exited ${q1.rq.status}: ${q1.rq.stdout}${q1.rq.stderr}`);
+  if (q1.run) {
+    ok(q1.run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
+      `(q) the reused run's stages are not all done: ${JSON.stringify(q1.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+    ok(!q1.seen.some((x) => x.stage === "extract") && q1.seen.some((x) => x.stage === "brief-leg-path") && q1.seen.some((x) => x.stage === "writer"),
+      `(q) --from brief did not run the Brief and the Draft with no Extractor call: ${JSON.stringify(q1.seen.map((x) => x.stage))}`);
+    ok(sameFiles(join(runDir, "extract"), join(q1.dir, "extract")) && sameFiles(join(runDir, "moves"), join(q1.dir, "moves"), isMove)
+      && (q1.run.reuse.moves || {}).sha256 === LR.dirSha256(join(runDir, "moves"), isMove) && q1.run.reuse.moves.source_sha256 === q1.run.reuse.moves.sha256,
+      "(q) --from brief does not carry the earlier run's Extraction and Moves byte for byte");
+    const rc = q1.run.reuse || {};
+    ok(rc.source === srcRel && rc.from === "brief" && JSON.stringify((rc.copied || []).map((c) => [c.stage, c.sha256]))
+      === JSON.stringify([["extract", LR.dirSha256(join(runDir, "extract"))]]) && JSON.stringify(rc.edits) === "[]",
+      `(q) run.json's reuse does not name the source run, the stage and the copied Extraction's sha256 with no edit: ${JSON.stringify(rc)}`);
+    const ex = q1.run.stages.find((st) => st.stage === "extract") || {};
+    const ing = q1.run.stages.find((st) => st.stage === "ingest") || {};
+    ok(ex.copied_from === srcRel && String(ex.extractor_run || "").startsWith(q1.dir) && !ing.copied_from && existsSync(join(q1.dir, "ingest", "command.json")),
+      "(q) the extract stage is not recorded as copied into the new run, or the ingest was not re-run");
+    ok(cardOf(q1.html, "extraction", "move").includes(`<span class="badge copied">copied from ${escHtml(srcRel)}</span>`)
+      && !cardOf(q1.html, "brief", "paragraphPlan").includes('class="badge copied"') && !cardOf(q1.html, "move", "brief").includes('class="badge copied"'),
+      "(q) the sheet of --from brief does not badge the Extraction card alone as copied from the source run");
+  }
+
+  const q2 = reuseRun(runDir, "paragraph-plan", "plan");
+  ok(q2.rq.status === 0 && !!q2.run, `(q) the run reusing --from paragraph-plan exited ${q2.rq.status}: ${q2.rq.stdout}${q2.rq.stderr}`);
+  if (q2.run) {
+    ok(!q2.seen.some((x) => x.stage === "extract" || x.stage.startsWith("brief-")) && q2.seen.some((x) => x.stage === "plan-generator") && q2.seen.some((x) => x.stage === "writer"),
+      `(q) --from paragraph-plan ran a stage before the plan: ${JSON.stringify(q2.seen.map((x) => x.stage))}`);
+    ok(readOr(join(q2.dir, "brief", "brief.yaml"), "A") === readOr(join(runDir, "brief", "brief.yaml"), "B"), "(q) --from paragraph-plan does not carry the Brief byte for byte");
+    ok(JSON.stringify(((q2.run.reuse || {}).copied || []).map((c) => c.stage)) === '["extract","brief"]', "(q) --from paragraph-plan does not record the copied Extraction and Brief");
+    ok(cardOf(q2.html, "brief", "paragraphPlan").includes(`<span class="badge copied">copied from ${escHtml(srcRel)}</span>`), "(q) the sheet of --from paragraph-plan does not badge the Brief card as copied");
+  }
+
+  // the owner edits paragraph 2's first Segment's content clause in a copy of the main run
+  const edited = join(root, "edited-source");
+  cpSync(runDir, edited, { recursive: true });
+  writeFileSync(join(edited, "run.json"), readFileSync(join(edited, "run.json"), "utf8").split(runDir).join(edited));
+  const p2 = readdirSync(join(edited, "extract")).find((f) => f.startsWith("name_an_act_then_its_cost_2"));
+  const p2Text = p2 ? readFileSync(join(edited, "extract", p2), "utf8") : "";
+  writeFileSync(join(edited, "extract", p2 || "missing"), p2Text.replace("CONTENT-2-1 names", "CONTENT-2-1 OWNER-EDIT names"));
+  const q3 = reuseRun(edited, "brief", "edited");
+  ok(q3.rq.status === 0 && !!q3.run && p2Text.includes("CONTENT-2-1 names"), `(q) the run reusing an edited Extraction exited ${q3.rq.status}: ${q3.rq.stdout}${q3.rq.stderr}`);
+  if (q3.run) {
+    ok(JSON.stringify(q3.run.reuse.edits) === JSON.stringify([{ paragraph: 2, segment: 1, field: "content" }]),
+      `(q) run.json does not record the edit by paragraph, Segment and field: ${JSON.stringify(q3.run.reuse.edits)}`);
+    const rows = [...q3.html.matchAll(/<tr class="edited"><td>(\d+) <span class="badge edited"[^>]*>edited by owner<\/span><\/td><td>([^<]*)</g)];
+    ok(rows.length === 2 && rows.every((m) => m[1] === "1" && m[2].startsWith("CONTENT-2-1 OWNER-EDIT")),
+      `(q) the sheet does not badge the edited Segment row "edited by owner" in the Extraction card and the Segments table: ${rows.length} row(s)`);
+  }
 }
 
 // (i) THE AUDIENCE (kogaki#1396): run.json always names the Audience path the run used, and

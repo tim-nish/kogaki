@@ -33,6 +33,18 @@
 // resumed run hands the composer the path its record names — refused where the file no longer
 // hashes to the recorded value, so the record and the sheet never name kinds the run did not use.
 //
+// STAGE REUSE (kogaki#1512, owner decision 2026-10-22): `--reuse <earlier run> --from <stage>`,
+// `<stage>` one of `REUSE_FROM`'s keys, takes the Passage, the Extraction and the Moves from an
+// earlier run as one group (and, from `paragraph-plan`, its Brief too) instead of rebuilding
+// them. The earlier run's stage directories before `<stage>` are copied into the new run, the
+// Moves are re-ingested from the copied Extractions -- the ingest makes no model call, so an
+// unedited Extraction gives the same Moves byte for byte -- and `<stage>` and every stage after
+// it run as usual; `reuse.moves` holds the sha256 of the source's Move files and of the new
+// run's, equal where no Extraction was edited. A copied stage keeps its own record, attempts and refusals and is never
+// re-judged. `run.json`'s `reuse` names the source run, the stage, the sha256 of each copied
+// stage directory, and every Segment field of a copied Extraction record that differs from the
+// answer its Extractor wrote (`p<N>/answer.json`) -- the owner's edits, which the sheet badges.
+//
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
 // markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
@@ -43,16 +55,18 @@
 //   The paragraph unit
 //       passages/FORMAT.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, chmodSync } from "node:fs";
-import { join, resolve, basename, extname } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, chmodSync, cpSync, readdirSync, statSync } from "node:fs";
+import { join, resolve, basename, extname, relative, sep } from "node:path";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo } from "../workflow/run-record.mjs";
+import { parseYaml } from "../yaml.mjs";
 import { legParagraphs, writeJson } from "./extract.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { buildSheet } from "./leg-sheet.mjs";
-import { audienceLanguage } from "../compose.mjs";
+import { audienceLanguage, MOVE_RECORD_EXT } from "../compose.mjs";
 import { readTermsFile } from "./leg-brief.mjs";
 
 export const STAGES = ["extract", "ingest", "brief", "paragraph-plan", "draft"];
@@ -64,6 +78,12 @@ const DECLARING_TABLES = [
   ["src/paragraph-plan-workflow.json", (t) => t.judge && t.judge.command],
   ["src/draft-workflow.json", (t) => t.writer && t.writer.command],
 ];
+// The stages a reused run copies, by the stage it starts from (kogaki#1512). The ingest is never
+// copied: it is re-run over the copied Extractions.
+export const REUSE_FROM = { brief: ["extract"], "paragraph-plan": ["extract", "brief"] };
+// What a copied stage directory leaves behind: the ParagraphPlan file a later stage wrote beside
+// the Brief, which the new run's own plan stage writes again.
+const REUSE_EXCLUDE = { brief: ["paragraph-plan.yaml"] };
 const PLAN_AWAIT_S = 60;
 const PLAN_AWAITS_MAX = 60;
 
@@ -200,7 +220,7 @@ function recordedLanguage(audiencePath) {
 }
 
 // THE STAGE ENGINE, shared by a fresh run and a resumed one. `priorStages`, a `Map` of stage
-// name to its previous `run.json` entry, is `null` for a fresh run. A stage already `done`
+// name to its previous `run.json` entry, is `null` for a fresh run (and the copied stages for a reused one). A stage already `done`
 // is kept as its own record and never re-entered; a stage short of that re-enters with its
 // stage directory's existing `command.json` as the log it appends to, so a resumed attempt
 // keeps the stopped one rather than replacing it.
@@ -294,9 +314,75 @@ function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, prio
   save();
 }
 
+// A DIRECTORY'S sha256: every file under it, in path order, as its relative path and the sha256
+// of its bytes, one line each -- so two directories hash alike exactly when they hold the same
+// files byte for byte. `keep`, where given, names the files counted.
+export function dirSha256(dir, keep = () => true) {
+  const lines = [];
+  const walk = (d) => {
+    for (const f of readdirSync(d).sort()) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (keep(f)) lines.push(`${relative(dir, p).split(sep).join("/")} ${createHash("sha256").update(readFileSync(p)).digest("hex")}`);
+    }
+  };
+  walk(dir);
+  return createHash("sha256").update(lines.join("\n")).digest("hex");
+}
+
+// THE OWNER'S EDITS to a copied Extraction (kogaki#1512): each paragraph's record file read
+// against the answer its Extractor wrote, one row per Segment field that differs -- a field the
+// answer's Segment carries, compared as text, and a Segment present on one side only as the
+// field `segment`. Returns the rows, in paragraph and Segment order.
+export function extractionEdits(extractDir, extractions, extractorRun) {
+  const edits = [];
+  extractions.forEach((name, i) => {
+    let rec = null;
+    let answer = null;
+    try { rec = parseYaml(readFileSync(join(extractDir, name), "utf8"), name); } catch { rec = null; }
+    try { answer = JSON.parse(readFileSync(join(extractorRun, `p${i + 1}`, "answer.json"), "utf8")); } catch { answer = null; }
+    if (!rec || !answer) return;
+    const mine = Array.isArray(rec.segments) ? rec.segments : [];
+    const raw = Array.isArray(answer.segments) ? answer.segments : [];
+    for (let j = 0; j < Math.max(mine.length, raw.length); j++) {
+      if (!mine[j] || !raw[j]) { edits.push({ paragraph: i + 1, segment: j + 1, field: "segment" }); continue; }
+      for (const field of Object.keys(raw[j])) {
+        if (String(mine[j][field] ?? "") !== String(raw[j][field] ?? "")) edits.push({ paragraph: i + 1, segment: j + 1, field });
+      }
+    }
+  });
+  return edits;
+}
+
+// COPY AN EARLIER RUN'S STAGES into a new run directory (kogaki#1512). Returns the stage records
+// the engine keeps as `done`, each with its paths moved to the new run and `copied_from` naming
+// the source, and the `reuse` record for `run.json`.
+function copyStages(source, runDir, from) {
+  const prior = JSON.parse(readFileSync(join(source, RUN_FILE), "utf8"));
+  const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
+  const relSource = relFromRepo(source, REPO);
+  const moved = (v) => (typeof v === "string" && (v === source || v.startsWith(source + sep)) ? runDir + v.slice(source.length) : v);
+  const kept = new Map();
+  const copied = [];
+  for (const name of REUSE_FROM[from]) {
+    const prev = priorStages.get(name);
+    if (!prev || prev.state !== "done") fail(`the run at ${source} records its ${name} stage ${prev ? prev.state : "absent"} — only a done stage is copied. Nothing was started.`);
+    const exclude = REUSE_EXCLUDE[name] || [];
+    cpSync(join(source, name), join(runDir, name), { recursive: true,
+      filter: (p) => !exclude.includes(relative(join(source, name), p).split(sep).join("/")) });
+    const rec = Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, moved(v)]));
+    kept.set(name, { ...rec, copied_from: relSource });
+    copied.push({ stage: name, dir: name, sha256: dirSha256(join(runDir, name)) });
+  }
+  const ex = kept.get("extract");
+  const edits = extractionEdits(join(runDir, "extract"), ex.extractions || [], ex.extractor_run);
+  return { prior, kept, reuse: { source: relSource, from, copied, edits } };
+}
+
 // RUN ONE LEG. Returns `{ runDir, stopped?, sheet }`.
-export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null, terms = null }) {
+export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null, terms = null, reuse = null, from = null }) {
   if (resume) return resumeLeg(resume, { provenance });
+  if (reuse) return reuseLeg(reuse, { from, out, audience, provenance, terms });
   let text;
   try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
   const paragraphs = legParagraphs(text);
@@ -317,6 +403,43 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
     terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(termsFile.kinds).length } : null,
     started_at: new Date().toISOString(), stages: [] };
   runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
+  const sheet = join(runDir, "sheet.html");
+  const built = buildSheet({ runs: [runDir], provenance, out: sheet });
+  if (built.error) fail(`the sheet was not written: ${built.error}`);
+  return { runDir, sheet, ...(record.stopped ? { stopped: record.stopped } : {}) };
+}
+
+// REUSE AN EARLIER LEG RUN'S STAGES BEFORE `from` (kogaki#1512). The Passage is the earlier
+// run's `leg.md`; the Audience is the flag's or the earlier run's; the terms file is the flag's
+// from `brief`, and from `paragraph-plan` the earlier run's own, since its Brief is the one copied.
+// Returns `{ runDir, stopped?, sheet }`.
+export function reuseLeg(source, { from, out, audience = null, provenance, terms = null }) {
+  source = resolve(source);
+  if (!Object.hasOwn(REUSE_FROM, from)) fail(`--from takes one of ${Object.keys(REUSE_FROM).join(", ")}, not ${from}. Nothing was started.`);
+  if (!existsSync(join(source, RUN_FILE))) fail(`${source} carries no ${RUN_FILE} — there is no earlier run to reuse. Nothing was started.`);
+  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
+  if (from === "paragraph-plan" && (terms || audience)) fail(`--from paragraph-plan copies the earlier run's Brief, so it takes the Audience and terms that Brief was composed under — drop --audience and --terms. Nothing was started.`);
+  const termsFile = terms ? readTermsFile(terms) : null;
+  if (termsFile && termsFile.error) fail(`${termsFile.error}. Nothing was started.`);
+  const text = readFileSync(join(source, "leg.md"), "utf8");
+  const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
+  const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  mkdirSync(runDir, { recursive: true });
+  writeFileSync(join(runDir, "leg.md"), text);
+  writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
+  chmodSync(join(runDir, RECORDER_FILE), 0o755);
+  const { prior, kept, reuse } = copyStages(source, runDir, from);
+  const audiencePath = audience ? resolvedAudience(audience) : prior.audience;
+  const record = { leg: prior.leg, passage: prior.passage, paragraphs: legParagraphs(text).length, audience: audiencePath,
+    language: recordedLanguage(audiencePath), model_command: realPath,
+    terms: from === "paragraph-plan" ? (prior.terms || null)
+      : termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(termsFile.kinds).length } : null,
+    reuse, started_at: new Date().toISOString(), stages: [] };
+  runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug: record.passage, realPath, audienceArgs: ["--audience", audiencePath], priorStages: kept });
+  const isMove = (f) => f.endsWith(MOVE_RECORD_EXT);
+  record.reuse.moves = { source_sha256: existsSync(join(source, "moves")) ? dirSha256(join(source, "moves"), isMove) : null,
+    sha256: existsSync(join(runDir, "moves")) ? dirSha256(join(runDir, "moves"), isMove) : null };
+  writeJson(join(runDir, RUN_FILE), record);
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
   if (built.error) fail(`the sheet was not written: ${built.error}`);
@@ -374,13 +497,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
     + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] [--terms <a JSON object of term to coined|established>] "
-    + "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map>";
-  if (args._cmd !== "run" || !str("provenance") || (str("resume") ? (str("leg") || str("out")) : (!str("leg") || !str("out")))) {
-    fail(usage);
-  }
+    + "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map> "
+    + `| node src/proof-sheet/leg-run.mjs run --reuse <earlier Leg run directory> --from <${Object.keys(REUSE_FROM).join("|")}> --out <dir> --provenance <the provenance map> [--audience <file>] [--terms <file>]`;
+  const shapeOk = str("resume") ? !(str("leg") || str("out") || str("reuse"))
+    : str("reuse") ? !!(str("from") && str("out") && !str("leg") && !str("passage"))
+      : !!(str("leg") && str("out") && !str("from"));
+  if (args._cmd !== "run" || !str("provenance") || !shapeOk) fail(usage);
   const r = str("resume")
     ? resumeLeg(str("resume"), { provenance: str("provenance") })
-    : runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
+    : str("reuse")
+      ? reuseLeg(str("reuse"), { from: str("from"), out: str("out"), audience: str("audience"), provenance: str("provenance"), terms: str("terms") })
+      : runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
       terms: str("terms") });
   console.log(`run directory: ${r.runDir}`);
   console.log(`sheet written: ${r.sheet}`);

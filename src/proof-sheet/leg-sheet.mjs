@@ -5,7 +5,7 @@
 // WHAT IT SHOWS. A run-conditions line (the Audience, the settings, the model command and
 // the run directory, each with its path and content hash — the Audience's text and the
 // settings' values open from the line), then the original-beside-written comparison table,
-// then the review block (below), then seven cards in pipeline order, stacked: Extraction, Move,
+// then the three paragraph tables (below), then seven cards in pipeline order, stacked: Extraction, Move,
 // Brief, ParagraphPlan, Packet, Draft, Run record (kogaki#1487). Every card has the same four
 // parts, in the same order: Output (the artifact file, open by default except on the Move and
 // Brief cards, which a reader opens only when a problem sends them there — a table of one row
@@ -15,8 +15,13 @@
 // Calls (folded, attempts and refusals, then every recorded call's stdin and stdout). The
 // ParagraphPlan card has a fifth part, Attempts, between Output and Inputs (kogaki#1437). Nothing
 // is rendered twice: a card that needs another's content links to it instead -- except the
-// review block, which repeats the Segments tables, the refused attempts and the bindings
-// because it is the review surface and the cards are the trace (kogaki#1487).
+// paragraph tables, which repeat the Segments tables, the refused attempts and the bindings
+// because they are the review surface and the cards are the trace (kogaki#1487).
+//
+// A REUSED RUN (kogaki#1512): a stage copied from an earlier run carries a second badge naming
+// that run, and a Segment row of a copied Extraction the owner edited carries "edited by owner",
+// both read from `run.json` alone. The run header states whether the Leg's terms were fixed by a
+// terms file or left to the Brief's own draw.
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
@@ -211,6 +216,13 @@ function badgeSpan(key, anchored = false) {
   return ` <span class="badge ${b.type}"${b.note ? ` title="${esc(b.note)}"` : ""}>${esc(label)}</span>`;
 }
 
+// A STAGE COPIED FROM AN EARLIER RUN (kogaki#1512) carries a second badge naming that run, read
+// from the stage's own record; its attempts and refusals are the earlier run's, never re-judged.
+export const COPIED_BADGE = "copied from";
+function copiedBadge(source) {
+  return source ? ` <span class="badge copied">${COPIED_BADGE} ${esc(source)}</span>` : "";
+}
+
 // A list of Inputs entries, each a link to another card on the same page and the path of
 // what the stage read (kogaki#1401 acceptance: "every Inputs entry is a link to another
 // card"). No input's content is repeated here.
@@ -222,11 +234,11 @@ function inputsList(entries, idx = 0) {
 // One card: Output (open by default, folded where `outputOpen` is false), Inputs, Prompt, Calls,
 // in that order -- and Attempts between Output and Inputs where the card has one (the
 // ParagraphPlan card, kogaki#1437).
-function cardWrap(key, { output, attempts, inputs, prompt, calls, outputOpen = true, anchored = false }, idx = 0) {
+function cardWrap(key, { output, attempts, inputs, prompt, calls, outputOpen = true, anchored = false, copiedFrom = null }, idx = 0) {
   const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
-  return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}</h3>`
+  return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}${copiedBadge(copiedFrom)}</h3>`
     + `<details class="part out"${outputOpen ? " open" : ""}><summary>Output</summary>${output}</details>`
     + (attempts !== undefined ? `<details class="part attempts"><summary>Attempts</summary>${attempts}</details>` : "")
     + `<details class="part in"><summary>Inputs</summary>${inputs}</details>`
@@ -465,22 +477,39 @@ function extractionParagraphs(r) {
     const inputAt = promptText ? promptText.indexOf(JUDGE_INPUT_MARKER) : -1;
     const key = inputAt >= 0 ? promptText.slice(inputAt) : null;
     const calls = key ? r.extractCalls.filter((c) => String(c.stdin).includes(key)) : [];
-    const segs = answer && Array.isArray(answer.segments) ? answer.segments : [];
     // THE RECORD, RENDERED (kogaki#1413): the Extraction file is a YAML record, shown here as
     // the Markdown `extractionMarkdown` renders, folded after the Segments table (kogaki#1479).
+    // The Segments come off the record file, which is what the Moves were ingested from and
+    // what the owner edits (kogaki#1512); the Extractor's answer stands in where it is unreadable.
     let rendered = null;
-    if (text) { try { rendered = extractionMarkdown(parseYaml(text, file)); } catch { rendered = null; } }
+    let rec = null;
+    if (text) { try { rec = parseYaml(text, file); rendered = extractionMarkdown(rec); } catch { rendered = null; } }
+    const segs = rec && Array.isArray(rec.segments) ? rec.segments : answer && Array.isArray(answer.segments) ? answer.segments : [];
     per.push({ i, file, text, rendered, promptText, calls, attempts, segs });
   }
   return per;
 }
 
-// A paragraph's Segments table, the one renderer the Extraction card and the review block share.
-const segmentsTable = (segs) => (segs.length
+// A paragraph's Segments table, the one renderer the Extraction card and the paragraph tables
+// share. `edited` is the set of Segment numbers the run record names as edited by the owner
+// (kogaki#1512); each such row carries the badge, with the edited fields in its title.
+export const EDITED_BADGE = "edited by owner";
+const segmentsTable = (segs, edited = new Map()) => (segs.length
   ? `<table><thead><tr><th>#</th><th>content clause</th><th>does</th><th>relation</th></tr></thead><tbody>`
-    + segs.map((s, j) => `<tr><td>${j + 1}</td><td>${esc(s.content || "")}</td><td>${esc(s.does || "")}</td><td>${esc(s.relation || "")}</td></tr>`).join("")
+    + segs.map((s, j) => `<tr${edited.has(j + 1) ? ' class="edited"' : ""}><td>${j + 1}${edited.has(j + 1)
+      ? ` <span class="badge edited" title="${esc(edited.get(j + 1).join(", "))}">${EDITED_BADGE}</span>` : ""}</td>`
+      + `<td>${esc(s.content || "")}</td><td>${esc(s.does || "")}</td><td>${esc(s.relation || "")}</td></tr>`).join("")
     + `</tbody></table>`
   : `<p class="muted">No Segments.</p>`);
+
+// The owner's edits the run record names for paragraph `n`: Segment number -> edited fields.
+function editedSegments(r, n) {
+  const m = new Map();
+  for (const e of (r.run.reuse && r.run.reuse.edits) || []) {
+    if (e.paragraph === n) m.set(e.segment, [...(m.get(e.segment) || []), e.field]);
+  }
+  return m;
+}
 
 function extractionCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
@@ -488,7 +517,7 @@ function extractionCard(r, idx) {
   const output = stageNote(r, "extract")
     + per.map((p) => prowBlock("extraction", p.i + 1, idx, `paragraph ${p.i + 1}`,
       `<p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? segmentsTable(p.segs) + sub("rendering", pre(p.rendered || p.text || "(not written)"))
+      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) + sub("rendering", pre(p.rendered || p.text || "(not written)"))
         + sub("record file", pre(p.text || "(not written)")) : ""))).join("");
 
   // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
@@ -498,7 +527,7 @@ function extractionCard(r, idx) {
     ? per.map((p) => sub(`paragraph ${p.i + 1} — attempts ${p.attempts ? p.attempts.attempts : "?"}`, callsBlock(p.calls, `paragraph ${p.i + 1} calls`, promptEntries.map(([t, x]) => [`Prompt, ${t}`, x])))).join("")
     : `<p class="muted">No recorded model calls.</p>`;
 
-  return cardWrap("extraction", { output, inputs: inputsList([], idx), prompt: promptPart(promptEntries), calls: callsHtml }, idx);
+  return cardWrap("extraction", { output, copiedFrom: r.stage("extract").copied_from || null, inputs: inputsList([], idx), prompt: promptPart(promptEntries), calls: callsHtml }, idx);
 }
 
 // CARD 2 — MOVE. Output (folded, kogaki#1487): one collapsible block per paragraph, closed by
@@ -560,7 +589,7 @@ function briefCard(r, idx) {
       + callsBlock(calls, `${title} calls`, named.map(([t, x]) => [`Prompt, ${t}`, x])));
   }
   return cardWrap("brief", {
-    output, outputOpen: false, anchored: briefAnchored(r.legBriefRun),
+    output, outputOpen: false, anchored: briefAnchored(r.legBriefRun), copiedFrom: r.stage("brief").copied_from || null,
     inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
     prompt: promptPart(named),
     calls: callsHtml,
@@ -858,15 +887,16 @@ function moveStates(r, move) {
     + `</tbody></table>`;
 }
 
-// THE REVIEW BLOCK (kogaki#1487, owner 2026-10-21): between the comparison table and the first
-// card, three parts, all open -- every paragraph's Segments table (by the Extraction card's own
-// renderer), every `does-not-fit` verdict across the plan's attempts with the judge's `why`
-// in full, and the bindings record with each bound Move's before and after folded beneath its
-// row -- so a reader completes a review without opening a card.
+// THE PARAGRAPH TABLES (kogaki#1487, owner 2026-10-21; plain tables since kogaki#1512, owner
+// 2026-10-22): between the comparison table and the first card, three tables under their own
+// headings, with no heading above them and nothing folded -- every paragraph's Segments table
+// (by the Extraction card's own renderer), every `does-not-fit` verdict across the plan's
+// attempts with the judge's `why` in full, and the bindings record with each bound Move's
+// before and after beneath its row -- so a reader completes a review without opening a card.
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}</h4>`
-    + (p.file ? segmentsTable(p.segs) : `<p class="muted">(not written)</p>`)).join("");
+    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge
   // named no does-not-fit, is a row too, carrying the job record's refusal: only an attempt
@@ -899,14 +929,14 @@ function reviewBlock(r, idx) {
   const bindingsHtml = rows.length
     ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>why</th></tr></thead><tbody>`
       + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a></td><td>${esc(b.why || "")}</td></tr>`
-        + `<tr><td colspan="4">${sub("before / after", moveStates(r, b.move))}</td></tr>`).join("")
+        + `<tr class="states"><td colspan="4"><p class="meta">before / after</p>${moveStates(r, b.move)}</td></tr>`).join("")
       + `</tbody></table>`
     : `<p class="muted">No bindings record.</p>`;
 
-  return `<section class="review" id="review-${idx}"><h3>Review</h3>`
-    + `<details class="rpart segments" open><summary>Segments</summary>${segments}</details>`
-    + `<details class="rpart refused" open><summary>Refused attempts</summary>${refusedHtml}</details>`
-    + `<details class="rpart bindings" open><summary>Bindings</summary>${bindingsHtml}</details>`
+  return `<section class="review" id="review-${idx}">`
+    + `<h3>Segments</h3><div class="rpart segments">${segments}</div>`
+    + `<h3>Refused attempts</h3><div class="rpart refused">${refusedHtml}</div>`
+    + `<h3>Bindings</h3><div class="rpart bindings">${bindingsHtml}</div>`
     + `</section>`;
 }
 
@@ -918,7 +948,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
 .pair td{width:50%;white-space:pre-wrap}
-.review{border:2px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.review>h3{font-size:16px;margin:4px 0}.review h4{font-size:14px;margin:10px 0 4px}
+.review{border:2px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.review>h3{font-size:16px;margin:10px 0 4px}.review h4{font-size:14px;margin:10px 0 4px}
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
 details.sub{margin:4px 0 4px 8px}
@@ -927,7 +957,7 @@ details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
-.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
+.badge.copied,.badge.edited{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
 .pcard.substitute{border-left:4px solid var(--accent)}
 .diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
 .legend{list-style:none;display:flex;gap:14px;flex-wrap:wrap;margin:4px 0;padding:0;font-size:12px;color:var(--muted)}
@@ -935,6 +965,15 @@ table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line)
 .swatch{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--line)}
 .swatch.ownerInput{background:#e9e4d8}.swatch.modelWritten{background:#dce8df}.swatch.mechanical{background:#dbe3ef}
 .anchors{margin:4px 0 0;font-size:12px}`;
+
+// THE TERMS LINE (kogaki#1512): whether the Leg's introduced terms were fixed by a terms file
+// (kogaki#1498) or left to the Brief's own draw, read from the run record's own `terms`.
+export function termsLine(run) {
+  const t = run && run.terms;
+  return t && Number.isInteger(t.count)
+    ? `terms fixed from ${relFromRepo(resolve(REPO, t.path), REPO)} (${t.count})`
+    : "terms by the Brief's own draw";
+}
 
 function card(r, { provenance, mapHash, idx = 0 }) {
   const sectionPath = r.legId ? join(r.ws, "sections", `${r.legId}.md`) : null;
@@ -957,6 +996,7 @@ function card(r, { provenance, mapHash, idx = 0 }) {
 
   return `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
     + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
+    + `<p class="terms">${esc(termsLine(r.run))}</p>`
     + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
 }
