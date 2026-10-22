@@ -60,8 +60,9 @@
 #       Extraction card, a block carrying one Segments table per paragraph, a refused-attempts
 #       table with exactly one row -- attempt 1, Leg Waypoint 2, the judge's `why` -- linking to
 #       that attempt's block, and a Bindings table with one row per Leg Waypoint carrying its
-#       `point`, the bound Move and the bindings record's `why`, each with a folded "before /
-#       after" block carrying the Move file's before and after; an attempt whose judge answer
+#       `point`, the bound Move and the bindings record's `why`, each row carrying a "before /
+#       after" `<details>` closed on load holding the Move file's before and after, and no other
+#       row in the table (kogaki#1516); an attempt whose judge answer
 #       is unreadable is a row carrying the job record's refusal; the resumed run (h), refused
 #       nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
 #       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the
@@ -85,7 +86,8 @@
 #       makes no Extractor or Brief call; the sheet badges each copied stage's card "copied from
 #       <source>"; a copied Extraction with one Segment's content clause edited is recorded as
 #       paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner".
-#       The paragraph tables (o) render with no details element and no "Review" heading, and the
+#       The paragraph tables (o) render with no details element but the before / after folds
+#       and no "Review" heading, and the
 #       run header (p) reads "terms fixed from <file> (1)" or "terms by the Brief's own draw".
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
@@ -590,8 +592,9 @@ else {
     return review.slice(a, b >= 0 ? b : undefined);
   };
   // (o) THE PARAGRAPH TABLES ARE PLAIN (kogaki#1512): three headings and no section heading,
-  // no details element anywhere between the comparison table and the first card.
-  ok(!review.includes("<details") && !review.includes("<h3>Review</h3>")
+  // no details element anywhere between the comparison table and the first card but each
+  // binding's closed before / after fold (kogaki#1516).
+  ok(!review.replace(/<details class="states"><summary>before \/ after<\/summary>/g, "").includes("<details") && !review.includes("<h3>Review</h3>")
     && ["Segments", "Refused attempts", "Bindings"].every((h) => review.includes(`<h3>${h}</h3>`)),
     "(o) the paragraph tables carry a details element or a Review heading, or lack their own three headings");
   const segPart = rpart("segments");
@@ -631,21 +634,28 @@ else {
   ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part attempts">', att1) >= 0, "(o) the refused row's link names no attempt block on the ParagraphPlan card");
   const bindRec = JSON.parse(readOr(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"), '{"bindings":[]}')).bindings;
   const bindPart = rpart("bindings");
-  const bindRows = bindPart.split("<tr><td>").slice(1).filter((x) => /^\d+<\/td><td>POINT-/.test(x) || /^\d+<\/td><td>\(no point/.test(x));
+  // A binding row runs to the next binding row: the Move's before / after table nests inside it.
+  const rowAt = [...bindPart.matchAll(/<tr><td>(?=\d+<\/td><td>(?:POINT-|\(no point))/g)].map((m) => m.index);
+  const bindRows = rowAt.map((at, i) => bindPart.slice(at + 8, i + 1 < rowAt.length ? rowAt[i + 1] : bindPart.length));
   ok(bindRec.length === 3 && bindRows.length === 3, `(o) the Bindings table holds ${bindRows.length} row(s) against the record's ${bindRec.length}`);
   for (const b of bindRec) {
     const row = bindRows.find((x) => x.startsWith(`${b.waypoint}</td>`)) || "";
     ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.why)),
       `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the record's why`);
-    const at = bindPart.indexOf(row);
-    const sAt = at >= 0 ? bindPart.indexOf('<tr class="states">', at) : -1;
-    const fold = sAt >= 0 ? bindPart.slice(sAt, bindPart.indexOf("</table>", sAt) + 8) : "";
+    const sAt = row.indexOf('<details class="states"><summary>before / after</summary>');
+    const fold = sAt >= 0 ? row.slice(sAt, row.indexOf("</details>", sAt) + 10) : "";
     const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
     const lines = Object.keys(mv.before || {}).map((d) => [mv.before[d], (mv.after || {})[d]]);
-    ok(fold.includes('<p class="meta">before / after</p>') && lines.length > 0
+    ok(fold.includes("<table>") && lines.length > 0
       && lines.every(([bf, af]) => fold.includes(escHtml(String(bf))) && fold.includes(escHtml(String(af ?? "")))),
-      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no before / after table with the Move's lines`);
+      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no closed before / after fold with the Move's lines`);
   }
+  // The before / after folds are closed on load and sit inside their binding's own row, so the
+  // table's body holds one row per Leg Waypoint and nothing else (kogaki#1516).
+  const bindBody = bindPart.includes("<tbody>") ? bindPart.slice(bindPart.indexOf("<tbody>") + 7, bindPart.lastIndexOf("</tbody>")) : "";
+  const bodyRows = (bindBody.replace(/<details class="states">[\s\S]*?<\/details>/g, "").match(/<tr[\s>]/g) || []).length;
+  ok(bodyRows === bindRec.length && !/<details class="states"[^>]*\sopen/.test(bindPart) && !bindPart.includes('<tr class="states">'),
+    `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Leg Waypoint(s), or a before / after fold is open on load`);
   // An attempt whose judge answer is unreadable is a row carrying the job record's refusal,
   // never a silence read as "no attempt was refused".
   const unreadable = join(root, "unreadable-judge-run");
