@@ -906,7 +906,8 @@ function moveStates(r, move) {
 // headings, with no heading above them and nothing folded -- every paragraph's Segments table
 // (by the Extraction card's own renderer), every `does-not-fit` verdict across the plan's
 // attempts with the judge's `why` in full, and the bindings record with each bound Move's
-// before and after beneath its row -- so a reader completes a review without opening a card.
+// before and after in its row -- so a reader completes a review without opening a card. The
+// before and after fold closed under `before / after`, one row per Leg Waypoint (kogaki#1516).
 // Each paragraph's heading is followed by its bound Move's description (kogaki#1517).
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
@@ -944,8 +945,8 @@ function reviewBlock(r, idx) {
   const rows = ((bindings && bindings.bindings) || []).filter((b) => !r.legId || !b.leg_id || b.leg_id === r.legId);
   const bindingsHtml = rows.length
     ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>why</th></tr></thead><tbody>`
-      + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a></td><td>${esc(b.why || "")}</td></tr>`
-        + `<tr class="states"><td colspan="4"><p class="meta">before / after</p>${moveStates(r, b.move)}</td></tr>`).join("")
+      + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a>`
+        + `<details class="states"><summary>before / after</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.why || "")}</td></tr>`).join("")
       + `</tbody></table>`
     : `<p class="muted">No bindings record.</p>`;
 
@@ -968,6 +969,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
 details.sub{margin:4px 0 4px 8px}
+details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
 details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
 details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
