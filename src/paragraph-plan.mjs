@@ -205,6 +205,49 @@ function renderRowHead(row) {
   try { return judgePrompt(row, "", null, null); } finally { bindFlow(held); }
 }
 
+// THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511): a row's criteria are the
+// `- <NAME>: <sentence>` lines of its rendered judgment point, read off the prompt the model
+// is shown rather than the raw table string, so shared text cannot hide a criterion.
+const CRITERION_LINE = /^- ([A-Z][A-Z ]*[A-Z]): (.+)$/;
+
+export function criteriaOf(prompt) {
+  const at = prompt.indexOf("JUDGMENT POINT: ");
+  const end = prompt.indexOf("\nREQUIRED RECORD SHAPE: ", at);
+  const point = at < 0 ? "" : prompt.slice(at, end < 0 ? undefined : end);
+  return point.split("\n").map((l) => l.match(CRITERION_LINE)).filter(Boolean).map((m) => ({ name: m[1], text: m[2] }));
+}
+
+// One sentence: it ends at its only full stop, and carries no example's run date and no Issue
+// number, which ride beside a criterion as a pointer line or not at all.
+function criterionRefusal({ name, text }, wordsMax) {
+  if (!/[.]$/.test(text) || /[.;!?]\s/.test(text)) return `${name} is not one sentence`;
+  if (/#\d+|\b\d{4}-\d{2}-\d{2}\b/.test(text)) return `${name} carries an Issue number or a run date`;
+  const n = words(text);
+  return n > wordsMax ? `${name} runs ${n} words, over the bound of ${wordsMax}` : null;
+}
+
+// Every failure of the table's two rows against `criteria`: the names in order, one sentence
+// each, under `words_max`. Exported so the check reads what `start` refuses on.
+export function criteriaFailures(table) {
+  const bound = table.criteria || {};
+  const wordsMax = Number(bound.words_max);
+  if (!Number.isInteger(wordsMax) || wordsMax <= 0) return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `words_max`"];
+  const fails = [];
+  for (const key of ["paragraph_plan_unit", "paragraph_plan_judge_unit"]) {
+    const want = Array.isArray(bound[key]) ? bound[key] : [];
+    const got = criteriaOf(renderRowHead({ id: key, ...table[key] }));
+    if (!want.length) fails.push(`\`criteria\` names no criterion for ${key}`);
+    if (JSON.stringify(got.map((c) => c.name)) !== JSON.stringify(want)) {
+      fails.push(`${key} carries the criteria ${JSON.stringify(got.map((c) => c.name))}, not the ${JSON.stringify(want)} \`criteria\` names`);
+    }
+    for (const c of got) {
+      const why = criterionRefusal(c, wordsMax);
+      if (why) fails.push(`${key}: ${why}`);
+    }
+  }
+  return fails;
+}
+
 export function paragraphPlanUnitPrompt(row, input) {
   const held = bindFlow(FLOW);
   try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
@@ -291,7 +334,7 @@ export function noParagraphMoveFitsRefusal(failures) {
 // for it (kogaki#1378: the same four criteria the Leg judge judges); every Leg Waypoint
 // after the first also carries its `join`, a relation word judged against the previous
 // entry's bound Move's `after` and its own first Paragraph Waypoint (kogaki#1411, kogaki#1477).
-// The Leg's introduced terms ride beside it, so FIFTH can refuse a first use with no meaning
+// The Leg's introduced terms ride beside it, so RECOVERABLE can refuse a first use with no meaning
 // (kogaki#1497).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
@@ -408,6 +451,8 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   if (persona.error) fail(persona.error);
   const row = table.paragraph_plan_unit || fail("src/paragraph-plan-workflow.json declares no paragraph_plan_unit row. Nothing was started.");
   const judgeRow = table.paragraph_plan_judge_unit || fail("src/paragraph-plan-workflow.json declares no paragraph_plan_judge_unit row. Nothing was started.");
+  const unbounded = criteriaFailures(table);
+  if (unbounded.length) fail(`src/paragraph-plan-workflow.json's rows are not named criteria under their bound (kogaki#1511): ${unbounded.join("; ")}. Nothing was started.`);
   const callLimitS = positiveSetting(table.job, "call_limit_s");
   const unitAttempts = positiveSetting(table.job, "unit_attempts");
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
