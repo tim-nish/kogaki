@@ -874,11 +874,24 @@ function legPoint(r, n) {
   return (wp && wp.point) || "(no point in the Brief)";
 }
 
+// A bound Move's record, read from the run's moves directory; null where none is readable.
+function moveRecord(r, move) {
+  const mt = move ? read(join(r.runDir, "moves", `${move}${MOVE_RECORD_EXT}`)) : null;
+  if (!mt) return null;
+  try { return parseYaml(mt) || null; } catch { return null; }
+}
+
+// A bound Move's `description` as one plain paragraph (kogaki#1517); nothing where no Move is
+// bound or its record carries none.
+function moveDescription(r, move) {
+  const rec = moveRecord(r, move);
+  const d = rec && typeof rec.description === "string" ? rec.description.trim() : "";
+  return d ? `<p>${esc(d)}</p>` : "";
+}
+
 // A bound Move's `before` and `after`, one row per dimension, read from the run's moves directory.
 function moveStates(r, move) {
-  let rec = null;
-  const mt = move ? read(join(r.runDir, "moves", `${move}${MOVE_RECORD_EXT}`)) : null;
-  if (mt) { try { rec = parseYaml(mt); } catch { rec = null; } }
+  const rec = moveRecord(r, move);
   if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
   const before = (rec.before && typeof rec.before === "object") ? rec.before : {};
   const after = (rec.after && typeof rec.after === "object") ? rec.after : {};
@@ -894,9 +907,11 @@ function moveStates(r, move) {
 // (by the Extraction card's own renderer), every `does-not-fit` verdict across the plan's
 // attempts with the judge's `why` in full, and the bindings record with each bound Move's
 // before and after beneath its row -- so a reader completes a review without opening a card.
+// Each paragraph's heading is followed by its bound Move's description (kogaki#1517).
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}</h4>`
+    + moveDescription(r, entries[p.i] && entries[p.i].move)
     + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge

@@ -64,7 +64,9 @@
 #       after" block carrying the Move file's before and after; an attempt whose judge answer
 #       is unreadable is a row carrying the job record's refusal; the resumed run (h), refused
 #       nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
-#       "Point:" and the Leg Waypoint's `point` from the Brief.
+#       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the
+#       Segments part is followed by its bound Move's `description` as one plain paragraph and
+#       then its table, and a paragraph with no Move bound has nothing between the two (kogaki#1517).
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
 #       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
 #       (a stream line every 200 ms, as a live stream-json call writes),
@@ -207,7 +209,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         manner: p.number === 2 && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
-      description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
+      description: "Names an act, then names who pays for it (paragraph " + p.number + ").", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
     if (first && !retried) delete record.segments[0].operation;
     return out(record, "extract");
@@ -595,6 +597,31 @@ else {
   const segPart = rpart("segments");
   ok((segPart.match(/<th>content clause<\/th>/g) || []).length === 3 && [1, 2, 3].every((i) => segPart.includes(`CONTENT-${i}-1`) && segPart.includes(`paragraph ${i} — name_an_act_then_its_cost_${i}`)),
     "(o) the review block does not carry one Segments table per paragraph, headed by its paragraph and Move");
+  // (o) THE MOVE'S DESCRIPTION (kogaki#1517): each paragraph heading is followed by its bound
+  // Move record's `description` as one plain paragraph, and only then by its Segments table.
+  for (let i = 1; i <= 3; i++) {
+    const head = segPart.indexOf(`<h4>paragraph ${i} — `);
+    const mv = parseYaml(readOr(join(runDir, "moves", `name_an_act_then_its_cost_${i}.yaml`), "{}"), "move");
+    const desc = typeof mv.description === "string" ? mv.description.trim() : "";
+    const headEnd = head >= 0 ? segPart.indexOf("</h4>", head) + 5 : -1;
+    const table = headEnd >= 0 ? segPart.indexOf("<table", headEnd) : -1;
+    ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd
+      && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>`,
+      `(o) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph above its Segments table`);
+  }
+  // A paragraph with no Move bound shows its heading and its table with nothing between them.
+  const unbound = join(root, "unbound-move-run");
+  cpSync(runDir, unbound, { recursive: true });
+  const ingestPath = join(unbound, "ingest", "ingest.json");
+  const ingestRec = JSON.parse(readOr(ingestPath, '{"entries":[]}'));
+  if (ingestRec.entries && ingestRec.entries[1]) delete ingestRec.entries[1].move;
+  writeFileSync(ingestPath, JSON.stringify(ingestRec));
+  const nBuilt = S.buildSheet({ runs: [unbound], provenance: map, out: join(root, "unbound.html") });
+  const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
+  const nHead = nSeg.indexOf("<h4>paragraph 2 — (no Move)</h4>");
+  const nAfter = nHead >= 0 ? nSeg.slice(nHead + "<h4>paragraph 2 — (no Move)</h4>".length) : "";
+  ok(nHead >= 0 && nAfter.startsWith("<table") && nSeg.includes(escHtml("Names an act, then names who pays for it (paragraph 1).")),
+    "(o) a paragraph with no Move bound does not show its heading directly above its Segments table");
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
   ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")
