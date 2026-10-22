@@ -172,20 +172,36 @@ export function introducedTerms(entries) {
     .map((p) => ({ term: p.term, meaning: introducedMeaning(p) }));
 }
 
-// EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS TWO FIELDS (kogaki#1414, reverting the
-// withholding of kogaki#1403). A Segment is `does`, the step's operation written subject-free,
-// and `relation`, its relation to the Segment before it, in prose -- no label set. The Move
-// record carries `segments` as a list of maps in that shape (kogaki#1413); this numbers each
-// one into `{ segment, does, relation }`, `relation` empty on Segment 1, so the planner reads
-// the two fields apart and by position. kogaki#1403 withheld the description because the
-// planner read it as content; the plan row now says a `does` is an operation to perform and
+// EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS THREE FIELDS (kogaki#1414, reverting the
+// withholding of kogaki#1403; `manner` from kogaki#1510). A Segment is `operation`, the step's
+// operation written subject-free, `relation`, its relation to the Segment before it, in prose
+// -- no label set -- and `manner`, the local realisation the step takes, empty on most. The
+// Move record carries `segments` as a list of maps in that shape (kogaki#1413); this numbers
+// each one into `{ segment, operation, relation, manner }`, `relation` empty on Segment 1 and
+// `manner` empty where the Move gives none, so the planner reads the fields apart and by
+// position. kogaki#1403 withheld the description because the
+// planner read it as content; the plan row now says an `operation` is an operation to perform and
 // never a point to state, and the judge checks each Paragraph Waypoint against its own
 // Segment, so the leak is refused where it happens rather than by blinding the planner (on
 // the 2026-10-16 run two labels alone could not carry "concede and promise to simplify", and
 // paragraph 2's first point lost its Segment). `before`, `after` and `breaks` are untouched.
 export function segmentsForPlanCall(segments) {
   if (!Array.isArray(segments) || !segments.length) return segments;
-  return segments.map((s, i) => ({ segment: i + 1, does: String(s.does).trim(), relation: String(s.relation ?? "").trim() }));
+  return segments.map((s, i) => ({ segment: i + 1, operation: String(s.operation).trim(),
+    relation: String(s.relation ?? "").trim(), manner: String(s.manner ?? "").trim() }));
+}
+
+// THE MANNER RIDES ON THE PARAGRAPH WAYPOINT ITS SEGMENT BUILDS (kogaki#1510). The Nth
+// Paragraph Waypoint is built on the bound Move's Nth Segment (THIRD and SIXTH of the judge),
+// so where that Segment carries a `manner` the Harness copies it onto the Paragraph Waypoint
+// as the plan is written; the planner never writes one, and the Packet renders it on that
+// Paragraph Waypoint's line.
+export function withSegmentManners(paragraphWaypoints, segments) {
+  if (!Array.isArray(paragraphWaypoints)) return paragraphWaypoints;
+  return paragraphWaypoints.map((p, j) => {
+    const m = Array.isArray(segments) && segments[j] ? String(segments[j].manner ?? "").trim() : "";
+    return m ? { ...p, manner: m } : p;
+  });
 }
 
 // The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
@@ -401,7 +417,7 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId) {
     ...failures.map((f) => `Leg ${f.leg_id}, Waypoint ${f.waypoint}: the judge wrote: "${f.why}"`),
     "Generate the Paragraph Waypoints again so that they begin where the bound Move's before holds, end where its "
     + "after leaves the reader, follow the Move's order (its segments), "
-    + "each perform its own Segment's does and stand in that Segment's relation, "
+    + "each perform its own Segment's operation and stand in that Segment's relation, "
     + "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the "
     + "previous paragraph's bound Move's after leaves open, restates no Paragraph Waypoint, names no noun phrase "
     + "of either paragraph's Paragraph Waypoints, brings no case, example or term of its own and states no effect "
@@ -551,7 +567,8 @@ export function finishParagraphPlan(dir) {
       + `at the start, ${sha256(briefText)} now) — nothing was written; run /paragraph-plan on it again.`] };
   }
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
-    waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
+    waypoints: units[i].candidate.waypoints.map((e) => (e.move === null ? e.paragraph_waypoints
+      : withSegmentManners(e.paragraph_waypoints, boundMoveContract(e.move, start.moves_dir).segments))),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);

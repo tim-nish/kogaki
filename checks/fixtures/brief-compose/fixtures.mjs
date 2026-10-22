@@ -51,11 +51,11 @@ export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 // `segments` -- the Adapter refuses one without them (kogaki#1412).
 export const FIT_MOVE = {
   m_open: { breaks: ["breaks if the uncovered case is never named."],
-    segments: [{ does: "states the claim." }, { does: "names the one case it does not cover.", relation: "limits the claim it follows." }] },
+    segments: [{ operation: "states the claim." }, { operation: "names the one case it does not cover.", relation: "limits the claim it follows." }] },
   m_turn: { breaks: ["breaks if only one party acts."],
-    segments: [{ does: "states the first party's claim." }, { does: "answers the claim in kind.", relation: "answers the opening." }] },
+    segments: [{ operation: "states the first party's claim." }, { operation: "answers the claim in kind.", relation: "answers the opening." }] },
 };
-export const segmentText = (f) => f.segments.map((x) => x.does);
+export const segmentText = (f) => f.segments.map((x) => x.operation);
 let fitMoves = null;
 // The library's directory, written once per process; `moves/` is read from
 // the repository root, the working directory every member runs in.

@@ -70,12 +70,12 @@ def _cell(value):
 
 
 def segments_text(segments):
-    """A Move's `segments` as one string of its Segments' `does` and
+    """A Move's `segments` as one string of its Segments' `operation` and
     `relation` clauses, in order — what the near-duplicate check compares."""
     if not isinstance(segments, list):
         return ""
     return " ".join(
-        "%s %s" % (_cell(s.get("does")), _cell(s.get("relation")))
+        "%s %s" % (_cell(s.get("operation")), _cell(s.get("relation")))
         for s in segments if isinstance(s, dict)
     )
 

@@ -538,7 +538,7 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   writeFileSync(join(moves, "m1.yaml"), ["id: m1", "description: the fixture Move m1.",
     "before:", "  knowledge: before.", "after:", "  knowledge: after.",
     "breaks:", "  - breaks if the left-out case is never named.",
-    "segments:", "  - does: states the claim.", "  - does: names the case it leaves out.", "    relation: limits the claim.", ""].join("\n"));
+    "segments:", "  - operation: states the claim.", "  - operation: names the case it leaves out.", "    relation: limits the claim.", ""].join("\n"));
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
   // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
   writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));

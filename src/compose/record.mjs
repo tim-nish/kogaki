@@ -178,8 +178,9 @@ export function paragraphPlanRecord({ briefPath, briefText, legs }) {
         return {
           waypoint: i + 1,
           ...(typeof join === "string" ? { join: oneLine(join) } : {}),
-          paragraph_waypoints: pws.map((p) => (Object.hasOwn(p, "performs")
-            ? { performs: oneLine(p.performs) } : { point: oneLine(p.point), serves: [...p.serves] })),
+          paragraph_waypoints: pws.map((p) => ({ ...(Object.hasOwn(p, "performs")
+            ? { performs: oneLine(p.performs) } : { point: oneLine(p.point), serves: [...p.serves] }),
+          ...(typeof p.manner === "string" && p.manner.trim() ? { manner: oneLine(p.manner) } : {}) })),
         };
       }),
     })),
@@ -201,6 +202,10 @@ const PARAGRAPH_WAYPOINT_KEYS = ["point", "serves"];
 // `serves`: such a Segment carries no part of the Leg Waypoint's point, and a point written
 // for it is invented content.
 const PERFORMS_WAYPOINT_KEYS = ["performs"];
+// THE MANNER (kogaki#1510): a Paragraph Waypoint built on a Segment that carries a `manner`
+// carries it too, copied by the Harness when the plan is written -- never by the planner, so
+// the planner's answer is read with `manner: false` and the plan record with `manner: true`.
+const MANNER_KEY = "manner";
 
 export function undeclaredKey(obj, allowed) {
   return Object.keys(obj).find((k) => !allowed.includes(k));
@@ -275,7 +280,7 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
       if (w.waypoint !== j + 1) return `${atW} is numbered ${JSON.stringify(w.waypoint)} — entries are one per Leg Waypoint, in order`;
       const badJoin = joinRefusal(w, j, atW);
       if (badJoin) return badJoin;
-      const bad = paragraphWaypointsRefusal(w.paragraph_waypoints, leg.waypoints[j].serves, atW);
+      const bad = paragraphWaypointsRefusal(w.paragraph_waypoints, leg.waypoints[j].serves, atW, { manner: true });
       if (bad) return bad;
     }
   }
@@ -331,12 +336,18 @@ export function joinRefusal(w, j, at) {
 // with `point` and `serves` as their only keys -- or `performs` alone (kogaki#1448), which
 // the Claim-coverage rule does not count: the `point` Paragraph Waypoints carry it, and a
 // Leg Waypoint none of whose Paragraph Waypoints carries a `point` is refused.
-export function paragraphWaypointsRefusal(pws, parentServes, at) {
+export function paragraphWaypointsRefusal(pws, parentServes, at, { manner = false } = {}) {
   if (Array.isArray(pws)) {
     for (const [i, p] of pws.entries()) {
       if (p && typeof p === "object" && !Array.isArray(p)) {
+        if (manner && Object.hasOwn(p, MANNER_KEY)
+            && (typeof p.manner !== "string" || p.manner.trim() === "" || /[\r\n]/.test(p.manner))) {
+          return `${at}: Paragraph Waypoint ${i + 1} carries a \`manner\` that is not one non-empty line — it is its Segment's `
+            + "manner, copied, and a Paragraph Waypoint on a Segment with none leaves the key out (kogaki#1510)";
+        }
+        const own = manner ? [MANNER_KEY] : [];
         if (Object.hasOwn(p, "performs")) {
-          const k = undeclaredKey(p, PERFORMS_WAYPOINT_KEYS);
+          const k = undeclaredKey(p, [...PERFORMS_WAYPOINT_KEYS, ...own]);
           if (k) {
             return `${at}: Paragraph Waypoint ${i + 1} carries \`performs\` beside \`${k}\` — a \`performs\` Paragraph Waypoint `
               + "carries its Segment's operation on the reader's reading in place of `point` and `serves`, and nothing else (kogaki#1448)";
@@ -347,7 +358,7 @@ export function paragraphWaypointsRefusal(pws, parentServes, at) {
           }
           continue;
         }
-        const k = undeclaredKey(p, PARAGRAPH_WAYPOINT_KEYS);
+        const k = undeclaredKey(p, [...PARAGRAPH_WAYPOINT_KEYS, ...own]);
         if (k) {
           return `${at}: Paragraph Waypoint ${i + 1} carries \`${k}\` — a Paragraph Waypoint carries \`point\` and \`serves\`, `
             + "or `performs` alone, and nothing of a Move reaches past Paragraph Waypoint generation (kogaki#1375, kogaki#1448)";

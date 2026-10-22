@@ -2,12 +2,12 @@
   "note": "kogaki#1452 fixture: a judge row that reads the Move record and declares every field but `segments.relation` -- the shape of the kogaki#1446 gap, where the judge read a Segment's `relation` and no rule held it. checks/check-schema-binds.sh asserts this table fails naming the table and the field.",
   "fixture_judge_unit": {
     "id": "fixture_judge_unit",
-    "judgment_point": "judge the Paragraph Waypoints of ONE Leg against the bound Move: whether they begin where its `before` holds, end where its `after` leaves the reader, follow its `segments` in order, and survive each test in its `breaks`. A Segment's `does` is an operation performed on a part of the point, never what the Paragraph Waypoint says. Whether each Paragraph Waypoint stands in its Segment's `relation` to the one before it is judged too.",
+    "judgment_point": "judge the Paragraph Waypoints of ONE Leg against the bound Move: whether they begin where its `before` holds, end where its `after` leaves the reader, follow its `segments` in order, and survive each test in its `breaks`. A Segment's `operation` is an operation performed on a part of the point, never what the Paragraph Waypoint says. A Segment's `manner` is never what the Paragraph Waypoint says. Whether each Paragraph Waypoint stands in its Segment's `relation` to the one before it is judged too.",
     "input_shape": "ONE verdict record: `version`, `verdicts`.",
     "refusal": "a verdict outside the closed set. The bound Move's `before`, `after`, `segments` and `breaks` are what you judge, never what your record states.",
     "governing": "checks/check-schema-binds.sh, fixture (kogaki#1452)",
     "binds": {
-      "move": { "before": "excluded", "after": "excluded", "breaks": "excluded", "segments": "excluded", "segments.does": "operation" }
+      "move": { "before": "excluded", "after": "excluded", "breaks": "excluded", "segments": "excluded", "segments.operation": "operation", "segments.manner": "excluded" }
     },
     "binds_unread": {
       "move": ["id", "figure", "continues_from", "description", "evidence"]

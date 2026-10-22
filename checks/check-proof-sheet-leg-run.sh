@@ -16,6 +16,10 @@
 #   (b) the ingest derived one Move per Extraction into the run's own library, and the
 #       ParagraphPlan file gives each Leg Waypoint as many Paragraph Waypoints as its bound
 #       Move has Segments.
+#   (b2) paragraph 2's Segment 2 carries a `manner`: the Move ingested from it carries it on
+#       that Segment, the ParagraphPlan file on the Paragraph Waypoint built on it alone, the
+#       Packet on that Paragraph Waypoint's line, and the sheet's Segment table in its
+#       `manner` column (kogaki#1510).
 #   (c) the Writer's recorded prompt is the Packet alone: the recorded stdin equals the
 #       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
@@ -198,13 +202,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
       // the Segment content carries every word the fake Leg call writes (kogaki#1495)
       segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does: CLAIM-" + p.number + ", POINT-" + p.number + ", in English or Japanese.",
-        does: "states one consequence of an act the reader did not ask for.",
-        relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
+        operation: "states one consequence of an act the reader did not ask for.",
+        relation: i === 0 ? "" : "widens the step before it",
+        manner: p.number === 2 && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
       description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
     };
-    if (first && !retried) delete record.segments[0].does;
+    if (first && !retried) delete record.segments[0].operation;
     return out(record, "extract");
   }
   if (prompt.includes("\`leg_reader_start_unit\` judgment point")) {
@@ -274,6 +279,15 @@ else {
   ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Paragraph Waypoint counts are not the Moves' Segment counts");
   ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.join || "")) === '["","consequence","contrast"]',
     "(b) the ParagraphPlan file does not carry a type-word join on every Leg Waypoint after the first and none on the first (kogaki#1411, kogaki#1477)");
+  // THE MANNER RIDES FROM THE EXTRACTION TO THE PACKET (kogaki#1510): paragraph 2's Segment 2
+  // carries one, so its Move does, the Paragraph Waypoint built on that Segment does, and no other.
+  const MANNER = "a brief direct statement, given with no elaboration.";
+  const move2 = parseYaml(readOr(join(runDir, "moves", "name_an_act_then_its_cost_2.yaml"), "id: none\n"), "move2");
+  ok(Array.isArray(move2.segments) && JSON.stringify(move2.segments.map((g) => g.manner ?? null)) === JSON.stringify([null, MANNER]),
+    `(b) the Move ingested from paragraph 2 does not carry its manner on Segment 2 alone: ${JSON.stringify(move2.segments)}`);
+  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.map((p) => p.manner ?? null)))
+    === JSON.stringify([[null, null], [null, MANNER], [null, null, null]]),
+    `(b) the ParagraphPlan file does not carry the manner on the Paragraph Waypoint built on that Segment alone: ${JSON.stringify(plan.legs && plan.legs[0] && plan.legs[0].waypoints)}`);
 
   // (c) the Writer's prompt is the Packet alone
   const packet = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
@@ -281,6 +295,9 @@ else {
   ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(c) the Writer's recorded prompt is not the Packet byte for byte");
   ok(packet !== null && packet.includes("   *Opens from:* consequence\n") && packet.includes("   *Opens from:* contrast\n")
     && (packet.match(/\*Opens from:\*/g) || []).length === 2, "(c) the Packet does not render each plan join as its Opens-from line (kogaki#1411)");
+  ok(packet !== null && packet.split("\n").filter((l) => /^ *\d+\. .*\*Manner:\*/.test(l)).length === 1
+    && packet.split("\n").some((l) => /^   2\. /.test(l) && l.endsWith(` *Manner:* ${MANNER}`)),
+    `(c) the Packet does not render the manner on the line of the Paragraph Waypoint built on its Segment (kogaki#1510): ${JSON.stringify((packet || "").split("\n").filter((l) => /Manner|PW-2|PERFORMS-2/.test(l)))}`);
   ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
   ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
@@ -342,6 +359,8 @@ else {
     `(e) the comparison table does not pair original paragraph N with written paragraph N: ${legRows.length} row(s)`);
 
   ok(cards.extraction.includes("instruction"), "(e) the Extraction card does not show its paragraphs' prompts");
+  ok(cards.extraction.includes("<th>operation</th><th>relation</th><th>manner</th>") && cards.extraction.includes(`<td>${MANNER}</td>`)
+    && !cards.extraction.includes("<th>does</th>"), "(e) the Extraction card's Segment table does not carry the manner column (kogaki#1510)");
   const ex1 = cards.extraction.slice(cards.extraction.indexOf("paragraph 1"));
   ok(ex1.includes("attempts 2") && ex1.includes("call 2 of 2"), "(e) the Extraction card does not show paragraph 1's two attempts");
 
@@ -723,8 +742,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
       // the Segment content carries every word the fake Leg call writes (kogaki#1495)
       segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does: CLAIM-" + p.number + ", POINT-" + p.number + ", in English or Japanese.",
-        does: "states one consequence of an act the reader did not ask for.",
-        relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
+        operation: "states one consequence of an act the reader did not ask for.",
+        relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
       description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",

@@ -229,7 +229,9 @@ function figureBlockRefusal(block, at) {
 // The shapes moves/ROLES.json's `shapes` states for the list-valued roles,
 // read back at the Adapter (kogaki#1414, carried in YAML by kogaki#1413):
 // `breaks` a list of one-line prose tests, `segments` a list of maps carrying
-// `does` and, on every Segment after the first, `relation`.
+// `operation` (`does` until kogaki#1510), on every Segment after the first `relation`, and,
+// where the Extraction filled one, `manner` (kogaki#1510).
+export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner"]);
 function optionalRoleRefusal(role, field, v, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (role === "tests") {
@@ -238,13 +240,14 @@ function optionalRoleRefusal(role, field, v, at) {
     return i < 0 ? null : `${at}: \`${field}\` test ${i + 1} is not one non-empty line`;
   }
   if (role === "segments") {
-    if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of Segments — one map per Segment carrying \`does\` and \`relation\` (kogaki#1414, kogaki#1413)`;
+    if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of Segments — one map per Segment carrying \`operation\`, \`relation\` and \`manner\` (kogaki#1414, kogaki#1413, kogaki#1510)`;
     for (const [i, s] of v.entries()) {
       const atS = `${at}: \`${field}\` Segment ${i + 1}`;
       if (!isPlainMap(s)) return `${atS} is not a map`;
-      const extra = Object.keys(s).find((k) => k !== "does" && k !== "relation");
-      if (extra) return `${atS} carries \`${extra}\` — a Segment carries \`does\` and \`relation\` only`;
-      if (!oneLine(s.does)) return `${atS} carries no one-line \`does\``;
+      const extra = Object.keys(s).find((k) => !SEGMENT_FIELDS.includes(k));
+      if (extra) return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
+      if (!oneLine(s.operation)) return `${atS} carries no one-line \`operation\``;
+      if (s.manner !== undefined && !oneLine(s.manner)) return `${atS} carries a \`manner\` that is not one non-empty line — a Segment with no manner leaves the key out`;
       if (i === 0 && s.relation !== undefined) return `${atS} carries a \`relation\` — a Move carries no relation to what precedes it (kogaki#1411)`;
       if (i > 0 && !oneLine(s.relation)) return `${atS} carries no one-line \`relation\` to the Segment before it`;
     }

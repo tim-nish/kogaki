@@ -106,7 +106,7 @@ const fails = [];
     const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
     // THE PROMPT TEXT IS A JSON-STRINGIFIED INPUT, so a segments value with
     // newlines appears there with escaped `\n`, not a literal newline.
-    if (!FIT_MOVE.m_turn.segments.every((s) => prompt.includes(s.does))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
+    if (!FIT_MOVE.m_turn.segments.every((s) => prompt.includes(s.operation))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
   }
   const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276);
   if (j.error) fails.push(`(at) readerPathFitInput refused: ${j.error}`);

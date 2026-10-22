@@ -41,8 +41,9 @@ rule that dictates either.
 THE REGISTER YIELDS TO THE PLAN (kogaki#1493, owner ruling 2026-10-21). The
 paragraph directly before `{{register}}` sits outside the rendered register,
 so no edit to an Audience file removes it: where a register rule and a
-numbered or italic line conflict, the line holds for that sentence, and the
-conflict is the Writer's to settle, never a refusal or a judge's stop.
+numbered or italic line, or a line's manner, conflict, the line holds for that
+sentence, and the conflict is the Writer's to settle, never a refusal or a
+judge's stop.
 
 LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
 the Brief's `introduces` and `re-activate` explicitly admit crosses into this
@@ -97,12 +98,16 @@ nothing of the Move itself. No Move file is opened here. The *Opens from* line
 under a waypoint is the ParagraphPlan's join, one word of a closed set of
 relations the stage chose from the reader state the previous paragraph leaves,
 and carries nothing of a Move (kogaki#1411, kogaki#1477).
+The *Manner:* at the end of a Paragraph Waypoint's line is the one Segment
+field that rides on: the ParagraphPlan copies a Segment's `manner` onto the
+Paragraph Waypoint built on it, and the Packet renders it from that file, so
+no Move file is opened for it either (kogaki#1510).
 
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
 field it renders is held to; checks/check-schema-binds.sh reads it and
 src/SCHEMA-BINDS.md renders it beside the workflow rows.
-BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation"}}, "claims": {"leg": {"claims": "content"}}, "journeys": {"leg": {"journeys": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}, "crosses_here": {"leg": {"introduces": "content", "re-activate": "content"}}, "budget": {"leg": {"budget": "structural"}}, "figure_reason": {"leg": {"figure": "content"}}}
+BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation", "paragraph_waypoints.manner": "operation"}}, "claims": {"leg": {"claims": "content"}}, "journeys": {"leg": {"journeys": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}, "crosses_here": {"leg": {"introduces": "content", "re-activate": "content"}}, "budget": {"leg": {"budget": "structural"}}, "figure_reason": {"leg": {"figure": "content"}}}
 -->
 
 # Write one Leg
@@ -135,6 +140,13 @@ clause of the register's own, or with nothing where the order of the sentences
 already carries it; `none` adds nothing. Never state the relation as a
 proposition of its own: the opening does not say that something was left open,
 is owed, or is now taken up. The word is not copied and not announced.
+
+An indented line that ends with *Manner:* names how that point or operation is
+realised in its sentence -- a brief direct statement that takes no
+elaboration, a quotation, a shift of form. Realise the line in that manner: a
+brief direct statement gets no lead-in clause, no reason and no scope added to
+it. The manner is never stated, copied or announced, and it adds nothing to
+what the line asserts (kogaki#1510).
 
 {{waypoints}}
 
@@ -208,8 +220,8 @@ Prose that writes its own heading is refused when the Leg is recorded.
 **What the register below governs.** The register governs how sentences read
 inside the structure the numbered lines and the italic lines above give: it
 adds, removes and reorders no point and no operation. Where a register rule
-and one of those lines conflict, the line holds and the rule yields for that
-sentence. Do not return a refusal for such a conflict.
+and one of those lines, or a line's manner, conflict, the line holds and the
+rule yields for that sentence. Do not return a refusal for such a conflict.
 
 {{register}}
 

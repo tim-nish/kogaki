@@ -25,13 +25,13 @@ the Corpus; this file does not extract Moves.
 - **Segment** — one entry of `segments`: a sentence or group of sentences
   that does one thing to the reader. The model draws the boundaries, and
   the human confirms the cut at step 2 before `segments` is written. A
-  Segment carries two fields, both prose: **does**, the step's operation,
-  written subject-free so it could be performed on any subject, and never
-  its effect on the reader; and **relation**, the step's relation to the
-  Segment before it. Segment 1 has no Segment before it, so its relation is
-  left out, except where a paragraph Extraction records how the paragraph
-  takes up the one before it ("The paragraph unit", rule 5). Neither field
-  draws on a label set. Earlier forms of this contract gave each Segment a
+  Segment carries three fields, all prose: **operation**, the step's
+  operation, written subject-free so it could be performed on any subject,
+  and never its effect on the reader; **relation**, the step's relation to
+  the Segment before it; and **manner**, left out unless the step's
+  technique is one the other two cannot name (kogaki#1510). Segment 1 has
+  no Segment before it, so its relation is left out ("The paragraph unit",
+  rule 5). No field draws on a label set. Earlier forms of this contract gave each Segment a
   function and a relation drawn from two closed label sets; no framework
   this file cites defines either set as a complete classification, nothing branched on the function, and a planner handed
   the two labels without the prose lost what the Segment did (kogaki#1414).
@@ -123,36 +123,34 @@ rule 8 is kogaki#1478's:
 4. **The model answers Q2 and Q3 itself**, as it already answers Q1:
    one answer each, recorded as `answer: model — <answer>`, no candidates.
    No human round. The Segment cut is the model's own and is not confirmed.
-5. **The first Segment records how the paragraph takes up the one before
-   it.** In `segments`, the first Segment carries a `relation`
-   stating, in prose, how it takes up the previous paragraph's last point,
-   and its `content` says which point that is. Its `does` follows the
-   normal rule regardless — subject-free, naming no term, place, person or
-   claim of the original. Only the first paragraph of a work with no text
-   before it leaves the relation out. `what_it_does` names that
-   relation too. It is a fact about
-   the source: ingestion does not copy it into the Move, which carries no
-   relation to what precedes it (kogaki#1411).
+5. **Segment 1 carries no `relation`**, in the first paragraph and in every
+   later one. How the paragraph takes up the one before it is named in
+   `what_it_does`, and Segment 1's `content` says which earlier point it
+   takes up where it takes one up. Its `operation` follows the normal rule
+   — subject-free, naming no term, place, person or claim of the original.
+   A Move carries no relation to what precedes it (kogaki#1411), and the
+   relation Segment 1 once carried was read by nothing downstream, so it is
+   not recorded (kogaki#1510).
 6. **A row is credited where the paragraph finishes moving it.** A section
    2 row's `segment` names the Segment after which the new state holds, not
    the Segment that first mentions something the state is about. Write the
    `expectation` `after` as what the reader, having finished the paragraph,
    expects the next paragraph to do, and say what this paragraph has
    completed.
-7. **Reader states and `does` are written general.** A section 2 `after`
-   state is written as `does` is, in general terms, naming no term, place,
+7. **Reader states and `operation` are written general.** A section 2 `after`
+   state is written as `operation` is, in general terms, naming no term, place,
    person or claim of the original and none of `subject_nouns`, and
    describing nothing of a neighbouring paragraph's content, so that
-   `before` states copied from it stay general. Segment 1's `does` carries
-   no reference to any earlier step or earlier paragraph. A later Segment's
-   `does` is the operation alone, and its `relation` carries the connection
-   to the step before.
-8. **`does`, `content` and `relation` describe what the sentence does when
-   read aloud.** Anything the reader would know only from the page, such as
-   emphasis, bullets, numbering, headings, line breaks or a quotation's
-   marks, is layout: it is recorded in `passage` and nowhere else, never in
-   `does`, `content`, `relation` or a reader-state line. "Introduces a bolded
-   term" fails the test; "introduces a term" passes it. The test is the whole
+   `before` states copied from it stay general. Segment 1's `operation`
+   carries no reference to any earlier step or earlier paragraph. A later
+   Segment's `operation` is the operation alone, and its `relation`
+   carries the connection to the step before.
+8. **`operation`, `content`, `relation` and `manner` describe what the
+   sentence does when read aloud.** Anything the reader would know only
+   from the page, such as emphasis, bullets, numbering, headings, line
+   breaks or a quotation's marks, is layout: it is recorded in `passage`
+   and nowhere else, never in `operation`, `content`, `relation`, `manner`
+   or a reader-state line. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
    mechanism, one rule covering the class rather than a list of its members.
 
 Three fields carry the two levels:
@@ -187,7 +185,7 @@ fields; nothing in the copy is judged.
 |------------------|------------|
 | `name` | `id` |
 | `reader`, the rows whose `after` is not `unchanged` | `before`, each row's `before`, and `after`, each row's `after` — maps keyed by dimension, one entry per changed row |
-| `segments` | `segments` — each Segment's `does`, and its `relation` on every Segment after the first; never `opening`, `content` or Segment 1's `relation` |
+| `segments` | `segments` — each Segment's `operation`, its `relation` on every Segment after the first, and its `manner` where one is filled; never `opening` or `content` |
 | `breaks` | `breaks`, the list of prose tests |
 | `description` | `description` — copied, with no machine role; over 200 characters is refused naming the length |
 
@@ -321,7 +319,7 @@ for the human to confirm or edit; it is not numbered, because there is no
 alternative candidate to choose among, only the one list the model wrote.
 
 Present the Segments as a third item, beside the Passage: the model's
-proposed cut, each Segment given as its opening words and its `does`.
+proposed cut, each Segment given as its opening words and its `operation`.
 The human answers with one line, either accepting the cut as proposed or
 redrawing it (naming the merge, split, or renumbering). `segments` is
 written from whichever cut the human confirms, never from the model's
@@ -445,11 +443,12 @@ dimensions_changed: <N>
 segments:
   - opening: <the quoted opening words>
     content: <what this Segment does with the Passage's own content>
-    does: <the operation, subject-free>
+    operation: <the operation, subject-free>
   - opening: <...>
     content: <...>
-    does: <...>
+    operation: <...>
     relation: <how this Segment relates to the one before it>
+    manner: <only where operation and relation cannot name the technique>
 why_this_order: <one sentence>
 presupposes: <two or three lines>
 breaks:
@@ -497,16 +496,22 @@ What each field holds:
 - `segments` — one entry per Segment, in the cut the human confirmed at
   step 2. `opening` is the quoted opening words of that Segment. `content`
   is one clause saying what the Segment does, written about this Passage's
-  own content. `does` is the Segment's operation in one clause,
+  own content. `operation` is the Segment's operation in one clause,
   subject-free, naming no term,
   place, person or claim of the original, so that it could be performed on
   any subject, and stating what the step does, never its effect on the
   reader. On every Segment after the first, `relation` is one clause
   stating, in prose, how this Segment relates to the one before it;
-  Segment 1 leaves it out (but see "The paragraph unit", rule 5). No label
-  set is used for either field. A Segment with no `does`, or a Segment
-  after the first with no `relation`, is refused at ingestion, naming the
-  Segment's number.
+  Segment 1 carries none ("The paragraph unit", rule 5). `manner` is left
+  out unless the Segment's technique is one `operation` and `relation`
+  together cannot name: then it is one clause naming a local realisation
+  the Passage shows at that Segment — a brief direct statement that takes
+  no elaboration, a quotation, a shift of form — never a point, never a
+  reason, never a restatement of the `operation`, and naming no term,
+  place, person or claim of the original. Left out is the normal case. No
+  label set is used for any of the three. A Segment with no `operation`, a
+  Segment after the first with no `relation`, or Segment 1 carrying one, is
+  refused at ingestion, naming the Segment's number.
 - `why_this_order` — one sentence stating why this order and not another.
 - `presupposes` — two or three lines. What the reader must already have,
   in any of the five dimensions, for this Passage to land. A reader lacking
@@ -689,42 +694,43 @@ segments:
   - opening: It may sound strange for someone who...
     content: >-
       puts the author in the room and makes the next sentence an admission.
-    does: >-
+    operation: >-
       names the speaker's own stake in the subject so the statement that
       follows reads as a concession.
   - opening: bookstores are now overflowing
     content: hands the reader a fact they can confirm.
-    does: states one fact the reader can confirm for themselves.
+    operation: states one fact the reader can confirm for themselves.
     relation: the fact is the concession the previous step set up.
   - opening: Some make extensive use of maps... academic works
     content: shows the field is varied and that the author has surveyed it.
-    does: >-
+    operation: >-
       surveys the range of existing approaches, showing the speaker has
       covered the field.
     relation: widens the one fact into the range of cases behind it.
   - opening: At a time when the publishing industry is stagnating...
     content: builds the incongruity.
-    does: >-
+    operation: >-
       states an incongruity between a general trend and a specific exception
       to it.
     relation: sets the surveyed growth against the trend it runs counter to.
   - opening: This book, too, will probably be placed...
     content: places this book inside the genre just surveyed.
-    does: places the present work inside the field just surveyed.
+    operation: places the present work inside the field just surveyed.
     relation: >-
       follows from the exception: the present work is one more case of it.
   - opening: So why has geopolitics attracted so much attention?
     content: names the reader's question for them.
-    does: >-
+    operation: >-
       states the reader's own question in their voice, naming it directly.
     relation: asks the question the incongruity left open.
   - opening: The biggest reason is the instability of the world
     content: answers it at once.
-    does: answers the question with a single stated cause.
+    operation: answers the question with a single stated cause.
     relation: answers the question just asked.
+    manner: a brief direct statement, given with no elaboration.
   - opening: Throughout history, interest... has repeatedly surged
     content: generalizes the answer so it becomes the book's thesis.
-    does: >-
+    operation: >-
       generalizes the answer into a recurring pattern so it becomes the
       work's thesis.
     relation: extends the single cause into a pattern over time.

@@ -67,9 +67,11 @@ export const DESCRIPTION_MAX = 200;
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
-// A Segment is two prose fields beside its content clause, and `breaks` is a list of prose
-// tests (kogaki#1414): no label set is offered to the model or read back from it.
-const SEGMENT_KEYS = ["content", "does", "relation"];
+// A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
+// tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
+// was `does` until kogaki#1510; `manner` is empty unless the Segment's technique is one
+// `operation` and `relation` together cannot name (kogaki#1510).
+const SEGMENT_KEYS = ["content", "operation", "relation", "manner"];
 // The library's id form: the ingest's own `MOVE_ID` (tools/move_ingest.py).
 const MOVE_ID = /^[a-z0-9_]+$/;
 const FLOW = { lane: "brief", label: "Extractor" };
@@ -162,10 +164,9 @@ function extractionRecordSkeleton(input) {
     reader: DIMENSIONS.map((dimension) => ({ dimension, before: "<the carried state, or your own for the first paragraph>",
       after: "unchanged | <the new state>", segment: "<Segment number(s), or empty where after is unchanged>" })),
     segments: p.sentences.map((_, i) => ({ content: "<one clause, about this paragraph's own content>",
-      does: "<the step's operation in one clause, subject-free, never its effect on the reader>",
-      relation: i === 0
-        ? (input.earlier_paragraphs.length ? "<in prose, how it takes up the previous paragraph's last point>" : "")
-        : "<in prose, how it relates to the Segment before it>" })),
+      operation: "<the step's operation in one clause, subject-free, never its effect on the reader>",
+      relation: i === 0 ? "" : "<in prose, how it relates to the Segment before it>",
+      manner: "" })),
     why_this_order: "<one sentence>", presupposes: "<two or three lines, as one string>",
     breaks: ["<one change a careful writer might make — what the reader loses>", "<another, naming a different change>"],
     description: `<one or two sentences, at most ${DESCRIPTION_MAX} characters>`, name: "<snake_case_verb_phrase>", notes: "",
@@ -213,6 +214,14 @@ function lineRefusal(v, at, { empty = false } = {}) {
   return null;
 }
 const wordsOf = (s) => new Set(String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) || []);
+// A `manner` RESTATES the `operation` when it adds no word of its own: every word of it longer
+// than three letters is already in the operation (kogaki#1510). Short words -- "a", "the",
+// "its", "one" -- are the clause's grammar and decide nothing.
+export function mannerRestatesOperation(manner, operation) {
+  const own = [...wordsOf(manner)].filter((w) => w.length > 3);
+  const op = wordsOf(operation);
+  return !own.length || own.every((w) => op.has(w));
+}
 function nounIn(nouns, text) {
   const ws = wordsOf(text);
   const lower = String(text).toLowerCase();
@@ -270,23 +279,30 @@ export function validateExtractionUnit(record, input) {
       const atS = `${at}, Segment ${i + 1}`;
       const e = keysRefusal(s, SEGMENT_KEYS, atS);
       if (e) { errors.push(e); continue; }
-      for (const k of ["content", "does"]) {
+      for (const k of ["content", "operation"]) {
         const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
         if (e2) errors.push(e2);
       }
-      const firstWithNothingBefore = i === 0 && !input.earlier_paragraphs.length;
-      { const e2 = lineRefusal(s.relation, `${atS}: the \`relation\` clause`, { empty: firstWithNothingBefore }); if (e2) errors.push(e2); }
-      if (firstWithNothingBefore && typeof s.relation === "string" && s.relation.trim()) {
-        errors.push(`${atS}: carries a \`relation\`, and nothing comes before this paragraph — leave it empty`);
+      // Segment 1 carries no `relation` (FORMAT "The paragraph unit", rule 5, kogaki#1510):
+      // nothing downstream read the one it carried to the previous paragraph.
+      { const e2 = lineRefusal(s.relation, `${atS}: the \`relation\` clause`, { empty: i === 0 }); if (e2) errors.push(e2); }
+      if (i === 0 && typeof s.relation === "string" && s.relation.trim()) {
+        errors.push(`${atS}: carries a \`relation\` — Segment 1 carries none; leave it empty`);
       }
+      { const e2 = lineRefusal(s.manner, `${atS}: the \`manner\` clause`, { empty: true }); if (e2) errors.push(e2); }
       for (const k of SEGMENT_KEYS) {
-        if (typeof s[k] === "string" && /—\s*(does|relation):/.test(s[k])) {
-          errors.push(`${atS}: the \`${k}\` clause carries \`— does:\` or \`— relation:\`; the clauses are separate fields`);
+        if (typeof s[k] === "string" && /—\s*(operation|relation|manner):/.test(s[k])) {
+          errors.push(`${atS}: the \`${k}\` clause carries \`— operation:\`, \`— relation:\` or \`— manner:\`; the clauses are separate fields`);
         }
       }
-      if (typeof s.does === "string") {
-        const noun = nounIn(nouns, s.does);
-        if (noun) errors.push(`${atS}: the \`does\` clause names "${noun}", one of your subject_nouns — it names no term of the original`);
+      for (const k of ["operation", "manner"]) {
+        if (typeof s[k] !== "string") continue;
+        const noun = nounIn(nouns, s[k]);
+        if (noun) errors.push(`${atS}: the \`${k}\` clause names "${noun}", one of your subject_nouns — it names no term of the original`);
+      }
+      if (typeof s.manner === "string" && s.manner.trim() && typeof s.operation === "string"
+          && mannerRestatesOperation(s.manner, s.operation)) {
+        errors.push(`${atS}: the \`manner\` clause restates the \`operation\` — it names a local realisation the operation cannot, or it is empty`);
       }
     }
   }
@@ -318,7 +334,7 @@ export function validateExtractionUnit(record, input) {
       }
       if (isUnchanged(row.after)) continue;
       changed += 1;
-      { const noun = nounIn(nouns, row.after); if (noun) errors.push(`${atD}'s \`after\` names "${noun}", one of your subject_nouns — it is written general, as \`does\` is (FORMAT "The paragraph unit", rule 7)`); }
+      { const noun = nounIn(nouns, row.after); if (noun) errors.push(`${atD}'s \`after\` names "${noun}", one of your subject_nouns — it is written general, as \`operation\` is (FORMAT "The paragraph unit", rule 7)`); }
       const nums = row.segment.split(",").map((x) => x.trim()).filter(Boolean);
       if (!nums.length) { errors.push(`${atD} records a change naming no Segment`); continue; }
       const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);
@@ -364,8 +380,8 @@ export function extractionRecord(record, input, runRel) {
     what_it_does: record.what_it_does.trim(),
     reader,
     dimensions_changed: record.reader.filter((row) => !isUnchanged(row.after)).length,
-    segments: record.segments.map((s, i) => ({ opening: openingWords(p.sentences[i]), content: s.content.trim(), does: s.does.trim(),
-      ...(s.relation.trim() ? { relation: s.relation.trim() } : {}) })),
+    segments: record.segments.map((s, i) => ({ opening: openingWords(p.sentences[i]), content: s.content.trim(), operation: s.operation.trim(),
+      ...(s.relation.trim() ? { relation: s.relation.trim() } : {}), ...(s.manner.trim() ? { manner: s.manner.trim() } : {}) })),
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
@@ -391,8 +407,8 @@ export function extractionMarkdown(rec) {
   const answers = Object.entries(r.answers || {}).flatMap(([k, a]) => [ANSWER_TITLES[k] || k,
     ...((a && a.candidates) || []).map((c, i) => `  ${i + 1}. ${line(c)}`), `  answer: ${line(a && a.answer)}`, ""]);
   const rows = Object.entries(r.reader || {}).map(([d, row]) => `| ${d} | ${cell(row.before)} | ${cell(row.after)} | ${cell(row.segment)} |`);
-  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)} — does: ${line(s.does)}`
-    + (line(s.relation) ? ` — relation: ${line(s.relation)}` : ""));
+  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)} — operation: ${line(s.operation)}`
+    + (line(s.relation) ? ` — relation: ${line(s.relation)}` : "") + (line(s.manner) ? ` — manner: ${line(s.manner)}` : ""));
   const splits = (r.split_notes || []).flatMap((n) => [`split: ${line(n.note)}`, ...(n.dismissed ? [`dismissed: ${line(n.dismissed)}`] : [])]);
   return [
     ...(r.status ? [`status: ${line(r.status)}`, ""] : []),

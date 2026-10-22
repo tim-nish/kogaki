@@ -228,28 +228,31 @@ def check_extraction_split_note(record, line_no=None):
 # kogaki#1413, kogaki#1414).
 # --------------------------------------------------------------------------
 #
-# Each Segment map carries `opening`, `content`, the subject-free `does` and,
-# after the first, `relation` in prose; no label set is read (kogaki#1414).
-# `opening` and `content` are for the owner's reading and are not copied, and
-# neither is Segment 1's `relation`: a Move carries no relation to what
-# precedes it (kogaki#1411).
+# Each Segment map carries `opening`, `content`, the subject-free `operation`
+# (`does` until kogaki#1510), after the first `relation` in prose, and, where
+# the Extractor found a technique the two cannot name, `manner`; no label set is
+# read (kogaki#1414). `opening` and `content` are for the owner's reading and
+# are not copied. Segment 1 carries no `relation` (kogaki#1510); one that does is
+# copied as it stands, and the Adapter refuses it, since a Move carries no
+# relation to what precedes it (kogaki#1411).
 
 # AN ENTRY IS READ AS A SEGMENT OR REFUSED, NEVER DROPPED (kogaki#1416). Every
 # entry of `segments` is copied into the Move, in order, so the Move never
 # carries fewer Segments than the Extraction lists. An entry carrying a key
 # outside SEGMENT_ENTRY_KEYS is refused by name rather than read in part; whether
-# the copied `does` and `relation` are a Segment is the Adapter's question
+# the copied `operation`, `relation` and `manner` are a Segment is the Adapter's question
 # (`validateMoveRecord`, reached through `validate_move`, kogaki#1418), asked
 # once, so the ingest carries no second reading of the Segment's shape. A
 # `reader` row naming a Segment the list does not hold is the Extraction
 # disagreeing with its own count, and is refused naming that Segment.
-SEGMENT_ENTRY_KEYS = ("opening", "content", "does", "relation")
+SEGMENT_ENTRY_KEYS = ("opening", "content", "operation", "relation", "manner")
 
 
 def extraction_segments(record, line_no=None):
     """The ordered Segments of the Extraction's `segments` as the Move's own
-    `segments` value: `[{"does": ...}, {"does": ..., "relation": ...}, ...]`,
-    one per entry. Returns `None` where there is no record or it carries no
+    `segments` value: `[{"operation": ...}, {"operation": ..., "relation":
+    ...}, ...]`, one per entry, each carrying `manner` where the entry fills
+    one. Returns `None` where there is no record or it carries no
     `segments`, and raises `Refusal` naming the entry where it is not a map
     or carries a key a Segment entry does not, or naming the Segment where a
     `reader` row names one the list does not hold."""
@@ -273,9 +276,12 @@ def extraction_segments(record, line_no=None):
                 % (number, unknown[0], ", ".join("`%s`" % k for k in SEGMENT_ENTRY_KEYS)),
                 line_no=line_no,
             )
-        does = _cell(entry.get("does"))
-        segments.append({"does": does} if index == 0
-                        else {"does": does, "relation": _cell(entry.get("relation"))})
+        segment = {"operation": _cell(entry.get("operation"))}
+        if index > 0 or _cell(entry.get("relation")):
+            segment["relation"] = _cell(entry.get("relation"))
+        if _cell(entry.get("manner")):
+            segment["manner"] = _cell(entry.get("manner"))
+        segments.append(segment)
     check_reader_segment_numbers(record, len(segments), line_no)
     return segments
 
