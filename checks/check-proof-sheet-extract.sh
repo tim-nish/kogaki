@@ -53,7 +53,9 @@
 #       a Segment count other than the sentence count, an `operation` clause naming a
 #       subject noun, a `relation` on Segment 1 of a paragraph with earlier text (rule 5,
 #       kogaki#1510), an empty `relation` on any later Segment, a `manner` restating the
-#       `operation` or naming a subject noun (kogaki#1510), a `breaks` given as keyed fields rather than a list of tests,
+#       `operation` or naming a subject noun (kogaki#1510), a subject noun in a `breaks` test or a
+#       reader state, a word outside the Latin script in a `relation` or a `breaks` test, while a
+#       subject noun in a `content` clause alone validates (kogaki#1519), a `breaks` given as keyed fields rather than a list of tests,
 #       and an answer for the retired Q4 (kogaki#1414); a record carrying the retired
 #       `technique`, and a `description` over 200 characters, naming its length
 #       (kogaki#1412); a `manner` filled on one Segment and empty on the rest validates; and
@@ -442,6 +444,19 @@ const m4i = good(); m4i.segments[1].manner = "states the consequence plainly";
 ok(/Segment 2: the `manner` clause restates the `operation`/.test(X.validateExtractionUnit(m4i, input).error || ""), "(f) a manner restating the operation was not refused naming the Segment");
 const m4j = good(); m4j.segments[2].manner = "quotes the installer verbatim";
 ok(/Segment 3: the `manner` clause names "installer"/.test(X.validateExtractionUnit(m4j, input).error || ""), "(f) a manner naming a subject noun was not refused naming the Segment");
+// THE WHOLE MOVE IS GENERAL (kogaki#1519): a subject noun or a word in the original's language
+// is refused in a `breaks` test, a reader state and a `relation` as in `operation` and
+// `manner`, each naming the field; `content` is bound to the source and may name the subject.
+const m4l = good(); m4l.breaks = ["a change — a loss", "name the installer's version — the step binds one subject"];
+ok(/`breaks` test 2 names "installer", one of your subject_nouns/.test(X.validateExtractionUnit(m4l, input).error || ""), "(f) a break naming a subject noun was not refused naming the break");
+const m4m = good(); m4m.reader[0].after = "knows the Installer owns the copy";
+ok(/the `knowledge` row's `after` names "installer"/.test(X.validateExtractionUnit(m4m, input).error || ""), "(f) a reader state naming a subject noun was not refused naming the dimension");
+const m4n = good(); m4n.segments[1].relation = "adds a point with また";
+ok(/Segment 2: the `relation` clause carries "また", a word outside the Latin script/.test(X.validateExtractionUnit(m4n, input).error || ""), "(f) a relation carrying また was not refused naming the Segment");
+const m4o = good(); m4o.breaks = ["drop 「なぜなら」 — the reason reads as a claim"];
+ok(/`breaks` test 1 carries "「なぜなら」"/.test(X.validateExtractionUnit(m4o, input).error || ""), "(f) a break built on a source-language word was not refused naming the break");
+const m4p = good(); m4p.segments[0].content = "says the installer owns the copy";
+ok(!X.validateExtractionUnit(m4p, input).error, `(f) a record naming a subject noun in its content clause alone was refused: ${X.validateExtractionUnit(m4p, input).error}`);
 const m4k = good(); m4k.segments[1].does = "g";
 ok(/Segment 2 carries `does`, which it does not declare/.test(X.validateExtractionUnit(m4k, input).error || ""), "(f) a Segment carrying the retired `does` was not refused by name");
 
