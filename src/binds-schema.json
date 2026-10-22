@@ -30,7 +30,7 @@
       "fields_from": "the field each role of moves/ROLES.json maps, the fields src/compose.mjs's MOVE_CARRIED_FIELDS lets a Move carry beside them, and each `segments` entry's own keys below",
       "list_fields": {
         "segments": {
-          "keys": ["does", "relation"],
+          "keys": ["operation", "relation", "manner"],
           "declared_in": "moves/ROLES.json `shapes.segments`"
         }
       }
@@ -46,7 +46,8 @@
         "version", "leg_id", "waypoints",
         "waypoints.waypoint", "waypoints.move", "waypoints.why", "waypoints.join",
         "waypoints.paragraph_waypoints",
-        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs"
+        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs",
+        "paragraph_waypoints.manner"
       ]
     }
   }

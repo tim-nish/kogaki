@@ -157,7 +157,7 @@ export function readerStartUnitInput({ paragraphs, extractions, persona, languag
 // THE LEG CALL READS AN EXTRACTION'S PARAGRAPH CONTENT ONLY (kogaki#1449, owner decision
 // 2026-10-19): `what_it_does`, the `reader` rows and each Segment's `content`. The parts that
 // describe the Move rather than the paragraph — `why_this_order`, `breaks`, `presupposes`,
-// `description`, `name`, `notes`, a Segment's `does` and `relation` — are not the Brief's
+// `description`, `name`, `notes`, a Segment's `operation`, `relation` and `manner` — are not the Brief's
 // material, and a word the Extractor coined in them reached a Leg Waypoint's point on the
 // 2026-10-19 run. The original text stays, as the Strand substitute.
 export function legCallExtraction(x) {

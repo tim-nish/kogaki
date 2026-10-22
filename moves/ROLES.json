@@ -14,7 +14,7 @@
   "shapes": {
     "_": "kogaki#1414 and kogaki#1413: the shapes of the record's structured fields. A Move record is a `.yaml` file read by the Brief's YAML reader (src/yaml.mjs); the role adapter (`moveContract` in src/compose.mjs) and tools/move_ingest.py both refuse a record that does not hold these shapes. The Moves written before them are regenerated under them by kogaki#1415.",
     "state": "`before` and `after` are each a map keyed by dimension -- knowledge, question, expectation, orientation, trust -- one entry per changed dimension, each value one sentence; a state written as one joined line is refused by name (kogaki#1413)",
-    "segments": "a list of maps, one per Segment, in order: `does`, the step's operation, subject-free, never its effect on the reader; and, on every Segment after the first, `relation`, its relation to the Segment before it, in prose; Segment 1 carries no relation (kogaki#1411)",
+    "segments": "a list of maps, one per Segment, in order: `operation`, the step's operation, subject-free, never its effect on the reader (`does` until kogaki#1510); on every Segment after the first, `relation`, its relation to the Segment before it, in prose; Segment 1 carries no relation (kogaki#1411); and, only where the Extraction filled one, `manner`, the local realisation the step takes that operation and relation cannot name, one line (kogaki#1510)",
     "breaks": "a list of prose tests, one entry each: a specific change to the paragraph, a dash, what the reader loses; read whole, no keys and no fixed kinds"
   }
 }

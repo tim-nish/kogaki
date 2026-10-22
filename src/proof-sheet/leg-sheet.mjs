@@ -286,7 +286,7 @@ function moveSegments(moveText) {
   if (!moveText) return [];
   try {
     const rec = parseYaml(moveText);
-    return rec && Array.isArray(rec.segments) ? rec.segments.map((s) => String((s && s.does) || "").trim()) : [];
+    return rec && Array.isArray(rec.segments) ? rec.segments.map((s) => String((s && s.operation) || "").trim()) : [];
   } catch { return []; }
 }
 function segmentCount(moveText) { return moveSegments(moveText).length; }
@@ -495,10 +495,11 @@ function extractionParagraphs(r) {
 // (kogaki#1512); each such row carries the badge, with the edited fields in its title.
 export const EDITED_BADGE = "edited by owner";
 const segmentsTable = (segs, edited = new Map()) => (segs.length
-  ? `<table><thead><tr><th>#</th><th>content clause</th><th>does</th><th>relation</th></tr></thead><tbody>`
+  ? `<table><thead><tr><th>#</th><th>content clause</th><th>operation</th><th>relation</th><th>manner</th></tr></thead><tbody>`
     + segs.map((s, j) => `<tr${edited.has(j + 1) ? ' class="edited"' : ""}><td>${j + 1}${edited.has(j + 1)
       ? ` <span class="badge edited" title="${esc(edited.get(j + 1).join(", "))}">${EDITED_BADGE}</span>` : ""}</td>`
-      + `<td>${esc(s.content || "")}</td><td>${esc(s.does || "")}</td><td>${esc(s.relation || "")}</td></tr>`).join("")
+      + `<td>${esc(s.content || "")}</td><td>${esc(s.operation || "")}</td><td>${esc(s.relation || "")}</td>`
+      + `<td>${esc(s.manner || "")}</td></tr>`).join("")
     + `</tbody></table>`
   : `<p class="muted">No Segments.</p>`);
 

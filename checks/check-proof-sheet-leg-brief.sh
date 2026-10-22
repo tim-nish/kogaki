@@ -92,7 +92,7 @@ for (const [i] of PARAS.entries()) {
     version: "1", paragraph: i + 1, what_it_does: `WHAT-${i + 1}`, name: `move_${i + 1}`,
     reader: dims.map((d) => ({ dimension: d, before: `B${i + 1}-${d}`, after: d === "knowledge" ? `A${i + 1}-${d}` : "unchanged", segment: d === "knowledge" ? "1" : "" })),
     // The Segment content carries the fake judge's words, so its Leg is recoverable (kogaki#1495).
-    segments: [{ content: `CONTENT-${i + 1} CLAIM-${i + 1} POINT-${i + 1}`, does: `DOES-${i + 1}`, relation: "" }],
+    segments: [{ content: `CONTENT-${i + 1} CLAIM-${i + 1} POINT-${i + 1}`, operation: `DOES-${i + 1}`, relation: "" }],
     why_this_order: `ORDER-${i + 1}`, presupposes: `PRESUPPOSES-${i + 1}`, breaks: [`BREAKS-${i + 1} - the reader loses it`],
     description: `DESCRIPTION-${i + 1}`, notes: `NOTES-${i + 1}`,
   }));
@@ -292,7 +292,7 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
     `(i) a point recovered only from another paragraph's Segment content passed: ${cross}`);
   const none = LB.validateLegPathUnit(leg("The next run copies it again"), { paragraph_count: 2, reader_start: "knowledge: holds nothing yet" }).error || "";
   ok(/handed no paragraph\(s\) of Segment content/.test(none), `(i) a validator handed no Segment content did not refuse: ${none}`);
-  ok(JSON.stringify(LB.segmentContents([{ segments: [{ content: "a", does: "x" }, { content: "b" }] }, {}])) === JSON.stringify([["a", "b"], []]),
+  ok(JSON.stringify(LB.segmentContents([{ segments: [{ content: "a", operation: "x" }, { content: "b" }] }, {}])) === JSON.stringify([["a", "b"], []]),
     "(i) segmentContents does not read each paragraph's Segment content clauses alone");
   const bj = runDir && existsSync(join(runDir, "brief.json")) ? JSON.parse(readFileSync(join(runDir, "brief.json"), "utf8")) : {};
   ok(bj.anchored === true, `(i) the run's brief.json does not record \`anchored: true\`: ${JSON.stringify(bj)}`);

@@ -31,8 +31,9 @@ it does not read, and empty where the stage does not read the schema at all.
 | `continues_from` | unread | unread | unread | unread | unread | unread | unread |
 | `description` | unread | unread | unread | unread | unread | content | unread |
 | `evidence` | unread | unread | unread | unread | unread | unread | unread |
-| `segments.does` | unread | unread | unread | operation | excluded | content | unread |
+| `segments.operation` | unread | unread | unread | operation | excluded | content | unread |
 | `segments.relation` | unread | unread | unread | structural | excluded | content | unread |
+| `segments.manner` | unread | unread | unread | excluded | excluded | content | unread |
 
 - `differentiation` is src/brief-workflow.json `differentiation`.
 - `reader_path_unit` is src/brief-workflow.json `reader_path_unit`.
@@ -111,6 +112,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `paragraph_waypoints.point` | content | excluded | content |  |
 | `paragraph_waypoints.serves` | copied | unread |  |  |
 | `paragraph_waypoints.performs` | content | excluded | operation |  |
+| `paragraph_waypoints.manner` | unread | unread | operation |  |
 
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.

@@ -8,8 +8,9 @@
 #   (a) the run writes one Extraction per paragraph as a `.yaml` record read by the Brief's
 #       YAML reader (kogaki#1413): `status` naming the run, `unit: paragraph <N> of 2 in
 #       <slug>`, `reader` a map of the five dimensions, `segments` a list of maps, one per
-#       sentence, carrying `content` and `does`, and `relation` on every Segment but a first
-#       paragraph's Segment 1; `breaks` a list of tests; no Q4 Footing (kogaki#1414); a
+#       sentence, carrying `content` and `operation`, `relation` on every Segment but
+#       Segment 1 (kogaki#1510), and `manner` only where the answer filled one, paragraph 2's
+#       Segment 2 here; `breaks` a list of tests; no Q4 Footing (kogaki#1414); a
 #       `description` and no `technique` (kogaki#1412); and the record renders to Markdown
 #       for reading.
 #   (b) `tools/move_ingest.py`'s own `read_extraction` and `derive_from_extraction` — the
@@ -27,31 +28,36 @@
 #       Leg, without refusal.
 #   (b3) an entry of `segments` is read as a Segment or refused, never dropped (kogaki#1416):
 #       an admitted Move carries exactly as many Segments as the Extraction lists; an entry
-#       carrying a label key, one with an empty `does`, and one after the first with no
-#       `relation` are each refused naming the Segment, the last two in the Adapter's words;
+#       carrying a label key, one with an empty `operation`, one after the first with no
+#       `relation`, and a Segment 1 carrying one, are each refused naming the Segment, the
+#       last three in the Adapter's words; the Move admitted from paragraph 2 carries its
+#       `manner` on Segment 2 and on no other (kogaki#1510);
 #       a `reader` row naming a Segment the list does not hold is refused naming it; and
 #       `tools/move_ingest.py` carries no label set.
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
 #       `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input
 #       marker, and a JSON skeleton of the record with the paragraph number filled as a
 #       number and `answers` holding exactly q1 to q3), the answer, and the attempt count
-#       with every refusal: paragraph 1's first answer omits a `does` clause and its
+#       with every refusal: paragraph 1's first answer omits an `operation` clause and its
 #       second names its paragraph as a string, each refused naming the field, and the
 #       third attempt's prompt carries BOTH refusals, oldest first; paragraph 2's first
 #       answer writes a `subject_nouns` entry into a reader `after` clause and is refused
 #       naming the row (rule 7, kogaki#1440); the prompt carries rule 7's three
 #       sentences; and it carries rule 8's read-aloud test, which excludes the page's
-#       layout from `does`, `content`, `relation` and reader states (kogaki#1478).
+#       layout from `operation`, `content`, `relation`, `manner` and reader states
+#       (kogaki#1478, kogaki#1510).
 #   (d) every call ran with `--tools ""`, on the shared supervisor.
 #   (e) paragraph 2 is handed the reader state paragraph 1 left (its `after` where a row
 #       moved, its `before` where not), and its before column carries it.
 #   (f) the validator refuses, naming the field: a `before` that is not the carried state,
-#       a Segment count other than the sentence count, a `does` clause naming a subject
-#       noun, an empty `relation` on Segment 1 where earlier paragraphs exist (rule 5) or
-#       on any later Segment, a `breaks` given as keyed fields rather than a list of tests,
+#       a Segment count other than the sentence count, an `operation` clause naming a
+#       subject noun, a `relation` on Segment 1 of a paragraph with earlier text (rule 5,
+#       kogaki#1510), an empty `relation` on any later Segment, a `manner` restating the
+#       `operation` or naming a subject noun (kogaki#1510), a `breaks` given as keyed fields rather than a list of tests,
 #       and an answer for the retired Q4 (kogaki#1414); a record carrying the retired
 #       `technique`, and a `description` over 200 characters, naming its length
-#       (kogaki#1412); and a record wrong on BOTH `answers` and `segments` at once is
+#       (kogaki#1412); a `manner` filled on one Segment and empty on the rest validates; and
+#       a record wrong on BOTH `answers` and `segments` at once is
 #       refused naming both (kogaki#1395).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
 #
@@ -109,13 +115,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
     segments: p.sentences.map((s, i) => ({
       content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does.",
-      does: "states one consequence of an act the reader did not ask for.",
-      relation: i === 0 ? (first ? "" : "draws the consequence of the act the previous paragraph named") : "widens the step before it" })),
+      operation: "states one consequence of an act the reader did not ask for.",
+      relation: i === 0 ? "" : "widens the step before it",
+      manner: !first && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
     why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
     breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
     description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
   };
-  if (first && attempt === 1) delete record.segments[0].does;
+  if (first && attempt === 1) delete record.segments[0].operation;
   if (first && attempt === 2) record.paragraph = String(p.number);
   if (!first && attempt === 1) record.reader[0].after = "knows the installer owns the copy";
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
@@ -153,17 +160,20 @@ for (const [i, f] of files.entries()) {
   const segs = Array.isArray(rec.segments) ? rec.segments : [];
   const want = i === 0 ? 2 : 3;
   ok(segs.length === want, `(a) ${f} carries ${segs.length} Segments for ${want} sentences`);
-  ok(segs.every((s) => /^CONTENT-\d-\d names what the copy does\.$/.test(s.content) && /\S/.test(s.does || "")),
-    `(a) a Segment of ${f} lacks the content clause or the does clause`);
-  ok(segs.every((s, j) => (i === 0 && j === 0) ? s.relation === undefined : /\S/.test(s.relation || "")),
-    `(a) a Segment of ${f} carries a relation where nothing precedes it, or lacks one where something does`);
+  ok(segs.every((s) => /^CONTENT-\d-\d names what the copy does\.$/.test(s.content) && /\S/.test(s.operation || "") && s.does === undefined),
+    `(a) a Segment of ${f} lacks the content clause or the operation clause, or carries a \`does\``);
+  ok(segs.every((s, j) => j === 0 ? s.relation === undefined : /\S/.test(s.relation || "")),
+    `(a) a Segment of ${f} carries a relation on Segment 1, or lacks one after it`);
+  ok(segs.every((s, j) => (i === 1 && j === 1) ? s.manner === "a brief direct statement, given with no elaboration." : s.manner === undefined),
+    `(a) ${f} does not carry a manner exactly where the answer filled one: ${JSON.stringify(segs.map((s) => s.manner))}`);
   ok(Array.isArray(rec.breaks) && rec.breaks.length === 3 && rec.breaks.every((b) => typeof b === "string" && !/^(remove|reorder|extend):/.test(b)),
     `(a) ${f}'s breaks is not a list of three prose tests`);
   ok(!/Q4|Footing|^functions:/m.test(t) && !(rec.answers && rec.answers.q4), `(a) ${f} carries a Q4 Footing answer or a functions line`);
   ok(rec.technique === undefined && !/^technique:/m.test(t), `(a) ${f} carries the retired \`technique\` (kogaki#1412)`);
   const md = X.extractionMarkdown(rec);
   ok(["## Passage", "## Answers", "## 2. Reader before and after", "## 3. The order inside the Passage", "## 5. Where it would break"].every((h) => md.includes(`\n${h}\n`))
-    && md.includes(`does: ${segs[0] && segs[0].does}`), `(a) ${f}'s record does not render to Markdown for reading`);
+    && md.includes(`operation: ${segs[0] && segs[0].operation}`)
+    && (i === 0 || md.includes("manner: a brief direct statement, given with no elaboration.")), `(a) ${f}'s record does not render to Markdown for reading`);
 }
 
 // (b) the ingest reads both unedited, through its YAML reader; a Markdown
@@ -267,24 +277,32 @@ for name in ("FUNCTIONS =", "RELATIONS =", "SEGMENT_ENTRY ="):
         bad.append("tools/move_ingest.py carries a label set: %s" % name)
 BT = chr(96)
 base = m.read_extraction(files[0])[1]
+# THE MANNER IS COPIED ONTO ITS OWN SEGMENT (kogaki#1510): paragraph 2's Segment 2 carries one.
+manner_move = m.derive_from_extraction(m.read_extraction(files[1])[1]).mapping
+if [s.get("manner") for s in manner_move["segments"]] != [None, "a brief direct statement, given with no elaboration.", None]:
+    bad.append("the Move admitted from paragraph 2 does not carry its manner on Segment 2 alone: %r" % manner_move["segments"])
+if any("does" in s for s in manner_move["segments"]):
+    bad.append("the admitted Move carries a Segment key named does: %r" % manner_move["segments"])
 if len(good["segments"]) != len(base["segments"]):
     bad.append("the admitted Move carries %d Segment(s) for the Extraction's %d"
                % (len(good["segments"]), len(base["segments"])))
 def variant(edit):
     rec = json.loads(json.dumps(base))
     if len(rec["segments"]) < 2:
-        rec["segments"].append({"content": "c", "does": "it widens the claim", "relation": "it extends it"})
+        rec["segments"].append({"content": "c", "operation": "it widens the claim", "relation": "it extends it"})
     edit(rec)
     return rec
 def label(rec): rec["segments"][1]["function"] = "opens"
-def no_does(rec): rec["segments"][1]["does"] = ""
+def no_operation(rec): rec["segments"][1]["operation"] = ""
 def no_relation(rec): rec["segments"][1].pop("relation", None)
+def first_relation(rec): rec["segments"][0]["relation"] = "takes up the previous paragraph"
 def far_row(rec):
     row = next(r for r in rec["reader"].values() if str(r.get("after", "")).strip().lower() != "unchanged")
     row["segment"] = "%d" % (len(rec["segments"]) + 1)
 for edit, words in ((label, ("Segment 2 carries %sfunction%s" % (BT, BT), "cannot be read as a Segment")),
-                    (no_does, ("condition adapter", "Segment 2 carries no one-line %sdoes%s" % (BT, BT))),
+                    (no_operation, ("condition adapter", "Segment 2 carries no one-line %soperation%s" % (BT, BT))),
                     (no_relation, ("condition adapter", "Segment 2 carries no one-line %srelation%s" % (BT, BT))),
+                    (first_relation, ("condition adapter", "Segment 1 carries a %srelation%s" % (BT, BT))),
                     (far_row, ("names Segment %d" % (len(base["segments"]) + 1 if len(base["segments"]) >= 2 else 3),
                                "disagrees with its own Segment count"))):
     path = os.path.join(tmp, "%s.yaml" % edit.__name__)
@@ -339,7 +357,7 @@ else {
   ok(existsSync(join(p1, "reader-path-unit-p1.stdout")), "(c) the supervisor's raw answers for p1 are not in the run directory");
   const a1 = existsSync(join(p1, "attempts.json")) ? JSON.parse(readFileSync(join(p1, "attempts.json"), "utf8")) : {};
   ok(a1.attempts === 3, `(c) p1/attempts.json records ${a1.attempts} attempt(s), not 3`);
-  ok(Array.isArray(a1.refusals) && a1.refusals.length === 2 && /Segment 1 carries no `does`/.test(a1.refusals[0])
+  ok(Array.isArray(a1.refusals) && a1.refusals.length === 2 && /Segment 1 carries no `operation`/.test(a1.refusals[0])
     && /names paragraph "1", not 1/.test(a1.refusals[1]),
     `(c) p1/attempts.json does not record both refusals in order: ${JSON.stringify(a1.refusals)}`);
   const prompts = readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
@@ -357,15 +375,15 @@ else {
   // rule 7's three sentences reach the Extractor in its rendered instruction
   const instruction = prompt.slice(0, prompt.indexOf("# Extraction: the interaction contract"));
   for (const sentence of [
-    "a section 2 `after` state is written as `does` is, in general terms, naming no term, place, person or claim of the original and none of `subject_nouns`, and describing nothing of a neighbouring paragraph's content, so that `before` states copied from it stay general.",
-    "Segment 1's `does` carries no reference to any earlier step or earlier paragraph.",
-    "A later Segment's `does` is the operation alone, and its `relation` carries the connection to the step before.",
+    "a section 2 `after` state is written as `operation` is, in general terms, naming no term, place, person or claim of the original and none of `subject_nouns`, and describing nothing of a neighbouring paragraph's content, so that `before` states copied from it stay general.",
+    "Segment 1's `operation` carries no reference to any earlier step or earlier paragraph.",
+    "A later Segment's `operation` is the operation alone, and its `relation` carries the connection to the step before.",
   ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 7's sentence: ${sentence}`);
   // rule 8 (kogaki#1478): the read-aloud test reaches the Extractor in FORMAT's own words, so neither copy can drift
   const formatText = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").replace(/\s+/g, " ");
   for (const sentence of [
-    "`does`, `content` and `relation` describe what the sentence does when read aloud.",
-    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout: it is recorded in `passage` and nowhere else, never in `does`, `content`, `relation` or a reader-state line.",
+    "`operation`, `content`, `relation` and `manner` describe what the sentence does when read aloud.",
+    "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout: it is recorded in `passage` and nowhere else, never in `operation`, `content`, `relation`, `manner` or a reader-state line.",
     "\"Introduces a bolded term\" fails the test; \"introduces a term\" passes it.",
   ]) {
     ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 8's read-aloud test: ${sentence}`);
@@ -394,24 +412,38 @@ const good = () => ({ version: "1", paragraph: 2, source: "not given", prior_tex
   answers: { q1: "a", q2: "b", q3: "c" }, what_it_does: "x by taking up the last point",
   reader: ["knowledge", "question", "expectation", "orientation", "trust"].map((d) => ({ dimension: d, before: d[0].toUpperCase(),
     after: d === "knowledge" ? "moved" : "unchanged", segment: d === "knowledge" ? "2" : "" })),
-  segments: [1, 2, 3].map(() => ({ content: "c", does: "g", relation: "r" })),
+  segments: [1, 2, 3].map((_, i) => ({ content: "c", operation: "states one consequence plainly", relation: i === 0 ? "" : "r", manner: "" })),
   why_this_order: "w", presupposes: "p", breaks: ["a change — a loss"], description: "d", name: "n_m", notes: "" });
 ok(!X.validateExtractionUnit(good(), input).error, `(f) the validator refused a good record: ${X.validateExtractionUnit(good(), input).error}`);
 const m1 = good(); m1.reader[1].before = "drafted";
 ok(/the `question` row's `before`.*carried, not drafted/.test(X.validateExtractionUnit(m1, input).error || ""), "(f) a before that is not the carried state was not refused naming the row");
 const m2 = good(); m2.segments.pop();
 ok(/one Segment per sentence/.test(X.validateExtractionUnit(m2, input).error || ""), "(f) a Segment count other than the sentence count was not refused");
-const m3 = good(); m3.segments[1].does = "the installer copies";
-ok(/Segment 2: the `does` clause names "installer"/.test(X.validateExtractionUnit(m3, input).error || ""), "(f) a does clause naming a subject noun was not refused");
+const m3 = good(); m3.segments[1].operation = "the installer copies";
+ok(/Segment 2: the `operation` clause names "installer"/.test(X.validateExtractionUnit(m3, input).error || ""), "(f) an operation clause naming a subject noun was not refused");
 
-const m4 = good(); m4.segments[0].relation = "";
-ok(/Segment 1: the `relation` clause is empty/.test(X.validateExtractionUnit(m4, input).error || ""), "(f) an empty Segment 1 relation with earlier paragraphs was not refused (rule 5)");
+// rule 5 (kogaki#1510): Segment 1 carries no `relation`, on a paragraph with earlier text too --
+// `good()` is paragraph 2 and validates with none; one carrying a relation is refused.
+ok(input.earlier_paragraphs.length === 1, "(f) the validator's input is not a paragraph with earlier text");
+const m4 = good(); m4.segments[0].relation = "takes up the previous paragraph's last point";
+ok(/Segment 1: carries a `relation` — Segment 1 carries none/.test(X.validateExtractionUnit(m4, input).error || ""), "(f) a Segment 1 relation on a paragraph with earlier text was not refused (rule 5)");
 const m4b = good(); m4b.segments[2].relation = "";
 ok(/Segment 3: the `relation` clause is empty/.test(X.validateExtractionUnit(m4b, input).error || ""), "(f) an empty relation on a later Segment was not refused");
 const m4c = good(); m4c.breaks = { remove: "r", reorder: "o", extend: "e" };
 ok(/`breaks` is not a list of prose tests/.test(X.validateExtractionUnit(m4c, input).error || ""), "(f) keyed breaks were not refused as not a list of prose tests");
 const m4d = good(); m4d.answers.q4 = "d";
 ok(/`answers` carries `q4`/.test(X.validateExtractionUnit(m4d, input).error || ""), "(f) an answer for the retired Q4 was not refused");
+
+// THE MANNER (kogaki#1510): filled on one Segment and empty on the rest validates; a manner
+// restating the operation, or naming a subject noun, is refused naming the Segment.
+const m4h = good(); m4h.segments[1].manner = "a brief direct statement, given with no elaboration.";
+ok(!X.validateExtractionUnit(m4h, input).error, `(f) a manner filled on one Segment was refused: ${X.validateExtractionUnit(m4h, input).error}`);
+const m4i = good(); m4i.segments[1].manner = "states the consequence plainly";
+ok(/Segment 2: the `manner` clause restates the `operation`/.test(X.validateExtractionUnit(m4i, input).error || ""), "(f) a manner restating the operation was not refused naming the Segment");
+const m4j = good(); m4j.segments[2].manner = "quotes the installer verbatim";
+ok(/Segment 3: the `manner` clause names "installer"/.test(X.validateExtractionUnit(m4j, input).error || ""), "(f) a manner naming a subject noun was not refused naming the Segment");
+const m4k = good(); m4k.segments[1].does = "g";
+ok(/Segment 2 carries `does`, which it does not declare/.test(X.validateExtractionUnit(m4k, input).error || ""), "(f) a Segment carrying the retired `does` was not refused by name");
 
 // kogaki#1412: `description` replaces the retired `technique` -- a record still carrying
 // `technique` is refused as an undeclared key, and a description over 200 characters is

@@ -29,16 +29,19 @@ export const READER_OWN_WORLD_ABSENT =
 // Beneath each, an indented `*Opens from:* <join>` line where the ParagraphPlan
 // carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Paragraph Waypoints as a numbered
 // sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
-// with no point and no Serves (kogaki#1448). Nothing of a Move is rendered; a
-// missing plan refuses at the realization entry (`loadBrief`), not here.
+// with no point and no Serves (kogaki#1448) -- and a Paragraph Waypoint carrying its Segment's
+// `manner` ends its line `*Manner:* <manner>` (kogaki#1510). Nothing else of a Move is
+// rendered; a missing plan refuses at the realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
+export const MANNER_LABEL = "*Manner:*";
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
   const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
   const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
   const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
-  const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n));
+  const mannerOf = (p) => (typeof p.manner === "string" && p.manner.trim() !== "" ? ` ${MANNER_LABEL} ${p.manner.trim()}` : "");
+  const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n)) + mannerOf(p);
   return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
     ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`)].join("\n")).join("\n");
 }

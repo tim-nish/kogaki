@@ -53,7 +53,7 @@ const fails = [];
     writeFileSync(join(moves, `${id}.yaml`), [
       `id: ${id}`, `description: the fixture Move ${id}.`, "before:", `  knowledge: before ${id}.`,
       "after:", `  knowledge: after ${id}.`, "breaks:", `  - breaks if ${id} is skipped.`,
-      "segments:", `  - does: opens ${id}.`, `  - does: closes ${id}.`, "    relation: answers the opening.", "",
+      "segments:", `  - operation: opens ${id}.`, `  - operation: closes ${id}.`, "    relation: answers the opening.", "",
     ].join("\n"));
   }
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in

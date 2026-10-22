@@ -119,7 +119,7 @@ const WHOLE = {
   id: "p1", description: "a fixture Move.",
   before: { knowledge: "before.", question: "holds: none." }, after: { knowledge: "after." },
   breaks: ["breaks if the point is dropped."],
-  segments: [{ does: "states the point once, plainly." }],
+  segments: [{ operation: "states the point once, plainly." }],
 };
 
 // (c1) the 21 Leg Moves' shape: `technique`, no `segments`, states as one joined line.
