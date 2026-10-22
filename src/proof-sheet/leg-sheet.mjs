@@ -23,6 +23,11 @@
 // both read from `run.json` alone. The run header states whether the Leg's terms were fixed by a
 // terms file or left to the Brief's own draw.
 //
+// A RUN WITH A LIBRARY (kogaki#1521): each paragraph heading names the Move bound at its Leg
+// Waypoint and each Bindings row its bound Move, each badged `library` or `this run` from the run
+// record's `library.ids`; the run header names the library and whether the run's own Moves were
+// withheld, or reads "Moves from this run only".
+//
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
 // `production` or `Proof Sheet substitute` (`SHEET_CELL_BADGE`).
@@ -874,9 +879,11 @@ function legPoint(r, n) {
   return (wp && wp.point) || "(no point in the Brief)";
 }
 
-// A bound Move's record, read from the run's moves directory; null where none is readable.
+// A Move's record, read from the plan's moves directory or, for the run's own Moves withheld
+// from it (kogaki#1521), the ingest's; null where none is readable.
 function moveRecord(r, move) {
-  const mt = move ? read(join(r.runDir, "moves", `${move}${MOVE_RECORD_EXT}`)) : null;
+  const dirs = [join(r.runDir, "moves"), r.stage("ingest").moves_dir].filter(Boolean);
+  const mt = move ? dirs.map((d) => read(join(d, `${move}${MOVE_RECORD_EXT}`))).find((t) => t !== null) ?? null : null;
   if (!mt) return null;
   try { return parseYaml(mt) || null; } catch { return null; }
 }
@@ -901,6 +908,18 @@ function moveStates(r, move) {
     + `</tbody></table>`;
 }
 
+// WHERE A BOUND MOVE CAME FROM (kogaki#1521): `library` or `this run`, read from the run record's
+// `library.ids`; null for a run with no library, where every Move is the run's own.
+export function moveSource(run, move) {
+  const ids = run && run.library && run.library.ids;
+  if (!ids || !move) return null;
+  return (ids.library || []).includes(move) ? "library" : (ids.run || []).includes(move) ? "this run" : null;
+}
+function sourceBadge(run, move) {
+  const src = moveSource(run, move);
+  return src ? ` <span class="badge source">${esc(src)}</span>` : "";
+}
+
 // THE PARAGRAPH TABLES (kogaki#1487, owner 2026-10-21; plain tables since kogaki#1512, owner
 // 2026-10-22): between the comparison table and the first card, three tables under their own
 // headings, with no heading above them and nothing folded -- every paragraph's Segments table
@@ -911,7 +930,14 @@ function moveStates(r, move) {
 // Each paragraph's heading is followed by its bound Move's description (kogaki#1517).
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
-  const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}</h4>`
+  const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
+  const rows = ((bindings && bindings.bindings) || []).filter((b) => !r.legId || !b.leg_id || b.leg_id === r.legId);
+  // With a library, the heading also names the Move bound at the paragraph's Leg Waypoint and its source.
+  const boundAt = (n) => {
+    const b = r.run.library ? rows.find((x) => Number(x.waypoint) === n) : null;
+    return b ? ` · bound ${esc(b.move || "(none bound)")}${sourceBadge(r.run, b.move)}` : "";
+  };
+  const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}</h4>`
     + moveDescription(r, entries[p.i] && entries[p.i].move)
     + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) : `<p class="muted">(not written)</p>`)).join("");
 
@@ -941,11 +967,9 @@ function reviewBlock(r, idx) {
         + refused.map((x) => `<tr><td><a href="#${attemptId(x.n, idx)}">attempt ${x.n}</a></td><td>${esc(x.waypoint)}</td><td>${esc(x.why)}</td></tr>`).join("")
         + `</tbody></table>`;
 
-  const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
-  const rows = ((bindings && bindings.bindings) || []).filter((b) => !r.legId || !b.leg_id || b.leg_id === r.legId);
   const bindingsHtml = rows.length
     ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>why</th></tr></thead><tbody>`
-      + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a>`
+      + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a>${sourceBadge(r.run, b.move)}`
         + `<details class="states"><summary>before / after</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.why || "")}</td></tr>`).join("")
       + `</tbody></table>`
     : `<p class="muted">No bindings record.</p>`;
@@ -975,7 +999,7 @@ details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
-.badge.copied,.badge.edited{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
+.badge.copied,.badge.edited,.badge.source{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
 .pcard.substitute{border-left:4px solid var(--accent)}
 .diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
 .legend{list-style:none;display:flex;gap:14px;flex-wrap:wrap;margin:4px 0;padding:0;font-size:12px;color:var(--muted)}
@@ -991,6 +1015,17 @@ export function termsLine(run) {
   return t && Number.isInteger(t.count)
     ? `terms fixed from ${relFromRepo(resolve(REPO, t.path), REPO)} (${t.count})`
     : "terms by the Brief's own draw";
+}
+
+// THE LIBRARY LINE (kogaki#1521): the library the plan bound from and whether the run's own
+// Moves were withheld, read from the run record's own `library`.
+export function libraryLine(run) {
+  const l = run && run.library;
+  if (!l) return "Moves from this run only";
+  const n = (xs) => (Array.isArray(xs) ? xs.length : "?");
+  return l.withhold_own
+    ? `Moves from the library ${l.dir} (${n(l.ids && l.ids.library)}); this run's own withheld`
+    : `Moves from the library ${l.dir} (${n(l.ids && l.ids.library)}) beside this run's own (${n(l.ids && l.ids.run)})`;
 }
 
 function card(r, { provenance, mapHash, idx = 0 }) {
@@ -1015,6 +1050,7 @@ function card(r, { provenance, mapHash, idx = 0 }) {
   return `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
     + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
     + `<p class="terms">${esc(termsLine(r.run))}</p>`
+    + `<p class="library">${esc(libraryLine(r.run))}</p>`
     + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
 }

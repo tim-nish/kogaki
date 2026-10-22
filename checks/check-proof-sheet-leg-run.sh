@@ -89,6 +89,16 @@
 #       The paragraph tables (o) render with no details element but the before / after folds
 #       and no "Review" heading, and the
 #       run header (p) reads "terms fixed from <file> (1)" or "terms by the Brief's own draw".
+#   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places
+#       the library's three records beside the run's own three in the plan's Move directory, and
+#       `run.json`'s `library` carries the directory, the records' sha256 and the ids by source;
+#       with the fake plan binding Leg Waypoint 1 from the library, paragraph 1's heading and
+#       Bindings row are badged "library" and the others "this run", and the run header names the
+#       library; a library holding one of the run's own ids is refused naming it, with no run
+#       directory and no model call; `--withhold-own` leaves the plan's directory holding the
+#       library's records only while the ingest still lists the run's own, every Bindings row is
+#       badged "library", and the header says the run's own were withheld; `--withhold-own`
+#       without `--library` is refused.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -98,7 +108,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync, statSync, cpSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync, statSync, cpSync, rmSync, copyFileSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -184,7 +194,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes('"leg_you_must_plan"')) {
     const leg = body("leg_you_must_plan").leg_you_must_plan;
     const SEG = [2, 2, 3];
-    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "name_an_act_then_its_cost_" + w.waypoint,
+    // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
+    const fromLibrary = (n) => process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1);
+    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + "name_an_act_then_its_cost_" + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
@@ -952,6 +964,71 @@ if (runDir) {
     ok(rows.length === 2 && rows.every((m) => m[1] === "1" && m[2].startsWith("CONTENT-2-1 OWNER-EDIT")),
       `(q) the sheet does not badge the edited Segment row "edited by owner" in the Extraction card and the Segments table: ${rows.length} row(s)`);
   }
+
+  // (r) THE LIBRARY (kogaki#1521): a library of the main run's three Moves under `lib_` ids, and a
+  // second one that also holds one of the run's own ids. Each run reuses the main run's Extraction,
+  // so the run's own ids are the main run's.
+  const ownIds = readdirSync(join(runDir, "moves")).filter(isMove).map((f) => f.slice(0, -5)).sort();
+  const lib = join(root, "library");
+  const clashLib = join(root, "library-clash");
+  for (const d of [lib, clashLib]) mkdirSync(d, { recursive: true });
+  for (const id of ownIds) {
+    const t = readFileSync(join(runDir, "moves", `${id}.yaml`), "utf8");
+    for (const d of [lib, clashLib]) writeFileSync(join(d, `lib_${id}.yaml`), t.replace(`id: ${id}`, `id: lib_${id}`));
+  }
+  copyFileSync(join(runDir, "moves", `${ownIds[1]}.yaml`), join(clashLib, `${ownIds[1]}.yaml`));
+  const libIds = ownIds.map((id) => `lib_${id}`);
+  const libRel = relFromRepo(lib, repo);
+  const libraryRun = (tag, extra, bind) => {
+    const rRoot = join(root, `library-${tag}`);
+    mkdirSync(rRoot, { recursive: true });
+    const rr = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--reuse", runDir, "--from", "brief", "--out", join(rRoot, "out"), "--provenance", map, ...extra],
+      { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: rRoot, PSR_PLAN_BIND: bind }, timeout: 600000 });
+    const dir = (rr.stdout.match(/^run directory: (.+)$/m) || [])[1];
+    return { rr, dir, rRoot, run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null, html: dir ? readOr(join(dir, "sheet.html"), "") : "",
+      planIds: dir && existsSync(join(dir, "moves")) ? readdirSync(join(dir, "moves")).filter(isMove).map((f) => f.slice(0, -5)).sort() : [] };
+  };
+  const badge = (src) => `<span class="badge source">${src}</span>`;
+  const bindingRows = (html) => [...html.matchAll(/<tr><td>(\d+)<\/td><td>[^<]*<\/td><td><a href="#card-0-move">([^<]*)<\/a>( <span class="badge source">[^<]*<\/span>)?/g)]
+    .map((m) => [m[1], m[2], (m[3] || "").replace(/<[^>]*>/g, "").trim()]);
+  const libSha = LR.readLibrary(lib).sha256;
+
+  const r1 = libraryRun("beside", ["--library", lib], "library-first");
+  ok(r1.rr.status === 0 && !!r1.run, `(r) the run with --library exited ${r1.rr.status}: ${r1.rr.stdout}${r1.rr.stderr}`);
+  if (r1.run) {
+    ok(JSON.stringify(r1.planIds) === JSON.stringify([...libIds, ...ownIds].sort()), `(r) with --library the plan's Move directory does not hold both sets: ${r1.planIds}`);
+    ok(JSON.stringify(r1.run.library) === JSON.stringify({ dir: libRel, sha256: libSha, withhold_own: false, ids: { library: libIds, run: ownIds } }),
+      `(r) run.json's library does not carry the directory, the sha256 and the ids by source: ${JSON.stringify(r1.run.library)}`);
+    ok(r1.html.includes(`<h4>paragraph 1 — ${ownIds[0]} · bound ${libIds[0]} ${badge("library")}</h4>`)
+      && r1.html.includes(`<h4>paragraph 2 — ${ownIds[1]} · bound ${ownIds[1]} ${badge("this run")}</h4>`),
+      "(r) the paragraph headings do not name each bound Move with its source");
+    ok(JSON.stringify(bindingRows(r1.html)) === JSON.stringify([["1", libIds[0], "library"], ["2", ownIds[1], "this run"], ["3", ownIds[2], "this run"]]),
+      `(r) the Bindings rows do not badge each bound Move's source: ${JSON.stringify(bindingRows(r1.html))}`);
+    ok(r1.html.includes(`<p class="library">Moves from the library ${escHtml(libRel)} (3) beside this run's own (3)</p>`),
+      "(r) the run header does not name the library beside the run's own Moves");
+  }
+
+  const r2 = libraryRun("clash", ["--library", clashLib], "library-first");
+  ok(r2.rr.status !== 0 && !r2.dir && r2.rr.stderr.includes(ownIds[1]) && r2.rr.stderr.includes("Nothing was started")
+    && !existsSync(join(r2.rRoot, "out")) && !existsSync(join(r2.rRoot, "seen.jsonl")),
+    `(r) a library holding one of the run's own ids was not refused naming it with nothing started: ${r2.rr.status} ${r2.rr.stderr}`);
+
+  const r3 = libraryRun("withhold", ["--library", lib, "--withhold-own"], "library");
+  ok(r3.rr.status === 0 && !!r3.run, `(r) the run with --withhold-own exited ${r3.rr.status}: ${r3.rr.stdout}${r3.rr.stderr}`);
+  if (r3.run) {
+    const ing = r3.run.stages.find((st) => st.stage === "ingest") || {};
+    ok(JSON.stringify(r3.planIds) === JSON.stringify(libIds), `(r) with --withhold-own the plan's Move directory holds more than the library's records: ${r3.planIds}`);
+    ok(JSON.stringify((ing.moves || []).map((f) => f.replace(/\.yaml$/, "")).sort()) === JSON.stringify(ownIds)
+      && JSON.stringify(r3.run.library.ids) === JSON.stringify({ library: libIds, run: [] }) && r3.run.library.withhold_own === true,
+      `(r) with --withhold-own the run record does not list the run's own ids at the ingest and none placed: ${JSON.stringify([ing.moves, r3.run.library])}`);
+    ok(bindingRows(r3.html).length === 3 && bindingRows(r3.html).every((b) => b[2] === "library"), "(r) with --withhold-own a Bindings row is not badged \"library\"");
+    ok(r3.html.includes(`<p class="library">Moves from the library ${escHtml(libRel)} (3); this run's own withheld</p>`), "(r) the run header does not say the run's own Moves were withheld");
+  }
+
+  const r4 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--reuse", runDir, "--from", "brief", "--out", join(root, "withhold-alone"), "--provenance", map, "--withhold-own"],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: root } });
+  ok(r4.status !== 0 && r4.stderr.includes("--withhold-own is valid only with --library") && !existsSync(join(root, "withhold-alone")),
+    `(r) --withhold-own without --library was not refused: ${r4.status} ${r4.stderr}`);
 }
 
 // (i) THE AUDIENCE (kogaki#1396): run.json always names the Audience path the run used, and
