@@ -56,7 +56,7 @@
 #       asks the planner to choose a `join` on every Leg Waypoint after the
 #       first and names the closed set with one definition per word, each read
 #       from `JOIN_TYPES` (src/compose/record.mjs); the judge row carries the
-#       set and a BREAKS AND JOIN that admits `none` and `contrast` where the paragraph
+#       set and a BREAKS AND JOIN criterion that admits `none` and `contrast` where the paragraph
 #       defers what the previous `after` leaves open; neither row carries the
 #       retired "names no noun phrase" test. A plan whose join answers a
 #       sentence is refused by the plan call's validator naming the entry, the
@@ -127,9 +127,11 @@
 #       planner's steps and the judge's four criteria (BEGINS AND ENDS, ONE PER
 #       SEGMENT, RECOVERABLE, BREAKS AND JOIN) exactly as the workflow file's
 #       `criteria` names them, each one sentence within `criteria.words_max`
-#       words; and `criteriaFailures`, which `start` refuses on, refuses a judge
-#       row grown by a second sentence, an Issue number inside a criterion, a
-#       criterion over the bound, or a criterion the table does not name. The
+#       words, the whole rendered judgment point within `point_words_max`; and
+#       `criteriaFailures`, which `start` refuses on, refuses a judge row grown by
+#       a second sentence, an Issue number inside a criterion, a criterion over
+#       the bound, a criterion the table does not name, text added around the
+#       criteria, or a second sentence in a shared block. The
 #       fake judge keys every refusal above on the named criterion that carries it.
 #   (k) THE INGEST'S MOVE IS READ (kogaki#1418): `p1`, the Move case (a) and
 #       its neighbours bind, is admitted by `tools/move_ingest.py`'s write gate
@@ -910,8 +912,8 @@ for (const k of ["move", "segments"]) {
 // (s) THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511): the prompts (a)'s job actually
 // sent carry the judge's four named criteria and the planner's named steps, each one sentence
 // under `criteria.words_max`, and the stage's own reader refuses a row that grows past it -- a
-// second sentence, a criterion over the bound, an Issue number inside one, or a criterion the
-// table does not name.
+// second sentence, a criterion over the bound, an Issue number inside one, a criterion the
+// table does not name, or growth around the criteria past `point_words_max`.
 {
   const table = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8"));
   const bound = table.criteria || {};
@@ -946,7 +948,9 @@ for (const k of ["move", "segments"]) {
     ["a second sentence", (t) => line(t, "RECOVERABLE", (l) => `${l} As on one run, a restated operation does not fit.`), "RECOVERABLE is not one sentence"],
     ["an Issue number", (t) => line(t, "BREAKS AND JOIN", (l) => l.replace(/[.]$/, " (kogaki#1477).")), "BREAKS AND JOIN carries an Issue number"],
     ["a word over the bound", (t) => { t.criteria.words_max = 20; }, "over the bound of 20"],
-    ["a fifth criterion", (t) => line(t, "BREAKS AND JOIN", (l) => `${l}\n- SEVENTH: The join is judged.`), "not the"],
+    ["a fifth criterion", (t) => line(t, "BREAKS AND JOIN", (l) => `${l}\n- SEVENTH: The join is judged.`), '"SEVENTH"]'],
+    ["text around the criteria", (t) => { t.paragraph_plan_judge_unit.judgment_point += " Judge carefully.".repeat(40); }, "rendered judgment point runs"],
+    ["a second sentence in a shared block", (t) => { t.shared_text.does_is_an_operation += " It is never content."; }, "shared text does_is_an_operation is not one sentence"],
   ];
   for (const [what, edit, want] of cases) {
     const why = grown(edit);

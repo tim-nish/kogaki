@@ -8,10 +8,11 @@
     "join_is_a_type": "A `join` is one word naming how a Leg Waypoint's first Paragraph Waypoint stands to the paragraph before it, never a sentence, from a closed set: `consequence` -- this paragraph follows from what the previous one established, `grounds` -- this paragraph gives the reason for what the previous one asserted, `contrast` -- this paragraph sets its matter against the previous one's, `elaboration` -- this paragraph carries the previous one's matter further or in more detail, `summary` -- this paragraph draws the preceding paragraphs together, or `none` -- this paragraph opens on its own matter and no connective is owed."
   },
   "criteria": {
-    "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's `judgment_point` is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names and the word bound below, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
+    "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's `judgment_point` is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict, each shared block one sentence; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names, `words_max` per criterion and `point_words_max` over the whole rendered judgment point, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
     "paragraph_plan_unit": ["BIND", "TERMS", "DIVIDE", "FORM", "JOIN"],
     "paragraph_plan_judge_unit": ["BEGINS AND ENDS", "ONE PER SEGMENT", "RECOVERABLE", "BREAKS AND JOIN"],
-    "words_max": 75
+    "words_max": 75,
+    "point_words_max": 540
   },
   "judge": {
     "command": "claude",

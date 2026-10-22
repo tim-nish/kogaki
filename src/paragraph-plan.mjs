@@ -210,32 +210,48 @@ function renderRowHead(row) {
 // is shown rather than the raw table string, so shared text cannot hide a criterion.
 const CRITERION_LINE = /^- ([A-Z][A-Z ]*[A-Z]): (.+)$/;
 
-export function criteriaOf(prompt) {
+function judgmentPointOf(prompt) {
   const at = prompt.indexOf("JUDGMENT POINT: ");
   const end = prompt.indexOf("\nREQUIRED RECORD SHAPE: ", at);
-  const point = at < 0 ? "" : prompt.slice(at, end < 0 ? undefined : end);
-  return point.split("\n").map((l) => l.match(CRITERION_LINE)).filter(Boolean).map((m) => ({ name: m[1], text: m[2] }));
+  return at < 0 ? "" : prompt.slice(at + "JUDGMENT POINT: ".length, end < 0 ? undefined : end);
+}
+
+export function criteriaOf(prompt) {
+  return `\n${judgmentPointOf(prompt)}`.split("\n").map((l) => l.match(CRITERION_LINE)).filter(Boolean).map((m) => ({ name: m[1], text: m[2] }));
 }
 
 // One sentence: it ends at its only full stop, and carries no example's run date and no Issue
 // number, which ride beside a criterion as a pointer line or not at all.
+const oneSentence = (text) => /[.]$/.test(text) && !/[.;!?]\s/.test(text);
+
 function criterionRefusal({ name, text }, wordsMax) {
-  if (!/[.]$/.test(text) || /[.;!?]\s/.test(text)) return `${name} is not one sentence`;
+  if (!oneSentence(text)) return `${name} is not one sentence`;
   if (/#\d+|\b\d{4}-\d{2}-\d{2}\b/.test(text)) return `${name} carries an Issue number or a run date`;
   const n = words(text);
   return n > wordsMax ? `${name} runs ${n} words, over the bound of ${wordsMax}` : null;
 }
 
 // Every failure of the table's two rows against `criteria`: the names in order, one sentence
-// each, under `words_max`. Exported so the check reads what `start` refuses on.
+// each, under `words_max`; each shared block one sentence; and the whole rendered judgment
+// point -- lead, criteria, shared text and verdict -- under `point_words_max`, so the text
+// around the criteria cannot grow where the per-criterion bound does not reach. Exported so
+// the check reads what `start` refuses on.
 export function criteriaFailures(table) {
   const bound = table.criteria || {};
   const wordsMax = Number(bound.words_max);
+  const pointMax = Number(bound.point_words_max);
   if (!Number.isInteger(wordsMax) || wordsMax <= 0) return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `words_max`"];
+  if (!Number.isInteger(pointMax) || pointMax <= 0) return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `point_words_max`"];
   const fails = [];
+  for (const [name, text] of Object.entries(table.shared_text || {})) {
+    if (!oneSentence(String(text))) fails.push(`shared text ${name} is not one sentence`);
+  }
   for (const key of ["paragraph_plan_unit", "paragraph_plan_judge_unit"]) {
     const want = Array.isArray(bound[key]) ? bound[key] : [];
-    const got = criteriaOf(renderRowHead({ id: key, ...table[key] }));
+    const prompt = renderRowHead({ id: key, ...table[key] });
+    const n = words(judgmentPointOf(prompt));
+    if (n > pointMax) fails.push(`${key}'s rendered judgment point runs ${n} words, over the bound of ${pointMax}`);
+    const got = criteriaOf(prompt);
     if (!want.length) fails.push(`\`criteria\` names no criterion for ${key}`);
     if (JSON.stringify(got.map((c) => c.name)) !== JSON.stringify(want)) {
       fails.push(`${key} carries the criteria ${JSON.stringify(got.map((c) => c.name))}, not the ${JSON.stringify(want)} \`criteria\` names`);
