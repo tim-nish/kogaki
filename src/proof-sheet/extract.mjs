@@ -227,6 +227,20 @@ function nounIn(nouns, text) {
   const lower = String(text).toLowerCase();
   return nouns.find((n) => (/\s/.test(n) ? lower.includes(n) : ws.has(n)));
 }
+// THE WHOLE MOVE IS GENERAL (kogaki#1519): every prose field of the record -- `operation`,
+// `relation`, `manner`, each `breaks` test and each reader state -- names none of
+// `subject_nouns` and no word in the original's language; `content` is the one field bound to
+// the source. A word in another script is a run of letters outside the Latin script, or of
+// CJK or full-width punctuation, such as 「なぜなら」; dashes and quotes stay common punctuation.
+const FOREIGN_RUN = /(?:(?!\p{Script=Latin})\p{L}|[\u3000-\u303F\uFF00-\uFFEF])+/u;
+function generalRefusal(nouns, text, at) {
+  if (typeof text !== "string") return null;
+  const noun = nounIn(nouns, text);
+  if (noun) return `${at} names "${noun}", one of your subject_nouns — it names no term of the original (FORMAT "The paragraph unit", rule 7)`;
+  const run = text.match(FOREIGN_RUN);
+  if (run) return `${at} carries "${run[0]}", a word outside the Latin script — it names no word of the original's language (FORMAT "The paragraph unit", rule 7)`;
+  return null;
+}
 
 // EVERY FAILING FIELD, NOT ONLY THE FIRST (kogaki#1395). A record read back against FORMAT
 // used to return on its first bad field, so an answer with two slips reported one and spent
@@ -265,7 +279,10 @@ export function validateExtractionUnit(record, input) {
   if (!Array.isArray(r.breaks) || !r.breaks.length) {
     errors.push(`${at}: \`breaks\` is not a list of prose tests — one or more one-line strings, each a change and what the reader loses`);
   } else {
-    for (const [i, t] of r.breaks.entries()) { const e = lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`); if (e) errors.push(e); }
+    for (const [i, t] of r.breaks.entries()) {
+      const e = lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`) || generalRefusal(nouns, t, `${at}: \`breaks\` test ${i + 1}`);
+      if (e) errors.push(e);
+    }
   }
 
   // Section 3: one Segment per sentence, both clauses on every one.
@@ -295,10 +312,9 @@ export function validateExtractionUnit(record, input) {
           errors.push(`${atS}: the \`${k}\` clause carries \`— operation:\`, \`— relation:\` or \`— manner:\`; the clauses are separate fields`);
         }
       }
-      for (const k of ["operation", "manner"]) {
-        if (typeof s[k] !== "string") continue;
-        const noun = nounIn(nouns, s[k]);
-        if (noun) errors.push(`${atS}: the \`${k}\` clause names "${noun}", one of your subject_nouns — it names no term of the original`);
+      for (const k of ["operation", "relation", "manner"]) {
+        const e2 = generalRefusal(nouns, s[k], `${atS}: the \`${k}\` clause`);
+        if (e2) errors.push(e2);
       }
       if (typeof s.manner === "string" && s.manner.trim() && typeof s.operation === "string"
           && mannerRestatesOperation(s.manner, s.operation)) {
@@ -332,9 +348,12 @@ export function validateExtractionUnit(record, input) {
       if (typeof want === "string" && row.before.trim() !== want.trim()) {
         errors.push(`${atD}'s \`before\` is ${JSON.stringify(row.before)}, and the previous paragraph left it ${JSON.stringify(want)} — the before column is carried, not drafted (FORMAT "The paragraph unit", rule 3)`);
       }
+      // A carried `before` is the previous paragraph's state, already held to this rule there;
+      // only a drafted one -- the Leg's first paragraph -- is read here.
+      if (typeof want !== "string") { const e2 = generalRefusal(nouns, row.before, `${atD}'s \`before\``); if (e2) errors.push(e2); }
       if (isUnchanged(row.after)) continue;
       changed += 1;
-      { const noun = nounIn(nouns, row.after); if (noun) errors.push(`${atD}'s \`after\` names "${noun}", one of your subject_nouns — it is written general, as \`operation\` is (FORMAT "The paragraph unit", rule 7)`); }
+      { const e2 = generalRefusal(nouns, row.after, `${atD}'s \`after\``); if (e2) errors.push(e2); }
       const nums = row.segment.split(",").map((x) => x.trim()).filter(Boolean);
       if (!nums.length) { errors.push(`${atD} records a change naming no Segment`); continue; }
       const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);

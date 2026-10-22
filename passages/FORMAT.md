@@ -137,14 +137,19 @@ rule 8 is kogaki#1478's:
    `expectation` `after` as what the reader, having finished the paragraph,
    expects the next paragraph to do, and say what this paragraph has
    completed.
-7. **Reader states and `operation` are written general.** A section 2 `after`
+7. **The whole record is written general.** A section 2 `after`
    state is written as `operation` is, in general terms, naming no term, place,
    person or claim of the original and none of `subject_nouns`, and
    describing nothing of a neighbouring paragraph's content, so that
    `before` states copied from it stay general. Segment 1's `operation`
    carries no reference to any earlier step or earlier paragraph. A later
    Segment's `operation` is the operation alone, and its `relation`
-   carries the connection to the step before.
+   carries the connection to the step before. Every prose field of the
+   record, `operation`, `relation`, `manner`, each entry of `breaks` and
+   each dimension state of the reader table, names no term, place, person or
+   claim of the original, none of `subject_nouns`, and no word in the
+   original's language; the record's `content` clause and `opening` are the
+   only fields bound to the source (kogaki#1519).
 8. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -509,7 +514,11 @@ What each field holds:
   no elaboration, a quotation, a shift of form — never a point, never a
   reason, never a restatement of the `operation`, and naming no term,
   place, person or claim of the original. Left out is the normal case. No
-  label set is used for any of the three. A Segment with no `operation`, a
+  label set is used for any of the three. `operation`, `relation` and
+  `manner` are written general: none names a term, place, person or claim of
+  the original, any of `subject_nouns`, or a word in the original's
+  language. `content` and `opening` are the only Segment fields bound to the
+  source (kogaki#1519). A Segment with no `operation`, a
   Segment after the first with no `relation`, or Segment 1 carrying one, is
   refused at ingestion, naming the Segment's number.
 - `why_this_order` — one sentence stating why this order and not another.
@@ -522,8 +531,11 @@ What each field holds:
   Each test names a change no other test names. The tests are read whole;
   there are no keys and no fixed kinds. Do not leave out the plausible
   addition: a longer version is where density goes wrong, so be specific
-  about what it would cost. A `breaks` that is not a list of one-line
-  strings is refused at ingestion.
+  about what it would cost. Each test is written general, as `operation`
+  is: it names no term, place, person or claim of the original, none of
+  `subject_nouns`, and no word in the original's language, so that it tests
+  the Move on any subject (kogaki#1519). A `breaks` that is not a list of
+  one-line strings is refused at ingestion.
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
   role: no prompt renders it, and the ingest reads only that it is present
