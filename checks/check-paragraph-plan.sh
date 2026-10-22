@@ -183,7 +183,7 @@ const critOf = (p, name) => (criteriaOf(p).find((c) => c.name === name) || { tex
 const moves = join(root, "moves");
 mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-const PSEG_DOES = "states the point once, plainly.";
+const PSEG_OPERATION = "states the point once, plainly.";
 // A Move record is YAML written by the Brief's own writer (kogaki#1413):
 // `before` and `after` maps keyed by dimension, `breaks` a list, `segments`
 // a list of maps.
@@ -210,7 +210,7 @@ const STATE = { before: { knowledge: "before." }, after: { knowledge: "after." }
 // p1's state holds two dimensions, so (j) can see them rendered one line each.
 const P1_BEFORE = { knowledge: "before.", question: "holds: none." };
 const P1_ADMITTED = ingestMove(moves, { id: "p1", before: P1_BEFORE, after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."],
-  segments: [{ operation: PSEG_DOES }] });
+  segments: [{ operation: PSEG_OPERATION }] });
 if (P1_ADMITTED && !existsSync(join(moves, "INDEX.md"))) fails.push("(k) the ingest admitted p1 and wrote no INDEX.md beside it");
 const PSEG3 = [{ operation: "sets up the point." }, { operation: "makes the point.", relation: "answers what the setup opened." },
   { operation: "leaves the point.", relation: "draws the consequence of the point." }];
@@ -234,7 +234,7 @@ const isolatedLibrary = (name, rec) => {
   const dir = join(root, name);
   mkdirSync(dir);
   writeFileSync(join(dir, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  writeMove(dir, { id: "p1", ...STATE, breaks: ["breaks if the point is dropped."], segments: [{ operation: PSEG_DOES }] });
+  writeMove(dir, { id: "p1", ...STATE, breaks: ["breaks if the point is dropped."], segments: [{ operation: PSEG_OPERATION }] });
   writeMove(dir, rec);
   return dir;
 };
@@ -299,12 +299,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const lostSegment = mode === "mismatch" && perSegment && leg.waypoints.some((w) =>
       doesOf(w)[0] && (w.paragraph_waypoints || [])[0] && w.paragraph_waypoints[0].point === ${JSON.stringify(UNRELATED_FIRST_POINT)});
     // (o): refuses a Paragraph Waypoint carrying its own Segment's relation, only where the row
-    // it was handed binds relation beside does.
+    // it was handed binds relation beside operation.
     const relationRule = crit("RECOVERABLE").includes("a Segment's \`relation\`");
     const relationOf = (w, i) => String((((w.bound_move && w.bound_move.segments) || [])[i] || {}).relation || "").trim();
     const carriesRelation = mode === "relation" && relationRule && leg.waypoints.some((w) =>
       (w.paragraph_waypoints || []).some((pw, i) => relationOf(w, i) && String(pw.point || "").includes(relationOf(w, i))));
-    // (p): refuses a \`performs\` Paragraph Waypoint on a Segment whose does defines, only where
+    // (p): refuses a \`performs\` Paragraph Waypoint on a Segment whose operation defines, only where
     // the row it was handed carries the form in ONE PER SEGMENT (kogaki#1448).
     const formRule = crit("ONE PER SEGMENT").includes("a \`point\` everywhere else");
     const performsOnSubject = mode === "performs-defining" && formRule && leg.waypoints.some((w) =>
@@ -449,9 +449,9 @@ let okPrompts = [];
       fails.push("(a) Leg s2's second plan prompt does not carry its attempt-1 plan record as 2-space JSON and the judge's why in one block above the input (kogaki#1438)");
     }
   }
-  if (!plans.length || !plans.every((p) => p.includes(`"operation": ${JSON.stringify(PSEG_DOES)}`) && p.includes('"relation": ""')
+  if (!plans.length || !plans.every((p) => p.includes(`"operation": ${JSON.stringify(PSEG_OPERATION)}`) && p.includes('"relation": ""')
     && p.includes('"persona"') && p.includes("breaks if the point is dropped."))) {
-    fails.push("(a) a plan prompt is not handed the Move's segments (each Segment's does and relation) and breaks beside the persona");
+    fails.push("(a) a plan prompt is not handed the Move's segments (each Segment's operation and relation) and breaks beside the persona");
   }
   if (!plans.length || !plans.every((p) => p.includes('"point"') && p.includes('"serves"') && p.includes('"next_point"'))) {
     fails.push("(a) a plan prompt does not carry a Leg Waypoint entry's point, serves and next_point");
@@ -503,7 +503,7 @@ let okPrompts = [];
   const retired = join(root, "moves-retired");
   mkdirSync(retired);
   writeFileSync(join(retired, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  writeMove(retired, { id: "p1", ...STATE, breaks: ["breaks if the point is dropped."], segments: [{ operation: PSEG_DOES }] });
+  writeMove(retired, { id: "p1", ...STATE, breaks: ["breaks if the point is dropped."], segments: [{ operation: PSEG_OPERATION }] });
   writeFileSync(join(retired, "p9.md"), "id: p9\nbefore: >-\n  knowledge: before.\n");
   const rr = runStage("retired", legs, "ok", retired);
   const rOut = `${rr.started.stdout}${rr.started.stderr}${rr.awaited ? rr.awaited.stdout + rr.awaited.stderr : ""}`;
@@ -514,7 +514,7 @@ let okPrompts = [];
   mkdirSync(joined);
   writeFileSync(join(joined, "ROLES.json"), readFileSync("moves/ROLES.json"));
   writeMove(joined, { id: "p1", before: "knowledge: before. question: holds: none.",
-    after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."], segments: [{ operation: PSEG_DOES }] });
+    after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."], segments: [{ operation: PSEG_OPERATION }] });
   const jr = runStage("joined", legs, "ok", joined);
   const jOut = `${jr.started.stdout}${jr.started.stderr}${jr.awaited ? jr.awaited.stdout + jr.awaited.stderr : ""}`;
   if (!jOut.includes("one joined line")) fails.push(`(j) a Move whose before is one joined line is not refused by name: ${jOut.slice(0, 400)}`);
@@ -587,10 +587,10 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     ['"segment": 2', '"operation": "makes the point."', '"relation": "answers what the setup opened."'],
     ['"segment": 3', '"operation": "leaves the point."', '"relation": "draws the consequence of the point."']];
   if (!plans.length || !plans.every((p) => fields.every((f) => f.every((x) => p.includes(x))))) {
-    fails.push("(h) a plan prompt does not carry every Segment's number, does and relation as separate fields");
+    fails.push("(h) a plan prompt does not carry every Segment's number, operation and relation as separate fields");
   }
   if (!plans.length || !plans.every((p) => p.includes("A Segment's `operation` is an operation performed on a part of the Leg Waypoint's `point`, never a point to state."))) {
-    fails.push("(h) a plan prompt's row does not state that a Segment's does is an operation to perform and never a point to state");
+    fails.push("(h) a plan prompt's row does not state that a Segment's operation is an operation to perform and never a point to state");
   }
   const s1Plans = plans.filter((p) => p.includes('"leg_id": "s1"') && p.includes("The installer writes into a tree the consumer thought was theirs alone."));
   if (s1Plans.length !== 2 || !s1Plans[1].includes("CONTENT-SENTENCE")) {
@@ -614,7 +614,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const first = judges[0] || "";
   if (!critOf(first, "ONE PER SEGMENT").includes("the Nth Segment's `operation`")) fails.push("(i) the judge row's ONE PER SEGMENT does not check each Paragraph Waypoint against its own Segment");
   if (!first.includes(P5_SEG1) || !first.includes(UNRELATED_FIRST_POINT)) {
-    fails.push("(i) the first judge call is not handed Segment 1's does beside the unrelated first Paragraph Waypoint");
+    fails.push("(i) the first judge call is not handed Segment 1's operation beside the unrelated first Paragraph Waypoint");
   }
   const plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
   if (plans.length !== 2 || !plans[1].includes("SEGMENT-SENTENCE")) {
@@ -771,7 +771,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   else if (!r.awaited || r.awaited.status !== 0) fails.push(`(p) await did not finish the defining-Move job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
   const judges = r.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
   if (!judges[0] || !judges[0].includes(P6_SEG1) || !judges[0].includes('"performs": "PERFORMS-')) {
-    fails.push("(p) the first judge call is not handed Segment 1's defining does beside the performs Paragraph Waypoint");
+    fails.push("(p) the first judge call is not handed Segment 1's defining operation beside the performs Paragraph Waypoint");
   }
   const s1Plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"') && p.includes('"leg_id": "s1"'));
   if (s1Plans.length !== 2 || !s1Plans[1].includes("PERFORMS-SENTENCE Paragraph Waypoint 1")) {
