@@ -22,22 +22,23 @@
 #   (b) `moves/INDEX.md` is byte-for-byte what `tools/move_ingest.py`'s own
 #       `write_index` regenerates from the records on disk -- the ingest's
 #       writer, run over a copy, so the two cannot drift into disagreeing.
+#   (d) no record in the retired `.md` form remains under `moves/` -- every
+#       `.md` file there but `INDEX.md` is refused (kogaki#1522). A `.md`
+#       record is refused at every read and listed nowhere, so one left behind
+#       is dead text no other assertion here would see.
 #
 # THE FIXTURE PASS RUNS ON EVERY INVOCATION, not behind a flag: a predicate
 # that silently stopped discriminating would otherwise report a clean library,
 # and a clean library is exactly what this member reports when it is working.
 # The cases are the defect's own shapes: a record carrying `technique` and no
 # `segments` (the 21 Leg Moves' shape), a `before` written as one joined line,
-# an `id` disagreeing with its file name, a stale INDEX -- and one admitted
-# record with a fresh INDEX as the control that stops the deny passing
-# vacuously.
+# an `id` disagreeing with its file name, a stale INDEX, a `.md` record beside
+# an otherwise clean library -- and one admitted record with a fresh INDEX as
+# the control that stops the deny passing vacuously.
 #
-# WHAT IT DOES NOT VERIFY, stated rather than left to look covered: the
-# ABSENCE of the retired `.md` record form. The 21 `.md` records are on disk
-# at admission and kogaki#1415 removes them; a `.md` file is refused at every
-# read and listed nowhere, so one left behind is dead text rather than a
-# record the pipeline could bind. Whether a record's prose is any good is the
-# owner's reading at the ingest's selection screen, never linted here.
+# WHAT IT DOES NOT VERIFY, stated rather than left to look covered: whether a
+# record's prose is any good is the owner's reading at the ingest's selection
+# screen, never linted here.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -70,6 +71,10 @@ function libraryFailures(dir, tag) {
   const out = [];
   const lib = join(dir, "moves");
   const records = readdirSync(lib).filter((n) => n.endsWith(".yaml")).sort();
+  // (d) the retired `.md` record form is gone; INDEX.md is the one `.md` file.
+  for (const name of readdirSync(lib).filter((n) => n.endsWith(".md") && n !== "INDEX.md").sort()) {
+    out.push(`${tag} ${name}: is a record in the retired \`.md\` form`);
+  }
   for (const name of records) {
     const path = join(lib, name);
     let record;
@@ -156,6 +161,15 @@ const WHOLE = {
   const f = libraryFailures(d, "(c4)");
   ok(f.some((l) => /not the regeneration/.test(l)), "(c4) an INDEX.md that is not the regeneration of the records is refused");
 }
+// (c6) a retired `.md` record beside an admitted record and a fresh INDEX.
+{
+  const d = fixture("retired-md");
+  writeRecord(d, "p1.yaml", WHOLE);
+  writeFileSync(join(d, "moves", "p0.md"), "# p0\n\nTechnique: define a variable, then simplify it.\n");
+  reindex(d);
+  const f = libraryFailures(d, "(c6)");
+  ok(f.some((l) => /retired `\.md` form/.test(l)), "(c6) a record in the retired `.md` form is refused");
+}
 // (c5) the control: one admitted record, fresh INDEX, nothing fails.
 {
   const d = fixture("control");
@@ -165,7 +179,7 @@ const WHOLE = {
   ok(f.length === 0, `(c5) an admitted record with a fresh INDEX passes: ${f.join(" | ")}`);
 }
 rmSync(root, { recursive: true, force: true });
-console.log("fixture cases run: 5");
+console.log("fixture cases run: 6");
 
 // ---- the committed library ----
 const real = libraryFailures(repo, "(a/b)");

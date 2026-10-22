@@ -1,0 +1,64 @@
+id: chain_consequences_out_to_a_named_end_state
+description: >-
+  Runs an established condition out along a chain of consequences, from a
+  practice that stops paying to a named end state, then grounds that state in
+  one class of holdings losing its point.
+before:
+  knowledge: >-
+    also holds the mirror setting of that condition and its opposite outcome,
+    with two separate reasons why it holds
+  question: >-
+    wants to know whether the favourable setting of the condition can be brought
+    about deliberately
+  expectation: >-
+    expects the next step to say how the favourable setting is obtained, now
+    that the reverse case has been stated and backed
+after:
+  knowledge: >-
+    also holds a chain of further consequences of that setting, ending in a
+    named end state the parties come to pursue on their own
+  question: >-
+    still wants that, now sharpened by having seen the parties act on their own
+    once the setting holds
+  expectation: >-
+    expects the next step to turn from consequences to the means of producing
+    the setting, the consequence side having been carried to its end
+breaks:
+  - >-
+    cut the first sentence and open at the easier-cooperation claim — the
+    benefit arrives with nothing of the opposite case removed to earn it, and
+    reads as assertion
+  - >-
+    drop the two concrete instances in the last sentence — the reader keeps the
+    logic but has nothing to picture being given up, and the willingness sounds
+    unmotivated
+  - >-
+    put the named outcome first and the smaller consequences after it — the
+    strongest claim arrives before anything supports it, and the chain reads as
+    an unordered list
+  - >-
+    add a paragraph defining the named outcome before giving its reason — the
+    chain stalls at its strongest step and loses the momentum the linked
+    consequences built
+segments:
+  - operation: >-
+      derives a consequence of a stated condition, that a costly indirect
+      practice ceases to be worth undertaking
+  - operation: >-
+      states a broader favourable outcome that follows once an obstructing
+      practice is absent
+    relation: >-
+      turns the loss named in the previous step into what that loss permits
+  - operation: >-
+      advances to a further outcome of the condition and attaches a settled name
+      to it
+    relation: >-
+      moves from the soft benefit of the previous step to a harder and nameable
+      one, restating the governing condition as it does so
+  - operation: >-
+      grounds the named outcome in the loss of value of one class of holdings,
+      so that parting with them becomes something the parties pursue willingly
+    relation: >-
+      supplies the reason for the outcome the previous step named, narrowing
+      from the general outcome to the particular class that drives it
+    manner: a pair of concrete instances named in passing rather than discussed

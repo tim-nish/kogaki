@@ -1,0 +1,55 @@
+id: run_an_incentive_forward_to_its_end_state
+description: >-
+  Adds a second consequence of a condition already established, names the single
+  incentive behind it, then runs that incentive forward to a state where
+  agreement is no longer possible.
+before:
+  knowledge: >-
+    also holds a named kind of case that such conditions tend to produce,
+    together with what the name means
+  question: >-
+    wants to know how the newly named kind of case comes about in practice
+  expectation: >-
+    expects the named kind of case to be worked out before any other case is
+    taken up
+after:
+  knowledge: >-
+    also holds a second and wider consequence of the same condition, together
+    with the incentive that drives it and the end point it reaches
+  question: >-
+    wants to know whether the end point just reached can be escaped at all
+  expectation: >-
+    expects a further consequence of the same condition, now that a second one
+    has been carried to its end point
+breaks:
+  - >-
+    drop the second sentence's reason — the opening claim must be taken on faith
+    and the chain loses its middle
+  - >-
+    soften the close to 'harder' rather than impossible — the reader is left
+    with a difficulty instead of a dead end, and the stakes flatten
+  - >-
+    move the closing consequence ahead of the reason — the strongest claim
+    arrives with nothing yet supporting it
+  - >-
+    add a paragraph of cases of the conduct between named parties — the
+    three-step chain is buried and a reader with no background loses the thread
+    before the end point arrives
+  - >-
+    replace the additive connective with a fresh heading-style opening — the
+    reader reads this as a new topic rather than a second effect of the same
+    condition
+segments:
+  - operation: states a consequence that holds under a given condition
+  - operation: names the incentive that produces the stated outcome
+    relation: >-
+      gives the ground for the claim just made, answering why it should hold
+  - operation: >-
+      generalises a stated incentive into ordinary conduct and names where that
+      conduct ends up
+    relation: >-
+      takes the incentive just supplied and follows it to its terminus instead
+      of adding another reason
+    manner: >-
+      the terminus given flatly in absolute terms rather than as a matter of
+      degree
