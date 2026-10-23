@@ -7,10 +7,9 @@
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
 #   (n) Path Review's `discharge_rows` names each row and its owed Legs.
 #   (o)-(q) owed_by order, an owed Leg opening a Section, a non-terminal row.
-#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot in
-#       the composer's input; (t) the retired `closure` key; (u) `term` rows
-#       in `names` and the reader-knowledge ledger; (v) a `term` row carrying a
-#       list of terms in raised order (kogaki#1549).
+#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
+#       the retired `closure` key; (u) `term` rows in `names` and the ledger;
+#       (v) a `term` row carrying its terms as a list in raised order (#1549).
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
