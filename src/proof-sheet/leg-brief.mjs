@@ -72,7 +72,8 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
   introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
-  parseIntroducesEntry } from "../compose.mjs";
+  parseIntroducesEntry, readerStateDimensionLine } from "../compose.mjs";
+import { wholeWordMatch } from "../compose/sections.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
@@ -168,11 +169,13 @@ export function legCallExtraction(x) {
   };
 }
 
-export function legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds = null }) {
+// `strandOffset` is the count of the earlier Legs' paragraphs in a several-Leg Brief (kogaki#1532):
+// a Strand id names its paragraph across the whole Brief.
+export function legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds = null, strandOffset = 0 }) {
   return {
     reader_start: readerStart,
     language,
-    paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${i + 1}`, text,
+    paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${strandOffset + i + 1}`, text,
       extraction: legCallExtraction(extractions[i]) })),
     ...(givenKinds ? { introduces_given_kinds: givenKinds } : {}),
   };
@@ -261,8 +264,8 @@ export function validateLegReaderStartUnit(record) {
 
 // The composed Leg with what the Harness writes: every paragraph's Strand id as its
 // material, no dependency, and the no-Move sentence the production validator reads.
-export function completedLeg(leg, n) {
-  return { ...leg, materials: Array.from({ length: n }, (_, i) => `L${i + 1}`), depends_on: [], no_move_fits: NO_MOVE_AT_THE_LEG };
+export function completedLeg(leg, n, offset = 0) {
+  return { ...leg, materials: Array.from({ length: n }, (_, i) => `L${offset + i + 1}`), depends_on: [], no_move_fits: NO_MOVE_AT_THE_LEG };
 }
 
 // Each paragraph's Segment `content` clauses, in order: the material the Leg's words are
@@ -274,18 +277,18 @@ export function segmentContents(extractions) {
 // THE RECOVERABILITY CRITERION over the one Leg (see the header). `segments` is
 // `segmentContents`' answer; an absent or mis-sized one refuses, so a validator handed no
 // material never reads as one whose Leg held. Returns the refusal, or null.
-export function anchoredRefusal(leg, segments, n) {
+export function anchoredRefusal(leg, segments, n, offset = 0) {
   if (!Array.isArray(segments) || segments.length !== n || !segments.every(Array.isArray)) {
     return `the Leg's validator was handed ${Array.isArray(segments) ? segments.length : "no"} paragraph(s) of Segment content for the original Leg's ${n} — `
       + "the recoverability criterion reads every paragraph's Segment content (kogaki#1495)";
   }
-  const material = Object.fromEntries(segments.map((cs, i) => [`L${i + 1}`, cs.join("\n")]));
+  const material = Object.fromEntries(segments.map((cs, i) => [`L${offset + i + 1}`, cs.join("\n")]));
   const [v] = recoverabilityOf([leg], { material, renderings: [] });
   if (!v || v.verdict !== "fails") return null;
   const m = /^(claims|waypoints)\[(\d+)\]/.exec(v.field) || [];
   const item = m[1] ? leg[m[1]][Number(m[2])] : null;
   const ids = !item ? [] : m[1] === "claims" ? [item.strand] : item.serves;
-  const where = ids.map((id) => Number(String(id).replace(/^L/, ""))).filter((k) => k >= 1 && k <= n).map((k) => {
+  const where = ids.map((id) => Number(String(id).replace(/^L/, "")) - offset).filter((k) => k >= 1 && k <= n).map((k) => {
     const count = segments[k - 1].length;
     return `paragraph ${k}'s ${count === 1 ? "Segment 1" : `Segments 1–${count}`}`;
   }).join(" and ");
@@ -297,6 +300,7 @@ export function anchoredRefusal(leg, segments, n) {
 
 export function validateLegPathUnit(record, inputs) {
   const n = inputs.paragraph_count;
+  const o = inputs.strand_offset || 0;
   const bad = keysRefusal(record, ["legs"], "the record");
   if (bad) return { error: bad };
   if (!Array.isArray(record.legs) || record.legs.length !== 1) {
@@ -313,19 +317,22 @@ export function validateLegPathUnit(record, inputs) {
     return { error: `${at}: carries ${Array.isArray(leg.claims) ? leg.claims.length : "no"} Claim(s) for the original Leg's ${n} paragraph(s) — one Claim per paragraph, in order` };
   }
   for (const [i, g] of leg.claims.entries()) {
-    if (!isMap(g) || g.strand !== `L${i + 1}`) {
-      return { error: `${at}: Claim ${i + 1} names ${JSON.stringify(isMap(g) ? g.strand : g)}, not L${i + 1} — Claim N is paragraph N's, addressed by its \`claim_strand\`` };
+    if (!isMap(g) || g.strand !== `L${o + i + 1}`) {
+      return { error: `${at}: Claim ${i + 1} names ${JSON.stringify(isMap(g) ? g.strand : g)}, not L${o + i + 1} — Claim N is paragraph N's, addressed by its \`claim_strand\`` };
     }
   }
   if (!Array.isArray(leg.waypoints) || leg.waypoints.length !== n) {
     return { error: `${at}: carries ${Array.isArray(leg.waypoints) ? leg.waypoints.length : "no"} Leg Waypoint(s) for the original Leg's ${n} paragraph(s) — one Leg Waypoint per paragraph, in order` };
   }
   for (const [i, w] of leg.waypoints.entries()) {
-    if (isMap(w) && Array.isArray(w.serves) && !w.serves.includes(`L${i + 1}`)) {
-      return { error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${i + 1} — Leg Waypoint N serves the Claim of paragraph N` };
+    if (isMap(w) && Array.isArray(w.serves) && !w.serves.includes(`L${o + i + 1}`)) {
+      return { error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${o + i + 1} — Leg Waypoint N serves the Claim of paragraph N` };
     }
   }
-  const full = completedLeg(leg, n);
+  if ((inputs.taken_leg_ids || []).includes(leg.leg_id)) {
+    return { error: `${at}: the leg_id ${JSON.stringify(leg.leg_id)} is already carried by an earlier Leg of this Brief — every Leg of the Brief has its own id (kogaki#1532)` };
+  }
+  const full = completedLeg(leg, n, o);
   const r = validateLegs([full], inputs.reader_start, [], []);
   // THE ONE ADMITTED REFUSAL (see the header): Section grouping rule 3 over a Leg that opens
   // no Section. `validateLegs` stops there, so the whole-path rule after it that binds one
@@ -336,11 +343,64 @@ export function validateLegPathUnit(record, inputs) {
     const nearest = introducesNearestRefusal([full]);
     if (nearest) return { error: nearest };
   }
-  const anchored = anchoredRefusal(full, inputs.segments, n);
+  const anchored = anchoredRefusal(full, inputs.segments, n, o);
   if (anchored) return { error: anchored };
   const kinds = givenKindsRefusal(leg, inputs.given_kinds);
   if (kinds) return { error: kinds };
+  // THE LAST LEG OF SEVERAL (kogaki#1532) completes the path: its cross-Leg fields are derived
+  // and the production `validateLegs` runs over the whole path with no rule skipped.
+  if (inputs.path) {
+    const { legs } = crossLegPath([...inputs.path.prior_legs, leg], inputs.path.counts, inputs.path.segments);
+    const r2 = validateLegs(legs, inputs.path.reader_start, [], []);
+    if (r2.error) return { error: `the whole path, with this Leg last and its cross-Leg fields derived (kogaki#1532): ${r2.error}` };
+  }
   return {};
+}
+
+// ---------------------------------------------------------------------------
+// THE CROSS-LEG FIELDS OF SEVERAL LEGS, DERIVED (kogaki#1532, owner decision 2026-10-23). No
+// model call fills any of them: each Leg after the first depends on the Leg before it; the first
+// Leg opens the one Section, its destination the last Leg's after-state `orientation` line; the
+// last Leg reaches the target; and a term an earlier Leg introduces is re-activated by the first
+// later Leg whose Extraction Segment `content` uses it, which then depends on the introducing Leg
+// too, since a Leg re-activates only material of a Leg it depends on. `legs` are the composed
+// Legs in order, `counts` their paragraph counts and `segments` their Segment content per
+// paragraph (`segmentContents`). Returns `{ legs, derived }`: the completed Legs, and one row per
+// derived field naming the Leg, the field, its value and the rule.
+export const DERIVED_RULES = {
+  depends_on: "the Leg before it",
+  opens_section: "the last Leg's after-state orientation line",
+  reaches_target: "the last Leg",
+  "re-activate": "the first later Leg whose Extraction content uses a term an earlier Leg introduces",
+};
+export function crossLegPath(legs, counts, segments) {
+  const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
+  const out = legs.map((leg, k) => completedLeg(leg, counts[k], offsets[k]));
+  const derived = [];
+  const mark = (k, field, value) => derived.push({ leg_id: out[k].leg_id, field, value, rule: DERIVED_RULES[field] });
+  if (out.length < 2) return { legs: out, derived };
+  for (let k = 1; k < out.length; k++) out[k].depends_on = [out[k - 1].leg_id];
+  for (let j = 0; j < out.length - 1; j++) {
+    for (const raw of Array.isArray(out[j].introduces) ? out[j].introduces : []) {
+      const p = parseIntroducesEntry(raw);
+      if (p.error) continue;
+      const k = out.findIndex((_, x) => x > j && (segments[x] || []).flat().some((c) => wholeWordMatch(p.term, c)));
+      if (k < 0) continue;
+      out[k]["re-activate"] = [...(out[k]["re-activate"] || []), `${out[j].leg_id} term ${p.term}`];
+      const deps = new Set([...out[k].depends_on, out[j].leg_id]);
+      out[k].depends_on = out.slice(0, k).map((l) => l.leg_id).filter((id) => deps.has(id));
+    }
+  }
+  const last = out.length - 1;
+  out[0].opens_section = readerStateDimensionLine(out[last].reader_state_after, "orientation") || "";
+  out[last].reaches_target = true;
+  out.forEach((l, k) => {
+    if (k > 0) mark(k, "depends_on", l.depends_on);
+    if (l["re-activate"]) mark(k, "re-activate", l["re-activate"]);
+  });
+  mark(0, "opens_section", out[0].opens_section);
+  mark(last, "reaches_target", true);
+  return { legs: out, derived };
 }
 
 // ---------------------------------------------------------------------------
@@ -365,13 +425,16 @@ export function constantFields({ slug, paragraphs, legId }) {
 }
 export const CONSTANT_COMMENT = "# PROOF SHEET CONSTANT (kogaki#1385): not composed — the parser requires it.";
 
-export function legBriefText({ slug, composePath, paragraphs, readerStart, leg }) {
-  const full = deriveReaderStatesBefore([completedLeg(leg, paragraphs.length)], readerStart)[0];
-  const constants = constantFields({ slug, paragraphs, legId: full.leg_id });
+// `legs`, in place of `leg`, is a several-Leg Brief's composed Legs with `counts` and `segments`
+// for `crossLegPath` (kogaki#1532); the Reader target is then the last Leg.
+export function legBriefText({ slug, composePath, paragraphs, readerStart, leg, legs = null, counts = null, segments = null }) {
+  const path = legs ? crossLegPath(legs, counts, segments).legs : [completedLeg(leg, paragraphs.length)];
+  const full = deriveReaderStatesBefore(path, readerStart);
+  const constants = constantFields({ slug, paragraphs, legId: full.at(-1).leg_id });
   const text = briefRecordText({
     slug, compose_path: composePath, ...constants,
     reader_start: readerStateMap(readerStart),
-    reader_path: [legRecord(full)],
+    reader_path: full.map(legRecord),
   });
   // Mark each constant above its key; a comment is never read back.
   const keys = new Set(Object.keys(constants));
@@ -394,16 +457,27 @@ function positiveSetting(job, key) {
 // `p<N>/answer.json` holds paragraph N's Extraction record. The Leg is cut by the
 // Extractor's own `legParagraphs` (The paragraph unit, rule 1), so paragraph N here is the
 // paragraph Extraction N was written for.
+// An Extractor run over several Legs (kogaki#1532) lists them in `extractions.json`; the answer
+// then also carries `legs`, each Leg's Passage and paragraph count in order, and `paragraphs`
+// and `extractions` run across them.
 export function readExtractorRun(runDir, legOverride = null) {
   const idx = join(runDir, "extractions.json");
   let doc;
   try { doc = JSON.parse(readFileSync(idx, "utf8")); }
   catch (e) { return { error: `the Extractor run at ${runDir} carries no readable extractions.json (${e.message}) — run src/proof-sheet/extract.mjs to completion first` }; }
-  const legPath = legOverride || doc.leg;
-  let text;
-  try { text = readFileSync(legPath, "utf8"); }
-  catch (e) { return { error: `the Leg at ${legPath} cannot be read (${e.message}); name it with --leg` }; }
-  const paragraphs = legParagraphs(text);
+  if (Array.isArray(doc.legs) && legOverride) return { error: `the Extractor run at ${runDir} ran several Legs, which it names itself — leave --leg off` };
+  const legPaths = Array.isArray(doc.legs) ? doc.legs.map((l) => l.leg) : [legOverride || doc.leg];
+  const paragraphs = [];
+  const legs = [];
+  for (const legPath of legPaths) {
+    let text;
+    try { text = readFileSync(legPath, "utf8"); }
+    catch (e) { return { error: `the Leg at ${legPath} cannot be read (${e.message}); name it with --leg` }; }
+    const ps = legParagraphs(text);
+    legs.push({ passage: basename(legPath).replace(/\.[^.]*$/, ""), paragraphs: ps.length });
+    paragraphs.push(...ps);
+  }
+  const legPath = legPaths[0];
   const written = Array.isArray(doc.written) ? doc.written : [];
   if (written.length !== paragraphs.length) {
     return { error: `the Extractor run at ${runDir} wrote ${written.length} Extraction(s) for the Leg's ${paragraphs.length} paragraph(s)` };
@@ -413,7 +487,7 @@ export function readExtractorRun(runDir, legOverride = null) {
     try { extractions.push(JSON.parse(readFileSync(join(runDir, `p${i + 1}`, "answer.json"), "utf8"))); }
     catch (e) { return { error: `paragraph ${i + 1}'s Extraction cannot be read from ${join(runDir, `p${i + 1}`, "answer.json")} (${e.message})` }; }
   }
-  return { paragraphs, extractions, passage: doc.passage || basename(legPath) };
+  return { paragraphs, extractions, passage: doc.passage || basename(legPath), ...(Array.isArray(doc.legs) ? { legs } : {}) };
 }
 
 // One row as one job: render, run on the supervisor, wait, record the attempts.
@@ -480,6 +554,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   if (rs.stopped) return { stopped: rs.stopped, runDir };
   const readerStart = readerStartText(rs.record);
 
+  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, givenKinds, termsFile, extractorRun, bounds });
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
     input: legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds }), recordArray: "legs",
     validatorExport: "validateLegPathUnit", bounds,
@@ -491,6 +566,40 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, readerStart, leg: lp.record.legs[0] }));
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
     terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(givenKinds).length } : null });
+  return { brief: briefPath, runDir };
+}
+
+// SEVERAL LEGS (kogaki#1532): the Leg row once per Leg, in order, each in `leg-path-<k>/`, each Leg
+// beginning at the Reader start or the previous Leg's after-state, and the last one validated with
+// the whole path (`validateLegPathUnit`'s `path`). `brief.json` records the Legs and the derived
+// cross-Leg fields, which the sheet marks.
+function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, givenKinds, termsFile, extractorRun, bounds }) {
+  const counts = material.legs.map((l) => l.paragraphs);
+  const segments = [];
+  const composed = [];
+  for (const [k, n] of counts.entries()) {
+    const o = counts.slice(0, k).reduce((a, b) => a + b, 0);
+    const paragraphs = material.paragraphs.slice(o, o + n);
+    const extractions = material.extractions.slice(o, o + n);
+    const start = k === 0 ? readerStart : composed[k - 1].reader_state_after;
+    segments.push(segmentContents(extractions));
+    const last = k === counts.length - 1;
+    const lp = runRow({ dir: join(runDir, `leg-path-${k + 1}`), unitId: `leg-path-${k + 1}`, row: rows.leg_path_unit,
+      input: legPathUnitInput({ paragraphs, extractions, readerStart: start, language, givenKinds, strandOffset: o }), recordArray: "legs",
+      validatorExport: "validateLegPathUnit", bounds,
+      inputs: { paragraph_count: n, strand_offset: o, reader_start: start, segments: segments[k],
+        taken_leg_ids: composed.map((l) => l.leg_id), ...(givenKinds ? { given_kinds: givenKinds } : {}),
+        ...(last ? { path: { prior_legs: composed, counts, segments, reader_start: readerStart } } : {}) } });
+    if (lp.stopped) return { stopped: `Leg ${k + 1} of ${counts.length} (${material.legs[k].passage}): ${lp.stopped}`, runDir };
+    composed.push(lp.record.legs[0]);
+  }
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs: material.paragraphs, readerStart,
+    legs: composed, counts, segments }));
+  const { legs, derived } = crossLegPath(composed, counts, segments);
+  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
+    terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(givenKinds).length } : null,
+    legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived });
   return { brief: briefPath, runDir };
 }
 

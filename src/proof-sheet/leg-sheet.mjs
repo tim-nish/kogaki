@@ -28,6 +28,11 @@
 // record's `library.ids`; the run header names the library and whether the run's own Moves were
 // withheld, or reads "Moves from this run only".
 //
+// A RUN OF SEVERAL LEGS (kogaki#1532): one block per Leg, in order, each with its own comparison
+// table, paragraph tables and per-Leg cards (Extraction, Move, ParagraphPlan, Packet, Draft), under
+// one Brief card and above one Run record card. The Brief card lists the derived cross-Leg fields,
+// each marked `derived`, from the composer's `brief.json`.
+//
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
 // `production` or `Proof Sheet substitute` (`SHEET_CELL_BADGE`).
@@ -136,7 +141,7 @@ export function readRun(runDir) {
   const ingest = readJson(join(runDir, "ingest", "ingest.json"));
   const jobDir = join(runDir, "paragraph-plan", "job");
   const ws = draft.workspace || join(runDir, "draft", run.passage || "");
-  const legId = draft.leg_id || (briefRecord && briefRecord.reader_path && briefRecord.reader_path[0] && briefRecord.reader_path[0].leg_id) || null;
+  const legId = (draft.leg_ids ? null : draft.leg_id) || (briefRecord && briefRecord.reader_path && briefRecord.reader_path[0] && briefRecord.reader_path[0].leg_id) || null;
   return {
     runDir, run, stage, legText, paragraphs: legParagraphs(legText),
     extractorRun: ex.extractor_run || null, extractions: ex.extractions || [],
@@ -146,6 +151,25 @@ export function readRun(runDir) {
     jobDir, planCalls: readCalls(join(runDir, "paragraph-plan", "calls.jsonl")),
     planPath: join(runDir, "brief", "paragraph-plan.yaml"),
     ws, legId, draftCalls: readCalls(join(runDir, "draft", "calls.jsonl")),
+  };
+}
+
+// ONE LEG OF SEVERAL (kogaki#1532): the run's data narrowed to Leg `k` — its text, paragraphs,
+// Extractions and ingest entries, its leg id from the Brief, its plan calls and its Writer calls.
+// `offset` is the count of the earlier Legs' paragraphs, which number the Extractor's `p<N>`.
+export function legView(r, k) {
+  const legs = r.run.legs;
+  const offset = legs.slice(0, k).reduce((a, l) => a + l.paragraphs, 0);
+  const n = legs[k].paragraphs;
+  const legText = read(join(r.runDir, legs[k].copy)) || "";
+  const legId = (((r.briefRecord && r.briefRecord.reader_path) || [])[k] || {}).leg_id || null;
+  const key = legId ? `"leg_id": ${JSON.stringify(legId)}` : null;
+  return {
+    ...r, legText, legCopy: legs[k].copy, paragraphs: legParagraphs(legText), offset, unitIndex: k, legId,
+    extractions: r.extractions.slice(offset, offset + n),
+    ingest: r.ingest ? { ...r.ingest, entries: (r.ingest.entries || []).slice(offset, offset + n) } : r.ingest,
+    planCalls: key ? r.planCalls.filter((c) => String(c.stdin).includes(key)) : [],
+    draftCalls: legId ? readCalls(join(r.runDir, "draft", `calls-${legId}.jsonl`)) : [],
   };
 }
 
@@ -456,7 +480,7 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
     const writtenCell = written ? `${esc(writtenParas[i] || "")}${anchorLinks(i + 1)}` : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
     pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td>${writtenCell}</td></tr>`);
   }
-  return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
+  return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, r.legCopy || "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
     + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
@@ -476,7 +500,7 @@ function extractionParagraphs(r) {
     const name = r.extractions[i];
     const file = name ? join(r.runDir, "extract", name) : null;
     const text = file ? read(file) : null;
-    const pdir = r.extractorRun ? join(r.extractorRun, `p${i + 1}`) : null;
+    const pdir = r.extractorRun ? join(r.extractorRun, `p${(r.offset || 0) + i + 1}`) : null;
     const promptText = pdir ? read(join(pdir, "prompt.md")) : null;
     const answer = pdir ? readJson(join(pdir, "answer.json")) : null;
     const attempts = pdir ? readJson(join(pdir, "attempts.json")) : null;
@@ -513,7 +537,7 @@ const segmentsTable = (segs, edited = new Map()) => (segs.length
 function editedSegments(r, n) {
   const m = new Map();
   for (const e of (r.run.reuse && r.run.reuse.edits) || []) {
-    if (e.paragraph === n) m.set(e.segment, [...(m.get(e.segment) || []), e.field]);
+    if (e.paragraph === n + (r.offset || 0)) m.set(e.segment, [...(m.get(e.segment) || []), e.field]);
   }
   return m;
 }
@@ -572,6 +596,19 @@ export function termsCondition(run) {
   return t && Number.isInteger(t.count) ? `terms: fixed (${t.count})` : "terms: model";
 }
 
+// THE DERIVED CROSS-LEG FIELDS of a several-Leg Brief (kogaki#1532), one row each, marked
+// `derived`, from the composer's `brief.json`; nothing for one Leg.
+export const DERIVED_BADGE = "derived";
+function derivedTable(r) {
+  if (!(r.run.legs && r.run.legs.length > 1)) return "";
+  const rows = ((r.legBriefRun && readJson(join(r.legBriefRun, "brief.json"))) || {}).derived || [];
+  return `<table class="derived"><caption>Cross-Leg fields</caption><thead><tr><th>Leg</th><th>field</th><th>value</th><th>rule</th></tr></thead><tbody>`
+    + (rows.length ? rows.map((d) => `<tr><td>${esc(d.leg_id)}</td><td>${esc(d.field)} <span class="badge derived">${DERIVED_BADGE}</span></td>`
+      + `<td>${esc(Array.isArray(d.value) ? d.value.join(", ") : String(d.value))}</td><td>${esc(d.rule)}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="muted">(no derived field recorded)</td></tr>`)
+    + `</tbody></table>`;
+}
+
 // CARD 3 — BRIEF. Output (folded, kogaki#1487): the Brief file, whole, with its path and hash. Inputs: Extraction (the reader state and claims the Leg Brief composer reads).
 // Prompt/Calls: the composer's two calls, Reader start and Leg path, each titled by what it
 // produced.
@@ -581,17 +618,25 @@ function briefCard(r, idx) {
   const output = (r.briefText ? "" : stageNote(r, "brief"))
     + `<p class="meta brief-conditions">Conditions: ${esc(termsCondition(r.run))}`
     + (t ? ` · ${esc(rel(t.path))} · sha ${esc(String(t.sha256 || "").slice(0, 12))}` : "") + `</p>`
+    + derivedTable(r)
     + `<p class="meta">${esc(rel(r.briefPath))} · sha ${contentHash(r.briefText)}</p>` + pre(r.briefText || "(not written)");
 
   const readerStartMarker = "`leg_reader_start_unit` judgment point";
   const legPathMarker = "`leg_path_unit` judgment point";
+  const legs = r.run.legs && r.run.legs.length > 1 ? r.run.legs : null;
+  // Several Legs' Leg calls are told apart by the first Strand each Leg's input names.
+  const strandKey = (k) => `"claim_strand": "L${legs.slice(0, k).reduce((a, l) => a + l.paragraphs, 0) + 1}"`;
+  const rowsFor = legs
+    ? [["reader-start", [readerStartMarker], "Brief, Reader start"],
+      ...legs.map((l, k) => [`leg-path-${k + 1}`, [legPathMarker, strandKey(k)], `Brief, Leg Waypoint, Leg ${k + 1}`])]
+    : [["reader-start", [readerStartMarker], "Brief, Reader start"], ["leg-path", [legPathMarker], "Brief, Leg Waypoint"]];
   const named = [];
   let callsHtml = "";
-  for (const [sub_, marker, title] of [["reader-start", readerStartMarker, "Brief, Reader start"], ["leg-path", legPathMarker, "Brief, Leg Waypoint"]]) {
+  for (const [sub_, markers, title] of rowsFor) {
     const d = r.legBriefRun ? join(r.legBriefRun, sub_) : null;
     const answer = d ? readJson(join(d, "answer.json")) : null;
     const attempts = d ? readJson(join(d, "attempts.json")) : null;
-    const calls = r.briefCalls.filter((c) => String(c.stdin).includes(marker));
+    const calls = r.briefCalls.filter((c) => markers.every((m) => String(c.stdin).includes(m)));
     if (calls.length) named.push([title, calls[0].stdin]);
     callsHtml += sub(`${title} — attempts ${attempts ? attempts.attempts : "?"}`,
       sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)")) + pre(attempts ? json(attempts) : "(no attempts record)")
@@ -651,9 +696,9 @@ const waypointsNamed = (text) => [...new Set([...String(text || "").matchAll(/Wa
 // full, and the refusal block the next attempt received. No prompt is repeated: each block
 // names where its prompts are shown. The job record's refusal for an attempt is cross-checked
 // against the judge's `does-not-fit` verdicts, and a mismatch is shown, never resolved.
-function attemptsPart(attempts, job, planShown, judgeTitle, idx = 0) {
+function attemptsPart(attempts, job, planShown, judgeTitle, idx = 0, unitIndex = 0) {
   if (!attempts.length) return `<p class="muted">No plan call was recorded.</p>`;
-  const unit = ((job && job.units) || [])[0] || null;
+  const unit = ((job && job.units) || [])[unitIndex] || null;
   const refusals = (unit && Array.isArray(unit.refusals)) ? unit.refusals : [];
   return attempts.map((a, i) => {
     const n = i + 1;
@@ -735,7 +780,7 @@ function paragraphPlanCard(r, idx) {
   const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
   let plan = null;
   if (planText) { try { plan = parseYaml(planText, r.planPath); } catch { plan = null; } }
-  const pl = plan && plan.legs && plan.legs[0];
+  const pl = plan && plan.legs && ((r.legId && plan.legs.find((l) => l && l.leg_id === r.legId)) || plan.legs[0]);
   let verdictJson = null;
   try { verdictJson = verdict ? JSON.parse(verdict) : null; } catch { verdictJson = null; }
   const verdictLine = verdictJson && Array.isArray(verdictJson.verdicts)
@@ -745,7 +790,7 @@ function paragraphPlanCard(r, idx) {
   let countsTable = "";
   if (pl) {
     countsTable = pl.waypoints.map((w) => {
-      const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint) || {};
+      const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint && (!x.leg_id || !pl.leg_id || x.leg_id === pl.leg_id)) || {};
       const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}${MOVE_RECORD_EXT}`))) : 0;
       const pws = w.paragraph_waypoints || [];
       return prowBlock("planwp", w.waypoint, idx, `Leg Waypoint ${w.waypoint}`,
@@ -789,7 +834,7 @@ function paragraphPlanCard(r, idx) {
 
   return cardWrap("paragraphPlan", {
     output,
-    attempts: attemptsPart(attempts, job, shown[0] || ["Prompt, ParagraphPlan, the plan call", ""], judgeTitle, idx),
+    attempts: attemptsPart(attempts, job, shown[0] || ["Prompt, ParagraphPlan, the plan call", ""], judgeTitle, idx, r.unitIndex || 0),
     inputs: inputsList([["brief", rel(r.briefPath)], ["move", relFromRepo(join(r.runDir, "moves"), REPO)]], idx),
     prompt,
     calls: callsHtml,
@@ -965,7 +1010,7 @@ function reviewBlock(r, idx) {
   // both readers agree passed leaves no row, so "no attempt was refused" is never a silence.
   const attempts = planAttempts(r.planCalls);
   const job = readJson(join(r.jobDir, "reader-path-job.json"));
-  const unit = ((job && job.units) || [])[0] || null;
+  const unit = ((job && job.units) || [])[r.unitIndex || 0] || null;
   const jobRefusals = (unit && Array.isArray(unit.refusals)) ? unit.refusals : [];
   const refused = [];
   attempts.forEach((a, i) => {
@@ -1025,7 +1070,9 @@ table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line)
 .legend li{display:flex;align-items:center;gap:4px}
 .swatch{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--line)}
 .swatch.ownerInput{background:#e9e4d8}.swatch.modelWritten{background:#dce8df}.swatch.mechanical{background:#dbe3ef}
-.anchors{margin:4px 0 0;font-size:12px}`;
+.anchors{margin:4px 0 0;font-size:12px}
+.leg-block{border:2px solid var(--line);border-radius:6px;padding:8px;margin:16px 0}.leg-block>h3{font-size:17px;margin:4px 0}
+.badge.derived{color:var(--accent)}.derived{margin:6px 0}.derived caption{text-align:left;font-weight:bold;font-size:13px}`;
 
 // THE TERMS LINE (kogaki#1512): whether the Leg's introduced terms were fixed by a terms file
 // (kogaki#1498) or left to the Brief's own draw, read from the run record's own `terms`.
@@ -1074,6 +1121,30 @@ function card(r, { provenance, mapHash, idx = 0 }) {
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
 }
 
+// A RUN OF SEVERAL LEGS (see the header). A Leg block's Inputs link to the one Brief card.
+function legsCard(r, { provenance, mapHash, idx = 0 }) {
+  const blocks = r.run.legs.map((l, k) => {
+    const v = legView(r, k);
+    const vidx = `${idx}-${k + 1}`;
+    const sectionPath = v.legId ? join(v.ws, "sections", `${v.legId}.md`) : null;
+    const written = sectionPath ? read(sectionPath) : null;
+    const writtenParas = written ? written.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean) : [];
+    const draftStop = (v.stage("draft").leg_id === v.legId && v.stage("draft").stopped) || (!written && r.run.stopped) || null;
+    const shown = { sectionPath, written, writtenParas, draftStop };
+    const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
+      + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
+    return `<section class="leg-block" id="leg-${vidx}"><h3>Leg ${k + 1} of ${r.run.legs.length} — ${esc(v.legId || "(no Leg in the Brief)")}`
+      + ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>`
+      + body.split(`href="#card-${vidx}-brief"`).join(`href="#card-${idx}-brief"`) + `</section>`;
+  });
+  return `<section class="card"><h2>${esc(r.run.passage || "Legs")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
+    + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
+    + `<p class="terms">${esc(termsLine(r.run))}</p>`
+    + `<p class="library">${esc(libraryLine(r.run))}</p>`
+    + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
+    + runConditionsLine(r) + briefCard(r, idx) + blocks.join("") + runRecordCard(r, idx) + `</section>`;
+}
+
 // BUILD THE SHEET. Returns `{ written }` or `{ error }`.
 export function buildSheet({ runs, provenance, out }) {
   const mapText = read(provenance);
@@ -1084,7 +1155,10 @@ export function buildSheet({ runs, provenance, out }) {
     return { error: `the provenance map at ${provenance} has no "${PROVENANCE_SECTION}" row for ${missing.map((m) => `"${m}"`).join(", ")} — a cell nobody can trace is not drawn` };
   }
   const mapHash = contentHash(mapText);
-  const cards = runs.map((d, idx) => card(readRun(resolve(d)), { provenance, mapHash, idx }));
+  const cards = runs.map((d, idx) => {
+    const r = readRun(resolve(d));
+    return (r.run.legs && r.run.legs.length > 1 ? legsCard : card)(r, { provenance, mapHash, idx });
+  });
   const mermaidScript = `<script type="module">import mermaid from "${MERMAID_CDN}"; mermaid.initialize({ startOnLoad: true });</script>`;
   writeFileSync(out, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Leg Proof Sheet</title><style>${CSS}</style>${mermaidScript}</head><body><h1>Leg Proof Sheet</h1>`

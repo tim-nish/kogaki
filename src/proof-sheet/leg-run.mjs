@@ -56,6 +56,14 @@
 // were withheld, and the ids placed in the plan's directory by source (`library`, `run`); the
 // ingest stage's `moves` still lists the run's own.
 //
+// SEVERAL CONSECUTIVE LEGS (kogaki#1532, owner decision 2026-10-23): `--leg <file>` repeated, in
+// order, runs the Legs as one span under one Brief. Each file is kept as `legs/<slug>.md`; the
+// Extractor runs over every paragraph of every Leg in order; the Leg Brief composer composes one
+// Leg per file and derives every cross-Leg field (src/proof-sheet/leg-brief.mjs `crossLegPath`);
+// and `/draft section` runs once per Leg, each Leg's Writer calls kept in `draft/calls-<leg_id>.jsonl`.
+// The run record's `legs` lists each file, its copy in the run and its paragraph count, for one
+// file too; `--reuse` and `--resume` carry the list.
+//
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
 // markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
@@ -67,7 +75,7 @@
 //       passages/FORMAT.md
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, chmodSync, cpSync, readdirSync, statSync } from "node:fs";
-import { join, resolve, basename, extname, relative, sep } from "node:path";
+import { join, resolve, basename, dirname, extname, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -236,7 +244,9 @@ function recordedLanguage(audiencePath) {
 // is kept as its own record and never re-entered; a stage short of that re-enters with its
 // stage directory's existing `command.json` as the log it appends to, so a resumed attempt
 // keeps the stopped one rather than replacing it.
-function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, priorStages }) {
+function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages }) {
+  const legFiles = record.legs.map((l) => join(runDir, l.copy));
+  const legArgs = legFiles.flatMap((f) => ["--leg", f]);
   const termsArgs = record.terms ? ["--terms", record.terms.path] : [];
   const save = () => writeJson(join(runDir, RUN_FILE), record);
   const dirOf = (stage) => { const d = join(runDir, stage); mkdirSync(d, { recursive: true }); return d; };
@@ -262,8 +272,8 @@ function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, prio
   // wrote by naming its own earlier run directory with `--resume`.
   const ex = stage("extract", (d, env, log, prev) => {
     const resumeArgs = prev && prev.extractor_run ? ["--resume", prev.extractor_run] : [];
-    const c = runCommand(d, "extract", [process.execPath, "src/proof-sheet/extract.mjs", "run", "--leg", legFile,
-      "--out", d, "--passage", slug, ...audienceArgs, ...resumeArgs], env, log);
+    const c = runCommand(d, "extract", [process.execPath, "src/proof-sheet/extract.mjs", "run", ...legArgs,
+      "--out", d, ...(legFiles.length === 1 ? ["--passage", slug] : []), ...audienceArgs, ...resumeArgs], env, log);
     const extractorRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || (prev && prev.extractor_run) || null;
     if (c.exit !== 0) return { stopped: stopLine(c), extractor_run: extractorRun };
     if (!extractorRun) return { stopped: `\`extract\` exited 0 but printed no run directory: ${stopLine(c)}` };
@@ -328,12 +338,22 @@ function runStages(runDir, record, { legFile, slug, realPath, audienceArgs, prio
     return { stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s`, job };
   });
 
-  // 5. /draft resolve, then section for the Brief's one Leg. Resumed whole (out of scope).
+  // 5. /draft resolve, then section for each of the Brief's Legs in order. Resumed whole (out of scope).
   stage("draft", (d, env, log) => {
-    const dr = (cmd, extra = []) => runCommand(d, `draft ${cmd}`, [process.execPath, "src/draft.mjs", cmd,
-      "--brief", brief.brief, "--workspace", d, ...extra], env, log);
+    const dr = (cmd, extra = [], e = env) => runCommand(d, `draft ${cmd}`, [process.execPath, "src/draft.mjs", cmd,
+      "--brief", brief.brief, "--workspace", d, ...extra], e, log);
     const r = dr("resolve");
     if (r.exit !== 0) return { stopped: stopLine(r) };
+    if (record.legs.length > 1) {
+      const legIds = (parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || []).map((l) => l.leg_id);
+      const sections = [];
+      for (const legId of legIds) {
+        const s = dr("section", ["--leg", legId], { ...env, KOGAKI_PROOF_SHEET_CALLS: join(d, `calls-${legId}.jsonl`) });
+        if (s.exit !== 0) return { stopped: stopLine(s), leg_ids: legIds, leg_id: legId, workspace: join(d, slug), sections };
+        sections.push(join(d, slug, "sections", `${legId}.md`));
+      }
+      return { leg_ids: legIds, workspace: join(d, slug), sections };
+    }
     const legId = (readFileSync(brief.brief, "utf8").match(/^\s*-?\s*leg_id:\s*(\S+)/m) || [])[1];
     const s = dr("section", ["--leg", legId]);
     if (s.exit !== 0) return { stopped: stopLine(s), leg_id: legId, workspace: join(d, slug) };
@@ -439,32 +459,59 @@ function copyStages(source, runDir, from) {
   return { prior, kept, reuse: { source: relSource, from, copied, edits } };
 }
 
-// RUN ONE LEG. Returns `{ runDir, stopped?, sheet }`.
+// A LEG FILE'S SLUG: its name without the extension or a `.passage` suffix.
+const legSlug = (legPath) => basename(legPath, extname(legPath)).replace(/\.passage$/, "");
+
+// The Leg files, read: `{ path, text, paragraphs, slug }` in order. Refuses an unreadable or
+// empty file, and two files sharing a slug, whose copies in the run would collide.
+function readLegs(legPaths) {
+  const legs = legPaths.map((legPath) => {
+    let text;
+    try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
+    const paragraphs = legParagraphs(text);
+    if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to run`);
+    return { path: legPath, text, paragraphs, slug: legSlug(legPath) };
+  });
+  const seen = legs.map((l) => l.slug).find((x, i, all) => all.indexOf(x) !== i);
+  if (seen) fail(`two Leg files are named ${seen} — each Leg is kept in the run under its own name. Nothing was started.`);
+  return legs;
+}
+
+// Copy the Legs into the run: `leg.md` for one, `legs/<slug>.md` each for several. Returns the
+// record's `legs`.
+function writeLegs(runDir, legs) {
+  if (legs.length > 1) mkdirSync(join(runDir, "legs"), { recursive: true });
+  return legs.map((l) => {
+    const copy = legs.length === 1 ? "leg.md" : `legs/${l.slug}.md`;
+    writeFileSync(join(runDir, copy), l.text);
+    return { file: resolve(l.path), copy, paragraphs: l.paragraphs.length };
+  });
+}
+
+// RUN ONE LEG, or several in order (`legPath` a list). Returns `{ runDir, stopped?, sheet }`.
 export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null, terms = null, reuse = null, from = null,
   library = null, withholdOwn = false }) {
   if (resume) return resumeLeg(resume, { provenance });
   if (reuse) return reuseLeg(reuse, { from, out, audience, provenance, terms, library, withholdOwn });
-  let text;
-  try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
-  const paragraphs = legParagraphs(text);
-  if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to run`);
+  const legs = readLegs([].concat(legPath));
   if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
   const termsFile = terms ? readTermsFile(terms) : null;
   if (termsFile && termsFile.error) fail(`${termsFile.error}. Nothing was started.`);
   const lib = libraryRecord(library, withholdOwn);
-  const slug = passage || basename(legPath, extname(legPath)).replace(/\.passage$/, "");
+  const slug = passage || (legs.length === 1 ? legs[0].slug : `${legs[0].slug}-to-${legs.at(-1).slug}`);
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
-  writeFileSync(join(runDir, "leg.md"), text);
+  const legsRecord = writeLegs(runDir, legs);
   writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
   chmodSync(join(runDir, RECORDER_FILE), 0o755);
   const audiencePath = resolvedAudience(audience);
-  const record = { leg: resolve(legPath), passage: slug, paragraphs: paragraphs.length, audience: audiencePath,
+  const record = { leg: legs.length === 1 ? resolve(legs[0].path) : null, passage: slug,
+    paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0), legs: legsRecord, audience: audiencePath,
     language: recordedLanguage(audiencePath), model_command: realPath,
     terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(termsFile.kinds).length } : null,
     library: lib, started_at: new Date().toISOString(), stages: [] };
-  runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
+  runStages(runDir, record, { slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
   if (built.error) fail(`the sheet was not written: ${built.error}`);
@@ -490,21 +537,25 @@ export function reuseLeg(source, { from, out, audience = null, provenance, terms
     const clash = libraryClash(readLibrary(lib.dir).ids, (ing.moves || []).map((f) => basename(f, MOVE_RECORD_EXT)));
     if (clash) fail(`${clash}. Nothing was started.`);
   }
-  const text = readFileSync(join(source, "leg.md"), "utf8");
+  const sourceRecord = JSON.parse(readFileSync(join(source, RUN_FILE), "utf8"));
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
-  writeFileSync(join(runDir, "leg.md"), text);
+  const legsRecord = recordedLegs(sourceRecord);
+  for (const l of legsRecord) {
+    mkdirSync(dirname(join(runDir, l.copy)), { recursive: true });
+    writeFileSync(join(runDir, l.copy), readFileSync(join(source, l.copy), "utf8"));
+  }
   writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
   chmodSync(join(runDir, RECORDER_FILE), 0o755);
   const { prior, kept, reuse } = copyStages(source, runDir, from);
   const audiencePath = audience ? resolvedAudience(audience) : prior.audience;
-  const record = { leg: prior.leg, passage: prior.passage, paragraphs: legParagraphs(text).length, audience: audiencePath,
+  const record = { leg: prior.leg, passage: prior.passage, paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0), legs: legsRecord, audience: audiencePath,
     language: recordedLanguage(audiencePath), model_command: realPath,
     terms: from === "paragraph-plan" ? (prior.terms || null)
       : termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(termsFile.kinds).length } : null,
     library: lib, reuse, started_at: new Date().toISOString(), stages: [] };
-  runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug: record.passage, realPath, audienceArgs: ["--audience", audiencePath], priorStages: kept });
+  runStages(runDir, record, { slug: record.passage, realPath, audienceArgs: ["--audience", audiencePath], priorStages: kept });
   const isMove = (f) => f.endsWith(MOVE_RECORD_EXT);
   record.reuse.moves = { source_sha256: existsSync(join(source, "moves")) ? dirSha256(join(source, "moves"), isMove) : null,
     sha256: existsSync(join(runDir, "moves")) ? dirSha256(join(runDir, "moves"), isMove) : null };
@@ -513,6 +564,12 @@ export function reuseLeg(source, { from, out, audience = null, provenance, terms
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
   if (built.error) fail(`the sheet was not written: ${built.error}`);
   return { runDir, sheet, ...(record.stopped ? { stopped: record.stopped } : {}) };
+}
+
+// A RUN RECORD'S LEGS: its own `legs`, or for a record written before the list (kogaki#1532),
+// its one Leg in `leg.md`.
+function recordedLegs(record) {
+  return Array.isArray(record.legs) ? record.legs : [{ file: record.leg, copy: "leg.md", paragraphs: record.paragraphs }];
 }
 
 // RESUME ONE LEG RUN, re-entering at the first stage its own `run.json` does not record
@@ -531,7 +588,7 @@ export function resumeLeg(runDir, { provenance }) {
       fail(`the terms file at ${prior.terms.path} has changed since the run started (recorded sha ${prior.terms.sha256.slice(0, 12)}, now ${now.sha256.slice(0, 12)}) — restore it, or start a new run. Nothing was resumed.`);
     }
   }
-  const record = { ...prior, stages: [] };
+  const record = { ...prior, legs: recordedLegs(prior), stages: [] };
   delete record.stopped;
   delete record.finished_at;
   // THE JUDGE BINARY IS RE-RESOLVED, NOT FROZEN FROM THE STOPPED ATTEMPT: a resume is a fresh
@@ -539,7 +596,7 @@ export function resumeLeg(runDir, { provenance }) {
   // fixed in the environment since. `record.model_command` is overwritten with the newly
   // resolved path, so the record keeps naming the binary the resumed run actually used.
   record.model_command = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
-  runStages(runDir, record, { legFile: join(runDir, "leg.md"), slug: record.passage, realPath: record.model_command,
+  runStages(runDir, record, { slug: record.passage, realPath: record.model_command,
     audienceArgs: ["--audience", record.audience], priorStages });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
@@ -555,6 +612,7 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
+      else if (key === "leg") { args.leg = [...(args.leg || []), next]; i++; }
       else { args[key] = next; i++; }
     } else if (!args._cmd) args._cmd = a;
   }
@@ -564,21 +622,22 @@ function parseArgs(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
-  const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
+  const legs = Array.isArray(args.leg) ? args.leg : [];
+  const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> "
     + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] [--terms <a JSON object of term to coined|established>] "
     + "[--library <a directory of Move records> [--withhold-own]] "
     + "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map> "
     + `| node src/proof-sheet/leg-run.mjs run --reuse <earlier Leg run directory> --from <${Object.keys(REUSE_FROM).join("|")}> --out <dir> --provenance <the provenance map> [--audience <file>] [--terms <file>] [--library <dir> [--withhold-own]]`;
-  const shapeOk = str("resume") ? !(str("leg") || str("out") || str("reuse") || args.library || args["withhold-own"])
-    : str("reuse") ? !!(str("from") && str("out") && !str("leg") && !str("passage"))
-      : !!(str("leg") && str("out") && !str("from"));
+  const shapeOk = str("resume") ? !(args.leg !== undefined || str("out") || str("reuse") || args.library || args["withhold-own"])
+    : str("reuse") ? !!(str("from") && str("out") && args.leg === undefined && !str("passage"))
+      : !!(legs.length && str("out") && !str("from"));
   if (args._cmd !== "run" || !str("provenance") || !shapeOk || args.library === true || ![undefined, true].includes(args["withhold-own"])) fail(usage);
   const libraryArgs = { library: str("library"), withholdOwn: args["withhold-own"] === true };
   const r = str("resume")
     ? resumeLeg(str("resume"), { provenance: str("provenance") })
     : str("reuse")
       ? reuseLeg(str("reuse"), { from: str("from"), out: str("out"), audience: str("audience"), provenance: str("provenance"), terms: str("terms"), ...libraryArgs })
-      : runLeg(str("leg"), { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
+      : runLeg(legs.length === 1 ? legs[0] : legs, { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
       terms: str("terms"), ...libraryArgs });
   console.log(`run directory: ${r.runDir}`);
   console.log(`sheet written: ${r.sheet}`);
