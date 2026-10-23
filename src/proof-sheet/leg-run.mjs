@@ -575,7 +575,7 @@ export function resumeLeg(runDir, { provenance }) {
   if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was resumed.`);
   const prior = JSON.parse(readFileSync(runFile, "utf8"));
   const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
-  if (prior.terms && !(priorStages.get("brief") || {}).state === "done") {
+  if (prior.terms && (priorStages.get("brief") || {}).state !== "done") {
     fail(`this run was started with a terms file (${prior.terms.path}), and ${TERMS_RETIRED.replace(/ Nothing was started\.$/, "")} Start a new run. Nothing was resumed.`);
   }
   const record = { ...prior, legs: recordedLegs(prior), stages: [] };

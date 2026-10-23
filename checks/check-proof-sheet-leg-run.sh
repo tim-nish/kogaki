@@ -77,7 +77,8 @@
 #       the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries
 #       the binary's whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
 #   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529): a run given `--terms`
-#       exits non-zero with the retirement sentence and prints no run directory; the main run
+#       exits non-zero with the retirement sentence and prints no run directory, a resume of a
+#       run recorded with a terms file whose Brief stage is not done is refused; the main run
 #       records `terms: null` and its Brief card reads "Conditions: terms: model".
 #
 #   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and
@@ -883,6 +884,14 @@ if (hRunDir) {
     "--terms", hTerms], { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
   ok(rT.status !== 0 && `${rT.stdout}${rT.stderr}`.includes(TERMS_RETIRED) && !/^run directory: /m.test(rT.stdout),
     `(p) a run given --terms was not refused with the retirement sentence before it started: ${rT.status} ${rT.stdout}${rT.stderr}`);
+  // a run recorded with a terms file before kogaki#1529, its Brief stage not done, is not resumed
+  const tDir = join(hRoot, "terms-run");
+  mkdirSync(tDir, { recursive: true });
+  writeFileSync(join(tDir, "run.json"), JSON.stringify({ terms: { path: hTerms, sha256: "0", count: 1 }, stages: [{ stage: "extract", state: "done" }, { stage: "brief", state: "stopped" }] }));
+  const rR = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", tDir, "--provenance", map],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
+  ok(rR.status !== 0 && /this run was started with a terms file .* Nothing was resumed\./.test(rR.stderr),
+    `(p) a resume of a run started with a terms file, its Brief not done, was not refused: ${rR.status} ${rR.stderr}`);
 }
 if (runDir) {
   const run0 = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
