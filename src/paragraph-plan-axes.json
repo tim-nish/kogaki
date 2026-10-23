@@ -2,7 +2,7 @@
   "version": 1,
   "note": [
     "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
-    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Paragraph Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`) or a `join` replaced (`waypoint`, `join`). `at_waypoint` names the Leg Waypoint a defect sits on.",
+    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Paragraph Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`) a `join` replaced (`waypoint`, `join`), or a Leg Waypoint's `discharges` replaced (`waypoint`, `discharges`), with `owes` setting the Brief rows the Leg owes beside it. `at_waypoint` names the Leg Waypoint a defect sits on.",
     "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/proof-sheet/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
     "Countable rules are not axes: the Paragraph Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
@@ -244,6 +244,45 @@
           ]
         }
       }
+    },
+    "owed-kept": {
+      "source": "constructed: the run's record with a Brief row the Leg owes, discharged at the Paragraph Waypoint that names the two factors",
+      "from": "leg3-clean",
+      "edit": {
+        "waypoint": 3,
+        "owes": [
+          {
+            "obligation": 1,
+            "kind": "question",
+            "text": "What decides how readily the security dilemma arises?",
+            "raised_by": "leg-0",
+            "owed_by": [
+              "leg-1"
+            ],
+            "discharged_by": "leg-1"
+          }
+        ],
+        "discharges": [
+          {
+            "obligation": 1,
+            "by": 3
+          }
+        ]
+      }
+    },
+    "owed-not-kept": {
+      "source": "constructed: the same discharge laid on the Paragraph Waypoint that only puts the question",
+      "from": "owed-kept",
+      "at_waypoint": 3,
+      "edit": {
+        "waypoint": 3,
+        "discharges": [
+          {
+            "obligation": 1,
+            "by": 1
+          }
+        ]
+      }
     }
   },
   "axes": [
@@ -284,6 +323,29 @@
       "justified_by": {
         "date": "2026-10-23",
         "run": "runs/judge-bench/2026-10-23-all-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
+    },
+    {
+      "id": "PROMISE KEPT",
+      "sentence": "A Paragraph Waypoint named by a row's `discharged_by` or by a `discharges` entry states what keeps that row's promise.",
+      "fixtures": {
+        "defect": [
+          "owed-not-kept"
+        ],
+        "clean": [
+          "owed-kept"
+        ]
+      },
+      "justified_by": {
+        "date": "2026-10-23",
+        "run": "runs/judge-bench/2026-10-23-promise-kept-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
