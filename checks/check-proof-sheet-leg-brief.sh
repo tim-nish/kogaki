@@ -118,7 +118,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     record = { legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
-      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] };
+      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " CLAIM-" + p.paragraph, serves: [p.claim_strand] })) }] };
   }
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
   process.exit(0);
@@ -144,7 +144,7 @@ else {
   ok(legs.length === 1, `(a) the Brief carries ${legs.length} Leg(s), not one`);
   const leg = legs[0] || {};
   ok((leg.waypoints || []).length === 3 && (leg.claims || []).length === 3, "(a) the Leg does not carry three Leg Waypoints and three Claims");
-  ok((leg.waypoints || []).every((w, i) => w.point === `POINT-${i + 1}` && w.serves[0] === `L${i + 1}`), "(a) a Leg Waypoint is not paragraph N's point serving L<N>");
+  ok((leg.waypoints || []).every((w, i) => w.point === `POINT-${i + 1} CLAIM-${i + 1}` && w.serves[0] === `L${i + 1}`), "(a) a Leg Waypoint is not paragraph N's point serving L<N>");
   ok(!("move" in leg) && !("no_move_fits" in leg), "(a) the Brief's Leg carries a Move field");
   ok(rec.reader_start && rec.reader_start.knowledge === "holds that installers copy files", `(a) the Reader start is not the composed one as a map: ${JSON.stringify(rec.reader_start)}`);
   ok(leg.reader_state_after && leg.reader_state_after.orientation === "sees the copy as the installer's", "(a) the Leg's after-state is not the composed one as a map");
@@ -245,7 +245,7 @@ ok(argvs.length === 3 && argvs.every((a) => { const i = a.indexOf("--tools"); re
 const inputs = { paragraph_count: 2, reader_start: "knowledge: holds nothing yet", segments: [["one first"], ["two second"]] };
 const good = () => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", reader_state_after: "knowledge: holds it",
   claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
-  waypoints: [{ point: "first", serves: ["L1"] }, { point: "second", serves: ["L2"] }] }] });
+  waypoints: [{ point: "first", serves: ["L1"] }, { point: "two second", serves: ["L2"] }] }] });
 ok(!LB.validateLegPathUnit(good(), inputs).error, `(f) a good Leg was refused: ${LB.validateLegPathUnit(good(), inputs).error}`);
 const m1 = good(); m1.legs[0].move = "some_move";
 ok(/carries `move`, which it does not declare/.test(LB.validateLegPathUnit(m1, inputs).error || ""), "(f) a Leg carrying `move` was not refused by name");
@@ -281,6 +281,14 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   const cross = LB.validateLegPathUnit(leg("The next run copies the consumer's tree"), iIn).error || "";
   ok(/carries "consumer's", which is in no Segment `content` of paragraph 2's/.test(cross),
     `(i) a point recovered only from another paragraph's Segment content passed: ${cross}`);
+  // the Claim's words in its points (kogaki#1547): a point recovered from its Segment that drops
+  // a Claim word refuses, naming the Claim, the word and the Waypoints read; a Claim word an
+  // `introduces` entry carries needs no point
+  const dropped = LB.validateLegPathUnit(leg("The run copies the copy again"), iIn).error || "";
+  ok(/Claim 2 \(L2\) carries "next" in its `proposition`, which is in no `point` of the Leg Waypoints serving L2 \(read: waypoint 2\) and in no `introduces` entry/.test(dropped),
+    `(i) a point dropping a word of the Claim it serves was not refused naming the Claim, the word and the Waypoint: ${dropped}`);
+  const m6 = leg("The next run copies the copy again"); m6.legs[0].waypoints[0].point = "The installer copies the copy";
+  ok(!LB.validateLegPathUnit(m6, iIn).error, `(i) a Claim word carried by an \`introduces\` entry and no point was refused: ${LB.validateLegPathUnit(m6, iIn).error}`);
   const none = LB.validateLegPathUnit(leg("The next run copies it again"), { paragraph_count: 2, reader_start: "knowledge: holds nothing yet" }).error || "";
   ok(/handed no paragraph\(s\) of Segment content/.test(none), `(i) a validator handed no Segment content did not refuse: ${none}`);
   ok(JSON.stringify(LB.segmentContents([{ segments: [{ content: "a", operation: "x" }, { content: "b" }] }, {}])) === JSON.stringify([["a", "b"], []]),

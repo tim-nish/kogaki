@@ -109,7 +109,11 @@
 #       Writer calls file; the sheet carries three Leg blocks in order, each with its comparison
 #       table, under one Brief card marking five fields `derived`; and the one-file run's record
 #       keeps its shape apart from the `legs` list.
-#   (t) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief
+#   (t) the Claim's words in its points (kogaki#1547): a run whose fake Leg answer first drops one
+#       content word of Claim 2 from point 2, then gives the full point, records one refusal in
+#       the Leg row's `attempts.json` naming the Claim and the word, carries the second answer in
+#       the Brief, and runs every later stage.
+#   (u) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief
 #       --legs 2` makes no Extractor call, keeps four Extraction records, composes a two-Leg Brief
 #       whose second Leg `depends_on` the first and reaches the target, and records `legs: 2`;
 #       `--legs 3` records what a plain reuse records apart from `reuse.legs`, and a plain reuse
@@ -253,7 +257,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")" })),
-      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] }, "brief-leg-path");
+      // (t) PSR_LEG_DROP=first: the first Leg answer's point 2 drops its Claim's language word (kogaki#1547).
+      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph
+        + (process.env.PSR_LEG_DROP === "first" && !retried && p.paragraph === 2 ? "" : " in " + input.language), serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
   // read from what the Writer was told rather than from anything the fixture assumes.
@@ -711,7 +717,7 @@ else {
   for (let i = 1; i <= 3; i++) {
     const at = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0">`);
     const body = at >= 0 ? cards.paragraphPlan.slice(at + `id="planwp-p${i}-0">`.length) : "";
-    ok(body.startsWith(`<p>Point: POINT-${i}</p>`), `(o) the ParagraphPlan Output row for Leg Waypoint ${i} does not open on "Point:" and its point from the Brief`);
+    ok(body.startsWith(`<p>Point: POINT-${i} names CLAIM-${i} in English</p>`), `(o) the ParagraphPlan Output row for Leg Waypoint ${i} does not open on "Point:" and its point from the Brief`);
   }
 
   // (f) the map gates; a stopped Draft still draws
@@ -833,7 +839,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")" })),
-      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })) }] }, "brief-leg-path");
+      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
   // read from what the Writer was told rather than from anything the fixture assumes.
@@ -1248,7 +1254,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ legs: [{ leg_id: id, purpose: "Move the reader one step on.", rationale: "It is one Leg of three.",
       reader_state_after: "knowledge: holds the step of " + id + "\\norientation: sees where the copy of " + id + " ends up",
       claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph })),
-      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })),
+      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand] })),
       ...(id === "leg-a" ? { introduces: [{ term: "frobnicator", meaning: "the part that copies the kit" }] } : {}) }] }, "brief-leg-path");
   }
   return out("WRITTEN-1 the first paragraph.\\n\\nWRITTEN-2 the second.", "writer");
@@ -1319,7 +1325,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok((sheet.match(/<span class="badge derived">derived<\/span>/g) || []).length === 5, "(s) the Brief card does not mark the five derived cross-Leg fields `derived`");
     ok(sheet.includes("WRITTEN-1 the first paragraph.") && !sheet.includes('href="#card-0-1-brief"'), "(s) a Leg block's written text or its Brief link is wrong");
   }
-  // (t) A LEADING SUBSET OF THE LEGS (kogaki#1546), reusing the three-Leg run above rather than
+  // (u) A LEADING SUBSET OF THE LEGS (kogaki#1546), reusing the three-Leg run above rather than
   // extracting again.
   if (sRunDir) {
     const tRun = (tag, extra) => {
@@ -1332,21 +1338,21 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       return { r, dir, seen, out: join(tRoot, "out"), run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null };
     };
     const t2 = tRun("2", ["--from", "brief", "--legs", "2"]);
-    ok(t2.r.status === 0 && !!t2.run, `(t) --legs 2 exited ${t2.r.status}: ${t2.r.stdout}${t2.r.stderr}`);
+    ok(t2.r.status === 0 && !!t2.run, `(u) --legs 2 exited ${t2.r.status}: ${t2.r.stdout}${t2.r.stderr}`);
     if (t2.run) {
       const ex = t2.run.stages.find((st) => st.stage === "extract") || {};
       const records = readdirSync(join(t2.dir, "extract")).filter((f) => f.endsWith(".yaml"));
       ok(!t2.seen.includes("extract") && t2.run.stages.every((st) => st.state === "done"),
-        `(t) --legs 2 called the Extractor or left a stage short of done: ${JSON.stringify(t2.seen)} / ${JSON.stringify(t2.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+        `(u) --legs 2 called the Extractor or left a stage short of done: ${JSON.stringify(t2.seen)} / ${JSON.stringify(t2.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
       ok((ex.extractions || []).length === 4 && records.length === 4 && JSON.stringify(records.sort()) === JSON.stringify([...ex.extractions].sort()),
-        `(t) --legs 2 does not keep exactly the four Extraction records of the first two Legs: ${JSON.stringify(records)}`);
+        `(u) --legs 2 does not keep exactly the four Extraction records of the first two Legs: ${JSON.stringify(records)}`);
       ok(t2.run.reuse.legs === 2 && JSON.stringify(t2.run.legs.map((l) => l.copy)) === '["legs/leg_a.md","legs/leg_b.md"]' && t2.run.paragraphs === 4,
-        `(t) --legs 2 does not record two Legs: ${JSON.stringify({ reuse: t2.run.reuse, legs: t2.run.legs })}`);
+        `(u) --legs 2 does not record two Legs: ${JSON.stringify({ reuse: t2.run.reuse, legs: t2.run.legs })}`);
       const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
       let tLegs = [];
-      try { tLegs = briefLegs(parseBriefRecord(readFileSync(join(t2.dir, "brief", "brief.yaml"), "utf8")).record); } catch (e) { fails.push(`(t) the two-Leg Brief does not parse: ${e.message}`); }
+      try { tLegs = briefLegs(parseBriefRecord(readFileSync(join(t2.dir, "brief", "brief.yaml"), "utf8")).record); } catch (e) { fails.push(`(u) the two-Leg Brief does not parse: ${e.message}`); }
       ok(JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target === true])) === '[["leg-a",[],false],["leg-b",["leg-a"],true]]',
-        `(t) the Brief is not two Legs, the second depending on the first and reaching the target: ${JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target]))}`);
+        `(u) the Brief is not two Legs, the second depending on the first and reaching the target: ${JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target]))}`);
     }
     // Every Leg kept records what a plain reuse records, `reuse.legs` apart.
     const t3 = tRun("3", ["--from", "brief", "--legs", "3"]);
@@ -1355,12 +1361,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       reuse: { ...x.reuse, legs: undefined, moves: null } };
     ok(!!t3.run && !!plain.run && JSON.stringify(shape(t3.run)) === JSON.stringify(shape(plain.run)) && t3.run.reuse.legs === 3
       && JSON.stringify(Object.keys(plain.run.reuse)) === '["source","from","copied","edits","moves"]',
-      `(t) --legs 3 of three does not record what a plain reuse records apart from reuse.legs: ${JSON.stringify(shape(t3.run))} / ${JSON.stringify(shape(plain.run))}`);
+      `(u) --legs 3 of three does not record what a plain reuse records apart from reuse.legs: ${JSON.stringify(shape(t3.run))} / ${JSON.stringify(shape(plain.run))}`);
     // Refused by name, with nothing written.
     for (const [tag, extra] of [["4", ["--from", "brief", "--legs", "4"]], ["0", ["--from", "brief", "--legs", "0"]], ["plan", ["--from", "paragraph-plan", "--legs", "2"]]]) {
       const t = tRun(`refused-${tag}`, extra);
       ok(t.r.status !== 0 && t.r.stderr.includes("--legs") && !t.dir && !existsSync(t.out) && !t.seen.length,
-        `(t) ${extra.join(" ")} was not refused naming --legs with nothing written: ${t.r.status} ${t.r.stdout}${t.r.stderr}`);
+        `(u) ${extra.join(" ")} was not refused naming --legs with nothing written: ${t.r.status} ${t.r.stdout}${t.r.stderr}`);
     }
   }
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
@@ -1369,6 +1375,33 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "library", "started_at", "stages", "finished_at"]),
       `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
     ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
+  }
+}
+
+// (t) THE CLAIM'S WORDS IN ITS POINTS (kogaki#1547): the main fake binary's first Leg answer
+// writes point 2 without its Claim's language word and its second the full point. The Leg
+// row's attempts.json records one refusal naming Claim 2 and the word, the Brief carries the
+// second answer, and every later stage runs.
+{
+  const tRoot = join(root, "claim-coverage");
+  mkdirSync(tRoot, { recursive: true });
+  writeFileSync(join(tRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
+  const rt = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(tRoot, "leg-fixture.md"), "--out", join(tRoot, "out"), "--provenance", map],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: tRoot, PSR_LEG_DROP: "first" }, timeout: 600000 });
+  const tRunDir = (rt.stdout.match(/^run directory: (.+)$/m) || [])[1];
+  ok(rt.status === 0 && !!tRunDir, `(t) the run whose first Leg answer drops a Claim word exited ${rt.status}: ${rt.stdout}${rt.stderr}`);
+  if (tRunDir) {
+    const run = JSON.parse(readFileSync(join(tRunDir, "run.json"), "utf8"));
+    ok(run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
+      `(t) the stages after the refused Leg answer did not all run: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+    const lb = existsSync(join(tRunDir, "brief")) ? readdirSync(join(tRunDir, "brief")).filter((f) => f.startsWith("leg-brief-run-")) : [];
+    const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "attempts.json") : "";
+    const a = ap && existsSync(ap) ? JSON.parse(readFileSync(ap, "utf8")) : {};
+    ok(a.attempts === 2 && Array.isArray(a.refusals) && a.refusals.length === 1
+      && /Claim 2 \(L2\) carries "english" in its `proposition`, which is in no `point` of the Leg Waypoints serving L2 \(read: waypoint 2\)/.test(a.refusals[0]),
+      `(t) leg-path/attempts.json does not record one refusal naming Claim 2 and the word: ${JSON.stringify(a)}`);
+    const brief = readOr(join(tRunDir, "brief", "brief.yaml"), "");
+    ok(brief.includes("POINT-2 names CLAIM-2 in English"), "(t) the Brief does not carry the second Leg answer's full point");
   }
 }
 
