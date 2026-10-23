@@ -11,6 +11,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { obligationRowsOf, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
 import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
+import { obligationSaid, obligationTerms } from "../compose/sections.mjs";
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
 import { resolveLegJourneys, packetPersonaPath, externalAuthorityOf, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
@@ -20,7 +21,8 @@ import { REALIZATION_LANGUAGES, langOf, sectionsDir, packetsDir, packetsRecordKe
 // `prior_knowledge` where the Persona declares none, so the Referents rule
 // in `{{register}}` is never left pointing at a block the Packet does not
 // carry, and nothing here refuses on the absence.
-const obligationSaid = (o) => (o.kind === "term" ? o.term : o.text);
+// A list row's terms render in the order they were raised, each quoted (kogaki#1549).
+const quotedTerms = (o) => obligationTerms(o).map((t) => `"${t}"`).join(", ");
 export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
@@ -41,13 +43,15 @@ export const MANNER_LABEL = "*Manner:*";
 export const PROMISE_LABEL = "*Promise:*";
 export const KEEPS_LABEL = "*Keeps:*";
 function promiseLine(o) {
-  const said = o.kind === "term" ? `the term "${o.term}", named at ${o.raised_by}` : `${String(o.text).trim()} — raised at ${o.raised_by}`;
+  const said = o.kind !== "term" ? `${String(o.text).trim()} — raised at ${o.raised_by}`
+    : Array.isArray(o.term) ? `the terms ${quotedTerms(o)}, named at ${o.raised_by} and explained in that order`
+      : `the term "${o.term}", named at ${o.raised_by}`;
   if (o.conceded_by === undefined) return `   ${PROMISE_LABEL} ${said}, kept at ${o.discharged_by}.`;
   return `   ${PROMISE_LABEL} ${said}, left open at ${o.conceded_by}. Left open: ${o.open}. `
     + `Why not here: ${o.why_not_here}. What the reader keeps: ${o.reader_keeps}.`;
 }
 function keepsLine(d) {
-  const said = d.row ? (d.row.kind === "term" ? `the meaning of "${d.row.term}"` : String(d.row.text).trim()) : `the Brief's obligation ${d.obligation}`;
+  const said = d.row ? (d.row.kind === "term" ? `the meaning of ${quotedTerms(d.row)}` : String(d.row.text).trim()) : `the Brief's obligation ${d.obligation}`;
   return `   ${KEEPS_LABEL} ${said} — at ${d.by}.`;
 }
 export function waypointLines(leg) {
@@ -195,6 +199,11 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
             + `What the reader keeps: ${o.reader_keeps ?? "(not recorded)"}.`;
         }
         if (o.kind !== "term") return `- ${o.text}`;
+        if (Array.isArray(o.term)) {
+          return o.raised_by === leg.leg_id
+            ? `- ${obligationSaid(o)} — terms this Leg names and leaves for later Legs to explain, in that order.`
+            : `- ${obligationSaid(o)} — terms an earlier Leg named, explained in that order; this Leg is one that gives their meaning.`;
+        }
         return o.raised_by === leg.leg_id
           ? `- ${o.term} — a term this Leg names and leaves for a later Leg to explain.`
           : `- ${o.term} — a term an earlier Leg named; this Leg is one that gives its meaning.`;

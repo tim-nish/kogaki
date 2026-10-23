@@ -2907,7 +2907,13 @@ reader of the document meets it before the rows that instantiate it.
 these rules govern it:
 
 1. **One record, two scales.** `kind` is `question` (the row carries `text`)
-   or `term` (the row carries `term`). At the **Leg scale** `raised_by`,
+   or `term` (the row carries `term`). A `term` row's `term` is one term, or
+   — when one deferring slot counted more than one — a list of the terms in
+   the order the raising unit named them (kogaki#1549, owner clarification
+   2026-10-24): one promise, to explain the terms in sequence, open until the
+   last of them is explained. Its `owed_by` lists the units that explain them,
+   in that order, and the row is discharged by the last. A list is non-empty
+   and names no term twice. At the **Leg scale** `raised_by`,
    `owed_by` and the terminal field name Legs, and the record lives on the
    Brief. At the **Paragraph scale** they name Paragraph Waypoints of one Leg
    Waypoint, and the record lives in the ParagraphPlan file (§4.19). Both
@@ -2916,8 +2922,11 @@ these rules govern it:
 2. **Two sources.** A Move whose shape names an item and defers it — a
    Segment whose `manner`, or the Move's `description`, says the item is left
    for later — raises a **slot**: its kind, its count, and that it is
-   deferred. The composer fills the slot with the term or the question and
-   with the `owed_by` units, in the order the items were raised. A promise the
+   deferred. The composer fills the slot with ONE row: the term or the
+   question — for a slot counting more than one term, the terms as the list
+   of rule 1, in raised order — and the `owed_by` units, in the order the
+   items were raised. Rule 3 is what the one-row shape satisfies: the same
+   promise as several rows raised by one unit is refused there. A promise the
    Strand material raises and no Move shape signals is **authored** as a row,
    as a Closure row was before kogaki#1529.
 3. **Capacity.** At most ONE Obligation of any kind is open at any unit of one
