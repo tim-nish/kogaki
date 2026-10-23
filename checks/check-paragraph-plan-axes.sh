@@ -7,7 +7,8 @@
 # and the workflow table writes no criterion of its own; (c) the plan-record validator
 # refuses a Leg Waypoint whose Paragraph Waypoints are not one per Segment of the bound
 # Move, and an entry carrying both `performs` and `point`, naming the entry; (d) the
-# bench runs a scratch axis over a fake judge, writes its rates, and records or removes it.
+# bench runs a scratch axis over a fake judge, writes its rates, and records or removes it,
+# leaving an axis whose calls were never read as it was.
 # Declared limit: the one-responsibility test is lexical; whether a fixture violates
 # its axis and no other is the bench's measurement, never this check's.
 set -u
@@ -101,6 +102,7 @@ const fake = join(tmp, "fake-judge.mjs");
 writeFileSync(fake, `#!/usr/bin/env node
 if (process.argv.includes("--version")) { console.log("fake 1"); process.exit(0); }
 let s = ""; process.stdin.on("data", (b) => { s += b; }).on("end", () => {
+  if (process.env.FAKE_SEES === "silent") process.exit(0);
   const leg = JSON.parse(s.slice(s.indexOf('{\\n  "leg_you_must_judge"'))).leg_you_must_judge;
   const sees = process.env.FAKE_SEES === "1" && s.includes("\\n- SCRATCH AXIS: ");
   const verdicts = leg.waypoints.map((w, i) => ({ waypoint: i + 1, why: "the fake judge read the join word",
@@ -116,7 +118,7 @@ const benchOnce = (sees, label) => {
   writeFileSync(reg, JSON.stringify(scratch, null, 2));
   const out = join(tmp, label);
   const r = spawnSync("node", ["src/proof-sheet/judge-bench.mjs", "--axis", "SCRATCH AXIS", "--draws", "5", "--out", out, "--registry", reg, "--record"],
-    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: fake, FAKE_SEES: sees ? "1" : "0" } });
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: fake, FAKE_SEES: sees === "silent" ? "silent" : sees ? "1" : "0" } });
   return { r, bench: existsSync(join(out, "bench.json")) ? JSON.parse(readFileSync(join(out, "bench.json"), "utf8")) : null,
     after: JSON.parse(readFileSync(reg, "utf8")) };
 };
@@ -134,6 +136,11 @@ if (!blind.bench || blind.bench.axes["SCRATCH AXIS"].kept !== false) fails.push(
 if (blind.after.axes.some((a) => a.id === "SCRATCH AXIS") || Object.hasOwn(blind.after.records, "scratch-join")
     || !Object.hasOwn(blind.after.records, "leg3-run")) {
   fails.push("(d2) an axis the rule does not keep was not removed with only the record it alone named");
+}
+cases++;
+const silent = benchOnce("silent", "silent");
+if (!silent.bench || silent.bench.axes["SCRATCH AXIS"].measured !== false || !silent.after.axes.some((a) => a.id === "SCRATCH AXIS")) {
+  fails.push("(d3) an axis whose bench calls were never read was removed, or not reported as unmeasured");
 }
 rmSync(tmp, { recursive: true, force: true });
 

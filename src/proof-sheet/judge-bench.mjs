@@ -166,7 +166,8 @@ export async function bench({ axisIds, draws, out, parallel, registryPath }) {
       clean_passed_without: share(tally.without.clean),
     };
     const unread = Object.values(tally).flatMap((k) => Object.values(k)).flat().filter((x) => x === null).length;
-    report.axes[id] = { rates: r, unread, kept: unread === 0 && keeps(registry.retention, r, draws) };
+    // An unread call leaves the axis unmeasured, which is never a reason to remove it.
+    report.axes[id] = { rates: r, unread, measured: unread === 0, kept: unread === 0 && keeps(registry.retention, r, draws) };
   }
   writeJson(join(out, BENCH_FILE), report);
   return report;
@@ -176,17 +177,19 @@ function writeJson(path, doc) {
   writeFileSync(path, `${JSON.stringify(doc, null, 2)}\n`);
 }
 
-// `--record`: a kept axis gets its `justified_by`; an axis the rule does not keep leaves the
-// registry with every record no remaining axis reaches.
+// `--record`: a kept axis gets its `justified_by`; a measured axis the rule does not keep leaves
+// the registry with every record no remaining axis reaches; an unmeasured axis is left as it was.
+// A record that would leave no axis is refused, since `start` refuses an empty registry.
 export function recordBench(report, registryPath) {
   const registry = readAxes(registryPath);
   const removed = [];
   for (const [id, a] of Object.entries(report.axes)) {
     const axis = registry.axes.find((x) => x.id === id);
-    if (!axis) continue;
+    if (!axis || a.measured === false || a.unread > 0) continue;
     if (a.kept) axis.justified_by = { date: report.date.slice(0, 10), run: report.run, draws: report.draws, rates: a.rates };
     else { registry.axes = registry.axes.filter((x) => x.id !== id); removed.push(id); }
   }
+  if (!registry.axes.length) throw new Error(`recording ${report.run} would remove every axis (${removed.join(", ")}); nothing was recorded`);
   const reached = new Set();
   const reach = (n) => { if (!n || reached.has(n)) return; reached.add(n); reach((registry.records[n] || {}).from); };
   for (const a of registry.axes) for (const n of [...a.fixtures.defect, ...a.fixtures.clean]) reach(n);
@@ -229,7 +232,7 @@ async function main() {
   for (const [id, x] of Object.entries(report.axes)) {
     const r = x.rates;
     console.log(`${id}: defect refused ${r.defect_refused_with} with / ${r.defect_refused_without} without; `
-      + `clean passed ${r.clean_passed_with} with / ${r.clean_passed_without} without; unread ${x.unread} -- ${x.kept ? "kept" : "not kept"}`);
+      + `clean passed ${r.clean_passed_with} with / ${r.clean_passed_without} without; unread ${x.unread} -- ${x.kept ? "kept" : x.measured ? "not kept" : "not measured"}`);
   }
   console.log(`bench: ${relFromRepo(join(out, BENCH_FILE))}`);
   if (a.record) {
