@@ -847,7 +847,7 @@ for (const k of ["move", "segments"]) {
 }
 
 // (s) THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511): the prompts (a)'s job actually
-// sent carry the judge's four named criteria and the planner's named steps, each one sentence
+// sent carry the judge's registry axes and the planner's named steps, each one sentence
 // under `criteria.words_max`, and the stage's own reader refuses a row that grows past it -- a
 // second sentence, a criterion over the bound, an Issue number inside one, a criterion the
 // table does not name, or growth around the criteria past `point_words_max`.

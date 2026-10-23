@@ -439,10 +439,9 @@ export function noParagraphMoveFitsRefusal(failures) {
 
 // THE SECOND CALL — the judge. Its input carries each Leg Waypoint with the bound Move's
 // before, after, segments and breaks, and the Paragraph Waypoints generated
-// for it (kogaki#1378: the same four criteria the Leg judge judges); every Leg Waypoint
-// after the first also carries its `join`, a relation word judged against the previous
-// entry's bound Move's `after` and its own first Paragraph Waypoint (kogaki#1411, kogaki#1477).
-// The Leg's introduced terms ride beside it, so RECOVERABLE can refuse a first use with no meaning
+// for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533); every Leg Waypoint
+// after the first also carries its `join` (kogaki#1411, kogaki#1477).
+// The Leg's introduced terms ride beside it, so TERM MEANING can refuse a first use with no meaning
 // (kogaki#1497).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
