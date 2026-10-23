@@ -40,8 +40,8 @@
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
 // THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it). It mapped a term to `coined`
-// or `established`, and an `introduces` entry carries no `kind` any more, so `--terms` is
-// refused by name and `brief.json` records `terms: null`.
+// or `established`, and every introduced term is coined (kogaki#1531): an `introduces` entry
+// carries `term` and `meaning`, `--terms` is refused by name and `brief.json` carries no `terms`.
 //
 // THE RECORD. Written by the production `briefRecordText` writer: the composed fields and,
 // for every field the parser requires that this composition does not compose, a fixed
@@ -514,8 +514,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, readerStart, leg: lp.record.legs[0] }));
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    terms: null });
+  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true });
   return { brief: briefPath, runDir };
 }
 
@@ -548,7 +547,6 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
     legs: composed, counts, segments }));
   const { legs, derived } = crossLegPath(composed, counts, segments);
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    terms: null,
     legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived });
   return { brief: briefPath, runDir };
 }
@@ -589,13 +587,13 @@ function parseArgs(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
+  if (args.terms !== undefined) fail(TERMS_RETIRED);
   if (args._cmd === "diff") {
     const text = rowsDiffText(JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8")));
     process.stdout.write(`${text}\n`);
     if (text.includes("REFUSED:")) process.exitCode = 1;
   } else if (args._cmd === "run" && str("extractions") && str("out")) {
-    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience"),
-      terms: str("terms") });
+    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience") });
     if (r.brief) console.log(`Brief written: ${r.brief}`);
     console.log(`run directory: ${r.runDir}`);
     if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
