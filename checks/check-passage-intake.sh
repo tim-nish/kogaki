@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 # check-passage-intake — the Passage intake puts a source Passage into the store, keeps the
 # book's order in ORDER.md and regenerates INDEX.md (kogaki#1535, owner decision 2026-10-23).
-#
-# WHAT THIS COVERS, driven through `node src/proof-sheet/passage-intake.mjs` on a fixture
-# store under a temporary directory — never the real `corpus/passages/`:
-#   (a) a new file writes `<slug>.md` with its three header lines and the text verbatim,
-#       appends the slug to ORDER.md and prints the paragraph and sentence counts the
-#       Extractor's own cuts give;
-#   (b) `--before <slug>` inserts the new slug before the named one, and every filename is
-#       unchanged;
-#   (c) a slug already in the store is refused by name, with the store unchanged;
-#   (d) a `--before` slug absent from the order is refused by name, with the store unchanged;
-#   (e) INDEX.md is regenerated after each intake: one row per slug in ORDER.md's order,
-#       with its position and counts;
+# Driven through `node src/proof-sheet/passage-intake.mjs` on a fixture store under a
+# temporary directory, never the real `corpus/passages/`:
+#   (a) a new file writes `<slug>.md` (three header lines, the text verbatim), appends the
+#       slug to ORDER.md and prints the Extractor's paragraph and sentence counts;
+#   (b) `--before <slug>` inserts before the named slug; earlier files are unchanged;
+#   (c) a slug already in the store is refused by name, the store unchanged;
+#   (d) a `--before` slug absent from the order is refused by name, the store unchanged;
+#   (e) INDEX.md holds one row per slug in ORDER.md's order, with position and counts;
 #   (f) `passageBody` strips the header, so the counts are over the Passage text alone.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"

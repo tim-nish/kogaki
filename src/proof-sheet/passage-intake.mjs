@@ -1,23 +1,14 @@
 #!/usr/bin/env node
 // The Passage intake — one command that puts a source Passage into the store (kogaki#1535,
-// owner decision 2026-10-23).
+// owner decision 2026-10-23). The store, `corpus/passages/` (untracked), holds one file per
+// Passage named by its slug; a filename never changes once written, because a run record
+// names its Leg file by path. The book's order is `ORDER.md`, one slug per line — the only
+// carrier of the sequence — and `INDEX.md` is regenerated from it on every intake.
 //
-// WHAT IT IS. The Proof Sheet's source Passages live in ONE untracked store,
-// `corpus/passages/`, one file per Passage named by its slug (`<slug>.md`). The owner enters
-// Passages out of the book's order, and a run record names its Leg file by path, so a
-// filename never changes once written and carries no order. The order is `ORDER.md` in the
-// store, one slug per line in the book's order — the only carrier of the sequence; nothing
-// reads the directory listing for it. `INDEX.md` is regenerated from the order and the files
-// on every intake.
-//
-// THE STORE FILE. Three header lines — `slug:`, `section:`, `source: not given` — a blank
-// line, then the Passage text verbatim. `passageBody` strips that header; the counts are
-// taken over the body alone, with the Extractor's own cuts (`legParagraphs`, `sentencesOf`).
-//
-// WHAT IT REFUSES, by name and before anything is written: a slug already in the store or
-// the order, a `--before` slug absent from the order, and a file with no paragraph. No model
-// call is made.
-//
+// A store file is three header lines (`slug:`, `section:`, `source: not given`), a blank
+// line, then the text verbatim; `passageBody` strips the header, and the counts use the
+// Extractor's own cuts. Refused by name, before anything is written: a slug already in the
+// store, a `--before` slug absent from the order, a file with no paragraph. No model call.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { join, resolve, basename, extname } from "node:path";
 import { pathToFileURL } from "node:url";
