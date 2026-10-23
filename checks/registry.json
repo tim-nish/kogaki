@@ -600,6 +600,25 @@
       }
     },
     {
+      "id": "passage-intake",
+      "file": "checks/check-passage-intake.sh",
+      "covers": [
+        "src/proof-sheet/passage-intake.mjs",
+        "src/proof-sheet/extract.mjs"
+      ],
+      "admission": {
+        "contract": "The Passage intake puts a source Passage into the one untracked store with an order kept apart from the filenames (kogaki#1535, owner decision 2026-10-23). Driven through `node src/proof-sheet/passage-intake.mjs` on a fixture store under a temporary directory: a new file writes `<slug>.md` with its three header lines (`slug`, `section`, `source: not given`) and the text verbatim, appends the slug to ORDER.md and prints the paragraph and sentence counts the Extractor's own `legParagraphs` and `sentencesOf` give; `--before <slug>` inserts before the named slug and leaves every earlier file unchanged; a slug already in the store and a `--before` slug absent from ORDER.md are each refused by name with the store unchanged; INDEX.md is regenerated with one row per slug in ORDER.md's order; and `passageBody` strips the header so the counts are over the Passage text alone.",
+        "license": "kogaki#1535",
+        "tier": "pre-push",
+        "runtime_ms": 500,
+        "runtime_ms_note": "Measured at authoring (2026-10-23, kogaki#1535 worktree): 340, 370 and 380 ms over three plain runs of the file; the cost is one node process for the cases and five short intake processes.",
+        "efficacy": "case: checks/check-passage-intake.sh::(b) --before did not insert before the named slug",
+        "efficacy_note": "mutation-verified at authoring: making the intake ignore `--before` (always appending) failed (b) three times and (e), naming the order ORDER.md held -- the named defect, a Passage entered out of order landing at the end of the book's sequence, constructed rather than a neighbour.",
+        "removal_signal": "a ruling retires the Passage store, or moves source Passages into a tracked carrier with its own check -- either way the intake this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/proof-sheet/passage-intake.mjs"
+      }
+    },
+    {
       "id": "schema-binds",
       "file": "checks/check-schema-binds.sh",
       "covers": [
