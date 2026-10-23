@@ -1231,7 +1231,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       reader_state_after: "knowledge: holds the step of " + id + "\\norientation: sees where the copy of " + id + " ends up",
       claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph })),
       waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })),
-      ...(id === "leg-a" ? { introduces: [{ term: "frobnicator", kind: "coined", meaning: "the part that copies the kit" }] } : {}) }] }, "brief-leg-path");
+      ...(id === "leg-a" ? { introduces: [{ term: "frobnicator", meaning: "the part that copies the kit" }] } : {}) }] }, "brief-leg-path");
   }
   return out("WRITTEN-1 the first paragraph.\\n\\nWRITTEN-2 the second.", "writer");
 });

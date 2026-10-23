@@ -282,7 +282,8 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
       ["leg3", "the paragraph establishes what leg3 claims", "claim of leg3"]])) fails.push(`(n) the discharge input does not carry each owed Leg's points and claims: ${JSON.stringify(e.owed_legs)}`);
   }
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-  const unit = JSON.stringify(table.review_path_unit || {});
+  // the discharge sentence is written once under `shared_text` and named by the row.
+  const unit = JSON.stringify(table.review_path_unit || {}).replace(/\{\{shared:([a-z_]+)\}\}/g, (_, k) => (table.shared_text || {})[k] || "");
   if (!/discharge_rows/.test(unit) || !/one entry per Obligation row carrying `discharged_by`/.test(unit)) {
     fails.push("(n) the review_path_unit row no longer reads `discharge_rows` with one entry per discharged Obligation row");
   }
@@ -327,7 +328,7 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
 {
   const { introducesRefusal, parseIntroducesEntry } = compose;
   const r = introducesRefusal([{ term: "ownership boundary", kind: "coined", meaning: "where the installer's ownership ends" }], "leg 1 (leg1)");
-  if (!r || !/`kind` is retired/.test(r) || !/ownership boundary/.test(r)) fails.push(`(r) an introduces entry carrying kind was not refused by name: ${r}`);
+  if (!r || !/carries `kind`, which is retired/.test(r) || !/ownership boundary/.test(r)) fails.push(`(r) an introduces entry carrying kind was not refused by name: ${r}`);
   const ok = parseIntroducesEntry({ term: "ownership boundary", meaning: "where the installer's ownership ends" });
   if (ok.error || ok.meaning !== "where the installer's ownership ends") fails.push(`(r) an entry carrying term and meaning was not read: ${JSON.stringify(ok)}`);
   const noMeaning = parseIntroducesEntry({ term: "ownership boundary" });
