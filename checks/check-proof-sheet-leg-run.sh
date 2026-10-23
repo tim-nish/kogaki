@@ -109,6 +109,12 @@
 #       Writer calls file; the sheet carries three Leg blocks in order, each with its comparison
 #       table, under one Brief card marking five fields `derived`; and the one-file run's record
 #       keeps its shape apart from the `legs` list.
+#   (t) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief
+#       --legs 2` makes no Extractor call, keeps four Extraction records, composes a two-Leg Brief
+#       whose second Leg `depends_on` the first and reaches the target, and records `legs: 2`;
+#       `--legs 3` records what a plain reuse records apart from `reuse.legs`, and a plain reuse
+#       records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan` are each
+#       refused naming `--legs`, with no run directory written.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -1312,6 +1318,50 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       "(s) the sheet does not carry a comparison table per Leg under one Brief card");
     ok((sheet.match(/<span class="badge derived">derived<\/span>/g) || []).length === 5, "(s) the Brief card does not mark the five derived cross-Leg fields `derived`");
     ok(sheet.includes("WRITTEN-1 the first paragraph.") && !sheet.includes('href="#card-0-1-brief"'), "(s) a Leg block's written text or its Brief link is wrong");
+  }
+  // (t) A LEADING SUBSET OF THE LEGS (kogaki#1546), reusing the three-Leg run above rather than
+  // extracting again.
+  if (sRunDir) {
+    const tRun = (tag, extra) => {
+      const tRoot = join(sRoot, `subset-${tag}`);
+      mkdirSync(tRoot, { recursive: true });
+      const r = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--reuse", sRunDir, ...extra, "--out", join(tRoot, "out"), "--provenance", map],
+        { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: tRoot }, timeout: 600000 });
+      const dir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
+      const seen = readOr(join(tRoot, "seen.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l).stage);
+      return { r, dir, seen, out: join(tRoot, "out"), run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null };
+    };
+    const t2 = tRun("2", ["--from", "brief", "--legs", "2"]);
+    ok(t2.r.status === 0 && !!t2.run, `(t) --legs 2 exited ${t2.r.status}: ${t2.r.stdout}${t2.r.stderr}`);
+    if (t2.run) {
+      const ex = t2.run.stages.find((st) => st.stage === "extract") || {};
+      const records = readdirSync(join(t2.dir, "extract")).filter((f) => f.endsWith(".yaml"));
+      ok(!t2.seen.includes("extract") && t2.run.stages.every((st) => st.state === "done"),
+        `(t) --legs 2 called the Extractor or left a stage short of done: ${JSON.stringify(t2.seen)} / ${JSON.stringify(t2.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+      ok((ex.extractions || []).length === 4 && records.length === 4 && JSON.stringify(records.sort()) === JSON.stringify([...ex.extractions].sort()),
+        `(t) --legs 2 does not keep exactly the four Extraction records of the first two Legs: ${JSON.stringify(records)}`);
+      ok(t2.run.reuse.legs === 2 && JSON.stringify(t2.run.legs.map((l) => l.copy)) === '["legs/leg_a.md","legs/leg_b.md"]' && t2.run.paragraphs === 4,
+        `(t) --legs 2 does not record two Legs: ${JSON.stringify({ reuse: t2.run.reuse, legs: t2.run.legs })}`);
+      const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
+      let tLegs = [];
+      try { tLegs = briefLegs(parseBriefRecord(readFileSync(join(t2.dir, "brief", "brief.yaml"), "utf8")).record); } catch (e) { fails.push(`(t) the two-Leg Brief does not parse: ${e.message}`); }
+      ok(JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target === true])) === '[["leg-a",[],false],["leg-b",["leg-a"],true]]',
+        `(t) the Brief is not two Legs, the second depending on the first and reaching the target: ${JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target]))}`);
+    }
+    // Every Leg kept records what a plain reuse records, `reuse.legs` apart.
+    const t3 = tRun("3", ["--from", "brief", "--legs", "3"]);
+    const plain = tRun("plain", ["--from", "brief"]);
+    const shape = (x) => x && { ...x, started_at: null, finished_at: null, model_command: null, stages: x.stages.map((st) => [st.stage, st.state, st.extractions || null]),
+      reuse: { ...x.reuse, legs: undefined, moves: null } };
+    ok(!!t3.run && !!plain.run && JSON.stringify(shape(t3.run)) === JSON.stringify(shape(plain.run)) && t3.run.reuse.legs === 3
+      && JSON.stringify(Object.keys(plain.run.reuse)) === '["source","from","copied","edits","moves"]',
+      `(t) --legs 3 of three does not record what a plain reuse records apart from reuse.legs: ${JSON.stringify(shape(t3.run))} / ${JSON.stringify(shape(plain.run))}`);
+    // Refused by name, with nothing written.
+    for (const [tag, extra] of [["4", ["--from", "brief", "--legs", "4"]], ["0", ["--from", "brief", "--legs", "0"]], ["plan", ["--from", "paragraph-plan", "--legs", "2"]]]) {
+      const t = tRun(`refused-${tag}`, extra);
+      ok(t.r.status !== 0 && t.r.stderr.includes("--legs") && !t.dir && !existsSync(t.out) && !t.seen.length,
+        `(t) ${extra.join(" ")} was not refused naming --legs with nothing written: ${t.r.status} ${t.r.stdout}${t.r.stderr}`);
+    }
   }
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
   if (runDir) {
