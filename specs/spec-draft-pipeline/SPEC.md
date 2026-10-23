@@ -1662,11 +1662,12 @@ is added to it.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
 anchors → **the Leg's waypoints** → the Leg's fields → the §4.13 ledger → **this
-Leg's own §5.2 Closure rows** → every previously realized Leg's prose in
+Leg's own §5.2 Obligation rows** → every previously realized Leg's prose in
 recorded order → the write instruction.
 
-**The Closure block renders in the §4.13 shape** (kogaki#1151): only the rows
-where this Leg is `introduced_by`, `discharged_by` or `conceded_by`, as their
+**The Obligations block renders in the §4.13 shape** (kogaki#1151, kogaki#1529):
+only the rows where this Leg is `raised_by`, owed, `discharged_by` or
+`conceded_by`, as their
 prose text — the Thesis row on its establishing Legs — never a copy of the
 whole ledger. A Leg party to no row renders the block **empty rather than
 absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
@@ -2894,7 +2895,7 @@ these rules govern it:
    deferred. The composer fills the slot with the term or the question and
    with the `owed_by` units, in the order the items were raised. A promise the
    Strand material raises and no Move shape signals is **authored** as a row,
-   as Closure rows are today.
+   as a Closure row was before kogaki#1529.
 3. **Capacity.** At most ONE Obligation of any kind is open at any unit of one
    scale. A row is open from its `raised_by` unit up to, and not including,
    the unit that closes it; a row raised and closed in one unit is open on
@@ -2921,13 +2922,15 @@ these rules govern it:
    capacity rule, as it was.
 
 `src/leg-schema.json`'s `path_rules` states rules 3, 4 and 5 to the composer
-as judgment-class entries. *Status: stated ahead of the executables*
-(kogaki#1528 changes none): the Brief's `closure` rows still carry `text`,
-`introduced_by` and a terminal field, the checked
-`closure_one_row_open_per_leg` and `closure_one_conceded_row` still refuse
-over those rows alone, `introduces_item` still carries `kind`, and the
-ParagraphPlan file carries no Obligation. An Issue that changes any of them
-reads its rule here, and an Issue that changes a rule changes it here first.
+as checked entries, and `obligationLedgerRefusal` (`src/compose.mjs`) refuses
+over them naming the row and the Leg. *Status: the Leg scale is carried by the
+executables* (kogaki#1529): the Brief's `obligations` rows carry `kind`,
+`raised_by`, `text | term`, `owed_by` and one terminal field, the retired
+`closure` key and `introduced_by` field are refused by name, `introduces_item`
+carries no `kind`, and a Move's deferred slot reaches the composer's input.
+*The Paragraph scale stays ahead of the executables*: the ParagraphPlan file
+carries no Obligation. An Issue that changes it reads its rule here, and an
+Issue that changes a rule changes it here first.
 
 **One ledger at two levels.** The **Thesis row** is the Thesis's own promise,
 and it is **derived, never written** (kogaki#1328): rendered from each placed
@@ -2937,7 +2940,8 @@ It was the Candidate's free-text `reasoning.thesis_closure`, copied into the
 Brief whole — one line of 1934 characters in the 2026-10-09 Brief, restating
 what the coverage already carried per Strand. The **Leg rows** are the
 obligations ledger — the owner's proposed name is *Legs closure* — the record's
-`closure` list, each row carrying `text` and `introduced_by`.
+`obligations` list (the `closure` list until kogaki#1529), each row carrying
+`kind`, `raised_by`, `text | term` and `owed_by`.
 
 **Every row ends in one of two terminal states, written by the composer:**
 `discharged_by: <leg>` (the promise is kept there) or `conceded_by: <leg>`

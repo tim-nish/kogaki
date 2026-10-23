@@ -12,14 +12,17 @@ import { INTRODUCES_SEP } from "./specialization.mjs";
 
 // AN ENTRY IS A STRING (the Brief's own serialized form, round-tripped by
 // `draft.mjs`) OR AN `introduces_item` OBJECT (the Candidate's own composed
-// form, src/leg-schema.json `introduces_item`; kogaki#1263, kogaki#1260): a
-// Candidate composes `{term, kind, source, nearest, differs}` directly as
-// JSON, and that object is what `kind`-the-closed-set and `nearest`'s
-// path-level dedup (item 2 below) are read from. THE BRIEF CARRIES THE ITEM
-// AS ITS FIELDS (kogaki#1261; a map in the Brief record since kogaki#1328):
-// `legRecord` writes an `introduces_item` as the map it was, and a JSON line
-// written before that still parses back here to the object it was, so the
-// Packet can render the term's kind and authority line from the Brief alone.
+// form, src/leg-schema.json `introduces_item`; kogaki#1263, kogaki#1260),
+// whose `nearest` the path-level dedup (item 2 below) reads. THE BRIEF CARRIES
+// THE ITEM AS ITS FIELDS (kogaki#1261, kogaki#1328), and a JSON line written
+// before that parses back here to the object it was. AN ITEM CARRIES `term`
+// AND `meaning` AND NO `kind` (kogaki#1529, SPEC-draft-pipeline "Obligations"
+// rule 7): `kind` and an `established` term's `source` are refused by name,
+// and a term named here and explained later is an Obligation of kind `term`.
+const RETIRED_INTRODUCES_KEYS = Object.freeze({
+  kind: "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation of kind `term`",
+  source: "`source`, which is retired with `kind` (kogaki#1529): it was an `established` term's outside home, and an introduced term's meaning is the article's own `meaning`",
+});
 export function parseIntroducesEntry(raw) {
   if (typeof raw === "string" && /^\s*\{[\s\S]*\}\s*$/.test(raw)) {
     let obj;
@@ -29,19 +32,15 @@ export function parseIntroducesEntry(raw) {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const term = typeof raw.term === "string" ? raw.term.trim() : "";
     if (term === "") return { error: "an introduces_item with no term" };
-    if (raw.kind !== "coined" && raw.kind !== "established") {
-      return { error: `"${term}" declares kind ${JSON.stringify(raw.kind ?? null)} — introduces_item's kind is closed to coined, established (src/leg-schema.json, \`introduces_item\`)` };
-    }
-    if (raw.kind === "established" && (typeof raw.source !== "string" || raw.source === "")) {
-      return { error: `"${term}" declares kind "established" with no source — an established term names where it comes from (src/leg-schema.json, \`introduces_item\`)` };
-    }
-    if (raw.kind === "coined" && (typeof raw.meaning !== "string" || raw.meaning === "")) {
-      return { error: `"${term}" declares kind "coined" with no meaning — a coined term names its own meaning, since nothing outside this Leg can supply it (src/leg-schema.json, \`introduces_item\`)` };
+    const retired = Object.keys(RETIRED_INTRODUCES_KEYS).find((k) => Object.hasOwn(raw, k));
+    if (retired) return { error: `"${term}" carries ${RETIRED_INTRODUCES_KEYS[retired]} (src/leg-schema.json, \`introduces_item\`)` };
+    if (typeof raw.meaning !== "string" || raw.meaning.trim() === "") {
+      return { error: `"${term}" carries no meaning — an introduced term is one the article gives its meaning to, in one sentence (src/leg-schema.json, \`introduces_item\`)` };
     }
     if (raw.differs !== undefined && (typeof raw.nearest !== "string" || raw.nearest === "")) {
       return { error: `"${term}" carries differs with no nearest — differs names how the term differs FROM nearest, so it names nothing without it (src/leg-schema.json, \`introduces_item\`)` };
     }
-    return { term, anchor: null, kind: raw.kind, source: raw.source, meaning: raw.meaning, nearest: raw.nearest, differs: raw.differs };
+    return { term, anchor: null, typed: true, meaning: raw.meaning, nearest: raw.nearest, differs: raw.differs };
   }
   const line = String(raw).trim();
   if (line === "") return { error: "an empty entry" };
@@ -55,18 +54,15 @@ export function parseIntroducesEntry(raw) {
 }
 
 // THE MEANING AN INTRODUCED TERM CARRIES (kogaki#1282, owner decision
-// 2026-10-06; amended kogaki#1404; moved here from src/draft/journeys.mjs by
-// kogaki#1497, so the Packet's crossing line and the ParagraphPlan read it alike): a typed `coined` entry names its own
-// `meaning`; a typed `established` entry's `source` is a Brief-side
-// justification for the "established" kind and never the term's meaning
-// (src/leg-schema.json, `introduces_item`) — an established entry carries a
-// `meaning` only where the Brief gave it one, and none otherwise; the legacy
-// bare/anchored form's anchor IS its meaning anchor (the form
+// 2026-10-06; amended kogaki#1404 and kogaki#1529; moved here from
+// src/draft/journeys.mjs by kogaki#1497, so the Packet's crossing line and the
+// ParagraphPlan read it alike): a typed entry names its own `meaning`; the
+// legacy bare/anchored form's anchor IS its meaning anchor (the form
 // `parseIntroducesEntry` refuses with no text after the separator). A bare
 // term with no anchor carries none, stated rather than invented.
 export function introducedMeaning(p) {
   if (!p || p.error) return null;
-  if (p.kind === "coined" || p.kind === "established") return p.meaning || null;
+  if (p.typed) return p.meaning || null;
   return p.anchor || null;
 }
 
@@ -216,70 +212,137 @@ export function targetLegIndex(legs) {
   return legs.findIndex((s) => s && s.reaches_target === true);
 }
 
-// CLOSURE, THE TWO PATH RULES (kogaki#1232, owner decision 2026-09-30): a
-// Question a Leg will not close is set aside IN THAT LEG, "in a way that
-// releases the question without interfering with the Thesis"; needing more
-// than one set aside is read as the ReaderPath itself being unsuitable; and
-// at most one non-Thesis Question is open at any given time. `obligations` is
-// the Candidate's own ledger (src/candidate-schema.json) -- the Thesis row is
-// out of scope by name (the issue's "Not in scope") and never reaches this
-// function. Rows are read defensively: a row whose `introduced_by` or closing
-// leg is not a shape `validateLegs` can resolve is skipped here rather than
-// refused, because that shape refusal is `fillBrief`'s own (obligation N: ...)
-// and this function's job is the two rules above it, not a second reading of
-// the same field. Returns a string to refuse with, or null.
-export function closureLedgerRefusal(legs, obligations = []) {
+// THE OBLIGATION LEDGER'S PATH RULES (kogaki#1529, SPEC-draft-pipeline
+// "Obligations"; kogaki#1232 before it). An Obligation is `{kind, raised_by,
+// text | term, owed_by, discharged_by | conceded_by}`: a Question (`text`) or
+// a term named and left for later Legs to explain (`term`). `obligations` is
+// the Candidate's own ledger (src/candidate-schema.json); the Thesis row is
+// derived and never reaches this function. Each refusal names the row and the
+// Leg. Returns a string to refuse with, or null.
+export const OBLIGATION_KINDS = Object.freeze(["question", "term"]);
+const CONCEDED_FIELDS = ["open", "why_not_here", "reader_keeps"];
+export function obligationLabel(o) {
+  const said = o && (o.kind === "term" ? o.term : o.text);
+  return `${o && typeof o.kind === "string" ? o.kind : "obligation"} ${JSON.stringify(typeof said === "string" ? said : null)}`;
+}
+export function obligationTerminal(o) {
+  return o.discharged_by !== undefined ? o.discharged_by : o.conceded_by;
+}
+export function obligationLedgerRefusal(legs, obligations = []) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
+  const atId = (id) => (index.has(id) ? at(index.get(id)) : null);
   const list = Array.isArray(obligations) ? obligations : [];
   const legIds = legs.map((s) => s.leg_id);
   const index = new Map(legIds.map((id, i) => [id, i]));
+  const legName = (id) => JSON.stringify(id);
 
-  // RULE (a): a path with more than one `conceded_by` row is refused, naming
-  // the rows.
-  const conceded = list.filter((o) => o && typeof o === "object" && o.conceded_by !== undefined);
-  if (conceded.length > 1) {
-    return pathRefusal("closure_one_conceded_row", null,
-      `${conceded.length} Closure rows end conceded_by: ${conceded.map((o) => JSON.stringify(o.text)).join(", ")}.`);
+  // THE RECORD (rules 1, 4 and 6): the kind and what it carries, a raising
+  // Leg, `owed_by` after it in path order, and exactly one terminal field
+  // naming a Leg the row is owed to or raised by.
+  for (const [n, o] of list.entries()) {
+    const row = `obligation ${n + 1}`;
+    if (!o || typeof o !== "object" || Array.isArray(o)) {
+      return pathRefusal("obligation_row_terminal", null, `${row} is not a map.`);
+    }
+    if ("introduced_by" in o) {
+      return pathRefusal("obligation_row_terminal", null,
+        `${row} carries \`introduced_by\`, the Closure row's field — an Obligation names the Leg that raises it in \`raised_by\` (kogaki#1529).`);
+    }
+    if (!OBLIGATION_KINDS.includes(o.kind)) {
+      return pathRefusal("obligation_row_terminal", null,
+        `${row} carries kind ${JSON.stringify(o.kind ?? null)} — an Obligation is a \`question\` carrying \`text\` or a \`term\` carrying \`term\`.`);
+    }
+    const said = o.kind === "term" ? "term" : "text";
+    const other = o.kind === "term" ? "text" : "term";
+    if (typeof o[said] !== "string" || o[said].trim() === "" || other in o) {
+      return pathRefusal("obligation_row_terminal", null,
+        `${row} is a \`${o.kind}\` row, so it carries \`${said}\` and no \`${other}\`.`);
+    }
+    const label = obligationLabel(o);
+    if (typeof o.raised_by !== "string" || !index.has(o.raised_by)) {
+      return pathRefusal("obligation_row_terminal", null,
+        `The ${label} row names raised_by ${legName(o.raised_by ?? null)}, which is not a Leg of this path.`);
+    }
+    const raisedAt = atId(o.raised_by);
+    const raisedIdx = index.get(o.raised_by);
+    if (!Array.isArray(o.owed_by)) {
+      return pathRefusal("obligation_owed_in_order", raisedAt,
+        `The ${label} row raised here carries no \`owed_by\` list — the Legs that keep it, after this one, in path order.`);
+    }
+    let prev = raisedIdx;
+    for (const id of o.owed_by) {
+      if (typeof id !== "string" || !index.has(id)) {
+        return pathRefusal("obligation_owed_in_order", raisedAt,
+          `The ${label} row raised here names owed_by ${legName(id)}, which is not a Leg of this path.`);
+      }
+      if (index.get(id) <= prev) {
+        return pathRefusal("obligation_owed_in_order", atId(id),
+          index.get(id) <= raisedIdx
+            ? `The ${label} row raised at ${o.raised_by} names this Leg in owed_by, which does not come after the raising Leg.`
+            : `The ${label} row raised at ${o.raised_by} names this Leg in owed_by after a later one — owed_by is in path order.`);
+      }
+      prev = index.get(id);
+    }
+    const hasD = o.discharged_by !== undefined;
+    const hasC = o.conceded_by !== undefined;
+    if (hasD === hasC) {
+      return pathRefusal("obligation_row_terminal", raisedAt,
+        `The ${label} row raised here carries ${hasD ? "BOTH discharged_by and conceded_by" : "NEITHER discharged_by nor conceded_by"}.`);
+    }
+    const end = obligationTerminal(o);
+    if (hasD && (o.owed_by.length === 0 || end !== o.owed_by[o.owed_by.length - 1])) {
+      return pathRefusal("obligation_row_terminal", raisedAt,
+        `The ${label} row raised here ends discharged_by ${legName(end)}, which is not the last Leg in its owed_by ${JSON.stringify(o.owed_by)} — the promise is kept by the last Leg that owes it.`);
+    }
+    if (hasC && end !== o.raised_by && !o.owed_by.includes(end)) {
+      return pathRefusal("obligation_row_terminal", raisedAt,
+        `The ${label} row raised here ends conceded_by ${legName(end)}, which is neither the raising Leg nor a Leg in its owed_by.`);
+    }
   }
-  // A CONCEDED ROW CARRIES THREE FURTHER FIELDS, required only there
-  // (src/candidate-schema.json, `obligations.entry_required_when_conceded`;
-  // kogaki#1263): `open`, `why_not_here` and `reader_keeps` — a concession is
-  // not silence, so the row says what stays unresolved, why this Leg is not
-  // the one to close it, and what the reader is left holding in its place.
-  // Refused naming the row and the missing field(s) (kogaki#1251 item 3,
-  // kogaki#1260).
+
+  // AT MOST ONE CONCEDED ROW (kogaki#1232), each carrying `open`,
+  // `why_not_here` and `reader_keeps` (kogaki#1263): a concession is not
+  // silence, so the row says what stays unresolved, why this Leg is not the
+  // one to close it, and what the reader is left holding in its place.
+  const conceded = list.filter((o) => o.conceded_by !== undefined);
+  if (conceded.length > 1) {
+    return pathRefusal("obligation_one_conceded_row", null,
+      `${conceded.length} rows end conceded_by: ${conceded.map((o) => obligationLabel(o)).join(", ")}.`);
+  }
   for (const o of conceded) {
-    const missing = ["open", "why_not_here", "reader_keeps"]
-      .filter((k) => typeof o[k] !== "string" || o[k] === "");
+    const missing = CONCEDED_FIELDS.filter((k) => typeof o[k] !== "string" || o[k] === "");
     if (missing.length) {
-      return pathRefusal("closure_one_conceded_row", null,
-        `The conceded Closure row ${JSON.stringify(o.text)} carries no ${missing.join(", ")} — `
+      return pathRefusal("obligation_one_conceded_row", atId(o.raised_by),
+        `The conceded ${obligationLabel(o)} row carries no ${missing.join(", ")} — `
         + "a conceded row ends conceded_by AND carries open, why_not_here and reader_keeps.");
     }
   }
 
-  // RULE (b): a row is open on every Leg from its `introduced_by` Leg up to,
-  // and NOT INCLUDING, the Leg that closes it -- a row raised and conceded in
-  // one Leg (the same `leg_id` on both ends) is open on no Leg, by the range
-  // being empty. A Leg on which more than one row is open is refused, naming
-  // the Leg and the rows.
+  // CAPACITY (rule 3): a row is open on every Leg from its `raised_by` up to,
+  // and NOT INCLUDING, the Leg that closes it; at most one row of any kind is
+  // open at any Leg.
   const openPerLeg = new Map();
   for (const o of list) {
-    if (!o || typeof o !== "object" || typeof o.text !== "string") continue;
-    const closingLeg = o.discharged_by !== undefined ? o.discharged_by : o.conceded_by;
-    if (typeof o.introduced_by !== "string" || typeof closingLeg !== "string") continue;
-    if (!index.has(o.introduced_by) || !index.has(closingLeg)) continue;
-    for (let i = index.get(o.introduced_by); i < index.get(closingLeg); i++) {
-      const id = legIds[i];
-      if (!openPerLeg.has(id)) openPerLeg.set(id, []);
-      openPerLeg.get(id).push(o.text);
+    for (let i = index.get(o.raised_by); i < index.get(obligationTerminal(o)); i++) {
+      if (!openPerLeg.has(legIds[i])) openPerLeg.set(legIds[i], []);
+      openPerLeg.get(legIds[i]).push(o);
     }
   }
   for (const [i, s] of legs.entries()) {
     const rows = openPerLeg.get(s.leg_id);
     if (rows && rows.length > 1) {
-      return pathRefusal("closure_one_row_open_per_leg", at(i),
-        `${rows.length} Closure rows are open here: ${rows.map((t) => JSON.stringify(t)).join(", ")}.`);
+      return pathRefusal("obligation_one_open_per_unit", at(i),
+        `${rows.length} rows are open here: ${rows.map((o) => obligationLabel(o)).join(", ")}.`);
+    }
+  }
+
+  // SECTION (rule 5): no Leg owing an OPEN row carries `opens_section`.
+  for (const o of list) {
+    if (index.get(obligationTerminal(o)) <= index.get(o.raised_by)) continue; // open on no Leg
+    const opener = o.owed_by.find((id) => legs[index.get(id)].opens_section !== undefined);
+    if (opener) {
+      return pathRefusal("obligation_owed_leg_opens_no_section", atId(opener),
+        `This Leg owes the ${obligationLabel(o)} row raised at ${o.raised_by}, and carries opens_section.`);
     }
   }
   return null;
@@ -317,10 +380,10 @@ export function readerTargetLegRefusal(legs, obligations = []) {
       return pathRefusal("closing_leg_introduces_nothing", at(i),
         `This closing Leg (after ${targetLeg.leg_id}, which reaches the Reader target) still carries introduces: ${JSON.stringify(s.introduces)}.`);
     }
-    const raised = obligationList.find((o) => o && o.introduced_by === s.leg_id);
+    const raised = obligationList.find((o) => o && o.raised_by === s.leg_id);
     if (raised) {
       return pathRefusal("closing_leg_introduces_nothing", at(i),
-        `This closing Leg (after ${targetLeg.leg_id}) is named introduced_by on a Closure row: ${JSON.stringify(raised.text)}.`);
+        `This closing Leg (after ${targetLeg.leg_id}) is named raised_by on the ${obligationLabel(raised)} row.`);
     }
     for (const dim of ["orientation", "knowledge"]) {
       const wantLine = readerStateDimensionLine(targetLeg.reader_state_after, dim);
@@ -342,8 +405,10 @@ export function readerTargetLegRefusal(legs, obligations = []) {
 // never introduces anywhere is refused naming the term; absence of `names`
 // itself is a different check's job (required_when is not enforced here, to
 // leave a path composed before this field unaffected). Run after every Leg is
-// known to be well formed, the same reason `readerTargetLegRefusal` does.
-export function readerTargetNamesRefusal(legs) {
+// known to be well formed, the same reason `readerTargetLegRefusal` does. A
+// `term` Obligation's term counts beside the `introduces` entries
+// (kogaki#1529): the path names it and a later Leg gives its meaning.
+export function readerTargetNamesRefusal(legs, obligations = []) {
   const idx = targetLegIndex(legs);
   if (idx === -1) return null; // readerTargetLegRefusal names a missing or ambiguous mark
   const targetLeg = legs[idx];
@@ -357,10 +422,11 @@ export function readerTargetNamesRefusal(legs) {
       introduced.add(e.term);
     }
   }
+  for (const o of termObligations(obligations)) introduced.add(o.term.trim());
   for (const name of targetLeg.names) {
     if (!introduced.has(name)) {
       return `leg ${idx + 1} (${targetLeg.leg_id}): names carries ${JSON.stringify(name)}, but no Leg of this path introduces it — `
-        + "names is the union of every Leg's introduces entries, by the time the Reader target is reached (src/leg-schema.json, `names`)";
+        + "names is the union of every Leg's introduces entries and every `term` Obligation, by the time the Reader target is reached (src/leg-schema.json, `names`)";
     }
   }
   return null;
@@ -378,7 +444,7 @@ export function introducesRefusal(value, at) {
   for (const raw of value) {
     const isItem = raw && typeof raw === "object" && !Array.isArray(raw);
     if (typeof raw !== "string" && !isItem) {
-      return `${at}: introduces carries an entry that is neither a string nor an introduces_item object — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor", or a Candidate's own \`{term, kind, ...}\` object (src/leg-schema.json, \`introduces_item\`)`;
+      return `${at}: introduces carries an entry that is neither a string nor an introduces_item object — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor", or a Candidate's own \`{term, meaning, ...}\` object (src/leg-schema.json, \`introduces_item\`)`;
     }
     const e = parseIntroducesEntry(raw);
     if (e.error) return `${at}: introduces carries ${e.error} (the reader-knowledge ledger)`;
@@ -392,7 +458,7 @@ export function introducesRefusal(value, at) {
 }
 
 // AT MOST ONE introduces_item ACROSS THE WHOLE PATH MAY NAME `nearest`
-// (kogaki#1251 item 2, kogaki#1260): `nearest` is a coined term's near
+// (kogaki#1251 item 2, kogaki#1260): `nearest` is an introduced term's near
 // existing neighbour, offered so a reader can place the coinage against what
 // they already have a name for. Two such comparisons in one path leave the
 // reader holding two near-neighbour claims with nothing to decide between
@@ -415,7 +481,7 @@ export function introducesNearestRefusal(legs) {
   if (found.length > 1) {
     return `This Brief carries ${found.length} introduces items naming \`nearest\`: `
       + found.map((f) => `${JSON.stringify(f.term)} (leg ${f.leg_id}) nearest ${JSON.stringify(f.nearest)}`).join(" and ")
-      + " — at most one coined term may be compared to a nearest existing term across the whole path (src/leg-schema.json, `introduces_item.nearest`).";
+      + " — at most one introduced term may be compared to a nearest existing term across the whole path (src/leg-schema.json, `introduces_item.nearest`).";
   }
   return null;
 }
@@ -477,7 +543,7 @@ export function reactivateRefusal(value, at) {
 // and kogaki#1260) — everything explicitly represented in the Legs named in
 // `depends_on`, specifically their `introduces` lines (exact strings), their
 // `claims` (addressed by Strand) and, since the third form, their `journeys`
-// (addressed by Strand). Closure rows are never candidates. Refuses naming
+// (addressed by Strand). Obligation rows are never candidates. Refuses naming
 // the entry: which Leg, which reference, and why it does not resolve.
 export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
   if (!Array.isArray(value)) return null; // reactivateRefusal names this
@@ -525,8 +591,14 @@ export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
 // earlier one, so that is the Leg a later question about the term resolves
 // to. The second declaration is not an error — a composer may legitimately
 // re-state a term — and it is not silently dropped either: it simply does not
-// move the responsibility.
-export function readerKnowledgeLedger(legs) {
+// move the responsibility. A `term` Obligation folds in at the Leg that raises
+// it, beside that Leg's own entries (kogaki#1529): the reader has met the name
+// there, and its meaning is owed by the Legs its row names.
+export function termObligations(obligations) {
+  return (Array.isArray(obligations) ? obligations : [])
+    .filter((o) => o && o.kind === "term" && typeof o.term === "string" && o.term.trim() !== "");
+}
+export function readerKnowledgeLedger(legs, obligations = []) {
   const known = new Map(); // term (lowercased) -> { term, anchor, introduced_by }
   const rows = [];
   for (const s of legs) {
@@ -543,6 +615,10 @@ export function readerKnowledgeLedger(legs) {
       if (!known.has(key)) {
         known.set(key, { term: e.term, anchor: e.anchor, introduced_by: s.leg_id });
       }
+    }
+    for (const o of termObligations(obligations).filter((r) => r.raised_by === s.leg_id)) {
+      const key = o.term.trim().toLowerCase();
+      if (!known.has(key)) known.set(key, { term: o.term.trim(), anchor: null, introduced_by: s.leg_id });
     }
   }
   return rows;

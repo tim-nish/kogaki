@@ -70,7 +70,7 @@ const brief = readBrief(briefRecordText({
     materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
     waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"] },
       { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }] })],
-  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
 }), "theses/review-brief/brief.yaml");
 const template = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8")).packet;
 const packetFor = (join_) => {

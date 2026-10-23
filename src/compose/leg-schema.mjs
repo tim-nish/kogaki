@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { laneDir } from "../runs.mjs";
 import { figureClaimRefusal, figureRefusal } from "./figure.mjs";
 import {
-  closureLedgerRefusal, introducedTermInReaderStart, introducesNearestRefusal,
+  obligationLedgerRefusal, introducedTermInReaderStart, introducesNearestRefusal,
   introducesRefusal, opensSectionIntroducedTermRefusal, opensSectionRefusal,
   parseIntroducesEntry, reactivateRefusal, reactivateSemanticRefusal,
   readerTargetLegRefusal, readerTargetNamesRefusal, sectionGroupingRefusal,
@@ -534,7 +534,7 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
     // surface, so an unvalidated entry would render a Leg speaking of material
     // it was never shown to have a claim to. The candidate population is
     // closed: only the `depends_on` Legs' `introduces` entries and `claims`,
-    // never Journey material or Closure rows — the shape check refuses a
+    // never Journey material or Obligation rows — the shape check refuses a
     // malformed entry, the semantic check refuses one whose Leg, term or
     // Strand does not exist where named.
     if (s["re-activate"] !== undefined) {
@@ -656,14 +656,14 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
   // introduces a term is known only once the whole path is.
   const defined = definedTermBeforeIntroductionRefusal(legs, definedTerms);
   if (defined) return { error: defined };
-  // CLOSURE (kogaki#1232, owner decision 2026-09-30), run for the same reason
-  // the Section grouping and the Reader target Leg do: both rules below are
-  // statements about the whole ledger against the whole path, not about one
+  // THE OBLIGATIONS (kogaki#1529, kogaki#1232 before it), run for the same
+  // reason the Section grouping and the Reader target Leg do: every rule is a
+  // statement about the whole ledger against the whole path, not about one
   // Leg or one row alone.
-  const closure = closureLedgerRefusal(legs, obligations);
-  if (closure) return { error: closure };
+  const ledger = obligationLedgerRefusal(legs, obligations);
+  if (ledger) return { error: ledger };
   // AT MOST ONE `nearest` ACROSS THE WHOLE PATH (kogaki#1251 item 2,
-  // kogaki#1260), run here for the same reason CLOSURE does: a statement
+  // kogaki#1260), run here for the same reason THE OBLIGATIONS do: a statement
   // about every Leg's introduces entries together, not about one Leg alone.
   const nearest = introducesNearestRefusal(legs);
   if (nearest) return { error: nearest };
@@ -676,7 +676,7 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
   // THE REACHING LEG'S `names` (kogaki#1251 item 4, kogaki#1260), run right
   // after: it is a further statement about that same Leg, decidable only
   // once `readerTargetLegRefusal` has confirmed which Leg that is.
-  const names = readerTargetNamesRefusal(legs);
+  const names = readerTargetNamesRefusal(legs, obligations);
   if (names) return { error: names };
   return { legs: deriveReaderStatesBefore(legs, readerStart) };
 }

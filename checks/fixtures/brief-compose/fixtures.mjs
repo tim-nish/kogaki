@@ -22,7 +22,7 @@ export const recordOf = (legs, keys = {}) => ({
   reader_start: readerStateMap(`orientation: before ${legs[0].leg_id}\nknowledge: before ${legs[0].leg_id}`),
   reader_target: (legs.find((s) => s.reaches_target === true) || legs[legs.length - 1]).leg_id,
   reader_path: legs.map(legRecord),
-  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
   ...keys,
 });
 export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);

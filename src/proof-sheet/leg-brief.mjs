@@ -28,7 +28,7 @@
 // admits exactly the Section-rule-3 refusal over a Leg carrying no `opens_section`, and then
 // runs by hand the one whole-path rule that refusal skips and that can bind one Leg
 // (`introducesNearestRefusal`); the rest it skips are about `opens_section`, defined terms,
-// Closure rows and the target mark, none of which this Brief carries.
+// Obligation rows and the target mark, none of which this Brief carries.
 //
 // THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495, owner decision 2026-10-21). The Leg's
 // validator also runs the production recoverability criterion (`recoverabilityOf`,
@@ -39,13 +39,9 @@
 // is already the article's own rendering of the source, so there is nothing to map. The run's
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
-// THE TERMS FILE (kogaki#1498, owner decision 2026-10-21). Optional and absent by default:
-// `--terms <file>` names a JSON object mapping a term to `coined` or `established`. Where it is
-// given, the Leg call's input carries it as `introduces_given_kinds`, and an `introduces` entry
-// whose term the file names and whose kind differs from the file's is refused naming the term.
-// A term the file does not name is classified by the model, as without the file. Where it is
-// not given, the input, the prompt and the validator are what they were. The run's
-// `brief.json` records the file's path and hash, or `terms: null`.
+// THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it). It mapped a term to `coined`
+// or `established`, and an `introduces` entry carries no `kind` any more, so `--terms` is
+// refused by name and `brief.json` records `terms: null`.
 //
 // THE RECORD. Written by the production `briefRecordText` writer: the composed fields and,
 // for every field the parser requires that this composition does not compose, a fixed
@@ -68,7 +64,6 @@
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
-import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
   introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
@@ -171,59 +166,19 @@ export function legCallExtraction(x) {
 
 // `strandOffset` is the count of the earlier Legs' paragraphs in a several-Leg Brief (kogaki#1532):
 // a Strand id names its paragraph across the whole Brief.
-export function legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds = null, strandOffset = 0 }) {
+export function legPathUnitInput({ paragraphs, extractions, readerStart, language, strandOffset = 0 }) {
   return {
     reader_start: readerStart,
     language,
     paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${strandOffset + i + 1}`, text,
       extraction: legCallExtraction(extractions[i]) })),
-    ...(givenKinds ? { introduces_given_kinds: givenKinds } : {}),
   };
 }
 
 // ---------------------------------------------------------------------------
-// THE TERMS FILE (see the header).
-
-const TERM_KINDS = ["coined", "established"];
-
-// Read and check a terms file. Returns `{ path, sha256, kinds }` or `{ error }`.
-export function readTermsFile(path) {
-  let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch (e) { return { error: `the terms file at ${path} cannot be read (${e.message})` }; }
-  let doc;
-  try { doc = JSON.parse(text); }
-  catch (e) { return { error: `the terms file at ${path} is not JSON (${e.message})` }; }
-  if (!isMap(doc)) return { error: `the terms file at ${path} is not a JSON object mapping a term to coined or established` };
-  // An empty file fixes nothing, so it would read "terms: fixed (0)" over a Brief the model
-  // classified whole; it is refused rather than recorded as fixed.
-  if (!Object.keys(doc).length) return { error: `the terms file at ${path} names no term — leave --terms off to let the model classify every term` };
-  for (const [term, kind] of Object.entries(doc)) {
-    if (term.trim() === "") return { error: `the terms file at ${path} names an empty term` };
-    if (!TERM_KINDS.includes(kind)) {
-      return { error: `the terms file at ${path} gives "${term}" the kind ${JSON.stringify(kind)} — a kind is coined or established` };
-    }
-  }
-  return { path: resolve(path), sha256: createHash("sha256").update(text).digest("hex"), kinds: doc };
-}
-
-// An `introduces` entry whose term the given kinds name, carrying another kind. Terms match
-// trimmed and case-folded. Returns the refusal, or null.
-export function givenKindsRefusal(leg, givenKinds) {
-  if (!isMap(givenKinds)) return null;
-  const given = new Map(Object.entries(givenKinds).map(([t, k]) => [t.trim().toLowerCase(), [t, k]]));
-  for (const raw of Array.isArray(leg.introduces) ? leg.introduces : []) {
-    const p = parseIntroducesEntry(raw);
-    if (p.error || !given.has(p.term.toLowerCase())) continue;
-    const [term, kind] = given.get(p.term.toLowerCase());
-    if (p.kind !== kind) {
-      return `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: the \`introduces\` entry "${p.term}" carries kind ${JSON.stringify(p.kind ?? null)}, `
-        + `and the terms file gives "${term}" the kind "${kind}" — a term the terms file names carries the file's kind, `
-        + "given in the input as `introduces_given_kinds` (kogaki#1498)";
-    }
-  }
-  return null;
-}
+// THE TERMS FILE, RETIRED (see the header).
+export const TERMS_RETIRED = "`--terms` is retired (kogaki#1529): it fixed an `introduces` entry's `kind`, and an "
+  + "introduced term carries `term` and `meaning` and no `kind`. Leave the flag off. Nothing was started.";
 
 function unitPrompt(row, input) {
   const held = bindFlow(FLOW);
@@ -345,8 +300,6 @@ export function validateLegPathUnit(record, inputs) {
   }
   const anchored = anchoredRefusal(full, inputs.segments, n, o);
   if (anchored) return { error: anchored };
-  const kinds = givenKindsRefusal(leg, inputs.given_kinds);
-  if (kinds) return { error: kinds };
   // THE LAST LEG OF SEVERAL (kogaki#1532) completes the path: its cross-Leg fields are derived
   // and the production `validateLegs` runs over the whole path with no rule skipped.
   if (inputs.path) {
@@ -418,7 +371,7 @@ export function constantFields({ slug, paragraphs, legId }) {
     reader_target: legId,
     strand_coverage: [],
     journey_coverage: [],
-    closure: [],
+    obligations: [],
     tradeoffs: {},
     bridged: {},
   };
@@ -516,9 +469,7 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
 export function runLegBrief({ extractions: extractorRun, out, leg = null, slug = null, audience = null, terms = null }) {
   const material = readExtractorRun(resolve(extractorRun), leg);
   if (material.error) fail(material.error);
-  const termsFile = terms ? readTermsFile(terms) : null;
-  if (termsFile && termsFile.error) fail(`${termsFile.error}. Nothing was started.`);
-  const givenKinds = termsFile ? termsFile.kinds : null;
+  if (terms) fail(TERMS_RETIRED);
   const { paragraphs, extractions } = material;
   const name = slug || material.passage;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
@@ -554,18 +505,17 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   if (rs.stopped) return { stopped: rs.stopped, runDir };
   const readerStart = readerStartText(rs.record);
 
-  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, givenKinds, termsFile, extractorRun, bounds });
+  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds });
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
-    input: legPathUnitInput({ paragraphs, extractions, readerStart, language, givenKinds }), recordArray: "legs",
+    input: legPathUnitInput({ paragraphs, extractions, readerStart, language }), recordArray: "legs",
     validatorExport: "validateLegPathUnit", bounds,
-    inputs: { paragraph_count: paragraphs.length, reader_start: readerStart, segments: segmentContents(extractions),
-      ...(givenKinds ? { given_kinds: givenKinds } : {}) } });
+    inputs: { paragraph_count: paragraphs.length, reader_start: readerStart, segments: segmentContents(extractions) } });
   if (lp.stopped) return { stopped: lp.stopped, runDir };
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, readerStart, leg: lp.record.legs[0] }));
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(givenKinds).length } : null });
+    terms: null });
   return { brief: briefPath, runDir };
 }
 
@@ -573,7 +523,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 // beginning at the Reader start or the previous Leg's after-state, and the last one validated with
 // the whole path (`validateLegPathUnit`'s `path`). `brief.json` records the Legs and the derived
 // cross-Leg fields, which the sheet marks.
-function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, givenKinds, termsFile, extractorRun, bounds }) {
+function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds }) {
   const counts = material.legs.map((l) => l.paragraphs);
   const segments = [];
   const composed = [];
@@ -585,10 +535,10 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
     segments.push(segmentContents(extractions));
     const last = k === counts.length - 1;
     const lp = runRow({ dir: join(runDir, `leg-path-${k + 1}`), unitId: `leg-path-${k + 1}`, row: rows.leg_path_unit,
-      input: legPathUnitInput({ paragraphs, extractions, readerStart: start, language, givenKinds, strandOffset: o }), recordArray: "legs",
+      input: legPathUnitInput({ paragraphs, extractions, readerStart: start, language, strandOffset: o }), recordArray: "legs",
       validatorExport: "validateLegPathUnit", bounds,
       inputs: { paragraph_count: n, strand_offset: o, reader_start: start, segments: segments[k],
-        taken_leg_ids: composed.map((l) => l.leg_id), ...(givenKinds ? { given_kinds: givenKinds } : {}),
+        taken_leg_ids: composed.map((l) => l.leg_id),
         ...(last ? { path: { prior_legs: composed, counts, segments, reader_start: readerStart } } : {}) } });
     if (lp.stopped) return { stopped: `Leg ${k + 1} of ${counts.length} (${material.legs[k].passage}): ${lp.stopped}`, runDir };
     composed.push(lp.record.legs[0]);
@@ -598,7 +548,7 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
     legs: composed, counts, segments }));
   const { legs, derived } = crossLegPath(composed, counts, segments);
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    terms: termsFile ? { path: termsFile.path, sha256: termsFile.sha256, count: Object.keys(givenKinds).length } : null,
+    terms: null,
     legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived });
   return { brief: briefPath, runDir };
 }
@@ -651,7 +601,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
   } else {
     fail("usage: node src/proof-sheet/leg-brief.mjs run --extractions <an Extractor run directory> --out <dir> "
-      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>] [--terms <a JSON object of term to coined|established>]\n"
+      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>]\n"
       + "       node src/proof-sheet/leg-brief.mjs diff");
   }
 }

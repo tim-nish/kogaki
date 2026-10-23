@@ -25,10 +25,11 @@ reader_path: null
 strand_coverage: null
 # Per Strand carrying Journey material: the legs that place it, or why it was left out.
 journey_coverage: null
-# An obligation is a promise the prose makes to the reader that a later passage must keep: a question raised, an analogy
-# introduced, a limitation conceded. Each row ends kept or conceded, by the leg that closes it. The Thesis itself is
-# closed by the leg named under reader target, from the coverage above.
-closure: null
+# An obligation is a promise the prose makes to the reader that a later passage must keep: a question raised, or a term
+# named here and explained later. Each row names the leg that raises it and the legs that owe it, and ends kept or
+# conceded by the leg that closes it. The Thesis itself is closed by the leg named under reader target, from the
+# coverage above.
+obligations: null
 # What adopting this path gave up.
 tradeoffs: null
 # What the composer inserted to carry the reader across a gap, and on what reasoning.

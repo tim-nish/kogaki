@@ -1,4 +1,4 @@
-// compose/fill — the fill: reader_path, strand_coverage, journey_coverage, closure
+// compose/fill — the fill: reader_path, strand_coverage, journey_coverage, obligations
 // (cut from src/compose.mjs at its named section, kogaki#1465; the entry
 // re-exports every name src/compose.mjs exported before the cut).
 
@@ -16,7 +16,7 @@ import {
   journeyPlacements, legRecord, placements,
 } from "./record.mjs";
 
-// ---- the fill: reader_path, strand_coverage, journey_coverage, closure ----
+// ---- the fill: reader_path, strand_coverage, journey_coverage, obligations ----
 // Pure over the record; exported for the check. Returns `{ record, placed,
 // total }` or `{ error }`.
 export function fillBrief(record, { legs, coverage = {}, obligations = [], unused = {}, readerStart, renderings = null }) {
@@ -98,35 +98,17 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
     ? { strand: id, placed_by: jplace.get(id) }
     : { strand: id, omitted: unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)" }));
 
-  // CLOSURE (kogaki#1151). An obligation is a promise the prose makes to the
-  // reader that a later passage must keep. EVERY ROW ENDS IN ONE OF TWO
-  // TERMINAL STATES — `discharged_by` or `conceded_by` — and a row carrying
-  // neither, or both, is refused by name. The Thesis row is not a row of this
-  // list: it is derived (`thesisClosureRow`, kogaki#1328).
-  const legIds = new Set(legs.map((s) => s.leg_id));
-  const closure = [];
-  for (const [i, o] of obligations.entries()) {
-    if (typeof o.text !== "string" || o.text === "" || typeof o.introduced_by !== "string") {
-      return { error: `obligation ${i + 1}: each Closure row carries its text and introduced_by (the obligation definition)` };
-    }
-    if (!legIds.has(o.introduced_by)) {
-      return { error: `obligation ${i + 1}: introduced_by "${o.introduced_by}" is not a leg in this sequence` };
-    }
-    if (o.discharged_by !== undefined && !legIds.has(o.discharged_by)) {
-      return { error: `obligation ${i + 1}: discharged_by "${o.discharged_by}" is not a leg in this sequence` };
-    }
-    if (o.conceded_by !== undefined && !legIds.has(o.conceded_by)) {
-      return { error: `obligation ${i + 1}: conceded_by "${o.conceded_by}" is not a leg in this sequence` };
-    }
-    const hasDischarged = o.discharged_by !== undefined;
-    const hasConceded = o.conceded_by !== undefined;
-    if (hasDischarged === hasConceded) {
-      return { error: `obligation ${i + 1} (${JSON.stringify(o.text)}, introduced_by ${o.introduced_by}): `
-        + `every Closure row ends discharged_by or conceded_by, naming the Leg — this row carries `
-        + `${hasDischarged ? "BOTH" : "NEITHER"}` };
-    }
-    const row = { text: o.text, introduced_by: o.introduced_by };
-    if (hasDischarged) row.discharged_by = o.discharged_by;
+  // THE OBLIGATIONS (kogaki#1529, SPEC-draft-pipeline "Obligations"). An
+  // obligation is a promise the prose makes to the reader that a later passage
+  // must keep. `validateLegs` above has refused every row that is not
+  // terminal, ordered and within capacity, so each row is written here in the
+  // record's own field order. The Thesis row is not a row of this list: it is
+  // derived (`thesisClosureRow`, kogaki#1328).
+  const rows = (Array.isArray(obligations) ? obligations : []).map((o) => {
+    const row = { kind: o.kind, raised_by: o.raised_by };
+    if (o.kind === "term") row.term = o.term; else row.text = o.text;
+    row.owed_by = [...o.owed_by];
+    if (o.discharged_by !== undefined) row.discharged_by = o.discharged_by;
     else {
       row.conceded_by = o.conceded_by;
       // A CONCEDED ROW'S THREE FIELDS (kogaki#1263, kogaki#1261): what stays
@@ -135,8 +117,8 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
         if (typeof o[k] === "string" && o[k] !== "") row[k] = o[k];
       }
     }
-    closure.push(row);
-  }
+    return row;
+  });
 
   let out = record;
   // WRITTEN BESIDE THE READER PATH COMPOSED UNDER IT (kogaki#1494). Not a slot:
@@ -147,7 +129,7 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
     ["reader_path", legs.map(legRecord)],
     ["strand_coverage", strandCoverage],
     ["journey_coverage", journeyCoverage],
-    ["closure", closure],
+    ["obligations", rows],
   ]) {
     const r = fillSlot(out, key, value);
     if (r.error) return r;
