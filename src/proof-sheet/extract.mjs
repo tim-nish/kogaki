@@ -493,17 +493,31 @@ export function lastRefusal(job) {
   return (u.failure && (u.failure.result || u.failure.stderr_tail)) || (job.failure && job.failure.note) || u.status || job.state;
 }
 
+// SEVERAL CONSECUTIVE LEGS (kogaki#1532): `legPath` may be a list of Leg files, in order. Every
+// paragraph of every Leg is extracted in that order, as one sequence: `p<N>` numbers it across
+// the Legs, the reader state and the names taken carry over a Leg boundary, and each Leg's first
+// paragraph reads the previous Leg's last paragraph as its earlier text (FORMAT "The paragraph
+// unit", rule 2). Each Leg's paragraphs are numbered within it, under its own file's name as the
+// Passage, and `extractions.json` lists the Legs. One file runs exactly as before.
+function legsOf(paths, passage) {
+  return paths.map((legPath) => {
+    let text;
+    try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
+    const paragraphs = legParagraphs(text);
+    if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to extract`);
+    return { legPath, paragraphs, slug: (paths.length === 1 && passage) || basename(legPath, extname(legPath)) };
+  });
+}
+
 // RUN THE EXTRACTOR over a Leg's paragraphs. Writes one Extraction per paragraph into `out`
 // and returns `{ written: [paths], runDir }`, or `{ stopped: line, written, runDir }`.
 // `resume`, an earlier `runDir` of this same Extractor, re-enters at the first paragraph that
 // carries no `answer.json` and no written Extraction, carrying the reader state the last
 // written Extraction left (kogaki#1396) — every earlier paragraph is skipped, not re-asked.
 export function runExtractor(legPath, { out, passage = null, audience = null, resume = null } = {}) {
-  let text;
-  try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
-  const paragraphs = legParagraphs(text);
-  if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to extract`);
-  const slug = passage || basename(legPath, extname(legPath));
+  const legs = legsOf([].concat(legPath), passage);
+  const units = legs.flatMap((leg, k) => leg.paragraphs.map((_, i) => ({ leg, k, i })));
+  const total = units.length;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const row = table.extraction_unit || fail("src/proof-sheet/extraction-workflow.json declares no extraction_unit row. Nothing was started.");
   const persona = readerPersona(resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" }))));
@@ -522,7 +536,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const namesTaken = [];
   let start = 0;
   if (resume) {
-    for (let i = 0; i < paragraphs.length; i++) {
+    for (let i = 0; i < total; i++) {
       const dir = join(runDir, `p${i + 1}`);
       let answer = null;
       try { answer = JSON.parse(readFileSync(join(dir, "answer.json"), "utf8")); } catch { answer = null; }
@@ -534,10 +548,12 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       start = i + 1;
     }
   }
-  for (let i = start; i < paragraphs.length; i++) {
+  for (let i = start; i < total; i++) {
     const dir = join(runDir, `p${i + 1}`);
     mkdirSync(dir, { recursive: true });
-    const input = extractionUnitInput({ passage: slug, paragraphs, index: i, before, namesTaken: [...namesTaken], persona });
+    const u0 = units[i];
+    const input = extractionUnitInput({ passage: u0.leg.slug, paragraphs: u0.leg.paragraphs, index: u0.i, before, namesTaken: [...namesTaken], persona });
+    if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
     startDetachedJobSupervisor(dir, {
@@ -551,7 +567,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     writeJson(join(dir, "attempts.json"), { paragraph: i + 1, state: job.state, status: u.status || null,
       attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
     if (job.state !== "done" || u.status !== "done" || !u.candidate) {
-      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${paragraphs.length}: the job ended ${job.state}`
+      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${job.state}`
         + ` after ${u.attempts || 1} attempt(s) — ${String(lastRefusal(job)).split("\n").join(" ")}` };
     }
     writeJson(join(dir, "answer.json"), u.candidate);
@@ -559,7 +575,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     // NEVER OVER AN EARLIER FILE: an Extraction the owner has already reviewed carries no
     // status line and nothing here could tell it from a draft.
     if (existsSync(file)) {
-      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${paragraphs.length}: an Extraction named `
+      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: an Extraction named `
         + `${u.candidate.name} already exists at ${file}, and nothing was written over it — the answer is in ${join(dir, "answer.json")}` };
     }
     writeFileSync(file, extractionFileText(u.candidate, input, runRel));
@@ -567,7 +583,10 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     namesTaken.push(u.candidate.name);
     before = carriedState(u.candidate);
   }
-  writeJson(join(runDir, "extractions.json"), { leg: legPath, passage: slug, written: written.map((f) => basename(f)) });
+  const names = written.map((f) => basename(f));
+  writeJson(join(runDir, "extractions.json"), legs.length === 1
+    ? { leg: legs[0].legPath, passage: legs[0].slug, written: names }
+    : { legs: legs.map((l) => ({ leg: l.legPath, passage: l.slug, paragraphs: l.paragraphs.length })), written: names });
   return { written, runDir };
 }
 
@@ -579,6 +598,7 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
+      else if (key === "leg") { args.leg = [...(args.leg || []), next]; i++; }
       else { args[key] = next; i++; }
     } else if (!args._cmd) args._cmd = a;
   }
@@ -587,11 +607,11 @@ function parseArgs(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
-  if (args._cmd !== "run" || typeof args.leg !== "string" || typeof args.out !== "string") {
-    fail("usage: node src/proof-sheet/extract.mjs run --leg <file of the Leg's paragraphs, blank-line separated> --out <dir> "
-      + "[--passage <slug>] [--audience <audiences/<name>.md>] [--resume <earlier Extractor run directory>]");
+  if (args._cmd !== "run" || !Array.isArray(args.leg) || typeof args.out !== "string" || (args.leg.length > 1 && args.passage !== undefined)) {
+    fail("usage: node src/proof-sheet/extract.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> "
+      + "[--passage <slug>, with one Leg] [--audience <audiences/<name>.md>] [--resume <earlier Extractor run directory>]");
   }
-  const r = runExtractor(args.leg, { out: args.out, passage: typeof args.passage === "string" ? args.passage : null,
+  const r = runExtractor(args.leg.length === 1 ? args.leg[0] : args.leg, { out: args.out, passage: typeof args.passage === "string" ? args.passage : null,
     audience: typeof args.audience === "string" ? args.audience : null, resume: typeof args.resume === "string" ? args.resume : null });
   for (const f of r.written) console.log(`Extraction written: ${f}`);
   console.log(`run directory: ${r.runDir}`);

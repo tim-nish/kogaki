@@ -102,6 +102,14 @@
 #       library's records only while the ingest still lists the run's own, every Bindings row is
 #       badged "library", and the header says the run's own were withheld; `--withhold-own`
 #       without `--library` is refused.
+#   (s) three consecutive Legs under one Brief (kogaki#1532): `--leg` given three times runs one
+#       Brief of three Legs; the Extractor runs every paragraph in order, Leg B's first reading Leg
+#       A's last as its earlier text; `depends_on`, `opens_section`, `reaches_target` and
+#       `re-activate` are filled as derived and `brief.json` marks each; the production
+#       `validateLegs` passes over the Brief's path; `/draft section` writes each Leg with its own
+#       Writer calls file; the sheet carries three Leg blocks in order, each with its comparison
+#       table, under one Brief card marking five fields `derived`; and the one-file run's record
+#       keeps its shape apart from the `legs` list.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -1174,6 +1182,145 @@ if (kRunDir) {
   ok(kCalls.length >= 2 && kCalls.length === kSeen.length, `(k) paragraph-plan/calls.jsonl records ${kCalls.length} call(s) against ${kSeen.length} the binary saw`);
   ok(kCalls.every((c, i) => c.stdout === kSeen[i].answer && c.stdout.length > 64 * 1024 && c.exit === 0 && c.signal === null),
     "(k) a recorded streamed call does not carry the binary's whole stdout (past 64 KB) and its exit status 0");
+}
+
+// (s) THREE CONSECUTIVE LEGS UNDER ONE BRIEF (kogaki#1532): `--leg` three times, one run, one
+// fake binary of its own -- its Extraction names carry the Leg's file name, so the three Legs'
+// Moves never collide. Leg A introduces `frobnicator`, Leg B's content never uses it and Leg C's
+// does, so the derivation re-activates it on Leg C.
+{
+  const sRoot = join(root, "three-legs");
+  mkdirSync(sRoot, { recursive: true });
+  const LEGS = { leg_a: ["The installer copies the kit. The frobnicator does the copying.", "Nobody asked the consumer first."],
+    leg_b: ["So the next run overwrites any edit.", "The copy is the installer's."],
+    leg_c: ["The frobnicator runs again tonight.", "Every edit is gone by morning."] };
+  for (const [name, ps] of Object.entries(LEGS)) writeFileSync(join(sRoot, `${name}.md`), `${ps.join("\n\n")}\n`);
+  const sJudge = join(sRoot, "fake-model.mjs");
+  writeFileSync(sJudge, `#!/usr/bin/env node
+import { appendFileSync, writeSync } from "node:fs";
+if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
+const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
+  const prompt = Buffer.concat(c).toString("utf8");
+  const IN = "----- INPUT (JSON) -----";
+  const input = () => JSON.parse(prompt.slice(prompt.lastIndexOf(IN) + IN.length));
+  const out = (r, stage) => {
+    appendFileSync(process.env.PSR_FIXTURE_DIR + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
+    writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
+  };
+  const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
+  if (prompt.includes('"leg_you_must_judge"')) {
+    const leg = body("leg_you_must_judge").leg_you_must_judge;
+    return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
+  }
+  if (prompt.includes('"leg_you_must_plan"')) {
+    const leg = body("leg_you_must_plan").leg_you_must_plan;
+    const slug = leg.leg_id.replace("-", "_");
+    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "move_" + slug + "_" + w.waypoint,
+      why: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}),
+      paragraph_waypoints: [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + " the paragraph makes its point.", serves: [...w.serves] }] })) }, "plan-generator");
+  }
+  if (prompt.includes('"paragraph_you_must_extract"')) {
+    const x = input();
+    const p = x.paragraph_you_must_extract;
+    const carried = x.reader_state_before;
+    const dims = ["knowledge", "question", "expectation", "orientation", "trust"];
+    const term = /frobnicator/.test(p.text) ? " the frobnicator" : "";
+    return out({ version: "1", paragraph: p.number, source: "not given", prior_text: carried ? "assumed — it takes up the text before it" : "not assumed — opens on a fact",
+      language: "English", subject_nouns: ["installer"],
+      answers: { q1: "Hands the reader one fact.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
+      what_it_does: "Hands the reader one fact about the copy.",
+      reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
+        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
+      segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
+        operation: "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
+      why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
+      breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
+      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "" }, "extract");
+  }
+  if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
+    return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
+  }
+  if (prompt.includes("\\\`leg_path_unit\\\` judgment point")) {
+    const x = input();
+    const id = { L1: "leg-a", L3: "leg-b", L5: "leg-c" }[x.paragraphs[0].claim_strand];
+    return out({ legs: [{ leg_id: id, purpose: "Move the reader one step on.", rationale: "It is one Leg of three.",
+      reader_state_after: "knowledge: holds the step of " + id + "\\norientation: sees where the copy of " + id + " ends up",
+      claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph })),
+      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph, serves: [p.claim_strand] })),
+      ...(id === "leg-a" ? { introduces: [{ term: "frobnicator", kind: "coined", meaning: "the part that copies the kit" }] } : {}) }] }, "brief-leg-path");
+  }
+  return out("WRITTEN-1 the first paragraph.\\n\\nWRITTEN-2 the second.", "writer");
+});
+`);
+  chmodSync(sJudge, 0o755);
+  const sArgs = Object.keys(LEGS).flatMap((n) => ["--leg", join(sRoot, `${n}.md`)]);
+  const rs = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", ...sArgs, "--out", join(sRoot, "out"), "--provenance", map],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: sRoot }, timeout: 600000 });
+  const sRunDir = (rs.stdout.match(/^run directory: (.+)$/m) || [])[1];
+  ok(rs.status === 0 && !!sRunDir, `(s) the three-Leg run exited ${rs.status}: ${rs.stdout}${rs.stderr}`);
+  if (sRunDir) {
+    const run = JSON.parse(readFileSync(join(sRunDir, "run.json"), "utf8"));
+    ok(run.stages.every((st) => st.state === "done"), `(s) the three-Leg run's stages are not all done: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+    ok(run.leg === null && JSON.stringify(run.legs.map((l) => [basename(l.file), l.copy, l.paragraphs])) === JSON.stringify([["leg_a.md", "legs/leg_a.md", 2], ["leg_b.md", "legs/leg_b.md", 2], ["leg_c.md", "legs/leg_c.md", 2]]),
+      `(s) run.json's legs do not list the three files with their paragraph counts: ${JSON.stringify(run.legs)}`);
+    // The Extractor ran every paragraph in order, Leg B's first reading Leg A's last as its earlier text.
+    const sSeen = readOr(join(sRoot, "seen.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    const ex = sSeen.filter((x) => x.stage === "extract").map((x) => JSON.parse(x.prompt.slice(x.prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)));
+    ok(ex.length === 6 && JSON.stringify(ex.map((x) => `${x.paragraph_you_must_extract.passage}:${x.paragraph_you_must_extract.number}`)) === JSON.stringify(["leg_a:1", "leg_a:2", "leg_b:1", "leg_b:2", "leg_c:1", "leg_c:2"]),
+      `(s) the Extractor did not run every paragraph of every Leg in order: ${JSON.stringify(ex.map((x) => x.paragraph_you_must_extract))}`);
+    ok(ex.length === 6 && JSON.stringify(ex[2].earlier_paragraphs) === JSON.stringify([LEGS.leg_a[1]]) && JSON.stringify(ex[3].earlier_paragraphs) === JSON.stringify([LEGS.leg_b[0]])
+      && ex[2].reader_state_before && ex[2].reader_state_before.knowledge === "AFTER-leg_a-2",
+      "(s) Leg B's first paragraph did not read Leg A's last paragraph as its earlier text, carrying its reader state");
+    // One Brief, three Legs, every cross-Leg field derived as stated.
+    const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
+    const { validateLegs } = await imp("src/compose.mjs");
+    const LB = await imp("src/proof-sheet/leg-brief.mjs");
+    let rec = null;
+    try { rec = parseBriefRecord(readFileSync(join(sRunDir, "brief", "brief.yaml"), "utf8")).record; } catch (e) { fails.push(`(s) the Brief does not parse: ${e.message}`); }
+    const legs = rec ? briefLegs(rec) : [];
+    ok(JSON.stringify(legs.map((l) => l.leg_id)) === '["leg-a","leg-b","leg-c"]', `(s) the Brief does not carry the three Legs in order: ${JSON.stringify(legs.map((l) => l.leg_id))}`);
+    if (legs.length === 3) {
+      ok(JSON.stringify(legs.map((l) => l.depends_on)) === '[[],["leg-a"],["leg-a","leg-b"]]', `(s) depends_on is not derived as stated: ${JSON.stringify(legs.map((l) => l.depends_on))}`);
+      ok(legs[0].opens_section === "sees where the copy of leg-c ends up" && legs.slice(1).every((l) => l.opens_section == null),
+        `(s) opens_section is not the first Leg's alone, stating the last Leg's orientation: ${JSON.stringify(legs.map((l) => l.opens_section))}`);
+      ok(JSON.stringify(legs.map((l) => l.reaches_target === true)) === "[false,false,true]" && rec.reader_target === "leg-c", "(s) reaches_target is not the last Leg's alone");
+      ok(JSON.stringify(legs.map((l) => l["re-activate"] || [])) === '[[],[],["leg-a term frobnicator"]]', `(s) re-activate is not carried by the first later Leg whose content uses the term: ${JSON.stringify(legs.map((l) => l["re-activate"]))}`);
+    }
+    const legBriefRun = (run.stages.find((st) => st.stage === "brief") || {}).leg_brief_run;
+    const bj = legBriefRun ? JSON.parse(readOr(join(legBriefRun, "brief.json"), "{}")) : {};
+    // The production validateLegs over the whole path the composer wrote: the three Legs as
+    // composed, completed by the derivation, from the Brief's Reader start.
+    const answers = [1, 2, 3].map((k) => JSON.parse(readOr(join(legBriefRun || sRoot, `leg-path-${k}`, "answer.json"), '{"legs":[null]}')).legs[0]);
+    const startRec = JSON.parse(readOr(join(legBriefRun || sRoot, "reader-start", "answer.json"), '{"reader_start":[]}'));
+    if (answers.every(Boolean)) {
+      const segs = [0, 2, 4].map((o) => [o, o + 1].map((i) => { const a = JSON.parse(readOr(join((run.stages[0] || {}).extractor_run || sRoot, `p${i + 1}`, "answer.json"), '{"segments":[]}')); return a.segments.map((g) => g.content); }));
+      const v = validateLegs(LB.crossLegPath(answers, [2, 2, 2], segs).legs, LB.readerStartText(startRec), [], []);
+      ok(!v.error, `(s) the production validateLegs refuses the composed path: ${v.error}`);
+    } else fails.push("(s) a Leg path answer is not on disk");
+    ok(JSON.stringify((bj.derived || []).map((d) => `${d.leg_id}:${d.field}`).sort()) === JSON.stringify(["leg-a:opens_section", "leg-b:depends_on", "leg-c:depends_on", "leg-c:re-activate", "leg-c:reaches_target"]),
+      `(s) brief.json does not mark every derived cross-Leg field: ${JSON.stringify(bj.derived)}`);
+    const draft = run.stages.find((st) => st.stage === "draft") || {};
+    ok(JSON.stringify(draft.leg_ids) === '["leg-a","leg-b","leg-c"]' && (draft.sections || []).length === 3 && draft.sections.every((f) => existsSync(f)),
+      `(s) /draft section did not write each Leg in order: ${JSON.stringify(draft)}`);
+    ok(["leg-a", "leg-b", "leg-c"].every((id) => readOr(join(sRunDir, "draft", `calls-${id}.jsonl`), "").trim().split("\n").filter(Boolean).length === 1),
+      "(s) each Leg's Writer call is not recorded in its own calls file");
+    // The sheet: three Leg blocks in order, each with its comparison table, under one Brief card
+    // marking the derived fields.
+    const sheet = readOr(join(sRunDir, "sheet.html"), "");
+    const blocks = [...sheet.matchAll(/<section class="leg-block" id="leg-0-(\d)"><h3>Leg (\d) of 3 — ([a-z-]+)/g)].map((m) => `${m[1]}:${m[2]}:${m[3]}`);
+    ok(JSON.stringify(blocks) === '["1:1:leg-a","2:2:leg-b","3:3:leg-c"]', `(s) the sheet does not carry three Leg blocks in order: ${JSON.stringify(blocks)}`);
+    ok([1, 2, 3].every((k) => sheet.includes(`id="comparison-0-${k}"`)) && (sheet.match(/class="pcard[^"]*" id="card-0-brief"/g) || []).length === 1,
+      "(s) the sheet does not carry a comparison table per Leg under one Brief card");
+    ok((sheet.match(/<span class="badge derived">derived<\/span>/g) || []).length === 5, "(s) the Brief card does not mark the five derived cross-Leg fields `derived`");
+    ok(sheet.includes("WRITTEN-1 the first paragraph.") && !sheet.includes('href="#card-0-1-brief"'), "(s) a Leg block's written text or its Brief link is wrong");
+  }
+  // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
+  if (runDir) {
+    const one = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
+    ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "terms", "library", "started_at", "stages", "finished_at"]),
+      `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
+    ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
+  }
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
