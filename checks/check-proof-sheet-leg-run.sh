@@ -1213,11 +1213,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
   }
   if (prompt.includes('"leg_you_must_plan"')) {
-    const leg = body("leg_you_must_plan").leg_you_must_plan;
+    const plan = body("leg_you_must_plan");
+    const leg = plan.leg_you_must_plan;
     const slug = leg.leg_id.replace("-", "_");
+    // One Paragraph Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
+    const segmentsOf = (id) => (plan.paragraph_moves_you_may_bind.find((m) => m.id === id) || { segments: [{}] }).segments;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "move_" + slug + "_" + w.waypoint,
       why: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}),
-      paragraph_waypoints: [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + " the paragraph makes its point.", serves: [...w.serves] }] })) }, "plan-generator");
+      paragraph_waypoints: segmentsOf("move_" + slug + "_" + w.waypoint).map((_, n) => ({
+        point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   if (prompt.includes('"paragraph_you_must_extract"')) {
     const x = input();
