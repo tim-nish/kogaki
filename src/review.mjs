@@ -45,6 +45,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { obligationSaid } from "./compose/sections.mjs";
 
 function fail(msg) {
   process.stderr.write(`review: ${msg}\n`);
@@ -257,7 +258,7 @@ export function attachReview(candidates, review) {
       for (let i = 0; i < dischargedRows.length; i++) {
         const entry = r.discharge[i];
         const row = dischargedRows[i];
-        const said = row.kind === "term" ? row.term : row.text;
+        const said = obligationSaid(row); // the `row` dischargeRows handed the judge (kogaki#1549)
         if (!entry || typeof entry !== "object" || Array.isArray(entry)
             || entry.row !== said || entry.discharging_leg !== row.discharged_by) {
           return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} does not name Obligation row `
