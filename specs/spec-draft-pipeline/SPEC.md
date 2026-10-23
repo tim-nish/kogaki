@@ -2399,6 +2399,20 @@ a fatal stop naming the Move and the role**, never a default.
 > whether a meaning is given, never whether it matches the input's.
 > `checks/check-paragraph-plan.sh` (r) carries both.
 
+> **Status (kogaki#1533, owner decision 2026-10-23):** the judge no longer
+> judges the four things above, the FIFTH, the SEVENTH, or any criterion
+> written here. Its criteria are the axes `src/paragraph-plan-axes.json`
+> keeps, rendered in order into `paragraph_plan_judge_unit`: one sentence
+> and one responsibility each, an axis kept only where an ablation bench run
+> (`src/proof-sheet/judge-bench.mjs`) shows its defect fixture refused with
+> it and rarely without it, and its clean fixture passed, at the rates the
+> file's `retention` names. Two axes are kept:
+> PERFORMS IS BARE and TERM MEANING. The two countable rules are refusals of
+> the plan-record validator (`src/paragraph-plan.mjs`), not of the judge: the
+> Paragraph Waypoint count equals the bound Move's Segment count, and every
+> entry carries exactly one of `performs` and `point`.
+> `checks/check-paragraph-plan-axes.sh` carries the registry.
+
 **A Leg Waypoint is one paragraph, and a Paragraph Waypoint is one Segment of
 the bound Move.** These are different kinds of Waypoints and the two rules
 carry no contradiction: the Leg Waypoint's own rule (§4.1) concerns its
@@ -2422,6 +2436,11 @@ by its Segment; one that instead states what the paragraph does to its reader
 open — is refused rather than accepted as a stylistic variant. The `technique`
 fallback is unaffected, since it is the Move's only order where `segments` is
 empty, and `before`, `after` and `breaks` are unaffected.
+
+> **Status (kogaki#1533, owner decision 2026-10-23):** no judge axis
+> carries this refusal; the judge judges only the axes
+> `src/paragraph-plan-axes.json` keeps (the Status block under the judge
+> clause above).
 
 **The ParagraphPlan file.** `theses/<slug>/paragraph-plan.yaml`, beside the
 Brief, one YAML record: `version`; `brief`, the `path` and `sha256` of the
@@ -2474,6 +2493,11 @@ sentence the Writer must realise in its own text is content to the Writer, and
 on the 2026-10-19 Proof Sheet run every paragraph after the first opened on its
 join paraphrased as a clause. A Segment's `relation` stays prose, because the
 planner consumes it and it never reaches the Writer.
+
+> **Status (kogaki#1533, owner decision 2026-10-23):** no judge axis
+> carries the SEVENTH; the judge judges only the axes
+> `src/paragraph-plan-axes.json` keeps (the Status block under the judge
+> clause above).
 
 **Obligations at the Paragraph scale** (kogaki#1528, owner decision
 2026-10-23). A Leg Waypoint's Paragraph Waypoints carry the same Obligation

@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "note": [
+    "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
+    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Paragraph Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`) or a `join` replaced (`waypoint`, `join`). `at_waypoint` names the Leg Waypoint a defect sits on.",
+    "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/proof-sheet/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
+    "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
+    "Countable rules are not axes: the Paragraph Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
+  ],
+  "retention": {
+    "draws_min": 5,
+    "defect_refused_with_min": 0.8,
+    "defect_refused_without_max": 0.2,
+    "clean_passed_with_min": 0.8
+  },
+  "records": {
+    "leg3-run": {
+      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "leg-1",
+          "reader_state_before": "knowledge: no specialized grasp of the subject, only loose impressions picked up from the news, and nothing at all of what this text is about to say\nquestion: will I actually be able to follow this, or is it for people who already know the topic?\nexpectation: expects a plain explanation pitched at someone with no expertise\norientation: no sense of where this text sits among other accounts of the subject\ntrust: neutral, prepared to be told what to think",
+          "reader_state_after": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome, and also holds that a fixed small number of named causes decides which condition holds\nquestion: wants to know what each named cause means and how it does its deciding\nexpectation: expects each named cause to be taken up and explained in turn\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
+          "waypoints": [
+            {
+              "waypoint": 1,
+              "point": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up.",
+              "next_point": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
+              "bound_move": {
+                "before": "knowledge: no specialized grasp of the subject, only ordinary impressions picked up from the news\nquestion: none in particular beyond whether the text will be understandable\nexpectation: expects a plain explanation pitched at someone without expertise\norientation: no sense of where this text sits among other accounts of the subject\ntrust: neutral, prepared to be told what to think",
+                "after": "knowledge: holds one general principle about why such actors behave as they do, and one present instance said to exemplify it\nquestion: wants to know how two parties who each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named",
+                "segments": [
+                  {
+                    "operation": "opens by asserting one general principle about the motive of a whole class of actors",
+                    "manner": "a brief direct statement, given with no support and no hedging"
+                  },
+                  {
+                    "operation": "explains a widely observed and seemingly contradictory self-description by treating it as literally true",
+                    "relation": "it takes the case that looks most like a refutation and turns it into the strongest evidence for the step before",
+                    "manner": "a short quoted self-description stands in for the whole behaviour being explained"
+                  },
+                  {
+                    "operation": "shifts the vantage point from an actor's own intention to how the same conduct is received by another party, stated as a general tendency",
+                    "relation": "it keeps the general register of the step before but moves to the other side of the same conduct"
+                  },
+                  {
+                    "operation": "labels one present-day instance as a typical case while withholding its detail",
+                    "relation": "it drops from the general tendency to a single instance the reader already knows of"
+                  },
+                  {
+                    "operation": "spells out a single instance from both sides in one step, so that two parties acting on the same motive are seen to produce an escalation neither intends",
+                    "relation": "it fills in the instance the step before only labelled, supplying the two halves that make it typical"
+                  }
+                ],
+                "breaks": [
+                  "hedge the opening principle with qualifications — the explanation that follows has nothing flat enough to lean on, and the reader takes it as one view among several",
+                  "drop the hardest-looking case and go straight from the principle to the general tendency — the principle reads as naive, and the reader keeps the blame-based explanation they came with",
+                  "report the quoted self-description as a summary instead — it loses its ring of familiarity and reads as the writer's characterisation rather than something the reader has heard",
+                  "name the present instance but stop before filling in both sides — the reader is left with a label and never sees two parties acting on the same motive producing the outcome neither chose",
+                  "insert a stretch of historical background between the general tendency and the present instance — the pairing loses its immediacy and the live case reads as illustration rather than as the point"
+                ]
+              },
+              "paragraph_waypoints": [
+                {
+                  "point": "A state is by nature interested in protecting itself.",
+                  "serves": [
+                    "L1"
+                  ]
+                },
+                {
+                  "point": "The standing declaration that a war being started is a war of defence is literally true of a state's motive.",
+                  "serves": [
+                    "L1"
+                  ]
+                },
+                {
+                  "point": "Any state fears a neighbour's rapid build-up.",
+                  "serves": [
+                    "L1"
+                  ]
+                },
+                {
+                  "point": "The present relation between China and Japan is such a case.",
+                  "serves": [
+                    "L1"
+                  ]
+                },
+                {
+                  "point": "China builds up for its own protection, Japan fears attack, and Japan builds up in answer.",
+                  "serves": [
+                    "L1"
+                  ]
+                }
+              ]
+            },
+            {
+              "waypoint": 2,
+              "point": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
+              "next_point": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
+              "bound_move": {
+                "before": "knowledge: holds one general principle about why such actors behave as they do, and one present instance said to exemplify it\nquestion: wants to know how two parties who each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named",
+                "after": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome\nquestion: wants to know what puts one position where the effect arises readily and another where it does not\nexpectation: expects the next step to explain what places a position in each of the two contrasted conditions\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
+                "segments": [
+                  {
+                    "operation": "divides a general principle's scope into conditions where it holds strongly and conditions where it does not"
+                  },
+                  {
+                    "operation": "restates the division in operational terms, holding the action fixed and letting only the surrounding conditions vary",
+                    "relation": "unpacks the division the step before named, saying in plain terms what it amounts to in practice"
+                  },
+                  {
+                    "operation": "claims the distinction just drawn is needed to understand one particular case, without yet saying why",
+                    "relation": "turns from stating the distinction to asserting its importance, holding back the ground for the assertion"
+                  },
+                  {
+                    "operation": "supplies the withheld ground by contrasting two positions under the distinction, one of them cutting against what sheer strength would predict",
+                    "relation": "delivers the ground the previous step deferred, in the form of a paired contrast"
+                  }
+                ],
+                "breaks": [
+                  "drop the restatement that holds the action fixed — the division stays a pair of names and the reader cannot test any case against it",
+                  "give the ground before claiming the distinction matters — the contrast lands as one more fact, and the reader never feels a tool being used",
+                  "add a full account of what places a party in each condition — the paragraph answers the question it exists to open, and the step after it has nothing left to do",
+                  "replace the counterintuitive half of the contrast with an expected one — the distinction looks decorative, since strength alone would predict the same outcome",
+                  "cut the assertion of importance and move straight to the contrast — the reader has no reason to hold the two positions together and reads them as separate reports"
+                ]
+              },
+              "join": "contrast",
+              "paragraph_waypoints": [
+                {
+                  "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not.",
+                  "serves": [
+                    "L2"
+                  ]
+                },
+                {
+                  "point": "The same arms buildup is feared in one situation and not feared in another.",
+                  "serves": [
+                    "L2"
+                  ]
+                },
+                {
+                  "point": "The split matters for understanding where the strongest power stands in the world.",
+                  "serves": [
+                    "L2"
+                  ]
+                },
+                {
+                  "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
+                  "serves": [
+                    "L2"
+                  ]
+                }
+              ]
+            },
+            {
+              "waypoint": 3,
+              "point": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
+              "next_point": null,
+              "bound_move": {
+                "before": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome\nquestion: wants to know what puts one position where the effect arises readily and another where it does not\nexpectation: expects the next step to explain what places a position in each of the two contrasted conditions",
+                "after": "knowledge: also holds that a fixed small number of named causes decides which condition holds\nquestion: wants to know what each named cause means and how it does its deciding\nexpectation: expects each named cause to be taken up and explained in turn",
+                "segments": [
+                  {
+                    "operation": "puts the open point to the reader as a direct question in the reader's own voice"
+                  },
+                  {
+                    "operation": "announces that the answer consists of a fixed small number of items without yet naming them",
+                    "relation": "answers the question just asked only as far as its size, holding its content back"
+                  },
+                  {
+                    "operation": "fills the announced count by naming each item",
+                    "relation": "supplies the names the preceding step had withheld",
+                    "manner": "a bare naming, each item given with no definition and left for later"
+                  }
+                ],
+                "breaks": [
+                  "drop the direct question and open straight on the count — the reader is handed an answer to a question they were never shown holding, so the count reads as arbitrary",
+                  "name the items in the same sentence that announces their number — the beat in which the answer's shape is fixed before its content is lost, and the names arrive unsorted",
+                  "define each named item here rather than leaving it — the step stops being a frame the reader can hold and becomes the explanation itself, leaving nothing to follow forward",
+                  "replace the fixed small count with an open-ended set — the reader can no longer hold the whole answer at once, and stops expecting each part to be taken up in turn"
+                ]
+              },
+              "join": "grounds",
+              "paragraph_waypoints": [
+                {
+                  "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises."
+                },
+                {
+                  "point": "Mainly two factors decide how readily the security dilemma arises.",
+                  "serves": [
+                    "L3"
+                  ]
+                },
+                {
+                  "point": "The two factors are offense-defense advantage and offense-defense distinguishability.",
+                  "serves": [
+                    "L3"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "terms_this_leg_introduces": [
+          {
+            "term": "security dilemma",
+            "meaning": null
+          }
+        ]
+      }
+    },
+    "leg3-clean": {
+      "source": "the run's record with Leg Waypoint 3's join `grounds` replaced by `elaboration`, the word the judge named for it in three of five draws on 2026-10-23",
+      "from": "leg3-run",
+      "edit": {
+        "waypoint": 3,
+        "join": "elaboration"
+      }
+    },
+    "performs-states-reading": {
+      "source": "constructed: the performs line adds the reader's resulting reading",
+      "from": "leg3-clean",
+      "at_waypoint": 3,
+      "edit": {
+        "waypoint": 3,
+        "paragraph_waypoint": 1,
+        "to": {
+          "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises, so that the reader now wants the deciding factors named."
+        }
+      }
+    },
+    "term-not-given-meaning": {
+      "source": "constructed: the Leg Waypoint that first uses `security dilemma` gives it no meaning",
+      "from": "leg3-clean",
+      "at_waypoint": 2,
+      "edit": {
+        "waypoint": 2,
+        "paragraph_waypoint": 1,
+        "to": {
+          "point": "The security dilemma splits into cases where the dilemma arises easily and cases where it does not.",
+          "serves": [
+            "L2"
+          ]
+        }
+      }
+    }
+  },
+  "axes": [
+    {
+      "id": "PERFORMS IS BARE",
+      "sentence": "A `performs` line carries the operation alone and no clause stating the reader's resulting reading.",
+      "fixtures": {
+        "defect": [
+          "performs-states-reading"
+        ],
+        "clean": [
+          "leg3-clean"
+        ]
+      },
+      "justified_by": {
+        "date": "2026-10-23",
+        "run": "runs/judge-bench/2026-10-23-all-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
+    },
+    {
+      "id": "TERM MEANING",
+      "sentence": "A term the Leg introduces is given its meaning on a Paragraph Waypoint of the Leg Waypoint that first uses it.",
+      "fixtures": {
+        "defect": [
+          "term-not-given-meaning"
+        ],
+        "clean": [
+          "leg3-clean"
+        ]
+      },
+      "justified_by": {
+        "date": "2026-10-23",
+        "run": "runs/judge-bench/2026-10-23-all-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
+    }
+  ]
+}

@@ -67,6 +67,7 @@ import { startDetachedJobSupervisor, readReaderPathJob, readerPathJobPath, reade
 import { enterRun, laneDir } from "./runs.mjs";
 
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
+export const PARAGRAPH_PLAN_AXES = join(REPO, "src", "paragraph-plan-axes.json");
 export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
 // THE ROLES A BOUND PARAGRAPH MOVE MUST FILL (kogaki#1378, owner decision 2026-10-14,
 // aligning this stage to the Leg judge's four criteria): `before` and `after` to bind
@@ -216,7 +217,7 @@ export function paragraphPlanUnitInput(leg, moves, persona) {
   };
 }
 
-function renderRowHead(row) {
+export function renderRowHead(row) {
   const held = bindFlow(FLOW);
   try { return judgePrompt(row, "", null, null); } finally { bindFlow(held); }
 }
@@ -262,8 +263,10 @@ export function criteriaFailures(table) {
   for (const [name, text] of Object.entries(table.shared_text || {})) {
     if (!oneSentence(String(text))) fails.push(`shared text ${name} is not one sentence`);
   }
+  const named = { paragraph_plan_unit: bound.paragraph_plan_unit,
+    paragraph_plan_judge_unit: readAxes().axes.map((a) => String(a.id)) };
   for (const key of ["paragraph_plan_unit", "paragraph_plan_judge_unit"]) {
-    const want = Array.isArray(bound[key]) ? bound[key] : [];
+    const want = Array.isArray(named[key]) ? named[key] : [];
     const prompt = renderRowHead({ id: key, ...table[key] });
     const n = words(judgmentPointOf(prompt));
     if (n > pointMax) fails.push(`${key}'s rendered judgment point runs ${n} words, over the bound of ${pointMax}`);
@@ -276,6 +279,73 @@ export function criteriaFailures(table) {
       const why = criterionRefusal(c, wordsMax);
       if (why) fails.push(`${key}: ${why}`);
     }
+  }
+  return fails;
+}
+
+// ---------------------------------------------------------------------------
+// THE JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): src/paragraph-plan-axes.json
+// holds one sentence per axis, each with a defect and a clean fixture and the bench run
+// that kept it. The judge row renders them through `{{axes}}`; what follows reads the file
+// for `start`, the bench and checks/check-paragraph-plan-axes.sh alike.
+export function readAxes(path = PARAGRAPH_PLAN_AXES) {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+// ONE RESPONSIBILITY, ONE SENTENCE: no `;`, `:` or ` — `, and no second finite clause
+// joined by "and". Declared limit: the clause test is lexical -- `and` followed within
+// two words by a verb from `AND_CLAUSE_VERBS`, or `, and` anywhere.
+const AND_CLAUSE_VERBS = "is|are|was|were|has|have|holds?|states?|carries|carry|gives?|leaves?|runs?|bears?|stands?|survives?|performs?|names?|says?|takes?";
+const AND_CLAUSE = new RegExp(`,\\s*and\\b|\\band\\s+(?:\\S+\\s+){0,2}(?:${AND_CLAUSE_VERBS})\\b`, "i");
+
+export function axisSentenceRefusal(sentence) {
+  const t = String(sentence || "").trim();
+  if (!t) return "carries no sentence";
+  if (/[;:]/.test(t)) return "carries `;` or `:`";
+  if (t.includes(" — ")) return "carries ` — `";
+  if (!oneSentence(t)) return "is not one sentence";
+  if (AND_CLAUSE.test(t)) return "joins a second clause with \"and\"";
+  return null;
+}
+
+// A fixture record as the judge reads it: a judge input whole, or `from` another record
+// with its one `edit` applied -- a Paragraph Waypoint or a `join` replaced.
+export function axisRecord(registry, name, seen = new Set()) {
+  const r = (registry.records || {})[name];
+  if (!r) throw new Error(`src/paragraph-plan-axes.json names the record "${name}", which \`records\` does not hold`);
+  if (seen.has(name)) throw new Error(`src/paragraph-plan-axes.json's record "${name}" is derived from itself`);
+  if (r.input) return structuredClone(r.input);
+  const input = axisRecord(registry, r.from, new Set([...seen, name]));
+  const e = r.edit || {};
+  const w = input.leg_you_must_judge.waypoints[Number(e.waypoint) - 1];
+  if (!w) throw new Error(`record "${name}" edits Leg Waypoint ${e.waypoint}, which "${r.from}" does not carry`);
+  if (Object.hasOwn(e, "join")) { w.join = e.join; return input; }
+  const at = Number(e.paragraph_waypoint) - 1;
+  if (!w.paragraph_waypoints[at] || !e.to) throw new Error(`record "${name}" replaces no Paragraph Waypoint of "${r.from}"`);
+  w.paragraph_waypoints[at] = e.to;
+  return input;
+}
+
+// Every failure of the registry: each axis one sentence, both fixture kinds naming records
+// that resolve, a defect naming the Leg Waypoint it sits on, and a `justified_by` run.
+export function axesFailures(registry) {
+  const fails = [];
+  const axes = Array.isArray(registry.axes) ? registry.axes : [];
+  if (!axes.length) return ["src/paragraph-plan-axes.json declares no axis"];
+  for (const a of axes) {
+    const id = String(a.id || "(no id)");
+    const why = axisSentenceRefusal(a.sentence);
+    if (why) fails.push(`axis ${id} ${why}`);
+    for (const kind of ["defect", "clean"]) {
+      const names = a.fixtures && Array.isArray(a.fixtures[kind]) ? a.fixtures[kind] : [];
+      if (!names.length) fails.push(`axis ${id} carries no \`${kind}\` fixture`);
+      for (const n of names) {
+        try { axisRecord(registry, n); } catch (e) { fails.push(`axis ${id}: ${e.message}`); }
+        if (kind === "defect" && !Number.isInteger((registry.records[n] || {}).at_waypoint)) fails.push(`axis ${id}: defect "${n}" names no \`at_waypoint\``);
+      }
+    }
+    const j = a.justified_by;
+    if (!j || !j.date || !j.run || !j.rates) fails.push(`axis ${id} carries no \`justified_by\` bench run (date, run, rates)`);
   }
   return fails;
 }
@@ -342,7 +412,13 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     if (typeof e.move !== "string" || !library.ids.has(e.move)) {
       return { error: `${atW}: binds move ${JSON.stringify(e.move)}, which names no Move in the library at ${inputs.movesDir}` };
     }
-    boundMoveContract(e.move, inputs.movesDir);
+    const contract = boundMoveContract(e.move, inputs.movesDir);
+    // ONE PER SEGMENT, COUNTED HERE AND NOT JUDGED (kogaki#1533).
+    const n = Array.isArray(e.paragraph_waypoints) ? e.paragraph_waypoints.length : 0;
+    if (n !== contract.segments.length) {
+      return { error: `${atW}: carries ${n} Paragraph Waypoint(s) for the ${contract.segments.length} Segment(s) of the bound Move `
+        + `"${e.move}" — one Paragraph Waypoint per Segment, in the Move's order` };
+    }
     // THE JOIN, BY THE PLAN READER'S OWN RULE (kogaki#1411): so the file this stage writes is
     // one /draft reads. Whether it takes up what the previous paragraph left is the judge's.
     const badJoin = joinRefusal(e, i, atW);
@@ -363,10 +439,9 @@ export function noParagraphMoveFitsRefusal(failures) {
 
 // THE SECOND CALL — the judge. Its input carries each Leg Waypoint with the bound Move's
 // before, after, segments and breaks, and the Paragraph Waypoints generated
-// for it (kogaki#1378: the same four criteria the Leg judge judges); every Leg Waypoint
-// after the first also carries its `join`, a relation word judged against the previous
-// entry's bound Move's `after` and its own first Paragraph Waypoint (kogaki#1411, kogaki#1477).
-// The Leg's introduced terms ride beside it, so RECOVERABLE can refuse a first use with no meaning
+// for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533); every Leg Waypoint
+// after the first also carries its `join` (kogaki#1411, kogaki#1477).
+// The Leg's introduced terms ride beside it, so TERM MEANING can refuse a first use with no meaning
 // (kogaki#1497).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
@@ -485,6 +560,8 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const judgeRow = table.paragraph_plan_judge_unit || fail("src/paragraph-plan-workflow.json declares no paragraph_plan_judge_unit row. Nothing was started.");
   const unbounded = criteriaFailures(table);
   if (unbounded.length) fail(`src/paragraph-plan-workflow.json's rows are not named criteria under their bound (kogaki#1511): ${unbounded.join("; ")}. Nothing was started.`);
+  const unjustified = axesFailures(readAxes());
+  if (unjustified.length) fail(`src/paragraph-plan-axes.json is not a registry of kept axes (kogaki#1533): ${unjustified.join("; ")}. Nothing was started.`);
   const callLimitS = positiveSetting(table.job, "call_limit_s");
   const unitAttempts = positiveSetting(table.job, "unit_attempts");
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
