@@ -286,7 +286,7 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages }
   // 2. The ingest, into this run's library. No model call.
   // With a library (kogaki#1521) its records are copied into the plan's directory here, after
   // the run's own ids are known and before the plan stage reads the directory.
-  stage("ingest", (d, env, log) => {
+  const ing = stage("ingest", (d, env, log) => {
     const lib = record.library;
     const plan = join(runDir, "moves");
     const moves = lib && lib.withhold_own ? join(runDir, OWN_MOVES_DIR) : plan;
@@ -312,10 +312,11 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages }
     return { moves_dir: moves, moves: written };
   });
 
-  // 3. The Leg Brief composer.
+  // 3. The Leg Brief composer, handed the run's own Moves for the Obligation rows they raise
+  // (kogaki#1548).
   const brief = stage("brief", (d, env, log) => {
     const c = runCommand(d, "leg-brief", [process.execPath, "src/proof-sheet/leg-brief.mjs", "run", "--extractions", ex.extractor_run,
-      "--out", d, "--slug", slug, ...audienceArgs], env, log);
+      "--out", d, "--slug", slug, "--moves", ing.moves_dir, "--ingest", join(runDir, "ingest", "ingest.json"), ...audienceArgs], env, log);
     const legBriefRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || null;
     if (c.exit !== 0 || !legBriefRun) return { stopped: stopLine(c), leg_brief_run: legBriefRun };
     return { brief: join(d, "brief.yaml"), leg_brief_run: legBriefRun };

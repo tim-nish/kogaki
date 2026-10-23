@@ -30,7 +30,8 @@
 // A RUN OF SEVERAL LEGS (kogaki#1532): one block per Leg, in order, each with its own comparison
 // table, paragraph tables and per-Leg cards (Extraction, Move, ParagraphPlan, Packet, Draft), under
 // one Brief card and above one Run record card. The Brief card lists the derived cross-Leg fields,
-// each marked `derived`, from the composer's `brief.json`.
+// each marked `derived`, from the composer's `brief.json`; a Leg whose Moves defer terms carries
+// one `N deferred, M kept in this span` line per slot under its heading (kogaki#1548).
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
@@ -1099,8 +1100,16 @@ function card(r, { provenance, mapHash, idx = 0 }) {
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
 }
 
+// THE DEFERRED TERMS A LEG'S MOVES RAISE (kogaki#1548): one line per slot from the composer's
+// `brief.json`, how many terms it defers and how many the span's later Legs introduce.
+export function deferralLines(deferrals, legId) {
+  return (Array.isArray(deferrals) ? deferrals : []).filter((d) => d.leg_id === legId)
+    .map((d) => `<p class="deferred">${d.deferred} deferred, ${d.kept} kept in this span</p>`).join("");
+}
+
 // A RUN OF SEVERAL LEGS (see the header). A Leg block's Inputs link to the one Brief card.
 function legsCard(r, { provenance, mapHash, idx = 0 }) {
+  const deferrals = ((r.legBriefRun && readJson(join(r.legBriefRun, "brief.json"))) || {}).deferrals;
   const blocks = r.run.legs.map((l, k) => {
     const v = legView(r, k);
     const vidx = `${idx}-${k + 1}`;
@@ -1112,7 +1121,7 @@ function legsCard(r, { provenance, mapHash, idx = 0 }) {
     const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
       + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
     return `<section class="leg-block" id="leg-${vidx}"><h3>Leg ${k + 1} of ${r.run.legs.length} — ${esc(v.legId || "(no Leg in the Brief)")}`
-      + ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>`
+      + ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>` + deferralLines(deferrals, v.legId)
       + body.split(`href="#card-${vidx}-brief"`).join(`href="#card-${idx}-brief"`) + `</section>`;
   });
   return `<section class="card"><h2>${esc(r.run.passage || "Legs")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
