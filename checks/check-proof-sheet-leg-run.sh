@@ -56,6 +56,9 @@
 #       `performs` Paragraph Waypoint, and the ParagraphPlan card's Output row and Attempts part
 #       carry its text in italics with no list item empty; each Extraction paragraph block opens
 #       on its Segments table, with the folded "rendering" and "record file" blocks after it.
+#       Between the two sits an open `before / after / breaks` table (kogaki#1534): one row per
+#       reader dimension carrying the paragraph's Move file's `before` and `after`, then one row
+#       listing that file's `breaks` in order.
 #   (o) the review block and the Point line (kogaki#1487): between the comparison table and the
 #       Extraction card, a block carrying one Segments table per paragraph, a refused-attempts
 #       table with exactly one row -- attempt 1, Leg Waypoint 2, the judge's `why` -- linking to
@@ -564,6 +567,14 @@ else {
     ok(seg >= 0 && blk.includes(`CONTENT-${i}-1`) && !blk.slice(0, seg).includes("<details"),
       `(n) the Extraction block for paragraph ${i} does not open on its Segments table`);
     ok(seg >= 0 && rend > seg && file > rend, `(n) the Extraction block for paragraph ${i} does not carry the folded rendering and record file after its Segments table`);
+    const stAt = blk.indexOf(`<table class="move-states"><caption>before / after / breaks</caption>`);
+    const st = stAt >= 0 ? blk.slice(stAt, blk.indexOf("</table>", stAt)) : "";
+    const mv = parseYaml(readOr(join(runDir, "moves", `name_an_act_then_its_cost_${i}.yaml`), "{}"), "move");
+    const dimRows = Object.keys(mv.before || {}).map((d) => `<tr><td>${escHtml(d)}</td><td>${escHtml(String(mv.before[d]))}</td><td>${escHtml(String((mv.after || {})[d] ?? ""))}</td></tr>`);
+    const brk = `<tr class="breaks"><td>breaks</td><td colspan="2"><ol>${(mv.breaks || []).map((x) => `<li>${escHtml(String(x))}</li>`).join("")}</ol></td></tr>`;
+    ok(stAt > seg && stAt < rend && !blk.slice(seg, stAt).includes("<details") && dimRows.length > 0 && (mv.breaks || []).length > 0
+      && st.includes(dimRows.join("") + brk),
+      `(n) the Extraction block for paragraph ${i} carries no open before / after / breaks table of its Move between its Segments table and the folded rendering`);
   }
 
   // (l) THE ATTEMPTS PART (kogaki#1437): the first attempt was refused at Leg Waypoint 2 and the
