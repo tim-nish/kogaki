@@ -39,6 +39,11 @@
 // is already the article's own rendering of the source, so there is nothing to map. The run's
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
+// THE CLAIM REACHES ITS POINTS (kogaki#1547). After the recoverability criterion, every content
+// word of a Claim's `proposition` — `recoverabilityOf`'s own word test — is in a `point` of a Leg
+// Waypoint serving that Claim's strand or in an `introduces` entry; the first that is in neither
+// refuses the attempt (`claimCoverageRefusal`). The plan judge reads the point, never the Claim.
+//
 // THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it). It mapped a term to `coined`
 // or `established`, and every introduced term is coined (kogaki#1531): an `introduces` entry
 // carries `term` and `meaning`, `--terms` is refused by name and `brief.json` carries no `terms`.
@@ -67,7 +72,7 @@ import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
   introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
-  parseIntroducesEntry, readerStateDimensionLine } from "../compose.mjs";
+  parseIntroducesEntry, readerStateDimensionLine, FUNCTION_WORDS, wordsOf, wordForms } from "../compose.mjs";
 import { wholeWordMatch } from "../compose/sections.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
@@ -253,6 +258,25 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
     + "content is already the article's own rendering (kogaki#1495)";
 }
 
+// THE CLAIM'S WORDS IN ITS POINTS (see the header). Returns the refusal, or null.
+export function claimCoverageRefusal(leg, at = "leg 1") {
+  const formsOf = (texts) => new Set(texts.flatMap((t) => wordsOf(t)).flatMap((w) => [...wordForms(w)]));
+  const entries = (Array.isArray(leg.introduces) ? leg.introduces : []).map(parseIntroducesEntry)
+    .filter((e) => !e.error).map((e) => `${e.term} ${e.meaning ?? e.anchor ?? ""}`);
+  for (const [i, g] of leg.claims.entries()) {
+    const serving = leg.waypoints.map((w, j) => [j + 1, w]).filter(([, w]) => isMap(w) && Array.isArray(w.serves) && w.serves.includes(g.strand));
+    const allowed = formsOf([...serving.map(([, w]) => String(w.point ?? "")), ...entries]);
+    const word = wordsOf(g.proposition).find((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)
+      && ![...wordForms(w)].some((f) => allowed.has(f)));
+    if (!word) continue;
+    const read = serving.length ? serving.map(([j]) => `waypoint ${j}`).join(" and ") : "no Leg Waypoint, since none serves it";
+    return `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Leg Waypoints `
+      + `serving ${g.strand} (read: ${read}) and in no \`introduces\` entry — a Leg Waypoint's point carries every content word of `
+      + "the Claim it serves, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)";
+  }
+  return null;
+}
+
 export function validateLegPathUnit(record, inputs) {
   const n = inputs.paragraph_count;
   const o = inputs.strand_offset || 0;
@@ -300,6 +324,8 @@ export function validateLegPathUnit(record, inputs) {
   }
   const anchored = anchoredRefusal(full, inputs.segments, n, o);
   if (anchored) return { error: anchored };
+  const covered = claimCoverageRefusal(full, at);
+  if (covered) return { error: covered };
   // THE LAST LEG OF SEVERAL (kogaki#1532) completes the path: its cross-Leg fields are derived
   // and the production `validateLegs` runs over the whole path with no rule skipped.
   if (inputs.path) {
