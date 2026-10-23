@@ -57,6 +57,8 @@
     "  The figure decision",
     "      SPEC-draft-pipeline",
     "  Every MUST is judgment, and nothing becomes a lint",
+    "      SPEC-draft-pipeline",
+    "  Obligations",
     "      SPEC-draft-pipeline"
   ],
   "version": "1",
@@ -308,6 +310,21 @@
       "class": "checked",
       "name": "Closure -- at most one row open at any given Leg",
       "rule": "A Closure row is OPEN on every Leg from its `introduced_by` Leg up to, and NOT INCLUDING, the Leg that closes it (`discharged_by` or `conceded_by`); a row raised and closed in the same Leg is open on no Leg. AT MOST ONE non-Thesis row may be open at any given Leg (owner decision 2026-09-30): the Thesis is carried throughout by design, but a Question or a promise is a milestone on the way to closing it, and two of them held open at once is the Brief bringing more than one loose end to the same stretch of the reader's attention. A Leg on which more than one row is open is refused, naming the Leg and every row open there."
+    },
+    "obligation_one_open_per_unit": {
+      "class": "judgment",
+      "name": "Obligations -- at most one open at any Leg, of any kind",
+      "rule": "An Obligation is a promise the path makes to the reader: a Question raised in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two occupy the reader's attention alike, so AT MOST ONE Obligation of either kind is open at any Leg. A row is open from the Leg that raises it up to, and not including, the Leg that closes it; a row raised and closed in one Leg is open on none. Do not raise a Question while a deferred term's explanation is still owed, nor defer a term while a Question is open. `closure_one_row_open_per_leg` refuses this over Question rows; this entry states it for both kinds and is YOURS TO JUDGE where a term is deferred. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
+    },
+    "obligation_owed_in_order": {
+      "class": "judgment",
+      "name": "Obligations -- owed Legs are named in the order the items were raised",
+      "rule": "Where one Leg raises several items -- a Move that names terms and defers them, or several Questions -- the Legs that owe them are named in the order the items were raised, and at the same scale as the raising Leg. An explanation may span several owed Legs, and the span from the raising Leg through the last owed Leg counts as one unit for every rule that groups Legs, the Section grouping included (kogaki#1528). [see: SPEC-draft-pipeline \"Obligations\"]"
+    },
+    "obligation_owed_leg_opens_no_section": {
+      "class": "judgment",
+      "name": "Obligations -- a Leg that owes an open Obligation opens no Section",
+      "rule": "No Leg that owes an open Obligation carries `opens_section`: the promise and its keeping stay in one Section, and the RAISING Leg is the one that opens it, under the Section grouping rule 1 (kogaki#1528). A Section heading between a promise and its keeping would tell the reader a new question had begun while the old one was still owed. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "first_leg_binds_a_survivor": {
       "class": "judgment",
