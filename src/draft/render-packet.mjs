@@ -31,10 +31,25 @@ export const READER_OWN_WORLD_ABSENT =
 // carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Paragraph Waypoints as a numbered
 // sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
 // with no point and no Serves (kogaki#1448) -- and a Paragraph Waypoint carrying its Segment's
-// `manner` ends its line `*Manner:* <manner>` (kogaki#1510). Nothing else of a Move is
-// rendered; a missing plan refuses at the realization entry (`loadBrief`), not here.
+// `manner` ends its line `*Manner:* <manner>` (kogaki#1510). Beneath the sub-list, a
+// `*Promise:*` line per Paragraph-scale Obligation row and a `*Keeps:*` line per Brief row the
+// paragraph discharges, each naming Paragraph Waypoints by their numbers -- material, asking
+// for no sentence (kogaki#1530). Nothing else of a Move is rendered; a missing plan refuses at
+// the realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
 export const MANNER_LABEL = "*Manner:*";
+export const PROMISE_LABEL = "*Promise:*";
+export const KEEPS_LABEL = "*Keeps:*";
+function promiseLine(o) {
+  const said = o.kind === "term" ? `the term "${o.term}", named at ${o.raised_by}` : `${String(o.text).trim()} — raised at ${o.raised_by}`;
+  if (o.conceded_by === undefined) return `   ${PROMISE_LABEL} ${said}, kept at ${o.discharged_by}.`;
+  return `   ${PROMISE_LABEL} ${said}, left open at ${o.conceded_by}. Left open: ${o.open}. `
+    + `Why not here: ${o.why_not_here}. What the reader keeps: ${o.reader_keeps}.`;
+}
+function keepsLine(d) {
+  const said = d.row ? (d.row.kind === "term" ? `the meaning of "${d.row.term}"` : String(d.row.text).trim()) : `the Brief's obligation ${d.obligation}`;
+  return `   ${KEEPS_LABEL} ${said} — at ${d.by}.`;
+}
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
@@ -44,7 +59,8 @@ export function waypointLines(leg) {
   const mannerOf = (p) => (typeof p.manner === "string" && p.manner.trim() !== "" ? ` ${MANNER_LABEL} ${p.manner.trim()}` : "");
   const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n)) + mannerOf(p);
   return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
-    ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`)].join("\n")).join("\n");
+    ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`),
+    ...(w.obligations || []).map(promiseLine), ...(w.discharges || []).map(keepsLine)].join("\n")).join("\n");
 }
 
 export function renderPacket({ template, brief, leg, priorSections, section, sections, language: languageOverride = null }) {

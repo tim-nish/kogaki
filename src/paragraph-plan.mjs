@@ -54,7 +54,8 @@ import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveContracts, loadMoveIds,
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
-  paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning } from "./compose.mjs";
+  paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
+  paragraphObligationsRefusal, dischargesShapeRefusal, briefRowsOwedBy, briefDischargeRefusal } from "./compose.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -145,7 +146,7 @@ function legForUnit(inputs, unitId) {
 // sufficient input; the served Claim justified the Leg Waypoint's selection, not its
 // generation). Kept small and plain so the validator and the judge read the same Leg
 // the prompt showed.
-export function planLeg(leg) {
+export function planLeg(leg, obligations = []) {
   const ws = leg.waypoints || [];
   return {
     leg_id: leg.leg_id,
@@ -158,6 +159,7 @@ export function planLeg(leg) {
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
     })),
     introduces: introducedTerms(leg.introduces),
+    owes: briefRowsOwedBy(obligations, leg.leg_id),
   };
 }
 
@@ -207,13 +209,17 @@ export function withSegmentManners(paragraphWaypoints, segments) {
 
 // The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
 // like the persona, they say what the reader does not yet hold, never what a point says.
+// THE OBLIGATIONS RIDE BESIDE THEM (kogaki#1530): every Brief row whose `owed_by` names this Leg,
+// numbered as in the Brief, for the plan to lay into a Paragraph Waypoint; and a bound Move's
+// `deferred_slots`, carried on its contract exactly as the Brief's composer receives it.
 export function paragraphPlanUnitInput(leg, moves, persona) {
-  const { introduces, ...planned } = leg;
+  const { introduces, owes, ...planned } = leg;
   return {
     leg_you_must_plan: planned,
     paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
     terms_this_leg_introduces: introduces || [],
+    obligations_this_leg_owes: owes || [],
   };
 }
 
@@ -309,7 +315,8 @@ export function axisSentenceRefusal(sentence) {
 }
 
 // A fixture record as the judge reads it: a judge input whole, or `from` another record
-// with its one `edit` applied -- a Paragraph Waypoint or a `join` replaced.
+// with its one `edit` applied -- a Paragraph Waypoint or a `join` replaced, or a Leg Waypoint's
+// `discharges` replaced, with the Brief rows the Leg owes set beside it where `owes` is given.
 export function axisRecord(registry, name, seen = new Set()) {
   const r = (registry.records || {})[name];
   if (!r) throw new Error(`src/paragraph-plan-axes.json names the record "${name}", which \`records\` does not hold`);
@@ -320,6 +327,11 @@ export function axisRecord(registry, name, seen = new Set()) {
   const w = input.leg_you_must_judge.waypoints[Number(e.waypoint) - 1];
   if (!w) throw new Error(`record "${name}" edits Leg Waypoint ${e.waypoint}, which "${r.from}" does not carry`);
   if (Object.hasOwn(e, "join")) { w.join = e.join; return input; }
+  if (Object.hasOwn(e, "discharges")) {
+    if (Object.hasOwn(e, "owes")) input.obligations_this_leg_owes = e.owes;
+    w.discharges = e.discharges;
+    return input;
+  }
   const at = Number(e.paragraph_waypoint) - 1;
   if (!w.paragraph_waypoints[at] || !e.to) throw new Error(`record "${name}" replaces no Paragraph Waypoint of "${r.from}"`);
   w.paragraph_waypoints[at] = e.to;
@@ -356,7 +368,7 @@ export function paragraphPlanUnitPrompt(row, input) {
 }
 
 const UNIT_KEYS = ["version", "leg_id", "waypoints"];
-const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "join", "paragraph_waypoints"];
+const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "join", "paragraph_waypoints", "obligations", "discharges"];
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
 
 // THE BOUND MOVE'S ROLES, OR A FATAL STOP (kogaki#1378). THROWS: inside the job the
@@ -405,7 +417,7 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     const atW = `${at}, Waypoint ${i + 1}`;
     if (!e || typeof e !== "object" || Array.isArray(e)) return { error: `${atW}: the entry is not a map` };
     const k = undeclaredKey(e, UNIT_WAYPOINT_KEYS);
-    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why, join (on every Leg Waypoint after the first) and paragraph_waypoints` };
+    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why, join (on every Leg Waypoint after the first), paragraph_waypoints, and obligations and discharges where it has any` };
     if (e.waypoint !== i + 1) return { error: `${atW}: the entry is numbered ${JSON.stringify(e.waypoint)} — entries are one per Leg Waypoint, in order` };
     if (typeof e.why !== "string" || words(e.why) < 4) return { error: `${atW}: \`why\` is under four words` };
     if (e.move === null) { noFit.push({ leg_id: leg.leg_id, waypoint: i + 1, point: ws[i].point, why: e.why.trim() }); continue; }
@@ -425,8 +437,13 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     if (badJoin) return { error: badJoin };
     const bad = paragraphWaypointsRefusal(e.paragraph_waypoints, ws[i].serves, atW);
     if (bad) return { error: bad };
+    // THE BRIEF'S OBLIGATION RULES AT THIS SCALE (kogaki#1530), by the plan reader's own rule.
+    const owed = paragraphObligationsRefusal(e.obligations, n, atW) || dischargesShapeRefusal(e.discharges, n, atW);
+    if (owed) return { error: owed };
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit) };
+  const undischarged = briefDischargeRefusal(leg.owes || [], r.waypoints.map((e) => e.discharges || []), at);
+  if (undischarged) return { error: undischarged };
   return {};
 }
 
@@ -442,7 +459,8 @@ export function noParagraphMoveFitsRefusal(failures) {
 // for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533); every Leg Waypoint
 // after the first also carries its `join` (kogaki#1411, kogaki#1477).
 // The Leg's introduced terms ride beside it, so TERM MEANING can refuse a first use with no meaning
-// (kogaki#1497).
+// (kogaki#1497); each entry's Obligation rows and discharges ride on it, and the Brief's rows the Leg
+// owes beside the Leg, so the judge reads whether a discharge keeps its promise (kogaki#1530).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   return {
@@ -456,10 +474,12 @@ export function paragraphPlanJudgeInput(record, inputs, unitId) {
         return { waypoint: i + 1, point: w.point, next_point: w.next_point,
           bound_move: { before: c.before, after: c.after, segments: c.segments, breaks: c.breaks },
           ...(i > 0 ? { join: e.join } : {}),
-          paragraph_waypoints: e.paragraph_waypoints };
+          paragraph_waypoints: e.paragraph_waypoints,
+          obligations: e.obligations || [], discharges: e.discharges || [] };
       }),
     },
     terms_this_leg_introduces: leg.introduces || [],
+    obligations_this_leg_owes: leg.owes || [],
   };
 }
 
@@ -567,7 +587,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
   const binary = resolveJudgeBinary(String(declared), process.env.PATH);
   const model = String(settingValue(table.judge.model));
-  const legs = brief.legs.map(planLeg);
+  const legs = brief.legs.map((leg) => planLeg(leg, brief.record.obligations));
   const dir = runDir || enterRun("brief", `${runPrefix(slug)}${new Date().toISOString().replace(/[:.]/g, "-")}`);
   writeJson(join(dir, START_FILE), {
     brief: relFromRepo(resolve(briefPath)), brief_sha256: sha256(brief.text), started_at: new Date().toISOString(),
@@ -646,7 +666,9 @@ export function finishParagraphPlan(dir) {
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
     waypoints: units[i].candidate.waypoints.map((e) => (e.move === null ? e.paragraph_waypoints
       : withSegmentManners(e.paragraph_waypoints, boundMoveContract(e.move, start.moves_dir).segments))),
-    joins: units[i].candidate.waypoints.map((e) => e.join ?? null) }));
+    joins: units[i].candidate.waypoints.map((e) => e.join ?? null),
+    obligations: units[i].candidate.waypoints.map((e) => e.obligations || []),
+    discharges: units[i].candidate.waypoints.map((e) => e.discharges || []) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);
   writeFileSync(planPath, paragraphPlanRecordText(record));

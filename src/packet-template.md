@@ -148,6 +148,14 @@ brief direct statement gets no lead-in clause, no reason and no scope added to
 it. The manner is never stated, copied or announced, and it adds nothing to
 what the line asserts (kogaki#1510).
 
+A *Promise:* line under a paragraph's points is a promise that paragraph makes
+to the reader and keeps within itself: the numbers are its indented points,
+the one that raises it and the one that keeps it or leaves it open. A *Keeps:*
+line names a promise this Leg owes, and the indented point at which this
+paragraph keeps it. Both are material, so you know what a point you write
+raises or keeps. They add no sentence of their own: the points carry it, and
+the line is not copied or announced (kogaki#1530).
+
 {{waypoints}}
 
 ## The claims this Leg asserts
