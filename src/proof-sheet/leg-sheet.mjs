@@ -463,8 +463,9 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
 
 // CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
 // paragraph 1 (kogaki#1410, owner 2026-10-17: "having all of them expanded makes navigation
-// cumbersome"), each with its path and hash, opening on its Segments table with the record's
-// rendering and the record file folded beneath it (kogaki#1479, owner 2026-10-20). Inputs:
+// cumbersome"), each with its path and hash, opening on its Segments table, then its Move's
+// open `before / after / breaks` table (kogaki#1534, owner 2026-10-23), with the record's
+// rendering and the record file folded beneath them (kogaki#1479, owner 2026-10-20). Inputs:
 // none drawn as a card (the original paragraph is in the comparison table above, the Audience
 // is in the run-conditions line). Prompt: one per paragraph. Calls: one group per paragraph,
 // with its attempt count.
@@ -520,10 +521,12 @@ function editedSegments(r, n) {
 function extractionCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const per = extractionParagraphs(r);
+  const entries = (r.ingest && r.ingest.entries) || [];
   const output = stageNote(r, "extract")
     + per.map((p) => prowBlock("extraction", p.i + 1, idx, `paragraph ${p.i + 1}`,
       `<p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) + sub("rendering", pre(p.rendered || p.text || "(not written)"))
+      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) + moveStatesBreaks(r, entries[p.i] && entries[p.i].move)
+        + sub("rendering", pre(p.rendered || p.text || "(not written)"))
         + sub("record file", pre(p.text || "(not written)")) : ""))).join("");
 
   // The Prompt is the recorded stdin of each paragraph's first call, not the judge's
@@ -897,14 +900,30 @@ function moveDescription(r, move) {
 }
 
 // A bound Move's `before` and `after`, one row per dimension, read from the run's moves directory.
-function moveStates(r, move) {
-  const rec = moveRecord(r, move);
-  if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
+function stateRows(rec) {
   const before = (rec.before && typeof rec.before === "object") ? rec.before : {};
   const after = (rec.after && typeof rec.after === "object") ? rec.after : {};
   const dims = [...new Set([...Object.keys(before), ...Object.keys(after)])];
-  return `<table><thead><tr><th>dimension</th><th>before</th><th>after</th></tr></thead><tbody>`
-    + dims.map((d) => `<tr><td>${esc(d)}</td><td>${esc(before[d] ?? "")}</td><td>${esc(after[d] ?? "")}</td></tr>`).join("")
+  return dims.map((d) => `<tr><td>${esc(d)}</td><td>${esc(before[d] ?? "")}</td><td>${esc(after[d] ?? "")}</td></tr>`).join("");
+}
+const STATES_HEAD = `<thead><tr><th>dimension</th><th>before</th><th>after</th></tr></thead>`;
+function moveStates(r, move) {
+  const rec = moveRecord(r, move);
+  if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
+  return `<table>${STATES_HEAD}<tbody>${stateRows(rec)}</tbody></table>`;
+}
+
+// A paragraph's Move under its Segments table on the Extraction card, open on load (kogaki#1534):
+// the before / after rows, then one row listing the Move's `breaks` in order; nothing where the
+// paragraph has no Move.
+function moveStatesBreaks(r, move) {
+  if (!move) return "";
+  const rec = moveRecord(r, move);
+  if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
+  const breaks = Array.isArray(rec.breaks) ? rec.breaks : [];
+  return `<table class="move-states"><caption>before / after / breaks</caption>${STATES_HEAD}<tbody>${stateRows(rec)}`
+    + `<tr class="breaks"><td>breaks</td><td colspan="2">${breaks.length
+      ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>` : `<span class="muted">(none)</span>`}</td></tr>`
     + `</tbody></table>`;
 }
 
@@ -993,7 +1012,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
 details.sub{margin:4px 0 4px 8px}
-details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
+.move-states{margin:6px 0}.move-states caption{text-align:left;font-weight:bold;font-size:13px}details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
 details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
 details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
