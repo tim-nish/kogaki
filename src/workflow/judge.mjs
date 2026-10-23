@@ -478,9 +478,38 @@ export function sharedTextOf(st) {
   return shared;
 }
 
-// The row with every `{{shared:<name>}}` in its three prompt fields replaced by the text
-// the table declares once. Exported so a check reads the same text the model is shown.
-export function withSharedText(st) {
+// THE AXES (kogaki#1533): a row whose criteria are a registry of one-sentence axes names
+// that file in `axes_file`, and `{{axes}}` in its judgment point renders one
+// `- <ID>: <sentence>` line per axis, in the registry's order. The criteria are written once,
+// beside the fixtures and the bench run that justify each; a row naming the file without the
+// token, or the token without the file, fails rather than rendering a judge with no criteria.
+export const AXES_TOKEN = "{{axes}}";
+
+export function axesOf(axesFile) {
+  const p = resolve(REPO, String(axesFile));
+  if (!existsSync(p)) fail(`\`axes_file\` ${JSON.stringify(axesFile)} names no file (kogaki#1533).`);
+  const axes = JSON.parse(readFileSync(p, "utf8")).axes;
+  if (!Array.isArray(axes) || !axes.length) fail(`${axesFile} declares no \`axes\` (kogaki#1533).`);
+  return axes.map((a) => ({ id: String(a.id), sentence: String(a.sentence) }));
+}
+
+function withAxes(st) {
+  const jp = typeof st.judgment_point === "string" ? st.judgment_point : "";
+  const named = jp.includes(AXES_TOKEN);
+  if (!st.axes_file && !named) return st;
+  if (!st.axes_file) fail(`${st.id}: the judgment point names ${AXES_TOKEN} and the row declares no \`axes_file\` (kogaki#1533).`);
+  if (!named) fail(`${st.id}: the row declares \`axes_file\` and its judgment point carries no ${AXES_TOKEN} (kogaki#1533).`);
+  const lines = axesOf(st.axes_file).map((a) => `- ${a.id}: ${a.sentence}`).join("\n");
+  // The rendered row drops `axes_file`, so a row rendered twice renders the same text.
+  const { axes_file: _, ...rest } = st;
+  return { ...rest, judgment_point: jp.replace(AXES_TOKEN, () => lines) };
+}
+
+// The row with its axes rendered and every `{{shared:<name>}}` in its three prompt fields
+// replaced by the text the table declares once. Exported so a check reads the same text the
+// model is shown.
+export function withSharedText(row) {
+  const st = withAxes(row);
   const shared = sharedTextOf(st);
   if (!shared) return st;
   const out = { ...st };
