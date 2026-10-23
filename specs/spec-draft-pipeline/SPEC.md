@@ -1574,6 +1574,17 @@ anything to it.
 explains it, and whether the Leg's claims already carry it are judgments.
 Nothing in this section reads meaning.
 
+**An introduced term is one the article gives its meaning to** (kogaki#1528,
+owner decision 2026-10-23). An entry keeps `term` and `meaning` and drops
+`kind`: the `coined` / `established` split is retired, because a term the
+reader already holds is not introduced at all. **A term a Leg names and
+defers** — its meaning given by a later Leg rather than where it first
+appears — is not an `introduces` entry of the naming Leg alone: it is an
+Obligation of kind `term`, raised by the naming Leg and owed by the Legs that
+give its meaning, under §5.2's rules, and it shares that section's one-open
+capacity with every Question. *Status: stated ahead of the executables*, as
+§5.2 states; `introduces_item` still carries `kind` until an Issue removes it.
+
 `necessity:` that an unintroduced term is ADDRESSABLE — a fact about the path
 rather than a judgment about the prose, which is the property that lets any of
 this be mechanical. §4.13.1 states the exemplar predicate's own reason.
@@ -2463,6 +2474,24 @@ on the 2026-10-19 Proof Sheet run every paragraph after the first opened on its
 join paraphrased as a clause. A Segment's `relation` stays prose, because the
 planner consumes it and it never reaches the Writer.
 
+**Obligations at the Paragraph scale** (kogaki#1528, owner decision
+2026-10-23). A Leg Waypoint's Paragraph Waypoints carry the same Obligation
+record §5.2 states for Legs — `{kind, raised_by, text | term, owed_by,
+discharged_by | conceded_by}` — with `raised_by`, `owed_by` and the terminal
+field naming Paragraph Waypoints of that one Leg Waypoint, and the record
+lives in the ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's
+rules bind it as they bind the Leg scale, except the Section rule: a slot is
+raised by the bound paragraph Move's shape or authored from the material, at
+most one row is open at any Paragraph Waypoint, `owed_by` is in raised order,
+and a row open here may be open while a Leg-scale row is open too. **Discharge
+is planning, never prose**: a row is kept by the Paragraph Waypoints the plan
+generates for its owed units, the Packet renders it as material and asks for
+no sentence, and no stage inserts a paragraph or a sentence for it. Whether a
+discharge keeps the promise is the ParagraphPlan judge's to judge, beside the
+plan it already judges. *Status: stated ahead of the executables*: the file's
+reader still refuses any key outside those named above, and the Issue that
+writes the record fixes its key and how a row names a Paragraph Waypoint.
+
 **The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.
 
@@ -2477,7 +2506,7 @@ Brief and rendering them for the writer, which broke the 2026-10-09 and
 2026-10-12 boundaries; this section is the carrier of the answer that replaced
 it.
 
-## 5. The Brief's centre, and Closure inside it
+## 5. The Brief's centre, and Obligations inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
 centre readable as one thing rather than three fields and a file path.
@@ -2546,7 +2575,7 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
 - **`strand_coverage`** — per selected Strand: `used_by_legs`,
   `role_in_thesis`; and **`journey_coverage`** — per Journey-bearing Strand,
   the Legs that place it or why it was omitted.
-- **`closure`** — the Leg-level rows of **Closure**, §5.2. The Thesis row is
+- **`closure`** — the Leg-level rows of **Obligations**, §5.2. The Thesis row is
   not written: it is derived from `strand_coverage` (§5.2).
   `reasoning.thesis_closure` is a retired Candidate field, refused by name.
 - **`tradeoffs`** and **`bridged`** — the adoption record: what adopting this
@@ -2834,14 +2863,71 @@ refused by `src/compose.mjs`; the criterion is computed by
 Differentiation rather than at the Writer, and why a term the Thesis carries is
 kept.
 
-### 5.2 Closure
+### 5.2 Obligations
 
-**The term is Closure** (owner decision, 2026-09-19, superseding "Landing" and
-the rendered heading "Unresolved obligations"). **An obligation** is a promise
+**The term is Obligations** (kogaki#1528, owner decision 2026-10-23,
+superseding "Closure", which superseded "Landing" and the rendered heading
+"Unresolved obligations" on 2026-09-19). A Question raised in one Leg and a
+term named in one Leg and explained in a later one occupy the reader's
+attention alike, so they are one mechanism with one capacity rather than two
+carriers that cannot see each other. Below, "Closure" names the Leg-scale
+ledger as the executables still carry it. **An obligation** is a promise
 the prose makes to the reader that a later passage must keep: a question
 raised, an analogy introduced, a limitation conceded — this is the definition,
 stated where the Brief's Closure section renders it, above the ledger, so a
 reader of the document meets it before the rows that instantiate it.
+
+**The Obligation record** (kogaki#1528). An Obligation is
+`{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}`, and
+these rules govern it:
+
+1. **One record, two scales.** `kind` is `question` (the row carries `text`)
+   or `term` (the row carries `term`). At the **Leg scale** `raised_by`,
+   `owed_by` and the terminal field name Legs, and the record lives on the
+   Brief. At the **Paragraph scale** they name Paragraph Waypoints of one Leg
+   Waypoint, and the record lives in the ParagraphPlan file (§4.19). Both
+   scales carry the same fields and the same rules, except rule 5, which has
+   no Paragraph counterpart.
+2. **Two sources.** A Move whose shape names an item and defers it — a
+   Segment whose `manner`, or the Move's `description`, says the item is left
+   for later — raises a **slot**: its kind, its count, and that it is
+   deferred. The composer fills the slot with the term or the question and
+   with the `owed_by` units, in the order the items were raised. A promise the
+   Strand material raises and no Move shape signals is **authored** as a row,
+   as Closure rows are today.
+3. **Capacity.** At most ONE Obligation of any kind is open at any unit of one
+   scale. A row is open from its `raised_by` unit up to, and not including,
+   the unit that closes it; a row raised and closed in one unit is open on
+   none. Obligations at different scales may be open at once.
+4. **Order and scale.** `owed_by` lists units at the same scale as
+   `raised_by`, in the order the items were raised. An explanation may span
+   several owed units, and the span from `raised_by` through the last owed
+   unit counts as one unit for every rule that groups units.
+5. **Section.** No Leg named in an open Obligation's `owed_by` carries
+   `opens_section`; the raising Leg opens the Section, under the Section
+   grouping's rule 1 (§4.15).
+6. **Discharge is planning, never prose.** A discharge is kept by the owed
+   unit's Waypoints and its Move binding: at the Leg scale by the Leg's
+   Waypoints, at the Paragraph scale by the Paragraph Waypoints the plan
+   generates. The Packet renders rows as material and asks for no sentence,
+   and no stage inserts a paragraph or a sentence for a row. Whether a
+   discharge keeps the promise is judged where Path Review judges `discharge`
+   (§4.12.2) and where the ParagraphPlan judge judges the plan (§4.19).
+7. **Terms.** `introduces` keeps `term` and `meaning` and drops `kind`: every
+   introduced term is one the article gives its meaning to, and a term the
+   reader already holds is not introduced. A term named and deferred is an
+   Obligation of kind `term`, its meaning owed by `owed_by` (§4.13).
+8. **The Thesis row** stays derived (kogaki#1328, below) and is outside the
+   capacity rule, as it was.
+
+`src/leg-schema.json`'s `path_rules` states rules 3, 4 and 5 to the composer
+as judgment-class entries. *Status: stated ahead of the executables*
+(kogaki#1528 changes none): the Brief's `closure` rows still carry `text`,
+`introduced_by` and a terminal field, the checked
+`closure_one_row_open_per_leg` and `closure_one_conceded_row` still refuse
+over those rows alone, `introduces_item` still carries `kind`, and the
+ParagraphPlan file carries no Obligation. An Issue that changes any of them
+reads its rule here, and an Issue that changes a rule changes it here first.
 
 **One ledger at two levels.** The **Thesis row** is the Thesis's own promise,
 and it is **derived, never written** (kogaki#1328): rendered from each placed
