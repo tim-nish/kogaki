@@ -103,7 +103,7 @@
       "required": false,
       "required_when": "reaches_target is true",
       "type": "array of string",
-      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries and `term` Obligations have put in the reader's hands by the time `reader_state_after` -- the Brief's Reader target -- is reached. It is a LIST, not prose, because the Reader target heading renders `reader_state_after` whole and line for line and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
+      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries and `term` Obligations -- every term of a row whose `term` is a list (kogaki#1549) -- have put in the reader's hands by the time `reader_state_after` -- the Brief's Reader target -- is reached. It is a LIST, not prose, because the Reader target heading renders `reader_state_after` whole and line for line and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
     },
     "depends_on": {
       "required": true,
@@ -324,7 +324,7 @@
     "obligation_row_terminal": {
       "class": "checked",
       "name": "Obligations -- every row is one kind, raised by a Leg, and terminal",
-      "rule": "Every row is `{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}` (kogaki#1529): `kind` is `question` (the row carries `text`) or `term` (the row carries `term`); `raised_by` names a Leg of the path; and the row ends in EXACTLY ONE terminal field -- `discharged_by`, the LAST Leg in its `owed_by`, where the promise is kept, or `conceded_by`, the raising Leg or one in `owed_by`, where the prose tells the reader it is left open. A row carrying neither terminal field, or both, or the retired Closure field `introduced_by`, is refused, naming the row. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "rule": "Every row is `{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}` (kogaki#1529): `kind` is `question` (the row carries `text`) or `term` (the row carries `term`: one term, or -- where one deferring slot counted more than one -- a list of the terms in the order the raising Leg named them, one promise explained in that order and discharged by the last Leg in `owed_by`; an empty list, or a list naming a term twice, is refused, kogaki#1549); `raised_by` names a Leg of the path; and the row ends in EXACTLY ONE terminal field -- `discharged_by`, the LAST Leg in its `owed_by`, where the promise is kept, or `conceded_by`, the raising Leg or one in `owed_by`, where the prose tells the reader it is left open. A row carrying neither terminal field, or both, or the retired Closure field `introduced_by`, is refused, naming the row. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "first_leg_binds_a_survivor": {
       "class": "judgment",

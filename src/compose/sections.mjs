@@ -221,9 +221,35 @@ export function targetLegIndex(legs) {
 // Leg. Returns a string to refuse with, or null.
 export const OBLIGATION_KINDS = Object.freeze(["question", "term"]);
 const CONCEDED_FIELDS = ["open", "why_not_here", "reader_keeps"];
+// A `term` row's `term` is one term, or the terms one deferring slot counted, in the order
+// the raising unit named them (kogaki#1549); `obligationTerms` reads either as the list.
+export function obligationTerms(o) {
+  if (!o || o.kind !== "term") return [];
+  return (Array.isArray(o.term) ? o.term : [o.term])
+    .filter((t) => typeof t === "string" && t.trim() !== "").map((t) => t.trim());
+}
+export function obligationSaid(o) {
+  if (o && o.kind === "term" && Array.isArray(o.term)) return obligationTerms(o).join(", ");
+  return o && (o.kind === "term" ? o.term : o.text);
+}
 export function obligationLabel(o) {
-  const said = o && (o.kind === "term" ? o.term : o.text);
+  const said = obligationSaid(o);
   return `${o && typeof o.kind === "string" ? o.kind : "obligation"} ${JSON.stringify(typeof said === "string" ? said : null)}`;
+}
+// The list form's own shape: non-empty, every entry a non-empty string, no term named twice.
+// Returns the clause to refuse with, or null; a string `term` is not this function's.
+export function termListRefusal(term) {
+  if (!Array.isArray(term)) return null;
+  if (term.length === 0) return "carries an empty `term` list — a list names at least one term";
+  const blank = term.findIndex((t) => typeof t !== "string" || t.trim() === "");
+  if (blank >= 0) return `carries a \`term\` list whose entry ${blank + 1} is not a non-empty string`;
+  const seen = new Set();
+  for (const t of term) {
+    const key = t.trim().toLowerCase();
+    if (seen.has(key)) return `carries a \`term\` list that repeats the term ${JSON.stringify(t.trim())} — each term is named once`;
+    seen.add(key);
+  }
+  return null;
 }
 export function obligationTerminal(o) {
   return o.discharged_by !== undefined ? o.discharged_by : o.conceded_by;
@@ -254,10 +280,13 @@ export function obligationLedgerRefusal(legs, obligations = []) {
     }
     const said = o.kind === "term" ? "term" : "text";
     const other = o.kind === "term" ? "text" : "term";
-    if (typeof o[said] !== "string" || o[said].trim() === "" || other in o) {
+    const many = o.kind === "term" && Array.isArray(o.term);
+    if ((!many && (typeof o[said] !== "string" || o[said].trim() === "")) || other in o) {
       return pathRefusal("obligation_row_terminal", null,
         `${row} is a \`${o.kind}\` row, so it carries \`${said}\` and no \`${other}\`.`);
     }
+    const listed = termListRefusal(o.term);
+    if (many && listed) return pathRefusal("obligation_row_terminal", null, `${row} ${listed}.`);
     const label = obligationLabel(o);
     if (typeof o.raised_by !== "string" || !index.has(o.raised_by)) {
       return pathRefusal("obligation_row_terminal", null,
@@ -422,7 +451,7 @@ export function readerTargetNamesRefusal(legs, obligations = []) {
       introduced.add(e.term);
     }
   }
-  for (const o of termObligations(obligations)) introduced.add(o.term.trim());
+  for (const o of termObligations(obligations)) for (const t of obligationTerms(o)) introduced.add(t);
   for (const name of targetLeg.names) {
     if (!introduced.has(name)) {
       return `leg ${idx + 1} (${targetLeg.leg_id}): names carries ${JSON.stringify(name)}, but no Leg of this path introduces it — `
@@ -596,7 +625,7 @@ export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
 // there, and its meaning is owed by the Legs its row names.
 export function termObligations(obligations) {
   return (Array.isArray(obligations) ? obligations : [])
-    .filter((o) => o && o.kind === "term" && typeof o.term === "string" && o.term.trim() !== "");
+    .filter((o) => obligationTerms(o).length > 0);
 }
 export function readerKnowledgeLedger(legs, obligations = []) {
   const known = new Map(); // term (lowercased) -> { term, anchor, introduced_by }
@@ -617,8 +646,10 @@ export function readerKnowledgeLedger(legs, obligations = []) {
       }
     }
     for (const o of termObligations(obligations).filter((r) => r.raised_by === s.leg_id)) {
-      const key = o.term.trim().toLowerCase();
-      if (!known.has(key)) known.set(key, { term: o.term.trim(), anchor: null, introduced_by: s.leg_id });
+      for (const term of obligationTerms(o)) {
+        const key = term.toLowerCase();
+        if (!known.has(key)) known.set(key, { term, anchor: null, introduced_by: s.leg_id });
+      }
     }
   }
   return rows;

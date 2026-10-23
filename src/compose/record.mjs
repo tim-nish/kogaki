@@ -18,7 +18,7 @@ import {
   READER_STATE_DIMENSIONS, deriveReaderStatesBefore, journeyUses,
   readerStateDimensionLine, waypointsRefusal,
 } from "./leg-schema.mjs";
-import { parseIntroducesEntry, OBLIGATION_KINDS, obligationLabel, obligationTerminal } from "./sections.mjs";
+import { parseIntroducesEntry, OBLIGATION_KINDS, obligationLabel, obligationTerminal, termListRefusal } from "./sections.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
 //
@@ -319,9 +319,12 @@ export function paragraphObligationsRefusal(rows, count, at) {
     }
     const said = o.kind === "term" ? "term" : "text";
     const other = o.kind === "term" ? "text" : "term";
-    if (typeof o[said] !== "string" || o[said].trim() === "" || other in o) {
+    const many = o.kind === "term" && Array.isArray(o.term);
+    if ((!many && (typeof o[said] !== "string" || o[said].trim() === "")) || other in o) {
       return `${row} is a \`${o.kind}\` row, so it carries \`${said}\` and no \`${other}\` (kogaki#1530)`;
     }
+    const listed = termListRefusal(o.term);
+    if (many && listed) return `${row} ${listed} (kogaki#1549)`;
     const label = `${at}: the ${obligationLabel(o)} row`;
     const extra = undeclaredKey(o, ["kind", said, "raised_by", "owed_by", "discharged_by", "conceded_by", ...CONCEDED_ROW_FIELDS]);
     if (extra) return `${label} carries \`${extra}\`, which an Obligation row does not declare (kogaki#1530)`;

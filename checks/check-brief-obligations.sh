@@ -7,9 +7,9 @@
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
 #   (n) Path Review's `discharge_rows` names each row and its owed Legs.
 #   (o)-(q) owed_by order, an owed Leg opening a Section, a non-terminal row.
-#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot in
-#       the composer's input; (t) the retired `closure` key; (u) `term` rows
-#       in `names` and the reader-knowledge ledger.
+#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
+#       the retired `closure` key; (u) `term` rows in `names` and the ledger;
+#       (v) a `term` row carrying its terms as a list in raised order (#1549).
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -398,10 +398,56 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   if (ledger[0].reader_already_knows.length) fails.push("(u) the ledger folded a term row in before its raising Leg");
 }
 
+// (v) a `term` row carrying the terms one deferring slot counted, in raised order, is one
+// promise (kogaki#1549): owed by two Legs in order and discharged by the second it passes;
+// the same promise as two rows raised by one Leg trips the capacity rule; an empty list and
+// a repeated term are refused by name; and `names`, the ledger and the label read every term.
+{
+  const { readerTargetNamesRefusal, readerKnowledgeLedger, obligationLabel } = compose;
+  const legs = ids(4);
+  const pair = { kind: "term", raised_by: "leg1", term: ["ownership boundary", "non-member fallback"],
+    owed_by: ["leg2", "leg3"], discharged_by: "leg3" };
+  const rPair = obligationLedgerRefusal(legs, [pair]);
+  if (rPair) fails.push(`(v) a two-term list row owed by two Legs in order was refused: ${rPair}`);
+  const full = (o) => legs.map((s, i) => ({ ...s, move: "m", materials: ["L1"], purpose: `purpose of ${s.leg_id}`,
+    reader_state_after: `orientation: after ${s.leg_id}\nknowledge: after ${s.leg_id}`, depends_on: [], rationale: `why ${s.leg_id}`,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }],
+    waypoints: [{ point: `the paragraph establishes what ${s.leg_id} claims`, serves: ["L1"] }],
+    ...(i === 0 ? { opens_section: "A Section" } : {}), ...(i === 3 ? { reaches_target: true } : {}), ...o[i] }));
+  const vPair = validateLegs(full([{}, {}, {}, { names: ["ownership boundary", "non-member fallback"] }]), "", [pair]);
+  if (vPair.error) fails.push(`(v) validateLegs refused a path carrying a two-term list row: ${vPair.error}`);
+  const asTwo = [
+    { kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" },
+    { kind: "term", raised_by: "leg1", term: "non-member fallback", owed_by: ["leg3"], discharged_by: "leg3" },
+  ];
+  const rTwo = obligationLedgerRefusal(legs, asTwo);
+  if (!rTwo || !/at most one open at any Leg, of any kind/.test(rTwo) || !/leg 1 \(leg1\)/.test(rTwo)) fails.push(`(v) the same promise as two rows raised by one Leg was not refused by the capacity rule: ${rTwo}`);
+  const rRepeat = obligationLedgerRefusal(legs, [{ ...pair, term: ["ownership boundary", "Ownership boundary"] }]);
+  if (!rRepeat || !/repeats the term "Ownership boundary"/.test(rRepeat) || !/obligation 1/.test(rRepeat)) fails.push(`(v) a list naming a term twice was not refused by name: ${rRepeat}`);
+  const rEmpty = obligationLedgerRefusal(legs, [{ ...pair, term: [] }]);
+  if (!rEmpty || !/empty `term` list/.test(rEmpty)) fails.push(`(v) an empty term list was not refused by name: ${rEmpty}`);
+  const rBlank = obligationLedgerRefusal(legs, [{ ...pair, term: ["ownership boundary", " "] }]);
+  if (!rBlank || !/entry 2 is not a non-empty string/.test(rBlank)) fails.push(`(v) a list carrying a blank term was not refused: ${rBlank}`);
+  const one = { kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" };
+  if (obligationLedgerRefusal(legs, [one])) fails.push(`(v) a one-term string row stopped passing: ${obligationLedgerRefusal(legs, [one])}`);
+  if (!obligationLedgerRefusal(legs, [{ ...one, term: " " }])) fails.push("(v) a blank one-term string row stopped being refused");
+  if (obligationLabel(pair) !== 'term "ownership boundary, non-member fallback"') fails.push(`(v) the label does not join the list in order: ${obligationLabel(pair)}`);
+  if (obligationLabel(one) !== 'term "ownership boundary"') fails.push(`(v) a one-term row's label changed: ${obligationLabel(one)}`);
+  const target = [{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true, names: ["ownership boundary", "non-member fallback"] }];
+  const listRow = [{ ...pair, owed_by: ["leg2"], discharged_by: "leg2" }];
+  if (readerTargetNamesRefusal(target, listRow)) fails.push(`(v) names carrying every term of a list row was refused: ${readerTargetNamesRefusal(target, listRow)}`);
+  const ledger = readerKnowledgeLedger(target, listRow);
+  const known = ledger[1].reader_already_knows.map((k) => k.term);
+  if (JSON.stringify(known) !== JSON.stringify(["ownership boundary", "non-member fallback"])) fails.push(`(v) the ledger does not fold every term of a list row in, in order: ${JSON.stringify(known)}`);
+  const { dischargeRows } = compose;
+  const [d] = dischargeRows(legs, [pair]);
+  if (!d || d.row !== "ownership boundary, non-member fallback") fails.push(`(v) Path Review's discharge input does not name a list row's terms in order: ${JSON.stringify(d)}`);
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-obligations");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row of any kind per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, and names and the ledger reading term rows (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529).");
+console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row of any kind per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading term rows, and a term row carrying an ordered list of terms as one promise (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549).");
 JS

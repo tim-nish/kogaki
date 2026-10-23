@@ -12,6 +12,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseYaml } from "../yaml.mjs";
+import { obligationSaid } from "./sections.mjs";
 
 // ---- rendering (SQ1: fenced blocks; this function IS the recorded
 // serialization, exercised by the check's fixture) ----
@@ -190,7 +191,7 @@ export function dischargeRows(legs, obligations = []) {
   return (Array.isArray(obligations) ? obligations : [])
     .filter((o) => o && o.discharged_by !== undefined)
     .map((o) => ({
-      row: o.kind === "term" ? o.term : o.text,
+      row: obligationSaid(o),
       kind: o.kind,
       raised_by: o.raised_by,
       owed_by: Array.isArray(o.owed_by) ? [...o.owed_by] : [],

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # check-brief-path-rules — the Brief record's own rules over a whole path.
 #   (am) the Journey use boundary in the record and Packet (kogaki#1286).
-#   (an) review_path's Discharge item; the question chain retired (kogaki#1283,
-#        kogaki#1325).
+#   (an) review_path's Discharge item, a list `term` row included (kogaki#1549);
+#        the question chain retired (kogaki#1283, kogaki#1325).
 #   (av) adoption writes brief.yaml in list or map form (kogaki#1328).
 #   (aw) the Brief's Defined Terms (kogaki#1331).
 #   (ax) no Move information reaches the Brief (kogaki#1375).
@@ -138,6 +138,19 @@ const fails = [];
   // member is not this bullet's scope) — carrying none is not refused.
   const neither = attachReview([cand("cand-7", legs, obligations)], { "cand-7": areas() });
   if (neither.error) fails.push(`(an) a review entry carrying no discharge was refused: ${neither.error}`);
+
+  // a `term` row carrying a list of terms (kogaki#1549) is named by the row dischargeRows hands
+  // the judge -- the terms joined in raised order -- and an entry naming them out of order is refused.
+  const listRow = [{ kind: "term", term: ["ownership boundary", "non-member fallback"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
+  const [handed] = dischargeRows(legs, listRow);
+  const listed = attachReview([cand("cand-8", legs, listRow)],
+    { "cand-8": { ...areas(), discharge: [{ row: handed.row, discharging_leg: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
+  if (listed.error) fails.push(`(an) a discharge naming a list row as dischargeRows handed it was refused: ${listed.error}`);
+  const reordered = attachReview([cand("cand-9", legs, listRow)],
+    { "cand-9": { ...areas(), discharge: [{ row: "non-member fallback, ownership boundary", discharging_leg: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
+  if (!reordered.error || !/discharge entry 1 does not name Obligation row "ownership boundary, non-member fallback"/.test(reordered.error)) {
+    fails.push(`(an) a discharge naming a list row's terms out of order was not refused by name: ${JSON.stringify(reordered)}`);
+  }
 }
 
 // (av) adoption writes brief.yaml: every Leg field in list or map form, no line over 120 characters.
