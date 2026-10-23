@@ -76,10 +76,12 @@
 #       (a stream line every 200 ms, as a live stream-json call writes),
 #       the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries
 #       the binary's whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
-#   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529): a run given `--terms`
-#       exits non-zero with the retirement sentence and prints no run directory, a resume of a
-#       run recorded with a terms file whose Brief stage is not done is refused; the main run
-#       records `terms: null` and its Brief card reads "Conditions: terms: model".
+#   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529, kogaki#1531): a run given
+#       `--terms`, with a file or bare, exits non-zero with the retirement sentence naming the flag
+#       and prints no run directory; the resumed run (h), its record carrying a `terms` key with
+#       its Brief not done, finishes with no `terms` key; the main run's record carries no `terms`
+#       key, and its sheet carries no terms line, in the run header or on the Brief card; the
+#       several-Leg Brief (s)'s `introduces` entries carry `term` and `meaning` and no `kind`.
 #
 #   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and
 #       Moves byte for byte, records the source run and the copied stage's sha256, and no
@@ -88,8 +90,7 @@
 #       <source>"; a copied Extraction with one Segment's content clause edited is recorded as
 #       paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner".
 #       The paragraph tables (o) render with no details element but the before / after folds
-#       and no "Review" heading, and the
-#       run header (p) reads "terms fixed from <file> (1)" or "terms by the Brief's own draw".
+#       and no "Review" heading.
 #   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places
 #       the library's three records beside the run's own three in the plan's Move directory, and
 #       `run.json`'s `library` carries the directory, the records' sha256 and the ids by source;
@@ -859,11 +860,14 @@ if (hRunDir) {
     `(h) the first run did not stop at the Extractor's paragraph 2 of 3: ${JSON.stringify((run1.stages || []).map((s) => [s.stage, s.state]))} / ${run1.stopped}`);
   const extractDoneBefore = (JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8") || "[]"));
   ok(existsSync(join(hRunDir, "extract", "calls.jsonl")), "(h) the first run's extract stage made no recorded call");
+  // (p) a record written with a terms file before kogaki#1531, its Brief not done, is resumed
+  writeFileSync(join(hRunDir, "run.json"), JSON.stringify({ ...run1, terms: { path: join(hRoot, "terms.json"), sha256: "0", count: 1 } }));
 
   const r2 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
   ok(r2.status === 0, `(h) the resumed run exited ${r2.status}: ${r2.stdout}${r2.stderr}`);
   const run2 = JSON.parse(readFileSync(join(hRunDir, "run.json"), "utf8"));
+  ok(!("terms" in run2), `(p) the resumed run, its record carrying \`terms\`, kept the key: ${JSON.stringify(run2.terms)}`);
   ok(run2.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
     `(h) the resumed run did not finish every stage: ${JSON.stringify(run2.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
   const extractCalls = readFileSync(join(hRunDir, "extract", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -882,24 +886,19 @@ if (hRunDir) {
   const { TERMS_RETIRED } = await imp("src/proof-sheet/leg-brief.mjs");
   const rT = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(hRoot, "leg-fixture.md"), "--out", join(hRoot, "out-terms"), "--provenance", map,
     "--terms", hTerms], { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
-  ok(rT.status !== 0 && `${rT.stdout}${rT.stderr}`.includes(TERMS_RETIRED) && !/^run directory: /m.test(rT.stdout),
+  ok(rT.status !== 0 && `${rT.stdout}${rT.stderr}`.includes(TERMS_RETIRED) && TERMS_RETIRED.startsWith("`--terms` is retired") && !/^run directory: /m.test(rT.stdout),
     `(p) a run given --terms was not refused with the retirement sentence before it started: ${rT.status} ${rT.stdout}${rT.stderr}`);
-  // a run recorded with a terms file before kogaki#1529, its Brief stage not done, is not resumed
-  const tDir = join(hRoot, "terms-run");
-  mkdirSync(tDir, { recursive: true });
-  writeFileSync(join(tDir, "run.json"), JSON.stringify({ terms: { path: hTerms, sha256: "0", count: 1 }, stages: [{ stage: "extract", state: "done" }, { stage: "brief", state: "stopped" }] }));
-  const rR = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", tDir, "--provenance", map],
+  const rB = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map, "--terms"],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
-  ok(rR.status !== 0 && /this run was started with a terms file .* Nothing was resumed\./.test(rR.stderr),
-    `(p) a resume of a run started with a terms file, its Brief not done, was not refused: ${rR.status} ${rR.stderr}`);
+  ok(rB.status !== 0 && `${rB.stdout}${rB.stderr}`.includes(TERMS_RETIRED) && !/^run directory: /m.test(rB.stdout),
+    `(p) a resume given a bare --terms was not refused with the retirement sentence: ${rB.status} ${rB.stdout}${rB.stderr}`);
 }
 if (runDir) {
   const run0 = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
-  ok(run0.terms === null, `(p) run.json built without --terms does not record \`terms: null\`: ${JSON.stringify(run0.terms)}`);
+  ok(!("terms" in run0), `(p) run.json carries a \`terms\` key: ${JSON.stringify(run0.terms)}`);
   const sheet0 = readOr(join(runDir, "sheet.html"), "");
-  ok(sheet0.includes(`<p class="terms">terms by the Brief's own draw</p>`) && !sheet0.includes("terms fixed from"),
-    "(p) the sheet of a run given no terms file does not carry the run header's \"terms by the Brief's own draw\" line");
-  ok(sheet0.includes("Conditions: terms: model") && !sheet0.includes("terms: fixed"), "(p) the sheet of a run given no terms file does not read \"terms: model\"");
+  ok(sheet0.includes('id="card-0-brief"') && !/class="terms"|brief-conditions|terms: (model|fixed)|terms by the Brief|terms fixed from/.test(sheet0),
+    "(p) the sheet carries a terms line, in the run header or on the Brief card");
 }
 
 // (q) STAGE REUSE (kogaki#1512): a run started with `--reuse <the main run> --from <stage>`
@@ -1282,6 +1281,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         `(s) opens_section is not the first Leg's alone, stating the last Leg's orientation: ${JSON.stringify(legs.map((l) => l.opens_section))}`);
       ok(JSON.stringify(legs.map((l) => l.reaches_target === true)) === "[false,false,true]" && rec.reader_target === "leg-c", "(s) reaches_target is not the last Leg's alone");
       ok(JSON.stringify(legs.map((l) => l["re-activate"] || [])) === '[[],[],["leg-a term frobnicator"]]', `(s) re-activate is not carried by the first later Leg whose content uses the term: ${JSON.stringify(legs.map((l) => l["re-activate"]))}`);
+      const intro = legs.flatMap((l) => l.introduces || []);
+      ok(intro.length === 1 && intro.every((e) => JSON.stringify(Object.keys(e).sort()) === '["meaning","term"]'),
+        `(p) a composed Brief's \`introduces\` entry does not carry exactly \`term\` and \`meaning\`: ${JSON.stringify(intro)}`);
     }
     const legBriefRun = (run.stages.find((st) => st.stage === "brief") || {}).leg_brief_run;
     const bj = legBriefRun ? JSON.parse(readOr(join(legBriefRun, "brief.json"), "{}")) : {};
@@ -1314,7 +1316,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
   if (runDir) {
     const one = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
-    ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "terms", "library", "started_at", "stages", "finished_at"]),
+    ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "library", "started_at", "stages", "finished_at"]),
       `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
     ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
   }

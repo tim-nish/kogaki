@@ -20,8 +20,7 @@
 //
 // A REUSED RUN (kogaki#1512): a stage copied from an earlier run carries a second badge naming
 // that run, and a Segment row of a copied Extraction the owner edited carries "edited by owner",
-// both read from `run.json` alone. The run header states whether the Leg's terms were fixed by a
-// terms file or left to the Brief's own draw.
+// both read from `run.json` alone.
 //
 // A RUN WITH A LIBRARY (kogaki#1521): each paragraph heading names the Move bound at its Leg
 // Waypoint and each Bindings row its bound Move, each badged `library` or `this run` from the run
@@ -588,14 +587,6 @@ function moveCard(r, idx) {
   }, idx);
 }
 
-// THE BRIEF'S TERMS CONDITION (kogaki#1498): "terms: fixed (<n>)" where the run was given a
-// terms file fixing <n> `introduces` kinds, "terms: model" where the model classified every
-// term. Read from the run record's own `terms`, never from a file on disk now.
-export function termsCondition(run) {
-  const t = run && run.terms;
-  return t && Number.isInteger(t.count) ? `terms: fixed (${t.count})` : "terms: model";
-}
-
 // THE DERIVED CROSS-LEG FIELDS of a several-Leg Brief (kogaki#1532), one row each, marked
 // `derived`, from the composer's `brief.json`; nothing for one Leg.
 export const DERIVED_BADGE = "derived";
@@ -614,10 +605,7 @@ function derivedTable(r) {
 // produced.
 function briefCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
-  const t = r.run.terms;
   const output = (r.briefText ? "" : stageNote(r, "brief"))
-    + `<p class="meta brief-conditions">Conditions: ${esc(termsCondition(r.run))}`
-    + (t ? ` · ${esc(rel(t.path))} · sha ${esc(String(t.sha256 || "").slice(0, 12))}` : "") + `</p>`
     + derivedTable(r)
     + `<p class="meta">${esc(rel(r.briefPath))} · sha ${contentHash(r.briefText)}</p>` + pre(r.briefText || "(not written)");
 
@@ -1074,15 +1062,6 @@ table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line)
 .leg-block{border:2px solid var(--line);border-radius:6px;padding:8px;margin:16px 0}.leg-block>h3{font-size:17px;margin:4px 0}
 .badge.derived{color:var(--accent)}.derived{margin:6px 0}.derived caption{text-align:left;font-weight:bold;font-size:13px}`;
 
-// THE TERMS LINE (kogaki#1512): whether the Leg's introduced terms were fixed by a terms file
-// (kogaki#1498) or left to the Brief's own draw, read from the run record's own `terms`.
-export function termsLine(run) {
-  const t = run && run.terms;
-  return t && Number.isInteger(t.count)
-    ? `terms fixed from ${relFromRepo(resolve(REPO, t.path), REPO)} (${t.count})`
-    : "terms by the Brief's own draw";
-}
-
 // THE LIBRARY LINE (kogaki#1521): the library the plan bound from and whether the run's own
 // Moves were withheld, read from the run record's own `library`.
 export function libraryLine(run) {
@@ -1115,7 +1094,6 @@ function card(r, { provenance, mapHash, idx = 0 }) {
 
   return `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
     + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
-    + `<p class="terms">${esc(termsLine(r.run))}</p>`
     + `<p class="library">${esc(libraryLine(r.run))}</p>`
     + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
@@ -1139,7 +1117,6 @@ function legsCard(r, { provenance, mapHash, idx = 0 }) {
   });
   return `<section class="card"><h2>${esc(r.run.passage || "Legs")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
     + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
-    + `<p class="terms">${esc(termsLine(r.run))}</p>`
     + `<p class="library">${esc(libraryLine(r.run))}</p>`
     + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
     + runConditionsLine(r) + briefCard(r, idx) + blocks.join("") + runRecordCard(r, idx) + `</section>`;

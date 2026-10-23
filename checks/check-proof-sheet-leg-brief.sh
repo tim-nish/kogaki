@@ -43,10 +43,10 @@
 #       rather than passing; the run hands the validator the Extractions' Segment content and
 #       records `anchored: true` in its `brief.json`; and the rendered Leg call carries the
 #       Segment-content sentence in place of production's renderings-record sentence.
-#   (j) THE TERMS FILE IS RETIRED (kogaki#1498, retired by kogaki#1529): a run given `--terms`
-#       exits non-zero with the retirement sentence and starts no run directory; the validator
-#       refuses an `introduces` entry carrying the retired `kind`, naming the term; a run without
-#       it carries no `introduces_given_kinds` and `brief.json` records `terms: null`.
+#   (j) THE TERMS FILE IS RETIRED (kogaki#1498, retired by kogaki#1529, kogaki#1531): a run given
+#       `--terms` exits non-zero with the retirement sentence and starts no run directory; the
+#       validator refuses an `introduces` entry carrying the retired `kind`, naming the term; a run
+#       without it carries no `introduces_given_kinds` and `brief.json` carries no `terms` key.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -300,7 +300,7 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
 // (j) the terms file
 {
   const bj0 = runDir && existsSync(join(runDir, "brief.json")) ? JSON.parse(readFileSync(join(runDir, "brief.json"), "utf8")) : {};
-  ok(bj0.terms === null, `(j) a run without --terms does not record \`terms: null\`: ${JSON.stringify(bj0.terms)}`);
+  ok(Object.keys(bj0).length > 0 && !("terms" in bj0), `(j) brief.json is missing or carries a \`terms\` key: ${JSON.stringify(bj0)}`);
   const prompts0 = existsSync(join(root, "prompts.jsonl")) ? readFileSync(join(root, "prompts.jsonl"), "utf8") : "";
   ok(prompts0 !== "" && !prompts0.includes("introduces_given_kinds"), "(j) a run without --terms carries `introduces_given_kinds` in a prompt");
 

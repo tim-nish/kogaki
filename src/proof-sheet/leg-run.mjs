@@ -28,8 +28,8 @@
 // `<run>/draft/` (`--workspace`).
 //
 // THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it): it fixed an `introduces`
-// kind, and an introduced term carries no `kind`. `--terms` is refused by name, a new run
-// records `terms: null`, and a run started with a terms file is not resumed.
+// kind, and every introduced term is coined (kogaki#1531). `--terms` is refused by name, a run
+// record carries no `terms` key, and a resumed record's `terms` is dropped and ignored.
 //
 // STAGE REUSE (kogaki#1512, owner decision 2026-10-22): `--reuse <earlier run> --from <stage>`,
 // `<stage>` one of `REUSE_FROM`'s keys, takes the Passage, the Extraction and the Moves from an
@@ -505,7 +505,6 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
   const record = { leg: legs.length === 1 ? resolve(legs[0].path) : null, passage: slug,
     paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0), legs: legsRecord, audience: audiencePath,
     language: recordedLanguage(audiencePath), model_command: realPath,
-    terms: null,
     library: lib, started_at: new Date().toISOString(), stages: [] };
   runStages(runDir, record, { slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
   const sheet = join(runDir, "sheet.html");
@@ -547,7 +546,6 @@ export function reuseLeg(source, { from, out, audience = null, provenance, terms
   const audiencePath = audience ? resolvedAudience(audience) : prior.audience;
   const record = { leg: prior.leg, passage: prior.passage, paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0), legs: legsRecord, audience: audiencePath,
     language: recordedLanguage(audiencePath), model_command: realPath,
-    terms: from === "paragraph-plan" ? (prior.terms || null) : null,
     library: lib, reuse, started_at: new Date().toISOString(), stages: [] };
   runStages(runDir, record, { slug: record.passage, realPath, audienceArgs: ["--audience", audiencePath], priorStages: kept });
   const isMove = (f) => f.endsWith(MOVE_RECORD_EXT);
@@ -575,10 +573,8 @@ export function resumeLeg(runDir, { provenance }) {
   if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was resumed.`);
   const prior = JSON.parse(readFileSync(runFile, "utf8"));
   const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
-  if (prior.terms && (priorStages.get("brief") || {}).state !== "done") {
-    fail(`this run was started with a terms file (${prior.terms.path}), and ${TERMS_RETIRED.replace(/ Nothing was started\.$/, "")} Start a new run. Nothing was resumed.`);
-  }
   const record = { ...prior, legs: recordedLegs(prior), stages: [] };
+  delete record.terms;
   delete record.stopped;
   delete record.finished_at;
   // THE JUDGE BINARY IS RE-RESOLVED, NOT FROZEN FROM THE STOPPED ATTEMPT: a resume is a fresh
@@ -613,6 +609,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   const legs = Array.isArray(args.leg) ? args.leg : [];
+  if (args.terms !== undefined) fail(TERMS_RETIRED);
   const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> "
     + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] "
     + "[--library <a directory of Move records> [--withhold-own]] "
@@ -626,9 +623,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const r = str("resume")
     ? resumeLeg(str("resume"), { provenance: str("provenance") })
     : str("reuse")
-      ? reuseLeg(str("reuse"), { from: str("from"), out: str("out"), audience: str("audience"), provenance: str("provenance"), terms: str("terms"), ...libraryArgs })
+      ? reuseLeg(str("reuse"), { from: str("from"), out: str("out"), audience: str("audience"), provenance: str("provenance"), ...libraryArgs })
       : runLeg(legs.length === 1 ? legs[0] : legs, { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
-      terms: str("terms"), ...libraryArgs });
+      ...libraryArgs });
   console.log(`run directory: ${r.runDir}`);
   console.log(`sheet written: ${r.sheet}`);
   if (r.stopped) { console.log(`the run stopped at ${r.stopped}`); process.exitCode = 1; }
