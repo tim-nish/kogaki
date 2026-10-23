@@ -87,15 +87,15 @@ const fails = [];
     ...extra,
   });
   const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] }), legOf("s3", { depends_on: ["s2"] })];
-  const obligations = [{ text: "the case's generality is open", introduced_by: "s1", discharged_by: "s2" }];
+  const obligations = [{ kind: "question", text: "the case's generality is open", raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
 
   // the mechanical half: one row per discharged obligation, named by row
   // text, nothing compared.
   if ("questionChainPairs" in compose) fails.push("(an) src/compose.mjs still exports questionChainPairs, retired at kogaki#1325");
   const rows = dischargeRows(legs, obligations);
   if (rows.length !== 1 || rows[0].row !== obligations[0].text || rows[0].discharging_leg !== "s2"
-      || JSON.stringify(rows[0].claims) !== JSON.stringify(["claim of s2"])) {
-    fails.push(`(an) dischargeRows did not carry the discharging Leg's claims: ${JSON.stringify(rows)}`);
+      || JSON.stringify(rows[0].owed_legs) !== JSON.stringify([{ leg_id: "s2", points: ["the paragraph establishes what s2 claims"], claims: ["claim of s2"] }])) {
+    fails.push(`(an) dischargeRows did not carry the owed Legs' points and claims (kogaki#1529): ${JSON.stringify(rows)}`);
   }
 
   const cand = (id, legsFor, obligationsFor = []) => ({ candidate_id: id, legs: legsFor, obligations: obligationsFor });
@@ -151,7 +151,7 @@ const fails = [];
   const leg1 = reviewed.candidates[0].legs[0];
   leg1.purpose = long;
   leg1.reader_state_after = `knowledge: ${long}\nquestion: holds: none`;
-  leg1.introduces = [{ term: "fixture term", kind: "coined", meaning: long, nearest: "a near term", differs: "it differs" }];
+  leg1.introduces = [{ term: "fixture term", meaning: long, nearest: "a near term", differs: "it differs" }];
   const offered = minted.error ? { error: minted.error } : selectionOptionIds(reviewed, minted.record);
   if (offered.error) fails.push(`(av) the fixture's option set cannot be composed: ${offered.error}`);
   else {

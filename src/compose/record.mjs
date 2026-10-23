@@ -74,7 +74,7 @@ export function readerStateText(map) {
 // One Leg as the record carries it: its fields in the schema's order, the
 // before-state left out (derived on read), the reader state as a map, an
 // `introduces` object with its fields in the schema's own order.
-const INTRODUCES_KEYS = ["term", "kind", "source", "meaning", "nearest", "differs"];
+const INTRODUCES_KEYS = ["term", "meaning", "nearest", "differs"];
 export function legRecord(s) {
   const out = { leg_id: s.leg_id };
   if (s.move) out.move = s.move;
@@ -403,6 +403,12 @@ export function briefRecordText(record) {
   return stringifyYaml(ordered, { width: RECORD_WIDTH, comments, header: decl.header });
 }
 
+// A key the Brief record carried once and carries no longer, refused by name
+// with the key that replaced it.
+const RETIRED_RECORD_KEYS = Object.freeze({
+  closure: "the Closure rows are retired (kogaki#1529): the Brief carries its promises as `obligations`, each row `{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}` (src/candidate-schema.json, `brief_record`).",
+});
+
 // The record read from its text, or a refusal naming what is wrong. A key the
 // declaration does not name is refused rather than read, and a required key
 // absent is refused by name; a slot key present as `null` is a slot awaiting
@@ -417,6 +423,9 @@ export function parseBriefRecord(text, path = "<brief>") {
   }
   const decl = candidateSchemaBlock().keys;
   for (const k of Object.keys(record)) {
+    if (Object.prototype.hasOwnProperty.call(RETIRED_RECORD_KEYS, k)) {
+      return { error: `the Brief at ${path} carries \`${k}\` — ${RETIRED_RECORD_KEYS[k]}` };
+    }
     if (!Object.prototype.hasOwnProperty.call(decl, k)) {
       return { error: `the Brief at ${path} carries the key \`${k}\`, which the Brief record does not declare `
         + `(src/candidate-schema.json, \`brief_record\`) — a key nobody reads is refused rather than carried` };
@@ -477,20 +486,22 @@ export function thesisClosureLeg(record) {
   return marked.length === 1 ? marked[0].leg_id : null;
 }
 
-// THE LEG PACKET'S OWN CLOSURE ROWS (Closure, kogaki#1151). A Leg is handed
-// only the rows it is a party to — where it is `introduced_by`,
-// `discharged_by` or `conceded_by` — as their text; the derived Thesis row is
-// handed to the Leg marked `reaches_target`. Read from the record's `closure`
-// list, which adoption wrote from the Candidate's obligations ledger.
+// THE LEG PACKET'S OWN OBLIGATION ROWS (kogaki#1151, kogaki#1529). A Leg is
+// handed only the rows it is a party to — where it is `raised_by`, named in
+// `owed_by`, or the Leg that discharges or concedes the row — and the derived
+// Thesis row is handed to the Leg marked `reaches_target`. Read from the
+// record's `obligations` list, which adoption wrote from the Candidate's
+// ledger.
 export const CONCEDED_ROW_FIELDS = ["open", "why_not_here", "reader_keeps"];
-export function closureRowsOf(record, legId) {
+export function obligationRowsOf(record, legId) {
   const rows = [];
   if (thesisClosureLeg(record) === legId) {
     const t = thesisClosureRow(record);
     if (t) rows.push({ text: t });
   }
-  for (const o of Array.isArray(record?.closure) ? record.closure : []) {
-    if (o.introduced_by === legId || o.discharged_by === legId || o.conceded_by === legId) rows.push(o);
+  for (const o of Array.isArray(record?.obligations) ? record.obligations : []) {
+    if (o.raised_by === legId || (Array.isArray(o.owed_by) && o.owed_by.includes(legId))
+        || o.discharged_by === legId || o.conceded_by === legId) rows.push(o);
   }
   return rows;
 }

@@ -163,10 +163,10 @@ export function planLeg(leg) {
 // THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497). The plan call binds a Move
 // whose Segment can define a term at the point that first uses it, or carries the meaning in
 // that Paragraph Waypoint's noun phrase, so it is handed each term with its meaning and
-// nothing else: `kind` is treated alike (the reader holds neither until the point gives it).
-// The meaning is `introducedMeaning`'s, the rule the Packet's crossing line reads: an
-// established term's `source` is never it (kogaki#1404), a legacy anchored entry's anchor is,
-// and a term the Leg gives no meaning rides `null`, for the planner to give in its own words.
+// nothing else (an item carries no `kind` since kogaki#1529).
+// The meaning is `introducedMeaning`'s, the rule the Packet's crossing line reads: a typed
+// entry's `meaning`, a legacy anchored entry's anchor, and for a bare term with neither,
+// `null`, for the planner to give in its own words.
 export function introducedTerms(entries) {
   return (entries || []).map((raw) => parseIntroducesEntry(raw)).filter((p) => !p.error && p.term)
     .map((p) => ({ term: p.term, meaning: introducedMeaning(p) }));

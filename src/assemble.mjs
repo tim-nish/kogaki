@@ -346,55 +346,65 @@ export function denyInternalVocabulary(payload, exemptByOption) {
 // only the key names are a declared format.
 // Pure; returns a refusal string or null. `strandIds` is the Brief's closed set where the
 // caller holds it, and the checks needing it are skipped where it is empty.
+const OBLIGATION_SHAPE = "`{ kind, raised_by, text | term, owed_by, discharged_by | conceded_by }`";
 export function candidateLedgerRefusal(c, strandIds = []) {
   const where = `candidate ${c?.candidate_id}`;
   const legIds = new Set((Array.isArray(c?.legs) ? c.legs : []).map((s) => s && s.leg_id));
   if (c?.obligations !== undefined) {
     if (!Array.isArray(c.obligations)) {
       return `${where}: \`obligations\` is the obligations ledger and is an ARRAY of entries, each `
-        + `\`{ text, introduced_by, discharged_by | conceded_by }\` (src/candidate-schema.json, \`obligations\`). `
+        + `${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`). `
         + `Received ${JSON.stringify(typeof c.obligations)}`;
     }
     for (const [i, o] of c.obligations.entries()) {
       const at = `${where}, obligation ${i + 1}`;
       if (!o || typeof o !== "object" || Array.isArray(o)) {
-        return `${at}: each ledger entry is an object \`{ text, introduced_by, discharged_by | conceded_by }\``;
+        return `${at}: each ledger entry is an object ${OBLIGATION_SHAPE}`;
       }
-      if (typeof o.text !== "string" || o.text.trim() === "") {
-        return `${at}: \`text\` is required and cannot be blank — it is the obligation in the `
-          + `composer's own words and it is what the Brief's ledger renders. The entry carries `
+      // THE CLOSURE ROW'S FIELD, REFUSED BY NAME (kogaki#1529): a row written
+      // in the retired shape is told which key replaced it, never that some
+      // other key is missing.
+      if ("introduced_by" in o) {
+        return `${at}: \`introduced_by\` is the retired Closure row's field — an Obligation names the Leg `
+          + `that raises it in \`raised_by\`, and carries ${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`)`;
+      }
+      if (o.kind !== "question" && o.kind !== "term") {
+        return `${at}: \`kind\` is required and is \`question\` or \`term\`. The entry carries `
           + `${JSON.stringify(Object.keys(o))} (src/candidate-schema.json, \`obligations\`)`;
       }
-      if (typeof o.introduced_by !== "string" || o.introduced_by.trim() === "") {
-        return `${at}: \`introduced_by\` is required and names the \`leg_id\` of the Leg that raises `
+      const said = o.kind === "term" ? "term" : "text";
+      if (typeof o[said] !== "string" || o[said].trim() === "") {
+        return `${at}: a \`${o.kind}\` row carries a non-blank \`${said}\` — it is what the Brief's ledger renders. `
+          + `The entry carries ${JSON.stringify(Object.keys(o))} (src/candidate-schema.json, \`obligations\`)`;
+      }
+      if (typeof o.raised_by !== "string" || o.raised_by.trim() === "") {
+        return `${at}: \`raised_by\` is required and names the \`leg_id\` of the Leg that raises `
           + `the obligation. The entry carries ${JSON.stringify(Object.keys(o))} `
           + `(src/candidate-schema.json, \`obligations\`)`;
       }
-      if (!legIds.has(o.introduced_by)) {
-        return `${at}: \`introduced_by\` ${JSON.stringify(o.introduced_by)} names no Leg of this `
-          + `Candidate (${[...legIds].join(", ")})`;
+      for (const id of [o.raised_by, ...(Array.isArray(o.owed_by) ? o.owed_by : [])]) {
+        if (!legIds.has(id)) {
+          return `${at}: ${JSON.stringify(id)} names no Leg of this Candidate (${[...legIds].join(", ")})`;
+        }
       }
-      if (o.discharged_by !== undefined) {
-        if (typeof o.discharged_by !== "string" || !legIds.has(o.discharged_by)) {
-          return `${at}: \`discharged_by\` ${JSON.stringify(o.discharged_by)} names no Leg of this `
+      if (!Array.isArray(o.owed_by)) {
+        return `${at}: \`owed_by\` is required and lists the \`leg_id\`s that keep the obligation, in path order `
+          + `(src/candidate-schema.json, \`obligations\`)`;
+      }
+      for (const key of ["discharged_by", "conceded_by"]) {
+        if (o[key] !== undefined && (typeof o[key] !== "string" || !legIds.has(o[key]))) {
+          return `${at}: \`${key}\` ${JSON.stringify(o[key])} names no Leg of this `
             + `Candidate (${[...legIds].join(", ")}) — an obligation is settled BY A LEG, and an entry `
             + `left out of the ledger's key set is read as undischarged rather than as unreadable`;
         }
       }
-      if (o.conceded_by !== undefined) {
-        if (typeof o.conceded_by !== "string" || !legIds.has(o.conceded_by)) {
-          return `${at}: \`conceded_by\` ${JSON.stringify(o.conceded_by)} names no Leg of this `
-            + `Candidate (${[...legIds].join(", ")}) — a row is conceded BY A LEG, named the same way `
-            + `it would be discharged`;
-        }
-      }
-      // CLOSURE'S TWO TERMINAL STATES, EXACTLY ONE (kogaki#1151). "Unresolved"
-      // is no longer a state the ledger can hold: every row ends `discharged_by`
-      // (the promise is kept there) or `conceded_by` (the prose there tells the
-      // reader it is left open), and a row naming neither or both is refused by
-      // name rather than read as a disclosure.
+      // TWO TERMINAL STATES, EXACTLY ONE (kogaki#1151). "Unresolved" is not a
+      // state the ledger can hold: every row ends `discharged_by` (the promise
+      // is kept there) or `conceded_by` (the prose there tells the reader it is
+      // left open), and a row naming neither or both is refused by name rather
+      // than read as a disclosure.
       if ((o.discharged_by !== undefined) === (o.conceded_by !== undefined)) {
-        return `${at}: every Closure row ends \`discharged_by\` or \`conceded_by\`, naming the Leg — `
+        return `${at}: every Obligation row ends \`discharged_by\` or \`conceded_by\`, naming the Leg — `
           + `this row carries ${o.discharged_by !== undefined ? "BOTH" : "NEITHER"} `
           + `(src/candidate-schema.json, \`obligations\`)`;
       }
@@ -461,8 +471,9 @@ export function candidateLedgerRefusal(c, strandIds = []) {
 // state be read at all".
 function unreadableObligation(o) {
   if (!o || typeof o !== "object" || Array.isArray(o)) return "it is not an object";
-  if (typeof o.text !== "string" || o.text.trim() === "") return "it carries no `text`";
-  if (typeof o.introduced_by !== "string" || o.introduced_by.trim() === "") return "it carries no `introduced_by`";
+  const said = o.kind === "term" ? "term" : "text";
+  if (typeof o[said] !== "string" || o[said].trim() === "") return `it carries no \`${said}\``;
+  if (typeof o.raised_by !== "string" || o.raised_by.trim() === "") return "it carries no `raised_by`";
   if (o.discharged_by !== undefined && typeof o.discharged_by !== "string") return "its `discharged_by` is not a leg id";
   if (o.conceded_by !== undefined && typeof o.conceded_by !== "string") return "its `conceded_by` is not a leg id";
   return null;
@@ -507,7 +518,7 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
         + "discharged cannot be read — the entry would be counted UNDISCHARGED at the Candidate gate "
         + `on the strength of a key it was never written with. The entry carries `
         + `${JSON.stringify(o && typeof o === "object" ? Object.keys(o) : o)}; the declared shape is `
-        + "`{ text, introduced_by, discharged_by | conceded_by }` (src/candidate-schema.json, `obligations`)" };
+        + `${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`)` };
     }
   }
   const undischarged = obligations.filter((o) => o.discharged_by === undefined && o.conceded_by === undefined).length;
@@ -866,7 +877,7 @@ export function selectionOptionIds(reviewed, record) {
 // to the marked one by kogaki#1231, owner decision 2026-09-30): the Leg
 // marked `reaches_target` alone -- the one whose after-state IS the Brief's
 // Reader target. Adoption writes it as the record's `reader_target`, and the
-// derived Thesis row reaches that Leg alone (`closureRowsOf`, src/compose.mjs,
+// derived Thesis row reaches that Leg alone (`obligationRowsOf`, src/compose.mjs,
 // kogaki#1328): naming every Leg leaked the whole path's closure narrative
 // into every earlier Packet, and naming the last Leg under the reversed rule
 // would name a plain closing Leg instead of the one that actually reaches
@@ -979,7 +990,7 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
   const digest = specializationDigest(instantiation.specialization, c.legs);
 
   // THE RECORD'S SLOTS FILL FROM THIS CANDIDATE, in one write (kogaki#1328).
-  // `fillBrief` writes the Reader Path, the two coverage lists and the Closure
+  // `fillBrief` writes the Reader Path, the two coverage lists and the Obligation
   // rows; the Thesis row of Closure is not written at all — it is derived from
   // the coverage and the Leg marked `reaches_target` wherever it is read
   // (`thesisClosureRow`, src/compose.mjs).
@@ -1163,7 +1174,7 @@ export function cmdAdoptCandidate(args) {
   console.log(`specialization (disclosure, never a write unlock — kogaki#1108): the record digesting ${r.record_digest} `
     + `judged ${Object.entries(r.specialization_tally).map(([v, n]) => `${n} ${v}`).join(", ")} `
     + `across ${r.judged} Leg(s); it was validated here and no owner ratification is asked for it`);
-  console.log(`adopted ${id} — its Reader Path is the Brief's; its coverage, Closure rows and tradeoffs are filled from it; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
+  console.log(`adopted ${id} — its Reader Path is the Brief's; its coverage, Obligation rows and tradeoffs are filled from it; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
 }
 
 // ---------------------------------------------------------------------------

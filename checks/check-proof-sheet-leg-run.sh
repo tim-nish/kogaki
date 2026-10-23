@@ -76,12 +76,9 @@
 #       (a stream line every 200 ms, as a live stream-json call writes),
 #       the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries
 #       the binary's whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
-#   (p) the terms file (kogaki#1498): the resumed run (h) is started with `--terms` naming one
-#       term, its `run.json` carries the file's path, hash and count, the resumed Brief stage is
-#       handed the same `--terms`, and its sheet's Brief card reads "Conditions: terms: fixed (1)";
-#       a resume after the file changed is refused naming it, the record untouched;
-#       the main run, given none, records `terms: null` and its Brief card reads
-#       "Conditions: terms: model".
+#   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529): a run given `--terms`
+#       exits non-zero with the retirement sentence and prints no run directory; the main run
+#       records `terms: null` and its Brief card reads "Conditions: terms: model".
 #
 #   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and
 #       Moves byte for byte, records the source run and the copied stage's sha256, and no
@@ -851,11 +848,7 @@ writeFileSync(goodJudge, fakeModelSrc(null, "seen-resume.jsonl"));
 chmodSync(goodJudge, 0o755);
 
 const hOut = join(hRoot, "out");
-const hTerms = join(hRoot, "terms.json");
-const hTermsText = JSON.stringify({ "ownership boundary": "established" });
-writeFileSync(hTerms, hTermsText);
-const r1 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(hRoot, "leg-fixture.md"), "--out", hOut, "--provenance", map,
-  "--terms", hTerms],
+const r1 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(hRoot, "leg-fixture.md"), "--out", hOut, "--provenance", map],
   { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: stopJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
 const hRunDir = (r1.stdout.match(/^run directory: (.+)$/m) || [])[1];
 ok(!!hRunDir, `(h) the first run printed no run directory: ${r1.stdout}${r1.stderr}`);
@@ -882,23 +875,14 @@ if (hRunDir) {
   const extractCmd = JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8"));
   ok(extractCmd.length > extractDoneBefore.length, "(h) the resumed extract stage replaced command.json instead of appending to it");
 
-  // (p) the terms file, carried through the record and the resume to the Brief stage and the sheet
-  const { createHash } = await import("node:crypto");
-  ok(run1.terms && run1.terms.path === hTerms && run1.terms.sha256 === createHash("sha256").update(hTermsText).digest("hex") && run1.terms.count === 1,
-    `(p) run.json built with --terms does not carry the file's path, hash and count: ${JSON.stringify(run1.terms)}`);
-  ok(JSON.stringify(run2.terms) === JSON.stringify(run1.terms), `(p) the resumed run.json does not keep the terms record: ${JSON.stringify(run2.terms)}`);
-  const briefCmd = JSON.parse(readOr(join(hRunDir, "brief", "command.json"), "[]"));
-  ok(briefCmd.length > 0 && briefCmd.every((c) => c.argv.join(" ").includes(`--terms ${hTerms}`)), `(p) the resumed Brief stage was not handed --terms: ${JSON.stringify(briefCmd.map((c) => c.argv))}`);
-  const termsAt = hSheet.match(/<p class="terms">terms fixed from ([^<]*) \(1\)<\/p>/);
-  ok(!!termsAt && termsAt[1].endsWith(escHtml(basename(hTerms))) && !hSheet.includes("terms by the Brief's own draw"),
-    "(p) the sheet of a run given a terms file does not carry the run header's \"terms fixed from <file> (1)\" line");
-  ok(hSheet.includes("Conditions: terms: fixed (1)") && !hSheet.includes("terms: model"), "(p) the sheet of a run given a terms file does not read \"terms: fixed (1)\"");
-  writeFileSync(hTerms, JSON.stringify({ "ownership boundary": "coined" }));
-  const r2b = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map],
-    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
-  ok(r2b.status !== 0 && /the terms file at .* has changed since the run started/.test(r2b.stderr)
-    && JSON.stringify(JSON.parse(readFileSync(join(hRunDir, "run.json"), "utf8")).terms) === JSON.stringify(run1.terms),
-    `(p) a resume over a terms file changed since the run started was not refused: ${r2b.status} ${r2b.stderr}`);
+  // (p) the terms file is retired: a run given --terms is refused before it starts
+  const hTerms = join(hRoot, "terms.json");
+  writeFileSync(hTerms, JSON.stringify({ "ownership boundary": "established" }));
+  const { TERMS_RETIRED } = await imp("src/proof-sheet/leg-brief.mjs");
+  const rT = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(hRoot, "leg-fixture.md"), "--out", join(hRoot, "out-terms"), "--provenance", map,
+    "--terms", hTerms], { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
+  ok(rT.status !== 0 && `${rT.stdout}${rT.stderr}`.includes(TERMS_RETIRED) && !/^run directory: /m.test(rT.stdout),
+    `(p) a run given --terms was not refused with the retirement sentence before it started: ${rT.status} ${rT.stdout}${rT.stderr}`);
 }
 if (runDir) {
   const run0 = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));

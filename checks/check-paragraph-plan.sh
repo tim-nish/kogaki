@@ -110,7 +110,7 @@
 #       Whether a LIVE planner keeps to it, or a live judge refuses a coined
 #       term, is the model's.
 #   (r) A TERM THE LEG INTRODUCES IS GIVEN ITS MEANING AT ITS FIRST USE
-#       (kogaki#1497): over a Leg whose `introduces` carries one coined term
+#       (kogaki#1497): over a Leg whose `introduces` carries one term
 #       and whose second Leg Waypoint's `point` uses it, the rendered plan
 #       prompt carries `terms_this_leg_introduces` with the term and its
 #       meaning beside the persona, and the plan row carries the first-use
@@ -256,8 +256,8 @@ const legs = [
     { point: "The next run overwrites any edit made to the copy.", serves: ["L1", "L2"] }]),
   leg("s2", [{ strand: "L2", proposition: C2 }], [{ point: "The copy is the installer's, not the consumer's.", serves: ["L2"] }]),
 ];
-// (r)'s Legs: s1 introduces one coined term, and its second Leg Waypoint's point first uses it.
-const TERM = { term: "kit stamp", kind: "coined", meaning: "the hash the installer writes beside the copy" };
+// (r)'s Legs: s1 introduces one term, and its second Leg Waypoint's point first uses it.
+const TERM = { term: "kit stamp", meaning: "the hash the installer writes beside the copy" };
 const termLegs = [{ ...legs[0], introduces: [TERM], waypoints: [legs[0].waypoints[0],
   { point: "The next run overwrites any edit made to the copy and rewrites its kit stamp.", serves: ["L1", "L2"] }] }, legs[1]];
 const briefText = (ls) => briefRecordText({
@@ -268,7 +268,7 @@ const briefText = (ls) => briefRecordText({
   reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
   reader_target: ls[ls.length - 1].leg_id,
   reader_path: ls.map(legRecord),
-  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
 });
 
 // ---- the fake judge: its behaviour is read from a mode file per run ----
@@ -697,11 +697,11 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     fails.push("(r) the ParagraphPlan file does not carry the first use of the term with its meaning in apposition");
   }
   // The meaning is read by the Packet's own rule (PR #1507 round 1): a legacy anchored entry's
-  // anchor is its meaning, an established term with none rides null and never its `source`.
+  // anchor is its meaning, an item's is its `meaning`, and a bare term rides null (kogaki#1529).
   const read = introducedTerms(["stamp file — the file the hash is written to",
-    { term: "fork", kind: "established", source: "git" }, "bare term"]);
+    { term: "fork", meaning: "a copy of a repository" }, "bare term"]);
   const wantRead = [{ term: "stamp file", meaning: "the file the hash is written to" },
-    { term: "fork", meaning: null }, { term: "bare term", meaning: null }];
+    { term: "fork", meaning: "a copy of a repository" }, { term: "bare term", meaning: null }];
   if (JSON.stringify(read) !== JSON.stringify(wantRead)) fails.push(`(r) the introduced terms are not read by the Packet's meaning rule: ${JSON.stringify(read)}`);
   // A null meaning is the planner's to give, and the judge reads whether one is given.
   if (!plans.length || !plans.every((p) => critOf(p, "TERMS").includes("or yours where it is `null`"))) {

@@ -238,25 +238,18 @@ export function externalAuthorityOf(brief) {
   return brief?.record?.external_authority !== "off";
 }
 
-// ONE `Introduce here` LINE (kogaki#1261, amended kogaki#1404 and kogaki#1491).
-// A typed item renders one form for both kinds: the term and its meaning, and
-// nothing on how the prose presents it (kogaki#1491, owner decision
-// 2026-10-21) -- a line prescribing an act of naming is a second structural
-// authority beside the bound Move's Segments and the Paragraph Waypoints. The
-// `kind` stays on the Brief's record; an established term only adds that the
-// reader may be handed the name as given, and never its `source`, which is
-// Brief-side material (kogaki#1404). A coined term's authority line --
-// `nearest` and `differs` -- renders on the same line where the item carries
+// ONE `Introduce here` LINE (kogaki#1261, amended kogaki#1404, kogaki#1491 and
+// kogaki#1529). A typed item renders the term and its meaning, and nothing on
+// how the prose presents it (kogaki#1491, owner decision 2026-10-21) -- a line
+// prescribing an act of naming is a second structural authority beside the
+// bound Move's Segments and the Paragraph Waypoints. The item's authority line
+// -- `nearest` and `differs` -- renders on the same line where the item carries
 // it and the Brief has not switched the external authority off. A bare or
 // anchored term renders as it always did.
 export function introduceLine(raw, authorityOn) {
   const p = parseIntroducesEntry(raw);
-  if (p.error || !p.kind) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
-  const meaning = p.meaning ? ` — ${p.meaning}` : "";
-  if (p.kind === "established") {
-    return `- ${p.term}${meaning.replace(/\.\s*$/, "")}. The reader may be handed this name as given.`;
-  }
-  let line = `- ${p.term}${meaning}`;
+  if (p.error || !p.typed) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
+  let line = `- ${p.term}${p.meaning ? ` — ${p.meaning}` : ""}`;
   if (authorityOn && p.nearest) {
     line = `${line.replace(/\.\s*$/, "")}. nearest existing term: ${p.nearest}.`;
     if (p.differs) line += ` differs: ${p.differs}`;

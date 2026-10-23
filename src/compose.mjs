@@ -47,7 +47,7 @@ export {
 } from "./compose/render.mjs";
 export {
   moveRoles, moveContract, validateMoveRecord, RETIRED_MOVE_FIELDS,
-  MOVE_CARRIED_FIELDS, MOVE_DESCRIPTION_MAX,
+  MOVE_CARRIED_FIELDS, MOVE_DESCRIPTION_MAX, deferredSlots,
 } from "./compose/moves.mjs";
 export {
   audienceRecord, READER_PERSONA_FIELDS, READER_PERSONA_OPTIONAL_FIELDS,
@@ -62,7 +62,8 @@ export {
 export {
   parseIntroducesEntry, introducedMeaning, introducedTermInReaderStart, opensSectionRefusal,
   opensSectionIntroducedTermRefusal, sectionHeadingsWithLastAfterState,
-  sectionGroupingRefusal, targetLegIndex, closureLedgerRefusal,
+  sectionGroupingRefusal, targetLegIndex, obligationLedgerRefusal, OBLIGATION_KINDS,
+  obligationLabel, obligationTerminal, termObligations,
   readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,
   introducesNearestRefusal, parseReactivateEntry, reactivateRefusal,
   reactivateSemanticRefusal, readerKnowledgeLedger, introducerOf,
@@ -82,7 +83,7 @@ export {
   undeclaredKey, readParagraphPlanBeside, paragraphPlanShapeRefusal,
   joinRefusal, paragraphWaypointsRefusal, briefStrandIds, briefJourneyStrands,
   briefRecordText, parseBriefRecord, readBriefRecord, unfilledSlots, fillSlot,
-  thesisClosureRow, thesisClosureLeg, CONCEDED_ROW_FIELDS, closureRowsOf,
+  thesisClosureRow, thesisClosureLeg, CONCEDED_ROW_FIELDS, obligationRowsOf,
   placements, journeyPlacements,
 } from "./compose/record.mjs";
 export { fillBrief } from "./compose/fill.mjs";

@@ -66,22 +66,21 @@
 #       sentence, so the paragraph is the template's and no Audience edit
 #       removes it. Whether the Writer yields is the prose's, and no judge
 #       reads it, by the owner's ruling.
-#   (i) THE CROSSING LINE CARRIES A TERM AND ITS MEANING (kogaki#1491): a Leg
-#       introducing one `coined` and one `established` entry renders a
-#       "What crosses into this Leg" block carrying each term with its
-#       meaning, a coined line's `nearest` clause set apart from its meaning by
-#       a period -- read first, so the absences below are read over a block
-#       known to hold the lines in scope -- and carrying neither "coined" nor
-#       "established" nor "present it as a name"; "may be handed this name as
-#       given" is on the established line and on no other line of the block.
+#   (i) THE CROSSING LINE CARRIES A TERM AND ITS MEANING (kogaki#1491,
+#       kogaki#1529): a Leg introducing one term renders a "What crosses into
+#       this Leg" block carrying the term with its meaning, its `nearest`
+#       clause set apart from the meaning by a period -- read first, so the
+#       absences below are read over a block known to hold the line in scope
+#       -- and carrying neither "coined" nor "established" nor "present it as
+#       a name" nor "may be handed this name as given".
 #   (j) THE PACKET ASKS FOR NO SENTENCE THE PLAN DOES NOT CARRY (kogaki#1496):
-#       a Leg party to a Closure row renders a Packet whose Closure block
+#       a Leg party to an Obligation row renders a Packet whose Obligations block
 #       carries the row -- read first, so the absences below are read over a
 #       Packet known to hold the block in scope -- and whose Write block
 #       carries the round trip's "Each claim above must be recoverable from
 #       what you write"; neither the Write block nor anywhere else in the
 #       Packet carries "concede it explicitly" or "Honor the rows"; and the
-#       same render from the template with the pre-kogaki#1496 Closure line
+#       same render from the template with the pre-kogaki#1496 honour line
 #       and round-trip paragraph restored is refused by the same predicate,
 #       so the absences are not vacuous.
 #
@@ -119,7 +118,7 @@ const text = briefRecordText({
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
   thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
   reader_target: "s1", reader_path: [legRecord(leg)],
-  strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
 });
 const brief = readBrief(text, "theses/packet-brief/brief.yaml");
 const render = (templateText) => {
@@ -318,42 +317,34 @@ if (!r.error) {
   }
 }
 
-// (i) one crossing-line form for both kinds: term and meaning, no presentation instruction (kogaki#1491).
+// (i) one crossing-line form: term and meaning, no presentation instruction (kogaki#1491, kogaki#1529).
 {
-  const COINED = { term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds", nearest: "guard clause",
+  const TERM = { term: "unfed guard", meaning: "a guard whose input nobody feeds", nearest: "guard clause",
     differs: "nothing ever feeds it a failing input" };
-  const ESTABLISHED = { term: "default-deny", kind: "established", source: "firewall configuration practice",
-    meaning: "every request is refused unless a rule admits it" };
   const gText = briefRecordText({
     slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
     thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-    reader_target: "s1", reader_path: [legRecord({ ...leg, introduces: [COINED, ESTABLISHED] })],
-    strand_coverage: [], journey_coverage: [], closure: [], tradeoffs: {}, bridged: {},
+    reader_target: "s1", reader_path: [legRecord({ ...leg, introduces: [TERM] })],
+    strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
   });
   const gBrief = readBrief(gText, "theses/packet-brief/brief.yaml");
   const split = splitPacketTemplate(template);
   const g = (gBrief.refusals || []).length ? { error: JSON.stringify(gBrief.refusals) } : split.error ? { error: split.error }
     : renderPacket({ template: split.packet, brief: gBrief, leg: gBrief.legs[0], priorSections: [],
       section: sectionOfLeg(gBrief.legs).get(gBrief.legs[0].leg_id), sections: sectionsOf(gBrief.legs) });
-  if (g.error) fails.push(`(i) the fixture Packet with a coined and an established term did not render: ${g.error}`);
+  if (g.error) fails.push(`(i) the fixture Packet with an introduced term did not render: ${g.error}`);
   else {
     const i = g.packet.indexOf("## What crosses into this Leg");
     const end = i === -1 ? -1 : g.packet.indexOf("\n## ", i + 1);
     const crosses = i === -1 ? "" : g.packet.slice(i, end === -1 ? undefined : end);
-    const lines = crosses.split("\n");
-    const coinedLine = lines.find((l) => l.startsWith(`- ${COINED.term} — `));
-    const establishedLine = lines.find((l) => l.startsWith(`- ${ESTABLISHED.term} — `));
-    if (!coinedLine || !coinedLine.includes(COINED.meaning)) fails.push(`(i) the crossing block does not carry the coined term with its meaning: ${JSON.stringify(crosses)}`);
-    else if (!coinedLine.includes(`${COINED.meaning}. nearest existing term: ${COINED.nearest}.`)) fails.push(`(i) the coined line does not set its nearest clause apart from its meaning with a period: ${JSON.stringify(coinedLine)}`);
-    else if (!establishedLine || !establishedLine.includes(ESTABLISHED.meaning)) fails.push(`(i) the crossing block does not carry the established term with its meaning: ${JSON.stringify(crosses)}`);
+    const termLine = crosses.split("\n").find((l) => l.startsWith(`- ${TERM.term} — `));
+    if (!termLine || !termLine.includes(TERM.meaning)) fails.push(`(i) the crossing block does not carry the term with its meaning: ${JSON.stringify(crosses)}`);
+    else if (!termLine.includes(`${TERM.meaning}. nearest existing term: ${TERM.nearest}.`)) fails.push(`(i) the term line does not set its nearest clause apart from its meaning with a period: ${JSON.stringify(termLine)}`);
     else {
-      for (const bad of ["coined", "established", "present it as a name"]) {
+      for (const bad of ["coined", "established", "present it as a name", "may be handed this name as given"]) {
         if (crosses.includes(bad)) fails.push(`(i) the crossing block carries "${bad}": ${JSON.stringify(crosses)}`);
       }
-      if (crosses.includes(ESTABLISHED.source)) fails.push("(i) the crossing block carries the established term's source (kogaki#1404)");
-      const handed = lines.filter((l) => l.includes("may be handed this name as given"));
-      if (handed.length !== 1 || handed[0] !== establishedLine) fails.push(`(i) "may be handed this name as given" is not on the established line alone: ${JSON.stringify(handed)}`);
     }
   }
 }
@@ -367,7 +358,8 @@ if (!r.error) {
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
     thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
     reader_target: "s1", reader_path: [legRecord(leg)],
-    strand_coverage: [], journey_coverage: [], closure: [{ text: ROW, introduced_by: "s1", discharged_by: "s1" }], tradeoffs: {}, bridged: {},
+    strand_coverage: [], journey_coverage: [], obligations: [{ kind: "question", text: ROW, raised_by: "s1", owed_by: [], conceded_by: "s1",
+      open: "whether the copy may ever be edited", why_not_here: "the article covers one install", reader_keeps: "a rule to edit the source" }], tradeoffs: {}, bridged: {},
   });
   const jBrief = readBrief(jText, "theses/packet-brief/brief.yaml");
   const jRender = (templateText) => {
@@ -378,10 +370,10 @@ if (!r.error) {
   };
   // THE PREDICATE the shipped render and the counterfactual share.
   const asksNoUnplannedSentence = (packet) => {
-    const i = packet.indexOf("## This Leg's Closure");
+    const i = packet.indexOf("## This Leg's Obligations");
     const end = i === -1 ? -1 : packet.indexOf("\n## ", i + 1);
-    const closure = i === -1 ? "" : packet.slice(i, end === -1 ? undefined : end);
-    if (!closure.includes(`- ${ROW}`)) return `the Closure block does not carry the Leg's row: ${JSON.stringify(closure)}`;
+    const rows = i === -1 ? "" : packet.slice(i, end === -1 ? undefined : end);
+    if (!rows.includes(`- ${ROW}`)) return `the Obligations block does not carry the Leg's row: ${JSON.stringify(rows)}`;
     const w = writeBlock(packet);
     if (w === null) return "the Packet carries no Write block";
     if (!flat(w).includes(RECOVERABLE)) return `the Write block does not carry "${RECOVERABLE}"`;
@@ -391,16 +383,16 @@ if (!r.error) {
     }
     return null;
   };
-  if ((jBrief.refusals || []).length) fails.push(`(j) the fixture Brief with a Closure row was refused: ${JSON.stringify(jBrief.refusals)}`);
+  if ((jBrief.refusals || []).length) fails.push(`(j) the fixture Brief with an Obligation row was refused: ${JSON.stringify(jBrief.refusals)}`);
   else {
     const j = jRender(template);
-    if (j.error) fails.push(`(j) the fixture Packet with a Closure row did not render: ${j.error}`);
+    if (j.error) fails.push(`(j) the fixture Packet with an Obligation row did not render: ${j.error}`);
     else {
       const why = asksNoUnplannedSentence(j.packet);
       if (why) fails.push(`(j) ${why}`);
     }
     const before = template
-      .replace("## This Leg's Closure\n\n", "## This Leg's Closure\n\nHonor the rows below in the prose rather than restating them as fields.\n\n")
+      .replace("## This Leg's Obligations\n\n", "## This Leg's Obligations\n\nHonor the rows below in the prose rather than restating them as fields.\n\n")
       .replace(/\*\*The round trip — claims only\.\*\*[\s\S]*?\n\n/, "**The round trip — claims only.** Each claim above must be recoverable from\n"
         + "what you write. Where making one plain loses something, either restore the\nloss or **concede it explicitly in the prose**. "
         + "A concession is part of the\noutput; a silent omission is not a simplification, it is a loss.\n\n");
@@ -417,5 +409,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries a coined and an established term each with its meaning, neither kind word nor any instruction to present it as a name, and \"may be handed this name as given\" on the established line alone (kogaki#1491); a Leg party to a Closure row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496).");
 JS

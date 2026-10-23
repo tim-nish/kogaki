@@ -239,10 +239,11 @@ export function attachReview(candidates, review) {
       const rcErr = recoverabilityRefusal(r.recoverability, c.legs);
       if (rcErr) return { error: `candidate ${c.candidate_id}: ${rcErr}` };
     }
-    // THE DISCHARGE (kogaki#1283) — one entry per Closure row carrying
-    // `discharged_by`, named by the row's own text and its discharging Leg.
+    // THE DISCHARGE (kogaki#1283, kogaki#1529) — one entry per Obligation row
+    // carrying `discharged_by`, named by the row's own text or term and its
+    // discharging Leg.
     // VALIDATED WHEN PRESENT, the same as `bridges`/`introduces` on a Leg
-    // (src/compose.mjs): a caller whose Candidates carry no real Closure rows
+    // (src/compose.mjs): a caller whose Candidates carry no real Obligation rows
     // (the plumbing fixtures in checks/check-brief-review.sh) has nothing this
     // item could name, and is not this bullet's concern to retrofit.
     if ("discharge" in r) {
@@ -250,25 +251,26 @@ export function attachReview(candidates, review) {
         .filter((o) => o && o.discharged_by !== undefined);
       if (!Array.isArray(r.discharge) || r.discharge.length !== dischargedRows.length) {
         return { error: `candidate ${c.candidate_id}: \`discharge\` is not an array of exactly `
-          + `${dischargedRows.length} entr${dischargedRows.length === 1 ? "y" : "ies"} — one per Closure row `
+          + `${dischargedRows.length} entr${dischargedRows.length === 1 ? "y" : "ies"} — one per Obligation row `
           + `carrying \`discharged_by\`` };
       }
       for (let i = 0; i < dischargedRows.length; i++) {
         const entry = r.discharge[i];
         const row = dischargedRows[i];
+        const said = row.kind === "term" ? row.term : row.text;
         if (!entry || typeof entry !== "object" || Array.isArray(entry)
-            || entry.row !== row.text || entry.discharging_leg !== row.discharged_by) {
-          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} does not name Closure row `
-            + `${JSON.stringify(row.text)} and its discharging leg ${JSON.stringify(row.discharged_by)}` };
+            || entry.row !== said || entry.discharging_leg !== row.discharged_by) {
+          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} does not name Obligation row `
+            + `${JSON.stringify(said)} and its discharging leg ${JSON.stringify(row.discharged_by)}` };
         }
         if (!DISCHARGE_VERDICTS.includes(entry.verdict)) {
           return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} (row `
-            + `${JSON.stringify(row.text)}): verdict ${JSON.stringify(entry.verdict)} is not one of `
+            + `${JSON.stringify(said)}): verdict ${JSON.stringify(entry.verdict)} is not one of `
             + `${DISCHARGE_VERDICTS.map((v) => JSON.stringify(v)).join(", ")}` };
         }
         if (typeof entry.why !== "string" || entry.why === "") {
           return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} (row `
-            + `${JSON.stringify(row.text)}) carries no \`why\`` };
+            + `${JSON.stringify(said)}) carries no \`why\`` };
         }
       }
     }

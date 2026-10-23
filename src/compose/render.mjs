@@ -179,21 +179,29 @@ export function readMoveRecord(moveId, movesDir = "moves") {
 // line, and a judgment over a line and itself buys nothing. The Move's `after`
 // question against the state is the Move-fit judge's after-state comparison.
 
-// THE DISCHARGE JUDGE INPUT (kogaki#1283). One entry per Closure row carrying
-// `discharged_by` -- the row's own text against the discharging Leg's claim
-// lines (each claim's `proposition`), for `review_path` to judge whether
-// every part the row owes has an answer among them.
+// THE DISCHARGE JUDGE INPUT (kogaki#1283, kogaki#1529). One entry per
+// Obligation row carrying `discharged_by` -- the row's own text, or its term,
+// against every owed Leg's Waypoint points and claim lines (each claim's
+// `proposition`), for `review_path` to judge whether every part the row owes
+// is kept among them. Discharge is planning, never prose: what keeps a row is
+// the owed Legs' Waypoints, so the judge is handed those and no sentence.
 export function dischargeRows(legs, obligations = []) {
   const byId = new Map(legs.map((l) => [l.leg_id, l]));
   return (Array.isArray(obligations) ? obligations : [])
     .filter((o) => o && o.discharged_by !== undefined)
-    .map((o) => {
-      const leg = byId.get(o.discharged_by);
-      return {
-        row: o.text,
-        introduced_by: o.introduced_by,
-        discharging_leg: o.discharged_by,
-        claims: leg && Array.isArray(leg.claims) ? leg.claims.map((cl) => cl.proposition) : [],
-      };
-    });
+    .map((o) => ({
+      row: o.kind === "term" ? o.term : o.text,
+      kind: o.kind,
+      raised_by: o.raised_by,
+      owed_by: Array.isArray(o.owed_by) ? [...o.owed_by] : [],
+      discharging_leg: o.discharged_by,
+      owed_legs: (Array.isArray(o.owed_by) ? o.owed_by : []).map((id) => {
+        const leg = byId.get(id);
+        return {
+          leg_id: id,
+          points: leg && Array.isArray(leg.waypoints) ? leg.waypoints.map((w) => w.point) : [],
+          claims: leg && Array.isArray(leg.claims) ? leg.claims.map((cl) => cl.proposition) : [],
+        };
+      }),
+    }));
 }

@@ -13,7 +13,7 @@ import {
   retiredReasoningFieldRefusal, targetLegAfterState,
 } from "../assemble.mjs";
 import {
-  BRIEF_RECORD_FILE, deriveReaderStatesBefore, moveContractsForLegs, resolveFigureForms,
+  BRIEF_RECORD_FILE, deriveReaderStatesBefore, moveContract, moveContractsForLegs, resolveFigureForms,
   resolveMoveIds, sectionHeadingsWithLastAfterState, specializationFailures,
   specializationSchema, validateLegs, validateSpecialization,
 } from "../compose.mjs";
@@ -150,9 +150,18 @@ export function validateReaderPathUnit(candidate, inputs) {
 // and `before_state` carries the one question asked of the Move's `before` against
 // it, read from src/specialization-schema.json. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`
 // in `compose_path`, ending at the input marker; this appends the unit's own input.
+// A LEG WHOSE MOVE RAISES A DEFERRED SLOT (kogaki#1529) carries the slots beside the
+// Obligation rows the Leg raises, so a slot the composer left unfilled is judged.
 export function readerPathFitInput(candidate, movesDir, readerStart, thesis) {
   const b = moveContractsForLegs(candidate.legs, movesDir);
   if (b.error) return { error: `candidate ${candidate.candidate_id}: ${b.error}` };
+  const rows = Array.isArray(candidate.obligations) ? candidate.obligations : [];
+  for (const entry of b.contracts) {
+    const slots = moveContract(entry.move, movesDir).deferred_slots;
+    if (!slots) continue;
+    entry.deferred_slots = slots;
+    entry.obligations_raised = rows.filter((o) => o && o.raised_by === entry.leg_id);
+  }
   return {
     input: {
       candidate_you_must_judge: {

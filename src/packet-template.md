@@ -71,7 +71,7 @@ depends on it. The fixed-points block (Thesis, Reader start, Reader target)
 and the This Leg block (`purpose`, `reader_state_before`,
 `reader_state_after`) are retired on that ground — their operational content
 for the writer is already carried by the crossing block and
-the Closure rows, and review of the prose reads the reader states from the
+the Obligation rows, and review of the prose reads the reader states from the
 Brief, never the Packet. The reader-target line is the one piece of that
 retired block with a live sentence-level use — it says whether this Leg may
 still introduce or raise anything — so it moves into the Section block rather
@@ -83,7 +83,7 @@ FLAT LISTS under their own headings, in ONE convention: every item is a `- `
 line at column zero, one line per item, no indentation carrying meaning, no
 `key:` prefix, and no relation between one item and another. No list sits
 under a bulleted field label. Where the realization of a whole schema category is
-fixed — Closure rows, Journey material — that behaviour is stated once,
+fixed — Obligation rows, Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
 
 NO MOVE REACHES THE PACKET (kogaki#1311, owner decision 2026-10-09;
@@ -187,16 +187,17 @@ hold and do not see below is not yours to speak of or rely on.
 
 {{crosses_here}}
 
-## This Leg's Closure
+## This Leg's Obligations
 
-The Brief's Closure ledger carries the promises the article makes to the
-reader — the Thesis's, and each Leg's own. The rows below are the ones THIS
-LEG is a party to: where it introduces a promise, discharges one (keeps it),
-or concedes one (leaves it open). They are given so you know what a point you
-write discharges or leaves open. They add no sentence of their own: where a
-row needs one, the waypoints above carry it.
+The Brief's Obligations carry the promises the article makes to the
+reader — the Thesis's, and each Leg's own: a question raised, or a term named
+before its meaning is given. The rows below are the ones THIS LEG is a party
+to: where it raises a promise, owes part of one, keeps one, or concedes one
+(leaves it open). They are given so you know what a point you write keeps or
+leaves open. They add no sentence of their own: where a row needs one, the
+waypoints above carry it.
 
-{{closure_rows}}
+{{obligation_rows}}
 
 ## The article so far, up to this Leg:
 
