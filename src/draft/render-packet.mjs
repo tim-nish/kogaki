@@ -13,7 +13,7 @@ import { obligationRowsOf, parseReactivateEntry, parseIntroducesEntry, readerPro
 import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
 import { obligationItems, obligationLine } from "../compose/sections.mjs";
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
-import { resolveLegJourneys, packetPersonaPath, externalAuthorityOf, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
+import { resolveLegJourneys, packetPersonaPath, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
 import { REALIZATION_LANGUAGES, langOf, sectionsDir, packetsDir, packetsRecordKey, sectionsOf, sectionOfLeg } from "./workspace.mjs";
 
@@ -149,7 +149,6 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     }
     return `- ${e.as} (re-activated from ${e.leg_id}, strand ${e.value})`;
   });
-  const authorityOn = externalAuthorityOf(brief);
   // THE AUDIENCE'S REGISTER (kogaki#1261, kogaki#1370): read from the
   // Audience the Brief was composed for, refused by name where it cannot be read.
   const personaPath = packetPersonaPath(brief);
@@ -203,7 +202,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     // introduces and re-activates nothing still gets the block, saying so,
     // on the same one-word-one-unit ground `obligation_rows` states.
     crosses_here: (intro.length || active.length)
-      ? [...intro.map((raw) => introduceLine(raw, authorityOn)), ...active].join("\n")
+      ? [...intro.map((raw) => introduceLine(raw)), ...active].join("\n")
       : "(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)",
     // THE OBLIGATIONS (kogaki#1151, kogaki#1529): the rows this Leg is a party
     // to, read from the Brief record's `obligations` list, with the derived

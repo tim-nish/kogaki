@@ -1729,13 +1729,14 @@ provenance reaching the write instruction and, from there, the prose.
 
 > **Status (kogaki#1491, owner decision 2026-10-21):** the crossing line
 > carries a term and its meaning and nothing on how the prose presents it.
-> Both kinds render `- <term> — <meaning>`; an established line adds only
-> "The reader may be handed this name as given.", and a coined line keeps
-> its `nearest` and `differs`. The words `coined` and `established` no longer
-> reach the Writer: the `kind` stays on the Brief's record, where the
-> claim-register judge and the adoption refusals read it, and where a term is
-> introduced is fixed by the Paragraph Waypoint whose `point` first uses it.
+> The words `coined` and `established` no longer reach the Writer: the
+> `kind` stays on the Brief's record, where the claim-register judge and the
+> adoption refusals read it, and where a term is introduced is fixed by the
+> Paragraph Waypoint whose `point` first uses it.
 > `checks/check-draft-packet.sh` (i) carries the rendering.
+> Both kinds render `- <term> — <meaning>`; `nearest` and `differs` are
+> retired (owner decision 2026-10-24): what an article says about an existing
+> term is a paragraph's content, which no Move validates in advance.
 
 **Every block the template renders is a Harness contract; every rule of how
 the prose reads is the Audience's Register** (kogaki#1321, kogaki#1370). The
@@ -2543,7 +2544,7 @@ centre readable as one thing rather than three fields and a file path.
 state. Its keys are declared in `src/candidate-schema.json` under
 `brief_record`, in the order the file writes them, each with the caption the
 file carries above it as a comment for the owner. The mint writes the header
-keys (`slug`, `compose_path`, `external_authority`), the closed `strands` list,
+keys (`slug`, `compose_path`), the closed `strands` list,
 the adopted `thesis` and its `defined_terms`, and every key below it as `null` — a slot awaiting
 composition; adoption fills them in one write. Every reader of the Brief —
 `src/draft.mjs`, `src/review-draft.mjs`, `src/assemble.mjs`, `src/compose.mjs`

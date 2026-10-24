@@ -165,7 +165,7 @@ const fails = [];
   const leg1 = reviewed.candidates[0].legs[0];
   leg1.purpose = long;
   leg1.reader_state_after = `knowledge: ${long}\nquestion: holds: none`;
-  leg1.introduces = [{ term: "fixture term", meaning: long, nearest: "a near term", differs: "it differs" }];
+  leg1.introduces = [{ term: "fixture term", meaning: long }];
   const offered = minted.error ? { error: minted.error } : selectionOptionIds(reviewed, minted.record);
   if (offered.error) fails.push(`(av) the fixture's option set cannot be composed: ${offered.error}`);
   else {

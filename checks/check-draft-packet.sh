@@ -123,7 +123,7 @@ const leg = {
     { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }],
 };
 const text = briefRecordText({
-  slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+  slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
   thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
   reader_target: "s1", reader_path: [legRecord(leg)],
@@ -378,18 +378,18 @@ if (!r.error) {
   }
 }
 
-// (i) one crossing-line form: term and meaning, no presentation instruction (kogaki#1491, kogaki#1529).
+// (i) one crossing-line form, `- <term> — <meaning>` and nothing else (kogaki#1491, kogaki#1529,
+// kogaki#1571); an entry carrying the retired `nearest` is refused naming the key.
 {
-  const TERM = { term: "unfed guard", meaning: "a guard whose input nobody feeds", nearest: "guard clause",
-    differs: "nothing ever feeds it a failing input" };
-  const gText = briefRecordText({
-    slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+  const TERM = { term: "unfed guard", meaning: "a guard whose input nobody feeds" };
+  const recordWith = (term) => briefRecordText({
+    slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
     thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-    reader_target: "s1", reader_path: [legRecord({ ...leg, introduces: [TERM] })],
+    reader_target: "s1", reader_path: [{ ...legRecord(leg), introduces: [term] }],
     strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
   });
-  const gBrief = readBrief(gText, "theses/packet-brief/brief.yaml");
+  const gBrief = readBrief(recordWith(TERM), "theses/packet-brief/brief.yaml");
   const split = splitPacketTemplate(template);
   const g = (gBrief.refusals || []).length ? { error: JSON.stringify(gBrief.refusals) } : split.error ? { error: split.error }
     : renderPacket({ template: split.packet, brief: gBrief, leg: gBrief.legs[0], priorSections: [],
@@ -400,14 +400,15 @@ if (!r.error) {
     const end = i === -1 ? -1 : g.packet.indexOf("\n## ", i + 1);
     const crosses = i === -1 ? "" : g.packet.slice(i, end === -1 ? undefined : end);
     const termLine = crosses.split("\n").find((l) => l.startsWith(`- ${TERM.term} — `));
-    if (!termLine || !termLine.includes(TERM.meaning)) fails.push(`(i) the crossing block does not carry the term with its meaning: ${JSON.stringify(crosses)}`);
-    else if (!termLine.includes(`${TERM.meaning}. nearest existing term: ${TERM.nearest}.`)) fails.push(`(i) the term line does not set its nearest clause apart from its meaning with a period: ${JSON.stringify(termLine)}`);
+    if (termLine !== `- ${TERM.term} — ${TERM.meaning}`) fails.push(`(i) the crossing block does not carry the term as \`- <term> — <meaning>\` alone: ${JSON.stringify(crosses)}`);
     else {
       for (const bad of ["coined", "established", "present it as a name", "may be handed this name as given"]) {
         if (crosses.includes(bad)) fails.push(`(i) the crossing block carries "${bad}": ${JSON.stringify(crosses)}`);
       }
     }
   }
+  const retired = readBrief(recordWith({ ...TERM, nearest: "guard clause" }), "theses/packet-brief/brief.yaml");
+  if (!(retired.refusals || []).some((m) => m.includes("`nearest`"))) fails.push(`(i) a Brief whose introduces entry carries the retired nearest was not refused naming the key: ${JSON.stringify(retired.refusals)}`);
 }
 
 // (j) the Packet asks for no sentence the plan does not carry: no concession, no honour line (kogaki#1496).
@@ -415,7 +416,7 @@ if (!r.error) {
   const ROW = "the reader is owed why the copy is overwritten";
   const RECOVERABLE = "Each claim above must be recoverable from what you write";
   const jText = briefRecordText({
-    slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+    slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
     thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
     reader_target: "s1", reader_path: [legRecord(leg)],

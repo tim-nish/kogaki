@@ -74,7 +74,7 @@ export function readerStateText(map) {
 // One Leg as the record carries it: its fields in the schema's order, the
 // before-state left out (derived on read), the reader state as a map, an
 // `introduces` object with its fields in the schema's own order.
-const INTRODUCES_KEYS = ["term", "meaning", "nearest", "differs"];
+const INTRODUCES_KEYS = ["term", "meaning"];
 export function legRecord(s) {
   const out = { leg_id: s.leg_id };
   if (s.move) out.move = s.move;

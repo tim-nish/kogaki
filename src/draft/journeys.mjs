@@ -232,29 +232,17 @@ export function packetPersonaPath(brief) {
   return resolve(DRAFT_REPO, readerFile);
 }
 
-// The Brief header's `external_authority: on | off` (kogaki#1251 item 3,
-// set at the mint by kogaki#1262). Absent reads as `on`, the mint's default.
-export function externalAuthorityOf(brief) {
-  return brief?.record?.external_authority !== "off";
-}
-
 // ONE `Introduce here` LINE (kogaki#1261, amended kogaki#1404, kogaki#1491 and
 // kogaki#1529). A typed item renders the term and its meaning, and nothing on
 // how the prose presents it (kogaki#1491, owner decision 2026-10-21) -- a line
 // prescribing an act of naming is a second structural authority beside the
-// bound Move's Segments and the Paragraph Waypoints. The item's authority line
-// -- `nearest` and `differs` -- renders on the same line where the item carries
-// it and the Brief has not switched the external authority off. A bare or
-// anchored term renders as it always did.
-export function introduceLine(raw, authorityOn) {
+// bound Move's Segments and the Paragraph Waypoints. Every typed item renders
+// `- <term> — <meaning>` (kogaki#1571). A bare or anchored term renders as it
+// always did.
+export function introduceLine(raw) {
   const p = parseIntroducesEntry(raw);
   if (p.error || !p.typed) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
-  let line = `- ${p.term}${p.meaning ? ` — ${p.meaning}` : ""}`;
-  if (authorityOn && p.nearest) {
-    line = `${line.replace(/\.\s*$/, "")}. nearest existing term: ${p.nearest}.`;
-    if (p.differs) line += ` differs: ${p.differs}`;
-  }
-  return line;
+  return `- ${p.term}${p.meaning ? ` — ${p.meaning}` : ""}`;
 }
 
 // THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the

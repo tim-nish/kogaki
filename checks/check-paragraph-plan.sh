@@ -263,7 +263,7 @@ const TERM = { term: "kit stamp", meaning: "the hash the installer writes beside
 const termLegs = [{ ...legs[0], introduces: [TERM], waypoints: [legs[0].waypoints[0],
   { point: "The next run overwrites any edit made to the copy and rewrites its kit stamp.", serves: ["L1", "L2"] }] }, legs[1]];
 const briefText = (ls, obligations = []) => briefRecordText({
-  slug: "plan-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+  slug: "plan-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") },
     { id: "L2", slug: "second-strand", cite: lessonCite("second-strand") }],
   thesis: "The fixture claim.",
