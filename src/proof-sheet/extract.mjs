@@ -47,6 +47,7 @@ import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { methodWordRefusal } from "../compose/leg-schema.mjs";
+import { OBLIGATION_KINDS, contentWords } from "../compose/moves.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
@@ -67,6 +68,10 @@ export const DESCRIPTION_MAX = 200;
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
+// `obligation` is the one key a record may leave out, and leaves out by default (FORMAT "The
+// paragraph unit", rule 8, kogaki#1557): present only where the paragraph leaves an item
+// unexplained, and then `{ kind, item }` under the Move's own closed set.
+const OPTIONAL_RECORD_KEYS = ["obligation"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
@@ -199,9 +204,9 @@ export function extractionUnitPrompt(row, input) {
 // refusal of the attempt, put verbatim into the next — or `{}`.
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
-function keysRefusal(obj, keys, at) {
+function keysRefusal(obj, keys, at, optional = []) {
   if (!isMap(obj)) return `${at} is not a map`;
-  const extra = Object.keys(obj).find((k) => !keys.includes(k));
+  const extra = Object.keys(obj).find((k) => !keys.includes(k) && !optional.includes(k));
   if (extra) return `${at} carries \`${extra}\`, which it does not declare — it carries ${keys.join(", ")}`;
   const missing = keys.find((k) => !(k in obj));
   if (missing) return `${at} carries no \`${missing}\``;
@@ -243,6 +248,46 @@ function generalRefusal(nouns, text, at) {
   return null;
 }
 
+// THE OBLIGATION, READ BACK (FORMAT "The paragraph unit", rule 8, kogaki#1557). Its shape is
+// the Move's own (`OBLIGATION_KINDS`); beyond the shape, an item some Segment's `content` clause
+// defines or answers is no item left unexplained. A clause defines or answers an item where it
+// carries one of DEFINING's verbs, not negated, and names the term -- or, for a question, shares
+// a content word with it.
+const DEFINING = /\b(defin\w*|gloss\w*|explain\w*|means|meaning|answer\w*|resolv\w*)\b/gi;
+const NEGATION = /\b(?:without|not|never|no|nor|neither|leaves?|leaving)\s+(?:\S+\s+){0,2}$/i;
+function definingClause(clause) {
+  return [...String(clause).matchAll(DEFINING)].some((m) => !NEGATION.test(clause.slice(0, m.index)));
+}
+function obligationRefusals(o, segments, at) {
+  const atO = `${at}: \`obligation\``;
+  if (!isMap(o)) return [`${atO} is not a map of \`kind\` and \`item\``];
+  const extra = Object.keys(o).find((k) => k !== "kind" && k !== "item");
+  if (extra) return [`${atO} carries \`${extra}\` — it carries \`kind\` and \`item\` only`];
+  if (!OBLIGATION_KINDS.includes(o.kind)) {
+    return [`${atO} names kind ${JSON.stringify(o.kind ?? null)}; the closed set is ${OBLIGATION_KINDS.map((k) => `\`${k}\``).join(", ")}`];
+  }
+  const items = o.kind === "term" ? o.item : [o.item];
+  if (o.kind === "question" && (typeof o.item !== "string" || lineRefusal(o.item, "item"))) {
+    return [`${atO} of kind \`question\` carries an \`item\` that is not one non-empty line`];
+  }
+  if (o.kind === "term" && (!Array.isArray(o.item) || !o.item.length || o.item.some((x) => lineRefusal(x, "item")))) {
+    return [`${atO} of kind \`term\` carries an \`item\` that is not a list of one or more one-line terms`];
+  }
+  const errors = [];
+  for (const [i, s] of (Array.isArray(segments) ? segments : []).entries()) {
+    if (!isMap(s) || typeof s.content !== "string" || !definingClause(s.content)) continue;
+    const named = o.kind === "term"
+      ? items.filter((term) => String(s.content).toLowerCase().includes(term.trim().toLowerCase()))
+      : (contentWords(o.item).some((w) => wordsOf(s.content).has(w)) ? [o.item] : []);
+    if (named.length) {
+      errors.push(`${at}, Segment ${i + 1}: the \`content\` clause ${o.kind === "term" ? "defines" : "answers"} `
+        + `${named.map((x) => JSON.stringify(x.trim())).join(", ")}, which \`obligation\` names as left unexplained — `
+        + `the key is absent where a Segment gives the meaning or the answer (FORMAT "The paragraph unit", rule 8)`);
+    }
+  }
+  return errors;
+}
+
 // EVERY FAILING FIELD, NOT ONLY THE FIRST (kogaki#1395). A record read back against FORMAT
 // used to return on its first bad field, so an answer with two slips reported one and spent
 // its attempt on a refusal naming only one of them. `errors` collects one line per field, in
@@ -254,7 +299,7 @@ export function validateExtractionUnit(record, input) {
   const p = input.paragraph_you_must_extract;
   const at = `paragraph ${p.number}`;
   const r = record || {};
-  const bad = keysRefusal(r, RECORD_KEYS, `${at}: the record`);
+  const bad = keysRefusal(r, RECORD_KEYS, `${at}: the record`, OPTIONAL_RECORD_KEYS);
   if (bad) return { error: bad };
   const errors = [];
   if (String(r.version) !== "1") errors.push(`${at}: the record's version is ${JSON.stringify(r.version)}, not "1"`);
@@ -368,6 +413,8 @@ export function validateExtractionUnit(record, input) {
   }
   if (readerOk && !changed) errors.push(`${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves`);
 
+  if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at));
+
   if (!MOVE_ID.test(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`);
   else if (input.names_taken.includes(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
 
@@ -410,6 +457,8 @@ export function extractionRecord(record, input, runRel) {
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
+    ...(record.obligation ? { obligation: { kind: record.obligation.kind,
+      item: record.obligation.kind === "term" ? record.obligation.item.map((x) => x.trim()) : record.obligation.item.trim() } } : {}),
     description: record.description.trim(),
     notes: record.notes.trim(),
   };
@@ -446,6 +495,7 @@ export function extractionMarkdown(rec) {
     "## 3. The order inside the Passage", "", ...segs, "", line(r.why_this_order), "",
     "## 4. What the Passage presupposes", "", line(r.presupposes), "",
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
+    ...(r.obligation ? [`obligation: ${line(r.obligation.kind)} — ${[].concat(r.obligation.item).map(line).join(", ")}`, ""] : []),
     "## 6. Description", "", line(r.description), "",
     "## 7. Candidate name", "", line(r.name), "",
     "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",

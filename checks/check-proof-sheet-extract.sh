@@ -43,7 +43,7 @@
 #       third attempt's prompt carries BOTH refusals, oldest first; paragraph 2's first
 #       answer writes a `subject_nouns` entry into a reader `after` clause and is refused
 #       naming the row (rule 7, kogaki#1440); the prompt carries rule 7's three
-#       sentences; and it carries rule 8's read-aloud test, which excludes the page's
+#       sentences; and it carries rule 9's read-aloud test, which excludes the page's
 #       layout from `operation`, `content`, `relation`, `manner` and reader states
 #       (kogaki#1478, kogaki#1510).
 #   (d) every call ran with `--tools ""`, on the shared supervisor.
@@ -65,6 +65,13 @@
 #       and for a second listed verb, while the clause opening on what the sentence says
 #       validates, and FORMAT's rule 7 carries the sentence verbatim (kogaki#1554).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
+#   (h) the authored `obligation` (rule 8, kogaki#1557): a paragraph whose last sentence names
+#       two terms and glosses neither yields an Extraction carrying the field with both terms in
+#       order, as the record, the file and its reading; the same paragraph glossing both yields
+#       none; the field beside a Segment that defines its terms, or answers its question, is
+#       refused naming that Segment; a kind outside the set and a term item that is one line are
+#       refused; and in (b2) the ingest carries the field to the Move record unchanged, where the
+#       Adapter reads it, and adds none to a Move whose Extraction has none.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -249,6 +256,34 @@ except m.Refusal as e:
         bad.append("the over-long description was not refused in the Adapter's words: %s" % e)
 if [n for n in os.listdir(moves2) if n.endswith(".yaml")]:
     bad.append("a refused Extraction left a Move in the library")
+# THE OBLIGATION IS CARRIED THROUGH UNCHANGED (kogaki#1557): an Extraction carrying the field
+# yields a Move record carrying it, read back by the Adapter; one without it yields none.
+obligation = {"kind": "term", "item": ["leverage", "margin"]}
+for w in r["written"] or []:
+    if "obligation" in m.read_extraction(w)[1]:
+        bad.append("a Move admitted from an Extraction without the field carries obligation: %s" % w)
+record = m.read_extraction(files[1])[1]
+record["reader"]["knowledge"]["after"] = "holds two named terms, leverage and margin, neither explained"
+record["obligation"] = obligation
+obl_path = os.path.join(tmp, "obligation.yaml")
+with open(obl_path, "w") as h:
+    h.write(m.yaml_write(record))
+moves3 = os.path.join(tmp, "moves3")
+os.makedirs(moves3)
+shutil.copy(os.path.join("moves", "ROLES.json"), moves3)
+r3 = m.run_from_extraction([obl_path], moves3, os.path.join(tmp, "out3"), select="accept")
+for w in r3["written"] or []:
+    if m.read_extraction(w)[1].get("obligation") != obligation:
+        bad.append("the Move record does not carry the Extraction's obligation unchanged: %r" % m.read_extraction(w)[1].get("obligation"))
+    read = subprocess.run(["node", "--input-type=module", "-e",
+        "const { moveContract } = await import(process.argv[1]);"
+        "process.stdout.write(JSON.stringify(moveContract(process.argv[2], process.argv[3])));",
+        "file://" + os.path.abspath(os.path.join("src", "compose.mjs")), os.path.basename(w)[:-len(".yaml")], moves3],
+        capture_output=True, text=True)
+    if json.loads(read.stdout or "{}").get("obligation") != obligation:
+        bad.append("the Adapter does not read the admitted Move's obligation: %s%s" % (read.stdout, read.stderr))
+if len(r3["written"] or []) != 1:
+    bad.append("run_from_extraction wrote %r for the Extraction carrying an obligation" % r3["written"])
 # ONE VALIDATOR: the ingest carries no type check of its own, and every record the
 # Adapter refuses -- a retired \`technique\`, a joined-line state, \`breaks\` as prose, no
 # \`segments\`, no \`description\`, a figure kind outside the closed set, an unnamed field -- the ingest
@@ -384,15 +419,15 @@ else {
     "Segment 1's `operation` carries no reference to any earlier step or earlier paragraph.",
     "A later Segment's `operation` is the operation alone, and its `relation` carries the connection to the step before.",
   ]) ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 7's sentence: ${sentence}`);
-  // rule 8 (kogaki#1478): the read-aloud test reaches the Extractor in FORMAT's own words, so neither copy can drift
+  // rule 9 (kogaki#1478): the read-aloud test reaches the Extractor in FORMAT's own words, so neither copy can drift
   const formatText = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").replace(/\s+/g, " ");
   for (const sentence of [
     "`operation`, `content`, `relation` and `manner` describe what the sentence does when read aloud.",
     "Anything the reader would know only from the page, such as emphasis, bullets, numbering, headings, line breaks or a quotation's marks, is layout: it is recorded in `passage` and nowhere else, never in `operation`, `content`, `relation`, `manner` or a reader-state line.",
     "\"Introduces a bolded term\" fails the test; \"introduces a term\" passes it.",
   ]) {
-    ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 8's read-aloud test: ${sentence}`);
-    ok(formatText.includes(sentence), `(c) passages/FORMAT.md's rule 8 does not carry the instruction's sentence: ${sentence}`);
+    ok(instruction.includes(sentence), `(c) the Extractor's rendered instruction does not carry rule 9's read-aloud test: ${sentence}`);
+    ok(formatText.includes(sentence), `(c) passages/FORMAT.md's rule 9 does not carry the instruction's sentence: ${sentence}`);
   }
 
   // (e) the carried before column
@@ -492,6 +527,43 @@ ok(formatRule7.includes("A `content` clause opens on what the sentence says, nev
 const m5 = good(); delete m5.answers.q3; m5.segments.pop();
 const e5 = X.validateExtractionUnit(m5, input).error || "";
 ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record broken on two fields at once did not name both: ${e5}`);
+
+// (h) THE AUTHORED OBLIGATION (FORMAT "The paragraph unit", rule 8, kogaki#1557): a paragraph whose
+// last sentence names two terms and glosses neither yields an Extraction carrying the field, both
+// terms in order, as the record and as the file; the same paragraph glossing both yields none; the
+// field beside a Segment that defines or answers its item is refused naming the Segment.
+{
+  const unglossed = () => { const g = good(); g.segments[2].content = "Two names, leverage and margin, close the paragraph with neither given a meaning."; return g; };
+  const glossed = () => { const g = good();
+    g.segments[1].content = "Leverage is defined as borrowed weight, and margin as the cushion kept against it.";
+    g.segments[2].content = "Two names, leverage and margin, close the paragraph."; return g; };
+  const TERMS = { kind: "term", item: ["leverage", "margin"] };
+  const carried = { ...unglossed(), obligation: TERMS };
+  ok(!X.validateExtractionUnit(carried, input).error, `(h) an Extraction carrying the field over an unglossed pair was refused: ${X.validateExtractionUnit(carried, input).error}`);
+  const rec = X.extractionRecord(carried, input, "run");
+  ok(JSON.stringify(rec.obligation) === JSON.stringify(TERMS), `(h) the Extraction record does not carry both terms in order: ${JSON.stringify(rec.obligation)}`);
+  const back = parseYaml(X.extractionFileText(carried, input, "run"), "h.yaml");
+  ok(JSON.stringify(back.obligation) === JSON.stringify(TERMS), `(h) the Extraction file does not carry both terms in order: ${JSON.stringify(back.obligation)}`);
+  ok(X.extractionMarkdown(back).includes("obligation: term — leverage, margin"), "(h) the Extraction does not render its obligation for reading");
+  const plain = glossed();
+  ok(!X.validateExtractionUnit(plain, input).error && !("obligation" in X.extractionRecord(plain, input, "run")),
+    `(h) the glossed paragraph without the field did not yield an Extraction with no field: ${X.validateExtractionUnit(plain, input).error}`);
+  const defined = X.validateExtractionUnit({ ...glossed(), obligation: TERMS }, input).error || "";
+  ok(/paragraph 2, Segment 2: the `content` clause defines "leverage", "margin", which `obligation` names as left unexplained/.test(defined),
+    `(h) an obligation whose terms a Segment defines was not refused naming the Segment: ${defined}`);
+  ok(!/Segment 3/.test(defined), `(h) a Segment naming the terms without defining them was refused: ${defined}`);
+  const question = { kind: "question", item: "why does the cost keep rising?" };
+  const asked = good(); asked.segments[2].content = "The question of why the cost keeps rising is left open for later.";
+  ok(!X.validateExtractionUnit({ ...asked, obligation: question }, input).error,
+    `(h) a question no Segment answers was refused: ${X.validateExtractionUnit({ ...asked, obligation: question }, input).error}`);
+  const answered = good(); answered.segments[2].content = "The cost keeps rising because each run answers the last with a larger copy.";
+  ok(/Segment 3: the `content` clause answers "why does the cost keep rising\?"/.test(X.validateExtractionUnit({ ...answered, obligation: question }, input).error || ""),
+    `(h) a question a Segment answers was not refused naming the Segment: ${X.validateExtractionUnit({ ...answered, obligation: question }, input).error}`);
+  ok(/`obligation` names kind "scale"; the closed set is `question`, `term`/.test(X.validateExtractionUnit({ ...unglossed(), obligation: { kind: "scale", item: ["leverage"] } }, input).error || ""),
+    "(h) an obligation of kind scale was not refused");
+  ok(/kind `term` carries an `item` that is not a list/.test(X.validateExtractionUnit({ ...unglossed(), obligation: { kind: "term", item: "leverage" } }, input).error || ""),
+    "(h) a term obligation whose item is one line was not refused");
+}
 
 // (g) announced blocks stay with their paragraph
 const ps = X.legParagraphs("One says:\n\n> a quoted line.\n\nThen a list:\n\n- first\n- second\n\nA new paragraph.");

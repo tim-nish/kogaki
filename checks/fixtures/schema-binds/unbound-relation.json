@@ -10,7 +10,7 @@
       "move": { "before": "excluded", "after": "excluded", "breaks": "excluded", "segments": "excluded", "segments.operation": "operation", "segments.manner": "excluded" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence"]
+      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation"]
     }
   }
 }
