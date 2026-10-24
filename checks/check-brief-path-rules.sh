@@ -7,7 +7,7 @@
 #   (aw) the Brief's Defined Terms (kogaki#1331).
 #   (ax) no Move information reaches the Brief (kogaki#1375).
 #   (ay) Thesis attainment at composition (kogaki#1330).
-#   (az) a Leg Waypoint's point is read alone (kogaki#1449).
+#   (az) a Waypoint point is read alone (kogaki#1449); (bb) has no method verb (kogaki#1554).
 #   (ba) recoverability under the renderings record; adoption refusing an
 #        introduces entry the record renders (kogaki#1494).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
@@ -25,6 +25,7 @@ import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS, DISCHARGE_VERDICTS } from "./src/review.mjs";
 import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
 import { recordOf, briefOfRecord, START_1276, leg1276, cand1276, fitMoveLibrary } from "./checks/fixtures/brief-compose/fixtures.mjs";
+import { METHOD_VERBS } from "./src/compose/leg-schema.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
   .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
@@ -370,6 +371,41 @@ const fails = [];
   }
 }
 
+// (bb) kogaki#1554 -- NO LEG WAYPOINT POINT CARRIES A METHOD VERB. `validateLegs` runs
+// `waypointsRefusal` with the Leg's Claims, so a point carrying "can be explained at face
+// value" is refused naming the Leg, the waypoint and the word, and the same point with the
+// clause removed passes. A second listed verb in another form is refused too, so the case
+// pins the list rather than the specimen. Without Claim text the rule does not apply.
+// `METHOD_VERBS` is the one list: the Extractor imports it and declares none of its own.
+{
+  const legsWith = (second) => [leg1276("s1", { opens_section: "Intro",
+    waypoints: [{ point: "A measure of defence takes one of two cases.", serves: ["L1"] }, { point: second, serves: ["L1"] }] }),
+  leg1276("s2", { depends_on: ["s1"], reaches_target: true })];
+  const method = compose.validateLegs(legsWith("A country starting a war declares it acts in defence, so that the stock declaration can be explained at face value."), START_1276, [], []);
+  if (!method.error) fails.push("(bb) a waypoint 2 point carrying \"explained\" was not refused");
+  else if (!/leg 1 \(s1\): waypoint 2's point carries "explained", a form of the method verb "explain"/.test(method.error) || !method.error.includes("kogaki#1554")) {
+    fails.push(`(bb) the refusal of a point carrying "explained" does not name the Leg, the waypoint and the word: ${method.error}`);
+  }
+  const removed = compose.validateLegs(legsWith("A country starting a war declares it acts in defence."), START_1276, [], []);
+  if (removed.error) fails.push(`(bb) the same point with the clause removed was refused: ${removed.error}`);
+  const other = compose.validateLegs(legsWith("A country starting a war justifies it as defence."), START_1276, [], []);
+  if (!other.error || !/waypoint 2's point carries "justifies", a form of the method verb "justify"/.test(other.error)) {
+    fails.push(`(bb) a point carrying "justifies" was not refused naming the word: ${other.error}`);
+  }
+  const bare = compose.waypointsRefusal([{ point: "The defence is explained.", serves: ["L1"] }], ["L1"], "a Paragraph Waypoint list");
+  if (bare) fails.push(`(bb) waypointsRefusal without Claim text applied the method-verb rule: ${bare}`);
+  if (!Array.isArray(METHOD_VERBS) || !METHOD_VERBS.includes("explain")) fails.push("(bb) src/compose/leg-schema.mjs exports no METHOD_VERBS list");
+  const extractText = readFileSync("src/proof-sheet/extract.mjs", "utf8");
+  if (!/import \{[^}]*\bmethodWordRefusal\b[^}]*\} from "\.\.\/compose\/leg-schema\.mjs"/.test(extractText)) {
+    fails.push("(bb) src/proof-sheet/extract.mjs does not import methodWordRefusal from src/compose/leg-schema.mjs");
+  }
+  const schemaText = readFileSync("src/compose/leg-schema.mjs", "utf8");
+  for (const v of METHOD_VERBS) {
+    if (extractText.includes(`"${v}"`)) fails.push(`(bb) src/proof-sheet/extract.mjs carries a verb list of its own, naming "${v}"`);
+    if (schemaText.split(`"${v}"`).length !== 2) fails.push(`(bb) src/compose/leg-schema.mjs names "${v}" outside METHOD_VERBS`);
+  }
+}
+
 // (ba) kogaki#1494 — the Path Review's recoverability criterion, run through the
 // `review_path` state's own resumption over a Candidate whose waypoint point
 // carries "registers": a word in no served claim, no renderings entry and no
@@ -436,5 +472,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); review_path's Discharge item and the retired question chain (kogaki#1283, kogaki#1325); adoption writing brief.yaml in list or map form with no line over 120 characters (kogaki#1328); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); and recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494).");
+console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); review_path's Discharge item and the retired question chain (kogaki#1283, kogaki#1325); adoption writing brief.yaml in list or map form with no line over 120 characters (kogaki#1328); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); no Leg Waypoint point carrying a method verb (kogaki#1554); and recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494).");
 JS

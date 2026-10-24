@@ -149,7 +149,8 @@ rule 8 is kogaki#1478's:
    each dimension state of the reader table, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
    original's language; the record's `content` clause and `opening` are the
-   only fields bound to the source (kogaki#1519).
+   only fields bound to the source (kogaki#1519). A `content` clause opens on
+   what the sentence says, never on a verb naming how the paragraph treats it.
 8. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line

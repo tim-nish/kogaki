@@ -46,6 +46,7 @@ import { join, resolve, basename, extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
 import { stringifyYaml } from "../yaml.mjs";
+import { methodWordRefusal } from "../compose/leg-schema.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
@@ -298,6 +299,11 @@ export function validateExtractionUnit(record, input) {
       if (e) { errors.push(e); continue; }
       for (const k of ["content", "operation"]) {
         const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
+        if (e2) errors.push(e2);
+      }
+      // The clause's opening verb states what it is about (FORMAT "The paragraph unit", rule 7).
+      if (typeof s.content === "string") {
+        const e2 = methodWordRefusal((s.content.trim().match(/^[A-Za-z]+/) || [""])[0], `${atS}: the \`content\` clause opens on`);
         if (e2) errors.push(e2);
       }
       // Segment 1 carries no `relation` (FORMAT "The paragraph unit", rule 5, kogaki#1510):
