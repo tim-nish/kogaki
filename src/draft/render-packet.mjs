@@ -67,7 +67,31 @@ export function waypointLines(leg) {
     ...(w.obligations || []).map(promiseLine), ...(w.discharges || []).map(keepsLine)].join("\n")).join("\n");
 }
 
+// The performs criteria bound (kogaki#1555).
+const DRAFT_TABLE = join(dirname(fileURLToPath(import.meta.url)), "..", "draft-workflow.json");
+const CRITERION_LINE = /^- ([A-Z][A-Z ]*[A-Z]): (.+)$/;
+export function templateCriteriaFailures(template, criteria = JSON.parse(readFileSync(DRAFT_TABLE, "utf8")).criteria) {
+  const wordsMax = Number(criteria?.words_max);
+  if (!Number.isInteger(wordsMax) || wordsMax <= 0) return ["src/draft-workflow.json's `criteria` declares no positive `words_max`"];
+  const fails = [];
+  String(template).split("\n").forEach((line, i) => {
+    const m = CRITERION_LINE.exec(line);
+    if (!m) return;
+    const at = `line ${i + 1} \`${line}\``;
+    const n = line.slice(2).trim().split(/\s+/).length;
+    if (n >= wordsMax) fails.push(`${at} runs ${n} words, not under the bound of ${wordsMax}`);
+    const joint = [": ", "; ", " -- "].find((s) => m[2].includes(s));
+    if (joint) fails.push(`${at} joins two requirements with \`${joint}\``);
+  });
+  return fails;
+}
+
 export function renderPacket({ template, brief, leg, priorSections, section, sections, language: languageOverride = null }) {
+  const unbounded = templateCriteriaFailures(template);
+  if (unbounded.length) {
+    return { error: `the Packet template's criteria break the bound src/draft-workflow.json declares: ${unbounded.join("; ")} -- `
+      + `one requirement per line, so a joined or grown line never reaches a Writer (kogaki#1555)` };
+  }
   const missing = [];
   const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
 

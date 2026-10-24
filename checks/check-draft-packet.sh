@@ -39,7 +39,7 @@
 #       as `1. *<operation>*` under its Leg Waypoint -- italic, with no point
 #       and no `*Serves:*` -- and the second in the point form; the template's
 #       waypoints block tells the Writer such a line is performed in the
-#       paragraph's own words and asserts nothing;
+#       paragraph's own words and states no proposition;
 #   (e) `node src/draft.mjs resolve` over the fixture Brief with a
 #       ParagraphPlan file beside it accepts a Leg Waypoint carrying a
 #       `performs` entry beside a `point` entry, and refuses one none of whose
@@ -51,11 +51,12 @@
 #       any case; the same render from a copy of that Audience with the
 #       pre-kogaki#1488 Voice paragraph restored is refused by the same
 #       predicate, so the absence is not vacuous.
-#   (g) A PERFORMS LINE BRINGS IN NO PART OF THE SUBJECT (kogaki#1492): the
-#       waypoints block of the Packet (d) renders carries "no part of the
-#       subject that the paragraph's points do not give", and the same render
-#       from the template with that bound removed does not, so the phrase is
-#       read from the Packet and not from the template's source.
+#   (g) THE PERFORMS INSTRUCTION IS SEVEN NAMED CRITERIA (kogaki#1555,
+#       replacing kogaki#1492's appended sentence): the waypoints block of the
+#       Packet (d) renders carries the seven `- <NAME>: <sentence>` lines
+#       verbatim and none of the sentences of the paragraph they replaced, and
+#       the same render from the template with that paragraph restored is
+#       refused by the same predicate, so the lines are read from the Packet.
 #   (h) A REGISTER RULE YIELDS TO A PLANNED LINE (kogaki#1493): in the Write
 #       block of the Packet rendered from `audiences/dev-to-zenn.md`, the
 #       precedence paragraph -- from "**What the register below governs.**" to
@@ -83,6 +84,13 @@
 #       same render from the template with the pre-kogaki#1496 honour line
 #       and round-trip paragraph restored is refused by the same predicate,
 #       so the absences are not vacuous.
+#   (k) THE RENDERER REFUSES A TEMPLATE THAT BREAKS THE CRITERIA BOUND
+#       (kogaki#1555): the shipped template passes `templateCriteriaFailures`
+#       under src/draft-workflow.json's `criteria`; and a template whose
+#       NO CLAIM line runs to `words_max` words, and one whose sentence carries
+#       each of `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that
+#       line -- every member of the family the guard states, not the one case
+#       that prompted it.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the
 # paragraph is the written prose's, and the review item `opens-from-copied`
@@ -104,6 +112,7 @@ const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragraphPlanRecordText } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg, OPENS_FROM_LABEL } =
   await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
+const { templateCriteriaFailures } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
 
 const C1 = "the installer copies the kit into the consumer's tree.";
 const JOIN = "consequence";
@@ -184,7 +193,33 @@ for (const [label, para] of [
 
 // (d) a performs Paragraph Waypoint renders as an operation line, with no point and no Serves.
 const PERFORMS = "flags the case as hard and announces a simplification by way of a pair of cases.";
-const PERFORMS_BOUND = "no part of the subject that the paragraph's points do not give";
+const CRITERIA = [
+  "- ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.",
+  "- NOT A POINT: An italic line states no point.",
+  "- IN PLACE: The paragraph performs it at the italic line's place among the points.",
+  "- OWN WORDS: The paragraph performs it in its own words.",
+  "- NO CLAIM: The sentence that performs it states no proposition.",
+  "- NO VERDICT: The sentence that performs it passes no judgment on the material.",
+  "- NO ANTICIPATION: The sentence that performs it names nothing of what follows.",
+];
+// The paragraph the seven lines replaced (kogaki#1448, kogaki#1492), one sentence per entry.
+const REPLACED = [
+  "An indented line in italics, with no claim beside it, is not a point.",
+  "It names an operation the paragraph performs on the reader's reading at that place -- announcing what follows, flagging that the material is hard, signalling a turn.",
+  "Perform it in the paragraph's own words, in its place among the points.",
+  "It asserts nothing: it adds no claim, no cause and no verdict, and it does not anticipate what a later point establishes.",
+  "It brings in no part of the subject that the paragraph's points do not give: no reason for the operation, and nothing of what follows beyond the operation's name.",
+  "A concession that the matter is complex says that and no more; an announcement of a simplification names that a simplification follows and nothing of its content.",
+];
+// THE PREDICATE (g) and its counterfactual share.
+const carriesCriteria = (packet) => {
+  const i = packet.indexOf("## The waypoints this Leg takes the reader through");
+  if (i === -1) return "the Packet carries no waypoints block";
+  const lines = packet.slice(i).split("\n");
+  for (const c of CRITERIA) if (!lines.includes(c)) return `the waypoints block does not carry the criterion line ${JSON.stringify(c)}`;
+  for (const s of REPLACED) if (flat(packet).includes(s)) return `the Packet still carries the replaced sentence ${JSON.stringify(s)}`;
+  return null;
+};
 {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 0
     ? { ...w, paragraph_waypoints: [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"] }] } : w)) };
@@ -199,18 +234,44 @@ const PERFORMS_BOUND = "no part of the subject that the paragraph's points do no
       fails.push(`(d) the performs Paragraph Waypoint does not render as an italic operation line with no Serves under its Leg Waypoint: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 3))}`);
     }
     if (lines.some((x) => x.includes(PERFORMS) && x.includes("*Serves:*"))) fails.push("(d) the performs line carries a *Serves:*");
-    const block = flat(r2.packet.slice(r2.packet.indexOf("## The waypoints this Leg takes the reader through")));
-    if (!block.includes("An indented line in italics, with no claim beside it, is not a point.")
-      || !block.includes("Perform it in the paragraph's own words") || !block.includes("It asserts nothing")) {
-      fails.push("(d) the Packet's waypoints block does not tell the Writer an italic line is performed in the paragraph's own words and asserts nothing");
+    const block = r2.packet.slice(r2.packet.indexOf("## The waypoints this Leg takes the reader through")).split("\n");
+    if (!block.includes(CRITERIA[0]) || !block.includes(CRITERIA[3]) || !block.includes(CRITERIA[4])) {
+      fails.push("(d) the Packet's waypoints block does not tell the Writer an italic line is performed in the paragraph's own words and states no proposition");
     }
-    if (!block.includes(PERFORMS_BOUND)) fails.push("(g) the Packet's waypoints block does not bound an italic line to no part of the subject that the paragraph's points do not give");
-    const unbound = template.replace(/ It brings in no part of the subject[\s\S]*?nothing of its content\.\n/, "\n");
-    const split0 = unbound === template ? { error: "the fixture could not remove the bound from the template" } : splitPacketTemplate(unbound);
+    // (g) the seven criterion lines verbatim, none of the replaced sentences; the restored paragraph is refused.
+    const why = carriesCriteria(r2.packet);
+    if (why) fails.push(`(g) ${why}`);
+    const restored = template.replace(CRITERIA.join("\n"), REPLACED.join(" "));
+    const split0 = restored === template ? { error: "the fixture could not restore the replaced paragraph in the template" } : splitPacketTemplate(restored);
     const r0 = split0.error ? { error: split0.error } : renderPacket({ template: split0.packet, brief, leg: l, priorSections: [],
       section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
-    if (r0.error) fails.push(`(g) the Packet rendered without the bound did not render: ${r0.error}`);
-    else if (flat(r0.packet).includes(PERFORMS_BOUND)) fails.push("(g) the Packet rendered without the bound still carries it");
+    if (r0.error) fails.push(`(g) the Packet rendered from the restored paragraph did not render: ${r0.error}`);
+    else if (carriesCriteria(r0.packet) === null) fails.push("(g) the restored paragraph passed the predicate (g) applies");
+  }
+}
+
+// (k) the renderer refuses a template whose criterion line breaks the bound, naming the line (kogaki#1555).
+{
+  const table = JSON.parse(readFileSync("src/draft-workflow.json", "utf8"));
+  const wordsMax = table.criteria?.words_max;
+  if (!Number.isInteger(wordsMax)) fails.push("(k) src/draft-workflow.json declares no integer `criteria.words_max`");
+  const shippedFails = templateCriteriaFailures(template);
+  if (shippedFails.length) fails.push(`(k) the shipped template fails the criteria bound: ${shippedFails.join("; ")}`);
+  const target = CRITERIA[4];
+  const pad = Array.from({ length: Math.max(0, (wordsMax || 0) - target.slice(2).split(/\s+/).length) }, () => "really").join(" ");
+  for (const [label, broken] of [
+    [`over words_max`, target.replace(" states no proposition.", ` states ${pad} no proposition.`)],
+    ["carrying `; `", target.replace(" proposition.", " proposition; it adds no cause.")],
+    ["carrying `: `", target.replace(" proposition.", " proposition: no cause either.")],
+    ["carrying ` -- `", target.replace(" proposition.", " proposition -- and no cause.")]]) {
+    const fixture = template.replace(target, broken);
+    if (fixture === template) { fails.push(`(k) the fixture could not write the criterion line ${label}`); continue; }
+    const line = fixture.split("\n").indexOf(broken) + 1;
+    const split = splitPacketTemplate(fixture);
+    const b = split.error ? { error: split.error } : renderPacket({ template: split.packet, brief, leg: brief.legs[0], priorSections: [],
+      section: sectionOfLeg(brief.legs).get(brief.legs[0].leg_id), sections: sectionsOf(brief.legs) });
+    if (!b.error) fails.push(`(k) the template whose criterion line is ${label} rendered a Packet`);
+    else if (!b.error.includes(`line ${line} \`${broken}\``)) fails.push(`(k) the refusal for the criterion line ${label} does not name the line: ${b.error}`);
   }
 }
 
@@ -409,5 +470,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the italic line is bounded to no part of the subject the paragraph's points do not give, read from the rendered Packet (kogaki#1492); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the seven named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555).");
 JS

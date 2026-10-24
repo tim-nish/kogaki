@@ -14,6 +14,10 @@
     "than observed. `retries` is per act: a response the act's refusals reject is re-asked",
     "with the SAME input up to that count and then the act fails naming the Leg."
   ],
+  "criteria": {
+    "note": "kogaki#1555",
+    "words_max": 20
+  },
   "writer": {
     "command": "claude",
     "model": "claude-opus-5",
