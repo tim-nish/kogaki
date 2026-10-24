@@ -117,16 +117,12 @@ export function loadBrief(args) {
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
   // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Leg Waypoint after the first carries the
-  // plan's `join`, which `waypointLines` renders as its Opens-from line. So do its Obligation
-  // rows and its discharges (kogaki#1530), each discharge carrying the Brief row it names.
-  const briefRows = Array.isArray(brief.record && brief.record.obligations) ? brief.record.obligations : [];
+  // plan's `join`, which `waypointLines` renders as its Opens-from line. The plan's Obligation
+  // rows and discharges stay in the plan and reach no Packet (kogaki#1584).
   const legs = brief.legs.map((leg) => ({ ...leg,
     waypoints: leg.waypoints.map((w, i) => {
       const join = plan.joins.get(leg.leg_id)[i];
-      const obligations = plan.obligations.get(leg.leg_id)[i];
-      const discharges = plan.discharges.get(leg.leg_id)[i].map((d) => ({ ...d, row: briefRows[d.obligation - 1] }));
-      return { ...w, ...(join ? { join } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i],
-        ...(obligations.length ? { obligations } : {}), ...(discharges.length ? { discharges } : {}) };
+      return { ...w, ...(join ? { join } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] };
     }) }));
   return { ...brief, legs, path: resolve(path), paragraphPlanPath: plan.path };
 }

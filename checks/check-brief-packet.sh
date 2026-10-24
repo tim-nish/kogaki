@@ -6,8 +6,9 @@
 #   (p)-(s)   Journey text resolution, writerRefusal, shard prose (kogaki#1250).
 #   (t)-(w)   kogaki#1263's schema widenings; (x)-(aa) and the first (am)
 #             kogaki#1260's compose refusals over them.
-#   (ab)-(ae) the Write block, Journey crossing, typed terms and conceded
-#             rows in the Packet (kogaki#1261), with the inner (aq) and (at).
+#   (ab)-(ae) the Write block, Journey crossing and typed terms in the Packet
+#             (kogaki#1261), a conceded row read off the record and reaching
+#             no Packet (kogaki#1584), with the inner (aq) and (at).
 # A LIGHT member: pure calls, temporary fixture files, no model run. Cut from
 # check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
@@ -565,7 +566,7 @@ const fails = [];
     if (!carried.refusals.some((m) => m.includes(`\`${retiredKey}\``))) fails.push(`(ad) a Brief header carrying the retired external-authority switch was not refused naming the key: ${JSON.stringify(carried.refusals)}`);
   }
 
-  // (ae) a conceded Obligation row renders its three fields in the conceding Leg's Packet.
+  // (ae) a conceded Obligation row is read off the record and reaches no Packet (kogaki#1584).
   {
     const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] })];
     const obligations = [{
@@ -578,16 +579,16 @@ const fails = [];
     const f = brief.refusals.length ? null : obligationRowsOf(brief.record, "s2").find((o) => o.conceded_by === "s2");
     if (!f || f.open !== "whether any input reaches the guard" || f.why_not_here !== "the article's evidence is one week of runs" || f.reader_keeps !== "a way to check their own guard") fails.push(`(ae) obligationRowsOf did not read the row's three fields back off the record: ${JSON.stringify(f)}`);
     if (!brief.refusals.length && obligationRowsOf(brief.record, "s1").some((o) => o.conceded_by === "s1")) fails.push("(ae) obligationRowsOf read a conceded row off a Leg that does not concede it");
-    const s2 = render(brief, brief.legs[1]);
-    if (s2.error) fails.push(`(ae) the Packet for s2 did not render: ${s2.error}`);
-    else {
-      const rows = block(s2.packet, "## This Leg's Obligations", "\n## The article so far");
-      for (const want of ["whether any input reaches the guard", "the article's evidence is one week of runs", "a way to check their own guard"]) {
-        if (!rows.includes(want)) fails.push(`(ae) the conceding Leg's Packet does not render ${JSON.stringify(want)}: ${JSON.stringify(rows)}`);
+    // The retired heading is spelled apart: the Issue's Acceptance greps checks/ for it.
+    const ROW_WORDS = [["## This Leg's", "Obligations"].join(" "), "Whether the guard can be fed at all", "whether any input reaches the guard",
+      "the article's evidence is one week of runs", "a way to check their own guard"];
+    for (const [id, leg] of [["s1", brief.legs[0]], ["s2", brief.legs[1]]]) {
+      const r = render(brief, leg);
+      if (r.error) { fails.push(`(ae) the Packet for ${id} did not render: ${r.error}`); continue; }
+      for (const bad of ROW_WORDS) {
+        if (r.packet.includes(bad)) fails.push(`(ae) the Packet for ${id}, a Leg party to the row, carries ${JSON.stringify(bad)}`);
       }
     }
-    const s1 = render(brief, brief.legs[0]);
-    if (!s1.error && s1.packet.includes("a way to check their own guard")) fails.push("(ae) the introducing Leg's Packet renders the conceded row's fields");
   }
 
   // (aq) kogaki#1281: an absent prior_knowledge is a STATED ABSENCE, never a refusal.
@@ -652,5 +653,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
+console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, a conceded Obligation row reaching no Packet (kogaki#1584), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
 JS

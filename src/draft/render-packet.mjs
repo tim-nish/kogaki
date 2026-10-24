@@ -9,9 +9,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { obligationRowsOf, parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
+import { parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
 import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
-import { obligationItems, obligationLine } from "../compose/sections.mjs";
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
 import { resolveLegJourneys, packetPersonaPath, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
@@ -21,8 +20,6 @@ import { REALIZATION_LANGUAGES, langOf, sectionsDir, packetsDir, packetsRecordKe
 // `prior_knowledge` where the Persona declares none, so the Referents rule
 // in `{{register}}` is never left pointing at a block the Packet does not
 // carry, and nothing here refuses on the absence.
-// A row's items render in the order they were raised, each quoted (kogaki#1549, kogaki#1568).
-const quotedItems = (o) => obligationItems(o).map((t) => `"${t}"`).join(", ");
 export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
@@ -32,25 +29,11 @@ export const READER_OWN_WORLD_ABSENT =
 // Beneath each, an indented `*Opens from:* <join>` line where the ParagraphPlan
 // carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Paragraph Waypoints as a numbered
 // sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
-// with no point and no Serves (kogaki#1448); no Segment field rides on it (kogaki#1585). Beneath the sub-list, a
-// `*Promise:*` line per Paragraph-scale Obligation row and a `*Keeps:*` line per Brief row the
-// paragraph discharges, each naming Paragraph Waypoints by their numbers -- material, asking
-// for no sentence (kogaki#1530). Nothing else of a Move is rendered; a missing plan refuses at
-// the realization entry (`loadBrief`), not here.
+// with no point and no Serves (kogaki#1448); no Segment field rides on it (kogaki#1585). No
+// Obligation row and no line derived from one is rendered: the ledger is the Plan's
+// (kogaki#1584). Nothing else of a Move is rendered; a missing plan refuses at the
+// realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
-export const PROMISE_LABEL = "*Promise:*";
-export const KEEPS_LABEL = "*Keeps:*";
-function promiseLine(o) {
-  const said = obligationItems(o).length > 1 ? `${quotedItems(o)}, raised at ${o.raised_by} and explained in that order`
-    : `${quotedItems(o)}, raised at ${o.raised_by}`;
-  if (o.conceded_by === undefined) return `   ${PROMISE_LABEL} ${said}, kept at ${o.discharged_by}.`;
-  return `   ${PROMISE_LABEL} ${said}, left open at ${o.conceded_by}. Left open: ${o.open}. `
-    + `Why not here: ${o.why_not_here}. What the reader keeps: ${o.reader_keeps}.`;
-}
-function keepsLine(d) {
-  const said = d.row ? quotedItems(d.row) : `the Brief's obligation ${d.obligation}`;
-  return `   ${KEEPS_LABEL} ${said} — at ${d.by}.`;
-}
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
@@ -59,8 +42,7 @@ export function waypointLines(leg) {
   const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
   const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n));
   return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
-    ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`),
-    ...(w.obligations || []).map(promiseLine), ...(w.discharges || []).map(keepsLine)].join("\n")).join("\n");
+    ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`)].join("\n")).join("\n");
 }
 
 // The performs criteria bound (kogaki#1555).
@@ -163,7 +145,6 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   const language = languageOverride ? { language: languageOverride }
     : typeof personaPath === "string" ? audienceLanguage(personaPath) : personaPath;
   if (language.error) missing.push(`the Audience's language (${language.error})`);
-  const obligationRows = obligationRowsOf(brief.record, leg.leg_id);
 
   const fields = {
     // THE ROUTE (kogaki#1311, kogaki#1326): one numbered line per waypoint, in
@@ -196,38 +177,10 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     // meaning, a claim as its `as` restatement, a Journey as its served
     // text). Nothing the reader merely holds otherwise renders here. A
     // STATED ABSENCE, never an empty slot (acceptance item 2): a Leg that
-    // introduces and re-activates nothing still gets the block, saying so,
-    // on the same one-word-one-unit ground `obligation_rows` states.
+    // introduces and re-activates nothing still gets the block, saying so.
     crosses_here: (intro.length || active.length)
       ? [...intro.map((raw) => introduceLine(raw)), ...active].join("\n")
       : "(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)",
-    // THE OBLIGATIONS (kogaki#1151, kogaki#1529): the rows this Leg is a party
-    // to, read from the Brief record's `obligations` list, with the derived
-    // Thesis row on the Leg marked `reaches_target` (`obligationRowsOf`,
-    // kogaki#1328). Rendered as MATERIAL, never as a sentence to write
-    // (kogaki#1496). EMPTY RENDERS EMPTY, NEVER ABSENT (acceptance item 3), on
-    // the same one-word-one-unit ground `reader_already_knows` states.
-    // THE ROW THIS LEG CONCEDES renders its three fields (kogaki#1261): what
-    // stays open, why this article does not close it, and what the reader
-    // keeps — the concession the prose makes, not a bare sentence.
-    obligation_rows: obligationRows.length
-      ? obligationRows.map((o) => {
-        if (o.conceded_by === leg.leg_id) {
-          return `- ${obligationLine(o)} — conceded in this Leg. Left open: ${o.open ?? "(not recorded)"}. `
-            + `Why this article does not close it: ${o.why_not_here ?? "(not recorded)"}. `
-            + `What the reader keeps: ${o.reader_keeps ?? "(not recorded)"}.`;
-        }
-        if (!Array.isArray(o.item)) return `- ${o.text}`; // the derived Thesis row
-        if (obligationItems(o).length > 1) {
-          return o.raised_by === leg.leg_id
-            ? `- ${obligationLine(o)} — items this Leg leaves for later Legs to explain, in that order.`
-            : `- ${obligationLine(o)} — items an earlier Leg left, explained in that order; this Leg is one that explains them.`;
-        }
-        return o.raised_by === leg.leg_id
-          ? `- ${obligationLine(o)} — an item this Leg leaves for a later Leg to explain.`
-          : `- ${obligationLine(o)} — an item an earlier Leg left; this Leg is one that explains it.`;
-      }).join("\n")
-      : "(nothing — this Leg carries no obligation)",
     // the Journey a Leg draws on (kogaki#1111), rendered as its served TEXT with
     // the address beside it as citation (kogaki#1250). Resolution happens in
     // `renderAndStorePacket` before this runs, so every entry carries its
