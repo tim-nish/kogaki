@@ -67,10 +67,7 @@ export function waypointLines(leg) {
     ...(w.obligations || []).map(promiseLine), ...(w.discharges || []).map(keepsLine)].join("\n")).join("\n");
 }
 
-// THE PERFORMS CRITERIA BOUND (kogaki#1555): every `- <NAME>: <sentence>` line of the
-// template, the line form src/paragraph-plan.mjs reads, runs under `criteria.words_max` of
-// src/draft-workflow.json and its sentence carries no `: `, `; ` or ` -- `. Exported so the
-// check reads what `renderPacket` refuses on.
+// The performs criteria bound (kogaki#1555).
 const DRAFT_TABLE = join(dirname(fileURLToPath(import.meta.url)), "..", "draft-workflow.json");
 const CRITERION_LINE = /^- ([A-Z][A-Z ]*[A-Z]): (.+)$/;
 export function templateCriteriaFailures(template, criteria = JSON.parse(readFileSync(DRAFT_TABLE, "utf8")).criteria) {

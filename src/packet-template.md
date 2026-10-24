@@ -103,12 +103,7 @@ field that rides on: the ParagraphPlan copies a Segment's `manner` onto the
 Paragraph Waypoint built on it, and the Packet renders it from that file, so
 no Move file is opened for it either (kogaki#1510).
 
-THE PERFORMS INSTRUCTION IS NAMED CRITERIA UNDER A BOUND (kogaki#1555). Each
-line of the form `- <NAME>: <one sentence>` is one requirement on an italic
-line. `templateCriteriaFailures` (src/draft/render-packet.mjs) holds every such
-line under `criteria.words_max` of src/draft-workflow.json, with no `: `, `; `
-or ` -- ` in its sentence, and the renderer refuses a template that fails. A
-new requirement is a new line, never a clause appended to one.
+THE PERFORMS CRITERIA ARE BOUNDED: kogaki#1555.
 
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
