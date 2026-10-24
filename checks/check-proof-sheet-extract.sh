@@ -72,6 +72,12 @@
 #       refused naming that Segment; a map (carrying the retired `kind`, `text` or `term`, each
 #       named), an empty list and an item named twice are refused (kogaki#1568); and in (b2) the ingest carries the field to the Move record unchanged, where the
 #       Adapter reads it, and adds none to a Move whose Extraction has none.
+#   (i) the `discharges` mark (rule 10, kogaki#1570): a record carrying `discharges: true` where
+#       the input's `open_obligation` names items validates and carries it as the record, the
+#       file and its reading; the same record with `open_obligation` null is refused by name, and
+#       a value other than `true` is refused; the open items pass to the next paragraph until one
+#       is marked, and a raising paragraph's own items replace them; FORMAT's rule 10 carries the
+#       sentence verbatim.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -567,6 +573,29 @@ ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record brok
   }
   ok(/`obligation` is not a list of one or more one-line items/.test(refused([])), `(h) an empty obligation list was not refused: ${refused([])}`);
   ok(/`obligation` names "leverage" twice/.test(refused(["leverage", "leverage"])), `(h) an item named twice was not refused: ${refused(["leverage", "leverage"])}`);
+}
+
+// (i) THE `discharges` MARK (FORMAT "The paragraph unit", rule 10, kogaki#1570).
+{
+  const ITEMS = ["leverage", "margin"];
+  const open = { ...input, open_obligation: ITEMS };
+  const marked = { ...good(), discharges: true };
+  ok(!X.validateExtractionUnit(marked, open).error, `(i) \`discharges\` with an open obligation was refused: ${X.validateExtractionUnit(marked, open).error}`);
+  ok(X.extractionRecord(marked, open, "run").discharges === true, "(i) the Extraction record does not carry `discharges`");
+  const back = parseYaml(X.extractionFileText(marked, open, "run"), "i.yaml");
+  ok(back.discharges === true && X.extractionMarkdown(back).includes("discharges: true"), "(i) the Extraction file or its reading does not carry `discharges`");
+  ok(!("discharges" in X.extractionRecord(good(), open, "run")), "(i) a record with no mark gained `discharges`");
+  const without = X.validateExtractionUnit(marked, { ...input, open_obligation: null }).error || "";
+  ok(/`discharges` is present and `open_obligation` is null/.test(without), `(i) \`discharges\` without an open obligation was not refused by name: ${without}`);
+  const notTrue = X.validateExtractionUnit({ ...good(), discharges: "yes" }, open).error || "";
+  ok(/`discharges` is "yes" — it is `true` or absent/.test(notTrue), `(i) a \`discharges\` other than true was not refused: ${notTrue}`);
+  ok(JSON.stringify(X.carriedObligation(null, { obligation: ITEMS })) === JSON.stringify(ITEMS)
+    && JSON.stringify(X.carriedObligation(ITEMS, {})) === JSON.stringify(ITEMS)
+    && X.carriedObligation(ITEMS, { discharges: true }) === null
+    && JSON.stringify(X.carriedObligation(ITEMS, { obligation: ["why?"] })) === '["why?"]',
+    "(i) the open items do not pass to the next paragraph until one is marked, or a raising paragraph's own items do not replace them");
+  const rule10 = "10. **`discharges` is present only on the paragraph that completes an open obligation.** Where `open_obligation` names items an earlier paragraph left unexplained and this paragraph gives the last of them its meaning or answer, `discharges` is `true`; otherwise the key is absent.";
+  ok(readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").includes(rule10), "(i) passages/FORMAT.md does not carry rule 10 verbatim");
 }
 
 // (g) announced blocks stay with their paragraph
