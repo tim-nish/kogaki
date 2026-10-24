@@ -263,8 +263,8 @@ export function obligationLedgerRefusal(legs, obligations = []) {
   const legName = (id) => JSON.stringify(id);
 
   // THE RECORD (rules 1, 4 and 6): the kind and what it carries, a raising
-  // Leg, `owed_by` after it in path order, and exactly one terminal field
-  // naming a Leg the row is owed to or raised by.
+  // Leg, `owed_by` the unbroken run from the Leg after it, and exactly one
+  // terminal field naming a Leg the row is owed to or raised by.
   for (const [n, o] of list.entries()) {
     const row = `obligation ${n + 1}`;
     if (!o || typeof o !== "object" || Array.isArray(o)) {
@@ -295,20 +295,24 @@ export function obligationLedgerRefusal(legs, obligations = []) {
     const raisedAt = atId(o.raised_by);
     const raisedIdx = index.get(o.raised_by);
     if (!Array.isArray(o.owed_by)) {
-      return pathRefusal("obligation_owed_in_order", raisedAt,
-        `The ${label} row raised here carries no \`owed_by\` list — the Legs that keep it, after this one, in path order.`);
+      return pathRefusal("obligation_owed_contiguous", raisedAt,
+        `The ${label} row raised here carries no \`owed_by\` list — the unbroken run of Legs that keep it, from the one after this.`);
     }
     let prev = raisedIdx;
     for (const id of o.owed_by) {
       if (typeof id !== "string" || !index.has(id)) {
-        return pathRefusal("obligation_owed_in_order", raisedAt,
+        return pathRefusal("obligation_owed_contiguous", raisedAt,
           `The ${label} row raised here names owed_by ${legName(id)}, which is not a Leg of this path.`);
       }
       if (index.get(id) <= prev) {
-        return pathRefusal("obligation_owed_in_order", atId(id),
+        return pathRefusal("obligation_owed_contiguous", atId(id),
           index.get(id) <= raisedIdx
             ? `The ${label} row raised at ${o.raised_by} names this Leg in owed_by, which does not come after the raising Leg.`
             : `The ${label} row raised at ${o.raised_by} names this Leg in owed_by after a later one — owed_by is in path order.`);
+      }
+      if (index.get(id) > prev + 1) {
+        return pathRefusal("obligation_owed_contiguous", at(prev + 1),
+          `The ${label} row raised at ${o.raised_by} skips this Leg: owed_by ${JSON.stringify(o.owed_by)} is not the unbroken run from the Leg after the raising one, so this Leg holds the promise open and owes nothing.`);
       }
       prev = index.get(id);
     }

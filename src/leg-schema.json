@@ -311,10 +311,10 @@
       "name": "Obligations -- at most one open at any Leg, of any kind",
       "rule": "An Obligation is a promise the path makes to the reader: a Question raised in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two occupy the reader's attention alike, so AT MOST ONE Obligation of either kind is open at any Leg. A row is OPEN on every Leg from its `raised_by` Leg up to, and NOT INCLUDING, the Leg that closes it (`discharged_by` or `conceded_by`); a row raised and closed in one Leg is open on none. Do not raise a Question while a deferred term's explanation is still owed, nor defer a term while a Question is open. A Leg on which more than one row is open is refused, naming the Leg and every row open there. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
-    "obligation_owed_in_order": {
+    "obligation_owed_contiguous": {
       "class": "checked",
-      "name": "Obligations -- owed Legs come after the raising Leg, in path order",
-      "rule": "Every row carries `owed_by`, the Legs that keep it, each AFTER its `raised_by` Leg and named in path order; where one Leg raises several items -- a Move that names terms and defers them, or several Questions -- the Legs that owe them are named in the order the items were raised. An explanation may span several owed Legs, and the span from the raising Leg through the last owed Leg counts as one unit for every rule that groups Legs, the Section grouping included (kogaki#1528). An `owed_by` naming the raising Leg, an earlier one, or a Leg before one it already named is refused, naming the row and the Leg. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "name": "Obligations -- owed Legs are the unbroken run from the Leg after the raising Leg",
+      "rule": "Every row carries `owed_by`, the Legs that keep it: the unbroken run of Legs beginning with the Leg immediately after its `raised_by` Leg and ending with the Leg that discharges it; a conceded row's `owed_by` is that run up to the conceding Leg, or empty where the raising Leg concedes (owner decision 2026-10-24). An explanation may span several owed Legs, and the span from the raising Leg through the last owed Leg counts as one unit for every rule that groups Legs, the Section grouping included (kogaki#1528). An `owed_by` whose first Leg is not the one after the raising Leg, or that skips a Leg between two it names, is refused, naming the row and the idle Leg. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "obligation_owed_leg_opens_no_section": {
       "class": "checked",

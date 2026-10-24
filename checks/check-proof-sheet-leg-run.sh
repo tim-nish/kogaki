@@ -124,8 +124,8 @@
 #       `term` row, `term` a one-element list, raised by Leg A, owed by and discharged by Leg B,
 #       marked derived in the Brief and on the Brief card; Leg A's block carries `2 deferred, 1 kept
 #       in this span`; and the plan call for Leg B is handed the row under what it owes. Over four
-#       Legs, B and D introducing the two, one row carries both in order, owed by B and D,
-#       discharged by D, each depending on A. The span of (s), deferring nothing, carries
+#       Legs, B and C introducing the two, one row carries both in order, owed by B and C,
+#       discharged by C, each depending on A. The span of (s), deferring nothing, carries
 #       `obligations: []`.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
@@ -1443,11 +1443,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ok(planB.length >= 1 && planB.every((s) => /"obligations_this_leg_owes": \[\s*\{\s*"obligation": 1,\s*"kind": "term",\s*"term": \[\s*"frobnicator"\s*\]/.test(s)),
         "(v) the plan call for leg-b is not handed the row it owes under obligations_this_leg_owes");
     }
-    const four = vRun("four", ["leg_a", "leg_b", "leg_c", "leg_d"], { "leg-b": ["frobnicator"], "leg-d": ["gizmo"] });
+    const four = vRun("four", ["leg_a", "leg_b", "leg_c", "leg_d"], { "leg-b": ["frobnicator"], "leg-c": ["gizmo"] });
     if (four && four.rec) {
-      ok(JSON.stringify(four.rec.obligations) === JSON.stringify([{ kind: "term", term: ["frobnicator", "gizmo"], raised_by: "leg-a", owed_by: ["leg-b", "leg-d"], discharged_by: "leg-d" }]),
-        `(v) the four-Leg Brief does not carry one row of both terms in order, owed by leg-b and leg-d: ${JSON.stringify(four.rec.obligations)}`);
-      ok(JSON.stringify(briefLegs(four.rec).map((l) => l.depends_on || [])) === '[[],["leg-a"],["leg-b"],["leg-a","leg-c"]]',
+      ok(JSON.stringify(four.rec.obligations) === JSON.stringify([{ kind: "term", term: ["frobnicator", "gizmo"], raised_by: "leg-a", owed_by: ["leg-b", "leg-c"], discharged_by: "leg-c" }]),
+        `(v) the four-Leg Brief does not carry one row of both terms in order, owed by leg-b and leg-c: ${JSON.stringify(four.rec.obligations)}`);
+      ok(JSON.stringify(briefLegs(four.rec).map((l) => l.depends_on || [])) === '[[],["leg-a"],["leg-a","leg-b"],["leg-c"]]',
         `(v) the introducing Legs do not depend on the raising Leg: ${JSON.stringify(briefLegs(four.rec).map((l) => l.depends_on))}`);
       ok(block(four.sheet, 1).includes("2 deferred, 2 kept in this span"), "(v) Leg A's block does not carry \"2 deferred, 2 kept in this span\"");
     }
