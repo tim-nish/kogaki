@@ -1660,19 +1660,14 @@ than merely undocumented. The Packet stays the Writer's whole input; nothing
 is added to it.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
-anchors → **the Leg's waypoints** → the Leg's fields → the §4.13 ledger → **this
-Leg's own §5.2 Obligation rows** → every previously realized Leg's prose in
-recorded order → the write instruction.
+anchors → **the Leg's waypoints** → the Leg's fields → the §4.13 ledger →
+every previously realized Leg's prose in recorded order → the write
+instruction.
 
-**The Obligations block renders in the §4.13 shape** (kogaki#1151, kogaki#1529):
-only the rows where this Leg is `raised_by`, owed, `discharged_by` or
-`conceded_by`, as their
-prose text — the Thesis row on its establishing Legs — never a copy of the
-whole ledger. A Leg party to no row renders the block **empty rather than
-absent**, on the same one-word-one-unit ground the reader-knowledge ledger's
-own empty case states. The rows render as material and the block asks for no
-sentence of its own; a row needing one is carried by a waypoint (§5.2,
-kogaki#1496).
+**No Obligation row renders** (kogaki#1584, owner decision 2026-10-25): the
+Obligations ledger is the Plan's at both scales, and the Packet carries no row
+and no line derived from one (§5.2 rule 6). The Obligations block of
+kogaki#1151 and kogaki#1529 is retired with it.
 
 **No Move field renders, and the waypoints block takes the Move block's place**
 (kogaki#1311). The Move's `before`/`after` were excluded from the start, for
@@ -2313,17 +2308,16 @@ Writer never reads a Move (2026-10-12).
 **And its converse: the Brief selects Moves and composes Waypoints, and hands
 everything else forward as material** (kogaki#1496, owner decision 2026-10-21:
 "Brief is responsible for Move selection and Waypoint creation, but has no
-authority to add explanatory prose outside the Move"). The boundary above
-says how far a Move reaches; this says what else may fix a paragraph's
-structure, and the answer is nothing beside the Paragraph Waypoints and the
-italic lines. Everything else the Brief hands the Writer arrives as
-**material** — a term with its meaning, a claim as a restatement, a Journey as
-its served text, a Closure row as the promise it is — and never as an
-instruction on what to add or how to present it. A line that asks the Writer
-for a sentence the plan does not carry competes with the plan, the way the
-retired Voice paragraph's hedge did (kogaki#1488), and the paragraph it
-touches is rebuilt around it while the Move's Segments are still honoured. A
-concern the Brief has about the prose acts through Move selection, the
+authority to add explanatory prose outside the Move"). The boundary above says
+how far a Move reaches; this says what else may fix a paragraph's structure,
+and the answer is nothing beside the Paragraph Waypoints and the italic lines.
+Everything else the Brief hands the Writer arrives as **material** — a term
+with its meaning, a claim as a restatement, a Journey as its served text — and
+never as an instruction on what to add or how to present it. A line that asks
+the Writer for a sentence the plan does not carry competes with the plan, the
+way the retired Voice paragraph's hedge did (kogaki#1488), and the paragraph
+it touches is rebuilt around it while the Move's Segments are still honoured.
+A concern the Brief has about the prose acts through Move selection, the
 waypoints it composes and the noun phrases inside them.
 
 Every block of the Leg Packet (§4.14), sorted under that rule:
@@ -2335,7 +2329,6 @@ Every block of the Leg Packet (§4.14), sorted under that rule:
 | the Journey material | material — the served text, edited, never a claim to recover |
 | the Section, and the reader-target line | material — where the Leg sits and whether it may still introduce anything |
 | what crosses into this Leg | material — a term with its meaning, a claim as its restatement, a Journey as its served text |
-| this Leg's Closure | material — the promises this Leg is party to, so the Writer knows what a point it writes discharges or leaves open; the block adds no sentence of its own (kogaki#1496 retired "Honor the rows below in the prose") |
 | the article so far | material — the prose already recorded |
 | Write: budget, heading, language, the reader's own world, the register | how sentences read inside the plan, never what they add; the register yields to a planned line (kogaki#1493) |
 | Write: the round trip | each claim recoverable from what is written; a loss the Writer cannot restore is a refusal, never a concession the plan does not carry (kogaki#1496 retired "concede it explicitly in the prose") |
@@ -2504,25 +2497,25 @@ planner consumes it and it never reaches the Writer.
 
 **Obligations at the Paragraph scale** (kogaki#1528, owner decision
 2026-10-23). A Leg Waypoint's Paragraph Waypoints carry the same Obligation
-record §5.2 states for Legs — `{item, raised_by, owed_by,
-discharged_by | conceded_by}` — with `raised_by`, `owed_by` and the terminal
-field naming Paragraph Waypoints of that one Leg Waypoint, and the record
-lives in the ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's
-rules bind it as they bind the Leg scale, except the Section rule: a slot is
-raised by the bound paragraph Move's `obligation` and by nothing else, and
-its row's `item` list carries, in the slot's order, what this article leaves
-unexplained at that paragraph, in the article's own words, one entry per slot
-item, a row whose count differs from the slot's refused naming both
-(kogaki#1577); at most one row is open at any Paragraph Waypoint, `owed_by`
-is the unbroken run from the next Paragraph Waypoint,
-and a row open here may be open while a Leg-scale row is open too. **Discharge
-is planning, never prose**: a row is kept by the Paragraph Waypoints the plan
-generates for its owed units, the Packet renders it as material and asks for
-no sentence, and no stage inserts a paragraph or a sentence for it. Whether a
-discharge keeps the promise is the ParagraphPlan judge's to judge, beside the
-plan it already judges. *Status: stated ahead of the executables*: the file's
-reader still refuses any key outside those named above, and the Issue that
-writes the record fixes its key and how a row names a Paragraph Waypoint.
+record §5.2 states for Legs — `{item, raised_by, owed_by, discharged_by |
+conceded_by}` — with `raised_by`, `owed_by` and the terminal field naming
+Paragraph Waypoints of that one Leg Waypoint, and the record lives in the
+ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's rules bind
+it as they bind the Leg scale, except the Section rule: a slot is raised by
+the bound paragraph Move's `obligation` and by nothing else, and its row's
+`item` list carries, in the slot's order, what this article leaves unexplained
+at that paragraph, in the article's own words, one entry per slot item, a row
+whose count differs from the slot's refused naming both (kogaki#1577); at most
+one row is open at any Paragraph Waypoint, `owed_by` is the unbroken run from
+the next Paragraph Waypoint, and a row open here may be open while a Leg-scale
+row is open too. **Discharge is planning, never prose**: a row is kept by the
+Paragraph Waypoints the plan generates for its owed units, the row lives in
+the ParagraphPlan file and reaches no Packet (kogaki#1584), and no stage
+inserts a paragraph or a sentence for it. Whether a discharge keeps the
+promise is the ParagraphPlan judge's to judge, beside the plan it already
+judges. *Status: stated ahead of the executables*: the file's reader still
+refuses any key outside those named above, and the Issue that writes the
+record fixes its key and how a row names a Paragraph Waypoint.
 
 **The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.
@@ -2951,13 +2944,14 @@ decision 2026-10-24), and these rules govern it:
 5. **Section.** No Leg named in an open Obligation's `owed_by` carries
    `opens_section`; the raising Leg opens the Section, under the Section
    grouping's rule 1 (§4.15).
-6. **Discharge is planning, never prose.** A discharge is kept by the owed
-   unit's Waypoints and its Move binding: at the Leg scale by the Leg's
-   Waypoints, at the Paragraph scale by the Paragraph Waypoints the plan
-   generates. The Packet renders rows as material and asks for no sentence,
-   and no stage inserts a paragraph or a sentence for a row. Whether a
-   discharge keeps the promise is judged where Path Review judges `discharge`
-   (§4.12.2) and where the ParagraphPlan judge judges the plan (§4.19).
+6. **Discharge is planning, never prose, and the rows never leave the Plan.**
+   A discharge is kept by the owed unit's Waypoints and its Move binding: at
+   the Leg scale by the Leg's Waypoints, at the Paragraph scale by the
+   Paragraph Waypoints the plan generates. The Packet carries no row and no
+   line derived from one, and no stage inserts a paragraph or a sentence for
+   a row (kogaki#1584, owner decision 2026-10-25). Whether a discharge keeps
+   the promise is judged where Path Review judges `discharge` (§4.12.2) and
+   where the ParagraphPlan judge judges the plan (§4.19).
 7. **Terms.** `introduces` keeps `term` and `meaning` and drops `kind`: every
    introduced term is one the article gives its meaning to, and a term the
    reader already holds is not introduced. A term named and deferred is an
@@ -3024,14 +3018,14 @@ as the judgment-class `first_leg_binds_a_survivor` path rule.
 **A row that needs a sentence of its own gets a waypoint** (kogaki#1496, owner
 decision 2026-10-21: Closure "should influence Move selection, Waypoint
 creation, and noun phrases within Waypoints rather than independently adding
-prose"). The Packet renders a Leg's rows as material (§4.19's sorting), and
-asks for no sentence from them. Where keeping or conceding a promise needs a
-sentence the Leg's other points do not already make, the Brief's reader-path
-unit composes a waypoint of the discharging or conceding Leg for it, and the
-row reaches the prose through that waypoint and its Paragraph Waypoints. The
-Path Review's `discharge` item (§4.12.2) already names each discharged row and
-its discharging Leg beside that Leg's claims, which is where a row no point
-answers is read; it is unchanged by this paragraph.
+prose"). The rows never reach the Packet (rule 6, kogaki#1584), so a row
+reaches the prose only through the plan. Where keeping or conceding a promise
+needs a sentence the Leg's other points do not already make, the Brief's
+reader-path unit composes a waypoint of the discharging or conceding Leg for
+it, and the row reaches the prose through that waypoint and its Paragraph
+Waypoints. The Path Review's `discharge` item (§4.12.2) already names each
+discharged row and its discharging Leg beside that Leg's claims, which is
+where a row no point answers is read; it is unchanged by this paragraph.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
 obligation is worth entering, and whether a discharge or a concession is the

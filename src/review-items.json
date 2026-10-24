@@ -287,11 +287,11 @@
       "form, so every entry names the paragraph it opens; a Leg whose Leg Waypoints carry",
       "no join answers the empty list.",
       "",
-      "`performs` AND `keeps` READ THE SAME BLOCK (kogaki#1556). A `performs` Paragraph",
+      "`performs` IS AN `italic_lines` BLOCK (kogaki#1556). A `performs` Paragraph",
       "Waypoint renders as the indented italic `<j>. *<operation>*`, which `italic_lines`",
-      "reads as the operation alone, and a kept promise as an indented `*Keeps:*` line,",
-      "which `labelled_lines` reads; each entry names its paragraph, and a Leg carrying",
-      "neither line answers the empty list."
+      "reads as the operation alone; each entry names its paragraph, and a Leg carrying",
+      "no such line answers the empty list. No kept-promise line is read: no Obligation",
+      "row reaches the Packet (kogaki#1584)."
     ],
     "claims": {
       "kind": "heading_list",
@@ -323,12 +323,6 @@
       "kind": "italic_lines",
       "heading": "The waypoints this Leg takes the reader through",
       "entry": "paragraph {n} performs: {line}"
-    },
-    "keeps": {
-      "kind": "labelled_lines",
-      "heading": "The waypoints this Leg takes the reader through",
-      "label": "*Keeps:*",
-      "entry": "paragraph {n} keeps: {line}"
     }
   },
   "pass_two": {
@@ -586,19 +580,6 @@
         "sentence": "this Leg has no italic line"
       },
       "question": "The italic line above names an operation the paragraph performs on the reader. Below it is the sentence the reader found performing it. Does that sentence say anything beyond the operation? Answer `holds` where it says nothing beyond it and `fails` where it does, naming what it adds."
-    },
-    {
-      "id": "promise-kept",
-      "class": "best-effort",
-      "mode": "per-declared",
-      "declared_block": "keeps",
-      "reverse_source": "passage",
-      "reverse_entry": "(the passage itself, quoted below: what keeps the promise is what you find in it, and your answer names the promise where nothing does)",
-      "when_declared_absent": {
-        "verdict": "holds",
-        "sentence": "this Leg keeps no promise"
-      },
-      "question": "The line above names a promise an earlier passage made and says this paragraph keeps it. Does the passage state what keeps that promise? Answer `holds` where it does and `fails` where it does not, naming the promise."
     },
     {
       "id": "demonstrative-reference",

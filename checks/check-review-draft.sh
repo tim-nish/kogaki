@@ -30,8 +30,8 @@
 #       stops (b) passing on any verdict);
 #   (d) a Packet whose Leg Waypoints carry no join owes no pair and holds by
 #       the item's stated absence.
-# AND THE `performs` AND `promise-kept` ITEMS (kogaki#1556), each one pair per
-# italic or `*Keeps:*` line of the waypoints block, the passage as reverse side:
+# AND THE `performs` ITEM (kogaki#1556), one pair per italic line of the
+# waypoints block, the passage as reverse side:
 #   (e) a performing sentence adding "is worth defining in its own right" fails
 #       `performs` under a `fails` verdict, the evidence naming paragraph 1; the
 #       italic line the Packet renders is `<j>. *<operation>*` with nothing after
@@ -39,9 +39,10 @@
 #       operation is no `performs` line, owing no pair (kogaki#1585: no tail rides
 #       on it, so none is stripped);
 #   (f) the sentence reduced to the operation holds with no evidence;
-#   (g) a Draft never stating the promised item fails `promise-kept`, the
-#       evidence naming the promise;
-#   (h) a Leg with neither line holds on both by `when_declared_absent`.
+#   (g) the `promise-kept` item and its `keeps` block are retired with the
+#       Packet line they read: src/review-items.json declares neither
+#       (kogaki#1584);
+#   (h) a Leg with no italic line holds by `when_declared_absent`.
 #
 # NOT COVERED, stated rather than implied: whether a LIVE judge answers
 # `fails` on a copied opening is the model's judgment, never asserted here;
@@ -163,15 +164,13 @@ else {
   }
 }
 
-// (e)-(h) THE PERFORMS AND PROMISE-KEPT ITEMS (kogaki#1556), over a Packet whose first Leg
-// Waypoint carries one `performs` Paragraph Waypoint and whose second keeps one Brief promise.
+// (e)-(h) THE PERFORMS ITEM (kogaki#1556), over a Packet whose first Leg Waypoint carries one
+// `performs` Paragraph Waypoint.
 const OPERATION = "announce that a definition follows";
-const PROMISE = "why the second run replaces edits made to the copy";
-const packetWith = ({ performs = false, keeps = false } = {}) => {
+const packetWith = ({ performs = false } = {}) => {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
     paragraph_waypoints: [{ point: w.point, serves: w.serves },
-      ...(i === 0 && performs ? [{ performs: OPERATION }] : [])],
-    ...(i === 1 && keeps ? { discharges: [{ obligation: 1, by: 1, row: { item: [PROMISE] } }] } : {}) })) };
+      ...(i === 0 && performs ? [{ performs: OPERATION }] : [])] })) };
   const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
   return r.packet || "";
@@ -185,11 +184,12 @@ const judge = (fx, only, verdict, reason) => {
   return { owed, judged: buildJoin(fx.draft, fx.run, only, fx.dir, { pass: 1 }) };
 };
 const performs = table.items.find((i) => i.id === "performs");
-const kept = table.items.find((i) => i.id === "promise-kept");
-if (!performs || !kept) fails.push("(e) src/review-items.json declares no `performs` or no `promise-kept` item");
+if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.packet_blocks || {}, "keeps")) {
+  fails.push("(g) src/review-items.json still declares the retired `promise-kept` item or its `keeps` block");
+}
+if (!performs) fails.push("(e) src/review-items.json declares no `performs` item");
 else {
   const onlyP = { ...table, items: [performs] };
-  const onlyK = { ...table, items: [kept] };
   // (e) a performing sentence adding to its operation: one pair, the italic line on the declared
   // side, and a fails verdict fails the row with evidence naming the paragraph.
   const adds = judge(fixture("performs-adds", packetWith({ performs: true }), PARA2_OWN, ADDS), onlyP,
@@ -209,14 +209,8 @@ else {
     "holds", "the sentence announces the definition and adds nothing.");
   const brow = rowOf(bare.judged, "performs");
   if (bare.owed.owed.length !== 1 || !brow || brow.verdict !== "holds" || brow.evidence) fails.push(`(f) the bare performing sentence did not hold without evidence: ${JSON.stringify(brow)}`);
-  // (g) a Draft never stating the promised item fails promise-kept naming the promise.
-  const unkept = judge(fixture("promise-unkept", packetWith({ keeps: true }), PARA2_OWN), onlyK,
-    "fails", "the passage never says why the second run replaces edits.");
-  if (unkept.owed.owed.length !== 1 || !readFileSync(unkept.owed.owed[0].packet, "utf8").includes(`paragraph 2 keeps: "${PROMISE}"`)) fails.push("(g) the promise-kept item does not owe one pair carrying the Keeps line named as paragraph 2's");
-  const krow = rowOf(unkept.judged, "promise-kept");
-  if (!krow || krow.verdict !== "fails" || !(krow.evidence || []).some((e) => String(e).includes(PROMISE))) fails.push(`(g) a fails verdict did not fail the promise-kept row naming the promise: ${JSON.stringify(krow)}`);
-  // (h) a Leg with neither line holds on both by the stated absence, owing no pair.
-  for (const it of [performs, kept]) {
+  // (h) a Leg with no italic line holds by the stated absence, owing no pair.
+  for (const it of [performs]) {
     const fx = fixture(`neither-${it.id}`, packetWith(), PARA2_OWN);
     const out = buildJoin(fx.draft, fx.run, { ...table, items: [it] }, fx.dir, { pass: 1 });
     const r = rowOf(out, it.id);
@@ -228,5 +222,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs and promise-kept items owe one pair per italic or Keeps line, fail naming the paragraph or the promise, hold the bare performing sentence, and hold by the stated absence on a Leg carrying neither line (kogaki#1556); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).");
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).");
 JS

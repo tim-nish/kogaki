@@ -74,16 +74,19 @@
 #       absences below are read over a block known to hold the line in scope
 #       -- and carrying neither "coined" nor "established" nor "present it as
 #       a name" nor "may be handed this name as given".
-#   (j) THE PACKET ASKS FOR NO SENTENCE THE PLAN DOES NOT CARRY (kogaki#1496):
-#       a Leg party to an Obligation row renders a Packet whose Obligations block
-#       carries the row -- read first, so the absences below are read over a
-#       Packet known to hold the block in scope -- and whose Write block
-#       carries the round trip's "Each claim above must be recoverable from
-#       what you write"; neither the Write block nor anywhere else in the
-#       Packet carries "concede it explicitly" or "Honor the rows"; and the
-#       same render from the template with the pre-kogaki#1496 honour line
-#       and round-trip paragraph restored is refused by the same predicate,
-#       so the absences are not vacuous.
+#   (j) NO OBLIGATION ROW REACHES THE PACKET, AND THE PACKET ASKS FOR NO
+#       SENTENCE THE PLAN DOES NOT CARRY (kogaki#1584, kogaki#1496): a Leg
+#       party to an Obligation row -- the Brief read with the row on its
+#       record, so the row is known to be in scope -- renders a Packet
+#       carrying none of the retired Obligations heading, "*Promise:*",
+#       "*Keeps:*" or the row's item words (the heading spelled apart, since
+#       the Issue's Acceptance greps checks/ for it), whose Write block carries the
+#       round trip's "Each claim above must be recoverable from what you
+#       write", and which nowhere carries "concede it explicitly" or "Honor
+#       the rows"; the same Packet with the retired Obligations block put
+#       back, and the render from the template with the pre-kogaki#1496
+#       honour line and round-trip paragraph restored, are each refused by
+#       the same predicate, so the absences are not vacuous.
 #   (k) THE RENDERER REFUSES A TEMPLATE THAT BREAKS THE CRITERIA BOUND
 #       (kogaki#1555): the shipped template passes `templateCriteriaFailures`
 #       under src/draft-workflow.json's `criteria`; and a template whose
@@ -459,50 +462,54 @@ if (!r.error) {
   if (!(retired.refusals || []).some((m) => m.includes("`nearest`"))) fails.push(`(i) a Brief whose introduces entry carries the retired nearest was not refused naming the key: ${JSON.stringify(retired.refusals)}`);
 }
 
-// (j) the Packet asks for no sentence the plan does not carry: no concession, no honour line (kogaki#1496).
+// (j) no Obligation row reaches the Packet (kogaki#1584), and the Packet asks for no sentence the plan does not carry (kogaki#1496).
 {
   const ROW = "the reader is owed why the copy is overwritten";
   const RECOVERABLE = "Each claim above must be recoverable from what you write";
-  const jText = briefRecordText({
+  const RETIRED_HEADING = ["## This Leg's", "Obligations"].join(" ");
+  const conceded = { item: [ROW], raised_by: "s1", owed_by: [], conceded_by: "s1",
+    open: "whether the copy may ever be edited", why_not_here: "the article covers one install", reader_keeps: "a rule to edit the source" };
+  const jTextWith = (row) => briefRecordText({
     slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
     thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
     reader_target: "s1", reader_path: [legRecord(leg)],
-    strand_coverage: [], journey_coverage: [], obligations: [{ item: [ROW], raised_by: "s1", owed_by: [], conceded_by: "s1",
-      open: "whether the copy may ever be edited", why_not_here: "the article covers one install", reader_keeps: "a rule to edit the source" }], tradeoffs: {}, bridged: {},
+    strand_coverage: [], journey_coverage: [], obligations: [row], tradeoffs: {}, bridged: {},
   });
-  const jBrief = readBrief(jText, "theses/packet-brief/brief.yaml");
+  const jBrief = readBrief(jTextWith(conceded), "theses/packet-brief/brief.yaml");
   const jRender = (templateText) => {
     const split = splitPacketTemplate(templateText);
     if (split.error) return { error: split.error };
     return renderPacket({ template: split.packet, brief: jBrief, leg: jBrief.legs[0], priorSections: [],
       section: sectionOfLeg(jBrief.legs).get(jBrief.legs[0].leg_id), sections: sectionsOf(jBrief.legs) });
   };
-  // THE PREDICATE the shipped render and the counterfactual share.
+  // THE PREDICATE the shipped render and the counterfactuals share.
   const asksNoUnplannedSentence = (packet) => {
-    const i = packet.indexOf("## This Leg's Obligations");
-    const end = i === -1 ? -1 : packet.indexOf("\n## ", i + 1);
-    const rows = i === -1 ? "" : packet.slice(i, end === -1 ? undefined : end);
-    if (!rows.includes(`- ${ROW}`)) return `the Obligations block does not carry the Leg's row: ${JSON.stringify(rows)}`;
+    for (const bad of [RETIRED_HEADING, "*Promise:*", "*Keeps:*", ROW]) {
+      if (packet.includes(bad)) return `the Packet carries "${bad}"`;
+    }
     const w = writeBlock(packet);
     if (w === null) return "the Packet carries no Write block";
     if (!flat(w).includes(RECOVERABLE)) return `the Write block does not carry "${RECOVERABLE}"`;
     for (const bad of ["concede it explicitly", "Honor the rows"]) {
-      if (flat(w).includes(bad)) return `the Write block carries "${bad}"`;
       if (flat(packet).includes(bad)) return `the Packet carries "${bad}"`;
     }
     return null;
   };
   if ((jBrief.refusals || []).length) fails.push(`(j) the fixture Brief with an Obligation row was refused: ${JSON.stringify(jBrief.refusals)}`);
+  else if (!(jBrief.record.obligations || []).some((o) => (o.item || []).includes(ROW))) fails.push("(j) the fixture Brief's record does not carry the Obligation row");
   else {
     const j = jRender(template);
     if (j.error) fails.push(`(j) the fixture Packet with an Obligation row did not render: ${j.error}`);
     else {
       const why = asksNoUnplannedSentence(j.packet);
       if (why) fails.push(`(j) ${why}`);
+      const restored = j.packet.replace("## The article so far", `${RETIRED_HEADING}\n\n- ${ROW}\n\n## The article so far`);
+      if (restored === j.packet) fails.push("(j) the fixture could not put the retired Obligations block back");
+      else if (asksNoUnplannedSentence(restored) === null) fails.push("(j) the Packet with the retired Obligations block passed the predicate (j) applies");
     }
     const before = template
-      .replace("## This Leg's Obligations\n\n", "## This Leg's Obligations\n\nHonor the rows below in the prose rather than restating them as fields.\n\n")
+      .replace("## The article so far", "Honor the rows below in the prose rather than restating them as fields.\n\n## The article so far")
       .replace(/\*\*The round trip — claims only\.\*\*[\s\S]*?\n\n/, "**The round trip — claims only.** Each claim above must be recoverable from\n"
         + "what you write. Where making one plain loses something, either restore the\nloss or **concede it explicitly in the prose**. "
         + "A concession is part of the\noutput; a silent omission is not a simplification, it is a loss.\n\n");
@@ -519,5 +526,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the seven named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the seven named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585).");
 JS

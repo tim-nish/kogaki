@@ -70,8 +70,8 @@ rendered into the Packet only where a sentence-level decision of the writer
 depends on it. The fixed-points block (Thesis, Reader start, Reader target)
 and the This Leg block (`purpose`, `reader_state_before`,
 `reader_state_after`) are retired on that ground — their operational content
-for the writer is already carried by the crossing block and
-the Obligation rows, and review of the prose reads the reader states from the
+for the writer is already carried by the waypoints and the crossing block,
+and review of the prose reads the reader states from the
 Brief, never the Packet. The reader-target line is the one piece of that
 retired block with a live sentence-level use — it says whether this Leg may
 still introduce or raise anything — so it moves into the Section block rather
@@ -83,7 +83,7 @@ FLAT LISTS under their own headings, in ONE convention: every item is a `- `
 line at column zero, one line per item, no indentation carrying meaning, no
 `key:` prefix, and no relation between one item and another. No list sits
 under a bulleted field label. Where the realization of a whole schema category is
-fixed — Obligation rows, Journey material — that behaviour is stated once,
+fixed — Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
 
 NO MOVE REACHES THE PACKET (kogaki#1311, owner decision 2026-10-09;
@@ -100,6 +100,9 @@ relations the stage chose from the reader state the previous paragraph leaves,
 and carries nothing of a Move (kogaki#1411, kogaki#1477).
 No Segment field is copied onto a Paragraph Waypoint, `manner` included
 (kogaki#1585, owner decision 2026-10-25, reverting kogaki#1510's copy).
+NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25):
+the Obligations ledger is the Plan's, at both scales, and the Writer is given
+the Waypoints alone.
 
 THE PERFORMS CRITERIA ARE BOUNDED: kogaki#1555.
 
@@ -137,14 +140,6 @@ clause of the register's own, or with nothing where the order of the sentences
 already carries it; `none` adds nothing. Never state the relation as a
 proposition of its own: the opening does not say that something was left open,
 is owed, or is now taken up. The word is not copied and not announced.
-
-A *Promise:* line under a paragraph's points is a promise that paragraph makes
-to the reader and keeps within itself: the numbers are its indented points,
-the one that raises it and the one that keeps it or leaves it open. A *Keeps:*
-line names a promise this Leg owes, and the indented point at which this
-paragraph keeps it. Both are material, so you know what a point you write
-raises or keeps. They add no sentence of their own: the points carry it, and
-the line is not copied or announced (kogaki#1530).
 
 {{waypoints}}
 
@@ -184,18 +179,6 @@ Nothing not listed here is material for this Leg: the reader may hold more, but 
 hold and do not see below is not yours to speak of or rely on.
 
 {{crosses_here}}
-
-## This Leg's Obligations
-
-The Brief's Obligations carry the promises the article makes to the
-reader — the Thesis's, and each Leg's own: a question raised, or a term named
-before its meaning is given. The rows below are the ones THIS LEG is a party
-to: where it raises a promise, owes part of one, keeps one, or concedes one
-(leaves it open). They are given so you know what a point you write keeps or
-leaves open. They add no sentence of their own: where a row needs one, the
-waypoints above carry it.
-
-{{obligation_rows}}
 
 ## The article so far, up to this Leg:
 
