@@ -30,8 +30,11 @@
 // A RUN OF SEVERAL LEGS (kogaki#1532): one block per Leg, in order, each with its own comparison
 // table, paragraph tables and per-Leg cards (Extraction, Move, ParagraphPlan, Packet, Draft), under
 // one Brief card and above one Run record card. The Brief card lists the derived cross-Leg fields,
-// each marked `derived`, from the composer's `brief.json`; a Leg raising an Obligation row carries
-// one `raised here, kept through <leg>` line per row under its heading (kogaki#1570).
+// each marked `derived`, from the composer's `brief.json`.
+//
+// THE MOVE'S OBLIGATION BESIDE ITS PARAGRAPH (kogaki#1582): the comparison table carries, under each
+// original paragraph, the `obligation` items its Move carries, so the owner judges the proposal
+// against the prose by eye. The sheet is the library view, not the Plan, so a Move field may appear.
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
@@ -486,11 +489,19 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
   const pairs = [];
   for (let i = 0; i < n; i++) {
     const writtenCell = written ? `${esc(writtenParas[i] || "")}${anchorLinks(i + 1)}` : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
-    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td>${writtenCell}</td></tr>`);
+    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}${moveObligationLine(r, i)}</td><td>${writtenCell}</td></tr>`);
   }
   return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, r.legCopy || "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
     + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
+}
+
+// Paragraph `i`'s Move's `obligation` items, one line; nothing where its Move carries none.
+function moveObligationLine(r, i) {
+  const e = ((r.ingest && r.ingest.entries) || [])[i];
+  const rec = e && e.move ? moveRecord(r, e.move) : null;
+  const items = rec && Array.isArray(rec.obligation) ? rec.obligation : [];
+  return items.length ? `<p class="obligation">Move obligation: ${items.map((x) => esc(x)).join(" · ")}</p>` : "";
 }
 
 // CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
@@ -1046,6 +1057,7 @@ const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--ac
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}}
 :root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
+.obligation{color:var(--accent);font-size:13px}
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
@@ -1108,16 +1120,8 @@ function card(r, { provenance, mapHash, idx = 0 }) {
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
 }
 
-// THE OBLIGATION ROWS A LEG RAISES (kogaki#1570): one line per row from the composer's
-// `brief.json`, naming the Leg whose paragraph is marked `discharges`.
-export function deferralLines(deferrals, legId) {
-  return (Array.isArray(deferrals) ? deferrals : []).filter((d) => d.leg_id === legId)
-    .map((d) => `<p class="deferred">raised here, kept through ${esc(d.kept_by)}</p>`).join("");
-}
-
 // A RUN OF SEVERAL LEGS (see the header). A Leg block's Inputs link to the one Brief card.
 function legsCard(r, { provenance, mapHash, idx = 0 }) {
-  const deferrals = ((r.legBriefRun && readJson(join(r.legBriefRun, "brief.json"))) || {}).deferrals;
   const blocks = r.run.legs.map((l, k) => {
     const v = legView(r, k);
     const vidx = `${idx}-${k + 1}`;
@@ -1129,7 +1133,7 @@ function legsCard(r, { provenance, mapHash, idx = 0 }) {
     const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
       + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
     return `<section class="leg-block" id="leg-${vidx}"><h3>Leg ${k + 1} of ${r.run.legs.length} — ${esc(v.legId || "(no Leg in the Brief)")}`
-      + ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>` + deferralLines(deferrals, v.legId)
+      + ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>`
       + body.split(`href="#card-${vidx}-brief"`).join(`href="#card-${idx}-brief"`) + `</section>`;
   });
   return `<section class="card"><h2>${esc(r.run.passage || "Legs")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`

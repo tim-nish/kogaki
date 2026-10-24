@@ -8,7 +8,8 @@
 # binary (`KOGAKI_JUDGE_CLI`) — never the actual `claude` CLI:
 #   (a) the run writes `brief.yaml` with ONE Leg carrying three Leg Waypoints and three
 #       Claims, its Reader start and after-state as the record's five-key maps, and every
-#       constant field marked by the constant comment.
+#       constant field marked by the constant comment, `obligations` by the comment naming the
+#       Planner (kogaki#1582).
 #   (b) the gate the Brief must pass: /paragraph-plan's own `readAdoptedBrief` accepts it,
 #       and `node src/draft.mjs resolve` accepts it with a plan written beside it by the
 #       ParagraphPlan stage's own writer — neither file edited.
@@ -50,16 +51,12 @@
 #   (k) THE EARLIER LEGS' IDS ARE SHOWN (kogaki#1560): over a two-Leg Extractor run, the first
 #       Leg's rendered prompt carries `leg_ids_already_carried` empty and the second Leg's carries
 #       the first Leg's id, and the rendered Leg call states that this Leg's `leg_id` is none of them.
-#   (l) THE OBLIGATION ROWS COME FROM THE `discharges` MARK (kogaki#1570), driven through
-#       `obligationRows` over three two-paragraph Legs: a marked passage, paragraph 2 raising two
-#       items and paragraph 5 marked, gives one row owed by every Leg from the second through the
-#       marked one and one `{ leg_id, items, kept_by }`; an unmarked passage is refused naming
-#       paragraph 2 and both items; and a raising and a discharging paragraph in one Leg give no row.
-#   (m) THE ROW'S ITEM IS THE PARAGRAPH'S OWN WORDS (kogaki#1578): `paragraphMarks` over a Move
-#       whose `obligation` is two general items and an Extraction whose `obligation_content` is
-#       the paragraph's two words gives a row whose `item` is those words, and the Move file
-#       carries none of them; an `obligation_content` of one item, or none, under that Move is
-#       refused naming the paragraph.
+#   (l) THE BUILDER WRITES NO OBLIGATION ROW (kogaki#1582): a two-Leg run whose second paragraph's
+#       Extraction carries a Move's `obligation` items and no later paragraph is marked
+#       `discharges` writes its Brief with `obligations: []` under the comment naming the Planner,
+#       and its `brief.json` carries no `deferrals` and no derived `obligations` row; given
+#       `--moves` and `--ingest` over Moves carrying `obligation` items, the run exits non-zero
+#       with the retirement sentence and starts no run directory.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -163,7 +160,8 @@ else {
   ok(rec.reader_start && rec.reader_start.knowledge === "holds that installers copy files", `(a) the Reader start is not the composed one as a map: ${JSON.stringify(rec.reader_start)}`);
   ok(leg.reader_state_after && leg.reader_state_after.orientation === "sees the copy as the installer's", "(a) the Leg's after-state is not the composed one as a map");
   for (const k of Object.keys(LB.constantFields({ slug: "s", paragraphs: PARAS, legId: "x" }))) {
-    ok(new RegExp(`^${LB.CONSTANT_COMMENT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n${k}:`, "m").test(text), `(a) the constant field \`${k}\` is not marked`);
+    const comment = k === "obligations" ? LB.DERIVED_COMMENT : LB.CONSTANT_COMMENT;
+    ok(new RegExp(`^${comment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n${k}:`, "m").test(text), `(a) the constant field \`${k}\` is not marked`);
   }
   ok(text.split("\n").every((l) => l.length <= 120), "(a) a line of the Brief is longer than 120 characters");
 
@@ -372,45 +370,42 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
     "(k) the second Leg's prompt does not state that its `leg_id` is none of the earlier Legs' ids");
 }
 
-// (l) THE OBLIGATION ROWS COME FROM THE `discharges` MARK (kogaki#1570).
+// (l) THE BUILDER WRITES NO OBLIGATION ROW (kogaki#1582).
 {
-  const out = [{ leg_id: "leg-a" }, { leg_id: "leg-b" }, { leg_id: "leg-c" }];
-  const counts = [2, 2, 2];
-  const none = { items: null, discharges: false };
-  const items = ["frobnicator", "gizmo"];
-  const marked = LB.obligationRows(out, counts, [none, { items, discharges: false }, none, none, { items: null, discharges: true }, none]);
-  ok(JSON.stringify(marked.obligations) === JSON.stringify([{ item: items, raised_by: "leg-a", owed_by: ["leg-b", "leg-c"], discharged_by: "leg-c" }])
-    && JSON.stringify(marked.deferrals) === JSON.stringify([{ leg_id: "leg-a", items, kept_by: "leg-c" }]),
-    `(l) a marked passage does not give one row owed by every Leg from the second through the marked one: ${JSON.stringify(marked)}`);
-  const unmarked = LB.obligationRows(out, counts, [none, { items, discharges: false }, none, none, none, none]);
-  ok(/paragraph 2 leaves "frobnicator", "gizmo" open/.test(String(unmarked.error)),
-    `(l) an unmarked passage is not refused naming paragraph 2 and both items: ${JSON.stringify(unmarked)}`);
-  const local = LB.obligationRows(out, counts, [{ items, discharges: false }, { items: null, discharges: true }, none, none, none, none]);
-  ok(JSON.stringify(local) === JSON.stringify({ obligations: [], deferrals: [] }),
-    `(l) a raising and a discharging paragraph in one Leg gave a Leg-scale row: ${JSON.stringify(local)}`);
-}
+  const lroot = join(root, "l");
+  const lx = join(lroot, "extractor-run");
+  mkdirSync(lx, { recursive: true });
+  writeFileSync(join(lroot, "leg-a.txt"), `${PARAS.slice(0, 2).join("\n\n")}\n`);
+  writeFileSync(join(lroot, "leg-b.txt"), `${PARAS[2]}\n`);
+  const GENERAL = ["a named device", "a second named device"];
+  for (const [i] of PARAS.entries()) {
+    mkdirSync(join(lx, `p${i + 1}`), { recursive: true });
+    const x = JSON.parse(readFileSync(join(xrun, `p${i + 1}`, "answer.json"), "utf8"));
+    writeFileSync(join(lx, `p${i + 1}`, "answer.json"), JSON.stringify(i === 1 ? { ...x, obligation: GENERAL, obligation_content: ["frobnicator", "gizmo"] } : x));
+  }
+  writeFileSync(join(lx, "extractions.json"), JSON.stringify({ legs: [{ leg: join(lroot, "leg-a.txt") }, { leg: join(lroot, "leg-b.txt") }],
+    passage: "copy-legs", written: ["move_1.md", "move_2.md", "move_3.md"] }));
+  const lr = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "run", "--extractions", lx, "--out", join(lroot, "out")],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSL_FIXTURE_DIR: lroot }, timeout: 300000 });
+  const lRun = (lr.stdout.match(/^run directory: (.+)$/m) || [])[1];
+  const brief = existsSync(join(lroot, "out", "brief.yaml")) ? readFileSync(join(lroot, "out", "brief.yaml"), "utf8") : "";
+  ok(lr.status === 0 && brief.includes(`${LB.DERIVED_COMMENT}\nobligations: []`),
+    `(l) a two-Leg run over a paragraph carrying obligation items did not write \`obligations: []\` under the Planner comment: ${lr.status} ${lr.stdout}${lr.stderr}`);
+  const bj = lRun && existsSync(join(lRun, "brief.json")) ? JSON.parse(readFileSync(join(lRun, "brief.json"), "utf8")) : null;
+  ok(bj && !("deferrals" in bj) && !(bj.derived || []).some((d) => d.field === "obligations"),
+    `(l) brief.json carries deferrals or a derived obligations row: ${JSON.stringify(bj)}`);
 
-// (m) THE ROW'S ITEM IS THE PARAGRAPH'S OWN WORDS (kogaki#1578): read through `paragraphMarks`.
-{
-  const mDir = join(root, "marks"); mkdirSync(mDir, { recursive: true });
-  const moveId = "apply_a_definition_to_one_everyday_instance", GENERAL = ["a named device", "a second named device"];
+  const mDir = join(lroot, "moves"); mkdirSync(mDir, { recursive: true });
+  const moveId = "apply_a_definition_to_one_everyday_instance";
   writeFileSync(join(mDir, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
   writeFileSync(join(mDir, `${moveId}.yaml`), `${readFileSync(join("moves", `${moveId}.yaml`), "utf8").trimEnd()}\nobligation:\n${GENERAL.map((x) => `  - ${x}\n`).join("")}`);
-  const ingest = join(mDir, "ingest.json");
-  writeFileSync(ingest, JSON.stringify({ entries: [{}, { move: moveId }, {}, {}] }));
-  const WORDS = ["frobnicator", "gizmo"];
-  const exts = [{}, { obligation: GENERAL, obligation_content: WORDS }, {}, { discharges: true }];
-  const marks = LB.paragraphMarks(mDir, ingest, exts);
-  const rows = Array.isArray(marks) && LB.obligationRows([{ leg_id: "leg-a" }, { leg_id: "leg-b" }], [2, 2], marks);
-  ok(rows && JSON.stringify(rows.obligations) === JSON.stringify([{ item: WORDS, raised_by: "leg-a", owed_by: ["leg-b"], discharged_by: "leg-b" }])
-    && !readFileSync(join(mDir, `${moveId}.yaml`), "utf8").includes("frobnicator"),
-    `(m) the row's item is not the paragraph's words over a Move whose obligation is general: ${JSON.stringify(marks)} ${JSON.stringify(rows)}`);
-  const short = LB.paragraphMarks(mDir, ingest, [{}, { obligation: GENERAL, obligation_content: ["frobnicator"] }, {}, { discharges: true }]);
-  ok(/paragraph 2's Move lists 2 obligation item\(s\) and its Extraction's `obligation_content` lists 1/.test(String(short.error)),
-    `(m) a paragraph whose two lists differ in length was not refused naming it: ${JSON.stringify(short)}`);
-  const missing = LB.paragraphMarks(mDir, ingest, [{}, { obligation: GENERAL }, {}, { discharges: true }]);
-  ok(/paragraph 2's Move lists 2 obligation item\(s\) and its Extraction's `obligation_content` lists 0/.test(String(missing.error)),
-    `(m) a paragraph with no obligation_content under a Move carrying items was not refused naming it: ${JSON.stringify(missing)}`);
+  writeFileSync(join(mDir, "ingest.json"), JSON.stringify({ entries: [{}, { move: moveId }, {}] }));
+  const rroot = join(lroot, "retired"); mkdirSync(rroot, { recursive: true });
+  const rr = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "run", "--extractions", lx, "--out", join(rroot, "out"),
+    "--moves", mDir, "--ingest", join(mDir, "ingest.json")],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSL_FIXTURE_DIR: rroot }, timeout: 300000 });
+  ok(rr.status !== 0 && `${rr.stdout}${rr.stderr}`.includes(LB.MOVES_RETIRED), `(l) a run given --moves was not refused with the retirement sentence: ${rr.status} ${rr.stdout}${rr.stderr}`);
+  ok(!/^run directory: /m.test(rr.stdout) && !existsSync(join(rroot, "out")), "(l) a run given --moves started a run");
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }

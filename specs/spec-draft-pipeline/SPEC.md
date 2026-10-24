@@ -2927,8 +2927,12 @@ decision 2026-10-24), and these rules govern it:
    whose count differs from the slot's is refused naming both. No other row
    exists: a promise the Strand material raises and no bound Move signals is
    not written, and the composer binds a Move that carries it or does not
-   promise. An Obligation and an `introduces` entry are two registers, and no
-   check compares them (kogaki#1577, owner decision 2026-10-24).
+   promise. The Obligations ledger is written by the Planner and by nothing
+   else: the Proof Sheet, which replays the production stages from fixed
+   text, writes no row, because a description of an existing article cannot
+   be refused, only recorded (kogaki#1582, owner decision 2026-10-25). An
+   Obligation and an `introduces` entry are two registers, and no check
+   compares them (kogaki#1577, owner decision 2026-10-24).
 3. **Capacity.** At most ONE Obligation is open at any unit of one
    scale. A row is open from its `raised_by` unit up to, and not including,
    the unit that closes it; a row raised and closed in one unit is open on
