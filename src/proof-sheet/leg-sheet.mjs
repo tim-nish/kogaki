@@ -30,8 +30,8 @@
 // A RUN OF SEVERAL LEGS (kogaki#1532): one block per Leg, in order, each with its own comparison
 // table, paragraph tables and per-Leg cards (Extraction, Move, ParagraphPlan, Packet, Draft), under
 // one Brief card and above one Run record card. The Brief card lists the derived cross-Leg fields,
-// each marked `derived`, from the composer's `brief.json`; a Leg whose Moves defer terms carries
-// one `N deferred, M kept in this span` line per slot under its heading (kogaki#1548).
+// each marked `derived`, from the composer's `brief.json`; a Leg raising an Obligation row carries
+// one `raised here, kept through <leg>` line per row under its heading (kogaki#1570).
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
@@ -1108,11 +1108,11 @@ function card(r, { provenance, mapHash, idx = 0 }) {
     + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
 }
 
-// THE DEFERRED TERMS A LEG'S MOVES RAISE (kogaki#1548): one line per slot from the composer's
-// `brief.json`, how many terms it defers and how many the span's later Legs introduce.
+// THE OBLIGATION ROWS A LEG RAISES (kogaki#1570): one line per row from the composer's
+// `brief.json`, naming the Leg whose paragraph is marked `discharges`.
 export function deferralLines(deferrals, legId) {
   return (Array.isArray(deferrals) ? deferrals : []).filter((d) => d.leg_id === legId)
-    .map((d) => `<p class="deferred">${d.deferred} deferred, ${d.kept} kept in this span</p>`).join("");
+    .map((d) => `<p class="deferred">raised here, kept through ${esc(d.kept_by)}</p>`).join("");
 }
 
 // A RUN OF SEVERAL LEGS (see the header). A Leg block's Inputs link to the one Brief card.

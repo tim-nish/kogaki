@@ -100,9 +100,9 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the nine rules here — rules 1 to 6
+applies to a paragraph Extraction, except the ten rules here — rules 1 to 6
 are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's,
-rule 8 is kogaki#1557's and rule 9 is kogaki#1478's:
+rule 8 is kogaki#1557's, rule 9 is kogaki#1478's and rule 10 is kogaki#1570's:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -159,6 +159,7 @@ rule 8 is kogaki#1557's and rule 9 is kogaki#1478's:
    and nowhere else, never in `operation`, `content`, `relation`, `manner`
    or a reader-state line. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
    mechanism, one rule covering the class rather than a list of its members.
+10. **`discharges` is present only on the paragraph that completes an open obligation.** Where `open_obligation` names items an earlier paragraph left unexplained and this paragraph gives the last of them its meaning or answer, `discharges` is `true`; otherwise the key is absent.
 
 Three fields carry the two levels:
 
@@ -545,6 +546,13 @@ What each field holds:
   `obligation` naming an item a Segment's `content` clause defines or
   answers is refused, naming the Segment. The ingest copies it to the Move
   unchanged (kogaki#1557).
+- `discharges` — present only on the paragraph that completes an open
+  obligation ("The paragraph unit", rule 10): where the input's
+  `open_obligation` names items an earlier paragraph left unexplained and
+  this paragraph gives the last of them its meaning or answer, it is `true`;
+  otherwise the key is absent. A `discharges` where `open_obligation` is null
+  is refused by name. It is bound to the source, so it stays on the
+  Extraction and the ingest does not copy it to the Move (kogaki#1570).
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
   role: no prompt renders it, and the ingest reads only that it is present

@@ -328,8 +328,9 @@ export function validateLegPathUnit(record, inputs) {
   // THE LAST LEG OF SEVERAL (kogaki#1532) completes the path: its cross-Leg fields are derived
   // and the production `validateLegs` runs over the whole path with no rule skipped.
   if (inputs.path) {
-    const { legs, obligations } = crossLegPath([...inputs.path.prior_legs, leg], inputs.path.counts, inputs.path.segments, inputs.path.deferred);
-    const r2 = validateLegs(legs, inputs.path.reader_start, obligations, []);
+    const cross = crossLegPath([...inputs.path.prior_legs, leg], inputs.path.counts, inputs.path.segments, inputs.path.marks);
+    if (cross.error) return { error: `the whole path (kogaki#1570): ${cross.error}` };
+    const r2 = validateLegs(cross.legs, inputs.path.reader_start, cross.obligations, []);
     if (r2.error) return { error: `the whole path, with this Leg last and its cross-Leg fields derived (kogaki#1532): ${r2.error}` };
   }
   return {};
@@ -343,18 +344,19 @@ export function validateLegPathUnit(record, inputs) {
 // later Leg whose Extraction Segment `content` uses it, which then depends on the introducing Leg
 // too, since a Leg re-activates only material of a Leg it depends on. `legs` are the composed
 // Legs in order, `counts` their paragraph counts and `segments` their Segment content per
-// paragraph (`segmentContents`). `deferred` is each Leg's slots (`legDeferredSlots`), for
+// paragraph (`segmentContents`). `marks` is each paragraph's mark (`paragraphMarks`), for
 // the Obligation rows below. Returns `{ legs, derived, obligations, deferrals }`: the completed
 // Legs, one row per derived field naming the Leg, the field, its value and the rule, the
-// Brief's `obligations`, and one `{ leg_id, deferred, kept }` per slot.
+// Brief's `obligations`, and one `{ leg_id, items, kept_by }` per row; or `{ error }` where an
+// obligation is never marked discharged.
 export const DERIVED_RULES = {
   depends_on: "the Leg before it",
   opens_section: "the last Leg's after-state orientation line",
   reaches_target: "the last Leg",
   "re-activate": "the first later Leg whose Extraction content uses a term an earlier Leg introduces",
-  obligations: "one term row per deferred slot of the Leg's Moves, owed by the later Legs introducing a term its Extraction content uses",
+  obligations: "one row per paragraph raising an obligation a later Leg's paragraph is marked discharging, owed by every Leg from the next through that one",
 };
-export function crossLegPath(legs, counts, segments, deferred = []) {
+export function crossLegPath(legs, counts, segments, marks = []) {
   const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
   const out = legs.map((leg, k) => completedLeg(leg, counts[k], offsets[k]));
   const derived = [];
@@ -372,7 +374,9 @@ export function crossLegPath(legs, counts, segments, deferred = []) {
       out[k].depends_on = out.slice(0, k).map((l) => l.leg_id).filter((id) => deps.has(id));
     }
   }
-  const { obligations, deferrals } = deferredTermRows(out, segments, deferred || []);
+  const rows = obligationRows(out, counts, marks || []);
+  if (rows.error) return { error: rows.error };
+  const { obligations, deferrals } = rows;
   for (const o of obligations) {
     const j = out.findIndex((l) => l.leg_id === o.raised_by);
     for (const id of o.owed_by) {
@@ -392,65 +396,73 @@ export function crossLegPath(legs, counts, segments, deferred = []) {
   mark(last, "reaches_target", true);
   for (const o of obligations) {
     mark(out.findIndex((l) => l.leg_id === o.raised_by), "obligations",
-      `term ${o.item.join(", ")}, owed by ${o.owed_by.join(", ")}, discharged by ${o.discharged_by}`);
+      `${o.item.join(", ")}, owed by ${o.owed_by.join(", ")}, discharged by ${o.discharged_by}`);
   }
   return { legs: out, derived, obligations, deferrals };
 }
 
-// THE OBLIGATION ROWS A DEFERRING MOVE RAISES (kogaki#1548, amended 2026-10-24). Each `term` slot
-// of Leg j's Moves is ONE row: its terms are the later Legs' `introduces` terms that Leg j's
-// Extraction content uses, in the order that content names them, as many as the slot's count,
-// consumed slot by slot; `owed_by` is the Legs introducing them in path order, the last
-// discharging it. A slot none of whose terms the span introduces raises no row; nothing is
-// conceded. Every slot also gives `{ leg_id, deferred, kept }` for the sheet.
-function deferredTermRows(out, segments, deferred) {
+// THE OBLIGATION ROWS, FROM THE EXTRACTOR'S `discharges` MARK (kogaki#1570, owner decision
+// 2026-10-24). `marks` holds one `{ items, discharges }` per paragraph of the path (`paragraphMarks`).
+// A raising paragraph is discharged by the first later paragraph marked `discharges` with no
+// raising paragraph between, since the Extractor's `open_obligation` is the nearest one.
+// Returns one `{ raising, discharging, items }` per raising paragraph (0-based), or `{ error }`
+// naming the paragraph and the items no later paragraph marks.
+export function obligationSpans(marks) {
+  const spans = [];
+  for (const [p, m] of marks.entries()) {
+    if (!m || !Array.isArray(m.items) || !m.items.length) continue;
+    let q = p + 1;
+    while (q < marks.length && !(marks[q] && marks[q].discharges) && !(marks[q] && Array.isArray(marks[q].items) && marks[q].items.length)) q++;
+    if (q >= marks.length || !marks[q].discharges) {
+      return { error: `paragraph ${p + 1} leaves ${m.items.map((x) => JSON.stringify(x)).join(", ")} open, and no later paragraph `
+        + "is marked `discharges` before another paragraph raises an obligation of its own (FORMAT \"The paragraph unit\", rule 10)" };
+    }
+    spans.push({ raising: p, discharging: q, items: m.items });
+  }
+  return { spans };
+}
+
+// One row per span whose raising and discharging paragraphs lie in different Legs: `raised_by`
+// the raising Leg, `owed_by` every Leg from the next through the discharging one, `discharged_by`
+// the last. Each row also gives `{ leg_id, items, kept_by }` for the sheet.
+export function obligationRows(out, counts, marks) {
+  const r = obligationSpans(marks);
+  if (r.error) return r;
+  const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
+  const legOf = (p) => offsets.findLastIndex((o) => o <= p);
   const obligations = [];
   const deferrals = [];
-  for (const [j, slots] of deferred.entries()) {
-    if (!out[j] || !Array.isArray(slots) || !slots.length) continue;
-    const text = (segments[j] || []).flat().join("\n").toLowerCase();
-    const seen = new Set();
-    const named = [];
-    for (let k = j + 1; k < out.length; k++) {
-      for (const raw of Array.isArray(out[k].introduces) ? out[k].introduces : []) {
-        const p = parseIntroducesEntry(raw);
-        if (p.error || seen.has(p.term.toLowerCase())) continue;
-        if (!(segments[j] || []).flat().some((c) => wholeWordMatch(p.term, c))) continue;
-        seen.add(p.term.toLowerCase());
-        named.push({ term: p.term, k, at: text.indexOf(p.term.toLowerCase()) });
-      }
-    }
-    named.sort((a, b) => a.at - b.at || a.k - b.k);
-    let next = 0;
-    for (const slot of slots) {
-      const kept = named.slice(next, next + slot.count);
-      next += kept.length;
-      deferrals.push({ leg_id: out[j].leg_id, deferred: slot.count, kept: kept.length });
-      if (!kept.length) continue;
-      const owed = [...new Set(kept.map((t) => t.k))].sort((a, b) => a - b).map((k) => out[k].leg_id);
-      obligations.push({ item: kept.map((t) => t.term), raised_by: out[j].leg_id, owed_by: owed, discharged_by: owed.at(-1) });
-    }
+  for (const { raising, discharging, items } of r.spans) {
+    const j = legOf(raising);
+    const k = legOf(discharging);
+    if (j === k || !out[j] || !out[k]) continue;
+    const owed = out.slice(j + 1, k + 1).map((l) => l.leg_id);
+    obligations.push({ item: items, raised_by: out[j].leg_id, owed_by: owed, discharged_by: out[k].leg_id });
+    deferrals.push({ leg_id: out[j].leg_id, items, kept_by: out[k].leg_id });
   }
   return { obligations, deferrals };
 }
 
-// EACH LEG'S SLOTS (kogaki#1548, kogaki#1568): paragraph N's Move is the one the ingest named for it
-// (`ingest.json` `entries[N-1].move`), read from `movesDir` through the production
-// Move contract's `deferred_slots`, as the Brief's composer reads it. Returns one list per Leg, or `{ error }`.
-export function legDeferredSlots(movesDir, ingestFile, counts) {
+// EACH PARAGRAPH'S MARK (kogaki#1570): its Move's items, read from `movesDir` through the production
+// Move contract (paragraph N's Move is `ingest.json` `entries[N-1].move`), and whether its
+// Extraction carries `discharges`. Returns one `{ items, discharges }` per paragraph, or `{ error }`.
+export function paragraphMarks(movesDir, ingestFile, extractions) {
   let entries;
   try { entries = JSON.parse(readFileSync(ingestFile, "utf8")).entries; }
   catch (e) { return { error: `the ingest record at ${ingestFile} cannot be read (${e.message})` }; }
   if (!Array.isArray(entries)) return { error: `the ingest record at ${ingestFile} carries no \`entries\`` };
-  const slots = [];
-  for (const [i, e] of entries.entries()) {
-    if (!e || !e.move) { slots.push([]); continue; }
-    const m = moveContract(e.move, movesDir);
-    if (m.error) return { error: `paragraph ${i + 1}'s Move: ${m.error}` };
-    slots.push(m.deferred_slots || []);
+  const marks = [];
+  for (const [i, x] of extractions.entries()) {
+    const e = entries[i];
+    let items = null;
+    if (e && e.move) {
+      const m = moveContract(e.move, movesDir);
+      if (m.error) return { error: `paragraph ${i + 1}'s Move: ${m.error}` };
+      items = (m.deferred_slots || []).flatMap((slot) => slot.items || []);
+    }
+    marks.push({ items: items && items.length ? items : null, discharges: !!(x && x.discharges === true) });
   }
-  const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
-  return counts.map((n, k) => slots.slice(offsets[k], offsets[k] + n).flat());
+  return marks;
 }
 
 // ---------------------------------------------------------------------------
@@ -473,12 +485,12 @@ export function constantFields({ slug, paragraphs, legId }) {
   };
 }
 export const CONSTANT_COMMENT = "# PROOF SHEET CONSTANT (kogaki#1385): not composed — the parser requires it.";
-export const DERIVED_COMMENT = "# PROOF SHEET DERIVED (kogaki#1548): from the Legs' deferring Moves, no model call.";
+export const DERIVED_COMMENT = "# PROOF SHEET DERIVED (kogaki#1570): from the Moves' obligations and the Extractions' discharges marks, no model call.";
 
 // `legs`, in place of `leg`, is a several-Leg Brief's composed Legs with `counts`, `segments` and
-// `deferred` for `crossLegPath` (kogaki#1532); the Reader target is then the last Leg.
-export function legBriefText({ slug, composePath, paragraphs, readerStart, leg, legs = null, counts = null, segments = null, deferred = [] }) {
-  const cross = legs ? crossLegPath(legs, counts, segments, deferred) : null;
+// `marks` for `crossLegPath` (kogaki#1532); the Reader target is then the last Leg.
+export function legBriefText({ slug, composePath, paragraphs, readerStart, leg, legs = null, counts = null, segments = null, marks = [] }) {
+  const cross = legs ? crossLegPath(legs, counts, segments, marks) : null;
   const path = cross ? cross.legs : [completedLeg(leg, paragraphs.length)];
   const full = deriveReaderStatesBefore(path, readerStart);
   const constants = constantFields({ slug, paragraphs, legId: full.at(-1).leg_id });
@@ -568,16 +580,19 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
 // COMPOSE the Leg's Brief. Writes `<out>/brief.yaml` and returns `{ brief, runDir }`, or
 // `{ stopped, runDir }`.
 // `moves` and `ingest`, given together, are the run's own Move directory and the ingest's record
-// naming each paragraph's Move (kogaki#1548); without them no Leg raises an Obligation row.
+// naming each paragraph's Move (kogaki#1548, kogaki#1570); without them no Leg raises an Obligation
+// row. An obligation no later paragraph is marked discharging stops the run before any call.
 export function runLegBrief({ extractions: extractorRun, out, leg = null, slug = null, audience = null, terms = null, moves = null, ingest = null }) {
   const material = readExtractorRun(resolve(extractorRun), leg);
   if (material.error) fail(material.error);
   if (terms) fail(TERMS_RETIRED);
   if (!moves !== !ingest) fail("--moves and --ingest are given together or not at all. Nothing was started.");
-  let deferred = [];
+  let marks = [];
   if (moves && material.legs) {
-    deferred = legDeferredSlots(resolve(moves), resolve(ingest), material.legs.map((l) => l.paragraphs));
-    if (deferred.error) fail(`${deferred.error}. Nothing was started.`);
+    marks = paragraphMarks(resolve(moves), resolve(ingest), material.extractions);
+    if (marks.error) fail(`${marks.error}. Nothing was started.`);
+    const spans = obligationSpans(marks);
+    if (spans.error) fail(`${spans.error}. Nothing was started.`);
   }
   const { paragraphs, extractions } = material;
   const name = slug || material.passage;
@@ -614,7 +629,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   if (rs.stopped) return { stopped: rs.stopped, runDir };
   const readerStart = readerStartText(rs.record);
 
-  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds, deferred });
+  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds, marks });
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
     input: legPathUnitInput({ paragraphs, extractions, readerStart, language }), recordArray: "legs",
     validatorExport: "validateLegPathUnit", bounds,
@@ -631,7 +646,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 // beginning at the Reader start or the previous Leg's after-state, and the last one validated with
 // the whole path (`validateLegPathUnit`'s `path`). `brief.json` records the Legs and the derived
 // cross-Leg fields, which the sheet marks.
-function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds, deferred }) {
+function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds, marks }) {
   const counts = material.legs.map((l) => l.paragraphs);
   const segments = [];
   const composed = [];
@@ -648,14 +663,14 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
       validatorExport: "validateLegPathUnit", bounds,
       inputs: { paragraph_count: n, strand_offset: o, reader_start: start, segments: segments[k],
         taken_leg_ids: composed.map((l) => l.leg_id),
-        ...(last ? { path: { prior_legs: composed, counts, segments, deferred, reader_start: readerStart } } : {}) } });
+        ...(last ? { path: { prior_legs: composed, counts, segments, marks, reader_start: readerStart } } : {}) } });
     if (lp.stopped) return { stopped: `Leg ${k + 1} of ${counts.length} (${material.legs[k].passage}): ${lp.stopped}`, runDir };
     composed.push(lp.record.legs[0]);
   }
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs: material.paragraphs, readerStart,
-    legs: composed, counts, segments, deferred }));
-  const { legs, derived, deferrals } = crossLegPath(composed, counts, segments, deferred);
+    legs: composed, counts, segments, marks }));
+  const { legs, derived, deferrals } = crossLegPath(composed, counts, segments, marks);
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
     legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived, deferrals });
   return { brief: briefPath, runDir };

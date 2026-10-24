@@ -50,6 +50,11 @@
 #   (k) THE EARLIER LEGS' IDS ARE SHOWN (kogaki#1560): over a two-Leg Extractor run, the first
 #       Leg's rendered prompt carries `leg_ids_already_carried` empty and the second Leg's carries
 #       the first Leg's id, and the rendered Leg call states that this Leg's `leg_id` is none of them.
+#   (l) THE OBLIGATION ROWS COME FROM THE `discharges` MARK (kogaki#1570), driven through
+#       `obligationRows` over three two-paragraph Legs: a marked passage, paragraph 2 raising two
+#       items and paragraph 5 marked, gives one row owed by every Leg from the second through the
+#       marked one and one `{ leg_id, items, kept_by }`; an unmarked passage is refused naming
+#       paragraph 2 and both items; and a raising and a discharging paragraph in one Leg give no row.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -360,6 +365,24 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   ok(JSON.stringify(two.ids) === JSON.stringify(["copy-leg"]), `(k) the second Leg's prompt does not carry the first Leg's id: ${JSON.stringify(two.ids)}`);
   ok(two.prompt.includes("`leg_ids_already_carried` lists the ids earlier Legs of this Brief carry; this Leg's `leg_id` is none of them."),
     "(k) the second Leg's prompt does not state that its `leg_id` is none of the earlier Legs' ids");
+}
+
+// (l) THE OBLIGATION ROWS COME FROM THE `discharges` MARK (kogaki#1570).
+{
+  const out = [{ leg_id: "leg-a" }, { leg_id: "leg-b" }, { leg_id: "leg-c" }];
+  const counts = [2, 2, 2];
+  const none = { items: null, discharges: false };
+  const items = ["frobnicator", "gizmo"];
+  const marked = LB.obligationRows(out, counts, [none, { items, discharges: false }, none, none, { items: null, discharges: true }, none]);
+  ok(JSON.stringify(marked.obligations) === JSON.stringify([{ item: items, raised_by: "leg-a", owed_by: ["leg-b", "leg-c"], discharged_by: "leg-c" }])
+    && JSON.stringify(marked.deferrals) === JSON.stringify([{ leg_id: "leg-a", items, kept_by: "leg-c" }]),
+    `(l) a marked passage does not give one row owed by every Leg from the second through the marked one: ${JSON.stringify(marked)}`);
+  const unmarked = LB.obligationRows(out, counts, [none, { items, discharges: false }, none, none, none, none]);
+  ok(/paragraph 2 leaves "frobnicator", "gizmo" open/.test(String(unmarked.error)),
+    `(l) an unmarked passage is not refused naming paragraph 2 and both items: ${JSON.stringify(unmarked)}`);
+  const local = LB.obligationRows(out, counts, [{ items, discharges: false }, { items: null, discharges: true }, none, none, none, none]);
+  ok(JSON.stringify(local) === JSON.stringify({ obligations: [], deferrals: [] }),
+    `(l) a raising and a discharging paragraph in one Leg gave a Leg-scale row: ${JSON.stringify(local)}`);
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }

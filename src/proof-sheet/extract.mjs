@@ -68,10 +68,11 @@ export const DESCRIPTION_MAX = 200;
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
-// `obligation` is the one key a record may leave out, and leaves out by default (FORMAT "The
-// paragraph unit", rule 8, kogaki#1557): present only where the paragraph leaves an item
-// unexplained, and then `{ kind, item }` under the Move's own closed set.
-const OPTIONAL_RECORD_KEYS = ["obligation"];
+// `obligation` and `discharges` are the keys a record may leave out, and leaves out by default
+// (FORMAT "The paragraph unit", rules 8 and 10, kogaki#1557, kogaki#1570): `obligation` present
+// only where the paragraph leaves an item unexplained, `discharges` only where it completes the
+// input's `open_obligation`.
+const OPTIONAL_RECORD_KEYS = ["obligation", "discharges"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
@@ -140,16 +141,25 @@ export function carriedState(record) {
 
 function isUnchanged(s) { return String(s).trim().toLowerCase() === "unchanged"; }
 
+// The obligation a paragraph leaves open for the next (FORMAT "The paragraph unit", rule 10,
+// kogaki#1570): its own `obligation` where it raises one, none where it discharges the open one,
+// and otherwise the open one unchanged.
+export function carriedObligation(open, record) {
+  if (Array.isArray(record.obligation) && record.obligation.length) return record.obligation.map((x) => x.trim());
+  return record.discharges === true ? null : open;
+}
+
 // ---------------------------------------------------------------------------
 // ONE PARAGRAPH'S INPUT AND PROMPT.
 
-export function extractionUnitInput({ passage, paragraphs, index, before, namesTaken, persona }) {
+export function extractionUnitInput({ passage, paragraphs, index, before, openObligation = null, namesTaken, persona }) {
   return {
     paragraph_you_must_extract: {
       passage, number: index + 1, of: paragraphs.length, text: paragraphs[index], sentences: sentencesOf(paragraphs[index]),
     },
     earlier_paragraphs: paragraphs.slice(0, index),
     reader_state_before: before,
+    open_obligation: openObligation,
     names_taken: namesTaken,
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
   };
@@ -411,6 +421,11 @@ export function validateExtractionUnit(record, input) {
   if (readerOk && !changed) errors.push(`${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves`);
 
   if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at));
+  if (r.discharges !== undefined && r.discharges !== true) {
+    errors.push(`${at}: \`discharges\` is ${JSON.stringify(r.discharges)} — it is \`true\` or absent (FORMAT "The paragraph unit", rule 10)`);
+  } else if (r.discharges === true && !input.open_obligation) {
+    errors.push(`${at}: \`discharges\` is present and \`open_obligation\` is null — no earlier paragraph left an item open for this one to complete (FORMAT "The paragraph unit", rule 10)`);
+  }
 
   if (!MOVE_ID.test(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`);
   else if (input.names_taken.includes(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
@@ -455,6 +470,7 @@ export function extractionRecord(record, input, runRel) {
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
     ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()) } : {}),
+    ...(record.discharges === true ? { discharges: true } : {}),
     description: record.description.trim(),
     notes: record.notes.trim(),
   };
@@ -492,6 +508,7 @@ export function extractionMarkdown(rec) {
     "## 4. What the Passage presupposes", "", line(r.presupposes), "",
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
     ...(r.obligation ? [`obligation: ${r.obligation.map(line).join(", ")}`, ""] : []),
+    ...(r.discharges === true ? ["discharges: true", ""] : []),
     "## 6. Description", "", line(r.description), "",
     "## 7. Candidate name", "", line(r.name), "",
     "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",
@@ -585,6 +602,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const runRel = relFromRepo(runDir, outDir);
   const written = [];
   let before = null;
+  let openObligation = null;
   const namesTaken = [];
   let start = 0;
   if (resume) {
@@ -597,6 +615,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       written.push(file);
       namesTaken.push(answer.name);
       before = carriedState(answer);
+      openObligation = carriedObligation(openObligation, answer);
       start = i + 1;
     }
   }
@@ -604,7 +623,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     const dir = join(runDir, `p${i + 1}`);
     mkdirSync(dir, { recursive: true });
     const u0 = units[i];
-    const input = extractionUnitInput({ passage: u0.leg.slug, paragraphs: u0.leg.paragraphs, index: u0.i, before, namesTaken: [...namesTaken], persona });
+    const input = extractionUnitInput({ passage: u0.leg.slug, paragraphs: u0.leg.paragraphs, index: u0.i, before, openObligation, namesTaken: [...namesTaken], persona });
     if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
@@ -634,6 +653,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     written.push(file);
     namesTaken.push(u.candidate.name);
     before = carriedState(u.candidate);
+    openObligation = carriedObligation(openObligation, u.candidate);
   }
   const names = written.map((f) => basename(f));
   writeJson(join(runDir, "extractions.json"), legs.length === 1
