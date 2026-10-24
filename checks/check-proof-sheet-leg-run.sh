@@ -381,9 +381,8 @@ else {
     // the Brief card reads "substitute, anchored" on a run composed under kogaki#1495's criterion
     const wantLabel = (badge.type === "substitute" ? "Proof Sheet substitute" : "production") + (key === "brief" ? S.ANCHORED_SUFFIX : "");
     ok(c.includes(`<span class="badge ${badge.type}"`) && c.includes(`>${wantLabel}<`), `(e) the ${name} card carries no "${wantLabel}" badge`);
-    const folded = key === "move" || key === "brief";
-    ok(folded ? /<details class="part out"><summary>Output<\/summary>/.test(c) : /<details class="part out" open><summary>Output<\/summary>/.test(c),
-      `(e) the ${name} card's Output is missing, or ${folded ? "opens" : "does not open"} by default`);
+    // every card's Output is folded on load (kogaki#1559); the View block is the open surface
+    ok(/<details class="part out"(?! open)><summary>Output<\/summary>/.test(c), `(e) the ${name} card's Output is missing, or opens by default`);
     ok(/<details class="part in"(?! open)><summary>Inputs<\/summary>/.test(c), `(e) the ${name} card's Inputs is missing, or opens by default`);
     ok(/<details class="part prompt"(?! open)><summary>Prompt<\/summary>/.test(c), `(e) the ${name} card's Prompt is missing, or opens by default`);
     ok(/<details class="part calls"(?! open)><summary>Calls<\/summary>/.test(c), `(e) the ${name} card's Calls is missing, or opens by default`);
@@ -394,6 +393,14 @@ else {
       ok(ORDER.some((k) => href === `card-0-${k}`), `(e) the ${name} card's Inputs links to "${href}", which is not a card`);
     }
   }
+
+  // the View block renders open (kogaki#1559): no `details` opened before it is still unclosed
+  // at it, so it sits inside no fold; the legend sentence and the anchor opener are on the page.
+  const beforeReview = html.slice(0, html.indexOf('<section class="review" id="review-0">'));
+  ok((beforeReview.match(/<details/g) || []).length === (beforeReview.match(/<\/details>/g) || []).length,
+    "(e) the View block sits inside a folded details");
+  ok(html.includes(`<p class="muted fold-legend">${S.FOLD_LEGEND}</p>`), "(e) the legend sentence on folded cards is missing");
+  ok(/<script>const openTo=.*addEventListener\("hashchange",openTo\)/.test(html), "(e) the anchor script that opens a folded card on its link is missing");
 
   ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
     "(e) two cards share a provenance row, or a card has no title");
