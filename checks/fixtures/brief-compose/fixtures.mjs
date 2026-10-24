@@ -16,7 +16,7 @@ import { readBrief } from "../../../src/draft.mjs";
 // one reader the Draft uses -- so a fixture exercises the round trip rather
 // than an in-memory shortcut. `keys` overrides any top-level key.
 export const recordOf = (legs, keys = {}) => ({
-  slug: "fixture", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+  slug: "fixture", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64) }],
   thesis: "The fixture claim.",
   reader_start: readerStateMap(`orientation: before ${legs[0].leg_id}\nknowledge: before ${legs[0].leg_id}`),

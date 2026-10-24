@@ -13,15 +13,18 @@ import { INTRODUCES_SEP } from "./specialization.mjs";
 // AN ENTRY IS A STRING (the Brief's own serialized form, round-tripped by
 // `draft.mjs`) OR AN `introduces_item` OBJECT (the Candidate's own composed
 // form, src/leg-schema.json `introduces_item`; kogaki#1263, kogaki#1260),
-// whose `nearest` the path-level dedup (item 2 below) reads. THE BRIEF CARRIES
+// THE BRIEF CARRIES
 // THE ITEM AS ITS FIELDS (kogaki#1261, kogaki#1328), and a JSON line written
 // before that parses back here to the object it was. AN ITEM CARRIES `term`
 // AND `meaning` AND NO `kind` (kogaki#1529, SPEC-draft-pipeline "Obligations"
 // rule 7): `kind` and an `established` term's `source` are refused by name,
 // and a term named here and explained later is an Obligation of kind `term`.
+// `nearest` and `differs` are refused by name too (kogaki#1571).
 const RETIRED_INTRODUCES_KEYS = Object.freeze({
-  kind: "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation of kind `term`",
-  source: "`source`, which is retired with `kind` (kogaki#1529): it was an `established` term's outside home, and an introduced term's meaning is the article's own `meaning`",
+  "kind": "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation of kind `term`",
+  "source": "`source`, which is retired with `kind` (kogaki#1529): it was an `established` term's outside home, and an introduced term's meaning is the article's own `meaning`",
+  "nearest": "`nearest`, which is retired (kogaki#1571, owner decision 2026-10-24): what an article says about an existing term is a paragraph's content, which no Move validates in advance",
+  "differs": "`differs`, which is retired with `nearest` (kogaki#1571): it named how the term differs from `nearest`",
 });
 export function parseIntroducesEntry(raw) {
   if (typeof raw === "string" && /^\s*\{[\s\S]*\}\s*$/.test(raw)) {
@@ -37,10 +40,7 @@ export function parseIntroducesEntry(raw) {
     if (typeof raw.meaning !== "string" || raw.meaning.trim() === "") {
       return { error: `"${term}" carries no meaning — an introduced term is one the article gives its meaning to, in one sentence (src/leg-schema.json, \`introduces_item\`)` };
     }
-    if (raw.differs !== undefined && (typeof raw.nearest !== "string" || raw.nearest === "")) {
-      return { error: `"${term}" carries differs with no nearest — differs names how the term differs FROM nearest, so it names nothing without it (src/leg-schema.json, \`introduces_item\`)` };
-    }
-    return { term, anchor: null, typed: true, meaning: raw.meaning, nearest: raw.nearest, differs: raw.differs };
+    return { term, anchor: null, typed: true, meaning: raw.meaning };
   }
   const line = String(raw).trim();
   if (line === "") return { error: "an empty entry" };
@@ -486,35 +486,6 @@ export function introducesRefusal(value, at) {
       return `${at}: introduces names "${e.term}" twice — a term is introduced once, and a Leg claiming it twice makes the ledger's own count wrong (the reader-knowledge ledger)`;
     }
     seen.add(key);
-  }
-  return null;
-}
-
-// AT MOST ONE introduces_item ACROSS THE WHOLE PATH MAY NAME `nearest`
-// (kogaki#1251 item 2, kogaki#1260): `nearest` is an introduced term's near
-// existing neighbour, offered so a reader can place the coinage against what
-// they already have a name for. Two such comparisons in one path leave the
-// reader holding two near-neighbour claims with nothing to decide between
-// them, so a second is refused rather than rendered — naming both terms and
-// both `nearest` values, so the composer can see which one to keep. Run over
-// the WHOLE path rather than per Leg, the same reason the Section grouping
-// and Closure are: this is a statement about the path, not about one Leg.
-export function introducesNearestRefusal(legs) {
-  const found = [];
-  for (const s of legs) {
-    if (!s || typeof s !== "object" || !Array.isArray(s.introduces)) continue;
-    for (const raw of s.introduces) {
-      const e = parseIntroducesEntry(raw);
-      if (e.error) continue; // introducesRefusal names this
-      if (typeof e.nearest === "string" && e.nearest !== "") {
-        found.push({ leg_id: s.leg_id, term: e.term, nearest: e.nearest });
-      }
-    }
-  }
-  if (found.length > 1) {
-    return `This Brief carries ${found.length} introduces items naming \`nearest\`: `
-      + found.map((f) => `${JSON.stringify(f.term)} (leg ${f.leg_id}) nearest ${JSON.stringify(f.nearest)}`).join(" and ")
-      + " — at most one introduced term may be compared to a nearest existing term across the whole path (src/leg-schema.json, `introduces_item.nearest`).";
   }
   return null;
 }

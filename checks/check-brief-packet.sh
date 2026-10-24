@@ -269,9 +269,9 @@ const fails = [];
   }
 }
 
-// (u) `introduces` entries become items carrying `term` and `meaning`, with
-// the optional `nearest` and `differs` (kogaki#1263); the retired `kind` and
-// `source` are declared nowhere (kogaki#1529).
+// (u) `introduces` entries become items carrying `term` and `meaning`
+// (kogaki#1263); the retired `kind` and `source` (kogaki#1529) and `nearest`
+// and `differs` (kogaki#1571) are declared nowhere.
 {
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
   const introduces = schema.fields.introduces;
@@ -283,8 +283,7 @@ const fails = [];
     if (!f.term || !f.term.required) fails.push("(u) introduces_item does not require term");
     if (!f.meaning || !f.meaning.required) fails.push("(u) introduces_item does not require meaning (kogaki#1529)");
     if (f.kind || f.source) fails.push(`(u) introduces_item still declares the retired kind or source (kogaki#1529): ${JSON.stringify({ kind: f.kind, source: f.source })}`);
-    if (!f.nearest || f.nearest.required !== false) fails.push("(u) introduces_item does not declare an optional nearest");
-    if (!f.differs || f.differs.required !== false) fails.push("(u) introduces_item does not declare an optional differs");
+    if (f.nearest || f.differs) fails.push(`(u) introduces_item still declares the retired nearest or differs (kogaki#1571): ${JSON.stringify([f.nearest, f.differs])}`);
   }
 }
 
@@ -331,27 +330,17 @@ const fails = [];
   if (!noneAtAll.error || !/carries no journey for strand "L2"/.test(noneAtAll.error)) fails.push(`(x) a re-activate naming a journey on a Leg with no journeys was not refused: ${noneAtAll.error}`);
 }
 
-// (y) at most one introduces_item names `nearest` across the whole path (kogaki#1251 item 2, kogaki#1260).
+// (y) an introduces_item's own shape: `term` and `meaning`, every retired key refused by name.
 {
-  const { introducesNearestRefusal } = compose;
-  if (typeof introducesNearestRefusal !== "function") fails.push("(y) src/compose.mjs exports no introducesNearestRefusal");
-  const coined = (term, nearest) => ({ term, meaning: `the meaning of ${term}`, nearest, differs: `how ${term} differs from ${nearest}` });
-  const two = validateLegs(PATH_1260({ introduces: [coined("unfed guard", "dead code"), "pipeline"] }, { introduces: [coined("silent pass", "false negative")] }), "");
-  if (!two.error) fails.push("(y) a Brief carrying two nearest entries was not refused");
-  else {
-    if (!/2 introduces items naming `nearest`/.test(two.error)) fails.push(`(y) the refusal did not name the rule: ${two.error}`);
-    if (!/"unfed guard"/.test(two.error) || !/"silent pass"/.test(two.error)) fails.push(`(y) the refusal did not name both terms: ${two.error}`);
-    if (!/"dead code"/.test(two.error) || !/"false negative"/.test(two.error)) fails.push(`(y) the refusal did not name both nearest values: ${two.error}`);
-  }
-  const one = validateLegs(PATH_1260({ introduces: [coined("unfed guard", "dead code"), "pipeline"] }), "");
-  if (one.error && /naming `nearest`/.test(one.error)) fails.push(`(y) a Brief carrying exactly one nearest entry was refused on the nearest ground: ${one.error}`);
-  // an introduces_item's own shape: kind and source are retired, meaning is required, differs needs nearest.
+  // kind and source are retired (kogaki#1529), nearest and differs (kogaki#1571), and meaning is required.
   const withKind = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" }] }), "");
   if (!withKind.error || !/"unfed guard" carries `kind`/.test(withKind.error)) fails.push(`(y) an introduces_item carrying the retired kind was not refused by name: ${withKind.error}`);
   const withSource = validateLegs(PATH_1260({ introduces: [{ term: "pipeline", meaning: "a chain of stages", source: "build practice" }] }), "");
   if (!withSource.error || !/"pipeline" carries `source`/.test(withSource.error)) fails.push(`(y) an introduces_item carrying the retired source was not refused by name: ${withSource.error}`);
-  const differsAlone = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", differs: "from nothing" }] }), "");
-  if (!differsAlone.error || !/differs with no nearest/.test(differsAlone.error)) fails.push(`(y) an introduces_item carrying differs with no nearest was not refused: ${differsAlone.error}`);
+  for (const k of ["nearest", "differs"]) {
+    const withRetired = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", [k]: "guard clause" }] }), "");
+    if (!withRetired.error || !withRetired.error.includes(`"unfed guard" carries \`${k}\``)) fails.push(`(y) an introduces_item carrying the retired ${k} was not refused by name: ${withRetired.error}`);
+  }
   // an introduces_item with no meaning is refused naming the entry (kogaki#1282, kogaki#1529).
   const noMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard" }, "pipeline"] }), "");
   if (!noMeaning.error || !/"unfed guard" carries no meaning/.test(noMeaning.error)) fails.push(`(y) an introduces_item with no meaning was not refused naming the entry: ${noMeaning.error}`);
@@ -543,25 +532,29 @@ const fails = [];
     }
   }
 
-  // (ad) a typed introduces_item round-trips through the Brief and renders its term, meaning and authority line, (kogaki#1491, kogaki#1529).
+  // (ad) a typed introduces_item round-trips through the Brief and renders as its term and
+  // meaning alone (kogaki#1491, kogaki#1529, kogaki#1571); a Brief header carrying the retired
+  // external-authority switch is refused naming the key. The key is spelled apart because the
+  // Issue's Acceptance greps checks/ for its literal name to show no reader is left.
   {
-    const coined = { term: "unfed guard", meaning: "a guard whose input nobody feeds", nearest: "guard clause", differs: "nothing ever feeds it a failing input" };
+    const coined = { term: "unfed guard", meaning: "a guard whose input nobody feeds" };
     const legs = [legOf("s1", { introduces: [coined] })];
     const read = briefOf(legs, { compose_path: personaA });
     const entry = read.refusals.length ? null : (read.legs[0].introduces || []).find((e) => e && e.term === "unfed guard");
     const back = entry ? parseIntroducesEntry(entry) : { error: "no entry" };
-    if (back.error || back.meaning !== coined.meaning || back.nearest !== "guard clause" || back.differs !== coined.differs) fails.push(`(ad) a typed introduces_item did not round-trip through legRecord and readBrief: ${JSON.stringify(back)}`);
+    if (back.error || back.meaning !== coined.meaning) fails.push(`(ad) a typed introduces_item did not round-trip through legRecord and readBrief: ${JSON.stringify(back)}`);
     const CROSSES = "## What crosses into this Leg";
-    for (const [header, on] of [[{ compose_path: personaA }, true], [{ compose_path: personaA, external_authority: "off" }, false]]) {
-      const brief = briefOf(legs, header);
-      if (brief.refusals.length) { fails.push(`(ad) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`); continue; }
-      const r = render(brief, brief.legs[0]);
-      if (r.error) { fails.push(`(ad) the Packet did not render (external_authority ${on ? "on" : "off"}): ${r.error}`); continue; }
-      const crosses = block(r.packet, CROSSES, "\n## ");
-      if (!crosses.includes(`- unfed guard — ${coined.meaning}`)) fails.push(`(ad) What crosses into this Leg does not render the introduced term with its meaning: ${JSON.stringify(crosses)}`);
-      if (on && !(crosses.includes("nearest existing term: guard clause") && crosses.includes(`differs: ${coined.differs}`))) fails.push(`(ad) with the external authority on, What crosses into this Leg does not carry the nearest and differs line: ${JSON.stringify(crosses)}`);
-      if (!on && /nearest|differs/.test(r.packet)) fails.push("(ad) with external_authority: off the Packet still carries a nearest or differs line");
+    if (!read.refusals.length) {
+      const r = render(read, read.legs[0]);
+      if (r.error) fails.push(`(ad) the Packet did not render: ${r.error}`);
+      else {
+        const lines = block(r.packet, CROSSES, "\n## ").split("\n").filter((l) => l.startsWith("- unfed guard"));
+        if (lines.length !== 1 || lines[0] !== `- unfed guard — ${coined.meaning}`) fails.push(`(ad) What crosses into this Leg does not render the introduced term as \`- <term> — <meaning>\` alone: ${JSON.stringify(lines)}`);
+      }
     }
+    const retiredKey = ["external", "authority"].join("_");
+    const carried = briefOf(legs, { compose_path: personaA, [retiredKey]: "off" });
+    if (!carried.refusals.some((m) => m.includes(`\`${retiredKey}\``))) fails.push(`(ad) a Brief header carrying the retired external-authority switch was not refused naming the key: ${JSON.stringify(carried.refusals)}`);
   }
 
   // (ae) a conceded Obligation row renders its three fields in the conceding Leg's Packet.

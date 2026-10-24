@@ -199,12 +199,6 @@
         "filled_at": "mint",
         "description": "The path of the reader file (the Persona) the Reader start is authored from and the Packet reads its prose rules from (kogaki#1262)."
       },
-      "external_authority": {
-        "required": true,
-        "filled_at": "mint",
-        "one_of": ["on", "off"],
-        "description": "Whether the Packet renders an introduced term's nearest existing term and how it differs as its authority (kogaki#1262). Set at mint, never derived."
-      },
       "strands": {
         "required": true,
         "filled_at": "mint",

@@ -25,10 +25,9 @@
 // rules say where a Leg sits among others: Section grouping rule 3 (the first Leg opens a
 // Section) and the Reader target Leg (exactly one Leg marked, never the first). A one-Leg
 // Brief can satisfy neither, by the boundary the owner drew, so `validateLegPathUnit`
-// admits exactly the Section-rule-3 refusal over a Leg carrying no `opens_section`, and then
-// runs by hand the one whole-path rule that refusal skips and that can bind one Leg
-// (`introducesNearestRefusal`); the rest it skips are about `opens_section`, defined terms,
-// Obligation rows and the target mark, none of which a one-Leg Brief carries. A several-Leg
+// admits exactly the Section-rule-3 refusal over a Leg carrying no `opens_section`; the
+// rules that refusal skips are about `opens_section`, defined terms, Obligation rows and the
+// target mark, none of which a one-Leg Brief carries. A several-Leg
 // Brief derives them all (`crossLegPath`) and runs `validateLegs` over the whole path.
 //
 // THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495, owner decision 2026-10-21). The Leg's
@@ -72,7 +71,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
-  introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
+  deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
   parseIntroducesEntry, readerStateDimensionLine, FUNCTION_WORDS, wordsOf, wordForms, moveContract } from "../compose.mjs";
 import { wholeWordMatch } from "../compose/sections.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
@@ -317,13 +316,10 @@ export function validateLegPathUnit(record, inputs) {
   const full = completedLeg(leg, n, o);
   const r = validateLegs([full], inputs.reader_start, [], []);
   // THE ONE ADMITTED REFUSAL (see the header): Section grouping rule 3 over a Leg that opens
-  // no Section. `validateLegs` stops there, so the whole-path rule after it that binds one
-  // Leg — at most one `nearest` — runs here.
+  // no Section.
   if (r.error) {
     const rule3 = `leg 1 (${full.leg_id}): ${pathRule("section_rule_3").name} — `;
     if (full.opens_section !== undefined || !r.error.startsWith(rule3)) return { error: r.error };
-    const nearest = introducesNearestRefusal([full]);
-    if (nearest) return { error: nearest };
   }
   const anchored = anchoredRefusal(full, inputs.segments, n, o);
   if (anchored) return { error: anchored };
@@ -465,7 +461,6 @@ export function legDeferredSlots(movesDir, ingestFile, counts) {
 // anything it composes from.
 export function constantFields({ slug, paragraphs, legId }) {
   return {
-    external_authority: "on",
     strands: paragraphs.map((_, i) => ({ id: `L${i + 1}`, slug: `${slug}-paragraph-${i + 1}`,
       cite: `proof-sheet::paragraph/${slug}-paragraph-${i + 1}` })),
     thesis: `The original Leg ${slug}.`,

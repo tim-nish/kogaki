@@ -538,8 +538,8 @@
       "term the reader already holds is not introduced at all, and a term this",
       "Leg names and leaves for a LATER Leg to explain is not an entry here: it",
       "is an Obligation of kind `term`, raised by this Leg and owed by the Legs",
-      "that give its meaning. The retired `kind` (`coined` / `established`) and",
-      "`source` are refused by name."
+      "that give its meaning. The retired `kind` (`coined` / `established`),",
+      "`source`, `nearest` and `differs` are refused by name."
     ],
     "fields": {
       "term": {
@@ -551,16 +551,6 @@
         "required": true,
         "type": "string",
         "description": "One sentence giving the term's meaning, which this Leg supplies. The term crosses into a later Leg's Packet carrying it."
-      },
-      "nearest": {
-        "required": false,
-        "type": "string",
-        "description": "The nearest existing term a reader might reach for instead. Optional -- some terms have no near neighbour worth naming. At most one introduces item across the whole path may carry `nearest` -- a second one is refused."
-      },
-      "differs": {
-        "required": false,
-        "type": "string",
-        "description": "How the term differs from `nearest` -- why the nearest existing term will not do. Present only beside `nearest`; a `differs` with no `nearest` names nothing to differ from."
       }
     }
   },

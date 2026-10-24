@@ -70,7 +70,7 @@ const CONNECTIVE = "So the second run replaces the copy wholesale, edits include
 const PARA1 = "The installer copies the kit into the consumer's tree. It writes every file it ships.";
 const PARA2_OWN = "The second run replaces the copy wholesale, edits included.";
 const brief = readBrief(briefRecordText({
-  slug: "review-brief", compose_path: "audiences/dev-to-zenn.md", external_authority: "on",
+  slug: "review-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
   thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
   reader_target: "s1",

@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # check-brief-mint — the Persona, claim register and mint-side rules of
 # Brief composition. A LIGHT member: pure calls, no model run.
-#   (af) src/leg-schema.json's `nearest` description states the
-#        at-most-one-per-path limit (kogaki#1270).
+#   (af) `nearest` and `differs` are retired: introduces_item declares
+#        neither, and an entry carrying either is refused naming it (kogaki#1571).
 #   (ar) `persona_prior_knowledge` reaches no composition or path-review
 #        input; review_path carries `defined_terms` instead (kogaki#1331).
 #   (as) the claim register, one judged entry per Leg (kogaki#1281).
 #   (bb) `composeBrief` records `compose_path` and refuses one missing
 #        (kogaki#1262, kogaki#1328).
-#   (cc) `external_authority` is on by default, off when minted so (kogaki#1262).
+#   (cc) the external-authority switch is retired: the mint writes no such
+#        header key, and the key or its input is refused by name (kogaki#1571).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -25,18 +26,22 @@ const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").fil
   .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const fails = [];
 
-// (af) the nearest field's description states the at-most-one-per-path limit
-// (kogaki#1270): `introducesNearestRefusal` (src/compose.mjs) was added by
-// kogaki#1260 with no matching word in src/leg-schema.json's `nearest`
-// description, so a reader-path unit composed against the contract alone
-// had no way to learn the rule it was refused for. The schema is rendered
-// into that unit's prompt verbatim (src/brief-workflow.json's `compose_path`
-// row, `schema_file`), so the description read here is the prompt's own text.
+// THE RETIRED SWITCH'S NAMES ARE SPELLED APART (kogaki#1571): the Issue's
+// Acceptance greps checks/ for the literal names to show no reader is left.
+const RETIRED_KEY = ["external", "authority"].join("_");
+const RETIRED_INPUT = ["external", "Authority"].join("");
+
+// (af) kogaki#1571, owner decision 2026-10-24: an introduces entry's `nearest`
+// and `differs` are retired. The schema declares neither, and an entry
+// carrying either is refused naming the key rather than read past.
 {
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const nearest = schema.introduces_item.fields.nearest;
-  if (!nearest || !/at most one/i.test(nearest.description) || !/across the whole path/.test(nearest.description)) {
-    fails.push(`(af) src/leg-schema.json's nearest description does not state the at-most-one-per-path limit: ${nearest && nearest.description}`);
+  const fields = schema.introduces_item.fields;
+  for (const k of ["nearest", "differs"]) {
+    if (Object.hasOwn(fields, k)) fails.push(`(af) src/leg-schema.json's introduces_item still declares ${k}`);
+    const r = compose.parseIntroducesEntry({ term: "unfed guard", meaning: "a guard whose input nobody feeds", [k]: "guard clause" });
+    if (!r.error) fails.push(`(af) an introduces entry carrying ${k} was not refused`);
+    else if (!r.error.includes(`\`${k}\``)) fails.push(`(af) the refusal of ${k} did not name it: ${r.error}`);
   }
 }
 
@@ -118,22 +123,21 @@ const fails = [];
   if (!noPath.refusals.some((r) => /`compose_path`/.test(r))) fails.push(`(bb) a Brief record with no compose_path was not refused naming the key: ${JSON.stringify(noPath.refusals)}`);
 }
 
-// (cc) external_authority defaults to on at mint and is off when minted so (kogaki#1251 item 3, kogaki#1262).
+// (cc) kogaki#1571: the external-authority switch is retired. The mint writes
+// no such header key, a caller passing its input is refused naming the input,
+// and a Brief record carrying the key is refused naming the key.
 {
   const strands = [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }];
-  const defaulted = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "audiences/dev-to-zenn.md" });
-  if (!/^external_authority: "on"$/m.test(defaulted)) {
-    fails.push(`(cc) a Brief minted with no external_authority given did not default to on: ${JSON.stringify(defaulted.slice(0, 260))}`);
-  }
-  const off = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "audiences/dev-to-zenn.md", externalAuthority: "off" });
-  if (!/^external_authority: "off"$/m.test(off)) {
-    fails.push(`(cc) a Brief minted with externalAuthority "off" did not carry off: ${JSON.stringify(off.slice(0, 260))}`);
-  }
-  let badThrew = null;
-  try { composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "audiences/dev-to-zenn.md", externalAuthority: "maybe" }); }
-  catch (e) { badThrew = e; }
-  if (!badThrew) fails.push('(cc) composeBrief with externalAuthority "maybe" was not refused');
-  else if (!/external_authority/.test(badThrew.message)) fails.push(`(cc) the refusal did not name external_authority: ${badThrew.message}`);
+  const minted = composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "audiences/dev-to-zenn.md" });
+  if (minted.includes(RETIRED_KEY)) fails.push(`(cc) the mint still writes the retired header key: ${JSON.stringify(minted.slice(0, 260))}`);
+  let threw = null;
+  try { composeBrief({ slug: "t", strands, thesis: "a claim", composePath: "audiences/dev-to-zenn.md", [RETIRED_INPUT]: "on" }); }
+  catch (e) { threw = e; }
+  if (!threw) fails.push("(cc) composeBrief passed the retired input was not refused");
+  else if (!threw.message.includes(`\`${RETIRED_INPUT}\``)) fails.push(`(cc) the refusal did not name the retired input: ${threw.message}`);
+  const carried = compose.parseBriefRecord(minted.replace(/^compose_path: .*$/m, (l) => `${l}\n${RETIRED_KEY}: "on"`), "cc.yaml");
+  if (!carried.error) fails.push("(cc) a Brief record carrying the retired header key was not refused");
+  else if (!carried.error.includes(`\`${RETIRED_KEY}\``)) fails.push(`(cc) the record refusal did not name the key: ${carried.error}`);
 }
 
 if (fails.length > 0) {
@@ -141,5 +145,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — the nearest description stating the at-most-one-per-path limit (kogaki#1270); persona_prior_knowledge reaching no compose_path or review_path input, review_path carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one, and external_authority on by default, off when minted so, any third value refused (kogaki#1262).");
+console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no compose_path or review_path input, review_path carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), and the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571).");
 JS

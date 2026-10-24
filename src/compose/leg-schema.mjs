@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { laneDir } from "../runs.mjs";
 import { figureClaimRefusal, figureRefusal } from "./figure.mjs";
 import {
-  obligationLedgerRefusal, introducedTermInReaderStart, introducesNearestRefusal,
+  obligationLedgerRefusal, introducedTermInReaderStart,
   introducesRefusal, opensSectionIntroducedTermRefusal, opensSectionRefusal,
   parseIntroducesEntry, reactivateRefusal, reactivateSemanticRefusal,
   readerTargetLegRefusal, readerTargetNamesRefusal, sectionGroupingRefusal,
@@ -684,11 +684,6 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
   // Leg or one row alone.
   const ledger = obligationLedgerRefusal(legs, obligations);
   if (ledger) return { error: ledger };
-  // AT MOST ONE `nearest` ACROSS THE WHOLE PATH (kogaki#1251 item 2,
-  // kogaki#1260), run here for the same reason THE OBLIGATIONS do: a statement
-  // about every Leg's introduces entries together, not about one Leg alone.
-  const nearest = introducesNearestRefusal(legs);
-  if (nearest) return { error: nearest };
   // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
   // POSITION relative to every other Leg, so it is decidable only once every
   // Leg above is known to be well formed — the same reason the Section

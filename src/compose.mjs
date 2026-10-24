@@ -65,7 +65,7 @@ export {
   sectionGroupingRefusal, targetLegIndex, obligationLedgerRefusal, OBLIGATION_KINDS,
   obligationLabel, obligationTerminal, termObligations,
   readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,
-  introducesNearestRefusal, parseReactivateEntry, reactivateRefusal,
+  parseReactivateEntry, reactivateRefusal,
   reactivateSemanticRefusal, readerKnowledgeLedger, introducerOf,
 } from "./compose/sections.mjs";
 export {

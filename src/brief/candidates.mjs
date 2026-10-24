@@ -34,6 +34,11 @@ import {
   argString, briefComposePathDefault, defaultRunState, fail, readRunState, strandClaims,
 } from "./run-state.mjs";
 
+// The inputs the mint reads, and no others: an input it does not name is
+// refused by name rather than ignored (kogaki#1571 retired the
+// external-authority switch, and a caller still passing it learns so here).
+const COMPOSE_BRIEF_INPUTS = Object.freeze(["slug", "strands", "thesis", "composePath", "definedTerms", "claims"]);
+
 // THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10), and
 // the mint writes its first version: the header fields, the closed Strand set
 // and the adopted Thesis FILLED, and every field downstream of the Thesis
@@ -45,7 +50,12 @@ import {
 // Exported and pure over its inputs, so the check exercises the record
 // without a filesystem. `thesis` is required: at v9 no document exists
 // without one. Returns the record's text.
-export function composeBrief({ slug, strands, thesis, composePath, externalAuthority = "on", definedTerms = [], claims = [] }) {
+export function composeBrief(input) {
+  const unread = Object.keys(input).find((k) => !COMPOSE_BRIEF_INPUTS.includes(k));
+  if (unread !== undefined) {
+    throw new Error(`composeBrief: \`${unread}\` is not an input the mint reads (${COMPOSE_BRIEF_INPUTS.join(", ")}) — the Brief header carries \`slug\` and \`compose_path\` only, and an introduced term crosses as \`- <term> — <meaning>\` (kogaki#1571)`);
+  }
+  const { slug, strands, thesis, composePath, definedTerms = [], claims = [] } = input;
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
   }
@@ -57,13 +67,6 @@ export function composeBrief({ slug, strands, thesis, composePath, externalAutho
   if (typeof composePath !== "string" || composePath === "") {
     throw new Error("composeBrief: a Brief cannot be composed without the Persona's path recorded at `compose_path` (kogaki#1262) — the mint's caller resolves it from src/brief-workflow.json's `compose_path` state and passes it here.");
   }
-  // EXTERNAL_AUTHORITY, DEFAULTING ON (kogaki#1262, carrying kogaki#1251 item
-  // 3). Set at mint and never derived later — the two admitted values are
-  // the whole of the header field, so a third value is refused here rather
-  // than reaching a reader as an unexplained string.
-  if (externalAuthority !== "on" && externalAuthority !== "off") {
-    throw new Error(`composeBrief: \`external_authority\` must be "on" or "off"; received ${JSON.stringify(externalAuthority)} (kogaki#1262)`);
-  }
   // THE DEFINED TERMS, WRITTEN HERE AND NEVER AGAIN (kogaki#1331, owner
   // decision 2026-10-10). The classification is the judge's, asked by the
   // `mint` state before this runs; what is checked here is the entries' shape
@@ -74,7 +77,6 @@ export function composeBrief({ slug, strands, thesis, composePath, externalAutho
   const record = {
     slug,
     compose_path: composePath,
-    external_authority: externalAuthority,
     strands: strands.map((s) => {
       const e = { id: s.display_id, slug: s.slug, cite: s.cite ?? "none recorded" };
       // THE TWO JOURNEY STATES ARE RECORDED DIFFERENTLY, AND THAT IS THE POINT
@@ -544,17 +546,17 @@ export function cmdMint(args) {
       + "the thesis-determination gate naming a different name (`adopt "
       + "--thesis <id|text> --slug <name>`).");
   }
-  // THE PERSONA'S PATH, AND THE HEADER TOGGLE (kogaki#1262). `--reader-file`
-  // and `--external-authority` survive as the same class of caller override
-  // `--slug` already is: a harness minting a fixture Brief under a fixed
-  // home, never an owner question. With neither given, the Persona's path is
-  // the one `src/brief-workflow.json`'s `compose_path` state names — "no
-  // per-article selection" (kogaki#1216) means there is exactly one to read —
-  // and `external_authority` defaults on.
+  // THE PERSONA'S PATH (kogaki#1262). `--reader-file` survives as the same
+  // class of caller override `--slug` already is: a harness minting a fixture
+  // Brief under a fixed home, never an owner question. Without it, the
+  // Persona's path is the one `src/brief-workflow.json`'s `compose_path` state
+  // names — "no per-article selection" (kogaki#1216) means there is exactly
+  // one to read. `--external-authority` is retired (kogaki#1571).
+  if (args["external-authority"] !== undefined) {
+    fail("`--external-authority` is retired (kogaki#1571, owner decision 2026-10-24) — an introduced term crosses as `- <term> — <meaning>`, so the Brief has no external-authority switch to set. Nothing was written.");
+  }
   const readerFile = typeof args["reader-file"] === "string" && args["reader-file"] !== ""
     ? args["reader-file"] : briefComposePathDefault();
-  const externalAuthority = typeof args["external-authority"] === "string" && args["external-authority"] !== ""
-    ? args["external-authority"] : "on";
   // THE DEFINED TERMS ARE THE `defined_terms_unit` JUDGMENT'S (kogaki#1331):
   // handed over by the `mint` state as `definedTerms`, or read from the
   // record a caller names with `--defined-terms <file>`. A mint with neither
@@ -576,7 +578,7 @@ export function cmdMint(args) {
   const out = join(home, BRIEF_RECORD_FILE);
   const doc = composeBrief({
     slug, strands: state.strands, thesis: state.adopted_thesis,
-    composePath: readerFile, externalAuthority,
+    composePath: readerFile,
     definedTerms, claims: strandClaims(state).map((c) => c.claim),
   });
   writeFileSync(out, doc);
