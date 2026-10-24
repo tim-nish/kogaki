@@ -106,7 +106,7 @@ function cmdResolve(args) {
   // COUNTED FROM THE DERIVATION (PR #775 round 1): the terminal sentinel makes
   // the final row the whole path's union, so a term a later Leg re-declares is
   // counted once. This line is the ledger's only owner-facing rendering.
-  const ledger = readerKnowledgeLedger([...brief.legs, { leg_id: "(end)" }], brief.record.obligations);
+  const ledger = readerKnowledgeLedger([...brief.legs, { leg_id: "(end)" }]);
   const introduced = ledger[ledger.length - 1].reader_already_knows.length;
   process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.legs.length} leg(s), derived from the path at read time and stored nowhere (the reader-knowledge ledger)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
   process.stdout.write(`waypoints: ${brief.legs.reduce((n, l) => n + l.waypoints.length, 0)} across ${brief.legs.length} leg(s), each serving a claim of its Leg — the route was written and judged at composition, and no Move is opened here (kogaki#1311)\n`);

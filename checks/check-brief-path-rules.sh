@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-brief-path-rules — the Brief record's own rules over a whole path.
 #   (am) the Journey use boundary in the record and Packet (kogaki#1286).
-#   (an) review_path's Discharge item, a list `term` row included (kogaki#1549);
+#   (an) review_path's Discharge item, a row's ordered `item` list (kogaki#1549, #1568);
 #        the question chain retired (kogaki#1283, kogaki#1325).
 #   (av) adoption writes brief.yaml in list or map form (kogaki#1328).
 #   (aw) the Brief's Defined Terms (kogaki#1331).
@@ -88,13 +88,13 @@ const fails = [];
     ...extra,
   });
   const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] }), legOf("s3", { depends_on: ["s2"] })];
-  const obligations = [{ kind: "question", text: "the case's generality is open", raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
+  const obligations = [{ item: ["the case's generality is open"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
 
-  // the mechanical half: one row per discharged obligation, named by row
-  // text, nothing compared.
+  // the mechanical half: one row per discharged obligation, named by its
+  // items, nothing compared.
   if ("questionChainPairs" in compose) fails.push("(an) src/compose.mjs still exports questionChainPairs, retired at kogaki#1325");
   const rows = dischargeRows(legs, obligations);
-  if (rows.length !== 1 || rows[0].row !== obligations[0].text || rows[0].discharging_leg !== "s2"
+  if (rows.length !== 1 || rows[0].row !== obligations[0].item[0] || "kind" in rows[0] || rows[0].discharging_leg !== "s2"
       || JSON.stringify(rows[0].owed_legs) !== JSON.stringify([{ leg_id: "s2", points: ["the paragraph establishes what s2 claims"], claims: ["claim of s2"] }])) {
     fails.push(`(an) dischargeRows did not carry the owed Legs' points and claims (kogaki#1529): ${JSON.stringify(rows)}`);
   }
@@ -105,7 +105,7 @@ const fails = [];
   // cells exercise the discharge, not the register.
   const areas = () => ({ ...Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`])),
     claim_register: legs.map((l) => ({ leg_id: l.leg_id, verdict: "holds" })) });
-  const dc = (verdict = "holds") => [{ row: obligations[0].text, discharging_leg: "s2", verdict, why: "s2's claim answers the row" }];
+  const dc = (verdict = "holds") => [{ row: obligations[0].item[0], discharging_leg: "s2", verdict, why: "s2's claim answers the row" }];
 
   // holds: attach is not refused on its ground.
   const ok = attachReview([cand("cand-1", legs, obligations)],
@@ -140,9 +140,9 @@ const fails = [];
   const neither = attachReview([cand("cand-7", legs, obligations)], { "cand-7": areas() });
   if (neither.error) fails.push(`(an) a review entry carrying no discharge was refused: ${neither.error}`);
 
-  // a `term` row carrying a list of terms (kogaki#1549) is named by the row dischargeRows hands
-  // the judge -- the terms joined in raised order -- and an entry naming them out of order is refused.
-  const listRow = [{ kind: "term", term: ["ownership boundary", "non-member fallback"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
+  // a row carrying a list of items (kogaki#1549, kogaki#1568) is named by the row dischargeRows hands
+  // the judge -- the items joined in raised order -- and an entry naming them out of order is refused.
+  const listRow = [{ item: ["ownership boundary", "non-member fallback"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
   const [handed] = dischargeRows(legs, listRow);
   const listed = attachReview([cand("cand-8", legs, listRow)],
     { "cand-8": { ...areas(), discharge: [{ row: handed.row, discharging_leg: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
@@ -150,7 +150,7 @@ const fails = [];
   const reordered = attachReview([cand("cand-9", legs, listRow)],
     { "cand-9": { ...areas(), discharge: [{ row: "non-member fallback, ownership boundary", discharging_leg: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
   if (!reordered.error || !/discharge entry 1 does not name Obligation row "ownership boundary, non-member fallback"/.test(reordered.error)) {
-    fails.push(`(an) a discharge naming a list row's terms out of order was not refused by name: ${JSON.stringify(reordered)}`);
+    fails.push(`(an) a discharge naming a list row's items out of order was not refused by name: ${JSON.stringify(reordered)}`);
   }
 }
 

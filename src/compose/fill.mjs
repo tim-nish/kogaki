@@ -105,9 +105,7 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
   // record's own field order. The Thesis row is not a row of this list: it is
   // derived (`thesisClosureRow`, kogaki#1328).
   const rows = (Array.isArray(obligations) ? obligations : []).map((o) => {
-    const row = { kind: o.kind, raised_by: o.raised_by };
-    if (o.kind === "term") row.term = o.term; else row.text = o.text;
-    row.owed_by = [...o.owed_by];
+    const row = { item: [...o.item], raised_by: o.raised_by, owed_by: [...o.owed_by] };
     if (o.discharged_by !== undefined) row.discharged_by = o.discharged_by;
     else {
       row.conceded_by = o.conceded_by;

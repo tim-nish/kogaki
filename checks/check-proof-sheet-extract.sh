@@ -69,8 +69,8 @@
 #       two terms and glosses neither yields an Extraction carrying the field with both terms in
 #       order, as the record, the file and its reading; the same paragraph glossing both yields
 #       none; the field beside a Segment that defines its terms, or answers its question, is
-#       refused naming that Segment; a kind outside the set and a term item that is one line are
-#       refused; and in (b2) the ingest carries the field to the Move record unchanged, where the
+#       refused naming that Segment; a map (carrying the retired `kind`, `text` or `term`, each
+#       named), an empty list and an item named twice are refused (kogaki#1568); and in (b2) the ingest carries the field to the Move record unchanged, where the
 #       Adapter reads it, and adds none to a Move whose Extraction has none.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
@@ -258,7 +258,7 @@ if [n for n in os.listdir(moves2) if n.endswith(".yaml")]:
     bad.append("a refused Extraction left a Move in the library")
 # THE OBLIGATION IS CARRIED THROUGH UNCHANGED (kogaki#1557): an Extraction carrying the field
 # yields a Move record carrying it, read back by the Adapter; one without it yields none.
-obligation = {"kind": "term", "item": ["leverage", "margin"]}
+obligation = ["leverage", "margin"]
 for w in r["written"] or []:
     if "obligation" in m.read_extraction(w)[1]:
         bad.append("a Move admitted from an Extraction without the field carries obligation: %s" % w)
@@ -537,32 +537,36 @@ ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record brok
   const glossed = () => { const g = good();
     g.segments[1].content = "Leverage is defined as borrowed weight, and margin as the cushion kept against it.";
     g.segments[2].content = "Two names, leverage and margin, close the paragraph."; return g; };
-  const TERMS = { kind: "term", item: ["leverage", "margin"] };
+  const TERMS = ["leverage", "margin"];
   const carried = { ...unglossed(), obligation: TERMS };
   ok(!X.validateExtractionUnit(carried, input).error, `(h) an Extraction carrying the field over an unglossed pair was refused: ${X.validateExtractionUnit(carried, input).error}`);
   const rec = X.extractionRecord(carried, input, "run");
   ok(JSON.stringify(rec.obligation) === JSON.stringify(TERMS), `(h) the Extraction record does not carry both terms in order: ${JSON.stringify(rec.obligation)}`);
   const back = parseYaml(X.extractionFileText(carried, input, "run"), "h.yaml");
   ok(JSON.stringify(back.obligation) === JSON.stringify(TERMS), `(h) the Extraction file does not carry both terms in order: ${JSON.stringify(back.obligation)}`);
-  ok(X.extractionMarkdown(back).includes("obligation: term — leverage, margin"), "(h) the Extraction does not render its obligation for reading");
+  ok(X.extractionMarkdown(back).includes("obligation: leverage, margin"), "(h) the Extraction does not render its obligation for reading");
   const plain = glossed();
   ok(!X.validateExtractionUnit(plain, input).error && !("obligation" in X.extractionRecord(plain, input, "run")),
     `(h) the glossed paragraph without the field did not yield an Extraction with no field: ${X.validateExtractionUnit(plain, input).error}`);
   const defined = X.validateExtractionUnit({ ...glossed(), obligation: TERMS }, input).error || "";
-  ok(/paragraph 2, Segment 2: the `content` clause defines "leverage", "margin", which `obligation` names as left unexplained/.test(defined),
+  ok(/paragraph 2, Segment 2: the `content` clause defines or answers "leverage", "margin", which `obligation` names as left unexplained/.test(defined),
     `(h) an obligation whose terms a Segment defines was not refused naming the Segment: ${defined}`);
   ok(!/Segment 3/.test(defined), `(h) a Segment naming the terms without defining them was refused: ${defined}`);
-  const question = { kind: "question", item: "why does the cost keep rising?" };
+  const question = ["why does the cost keep rising?"];
   const asked = good(); asked.segments[2].content = "The question of why the cost keeps rising is left open for later.";
   ok(!X.validateExtractionUnit({ ...asked, obligation: question }, input).error,
     `(h) a question no Segment answers was refused: ${X.validateExtractionUnit({ ...asked, obligation: question }, input).error}`);
   const answered = good(); answered.segments[2].content = "The cost keeps rising because each run answers the last with a larger copy.";
-  ok(/Segment 3: the `content` clause answers "why does the cost keep rising\?"/.test(X.validateExtractionUnit({ ...answered, obligation: question }, input).error || ""),
+  ok(/Segment 3: the `content` clause defines or answers "why does the cost keep rising\?"/.test(X.validateExtractionUnit({ ...answered, obligation: question }, input).error || ""),
     `(h) a question a Segment answers was not refused naming the Segment: ${X.validateExtractionUnit({ ...answered, obligation: question }, input).error}`);
-  ok(/`obligation` names kind "scale"; the closed set is `question`, `term`/.test(X.validateExtractionUnit({ ...unglossed(), obligation: { kind: "scale", item: ["leverage"] } }, input).error || ""),
-    "(h) an obligation of kind scale was not refused");
-  ok(/kind `term` carries an `item` that is not a list/.test(X.validateExtractionUnit({ ...unglossed(), obligation: { kind: "term", item: "leverage" } }, input).error || ""),
-    "(h) a term obligation whose item is one line was not refused");
+  const refused = (o) => X.validateExtractionUnit({ ...unglossed(), obligation: o }, input).error || "";
+  for (const key of ["kind", "text", "term"]) {
+    const why = refused({ [key]: "leverage" });
+    ok(new RegExp(`\`obligation\` is a map carrying \`${key}\``).test(why) && /`kind` is retired/.test(why),
+      `(h) a map obligation carrying \`${key}\` was not refused naming the key: ${why}`);
+  }
+  ok(/`obligation` is not a list of one or more one-line items/.test(refused([])), `(h) an empty obligation list was not refused: ${refused([])}`);
+  ok(/`obligation` names "leverage" twice/.test(refused(["leverage", "leverage"])), `(h) an item named twice was not refused: ${refused(["leverage", "leverage"])}`);
 }
 
 // (g) announced blocks stay with their paragraph

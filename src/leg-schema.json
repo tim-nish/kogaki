@@ -103,7 +103,7 @@
       "required": false,
       "required_when": "reaches_target is true",
       "type": "array of string",
-      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries and `term` Obligations -- every term of a row whose `term` is a list (kogaki#1549) -- have put in the reader's hands by the time `reader_state_after` -- the Brief's Reader target -- is reached. It is a LIST, not prose, because the Reader target heading renders `reader_state_after` whole and line for line and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
+      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries -- and no Obligation item (kogaki#1568) -- have put in the reader's hands by the time `reader_state_after` -- the Brief's Reader target -- is reached. It is a LIST, not prose, because the Reader target heading renders `reader_state_after` whole and line for line and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
     },
     "depends_on": {
       "required": true,
@@ -165,7 +165,7 @@
     "introduces": {
       "required": false,
       "type": "array of introduces_item",
-      "description": "Terms this Leg introduces to the reader for the first time AND gives the meaning of, one item per term; a term it names and leaves for a later Leg to explain is an Obligation of kind `term` instead (kogaki#1529). The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds. See `introduces_item` below -- its `term` field is what `re-activate`'s `term` form and the introduced-term refusal both match against.",
+      "description": "Terms this Leg introduces to the reader for the first time AND gives the meaning of, one item per term; a term it names and leaves for a later Leg to explain is an Obligation item instead (kogaki#1529, kogaki#1568). The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds. See `introduces_item` below -- its `term` field is what `re-activate`'s `term` form and the introduced-term refusal both match against.",
       "see": "introduces_item"
     },
     "re-activate": {
@@ -308,8 +308,8 @@
     },
     "obligation_one_open_per_unit": {
       "class": "checked",
-      "name": "Obligations -- at most one open at any Leg, of any kind",
-      "rule": "An Obligation is a promise the path makes to the reader: a Question raised in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two occupy the reader's attention alike, so AT MOST ONE Obligation of either kind is open at any Leg. A row is OPEN on every Leg from its `raised_by` Leg up to, and NOT INCLUDING, the Leg that closes it (`discharged_by` or `conceded_by`); a row raised and closed in one Leg is open on none. Do not raise a Question while a deferred term's explanation is still owed, nor defer a term while a Question is open. A Leg on which more than one row is open is refused, naming the Leg and every row open there. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "name": "Obligations -- at most one open at any Leg",
+      "rule": "An Obligation is a promise the path makes to the reader: a Question raised in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two are one expectation, that an item will be explained (kogaki#1568), so AT MOST ONE Obligation is open at any Leg. A row is OPEN on every Leg from its `raised_by` Leg up to, and NOT INCLUDING, the Leg that closes it (`discharged_by` or `conceded_by`); a row raised and closed in one Leg is open on none. Do not raise a second promise while one is still owed. A Leg on which more than one row is open is refused, naming the Leg and every row open there. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "obligation_owed_contiguous": {
       "class": "checked",
@@ -323,8 +323,8 @@
     },
     "obligation_row_terminal": {
       "class": "checked",
-      "name": "Obligations -- every row is one kind, raised by a Leg, and terminal",
-      "rule": "Every row is `{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}` (kogaki#1529): `kind` is `question` (the row carries `text`) or `term` (the row carries `term`: one term, or -- where one deferring slot counted more than one -- a list of the terms in the order the raising Leg named them, one promise explained in that order and discharged by the last Leg in `owed_by`; an empty list, or a list naming a term twice, is refused, kogaki#1549); `raised_by` names a Leg of the path; and the row ends in EXACTLY ONE terminal field -- `discharged_by`, the LAST Leg in its `owed_by`, where the promise is kept, or `conceded_by`, the raising Leg or one in `owed_by`, where the prose tells the reader it is left open. A row carrying neither terminal field, or both, or the retired Closure field `introduced_by`, is refused, naming the row. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "name": "Obligations -- every row is an item list, raised by a Leg, and terminal",
+      "rule": "Every row is `{item, raised_by, owed_by, discharged_by | conceded_by}` (kogaki#1529, kogaki#1568): `item` is a list of one or more one-line items, each a term or a question the raising Leg leaves unexplained, in the order it names them -- one promise explained in that order and discharged by the last Leg in `owed_by`; an empty list, a list naming an item twice, or a row carrying the retired `kind`, `text` or `term` is refused by name; `raised_by` names a Leg of the path; and the row ends in EXACTLY ONE terminal field -- `discharged_by`, the LAST Leg in its `owed_by`, where the promise is kept, or `conceded_by`, the raising Leg or one in `owed_by`, where the prose tells the reader it is left open. A row carrying neither terminal field, or both, or the retired Closure field `introduced_by`, is refused, naming the row. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "first_leg_binds_a_survivor": {
       "class": "judgment",
@@ -537,7 +537,7 @@
       "this Leg (kogaki#1529, SPEC-draft-pipeline \"Obligations\" rule 7). A",
       "term the reader already holds is not introduced at all, and a term this",
       "Leg names and leaves for a LATER Leg to explain is not an entry here: it",
-      "is an Obligation of kind `term`, raised by this Leg and owed by the Legs",
+      "is an Obligation item, raised by this Leg and owed by the Legs",
       "that give its meaning. The retired `kind` (`coined` / `established`) and",
       "`source` are refused by name."
     ],

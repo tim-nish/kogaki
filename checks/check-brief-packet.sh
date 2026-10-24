@@ -375,11 +375,12 @@ const fails = [];
   if (withAs.error) fails.push(`(am) a re-activate claim entry carrying an as sentence was refused: ${withAs.error}`);
 }
 
-// (z) a conceded Obligation row carries open, why_not_here and reader_keeps (kogaki#1251 item 3, kogaki#1260).
+// (z) a conceded Obligation row carries open, why_not_here and reader_keeps (kogaki#1251 item 3, kogaki#1260),
+// and a row carrying the retired `kind`, `text` or `term` is refused naming the key (kogaki#1568).
 {
   const { obligationLedgerRefusal } = compose;
   const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
-  const full = { kind: "question", text: "a question set aside", raised_by: "leg2", owed_by: [], conceded_by: "leg2", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" };
+  const full = { item: ["a question set aside"], raised_by: "leg2", owed_by: [], conceded_by: "leg2", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" };
   const rFull = obligationLedgerRefusal(legs, [full]);
   if (rFull) fails.push(`(z) a conceded row carrying all three fields was refused: ${rFull}`);
   const { reader_keeps, ...noKeeps } = full;
@@ -392,8 +393,15 @@ const fails = [];
   }
   const rEmpty = obligationLedgerRefusal(legs, [{ ...full, open: "" }]);
   if (!rEmpty || !/carries no open/.test(rEmpty)) fails.push(`(z) a conceded row with an empty open was not refused naming open: ${rEmpty}`);
-  const rDischarged = obligationLedgerRefusal(legs, [{ kind: "question", text: "a question closed", raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" }]);
+  const rDischarged = obligationLedgerRefusal(legs, [{ item: ["a question closed"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" }]);
   if (rDischarged) fails.push(`(z) a discharged row without the conceded-only fields was refused: ${rDischarged}`);
+  // THE RETIRED `kind`, `text` AND `term`, REFUSED BY NAME (kogaki#1568).
+  for (const [key, row] of [["kind", { ...full, kind: "question" }], ["text", { ...full, item: undefined, text: "a question set aside" }],
+    ["term", { ...full, item: undefined, term: ["a question set aside"] }]]) {
+    if (row.item === undefined) delete row.item;
+    const r = obligationLedgerRefusal(legs, [row]) || "";
+    if (!r.includes(`carries \`${key}\`, retired (kogaki#1568)`)) fails.push(`(z) a row carrying the retired \`${key}\` was not refused naming the key: ${r || "no refusal"}`);
+  }
   // ...and validateLegs refuses at the same ground over a full path.
   const rPath = validateLegs(PATH_1260(), "", [{ ...noKeeps, raised_by: "s2", conceded_by: "s2" }]);
   if (!rPath.error || !/carries no reader_keeps/.test(rPath.error)) fails.push(`(z) validateLegs did not refuse a full path over a conceded row missing reader_keeps: ${rPath.error}`);
@@ -568,7 +576,7 @@ const fails = [];
   {
     const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] })];
     const obligations = [{
-      kind: "question", text: "Whether the guard can be fed at all", raised_by: "s1", owed_by: ["s2"], conceded_by: "s2",
+      item: ["Whether the guard can be fed at all"], raised_by: "s1", owed_by: ["s2"], conceded_by: "s2",
       open: "whether any input reaches the guard",
       why_not_here: "the article's evidence is one week of runs",
       reader_keeps: "a way to check their own guard",

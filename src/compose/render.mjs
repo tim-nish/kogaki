@@ -12,7 +12,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseYaml } from "../yaml.mjs";
-import { obligationSaid } from "./sections.mjs";
+import { obligationItems, obligationLine } from "./sections.mjs";
 
 // ---- rendering (SQ1: fenced blocks; this function IS the recorded
 // serialization, exercised by the check's fixture) ----
@@ -181,7 +181,7 @@ export function readMoveRecord(moveId, movesDir = "moves") {
 // question against the state is the Move-fit judge's after-state comparison.
 
 // THE DISCHARGE JUDGE INPUT (kogaki#1283, kogaki#1529). One entry per
-// Obligation row carrying `discharged_by` -- the row's own text, or its term,
+// Obligation row carrying `discharged_by` -- the row's items, joined in order (kogaki#1568),
 // against every owed Leg's Waypoint points and claim lines (each claim's
 // `proposition`), for `review_path` to judge whether every part the row owes
 // is kept among them. Discharge is planning, never prose: what keeps a row is
@@ -191,8 +191,8 @@ export function dischargeRows(legs, obligations = []) {
   return (Array.isArray(obligations) ? obligations : [])
     .filter((o) => o && o.discharged_by !== undefined)
     .map((o) => ({
-      row: obligationSaid(o),
-      kind: o.kind,
+      row: obligationLine(o),
+      item: obligationItems(o),
       raised_by: o.raised_by,
       owed_by: Array.isArray(o.owed_by) ? [...o.owed_by] : [],
       discharging_leg: o.discharged_by,
