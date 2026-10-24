@@ -88,7 +88,9 @@
 #       Extractor call reaches the model binary; `--from paragraph-plan` also carries the Brief and
 #       makes no Extractor or Brief call; the sheet badges each copied stage's card "copied from
 #       <source>"; a copied Extraction with one Segment's content clause edited is recorded as
-#       paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner".
+#       paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner";
+#       a copied Extraction the ingest refuses stops the run with `stopped` naming the Move and the
+#       item (kogaki#1576).
 #       The paragraph tables (o) render with no details element but the before / after folds
 #       and no "Review" heading.
 #   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places
@@ -1001,6 +1003,20 @@ if (runDir) {
     ok(rows.length === 2 && rows.every((m) => m[1] === "1" && m[2].startsWith("CONTENT-2-1 OWNER-EDIT")),
       `(q) the sheet does not badge the edited Segment row "edited by owner" in the Extraction card and the Segments table: ${rows.length} row(s)`);
   }
+
+  // THE INGEST'S REFUSAL REACHES THE STOP LINE (kogaki#1576): paragraph 2's Extraction, given an
+  // obligation naming one item twice, is refused at the ingest, and `stopped` names the Move and the item.
+  const refusing = join(root, "ingest-refused-source");
+  cpSync(runDir, refusing, { recursive: true });
+  writeFileSync(join(refusing, "run.json"), readFileSync(join(refusing, "run.json"), "utf8").split(runDir).join(refusing));
+  const p2r = readdirSync(join(refusing, "extract")).find((f) => f.startsWith("name_an_act_then_its_cost_2"));
+  const p2rText = p2r ? readFileSync(join(refusing, "extract", p2r), "utf8") : "";
+  writeFileSync(join(refusing, "extract", p2r || "missing"), `${p2rText.replace(/\n*$/, "\n")}obligation:\n  - leverage\n  - leverage\n`);
+  const q4 = reuseRun(refusing, "brief", "ingest-refused");
+  const q4stop = (q4.run && q4.run.stopped) || "";
+  ok(q4.rq.status !== 0 && q4stop.startsWith("ingest:") && q4stop.includes('move "name_an_act_then_its_cost_2"')
+    && q4stop.includes('names "leverage" twice') && !q4stop.includes("(no output)"),
+    `(q) the ingest's refusal does not reach the run's stop line naming the Move and the item: ${q4stop || q4.rq.stdout + q4.rq.stderr}`);
 
   // (r) THE LIBRARY (kogaki#1521): a library of the main run's three Moves under `lib_` ids, and a
   // second one that also holds one of the run's own ids. Each run reuses the main run's Extraction,

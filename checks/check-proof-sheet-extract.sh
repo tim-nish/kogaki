@@ -70,8 +70,11 @@
 #       order, as the record, the file and its reading; the same paragraph glossing both yields
 #       none; the field beside a Segment that defines its terms, or answers its question, is
 #       refused naming that Segment; a map (carrying the retired `kind`, `text` or `term`, each
-#       named), an empty list and an item named twice are refused (kogaki#1568); and in (b2) the ingest carries the field to the Move record unchanged, where the
-#       Adapter reads it, and adds none to a Move whose Extraction has none.
+#       named), an empty list and an item named twice are refused (kogaki#1568); an item naming
+#       one of `subject_nouns`, or a word outside the Latin script, is refused naming the item and
+#       rule 7 (kogaki#1576); and in (b2) the ingest carries the field to the Move record unchanged,
+#       where the Adapter reads it, admits it where no item shares a word with any `after` line
+#       (kogaki#1576), and adds none to a Move whose Extraction has none.
 #   (i) the `discharges` mark (rule 10, kogaki#1570): a record carrying `discharges: true` where
 #       the input's `open_obligation` names items validates and carries it as the record, the
 #       file and its reading; the same record with `open_obligation` null is refused by name, and
@@ -263,13 +266,16 @@ except m.Refusal as e:
 if [n for n in os.listdir(moves2) if n.endswith(".yaml")]:
     bad.append("a refused Extraction left a Move in the library")
 # THE OBLIGATION IS CARRIED THROUGH UNCHANGED (kogaki#1557): an Extraction carrying the field
-# yields a Move record carrying it, read back by the Adapter; one without it yields none.
+# yields a Move record carrying it, read back by the Adapter; one without it yields none. No
+# item shares a word with any \`after\` line, and the Move is admitted (kogaki#1576).
 obligation = ["leverage", "margin"]
 for w in r["written"] or []:
     if "obligation" in m.read_extraction(w)[1]:
         bad.append("a Move admitted from an Extraction without the field carries obligation: %s" % w)
 record = m.read_extraction(files[1])[1]
-record["reader"]["knowledge"]["after"] = "holds two named terms, leverage and margin, neither explained"
+after_words = " ".join(str(row.get("after", "")) for row in record["reader"].values()).lower()
+if any(item in after_words for item in obligation):
+    bad.append("the fixture's \`after\` lines name an obligation item, so the unshared-word case is vacuous")
 record["obligation"] = obligation
 obl_path = os.path.join(tmp, "obligation.yaml")
 with open(obl_path, "w") as h:
@@ -573,6 +579,16 @@ ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record brok
   }
   ok(/`obligation` is not a list of one or more one-line items/.test(refused([])), `(h) an empty obligation list was not refused: ${refused([])}`);
   ok(/`obligation` names "leverage" twice/.test(refused(["leverage", "leverage"])), `(h) an item named twice was not refused: ${refused(["leverage", "leverage"])}`);
+  // Rule 7 over each item (kogaki#1576), the shape of paragraph 3 of leg-run-2026-10-24T10-59-33-199Z:
+  // both items were the record's own subject_nouns.
+  const specific = refused(["leverage", "installer"]);
+  ok(/`obligation` item 2, "installer", names "installer", one of your subject_nouns/.test(specific) && /rule 7/.test(specific)
+    && !/item 1/.test(specific), `(h) an item naming a subject noun was not refused naming the item, the noun and rule 7: ${specific}`);
+  const foreign = refused(["レバレッジ"]);
+  ok(/`obligation` item 1, "レバレッジ", carries "レバレッジ", a word outside the Latin script/.test(foreign) && /rule 7/.test(foreign),
+    `(h) an item outside the Latin script was not refused naming the item and rule 7: ${foreign}`);
+  ok(formatRule7.includes("Each item is written general, as `operation` is: it names no term, place, person or claim of the original and none of `subject_nouns` (kogaki#1576)."),
+    "(h) passages/FORMAT.md's `obligation` entry does not carry the general-item sentence");
 }
 
 // (i) THE `discharges` MARK (FORMAT "The paragraph unit", rule 10, kogaki#1570).

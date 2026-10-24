@@ -145,8 +145,8 @@ rule 8 is kogaki#1557's, rule 9 is kogaki#1478's and rule 10 is kogaki#1570's:
    carries no reference to any earlier step or earlier paragraph. A later
    Segment's `operation` is the operation alone, and its `relation`
    carries the connection to the step before. Every prose field of the
-   record, `operation`, `relation`, `manner`, each entry of `breaks` and
-   each dimension state of the reader table, names no term, place, person or
+   record, `operation`, `relation`, `manner`, each entry of `breaks`, each
+   dimension state of the reader table and each item of `obligation`, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
@@ -542,7 +542,9 @@ What each field holds:
 - `obligation` — absent unless the paragraph leaves an item unexplained
   ("The paragraph unit", rule 8). Where present, it is the list of those
   items, one line each, in the order the paragraph names them, naming no
-  item twice; a map, and so a `kind`, is refused (kogaki#1568). An
+  item twice; a map, and so a `kind`, is refused (kogaki#1568). Each item
+  is written general, as `operation` is: it names no term, place, person or
+  claim of the original and none of `subject_nouns` (kogaki#1576). An
   `obligation` naming an item a Segment's `content` clause defines or
   answers is refused, naming the Segment. The ingest copies it to the Move
   unchanged (kogaki#1557).

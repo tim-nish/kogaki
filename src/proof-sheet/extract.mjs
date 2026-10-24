@@ -47,7 +47,6 @@ import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { methodWordRefusal } from "../compose/leg-schema.mjs";
-import { contentWords } from "../compose/moves.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
@@ -244,9 +243,9 @@ function nounIn(nouns, text) {
   return nouns.find((n) => (/\s/.test(n) ? lower.includes(n) : ws.has(n)));
 }
 // THE WHOLE MOVE IS GENERAL (kogaki#1519): every prose field of the record -- `operation`,
-// `relation`, `manner`, each `breaks` test and each reader state -- names none of
-// `subject_nouns` and no word in the original's language; `content` is the one field bound to
-// the source. A word in another script is a run of letters outside the Latin script, or of
+// `relation`, `manner`, each `breaks` test, each reader state and each item of `obligation`
+// (kogaki#1576) -- names none of `subject_nouns` and no word in the original's language;
+// `content` is the one field bound to the source. A word in another script is a run of letters outside the Latin script, or of
 // CJK or full-width punctuation, such as 「なぜなら」; dashes and quotes stay common punctuation.
 const FOREIGN_RUN = /(?:(?!\p{Script=Latin})\p{L}|[\u3000-\u303F\uFF00-\uFFEF])+/u;
 function generalRefusal(nouns, text, at) {
@@ -262,13 +261,16 @@ function generalRefusal(nouns, text, at) {
 // Its shape is the Move's own: a list of one or more one-line items, no kind. Beyond the shape,
 // an item some Segment's `content` clause defines or answers is no item left unexplained. A
 // clause defines or answers an item where it carries one of DEFINING's verbs, not negated, and
-// names the item or shares a content word with it.
+// names the item or shares a content word with it. Each item is general, as `operation` is.
 const DEFINING = /\b(defin\w*|gloss\w*|explain\w*|means|meaning|answer\w*|resolv\w*)\b/gi;
 const NEGATION = /\b(?:without|not|never|no|nor|neither|leaves?|leaving)\s+(?:\S+\s+){0,2}$/i;
+const GRAMMAR_WORDS = new Set(["a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "by", "for", "with", "as",
+  "is", "are", "be", "was", "it", "its", "this", "that", "what", "which", "who", "how", "why", "does", "do"]);
+const contentWords = (s) => (String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) || []).filter((w) => !GRAMMAR_WORDS.has(w));
 function definingClause(clause) {
   return [...String(clause).matchAll(DEFINING)].some((m) => !NEGATION.test(clause.slice(0, m.index)));
 }
-function obligationRefusals(o, segments, at) {
+function obligationRefusals(o, segments, at, nouns) {
   const atO = `${at}: \`obligation\``;
   if (isMap(o)) {
     const retired = ["kind", "text", "term"].filter((k) => Object.prototype.hasOwnProperty.call(o, k));
@@ -281,6 +283,10 @@ function obligationRefusals(o, segments, at) {
   const dup = o.findIndex((x, i) => o.findIndex((y) => y.trim() === x.trim()) !== i);
   if (dup >= 0) return [`${atO} names ${JSON.stringify(o[dup].trim())} twice (kogaki#1568)`];
   const errors = [];
+  for (const [i, item] of o.entries()) {
+    const e = generalRefusal(nouns, item, `${atO} item ${i + 1}, ${JSON.stringify(item.trim())},`);
+    if (e) errors.push(e);
+  }
   for (const [i, s] of (Array.isArray(segments) ? segments : []).entries()) {
     if (!isMap(s) || typeof s.content !== "string" || !definingClause(s.content)) continue;
     const clause = String(s.content).toLowerCase();
@@ -420,7 +426,7 @@ export function validateExtractionUnit(record, input) {
   }
   if (readerOk && !changed) errors.push(`${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves`);
 
-  if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at));
+  if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at, nouns));
   if (r.discharges !== undefined && r.discharges !== true) {
     errors.push(`${at}: \`discharges\` is ${JSON.stringify(r.discharges)} — it is \`true\` or absent (FORMAT "The paragraph unit", rule 10)`);
   } else if (r.discharges === true && !input.open_obligation) {

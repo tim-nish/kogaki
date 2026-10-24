@@ -200,6 +200,7 @@ function stopLine(rec) {
 // for Moves (kogaki#1418): each candidate is validated through the Adapter's own validator
 // (src/move-validate.mjs), so a Move this stage admits is one the production Adapter reads. The library starts empty, so the
 // near-duplicate check has no row to match and each proposal's screen is rendered with none.
+// A refusal prints each refused Extraction's line to stderr, which `stopLine` reads (kogaki#1576).
 const INGEST_PY = `
 import json, os, sys
 sys.path.insert(0, os.path.join(os.getcwd(), "tools"))
@@ -224,7 +225,11 @@ except mi.Refusal as e:
 with open(os.path.join(out_dir, "ingest.json"), "w", encoding="utf-8") as h:
     json.dump(result, h, ensure_ascii=False, indent=2)
     h.write("\\n")
-sys.exit(1 if "refused" in result else 0)
+if "refused" in result:
+    lines = [e["refusal"] for e in entries if not e["admitted"]] or [result["refused"]]
+    for line in lines:
+        print(" ".join(line.split()), file=sys.stderr)
+    sys.exit(1)
 `;
 
 // THE AUDIENCE, RESOLVED ONCE (kogaki#1396). The flag if given, the `brief.audience_file`
