@@ -148,10 +148,11 @@ rule 8 is kogaki#1557's, rule 9 is kogaki#1478's and rule 10 is kogaki#1570's:
    record, `operation`, `relation`, `manner`, each entry of `breaks`, each
    dimension state of the reader table and each item of `obligation`, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
-   original's language; the record's `content` clause and `opening` are the
-   only fields bound to the source (kogaki#1519). A `content` clause opens on
+   original's language; the record's `content` clause, `opening` and
+   `obligation_content` are the only fields bound to the source (kogaki#1519,
+   kogaki#1578). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`obligation` is absent unless the paragraph leaves an item unexplained.** Where the last Segment names a term or raises a question and no Segment gives its meaning or answer, `obligation` is the list of those items, one line each, in the order the paragraph names them; otherwise the key is absent.
+8. **`obligation` is absent unless the paragraph leaves an item unexplained.** Where the last Segment names a term or raises a question and no Segment gives its meaning or answer, `obligation` is the list of those items, one line each, written general in the order the paragraph names them, and `obligation_content` is the same list in the paragraph's own words; otherwise both keys are absent.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -548,6 +549,12 @@ What each field holds:
   `obligation` naming an item a Segment's `content` clause defines or
   answers is refused, naming the Segment. The ingest copies it to the Move
   unchanged (kogaki#1557).
+- `obligation_content` — present exactly where `obligation` is ("The
+  paragraph unit", rule 8): the same list in the paragraph's own words, item
+  for item, each one line. It is bound to the source as `content` is, so rule
+  7 does not hold it general. One key without the other, or two lists of
+  different lengths, is refused naming both. It stays on the Extraction and
+  the ingest does not copy it to the Move (kogaki#1578).
 - `discharges` — present only on the paragraph that completes an open
   obligation ("The paragraph unit", rule 10): where the input's
   `open_obligation` names items an earlier paragraph left unexplained and

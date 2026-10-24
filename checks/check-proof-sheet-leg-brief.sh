@@ -55,6 +55,11 @@
 #       items and paragraph 5 marked, gives one row owed by every Leg from the second through the
 #       marked one and one `{ leg_id, items, kept_by }`; an unmarked passage is refused naming
 #       paragraph 2 and both items; and a raising and a discharging paragraph in one Leg give no row.
+#   (m) THE ROW'S ITEM IS THE PARAGRAPH'S OWN WORDS (kogaki#1578): `paragraphMarks` over a Move
+#       whose `obligation` is two general items and an Extraction whose `obligation_content` is
+#       the paragraph's two words gives a row whose `item` is those words, and the Move file
+#       carries none of them; an `obligation_content` of one item, or none, under that Move is
+#       refused naming the paragraph.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -383,6 +388,29 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   const local = LB.obligationRows(out, counts, [{ items, discharges: false }, { items: null, discharges: true }, none, none, none, none]);
   ok(JSON.stringify(local) === JSON.stringify({ obligations: [], deferrals: [] }),
     `(l) a raising and a discharging paragraph in one Leg gave a Leg-scale row: ${JSON.stringify(local)}`);
+}
+
+// (m) THE ROW'S ITEM IS THE PARAGRAPH'S OWN WORDS (kogaki#1578): read through `paragraphMarks`.
+{
+  const mDir = join(root, "marks"); mkdirSync(mDir, { recursive: true });
+  const moveId = "apply_a_definition_to_one_everyday_instance", GENERAL = ["a named device", "a second named device"];
+  writeFileSync(join(mDir, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
+  writeFileSync(join(mDir, `${moveId}.yaml`), `${readFileSync(join("moves", `${moveId}.yaml`), "utf8").trimEnd()}\nobligation:\n${GENERAL.map((x) => `  - ${x}\n`).join("")}`);
+  const ingest = join(mDir, "ingest.json");
+  writeFileSync(ingest, JSON.stringify({ entries: [{}, { move: moveId }, {}, {}] }));
+  const WORDS = ["frobnicator", "gizmo"];
+  const exts = [{}, { obligation: GENERAL, obligation_content: WORDS }, {}, { discharges: true }];
+  const marks = LB.paragraphMarks(mDir, ingest, exts);
+  const rows = Array.isArray(marks) && LB.obligationRows([{ leg_id: "leg-a" }, { leg_id: "leg-b" }], [2, 2], marks);
+  ok(rows && JSON.stringify(rows.obligations) === JSON.stringify([{ item: WORDS, raised_by: "leg-a", owed_by: ["leg-b"], discharged_by: "leg-b" }])
+    && !readFileSync(join(mDir, `${moveId}.yaml`), "utf8").includes("frobnicator"),
+    `(m) the row's item is not the paragraph's words over a Move whose obligation is general: ${JSON.stringify(marks)} ${JSON.stringify(rows)}`);
+  const short = LB.paragraphMarks(mDir, ingest, [{}, { obligation: GENERAL, obligation_content: ["frobnicator"] }, {}, { discharges: true }]);
+  ok(/paragraph 2's Move lists 2 obligation item\(s\) and its Extraction's `obligation_content` lists 1/.test(String(short.error)),
+    `(m) a paragraph whose two lists differ in length was not refused naming it: ${JSON.stringify(short)}`);
+  const missing = LB.paragraphMarks(mDir, ingest, [{}, { obligation: GENERAL }, {}, { discharges: true }]);
+  ok(/paragraph 2's Move lists 2 obligation item\(s\) and its Extraction's `obligation_content` lists 0/.test(String(missing.error)),
+    `(m) a paragraph with no obligation_content under a Move carrying items was not refused naming it: ${JSON.stringify(missing)}`);
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
