@@ -60,7 +60,10 @@
 #       `technique`, and a `description` over 200 characters, naming its length
 #       (kogaki#1412); a `manner` filled on one Segment and empty on the rest validates; and
 #       a record wrong on BOTH `answers` and `segments` at once is
-#       refused naming both (kogaki#1395).
+#       refused naming both (kogaki#1395); a `content` clause opening on a method verb is
+#       refused naming the paragraph, the Segment and the verb, for the specimen `explains`
+#       and for a second listed verb, while the clause opening on what the sentence says
+#       validates, and FORMAT's rule 7 carries the sentence verbatim (kogaki#1554).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
@@ -469,6 +472,21 @@ const m4f = good(); m4f.description = "x".repeat(201);
 ok(/`description` is 201 characters — at most 200/.test(X.validateExtractionUnit(m4f, input).error || ""), "(f) a 201-character description was not refused naming its length");
 const m4g = good(); m4g.description = "x".repeat(200);
 ok(!X.validateExtractionUnit(m4g, input).error, `(f) a 200-character description was refused: ${X.validateExtractionUnit(m4g, input).error}`);
+
+// A CONTENT CLAUSE OPENS ON WHAT THE SENTENCE SAYS (kogaki#1554): one opening on a method verb
+// is refused naming the paragraph, the Segment and the verb; the case pins a second listed verb
+// as well as the specimen, and the clause rewritten to open on what the sentence says passes.
+const m4q = good(); m4q.segments[1].content = "explains the principle by taking at face value the stock declaration of a country that starts a war";
+ok(/paragraph 2, Segment 2: the `content` clause opens on "explains", a form of the method verb "explain"/.test(X.validateExtractionUnit(m4q, input).error || ""),
+  `(f) a content clause opening on "explains" was not refused naming the paragraph, Segment 2 and the verb: ${X.validateExtractionUnit(m4q, input).error}`);
+const m4r = good(); m4r.segments[1].content = "Restating the earlier claim in a narrower form";
+ok(/Segment 2: the `content` clause opens on "Restating", a form of the method verb "restate"/.test(X.validateExtractionUnit(m4r, input).error || ""),
+  `(f) a content clause opening on "Restating" was not refused naming the verb: ${X.validateExtractionUnit(m4r, input).error}`);
+const m4s = good(); m4s.segments[1].content = "says every country starting a war declares it acts in defence";
+ok(!X.validateExtractionUnit(m4s, input).error, `(f) a content clause opening on what the sentence says was refused: ${X.validateExtractionUnit(m4s, input).error}`);
+const formatRule7 = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").replace(/\s+/g, " ");
+ok(formatRule7.includes("A `content` clause opens on what the sentence says, never on a verb naming how the paragraph treats it."),
+  "(f) passages/FORMAT.md does not carry the content-clause sentence verbatim");
 
 // a record wrong on BOTH `answers` and `segments` at once is refused naming both (kogaki#1395)
 const m5 = good(); delete m5.answers.q3; m5.segments.pop();

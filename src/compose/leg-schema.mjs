@@ -228,7 +228,8 @@ export function budgetRefusal(budget, at) {
 // decision 2026-10-09). `claimStrands` is the Strand ids the Leg's claims
 // name. `ordinals` numbers a filtered list as its reader does (kogaki#1448);
 // `claimText` maps Strand ids to propositions and turns on the read-alone
-// rule, for Leg Waypoints at composition only (kogaki#1449). PURE, re-run by
+// rule and the method-verb rule, for Leg Waypoints at composition only
+// (kogaki#1449, kogaki#1554). PURE, re-run by
 // `src/draft.mjs` over a parsed Brief.
 export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, claimText = null) {
   const def = "a waypoint is a point its paragraph makes, carrying a `point` "
@@ -295,6 +296,8 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
     if (claimText) {
       const bad = readAloneRefusal(w.point, w.serves.map((x) => claimText[x] || "").join(" "));
       if (bad) return `${at}: ${nth}'s point ${bad}`;
+      const method = methodWordRefusal(w.point, `${at}: ${nth}'s point carries`);
+      if (method) return method;
     }
   }
   const unserved = [...strands].filter((x) => !served.has(x));
@@ -325,6 +328,25 @@ function readAloneRefusal(point, claims) {
   for (const m of point.matchAll(/\b(this|these)\s+([A-Za-z][A-Za-z'-]*)/gi)) {
     if (!text.includes(m[2].toLowerCase())) {
       return `carries ${JSON.stringify(m[0])}, and ${JSON.stringify(m[2])} is in no Claim it serves — ${ground}`;
+    }
+  }
+  return null;
+}
+
+// A METHOD VERB NAMES HOW A PARAGRAPH TREATS ITS MATTER, NOT WHAT IT SAYS (kogaki#1554, owner
+// decision 2026-10-24). The list is closed: a word is added or removed by a later Issue. A
+// word matches a verb on its stem, so `explains`, `explained` and `explaining` are `explain`.
+// `at` ends on the verb that places the word, such as "carries" or "opens on".
+export const METHOD_VERBS = ["explain", "ground", "justify", "support", "illustrate", "reinterpret", "restate", "reread"];
+const METHOD_VERB_FORMS = METHOD_VERBS.map((v) => [v, v.endsWith("y")
+  ? new RegExp(`^${v.slice(0, -1)}(?:y|ies|ied|ying)$`)
+  : v.endsWith("e") ? new RegExp(`^${v.slice(0, -1)}(?:e|es|ed|ing)$`) : new RegExp(`^${v}(?:s|ed|ing)?$`)]);
+export function methodWordRefusal(text, at) {
+  for (const word of text.match(/[A-Za-z]+/g) || []) {
+    const hit = METHOD_VERB_FORMS.find(([, re]) => re.test(word.toLowerCase()));
+    if (hit) {
+      return `${at} ${JSON.stringify(word)}, a form of the method verb ${JSON.stringify(hit[0])}, which names how `
+        + `a paragraph treats its matter rather than what it says (kogaki#1554)`;
     }
   }
   return null;
