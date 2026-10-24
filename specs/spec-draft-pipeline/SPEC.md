@@ -2506,7 +2506,8 @@ field naming Paragraph Waypoints of that one Leg Waypoint, and the record
 lives in the ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's
 rules bind it as they bind the Leg scale, except the Section rule: a slot is
 raised by the bound paragraph Move's `obligation` and by nothing else, at
-most one row is open at any Paragraph Waypoint, `owed_by` is in raised order,
+most one row is open at any Paragraph Waypoint, `owed_by` is the unbroken run
+from the next Paragraph Waypoint,
 and a row open here may be open while a Leg-scale row is open too. **Discharge
 is planning, never prose**: a row is kept by the Paragraph Waypoints the plan
 generates for its owed units, the Packet renders it as material and asks for
@@ -2925,10 +2926,14 @@ decision 2026-10-24), and these rules govern it:
    scale. A row is open from its `raised_by` unit up to, and not including,
    the unit that closes it; a row raised and closed in one unit is open on
    none. Obligations at different scales may be open at once.
-4. **Order and scale.** `owed_by` lists units at the same scale as
-   `raised_by`, in the order the items were raised. An explanation may span
-   several owed units, and the span from `raised_by` through the last owed
-   unit counts as one unit for every rule that groups units.
+4. **Order and span.** `owed_by` is the unbroken run of units at the same
+   scale as `raised_by`, beginning with the unit immediately after it and
+   ending with the unit that discharges it; a conceded row's `owed_by` is that
+   run up to the conceding unit, or empty where the raising unit concedes. An
+   explanation may span several owed units, and the span from `raised_by`
+   through the last owed unit counts as one unit for every rule that groups
+   units. Whether each owed unit keeps its part is judged where rule 6 says;
+   the shape is checked here.
 5. **Section.** No Leg named in an open Obligation's `owed_by` carries
    `opens_section`; the raising Leg opens the Section, under the Section
    grouping's rule 1 (§4.15).

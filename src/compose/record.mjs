@@ -321,7 +321,7 @@ export function paragraphObligationsRefusal(rows, count, at) {
     if (extra) return `${label} carries \`${extra}\`, which an Obligation row does not declare (kogaki#1530)`;
     if (!pw(o.raised_by)) return `${label} names raised_by ${name(o.raised_by)}, which is not a Paragraph Waypoint of this Leg Waypoint (kogaki#1530)`;
     if (!Array.isArray(o.owed_by)) {
-      return `${label} carries no \`owed_by\` list — the Paragraph Waypoints that keep it, after Paragraph Waypoint ${o.raised_by}, in order (kogaki#1530)`;
+      return `${label} carries no \`owed_by\` list — the unbroken run of Paragraph Waypoints that keep it, from the one after Paragraph Waypoint ${o.raised_by} (kogaki#1530)`;
     }
     let prev = o.raised_by;
     for (const n of o.owed_by) {
@@ -330,6 +330,9 @@ export function paragraphObligationsRefusal(rows, count, at) {
         return n <= o.raised_by
           ? `${label} raised at Paragraph Waypoint ${o.raised_by} names Paragraph Waypoint ${n} in owed_by, which does not come after the raising one (kogaki#1530)`
           : `${label} names Paragraph Waypoint ${n} in owed_by after a later one — owed_by is in order (kogaki#1530)`;
+      }
+      if (n > prev + 1) {
+        return `${label} raised at Paragraph Waypoint ${o.raised_by} skips Paragraph Waypoint ${prev + 1}: owed_by ${JSON.stringify(o.owed_by)} is not the unbroken run from the next Paragraph Waypoint, so Paragraph Waypoint ${prev + 1} holds the promise open and owes nothing (kogaki#1569)`;
       }
       prev = n;
     }

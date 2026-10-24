@@ -134,7 +134,9 @@
 #       The plan call's validator and the plan reader refuse two rows open at one
 #       Paragraph Waypoint naming both, an `owed_by` before its `raised_by`, and
 #       a row carrying the retired `kind`, `text` or `term` naming the key
-#       (kogaki#1568); a
+#       (kogaki#1568), one that skips its first Paragraph Waypoint or leaves a
+#       gap, naming the row and the idle Paragraph Waypoint (kogaki#1569), and
+#       admit a row conceded where it is raised with an empty `owed_by`; a
 #       Move carrying `obligation` hands its `deferred_slots` to the plan call's
 #       input, and a Move whose manner defers an item with no field hands none
 #       (kogaki#1558); and the Packet renders the rows as `*Promise:*` and
@@ -178,7 +180,7 @@ const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOV
   validateParagraphPlanUnit, planLeg, introducedTerms, criteriaOf, criteriaFailures, readAxes,
   paragraphPlanUnitInput, paragraphPlanUnitPrompt } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
 const { parseYaml, stringifyYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
-const { JOIN_TYPES } = await import(pathToFileURL(join(repo, "src", "compose", "record.mjs")).href);
+const { JOIN_TYPES, paragraphObligationsRefusal } = await import(pathToFileURL(join(repo, "src", "compose", "record.mjs")).href);
 const { waypointLines } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-"));
@@ -337,7 +339,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       why: nofit ? "NOFIT-SENTENCE-" + planN + " no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       ...(join ? { join } : {}),
       ...(mode === "owes" && leg.leg_id === "s1" && w.waypoint === 1
-        ? { obligations: [{ item: ["OWED-ROW which edit survives the next run?"], raised_by: 1, owed_by: [3], discharged_by: 3 }] } : {}),
+        ? { obligations: [{ item: ["OWED-ROW which edit survives the next run?"], raised_by: 1, owed_by: [2, 3], discharged_by: 3 }] } : {}),
       ...(mode === "owes" && w.waypoint === 1 && owes.length && planN > 1
         ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 2 })) } : {}),
       paragraph_waypoints: nofit ? [] : mode === "performs-purpose"
@@ -883,10 +885,12 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     if (got !== null) fails.push(`(u) the ${what} refused two rows open one after the other: ${got}`);
   }
   const cases = [
-    ["two rows open at one Paragraph Waypoint", [q("first?", 1, [3], 3), q("second?", 2, [3], 3)],
+    ["two rows open at one Paragraph Waypoint", [q("first?", 1, [2, 3], 3), q("second?", 2, [3], 3)],
       ["Paragraph Waypoint 2: 2 rows are open here", "obligation \"first?\"", "obligation \"second?\""]],
     ["an owed_by before its raised_by", [q("first?", 2, [1], 1)],
       ["raised at Paragraph Waypoint 2 names Paragraph Waypoint 1 in owed_by, which does not come after the raising one"]],
+    ["a skipped first Paragraph Waypoint", [q("first?", 1, [3], 3)],
+      ["obligation \"first?\"", "skips Paragraph Waypoint 2", "not the unbroken run from the next Paragraph Waypoint"]],
     ["a row ending in neither terminal field", [{ item: ["first?"], raised_by: 1, owed_by: [2] }],
       ["NEITHER discharged_by nor conceded_by"]],
     // THE RETIRED KEYS, REFUSED BY NAME (kogaki#1568): `kind`, `text` and `term` each name themselves.
@@ -903,6 +907,15 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     const r = paragraphPlanShapeRefusal(record(rows), "plan.yaml", legs) || "";
     if (!want.every((w) => r.includes(w))) fails.push(`(u) the plan reader did not refuse ${what} naming the rows: ${r || "no refusal"}`);
   }
+  // A gap needs four Paragraph Waypoints, so the shared row reader is read directly.
+  const gap = paragraphObligationsRefusal([q("first?", 1, [2, 4], 4)], 4, "Leg s1, Waypoint 1") || "";
+  if (!["obligation \"first?\"", "skips Paragraph Waypoint 3", "not the unbroken run from the next Paragraph Waypoint"].every((w) => gap.includes(w))) {
+    fails.push(`(u) a gap in the span was not refused naming the row and the idle Paragraph Waypoint: ${gap || "no refusal"}`);
+  }
+  const here = { item: ["first?"], raised_by: 2, owed_by: [], conceded_by: 2,
+    open: "what stays unresolved", why_not_here: "not this unit's to close", reader_keeps: "a named open question" };
+  const hereGot = paragraphObligationsRefusal([here], 4, "Leg s1, Waypoint 1");
+  if (hereGot !== null) fails.push(`(u) a row conceded where it is raised, with an empty owed_by, was refused: ${hereGot}`);
   const owing = { legs: legs.map((l) => planLeg(l, [ROW])), movesDir: moves };
   const s2unit = (discharges) => ({ version: "1", leg_id: "s2", waypoints: [{ waypoint: 1, move: "p1", why: "its before holds the state.",
     ...(discharges ? { discharges } : {}), paragraph_waypoints: [{ point: "a point.", serves: ["L2"] }] }] });
@@ -966,7 +979,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     if (got !== null) fails.push(`(v) the ${what} refused a two-term list row owed in order: ${got}`);
   }
   const asTwo = [{ item: ["ownership boundary"], raised_by: 1, owed_by: [2], discharged_by: 2 },
-    { item: ["non-member fallback"], raised_by: 1, owed_by: [3], discharged_by: 3 }];
+    { item: ["non-member fallback"], raised_by: 1, owed_by: [2, 3], discharged_by: 3 }];
   const repeat = { ...pair, item: ["ownership boundary", "ownership boundary"] };
   for (const [what, rows, want] of [["the same promise as two rows raised at one Paragraph Waypoint", asTwo, "Paragraph Waypoint 1: 2 rows are open here"],
     ["a list naming an item twice", [repeat], "repeats \"ownership boundary\""],

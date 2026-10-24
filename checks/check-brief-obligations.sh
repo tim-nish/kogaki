@@ -5,8 +5,8 @@
 #   (f)-(k) the Thesis row and the Reader target Leg: the mark, closing Legs,
 #           the target after-state, and the mark reaching the Packet.
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
-#   (n) Path Review's `discharge_rows` names each row and its owed Legs.
-#   (o)-(q) owed_by order, an owed Leg opening a Section, a non-terminal row.
+#   (n) Path Review's `discharge_rows`; (o) owed_by the unbroken run from the
+#   next Leg; (p) an owed Leg opening a Section; (q) a non-terminal row.
 #   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
 #       `closure` refused; (u) no Obligation item in `names` or the ledger;
 #       (v) a row's `item` list, and `kind`, `text`, `term` refused (#1568).
@@ -231,7 +231,7 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
 {
   const legs = ids(5);
   const twoOpen = [
-    q("row A", "leg1", ["leg4"]),
+    q("row A", "leg1", ["leg2", "leg3", "leg4"]),
     { item: ["ownership boundary"], raised_by: "leg2", owed_by: ["leg3"], discharged_by: "leg3" },
   ];
   const r = obligationLedgerRefusal(legs, twoOpen);
@@ -245,7 +245,7 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   const rClean = obligationLedgerRefusal(legs, oneAtATime);
   if (rClean) fails.push(`(m) a path with at most one row open at any Leg was refused: ${rClean}`);
   // A row raised and conceded in one Leg is open on none.
-  const settled = [q("row A", "leg2", ["leg4"]), q("row B", "leg2", [], { conceded_by: "leg2", ...conceded })];
+  const settled = [q("row A", "leg2", ["leg3", "leg4"]), q("row B", "leg2", [], { conceded_by: "leg2", ...conceded })];
   const rSettled = obligationLedgerRefusal(legs, settled);
   if (rSettled) fails.push(`(m) a row conceded in its own raising Leg was counted as open there: ${rSettled}`);
   // ...and validateLegs runs the same rule over a full path.
@@ -289,16 +289,32 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   }
 }
 
-// (o) an `owed_by` naming an earlier Leg is refused, naming the row and the Leg.
+// (o) `owed_by` is the unbroken run from the Leg after the raising one (kogaki#1569): an
+// earlier Leg, an out-of-order Leg, a skipped first Leg and a gap in the span are each
+// refused naming the row and the Leg; a run and a row conceded where it is raised pass.
 {
   const legs = ids(4);
+  const RULE = /owed Legs are the unbroken run from the Leg after the raising Leg/;
   const r = obligationLedgerRefusal(legs, [q("asked late, owed early", "leg3", ["leg2"])]);
   if (!r) fails.push("(o) an owed_by naming a Leg before the raising one was not refused");
-  else if (!/owed Legs come after the raising Leg/.test(r) || !/leg 2 \(leg2\)/.test(r) || !/asked late, owed early/.test(r)) {
+  else if (!RULE.test(r) || !/leg 2 \(leg2\)/.test(r) || !/asked late, owed early/.test(r)) {
     fails.push(`(o) the refusal did not name the rule, the Leg and the row: ${r}`);
   }
-  const rOrder = obligationLedgerRefusal(legs, [q("owed out of order", "leg1", ["leg3", "leg2"])]);
+  const rOrder = obligationLedgerRefusal(legs, [q("owed out of order", "leg1", ["leg2", "leg3", "leg2"])]);
   if (!rOrder || !/path order/.test(rOrder)) fails.push(`(o) an owed_by out of path order was not refused: ${rOrder}`);
+  for (const [what, row, idle] of [
+    ["a skipped first Leg", q("owed after an idle Leg", "leg1", ["leg3"]), /leg 2 \(leg2\)/],
+    ["a gap in the span", q("owed across a gap", "leg1", ["leg2", "leg4"]), /leg 3 \(leg3\)/],
+  ]) {
+    const rIdle = obligationLedgerRefusal(legs, [row]);
+    if (!rIdle || !RULE.test(rIdle) || !idle.test(rIdle) || !rIdle.includes(row.item[0]) || !/skips this Leg/.test(rIdle)) {
+      fails.push(`(o) ${what} was not refused naming the rule, the row and the idle Leg: ${rIdle}`);
+    }
+  }
+  const rRun = obligationLedgerRefusal(legs, [q("kept across two", "leg1", ["leg2", "leg3"])]);
+  if (rRun) fails.push(`(o) an owed_by that is the unbroken run from the next Leg was refused: ${rRun}`);
+  const rHere = obligationLedgerRefusal(legs, [q("set aside where raised", "leg2", [], { conceded_by: "leg2", ...conceded })]);
+  if (rHere) fails.push(`(o) a row conceded in its raising Leg with an empty owed_by was refused: ${rHere}`);
 }
 
 // (p) an owed Leg carrying `opens_section` is refused while the row is open.
@@ -432,7 +448,7 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   if (vPair.error) fails.push(`(v) validateLegs refused a path carrying a two-item list row: ${vPair.error}`);
   const asTwo = [
     { item: ["ownership boundary"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" },
-    { item: ["non-member fallback"], raised_by: "leg1", owed_by: ["leg3"], discharged_by: "leg3" },
+    { item: ["non-member fallback"], raised_by: "leg1", owed_by: ["leg2", "leg3"], discharged_by: "leg3" },
   ];
   const rTwo = obligationLedgerRefusal(legs, asTwo);
   if (!rTwo || !/at most one open at any Leg/.test(rTwo) || !/leg 1 \(leg1\)/.test(rTwo)) fails.push(`(v) the same promise as two rows raised by one Leg was not refused by the capacity rule: ${rTwo}`);
