@@ -5,9 +5,8 @@
 #   (f)-(k) the Thesis row and the Reader target Leg: the mark, closing Legs,
 #           the target after-state, and the mark reaching the Packet.
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
-#   (n) Path Review's `discharge_rows` names each row and its owed Legs.
-#   (o)-(q) owed_by the unbroken run from the Leg after the raising one, an owed
-#   Leg opening a Section, a non-terminal row.
+#   (n) Path Review's `discharge_rows`; (o) owed_by the unbroken run from the
+#   next Leg; (p) an owed Leg opening a Section; (q) a non-terminal row.
 #   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
 #       the retired `closure` key; (u) `term` rows in `names` and the ledger;
 #       (v) a `term` row carrying its terms as a list in raised order (#1549).
