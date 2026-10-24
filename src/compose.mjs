@@ -47,7 +47,7 @@ export {
 } from "./compose/render.mjs";
 export {
   moveRoles, moveContract, validateMoveRecord, RETIRED_MOVE_FIELDS,
-  MOVE_CARRIED_FIELDS, MOVE_DESCRIPTION_MAX, deferredSlots,
+  MOVE_CARRIED_FIELDS, MOVE_DESCRIPTION_MAX,
 } from "./compose/moves.mjs";
 export {
   audienceRecord, READER_PERSONA_FIELDS, READER_PERSONA_OPTIONAL_FIELDS,

@@ -73,7 +73,7 @@ import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
   introducesNearestRefusal, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
-  parseIntroducesEntry, readerStateDimensionLine, FUNCTION_WORDS, wordsOf, wordForms, deferredSlots, readMoveRecord } from "../compose.mjs";
+  parseIntroducesEntry, readerStateDimensionLine, FUNCTION_WORDS, wordsOf, wordForms, moveContract } from "../compose.mjs";
 import { wholeWordMatch } from "../compose/sections.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
@@ -440,7 +440,7 @@ function deferredTermRows(out, segments, deferred) {
 
 // EACH LEG'S `term` SLOTS (kogaki#1548): paragraph N's Move is the one the ingest named for it
 // (`ingest.json` `entries[N-1].move`), read from `movesDir` through the production
-// `deferredSlots`. Returns one list per Leg, or `{ error }`.
+// Move contract's `deferred_slots`, as the Brief's composer reads it. Returns one list per Leg, or `{ error }`.
 export function legDeferredSlots(movesDir, ingestFile, counts) {
   let entries;
   try { entries = JSON.parse(readFileSync(ingestFile, "utf8")).entries; }
@@ -449,9 +449,9 @@ export function legDeferredSlots(movesDir, ingestFile, counts) {
   const slots = [];
   for (const [i, e] of entries.entries()) {
     if (!e || !e.move) { slots.push([]); continue; }
-    const m = readMoveRecord(e.move, movesDir);
+    const m = moveContract(e.move, movesDir);
     if (m.error) return { error: `paragraph ${i + 1}'s Move: ${m.error}` };
-    slots.push(deferredSlots(m.record).filter((s) => s.kind === "term"));
+    slots.push((m.deferred_slots || []).filter((s) => s.kind === "term"));
   }
   const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
   return counts.map((n, k) => slots.slice(offsets[k], offsets[k] + n).flat());

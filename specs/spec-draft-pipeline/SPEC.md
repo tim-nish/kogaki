@@ -2919,16 +2919,15 @@ these rules govern it:
    Waypoint, and the record lives in the ParagraphPlan file (§4.19). Both
    scales carry the same fields and the same rules, except rule 5, which has
    no Paragraph counterpart.
-2. **Two sources.** A Move whose shape names an item and defers it — a
-   Segment whose `manner`, or the Move's `description`, says the item is left
-   for later — raises a **slot**: its kind, its count, and that it is
-   deferred. The composer fills the slot with ONE row: the term or the
-   question — for a slot counting more than one term, the terms as the list
-   of rule 1, in raised order — and the `owed_by` units, in the order the
-   items were raised. Rule 3 is what the one-row shape satisfies: the same
-   promise as several rows raised by one unit is refused there. A promise the
-   Strand material raises and no Move shape signals is **authored** as a row,
-   as a Closure row was before kogaki#1529.
+2. **Two sources.** A Move whose `obligation` field names an item it leaves
+   unexplained raises a **slot**: its kind, its count, and the item. The
+   composer fills the slot with ONE row: the term or the question — for a
+   slot counting more than one term, the terms as the list of rule 1, in
+   raised order — and the `owed_by` units, in the order the items were
+   raised. Rule 3 is what the one-row shape satisfies: the same promise as
+   several rows raised by one unit is refused there. A promise the Strand
+   material raises and no Move signals is **authored** as a row, as a
+   Closure row was before kogaki#1529.
 3. **Capacity.** At most ONE Obligation of any kind is open at any unit of one
    scale. A row is open from its `raised_by` unit up to, and not including,
    the unit that closes it; a row raised and closed in one unit is open on

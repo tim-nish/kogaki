@@ -133,8 +133,9 @@
 #       Paragraph-scale row and s2's discharge, both reaching the judge's input.
 #       The plan call's validator and the plan reader refuse two rows open at one
 #       Paragraph Waypoint naming both, and an `owed_by` before its `raised_by`; a
-#       Move whose manner defers an item hands its `deferred_slots` to the plan
-#       call's input; and the Packet renders the rows as `*Promise:*` and
+#       Move carrying `obligation` hands its `deferred_slots` to the plan call's
+#       input, and a Move whose manner defers an item with no field hands none
+#       (kogaki#1558); and the Packet renders the rows as `*Promise:*` and
 #       `*Keeps:*` lines under their Leg Waypoint, the template stating they ask
 #       for no sentence.
 #   (v) a `term` row carrying an ordered list of terms is one promise at the
@@ -902,24 +903,31 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const stray = validateParagraphPlanUnit({ ...unit([]), waypoints: unit([]).waypoints.map((w, i) => (i ? w : { ...w, discharges: [{ obligation: 1, by: 1 }] })) }, owing, "leg-1").error || "";
   if (!stray.includes("discharges obligation 1 of the Brief, which this Leg does not owe")) fails.push(`(u) a discharge on a Leg that owes no row is not refused: ${stray || "no refusal"}`);
 
-  // A Move's deferred slot reaches the plan call's input, as the Brief's composer receives it.
+  // A Move's deferred slot, read from its `obligation` field, reaches the plan call's input, as
+  // the Brief's composer receives it; a manner deferring an item with no field raises none.
   const slotDir = join(root, "moves-u");
   mkdirSync(slotDir);
   writeFileSync(join(slotDir, "ROLES.json"), readFileSync("moves/ROLES.json"));
   const DEFER = "names one term and leaves it unexplained for a later step.";
-  writeMove(slotDir, { id: "p6", ...STATE, breaks: ["breaks if the term is explained at once."],
+  writeMove(slotDir, { id: "p6", before: STATE.before, after: { knowledge: "holds a named term it cannot yet unpack." },
+    breaks: ["breaks if the term is explained at once."], obligation: { kind: "term", item: ["named term"] },
+    segments: [{ operation: "names the term." }, { operation: "explains the term.", relation: "keeps what the naming left open." }] });
+  writeMove(slotDir, { id: "p7", ...STATE, breaks: ["breaks if the term is explained at once."],
     segments: [{ operation: "names the term.", manner: DEFER }, { operation: "explains the term.", relation: "keeps what the naming left open." }] });
   const library = loadMoveContracts(slotDir);
   const persona = readerPersona(resolve("audiences/dev-to-zenn.md"));
   const input = paragraphPlanUnitInput(planLeg(legs[0]), library.moves || [], persona);
   const handed = (input.paragraph_moves_you_may_bind || []).find((m) => m.id === "p6") || {};
   const want = moveContract("p6", slotDir).deferred_slots;
-  if (!Array.isArray(want) || !want.length || JSON.stringify(handed.deferred_slots) !== JSON.stringify(want)) {
-    fails.push(`(u) the plan call's input does not carry p6's deferred slot as the Brief's composer receives it: ${JSON.stringify(handed.deferred_slots)}`);
+  if (JSON.stringify(want) !== JSON.stringify([{ kind: "term", count: 1, line: "named term" }])
+    || JSON.stringify(handed.deferred_slots) !== JSON.stringify(want)) {
+    fails.push(`(u) the plan call's input does not carry p6's obligation slot as the Brief's composer receives it: ${JSON.stringify(handed.deferred_slots)}`);
   }
+  const unslotted = (input.paragraph_moves_you_may_bind || []).find((m) => m.id === "p7");
+  if (!unslotted || "deferred_slots" in unslotted) fails.push(`(u) a Move whose manner defers an item and carries no obligation hands a slot: ${JSON.stringify(unslotted)}`);
   const row = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8")).paragraph_plan_unit;
   const prompt = paragraphPlanUnitPrompt({ id: "paragraph_plan_unit", ...row }, input);
-  if (!prompt.includes(DEFER) || !critOf(prompt, "OWE").includes("`deferred_slots`")) fails.push("(u) the plan prompt does not carry the deferred slot beside the OWE step naming it");
+  if (!prompt.includes('"line": "named term"') || !critOf(prompt, "OWE").includes("`obligation`")) fails.push("(u) the plan prompt does not carry the obligation slot beside the OWE step naming the field");
 
   // The Packet renders the rows as material under their Leg Waypoint and asks for no sentence.
   const s1 = legs.find((l) => l.leg_id === "s1");
