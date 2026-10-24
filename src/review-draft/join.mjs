@@ -541,7 +541,10 @@ function buildJoin(draft, run, items, ws, opts = {}) {
         // (kogaki#1447), read from the prose for the paragraph the declared entry names,
         // never the reader's outline: whether an opening reproduces its line is a question
         // about the sentence on the page.
+        // A `passage` ROW'S REVERSE SIDE IS THE QUOTED PASSAGE (kogaki#1556): the sentence it
+        // judges is the one the judge finds, and the item's own answer names it.
         const reverseFor = (declaredText) => {
+          if (item.reverse_source === "passage") return item.reverse_entry;
           if (item.reverse_source !== "opening_sentence") return reverseWhole;
           const n = labelledEntryParagraph(items, item.declared_block, declaredText);
           const sentence = n === null ? null : legOpeningSentence(leg, n);

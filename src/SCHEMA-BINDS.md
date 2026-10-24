@@ -99,22 +99,23 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## paragraph_plan -- the ParagraphPlan record
 
-| field | paragraph_plan_unit | paragraph_plan_judge_unit | packet:waypoints | review:opens-from-copied |
-|---|---|---|---|---|
-| `version` | copied | unread |  |  |
-| `leg_id` | copied | unread |  |  |
-| `waypoints` | content | unread |  |  |
-| `waypoints.waypoint` | copied | unread |  |  |
-| `waypoints.move` | copied | unread |  |  |
-| `waypoints.why` | content | unread |  |  |
-| `waypoints.join` | content | excluded | operation | excluded |
-| `waypoints.paragraph_waypoints` | content | unread |  |  |
-| `paragraph_waypoints.point` | content | excluded | content |  |
-| `paragraph_waypoints.serves` | copied | unread |  |  |
-| `paragraph_waypoints.performs` | content | excluded | operation |  |
-| `paragraph_waypoints.manner` | unread | unread | operation |  |
+| field | paragraph_plan_unit | paragraph_plan_judge_unit | packet:waypoints | review:opens-from-copied | review:performs |
+|---|---|---|---|---|---|
+| `version` | copied | unread |  |  |  |
+| `leg_id` | copied | unread |  |  |  |
+| `waypoints` | content | unread |  |  |  |
+| `waypoints.waypoint` | copied | unread |  |  |  |
+| `waypoints.move` | copied | unread |  |  |  |
+| `waypoints.why` | content | unread |  |  |  |
+| `waypoints.join` | content | excluded | operation | excluded |  |
+| `waypoints.paragraph_waypoints` | content | unread |  |  |  |
+| `paragraph_waypoints.point` | content | excluded | content |  |  |
+| `paragraph_waypoints.serves` | copied | unread |  |  |  |
+| `paragraph_waypoints.performs` | content | excluded | operation |  | excluded |
+| `paragraph_waypoints.manner` | unread | unread | operation |  |  |
 
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `packet:waypoints` is src/packet-template.md block `{{waypoints}}`.
 - `review:opens-from-copied` is src/review-items.json item `opens-from-copied`.
+- `review:performs` is src/review-items.json item `performs`.
