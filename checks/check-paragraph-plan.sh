@@ -139,9 +139,11 @@
 #       admit a row conceded where it is raised with an empty `owed_by`; a
 #       Move carrying `obligation` hands its `deferred_slots` to the plan call's
 #       input, and a Move whose manner defers an item with no field hands none
-#       (kogaki#1558); and the Packet renders the rows as `*Promise:*` and
-#       `*Keeps:*` lines under their Leg Waypoint, the template stating they ask
-#       for no sentence.
+#       (kogaki#1558); the plan call's validator admits a row of the article's
+#       own words filling a slot of two general items and refuses a row of one
+#       against it, naming both (kogaki#1577); and the Packet renders the
+#       rows as `*Promise:*` and `*Keeps:*` lines under their Leg Waypoint,
+#       the template stating they ask for no sentence.
 #   (v) a row carrying an ordered list of items is one promise at the
 #       Paragraph scale (kogaki#1549, kogaki#1568): both readers admit it owed
 #       in order, refuse it as two rows open at once and refuse a repeated or
@@ -948,6 +950,21 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
   const unslotted = (input.paragraph_moves_you_may_bind || []).find((m) => m.id === "p7");
   if (!unslotted || "deferred_slots" in unslotted) fails.push(`(u) a Move whose manner defers an item and carries no obligation hands a slot: ${JSON.stringify(unslotted)}`);
+  // The row carries the article's words, one per slot item; the count is the one bond (kogaki#1577).
+  writeMove(slotDir, { id: "p8", before: STATE.before, after: { knowledge: "holds two named properties it cannot yet unpack." }, breaks: ["breaks if the properties are explained at once."],
+    obligation: ["the first named property", "the second named property"],
+    segments: [{ operation: "names two properties." }, { operation: "explains the first.", relation: "keeps what the naming left open." },
+      { operation: "explains the second.", relation: "follows the first." }] });
+  writeFileSync(join(slotDir, "p1.yaml"), readFileSync(join(moves, "p1.yaml")));
+  const slotted = (rows) => { const u = unit(rows); u.waypoints[0].move = "p8"; return u; };
+  const inSlotDir = { legs: legs.map(planLeg), movesDir: slotDir };
+  const article = { item: ["offense-defense advantage", "offense-defense distinguishability"], raised_by: 1, owed_by: [2, 3], discharged_by: 3 };
+  const filled = validateParagraphPlanUnit(slotted([article]), inSlotDir, "leg-1").error;
+  if (filled) fails.push(`(u) a row of two article-specific items filling a slot of two general items is refused: ${filled}`);
+  const short = validateParagraphPlanUnit(slotted([{ ...article, item: ["offense-defense advantage"] }]), inSlotDir, "leg-1").error || "";
+  if (!short.includes("carries 1 item(s)") || !short.includes('"p8"') || !short.includes("a slot of 2")) {
+    fails.push(`(u) a row of one item against a slot of two is not refused naming both: ${short || "no refusal"}`);
+  }
   const row = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8")).paragraph_plan_unit;
   const prompt = paragraphPlanUnitPrompt({ id: "paragraph_plan_unit", ...row }, input);
   if (!prompt.includes('"items": [') || !prompt.includes('"named term"') || !critOf(prompt, "OWE").includes("`obligation`")) fails.push("(u) the plan prompt does not carry the obligation slot beside the OWE step naming the field");
