@@ -7,9 +7,9 @@
 // settings' values open from the line), then the original-beside-written comparison table,
 // then the three paragraph tables (below), then seven cards in pipeline order, stacked: Extraction, Move,
 // Brief, ParagraphPlan, Packet, Draft, Run record (kogaki#1487). Every card has the same four
-// parts, in the same order: Output (the artifact file, open by default except on the Move and
-// Brief cards, which a reader opens only when a problem sends them there — a table of one row
-// per paragraph for a per-paragraph artifact), Inputs (folded, a list of links to the cards this stage read, no
+// parts, in the same order: Output (the artifact file, folded on every card (kogaki#1559): the
+// owner reads the View blocks and opens a card only when a link or a problem sends them there — a
+// table of one row per paragraph for a per-paragraph artifact), Inputs (folded, a list of links to the cards this stage read, no
 // content repeated), Prompt (folded, the recorded stdin as its instruction half and its input
 // half — a stage with two calls shows one prompt per call, titled by what it produced) and
 // Calls (folded, attempts and refusals, then every recorded call's stdin and stdout). The
@@ -260,15 +260,15 @@ function inputsList(entries, idx = 0) {
   return `<ul>${entries.map(([key, path]) => `<li><a href="#card-${idx}-${key}">${esc(SHEET_TITLES[key])}</a>${path ? ` <span class="meta">${esc(path)}</span>` : ""}</li>`).join("")}</ul>`;
 }
 
-// One card: Output (open by default, folded where `outputOpen` is false), Inputs, Prompt, Calls,
-// in that order -- and Attempts between Output and Inputs where the card has one (the
+// One card: Output (folded, kogaki#1559 -- the anchor script below opens it on its link), Inputs,
+// Prompt, Calls, in that order -- and Attempts between Output and Inputs where the card has one (the
 // ParagraphPlan card, kogaki#1437).
-function cardWrap(key, { output, attempts, inputs, prompt, calls, outputOpen = true, anchored = false, copiedFrom = null }, idx = 0) {
+function cardWrap(key, { output, attempts, inputs, prompt, calls, anchored = false, copiedFrom = null }, idx = 0) {
   const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
   return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}${copiedBadge(copiedFrom)}</h3>`
-    + `<details class="part out"${outputOpen ? " open" : ""}><summary>Output</summary>${output}</details>`
+    + `<details class="part out"><summary>Output</summary>${output}</details>`
     + (attempts !== undefined ? `<details class="part attempts"><summary>Attempts</summary>${attempts}</details>` : "")
     + `<details class="part in"><summary>Inputs</summary>${inputs}</details>`
     + `<details class="part prompt"><summary>Prompt</summary>${prompt}</details>`
@@ -375,6 +375,14 @@ export function packetWaypointBlocks(packetText) {
 // details element, so a sheet opened offline still shows the graph as text without it taking
 // space by default (owner, 2026-10-17: "I would prefer it to be collapsed by default").
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+// The sheet's legend sentence (kogaki#1559): every stage card is folded on load, and a link into a
+// card opens it.
+export const FOLD_LEGEND = "Stage cards are folded; a link opens the card it points into.";
+// The one line that opens a folded card on its link (kogaki#1559): on load and on every hash
+// change, every `details` enclosing the link's target is opened, and so is the Output part of a
+// target that is a card itself (a `#card-<idx>-<key>` link lands on the section, whose Output
+// `details` is a descendant, not an ancestor); then the target is scrolled to.
+const ANCHOR_SCRIPT = `<script>const openTo=()=>{const t=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(!t)return;for(let d=t.closest("details");d;d=d.parentElement&&d.parentElement.closest("details"))d.open=true;const o=t.querySelector("details.part.out");if(o)o.open=true;t.scrollIntoView();};addEventListener("hashchange",openTo);openTo();</script>`;
 
 // The diagram's three provenance classes, by node name (kogaki#1410 design: "Three classes...
 // owner-authored input... model-written... mechanically derived with no model call").
@@ -425,7 +433,7 @@ function pipelineDiagram(idx) {
   const text = lines.join("\n");
   const legend = `<ul class="legend">${Object.entries(DIAGRAM_CLASS_LABELS)
     .map(([cls, label]) => `<li><span class="swatch ${cls}"></span> ${esc(label)}</li>`).join("")}</ul>`;
-  return `<div class="diagram"><div class="mermaid">${esc(text)}</div>${legend}`
+  return `<div class="diagram"><div class="mermaid">${esc(text)}</div>${legend}<p class="muted fold-legend">${esc(FOLD_LEGEND)}</p>`
     + sub("Diagram text (shown for a sheet without network access to Mermaid)", pre(text))
     + `</div>`;
 }
@@ -581,7 +589,7 @@ function moveCard(r, idx) {
   }
   const output = stageNote(r, "ingest") + rows.join("");
   return cardWrap("move", {
-    output, outputOpen: false,
+    output,
     inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
     prompt: `<p class="muted">No model call: <code>tools/move_ingest.py</code> <code>run_from_extraction</code> derives the Move mechanically.</p>`,
     calls: `<p class="muted">No model call.</p>`,
@@ -632,7 +640,7 @@ function briefCard(r, idx) {
       + callsBlock(calls, `${title} calls`, named.map(([t, x]) => [`Prompt, ${t}`, x])));
   }
   return cardWrap("brief", {
-    output, outputOpen: false, anchored: briefAnchored(r.legBriefRun), copiedFrom: r.stage("brief").copied_from || null,
+    output, anchored: briefAnchored(r.legBriefRun), copiedFrom: r.stage("brief").copied_from || null,
     inputs: inputsList([["extraction", relFromRepo(join(r.runDir, "extract"), REPO)]], idx),
     prompt: promptPart(named),
     calls: callsHtml,
@@ -1149,7 +1157,7 @@ export function buildSheet({ runs, provenance, out }) {
   writeFileSync(out, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Leg Proof Sheet</title><style>${CSS}</style>${mermaidScript}</head><body><h1>Leg Proof Sheet</h1>`
     + pipelineDiagram(0)
-    + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}</body></html>\n`);
+    + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}${ANCHOR_SCRIPT}</body></html>\n`);
   return { written: out };
 }
 
