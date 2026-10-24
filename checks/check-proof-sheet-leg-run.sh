@@ -84,15 +84,13 @@
 #       several-Leg Brief (s)'s `introduces` entries carry `term` and `meaning` and no `kind`.
 #
 #   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and
-#       Moves byte for byte, records the source run and the copied stage's sha256, and no
-#       Extractor call reaches the model binary; `--from paragraph-plan` also carries the Brief and
-#       makes no Extractor or Brief call; the sheet badges each copied stage's card "copied from
-#       <source>"; a copied Extraction with one Segment's content clause edited is recorded as
-#       paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner";
-#       a copied Extraction the ingest refuses stops the run with `stopped` naming the Move and the
-#       item (kogaki#1576).
-#       The paragraph tables (o) render with no details element but the before / after folds
-#       and no "Review" heading.
+#       Moves byte for byte, records the source run and the copied stage's sha256, and no Extractor
+#       call reaches the model binary; `--from paragraph-plan` also carries the Brief and makes no
+#       Extractor or Brief call; the sheet badges each copied stage's card "copied from <source>"; a
+#       copied Extraction with one Segment's content clause edited is recorded as paragraph 2,
+#       Segment 1, `content`, and both Segments tables badge that row "edited by owner"; one the
+#       ingest refuses stops the run, naming the Move and item (kogaki#1576). The paragraph tables
+#       (o) render with no details element but the before / after folds and no "Review" heading.
 #   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places
 #       the library's three records beside the run's own three in the plan's Move directory, and
 #       `run.json`'s `library` carries the directory, the records' sha256 and the ids by source;
@@ -987,13 +985,11 @@ if (runDir) {
     ok(cardOf(q2.html, "brief", "paragraphPlan").includes(`<span class="badge copied">copied from ${escHtml(srcRel)}</span>`), "(q) the sheet of --from paragraph-plan does not badge the Brief card as copied");
   }
 
-  // the owner edits paragraph 2's first Segment's content clause in a copy of the main run
-  const edited = join(root, "edited-source");
-  cpSync(runDir, edited, { recursive: true });
-  writeFileSync(join(edited, "run.json"), readFileSync(join(edited, "run.json"), "utf8").split(runDir).join(edited));
-  const p2 = readdirSync(join(edited, "extract")).find((f) => f.startsWith("name_an_act_then_its_cost_2"));
-  const p2Text = p2 ? readFileSync(join(edited, "extract", p2), "utf8") : "";
-  writeFileSync(join(edited, "extract", p2 || "missing"), p2Text.replace("CONTENT-2-1 names", "CONTENT-2-1 OWNER-EDIT names"));
+  // a copy of the main run whose paragraph 2 Extraction `edit` rewrites; the owner edits its first Segment's content clause
+  const editCopy = (tag, edit) => { const d = join(root, `${tag}-source`); cpSync(runDir, d, { recursive: true }); writeFileSync(join(d, "run.json"), readFileSync(join(d, "run.json"), "utf8").split(runDir).join(d));
+    const f = join(d, "extract", readdirSync(join(d, "extract")).find((x) => x.startsWith("name_an_act_then_its_cost_2")) || "missing");
+    const text = existsSync(f) ? readFileSync(f, "utf8") : ""; writeFileSync(f, edit(text)); return { dir: d, text }; };
+  const { dir: edited, text: p2Text } = editCopy("edited", (t) => t.replace("CONTENT-2-1 names", "CONTENT-2-1 OWNER-EDIT names"));
   const q3 = reuseRun(edited, "brief", "edited");
   ok(q3.rq.status === 0 && !!q3.run && p2Text.includes("CONTENT-2-1 names"), `(q) the run reusing an edited Extraction exited ${q3.rq.status}: ${q3.rq.stdout}${q3.rq.stderr}`);
   if (q3.run) {
@@ -1003,20 +999,9 @@ if (runDir) {
     ok(rows.length === 2 && rows.every((m) => m[1] === "1" && m[2].startsWith("CONTENT-2-1 OWNER-EDIT")),
       `(q) the sheet does not badge the edited Segment row "edited by owner" in the Extraction card and the Segments table: ${rows.length} row(s)`);
   }
-
-  // THE INGEST'S REFUSAL REACHES THE STOP LINE (kogaki#1576): paragraph 2's Extraction, given an
-  // obligation naming one item twice, is refused at the ingest, and `stopped` names the Move and the item.
-  const refusing = join(root, "ingest-refused-source");
-  cpSync(runDir, refusing, { recursive: true });
-  writeFileSync(join(refusing, "run.json"), readFileSync(join(refusing, "run.json"), "utf8").split(runDir).join(refusing));
-  const p2r = readdirSync(join(refusing, "extract")).find((f) => f.startsWith("name_an_act_then_its_cost_2"));
-  const p2rText = p2r ? readFileSync(join(refusing, "extract", p2r), "utf8") : "";
-  writeFileSync(join(refusing, "extract", p2r || "missing"), `${p2rText.replace(/\n*$/, "\n")}obligation:\n  - leverage\n  - leverage\n`);
-  const q4 = reuseRun(refusing, "brief", "ingest-refused");
-  const q4stop = (q4.run && q4.run.stopped) || "";
-  ok(q4.rq.status !== 0 && q4stop.startsWith("ingest:") && q4stop.includes('move "name_an_act_then_its_cost_2"')
-    && q4stop.includes('names "leverage" twice') && !q4stop.includes("(no output)"),
-    `(q) the ingest's refusal does not reach the run's stop line naming the Move and the item: ${q4stop || q4.rq.stdout + q4.rq.stderr}`);
+  // THE INGEST'S REFUSAL REACHES THE STOP LINE (kogaki#1576): an obligation naming one item twice.
+  const q4 = reuseRun(editCopy("ingest-refused", (t) => `${t.trimEnd()}\nobligation:\n  - leverage\n  - leverage\n`).dir, "brief", "ingest-refused"), q4stop = (q4.run && q4.run.stopped) || "";
+  ok(q4.rq.status !== 0 && q4stop.startsWith("ingest:") && q4stop.includes('move "name_an_act_then_its_cost_2"') && q4stop.includes('names "leverage" twice') && !q4stop.includes("(no output)"), `(q) the ingest's refusal does not reach the run's stop line naming the Move and the item: ${q4stop || q4.rq.stdout + q4.rq.stderr}`);
 
   // (r) THE LIBRARY (kogaki#1521): a library of the main run's three Moves under `lib_` ids, and a
   // second one that also holds one of the run's own ids. Each run reuses the main run's Extraction,
