@@ -183,39 +183,17 @@ function moveRecordContract(record, moveId, path, movesDir) {
   if (description) return { error: description };
   const figure = figureBlockRefusal(record.figure, at);
   if (figure) return { error: figure };
-  const slots = deferredSlots(record, optional.segments);
-  if (slots.length) out.deferred_slots = slots;
+  if (out.obligation) out.deferred_slots = [obligationSlot(out.obligation)];
   return out;
 }
 
-// THE DEFERRED SLOT A MOVE RAISES (kogaki#1529, SPEC-draft-pipeline "Obligations"
-// rule 2): a Move whose `description`, or a Segment's `manner`, says an item is left
-// for later raises one slot per such line -- its kind, its count, and the line
-// itself -- for the composer to fill as Obligation rows and the Move-fit judge to
-// hold the Leg's rows against. The words that signal a deferral, a term and a
-// count are this reader's fixed vocabulary below, read over the line and nothing
-// else; a Move with no such line raises none and its contract carries no key.
-const DEFERRAL = /\b(?:defer\w*|postpone\w*|for later|until later|explained later|defined later|left unexplained|leaves? (?:\S+ ){0,4}(?:unexplained|undefined|for later|for a later \w+|for the next \w+|to a later \w+|to the next \w+))\b/i;
-const TERM_NOUN = /\b(?:terms?|name|labels?|words?|concepts?)\b/i;
-const COUNT_WORDS = { a: 1, an: 1, one: 1, single: 1, two: 2, both: 2, pair: 2, three: 3, four: 4, five: 5 };
-const COUNTED = /\b(a|an|one|single|two|both|pair|three|four|five|[1-9])\s+(?:of\s+)?(?:\S+\s+){0,2}?(?:terms?|names?|labels?|words?|concepts?|questions?|items?|things?)\b/i;
-export function deferredSlots(record, segmentsField = "segments") {
-  const lines = [];
-  if (typeof record.description === "string") lines.push(["description", record.description]);
-  const segs = Array.isArray(record[segmentsField]) ? record[segmentsField] : [];
-  for (const [i, g] of segs.entries()) {
-    if (isPlainMap(g) && typeof g.manner === "string") lines.push([`segment ${i + 1} manner`, g.manner]);
-  }
-  return lines.filter(([, line]) => DEFERRAL.test(line)).map(([from, line]) => {
-    const c = COUNTED.exec(line);
-    const word = c ? c[1].toLowerCase() : null;
-    return {
-      from,
-      line: line.replace(/\s+/g, " ").trim(),
-      kind: TERM_NOUN.test(line) ? "term" : "question",
-      count: word === null ? 1 : (COUNT_WORDS[word] ?? Number(word)),
-    };
-  });
+// THE DEFERRED SLOT A MOVE RAISES (kogaki#1558, SPEC-draft-pipeline "Obligations" rule 2):
+// one slot, read from the authored `obligation` field and nothing else, for the composer to
+// fill as one Obligation row and the Move-fit judge to hold the Leg's rows against. A Move
+// carrying no `obligation` raises none and its contract carries no key.
+function obligationSlot(o) {
+  const items = Array.isArray(o.item) ? o.item : [o.item];
+  return { kind: o.kind, count: o.kind === "term" ? items.length : 1, line: items.map((x) => x.trim()).join(", ") };
 }
 
 // THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, owner decision 2026-10-24):

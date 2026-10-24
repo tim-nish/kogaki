@@ -335,8 +335,10 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   if (!noMeaning.error || !/no meaning/.test(noMeaning.error)) fails.push(`(r) an entry carrying no meaning was not refused: ${JSON.stringify(noMeaning)}`);
 }
 
-// (s) a Move with a deferred slot reaches the composer's input: the Move library's contracts
-// (`moves_you_may_bind`) carry it, and the Move-fit input carries it beside the Leg's rows.
+// (s) a Move carrying `obligation` raises a deferred slot that reaches the composer's input: the
+// Move library's contracts (`moves_you_may_bind`) carry it, and the Move-fit input carries it beside
+// the Leg's rows (kogaki#1558). A Move whose `description` says an item is left for later and that
+// carries no field raises none.
 {
   const { loadMoveContracts } = compose;
   const { readerPathFitInput } = await import("./src/brief/reader-path-unit.mjs");
@@ -346,29 +348,35 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
     mkdirSync(lib);
     copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
     const src = readFileSync("moves/name_the_consequence_then_define_the_name.yaml", "utf8");
-    writeFileSync(join(lib, "name_two_and_defer.yaml"), src
-      .replace(/^id: .*$/m, "id: name_two_and_defer")
-      .replace(/^description: >-\n(?:  .*\n)+/m, "description: Names two terms and leaves both for the next Leg to explain.\n"));
+    writeFileSync(join(lib, "name_two_and_defer.yaml"), src.replace(/^id: .*$/m, "id: name_two_and_defer")
+      + "obligation:\n  kind: term\n  item:\n    - named kind\n    - practice\n");
+    writeFileSync(join(lib, "defer_in_prose_only.yaml"), src
+      .replace(/^id: .*$/m, "id: defer_in_prose_only")
+      .replace(/^description: >-\n(?:  .*\n)+/m, "description: Names two terms and leaves both for later, for the next Leg to explain.\n"));
     writeFileSync(join(lib, "name_the_consequence_then_define_the_name.yaml"), src);
     const lc = loadMoveContracts(lib);
     if (lc.error) fails.push(`(s) the fixture library did not load: ${lc.error}`);
     else {
       const slotted = lc.moves.find((m) => m.id === "name_two_and_defer");
       const plain = lc.moves.find((m) => m.id === "name_the_consequence_then_define_the_name");
-      const slot = slotted && (slotted.deferred_slots || [])[0];
-      if (!slot || slot.kind !== "term" || slot.count !== 2 || slot.from !== "description") fails.push(`(s) the composer's Move contract carries no term slot of count 2: ${JSON.stringify(slotted && slotted.deferred_slots)}`);
+      const prose = lc.moves.find((m) => m.id === "defer_in_prose_only");
+      if (JSON.stringify(slotted && slotted.deferred_slots) !== JSON.stringify([{ kind: "term", count: 2, line: "named kind, practice" }])) {
+        fails.push(`(s) the composer's Move contract does not carry the field's one term slot of count 2: ${JSON.stringify(slotted && slotted.deferred_slots)}`);
+      }
       if (plain && "deferred_slots" in plain) fails.push(`(s) a Move that defers nothing carries a slot: ${JSON.stringify(plain.deferred_slots)}`);
+      if (!prose || "deferred_slots" in prose) fails.push(`(s) a Move whose description says "left for later" and carries no obligation raises a slot: ${JSON.stringify(prose)}`);
     }
-    const legs = ["leg1", "leg2", "leg3"].map((leg_id, i) => ({ leg_id, move: i === 0 ? "name_two_and_defer" : "name_the_consequence_then_define_the_name",
+    const legs = ["leg1", "leg2", "leg3"].map((leg_id, i) => ({ leg_id, move: ["name_two_and_defer", "name_the_consequence_then_define_the_name", "defer_in_prose_only"][i],
       reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
       waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }] }));
     const rows = [{ kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" }];
     const fit = readerPathFitInput({ candidate_id: "c1", legs, obligations: rows }, lib, "orientation: none\nknowledge: none", "a thesis");
     if (fit.error) fails.push(`(s) the Move-fit input did not build: ${fit.error}`);
     else {
-      const [first, second] = fit.input.candidate_you_must_judge.move_contracts;
+      const [first, second, third] = fit.input.candidate_you_must_judge.move_contracts;
       if (!first.deferred_slots || JSON.stringify(first.obligations_raised) !== JSON.stringify(rows)) fails.push(`(s) the Move-fit input does not carry the slot beside the Leg's rows: ${JSON.stringify(first)}`);
       if ("deferred_slots" in second || "obligations_raised" in second) fails.push(`(s) a Leg whose Move defers nothing carries a slot: ${JSON.stringify(second)}`);
+      if ("deferred_slots" in third || "obligations_raised" in third) fails.push(`(s) a Leg whose Move defers only in its description carries a slot: ${JSON.stringify(third)}`);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -449,5 +457,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row of any kind per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading term rows, and a term row carrying an ordered list of terms as one promise (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549).");
+console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row of any kind per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading term rows, and a term row carrying an ordered list of terms as one promise (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558).");
 JS

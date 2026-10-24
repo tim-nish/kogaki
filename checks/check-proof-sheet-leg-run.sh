@@ -119,8 +119,8 @@
 #       `--legs 3` records what a plain reuse records apart from `reuse.legs`, and a plain reuse
 #       records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan` are each
 #       refused naming `--legs`, with no run directory written.
-#   (v) a deferring Move raises one Obligation row (kogaki#1548): Leg A's Move defers two terms its
-#       content names; over two Legs, Leg B introducing one of them, the Brief carries exactly one
+#   (v) a Move carrying `obligation` raises one Obligation row (kogaki#1548, kogaki#1558): Leg A's
+#       Move's field names two terms its content names; over two Legs, Leg B introducing one of them, the Brief carries exactly one
 #       `term` row, `term` a one-element list, raised by Leg A, owed by and discharged by Leg B,
 #       marked derived in the Brief and on the Brief card; Leg A's block carries `2 deferred, 1 kept
 #       in this span`; and the plan call for Leg B is handed the row under what it owes. Over four
@@ -1222,7 +1222,7 @@ if (kRunDir) {
   writeFileSync(sJudge, `#!/usr/bin/env node
 import { appendFileSync, writeSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
-// (v) PSR_TERMS: each Leg's content terms and introduced terms, and the one deferring Move.
+// (v) PSR_TERMS: each Leg's content terms and introduced terms, and the one Move carrying \`obligation\`.
 const T = process.env.PSR_TERMS ? JSON.parse(process.env.PSR_TERMS) : null;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
@@ -1256,17 +1256,19 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const carried = x.reader_state_before;
     const dims = ["knowledge", "question", "expectation", "orientation", "trust"];
     const term = T ? (T.content[p.passage] || []).map((t) => " the " + t).join(" and") : /frobnicator/.test(p.text) ? " the frobnicator" : "";
+    const owes = T && T.obligations[p.passage + ":" + p.number];
     return out({ version: "1", paragraph: p.number, source: "not given", prior_text: carried ? "assumed — it takes up the text before it" : "not assumed — opens on a fact",
       language: "English", subject_nouns: ["installer"],
       answers: { q1: "Hands the reader one fact.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: "Hands the reader one fact about the copy.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
-        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
+        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds the " + owes.item.join(" and the ") + " unexplained" : "") : "unchanged",
+        segment: i === 0 ? String(p.sentences.length) : "" })),
       segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
         operation: "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
-      description: (T && T.defers[p.passage + ":" + p.number]) || "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "" }, "extract");
+      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "", ...(owes ? { obligation: owes } : {}) }, "extract");
   }
   if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
     return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
@@ -1395,8 +1397,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         `(u) ${extra.join(" ")} was not refused naming --legs with nothing written: ${t.r.status} ${t.r.stdout}${t.r.stderr}`);
     }
   }
-  // (v) A DEFERRING MOVE RAISES ONE OBLIGATION ROW (kogaki#1548): Leg A's second paragraph's Move
-  // defers two terms its content names, frobnicator then gizmo. Over two Legs, Leg B introduces
+  // (v) A MOVE CARRYING `obligation` RAISES ONE OBLIGATION ROW (kogaki#1548, kogaki#1558): Leg A's
+  // second paragraph's Move names two terms its content names as left unexplained, frobnicator then gizmo. Over two Legs, Leg B introduces
   // frobnicator alone: one `term` row, `term` a one-element list, raised by Leg A, owed by and
   // discharged by Leg B, marked derived, the sheet carrying `2 deferred, 1 kept in this span` on Leg
   // A's block and the plan call for Leg B handed the row it owes. Over four Legs, Leg B introduces
@@ -1404,7 +1406,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   {
     const vRoot = join(root, "deferred-terms");
     mkdirSync(vRoot, { recursive: true });
-    const DEFERS = { "leg_a:2": "Names the frobnicator and the gizmo and leaves both terms for a later Leg." };
+    const OBLIGATIONS = { "leg_a:2": { kind: "term", item: ["frobnicator", "gizmo"] } };
     const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
     const vRun = (tag, names, introduces) => {
       const d = join(vRoot, tag);
@@ -1412,7 +1414,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       for (const n of names) writeFileSync(join(d, `${n}.md`), `The ${n} paragraph states one fact.\n\nNobody asked the consumer first.\n`);
       const r = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", ...names.flatMap((n) => ["--leg", join(d, `${n}.md`)]), "--out", join(d, "out"), "--provenance", map],
         { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: d,
-          PSR_TERMS: JSON.stringify({ defers: DEFERS, introduces, content: { leg_a: ["frobnicator", "gizmo"], ...Object.fromEntries(Object.entries(introduces).map(([id, t]) => [id.replace("-", "_"), t])) } }) }, timeout: 600000 });
+          PSR_TERMS: JSON.stringify({ obligations: OBLIGATIONS, introduces, content: { leg_a: ["frobnicator", "gizmo"], ...Object.fromEntries(Object.entries(introduces).map(([id, t]) => [id.replace("-", "_"), t])) } }) }, timeout: 600000 });
       const dir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
       ok(r.status === 0 && !!dir, `(v) the ${tag} run exited ${r.status}: ${r.stdout}${r.stderr}`);
       if (!dir) return null;
