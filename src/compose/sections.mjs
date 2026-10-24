@@ -18,9 +18,9 @@ import { INTRODUCES_SEP } from "./specialization.mjs";
 // before that parses back here to the object it was. AN ITEM CARRIES `term`
 // AND `meaning` AND NO `kind` (kogaki#1529, SPEC-draft-pipeline "Obligations"
 // rule 7): `kind` and an `established` term's `source` are refused by name,
-// and a term named here and explained later is an Obligation of kind `term`.
+// and a term named here and explained later is an Obligation.
 const RETIRED_INTRODUCES_KEYS = Object.freeze({
-  kind: "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation of kind `term`",
+  kind: "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation",
   source: "`source`, which is retired with `kind` (kogaki#1529): it was an `established` term's outside home, and an introduced term's meaning is the article's own `meaning`",
 });
 export function parseIntroducesEntry(raw) {
@@ -212,41 +212,42 @@ export function targetLegIndex(legs) {
   return legs.findIndex((s) => s && s.reaches_target === true);
 }
 
-// THE OBLIGATION LEDGER'S PATH RULES (kogaki#1529, SPEC-draft-pipeline
-// "Obligations"; kogaki#1232 before it). An Obligation is `{kind, raised_by,
-// text | term, owed_by, discharged_by | conceded_by}`: a Question (`text`) or
-// a term named and left for later Legs to explain (`term`). `obligations` is
-// the Candidate's own ledger (src/candidate-schema.json); the Thesis row is
-// derived and never reaches this function. Each refusal names the row and the
-// Leg. Returns a string to refuse with, or null.
-export const OBLIGATION_KINDS = Object.freeze(["question", "term"]);
+// THE OBLIGATION LEDGER'S PATH RULES (kogaki#1529, kogaki#1568, SPEC-draft-pipeline
+// "Obligations"; kogaki#1232 before it). An Obligation is `{item, raised_by, owed_by,
+// discharged_by | conceded_by}`: `item` the list of one or more items -- terms or questions --
+// the raising Leg leaves unexplained, in the order it names them. `obligations` is the
+// Candidate's own ledger (src/candidate-schema.json); the Thesis row is derived and never
+// reaches this function. Each refusal names the row and the Leg. Returns a string to refuse
+// with, or null.
 const CONCEDED_FIELDS = ["open", "why_not_here", "reader_keeps"];
-// A `term` row's `term` is one term, or the terms one deferring slot counted, in the order
-// the raising unit named them (kogaki#1549); `obligationTerms` reads either as the list.
-export function obligationTerms(o) {
-  if (!o || o.kind !== "term") return [];
-  return (Array.isArray(o.term) ? o.term : [o.term])
+// `kind`, `text` and `term` are the row's retired keys (kogaki#1568): a question and a term are
+// the same expectation, that an item will be explained, and `item` carries either.
+export const RETIRED_OBLIGATION_KEYS = Object.freeze(["kind", "text", "term"]);
+export function obligationItems(o) {
+  return (o && Array.isArray(o.item) ? o.item : [])
     .filter((t) => typeof t === "string" && t.trim() !== "").map((t) => t.trim());
 }
-export function obligationSaid(o) {
-  if (o && o.kind === "term" && Array.isArray(o.term)) return obligationTerms(o).join(", ");
-  return o && (o.kind === "term" ? o.term : o.text);
+export function obligationLine(o) {
+  return obligationItems(o).join(", ");
 }
 export function obligationLabel(o) {
-  const said = obligationSaid(o);
-  return `${o && typeof o.kind === "string" ? o.kind : "obligation"} ${JSON.stringify(typeof said === "string" ? said : null)}`;
+  return `obligation ${JSON.stringify(obligationLine(o))}`;
 }
-// The list form's own shape: non-empty, every entry a non-empty string, no term named twice.
-// Returns the clause to refuse with, or null; a string `term` is not this function's.
-export function termListRefusal(term) {
-  if (!Array.isArray(term)) return null;
-  if (term.length === 0) return "carries an empty `term` list — a list names at least one term";
-  const blank = term.findIndex((t) => typeof t !== "string" || t.trim() === "");
-  if (blank >= 0) return `carries a \`term\` list whose entry ${blank + 1} is not a non-empty string`;
+// The row's own shape: no retired key, and `item` a non-empty list of one-line strings naming no
+// item twice. Returns the clause to refuse with, or null.
+export function obligationItemRefusal(o) {
+  const retired = RETIRED_OBLIGATION_KEYS.filter((k) => k in o);
+  if (retired.length) {
+    return `carries ${retired.map((k) => `\`${k}\``).join(", ")}, retired (kogaki#1568) — an Obligation carries \`item\`, the list of the items it leaves unexplained`;
+  }
+  if (!Array.isArray(o.item)) return "carries no `item` list — the items the raising unit leaves unexplained, in the order it names them";
+  if (o.item.length === 0) return "carries an empty `item` list — a list names at least one item";
+  const blank = o.item.findIndex((t) => typeof t !== "string" || t.trim() === "" || /[\r\n]/.test(t));
+  if (blank >= 0) return `carries an \`item\` list whose entry ${blank + 1} is not one non-empty line`;
   const seen = new Set();
-  for (const t of term) {
+  for (const t of o.item) {
     const key = t.trim().toLowerCase();
-    if (seen.has(key)) return `carries a \`term\` list that repeats the term ${JSON.stringify(t.trim())} — each term is named once`;
+    if (seen.has(key)) return `carries an \`item\` list that repeats ${JSON.stringify(t.trim())} — each item is named once`;
     seen.add(key);
   }
   return null;
@@ -262,7 +263,7 @@ export function obligationLedgerRefusal(legs, obligations = []) {
   const index = new Map(legIds.map((id, i) => [id, i]));
   const legName = (id) => JSON.stringify(id);
 
-  // THE RECORD (rules 1, 4 and 6): the kind and what it carries, a raising
+  // THE RECORD (rules 1, 4 and 6): the item list, a raising
   // Leg, `owed_by` after it in path order, and exactly one terminal field
   // naming a Leg the row is owed to or raised by.
   for (const [n, o] of list.entries()) {
@@ -274,19 +275,8 @@ export function obligationLedgerRefusal(legs, obligations = []) {
       return pathRefusal("obligation_row_terminal", null,
         `${row} carries \`introduced_by\`, the Closure row's field — an Obligation names the Leg that raises it in \`raised_by\` (kogaki#1529).`);
     }
-    if (!OBLIGATION_KINDS.includes(o.kind)) {
-      return pathRefusal("obligation_row_terminal", null,
-        `${row} carries kind ${JSON.stringify(o.kind ?? null)} — an Obligation is a \`question\` carrying \`text\` or a \`term\` carrying \`term\`.`);
-    }
-    const said = o.kind === "term" ? "term" : "text";
-    const other = o.kind === "term" ? "text" : "term";
-    const many = o.kind === "term" && Array.isArray(o.term);
-    if ((!many && (typeof o[said] !== "string" || o[said].trim() === "")) || other in o) {
-      return pathRefusal("obligation_row_terminal", null,
-        `${row} is a \`${o.kind}\` row, so it carries \`${said}\` and no \`${other}\`.`);
-    }
-    const listed = termListRefusal(o.term);
-    if (many && listed) return pathRefusal("obligation_row_terminal", null, `${row} ${listed}.`);
+    const shape = obligationItemRefusal(o);
+    if (shape) return pathRefusal("obligation_row_terminal", null, `${row} ${shape}.`);
     const label = obligationLabel(o);
     if (typeof o.raised_by !== "string" || !index.has(o.raised_by)) {
       return pathRefusal("obligation_row_terminal", null,
@@ -348,7 +338,7 @@ export function obligationLedgerRefusal(legs, obligations = []) {
   }
 
   // CAPACITY (rule 3): a row is open on every Leg from its `raised_by` up to,
-  // and NOT INCLUDING, the Leg that closes it; at most one row of any kind is
+  // and NOT INCLUDING, the Leg that closes it; at most one row is
   // open at any Leg.
   const openPerLeg = new Map();
   for (const o of list) {
@@ -434,10 +424,10 @@ export function readerTargetLegRefusal(legs, obligations = []) {
 // never introduces anywhere is refused naming the term; absence of `names`
 // itself is a different check's job (required_when is not enforced here, to
 // leave a path composed before this field unaffected). Run after every Leg is
-// known to be well formed, the same reason `readerTargetLegRefusal` does. A
-// `term` Obligation's term counts beside the `introduces` entries
-// (kogaki#1529): the path names it and a later Leg gives its meaning.
-export function readerTargetNamesRefusal(legs, obligations = []) {
+// known to be well formed, the same reason `readerTargetLegRefusal` does. It
+// reads `introduces` alone: no Obligation item counts toward `names`
+// (kogaki#1568).
+export function readerTargetNamesRefusal(legs) {
   const idx = targetLegIndex(legs);
   if (idx === -1) return null; // readerTargetLegRefusal names a missing or ambiguous mark
   const targetLeg = legs[idx];
@@ -451,11 +441,10 @@ export function readerTargetNamesRefusal(legs, obligations = []) {
       introduced.add(e.term);
     }
   }
-  for (const o of termObligations(obligations)) for (const t of obligationTerms(o)) introduced.add(t);
   for (const name of targetLeg.names) {
     if (!introduced.has(name)) {
       return `leg ${idx + 1} (${targetLeg.leg_id}): names carries ${JSON.stringify(name)}, but no Leg of this path introduces it — `
-        + "names is the union of every Leg's introduces entries and every `term` Obligation, by the time the Reader target is reached (src/leg-schema.json, `names`)";
+        + "names is the union of every Leg's introduces entries by the time the Reader target is reached (src/leg-schema.json, `names`)";
     }
   }
   return null;
@@ -620,14 +609,9 @@ export function reactivateSemanticRefusal(value, dependsOn, legs, at) {
 // earlier one, so that is the Leg a later question about the term resolves
 // to. The second declaration is not an error — a composer may legitimately
 // re-state a term — and it is not silently dropped either: it simply does not
-// move the responsibility. A `term` Obligation folds in at the Leg that raises
-// it, beside that Leg's own entries (kogaki#1529): the reader has met the name
-// there, and its meaning is owed by the Legs its row names.
-export function termObligations(obligations) {
-  return (Array.isArray(obligations) ? obligations : [])
-    .filter((o) => obligationTerms(o).length > 0);
-}
-export function readerKnowledgeLedger(legs, obligations = []) {
+// move the responsibility. No Obligation folds in (kogaki#1568): an Obligation
+// and an `introduces` entry are two registers, and the ledger reads the second.
+export function readerKnowledgeLedger(legs) {
   const known = new Map(); // term (lowercased) -> { term, anchor, introduced_by }
   const rows = [];
   for (const s of legs) {
@@ -643,12 +627,6 @@ export function readerKnowledgeLedger(legs, obligations = []) {
       const key = e.term.toLowerCase();
       if (!known.has(key)) {
         known.set(key, { term: e.term, anchor: e.anchor, introduced_by: s.leg_id });
-      }
-    }
-    for (const o of termObligations(obligations).filter((r) => r.raised_by === s.leg_id)) {
-      for (const term of obligationTerms(o)) {
-        const key = term.toLowerCase();
-        if (!known.has(key)) known.set(key, { term, anchor: null, introduced_by: s.leg_id });
       }
     }
   }

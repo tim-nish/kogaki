@@ -35,9 +35,9 @@
 # an `id` disagreeing with its file name, a stale INDEX, a `.md` record beside
 # an otherwise clean library -- and one admitted record with a fresh INDEX as
 # the control that stops the deny passing vacuously. The authored `obligation`
-# (kogaki#1557) is held across both kinds: each loads where `after` anticipates
-# it, and a kind outside the set, an item of the wrong shape and an item `after`
-# never names are each refused.
+# (kogaki#1557, kogaki#1568) is a list of items: it loads where `after`
+# anticipates every item, and a map (the retired `kind`), an empty list, an item
+# named twice and an item `after` never names are each refused.
 #
 # WHAT IT DOES NOT VERIFY, stated rather than left to look covered: whether a
 # record's prose is any good is the owner's reading at the ingest's selection
@@ -181,11 +181,11 @@ const WHOLE = {
   const f = libraryFailures(d, "(c5)");
   ok(f.length === 0, `(c5) an admitted record with a fresh INDEX passes: ${f.join(" | ")}`);
 }
-// (c7) the authored `obligation` (kogaki#1557), across both kinds and each refused shape --
-// not only the counted pair of terms that prompted it. Each record is written to a library
-// and read back, so the YAML round trip is part of what loads.
+// (c7) the authored `obligation` (kogaki#1557, kogaki#1568): a list of one or more one-line items,
+// terms and questions alike, and each refused shape. Each record is written to a library and
+// read back, so the YAML round trip is part of what loads.
 {
-  const TERMS = { kind: "term", item: ["leverage", "margin"] };
+  const TERMS = ["leverage", "margin"];
   const named = { knowledge: "the reader holds two named terms, leverage and margin, neither explained." };
   const asked = { question: "the reader asks why the cost keeps rising." };
   const through = (name, rec) => {
@@ -195,26 +195,27 @@ const WHOLE = {
     return validateMoveRecord(back, join(d, "moves"), "p1.yaml");
   };
   const loaded = through("terms", { ...WHOLE, after: named, obligation: TERMS });
-  ok(!loaded.error && JSON.stringify(loaded.obligation) === JSON.stringify(TERMS),
-    `(c7a) a term obligation whose \`after.knowledge\` names both terms loads and the contract carries it in order: ${loaded.error || JSON.stringify(loaded.obligation)}`);
-  const unled = through("unled", { ...WHOLE, obligation: TERMS });
-  ok(/`obligation`/.test(unled.error || "") && /not led to anticipate/.test(unled.error || ""),
-    `(c7b) a term obligation whose \`after\` names neither term is refused naming the field: ${unled.error || "admitted"}`);
-  const scale = through("scale", { ...WHOLE, after: named, obligation: { kind: "scale", item: ["leverage"] } });
-  ok(/`obligation` names kind "scale"; the closed set is `question`, `term`/.test(scale.error || ""),
-    `(c7c) a \`kind\` of \`scale\` is refused: ${scale.error || "admitted"}`);
+  ok(!loaded.error && JSON.stringify(loaded.obligation) === JSON.stringify(TERMS)
+    && JSON.stringify(loaded.deferred_slots) === JSON.stringify([{ items: TERMS, count: 2 }]),
+    `(c7a) an obligation whose \`after.knowledge\` names both items loads, the contract carrying it and its one slot in order: ${loaded.error || JSON.stringify([loaded.obligation, loaded.deferred_slots])}`);
+  const unled = through("unled", { ...WHOLE, after: { knowledge: "the reader holds leverage, unexplained." }, obligation: TERMS });
+  ok(/`obligation` item "margin" shares no word/.test(unled.error || "") && /not led to anticipate/.test(unled.error || ""),
+    `(c7b) an obligation one of whose items \`after\` never names is refused naming that item: ${unled.error || "admitted"}`);
+  const map = through("map", { ...WHOLE, after: named, obligation: { kind: "term", item: ["leverage"] } });
+  ok(/`obligation` is a map/.test(map.error || "") && /`kind` is retired/.test(map.error || ""),
+    `(c7c) a map carrying \`kind\` is refused naming \`kind\` retired: ${map.error || "admitted"}`);
   const none = through("none", WHOLE);
-  ok(!none.error && !("obligation" in none), `(c7d) a record without the field loads with no \`obligation\` on the contract: ${none.error || JSON.stringify(none.obligation)}`);
-  const question = { kind: "question", item: "why does the cost keep rising?" };
+  ok(!none.error && !("obligation" in none) && !("deferred_slots" in none), `(c7d) a record without the field loads with no \`obligation\` on the contract: ${none.error || JSON.stringify(none.obligation)}`);
+  const question = ["why does the cost keep rising?"];
   const q = through("question", { ...WHOLE, after: asked, obligation: question });
   ok(!q.error && JSON.stringify(q.obligation) === JSON.stringify(question),
-    `(c7e) a question obligation the \`after.question\` anticipates loads: ${q.error || JSON.stringify(q.obligation)}`);
-  const qList = through("question-list", { ...WHOLE, after: asked, obligation: { kind: "question", item: ["the cost"] } });
-  ok(/kind `question` carries an `item` that is not one non-empty line/.test(qList.error || ""),
-    `(c7f) a question obligation whose \`item\` is a list is refused: ${qList.error || "admitted"}`);
-  const tLine = through("term-line", { ...WHOLE, after: named, obligation: { kind: "term", item: "leverage" } });
-  ok(/kind `term` carries an `item` that is not a list/.test(tLine.error || ""),
-    `(c7g) a term obligation whose \`item\` is one line is refused: ${tLine.error || "admitted"}`);
+    `(c7e) a one-item obligation, a question the \`after.question\` anticipates, loads: ${q.error || JSON.stringify(q.obligation)}`);
+  const empty = through("empty", { ...WHOLE, after: asked, obligation: [] });
+  ok(/`obligation` is an empty list/.test(empty.error || ""),
+    `(c7f) an empty list is refused: ${empty.error || "admitted"}`);
+  const twice = through("twice", { ...WHOLE, after: named, obligation: ["leverage", "leverage"] });
+  ok(/`obligation` names "leverage" twice/.test(twice.error || ""),
+    `(c7g) an item named twice is refused: ${twice.error || "admitted"}`);
 }
 rmSync(root, { recursive: true, force: true });
 console.log("fixture cases run: 13");

@@ -132,16 +132,19 @@
 #       refusal into the next attempt, and writes the plan file carrying s1's
 #       Paragraph-scale row and s2's discharge, both reaching the judge's input.
 #       The plan call's validator and the plan reader refuse two rows open at one
-#       Paragraph Waypoint naming both, and an `owed_by` before its `raised_by`; a
+#       Paragraph Waypoint naming both, an `owed_by` before its `raised_by`, and
+#       a row carrying the retired `kind`, `text` or `term` naming the key
+#       (kogaki#1568); a
 #       Move carrying `obligation` hands its `deferred_slots` to the plan call's
 #       input, and a Move whose manner defers an item with no field hands none
 #       (kogaki#1558); and the Packet renders the rows as `*Promise:*` and
 #       `*Keeps:*` lines under their Leg Waypoint, the template stating they ask
 #       for no sentence.
-#   (v) a `term` row carrying an ordered list of terms is one promise at the
-#       Paragraph scale (kogaki#1549): both readers admit it owed in order,
-#       refuse it as two rows open at once and refuse a repeated or empty list
-#       by name, and the Promise line renders the terms in raised order.
+#   (v) a row carrying an ordered list of items is one promise at the
+#       Paragraph scale (kogaki#1549, kogaki#1568): both readers admit it owed
+#       in order, refuse it as two rows open at once and refuse a repeated or
+#       empty list by name, and the Promise line renders the items in raised
+#       order.
 #   (k) THE INGEST'S MOVE IS READ (kogaki#1418): `p1`, the Move case (a) and
 #       its neighbours bind, is admitted by `tools/move_ingest.py`'s write gate
 #       (`save_accepted`, validating through the Adapter's src/move-validate.mjs)
@@ -334,7 +337,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       why: nofit ? "NOFIT-SENTENCE-" + planN + " no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       ...(join ? { join } : {}),
       ...(mode === "owes" && leg.leg_id === "s1" && w.waypoint === 1
-        ? { obligations: [{ kind: "question", text: "OWED-ROW which edit survives the next run?", raised_by: 1, owed_by: [3], discharged_by: 3 }] } : {}),
+        ? { obligations: [{ item: ["OWED-ROW which edit survives the next run?"], raised_by: 1, owed_by: [3], discharged_by: 3 }] } : {}),
       ...(mode === "owes" && w.waypoint === 1 && owes.length && planN > 1
         ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 2 })) } : {}),
       paragraph_waypoints: nofit ? [] : mode === "performs-purpose"
@@ -838,14 +841,14 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
 
 // (u) THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530).
 {
-  const ROW = { kind: "question", text: "Why does the next run overwrite the edit?", raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" };
+  const ROW = { item: ["Why does the next run overwrite the edit?"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" };
   const run = runStage("owes", legs, "owes", moves, [ROW]);
   const planPrompts = run.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
   const s2Plans = planPrompts.filter((p) => p.includes('"leg_id": "s2"'));
-  const owedIn = (p) => { const at = p.lastIndexOf('"obligations_this_leg_owes"'); return at >= 0 && p.slice(at).includes(ROW.text); };
+  const owedIn = (p) => { const at = p.lastIndexOf('"obligations_this_leg_owes"'); return at >= 0 && p.slice(at).includes(ROW.item[0]); };
   if (!s2Plans.length || !owedIn(s2Plans[0])) fails.push("(u) the plan call for Leg s2 is not handed the Brief row s2 owes");
   if (planPrompts.some((p) => p.includes('"leg_id": "s1"') && owedIn(p))) fails.push("(u) the plan call for Leg s1, which owes no row, is handed one");
-  const refusal = "the Brief's obligation 1, the question \"Why does the next run overwrite the edit?\" row, is owed by this Leg and discharged by no Paragraph Waypoint";
+  const refusal = "the Brief's obligation 1, the obligation \"Why does the next run overwrite the edit?\" row, is owed by this Leg and discharged by no Paragraph Waypoint";
   if (!(s2Plans[1] || "").includes(refusal)) fails.push(`(u) the second plan attempt for s2 does not carry the undischarged-row refusal verbatim: ${JSON.stringify((s2Plans[1] || "").slice(-600))}`);
   if (!existsSync(run.planPath)) {
     fails.push(`(u) the job with an owed row wrote no plan file: ${(run.awaited && run.awaited.stdout) || (run.started && run.started.stderr)}`);
@@ -872,7 +875,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     legs: [{ leg_id: "s1", waypoints: [{ waypoint: 1, obligations: rows, paragraph_waypoints: three },
       { waypoint: 2, join: "contrast", paragraph_waypoints: [{ point: "a point.", serves: ["L1", "L2"] }] }] },
     { leg_id: "s2", waypoints: [{ waypoint: 1, paragraph_waypoints: [{ point: "a point.", serves: ["L2"] }] }] }] });
-  const q = (text, raised, owed, end) => ({ kind: "question", text, raised_by: raised, owed_by: owed, discharged_by: end });
+  const q = (text, raised, owed, end) => ({ item: [text], raised_by: raised, owed_by: owed, discharged_by: end });
   const planned = { legs: legs.map(planLeg), movesDir: moves };
   const okRows = [q("first?", 1, [2], 2), q("second?", 2, [3], 3)];
   for (const [what, got] of [["validator", validateParagraphPlanUnit(unit(okRows), planned, "leg-1").error || null],
@@ -881,11 +884,18 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
   const cases = [
     ["two rows open at one Paragraph Waypoint", [q("first?", 1, [3], 3), q("second?", 2, [3], 3)],
-      ["Paragraph Waypoint 2: 2 rows are open here", "question \"first?\"", "question \"second?\""]],
+      ["Paragraph Waypoint 2: 2 rows are open here", "obligation \"first?\"", "obligation \"second?\""]],
     ["an owed_by before its raised_by", [q("first?", 2, [1], 1)],
       ["raised at Paragraph Waypoint 2 names Paragraph Waypoint 1 in owed_by, which does not come after the raising one"]],
-    ["a row ending in neither terminal field", [{ kind: "question", text: "first?", raised_by: 1, owed_by: [2] }],
+    ["a row ending in neither terminal field", [{ item: ["first?"], raised_by: 1, owed_by: [2] }],
       ["NEITHER discharged_by nor conceded_by"]],
+    // THE RETIRED KEYS, REFUSED BY NAME (kogaki#1568): `kind`, `text` and `term` each name themselves.
+    ["a row carrying the retired `kind`", [{ kind: "question", item: ["first?"], raised_by: 1, owed_by: [2], discharged_by: 2 }],
+      ["carries `kind`, retired (kogaki#1568)"]],
+    ["a row carrying the retired `text`", [{ text: "first?", raised_by: 1, owed_by: [2], discharged_by: 2 }],
+      ["carries `text`, retired (kogaki#1568)"]],
+    ["a row carrying the retired `term`", [{ term: ["first"], raised_by: 1, owed_by: [2], discharged_by: 2 }],
+      ["carries `term`, retired (kogaki#1568)"]],
   ];
   for (const [what, rows, want] of cases) {
     const v = validateParagraphPlanUnit(unit(rows), planned, "leg-1").error || "";
@@ -910,7 +920,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   writeFileSync(join(slotDir, "ROLES.json"), readFileSync("moves/ROLES.json"));
   const DEFER = "names one term and leaves it unexplained for a later step.";
   writeMove(slotDir, { id: "p6", before: STATE.before, after: { knowledge: "holds a named term it cannot yet unpack." },
-    breaks: ["breaks if the term is explained at once."], obligation: { kind: "term", item: ["named term"] },
+    breaks: ["breaks if the term is explained at once."], obligation: ["named term"],
     segments: [{ operation: "names the term." }, { operation: "explains the term.", relation: "keeps what the naming left open." }] });
   writeMove(slotDir, { id: "p7", ...STATE, breaks: ["breaks if the term is explained at once."],
     segments: [{ operation: "names the term.", manner: DEFER }, { operation: "explains the term.", relation: "keeps what the naming left open." }] });
@@ -919,7 +929,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const input = paragraphPlanUnitInput(planLeg(legs[0]), library.moves || [], persona);
   const handed = (input.paragraph_moves_you_may_bind || []).find((m) => m.id === "p6") || {};
   const want = moveContract("p6", slotDir).deferred_slots;
-  if (JSON.stringify(want) !== JSON.stringify([{ kind: "term", count: 1, line: "named term" }])
+  if (JSON.stringify(want) !== JSON.stringify([{ items: ["named term"], count: 1 }])
     || JSON.stringify(handed.deferred_slots) !== JSON.stringify(want)) {
     fails.push(`(u) the plan call's input does not carry p6's obligation slot as the Brief's composer receives it: ${JSON.stringify(handed.deferred_slots)}`);
   }
@@ -927,7 +937,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!unslotted || "deferred_slots" in unslotted) fails.push(`(u) a Move whose manner defers an item and carries no obligation hands a slot: ${JSON.stringify(unslotted)}`);
   const row = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8")).paragraph_plan_unit;
   const prompt = paragraphPlanUnitPrompt({ id: "paragraph_plan_unit", ...row }, input);
-  if (!prompt.includes('"line": "named term"') || !critOf(prompt, "OWE").includes("`obligation`")) fails.push("(u) the plan prompt does not carry the obligation slot beside the OWE step naming the field");
+  if (!prompt.includes('"items": [') || !prompt.includes('"named term"') || !critOf(prompt, "OWE").includes("`obligation`")) fails.push("(u) the plan prompt does not carry the obligation slot beside the OWE step naming the field");
 
   // The Packet renders the rows as material under their Leg Waypoint and asks for no sentence.
   const s1 = legs.find((l) => l.leg_id === "s1");
@@ -935,8 +945,8 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     paragraph_waypoints: three.slice(0, 2), obligations: [q("Which edit survives?", 1, [2], 2)],
     discharges: [{ obligation: 1, by: 2, row: ROW }] }] }) || "";
   const lines = rendered.split("\n");
-  if (lines[3] !== "   *Promise:* Which edit survives? — raised at 1, kept at 2."
-    || lines[4] !== "   *Keeps:* Why does the next run overwrite the edit? — at 2.") {
+  if (lines[3] !== '   *Promise:* "Which edit survives?", raised at 1, kept at 2.'
+    || lines[4] !== '   *Keeps:* "Why does the next run overwrite the edit?" — at 2.') {
     fails.push(`(u) waypointLines does not render the Promise and Keeps lines under the Leg Waypoint's points: ${JSON.stringify(rendered)}`);
   }
   if (/\bwrite\b|\bsentence\b/i.test(lines.slice(3).join("\n"))) fails.push("(u) a rendered Promise or Keeps line asks for a sentence");
@@ -946,28 +956,28 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     fails.push("(u) src/packet-template.md's waypoints block does not state the Promise and Keeps lines are material asking for no sentence");
   }
 
-  // (v) A TERM ROW CARRYING AN ORDERED LIST OF TERMS IS ONE PROMISE AT THIS SCALE TOO (kogaki#1549):
-  // raised at 1, owed by 2 then 3 and discharged by 3, both readers admit it; the same promise as
-  // two rows raised at 1 is refused by the capacity rule; a repeated term is refused by name; and
-  // the Packet's Promise line renders the terms in raised order.
-  const pair = { kind: "term", term: ["ownership boundary", "non-member fallback"], raised_by: 1, owed_by: [2, 3], discharged_by: 3 };
+  // (v) A ROW CARRYING AN ORDERED LIST OF ITEMS IS ONE PROMISE AT THIS SCALE TOO (kogaki#1549,
+  // kogaki#1568): raised at 1, owed by 2 then 3 and discharged by 3, both readers admit it; the same
+  // promise as two rows raised at 1 is refused by the capacity rule; a repeated item is refused by
+  // name; and the Packet's Promise line renders the items in raised order.
+  const pair = { item: ["ownership boundary", "non-member fallback"], raised_by: 1, owed_by: [2, 3], discharged_by: 3 };
   for (const [what, got] of [["validator", validateParagraphPlanUnit(unit([pair]), planned, "leg-1").error || null],
     ["plan reader", paragraphPlanShapeRefusal(record([pair]), "plan.yaml", legs)]]) {
     if (got !== null) fails.push(`(v) the ${what} refused a two-term list row owed in order: ${got}`);
   }
-  const asTwo = [{ kind: "term", term: "ownership boundary", raised_by: 1, owed_by: [2], discharged_by: 2 },
-    { kind: "term", term: "non-member fallback", raised_by: 1, owed_by: [3], discharged_by: 3 }];
-  const repeat = { ...pair, term: ["ownership boundary", "ownership boundary"] };
+  const asTwo = [{ item: ["ownership boundary"], raised_by: 1, owed_by: [2], discharged_by: 2 },
+    { item: ["non-member fallback"], raised_by: 1, owed_by: [3], discharged_by: 3 }];
+  const repeat = { ...pair, item: ["ownership boundary", "ownership boundary"] };
   for (const [what, rows, want] of [["the same promise as two rows raised at one Paragraph Waypoint", asTwo, "Paragraph Waypoint 1: 2 rows are open here"],
-    ["a list naming a term twice", [repeat], "repeats the term \"ownership boundary\""],
-    ["an empty term list", [{ ...pair, term: [] }], "empty `term` list"]]) {
+    ["a list naming an item twice", [repeat], "repeats \"ownership boundary\""],
+    ["an empty item list", [{ ...pair, item: [] }], "empty `item` list"]]) {
     const v = validateParagraphPlanUnit(unit(rows), planned, "leg-1").error || "";
     const r = paragraphPlanShapeRefusal(record(rows), "plan.yaml", legs) || "";
     if (!v.includes(want) || !r.includes(want)) fails.push(`(v) ${what} was not refused by both readers naming it: ${v || "no refusal"} / ${r || "no refusal"}`);
   }
   const listed = waypointLines({ claims: s1.claims, waypoints: [{ ...s1.waypoints[0], paragraph_waypoints: three, obligations: [pair] }] }) || "";
-  if (listed.split("\n")[4] !== '   *Promise:* the terms "ownership boundary", "non-member fallback", named at 1 and explained in that order, kept at 3.') {
-    fails.push(`(v) waypointLines does not render a list row's terms in raised order: ${JSON.stringify(listed)}`);
+  if (listed.split("\n")[4] !== '   *Promise:* "ownership boundary", "non-member fallback", raised at 1 and explained in that order, kept at 3.') {
+    fails.push(`(v) waypointLines does not render a list row's items in raised order: ${JSON.stringify(listed)}`);
   }
 }
 

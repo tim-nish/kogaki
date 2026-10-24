@@ -167,7 +167,7 @@ const packetWith = ({ performs = false, keeps = false } = {}) => {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
     paragraph_waypoints: [{ point: w.point, serves: w.serves },
       ...(i === 0 && performs ? [{ performs: OPERATION }] : [])],
-    ...(i === 1 && keeps ? { discharges: [{ obligation: 1, by: 1, row: { kind: "question", text: PROMISE } }] } : {}) })) };
+    ...(i === 1 && keeps ? { discharges: [{ obligation: 1, by: 1, row: { item: [PROMISE] } }] } : {}) })) };
   const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
   return r.packet || "";
@@ -202,7 +202,7 @@ else {
   // (g) a Draft never stating the promised item fails promise-kept naming the promise.
   const unkept = judge(fixture("promise-unkept", packetWith({ keeps: true }), PARA2_OWN), onlyK,
     "fails", "the passage never says why the second run replaces edits.");
-  if (unkept.owed.owed.length !== 1 || !readFileSync(unkept.owed.owed[0].packet, "utf8").includes(`paragraph 2 keeps: ${PROMISE}`)) fails.push("(g) the promise-kept item does not owe one pair carrying the Keeps line named as paragraph 2's");
+  if (unkept.owed.owed.length !== 1 || !readFileSync(unkept.owed.owed[0].packet, "utf8").includes(`paragraph 2 keeps: "${PROMISE}"`)) fails.push("(g) the promise-kept item does not owe one pair carrying the Keeps line named as paragraph 2's");
   const krow = rowOf(unkept.judged, "promise-kept");
   if (!krow || krow.verdict !== "fails" || !(krow.evidence || []).some((e) => String(e).includes(PROMISE))) fails.push(`(g) a fails verdict did not fail the promise-kept row naming the promise: ${JSON.stringify(krow)}`);
   // (h) a Leg with neither line holds on both by the stated absence, owing no pair.

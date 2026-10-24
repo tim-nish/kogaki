@@ -1580,9 +1580,8 @@ owner decision 2026-10-23). An entry keeps `term` and `meaning` and drops
 reader already holds is not introduced at all. **A term a Leg names and
 defers** — its meaning given by a later Leg rather than where it first
 appears — is not an `introduces` entry of the naming Leg alone: it is an
-Obligation of kind `term`, raised by the naming Leg and owed by the Legs that
-give its meaning, under §5.2's rules, and it shares that section's one-open
-capacity with every Question. *Status: stated ahead of the executables*, as
+Obligation, raised by the naming Leg and owed by the Legs that give its
+meaning, under §5.2's rules. *Status: stated ahead of the executables*, as
 §5.2 states; `introduces_item` still carries `kind` until an Issue removes it.
 
 `necessity:` that an unintroduced term is ADDRESSABLE — a fact about the path
@@ -2501,12 +2500,12 @@ planner consumes it and it never reaches the Writer.
 
 **Obligations at the Paragraph scale** (kogaki#1528, owner decision
 2026-10-23). A Leg Waypoint's Paragraph Waypoints carry the same Obligation
-record §5.2 states for Legs — `{kind, raised_by, text | term, owed_by,
+record §5.2 states for Legs — `{item, raised_by, owed_by,
 discharged_by | conceded_by}` — with `raised_by`, `owed_by` and the terminal
 field naming Paragraph Waypoints of that one Leg Waypoint, and the record
 lives in the ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's
 rules bind it as they bind the Leg scale, except the Section rule: a slot is
-raised by the bound paragraph Move's shape or authored from the material, at
+raised by the bound paragraph Move's `obligation` and by nothing else, at
 most one row is open at any Paragraph Waypoint, `owed_by` is in raised order,
 and a row open here may be open while a Leg-scale row is open too. **Discharge
 is planning, never prose**: a row is kept by the Paragraph Waypoints the plan
@@ -2903,32 +2902,26 @@ stated where the Brief's Closure section renders it, above the ledger, so a
 reader of the document meets it before the rows that instantiate it.
 
 **The Obligation record** (kogaki#1528). An Obligation is
-`{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}`, and
-these rules govern it:
+`{item, raised_by, owed_by, discharged_by | conceded_by}` (kogaki#1568, owner
+decision 2026-10-24), and these rules govern it:
 
-1. **One record, two scales.** `kind` is `question` (the row carries `text`)
-   or `term` (the row carries `term`). A `term` row's `term` is one term, or
-   — when one deferring slot counted more than one — a list of the terms in
-   the order the raising unit named them (kogaki#1549, owner clarification
-   2026-10-24): one promise, to explain the terms in sequence, open until the
-   last of them is explained. Its `owed_by` lists the units that explain them,
-   in that order, and the row is discharged by the last. A list is non-empty
-   and names no term twice. At the **Leg scale** `raised_by`,
-   `owed_by` and the terminal field name Legs, and the record lives on the
-   Brief. At the **Paragraph scale** they name Paragraph Waypoints of one Leg
-   Waypoint, and the record lives in the ParagraphPlan file (§4.19). Both
-   scales carry the same fields and the same rules, except rule 5, which has
-   no Paragraph counterpart.
-2. **Two sources.** A Move whose `obligation` field names an item it leaves
-   unexplained raises a **slot**: its kind, its count, and the item. The
-   composer fills the slot with ONE row: the term or the question — for a
-   slot counting more than one term, the terms as the list of rule 1, in
-   raised order — and the `owed_by` units, in the order the items were
-   raised. Rule 3 is what the one-row shape satisfies: the same promise as
-   several rows raised by one unit is refused there. A promise the Strand
-   material raises and no Move signals is **authored** as a row, as a
-   Closure row was before kogaki#1529.
-3. **Capacity.** At most ONE Obligation of any kind is open at any unit of one
+1. **One record, two scales.** `item` is a list of one or more one-line
+   items, each a term or a question the raising unit leaves unexplained, in
+   the order it names them: one promise, to explain them in sequence, open
+   until the last is explained. A list is non-empty and names no item twice.
+   At the **Leg scale** `raised_by`, `owed_by` and the terminal field name
+   Legs, and the record lives on the Brief. At the **Paragraph scale** they
+   name Paragraph Waypoints of one Leg Waypoint, and the record lives in the
+   ParagraphPlan file (§4.19). Both scales carry the same fields and the same
+   rules, except rule 5, which has no Paragraph counterpart.
+2. **One source.** A Move whose `obligation` names items it leaves
+   unexplained raises a **slot**: the items and their count. The composer
+   fills the slot with ONE row carrying those items and the `owed_by` units.
+   No other row exists: a promise the Strand material raises and no bound
+   Move signals is not written, and the composer binds a Move that carries it
+   or does not promise. An Obligation and an `introduces` entry are two
+   registers, and no check compares them.
+3. **Capacity.** At most ONE Obligation is open at any unit of one
    scale. A row is open from its `raised_by` unit up to, and not including,
    the unit that closes it; a row raised and closed in one unit is open on
    none. Obligations at different scales may be open at once.
@@ -2949,7 +2942,7 @@ these rules govern it:
 7. **Terms.** `introduces` keeps `term` and `meaning` and drops `kind`: every
    introduced term is one the article gives its meaning to, and a term the
    reader already holds is not introduced. A term named and deferred is an
-   Obligation of kind `term`, its meaning owed by `owed_by` (§4.13).
+   Obligation item, its meaning owed by `owed_by` (§4.13).
 8. **The Thesis row** stays derived (kogaki#1328, below) and is outside the
    capacity rule, as it was.
 
@@ -2957,7 +2950,7 @@ these rules govern it:
 as checked entries, and `obligationLedgerRefusal` (`src/compose.mjs`) refuses
 over them naming the row and the Leg. *Status: the Leg scale is carried by the
 executables* (kogaki#1529): the Brief's `obligations` rows carry `kind`,
-`raised_by`, `text | term`, `owed_by` and one terminal field, the retired
+`raised_by`, `owed_by` and one terminal field, the retired
 `closure` key and `introduced_by` field are refused by name, `introduces_item`
 carries no `kind`, and a Move's deferred slot reaches the composer's input.
 *The Paragraph scale stays ahead of the executables*: the ParagraphPlan file
@@ -2973,7 +2966,7 @@ Brief whole — one line of 1934 characters in the 2026-10-09 Brief, restating
 what the coverage already carried per Strand. The **Leg rows** are the
 obligations ledger — the owner's proposed name is *Legs closure* — the record's
 `obligations` list (the `closure` list until kogaki#1529), each row carrying
-`kind`, `raised_by`, `text | term` and `owed_by`.
+`item`, `raised_by` and `owed_by`.
 
 **Every row ends in one of two terminal states, written by the composer:**
 `discharged_by: <leg>` (the promise is kept there) or `conceded_by: <leg>`

@@ -18,7 +18,7 @@ import {
   READER_STATE_DIMENSIONS, deriveReaderStatesBefore, journeyUses,
   readerStateDimensionLine, waypointsRefusal,
 } from "./leg-schema.mjs";
-import { parseIntroducesEntry, OBLIGATION_KINDS, obligationLabel, obligationTerminal, termListRefusal } from "./sections.mjs";
+import { parseIntroducesEntry, obligationLabel, obligationTerminal, obligationItemRefusal } from "./sections.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
 //
@@ -301,8 +301,8 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
 
 // ---------------------------------------------------------------------------
 // THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, SPEC-draft-pipeline "Obligations").
-// A Leg Waypoint's `obligations` are rows of the Brief's shape -- `{kind, raised_by, text | term,
-// owed_by, discharged_by | conceded_by}` -- whose Leg ids are the numbers of that Leg Waypoint's
+// A Leg Waypoint's `obligations` are rows of the Brief's shape -- `{item, raised_by, owed_by,
+// discharged_by | conceded_by}` (kogaki#1568) -- whose Leg ids are the numbers of that Leg Waypoint's
 // Paragraph Waypoints, held to the Brief's rules (`obligationLedgerRefusal`) except the Section
 // rule, which has no unit at this scale. Shared by the plan reader and the plan call's validator.
 // Returns a string to refuse with, or null.
@@ -314,19 +314,10 @@ export function paragraphObligationsRefusal(rows, count, at) {
   for (const [i, o] of rows.entries()) {
     const row = `${at}: obligation ${i + 1}`;
     if (!o || typeof o !== "object" || Array.isArray(o)) return `${row} is not a map (kogaki#1530)`;
-    if (!OBLIGATION_KINDS.includes(o.kind)) {
-      return `${row} carries kind ${JSON.stringify(o.kind ?? null)} — an Obligation is a \`question\` carrying \`text\` or a \`term\` carrying \`term\` (kogaki#1530)`;
-    }
-    const said = o.kind === "term" ? "term" : "text";
-    const other = o.kind === "term" ? "text" : "term";
-    const many = o.kind === "term" && Array.isArray(o.term);
-    if ((!many && (typeof o[said] !== "string" || o[said].trim() === "")) || other in o) {
-      return `${row} is a \`${o.kind}\` row, so it carries \`${said}\` and no \`${other}\` (kogaki#1530)`;
-    }
-    const listed = termListRefusal(o.term);
-    if (many && listed) return `${row} ${listed} (kogaki#1549)`;
+    const shape = obligationItemRefusal(o);
+    if (shape) return `${row} ${shape}`;
     const label = `${at}: the ${obligationLabel(o)} row`;
-    const extra = undeclaredKey(o, ["kind", said, "raised_by", "owed_by", "discharged_by", "conceded_by", ...CONCEDED_ROW_FIELDS]);
+    const extra = undeclaredKey(o, ["item", "raised_by", "owed_by", "discharged_by", "conceded_by", ...CONCEDED_ROW_FIELDS]);
     if (extra) return `${label} carries \`${extra}\`, which an Obligation row does not declare (kogaki#1530)`;
     if (!pw(o.raised_by)) return `${label} names raised_by ${name(o.raised_by)}, which is not a Paragraph Waypoint of this Leg Waypoint (kogaki#1530)`;
     if (!Array.isArray(o.owed_by)) {
@@ -548,7 +539,7 @@ export function briefRecordText(record) {
 // A key the Brief record carried once and carries no longer, refused by name
 // with the key that replaced it.
 const RETIRED_RECORD_KEYS = Object.freeze({
-  closure: "the Closure rows are retired (kogaki#1529): the Brief carries its promises as `obligations`, each row `{kind, raised_by, text | term, owed_by, discharged_by | conceded_by}` (src/candidate-schema.json, `brief_record`).",
+  closure: "the Closure rows are retired (kogaki#1529): the Brief carries its promises as `obligations`, each row `{item, raised_by, owed_by, discharged_by | conceded_by}` (src/candidate-schema.json, `brief_record`).",
 });
 
 // The record read from its text, or a refusal naming what is wrong. A key the

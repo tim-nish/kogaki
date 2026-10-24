@@ -29,7 +29,8 @@ import { fillBrief, fillSlot, briefStrandIds, placements,
   validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
   figureClause, figureLegs,
   ownerGateDigest, validateOwnerAnswer, targetLegIndex, readerStateMap,
-  briefJourneyStrands, journeyPlacements, snapshotBrief, readBriefRecord, briefRecordText } from "./compose.mjs";
+  briefJourneyStrands, journeyPlacements, snapshotBrief, readBriefRecord, briefRecordText,
+  obligationItemRefusal, obligationItems } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
 
@@ -346,7 +347,7 @@ export function denyInternalVocabulary(payload, exemptByOption) {
 // only the key names are a declared format.
 // Pure; returns a refusal string or null. `strandIds` is the Brief's closed set where the
 // caller holds it, and the checks needing it are skipped where it is empty.
-const OBLIGATION_SHAPE = "`{ kind, raised_by, text | term, owed_by, discharged_by | conceded_by }`";
+const OBLIGATION_SHAPE = "`{ item, raised_by, owed_by, discharged_by | conceded_by }`";
 export function candidateLedgerRefusal(c, strandIds = []) {
   const where = `candidate ${c?.candidate_id}`;
   const legIds = new Set((Array.isArray(c?.legs) ? c.legs : []).map((s) => s && s.leg_id));
@@ -368,14 +369,12 @@ export function candidateLedgerRefusal(c, strandIds = []) {
         return `${at}: \`introduced_by\` is the retired Closure row's field — an Obligation names the Leg `
           + `that raises it in \`raised_by\`, and carries ${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`)`;
       }
-      if (o.kind !== "question" && o.kind !== "term") {
-        return `${at}: \`kind\` is required and is \`question\` or \`term\`. The entry carries `
-          + `${JSON.stringify(Object.keys(o))} (src/candidate-schema.json, \`obligations\`)`;
-      }
-      const said = o.kind === "term" ? "term" : "text";
-      if (typeof o[said] !== "string" || o[said].trim() === "") {
-        return `${at}: a \`${o.kind}\` row carries a non-blank \`${said}\` — it is what the Brief's ledger renders. `
-          + `The entry carries ${JSON.stringify(Object.keys(o))} (src/candidate-schema.json, \`obligations\`)`;
+      // `kind`, `text` AND `term` ARE RETIRED, REFUSED BY NAME (kogaki#1568): `item` is the list
+      // of the items the raising Leg leaves unexplained, and it is what the Brief's ledger renders.
+      const shape = obligationItemRefusal(o);
+      if (shape) {
+        return `${at}: the entry ${shape}. The entry carries ${JSON.stringify(Object.keys(o))} `
+          + `(src/candidate-schema.json, \`obligations\`)`;
       }
       if (typeof o.raised_by !== "string" || o.raised_by.trim() === "") {
         return `${at}: \`raised_by\` is required and names the \`leg_id\` of the Leg that raises `
@@ -471,8 +470,7 @@ export function candidateLedgerRefusal(c, strandIds = []) {
 // state be read at all".
 function unreadableObligation(o) {
   if (!o || typeof o !== "object" || Array.isArray(o)) return "it is not an object";
-  const said = o.kind === "term" ? "term" : "text";
-  if (typeof o[said] !== "string" || o[said].trim() === "") return `it carries no \`${said}\``;
+  if (!obligationItems(o).length) return "it carries no `item` list";
   if (typeof o.raised_by !== "string" || o.raised_by.trim() === "") return "it carries no `raised_by`";
   if (o.discharged_by !== undefined && typeof o.discharged_by !== "string") return "its `discharged_by` is not a leg id";
   if (o.conceded_by !== undefined && typeof o.conceded_by !== "string") return "its `conceded_by` is not a leg id";

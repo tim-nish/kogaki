@@ -8,8 +8,9 @@
 #   (n) Path Review's `discharge_rows` names each row and its owed Legs.
 #   (o)-(q) owed_by order, an owed Leg opening a Section, a non-terminal row.
 #   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
-#       the retired `closure` key; (u) `term` rows in `names` and the ledger;
-#       (v) a `term` row carrying its terms as a list in raised order (#1549).
+#       the retired `closure` key; (u) no Obligation item in `names` or the
+#       ledger (#1568); (v) a row's `item` list in raised order (#1549), and
+#       the retired `kind`, `text` and `term` refused by name (#1568).
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -38,17 +39,17 @@ const fails = [];
   const doc = {
     thesis: "The whole claim.", reader_path: legs,
     strand_coverage: [{ strand: "L1", used_by_legs: ["leg4"], role_in_thesis: "The whole claim holds once the target Leg lands." }],
-    obligations: [{ kind: "question", raised_by: "leg1", text: "an obligation raised early", owed_by: ["leg3"], discharged_by: "leg3" }],
+    obligations: [{ item: ["an obligation raised early"], raised_by: "leg1", owed_by: ["leg3"], discharged_by: "leg3" }],
   };
   for (const { leg_id } of legs) {
     const rows = obligationRowsOf(doc, leg_id);
-    const carries = rows.some((r) => /whole claim holds/.test(r.text));
+    const carries = rows.some((r) => /whole claim holds/.test(r.text || ""));
     if (leg_id === "leg4" && !carries) fails.push("(f) the target Leg's Packet carries no Thesis row");
     if (leg_id !== "leg4" && carries) fails.push(`(f) ${leg_id}'s Packet carries the Thesis row, which only the target Leg's may`);
   }
   const leg1 = obligationRowsOf(doc, "leg1");
-  if (!leg1.some((r) => /obligation raised early/.test(r.text))) fails.push("(f) the Leg rows stopped reaching the Leg that raised them");
-  if (obligationRowsOf(doc, "leg2").some((r) => /obligation raised early/.test(r.text || ""))) fails.push("(f) a row reached a Leg it is no party to");
+  if (!leg1.some((r) => (r.item || []).includes("an obligation raised early"))) fails.push("(f) the Leg rows stopped reaching the Leg that raised them");
+  if (obligationRowsOf(doc, "leg2").some((r) => (r.item || []).includes("an obligation raised early"))) fails.push("(f) a row reached a Leg it is no party to");
 }
 
 // (g) readerTargetLegRefusal — exactly one Leg marked, and never the first.
@@ -99,7 +100,7 @@ const fails = [];
     { leg_id: "leg2", reaches_target: true, reader_state_after: STATE },
     { leg_id: "leg3", reader_state_after: STATE },
   ];
-  const obligations = [{ kind: "question", raised_by: "leg3", text: "a promise raised late", owed_by: [], conceded_by: "leg3" }];
+  const obligations = [{ item: ["a promise raised late"], raised_by: "leg3", owed_by: [], conceded_by: "leg3" }];
   const rRaised = readerTargetLegRefusal(withRaisedRow, obligations);
   if (!rRaised) fails.push("(h) a closing Leg named raised_by on an Obligation row was not refused");
   else if (!/leg 3 \(leg3\)/.test(rRaised)) fails.push(`(h) the raised-row refusal did not name the Leg: ${rRaised}`);
@@ -203,8 +204,8 @@ const fails = [];
   if (packets.s2 && !/## The Section this Leg sits in[\s\S]*This Leg reaches the Reader target\.[\s\S]*## What crosses into this Leg/.test(packets.s2)) fails.push("(k) the target line is not rendered inside the `## The Section this Leg sits in` block");
 }
 
-// A row the cases below build: a Question raised at `raised`, owed by `owed`, kept at the last.
-const q = (text, raised, owed, extra = {}) => ({ kind: "question", raised_by: raised, text, owed_by: owed,
+// A row the cases below build: one item raised at `raised`, owed by `owed`, kept at the last.
+const q = (text, raised, owed, extra = {}) => ({ item: [text], raised_by: raised, owed_by: owed,
   ...(owed.length ? { discharged_by: owed[owed.length - 1] } : {}), ...extra });
 const conceded = { open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" };
 const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` }));
@@ -226,18 +227,18 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   if (rOne) fails.push(`(l) exactly one conceded_by row, conceded where it is raised, was refused: ${rOne}`);
 }
 
-// (m) two rows open at one Leg are refused naming both (kogaki#1232, kogaki#1529) --
-// of any kind: a deferred term and a Question share the one capacity.
+// (m) two rows open at one Leg are refused naming both (kogaki#1232, kogaki#1529, kogaki#1568):
+// a deferred term and a question are one expectation and share the one capacity.
 {
   const legs = ids(5);
   const twoOpen = [
     q("row A", "leg1", ["leg4"]),
-    { kind: "term", raised_by: "leg2", term: "ownership boundary", owed_by: ["leg3"], discharged_by: "leg3" },
+    { item: ["ownership boundary"], raised_by: "leg2", owed_by: ["leg3"], discharged_by: "leg3" },
   ];
   const r = obligationLedgerRefusal(legs, twoOpen);
   if (!r) fails.push("(m) a Question and a deferred term open at one Leg were not refused");
   else {
-    if (!/at most one open at any Leg, of any kind/.test(r)) fails.push(`(m) the refusal did not name the rule: ${r}`);
+    if (!/at most one open at any Leg/.test(r)) fails.push(`(m) the refusal did not name the rule: ${r}`);
     if (!/leg 2 \(leg2\)/.test(r)) fails.push(`(m) the refusal did not name the Leg: ${r}`);
     if (!/row A/.test(r) || !/ownership boundary/.test(r)) fails.push(`(m) the refusal did not name both rows: ${r}`);
   }
@@ -269,12 +270,12 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
     waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }] }));
   const obligations = [q(ROW, "leg1", ["leg2", "leg3"]),
-    { kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: [], conceded_by: "leg1", ...conceded }];
+    { item: ["ownership boundary"], raised_by: "leg1", owed_by: [], conceded_by: "leg1", ...conceded }];
   const rows = dischargeRows(legs, obligations);
   if (rows.length !== 1) fails.push(`(n) the Path Review's discharge input carries ${rows.length} entries for one discharged row`);
   else {
     const [e] = rows;
-    if (e.row !== ROW || e.kind !== "question") fails.push(`(n) the discharge input does not name the row: ${JSON.stringify(e)}`);
+    if (e.row !== ROW || JSON.stringify(e.item) !== JSON.stringify([ROW]) || "kind" in e) fails.push(`(n) the discharge input does not name the row: ${JSON.stringify(e)}`);
     if (JSON.stringify(e.owed_by) !== JSON.stringify(["leg2", "leg3"])) fails.push(`(n) the discharge input does not name the owed Legs: ${JSON.stringify(e)}`);
     if (e.discharging_leg !== "leg3" || e.raised_by !== "leg1") fails.push(`(n) the discharge input does not name the raising and discharging Legs: ${JSON.stringify(e)}`);
     const owed = (e.owed_legs || []).map((l) => [l.leg_id, l.points[0], l.claims[0]]);
@@ -317,10 +318,10 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
 // (q) a row with no terminal field is refused, naming the row.
 {
   const legs = ids(3);
-  const r = obligationLedgerRefusal(legs, [{ kind: "question", raised_by: "leg1", text: "never settled", owed_by: ["leg2"] }]);
+  const r = obligationLedgerRefusal(legs, [{ item: ["never settled"], raised_by: "leg1", owed_by: ["leg2"] }]);
   if (!r) fails.push("(q) a row carrying neither discharged_by nor conceded_by was not refused");
   else if (!/NEITHER/.test(r) || !/never settled/.test(r)) fails.push(`(q) the refusal did not name the row and the missing field: ${r}`);
-  const rOld = obligationLedgerRefusal(legs, [{ text: "a Closure row", introduced_by: "leg1", discharged_by: "leg2" }]);
+  const rOld = obligationLedgerRefusal(legs, [{ item: ["a Closure row"], introduced_by: "leg1", discharged_by: "leg2" }]);
   if (!rOld || !/introduced_by/.test(rOld) || !/raised_by/.test(rOld)) fails.push(`(q) a row in the retired Closure shape was not refused naming its field: ${rOld}`);
 }
 
@@ -349,7 +350,7 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
     copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
     const src = readFileSync("moves/name_the_consequence_then_define_the_name.yaml", "utf8");
     writeFileSync(join(lib, "name_two_and_defer.yaml"), src.replace(/^id: .*$/m, "id: name_two_and_defer")
-      + "obligation:\n  kind: term\n  item:\n    - named kind\n    - practice\n");
+      + "obligation:\n  - named kind\n  - practice\n");
     writeFileSync(join(lib, "defer_in_prose_only.yaml"), src
       .replace(/^id: .*$/m, "id: defer_in_prose_only")
       .replace(/^description: >-\n(?:  .*\n)+/m, "description: Names two terms and leaves both for later, for the next Leg to explain.\n"));
@@ -360,8 +361,8 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
       const slotted = lc.moves.find((m) => m.id === "name_two_and_defer");
       const plain = lc.moves.find((m) => m.id === "name_the_consequence_then_define_the_name");
       const prose = lc.moves.find((m) => m.id === "defer_in_prose_only");
-      if (JSON.stringify(slotted && slotted.deferred_slots) !== JSON.stringify([{ kind: "term", count: 2, line: "named kind, practice" }])) {
-        fails.push(`(s) the composer's Move contract does not carry the field's one term slot of count 2: ${JSON.stringify(slotted && slotted.deferred_slots)}`);
+      if (JSON.stringify(slotted && slotted.deferred_slots) !== JSON.stringify([{ items: ["named kind", "practice"], count: 2 }])) {
+        fails.push(`(s) the composer's Move contract does not carry the field's one slot of two items: ${JSON.stringify(slotted && slotted.deferred_slots)}`);
       }
       if (plain && "deferred_slots" in plain) fails.push(`(s) a Move that defers nothing carries a slot: ${JSON.stringify(plain.deferred_slots)}`);
       if (!prose || "deferred_slots" in prose) fails.push(`(s) a Move whose description says "left for later" and carries no obligation raises a slot: ${JSON.stringify(prose)}`);
@@ -369,7 +370,7 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
     const legs = ["leg1", "leg2", "leg3"].map((leg_id, i) => ({ leg_id, move: ["name_two_and_defer", "name_the_consequence_then_define_the_name", "defer_in_prose_only"][i],
       reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
       waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }] }));
-    const rows = [{ kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" }];
+    const rows = [{ item: ["ownership boundary"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" }];
     const fit = readerPathFitInput({ candidate_id: "c1", legs, obligations: rows }, lib, "orientation: none\nknowledge: none", "a thesis");
     if (fit.error) fails.push(`(s) the Move-fit input did not build: ${fit.error}`);
     else {
@@ -394,62 +395,77 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   if (!r.error || !/carries `closure`/.test(r.error) || !/`obligations`/.test(r.error)) fails.push(`(t) a Brief carrying closure was not refused by name: ${JSON.stringify(r.error)}`);
 }
 
-// (u) `names` on the target Leg and the reader-knowledge ledger read `term` rows.
+// (u) `names` on the target Leg and the reader-knowledge ledger read `introduces` alone
+// (kogaki#1568): an Obligation item is a second register, so a term only a row names is refused
+// in `names` and folds into no Leg's knowledge.
 {
   const { readerTargetNamesRefusal, readerKnowledgeLedger } = compose;
   const legs = [{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true, names: ["ownership boundary"] }, { leg_id: "leg3" }];
-  const rows = [{ kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" }];
-  if (readerTargetNamesRefusal(legs, rows)) fails.push(`(u) names carrying a term row's term was refused: ${readerTargetNamesRefusal(legs, rows)}`);
-  if (!readerTargetNamesRefusal(legs, [])) fails.push("(u) names carrying a term no row and no entry introduces was not refused");
-  const ledger = readerKnowledgeLedger(legs, rows);
-  if (!ledger[1].reader_already_knows.some((k) => k.term === "ownership boundary" && k.introduced_by === "leg1")) fails.push(`(u) the ledger does not fold the term row in after its raising Leg: ${JSON.stringify(ledger)}`);
-  if (ledger[0].reader_already_knows.length) fails.push("(u) the ledger folded a term row in before its raising Leg");
+  const r = readerTargetNamesRefusal(legs);
+  if (!r || !/ownership boundary/.test(r)) fails.push(`(u) names carrying a term only an Obligation row names was not refused: ${r}`);
+  const introduced = [{ leg_id: "leg1", introduces: [{ term: "ownership boundary", meaning: "where the installer's ownership ends" }] }, ...legs.slice(1)];
+  if (readerTargetNamesRefusal(introduced)) fails.push(`(u) names carrying an introduced term was refused: ${readerTargetNamesRefusal(introduced)}`);
+  const ledger = readerKnowledgeLedger(legs);
+  if (ledger.some((row) => row.reader_already_knows.length)) fails.push(`(u) the ledger folded something in over a path that introduces nothing: ${JSON.stringify(ledger)}`);
+  if (readerKnowledgeLedger.length !== 1) fails.push(`(u) readerKnowledgeLedger still declares an obligations parameter (arity ${readerKnowledgeLedger.length})`);
 }
 
-// (v) a `term` row carrying the terms one deferring slot counted, in raised order, is one
-// promise (kogaki#1549): owed by two Legs in order and discharged by the second it passes;
-// the same promise as two rows raised by one Leg trips the capacity rule; an empty list and
-// a repeated term are refused by name; and `names`, the ledger and the label read every term.
+// (v) a row's `item` list carrying the items one slot counted, in raised order, is one promise
+// (kogaki#1549, kogaki#1568): owed by two Legs in order and discharged by the second it passes;
+// the same promise as two rows raised by one Leg trips the capacity rule; an empty list, a blank
+// item and a repeated item are refused by name; the label and Path Review's discharge input read
+// every item in order; and a row carrying the retired `kind`, `text` or `term` is refused naming
+// the key, by the ledger rule and by the Candidate's own ledger reader.
 {
-  const { readerTargetNamesRefusal, readerKnowledgeLedger, obligationLabel } = compose;
+  const { obligationLabel } = compose;
+  const { candidateLedgerRefusal } = await import("./src/assemble.mjs");
   const legs = ids(4);
-  const pair = { kind: "term", raised_by: "leg1", term: ["ownership boundary", "non-member fallback"],
+  const pair = { item: ["ownership boundary", "non-member fallback"], raised_by: "leg1",
     owed_by: ["leg2", "leg3"], discharged_by: "leg3" };
   const rPair = obligationLedgerRefusal(legs, [pair]);
-  if (rPair) fails.push(`(v) a two-term list row owed by two Legs in order was refused: ${rPair}`);
+  if (rPair) fails.push(`(v) a two-item list row owed by two Legs in order was refused: ${rPair}`);
   const full = (o) => legs.map((s, i) => ({ ...s, move: "m", materials: ["L1"], purpose: `purpose of ${s.leg_id}`,
     reader_state_after: `orientation: after ${s.leg_id}\nknowledge: after ${s.leg_id}`, depends_on: [], rationale: `why ${s.leg_id}`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }],
     waypoints: [{ point: `the paragraph establishes what ${s.leg_id} claims`, serves: ["L1"] }],
     ...(i === 0 ? { opens_section: "A Section" } : {}), ...(i === 3 ? { reaches_target: true } : {}), ...o[i] }));
-  const vPair = validateLegs(full([{}, {}, {}, { names: ["ownership boundary", "non-member fallback"] }]), "", [pair]);
-  if (vPair.error) fails.push(`(v) validateLegs refused a path carrying a two-term list row: ${vPair.error}`);
+  const vPair = validateLegs(full([{}, {}, {}, {}]), "", [pair]);
+  if (vPair.error) fails.push(`(v) validateLegs refused a path carrying a two-item list row: ${vPair.error}`);
   const asTwo = [
-    { kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" },
-    { kind: "term", raised_by: "leg1", term: "non-member fallback", owed_by: ["leg3"], discharged_by: "leg3" },
+    { item: ["ownership boundary"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" },
+    { item: ["non-member fallback"], raised_by: "leg1", owed_by: ["leg3"], discharged_by: "leg3" },
   ];
   const rTwo = obligationLedgerRefusal(legs, asTwo);
-  if (!rTwo || !/at most one open at any Leg, of any kind/.test(rTwo) || !/leg 1 \(leg1\)/.test(rTwo)) fails.push(`(v) the same promise as two rows raised by one Leg was not refused by the capacity rule: ${rTwo}`);
-  const rRepeat = obligationLedgerRefusal(legs, [{ ...pair, term: ["ownership boundary", "Ownership boundary"] }]);
-  if (!rRepeat || !/repeats the term "Ownership boundary"/.test(rRepeat) || !/obligation 1/.test(rRepeat)) fails.push(`(v) a list naming a term twice was not refused by name: ${rRepeat}`);
-  const rEmpty = obligationLedgerRefusal(legs, [{ ...pair, term: [] }]);
-  if (!rEmpty || !/empty `term` list/.test(rEmpty)) fails.push(`(v) an empty term list was not refused by name: ${rEmpty}`);
-  const rBlank = obligationLedgerRefusal(legs, [{ ...pair, term: ["ownership boundary", " "] }]);
-  if (!rBlank || !/entry 2 is not a non-empty string/.test(rBlank)) fails.push(`(v) a list carrying a blank term was not refused: ${rBlank}`);
-  const one = { kind: "term", raised_by: "leg1", term: "ownership boundary", owed_by: ["leg2"], discharged_by: "leg2" };
-  if (obligationLedgerRefusal(legs, [one])) fails.push(`(v) a one-term string row stopped passing: ${obligationLedgerRefusal(legs, [one])}`);
-  if (!obligationLedgerRefusal(legs, [{ ...one, term: " " }])) fails.push("(v) a blank one-term string row stopped being refused");
-  if (obligationLabel(pair) !== 'term "ownership boundary, non-member fallback"') fails.push(`(v) the label does not join the list in order: ${obligationLabel(pair)}`);
-  if (obligationLabel(one) !== 'term "ownership boundary"') fails.push(`(v) a one-term row's label changed: ${obligationLabel(one)}`);
-  const target = [{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true, names: ["ownership boundary", "non-member fallback"] }];
-  const listRow = [{ ...pair, owed_by: ["leg2"], discharged_by: "leg2" }];
-  if (readerTargetNamesRefusal(target, listRow)) fails.push(`(v) names carrying every term of a list row was refused: ${readerTargetNamesRefusal(target, listRow)}`);
-  const ledger = readerKnowledgeLedger(target, listRow);
-  const known = ledger[1].reader_already_knows.map((k) => k.term);
-  if (JSON.stringify(known) !== JSON.stringify(["ownership boundary", "non-member fallback"])) fails.push(`(v) the ledger does not fold every term of a list row in, in order: ${JSON.stringify(known)}`);
+  if (!rTwo || !/at most one open at any Leg/.test(rTwo) || !/leg 1 \(leg1\)/.test(rTwo)) fails.push(`(v) the same promise as two rows raised by one Leg was not refused by the capacity rule: ${rTwo}`);
+  const rRepeat = obligationLedgerRefusal(legs, [{ ...pair, item: ["ownership boundary", "Ownership boundary"] }]);
+  if (!rRepeat || !/repeats "Ownership boundary"/.test(rRepeat) || !/obligation 1/.test(rRepeat)) fails.push(`(v) a list naming an item twice was not refused by name: ${rRepeat}`);
+  const rEmpty = obligationLedgerRefusal(legs, [{ ...pair, item: [] }]);
+  if (!rEmpty || !/empty `item` list/.test(rEmpty)) fails.push(`(v) an empty item list was not refused by name: ${rEmpty}`);
+  const rBlank = obligationLedgerRefusal(legs, [{ ...pair, item: ["ownership boundary", " "] }]);
+  if (!rBlank || !/entry 2 is not one non-empty line/.test(rBlank)) fails.push(`(v) a list carrying a blank item was not refused: ${rBlank}`);
+  const rString = obligationLedgerRefusal(legs, [{ ...pair, item: "ownership boundary" }]);
+  if (!rString || !/no `item` list/.test(rString)) fails.push(`(v) an \`item\` that is a string, not a list, was not refused: ${rString}`);
+  const one = { item: ["ownership boundary"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" };
+  if (obligationLedgerRefusal(legs, [one])) fails.push(`(v) a one-item row stopped passing: ${obligationLedgerRefusal(legs, [one])}`);
+  if (obligationLabel(pair) !== 'obligation "ownership boundary, non-member fallback"') fails.push(`(v) the label does not join the list in order: ${obligationLabel(pair)}`);
+  if (obligationLabel(one) !== 'obligation "ownership boundary"') fails.push(`(v) a one-item row's label changed: ${obligationLabel(one)}`);
   const { dischargeRows } = compose;
   const [d] = dischargeRows(legs, [pair]);
-  if (!d || d.row !== "ownership boundary, non-member fallback") fails.push(`(v) Path Review's discharge input does not name a list row's terms in order: ${JSON.stringify(d)}`);
+  if (!d || d.row !== "ownership boundary, non-member fallback" || JSON.stringify(d.item) !== JSON.stringify(pair.item) || "kind" in d) {
+    fails.push(`(v) Path Review's discharge input does not name a list row's items in order: ${JSON.stringify(d)}`);
+  }
+  for (const retired of [{ kind: "term" }, { kind: "question" }, { text: "why is the copy overwritten" }, { term: "ownership boundary" }, { term: ["ownership boundary"] }]) {
+    const key = Object.keys(retired)[0];
+    const row = { ...pair, ...retired };
+    const rLedger = obligationLedgerRefusal(legs, [row]);
+    if (!rLedger || !new RegExp("carries `" + key + "`, retired").test(rLedger)) fails.push(`(v) a row carrying the retired \`${key}\` was not refused naming it: ${rLedger}`);
+    const bare = { ...retired, raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" };
+    const rBare = obligationLedgerRefusal(legs, [bare]);
+    if (!rBare || !new RegExp("`" + key + "`").test(rBare)) fails.push(`(v) a row in the retired shape alone (\`${key}\`, no \`item\`) was not refused naming it: ${rBare}`);
+    const rCand = candidateLedgerRefusal({ candidate_id: "c1", legs, obligations: [row] });
+    if (!rCand || !new RegExp("`" + key + "`").test(rCand)) fails.push(`(v) the Candidate's ledger reader did not refuse the retired \`${key}\` by name: ${rCand}`);
+  }
+  if (candidateLedgerRefusal({ candidate_id: "c1", legs, obligations: [pair] })) fails.push(`(v) the Candidate's ledger reader refused an item-list row: ${candidateLedgerRefusal({ candidate_id: "c1", legs, obligations: [pair] })}`);
 }
 
 if (fails.length > 0) {
@@ -457,5 +473,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row of any kind per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading term rows, and a term row carrying an ordered list of terms as one promise (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558).");
+console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading introduces alone, and a row carrying an ordered item list as one promise with the retired kind, text and term refused by name (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558, kogaki#1568).");
 JS

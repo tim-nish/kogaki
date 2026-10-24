@@ -121,7 +121,7 @@
 #       refused naming `--legs`, with no run directory written.
 #   (v) a Move carrying `obligation` raises one Obligation row (kogaki#1548, kogaki#1558): Leg A's
 #       Move's field names two terms its content names; over two Legs, Leg B introducing one of them, the Brief carries exactly one
-#       `term` row, `term` a one-element list, raised by Leg A, owed by and discharged by Leg B,
+#       row, `item` a one-element list (kogaki#1568), raised by Leg A, owed by and discharged by Leg B,
 #       marked derived in the Brief and on the Brief card; Leg A's block carries `2 deferred, 1 kept
 #       in this span`; and the plan call for Leg B is handed the row under what it owes. Over four
 #       Legs, B and D introducing the two, one row carries both in order, owed by B and D,
@@ -1262,7 +1262,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       answers: { q1: "Hands the reader one fact.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: "Hands the reader one fact about the copy.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
-        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds the " + owes.item.join(" and the ") + " unexplained" : "") : "unchanged",
+        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds the " + owes.join(" and the ") + " unexplained" : "") : "unchanged",
         segment: i === 0 ? String(p.sentences.length) : "" })),
       segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
         operation: "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
@@ -1399,14 +1399,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   // (v) A MOVE CARRYING `obligation` RAISES ONE OBLIGATION ROW (kogaki#1548, kogaki#1558): Leg A's
   // second paragraph's Move names two terms its content names as left unexplained, frobnicator then gizmo. Over two Legs, Leg B introduces
-  // frobnicator alone: one `term` row, `term` a one-element list, raised by Leg A, owed by and
+  // frobnicator alone: one row, `item` a one-element list, raised by Leg A, owed by and
   // discharged by Leg B, marked derived, the sheet carrying `2 deferred, 1 kept in this span` on Leg
   // A's block and the plan call for Leg B handed the row it owes. Over four Legs, Leg B introduces
   // frobnicator and Leg D gizmo: one row, both terms in order, owed by Legs B and D, discharged by D.
   {
     const vRoot = join(root, "deferred-terms");
     mkdirSync(vRoot, { recursive: true });
-    const OBLIGATIONS = { "leg_a:2": { kind: "term", item: ["frobnicator", "gizmo"] } };
+    const OBLIGATIONS = { "leg_a:2": ["frobnicator", "gizmo"] };
     const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
     const vRun = (tag, names, introduces) => {
       const d = join(vRoot, tag);
@@ -1429,8 +1429,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const block = (sheet, k) => { const a = sheet.indexOf(`<section class="leg-block" id="leg-0-${k}">`); return a < 0 ? "" : sheet.slice(a, sheet.indexOf("</h3>", a) + 200); };
     const two = vRun("two", ["leg_a", "leg_b"], { "leg-b": ["frobnicator"] });
     if (two && two.rec) {
-      ok(JSON.stringify(two.rec.obligations) === JSON.stringify([{ kind: "term", term: ["frobnicator"], raised_by: "leg-a", owed_by: ["leg-b"], discharged_by: "leg-b" }]),
-        `(v) the two-Leg Brief does not carry exactly one term row raised by leg-a, owed by and discharged by leg-b: ${JSON.stringify(two.rec.obligations)}`);
+      ok(JSON.stringify(two.rec.obligations) === JSON.stringify([{ item: ["frobnicator"], raised_by: "leg-a", owed_by: ["leg-b"], discharged_by: "leg-b" }]),
+        `(v) the two-Leg Brief does not carry exactly one row raised by leg-a, owed by and discharged by leg-b: ${JSON.stringify(two.rec.obligations)}`);
       ok(two.text.includes("# PROOF SHEET DERIVED (kogaki#1548): from the Legs' deferring Moves, no model call.\nobligations:"),
         "(v) the Brief does not mark its obligations derived rather than constant");
       ok((two.bj.derived || []).some((d) => d.leg_id === "leg-a" && d.field === "obligations")
@@ -1440,12 +1440,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         `(v) Leg A's block does not carry "2 deferred, 1 kept in this span" alone: ${block(two.sheet, 1)}`);
       const planB = readOr(join(two.dir, "paragraph-plan", "calls.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
         .map((c) => c.stdin).filter((s) => s.includes('"leg_you_must_plan"') && s.includes('"leg_id": "leg-b"'));
-      ok(planB.length >= 1 && planB.every((s) => /"obligations_this_leg_owes": \[\s*\{\s*"obligation": 1,\s*"kind": "term",\s*"term": \[\s*"frobnicator"\s*\]/.test(s)),
+      ok(planB.length >= 1 && planB.every((s) => /"obligations_this_leg_owes": \[\s*\{\s*"obligation": 1,\s*"item": \[\s*"frobnicator"\s*\]/.test(s)),
         "(v) the plan call for leg-b is not handed the row it owes under obligations_this_leg_owes");
     }
     const four = vRun("four", ["leg_a", "leg_b", "leg_c", "leg_d"], { "leg-b": ["frobnicator"], "leg-d": ["gizmo"] });
     if (four && four.rec) {
-      ok(JSON.stringify(four.rec.obligations) === JSON.stringify([{ kind: "term", term: ["frobnicator", "gizmo"], raised_by: "leg-a", owed_by: ["leg-b", "leg-d"], discharged_by: "leg-d" }]),
+      ok(JSON.stringify(four.rec.obligations) === JSON.stringify([{ item: ["frobnicator", "gizmo"], raised_by: "leg-a", owed_by: ["leg-b", "leg-d"], discharged_by: "leg-d" }]),
         `(v) the four-Leg Brief does not carry one row of both terms in order, owed by leg-b and leg-d: ${JSON.stringify(four.rec.obligations)}`);
       ok(JSON.stringify(briefLegs(four.rec).map((l) => l.depends_on || [])) === '[[],["leg-a"],["leg-b"],["leg-a","leg-c"]]',
         `(v) the introducing Legs do not depend on the raising Leg: ${JSON.stringify(briefLegs(four.rec).map((l) => l.depends_on))}`);
