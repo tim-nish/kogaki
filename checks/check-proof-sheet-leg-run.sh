@@ -120,8 +120,8 @@
 #       records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan` are each
 #       refused naming `--legs`, with no run directory written.
 #   (v) an Obligation row's span is read from the Extractor's `discharges` mark (kogaki#1558,
-#       kogaki#1570), as the block comment above the case states. The span of (s), raising
-#       nothing, carries `obligations: []`.
+#       kogaki#1570, kogaki#1578), as the block comment above the case states. The span of (s),
+#       raising nothing, carries `obligations: []`.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -1218,7 +1218,7 @@ if (kRunDir) {
   writeFileSync(sJudge, `#!/usr/bin/env node
 import { appendFileSync, writeSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
-// (v) PSR_TERMS: each Leg's content terms and introduced terms, the one Move carrying \`obligation\`, and the paragraphs marked \`discharges\`.
+// (v) PSR_TERMS: each Leg's content terms and introduced terms, the one Move carrying \`obligation\` (\`general\`, its items in the paragraph's words under \`obligations\`), and the paragraphs marked \`discharges\`.
 const T = process.env.PSR_TERMS ? JSON.parse(process.env.PSR_TERMS) : null;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
@@ -1259,13 +1259,13 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       answers: { q1: "Hands the reader one fact.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: "Hands the reader one fact about the copy.",
       reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
-        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds the " + owes.join(" and the ") + " unexplained" : "") : "unchanged",
+        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds " + owes.length + " items unexplained" : "") : "unchanged",
         segment: i === 0 ? String(p.sentences.length) : "" })),
       segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
         operation: "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
-      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "", ...(owes ? { obligation: owes } : {}), ...(discharges ? { discharges: true } : {}) }, "extract");
+      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "", ...(owes ? { obligation: T.general, obligation_content: owes } : {}), ...(discharges ? { discharges: true } : {}) }, "extract");
   }
   if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
     return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
@@ -1395,23 +1395,23 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     }
   }
   // (v) AN OBLIGATION ROW'S SPAN FROM THE EXTRACTOR'S `discharges` MARK (kogaki#1558, kogaki#1570):
-  // Leg A's second paragraph leaves frobnicator then gizmo open. Over two Legs, Leg B's second
-  // paragraph is marked: the Extractor hands the items to every paragraph through it, and the Brief
-  // carries one row of both, raised by Leg A, owed by and discharged by Leg B, marked derived, the
+  // Leg A's second paragraph leaves frobnicator then gizmo open, its Move two general items. Over two
+  // Legs, Leg B's second paragraph is marked: the Extractor hands the words to every paragraph through
+  // it, and the Brief carries one row of both words (kogaki#1578), raised by Leg A, owed by and discharged by Leg B, marked derived, the
   // sheet carrying `raised here, kept through leg-b` on Leg A's block and the plan call for Leg B
   // handed the row it owes. Over four Legs, Leg C's first paragraph is marked: owed by Legs B and C,
   // each depending on A. Over two Legs with no paragraph marked, the brief stage stops naming
   // paragraph 2 and both items.
   {
     const vRoot = join(root, "deferred-terms"); mkdirSync(vRoot, { recursive: true });
-    const ITEMS = ["frobnicator", "gizmo"], OBLIGATIONS = { "leg_a:2": ITEMS };
+    const ITEMS = ["frobnicator", "gizmo"], OBLIGATIONS = { "leg_a:2": ITEMS }, GENERAL = ["a named device", "a second named device"];
     const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
     const vRun = (tag, names, discharges, { stops = false } = {}) => {
       const d = join(vRoot, tag); mkdirSync(d, { recursive: true });
       for (const n of names) writeFileSync(join(d, `${n}.md`), `The ${n} paragraph states one fact.\n\nNobody asked the consumer first.\n`);
       const r = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", ...names.flatMap((n) => ["--leg", join(d, `${n}.md`)]), "--out", join(d, "out"), "--provenance", map],
         { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: d,
-          PSR_TERMS: JSON.stringify({ obligations: OBLIGATIONS, discharges, introduces: {}, content: { leg_a: ITEMS } }) }, timeout: 600000 });
+          PSR_TERMS: JSON.stringify({ obligations: OBLIGATIONS, general: GENERAL, discharges, introduces: {}, content: { leg_a: ITEMS } }) }, timeout: 600000 });
       const dir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
       if (stops) return { r, dir, run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null };
       ok(r.status === 0 && !!dir, `(v) the ${tag} run exited ${r.status}: ${r.stdout}${r.stderr}`); if (!dir) return null;
@@ -1428,11 +1428,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const block = (sheet, k) => { const a = sheet.indexOf(`<section class="leg-block" id="leg-0-${k}">`); return a < 0 ? "" : sheet.slice(a, sheet.indexOf("</h3>", a) + 200); };
     const two = vRun("two", ["leg_a", "leg_b"], { "leg_b:2": true });
     if (two && two.rec) {
-      const open = two.extractInputs.map((x) => `${x.paragraph_you_must_extract.passage}:${x.paragraph_you_must_extract.number}=${JSON.stringify(x.open_obligation)}`);
+      const open = two.extractInputs.map((x) => `${x.paragraph_you_must_extract.passage}:${x.paragraph_you_must_extract.number}=${JSON.stringify(x.open_obligation)}`), moveA2 = readOr(join(two.dir, "moves", "move_leg_a_2.yaml"), "");
       ok(JSON.stringify(open) === JSON.stringify(["leg_a:1=null", "leg_a:2=null", `leg_b:1=${JSON.stringify(ITEMS)}`, `leg_b:2=${JSON.stringify(ITEMS)}`]),
         `(v) the Extractor does not carry the open items from Leg A's second paragraph through the marked one: ${JSON.stringify(open)}`);
-      ok(JSON.stringify(two.rec.obligations) === JSON.stringify([{ item: ITEMS, raised_by: "leg-a", owed_by: ["leg-b"], discharged_by: "leg-b" }]),
-        `(v) the two-Leg Brief does not carry exactly one row raised by leg-a, owed by and discharged by leg-b: ${JSON.stringify(two.rec.obligations)}`);
+      ok(JSON.stringify(two.rec.obligations) === JSON.stringify([{ item: ITEMS, raised_by: "leg-a", owed_by: ["leg-b"], discharged_by: "leg-b" }]) && moveA2.includes("obligation: [a named device, a second named device]") && !/obligation_content|frobnicator|gizmo/.test(moveA2),
+        `(v) the two-Leg Brief does not carry one row of the paragraph's words raised by leg-a, owed by and discharged by leg-b, over a Move carrying the general items alone: ${JSON.stringify(two.rec.obligations)} / ${moveA2}`);
       ok(two.text.includes("# PROOF SHEET DERIVED (kogaki#1570): from the Moves' obligations and the Extractions' discharges marks, no model call.\nobligations:"),
         "(v) the Brief does not mark its obligations derived rather than constant");
       ok((two.bj.derived || []).some((d) => d.leg_id === "leg-a" && d.field === "obligations")

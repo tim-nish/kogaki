@@ -443,9 +443,12 @@ export function obligationRows(out, counts, marks) {
   return { obligations, deferrals };
 }
 
-// EACH PARAGRAPH'S MARK (kogaki#1570): its Move's items, read from `movesDir` through the production
-// Move contract (paragraph N's Move is `ingest.json` `entries[N-1].move`), and whether its
-// Extraction carries `discharges`. Returns one `{ items, discharges }` per paragraph, or `{ error }`.
+// EACH PARAGRAPH'S MARK (kogaki#1570, kogaki#1578): its items in the paragraph's own words, its
+// Extraction's `obligation_content`, and whether its Extraction carries `discharges`. The Move's
+// items stay the general template, so only their count is read, through the production Move
+// contract (paragraph N's Move is `ingest.json` `entries[N-1].move`), and a paragraph whose two
+// lists differ in length is refused by name. Returns one `{ items, discharges }` per paragraph, or
+// `{ error }`.
 export function paragraphMarks(movesDir, ingestFile, extractions) {
   let entries;
   try { entries = JSON.parse(readFileSync(ingestFile, "utf8")).entries; }
@@ -454,13 +457,18 @@ export function paragraphMarks(movesDir, ingestFile, extractions) {
   const marks = [];
   for (const [i, x] of extractions.entries()) {
     const e = entries[i];
-    let items = null;
+    let count = 0;
     if (e && e.move) {
       const m = moveContract(e.move, movesDir);
       if (m.error) return { error: `paragraph ${i + 1}'s Move: ${m.error}` };
-      items = (m.deferred_slots || []).flatMap((slot) => slot.items || []);
+      count = (m.deferred_slots || []).reduce((n, slot) => n + (slot.items || []).length, 0);
     }
-    marks.push({ items: items && items.length ? items : null, discharges: !!(x && x.discharges === true) });
+    const items = x && Array.isArray(x.obligation_content) ? x.obligation_content.map((t) => String(t).trim()) : [];
+    if (items.length !== count) {
+      return { error: `paragraph ${i + 1}'s Move lists ${count} obligation item(s) and its Extraction's \`obligation_content\` `
+        + `lists ${items.length} — the row's items are the paragraph's own words, one per Move item (FORMAT "The paragraph unit", rule 8)` };
+    }
+    marks.push({ items: items.length ? items : null, discharges: !!(x && x.discharges === true) });
   }
   return marks;
 }

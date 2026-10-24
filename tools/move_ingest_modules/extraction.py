@@ -431,6 +431,8 @@ def derive_from_extraction(record, line_no=1):
         mapping["segments"] = segments
         # The Extraction's `obligation`, copied unchanged where it carries one
         # and absent where it does not (kogaki#1557); the Adapter judges it.
+        # `obligation_content` is bound to the source and stays on the
+        # Extraction (kogaki#1578).
         if record.get("obligation") is not None:
             mapping["obligation"] = record.get("obligation")
         validate_move(mapping, line_no)

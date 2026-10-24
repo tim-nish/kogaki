@@ -67,11 +67,11 @@ export const DESCRIPTION_MAX = 200;
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
-// `obligation` and `discharges` are the keys a record may leave out, and leaves out by default
-// (FORMAT "The paragraph unit", rules 8 and 10, kogaki#1557, kogaki#1570): `obligation` present
-// only where the paragraph leaves an item unexplained, `discharges` only where it completes the
-// input's `open_obligation`.
-const OPTIONAL_RECORD_KEYS = ["obligation", "discharges"];
+// `obligation`, `obligation_content` and `discharges` are the keys a record may leave out, and
+// leaves out by default (FORMAT "The paragraph unit", rules 8 and 10, kogaki#1557, kogaki#1570,
+// kogaki#1578): `obligation` and `obligation_content` present together only where the paragraph
+// leaves an item unexplained, `discharges` only where it completes the input's `open_obligation`.
+const OPTIONAL_RECORD_KEYS = ["obligation", "obligation_content", "discharges"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
@@ -141,10 +141,11 @@ export function carriedState(record) {
 function isUnchanged(s) { return String(s).trim().toLowerCase() === "unchanged"; }
 
 // The obligation a paragraph leaves open for the next (FORMAT "The paragraph unit", rule 10,
-// kogaki#1570): its own `obligation` where it raises one, none where it discharges the open one,
+// kogaki#1570): its own `obligation_content` where it raises one, so the next paragraph judges
+// `discharges` against the article's words (kogaki#1578), none where it discharges the open one,
 // and otherwise the open one unchanged.
 export function carriedObligation(open, record) {
-  if (Array.isArray(record.obligation) && record.obligation.length) return record.obligation.map((x) => x.trim());
+  if (Array.isArray(record.obligation_content) && record.obligation_content.length) return record.obligation_content.map((x) => x.trim());
   return record.discharges === true ? null : open;
 }
 
@@ -301,6 +302,26 @@ function obligationRefusals(o, segments, at, nouns) {
   return errors;
 }
 
+// THE OBLIGATION IN THE PARAGRAPH'S OWN WORDS (FORMAT "The paragraph unit", rule 8, kogaki#1578):
+// bound to the source as `content` is, so it is read for its shape and its pairing alone -- present
+// exactly where `obligation` is, item for item.
+function obligationContentRefusals(o, oc, at) {
+  if (o === undefined && oc === undefined) return [];
+  if (o === undefined || oc === undefined) {
+    const [present, absent] = oc === undefined ? ["obligation", "obligation_content"] : ["obligation_content", "obligation"];
+    return [`${at}: \`${present}\` is present and \`${absent}\` is absent — `
+      + `\`obligation\` and \`obligation_content\` are present together or not at all (FORMAT "The paragraph unit", rule 8)`];
+  }
+  if (!Array.isArray(oc) || !oc.length || oc.some((x) => typeof x !== "string" || lineRefusal(x, "item"))) {
+    return [`${at}: \`obligation_content\` is not a list of one or more one-line items (kogaki#1578)`];
+  }
+  if (Array.isArray(o) && o.length !== oc.length) {
+    return [`${at}: \`obligation\` lists ${o.length} item(s) and \`obligation_content\` lists ${oc.length} — `
+      + `\`obligation_content\` is the same list in the paragraph's own words, item for item (FORMAT "The paragraph unit", rule 8)`];
+  }
+  return [];
+}
+
 // EVERY FAILING FIELD, NOT ONLY THE FIRST (kogaki#1395). A record read back against FORMAT
 // used to return on its first bad field, so an answer with two slips reported one and spent
 // its attempt on a refusal naming only one of them. `errors` collects one line per field, in
@@ -427,6 +448,7 @@ export function validateExtractionUnit(record, input) {
   if (readerOk && !changed) errors.push(`${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves`);
 
   if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at, nouns));
+  errors.push(...obligationContentRefusals(r.obligation, r.obligation_content, at));
   if (r.discharges !== undefined && r.discharges !== true) {
     errors.push(`${at}: \`discharges\` is ${JSON.stringify(r.discharges)} — it is \`true\` or absent (FORMAT "The paragraph unit", rule 10)`);
   } else if (r.discharges === true && !input.open_obligation) {
@@ -476,6 +498,7 @@ export function extractionRecord(record, input, runRel) {
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
     ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()) } : {}),
+    ...(record.obligation_content ? { obligation_content: record.obligation_content.map((x) => x.trim()) } : {}),
     ...(record.discharges === true ? { discharges: true } : {}),
     description: record.description.trim(),
     notes: record.notes.trim(),
@@ -514,6 +537,7 @@ export function extractionMarkdown(rec) {
     "## 4. What the Passage presupposes", "", line(r.presupposes), "",
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
     ...(r.obligation ? [`obligation: ${r.obligation.map(line).join(", ")}`, ""] : []),
+    ...(r.obligation_content ? [`obligation_content: ${r.obligation_content.map(line).join(", ")}`, ""] : []),
     ...(r.discharges === true ? ["discharges: true", ""] : []),
     "## 6. Description", "", line(r.description), "",
     "## 7. Candidate name", "", line(r.name), "",
