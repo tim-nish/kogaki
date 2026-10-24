@@ -72,7 +72,7 @@ import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, readerStateShapeRefusal, validateLegs, pathRule,
   deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText, recoverabilityOf,
-  parseIntroducesEntry, readerStateDimensionLine, FUNCTION_WORDS, wordsOf, wordForms, moveContract } from "../compose.mjs";
+  parseIntroducesEntry, readerStateDimensionLine, FUNCTION_WORDS, wordsOf, wordForms } from "../compose.mjs";
 import { wholeWordMatch } from "../compose/sections.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
@@ -186,6 +186,11 @@ export function legPathUnitInput({ paragraphs, extractions, readerStart, languag
 // THE TERMS FILE, RETIRED (see the header).
 export const TERMS_RETIRED = "`--terms` is retired (kogaki#1529): it fixed an `introduces` entry's `kind`, and an "
   + "introduced term carries `term` and `meaning` and no `kind`. Leave the flag off. Nothing was started.";
+
+// THE MOVE DIRECTORY AND THE INGEST RECORD, RETIRED (kogaki#1582): they fed the Obligation rows,
+// and the Obligations ledger is the Planner's, so every Proof Sheet Brief carries `obligations: []`.
+export const MOVES_RETIRED = "`--moves` and `--ingest` are retired (kogaki#1582): the Obligations ledger is the Planner's, "
+  + "and this builder writes no Obligation row. Leave the flags off. Nothing was started.";
 
 function unitPrompt(row, input) {
   const held = bindFlow(FLOW);
@@ -328,9 +333,8 @@ export function validateLegPathUnit(record, inputs) {
   // THE LAST LEG OF SEVERAL (kogaki#1532) completes the path: its cross-Leg fields are derived
   // and the production `validateLegs` runs over the whole path with no rule skipped.
   if (inputs.path) {
-    const cross = crossLegPath([...inputs.path.prior_legs, leg], inputs.path.counts, inputs.path.segments, inputs.path.marks);
-    if (cross.error) return { error: `the whole path (kogaki#1570): ${cross.error}` };
-    const r2 = validateLegs(cross.legs, inputs.path.reader_start, cross.obligations, []);
+    const cross = crossLegPath([...inputs.path.prior_legs, leg], inputs.path.counts, inputs.path.segments);
+    const r2 = validateLegs(cross.legs, inputs.path.reader_start, [], []);
     if (r2.error) return { error: `the whole path, with this Leg last and its cross-Leg fields derived (kogaki#1532): ${r2.error}` };
   }
   return {};
@@ -344,24 +348,21 @@ export function validateLegPathUnit(record, inputs) {
 // later Leg whose Extraction Segment `content` uses it, which then depends on the introducing Leg
 // too, since a Leg re-activates only material of a Leg it depends on. `legs` are the composed
 // Legs in order, `counts` their paragraph counts and `segments` their Segment content per
-// paragraph (`segmentContents`). `marks` is each paragraph's mark (`paragraphMarks`), for
-// the Obligation rows below. Returns `{ legs, derived, obligations, deferrals }`: the completed
-// Legs, one row per derived field naming the Leg, the field, its value and the rule, the
-// Brief's `obligations`, and one `{ leg_id, items, kept_by }` per row; or `{ error }` where an
-// obligation is never marked discharged.
+// paragraph (`segmentContents`). Returns `{ legs, derived }`: the completed Legs, and one row
+// per derived field naming the Leg, the field, its value and the rule. No Obligation row is
+// derived: the Obligations ledger is the Planner's (kogaki#1582).
 export const DERIVED_RULES = {
   depends_on: "the Leg before it",
   opens_section: "the last Leg's after-state orientation line",
   reaches_target: "the last Leg",
   "re-activate": "the first later Leg whose Extraction content uses a term an earlier Leg introduces",
-  obligations: "one row per paragraph raising an obligation a later Leg's paragraph is marked discharging, owed by every Leg from the next through that one",
 };
-export function crossLegPath(legs, counts, segments, marks = []) {
+export function crossLegPath(legs, counts, segments) {
   const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
   const out = legs.map((leg, k) => completedLeg(leg, counts[k], offsets[k]));
   const derived = [];
   const mark = (k, field, value) => derived.push({ leg_id: out[k].leg_id, field, value, rule: DERIVED_RULES[field] });
-  if (out.length < 2) return { legs: out, derived, obligations: [], deferrals: [] };
+  if (out.length < 2) return { legs: out, derived };
   for (let k = 1; k < out.length; k++) out[k].depends_on = [out[k - 1].leg_id];
   for (let j = 0; j < out.length - 1; j++) {
     for (const raw of Array.isArray(out[j].introduces) ? out[j].introduces : []) {
@@ -374,17 +375,6 @@ export function crossLegPath(legs, counts, segments, marks = []) {
       out[k].depends_on = out.slice(0, k).map((l) => l.leg_id).filter((id) => deps.has(id));
     }
   }
-  const rows = obligationRows(out, counts, marks || []);
-  if (rows.error) return { error: rows.error };
-  const { obligations, deferrals } = rows;
-  for (const o of obligations) {
-    const j = out.findIndex((l) => l.leg_id === o.raised_by);
-    for (const id of o.owed_by) {
-      const k = out.findIndex((l) => l.leg_id === id);
-      const deps = new Set([...out[k].depends_on, out[j].leg_id]);
-      out[k].depends_on = out.slice(0, k).map((l) => l.leg_id).filter((x) => deps.has(x));
-    }
-  }
   const last = out.length - 1;
   out[0].opens_section = readerStateDimensionLine(out[last].reader_state_after, "orientation") || "";
   out[last].reaches_target = true;
@@ -394,83 +384,7 @@ export function crossLegPath(legs, counts, segments, marks = []) {
   });
   mark(0, "opens_section", out[0].opens_section);
   mark(last, "reaches_target", true);
-  for (const o of obligations) {
-    mark(out.findIndex((l) => l.leg_id === o.raised_by), "obligations",
-      `${o.item.join(", ")}, owed by ${o.owed_by.join(", ")}, discharged by ${o.discharged_by}`);
-  }
-  return { legs: out, derived, obligations, deferrals };
-}
-
-// THE OBLIGATION ROWS, FROM THE EXTRACTOR'S `discharges` MARK (kogaki#1570, owner decision
-// 2026-10-24). `marks` holds one `{ items, discharges }` per paragraph of the path (`paragraphMarks`).
-// A raising paragraph is discharged by the first later paragraph marked `discharges` with no
-// raising paragraph between, since the Extractor's `open_obligation` is the nearest one.
-// Returns one `{ raising, discharging, items }` per raising paragraph (0-based), or `{ error }`
-// naming the paragraph and the items no later paragraph marks.
-export function obligationSpans(marks) {
-  const spans = [];
-  for (const [p, m] of marks.entries()) {
-    if (!m || !Array.isArray(m.items) || !m.items.length) continue;
-    let q = p + 1;
-    while (q < marks.length && !(marks[q] && marks[q].discharges) && !(marks[q] && Array.isArray(marks[q].items) && marks[q].items.length)) q++;
-    if (q >= marks.length || !marks[q].discharges) {
-      return { error: `paragraph ${p + 1} leaves ${m.items.map((x) => JSON.stringify(x)).join(", ")} open, and no later paragraph `
-        + "is marked `discharges` before another paragraph raises an obligation of its own (FORMAT \"The paragraph unit\", rule 10)" };
-    }
-    spans.push({ raising: p, discharging: q, items: m.items });
-  }
-  return { spans };
-}
-
-// One row per span whose raising and discharging paragraphs lie in different Legs: `raised_by`
-// the raising Leg, `owed_by` every Leg from the next through the discharging one, `discharged_by`
-// the last. Each row also gives `{ leg_id, items, kept_by }` for the sheet.
-export function obligationRows(out, counts, marks) {
-  const r = obligationSpans(marks);
-  if (r.error) return r;
-  const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
-  const legOf = (p) => offsets.findLastIndex((o) => o <= p);
-  const obligations = [];
-  const deferrals = [];
-  for (const { raising, discharging, items } of r.spans) {
-    const j = legOf(raising);
-    const k = legOf(discharging);
-    if (j === k || !out[j] || !out[k]) continue;
-    const owed = out.slice(j + 1, k + 1).map((l) => l.leg_id);
-    obligations.push({ item: items, raised_by: out[j].leg_id, owed_by: owed, discharged_by: out[k].leg_id });
-    deferrals.push({ leg_id: out[j].leg_id, items, kept_by: out[k].leg_id });
-  }
-  return { obligations, deferrals };
-}
-
-// EACH PARAGRAPH'S MARK (kogaki#1570, kogaki#1578): its items in the paragraph's own words, its
-// Extraction's `obligation_content`, and whether its Extraction carries `discharges`. The Move's
-// items stay the general template, so only their count is read, through the production Move
-// contract (paragraph N's Move is `ingest.json` `entries[N-1].move`), and a paragraph whose two
-// lists differ in length is refused by name. Returns one `{ items, discharges }` per paragraph, or
-// `{ error }`.
-export function paragraphMarks(movesDir, ingestFile, extractions) {
-  let entries;
-  try { entries = JSON.parse(readFileSync(ingestFile, "utf8")).entries; }
-  catch (e) { return { error: `the ingest record at ${ingestFile} cannot be read (${e.message})` }; }
-  if (!Array.isArray(entries)) return { error: `the ingest record at ${ingestFile} carries no \`entries\`` };
-  const marks = [];
-  for (const [i, x] of extractions.entries()) {
-    const e = entries[i];
-    let count = 0;
-    if (e && e.move) {
-      const m = moveContract(e.move, movesDir);
-      if (m.error) return { error: `paragraph ${i + 1}'s Move: ${m.error}` };
-      count = (m.deferred_slots || []).reduce((n, slot) => n + (slot.items || []).length, 0);
-    }
-    const items = x && Array.isArray(x.obligation_content) ? x.obligation_content.map((t) => String(t).trim()) : [];
-    if (items.length !== count) {
-      return { error: `paragraph ${i + 1}'s Move lists ${count} obligation item(s) and its Extraction's \`obligation_content\` `
-        + `lists ${items.length} — the row's items are the paragraph's own words, one per Move item (FORMAT "The paragraph unit", rule 8)` };
-    }
-    marks.push({ items: items.length ? items : null, discharges: !!(x && x.discharges === true) });
-  }
-  return marks;
+  return { legs: out, derived };
 }
 
 // ---------------------------------------------------------------------------
@@ -493,19 +407,16 @@ export function constantFields({ slug, paragraphs, legId }) {
   };
 }
 export const CONSTANT_COMMENT = "# PROOF SHEET CONSTANT (kogaki#1385): not composed — the parser requires it.";
-export const DERIVED_COMMENT = "# PROOF SHEET DERIVED (kogaki#1570): from the Moves' obligations and the Extractions' discharges marks, no model call.";
+export const DERIVED_COMMENT = "# PROOF SHEET (kogaki#1582): the Obligation rows are the Planner's, and this builder writes none.";
 
-// `legs`, in place of `leg`, is a several-Leg Brief's composed Legs with `counts`, `segments` and
-// `marks` for `crossLegPath` (kogaki#1532); the Reader target is then the last Leg.
-export function legBriefText({ slug, composePath, paragraphs, readerStart, leg, legs = null, counts = null, segments = null, marks = [] }) {
-  const cross = legs ? crossLegPath(legs, counts, segments, marks) : null;
-  const path = cross ? cross.legs : [completedLeg(leg, paragraphs.length)];
+// `legs`, in place of `leg`, is a several-Leg Brief's composed Legs with `counts` and `segments`
+// for `crossLegPath` (kogaki#1532); the Reader target is then the last Leg.
+export function legBriefText({ slug, composePath, paragraphs, readerStart, leg, legs = null, counts = null, segments = null }) {
+  const path = legs ? crossLegPath(legs, counts, segments).legs : [completedLeg(leg, paragraphs.length)];
   const full = deriveReaderStatesBefore(path, readerStart);
   const constants = constantFields({ slug, paragraphs, legId: full.at(-1).leg_id });
-  const obligations = cross ? cross.obligations : [];
-  if (obligations.length) delete constants.obligations;
   const text = briefRecordText({
-    slug, compose_path: composePath, ...constants, ...(obligations.length ? { obligations } : {}),
+    slug, compose_path: composePath, ...constants,
     reader_start: readerStateMap(readerStart),
     reader_path: full.map(legRecord),
   });
@@ -513,7 +424,7 @@ export function legBriefText({ slug, composePath, paragraphs, readerStart, leg, 
   const keys = new Set(Object.keys(constants));
   return text.split("\n").flatMap((line) => {
     const m = /^([a-z_]+):/.exec(line);
-    if (m && m[1] === "obligations" && obligations.length) return [DERIVED_COMMENT, line];
+    if (m && m[1] === "obligations") return [DERIVED_COMMENT, line];
     return m && keys.has(m[1]) ? [CONSTANT_COMMENT, line] : [line];
   }).join("\n");
 }
@@ -587,21 +498,11 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
 
 // COMPOSE the Leg's Brief. Writes `<out>/brief.yaml` and returns `{ brief, runDir }`, or
 // `{ stopped, runDir }`.
-// `moves` and `ingest`, given together, are the run's own Move directory and the ingest's record
-// naming each paragraph's Move (kogaki#1548, kogaki#1570); without them no Leg raises an Obligation
-// row. An obligation no later paragraph is marked discharging stops the run before any call.
 export function runLegBrief({ extractions: extractorRun, out, leg = null, slug = null, audience = null, terms = null, moves = null, ingest = null }) {
+  if (moves || ingest) fail(MOVES_RETIRED);
   const material = readExtractorRun(resolve(extractorRun), leg);
   if (material.error) fail(material.error);
   if (terms) fail(TERMS_RETIRED);
-  if (!moves !== !ingest) fail("--moves and --ingest are given together or not at all. Nothing was started.");
-  let marks = [];
-  if (moves && material.legs) {
-    marks = paragraphMarks(resolve(moves), resolve(ingest), material.extractions);
-    if (marks.error) fail(`${marks.error}. Nothing was started.`);
-    const spans = obligationSpans(marks);
-    if (spans.error) fail(`${spans.error}. Nothing was started.`);
-  }
   const { paragraphs, extractions } = material;
   const name = slug || material.passage;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
@@ -637,7 +538,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   if (rs.stopped) return { stopped: rs.stopped, runDir };
   const readerStart = readerStartText(rs.record);
 
-  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds, marks });
+  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds });
   const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
     input: legPathUnitInput({ paragraphs, extractions, readerStart, language }), recordArray: "legs",
     validatorExport: "validateLegPathUnit", bounds,
@@ -654,7 +555,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 // beginning at the Reader start or the previous Leg's after-state, and the last one validated with
 // the whole path (`validateLegPathUnit`'s `path`). `brief.json` records the Legs and the derived
 // cross-Leg fields, which the sheet marks.
-function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds, marks }) {
+function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, readerStart, extractorRun, bounds }) {
   const counts = material.legs.map((l) => l.paragraphs);
   const segments = [];
   const composed = [];
@@ -671,16 +572,16 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
       validatorExport: "validateLegPathUnit", bounds,
       inputs: { paragraph_count: n, strand_offset: o, reader_start: start, segments: segments[k],
         taken_leg_ids: composed.map((l) => l.leg_id),
-        ...(last ? { path: { prior_legs: composed, counts, segments, marks, reader_start: readerStart } } : {}) } });
+        ...(last ? { path: { prior_legs: composed, counts, segments, reader_start: readerStart } } : {}) } });
     if (lp.stopped) return { stopped: `Leg ${k + 1} of ${counts.length} (${material.legs[k].passage}): ${lp.stopped}`, runDir };
     composed.push(lp.record.legs[0]);
   }
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs: material.paragraphs, readerStart,
-    legs: composed, counts, segments, marks }));
-  const { legs, derived, deferrals } = crossLegPath(composed, counts, segments, marks);
+    legs: composed, counts, segments }));
+  const { legs, derived } = crossLegPath(composed, counts, segments);
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived, deferrals });
+    legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived });
   return { brief: briefPath, runDir };
 }
 
@@ -721,19 +622,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   if (args.terms !== undefined) fail(TERMS_RETIRED);
+  if (args.moves !== undefined || args.ingest !== undefined) fail(MOVES_RETIRED);
   if (args._cmd === "diff") {
     const text = rowsDiffText(JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8")));
     process.stdout.write(`${text}\n`);
     if (text.includes("REFUSED:")) process.exitCode = 1;
   } else if (args._cmd === "run" && str("extractions") && str("out")) {
-    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience"),
-      moves: str("moves"), ingest: str("ingest") });
+    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience") });
     if (r.brief) console.log(`Brief written: ${r.brief}`);
     console.log(`run directory: ${r.runDir}`);
     if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
   } else {
     fail("usage: node src/proof-sheet/leg-brief.mjs run --extractions <an Extractor run directory> --out <dir> "
-      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>] [--moves <dir> --ingest <ingest.json>]\n"
+      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>]\n"
       + "       node src/proof-sheet/leg-brief.mjs diff");
   }
 }
