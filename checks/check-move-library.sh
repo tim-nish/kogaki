@@ -35,9 +35,9 @@
 # an `id` disagreeing with its file name, a stale INDEX, a `.md` record beside
 # an otherwise clean library -- and one admitted record with a fresh INDEX as
 # the control that stops the deny passing vacuously. The authored `obligation`
-# (kogaki#1557, kogaki#1568) is a list of items: it loads where `after`
-# anticipates every item, and a map (the retired `kind`), an empty list, an item
-# named twice and an item `after` never names are each refused.
+# (kogaki#1557, kogaki#1568) is a list of items: it loads, and loads where an
+# item shares no word with any `after` line (kogaki#1576), and a map (the retired
+# `kind`), an empty list and an item named twice are each refused.
 #
 # WHAT IT DOES NOT VERIFY, stated rather than left to look covered: whether a
 # record's prose is any good is the owner's reading at the ingest's selection
@@ -199,8 +199,8 @@ const WHOLE = {
     && JSON.stringify(loaded.deferred_slots) === JSON.stringify([{ items: TERMS, count: 2 }]),
     `(c7a) an obligation whose \`after.knowledge\` names both items loads, the contract carrying it and its one slot in order: ${loaded.error || JSON.stringify([loaded.obligation, loaded.deferred_slots])}`);
   const unled = through("unled", { ...WHOLE, after: { knowledge: "the reader holds leverage, unexplained." }, obligation: TERMS });
-  ok(/`obligation` item "margin" shares no word/.test(unled.error || "") && /not led to anticipate/.test(unled.error || ""),
-    `(c7b) an obligation one of whose items \`after\` never names is refused naming that item: ${unled.error || "admitted"}`);
+  ok(!unled.error && JSON.stringify(unled.obligation) === JSON.stringify(TERMS),
+    `(c7b) an obligation one of whose items shares no word with any \`after\` line loads (kogaki#1576): ${unled.error || JSON.stringify(unled.obligation)}`);
   const map = through("map", { ...WHOLE, after: named, obligation: { kind: "term", item: ["leverage"] } });
   ok(/`obligation` is a map/.test(map.error || "") && /`kind` is retired/.test(map.error || ""),
     `(c7c) a map carrying \`kind\` is refused naming \`kind\` retired: ${map.error || "admitted"}`);

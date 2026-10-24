@@ -163,7 +163,7 @@ function moveRecordContract(record, moveId, path, movesDir) {
     }
     // An empty `obligation` list is not absence: it is refused by name (kogaki#1568).
     if (absent && role === "obligation" && !Array.isArray(v)) continue;
-    const bad = role === "obligation" ? obligationRefusal(v, record[required["state-after"]], field, at)
+    const bad = role === "obligation" ? obligationRefusal(v, field, at)
       : optionalRoleRefusal(role, field, v, at);
     if (bad) return { error: bad };
     out[outKey] = v;
@@ -199,14 +199,9 @@ function obligationSlot(items) {
 
 // THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, kogaki#1568, owner decision
 // 2026-10-24): authored, absent by default, naming no scale. A list of one or more one-line
-// items, in the order the Move names them. A promise the reader was not led to anticipate is
-// refused: each item shares a content word -- any word but the grammar words below -- with the
-// `after` state's question, expectation or knowledge line.
-const ANTICIPATING_DIMENSIONS = ["question", "expectation", "knowledge"];
-const GRAMMAR_WORDS = new Set(["a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "by", "for", "with", "as",
-  "is", "are", "be", "was", "it", "its", "this", "that", "what", "which", "who", "how", "why", "does", "do"]);
-export const contentWords = (s) => (String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) || []).filter((w) => !GRAMMAR_WORDS.has(w));
-function obligationRefusal(v, after, field, at) {
+// items, in the order the Move names them. Its words are not compared with the `after` state's:
+// whether the two contradict each other is a judgment (owner ruling 2026-10-24, kogaki#1576).
+function obligationRefusal(v, field, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (isPlainMap(v)) {
     return `${at}: \`${field}\` is a map — it is a list of one or more one-line items, and \`kind\` is retired (kogaki#1568)`;
@@ -217,13 +212,6 @@ function obligationRefusal(v, after, field, at) {
   if (bad >= 0) return `${at}: \`${field}\` item ${bad + 1} is not one non-empty line (kogaki#1568)`;
   const dup = v.findIndex((x, i) => v.findIndex((y) => y.trim() === x.trim()) !== i);
   if (dup >= 0) return `${at}: \`${field}\` names ${JSON.stringify(v[dup].trim())} twice (kogaki#1568)`;
-  const lines = isPlainMap(after) ? ANTICIPATING_DIMENSIONS.map((d) => after[d]).filter((s) => typeof s === "string") : [];
-  const said = new Set(lines.flatMap(contentWords));
-  const unled = v.find((x) => !contentWords(x).some((w) => said.has(w)));
-  if (unled !== undefined) {
-    return `${at}: \`${field}\` item ${JSON.stringify(unled.trim())} shares no word with the \`after\` question, expectation or knowledge line — `
-      + `a promise the reader was not led to anticipate (kogaki#1557)`;
-  }
   return null;
 }
 
