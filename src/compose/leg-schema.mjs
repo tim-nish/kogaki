@@ -415,7 +415,7 @@ export function readerStateDimensionLine(value, dim) {
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
-export function validateLegs(legs, readerStart, obligations = [], definedTerms = []) {
+export function validateLegs(legs, readerStart, obligations = [], definedTerms = [], slotOf = null) {
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
@@ -682,7 +682,7 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
   // reason the Section grouping and the Reader target Leg do: every rule is a
   // statement about the whole ledger against the whole path, not about one
   // Leg or one row alone.
-  const ledger = obligationLedgerRefusal(legs, obligations);
+  const ledger = obligationLedgerRefusal(legs, obligations, slotOf);
   if (ledger) return { error: ledger };
   // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
   // POSITION relative to every other Leg, so it is decidable only once every

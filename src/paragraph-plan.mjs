@@ -438,7 +438,8 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     const bad = paragraphWaypointsRefusal(e.paragraph_waypoints, ws[i].serves, atW);
     if (bad) return { error: bad };
     // THE BRIEF'S OBLIGATION RULES AT THIS SCALE (kogaki#1530), by the plan reader's own rule.
-    const owed = paragraphObligationsRefusal(e.obligations, n, atW) || dischargesShapeRefusal(e.discharges, n, atW);
+    const slot = contract.deferred_slots ? { move: e.move, ...contract.deferred_slots[0] } : null;
+    const owed = paragraphObligationsRefusal(e.obligations, n, atW, slot) || dischargesShapeRefusal(e.discharges, n, atW);
     if (owed) return { error: owed };
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit) };

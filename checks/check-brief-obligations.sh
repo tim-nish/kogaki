@@ -7,7 +7,8 @@
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
 #   (n) Path Review's `discharge_rows`; (o) owed_by the unbroken run from the
 #   next Leg; (p) an owed Leg opening a Section; (q) a non-terminal row.
-#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
+#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot and
+#       its count against the article's row (#1577); (t)
 #       `closure` refused; (u) no Obligation item in `names` or the ledger;
 #       (v) a row's `item` list, and `kind`, `text`, `term` refused (#1568).
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
@@ -394,6 +395,15 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
       if ("deferred_slots" in second || "obligations_raised" in second) fails.push(`(s) a Leg whose Move defers nothing carries a slot: ${JSON.stringify(second)}`);
       if ("deferred_slots" in third || "obligations_raised" in third) fails.push(`(s) a Leg whose Move defers only in its description carries a slot: ${JSON.stringify(third)}`);
     }
+    // The row carries the article's words, one per slot item; the count is the one bond (kogaki#1577).
+    const slotOf = (id) => { const m = compose.moveContract(id, lib); return m.error || !m.deferred_slots ? null : m.deferred_slots[0]; };
+    const article = [{ item: ["offense-defense advantage", "offense-defense distinguishability"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" }];
+    const rArticle = obligationLedgerRefusal(legs, article, slotOf);
+    if (rArticle) fails.push(`(s) a row of two article-specific items filling a slot of two general items is refused: ${rArticle}`);
+    const rShort = obligationLedgerRefusal(legs, [{ ...article[0], item: ["offense-defense advantage"] }], slotOf) || "";
+    if (!rShort.includes("carries 1 item(s)") || !rShort.includes('"name_two_and_defer"') || !rShort.includes("a slot of 2")) {
+      fails.push(`(s) a row of one item against a slot of two is not refused naming both: ${rShort || "no refusal"}`);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -488,5 +498,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading introduces alone, and a row carrying an ordered item list as one promise with the retired kind, text and term refused by name (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558, kogaki#1568).");
+console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs and a row whose item count is not its slot's refused naming both, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading introduces alone, and a row carrying an ordered item list as one promise with the retired kind, text and term refused by name (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558, kogaki#1568, kogaki#1577).");
 JS
