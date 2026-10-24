@@ -189,6 +189,23 @@ const PACKET_READERS = {
     }
     return out;
   },
+  // ONE ITALIC SUB-LINE PER `performs` PARAGRAPH WAYPOINT, NUMBERED BY ITS PARAGRAPH
+  // (kogaki#1556). The renderer writes the entry as the indented `<j>. *<operation>*`, perhaps
+  // ending `*Manner:* <manner>`; this reads the operation alone under the numbered line it
+  // sits beneath, and a block carrying none answers the empty list.
+  italic_lines: (t, spec) => {
+    const block = packetBlock(t, spec.heading);
+    if (block === null) return null;
+    const out = [];
+    let n = null;
+    for (const l of block.split("\n")) {
+      const top = l.match(/^(\d+)\.\s/);
+      if (top) { n = Number(top[1]); continue; }
+      const m = l.match(/^\s+\d+\.\s+\*([^*]+)\*/);
+      if (n !== null && m) out.push(spec.entry.split("{n}").join(String(n)).split("{line}").join(m[1].trim()));
+    }
+    return out;
+  },
   paragraph: (t, spec) => {
     const i = t.indexOf(spec.opens_with);
     if (i === -1) return null;

@@ -30,6 +30,14 @@
 #       stops (b) passing on any verdict);
 #   (d) a Packet whose Leg Waypoints carry no join owes no pair and holds by
 #       the item's stated absence.
+# AND THE `performs` AND `promise-kept` ITEMS (kogaki#1556), each one pair per
+# italic or `*Keeps:*` line of the waypoints block, the passage as reverse side:
+#   (e) a performing sentence adding "is worth defining in its own right" fails
+#       `performs` under a `fails` verdict, the evidence naming paragraph 1;
+#   (f) the sentence reduced to the operation holds with no evidence;
+#   (g) a Draft never stating the promised item fails `promise-kept`, the
+#       evidence naming the promise;
+#   (h) a Leg with neither line holds on both by `when_declared_absent`.
 #
 # NOT COVERED, stated rather than implied: whether a LIVE judge answers
 # `fails` on a copied opening is the model's judgment, never asserted here;
@@ -81,11 +89,11 @@ const packetFor = (join_) => {
 };
 
 // A Draft of one Leg, two paragraphs, its trace naming the Packet by path and sha.
-const fixture = (name, packet, para2) => {
+const fixture = (name, packet, para2, para1 = PARA1) => {
   const dir = join(root, name);
   mkdirSync(join(dir, "packets"), { recursive: true });
   writeFileSync(join(dir, "packets", "s1.md"), packet);
-  const body = ["## The fixture Section", "", PARA1, "", para2];
+  const body = ["## The fixture Section", "", para1, "", para2];
   const fmHead = ["---", "brief: theses/review-brief/brief.yaml", "trace:"];
   // The body starts two lines after the closing `---`; the Leg is the two paragraphs.
   const first = fmHead.length + 1 + 1 + 1 + 2 + 1;
@@ -95,7 +103,7 @@ const fixture = (name, packet, para2) => {
   writeFileSync(join(dir, "draft.md"), text);
   const draft = readDraft(join(dir, "draft.md"));
   const prose = draft.lines.slice(entry.lines[0] - 1, entry.lines[1]).join("\n");
-  if (!prose.startsWith(PARA1) || !prose.endsWith(para2)) fails.push(`fixture ${name}: the trace's range does not hold the two paragraphs: ${JSON.stringify(prose)}`);
+  if (!prose.startsWith(para1) || !prose.endsWith(para2)) fails.push(`fixture ${name}: the trace's range does not hold the two paragraphs: ${JSON.stringify(prose)}`);
   const outline = join(dir, "outline-s1.json");
   writeFileSync(outline, "{}");
   return { dir, draft, run: { legs: [{ leg_id: "s1" }], outlineFields: { s1: outline }, verdicts: {} } };
@@ -151,9 +159,64 @@ else {
   }
 }
 
+// (e)-(h) THE PERFORMS AND PROMISE-KEPT ITEMS (kogaki#1556), over a Packet whose first Leg
+// Waypoint carries one `performs` Paragraph Waypoint and whose second keeps one Brief promise.
+const OPERATION = "announce that a definition follows";
+const PROMISE = "why the second run replaces edits made to the copy";
+const packetWith = ({ performs = false, keeps = false } = {}) => {
+  const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
+    paragraph_waypoints: [{ point: w.point, serves: w.serves },
+      ...(i === 0 && performs ? [{ performs: OPERATION }] : [])],
+    ...(i === 1 && keeps ? { discharges: [{ obligation: 1, by: 1, row: { kind: "question", text: PROMISE } }] } : {}) })) };
+  const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
+  return r.packet || "";
+};
+const ADDS = "The installer copies the kit into the consumer's tree. The copy, defined next, is worth defining in its own right.";
+const BARE = "The installer copies the kit into the consumer's tree. The copy is defined next.";
+const rowOf = (out, id) => out.results.find((r) => r.item === id);
+const judge = (fx, only, verdict, reason) => {
+  const owed = buildJoin(fx.draft, fx.run, only, fx.dir, { pass: 1 });
+  fx.run.verdicts = Object.fromEntries(owed.owed.map((o) => [o.key, { verdict, reason, model: "fixture" }]));
+  return { owed, judged: buildJoin(fx.draft, fx.run, only, fx.dir, { pass: 1 }) };
+};
+const performs = table.items.find((i) => i.id === "performs");
+const kept = table.items.find((i) => i.id === "promise-kept");
+if (!performs || !kept) fails.push("(e) src/review-items.json declares no `performs` or no `promise-kept` item");
+else {
+  const onlyP = { ...table, items: [performs] };
+  const onlyK = { ...table, items: [kept] };
+  // (e) a performing sentence adding to its operation: one pair, the italic line on the declared
+  // side, and a fails verdict fails the row with evidence naming the paragraph.
+  const adds = judge(fixture("performs-adds", packetWith({ performs: true }), PARA2_OWN, ADDS), onlyP,
+    "fails", "the sentence adds that the copy is worth defining in its own right.");
+  if (adds.owed.owed.length !== 1) fails.push(`(e) the performs item owes ${adds.owed.owed.length} pair(s) for one italic line, not one`);
+  else if (!readFileSync(adds.owed.owed[0].packet, "utf8").includes(`paragraph 1 performs: ${OPERATION}`)) fails.push("(e) the performs Packet's declared side does not carry the italic line named as paragraph 1's");
+  const prow = rowOf(adds.judged, "performs");
+  if (!prow || prow.verdict !== "fails" || !(prow.evidence || []).some((e) => String(e).startsWith("paragraph 1 performs:"))) fails.push(`(e) a fails verdict did not fail the performs row naming paragraph 1: ${JSON.stringify(prow)}`);
+  // (f) the control: the sentence reduced to the operation holds with no evidence.
+  const bare = judge(fixture("performs-bare", packetWith({ performs: true }), PARA2_OWN, BARE), onlyP,
+    "holds", "the sentence announces the definition and adds nothing.");
+  const brow = rowOf(bare.judged, "performs");
+  if (bare.owed.owed.length !== 1 || !brow || brow.verdict !== "holds" || brow.evidence) fails.push(`(f) the bare performing sentence did not hold without evidence: ${JSON.stringify(brow)}`);
+  // (g) a Draft never stating the promised item fails promise-kept naming the promise.
+  const unkept = judge(fixture("promise-unkept", packetWith({ keeps: true }), PARA2_OWN), onlyK,
+    "fails", "the passage never says why the second run replaces edits.");
+  if (unkept.owed.owed.length !== 1 || !readFileSync(unkept.owed.owed[0].packet, "utf8").includes(`paragraph 2 keeps: ${PROMISE}`)) fails.push("(g) the promise-kept item does not owe one pair carrying the Keeps line named as paragraph 2's");
+  const krow = rowOf(unkept.judged, "promise-kept");
+  if (!krow || krow.verdict !== "fails" || !(krow.evidence || []).some((e) => String(e).includes(PROMISE))) fails.push(`(g) a fails verdict did not fail the promise-kept row naming the promise: ${JSON.stringify(krow)}`);
+  // (h) a Leg with neither line holds on both by the stated absence, owing no pair.
+  for (const it of [performs, kept]) {
+    const fx = fixture(`neither-${it.id}`, packetWith(), PARA2_OWN);
+    const out = buildJoin(fx.draft, fx.run, { ...table, items: [it] }, fx.dir, { pass: 1 });
+    const r = rowOf(out, it.id);
+    if (out.owed.length !== 0 || !r || r.verdict !== "holds" || r.reason !== it.when_declared_absent.sentence) fails.push(`(h) a Leg with neither line did not hold \`${it.id}\` by the stated absence: owed ${out.owed.length}, ${JSON.stringify(r)}`);
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477).");
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs and promise-kept items owe one pair per italic or Keeps line, fail naming the paragraph or the promise, hold the bare performing sentence, and hold by the stated absence on a Leg carrying neither line (kogaki#1556).");
 JS
