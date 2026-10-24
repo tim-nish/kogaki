@@ -1019,6 +1019,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     if (!v.includes(want) || !r.includes(want)) fails.push(`(v) ${what} was not refused by both readers naming it: ${v || "no refusal"} / ${r || "no refusal"}`);
   }
   const listed = waypointLines({ claims: s1.claims, waypoints: [{ ...s1.waypoints[0], paragraph_waypoints: three, obligations: [pair] }] }) || "";
+  if (listed.split("\n").length !== 1 + three.length) fails.push(`(v) waypointLines does not render the Leg Waypoint and its ${three.length} points alone: ${JSON.stringify(listed)}`);
   if (listed.includes("ownership boundary") || listed.includes("non-member fallback")) {
     fails.push(`(v) waypointLines renders a list row's items: ${JSON.stringify(listed)}`);
   }
