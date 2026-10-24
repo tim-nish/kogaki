@@ -103,6 +103,13 @@ field that rides on: the ParagraphPlan copies a Segment's `manner` onto the
 Paragraph Waypoint built on it, and the Packet renders it from that file, so
 no Move file is opened for it either (kogaki#1510).
 
+THE PERFORMS INSTRUCTION IS NAMED CRITERIA UNDER A BOUND (kogaki#1555). Each
+line of the form `- <NAME>: <one sentence>` is one requirement on an italic
+line. `templateCriteriaFailures` (src/draft/render-packet.mjs) holds every such
+line under `criteria.words_max` of src/draft-workflow.json, with no `: `, `; `
+or ` -- ` in its sentence, and the renderer refuses a template that fails. A
+new requirement is a new line, never a clause appended to one.
+
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
 field it renders is held to; checks/check-schema-binds.sh reads it and
@@ -122,16 +129,13 @@ them in as many sentences as it needs.
 The point is not quoted: its wording is yours, and no line here is copied or
 announced to the reader.
 
-An indented line in italics, with no claim beside it, is not a point. It names
-an operation the paragraph performs on the reader's reading at that place --
-announcing what follows, flagging that the material is hard, signalling a
-turn. Perform it in the paragraph's own words, in its place among the points.
-It asserts nothing: it adds no claim, no cause and no verdict, and it does not
-anticipate what a later point establishes. It brings in no part of the subject
-that the paragraph's points do not give: no reason for the operation, and
-nothing of what follows beyond the operation's name. A concession that the
-matter is complex says that and no more; an announcement of a simplification
-names that a simplification follows and nothing of its content.
+- ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.
+- NOT A POINT: An italic line states no point.
+- IN PLACE: The paragraph performs it at the italic line's place among the points.
+- OWN WORDS: The paragraph performs it in its own words.
+- NO CLAIM: The sentence that performs it states no proposition.
+- NO VERDICT: The sentence that performs it passes no judgment on the material.
+- NO ANTICIPATION: The sentence that performs it names nothing of what follows.
 
 An *Opens from* line under a numbered line carries one word -- consequence,
 grounds, contrast, elaboration, summary or none -- naming how that paragraph's

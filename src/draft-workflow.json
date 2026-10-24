@@ -14,6 +14,10 @@
     "than observed. `retries` is per act: a response the act's refusals reject is re-asked",
     "with the SAME input up to that count and then the act fails naming the Leg."
   ],
+  "criteria": {
+    "note": "THE PERFORMS INSTRUCTION IS NAMED CRITERIA UNDER A BOUND (kogaki#1555, owner decision 2026-10-24). Every `- <NAME>: <sentence>` line of src/packet-template.md runs under `words_max` words and its sentence carries no `: `, `; ` or ` -- `; `templateCriteriaFailures` in src/draft/render-packet.mjs reads the template against it, `renderPacket` refuses a template that fails, naming the line, and checks/check-draft-packet.sh case (k) asserts the same.",
+    "words_max": 20
+  },
   "writer": {
     "command": "claude",
     "model": "claude-opus-5",
