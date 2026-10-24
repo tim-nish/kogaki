@@ -429,6 +429,10 @@ def derive_from_extraction(record, line_no=1):
                 "`segments` carries no Segment",
             )
         mapping["segments"] = segments
+        # The Extraction's `obligation`, copied unchanged where it carries one
+        # and absent where it does not (kogaki#1557); the Adapter judges it.
+        if record.get("obligation") is not None:
+            mapping["obligation"] = record.get("obligation")
         validate_move(mapping, line_no)
     except Refusal as refusal:
         return Proposal(line_no, refusal=refusal)

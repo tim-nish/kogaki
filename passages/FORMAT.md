@@ -100,9 +100,9 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the eight rules here — rules 1 to 6
-are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's and
-rule 8 is kogaki#1478's:
+applies to a paragraph Extraction, except the nine rules here — rules 1 to 6
+are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's,
+rule 8 is kogaki#1557's and rule 9 is kogaki#1478's:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -151,7 +151,8 @@ rule 8 is kogaki#1478's:
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`operation`, `content`, `relation` and `manner` describe what the
+8. **`obligation` is absent unless the paragraph leaves an item unexplained.** Where the last Segment names a term or raises a question and no Segment gives its meaning or answer, `obligation` carries its kind and the item; otherwise the key is absent.
+9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
    breaks or a quotation's marks, is layout: it is recorded in `passage`
@@ -537,6 +538,12 @@ What each field holds:
   `subject_nouns`, and no word in the original's language, so that it tests
   the Move on any subject (kogaki#1519). A `breaks` that is not a list of
   one-line strings is refused at ingestion.
+- `obligation` — absent unless the paragraph leaves an item unexplained
+  ("The paragraph unit", rule 8). Where present, `kind` is `question` or
+  `term` and `item` is one line for a question, or a list of one or more
+  terms in the order the paragraph names them. An `obligation` whose item a
+  Segment's `content` clause defines or answers is refused, naming the
+  Segment. The ingest copies it to the Move unchanged (kogaki#1557).
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
   role: no prompt renders it, and the ingest reads only that it is present

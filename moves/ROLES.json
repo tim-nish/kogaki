@@ -9,12 +9,14 @@
     "tests": "breaks",
     "segments": "segments",
     "figure-roles": "figure",
-    "continues-from": "continues_from"
+    "continues-from": "continues_from",
+    "obligation": "obligation"
   },
   "shapes": {
     "_": "kogaki#1414 and kogaki#1413: the shapes of the record's structured fields. A Move record is a `.yaml` file read by the Brief's YAML reader (src/yaml.mjs); the role adapter (`moveContract` in src/compose.mjs) and tools/move_ingest.py both refuse a record that does not hold these shapes. The Moves written before them are regenerated under them by kogaki#1415.",
     "state": "`before` and `after` are each a map keyed by dimension -- knowledge, question, expectation, orientation, trust -- one entry per changed dimension, each value one sentence; a state written as one joined line is refused by name (kogaki#1413)",
     "segments": "a list of maps, one per Segment, in order: `operation`, the step's operation, subject-free, never its effect on the reader (`does` until kogaki#1510); on every Segment after the first, `relation`, its relation to the Segment before it, in prose; Segment 1 carries no relation (kogaki#1411); and, only where the Extraction filled one, `manner`, the local realisation the step takes that operation and relation cannot name, one line (kogaki#1510)",
-    "breaks": "a list of prose tests, one entry each: a specific change to the paragraph, a dash, what the reader loses; read whole, no keys and no fixed kinds"
+    "breaks": "a list of prose tests, one entry each: a specific change to the paragraph, a dash, what the reader loses; read whole, no keys and no fixed kinds",
+    "obligation": "absent unless the Move leaves an item with the reader unexplained (kogaki#1557); where present a map of `kind`, `question` or `term`, and `item`, one line for a question or a list of one or more terms in the order the Move names them; at least one content word of `item` appears in the Move's `after` `question`, `expectation` or `knowledge` line; it names no scale"
   }
 }
