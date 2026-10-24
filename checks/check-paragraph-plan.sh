@@ -141,9 +141,9 @@
 #       input, and a Move whose manner defers an item with no field hands none
 #       (kogaki#1558); the plan call's validator admits a row of the article's
 #       own words filling a slot of two general items and refuses a row of one
-#       against it, naming both (kogaki#1577); and the Packet renders the rows as `*Promise:*` and
-#       `*Keeps:*` lines under their Leg Waypoint, the template stating they ask
-#       for no sentence.
+#       against it, naming both (kogaki#1577); and the Packet renders the
+#       rows as `*Promise:*` and `*Keeps:*` lines under their Leg Waypoint,
+#       the template stating they ask for no sentence.
 #   (v) a row carrying an ordered list of items is one promise at the
 #       Paragraph scale (kogaki#1549, kogaki#1568): both readers admit it owed
 #       in order, refuse it as two rows open at once and refuse a repeated or

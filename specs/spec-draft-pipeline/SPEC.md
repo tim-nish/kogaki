@@ -2510,8 +2510,8 @@ raised by the bound paragraph Move's `obligation` and by nothing else, and
 its row's `item` list carries, in the slot's order, what this article leaves
 unexplained at that paragraph, in the article's own words, one entry per slot
 item, a row whose count differs from the slot's refused naming both
-(kogaki#1577); at most one row is open at any Paragraph Waypoint, `owed_by` is the unbroken run
-from the next Paragraph Waypoint,
+(kogaki#1577); at most one row is open at any Paragraph Waypoint, `owed_by`
+is the unbroken run from the next Paragraph Waypoint,
 and a row open here may be open while a Leg-scale row is open too. **Discharge
 is planning, never prose**: a row is kept by the Paragraph Waypoints the plan
 generates for its owed units, the Packet renders it as material and asks for
