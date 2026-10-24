@@ -396,11 +396,15 @@ else {
 
   // the View block renders open (kogaki#1559): no `details` opened before it is still unclosed
   // at it, so it sits inside no fold; the legend sentence and the anchor opener are on the page.
-  const beforeReview = html.slice(0, html.indexOf('<section class="review" id="review-0">'));
-  ok((beforeReview.match(/<details/g) || []).length === (beforeReview.match(/<\/details>/g) || []).length,
-    "(e) the View block sits inside a folded details");
+  const viewAt = html.indexOf('<section class="review" id="review-0">');
+  const beforeReview = viewAt >= 0 ? html.slice(0, viewAt) : "";
+  ok(viewAt >= 0 && (beforeReview.match(/<details/g) || []).length === (beforeReview.match(/<\/details>/g) || []).length,
+    "(e) the View block is missing, or sits inside a folded details");
   ok(html.includes(`<p class="muted fold-legend">${S.FOLD_LEGEND}</p>`), "(e) the legend sentence on folded cards is missing");
-  ok(/<script>const openTo=.*addEventListener\("hashchange",openTo\)/.test(html), "(e) the anchor script that opens a folded card on its link is missing");
+  // the opener walks the target's `details` ancestors AND opens a card target's own Output part,
+  // since a `#card-<idx>-<key>` link lands on the section above its folded Output.
+  ok(/<script>const openTo=.*closest\("details"\).*querySelector\("details\.part\.out"\).*addEventListener\("hashchange",openTo\)/.test(html),
+    "(e) the anchor script that opens a folded card on its link is missing, or opens only the target's ancestors");
 
   ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
     "(e) two cards share a provenance row, or a card has no title");

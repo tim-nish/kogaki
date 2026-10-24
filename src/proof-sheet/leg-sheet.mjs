@@ -379,8 +379,10 @@ const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.es
 // card opens it.
 export const FOLD_LEGEND = "Stage cards are folded; a link opens the card it points into.";
 // The one line that opens a folded card on its link (kogaki#1559): on load and on every hash
-// change, every `details` enclosing the link's target is opened, then the target is scrolled to.
-const ANCHOR_SCRIPT = `<script>const openTo=()=>{const t=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(!t)return;for(let d=t.closest("details");d;d=d.parentElement&&d.parentElement.closest("details"))d.open=true;t.scrollIntoView();};addEventListener("hashchange",openTo);openTo();</script>`;
+// change, every `details` enclosing the link's target is opened, and so is the Output part of a
+// target that is a card itself (a `#card-<idx>-<key>` link lands on the section, whose Output
+// `details` is a descendant, not an ancestor); then the target is scrolled to.
+const ANCHOR_SCRIPT = `<script>const openTo=()=>{const t=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(!t)return;for(let d=t.closest("details");d;d=d.parentElement&&d.parentElement.closest("details"))d.open=true;const o=t.querySelector("details.part.out");if(o)o.open=true;t.scrollIntoView();};addEventListener("hashchange",openTo);openTo();</script>`;
 
 // The diagram's three provenance classes, by node name (kogaki#1410 design: "Three classes...
 // owner-authored input... model-written... mechanically derived with no model call").
