@@ -693,7 +693,7 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
   // THE REACHING LEG'S `names` (kogaki#1251 item 4, kogaki#1260), run right
   // after: it is a further statement about that same Leg, decidable only
   // once `readerTargetLegRefusal` has confirmed which Leg that is.
-  const names = readerTargetNamesRefusal(legs, obligations);
+  const names = readerTargetNamesRefusal(legs);
   if (names) return { error: names };
   return { legs: deriveReaderStatesBefore(legs, readerStart) };
 }

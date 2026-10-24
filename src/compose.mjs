@@ -62,8 +62,8 @@ export {
 export {
   parseIntroducesEntry, introducedMeaning, introducedTermInReaderStart, opensSectionRefusal,
   opensSectionIntroducedTermRefusal, sectionHeadingsWithLastAfterState,
-  sectionGroupingRefusal, targetLegIndex, obligationLedgerRefusal, OBLIGATION_KINDS,
-  obligationLabel, obligationTerminal, termObligations,
+  sectionGroupingRefusal, targetLegIndex, obligationLedgerRefusal, RETIRED_OBLIGATION_KEYS,
+  obligationItems, obligationLine, obligationLabel, obligationTerminal, obligationItemRefusal,
   readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,
   parseReactivateEntry, reactivateRefusal,
   reactivateSemanticRefusal, readerKnowledgeLedger, introducerOf,

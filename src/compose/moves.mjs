@@ -161,7 +161,8 @@ function moveRecordContract(record, moveId, path, movesDir) {
         + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
         + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
     }
-    if (absent && role === "obligation") continue;
+    // An empty `obligation` list is not absence: it is refused by name (kogaki#1568).
+    if (absent && role === "obligation" && !Array.isArray(v)) continue;
     const bad = role === "obligation" ? obligationRefusal(v, record[required["state-after"]], field, at)
       : optionalRoleRefusal(role, field, v, at);
     if (bad) return { error: bad };
@@ -187,46 +188,40 @@ function moveRecordContract(record, moveId, path, movesDir) {
   return out;
 }
 
-// THE DEFERRED SLOT A MOVE RAISES (kogaki#1558, SPEC-draft-pipeline "Obligations" rule 2):
-// one slot, read from the authored `obligation` field and nothing else, for the composer to
-// fill as one Obligation row and the Move-fit judge to hold the Leg's rows against. A Move
+// THE DEFERRED SLOT A MOVE RAISES (kogaki#1558, kogaki#1568, SPEC-draft-pipeline "Obligations"
+// rule 2): one slot, read from the authored `obligation` field and nothing else, for the composer
+// to fill as one Obligation row and the Move-fit judge to hold the Leg's rows against. A Move
 // carrying no `obligation` raises none and its contract carries no key.
-function obligationSlot(o) {
-  const items = Array.isArray(o.item) ? o.item : [o.item];
-  return { kind: o.kind, count: o.kind === "term" ? items.length : 1, line: items.map((x) => x.trim()).join(", ") };
+function obligationSlot(items) {
+  const trimmed = items.map((x) => x.trim());
+  return { items: trimmed, count: trimmed.length };
 }
 
-// THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, owner decision 2026-10-24):
-// authored, absent by default, naming no scale. `item` is one line for a `question` and a
-// list of one or more terms for a `term`, in the order the Move names them. A promise the
-// reader was not led to anticipate is refused: some content word of `item` -- any word but the
-// grammar words below -- appears in the `after` state's question, expectation or knowledge line.
-export const OBLIGATION_KINDS = Object.freeze(["question", "term"]);
-const OBLIGATION_KEYS = ["kind", "item"];
+// THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, kogaki#1568, owner decision
+// 2026-10-24): authored, absent by default, naming no scale. A list of one or more one-line
+// items, in the order the Move names them. A promise the reader was not led to anticipate is
+// refused: each item shares a content word -- any word but the grammar words below -- with the
+// `after` state's question, expectation or knowledge line.
 const ANTICIPATING_DIMENSIONS = ["question", "expectation", "knowledge"];
 const GRAMMAR_WORDS = new Set(["a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "by", "for", "with", "as",
   "is", "are", "be", "was", "it", "its", "this", "that", "what", "which", "who", "how", "why", "does", "do"]);
 export const contentWords = (s) => (String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) || []).filter((w) => !GRAMMAR_WORDS.has(w));
 function obligationRefusal(v, after, field, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
-  const kinds = OBLIGATION_KINDS.map((k) => `\`${k}\``).join(", ");
-  if (!isPlainMap(v)) return `${at}: \`${field}\` is not a map of \`kind\` and \`item\` (kogaki#1557)`;
-  const extra = Object.keys(v).find((k) => !OBLIGATION_KEYS.includes(k));
-  if (extra) return `${at}: \`${field}\` carries \`${extra}\` — it carries \`kind\` and \`item\` only (kogaki#1557)`;
-  if (!OBLIGATION_KINDS.includes(v.kind)) {
-    return `${at}: \`${field}\` names kind ${JSON.stringify(v.kind ?? null)}; the closed set is ${kinds} (kogaki#1557)`;
+  if (isPlainMap(v)) {
+    return `${at}: \`${field}\` is a map — it is a list of one or more one-line items, and \`kind\` is retired (kogaki#1568)`;
   }
-  if (v.kind === "question" && !oneLine(v.item)) {
-    return `${at}: \`${field}\` of kind \`question\` carries an \`item\` that is not one non-empty line (kogaki#1557)`;
-  }
-  if (v.kind === "term" && (!Array.isArray(v.item) || !v.item.length || !v.item.every(oneLine))) {
-    return `${at}: \`${field}\` of kind \`term\` carries an \`item\` that is not a list of one or more one-line terms (kogaki#1557)`;
-  }
+  if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of one or more one-line items (kogaki#1568)`;
+  if (!v.length) return `${at}: \`${field}\` is an empty list — a Move that leaves nothing unexplained leaves the key out (kogaki#1568)`;
+  const bad = v.findIndex((x) => !oneLine(x));
+  if (bad >= 0) return `${at}: \`${field}\` item ${bad + 1} is not one non-empty line (kogaki#1568)`;
+  const dup = v.findIndex((x, i) => v.findIndex((y) => y.trim() === x.trim()) !== i);
+  if (dup >= 0) return `${at}: \`${field}\` names ${JSON.stringify(v[dup].trim())} twice (kogaki#1568)`;
   const lines = isPlainMap(after) ? ANTICIPATING_DIMENSIONS.map((d) => after[d]).filter((s) => typeof s === "string") : [];
   const said = new Set(lines.flatMap(contentWords));
-  const words = (Array.isArray(v.item) ? v.item : [v.item]).flatMap(contentWords);
-  if (!words.some((w) => said.has(w))) {
-    return `${at}: \`${field}\` names an \`item\` no word of which appears in the \`after\` question, expectation or knowledge line — `
+  const unled = v.find((x) => !contentWords(x).some((w) => said.has(w)));
+  if (unled !== undefined) {
+    return `${at}: \`${field}\` item ${JSON.stringify(unled.trim())} shares no word with the \`after\` question, expectation or knowledge line — `
       + `a promise the reader was not led to anticipate (kogaki#1557)`;
   }
   return null;

@@ -343,7 +343,7 @@ export function validateLegPathUnit(record, inputs) {
 // later Leg whose Extraction Segment `content` uses it, which then depends on the introducing Leg
 // too, since a Leg re-activates only material of a Leg it depends on. `legs` are the composed
 // Legs in order, `counts` their paragraph counts and `segments` their Segment content per
-// paragraph (`segmentContents`). `deferred` is each Leg's `term` slots (`legDeferredSlots`), for
+// paragraph (`segmentContents`). `deferred` is each Leg's slots (`legDeferredSlots`), for
 // the Obligation rows below. Returns `{ legs, derived, obligations, deferrals }`: the completed
 // Legs, one row per derived field naming the Leg, the field, its value and the rule, the
 // Brief's `obligations`, and one `{ leg_id, deferred, kept }` per slot.
@@ -392,7 +392,7 @@ export function crossLegPath(legs, counts, segments, deferred = []) {
   mark(last, "reaches_target", true);
   for (const o of obligations) {
     mark(out.findIndex((l) => l.leg_id === o.raised_by), "obligations",
-      `term ${o.term.join(", ")}, owed by ${o.owed_by.join(", ")}, discharged by ${o.discharged_by}`);
+      `term ${o.item.join(", ")}, owed by ${o.owed_by.join(", ")}, discharged by ${o.discharged_by}`);
   }
   return { legs: out, derived, obligations, deferrals };
 }
@@ -428,13 +428,13 @@ function deferredTermRows(out, segments, deferred) {
       deferrals.push({ leg_id: out[j].leg_id, deferred: slot.count, kept: kept.length });
       if (!kept.length) continue;
       const owed = [...new Set(kept.map((t) => t.k))].sort((a, b) => a - b).map((k) => out[k].leg_id);
-      obligations.push({ kind: "term", term: kept.map((t) => t.term), raised_by: out[j].leg_id, owed_by: owed, discharged_by: owed.at(-1) });
+      obligations.push({ item: kept.map((t) => t.term), raised_by: out[j].leg_id, owed_by: owed, discharged_by: owed.at(-1) });
     }
   }
   return { obligations, deferrals };
 }
 
-// EACH LEG'S `term` SLOTS (kogaki#1548): paragraph N's Move is the one the ingest named for it
+// EACH LEG'S SLOTS (kogaki#1548, kogaki#1568): paragraph N's Move is the one the ingest named for it
 // (`ingest.json` `entries[N-1].move`), read from `movesDir` through the production
 // Move contract's `deferred_slots`, as the Brief's composer reads it. Returns one list per Leg, or `{ error }`.
 export function legDeferredSlots(movesDir, ingestFile, counts) {
@@ -447,7 +447,7 @@ export function legDeferredSlots(movesDir, ingestFile, counts) {
     if (!e || !e.move) { slots.push([]); continue; }
     const m = moveContract(e.move, movesDir);
     if (m.error) return { error: `paragraph ${i + 1}'s Move: ${m.error}` };
-    slots.push((m.deferred_slots || []).filter((s) => s.kind === "term"));
+    slots.push(m.deferred_slots || []);
   }
   const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
   return counts.map((n, k) => slots.slice(offsets[k], offsets[k] + n).flat());

@@ -420,7 +420,7 @@ if (!r.error) {
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
     thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
     reader_target: "s1", reader_path: [legRecord(leg)],
-    strand_coverage: [], journey_coverage: [], obligations: [{ kind: "question", text: ROW, raised_by: "s1", owed_by: [], conceded_by: "s1",
+    strand_coverage: [], journey_coverage: [], obligations: [{ item: [ROW], raised_by: "s1", owed_by: [], conceded_by: "s1",
       open: "whether the copy may ever be edited", why_not_here: "the article covers one install", reader_keeps: "a rule to edit the source" }], tradeoffs: {}, bridged: {},
   });
   const jBrief = readBrief(jText, "theses/packet-brief/brief.yaml");
