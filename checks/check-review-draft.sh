@@ -33,7 +33,11 @@
 # AND THE `performs` AND `promise-kept` ITEMS (kogaki#1556), each one pair per
 # italic or `*Keeps:*` line of the waypoints block, the passage as reverse side:
 #   (e) a performing sentence adding "is worth defining in its own right" fails
-#       `performs` under a `fails` verdict, the evidence naming paragraph 1;
+#       `performs` under a `fails` verdict, the evidence naming paragraph 1; the
+#       italic line the Packet renders is `<j>. *<operation>*` with nothing after
+#       it and is read whole, and a line carrying anything after the italic
+#       operation is no `performs` line, owing no pair (kogaki#1585: no tail rides
+#       on it, so none is stripped);
 #   (f) the sentence reduced to the operation holds with no evidence;
 #   (g) a Draft never stating the promised item fails `promise-kept`, the
 #       evidence naming the promise;
@@ -192,6 +196,12 @@ else {
     "fails", "the sentence adds that the copy is worth defining in its own right.");
   if (adds.owed.owed.length !== 1) fails.push(`(e) the performs item owes ${adds.owed.owed.length} pair(s) for one italic line, not one`);
   else if (!readFileSync(adds.owed.owed[0].packet, "utf8").includes(`paragraph 1 performs: ${OPERATION}`)) fails.push("(e) the performs Packet's declared side does not carry the italic line named as paragraph 1's");
+  const addsPacket = packetWith({ performs: true });
+  const italic = addsPacket.split("\n").find((l) => /^   \d+\. \*/.test(l)) || "";
+  if (!/^   \d+\. \*[^*]+\*$/.test(italic) || !italic.includes(OPERATION)) fails.push(`(e) the Packet does not render the performs Paragraph Waypoint as an italic line with nothing after it: ${JSON.stringify(italic)}`);
+  const tailed = judge(fixture("performs-tailed", addsPacket.replace(italic, `${italic} and more`), PARA2_OWN, ADDS), onlyP,
+    "holds", "the sentence announces the definition and adds nothing.");
+  if (tailed.owed.owed.length !== 0) fails.push(`(e) an italic line carrying text after the operation was read as a performs line: owed ${tailed.owed.owed.length}`);
   const prow = rowOf(adds.judged, "performs");
   if (!prow || prow.verdict !== "fails" || !(prow.evidence || []).some((e) => String(e).startsWith("paragraph 1 performs:"))) fails.push(`(e) a fails verdict did not fail the performs row naming paragraph 1: ${JSON.stringify(prow)}`);
   // (f) the control: the sentence reduced to the operation holds with no evidence.
@@ -218,5 +228,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs and promise-kept items owe one pair per italic or Keeps line, fail naming the paragraph or the promise, hold the bare performing sentence, and hold by the stated absence on a Leg carrying neither line (kogaki#1556).");
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs and promise-kept items owe one pair per italic or Keeps line, fail naming the paragraph or the promise, hold the bare performing sentence, and hold by the stated absence on a Leg carrying neither line (kogaki#1556); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).");
 JS

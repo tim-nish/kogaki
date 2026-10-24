@@ -2422,7 +2422,10 @@ shape of a Leg Waypoint: `point`, the proposition its paragraph makes, and
 `serves`, the Strand ids of Claims its parent Leg Waypoint serves. It writes
 one Paragraph Waypoint per Segment of the bound Move, in the Move's order,
 or, where the Move carries no Segments, the points its `technique` gives;
-every Claim the parent serves is served by at least one of them.
+every Claim the parent serves is served by at least one of them. A Segment's
+`operation`, `relation` and `manner` are inputs to the ParagraphPlan call and
+are copied onto no Paragraph Waypoint; a Move is an input to the Composer and
+to nothing else (kogaki#1585, owner decision 2026-10-25).
 
 **Two contributions, not one (kogaki#1403).** The Leg Waypoint's `point`
 supplies a Paragraph Waypoint's content; the bound Move supplies its order and
