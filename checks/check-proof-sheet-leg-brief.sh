@@ -47,6 +47,9 @@
 #       `--terms` exits non-zero with the retirement sentence and starts no run directory; the
 #       validator refuses an `introduces` entry carrying the retired `kind`, naming the term; a run
 #       without it carries no `introduces_given_kinds` and `brief.json` carries no `terms` key.
+#   (k) THE EARLIER LEGS' IDS ARE SHOWN (kogaki#1560): over a two-Leg Extractor run, the first
+#       Leg's rendered prompt carries `leg_ids_already_carried` empty and the second Leg's carries
+#       the first Leg's id, and the rendered Leg call states that this Leg's `leg_id` is none of them.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -115,7 +118,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       : { version: "1", reader_start: ["The reader knows installers copy files."] };
   } else {
     const ps = input.paragraphs;
-    record = { legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
+    // a later Leg's id is its own, so the two-Leg run of (k) composes (kogaki#1560)
+    record = { legs: [{ leg_id: ps[0].claim_strand === "L1" ? "copy-leg" : "copy-leg-" + ps[0].claim_strand, purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " CLAIM-" + p.paragraph, serves: [p.claim_strand] })) }] };
@@ -327,6 +331,35 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   const refused = LB.validateLegPathUnit(leg({ term: "ownership boundary", kind: "established", meaning: "where it ends" }), inputs).error || "";
   ok(/"ownership boundary" carries `kind`/.test(refused), `(j) the validator did not refuse an entry carrying the retired kind naming the term: ${refused}`);
   ok(!("readTermsFile" in LB), "(j) leg-brief still exports readTermsFile");
+}
+
+// (k) the earlier Legs' ids, over a two-Leg Extractor run
+{
+  const kroot = join(root, "k");
+  const kx = join(kroot, "extractor-run");
+  mkdirSync(kx, { recursive: true });
+  writeFileSync(join(kroot, "leg-a.txt"), `${PARAS.slice(0, 2).join("\n\n")}\n`);
+  writeFileSync(join(kroot, "leg-b.txt"), `${PARAS[2]}\n`);
+  for (const [i] of PARAS.entries()) {
+    mkdirSync(join(kx, `p${i + 1}`), { recursive: true });
+    writeFileSync(join(kx, `p${i + 1}`, "answer.json"), readFileSync(join(xrun, `p${i + 1}`, "answer.json")));
+  }
+  writeFileSync(join(kx, "extractions.json"), JSON.stringify({ legs: [{ leg: join(kroot, "leg-a.txt") }, { leg: join(kroot, "leg-b.txt") }],
+    passage: "copy-legs", written: ["move_1.md", "move_2.md", "move_3.md"] }));
+  const kr = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "run", "--extractions", kx, "--out", join(kroot, "out")],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSL_FIXTURE_DIR: kroot }, timeout: 300000 });
+  const kRun = (kr.stdout.match(/^run directory: (.+)$/m) || [])[1];
+  const marker = "----- INPUT (JSON) -----";
+  const carried = (k) => {
+    const f = kRun ? join(kRun, `leg-path-${k}`, "prompt.md") : "";
+    const p = f && existsSync(f) ? readFileSync(f, "utf8") : "";
+    try { return { prompt: p, ids: JSON.parse(p.slice(p.indexOf(marker) + marker.length)).leg_ids_already_carried }; } catch { return { prompt: p, ids: undefined }; }
+  };
+  const [one, two] = [carried(1), carried(2)];
+  ok(JSON.stringify(one.ids) === "[]", `(k) the first Leg's prompt does not carry \`leg_ids_already_carried\` empty: ${JSON.stringify(one.ids)} ${kr.stdout}${kr.stderr}`);
+  ok(JSON.stringify(two.ids) === JSON.stringify(["copy-leg"]), `(k) the second Leg's prompt does not carry the first Leg's id: ${JSON.stringify(two.ids)}`);
+  ok(two.prompt.includes("`leg_ids_already_carried` lists the ids earlier Legs of this Brief carry; this Leg's `leg_id` is none of them."),
+    "(k) the second Leg's prompt does not state that its `leg_id` is none of the earlier Legs' ids");
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }

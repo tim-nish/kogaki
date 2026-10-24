@@ -171,11 +171,13 @@ export function legCallExtraction(x) {
 }
 
 // `strandOffset` is the count of the earlier Legs' paragraphs in a several-Leg Brief (kogaki#1532):
-// a Strand id names its paragraph across the whole Brief.
-export function legPathUnitInput({ paragraphs, extractions, readerStart, language, strandOffset = 0 }) {
+// a Strand id names its paragraph across the whole Brief. `legIdsAlreadyCarried` is the earlier
+// Legs' ids, the list the duplicate-id refusal reads (kogaki#1560).
+export function legPathUnitInput({ paragraphs, extractions, readerStart, language, strandOffset = 0, legIdsAlreadyCarried = [] }) {
   return {
     reader_start: readerStart,
     language,
+    leg_ids_already_carried: legIdsAlreadyCarried,
     paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${strandOffset + i + 1}`, text,
       extraction: legCallExtraction(extractions[i]) })),
   };
@@ -646,7 +648,8 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
     segments.push(segmentContents(extractions));
     const last = k === counts.length - 1;
     const lp = runRow({ dir: join(runDir, `leg-path-${k + 1}`), unitId: `leg-path-${k + 1}`, row: rows.leg_path_unit,
-      input: legPathUnitInput({ paragraphs, extractions, readerStart: start, language, strandOffset: o }), recordArray: "legs",
+      input: legPathUnitInput({ paragraphs, extractions, readerStart: start, language, strandOffset: o,
+        legIdsAlreadyCarried: composed.map((l) => l.leg_id) }), recordArray: "legs",
       validatorExport: "validateLegPathUnit", bounds,
       inputs: { paragraph_count: n, strand_offset: o, reader_start: start, segments: segments[k],
         taken_leg_ids: composed.map((l) => l.leg_id),
