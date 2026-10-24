@@ -8,9 +8,8 @@
 #   (n) Path Review's `discharge_rows` names each row and its owed Legs.
 #   (o)-(q) owed_by order, an owed Leg opening a Section, a non-terminal row.
 #   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot; (t)
-#       the retired `closure` key; (u) no Obligation item in `names` or the
-#       ledger (#1568); (v) a row's `item` list in raised order (#1549), and
-#       the retired `kind`, `text` and `term` refused by name (#1568).
+#       `closure` refused; (u) no Obligation item in `names` or the ledger;
+#       (v) a row's `item` list, and `kind`, `text`, `term` refused (#1568).
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
