@@ -7,10 +7,9 @@
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
 #   (n) Path Review's `discharge_rows`; (o) owed_by the unbroken run from the
 #   next Leg; (p) an owed Leg opening a Section; (q) a non-terminal row.
-#   (r) an `introduces` entry carrying `kind`; (s) a Move's deferred slot and
-#       its count against the article's row (#1577); (t)
-#       `closure` refused; (u) no Obligation item in `names` or the ledger;
-#       (v) a row's `item` list, and `kind`, `text`, `term` refused (#1568).
+#   (r) `introduces` carrying `kind`; (s) a Move's slot, a row's count against
+#       it (#1577); (t) `closure` refused; (u) no Obligation item in `names`
+#       or the ledger; (v) a row's `item` list, `kind`/`text`/`term` refused.
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
