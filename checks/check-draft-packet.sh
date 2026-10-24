@@ -91,6 +91,16 @@
 #       each of `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that
 #       line -- every member of the family the guard states, not the one case
 #       that prompted it.
+#   (l) NO SEGMENT FIELD REACHES THE PACKET (kogaki#1585, owner decision
+#       2026-10-25): a ParagraphPlan written by `paragraphPlanRecord` from
+#       Paragraph Waypoints that carry their Segment's `manner` -- a `point`
+#       one and a `performs` one -- holds no `manner`, and the Packet
+#       `node src/draft.mjs resolve` renders from it carries both Paragraph
+#       Waypoints' lines -- read first, so the absence is read over a Packet
+#       known to hold them -- and neither a Manner label nor the manner's
+#       text; and the same plan file with the `manner` written back onto a
+#       Paragraph Waypoint is refused at resolve, naming that Paragraph
+#       Waypoint, so the absence is not the reader passing over the key.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the
 # paragraph is the written prose's, and the review item `opens-from-copied`
@@ -101,7 +111,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -297,6 +307,44 @@ const carriesCriteria = (packet) => {
   }
 }
 
+// (l) no Segment field reaches the Packet: the plan written from manner-bearing Paragraph Waypoints
+// holds none, its Packet renders the lines with no Manner label, and a manner written back is refused.
+{
+  const root = mkdtempSync(join(tmpdir(), "draft-packet-segment-"));
+  const MANNER = "a brief direct statement, given with no elaboration.";
+  const dir = join(root, "theses", "packet-brief");
+  mkdirSync(dir, { recursive: true });
+  const briefPath = join(dir, "brief.yaml");
+  writeFileSync(briefPath, text);
+  const planPath = join(dir, "paragraph-plan.yaml");
+  const planText = paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
+    legs: [{ leg_id: "s1", waypoints: [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], manner: MANNER }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"] }]], joins: [null, JOIN] }] }));
+  writeFileSync(planPath, planText);
+  if (/\bmanner\b/.test(planText) || planText.includes(MANNER)) fails.push(`(l) the ParagraphPlan written from manner-bearing Paragraph Waypoints carries a manner: ${planText}`);
+  const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
+    { encoding: "utf8", timeout: 120000 });
+  const ok = resolveIn("ws");
+  const packetPath = join(root, "ws", "packet-brief", "packets", "s1.md");
+  if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(l) resolve did not render the Packet from the plan: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
+  else {
+    const packet = readFileSync(packetPath, "utf8");
+    if (!packet.includes(`   1. *${PERFORMS}*`) || !packet.includes("   2. PW-1-2 the installer writes the copy. *Serves:* ")) {
+      fails.push("(l) the Packet does not carry the performs and point Paragraph Waypoints' lines, so the absence below reads nothing");
+    } else if (packet.includes("Manner:") || packet.includes(MANNER)) {
+      fails.push("(l) the Packet rendered from the plan carries a Manner label or the Segment's manner");
+    }
+  }
+  writeFileSync(planPath, planText.replace("- point: PW-1-2 the installer writes the copy.\n", `- point: PW-1-2 the installer writes the copy.\n            manner: ${MANNER}\n`));
+  if (!readFileSync(planPath, "utf8").includes(`manner: ${MANNER}`)) fails.push("(l) the fixture could not write the manner back onto the plan file");
+  else {
+    const back = resolveIn("ws-back");
+    if (back.status === 0 || !(back.stderr || "").includes("Paragraph Waypoint 2 carries `manner`")) {
+      fails.push(`(l) resolve did not refuse a plan file carrying a manner on a Paragraph Waypoint, naming it: ${(back.stderr || back.stdout || "").slice(0, 400)}`);
+    }
+  }
+}
+
 // (f) the Write block rendered from the Audience carries no voice rule and no hedge (kogaki#1488).
 const writeBlock = (packet) => {
   const i = packet.indexOf("\n## Write\n");
@@ -471,5 +519,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the seven named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the seven named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet that keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585).");
 JS

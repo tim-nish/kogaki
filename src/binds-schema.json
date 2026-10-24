@@ -46,8 +46,7 @@
         "version", "leg_id", "waypoints",
         "waypoints.waypoint", "waypoints.move", "waypoints.why", "waypoints.join",
         "waypoints.paragraph_waypoints",
-        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs",
-        "paragraph_waypoints.manner"
+        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs"
       ]
     }
   }

@@ -176,7 +176,8 @@ export function introducedTerms(entries) {
 }
 
 // EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS THREE FIELDS (kogaki#1414, reverting the
-// withholding of kogaki#1403; `manner` from kogaki#1510). A Segment is `operation`, the step's
+// withholding of kogaki#1403; `manner` from kogaki#1510, which reaches this call and nothing
+// written from it, kogaki#1585). A Segment is `operation`, the step's
 // operation written subject-free, `relation`, its relation to the Segment before it, in prose
 // -- no label set -- and `manner`, the local realisation the step takes, empty on most. The
 // Move record carries `segments` as a list of maps in that shape (kogaki#1413); this numbers
@@ -192,19 +193,6 @@ export function segmentsForPlanCall(segments) {
   if (!Array.isArray(segments) || !segments.length) return segments;
   return segments.map((s, i) => ({ segment: i + 1, operation: String(s.operation).trim(),
     relation: String(s.relation ?? "").trim(), manner: String(s.manner ?? "").trim() }));
-}
-
-// THE MANNER RIDES ON THE PARAGRAPH WAYPOINT ITS SEGMENT BUILDS (kogaki#1510). The Nth
-// Paragraph Waypoint is built on the bound Move's Nth Segment (THIRD and SIXTH of the judge),
-// so where that Segment carries a `manner` the Harness copies it onto the Paragraph Waypoint
-// as the plan is written; the planner never writes one, and the Packet renders it on that
-// Paragraph Waypoint's line.
-export function withSegmentManners(paragraphWaypoints, segments) {
-  if (!Array.isArray(paragraphWaypoints)) return paragraphWaypoints;
-  return paragraphWaypoints.map((p, j) => {
-    const m = Array.isArray(segments) && segments[j] ? String(segments[j].manner ?? "").trim() : "";
-    return m ? { ...p, manner: m } : p;
-  });
 }
 
 // The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
@@ -665,8 +653,7 @@ export function finishParagraphPlan(dir) {
       + `at the start, ${sha256(briefText)} now) — nothing was written; run /paragraph-plan on it again.`] };
   }
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
-    waypoints: units[i].candidate.waypoints.map((e) => (e.move === null ? e.paragraph_waypoints
-      : withSegmentManners(e.paragraph_waypoints, boundMoveContract(e.move, start.moves_dir).segments))),
+    waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null),
     obligations: units[i].candidate.waypoints.map((e) => e.obligations || []),
     discharges: units[i].candidate.waypoints.map((e) => e.discharges || []) }));
