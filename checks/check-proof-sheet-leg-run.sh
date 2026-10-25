@@ -1255,8 +1255,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   // The obligation call (kogaki#1590) reads the Segments' wording alone: the owing paragraph's
   // Segments fire \`counts\`, and no other paragraph's do.
   if (prompt.includes("\\\`obligation_unit\\\` judgment point")) {
-    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { triggers: { counts: { fired: true, why: "The Segments count the named items." } }, obligation: T.general }
-      : { triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
+    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { triggers: { counts: { fired: true, why: "The Segments count the named items." } }, obligation: T.general } : { triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
   }
   if (prompt.includes('"paragraph_you_must_extract"')) {
     const x = input();
