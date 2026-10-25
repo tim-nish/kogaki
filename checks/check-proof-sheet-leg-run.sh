@@ -11,8 +11,7 @@
 #   (a) the run exits 0 with every stage `done` in `run.json`, and each model stage's calls went through the recorder:
 #       `calls.jsonl` per stage holds exactly the calls the fake binary saw, each judge answer padded past a pipe's
 #       buffer and handed through whole (Extractor 4 — paragraph 1 refused once — and one obligation call per
-#       paragraph, kogaki#1583, Leg Brief composer 2, ParagraphPlan generator and judge, Writer 1), each prompt and
-#       answer as sent.
+#       paragraph, kogaki#1583, Leg Brief composer 2, ParagraphPlan generator and judge, Writer 1), each prompt and answer as sent.
 #   (b) the ingest derived one Move per Extraction into the run's own library, and the ParagraphPlan file gives each
 #       Leg Waypoint as many Paragraph Waypoints as its bound Move has Segments.
 #   (b2) paragraph 2's Segment 2 carries a `manner`: the Move ingested from it carries it on that Segment and the
@@ -27,8 +26,7 @@
 #       every Inputs entry links to another card's id on the page; the Extraction card shows paragraph 1's prompt and
 #       two attempts; the Draft card states its prompt equals the Packet rather than repeating it; every recorded
 #       call's prompt but the obligation call's (kogaki#1583), cut into its instruction and its input, has each piece
-#       appear exactly once on the whole page (a retry shows only the refusal block it inserted); the Audience and the
-#       settings appear only in the run-conditions line.
+#       appear exactly once on the whole page (a retry shows only the refusal block it inserted); the Audience and the settings appear only in the run-conditions line.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
 #       stopped Draft stage still draws the card with the stop in its Output.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
@@ -50,8 +48,7 @@
 #       Waypoint, and the ParagraphPlan card's Output row and Attempts part carry its text in italics with no list
 #       item empty; each Extraction paragraph block opens on its Segments table, with the folded "rendering" and
 #       "record file" blocks after it. Between the two sits an open `before / after / breaks` table (kogaki#1534): one
-#       row per reader dimension carrying the paragraph's Move file's `before` and `after`, then one row listing that
-#       file's `breaks` in order.
+#       row per reader dimension carrying the paragraph's Move file's `before` and `after`, then one row listing that file's `breaks` in order.
 #   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
 #       block carrying one Segments table per paragraph, a refused-attempts table with exactly one row -- attempt 1,
 #       Leg Waypoint 2, the judge's `why` -- linking to that attempt's block, and a Bindings table with one row per
@@ -1467,6 +1464,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
     ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
     const x = spawnSync("bash", ["-c", "node checks/proof-sheet-leg-move-cases.mjs"], { encoding: "utf8", env: { ...process.env, PSR_LEG_MOVE: JSON.stringify({ root, map, judge, runDir, sRunDir }) }, timeout: 600000 }); ok(x.status === 0, `(y) ${x.stdout}${x.stderr}`.trim());
+    const FLOOR = JSON.parse(readFileSync("checks/registry.json", "utf8")).checks.find((m) => m.id === "proof-sheet-leg-run").admission.case_floor, xN = Number((x.stdout.match(/^leg-move cases: (\d+) ran$/m) || [])[1]); ok(xN === FLOOR, `(y) the Leg Move pass ran ${xN} case(s) against case_floor ${FLOOR}: ${xN > FLOOR ? "raise case_floor in checks/registry.json to the count" : "cases were LOST, or no count was printed"}`);
   }
 }
 

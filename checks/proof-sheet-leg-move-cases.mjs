@@ -1,15 +1,15 @@
 // checks/proof-sheet-leg-move-cases.mjs — case (y) of checks/check-proof-sheet-leg-run.sh, the Leg Move
-// (kogaki#1597), run by that member as `node` with its runs and fake binary in `PSR_LEG_MOVE`; kept
+// (kogaki#1597), run by that member as `node` with its runs and fake binary in `PSR_LEG_MOVE`, printing
+// the count of assertions it ran, which the member holds to its `case_floor`; kept
 // here because the member is at its line bound. Each assertion reads the stage's own records first:
 //   (y1) the one-Leg run's record carries a done `leg-move` stage; `leg-move/<leg_id>.md` cuts into
 //        the Brief's Claims, one sentence each, in order.
-//   (y2) the nested run's own record (five stages, `<leg_id>-leg-move`, the run's Audience, no
-//        library), its calls exactly the binary's, its one Move one Segment per Claim; the run's own
-//        `moves/` holds its three Moves alone.
+//   (y2) the nested run's own record (five stages, `<leg_id>-leg-move`, the run's Audience, no library),
+//        its calls exactly the binary's, its one Move one Segment per Claim; the run's `moves/` untouched.
 //   (y3) the sheet: one block per Leg titled `Leg Move of Leg k of n`, after the Run record card for one
 //        Leg and after the last Leg block for three, none before, with the Claims as its Original Leg.
-//   (y4) a nested Writer failure stops the stage naming the Leg; `--resume` re-enters it, the nested
-//        run resumes at its draft, and neither run extracts or calls again.
+//   (y4) a nested Writer failure stops the stage naming the Leg; `--resume` re-enters it, resuming the
+//        nested run at its draft with no call for the main run and no second extraction.
 import { readFileSync, writeFileSync, existsSync, readdirSync, chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -17,11 +17,12 @@ import { spawnSync } from "node:child_process";
 
 const LANGUAGE_LINE = "**Language.** Write this Leg in ";
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
+let ran = 0;
 const jsonl = (p) => readOr(p, "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
 
 async function legMoveCases({ repo, root, map, judge, runDir, sRunDir }) {
   const fails = [];
-  const ok = (cond, msg) => { if (!cond) fails.push(msg); };
+  const ok = (cond, msg) => { ran++; if (!cond) fails.push(msg); };
   const imp = (p) => import(pathToFileURL(join(repo, p)).href);
   const { parseYaml } = await imp("src/yaml.mjs");
   const { sentencesOf } = await imp("src/proof-sheet/extract.mjs");
@@ -128,4 +129,5 @@ function xLegStopped(record, leg) {
 
 const fails = await legMoveCases({ repo: process.cwd(), ...JSON.parse(process.env.PSR_LEG_MOVE) });
 for (const f of fails) console.log(`FAIL ${f}`);
+console.log(`leg-move cases: ${ran} ran`);
 process.exit(fails.length ? 1 : 0);
