@@ -8,121 +8,107 @@
 # never the actual `claude` CLI. Each assertion names a stage's own record rather than the
 # sheet file alone, so a run that skipped a stage cannot pass (the consult receipt on the
 # Issue: a plan names the gate, not the outputs):
-#   (a) the run exits 0 with every stage `done` in `run.json`, and each model stage's calls
-#       went through the recorder: `calls.jsonl` per stage holds exactly the calls the fake
-#       binary saw, each judge answer padded past a pipe's buffer and handed through whole
-#       (Extractor 4 — paragraph 1 refused once — and one obligation call per paragraph,
-#       kogaki#1583, Leg Brief composer 2,
-#       ParagraphPlan generator and judge, Writer 1), each prompt and answer as sent.
-#   (b) the ingest derived one Move per Extraction into the run's own library, and the
-#       ParagraphPlan file gives each Leg Waypoint as many Paragraph Waypoints as its bound
-#       Move has Segments.
-#   (b2) paragraph 2's Segment 2 carries a `manner`: the Move ingested from it carries it on
-#       that Segment and the sheet's Segment table in its `manner` column (kogaki#1510), and
-#       neither the ParagraphPlan file nor the Packet carries it -- a Move is an input to the
-#       Composer and to nothing else (kogaki#1585, owner decision 2026-10-25).
+#   (a) the run exits 0 with every stage `done` in `run.json`, and each model stage's calls went through the recorder:
+#       `calls.jsonl` per stage holds exactly the calls the fake binary saw, each judge answer padded past a pipe's
+#       buffer and handed through whole (Extractor 4 — paragraph 1 refused once — and one obligation call per
+#       paragraph, kogaki#1583, Leg Brief composer 2, ParagraphPlan generator and judge, Writer 1), each prompt and
+#       answer as sent.
+#   (b) the ingest derived one Move per Extraction into the run's own library, and the ParagraphPlan file gives each
+#       Leg Waypoint as many Paragraph Waypoints as its bound Move has Segments.
+#   (b2) paragraph 2's Segment 2 carries a `manner`: the Move ingested from it carries it on that Segment and the
+#       sheet's Segment table in its `manner` column (kogaki#1510), and neither the ParagraphPlan file nor the Packet
+#       carries it -- a Move is an input to the Composer and to nothing else (kogaki#1585, owner decision 2026-10-25).
 #   (c) the Writer's recorded prompt is the Packet alone: the recorded stdin equals the
 #       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
-#   (e) the sheet: one run-conditions line, one comparison table, and exactly the seven cards
-#       of `SHEET_CELLS` in pipeline order, stacked with no `.cols` row (kogaki#1487); every card
-#       has Output, Inputs, Prompt and Calls in that order, Output open -- folded on the Move and
-#       Brief cards (kogaki#1487) -- and the other three folded,
-#       and every Inputs entry links to another card's id on the page; the Extraction card
-#       shows paragraph 1's prompt and two attempts; the Draft card states its prompt equals
-#       the Packet rather than repeating it; every recorded call's prompt but the obligation
-#       call's (kogaki#1583), cut into its instruction and its input, has each piece appear exactly
-#       once on the whole page (a retry shows only the refusal block it inserted); the Audience and the settings appear only in
-#       the run-conditions line.
+#   (e) the sheet: one run-conditions line, one comparison table, and exactly the seven cards of `SHEET_CELLS` in
+#       pipeline order, stacked with no `.cols` row (kogaki#1487); every card has Output, Inputs, Prompt and Calls in
+#       that order, Output open -- folded on the Move and Brief cards (kogaki#1487) -- and the other three folded, and
+#       every Inputs entry links to another card's id on the page; the Extraction card shows paragraph 1's prompt and
+#       two attempts; the Draft card states its prompt equals the Packet rather than repeating it; every recorded
+#       call's prompt but the obligation call's (kogaki#1583), cut into its instruction and its input, has each piece
+#       appear exactly once on the whole page (a retry shows only the refusal block it inserted); the Audience and the
+#       settings appear only in the run-conditions line.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
 #       stopped Draft stage still draws the card with the stop in its Output.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
 #   (i) the Brief card badge (kogaki#1495): on a built sheet it reads "substitute, anchored", and an
 #       older run whose Leg Brief record carries no `anchored` reads "Proof Sheet substitute".
-#   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each
-#       record its language, hand it to the Leg Brief composer and the Packet, and the Brief
-#       and the Draft carry it; another Audience's language replaces it throughout; an Audience
-#       declaring none is refused by name at the Brief stage.
-#   (l) the ParagraphPlan card's Attempts part (kogaki#1437): the main run's fake judge answers
-#       `does-not-fit` at Leg Waypoint 2 on the first attempt and `fits` on the second, and the
-#       part carries two blocks -- the first with that attempt's Paragraph Waypoints, the verdict
-#       and its `why`, and the refusal block the second attempt received; the second `fits` on
-#       every Leg Waypoint and "no further attempt". A run refused on every attempt shows every
-#       attempt and an Output of "(not written)". The Calls part names "the judge call" and
-#       never "the check call".
+#   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each record its language,
+#       hand it to the Leg Brief composer and the Packet, and the Brief and the Draft carry it; another Audience's
+#       language replaces it throughout; an Audience declaring none is refused by name at the Brief stage.
+#   (l) the ParagraphPlan card's Attempts part (kogaki#1437): the main run's fake judge answers `does-not-fit` at Leg
+#       Waypoint 2 on the first attempt and `fits` on the second, and the part carries two blocks -- the first with
+#       that attempt's Paragraph Waypoints, the verdict and its `why`, and the refusal block the second attempt
+#       received; the second `fits` on every Leg Waypoint and "no further attempt". A run refused on every attempt
+#       shows every attempt and an Output of "(not written)". The Calls part names "the judge call" and never "the
+#       check call".
 #   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
 #       for each Leg Waypoint after the first carries its `join` type word (kogaki#1477), read from the row block
 #       alone since the Attempts part shows it too, and the row for Leg Waypoint 1 carries none.
-#   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Leg Waypoint 2 a
-#       `performs` Paragraph Waypoint, and the ParagraphPlan card's Output row and Attempts part
-#       carry its text in italics with no list item empty; each Extraction paragraph block opens
-#       on its Segments table, with the folded "rendering" and "record file" blocks after it.
-#       Between the two sits an open `before / after / breaks` table (kogaki#1534): one row per
-#       reader dimension carrying the paragraph's Move file's `before` and `after`, then one row
-#       listing that file's `breaks` in order.
-#   (o) the review block and the Point line (kogaki#1487): between the comparison table and the
-#       Extraction card, a block carrying one Segments table per paragraph, a refused-attempts
-#       table with exactly one row -- attempt 1, Leg Waypoint 2, the judge's `why` -- linking to
-#       that attempt's block, and a Bindings table with one row per Leg Waypoint carrying its
-#       `point`, the bound Move and the bindings record's `why`, each row carrying a "before /
-#       after" `<details>` closed on load holding the Move file's before and after, and no other
-#       row in the table (kogaki#1516); an attempt whose judge answer
-#       is unreadable is a row carrying the job record's refusal; the resumed run (h), refused
-#       nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
-#       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the
-#       Segments part is followed by its bound Move's `description` as one plain paragraph and
-#       then its table, and a paragraph with no Move bound has nothing between the two (kogaki#1517).
-#   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through
-#       `KOGAKI_JOB_STALL_S` and every ParagraphPlan call running 2.5 s past its first line
-#       (a stream line every 200 ms, as a live stream-json call writes),
-#       the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries
-#       the binary's whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
-#   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529, kogaki#1531): a run given
-#       `--terms`, with a file or bare, exits non-zero with the retirement sentence naming the flag
-#       and prints no run directory; the resumed run (h), its record carrying a `terms` key with
-#       its Brief not done, finishes with no `terms` key; the main run's record carries no `terms`
-#       key, and its sheet carries no terms line, in the run header or on the Brief card; the
-#       several-Leg Brief (s)'s `introduces` entries carry `term` and `meaning` and no `kind`.
+#   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Leg Waypoint 2 a `performs` Paragraph
+#       Waypoint, and the ParagraphPlan card's Output row and Attempts part carry its text in italics with no list
+#       item empty; each Extraction paragraph block opens on its Segments table, with the folded "rendering" and
+#       "record file" blocks after it. Between the two sits an open `before / after / breaks` table (kogaki#1534): one
+#       row per reader dimension carrying the paragraph's Move file's `before` and `after`, then one row listing that
+#       file's `breaks` in order.
+#   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
+#       block carrying one Segments table per paragraph, a refused-attempts table with exactly one row -- attempt 1,
+#       Leg Waypoint 2, the judge's `why` -- linking to that attempt's block, and a Bindings table with one row per
+#       Leg Waypoint carrying its `point`, the bound Move and the bindings record's `why`, each row carrying a "before
+#       / after" `<details>` closed on load holding the Move file's before and after, and no other row in the table
+#       (kogaki#1516); an attempt whose judge answer is unreadable is a row carrying the job record's refusal; the
+#       resumed run (h), refused nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
+#       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
+#       followed by its bound Move's `description` as one plain paragraph and then its table, and a paragraph with no
+#       Move bound has nothing between the two (kogaki#1517).
+#   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through `KOGAKI_JOB_STALL_S` and every
+#       ParagraphPlan call running 2.5 s past its first line (a stream line every 200 ms, as a live stream-json call
+#       writes), the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries the binary's
+#       whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
+#   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529, kogaki#1531): a run given `--terms`, with a
+#       file or bare, exits non-zero with the retirement sentence naming the flag and prints no run directory; the
+#       resumed run (h), its record carrying a `terms` key with its Brief not done, finishes with no `terms` key; the
+#       main run's record carries no `terms` key, and its sheet carries no terms line, in the run header or on the
+#       Brief card; the several-Leg Brief (s)'s `introduces` entries carry `term` and `meaning` and no `kind`.
 #
-#   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and
-#       Moves byte for byte, records the source run and the copied stage's sha256, and no Extractor
-#       call reaches the model binary; `--from paragraph-plan` also carries the Brief and makes no
-#       Extractor or Brief call; the sheet badges each copied stage's card "copied from <source>"; a
-#       copied Extraction with one Segment's content clause edited is recorded as paragraph 2,
-#       Segment 1, `content`, and both Segments tables badge that row "edited by owner"; one the
-#       ingest refuses stops the run, naming the Move and item (kogaki#1576). The paragraph tables
-#       (o) render with no details element but the before / after folds and no "Review" heading.
-#   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places
-#       the library's three records beside the run's own three in the plan's Move directory, and
-#       `run.json`'s `library` carries the directory, the records' sha256 and the ids by source;
-#       with the fake plan binding Leg Waypoint 1 from the library, paragraph 1's heading and
-#       Bindings row are badged "library" and the others "this run", and the run header names the
-#       library; a library holding one of the run's own ids is refused naming it, with no run
-#       directory and no model call; `--withhold-own` leaves the plan's directory holding the
-#       library's records only while the ingest still lists the run's own, every Bindings row is
-#       badged "library", and the header says the run's own were withheld; `--withhold-own`
-#       without `--library` is refused.
-#   (s) three consecutive Legs under one Brief (kogaki#1532): `--leg` given three times runs one
-#       Brief of three Legs; the Extractor runs every paragraph in order, Leg B's first reading Leg
-#       A's last as its earlier text; `depends_on`, `opens_section`, `reaches_target` and
-#       `re-activate` are filled as derived and `brief.json` marks each; the production
-#       `validateLegs` passes over the Brief's path; `/draft section` writes each Leg with its own
-#       Writer calls file; the sheet carries three Leg blocks in order, each with its comparison
-#       table, under one Brief card marking five fields `derived`; and the one-file run's record
-#       keeps its shape apart from the `legs` list.
-#   (t) the Claim's words in its points (kogaki#1547): a run whose fake Leg answer first drops one
-#       content word of Claim 2 from point 2, then gives the full point, records one refusal in
-#       the Leg row's `attempts.json` naming the Claim and the word, carries the second answer in
-#       the Brief, and runs every later stage.
-#   (u) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief
-#       --legs 2` makes no Extractor call, keeps four Extraction records, composes a two-Leg Brief
-#       whose second Leg `depends_on` the first and reaches the target, and records `legs: 2`;
-#       `--legs 3` records what a plain reuse records apart from `reuse.legs`, and a plain reuse
-#       records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan` are each
-#       refused naming `--legs`, with no run directory written.
-#   (v) the Proof Sheet writes no Obligation row and shows each Move's obligation beside its
-#       paragraph (kogaki#1582), as the block comment above the case states. The span of (s),
-#       raising nothing, carries `obligations: []`.
+#   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and Moves byte for
+#       byte, records the source run and the copied stage's sha256, and no Extractor call reaches the model binary;
+#       `--from paragraph-plan` also carries the Brief and makes no Extractor or Brief call; the sheet badges each
+#       copied stage's card "copied from <source>"; a copied Extraction with one Segment's content clause edited is
+#       recorded as paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner"; one
+#       the ingest refuses stops the run, naming the Move and item (kogaki#1576). The paragraph tables (o) render with
+#       no details element but the before / after folds and no "Review" heading.
+#   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places the library's three
+#       records beside the run's own three in the plan's Move directory, and `run.json`'s `library` carries the
+#       directory, the records' sha256 and the ids by source; with the fake plan binding Leg Waypoint 1 from the
+#       library, paragraph 1's heading and Bindings row are badged "library" and the others "this run", and the run
+#       header names the library; a library holding one of the run's own ids is refused naming it, with no run
+#       directory and no model call; `--withhold-own` leaves the plan's directory holding the library's records only
+#       while the ingest still lists the run's own, every Bindings row is badged "library", and the header says the
+#       run's own were withheld; `--withhold-own` without `--library` is refused.
+#   (s) three consecutive Legs under one Brief (kogaki#1532): `--leg` given three times runs one Brief of three Legs;
+#       the Extractor runs every paragraph in order, Leg B's first reading Leg A's last as its earlier text;
+#       `depends_on`, `opens_section`, `reaches_target` and `re-activate` are filled as derived and `brief.json` marks
+#       each; the production `validateLegs` passes over the Brief's path; `/draft section` writes each Leg with its
+#       own Writer calls file; the sheet carries three Leg blocks in order, each with its comparison table, under one
+#       Brief card marking five fields `derived`; and the one-file run's record keeps its shape apart from the `legs`
+#       list.
+#   (t) the Claim's words in its points (kogaki#1547): a run whose fake Leg answer first drops one content word of
+#       Claim 2 from point 2, then gives the full point, records one refusal in the Leg row's `attempts.json` naming
+#       the Claim and the word, carries the second answer in the Brief, and runs every later stage.
+#   (u) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief --legs 2` makes no
+#       Extractor call, keeps four Extraction records, composes a two-Leg Brief whose second Leg `depends_on` the
+#       first and reaches the target, and records `legs: 2`; `--legs 3` records what a plain reuse records apart from
+#       `reuse.legs`, and a plain reuse records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan`
+#       are each refused naming `--legs`, with no run directory written.
+#   (v) the Proof Sheet writes no Obligation row and shows each Move's obligation under its
+#       description (kogaki#1582, kogaki#1591), as the block comment above the case states. The
+#       span of (s), raising nothing, carries `obligations: []`.
+#   (w) the Paragraph Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's
+#       middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments
+#       heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they
+#       stand numbered after that Move's description and nowhere in the comparison table.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -145,7 +131,7 @@ process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
-const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const COPY = '<button type="button" class="copy-table">copy table</button>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // (l) The ParagraphPlan card's Attempts part, cut into its per-attempt blocks.
 const attemptBlocks = (cardHtml) => {
   const a = cardHtml.indexOf('<details class="part attempts">');
@@ -679,12 +665,23 @@ else {
   const ingestRec = JSON.parse(readOr(ingestPath, '{"entries":[]}'));
   if (ingestRec.entries && ingestRec.entries[1]) delete ingestRec.entries[1].move;
   writeFileSync(ingestPath, JSON.stringify(ingestRec));
+  const mv3 = join(unbound, "moves", "name_an_act_then_its_cost_3.yaml"); // (w)'s obligation line
+  writeFileSync(mv3, `${readOr(mv3, "").replace(/^obligation:.*\n?/m, "").trimEnd()}\nobligation:\n  - first item\n  - second item\n`);
   const nBuilt = S.buildSheet({ runs: [unbound], provenance: map, out: join(root, "unbound.html") });
   const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
-  const nHead = nSeg.indexOf("<h4>paragraph 2 — (no Move)</h4>");
-  const nAfter = nHead >= 0 ? nSeg.slice(nHead + "<h4>paragraph 2 — (no Move)</h4>".length) : "";
+  const noMove = `<h4>paragraph 2 — (no Move)${COPY}</h4>`, nHead = nSeg.indexOf(noMove);
+  const nAfter = nHead >= 0 ? nSeg.slice(nHead + noMove.length) : "";
   ok(nHead >= 0 && nAfter.startsWith("<table") && nSeg.includes(escHtml("Names an act, then names who pays for it (paragraph 1).")),
     "(o) a paragraph with no Move bound does not show its heading directly above its Segments table");
+  // (w) THE PARAGRAPH WAYPOINTS COLUMN AND THE COPY BUTTON (kogaki#1591); the obligation line is read on the unbound copy above.
+  const pairHead = html.slice(pairStart, html.indexOf("</thead>", pairStart)), pw2 = (planWps.find((w) => w.waypoint === 2) || {}).paragraph_waypoints || [];
+  ok((pairHead.match(/<th>/g) || []).length === 4 && pairHead.includes('<th>Paragraph Waypoints <span class="meta">') && legRows.every((row) => (row.match(/<td/g) || []).length === 3), "(w) the comparison table does not carry three columns, the Paragraph Waypoints between the two paragraphs");
+  ok(pw2.some((p) => p.performs === PERFORMS) && (legRows[1] || "").split("</td>")[1] === `<td class="pws"><ol>${pw2.map((p) => (p.performs !== undefined ? `<li><i>${escHtml(p.performs)}</i></li>` : `<li>${escHtml(p.point)}</li>`)).join("")}</ol>`,
+    `(w) paragraph 2's middle cell does not list Leg Waypoint 2's Paragraph Waypoints in order, the performs entry in italics: ${legRows[1]}`);
+  const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
+  ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><table`)
+    && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w) paragraph 3's two obligation items do not stand numbered after its Move description alone, outside the comparison table");
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
   ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")
@@ -1043,8 +1040,8 @@ if (runDir) {
     ok(JSON.stringify(r1.planIds) === JSON.stringify([...libIds, ...ownIds].sort()), `(r) with --library the plan's Move directory does not hold both sets: ${r1.planIds}`);
     ok(JSON.stringify(r1.run.library) === JSON.stringify({ dir: libRel, sha256: libSha, withhold_own: false, ids: { library: libIds, run: ownIds } }),
       `(r) run.json's library does not carry the directory, the sha256 and the ids by source: ${JSON.stringify(r1.run.library)}`);
-    ok(r1.html.includes(`<h4>paragraph 1 — ${ownIds[0]} · bound ${libIds[0]} ${badge("library")}</h4>`)
-      && r1.html.includes(`<h4>paragraph 2 — ${ownIds[1]} · bound ${ownIds[1]} ${badge("this run")}</h4>`),
+    ok(r1.html.includes(`<h4>paragraph 1 — ${ownIds[0]} · bound ${libIds[0]} ${badge("library")}${COPY}</h4>`)
+      && r1.html.includes(`<h4>paragraph 2 — ${ownIds[1]} · bound ${ownIds[1]} ${badge("this run")}${COPY}</h4>`),
       "(r) the paragraph headings do not name each bound Move with its source");
     ok(JSON.stringify(bindingRows(r1.html)) === JSON.stringify([["1", libIds[0], "library"], ["2", ownIds[1], "this run"], ["3", ownIds[2], "this run"]]),
       `(r) the Bindings rows do not badge each bound Move's source: ${JSON.stringify(bindingRows(r1.html))}`);
@@ -1436,8 +1433,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         obligationInputs: stageInputs.filter((x) => !x.paragraph_you_must_extract) };
     };
     const block = (sheet, k) => { const a = sheet.indexOf(`<section class="leg-block" id="leg-0-${k}">`); return a < 0 ? "" : sheet.slice(a, sheet.indexOf("</table>", a)); };
-    const row = (html, n) => { const a = html.indexOf(`<tr><th>${n}</th>`); return a < 0 ? "" : html.slice(a, html.indexOf("</tr>", a)); };
-    const LINE = `<p class="obligation">Move obligation: ${GENERAL.join(" · ")}</p>`;
+    const segs = (sheet, k) => { const b = block(sheet, k), a = b ? sheet.indexOf('<div class="rpart segments">', sheet.indexOf(b)) : -1; return a < 0 ? [] : sheet.slice(a, sheet.indexOf('<div class="rpart refused">', a)).split("<h4>").slice(1); };
+    const LINE = `<p class="obligation">Move obligation: ${GENERAL.map((x, j) => `(${j + 1}) ${x}`).join("; ")}</p>`;
     const two = vRun("two", ["leg_a", "leg_b"]);
     if (two && two.rec) {
       const moveA2 = readOr(join(two.dir, "moves", "move_leg_a_2.yaml"), "");
@@ -1450,9 +1447,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ok(two.text.includes(`${LBv.DERIVED_COMMENT}\nobligations: []`), "(v) the Brief does not carry `obligations: []` under the comment naming the Planner");
       ok(!("deferrals" in two.bj) && !(two.bj.derived || []).some((d) => d.field === "obligations"),
         `(v) brief.json carries deferrals or a derived obligations row: ${JSON.stringify(two.bj)}`);
-      ok(row(block(two.sheet, 1), 2).includes(LINE) && !row(block(two.sheet, 1), 1).includes("Move obligation")
-        && !block(two.sheet, 2).includes("Move obligation") && !two.sheet.includes("raised here"),
-        `(v) the sheet does not carry the Move's items under Leg A's second paragraph alone: ${block(two.sheet, 1)}`);
+      ok((segs(two.sheet, 1)[1] || "").includes(LINE) && !(segs(two.sheet, 1)[0] || "").includes("Move obligation") && !block(two.sheet, 1).includes("Move obligation")
+        && !segs(two.sheet, 2).join("").includes("Move obligation") && !two.sheet.includes("raised here"),
+        `(v) the sheet does not carry the Move's items under Leg A's second paragraph's description alone: ${segs(two.sheet, 1).join("")}`);
       const planB = readOr(join(two.dir, "paragraph-plan", "calls.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
         .map((c) => c.stdin).filter((s) => s.includes('"leg_you_must_plan"') && s.includes('"leg_id": "leg-b"'));
       ok(planB.length >= 1 && planB.every((s) => !/"obligations_this_leg_owes": \[\s*\{/.test(s)),
