@@ -283,6 +283,328 @@
           }
         ]
       }
+    },
+    "leg4-run": {
+      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Leg Waypoint 1's first Paragraph Waypoint already carries Segment 2's compression and the call answered fits",
+      "at_waypoint": 1,
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "distinguishability-stated-then-worked-through-matched-societies",
+          "reader_state_before": "knowledge: also holds that the favourable condition yields further benign effects, ending in a practice the parties take up together and given its established name\nquestion: answered, in that the worsening holds only under one condition; now wants to know which of the two conditions actually obtains\nexpectation: having seen the favourable condition carried out to a named practice and that practice grounded, expects the text to leave the pair behind and say which one obtains\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
+          "reader_state_after": "knowledge: now also holds the same chain run through the matched case to the opposite outcome, and the stated correction that the shared visible element is not the cause while the named condition is\nquestion: has that answered by the matched case, and now wants what could alter the named condition\nexpectation: having had the general result stated as a correction, expects the next stretch to leave this pair and apply the measure elsewhere\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further still: the account concedes that the obvious element is shared by both cases and locates the difference elsewhere, against the easy explanation",
+          "waypoints": [
+            {
+              "waypoint": 1,
+              "point": "Attack-defence distinguishability is how clearly the other side's action can be told to intend attack rather than defence, and the clearer the other side's intent, the less likely war becomes, the vaguer the likelier.",
+              "next_point": "Two particular countries are alike in ordinary people's access to firearms while the spread of narcotics differs, and widespread addiction makes reading another's purpose hard in the one and easy in the other, and the difference makes the one place unsafe and the other safe.",
+              "bound_move": {
+                "before": "knowledge: also holds that the favourable condition yields further benign effects, ending in a practice the parties take up together and given its established name\nquestion: answered, in that the worsening holds only under one condition; now wants to know which of the two conditions actually obtains\nexpectation: having seen the favourable condition carried out to a named practice and that practice grounded, expects the text to leave the pair behind and say which one obtains",
+                "after": "knowledge: also holds a second measure of the same kind, in a one-clause form, together with the stated regularity tying its degree to how likely the adverse outcome is\nquestion: still holds the unanswered one, and now wants to know what puts a case at one end of the new scale rather than the other\nexpectation: having been given a second measure and the regularity it governs, expects the text to work through what pushes a case toward either end of it",
+                "segments": [
+                  {
+                    "operation": "defines a further measure of the same kind by naming what it grades and the two opposite cases it grades between"
+                  },
+                  {
+                    "operation": "compresses the definition into a shorter plainer formulation that drops its internal division",
+                    "relation": "it says the step before again with its two parts collapsed into one quantity"
+                  },
+                  {
+                    "operation": "states a general regularity tying the degree of the measure to how likely an outcome is",
+                    "relation": "it turns the single quantity just isolated into the thing that governs an outcome, saying why the measure is worth having",
+                    "manner": "the two ends of the scale set against each other within one balanced pair of clauses"
+                  }
+                ],
+                "breaks": [
+                  "drop the plain restatement and keep only the full definition — the reader carries a two-part formulation they cannot hold, and the rule that follows lands on nothing",
+                  "state only the direction in which the outcome grows less likely — the reader takes the measure as one more good thing rather than a scale with a dangerous end",
+                  "argue the regularity here instead of asserting it — the paragraph stops being a setup and the reader loses the gap the next step is there to fill",
+                  "replace the definition with a single case sitting near one end — the reader has no general scale on which later cases can be placed"
+                ]
+              },
+              "paragraph_waypoints": [
+                {
+                  "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all, grades cases between those in which that intent is plain and those in which it cannot be made out.",
+                  "serves": [
+                    "L15"
+                  ]
+                },
+                {
+                  "point": "Put plainly, the measure is simply how clear the other side's intent is.",
+                  "serves": [
+                    "L15"
+                  ]
+                },
+                {
+                  "point": "The clearer the other side's intent, the less likely war becomes, and the vaguer it is, the likelier war becomes.",
+                  "serves": [
+                    "L15"
+                  ]
+                }
+              ],
+              "obligations": [
+                {
+                  "item": [
+                    "why war grows less likely as the other side's intent grows clearer and likelier as it grows vaguer is asserted and not shown"
+                  ],
+                  "raised_by": 3,
+                  "owed_by": [],
+                  "conceded_by": 3,
+                  "open": "the grounds for the rule tying the clarity of the other side's intent to the likelihood of war",
+                  "why_not_here": "the rule closes this paragraph, so no later paragraph of it remains in which the grounds could be given",
+                  "reader_keeps": "the reader carries the rule as asserted into the matched pair of countries that follows, where it is worked through on cases"
+                }
+              ],
+              "discharges": []
+            },
+            {
+              "waypoint": 2,
+              "point": "Two particular countries are alike in ordinary people's access to firearms while the spread of narcotics differs, and widespread addiction makes reading another's purpose hard in the one and easy in the other, and the difference makes the one place unsafe and the other safe.",
+              "next_point": "Where many drug-dependent people in the one society make what others are thinking hard to read, a carried weapon cannot be read as attack or as defence, people are easily made anxious, anxiety drives still more people to arm themselves, so possession spreads in a chain, and the same anxiety makes police shoot suspects on the spot to make self-protection certain where aims cannot be read.",
+              "bound_move": {
+                "before": "knowledge: also holds a second measure of the same kind, in a one-clause form, together with the stated regularity tying its degree to how likely the adverse outcome is\nquestion: still holds the unanswered one, and now wants to know what puts a case at one end of the new scale rather than the other\nexpectation: having been given a second measure and the regularity it governs, expects the text to work through what pushes a case toward either end of it\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances",
+                "after": "knowledge: now also holds a worked pair alike but for one factor, in which that factor alone fixes each case's position on the measure and each case's outcome\nquestion: that want is met for one matched pair, and now wants whether a single factor alone decides the position generally\nexpectation: having seen one pair carried from its single difference through to opposed outcomes, expects the next stretch to widen the result past the pair\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone",
+                "segments": [
+                  {
+                    "operation": "announces a simplified treatment built on a pair of particular cases",
+                    "manner": "put as an invitation to proceed together rather than as a statement"
+                  },
+                  {
+                    "operation": "holds one factor alike across the pair and names the single factor on which they differ",
+                    "relation": "narrows the pair just proposed down to one point of difference"
+                  },
+                  {
+                    "operation": "reads each case's standing on the measure already in hand off the one differing factor",
+                    "relation": "converts the point of difference just named into opposed readings on that measure"
+                  },
+                  {
+                    "operation": "attributes each case's opposed result to the single difference between them",
+                    "relation": "turns the opposed readings into the results they produce"
+                  }
+                ],
+                "breaks": [
+                  "drop the factor held alike and report only the difference — the reader cannot see that one variable alone is doing the work",
+                  "let a second factor vary between the pair as well — the reader can no longer tell which difference produces the opposed results",
+                  "stop at the two opposed readings on the measure and leave the results unstated — the reader holds a comparison with no payoff",
+                  "insert a paragraph of qualifications about how the two cases differ in other respects before the results — the simplification just announced is undone and the pair becomes too tangled to carry unaided",
+                  "replace the matched pair with one case alone — the factor held alike has nothing to be alike to, and the single difference stops being visible as the cause"
+                ]
+              },
+              "join": "elaboration",
+              "paragraph_waypoints": [
+                {
+                  "performs": "Announces a simplified treatment built on two particular countries."
+                },
+                {
+                  "point": "The two countries are alike in ordinary people's access to firearms and differ in the spread of narcotics.",
+                  "serves": [
+                    "L16"
+                  ]
+                },
+                {
+                  "point": "Widespread addiction makes reading another person's purpose hard in the one country and easy in the other.",
+                  "serves": [
+                    "L16"
+                  ]
+                },
+                {
+                  "point": "That single difference makes the one place unsafe and the other safe.",
+                  "serves": [
+                    "L16"
+                  ]
+                }
+              ],
+              "obligations": [],
+              "discharges": []
+            },
+            {
+              "waypoint": 3,
+              "point": "Where many drug-dependent people in the one society make what others are thinking hard to read, a carried weapon cannot be read as attack or as defence, people are easily made anxious, anxiety drives still more people to arm themselves, so possession spreads in a chain, and the same anxiety makes police shoot suspects on the spot to make self-protection certain where aims cannot be read.",
+              "next_point": "Gun ownership is constant across the two societies, and where addicts are few, rules strict, and vetting of judgment and criminal record thorough, a person's purpose in carrying one is comparatively easy to read, mass shootings are absent, and the fear of being shot by others does not arise, so the real reason for the frequency of gun crime in the worse case is not simply because guns are present but the social condition in which one cannot help fearing being shot.",
+              "bound_move": {
+                "before": "knowledge: now also holds a worked pair alike but for one factor, in which that factor alone fixes each case's position on the measure and each case's outcome\nquestion: that want is met for one matched pair, and now wants whether a single factor alone decides the position generally\nexpectation: having seen one pair carried from its single difference through to opposed outcomes, expects the next stretch to widen the result past the pair\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
+                "after": "knowledge: now also holds the chain by which that factor produces the worse case's outcome, each link resting on the one before, with the same chain reaching the conduct of an official role\nquestion: still wants that, and now also wants whether a self-feeding chain of this kind can be broken once it has started\nexpectation: having been taken down inside one case's mechanism instead, expects the next stretch to come back up and state the result in general terms\ntrust: raised further: the mechanism is carried on small habitual conduct and on a difference in rate across conditions that the reader can check against ordinary experience",
+                "segments": [
+                  {
+                    "operation": "states a standing condition of one case together with the perceptual difficulty it creates"
+                  },
+                  {
+                    "operation": "draws from the stated difficulty one concrete ambiguity in a common situation and the unease it leaves",
+                    "relation": "takes the condition just stated as its premise and derives the first consequence from it"
+                  },
+                  {
+                    "operation": "carries the consequence one link further into a spread that feeds on itself",
+                    "relation": "makes the unease reached in the step before the cause of a further step"
+                  },
+                  {
+                    "operation": "applies the same explanation to the standing conduct of an official role",
+                    "relation": "extends the chain from ordinary people to an institutional actor while keeping the cause unchanged"
+                  },
+                  {
+                    "operation": "reports one small habitual gesture belonging to that role",
+                    "relation": "narrows from the practice just explained to a single observable detail of it"
+                  },
+                  {
+                    "operation": "supplies the reason behind the detail just reported",
+                    "relation": "answers the question the bare detail before it leaves open"
+                  },
+                  {
+                    "operation": "notes a difference in rate across conditions and traces it to the same underlying difficulty",
+                    "relation": "tests the cause relied on throughout against a case in which that cause is sharper"
+                  }
+                ],
+                "breaks": [
+                  "state only the outcome and cut the links between the condition and it — the reader is told the case is worse but never sees the danger assembled",
+                  "drop the small habitual gesture and keep only the general practice — the explanation stays at the level of assertion with nothing for the reader to picture",
+                  "give the reason before the detail it explains — the detail becomes an illustration of something already settled and the reader stops reading forward",
+                  "leave out the closing difference across conditions — the reader loses the one place where the cause is tested rather than asserted",
+                  "add supporting figures at each link — the chain's momentum breaks and a reader who could follow it unaided is handed authority instead"
+                ]
+              },
+              "join": "grounds",
+              "paragraph_waypoints": [
+                {
+                  "point": "In the one society many people are drug-dependent, and that makes what others are thinking hard to read.",
+                  "serves": [
+                    "L17"
+                  ]
+                },
+                {
+                  "point": "There a carried weapon cannot be read as meant for attack or for defence, and people are easily made anxious.",
+                  "serves": [
+                    "L17"
+                  ]
+                },
+                {
+                  "point": "That anxiety drives still more people to arm themselves, so possession spreads in a chain.",
+                  "serves": [
+                    "L17"
+                  ]
+                },
+                {
+                  "point": "The same anxiety governs the standing conduct of the police there.",
+                  "serves": [
+                    "L17"
+                  ]
+                },
+                {
+                  "point": "The police shoot suspects on the spot.",
+                  "serves": [
+                    "L17"
+                  ]
+                },
+                {
+                  "point": "They shoot on the spot to make their own protection certain.",
+                  "serves": [
+                    "L17"
+                  ]
+                },
+                {
+                  "point": "Police shoot on the spot more often where aims cannot be read than where they can, and it is that same unreadability of aims that accounts for the difference.",
+                  "serves": [
+                    "L17"
+                  ]
+                }
+              ],
+              "obligations": [],
+              "discharges": []
+            },
+            {
+              "waypoint": 4,
+              "point": "Gun ownership is constant across the two societies, and where addicts are few, rules strict, and vetting of judgment and criminal record thorough, a person's purpose in carrying one is comparatively easy to read, mass shootings are absent, and the fear of being shot by others does not arise, so the real reason for the frequency of gun crime in the worse case is not simply because guns are present but the social condition in which one cannot help fearing being shot.",
+              "next_point": null,
+              "bound_move": {
+                "before": "knowledge: now also holds the chain by which that factor produces the worse case's outcome, each link resting on the one before, with the same chain reaching the conduct of an official role\nquestion: still wants that, and now also wants whether a self-feeding chain of this kind can be broken once it has started\nexpectation: having been taken down inside one case's mechanism instead, expects the next stretch to come back up and state the result in general terms\ntrust: raised further: the mechanism is carried on small habitual conduct and on a difference in rate across conditions that the reader can check against ordinary experience",
+                "after": "knowledge: now also holds the same chain run through the matched case to the opposite outcome, and the stated correction that the shared visible element is not the cause while the named condition is\nquestion: has that answered by the matched case, and now wants what could alter the named condition\nexpectation: having had the general result stated as a correction, expects the next stretch to leave this pair and apply the measure elsewhere\ntrust: raised further still: the account concedes that the obvious element is shared by both cases and locates the difference elsewhere, against the easy explanation",
+                "segments": [
+                  {
+                    "operation": "holds the shared element fixed across the counterpart case and names the conditions that differ there"
+                  },
+                  {
+                    "operation": "draws from those conditions the consequence that what is being done becomes comparatively easy to read",
+                    "relation": "states the result that follows from the conditions just named"
+                  },
+                  {
+                    "operation": "reports the counterpart case's outcome as the absence of both the event and the attendant fear",
+                    "relation": "carries the legibility just established through to the outcome it produces"
+                  },
+                  {
+                    "operation": "denies the obvious cause that the shared element would suggest",
+                    "relation": "turns back to the worse case and uses the contrast just completed to strike down its apparent cause",
+                    "manner": "a flat denial of the expected explanation, stated and not argued"
+                  },
+                  {
+                    "operation": "names the underlying condition as the real cause in its place",
+                    "relation": "supplies the replacement for the cause just denied"
+                  }
+                ],
+                "breaks": [
+                  "drop the counterpart case's outcome and go straight from its conditions to the denial — the reader has only an inference where the denial needs a finished result to stand on",
+                  "state the real cause first and the denial after — the obvious explanation is never cleared from the reader's head, and the replacement reads as one more opinion beside it",
+                  "soften the denial into a concession that the shared element plays some part — the two cases stop differing in one condition only, and the measure loses the work the matched pair was built to do",
+                  "expand the differing conditions into a survey of how the counterpart case came to have them — the comparison stops being a controlled pair and the reader loses the single moved condition",
+                  "let the denial arrive without having held the shared element fixed in the counterpart case — the denial has no ground and reads as the author's preference"
+                ]
+              },
+              "join": "contrast",
+              "paragraph_waypoints": [
+                {
+                  "point": "Gun ownership is constant across the two societies, while in the other addicts are few, rules strict, and vetting of judgment and criminal record thorough.",
+                  "serves": [
+                    "L18"
+                  ]
+                },
+                {
+                  "point": "There a person's purpose in carrying a gun is comparatively easy to read.",
+                  "serves": [
+                    "L18"
+                  ]
+                },
+                {
+                  "point": "Mass shootings are absent in that country and the fear of being shot by others does not arise.",
+                  "serves": [
+                    "L18"
+                  ]
+                },
+                {
+                  "point": "The frequency of gun crime in the worse case is not simply because guns are present.",
+                  "serves": [
+                    "L18"
+                  ]
+                },
+                {
+                  "point": "Its real reason is the social condition in which one cannot help fearing being shot.",
+                  "serves": [
+                    "L18"
+                  ]
+                }
+              ],
+              "obligations": [],
+              "discharges": []
+            }
+          ]
+        },
+        "terms_this_leg_introduces": [
+          {
+            "term": "attack-defence distinguishability",
+            "meaning": "How clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all."
+          }
+        ],
+        "obligations_this_leg_owes": []
+      }
+    },
+    "leg4-own-step": {
+      "source": "the run's record with the compression held to Segment 2's Paragraph Waypoint, Leg Waypoint 1's first Paragraph Waypoint stating the definition alone",
+      "from": "leg4-run",
+      "edit": {
+        "waypoint": 1,
+        "paragraph_waypoint": 1,
+        "to": {
+          "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, grades cases between those in which that intent is plain and those in which it cannot be made out.",
+          "serves": [
+            "L15"
+          ]
+        }
+      }
     }
   },
   "axes": [
@@ -346,6 +668,29 @@
       "justified_by": {
         "date": "2026-10-23",
         "run": "runs/judge-bench/2026-10-23-promise-kept-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
+    },
+    {
+      "id": "OWN STEP",
+      "sentence": "A Paragraph Waypoint carries nothing a later Segment's `operation` produces, not even in apposition or as a `that is` restatement of its own content, which a refusal names by both Paragraph Waypoints and that Segment.",
+      "fixtures": {
+        "defect": [
+          "leg4-run"
+        ],
+        "clean": [
+          "leg4-own-step"
+        ]
+      },
+      "justified_by": {
+        "date": "2026-10-25",
+        "run": "runs/judge-bench/2026-10-26-own-step-apposition-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
