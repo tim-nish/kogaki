@@ -73,10 +73,7 @@ export function validateReaderPathUnit(candidate, inputs) {
   // A WAYPOINT CARRYING `move` OR `segments` IS REFUSED BY NAME inside `validateLegs`
   // (kogaki#1375): no Move information reaches the Brief, and the paragraph Move is bound
   // by /paragraph-plan after the Brief is adopted.
-  // EACH ROW AGAINST ITS MOVE'S SLOT (kogaki#1577): `validateLegs` counts a row's items against the
-  // slot the raising Leg's bound Move raises.
-  const slotOf = (id) => { const m = moveContract(id, movesDir); return m.error || !m.deferred_slots ? null : m.deferred_slots[0]; };
-  const v = validateLegs(c.legs, c.reader_start, c.obligations, definedTerms, slotOf);
+  const v = validateLegs(c.legs, c.reader_start, c.obligations, definedTerms);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim

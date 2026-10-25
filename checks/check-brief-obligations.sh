@@ -7,9 +7,9 @@
 #   (l)-(m) one conceded row per path; two rows open at one Leg refused.
 #   (n) Path Review's `discharge_rows`; (o) owed_by the unbroken run from the
 #   next Leg; (p) an owed Leg opening a Section; (q) a non-terminal row.
-#   (r) `introduces` carrying `kind`; (s) a Move's slot, a row's count against
-#       it (#1577); (t) `closure` refused; (u) no Obligation item in `names`
-#       or the ledger; (v) a row's `item` list, `kind`/`text`/`term` refused.
+#   (r) `introduces` `kind`; (s) a Move's slot, no count; (t) `closure`; (u) no
+#   Obligation item in `names`; (v) a row's `item` list; (w) three items pass a
+#   one-item slot; (x) a Leg only naming its items does not keep the row (#1603).
 # Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -376,8 +376,8 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
       const slotted = lc.moves.find((m) => m.id === "name_two_and_defer");
       const plain = lc.moves.find((m) => m.id === "name_the_consequence_then_define_the_name");
       const prose = lc.moves.find((m) => m.id === "defer_in_prose_only");
-      if (JSON.stringify(slotted && slotted.deferred_slots) !== JSON.stringify([{ items: ["named kind", "practice"], count: 2 }])) {
-        fails.push(`(s) the composer's Move contract does not carry the field's one slot of two items: ${JSON.stringify(slotted && slotted.deferred_slots)}`);
+      if (JSON.stringify(slotted && slotted.deferred_slots) !== JSON.stringify([{ items: ["named kind", "practice"] }])) {
+        fails.push(`(s) the composer's Move contract does not carry the field's one slot of two items and no count: ${JSON.stringify(slotted && slotted.deferred_slots)}`);
       }
       if (plain && "deferred_slots" in plain) fails.push(`(s) a Move that defers nothing carries a slot: ${JSON.stringify(plain.deferred_slots)}`);
       if (!prose || "deferred_slots" in prose) fails.push(`(s) a Move whose description says "left for later" and carries no obligation raises a slot: ${JSON.stringify(prose)}`);
@@ -393,15 +393,6 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
       if (!first.deferred_slots || JSON.stringify(first.obligations_raised) !== JSON.stringify(rows)) fails.push(`(s) the Move-fit input does not carry the slot beside the Leg's rows: ${JSON.stringify(first)}`);
       if ("deferred_slots" in second || "obligations_raised" in second) fails.push(`(s) a Leg whose Move defers nothing carries a slot: ${JSON.stringify(second)}`);
       if ("deferred_slots" in third || "obligations_raised" in third) fails.push(`(s) a Leg whose Move defers only in its description carries a slot: ${JSON.stringify(third)}`);
-    }
-    // The row carries the article's words, one per slot item; the count is the one bond (kogaki#1577).
-    const slotOf = (id) => { const m = compose.moveContract(id, lib); return m.error || !m.deferred_slots ? null : m.deferred_slots[0]; };
-    const article = [{ item: ["offense-defense advantage", "offense-defense distinguishability"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" }];
-    const rArticle = obligationLedgerRefusal(legs, article, slotOf);
-    if (rArticle) fails.push(`(s) a row of two article-specific items filling a slot of two general items is refused: ${rArticle}`);
-    const rShort = obligationLedgerRefusal(legs, [{ ...article[0], item: ["offense-defense advantage"] }], slotOf) || "";
-    if (!rShort.includes("carries 1 item(s)") || !rShort.includes('"name_two_and_defer"') || !rShort.includes("a slot of 2")) {
-      fails.push(`(s) a row of one item against a slot of two is not refused naming both: ${rShort || "no refusal"}`);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -492,10 +483,71 @@ const ids = (n) => Array.from({ length: n }, (_, i) => ({ leg_id: `leg${i + 1}` 
   if (candidateLedgerRefusal({ candidate_id: "c1", legs, obligations: [pair] })) fails.push(`(v) the Candidate's ledger reader refused an item-list row: ${candidateLedgerRefusal({ candidate_id: "c1", legs, obligations: [pair] })}`);
 }
 
+// (w) a row's items are the article's, never counted against its Move's slot (kogaki#1603): a
+// Move whose `obligation` is one collective item raises a slot of that one item and no count, and
+// a row of three article items raised by the Leg binding it passes the ledger rule and the path.
+{
+  const dir = mkdtempSync(join(tmpdir(), "obligations-collective-"));
+  try {
+    const lib = join(dir, "moves");
+    mkdirSync(lib);
+    copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
+    const src = readFileSync("moves/name_the_consequence_then_define_the_name.yaml", "utf8");
+    writeFileSync(join(lib, "name_the_factors.yaml"), src.replace(/^id: .*$/m, "id: name_the_factors")
+      + "obligation:\n  - the factors that decide the outcome\n");
+    const lc = compose.loadMoveContracts(lib);
+    const m = (lc.moves || []).find((x) => x.id === "name_the_factors");
+    if (!m || JSON.stringify(m.deferred_slots) !== JSON.stringify([{ items: ["the factors that decide the outcome"] }])) {
+      fails.push(`(w) a one-item obligation does not raise one slot of that item and no count: ${JSON.stringify(m && m.deferred_slots)}`);
+    }
+    const legs = ids(4).map((s, i) => ({ ...s, move: i === 0 ? "name_the_factors" : "m", materials: ["L1"], purpose: `purpose of ${s.leg_id}`,
+      reader_state_after: `orientation: after ${s.leg_id}\nknowledge: after ${s.leg_id}`, depends_on: [], rationale: `why ${s.leg_id}`,
+      claims: [{ type: "strand", strand: "L1", proposition: `claim of ${s.leg_id}` }],
+      waypoints: [{ point: `the paragraph establishes what ${s.leg_id} claims`, serves: ["L1"] }],
+      ...(i === 0 ? { opens_section: "A Section" } : {}), ...(i === 3 ? { reaches_target: true } : {}) }));
+    const three = { item: ["offense-defense advantage", "offense-defense distinguishability", "the cost of the first strike"],
+      raised_by: "leg1", owed_by: ["leg2", "leg3"], discharged_by: "leg3" };
+    const rThree = obligationLedgerRefusal(legs, [three]);
+    if (rThree) fails.push(`(w) a row of three article items against a one-item slot is refused: ${rThree}`);
+    const vThree = validateLegs(legs, "", [three]);
+    if (vThree.error) fails.push(`(w) validateLegs refused a path carrying three article items against a one-item slot: ${vThree.error}`);
+    // A caller still handing the retired slot reader is not counted against it either.
+    const oldReader = () => ({ items: ["the factors that decide the outcome"], count: 1 });
+    const rOld = obligationLedgerRefusal(legs, [three], oldReader) || validateLegs(legs, "", [three], [], oldReader).error;
+    if (rOld) fails.push(`(w) a row of three article items is still counted against a slot of one: ${rOld}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// (x) an item is kept by being explained, never by being named (kogaki#1603): Path Review's
+// `discharge` judges the row against the discharging Leg's own points, here a point that only
+// names the items, and the rendered rule says such a Leg does not keep the row, so its verdict is
+// `fails` naming the row. The verdict is the judge's; this case reads its input and its rule.
+{
+  const { dischargeRows } = compose;
+  const legs = ["leg1", "leg2"].map((leg_id) => ({ leg_id,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    waypoints: [{ point: leg_id === "leg2" ? "The two factors are offense-defense advantage and offense-defense distinguishability."
+      : "Two factors decide how readily the security dilemma arises.", serves: ["L1"] }] }));
+  const named = { item: ["offense-defense advantage", "offense-defense distinguishability"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" };
+  const [d] = dischargeRows(legs, [named]);
+  if (!d || d.row !== "offense-defense advantage, offense-defense distinguishability" || d.discharging_leg !== "leg2"
+    || JSON.stringify((d.owed_legs || []).map((l) => l.points[0])) !== JSON.stringify([legs[1].waypoints[0].point])) {
+    fails.push(`(x) Path Review's discharge input does not name the row beside the naming Leg's own point: ${JSON.stringify(d)}`);
+  }
+  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const unit = JSON.stringify(table.review_path_unit || {}).replace(/\{\{shared:([a-z_]+)\}\}/g, (_, k) => (table.shared_text || {})[k] || "");
+  if (!/is explained among its owed Legs' Waypoint points and claims, a Leg that only names an item not keeping it, verdict `fails` or `holds`/.test(unit)) {
+    fails.push("(x) the review_path_unit row does not say a Leg that only names an item does not keep the row");
+  }
+  if (/per item of the raising Move/.test(unit)) fails.push("(x) the review_path_unit row still counts the row's items from the raising Move's slot");
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-obligations");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs and a row whose item count is not its slot's refused naming both, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading introduces alone, and a row carrying an ordered item list as one promise with the retired kind, text and term refused by name (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558, kogaki#1568, kogaki#1577).");
+console.log("ok: check-brief-obligations — the Thesis row reaching only the Reader target Leg, the reaches_target marking rule, a closing Leg introducing and raising nothing with its orientation/knowledge held, the mark reaching the Packet, the Obligation ledger's one conceded row and one open row per Leg, owed_by after the raising Leg in path order, no owed Leg opening a Section, every row terminal, an introduces entry carrying no kind, a Move's deferred slot read from its obligation field alone in the composer's and Move-fit inputs carrying no count, Path Review's discharge_rows naming each row and its owed Legs, the retired closure key refused by name, names and the ledger reading introduces alone, a row carrying an ordered item list as one promise with the retired kind, text and term refused by name, three article items passing against a one-item slot, and a Leg that only names its items judged as not keeping the row (kogaki#1229, kogaki#1231, kogaki#1232, kogaki#1496, kogaki#1529, kogaki#1549, kogaki#1558, kogaki#1568, kogaki#1577, kogaki#1603).");
 JS

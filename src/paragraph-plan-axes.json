@@ -245,16 +245,60 @@
         }
       }
     },
-    "owed-kept": {
-      "source": "constructed: the run's record with a Brief row the Leg owes, discharged at the Paragraph Waypoint that names the two factors",
+    "leg3-explains": {
+      "source": "constructed: the clean record with its last Paragraph Waypoint explaining each of the two factors instead of only naming them",
       "from": "leg3-clean",
+      "edit": {
+        "waypoint": 3,
+        "paragraph_waypoint": 3,
+        "to": {
+          "point": "Offense-defense advantage is whether attacking or defending is easier with the weapons of the day, while offense-defense distinguishability is whether a defensive arm can be told apart from an offensive one.",
+          "serves": [
+            "L3"
+          ]
+        }
+      }
+    },
+    "owed-kept": {
+      "source": "constructed: a Brief row owing the two factors, discharged at the Paragraph Waypoint that explains each of them",
+      "from": "leg3-explains",
       "edit": {
         "waypoint": 3,
         "owes": [
           {
             "obligation": 1,
-            "kind": "question",
-            "text": "What decides how readily the security dilemma arises?",
+            "item": [
+              "offense-defense advantage",
+              "offense-defense distinguishability"
+            ],
+            "raised_by": "leg-0",
+            "owed_by": [
+              "leg-1"
+            ],
+            "discharged_by": "leg-1"
+          }
+        ],
+        "discharges": [
+          {
+            "obligation": 1,
+            "by": 3
+          }
+        ]
+      }
+    },
+    "owed-named-only": {
+      "source": "constructed: the same row discharged at the run's Paragraph Waypoint that only names the two factors, the shape of the one-Leg run of 2026-10-26",
+      "from": "leg3-clean",
+      "at_waypoint": 3,
+      "edit": {
+        "waypoint": 3,
+        "owes": [
+          {
+            "obligation": 1,
+            "item": [
+              "offense-defense advantage",
+              "offense-defense distinguishability"
+            ],
             "raised_by": "leg-0",
             "owed_by": [
               "leg-1"
@@ -656,18 +700,19 @@
     },
     {
       "id": "PROMISE KEPT",
-      "sentence": "A Paragraph Waypoint named by a row's `discharged_by` or by a `discharges` entry states what keeps that row's promise.",
+      "sentence": "A Paragraph Waypoint named by a row's `discharged_by` or by a `discharges` entry states what every item that row owes means, never only its name.",
       "fixtures": {
         "defect": [
-          "owed-not-kept"
+          "owed-not-kept",
+          "owed-named-only"
         ],
         "clean": [
           "owed-kept"
         ]
       },
       "justified_by": {
-        "date": "2026-10-23",
-        "run": "runs/judge-bench/2026-10-23-promise-kept-5",
+        "date": "2026-10-25",
+        "run": "runs/judge-bench/2026-10-26-promise-kept-meaning-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
