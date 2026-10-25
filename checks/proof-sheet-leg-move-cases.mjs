@@ -2,15 +2,15 @@
 // (kogaki#1597), run by that member as `node` with its runs and fake binary in `PSR_LEG_MOVE`, printing
 // the count of assertions it ran, which the member holds to its `case_floor`; kept
 // here because the member is at its line bound. Each assertion reads the stage's own records first:
-//   (y1) the one-Leg run's record carries a done `leg-move` stage; `leg-move/<leg_id>.md` cuts into
-//        the Brief's Claims, one sentence each, in order.
-//   (y2) the nested run's own record (five stages, `<leg_id>-leg-move`, the run's Audience, no library),
-//        its calls exactly the binary's, its one Move one Segment per Claim; the run's `moves/` untouched.
+//   (y1) a done `leg-move` stage; `leg-move/<leg_id>.md` cuts into the Brief's Claims, one sentence each, in order.
+//   (y2) the nested run's own five-stage record (`<leg_id>-leg-move`, the run's Audience, no library), its calls
+//        the binary's, its Move one Segment per Claim; that Move in the run's `moves/`, INDEX.md and stage `moves`.
 //   (y3) the sheet: one block per Leg titled `Leg Move of Leg k of n`, after the Run record card for one
 //        Leg and after the last Leg block for three, none before, with the Claims as its Original Leg.
-//   (y4) a nested Writer failure stops the stage naming the Leg; `--resume` re-enters it, resuming the
-//        nested run at its draft with no call for the main run and no second extraction.
-import { readFileSync, writeFileSync, existsSync, readdirSync, chmodSync, mkdirSync } from "node:fs";
+//   (y4) a nested Writer failure stops the stage naming the Leg; `--resume` resumes it at its draft, no main-run call, no second extraction.
+//   (y5) `--resume` re-enters a done stage recorded with no `moves` and copies the Leg Move with no call; a Move
+//        already holding its id in `moves/` stops the stage naming both files, leaving it as it was (kogaki#1601).
+import { readFileSync, writeFileSync, existsSync, readdirSync, chmodSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -57,8 +57,12 @@ async function legMoveCases({ repo, root, map, judge, runDir, sRunDir }) {
   ok(move && Array.isArray(move.segments) && leg && move.segments.length === leg.claims.length,
     `(y2) the nested run's moves/ does not hold one Move with one Segment per Claim: ${JSON.stringify(nestedMoves)}`);
   const ownMoves = readdirSync(join(runDir, "moves")).filter(isMove).sort();
-  ok(JSON.stringify(ownMoves) === JSON.stringify([1, 2, 3].map((n) => `name_an_act_then_its_cost_${n}.yaml`)),
-    `(y2) the run's own moves/ holds something besides its three Moves: ${JSON.stringify(ownMoves)}`);
+  const lmFile = nestedMoves[0] || "(none)";
+  ok(JSON.stringify(ownMoves) === JSON.stringify([...[1, 2, 3].map((n) => `name_an_act_then_its_cost_${n}.yaml`), lmFile].sort())
+    && readOr(join(runDir, "moves", lmFile), "a") === readOr(join(nested, "moves", lmFile), "b"),
+    `(y2) the run's moves/ does not hold its three Moves and the Leg Move's record as written: ${JSON.stringify(ownMoves)}`);
+  ok(move && readOr(join(runDir, "moves", "INDEX.md"), "").includes(`| ${move.id} |`) && JSON.stringify(lm.moves) === JSON.stringify([lmFile]),
+    `(y2) the run's moves/INDEX.md does not list the Leg Move, or the stage's moves does not name it: ${JSON.stringify(lm.moves)}`);
 
   // (y3) the sheet's blocks, on the one-Leg run and on the three-Leg run
   const html = readOr(join(runDir, "sheet.html"), "");
@@ -117,6 +121,28 @@ writeSync(1, r.stdout || ""); writeSync(2, r.stderr || ""); process.exit(r.statu
       "(y4) --resume made a call for the main run, or extracted the nested run's paragraph again");
     ok(leg && jsonl(join(xDir, "leg-move", leg.leg_id, "draft", "calls.jsonl")).filter((c) => c.exit === 0).length === 1,
       "(y4) the resumed nested run did not write its Leg through one Writer call");
+
+    // (y5) a pre-kogaki#1601 record re-entered, then a paragraph Move's record put under the Leg Move's id
+    const held = join(xDir, "moves", lmFile);
+    const calls = () => jsonl(join(xRoot, "seen.jsonl")).length + jsonl(join(xRoot, "seen-leg-move.jsonl")).length, callsBefore = calls();
+    rmSync(held);
+    writeFileSync(join(xDir, "run.json"), JSON.stringify({ ...rRun, stages: rRun.stages.map((st) => (st.stage === "leg-move" ? { stage: st.stage, state: "done", runs: st.runs } : st)) }));
+    const x4 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", xDir, "--provenance", map],
+      { cwd: repo, encoding: "utf8", env: env({}), timeout: 600000 });
+    const pRun = JSON.parse(readOr(join(xDir, "run.json"), '{"stages":[]}'));
+    ok(x4.status === 0 && existsSync(held) && JSON.stringify(stage(pRun, "leg-move").moves) === JSON.stringify([lmFile]) && calls() === callsBefore,
+      `(y5) --resume over a leg-move stage recorded with no moves did not copy the Leg Move with no call: ${x4.status} ${JSON.stringify(stage(pRun, "leg-move").moves)}`);
+    writeFileSync(held, readFileSync(join(xDir, "moves", "name_an_act_then_its_cost_1.yaml")));
+    const before = readFileSync(held, "utf8");
+    rRun.stages = rRun.stages.map((st) => (st.stage === "leg-move" ? { stage: "leg-move", state: "stopped" } : st));
+    writeFileSync(join(xDir, "run.json"), JSON.stringify(rRun));
+    const x3 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", xDir, "--provenance", map],
+      { cwd: repo, encoding: "utf8", env: env({}), timeout: 600000 });
+    const cRun = JSON.parse(readOr(join(xDir, "run.json"), '{"stages":[]}'));
+    ok(x3.status === 1 && leg && typeof cRun.stopped === "string" && cRun.stopped.startsWith(`leg-move: Leg ${leg.leg_id}: its Move `)
+      && cRun.stopped.includes(join(xDir, "leg-move", leg.leg_id, "moves", lmFile)) && cRun.stopped.includes(`has the id of ${held}`)
+      && readFileSync(held, "utf8") === before,
+      `(y5) a Move already holding the Leg Move's id did not stop the stage naming both files: ${x3.status} ${cRun.stopped}`);
   }
   return fails;
 }
