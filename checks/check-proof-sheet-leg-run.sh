@@ -1466,7 +1466,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "library", "started_at", "stages", "finished_at"]),
       `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
     ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
-    fails.push(...await (await imp("checks/proof-sheet-leg-move-cases.mjs")).legMoveCases({ repo, root, map, judge, runDir, sRunDir }));
+    const x = spawnSync("bash", ["-c", "node checks/proof-sheet-leg-move-cases.mjs"], { encoding: "utf8", env: { ...process.env, PSR_LEG_MOVE: JSON.stringify({ root, map, judge, runDir, sRunDir }) }, timeout: 600000 }); ok(x.status === 0, `(y) ${x.stdout}${x.stderr}`.trim());
   }
 }
 

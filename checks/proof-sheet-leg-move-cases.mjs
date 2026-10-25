@@ -1,22 +1,15 @@
-// checks/proof-sheet-leg-move-cases.mjs — case (y) of checks/check-proof-sheet-leg-run.sh, the
-// Leg Move (kogaki#1597), kept beside the member because the member is at its line bound.
-//
-// WHAT IT COVERS, over the member's own runs and fake model binary, each assertion read from the
-// stage's own records before the sheet (the consult receipt on the Issue: a plan names the gate,
-// not the outputs):
-//   (y1) the one-Leg main run's record carries a `leg-move` stage, done, naming one nested run;
-//        `leg-move/<leg_id>.md` cuts into the Brief's Claims, one sentence each, in order.
-//   (y2) the nested run carries its own record -- the five stages done and no `leg-move`, the
-//        passage `<leg_id>-leg-move`, the run's Audience, no library -- its calls went through its
-//        own recorder and are exactly the calls the binary saw for it, its one Move carries one
-//        Segment per Claim, and the run's own `moves/` still holds its three Moves alone.
-//   (y3) the sheet: on the one-Leg run one `Leg Move of Leg 1 of 1` block after the Run record
-//        card, holding the comparison table over the Claims paragraph and the Extraction, Move,
-//        ParagraphPlan, Packet and Draft cards and no Brief card; on the three-Leg run one block
-//        per Leg, in order, after the last Leg block and none before.
-//   (y4) a run whose nested Writer call fails stops at the stage naming the Leg, and `--resume`
-//        re-enters the stage: the nested run resumes at its draft, no Extractor call is made
-//        again, the main run makes no call, and every stage ends done.
+// checks/proof-sheet-leg-move-cases.mjs — case (y) of checks/check-proof-sheet-leg-run.sh, the Leg Move
+// (kogaki#1597), run by that member as `node` with its runs and fake binary in `PSR_LEG_MOVE`; kept
+// here because the member is at its line bound. Each assertion reads the stage's own records first:
+//   (y1) the one-Leg run's record carries a done `leg-move` stage; `leg-move/<leg_id>.md` cuts into
+//        the Brief's Claims, one sentence each, in order.
+//   (y2) the nested run's own record (five stages, `<leg_id>-leg-move`, the run's Audience, no
+//        library), its calls exactly the binary's, its one Move one Segment per Claim; the run's own
+//        `moves/` holds its three Moves alone.
+//   (y3) the sheet: one block per Leg titled `Leg Move of Leg k of n`, after the Run record card for one
+//        Leg and after the last Leg block for three, none before, with the Claims as its Original Leg.
+//   (y4) a nested Writer failure stops the stage naming the Leg; `--resume` re-enters it, the nested
+//        run resumes at its draft, and neither run extracts or calls again.
 import { readFileSync, writeFileSync, existsSync, readdirSync, chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -26,7 +19,7 @@ const LANGUAGE_LINE = "**Language.** Write this Leg in ";
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
 const jsonl = (p) => readOr(p, "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
 
-export async function legMoveCases({ repo, root, map, judge, runDir, sRunDir }) {
+async function legMoveCases({ repo, root, map, judge, runDir, sRunDir }) {
   const fails = [];
   const ok = (cond, msg) => { if (!cond) fails.push(msg); };
   const imp = (p) => import(pathToFileURL(join(repo, p)).href);
@@ -133,3 +126,6 @@ function xLegStopped(record, leg) {
     && (record.stages.find((st) => st.stage === "leg-move") || {}).state === "stopped");
 }
 
+const fails = await legMoveCases({ repo: process.cwd(), ...JSON.parse(process.env.PSR_LEG_MOVE) });
+for (const f of fails) console.log(`FAIL ${f}`);
+process.exit(fails.length ? 1 : 0);
