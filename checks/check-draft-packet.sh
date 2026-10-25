@@ -51,9 +51,9 @@
 #       any case; the same render from a copy of that Audience with the
 #       pre-kogaki#1488 Voice paragraph restored is refused by the same
 #       predicate, so the absence is not vacuous.
-#   (g) THE PERFORMS INSTRUCTION IS SEVEN NAMED CRITERIA (kogaki#1555,
-#       replacing kogaki#1492's appended sentence): the waypoints block of the
-#       Packet (d) renders carries the seven `- <NAME>: <sentence>` lines
+#   (g) THE PERFORMS INSTRUCTION IS EIGHT NAMED CRITERIA (kogaki#1555,
+#       kogaki#1592, replacing kogaki#1492's appended sentence): the waypoints
+#       block of the Packet (d) renders carries the eight `- <NAME>: <sentence>` lines
 #       verbatim and none of the sentences of the paragraph they replaced, and
 #       the same render from the template with that paragraph restored is
 #       refused by the same predicate, so the lines are read from the Packet.
@@ -214,8 +214,9 @@ const CRITERIA = [
   "- NO CLAIM: The sentence that performs it states no proposition.",
   "- NO VERDICT: The sentence that performs it passes no judgment on the material.",
   "- NO ANTICIPATION: The sentence that performs it names nothing of what follows.",
+  "- NO REASON: The sentence that performs it gives no reason for the operation.",
 ];
-// The paragraph the seven lines replaced (kogaki#1448, kogaki#1492), one sentence per entry.
+// The paragraph the eight lines replaced (kogaki#1448, kogaki#1492), one sentence per entry.
 const REPLACED = [
   "An indented line in italics, with no claim beside it, is not a point.",
   "It names an operation the paragraph performs on the reader's reading at that place -- announcing what follows, flagging that the material is hard, signalling a turn.",
@@ -251,7 +252,7 @@ const carriesCriteria = (packet) => {
     if (!block.includes(CRITERIA[0]) || !block.includes(CRITERIA[3]) || !block.includes(CRITERIA[4])) {
       fails.push("(d) the Packet's waypoints block does not tell the Writer an italic line is performed in the paragraph's own words and states no proposition");
     }
-    // (g) the seven criterion lines verbatim, none of the replaced sentences; the restored paragraph is refused.
+    // (g) the eight criterion lines verbatim, none of the replaced sentences; the restored paragraph is refused.
     const why = carriesCriteria(r2.packet);
     if (why) fails.push(`(g) ${why}`);
     const restored = template.replace(CRITERIA.join("\n"), REPLACED.join(" "));
@@ -526,5 +527,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the seven named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585).");
 JS

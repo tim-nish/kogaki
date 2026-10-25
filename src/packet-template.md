@@ -132,6 +132,7 @@ announced to the reader.
 - NO CLAIM: The sentence that performs it states no proposition.
 - NO VERDICT: The sentence that performs it passes no judgment on the material.
 - NO ANTICIPATION: The sentence that performs it names nothing of what follows.
+- NO REASON: The sentence that performs it gives no reason for the operation.
 
 An *Opens from* line under a numbered line carries one word -- consequence,
 grounds, contrast, elaboration, summary or none -- naming how that paragraph's
