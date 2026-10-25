@@ -79,10 +79,8 @@ export const OBLIGATION_TRIGGERS = ["counts"];
 // requirement sentence, not a term or a question (kogaki#1590).
 export const OBLIGATION_WORDS_MAX = 12;
 const RATIONALE = [" since ", " because ", " so that ", " must ", " which "];
-// `after` and `breaks` inform the Composer and shape no sentence (FORMAT "Where each field goes",
-// kogaki#1604): an entry carrying one of these phrases instructs wording or sentence order.
-export const WORDING = ["must open with", "must open on", "must begin with", "must end with", "must close with",
-  "in one sentence", "in a single sentence", "word for word"];
+// kogaki#1604: the match is the instructing mood, `must` or `should` before the dash.
+export const WORDING = /\b(?:must|should)\b[^—]*?\b(?:(?:open|begin|end|close) (?:with|on)|in (?:one|a single) sentence)\b/i;
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
@@ -265,7 +263,7 @@ function nounIn(nouns, text) {
 const FOREIGN_RUN = /(?:(?!\p{Script=Latin})\p{L}|[\u3000-\u303F\uFF00-\uFFEF])+/u;
 function wordingRefusal(text, at) {
   if (typeof text !== "string") return null;
-  const phrase = WORDING.find((w) => text.toLowerCase().includes(w));
+  const phrase = (text.match(WORDING) || [])[0];
   return phrase ? `${at} carries "${phrase}", a wording instruction — \`after\` and \`breaks\` inform the Composer and shape no sentence (FORMAT "Where each field goes")` : null;
 }
 function generalRefusal(nouns, text, at) {
