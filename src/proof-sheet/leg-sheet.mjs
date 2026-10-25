@@ -32,9 +32,13 @@
 // one Brief card and above one Run record card. The Brief card lists the derived cross-Leg fields,
 // each marked `derived`, from the composer's `brief.json`.
 //
-// THE MOVE'S OBLIGATION BESIDE ITS PARAGRAPH (kogaki#1582): the comparison table carries, under each
-// original paragraph, the `obligation` items its Move carries, so the owner judges the proposal
-// against the prose by eye. The sheet is the library view, not the Plan, so a Move field may appear.
+// THE MOVE'S OBLIGATION UNDER ITS DESCRIPTION (kogaki#1582, moved by kogaki#1591): in the Segments
+// part, each paragraph's Move description is followed by the `obligation` items its Move carries,
+// numbered on one line. The sheet is the library view, not the Plan, so a Move field may appear.
+//
+// THE PARAGRAPH WAYPOINTS BETWEEN THE TWO PARAGRAPHS (kogaki#1591): the comparison table's middle
+// column lists the Leg Waypoint's Paragraph Waypoints from the plan file, item k against Segment k.
+// Each Segments heading ends in a `copy table` button copying its table as tab-separated text.
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
@@ -385,6 +389,10 @@ export const FOLD_LEGEND = "Stage cards are folded; a link opens the card it poi
 // change, every `details` enclosing the link's target is opened, and so is the Output part of a
 // target that is a card itself (a `#card-<idx>-<key>` link lands on the section, whose Output
 // `details` is a descendant, not an ancestor); then the target is scrolled to.
+// A `copy table` button copies the first table after its heading, header row first, one line per
+// row and a tab between cells, leaving out each row's badge.
+const COPY_BUTTON = `<button type="button" class="copy-table">copy table</button>`;
+const COPY_SCRIPT = `<script>addEventListener("click",(e)=>{const b=e.target.closest("button.copy-table");if(!b)return;let t=b.closest("h4").nextElementSibling;while(t&&t.tagName!=="TABLE"&&t.tagName!=="H4")t=t.nextElementSibling;if(!t||t.tagName!=="TABLE")return;const cell=(c)=>{const k=c.cloneNode(true);k.querySelectorAll(".badge").forEach((x)=>x.remove());return k.textContent.trim().replace(/\\s+/g," ");};navigator.clipboard.writeText([...t.rows].map((r)=>[...r.cells].map(cell).join("\\t")).join("\\n")).then(()=>{b.textContent="copied";setTimeout(()=>{b.textContent="copy table";},1200);});});</script>`;
 const ANCHOR_SCRIPT = `<script>const openTo=()=>{const t=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(!t)return;for(let d=t.closest("details");d;d=d.parentElement&&d.parentElement.closest("details"))d.open=true;const o=t.querySelector("details.part.out");if(o)o.open=true;t.scrollIntoView();};addEventListener("hashchange",openTo);openTo();</script>`;
 
 // The diagram's three provenance classes, by node name (kogaki#1410 design: "Three classes...
@@ -486,22 +494,36 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
     + [["Extraction", "extraction"], ["Move", "move"], ["ParagraphPlan", "planwp"], ["Packet", "packetwp"], ["Draft", "draft"]]
       .map(([label, card]) => `<a href="#${anchorId(card, i, idx)}">${esc(label)}</a>`).join(" · ")
     + `</p>`;
+  const { planText, pl } = planLeg(r);
+  const pwCell = (i) => {
+    const w = pl && (pl.waypoints || []).find((x) => x.waypoint === i + 1);
+    return w ? `<ol>${(w.paragraph_waypoints || []).map(pwItem).join("")}</ol>` : "";
+  };
   const pairs = [];
   for (let i = 0; i < n; i++) {
     const writtenCell = written ? `${esc(writtenParas[i] || "")}${anchorLinks(i + 1)}` : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
-    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}${moveObligationLine(r, i)}</td><td>${writtenCell}</td></tr>`);
+    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td class="pws">${pwCell(i)}</td><td>${writtenCell}</td></tr>`);
   }
   return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, r.legCopy || "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
+    + `<th>Paragraph Waypoints <span class="meta">${esc(rel(r.planPath))} · sha ${contentHash(planText)}</span></th>`
     + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
 
-// Paragraph `i`'s Move's `obligation` items, one line; nothing where its Move carries none.
+// Paragraph `i`'s Move's `obligation` items, numbered on one line; nothing where its Move carries none.
 function moveObligationLine(r, i) {
   const e = ((r.ingest && r.ingest.entries) || [])[i];
   const rec = e && e.move ? moveRecord(r, e.move) : null;
   const items = rec && Array.isArray(rec.obligation) ? rec.obligation : [];
-  return items.length ? `<p class="obligation">Move obligation: ${items.map((x) => esc(x)).join(" · ")}</p>` : "";
+  return items.length ? `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(x)}`).join("; ")}</p>` : "";
+}
+
+// The plan file's text and this Leg's entry in it; the entry is null where the file is unreadable.
+function planLeg(r) {
+  const planText = read(r.planPath);
+  let plan = null;
+  if (planText) { try { plan = parseYaml(planText, r.planPath); } catch { plan = null; } }
+  return { planText, pl: (plan && plan.legs && ((r.legId && plan.legs.find((l) => l && l.leg_id === r.legId)) || plan.legs[0])) || null };
 }
 
 // CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
@@ -784,11 +806,8 @@ function paragraphPlanCard(r, idx) {
   const verdict = specFile ? read(join(r.jobDir, specFile)) : null;
   const genCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_plan"'));
   const judgeCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_judge"'));
-  const planText = read(r.planPath);
+  const { planText, pl } = planLeg(r);
   const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
-  let plan = null;
-  if (planText) { try { plan = parseYaml(planText, r.planPath); } catch { plan = null; } }
-  const pl = plan && plan.legs && ((r.legId && plan.legs.find((l) => l && l.leg_id === r.legId)) || plan.legs[0]);
   let verdictJson = null;
   try { verdictJson = verdict ? JSON.parse(verdict) : null; } catch { verdictJson = null; }
   const verdictLine = verdictJson && Array.isArray(verdictJson.verdicts)
@@ -1009,8 +1028,8 @@ function reviewBlock(r, idx) {
     const b = r.run.library ? rows.find((x) => Number(x.waypoint) === n) : null;
     return b ? ` · bound ${esc(b.move || "(none bound)")}${sourceBadge(r.run, b.move)}` : "";
   };
-  const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}</h4>`
-    + moveDescription(r, entries[p.i] && entries[p.i].move)
+  const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}${COPY_BUTTON}</h4>`
+    + moveDescription(r, entries[p.i] && entries[p.i].move) + moveObligationLine(r, p.i)
     + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge
@@ -1061,7 +1080,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;ma
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
-.pair td{width:50%;white-space:pre-wrap}
+.pair td{width:33%;white-space:pre-wrap}.pair td.pws{white-space:normal}.copy-table{margin-left:8px;font-size:11px}
 .review{border:2px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.review>h3{font-size:16px;margin:10px 0 4px}.review h4{font-size:14px;margin:10px 0 4px}
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
@@ -1161,7 +1180,7 @@ export function buildSheet({ runs, provenance, out }) {
   writeFileSync(out, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Leg Proof Sheet</title><style>${CSS}</style>${mermaidScript}</head><body><h1>Leg Proof Sheet</h1>`
     + pipelineDiagram(0)
-    + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}${ANCHOR_SCRIPT}</body></html>\n`);
+    + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}${ANCHOR_SCRIPT}${COPY_SCRIPT}</body></html>\n`);
   return { written: out };
 }
 
