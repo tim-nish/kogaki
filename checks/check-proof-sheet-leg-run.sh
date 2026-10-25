@@ -110,6 +110,7 @@
 #       heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they
 #       stand numbered after that Move's description and nowhere in the comparison table.
 #   (x) the obligation call's verdict under each Move description (kogaki#1593): its not fired, fired and not recorded forms.
+#   (y) the Leg Move (kogaki#1597), in checks/proof-sheet-leg-move-cases.mjs, whose header states the case.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -1465,6 +1466,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "library", "started_at", "stages", "finished_at"]),
       `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
     ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
+    fails.push(...await (await imp("checks/proof-sheet-leg-move-cases.mjs")).legMoveCases({ repo, root, map, judge, runDir, sRunDir }));
   }
 }
 
