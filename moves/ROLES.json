@@ -1,5 +1,5 @@
 {
-  "_": "kogaki#1349: the Move schema's field-to-role mapping. The pipeline reads roles, never field names (specs/spec-draft-pipeline/SPEC.md field-roles table). `required` roles must be mapped by every schema; `optional` roles are null (omitted here) where a schema has nothing to map them to. A field this file does not name is carried on the record and read by nothing. kogaki#1412: `segments` is the Move's structure and is required by the Adapter wherever it is mapped; `technique` is retired and maps no role; `description` is human-facing and maps none.",
+  "_": "kogaki#1349: the Move schema's field-to-role mapping. The pipeline reads roles, never field names (specs/spec-draft-pipeline/SPEC.md field-roles table). `required` roles must be mapped by every schema; `optional` roles are null (omitted here) where a schema has nothing to map them to. A field this file does not name is carried on the record and read by nothing. kogaki#1412: `segments` is the Move's structure and is required by the Adapter wherever it is mapped; `technique` is retired and maps no role; `description` is human-facing and maps none. kogaki#1604: `segments` (`operation`, `relation`, `manner`) and `obligation` shape the prose the Move produces; `before`, `after` and `breaks` are read by the Composer for Strand fit and shape no sentence, and no field carries a condition on how a promise is kept.",
   "required": {
     "identity": "id",
     "state-before": "before",
@@ -14,9 +14,9 @@
   },
   "shapes": {
     "_": "kogaki#1414 and kogaki#1413: the shapes of the record's structured fields. A Move record is a `.yaml` file read by the Brief's YAML reader (src/yaml.mjs); the role adapter (`moveContract` in src/compose.mjs) and tools/move_ingest.py both refuse a record that does not hold these shapes. The Moves written before them are regenerated under them by kogaki#1415.",
-    "state": "`before` and `after` are each a map keyed by dimension -- knowledge, question, expectation, orientation, trust -- one entry per changed dimension, each value one sentence; a state written as one joined line is refused by name (kogaki#1413)",
+    "state": "`before` and `after` are each a map keyed by dimension -- knowledge, question, expectation, orientation, trust -- one entry per changed dimension, each value one sentence; a state written as one joined line is refused by name (kogaki#1413); read by the Composer for Strand fit; shapes no sentence",
     "segments": "a list of maps, one per Segment, in order: `operation`, the step's operation, subject-free, never its effect on the reader (`does` until kogaki#1510); on every Segment after the first, `relation`, its relation to the Segment before it, in prose; Segment 1 carries no relation (kogaki#1411); and, only where the Extraction filled one, `manner`, the local realisation the step takes that operation and relation cannot name, one line (kogaki#1510)",
-    "breaks": "a list of prose tests, one entry each: a specific change to the paragraph, a dash, what the reader loses; read whole, no keys and no fixed kinds",
+    "breaks": "a list of prose tests, one entry each: a specific change to the paragraph, a dash, what the reader loses; read whole, no keys and no fixed kinds; read by the Composer for Strand fit; shapes no sentence",
     "obligation": "absent unless the Move leaves an item with the reader unexplained, derived from the Move's own Segments and written only where `counts` fires (kogaki#1590); where present a list of one or more one-line items, each a term or a question, in the order the Move names them, naming no item twice (kogaki#1568); it names no scale and carries no kind"
   }
 }
