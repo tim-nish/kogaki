@@ -100,9 +100,9 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the ten rules here — rules 1 to 6
+applies to a paragraph Extraction, except the rules here — rules 1 to 6
 are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's,
-rule 8 is kogaki#1557's, rule 9 is kogaki#1478's and rule 10 is kogaki#1570's:
+rule 8 is kogaki#1583's, rule 9 is kogaki#1478's and rule 10 is retired:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
