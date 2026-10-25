@@ -102,7 +102,7 @@ extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
 applies to a paragraph Extraction, except the rules here — rules 1 to 6
 are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's,
-rule 8 is kogaki#1583's, rule 9 is kogaki#1478's and rule 10 is retired:
+rule 8 is kogaki#1583's, with its item forms kogaki#1602's, rule 9 is kogaki#1478's and rule 10 is retired:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -151,7 +151,7 @@ rule 8 is kogaki#1583's, rule 9 is kogaki#1478's and rule 10 is retired:
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each, in the order the Segments name them; otherwise the key is absent. `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept ("Where each field goes"). Absent is the normal case.
+8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each; otherwise the key is absent. A counting operation names no number unless the number is the operation, as in a contrasting pair or the two sides of one measure. Where no operation names a number, `obligation` is ONE collective item naming the counted parts as a set, such as "each of the counted parts, in the order named", and an item carrying a number or ordinal word is refused; where an operation names the number or a fixed set, it is that many ordinal items in the order the Segments name them, and a collective item is refused (kogaki#1590, kogaki#1602). `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept ("Where each field goes"). Absent is the normal case.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -552,8 +552,11 @@ What each field holds:
 - `obligation` — absent unless `counts` fires in the Move's own Segments
   ("The paragraph unit", rule 8). Where present, it is the list of those
   items, one term or question of at most twelve words each, carrying none
-  of `since`, `because`, `so that`, `must` or `which` (kogaki#1590), in the order the Segments name them, naming no
-  item twice; a map, and so a `kind`, is refused (kogaki#1568). Each item
+  of `since`, `because`, `so that`, `must` or `which` (kogaki#1590), naming no
+  item twice: one collective item where no operation names a number, and
+  that many ordinal items, in the order the Segments name them, where one
+  does (kogaki#1602). The record carries no condition on how an item is
+  kept; a map, and so a `kind`, is refused (kogaki#1568). Each item
   is written general, as `operation` is: it names no term, place, person or
   claim of the original and none of `subject_nouns` (kogaki#1576). An
   `obligation` naming an item a Segment's `content` clause defines or
