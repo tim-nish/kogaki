@@ -168,7 +168,7 @@ const judge = join(root, "fake-model.mjs");
 writeFileSync(judge, `#!/usr/bin/env node
 import { appendFileSync, writeSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
-const dir = process.env.PSR_FIXTURE_DIR;
+const dir = process.env.PSR_FIXTURE_DIR; const MV = String(process.env.KOGAKI_PROOF_SHEET_CALLS).includes("/leg-move/") ? "restate_an_act_then_its_cost_" : "name_an_act_then_its_cost_"; // a Leg Move's own id (kogaki#1601)
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const out = (r, stage) => {
@@ -202,10 +202,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (prompt.includes('"leg_you_must_plan"')) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
-    const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === "name_an_act_then_its_cost_" + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
+    const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === MV + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
     // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
     const fromLibrary = (n) => (bindable || []).some((m) => m.id.startsWith("lib_")) && (process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1));
-    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + "name_an_act_then_its_cost_" + w.waypoint,
+    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + MV + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
@@ -234,7 +234,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         manner: p.number === 2 && i === 1 ? "a brief direct statement, given with no elaboration." : "" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
-      description: "Names an act, then names who pays for it (paragraph " + p.number + ").", name: "name_an_act_then_its_cost_" + p.number, notes: "",
+      description: "Names an act, then names who pays for it (paragraph " + p.number + ").", name: MV + p.number, notes: "",
     };
     if (first && !retried) delete record.segments[0].operation;
     return out(record, "extract");
@@ -801,7 +801,7 @@ function fakeModelSrc(brokenParagraph, seenFile) {
   return `#!/usr/bin/env node
 import { appendFileSync, writeSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
-const dir = process.env.PSR_FIXTURE_DIR;
+const dir = process.env.PSR_FIXTURE_DIR; const MV = String(process.env.KOGAKI_PROOF_SHEET_CALLS).includes("/leg-move/") ? "restate_an_act_then_its_cost_" : "name_an_act_then_its_cost_"; // a Leg Move's own id (kogaki#1601)
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const out = (r, stage) => {
@@ -816,8 +816,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (prompt.includes('"leg_you_must_plan"')) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
-    const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === "name_an_act_then_its_cost_" + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
-    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "name_an_act_then_its_cost_" + w.waypoint,
+    const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === MV + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
+    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: MV + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
@@ -843,7 +843,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes before its cost.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
-      description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
+      description: "Names an act, then names who pays for it.", name: MV + p.number, notes: "",
     };
     if (p.number === ${brokenParagraph === null ? "null" : String(brokenParagraph)}) delete record.notes;
     return out(record, "extract");
@@ -952,7 +952,7 @@ if (runDir) {
   };
   const cardOf = (html, key, next) => { const a = html.indexOf(`id="card-0-${key}"`); return a >= 0 ? html.slice(a, html.indexOf(`id="card-0-${next}"`, a)) : ""; };
   // The Moves are compared as the Move files; the library's INDEX.md names its own directory.
-  const isMove = (f) => f.endsWith(".yaml");
+  const lmFiles = (JSON.parse(readFileSync(join(runDir, "run.json"), "utf8")).stages.find((st) => st.stage === "leg-move") || {}).moves || [], isMove = (f) => f.endsWith(".yaml") && !lmFiles.includes(f); // the paragraph Moves: a Leg Move joins moves/ (kogaki#1601)
   const sameFiles = (a, b, keep) => existsSync(a) && existsSync(b) && LR.dirSha256(a, keep) === LR.dirSha256(b, keep);
   const srcRel = relFromRepo(runDir, repo);
 
