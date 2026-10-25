@@ -396,6 +396,12 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
     // The directory the Leg Moves join first; the plan's `moves/` is checked for a clash too.
     const lib = record.library;
     const dirs = [...new Set([lib && lib.withhold_own ? join(runDir, OWN_MOVES_DIR) : join(runDir, "moves"), join(runDir, "moves")])];
+    // Every exit regenerates the index over the Leg Moves copied so far, a stop included.
+    const indexed = (r) => {
+      if (!moves.length) return r;
+      const c = runCommand(d, "leg-move index", ["python3", "-c", INDEX_PY, dirs[0]], env, log);
+      return c.exit === 0 ? r : { ...r, stopped: r.stopped || stopLine(c) };
+    };
     for (const leg of legs) {
       const claims = (leg.claims || []).map((c) => String(c.proposition || "").trim());
       const text = claims.join(" ");
@@ -407,15 +413,10 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
       const dir = join(d, leg.leg_id);
       const n = runNested(dir, file, { slug: `${leg.leg_id}${LEG_MOVE_SLUG_SUFFIX}`, audience: record.audience, realPath });
       runs.push({ leg_id: leg.leg_id, file, run: dir, state: n.stopped ? "stopped" : "done" });
-      if (n.stopped) return { stopped: `Leg ${leg.leg_id}: ${n.stopped}`, runs, moves };
-      const clash = joinLegMove(join(dir, "moves"), dirs, moves);
-      if (clash) return { stopped: `Leg ${leg.leg_id}: ${clash}`, runs, moves };
+      const stop = n.stopped ? `Leg ${leg.leg_id}: ${n.stopped}` : joinLegMove(join(dir, "moves"), dirs, moves);
+      if (stop) return indexed({ stopped: n.stopped ? stop : `Leg ${leg.leg_id}: ${stop}`, runs, moves });
     }
-    if (moves.length) {
-      const c = runCommand(d, "leg-move index", ["python3", "-c", INDEX_PY, dirs[0]], env, log);
-      if (c.exit !== 0) return { stopped: stopLine(c), runs, moves };
-    }
-    return { runs, moves };
+    return indexed({ runs, moves });
   });
 
   record.finished_at = new Date().toISOString();
@@ -431,18 +432,18 @@ mi.write_index(sys.argv[1])
 `;
 
 // ONE NESTED RUN'S MOVES JOINING THE RUN'S LIBRARY (kogaki#1601): each record in `nestedMoves`
-// copied into `dirs[0]` and its name pushed onto `moves`. A file already in `dirs` with the same
-// bytes is this stage's own earlier copy (a resumed stage re-enters a kept nested run) and is
-// counted as copied; any other file holding the id is the clash, returned as the stop line.
+// copied into `dirs[0]` and its name pushed onto `moves`. A file in `dirs[0]` with the same bytes
+// is this stage's own earlier copy (a resumed stage re-enters a kept nested run); any other file
+// holding the id, in any of `dirs`, is the clash, returned as the stop line.
 function joinLegMove(nestedMoves, dirs, moves) {
   const names = existsSync(nestedMoves) ? readdirSync(nestedMoves).filter((f) => f.endsWith(MOVE_RECORD_EXT)).sort() : [];
   for (const f of names) {
     const src = join(nestedMoves, f);
-    const held = dirs.map((x) => join(x, f)).find((p) => existsSync(p));
-    if (held && !readFileSync(held).equals(readFileSync(src))) {
-      return `its Move ${relFromRepo(src, REPO)} has the id of ${relFromRepo(held, REPO)}, already in the run's Moves — an id held by both is refused`;
-    }
-    if (!held) copyFileSync(src, join(dirs[0], f));
+    const own = join(dirs[0], f);
+    const copied = existsSync(own) && readFileSync(own).equals(readFileSync(src));
+    const held = copied ? null : dirs.map((x) => join(x, f)).find((p) => existsSync(p));
+    if (held) return `its Move ${relFromRepo(src, REPO)} has the id of ${relFromRepo(held, REPO)}, already in the run's Moves — an id held by both is refused`;
+    if (!copied) copyFileSync(src, own);
     moves.push(f);
   }
   return null;
