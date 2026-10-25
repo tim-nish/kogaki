@@ -65,26 +65,20 @@
 #       and for a second listed verb, while the clause opening on what the sentence says
 #       validates, and FORMAT's rule 7 carries the sentence verbatim (kogaki#1554).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
-#   (h) the authored `obligation` (rule 8, kogaki#1557): a paragraph whose last sentence names
-#       two terms and glosses neither yields an Extraction carrying the field with both terms in
-#       order, as the record, the file and its reading; the same paragraph glossing both yields
-#       none; the field beside a Segment that defines its terms, or answers its question, is
-#       refused naming that Segment; a map (carrying the retired `kind`, `text` or `term`, each
-#       named), an empty list and an item named twice are refused (kogaki#1568); an item naming
-#       one of `subject_nouns`, or a word outside the Latin script, is refused naming the item and
-#       rule 7 (kogaki#1576); and in (b2) the ingest carries the field to the Move record unchanged,
-#       where the Adapter reads it, admits it where no item shares a word with any `after` line
-#       (kogaki#1576), and adds none to a Move whose Extraction has none.
-#   (i) the `discharges` mark (rule 10, kogaki#1570): a record carrying `discharges: true` where
-#       the input's `open_obligation` names items validates and carries it as the record, the
-#       file and its reading; the same record with `open_obligation` null is refused by name, and
-#       a value other than `true` is refused; the open items pass to the next paragraph until one
-#       is marked, and a raising paragraph's own words replace them; FORMAT's rule 10 carries the
-#       sentence verbatim.
-#   (j) `obligation_content` (rule 8, kogaki#1578): a record carrying it beside a general
-#       `obligation` validates and carries both as the record, the file and its reading; either
-#       key alone is refused naming both, lists of different lengths are refused naming both, an
-#       item over two lines is refused; FORMAT's rule 8 carries the sentence verbatim.
+#   (h) the obligation, derived from the Move's own Segments (rule 8, kogaki#1583): a run whose
+#       paragraph asserts without grounds in Segment 1 and gives an instance in Segment 2 writes
+#       `obligation_trigger: withholds` and one item; a paragraph whose naming Segment is followed
+#       by a Segment whose relation supplies the meaning writes neither key; the obligation call's
+#       rendered prompt carries no `passage`, `earlier_paragraphs`, `reader_state_before` or
+#       `subject_nouns` key, and its input is the Segments' `operation` and `relation` alone.
+#   (i) the obligation call's answer (kogaki#1583): `obligation` beside `trigger: none`, a trigger
+#       outside the set and a fired trigger naming no items are refused by name; `obligation` and
+#       `obligation_trigger` stand on the record together or not at all; the item validators of
+#       kogaki#1557, #1568 and #1576 stay on the record, and in (b2) the ingest carries the field
+#       to the Move record unchanged.
+#   (j) the retired keys (kogaki#1583): a record carrying `discharges` or `obligation_content` is
+#       refused as an undeclared key, the extraction call's answer carrying `obligation` is
+#       refused, and FORMAT carries rule 8 and the retired rule 10 verbatim.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -93,7 +87,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, chmodSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -122,8 +116,16 @@ const dir = process.env.PSX_FIXTURE_DIR;
 appendFileSync(dir + "/argv.jsonl", JSON.stringify(process.argv.slice(2)) + "\\n");
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
-  appendFileSync(dir + "/prompts.jsonl", JSON.stringify(prompt) + "\\n");
   const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
+  // The obligation call (kogaki#1583): its first answer carries items beside \`none\` and is
+  // refused; every later one is \`none\`.
+  if (!input.paragraph_you_must_extract) {
+    const seen = existsSync(dir + "/obligation-calls") ? Number(readFileSync(dir + "/obligation-calls", "utf8")) : 0;
+    writeFileSync(dir + "/obligation-calls", String(seen + 1));
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(seen ? { trigger: "none" } : { trigger: "none", obligation: ["an item"] }) }) + "\\n");
+    process.exit(0);
+  }
+  appendFileSync(dir + "/prompts.jsonl", JSON.stringify(prompt) + "\\n");
   const p = input.paragraph_you_must_extract;
   const first = p.number === 1;
   const counterPath = dir + "/attempt-" + p.number;
@@ -423,6 +425,9 @@ else {
   ok(prompts[2] && prompts[2].includes(a1.refusals[0]) && prompts[2].includes(a1.refusals[1])
     && prompts[2].indexOf(a1.refusals[0]) < prompts[2].indexOf(a1.refusals[1]),
     "(c) the third attempt's prompt does not carry BOTH prior refusals, oldest first");
+  const o1 = existsSync(join(p1, "obligation", "attempts.json")) ? JSON.parse(readFileSync(join(p1, "obligation", "attempts.json"), "utf8")) : {};
+  ok(o1.attempts === 2 && /`obligation` is present beside `trigger` none/.test((o1.refusals || [])[0] || ""),
+    `(c) p1/obligation/attempts.json does not record the refused answer and the second attempt: ${JSON.stringify(o1)}`);
   const a2 = existsSync(join(runDir, "p2", "attempts.json")) ? JSON.parse(readFileSync(join(runDir, "p2", "attempts.json"), "utf8")) : {};
   ok(a2.attempts === 2, `(c) p2/attempts.json records ${a2.attempts} attempt(s), not 2`);
   // rule 7's mechanical half (kogaki#1440): a subject noun in a reader `after` is refused naming the row
@@ -457,7 +462,7 @@ else {
 
 // (d) --tools ""
 const argvs = existsSync(join(root, "argv.jsonl")) ? readFileSync(join(root, "argv.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-ok(argvs.length === 5 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }),
+ok(argvs.length === 8 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }),
   `(d) a call ran without \`--tools ""\`: ${JSON.stringify(argvs)}`);
 
 // (f) the validator, directly
@@ -544,103 +549,119 @@ const m5 = good(); delete m5.answers.q3; m5.segments.pop();
 const e5 = X.validateExtractionUnit(m5, input).error || "";
 ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record broken on two fields at once did not name both: ${e5}`);
 
-// (h) THE AUTHORED OBLIGATION (FORMAT "The paragraph unit", rule 8, kogaki#1557): a paragraph whose
-// last sentence names two terms and glosses neither yields an Extraction carrying the field, both
-// terms in order, as the record and as the file; the same paragraph glossing both yields none; the
-// field beside a Segment that defines or answers its item is refused naming the Segment.
+// (h) THE OBLIGATION, DERIVED FROM THE MOVE'S OWN SEGMENTS (FORMAT "The paragraph unit", rule 8,
+// kogaki#1583): a second call per paragraph whose input is the record's Segments alone. A run
+// whose first paragraph asserts without grounds in Segment 1 and gives an instance in Segment 2
+// writes `obligation_trigger: withholds` and one item; a paragraph whose naming Segment is
+// followed by a Segment whose relation supplies the meaning writes neither key; the call's
+// rendered prompt carries no `passage`, `earlier_paragraphs`, `reader_state_before` or
+// `subject_nouns` key.
 {
-  const unglossed = () => { const g = good(); g.segments[2].content = "Two names, leverage and margin, close the paragraph with neither given a meaning."; return g; };
-  const glossed = () => { const g = good();
-    g.segments[1].content = "Leverage is defined as borrowed weight, and margin as the cushion kept against it.";
-    g.segments[2].content = "Two names, leverage and margin, close the paragraph."; return g; };
-  const TERMS = ["leverage", "margin"];
-  const carried = { ...unglossed(), obligation: TERMS, obligation_content: TERMS };
-  ok(!X.validateExtractionUnit(carried, input).error, `(h) an Extraction carrying the field over an unglossed pair was refused: ${X.validateExtractionUnit(carried, input).error}`);
-  const rec = X.extractionRecord(carried, input, "run");
-  ok(JSON.stringify(rec.obligation) === JSON.stringify(TERMS), `(h) the Extraction record does not carry both terms in order: ${JSON.stringify(rec.obligation)}`);
-  const back = parseYaml(X.extractionFileText(carried, input, "run"), "h.yaml");
-  ok(JSON.stringify(back.obligation) === JSON.stringify(TERMS), `(h) the Extraction file does not carry both terms in order: ${JSON.stringify(back.obligation)}`);
-  ok(X.extractionMarkdown(back).includes("obligation: leverage, margin"), "(h) the Extraction does not render its obligation for reading");
-  const plain = glossed();
-  ok(!X.validateExtractionUnit(plain, input).error && !("obligation" in X.extractionRecord(plain, input, "run")),
-    `(h) the glossed paragraph without the field did not yield an Extraction with no field: ${X.validateExtractionUnit(plain, input).error}`);
-  const defined = X.validateExtractionUnit({ ...glossed(), obligation: TERMS, obligation_content: TERMS }, input).error || "";
-  ok(/paragraph 2, Segment 2: the `content` clause defines or answers "leverage", "margin", which `obligation` names as left unexplained/.test(defined),
-    `(h) an obligation whose terms a Segment defines was not refused naming the Segment: ${defined}`);
-  ok(!/Segment 3/.test(defined), `(h) a Segment naming the terms without defining them was refused: ${defined}`);
-  const question = ["why does the cost keep rising?"];
-  const asked = good(); asked.segments[2].content = "The question of why the cost keeps rising is left open for later.";
-  ok(!X.validateExtractionUnit({ ...asked, obligation: question, obligation_content: question }, input).error,
-    `(h) a question no Segment answers was refused: ${X.validateExtractionUnit({ ...asked, obligation: question, obligation_content: question }, input).error}`);
-  const answered = good(); answered.segments[2].content = "The cost keeps rising because each run answers the last with a larger copy.";
-  ok(/Segment 3: the `content` clause defines or answers "why does the cost keep rising\?"/.test(X.validateExtractionUnit({ ...answered, obligation: question, obligation_content: question }, input).error || ""),
-    `(h) a question a Segment answers was not refused naming the Segment: ${X.validateExtractionUnit({ ...answered, obligation: question, obligation_content: question }, input).error}`);
-  const refused = (o) => X.validateExtractionUnit({ ...unglossed(), obligation: o, obligation_content: o }, input).error || "";
+  const hroot = join(root, "h");
+  mkdirSync(hroot, { recursive: true });
+  writeFileSync(join(hroot, "leg.txt"), "Copies always drift. One edit went missing last week.\n\nThe pattern has a name. It covers every copy kept by hand.\n");
+  const hjudge = join(hroot, "fake-judge.mjs");
+  writeFileSync(hjudge, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+if (process.argv.includes("--version")) { console.log("fake-judge 1.0"); process.exit(0); }
+const dir = process.env.PSX_FIXTURE_DIR;
+const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
+  const prompt = Buffer.concat(c).toString("utf8");
+  const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
+  const answer = (r) => { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0); };
+  if (!input.paragraph_you_must_extract) {
+    appendFileSync(dir + "/obligation-inputs.jsonl", JSON.stringify(input) + "\\n");
+    const s = input.segments;
+    const later = (i, w) => s.slice(i + 1).some((x) => x.operation.includes(w) || x.relation.includes(w));
+    if (/without giving its grounds/.test(s[0].operation) && !later(0, "grounds")) return answer({ trigger: "withholds", obligation: ["the grounds of the asserted claim"] });
+    if (/names a term/.test(s[0].operation) && !later(0, "meaning")) return answer({ trigger: "names", obligation: ["the meaning of the named term"] });
+    return answer({ trigger: "none" });
+  }
+  const p = input.paragraph_you_must_extract;
+  const carried = input.reader_state_before;
+  const ops = p.number === 1
+    ? [["asserts a general claim without giving its grounds.", ""], ["gives one instance of the claim.", "instantiates the claim before it"]]
+    : [["names a term for a recurring pattern.", ""], ["states what the term covers.", "supplies the meaning of the term named before it"]];
+  answer({ version: "1", paragraph: p.number, source: "not given", prior_text: "not assumed", language: "English", subject_nouns: ["installer"],
+    answers: { q1: "Hands the reader one claim.", q2: "Raises why it holds.", q3: "Attention from a plain claim." },
+    what_it_does: "Hands the reader one claim.",
+    reader: ["knowledge", "question", "expectation", "orientation", "trust"].map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
+      after: i === 0 ? "AFTER-" + p.number : "unchanged", segment: i === 0 ? "2" : "" })),
+    segments: ops.map(([operation, relation], i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " is about copies.", operation, relation, manner: "" })),
+    why_this_order: "The claim comes first.", presupposes: "The reader keeps copies.", breaks: ["drop the instance — the claim floats"],
+    description: "States a claim, then one case of it.", name: "claim_then_case_" + p.number, notes: "" });
+});
+`);
+  chmodSync(hjudge, 0o755);
+  const hout = join(hroot, "out");
+  const hr = spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "run", "--leg", join(hroot, "leg.txt"), "--out", hout],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
+  ok(hr.status === 0, `(h) the obligation run exited ${hr.status}: ${hr.stdout}${hr.stderr}`);
+  const w1 = existsSync(join(hout, "claim_then_case_1.yaml")) ? recordOf(join(hout, "claim_then_case_1.yaml")) : {};
+  ok(w1.obligation_trigger === "withholds" && JSON.stringify(w1.obligation) === '["the grounds of the asserted claim"]',
+    `(h) a Segment asserting without grounds, followed by an instance, did not yield \`obligation_trigger: withholds\` and one item: ${JSON.stringify([w1.obligation_trigger, w1.obligation])}`);
+  ok(X.extractionMarkdown(w1).includes("obligation trigger: withholds"), "(h) the Extraction does not render its trigger for reading");
+  const w2 = existsSync(join(hout, "claim_then_case_2.yaml")) ? recordOf(join(hout, "claim_then_case_2.yaml")) : { obligation: "unwritten" };
+  ok(!("obligation" in w2) && !("obligation_trigger" in w2),
+    `(h) a naming Segment whose meaning a later relation supplies yielded an obligation: ${JSON.stringify([w2.obligation, w2.obligation_trigger])}`);
+  const hRun = (hr.stdout.match(/^run directory: (.+)$/m) || [])[1] || "";
+  const oPrompt = existsSync(join(hRun, "p1", "obligation", "prompt.md")) ? readFileSync(join(hRun, "p1", "obligation", "prompt.md"), "utf8") : "";
+  ok(oPrompt.includes("You are the judge at the Extractor workflow's `obligation_unit` judgment point."), "(h) p1/obligation/prompt.md is not the obligation_unit row rendered by judgePrompt");
+  for (const k of ["passage", "earlier_paragraphs", "reader_state_before", "subject_nouns", "after"]) {
+    ok(oPrompt && !oPrompt.includes(`"${k}":`), `(h) the obligation call's rendered prompt carries the \`${k}\` key`);
+  }
+  const oInputs = existsSync(join(hroot, "obligation-inputs.jsonl")) ? readFileSync(join(hroot, "obligation-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  ok(oInputs.length === 2 && oInputs.every((x) => JSON.stringify(Object.keys(x)) === '["segments"]'
+    && x.segments.every((s) => JSON.stringify(Object.keys(s)) === '["operation","relation"]')),
+    `(h) the obligation call's input is not the Segments' operation and relation alone: ${JSON.stringify(oInputs)}`);
+}
+
+// (i) THE OBLIGATION CALL'S ANSWER AND THE RECORD'S PAIR (kogaki#1583): an answer carrying
+// `obligation` beside `trigger: none` is refused by name, as are a trigger outside the set and a
+// fired trigger naming no items; on the record `obligation` and `obligation_trigger` stand together
+// or not at all; the item validators of kogaki#1557, #1568 and #1576 stay on the record.
+{
+  const at = { record: good(), input };
+  const beside = X.validateObligationUnit({ trigger: "none", obligation: ["the grounds"] }, at).error || "";
+  ok(/`obligation` is present beside `trigger` none/.test(beside), `(i) an answer carrying \`obligation\` beside \`trigger: none\` was not refused by name: ${beside}`);
+  ok(/`trigger` is "hints"/.test(X.validateObligationUnit({ trigger: "hints", obligation: ["x"] }, at).error || ""), "(i) a trigger outside the set was not refused naming it");
+  ok(/`obligation` is absent beside `trigger` counts/.test(X.validateObligationUnit({ trigger: "counts" }, at).error || ""), "(i) a fired trigger naming no items was not refused");
+  ok(!X.validateObligationUnit({ trigger: "none" }, at).error && !X.validateObligationUnit({ trigger: "names", obligation: ["the meaning of a named term"] }, at).error,
+    "(i) a well-formed obligation answer was refused");
+  const pairOf = (k) => { const r = { ...good(), obligation: ["the meaning of a named term"], obligation_trigger: "names" }; delete r[k]; return X.validateExtractionUnit(r, input).error || ""; };
+  for (const [k, present] of [["obligation_trigger", "obligation"], ["obligation", "obligation_trigger"]]) {
+    ok(new RegExp(`\`${present}\` is present and \`${k}\` is absent`).test(pairOf(k)), `(i) \`${present}\` without \`${k}\` was not refused naming both: ${pairOf(k)}`);
+  }
+  const refused = (o) => X.validateExtractionUnit({ ...good(), obligation: o, obligation_trigger: "names" }, input).error || "";
   for (const key of ["kind", "text", "term"]) {
-    const why = refused({ [key]: "leverage" });
-    ok(new RegExp(`\`obligation\` is a map carrying \`${key}\``).test(why) && /`kind` is retired/.test(why),
-      `(h) a map obligation carrying \`${key}\` was not refused naming the key: ${why}`);
+    ok(new RegExp(`\`obligation\` is a map carrying \`${key}\``).test(refused({ [key]: "x" })), `(i) a map obligation carrying \`${key}\` was not refused naming the key`);
   }
-  ok(/`obligation` is not a list of one or more one-line items/.test(refused([])), `(h) an empty obligation list was not refused: ${refused([])}`);
-  ok(/`obligation` names "leverage" twice/.test(refused(["leverage", "leverage"])), `(h) an item named twice was not refused: ${refused(["leverage", "leverage"])}`);
-  // Rule 7 over each item (kogaki#1576), the shape of paragraph 3 of leg-run-2026-10-24T10-59-33-199Z:
-  // both items were the record's own subject_nouns.
-  const specific = refused(["leverage", "installer"]);
-  ok(/`obligation` item 2, "installer", names "installer", one of your subject_nouns/.test(specific) && /rule 7/.test(specific)
-    && !/item 1/.test(specific), `(h) an item naming a subject noun was not refused naming the item, the noun and rule 7: ${specific}`);
-  const foreign = refused(["レバレッジ"]);
-  ok(/`obligation` item 1, "レバレッジ", carries "レバレッジ", a word outside the Latin script/.test(foreign) && /rule 7/.test(foreign),
-    `(h) an item outside the Latin script was not refused naming the item and rule 7: ${foreign}`);
+  ok(/`obligation` is not a list of one or more one-line items/.test(refused([])), `(i) an empty obligation list was not refused: ${refused([])}`);
+  ok(/`obligation` names "leverage" twice/.test(refused(["leverage", "leverage"])), `(i) an item named twice was not refused: ${refused(["leverage", "leverage"])}`);
+  ok(/`obligation` item 1, "installer", names "installer", one of your subject_nouns/.test(refused(["installer"])), `(i) an item naming a subject noun was not refused: ${refused(["installer"])}`);
+  ok(/a word outside the Latin script/.test(refused(["レバレッジ"])), `(i) an item outside the Latin script was not refused: ${refused(["レバレッジ"])}`);
+  const defined = good(); defined.segments[1].content = "Leverage is defined as borrowed weight.";
+  ok(/Segment 2: the `content` clause defines or answers "leverage"/.test(X.validateExtractionUnit({ ...defined, obligation: ["leverage"], obligation_trigger: "names" }, input).error || ""),
+    "(i) an item a Segment's `content` clause defines was not refused naming the Segment");
   ok(formatRule7.includes("Each item is written general, as `operation` is: it names no term, place, person or claim of the original and none of `subject_nouns` (kogaki#1576)."),
-    "(h) passages/FORMAT.md's `obligation` entry does not carry the general-item sentence");
+    "(i) passages/FORMAT.md's `obligation` entry does not carry the general-item sentence");
 }
 
-// (i) THE `discharges` MARK (FORMAT "The paragraph unit", rule 10, kogaki#1570).
+// (j) THE RETIRED KEYS (kogaki#1583): a record carrying `discharges` or `obligation_content` is
+// refused as an undeclared key, the extraction call's answer carrying `obligation` is refused, and
+// FORMAT carries rule 8 and the retired rule 10 verbatim.
 {
-  const ITEMS = ["leverage", "margin"];
-  const open = { ...input, open_obligation: ITEMS };
-  const marked = { ...good(), discharges: true };
-  ok(!X.validateExtractionUnit(marked, open).error, `(i) \`discharges\` with an open obligation was refused: ${X.validateExtractionUnit(marked, open).error}`);
-  ok(X.extractionRecord(marked, open, "run").discharges === true, "(i) the Extraction record does not carry `discharges`");
-  const back = parseYaml(X.extractionFileText(marked, open, "run"), "i.yaml");
-  ok(back.discharges === true && X.extractionMarkdown(back).includes("discharges: true"), "(i) the Extraction file or its reading does not carry `discharges`");
-  ok(!("discharges" in X.extractionRecord(good(), open, "run")), "(i) a record with no mark gained `discharges`");
-  const without = X.validateExtractionUnit(marked, { ...input, open_obligation: null }).error || "";
-  ok(/`discharges` is present and `open_obligation` is null/.test(without), `(i) \`discharges\` without an open obligation was not refused by name: ${without}`);
-  const notTrue = X.validateExtractionUnit({ ...good(), discharges: "yes" }, open).error || "";
-  ok(/`discharges` is "yes" — it is `true` or absent/.test(notTrue), `(i) a \`discharges\` other than true was not refused: ${notTrue}`);
-  ok(JSON.stringify(X.carriedObligation(null, { obligation: ["a term"], obligation_content: ITEMS })) === JSON.stringify(ITEMS)
-    && JSON.stringify(X.carriedObligation(ITEMS, {})) === JSON.stringify(ITEMS)
-    && X.carriedObligation(ITEMS, { discharges: true }) === null
-    && JSON.stringify(X.carriedObligation(ITEMS, { obligation: ["a question"], obligation_content: ["why?"] })) === '["why?"]',
-    "(i) the open items do not pass to the next paragraph until one is marked, or a raising paragraph's own words do not replace them");
-  const rule10 = "10. **`discharges` is present only on the paragraph that completes an open obligation.** Where `open_obligation` names items an earlier paragraph left unexplained and this paragraph gives the last of them its meaning or answer, `discharges` is `true`; otherwise the key is absent.";
-  ok(readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").includes(rule10), "(i) passages/FORMAT.md does not carry rule 10 verbatim");
-}
-
-// (j) THE OBLIGATION IN THE PARAGRAPH'S OWN WORDS (FORMAT "The paragraph unit", rule 8, kogaki#1578).
-{
-  const unglossed = () => { const g = good(); g.segments[2].content = "Two names, leverage and margin, close the paragraph with neither given a meaning."; return g; };
-  const GENERAL = ["a borrowed quantity", "a reserve held against it"], WORDS = ["leverage", "margin"];
-  const both = { ...unglossed(), obligation: GENERAL, obligation_content: WORDS };
-  ok(!X.validateExtractionUnit(both, input).error, `(j) a record carrying both keys was refused: ${X.validateExtractionUnit(both, input).error}`);
-  const rec = X.extractionRecord(both, input, "run");
-  const back = parseYaml(X.extractionFileText(both, input, "run"), "j.yaml");
-  ok(JSON.stringify(rec.obligation) === JSON.stringify(GENERAL) && JSON.stringify(rec.obligation_content) === JSON.stringify(WORDS)
-    && JSON.stringify(back.obligation_content) === JSON.stringify(WORDS) && X.extractionMarkdown(back).includes("obligation_content: leverage, margin"),
-    `(j) the record, the file or its reading does not carry both lists: ${JSON.stringify(back)}`);
-  const alone = (k) => { const r = { ...unglossed(), obligation: GENERAL, obligation_content: WORDS }; delete r[k]; return X.validateExtractionUnit(r, input).error || ""; };
-  for (const [k, present] of [["obligation_content", "obligation"], ["obligation", "obligation_content"]]) {
-    const why = alone(k);
-    ok(new RegExp(`paragraph 2: \`${present}\` is present and \`${k}\` is absent`).test(why) && /rule 8/.test(why),
-      `(j) \`${present}\` without \`${k}\` was not refused naming both: ${why}`);
+  for (const k of ["discharges", "obligation_content"]) {
+    const e = X.validateExtractionUnit({ ...good(), [k]: k === "discharges" ? true : ["leverage"] }, input).error || "";
+    ok(new RegExp(`carries \`${k}\`, which it does not declare`).test(e), `(j) a record carrying \`${k}\` was not refused as an undeclared key: ${e}`);
   }
-  const short = X.validateExtractionUnit({ ...both, obligation_content: ["leverage"] }, input).error || "";
-  ok(/`obligation` lists 2 item\(s\) and `obligation_content` lists 1/.test(short), `(j) lists of different lengths were not refused naming both: ${short}`);
-  ok(/`obligation_content` is not a list of one or more one-line items/.test(X.validateExtractionUnit({ ...both, obligation_content: ["lev\nerage", "margin"] }, input).error || ""),
-    "(j) an obligation_content item over two lines was not refused");
-  const rule8 = "8. **`obligation` is absent unless the paragraph leaves an item unexplained.** Where the last Segment names a term or raises a question and no Segment gives its meaning or answer, `obligation` is the list of those items, one line each, written general in the order the paragraph names them, and `obligation_content` is the same list in the paragraph's own words; otherwise both keys are absent.";
-  ok(readFileSync(join(repo, "passages", "FORMAT.md"), "utf8").includes(rule8), "(j) passages/FORMAT.md does not carry rule 8 verbatim");
+  ok(/the record carries `obligation` — the Harness asks the obligation in a second call/.test(X.validateExtractionAnswer({ ...good(), obligation: ["x"] }, input).error || ""),
+    "(j) the extraction call's answer carrying `obligation` was not refused");
+  ok(!("open_obligation" in input), `(j) the extraction call's input still carries \`open_obligation\`: ${JSON.stringify(Object.keys(input))}`);
+  const format = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8");
+  const rule8 = "8. **`obligation` is absent unless a trigger fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording names a label or term, counts items, announces that something follows, or withholds grounds, and no later Segment's operation or relation supplies it, `obligation` is the list of those items, one line each, written general, in the order the Segments name them, and `obligation_trigger` names the trigger; otherwise both keys are absent. The obligation belongs to the Move as a whole, and no Segment position is required. Absent is the normal case.";
+  ok(format.includes(rule8), "(j) passages/FORMAT.md does not carry rule 8 verbatim");
+  ok(format.includes("10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*"), "(j) passages/FORMAT.md does not carry the retired rule 10 verbatim");
 }
 
 // (g) announced blocks stay with their paragraph

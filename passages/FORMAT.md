@@ -148,11 +148,10 @@ rule 8 is kogaki#1557's, rule 9 is kogaki#1478's and rule 10 is kogaki#1570's:
    record, `operation`, `relation`, `manner`, each entry of `breaks`, each
    dimension state of the reader table and each item of `obligation`, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
-   original's language; the record's `content` clause, `opening` and
-   `obligation_content` are the only fields bound to the source (kogaki#1519,
-   kogaki#1578). A `content` clause opens on
+   original's language; the record's `content` clause and `opening` are the
+   only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`obligation` is absent unless the paragraph leaves an item unexplained.** Where the last Segment names a term or raises a question and no Segment gives its meaning or answer, `obligation` is the list of those items, one line each, written general in the order the paragraph names them, and `obligation_content` is the same list in the paragraph's own words; otherwise both keys are absent.
+8. **`obligation` is absent unless a trigger fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording names a label or term, counts items, announces that something follows, or withholds grounds, and no later Segment's operation or relation supplies it, `obligation` is the list of those items, one line each, written general, in the order the Segments name them, and `obligation_trigger` names the trigger; otherwise both keys are absent. The obligation belongs to the Move as a whole, and no Segment position is required. Absent is the normal case.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -160,7 +159,7 @@ rule 8 is kogaki#1557's, rule 9 is kogaki#1478's and rule 10 is kogaki#1570's:
    and nowhere else, never in `operation`, `content`, `relation`, `manner`
    or a reader-state line. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
    mechanism, one rule covering the class rather than a list of its members.
-10. **`discharges` is present only on the paragraph that completes an open obligation.** Where `open_obligation` names items an earlier paragraph left unexplained and this paragraph gives the last of them its meaning or answer, `discharges` is `true`; otherwise the key is absent.
+10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*
 
 Three fields carry the two levels:
 
@@ -540,28 +539,22 @@ What each field holds:
   `subject_nouns`, and no word in the original's language, so that it tests
   the Move on any subject (kogaki#1519). A `breaks` that is not a list of
   one-line strings is refused at ingestion.
-- `obligation` — absent unless the paragraph leaves an item unexplained
+- `obligation` — absent unless a trigger fires in the Move's own Segments
   ("The paragraph unit", rule 8). Where present, it is the list of those
-  items, one line each, in the order the paragraph names them, naming no
+  items, one line each, in the order the Segments name them, naming no
   item twice; a map, and so a `kind`, is refused (kogaki#1568). Each item
   is written general, as `operation` is: it names no term, place, person or
   claim of the original and none of `subject_nouns` (kogaki#1576). An
   `obligation` naming an item a Segment's `content` clause defines or
-  answers is refused, naming the Segment. The ingest copies it to the Move
-  unchanged (kogaki#1557).
-- `obligation_content` — present exactly where `obligation` is ("The
-  paragraph unit", rule 8): the same list in the paragraph's own words, item
-  for item, each one line. It is bound to the source as `content` is, so rule
-  7 does not hold it general. One key without the other, or two lists of
-  different lengths, is refused naming both. It stays on the Extraction and
-  the ingest does not copy it to the Move (kogaki#1578).
-- `discharges` — present only on the paragraph that completes an open
-  obligation ("The paragraph unit", rule 10): where the input's
-  `open_obligation` names items an earlier paragraph left unexplained and
-  this paragraph gives the last of them its meaning or answer, it is `true`;
-  otherwise the key is absent. A `discharges` where `open_obligation` is null
-  is refused by name. It is bound to the source, so it stays on the
-  Extraction and the ingest does not copy it to the Move (kogaki#1570).
+  answers is refused, naming the Segment. The Extractor asks it in a second
+  call whose input is the record's `segments`, each `operation` and
+  `relation`, and nothing of the Passage (kogaki#1583). The ingest copies it
+  to the Move unchanged (kogaki#1557).
+- `obligation_trigger` — present exactly where `obligation` is ("The
+  paragraph unit", rule 8): one of `names`, `counts`, `announces` or
+  `withholds`, the trigger that fired. One key without the other is refused
+  naming both. It stays on the Extraction and the ingest does not copy it to
+  the Move (kogaki#1583).
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
   role: no prompt renders it, and the ingest reads only that it is present

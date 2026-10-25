@@ -2916,7 +2916,10 @@ decision 2026-10-24), and these rules govern it:
    ParagraphPlan file (§4.19). Both scales carry the same fields and the same
    rules, except rule 5, which has no Paragraph counterpart.
 2. **One source.** A Move whose `obligation` names items it leaves
-   unexplained raises a **slot**: its items, general as every Move field is,
+   unexplained raises a **slot** — items derived from the Move's own
+   Segments and from nothing of any source text, so the inference holds no
+   state and its boundary is one Move (kogaki#1583, owner decision
+   2026-10-25) —: its items, general as every Move field is,
    and their count. The composer fills the slot with ONE row whose `item`
    list carries, in the slot's order, what this article leaves unexplained
    at that place, in the article's own words, one entry per slot item; a row

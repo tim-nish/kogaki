@@ -240,8 +240,9 @@ function readerPathUnitRecord(stdout, recordArray = "legs") {
   if (record && record.__parseError) return { error: record.__parseError };
   if (!record || typeof record !== "object" || Array.isArray(record)) return { error: "not a JSON object" };
   // THE ARRAY THE RECORD MUST CARRY IS DECLARED BY THE UNITS FILE (kogaki#1301):
-  // `legs` for a reader-path unit, `claim_register` for a path-review unit.
-  if (!Array.isArray(record[recordArray])) return { error: `no \`${recordArray}\` array` };
+  // `legs` for a reader-path unit, `claim_register` for a path-review unit; `false` for a
+  // unit whose answer may carry no array at all (kogaki#1583).
+  if (recordArray !== false && !Array.isArray(record[recordArray])) return { error: `no \`${recordArray}\` array` };
   return { candidate: record };
 }
 
@@ -541,7 +542,8 @@ export async function cmdJobSupervise(args) {
     const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
     const validate = await loadReaderPathUnitValidator(declared.validator);
     const fit = await loadReaderPathFitJudge(declared.fit_judge);
-    const recordArray = typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
+    const recordArray = declared.record_array === false ? false
+      : typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
 
     // THE MINIMAL ENVIRONMENT (kogaki#1193, kogaki#1197): only `units[].prompt` and the
     // session's own login; do not add the bare-session flag (it breaks OAuth auth), and keep
@@ -845,7 +847,7 @@ export function startDetachedJobSupervisor(dir, opts) {
   const units = opts.units.map((u) => ({ ...u, prompt: withNoToolsSentence(u.prompt) }));
   writeFileSync(unitsPath, `${JSON.stringify({ units, validator,
     ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
-    ...(opts.recordArray ? { record_array: opts.recordArray } : {}) }, null, 2)}\n`);
+    ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}) }, null, 2)}\n`);
   const scriptPath = join(REPO, "src", "terrain.mjs");
   const child = spawn(process.execPath, [
     scriptPath, "job-supervise",

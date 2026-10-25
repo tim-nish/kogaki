@@ -11,7 +11,8 @@
 #   (a) the run exits 0 with every stage `done` in `run.json`, and each model stage's calls
 #       went through the recorder: `calls.jsonl` per stage holds exactly the calls the fake
 #       binary saw, each judge answer padded past a pipe's buffer and handed through whole
-#       (Extractor 4 — paragraph 1 refused once —, Leg Brief composer 2,
+#       (Extractor 4 — paragraph 1 refused once — and one obligation call per paragraph,
+#       kogaki#1583, Leg Brief composer 2,
 #       ParagraphPlan generator and judge, Writer 1), each prompt and answer as sent.
 #   (b) the ingest derived one Move per Extraction into the run's own library, and the
 #       ParagraphPlan file gives each Leg Waypoint as many Paragraph Waypoints as its bound
@@ -29,9 +30,9 @@
 #       Brief cards (kogaki#1487) -- and the other three folded,
 #       and every Inputs entry links to another card's id on the page; the Extraction card
 #       shows paragraph 1's prompt and two attempts; the Draft card states its prompt equals
-#       the Packet rather than repeating it; every recorded call's prompt, cut into its
-#       instruction and its input, has each piece appear exactly once on the whole page (a retry
-#       shows only the refusal block it inserted); the Audience and the settings appear only in
+#       the Packet rather than repeating it; every recorded call's prompt but the obligation
+#       call's (kogaki#1583), cut into its instruction and its input, has each piece appear exactly
+#       once on the whole page (a retry shows only the refusal block it inserted); the Audience and the settings appear only in
 #       the run-conditions line.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
 #       stopped Draft stage still draws the card with the stop in its Output.
@@ -226,6 +227,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
         : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
+  // The obligation call (kogaki#1583): no trigger fires in these Segments.
+  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ trigger: "none" }, "extract");
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -299,7 +302,7 @@ else {
   const run = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
   ok(run.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
     `(a) the stages are not all done: ${JSON.stringify(run.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  const want = { extract: ["extract", 4], brief: ["brief-reader-start|brief-leg-path", 2], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
+  const want = { extract: ["extract", 7], brief: ["brief-reader-start|brief-leg-path", 2], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
   for (const [stage, [kinds, n]] of Object.entries(want)) {
     const cs = calls(stage);
     const ks = kinds.split("|");
@@ -433,6 +436,8 @@ else {
     const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
     for (const [n, c] of recorded.entries()) {
       const text = String(c.stdin);
+      // The obligation call (kogaki#1583) is not drawn on the sheet; its answer is, on the record.
+      if (text.includes("`obligation_unit` judgment point")) continue;
       const cut = [text.indexOf(REFUSED), text.indexOf(INPUT)].filter((x) => x >= 0);
       const end = cut.length ? Math.min(...cut) : text.length;
       const at = text.indexOf(INPUT);
@@ -819,6 +824,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
+  // The obligation call (kogaki#1583): no trigger fires in these Segments.
+  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ trigger: "none" }, "extract");
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -1217,7 +1224,7 @@ if (kRunDir) {
   writeFileSync(sJudge, `#!/usr/bin/env node
 import { appendFileSync, writeSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
-// (v) PSR_TERMS: each Leg's content terms and introduced terms, the one Move carrying \`obligation\` (\`general\`, its items in the paragraph's words under \`obligations\`), and the paragraphs marked \`discharges\`.
+// (v) PSR_TERMS: each Leg's content terms and introduced terms, the paragraph whose Segments raise an obligation (keyed under \`obligations\`), and the general items its obligation call answers (\`general\`).
 const T = process.env.PSR_TERMS ? JSON.parse(process.env.PSR_TERMS) : null;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
@@ -1245,6 +1252,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: segmentsOf("move_" + slug + "_" + w.waypoint).map((_, n) => ({
         point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
+  // The obligation call (kogaki#1583) reads the Segments' wording alone: the operation the owing
+  // paragraph's last Segment performs fires names, and nothing else fires.
+  if (prompt.includes("\\\`obligation_unit\\\` judgment point")) {
+    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { trigger: "names", obligation: T.general } : { trigger: "none" }, "extract");
+  }
   if (prompt.includes('"paragraph_you_must_extract"')) {
     const x = input();
     const p = x.paragraph_you_must_extract;
@@ -1252,7 +1264,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const dims = ["knowledge", "question", "expectation", "orientation", "trust"];
     const term = T ? (T.content[p.passage] || []).map((t) => " the " + t).join(" and") : /frobnicator/.test(p.text) ? " the frobnicator" : "";
     const owes = T && T.obligations[p.passage + ":" + p.number];
-    const discharges = !!(T && T.discharges && T.discharges[p.passage + ":" + p.number] && x.open_obligation);
     return out({ version: "1", paragraph: p.number, source: "not given", prior_text: carried ? "assumed — it takes up the text before it" : "not assumed — opens on a fact",
       language: "English", subject_nouns: ["installer"],
       answers: { q1: "Hands the reader one fact.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
@@ -1261,10 +1272,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds " + owes.length + " items unexplained" : "") : "unchanged",
         segment: i === 0 ? String(p.sentences.length) : "" })),
       segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
-        operation: "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
+        operation: owes && i === p.sentences.length - 1 ? "names two devices and explains neither." : "states one consequence of an act the reader did not ask for.",
+        relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
-      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "", ...(owes ? { obligation: T.general, obligation_content: owes } : {}), ...(discharges ? { discharges: true } : {}) }, "extract");
+      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "" }, "extract");
   }
   if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
     return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
@@ -1295,7 +1307,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       `(s) run.json's legs do not list the three files with their paragraph counts: ${JSON.stringify(run.legs)}`);
     // The Extractor ran every paragraph in order, Leg B's first reading Leg A's last as its earlier text.
     const sSeen = readOr(join(sRoot, "seen.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
-    const ex = sSeen.filter((x) => x.stage === "extract").map((x) => JSON.parse(x.prompt.slice(x.prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)));
+    const ex = sSeen.filter((x) => x.stage === "extract").map((x) => JSON.parse(x.prompt.slice(x.prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)))
+      .filter((x) => x.paragraph_you_must_extract);
     ok(ex.length === 6 && JSON.stringify(ex.map((x) => `${x.paragraph_you_must_extract.passage}:${x.paragraph_you_must_extract.number}`)) === JSON.stringify(["leg_a:1", "leg_a:2", "leg_b:1", "leg_b:2", "leg_c:1", "leg_c:2"]),
       `(s) the Extractor did not run every paragraph of every Leg in order: ${JSON.stringify(ex.map((x) => x.paragraph_you_must_extract))}`);
     ok(ex.length === 6 && JSON.stringify(ex[2].earlier_paragraphs) === JSON.stringify([LEGS.leg_a[1]]) && JSON.stringify(ex[3].earlier_paragraphs) === JSON.stringify([LEGS.leg_b[0]])
@@ -1394,23 +1407,22 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     }
   }
   // (v) NO OBLIGATION ROW, AND THE MOVE'S OBLIGATION BESIDE ITS PARAGRAPH (kogaki#1582): Leg A's second
-  // paragraph leaves frobnicator then gizmo open, its Move two general items. Over two Legs with Leg B's
-  // second paragraph marked, the Extractor still hands the words to every paragraph through it, and the
-  // Brief carries `obligations: []` under the comment naming the Planner, `brief.json` no `deferrals` and
+  // paragraph's last Segment names two devices and explains neither, so its obligation call, handed
+  // the Segments alone (kogaki#1583), answers two general items; no extraction call is handed an open
+  // obligation. Over two Legs the Brief carries `obligations: []` under the comment naming the Planner, `brief.json` no `deferrals` and
   // no derived `obligations` row, the plan call for Leg B is handed no row to owe, and the sheet carries
-  // the Move's general items under Leg A's second paragraph and under no other. Over two Legs with no
-  // paragraph marked, every stage runs and the Brief carries `obligations: []`.
+  // the Move's general items under Leg A's second paragraph and under no other.
   {
     const vRoot = join(root, "deferred-terms"); mkdirSync(vRoot, { recursive: true });
     const ITEMS = ["frobnicator", "gizmo"], OBLIGATIONS = { "leg_a:2": ITEMS }, GENERAL = ["a named device", "a second named device"];
     const { parseBriefRecord } = await imp("src/compose/record.mjs");
     const LBv = await imp("src/proof-sheet/leg-brief.mjs");
-    const vRun = (tag, names, discharges) => {
+    const vRun = (tag, names) => {
       const d = join(vRoot, tag); mkdirSync(d, { recursive: true });
       for (const n of names) writeFileSync(join(d, `${n}.md`), `The ${n} paragraph states one fact.\n\nNobody asked the consumer first.\n`);
       const r = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", ...names.flatMap((n) => ["--leg", join(d, `${n}.md`)]), "--out", join(d, "out"), "--provenance", map],
         { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: d,
-          PSR_TERMS: JSON.stringify({ obligations: OBLIGATIONS, general: GENERAL, discharges, introduces: {}, content: { leg_a: ITEMS } }) }, timeout: 600000 });
+          PSR_TERMS: JSON.stringify({ obligations: OBLIGATIONS, general: GENERAL, introduces: {}, content: { leg_a: ITEMS } }) }, timeout: 600000 });
       const dir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
       ok(r.status === 0 && !!dir, `(v) the ${tag} run exited ${r.status}: ${r.stdout}${r.stderr}`); if (!dir) return null;
       const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
@@ -1418,19 +1430,22 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       let rec = null;
       try { rec = parseBriefRecord(readFileSync(join(dir, "brief", "brief.yaml"), "utf8")).record; } catch (e) { fails.push(`(v) the ${tag} Brief does not parse: ${e.message}`); }
       const lb = (run.stages.find((st) => st.stage === "brief") || {}).leg_brief_run;
-      const IN = "----- INPUT (JSON) -----", extractInputs = readOr(join(d, "seen.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
+      const IN = "----- INPUT (JSON) -----", stageInputs = readOr(join(d, "seen.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
         .filter((x) => x.stage === "extract").map((x) => JSON.parse(x.prompt.slice(x.prompt.lastIndexOf(IN) + IN.length)));
       return { dir, run, rec, text: readOr(join(dir, "brief", "brief.yaml"), ""), bj: lb ? JSON.parse(readOr(join(lb, "brief.json"), "{}")) : {},
-        sheet: readOr(join(dir, "sheet.html"), ""), extractInputs };
+        sheet: readOr(join(dir, "sheet.html"), ""), extractInputs: stageInputs.filter((x) => x.paragraph_you_must_extract),
+        obligationInputs: stageInputs.filter((x) => !x.paragraph_you_must_extract) };
     };
     const block = (sheet, k) => { const a = sheet.indexOf(`<section class="leg-block" id="leg-0-${k}">`); return a < 0 ? "" : sheet.slice(a, sheet.indexOf("</table>", a)); };
     const row = (html, n) => { const a = html.indexOf(`<tr><th>${n}</th>`); return a < 0 ? "" : html.slice(a, html.indexOf("</tr>", a)); };
     const LINE = `<p class="obligation">Move obligation: ${GENERAL.join(" · ")}</p>`;
-    const two = vRun("two", ["leg_a", "leg_b"], { "leg_b:2": true });
+    const two = vRun("two", ["leg_a", "leg_b"]);
     if (two && two.rec) {
-      const open = two.extractInputs.map((x) => `${x.paragraph_you_must_extract.passage}:${x.paragraph_you_must_extract.number}=${JSON.stringify(x.open_obligation)}`), moveA2 = readOr(join(two.dir, "moves", "move_leg_a_2.yaml"), "");
-      ok(JSON.stringify(open) === JSON.stringify(["leg_a:1=null", "leg_a:2=null", `leg_b:1=${JSON.stringify(ITEMS)}`, `leg_b:2=${JSON.stringify(ITEMS)}`]),
-        `(v) the Extractor does not carry the open items from Leg A's second paragraph through the marked one: ${JSON.stringify(open)}`);
+      const moveA2 = readOr(join(two.dir, "moves", "move_leg_a_2.yaml"), "");
+      ok(two.extractInputs.length === 4 && two.extractInputs.every((x) => !("open_obligation" in x)),
+        `(v) an extraction call is handed an open obligation: ${JSON.stringify(two.extractInputs.map((x) => Object.keys(x)))}`);
+      ok(two.obligationInputs.length === 4 && two.obligationInputs.every((x) => JSON.stringify(Object.keys(x)) === '["segments"]'),
+        `(v) the obligation calls are not one per paragraph, each handed the Segments alone: ${JSON.stringify(two.obligationInputs)}`);
       ok(JSON.stringify(two.rec.obligations) === "[]" && moveA2.includes("obligation: [a named device, a second named device]"),
         `(v) the two-Leg Brief carries an Obligation row, or its Move does not carry the general items: ${JSON.stringify(two.rec.obligations)} / ${moveA2}`);
       ok(two.text.includes(`${LBv.DERIVED_COMMENT}\nobligations: []`), "(v) the Brief does not carry `obligations: []` under the comment naming the Planner");
@@ -1443,10 +1458,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         .map((c) => c.stdin).filter((s) => s.includes('"leg_you_must_plan"') && s.includes('"leg_id": "leg-b"'));
       ok(planB.length >= 1 && planB.every((s) => !/"obligations_this_leg_owes": \[\s*\{/.test(s)),
         "(v) the plan call for leg-b is handed a row to owe");
-    }
-    const unmarked = vRun("unmarked", ["leg_a", "leg_b"], {});
-    if (unmarked && unmarked.rec) {
-      ok(JSON.stringify(unmarked.rec.obligations) === "[]", `(v) the run with no paragraph marked \`discharges\` carries an Obligation row: ${JSON.stringify(unmarked.rec.obligations)}`);
     }
   }
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
