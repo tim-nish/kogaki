@@ -1,13 +1,6 @@
 {
   "module_max_lines": 1500,
-  "module_max_lines_exempt": [
-    "checks/check-brief-reader-path-job.sh",
-    "src/assemble.mjs",
-    "src/brief.mjs",
-    "src/compose.mjs",
-    "src/draft.mjs",
-    "tools/move_ingest.py"
-  ],
+  "module_max_lines_exempt": [],
   "comment_block_max_lines": 12,
   "comment_block_exempt": [
     ".claude/hooks/advance-brief.py",
@@ -16,7 +9,6 @@
     ".claude/hooks/gate-skill-dispatch-under-run.py",
     ".claude/hooks/gate-terrain-executor.py",
     ".claude/hooks/write-gate-capture.py",
-    "checks/check-brief-reader-path-job.sh",
     "checks/check-draft-packet.sh",
     "checks/check-move-library.sh",
     "checks/check-paragraph-plan.sh",
@@ -31,12 +23,8 @@
     "checks/check-terrain-hook-invocation.sh",
     "checks/check-terrain-runtime.sh",
     "checks/fixtures/fake-gateway/gateway.mjs",
-    "src/assemble.mjs",
-    "src/brief.mjs",
     "src/cite-check.mjs",
-    "src/compose.mjs",
     "src/disclosure.mjs",
-    "src/draft.mjs",
     "src/format-guard.mjs",
     "src/lint-ja.mjs",
     "src/move-validate.mjs",
@@ -55,7 +43,6 @@
     "tools/derive_schema.py",
     "tools/digest-check-catches.sh",
     "tools/mine-receipt-absence.sh",
-    "tools/move_ingest.py",
     "tools/open-gates-guard.sh",
     "tools/run-registered-checks.sh"
   ]
