@@ -36,6 +36,10 @@
 // part, each paragraph's Move description is followed by the `obligation` items its Move carries,
 // numbered on one line. The sheet is the library view, not the Plan, so a Move field may appear.
 //
+// THE OBLIGATION CALL'S VERDICT UNDER THE DESCRIPTION (kogaki#1593): between a bound Move's
+// description and its obligation, one line per entry of the Extraction record's
+// `obligation_triggers`, in the record's order, the `why` verbatim.
+//
 // THE PARAGRAPH WAYPOINTS BETWEEN THE TWO PARAGRAPHS (kogaki#1591): the comparison table's middle
 // column lists the Leg Waypoint's Paragraph Waypoints from the plan file, item k against Segment k.
 // Each Segments heading ends in a `copy table` button copying its table as tab-separated text.
@@ -518,6 +522,14 @@ function moveObligationLine(r, i) {
   return items.length ? `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(x)}`).join("; ")}</p>` : "";
 }
 
+// The Extraction record's obligation call verdict, one line per trigger; "(not recorded)" where it carries none.
+function obligationTriggerLines(rec) {
+  const triggers = rec && rec.obligation_triggers && typeof rec.obligation_triggers === "object" ? Object.entries(rec.obligation_triggers) : [];
+  return triggers.length
+    ? triggers.map(([name, t]) => `<p class="trigger">obligation trigger ${esc(name)}: ${t && t.fired ? "fired" : "not fired"} — ${esc((t && t.why) || "")}</p>`).join("")
+    : `<p class="trigger">obligation trigger: (not recorded)</p>`;
+}
+
 // The plan file's text and this Leg's entry in it; the entry is null where the file is unreadable.
 function planLeg(r) {
   const planText = read(r.planPath);
@@ -556,7 +568,7 @@ function extractionParagraphs(r) {
     let rec = null;
     if (text) { try { rec = parseYaml(text, file); rendered = extractionMarkdown(rec); } catch { rendered = null; } }
     const segs = rec && Array.isArray(rec.segments) ? rec.segments : answer && Array.isArray(answer.segments) ? answer.segments : [];
-    per.push({ i, file, text, rendered, promptText, calls, attempts, segs });
+    per.push({ i, file, text, rendered, promptText, calls, attempts, segs, rec });
   }
   return per;
 }
@@ -1029,7 +1041,7 @@ function reviewBlock(r, idx) {
     return b ? ` · bound ${esc(b.move || "(none bound)")}${sourceBadge(r.run, b.move)}` : "";
   };
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}${COPY_BUTTON}</h4>`
-    + moveDescription(r, entries[p.i] && entries[p.i].move) + moveObligationLine(r, p.i)
+    + moveDescription(r, entries[p.i] && entries[p.i].move) + (entries[p.i] && entries[p.i].move ? obligationTriggerLines(p.rec) : "") + moveObligationLine(r, p.i)
     + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge
@@ -1076,7 +1088,7 @@ const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--ac
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}}
 :root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
-.obligation{color:var(--accent);font-size:13px}
+.obligation,.trigger{color:var(--accent);font-size:13px}
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}

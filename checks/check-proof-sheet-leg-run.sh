@@ -109,6 +109,7 @@
 #       middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments
 #       heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they
 #       stand numbered after that Move's description and nowhere in the comparison table.
+#   (x) the obligation call's verdict under each Move description (kogaki#1593): its not fired, fired and not recorded forms.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -131,7 +132,7 @@ process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
-const COPY = '<button type="button" class="copy-table">copy table</button>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const COPY = '<button type="button" class="copy-table">copy table</button>', NOT_FIRED = '<p class="trigger">obligation trigger counts: not fired — No operation counts items.</p>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // (l) The ParagraphPlan card's Attempts part, cut into its per-attempt blocks.
 const attemptBlocks = (cardHtml) => {
   const a = cardHtml.indexOf('<details class="part attempts">');
@@ -655,8 +656,8 @@ else {
     const headEnd = head >= 0 ? segPart.indexOf("</h4>", head) + 5 : -1;
     const table = headEnd >= 0 ? segPart.indexOf("<table", headEnd) : -1;
     ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd
-      && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>`,
-      `(o) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph above its Segments table`);
+      && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>${NOT_FIRED}`,
+      `(o)/(x) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph, then its obligation trigger verdict, above its Segments table: ${segPart.slice(headEnd, table)}`);
   }
   // A paragraph with no Move bound shows its heading and its table with nothing between them.
   const unbound = join(root, "unbound-move-run");
@@ -667,6 +668,7 @@ else {
   writeFileSync(ingestPath, JSON.stringify(ingestRec));
   const mv3 = join(unbound, "moves", "name_an_act_then_its_cost_3.yaml"); // (w)'s obligation line
   writeFileSync(mv3, `${readOr(mv3, "").replace(/^obligation:.*\n?/m, "").trimEnd()}\nobligation:\n  - first item\n  - second item\n`);
+  const extractOf = (n) => join(unbound, "extract", readdirSync(join(unbound, "extract")).find((x) => x.startsWith(`name_an_act_then_its_cost_${n}`)) || "missing"), FIRED_WHY = "WHY-FIRED the Segments count two devices."; for (const [n, edit] of [[3, (t) => t.replace(/fired: false/, "fired: true").replace("No operation counts items.", FIRED_WHY)], [1, (t) => t.replace(/^obligation_triggers:\n(?:  .*\n)*/m, "")]]) writeFileSync(extractOf(n), edit(readOr(extractOf(n), ""))); // (x)
   const nBuilt = S.buildSheet({ runs: [unbound], provenance: map, out: join(root, "unbound.html") });
   const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
   const noMove = `<h4>paragraph 2 — (no Move)${COPY}</h4>`, nHead = nSeg.indexOf(noMove);
@@ -680,8 +682,9 @@ else {
     `(w) paragraph 2's middle cell does not list Leg Waypoint 2's Paragraph Waypoints in order, the performs entry in italics: ${legRows[1]}`);
   const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
   ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><table`)
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger counts: fired — ${FIRED_WHY}</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><table`)
     && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w) paragraph 3's two obligation items do not stand numbered after its Move description alone, outside the comparison table");
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><p class="trigger">obligation trigger: (not recorded)</p><table`), "(x) paragraph 1's record with no obligation_triggers does not render `obligation trigger: (not recorded)` after its Move description");
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
   ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")
