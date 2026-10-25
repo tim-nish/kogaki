@@ -381,7 +381,7 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   for (const [i] of PARAS.entries()) {
     mkdirSync(join(lx, `p${i + 1}`), { recursive: true });
     const x = JSON.parse(readFileSync(join(xrun, `p${i + 1}`, "answer.json"), "utf8"));
-    writeFileSync(join(lx, `p${i + 1}`, "answer.json"), JSON.stringify(i === 1 ? { ...x, obligation: GENERAL, obligation_trigger: "names" } : x));
+    writeFileSync(join(lx, `p${i + 1}`, "answer.json"), JSON.stringify(i === 1 ? { ...x, obligation: GENERAL, obligation_triggers: { counts: { fired: true, why: "The Segments count two named devices." } } } : x));
   }
   writeFileSync(join(lx, "extractions.json"), JSON.stringify({ legs: [{ leg: join(lroot, "leg-a.txt") }, { leg: join(lroot, "leg-b.txt") }],
     passage: "copy-legs", written: ["move_1.md", "move_2.md", "move_3.md"] }));

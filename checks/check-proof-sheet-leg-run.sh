@@ -227,8 +227,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
         : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
-  // The obligation call (kogaki#1583): no trigger fires in these Segments.
-  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ trigger: "none" }, "extract");
+  // The obligation call (kogaki#1590): \`counts\` does not fire in these Segments.
+  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -824,8 +824,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
-  // The obligation call (kogaki#1583): no trigger fires in these Segments.
-  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ trigger: "none" }, "extract");
+  // The obligation call (kogaki#1590): \`counts\` does not fire in these Segments.
+  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -1252,10 +1252,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: segmentsOf("move_" + slug + "_" + w.waypoint).map((_, n) => ({
         point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
-  // The obligation call (kogaki#1583) reads the Segments' wording alone: the operation the owing
-  // paragraph's last Segment performs fires names, and nothing else fires.
+  // The obligation call (kogaki#1590) reads the Segments' wording alone: the owing paragraph's
+  // Segments fire \`counts\`, and no other paragraph's do.
   if (prompt.includes("\\\`obligation_unit\\\` judgment point")) {
-    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { trigger: "names", obligation: T.general } : { trigger: "none" }, "extract");
+    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { triggers: { counts: { fired: true, why: "The Segments count the named items." } }, obligation: T.general } : { triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
   }
   if (prompt.includes('"paragraph_you_must_extract"')) {
     const x = input();
