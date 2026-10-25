@@ -67,6 +67,13 @@
 // Only a leading subset is reusable: each paragraph's reader state before it is carried from the
 // paragraph before it (The paragraph unit). `reuse.legs` records k.
 //
+// THE LEG MOVE (kogaki#1597, owner request 2026-10-25): a sixth stage, after the draft, turns each
+// Leg's Claims into a one-paragraph Leg -- `leg-move/<leg_id>.md`, one sentence per Claim in the
+// Brief's order -- and runs the five stages over it as a nested run at `leg-move/<leg_id>/`, with
+// its own run record, the run's Audience and no library. The nested run's Moves stay in its own
+// `moves/`. `--resume` re-enters the stage and resumes the nested run that stopped; `--reuse`
+// copies nothing of it, since the stage is in no `REUSE_FROM` list.
+//
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
 // markers `[implemented-against: ...]` and `[see: ...]` mean, and why nothing
@@ -85,13 +92,13 @@ import { spawnSync } from "node:child_process";
 import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { parseYaml } from "../yaml.mjs";
-import { legParagraphs, writeJson } from "./extract.mjs";
+import { legParagraphs, sentencesOf, writeJson } from "./extract.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { buildSheet } from "./leg-sheet.mjs";
 import { audienceLanguage, MOVE_RECORD_EXT } from "../compose.mjs";
 import { TERMS_RETIRED } from "./leg-brief.mjs";
 
-export const STAGES = ["extract", "ingest", "brief", "paragraph-plan", "draft"];
+export const STAGES = ["extract", "ingest", "brief", "paragraph-plan", "draft", "leg-move"];
 export const RUN_FILE = "run.json";
 export const CALLS_FILE = "calls.jsonl";
 export const RECORDER_FILE = "call-recorder.mjs";
@@ -107,6 +114,8 @@ export const REUSE_FROM = { brief: ["extract"], "paragraph-plan": ["extract", "b
 // the Brief, which the new run's own plan stage writes again.
 const REUSE_EXCLUDE = { brief: ["paragraph-plan.yaml"] };
 export const OWN_MOVES_DIR = "own-moves";
+export const LEG_MOVE_DIR = "leg-move";
+export const LEG_MOVE_SLUG_SUFFIX = "-leg-move";
 const PLAN_AWAIT_S = 60;
 const PLAN_AWAITS_MAX = 60;
 
@@ -251,8 +260,9 @@ function recordedLanguage(audiencePath) {
 // name to its previous `run.json` entry, is `null` for a fresh run (and the copied stages for a reused one). A stage already `done`
 // is kept as its own record and never re-entered; a stage short of that re-enters with its
 // stage directory's existing `command.json` as the log it appends to, so a resumed attempt
-// keeps the stopped one rather than replacing it.
-function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages }) {
+// keeps the stopped one rather than replacing it. A nested run (the Leg Move's) runs the five
+// stages before `leg-move` and not that one.
+function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, nested = false }) {
   const legFiles = record.legs.map((l) => join(runDir, l.copy));
   const legArgs = legFiles.flatMap((f) => ["--leg", f]);
   const save = () => writeJson(join(runDir, RUN_FILE), record);
@@ -367,8 +377,49 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages }
     return { leg_id: legId, workspace: join(d, slug), section: join(d, slug, "sections", `${legId}.md`) };
   });
 
+  // 6. The Leg Move (see the header): one nested run per Leg of the Brief, in order. A nested run
+  // already finished is kept; one that stopped is resumed.
+  if (!nested) stage(LEG_MOVE_DIR, (d) => {
+    const legs = parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || [];
+    const runs = [];
+    for (const leg of legs) {
+      const claims = (leg.claims || []).map((c) => String(c.proposition || "").trim());
+      const text = claims.join(" ");
+      if (sentencesOf(text).length !== claims.length) {
+        return { stopped: `Leg ${leg.leg_id}: its ${claims.length} Claim(s) do not cut into ${claims.length} sentence(s) — each Claim's proposition must be one sentence`, runs };
+      }
+      const file = join(d, `${leg.leg_id}.md`);
+      writeFileSync(file, `${text}\n`);
+      const dir = join(d, leg.leg_id);
+      const n = runNested(dir, file, { slug: `${leg.leg_id}${LEG_MOVE_SLUG_SUFFIX}`, audience: record.audience, realPath });
+      runs.push({ leg_id: leg.leg_id, file, run: dir, state: n.stopped ? "stopped" : "done" });
+      if (n.stopped) return { stopped: `Leg ${leg.leg_id}: ${n.stopped}`, runs };
+    }
+    return { runs };
+  });
+
   record.finished_at = new Date().toISOString();
   save();
+}
+
+// ONE LEG MOVE'S NESTED RUN at `dir` over the one-paragraph Leg at `legFile` (see the header):
+// started where `dir` holds no run record, kept where its record finished unstopped, and
+// resumed otherwise. Returns the nested run's record.
+function runNested(dir, legFile, { slug, audience, realPath }) {
+  const runFile = join(dir, RUN_FILE);
+  const prior = existsSync(runFile) ? JSON.parse(readFileSync(runFile, "utf8")) : null;
+  if (prior && prior.finished_at && !prior.stopped) return prior;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, RECORDER_FILE), RECORDER_TEXT);
+  chmodSync(join(dir, RECORDER_FILE), 0o755);
+  const record = prior ? { ...prior, stages: [], model_command: realPath } : { leg: resolve(legFile), passage: slug, paragraphs: 1,
+    legs: writeLegs(dir, readLegs([legFile])), audience, language: recordedLanguage(audience), model_command: realPath,
+    library: null, started_at: new Date().toISOString(), stages: [] };
+  delete record.stopped;
+  delete record.finished_at;
+  runStages(dir, record, { slug, realPath, audienceArgs: ["--audience", audience],
+    priorStages: prior ? new Map(prior.stages.map((s) => [s.stage, s])) : null, nested: true });
+  return record;
 }
 
 // A LIBRARY'S MOVE RECORDS (kogaki#1521): the ids of the `*.yaml` records directly under `dir`,

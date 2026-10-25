@@ -177,10 +177,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // (k) A LONG CALL: with PSR_PLAN_PAUSE_MS set, a ParagraphPlan call runs that long after its
     // first line, writing one short stream line every 200 ms as a live stream-json call does,
     // then writes its result — a healthy call longer than the stall bound the case hands in.
-    const runMs = stage.startsWith("plan-") ? Number(process.env.PSR_PLAN_PAUSE_MS) || 0 : 0;
+    const runMs = stage.startsWith("plan-") && !String(process.env.KOGAKI_PROOF_SHEET_CALLS).includes("/leg-move/") ? Number(process.env.PSR_PLAN_PAUSE_MS) || 0 : 0;
     const ticks = Array.from({ length: Math.ceil(runMs / 200) }, (_, n) => JSON.stringify({ type: "system", tick: n }) + "\\n");
     const head = JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n";
-    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : head + ticks.join("") + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
+    appendFileSync(dir + (String(process.env.KOGAKI_PROOF_SHEET_CALLS).includes("/leg-move/") ? "/seen-leg-move.jsonl" : "/seen.jsonl"), JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : head + ticks.join("") + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
     // The Writer is declared with a text output format (src/draft-workflow.json); every judge with json.
     // A judge's answer is preceded by a stream line longer than a pipe's buffer, as a live
     // stream-json answer is: the recorder must hand all of it through (the 2026-10-15 live run
@@ -203,15 +203,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       : { waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
   }
   if (prompt.includes('"leg_you_must_plan"')) {
-    const leg = body("leg_you_must_plan").leg_you_must_plan;
-    const SEG = [2, 2, 3];
+    const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
+    const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === "name_an_act_then_its_cost_" + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
     // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
-    const fromLibrary = (n) => process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1);
+    const fromLibrary = (n) => (bindable || []).some((m) => m.id.startsWith("lib_")) && (process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1));
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + "name_an_act_then_its_cost_" + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
-      paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
+      paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
         : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   // The obligation call (kogaki#1590): \`counts\` does not fire in these Segments.
@@ -249,7 +249,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")" })),
+      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       // (t) PSR_LEG_DROP=first: the first Leg answer's point 2 drops its Claim's language word (kogaki#1547).
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph
         + (process.env.PSR_LEG_DROP === "first" && !retried && p.paragraph === 2 ? "" : " in " + input.language), serves: [p.claim_strand] })) }] }, "brief-leg-path");
@@ -287,7 +287,7 @@ if (!runDir) fails.push("(a) the run printed no run directory");
 else {
   // (a) every stage done, every call through the recorder
   const run = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
-  ok(run.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
+  ok(run.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
     `(a) the stages are not all done: ${JSON.stringify(run.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
   const want = { extract: ["extract", 7], brief: ["brief-reader-start|brief-leg-path", 2], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
   for (const [stage, [kinds, n]] of Object.entries(want)) {
@@ -335,7 +335,7 @@ else {
   // `SHEET_CELLS` in pipeline order, Brief and ParagraphPlan in one row -- every assertion
   // below reads inside the card a property belongs to, not a bare substring search over the
   // whole page (the consult receipt on the Issue: the property is per card).
-  const html = readOr(join(runDir, "sheet.html"), "");
+  const html = readOr(join(runDir, "sheet.html"), ""), mainHtml = html.split('<section class="leg-block leg-move"')[0];
   ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one run section");
   ok(/<div class="run-conditions" id="run-conditions">/.test(html), "(e) the run-conditions line is missing");
   ok(/<table class="pair"/.test(html), "(e) the comparison table is missing");
@@ -349,7 +349,7 @@ else {
 
   const cardHtml = (key) => {
     const i = ORDER.indexOf(key);
-    const next = i + 1 < ORDER.length ? starts[i + 1] : html.indexOf("</section></body>");
+    const next = i + 1 < ORDER.length ? starts[i + 1] : mainHtml.length;
     return html.slice(starts[i], next >= 0 ? next : undefined);
   };
   const cards = {};
@@ -415,7 +415,7 @@ else {
   // marker), and each piece, escaped as the sheet escapes it, occurs on the page exactly once
   // -- a call whose prompt is shown under Prompt names it rather than repeating it, and a
   // retry shows only the refusal block it inserted.
-  const occurrences = (needle) => html.split(needle).length - 1;
+  const occurrences = (needle) => mainHtml.split(needle).length - 1;
   const INPUT = "----- INPUT (JSON) -----";
   const REFUSED = "----- YOUR PREVIOUS ANSWER (attempt ";
   let pieces = 0;
@@ -807,7 +807,7 @@ const dir = process.env.PSR_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const out = (r, stage) => {
-    appendFileSync(dir + "/${seenFile}", JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n" + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
+    appendFileSync(dir + (String(process.env.KOGAKI_PROOF_SHEET_CALLS).includes("/leg-move/") ? "/leg-move-${seenFile}" : "/${seenFile}"), JSON.stringify({ stage, argv: process.argv.slice(2), prompt, answer: stage === "writer" ? r : JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n" + JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n" }) + "\\n");
     if (stage !== "writer") writeSync(1, JSON.stringify({ type: "system", pad: "x".repeat(200000) }) + "\\n");
     writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   };
@@ -817,12 +817,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
   }
   if (prompt.includes('"leg_you_must_plan"')) {
-    const leg = body("leg_you_must_plan").leg_you_must_plan;
-    const SEG = [2, 2, 3];
+    const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
+    const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === "name_an_act_then_its_cost_" + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "name_an_act_then_its_cost_" + w.waypoint,
       why: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
-      paragraph_waypoints: Array.from({ length: SEG[w.waypoint - 1] }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
+      paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   // The obligation call (kogaki#1590): \`counts\` does not fire in these Segments.
   if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
@@ -858,7 +858,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")" })),
+      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
@@ -900,7 +900,7 @@ if (hRunDir) {
   ok(r2.status === 0, `(h) the resumed run exited ${r2.status}: ${r2.stdout}${r2.stderr}`);
   const run2 = JSON.parse(readFileSync(join(hRunDir, "run.json"), "utf8"));
   ok(!("terms" in run2), `(p) the resumed run, its record carrying \`terms\`, kept the key: ${JSON.stringify(run2.terms)}`);
-  ok(run2.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
+  ok(run2.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
     `(h) the resumed run did not finish every stage: ${JSON.stringify(run2.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
   const extractCalls = readFileSync(join(hRunDir, "extract", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
   const p1Calls = extractCalls.filter((c) => c.stdin.includes('"number": 1,'));
@@ -961,7 +961,7 @@ if (runDir) {
   const q1 = reuseRun(runDir, "brief", "brief");
   ok(q1.rq.status === 0 && !!q1.run, `(q) the run reusing --from brief exited ${q1.rq.status}: ${q1.rq.stdout}${q1.rq.stderr}`);
   if (q1.run) {
-    ok(q1.run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
+    ok(q1.run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
       `(q) the reused run's stages are not all done: ${JSON.stringify(q1.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
     ok(!q1.seen.some((x) => x.stage === "extract") && q1.seen.some((x) => x.stage === "brief-leg-path") && q1.seen.some((x) => x.stage === "writer"),
       `(q) --from brief did not run the Brief and the Draft with no Extractor call: ${JSON.stringify(q1.seen.map((x) => x.stage))}`);
@@ -1231,7 +1231,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const IN = "----- INPUT (JSON) -----";
   const input = () => JSON.parse(prompt.slice(prompt.lastIndexOf(IN) + IN.length));
   const out = (r, stage) => {
-    appendFileSync(process.env.PSR_FIXTURE_DIR + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
+    appendFileSync(process.env.PSR_FIXTURE_DIR + (String(process.env.KOGAKI_PROOF_SHEET_CALLS).includes("/leg-move/") ? "/seen-leg-move.jsonl" : "/seen.jsonl"), JSON.stringify({ stage, prompt }) + "\\n");
     writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   };
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
@@ -1243,13 +1243,13 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const plan = body("leg_you_must_plan");
     const leg = plan.leg_you_must_plan;
     const owes = plan.obligations_this_leg_owes || [];
-    const slug = leg.leg_id.replace("-", "_");
+    const slug = leg.leg_id.replace("-", "_"), ids = plan.paragraph_moves_you_may_bind.map((m) => m.id), mv = (w) => (ids.includes("move_" + slug + "_" + w.waypoint) ? "move_" + slug + "_" + w.waypoint : ids[0]);
     // One Paragraph Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
     const segmentsOf = (id) => (plan.paragraph_moves_you_may_bind.find((m) => m.id === id) || { segments: [{}] }).segments;
-    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "move_" + slug + "_" + w.waypoint,
+    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: mv(w),
       why: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}),
       ...(w.waypoint === 1 && owes.length ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 1 })) } : {}),
-      paragraph_waypoints: segmentsOf("move_" + slug + "_" + w.waypoint).map((_, n) => ({
+      paragraph_waypoints: segmentsOf(mv(w)).map((_, n) => ({
         point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   // The obligation call (kogaki#1590) reads the Segments' wording alone: the owing paragraph's
@@ -1275,7 +1275,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         operation: owes && i === p.sentences.length - 1 ? "names two devices and explains neither." : "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
-      description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "" }, "extract");
+      description: "Names one fact about the copy.", name: "move_" + p.passage.replace(/-/g, "_") + "_" + p.number, notes: "" }, "extract");
   }
   if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
     return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
@@ -1286,7 +1286,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const intro = T ? (T.introduces[id] || []) : id === "leg-a" ? ["frobnicator"] : [];
     return out({ legs: [{ leg_id: id, purpose: "Move the reader one step on.", rationale: "It is one Leg of three.",
       reader_state_after: "knowledge: holds the step of " + id + "\\norientation: sees where the copy of " + id + " ends up",
-      claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph })),
+      claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + "." })),
       waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand] })),
       ...(intro.length ? { introduces: intro.map((t) => ({ term: t, meaning: t === "frobnicator" ? "the part that copies the kit" : "the part called " + t })) } : {}) }] }, "brief-leg-path");
   }
@@ -1482,7 +1482,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   ok(rt.status === 0 && !!tRunDir, `(t) the run whose first Leg answer drops a Claim word exited ${rt.status}: ${rt.stdout}${rt.stderr}`);
   if (tRunDir) {
     const run = JSON.parse(readFileSync(join(tRunDir, "run.json"), "utf8"));
-    ok(run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done",
+    ok(run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
       `(t) the stages after the refused Leg answer did not all run: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
     const lb = existsSync(join(tRunDir, "brief")) ? readdirSync(join(tRunDir, "brief")).filter((f) => f.startsWith("leg-brief-run-")) : [];
     const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "attempts.json") : "";
