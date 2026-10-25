@@ -44,6 +44,10 @@
 // column lists the Leg Waypoint's Paragraph Waypoints from the plan file, item k against Segment k.
 // Each Segments heading ends in a `copy table` button copying its table as tab-separated text.
 //
+// THE LEG MOVE BLOCKS (kogaki#1597): after the last Leg block (after the cards, for one Leg), one
+// block per entry of the run's `leg-move` stage, drawn by the same renderers over that Leg Move's
+// own nested run; its Original Leg is the Leg's Claims paragraph. A run without the stage has none.
+//
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
 // `production` or `Proof Sheet substitute` (`SHEET_CELL_BADGE`).
@@ -1125,6 +1129,29 @@ export function libraryLine(run) {
     : `Moves from the library ${l.dir} (${n(l.ids && l.ids.library)}) beside this run's own (${n(l.ids && l.ids.run)})`;
 }
 
+// THE LEG MOVE BLOCKS (see the header). The nested run draws no Brief card, so its cards name
+// the Brief they read without a link.
+export const LEG_MOVE_HEADING = "Leg Move of Leg";
+export const LEG_MOVE_NOTE = "The Original Leg here is the Leg's Claims from the Brief, one sentence each, in order.";
+function legMoveBlocks(r, idx) {
+  const runs = r.stage("leg-move").runs || [];
+  const total = (r.run.legs || []).length || runs.length;
+  return runs.map((m, k) => {
+    const v = readRun(resolve(m.run));
+    const vidx = `${idx}-m${k + 1}`;
+    const sectionPath = v.legId ? join(v.ws, "sections", `${v.legId}.md`) : null;
+    const written = sectionPath ? read(sectionPath) : null;
+    const writtenParas = written ? written.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean) : [];
+    const shown = { sectionPath, written, writtenParas, draftStop: v.stage("draft").stopped || v.run.stopped || null };
+    const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
+      + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
+    return `<section class="leg-block leg-move" id="leg-${vidx}"><h3>${LEG_MOVE_HEADING} ${k + 1} of ${total} — ${esc(m.leg_id)}`
+      + ` <span class="meta">${esc(relFromRepo(resolve(m.run), REPO))}</span></h3><p class="muted">${esc(LEG_MOVE_NOTE)}</p>`
+      + (v.run.stopped ? `<p class="stop">The Leg Move stopped at ${esc(v.run.stopped)}</p>` : "")
+      + body.split(`<a href="#card-${vidx}-brief">${esc(SHEET_TITLES.brief)}</a>`).join(esc(SHEET_TITLES.brief)) + `</section>`;
+  }).join("");
+}
+
 function card(r, { provenance, mapHash, idx = 0 }) {
   const sectionPath = r.legId ? join(r.ws, "sections", `${r.legId}.md`) : null;
   const written = sectionPath ? read(sectionPath) : null;
@@ -1148,7 +1175,7 @@ function card(r, { provenance, mapHash, idx = 0 }) {
     + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
     + `<p class="library">${esc(libraryLine(r.run))}</p>`
     + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
-    + conditions + comparison + reviewBlock(r, idx) + cards + `</section>`;
+    + conditions + comparison + reviewBlock(r, idx) + cards + legMoveBlocks(r, idx) + `</section>`;
 }
 
 // A RUN OF SEVERAL LEGS (see the header). A Leg block's Inputs link to the one Brief card.
@@ -1171,7 +1198,7 @@ function legsCard(r, { provenance, mapHash, idx = 0 }) {
     + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
     + `<p class="library">${esc(libraryLine(r.run))}</p>`
     + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
-    + runConditionsLine(r) + briefCard(r, idx) + blocks.join("") + runRecordCard(r, idx) + `</section>`;
+    + runConditionsLine(r) + briefCard(r, idx) + blocks.join("") + legMoveBlocks(r, idx) + runRecordCard(r, idx) + `</section>`;
 }
 
 // BUILD THE SHEET. Returns `{ written }` or `{ error }`.
