@@ -2503,9 +2503,9 @@ Paragraph Waypoints of that one Leg Waypoint, and the record lives in the
 ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's rules bind
 it as they bind the Leg scale, except the Section rule: a slot is raised by
 the bound paragraph Move's `obligation` and by nothing else, and its row's
-`item` list carries, in the slot's order, what this article leaves unexplained
-at that paragraph, in the article's own words, one entry per slot item, a row
-whose count differs from the slot's refused naming both (kogaki#1577); at most
+`item` list carries what this article leaves unexplained at that paragraph, in
+the article's own words and as many items as the article raises there, never
+counted against the slot (kogaki#1577, kogaki#1603); at most
 one row is open at any Paragraph Waypoint, `owed_by` is the unbroken run from
 the next Paragraph Waypoint, and a row open here may be open while a Leg-scale
 row is open too. **Discharge is planning, never prose**: a row is kept by the
