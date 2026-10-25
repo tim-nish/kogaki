@@ -299,11 +299,9 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
 // A Leg Waypoint's `obligations` are rows of the Brief's shape -- `{item, raised_by, owed_by,
 // discharged_by | conceded_by}` (kogaki#1568) -- whose Leg ids are the numbers of that Leg Waypoint's
 // Paragraph Waypoints, held to the Brief's rules (`obligationLedgerRefusal`) except the Section
-// rule, which has no unit at this scale. Shared by the plan reader and the plan call's validator;
-// the plan call's validator alone knows the bound Move, so it alone hands `slot` --
-// `{ move, items, count }` -- whose count every row's `item` list matches (kogaki#1577).
+// rule, which has no unit at this scale. Shared by the plan reader and the plan call's validator.
 // Returns a string to refuse with, or null.
-export function paragraphObligationsRefusal(rows, count, at, slot = null) {
+export function paragraphObligationsRefusal(rows, count, at) {
   if (rows === undefined) return null;
   if (!Array.isArray(rows)) return `${at}: \`obligations\` is not a list of rows (kogaki#1530)`;
   const pw = (n) => Number.isInteger(n) && n >= 1 && n <= count;
@@ -314,9 +312,6 @@ export function paragraphObligationsRefusal(rows, count, at, slot = null) {
     const shape = obligationItemRefusal(o);
     if (shape) return `${row} ${shape}`;
     const label = `${at}: the ${obligationLabel(o)} row`;
-    if (slot && o.item.length !== slot.count) {
-      return `${label} carries ${o.item.length} item(s), and the bound Move ${JSON.stringify(slot.move)} raises a slot of ${slot.count} (${JSON.stringify(slot.items)}) — one item per slot item, in the slot's order (kogaki#1577)`;
-    }
     const extra = undeclaredKey(o, ["item", "raised_by", "owed_by", "discharged_by", "conceded_by", ...CONCEDED_ROW_FIELDS]);
     if (extra) return `${label} carries \`${extra}\`, which an Obligation row does not declare (kogaki#1530)`;
     if (!pw(o.raised_by)) return `${label} names raised_by ${name(o.raised_by)}, which is not a Paragraph Waypoint of this Leg Waypoint (kogaki#1530)`;

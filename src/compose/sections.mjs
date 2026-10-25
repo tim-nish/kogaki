@@ -255,7 +255,7 @@ export function obligationItemRefusal(o) {
 export function obligationTerminal(o) {
   return o.discharged_by !== undefined ? o.discharged_by : o.conceded_by;
 }
-export function obligationLedgerRefusal(legs, obligations = [], slotOf = null) {
+export function obligationLedgerRefusal(legs, obligations = []) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
   const atId = (id) => (index.has(id) ? at(index.get(id)) : null);
   const list = Array.isArray(obligations) ? obligations : [];
@@ -284,14 +284,6 @@ export function obligationLedgerRefusal(legs, obligations = [], slotOf = null) {
     }
     const raisedAt = atId(o.raised_by);
     const raisedIdx = index.get(o.raised_by);
-    // THE SLOT'S COUNT (kogaki#1577): the row carries the article's words and the slot the Move's
-    // general items, so the count is the one bond between them. `slotOf` maps a Move id to its slot.
-    const move = legs[raisedIdx].move;
-    const slot = slotOf && typeof move === "string" ? slotOf(move) : null;
-    if (slot && o.item.length !== slot.count) {
-      return pathRefusal("obligation_row_terminal", raisedAt,
-        `The ${label} row raised here carries ${o.item.length} item(s), and the Move ${legName(move)} this Leg binds raises a slot of ${slot.count} (${JSON.stringify(slot.items)}) — one item per slot item, in the slot's order.`);
-    }
     if (!Array.isArray(o.owed_by)) {
       return pathRefusal("obligation_owed_contiguous", raisedAt,
         `The ${label} row raised here carries no \`owed_by\` list — the unbroken run of Legs that keep it, from the one after this.`);

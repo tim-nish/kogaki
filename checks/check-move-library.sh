@@ -196,8 +196,8 @@ const WHOLE = {
   };
   const loaded = through("terms", { ...WHOLE, after: named, obligation: TERMS });
   ok(!loaded.error && JSON.stringify(loaded.obligation) === JSON.stringify(TERMS)
-    && JSON.stringify(loaded.deferred_slots) === JSON.stringify([{ items: TERMS, count: 2 }]),
-    `(c7a) an obligation whose \`after.knowledge\` names both items loads, the contract carrying it and its one slot in order: ${loaded.error || JSON.stringify([loaded.obligation, loaded.deferred_slots])}`);
+    && JSON.stringify(loaded.deferred_slots) === JSON.stringify([{ items: TERMS }]),
+    `(c7a) an obligation whose \`after.knowledge\` names both items loads, the contract carrying it and its one slot in order, with no count (kogaki#1603): ${loaded.error || JSON.stringify([loaded.obligation, loaded.deferred_slots])}`);
   const unled = through("unled", { ...WHOLE, after: { knowledge: "the reader holds leverage, unexplained." }, obligation: TERMS });
   ok(!unled.error && JSON.stringify(unled.obligation) === JSON.stringify(TERMS),
     `(c7b) an obligation one of whose items shares no word with any \`after\` line loads (kogaki#1576): ${unled.error || JSON.stringify(unled.obligation)}`);

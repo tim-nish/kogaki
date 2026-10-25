@@ -191,10 +191,10 @@ function moveRecordContract(record, moveId, path, movesDir) {
 // THE DEFERRED SLOT A MOVE RAISES (kogaki#1558, kogaki#1568, SPEC-draft-pipeline "Obligations"
 // rule 2): one slot, read from the authored `obligation` field and nothing else, for the composer
 // to fill as one Obligation row and the Move-fit judge to hold the Leg's rows against. A Move
-// carrying no `obligation` raises none and its contract carries no key.
+// carrying no `obligation` raises none and its contract carries no key. The slot carries no
+// count: how many items the row names is the article's, decided by the composer (kogaki#1603).
 function obligationSlot(items) {
-  const trimmed = items.map((x) => x.trim());
-  return { items: trimmed, count: trimmed.length };
+  return { items: items.map((x) => x.trim()) };
 }
 
 // THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, kogaki#1568, owner decision

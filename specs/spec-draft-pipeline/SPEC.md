@@ -2503,9 +2503,9 @@ Paragraph Waypoints of that one Leg Waypoint, and the record lives in the
 ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's rules bind
 it as they bind the Leg scale, except the Section rule: a slot is raised by
 the bound paragraph Move's `obligation` and by nothing else, and its row's
-`item` list carries, in the slot's order, what this article leaves unexplained
-at that paragraph, in the article's own words, one entry per slot item, a row
-whose count differs from the slot's refused naming both (kogaki#1577); at most
+`item` list carries what this article leaves unexplained at that paragraph, in
+the article's own words and as many items as the article raises there, never
+counted against the slot (kogaki#1577, kogaki#1603); at most
 one row is open at any Paragraph Waypoint, `owed_by` is the unbroken run from
 the next Paragraph Waypoint, and a row open here may be open while a Leg-scale
 row is open too. **Discharge is planning, never prose**: a row is kept by the
@@ -2914,16 +2914,20 @@ decision 2026-10-24), and these rules govern it:
    Legs, and the record lives on the Brief. At the **Paragraph scale** they
    name Paragraph Waypoints of one Leg Waypoint, and the record lives in the
    ParagraphPlan file (§4.19). Both scales carry the same fields and the same
-   rules, except rule 5, which has no Paragraph counterpart.
+   rules, except rule 5, which has no Paragraph counterpart. The items are the
+   article's, as many as the composer finds in the Strand, and an item is kept
+   by being explained, never by being named (kogaki#1603, beside kogaki#1549
+   and kogaki#1577, owner reading 2026-10-26).
 2. **One source.** A Move whose `obligation` names items it leaves
    unexplained raises a **slot** — items derived from the Move's own
    Segments and from nothing of any source text, so the inference holds no
    state and its boundary is one Move (kogaki#1583, owner decision
-   2026-10-25) —: its items, general as every Move field is,
-   and their count. The composer fills the slot with ONE row whose `item`
-   list carries, in the slot's order, what this article leaves unexplained
-   at that place, in the article's own words, one entry per slot item; a row
-   whose count differs from the slot's is refused naming both. No other row
+   2026-10-25) —: its items, general as every Move field is. The composer
+   fills the slot with ONE row whose `item` list carries what this article
+   leaves unexplained at that place, in the article's own words and in the
+   order the article names them. The row has no direct relationship with the
+   Move's items, which it is never counted against (kogaki#1603, beside
+   kogaki#1549 and kogaki#1577). No other row
    exists: a promise the Strand material raises and no bound Move signals is
    not written, and the composer binds a Move that carries it or does not
    promise. The Obligations ledger is written by the Planner and by nothing
