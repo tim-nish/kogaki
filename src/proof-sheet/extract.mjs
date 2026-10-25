@@ -14,7 +14,9 @@
 //
 // ONE JOB PER PARAGRAPH, IN ORDER. Paragraph N's `before` column is carried from paragraph
 // N-1's Extraction (FORMAT "The paragraph unit", rule 3), so N's input exists only once N-1
-// is written. `run` starts one supervisor per paragraph and waits on it before the next.
+// is written. `run` starts one supervisor per paragraph and waits on it before the next; after
+// it passes, a second supervisor asks the obligation over the record's Segments alone
+// (kogaki#1583), in the paragraph's `obligation/` subdirectory.
 //
 // WHAT THE HARNESS WRITES AND WHAT THE MODEL WRITES. The model answers a JSON record of
 // FORMAT's sections; the Harness cuts the paragraph into sentences (one Segment each), and
@@ -67,11 +69,12 @@ export const DESCRIPTION_MAX = 200;
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
-// `obligation`, `obligation_content` and `discharges` are the keys a record may leave out, and
-// leaves out by default (FORMAT "The paragraph unit", rules 8 and 10, kogaki#1557, kogaki#1570,
-// kogaki#1578): `obligation` and `obligation_content` present together only where the paragraph
-// leaves an item unexplained, `discharges` only where it completes the input's `open_obligation`.
-const OPTIONAL_RECORD_KEYS = ["obligation", "obligation_content", "discharges"];
+// `obligation` and `obligation_trigger` are the keys a record may leave out, and leaves out by
+// default (FORMAT "The paragraph unit", rule 8, kogaki#1583): present together only where a
+// trigger fired in the record's own Segments, written by the Harness from the obligation call.
+const OPTIONAL_RECORD_KEYS = ["obligation", "obligation_trigger"];
+// The obligation call's answer (kogaki#1583): `none`, or one of the four triggers beside the items.
+export const OBLIGATION_TRIGGERS = ["names", "counts", "announces", "withholds"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
@@ -140,26 +143,16 @@ export function carriedState(record) {
 
 function isUnchanged(s) { return String(s).trim().toLowerCase() === "unchanged"; }
 
-// The obligation a paragraph leaves open for the next (FORMAT "The paragraph unit", rule 10,
-// kogaki#1570): its own `obligation_content` where it raises one, so the next paragraph judges
-// `discharges` against the article's words (kogaki#1578), none where it discharges the open one,
-// and otherwise the open one unchanged.
-export function carriedObligation(open, record) {
-  if (Array.isArray(record.obligation_content) && record.obligation_content.length) return record.obligation_content.map((x) => x.trim());
-  return record.discharges === true ? null : open;
-}
-
 // ---------------------------------------------------------------------------
 // ONE PARAGRAPH'S INPUT AND PROMPT.
 
-export function extractionUnitInput({ passage, paragraphs, index, before, openObligation = null, namesTaken, persona }) {
+export function extractionUnitInput({ passage, paragraphs, index, before, namesTaken, persona }) {
   return {
     paragraph_you_must_extract: {
       passage, number: index + 1, of: paragraphs.length, text: paragraphs[index], sentences: sentencesOf(paragraphs[index]),
     },
     earlier_paragraphs: paragraphs.slice(0, index),
     reader_state_before: before,
-    open_obligation: openObligation,
     names_taken: namesTaken,
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
   };
@@ -206,6 +199,18 @@ function withExtractionRecordSkeleton(prompt, input) {
 export function extractionUnitPrompt(row, input) {
   const held = bindFlow(FLOW);
   try { return withExtractionRecordSkeleton(judgePrompt(row, JSON.stringify(input, null, 2), input, null), input); }
+  finally { bindFlow(held); }
+}
+
+// THE OBLIGATION CALL'S INPUT (FORMAT "The paragraph unit", rule 8, kogaki#1583): the record's
+// Segments, each `operation` and `relation`, and nothing else, so the inference holds no state.
+export function obligationUnitInput(record) {
+  return { segments: record.segments.map((s) => ({ operation: s.operation.trim(), relation: s.relation.trim() })) };
+}
+
+export function obligationUnitPrompt(row, input) {
+  const held = bindFlow(FLOW);
+  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); }
   finally { bindFlow(held); }
 }
 
@@ -302,22 +307,17 @@ function obligationRefusals(o, segments, at, nouns) {
   return errors;
 }
 
-// THE OBLIGATION IN THE PARAGRAPH'S OWN WORDS (FORMAT "The paragraph unit", rule 8, kogaki#1578):
-// bound to the source as `content` is, so it is read for its shape and its pairing alone -- present
-// exactly where `obligation` is, item for item.
-function obligationContentRefusals(o, oc, at) {
-  if (o === undefined && oc === undefined) return [];
-  if (o === undefined || oc === undefined) {
-    const [present, absent] = oc === undefined ? ["obligation", "obligation_content"] : ["obligation_content", "obligation"];
+// THE TRIGGER THAT FIRED (FORMAT "The paragraph unit", rule 8, kogaki#1583): present exactly
+// where `obligation` is, and one of the four triggers.
+function obligationTriggerRefusals(o, t, at) {
+  if (o === undefined && t === undefined) return [];
+  if (o === undefined || t === undefined) {
+    const [present, absent] = t === undefined ? ["obligation", "obligation_trigger"] : ["obligation_trigger", "obligation"];
     return [`${at}: \`${present}\` is present and \`${absent}\` is absent — `
-      + `\`obligation\` and \`obligation_content\` are present together or not at all (FORMAT "The paragraph unit", rule 8)`];
+      + `\`obligation\` and \`obligation_trigger\` are present together or not at all (FORMAT "The paragraph unit", rule 8)`];
   }
-  if (!Array.isArray(oc) || !oc.length || oc.some((x) => typeof x !== "string" || lineRefusal(x, "item"))) {
-    return [`${at}: \`obligation_content\` is not a list of one or more one-line items (kogaki#1578)`];
-  }
-  if (Array.isArray(o) && o.length !== oc.length) {
-    return [`${at}: \`obligation\` lists ${o.length} item(s) and \`obligation_content\` lists ${oc.length} — `
-      + `\`obligation_content\` is the same list in the paragraph's own words, item for item (FORMAT "The paragraph unit", rule 8)`];
+  if (!OBLIGATION_TRIGGERS.includes(t)) {
+    return [`${at}: \`obligation_trigger\` is ${JSON.stringify(t)} — it is one of ${OBLIGATION_TRIGGERS.join(", ")} (kogaki#1583)`];
   }
   return [];
 }
@@ -448,17 +448,48 @@ export function validateExtractionUnit(record, input) {
   if (readerOk && !changed) errors.push(`${at}: section 2 records no changed row — the ingest reads \`before\` and \`after\` from the changed rows, so at least one moves`);
 
   if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at, nouns));
-  errors.push(...obligationContentRefusals(r.obligation, r.obligation_content, at));
-  if (r.discharges !== undefined && r.discharges !== true) {
-    errors.push(`${at}: \`discharges\` is ${JSON.stringify(r.discharges)} — it is \`true\` or absent (FORMAT "The paragraph unit", rule 10)`);
-  } else if (r.discharges === true && !input.open_obligation) {
-    errors.push(`${at}: \`discharges\` is present and \`open_obligation\` is null — no earlier paragraph left an item open for this one to complete (FORMAT "The paragraph unit", rule 10)`);
-  }
+  errors.push(...obligationTriggerRefusals(r.obligation, r.obligation_trigger, at));
 
   if (!MOVE_ID.test(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`);
   else if (input.names_taken.includes(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
 
   return errors.length ? { error: errors.join("\n") } : {};
+}
+
+// THE EXTRACTION CALL'S ANSWER carries no obligation: the Harness asks it in the second call
+// (kogaki#1583), so a model writing it here is refused rather than read.
+export function validateExtractionAnswer(record, input) {
+  const k = OPTIONAL_RECORD_KEYS.find((x) => record && typeof record === "object" && Object.hasOwn(record, x));
+  if (k) return { error: `paragraph ${input.paragraph_you_must_extract.number}: the record carries \`${k}\` — the Harness asks the obligation in a second call over your \`segments\` (FORMAT "The paragraph unit", rule 8)` };
+  return validateExtractionUnit(record, input);
+}
+
+// THE OBLIGATION CALL'S ANSWER, READ BACK (FORMAT "The paragraph unit", rule 8, kogaki#1583):
+// `{ trigger: "none" }` or one of the four triggers beside `obligation`; the record it is written
+// onto is then read back whole, so an item the record's own rules refuse is asked again here.
+export function obligationAnswerRefusal(answer) {
+  if (!isMap(answer)) return "the answer is not a map";
+  const extra = Object.keys(answer).find((k) => k !== "trigger" && k !== "obligation");
+  if (extra) return `the answer carries \`${extra}\`, which it does not declare — it carries trigger and, beside a trigger other than none, obligation`;
+  if (answer.trigger === "none") {
+    return Object.hasOwn(answer, "obligation") ? "`obligation` is present beside `trigger` none — where no trigger fires the answer is `{ \"trigger\": \"none\" }`" : null;
+  }
+  if (!OBLIGATION_TRIGGERS.includes(answer.trigger)) {
+    return `\`trigger\` is ${JSON.stringify(answer.trigger)} — it is none or one of ${OBLIGATION_TRIGGERS.join(", ")}`;
+  }
+  if (!Object.hasOwn(answer, "obligation")) return `\`obligation\` is absent beside \`trigger\` ${answer.trigger} — a trigger that fires names its items`;
+  return null;
+}
+
+export function withObligation(record, answer) {
+  const { obligation: _o, obligation_trigger: _t, ...rest } = record;
+  return answer.trigger === "none" ? rest : { ...rest, obligation: answer.obligation, obligation_trigger: answer.trigger };
+}
+
+export function validateObligationUnit(answer, { record, input }) {
+  const bad = obligationAnswerRefusal(answer);
+  if (bad) return { error: `paragraph ${input.paragraph_you_must_extract.number}, the obligation: ${bad}` };
+  return validateExtractionUnit(withObligation(record, answer), input);
 }
 
 // ---------------------------------------------------------------------------
@@ -497,9 +528,7 @@ export function extractionRecord(record, input, runRel) {
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
-    ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()) } : {}),
-    ...(record.obligation_content ? { obligation_content: record.obligation_content.map((x) => x.trim()) } : {}),
-    ...(record.discharges === true ? { discharges: true } : {}),
+    ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()), obligation_trigger: record.obligation_trigger } : {}),
     description: record.description.trim(),
     notes: record.notes.trim(),
   };
@@ -536,9 +565,7 @@ export function extractionMarkdown(rec) {
     "## 3. The order inside the Passage", "", ...segs, "", line(r.why_this_order), "",
     "## 4. What the Passage presupposes", "", line(r.presupposes), "",
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
-    ...(r.obligation ? [`obligation: ${r.obligation.map(line).join(", ")}`, ""] : []),
-    ...(r.obligation_content ? [`obligation_content: ${r.obligation_content.map(line).join(", ")}`, ""] : []),
-    ...(r.discharges === true ? ["discharges: true", ""] : []),
+    ...(r.obligation ? [`obligation: ${r.obligation.map(line).join(", ")}`, `obligation trigger: ${line(r.obligation_trigger)}`, ""] : []),
     "## 6. Description", "", line(r.description), "",
     "## 7. Candidate name", "", line(r.name), "",
     "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",
@@ -619,6 +646,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const total = units.length;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const row = table.extraction_unit || fail("src/proof-sheet/extraction-workflow.json declares no extraction_unit row. Nothing was started.");
+  const obligationRow = table.obligation_unit || fail("src/proof-sheet/extraction-workflow.json declares no obligation_unit row. Nothing was started.");
   const persona = readerPersona(resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" }))));
   if (persona.error) fail(persona.error);
   const callLimitS = positiveSetting(table.job, "call_limit_s");
@@ -632,7 +660,6 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const runRel = relFromRepo(runDir, outDir);
   const written = [];
   let before = null;
-  let openObligation = null;
   const namesTaken = [];
   let start = 0;
   if (resume) {
@@ -645,7 +672,6 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       written.push(file);
       namesTaken.push(answer.name);
       before = carriedState(answer);
-      openObligation = carriedObligation(openObligation, answer);
       start = i + 1;
     }
   }
@@ -653,24 +679,41 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     const dir = join(runDir, `p${i + 1}`);
     mkdirSync(dir, { recursive: true });
     const u0 = units[i];
-    const input = extractionUnitInput({ passage: u0.leg.slug, paragraphs: u0.leg.paragraphs, index: u0.i, before, openObligation, namesTaken: [...namesTaken], persona });
+    const input = extractionUnitInput({ passage: u0.leg.slug, paragraphs: u0.leg.paragraphs, index: u0.i, before, namesTaken: [...namesTaken], persona });
     if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
-    startDetachedJobSupervisor(dir, {
-      units: [{ id: `p${i + 1}`, prompt }], command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
-      callLimitS, unitAttempts, stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs,
-      recordArray: "segments",
-      validator: { module: "src/proof-sheet/extract.mjs", export: "validateExtractionUnit", inputs: input },
-    });
-    const job = awaitJob(dir, heartbeatMs);
-    const u = (job.units || [])[0] || {};
-    writeJson(join(dir, "attempts.json"), { paragraph: i + 1, state: job.state, status: u.status || null,
-      attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
-    if (job.state !== "done" || u.status !== "done" || !u.candidate) {
-      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${job.state}`
-        + ` after ${u.attempts || 1} attempt(s) — ${String(lastRefusal(job)).split("\n").join(" ")}` };
+    const unitJob = (jobDir, id, unitPrompt, recordArray, validator) => {
+      startDetachedJobSupervisor(jobDir, {
+        units: [{ id, prompt: unitPrompt }], command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
+        callLimitS, unitAttempts, stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs, recordArray, validator,
+      });
+      const job = awaitJob(jobDir, heartbeatMs);
+      const u = (job.units || [])[0] || {};
+      writeJson(join(jobDir, "attempts.json"), { paragraph: i + 1, state: job.state, status: u.status || null,
+        attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+      return job.state !== "done" || u.status !== "done" || !u.candidate ? { job, u, failed: true } : { job, u };
+    };
+    const ex = unitJob(dir, `p${i + 1}`, prompt, "segments",
+      { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input });
+    if (ex.failed) {
+      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${ex.job.state}`
+        + ` after ${ex.u.attempts || 1} attempt(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}` };
     }
+    // THE OBLIGATION, ASKED SECOND (FORMAT "The paragraph unit", rule 8, kogaki#1583): its prompt
+    // renders the record's Segments alone; the record rides only to the validator.
+    const odir = join(dir, "obligation");
+    mkdirSync(odir, { recursive: true });
+    const oInput = obligationUnitInput(ex.u.candidate);
+    const oPrompt = obligationUnitPrompt(obligationRow, oInput);
+    writeFileSync(join(odir, "prompt.md"), oPrompt);
+    const ob = unitJob(odir, `p${i + 1}-obligation`, oPrompt, false,
+      { module: "src/proof-sheet/extract.mjs", export: "validateObligationUnit", inputs: { record: ex.u.candidate, input } });
+    if (ob.failed) {
+      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the obligation job ended ${ob.job.state}`
+        + ` after ${ob.u.attempts || 1} attempt(s) — ${String(lastRefusal(ob.job)).split("\n").join(" ")}` };
+    }
+    const u = { candidate: withObligation(ex.u.candidate, ob.u.candidate) };
     writeJson(join(dir, "answer.json"), u.candidate);
     const file = join(outDir, `${u.candidate.name}${EXTRACTION_EXT}`);
     // NEVER OVER AN EARLIER FILE: an Extraction the owner has already reviewed carries no
@@ -683,7 +726,6 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     written.push(file);
     namesTaken.push(u.candidate.name);
     before = carriedState(u.candidate);
-    openObligation = carriedObligation(openObligation, u.candidate);
   }
   const names = written.map((f) => basename(f));
   writeJson(join(runDir, "extractions.json"), legs.length === 1
