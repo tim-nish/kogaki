@@ -1272,8 +1272,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds " + owes.length + " items unexplained" : "") : "unchanged",
         segment: i === 0 ? String(p.sentences.length) : "" })),
       segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
-        operation: owes && i === p.sentences.length - 1 ? "names two devices and explains neither." : "states one consequence of an act the reader did not ask for.",
-        relation: i === 0 ? "" : "widens the step before it", manner: "" })),
+        operation: owes && i === p.sentences.length - 1 ? "names two devices and explains neither." : "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
       description: "Names one fact about the copy.", name: "move_" + p.passage + "_" + p.number, notes: "" }, "extract");
