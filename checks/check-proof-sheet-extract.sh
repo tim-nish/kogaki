@@ -63,7 +63,10 @@
 #       refused naming both (kogaki#1395); a `content` clause opening on a method verb is
 #       refused naming the paragraph, the Segment and the verb, for the specimen `explains`
 #       and for a second listed verb, while the clause opening on what the sentence says
-#       validates, and FORMAT's rule 7 carries the sentence verbatim (kogaki#1554).
+#       validates, and FORMAT's rule 7 carries the sentence verbatim (kogaki#1554); a reader
+#       `after` or a `breaks` test instructing wording ("must open with", "in one sentence") is
+#       refused naming the field and the phrase, while the same phrase in `what_it_does`
+#       validates (kogaki#1604).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
 #   (h) the obligation, derived from the Move's own Segments (rule 8, kogaki#1590): a run whose
 #       paragraph's Segment 2 operation counts two items and whose Segment 3 names them writes
@@ -519,6 +522,15 @@ const m4o = good(); m4o.breaks = ["drop 「なぜなら」 — the reason reads 
 ok(/`breaks` test 1 carries "「なぜなら」"/.test(X.validateExtractionUnit(m4o, input).error || ""), "(f) a break built on a source-language word was not refused naming the break");
 const m4p = good(); m4p.segments[0].content = "says the installer owns the copy";
 ok(!X.validateExtractionUnit(m4p, input).error, `(f) a record naming a subject noun in its content clause alone was refused: ${X.validateExtractionUnit(m4p, input).error}`);
+// WORDING IS NOT THE COMPOSER'S INFORMATION (kogaki#1604): an `after` or a `breaks` test that
+// instructs wording or sentence order is refused naming the field and the phrase; the same
+// phrase in a field the refusal does not cover validates.
+const m4w1 = good(); m4w1.reader[0].after = "knows the point, which must open with the claim";
+ok(/the `knowledge` row's `after` carries "must open with", a wording instruction/.test(X.validateExtractionUnit(m4w1, input).error || ""), "(f) an after instructing wording was not refused naming the row and the phrase");
+const m4w2 = good(); m4w2.breaks = ["a change — a loss", "keep it in one sentence — the reader loses nothing"];
+ok(/`breaks` test 2 carries "in one sentence", a wording instruction/.test(X.validateExtractionUnit(m4w2, input).error || ""), "(f) a break instructing wording was not refused naming the break and the phrase");
+const m4w3 = good(); m4w3.what_it_does = "states the consequence in one sentence";
+ok(!X.validateExtractionUnit(m4w3, input).error, `(f) a wording phrase in what_it_does alone was refused: ${X.validateExtractionUnit(m4w3, input).error}`);
 const m4k = good(); m4k.segments[1].does = "g";
 ok(/Segment 2 carries `does`, which it does not declare/.test(X.validateExtractionUnit(m4k, input).error || ""), "(f) a Segment carrying the retired `does` was not refused by name");
 
@@ -679,7 +691,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   ok(!("open_obligation" in input), `(j) the extraction call's input still carries \`open_obligation\`: ${JSON.stringify(Object.keys(input))}`);
   const format = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8");
-  const rule8 = "8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each, in the order the Segments name them; otherwise the key is absent. `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required. Absent is the normal case.";
+  const rule8 = "8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each, in the order the Segments name them; otherwise the key is absent. `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept (\"Where each field goes\"). Absent is the normal case.";
   ok(format.includes(rule8), "(j) passages/FORMAT.md does not carry rule 8 verbatim");
   ok(format.includes("10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*"), "(j) passages/FORMAT.md does not carry the retired rule 10 verbatim");
 }

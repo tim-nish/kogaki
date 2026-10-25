@@ -79,6 +79,10 @@ export const OBLIGATION_TRIGGERS = ["counts"];
 // requirement sentence, not a term or a question (kogaki#1590).
 export const OBLIGATION_WORDS_MAX = 12;
 const RATIONALE = [" since ", " because ", " so that ", " must ", " which "];
+// `after` and `breaks` inform the Composer and shape no sentence (FORMAT "Where each field goes",
+// kogaki#1604): an entry carrying one of these phrases instructs wording or sentence order.
+export const WORDING = ["must open with", "must open on", "must begin with", "must end with", "must close with",
+  "in one sentence", "in a single sentence", "word for word"];
 const ROW_KEYS = ["dimension", "before", "after", "segment"];
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
@@ -259,6 +263,11 @@ function nounIn(nouns, text) {
 // `content` is the one field bound to the source. A word in another script is a run of letters outside the Latin script, or of
 // CJK or full-width punctuation, such as 「なぜなら」; dashes and quotes stay common punctuation.
 const FOREIGN_RUN = /(?:(?!\p{Script=Latin})\p{L}|[\u3000-\u303F\uFF00-\uFFEF])+/u;
+function wordingRefusal(text, at) {
+  if (typeof text !== "string") return null;
+  const phrase = WORDING.find((w) => text.toLowerCase().includes(w));
+  return phrase ? `${at} carries "${phrase}", a wording instruction — \`after\` and \`breaks\` inform the Composer and shape no sentence (FORMAT "Where each field goes")` : null;
+}
 function generalRefusal(nouns, text, at) {
   if (typeof text !== "string") return null;
   const noun = nounIn(nouns, text);
@@ -379,7 +388,8 @@ export function validateExtractionUnit(record, input) {
     errors.push(`${at}: \`breaks\` is not a list of prose tests — one or more one-line strings, each a change and what the reader loses`);
   } else {
     for (const [i, t] of r.breaks.entries()) {
-      const e = lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`) || generalRefusal(nouns, t, `${at}: \`breaks\` test ${i + 1}`);
+      const e = lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`) || generalRefusal(nouns, t, `${at}: \`breaks\` test ${i + 1}`)
+        || wordingRefusal(t, `${at}: \`breaks\` test ${i + 1}`);
       if (e) errors.push(e);
     }
   }
@@ -457,7 +467,7 @@ export function validateExtractionUnit(record, input) {
       if (typeof want !== "string") { const e2 = generalRefusal(nouns, row.before, `${atD}'s \`before\``); if (e2) errors.push(e2); }
       if (isUnchanged(row.after)) continue;
       changed += 1;
-      { const e2 = generalRefusal(nouns, row.after, `${atD}'s \`after\``); if (e2) errors.push(e2); }
+      { const e2 = generalRefusal(nouns, row.after, `${atD}'s \`after\``) || wordingRefusal(row.after, `${atD}'s \`after\``); if (e2) errors.push(e2); }
       const nums = row.segment.split(",").map((x) => x.trim()).filter(Boolean);
       if (!nums.length) { errors.push(`${atD} records a change naming no Segment`); continue; }
       const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);

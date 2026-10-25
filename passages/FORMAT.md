@@ -151,7 +151,7 @@ rule 8 is kogaki#1583's, rule 9 is kogaki#1478's and rule 10 is retired:
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each, in the order the Segments name them; otherwise the key is absent. `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required. Absent is the normal case.
+8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each, in the order the Segments name them; otherwise the key is absent. `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept ("Where each field goes"). Absent is the normal case.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -206,6 +206,16 @@ stays in the Extraction too: it records where the Passage moved the reader,
 and a Move's state carries no Segment. `technique` is retired (kogaki#1412):
 `segments` is the Move's whole structure, and a Move record carrying
 `technique` is refused by name.
+
+A Move's fields serve two readers (kogaki#1604). `operation`, `relation`
+and `manner`, the three fields of each Segment, and `obligation` shape the
+structure of the prose the Move produces. `before`, `after` and `breaks`
+tell the Composer what the Move needs of the Strand and what it gives the
+reader; they are read for Strand fit and shape no sentence, so an `after`
+entry or a `breaks` test that instructs wording or sentence order is
+refused by name. No other field shapes prose, and no field carries a
+condition on how a promise is kept: that condition is the Composer's,
+written in the Plan and never in the Move.
 
 ---
 
