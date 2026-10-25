@@ -288,6 +288,11 @@ const contentWords = (s) => (String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) |
 function definingClause(clause) {
   return [...String(clause).matchAll(DEFINING)].some((m) => !NEGATION.test(clause.slice(0, m.index)));
 }
+// THE COUNT IS FIXED ONLY BY AN OPERATION THAT NAMES IT (kogaki#1602). An item carries a number
+// or ordinal word only where some Segment's `operation` carries one; otherwise the count is open
+// and `obligation` is one collective item in the plural-each form, which a fixed count refuses.
+const COUNT_WORD = /\b(?:\d+(?:st|nd|rd|th)?|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|both|pairs?|couple|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b/i;
+const COLLECTIVE = /^\s*each\b/i;
 function obligationRefusals(o, segments, at, nouns) {
   const atO = `${at}: \`obligation\``;
   if (isMap(o)) {
@@ -301,8 +306,19 @@ function obligationRefusals(o, segments, at, nouns) {
   const dup = o.findIndex((x, i) => o.findIndex((y) => y.trim() === x.trim()) !== i);
   if (dup >= 0) return [`${atO} names ${JSON.stringify(o[dup].trim())} twice (kogaki#1568)`];
   const errors = [];
+  const fixedAt = (Array.isArray(segments) ? segments : []).findIndex((s) => isMap(s) && COUNT_WORD.test(String(s.operation)));
+  const fixedBy = fixedAt >= 0 ? String(segments[fixedAt].operation).match(COUNT_WORD)[0] : null;
   for (const [i, item] of o.entries()) {
     const atI = `${atO} item ${i + 1}, ${JSON.stringify(item.trim())},`;
+    const counted = item.match(COUNT_WORD);
+    if (fixedBy === null && counted) {
+      errors.push(`${atI} carries "${counted[0]}", a number or ordinal word, and no Segment's \`operation\` names a number — `
+        + `an open count is one collective item, such as "each of the counted parts, in the order named" (kogaki#1602)`);
+    }
+    if (fixedBy !== null && COLLECTIVE.test(item)) {
+      errors.push(`${atI} is a collective item, and Segment ${fixedAt + 1}'s \`operation\` fixes the count with "${fixedBy}" — `
+        + `a fixed count is that many ordinal items (kogaki#1602)`);
+    }
     const e = generalRefusal(nouns, item, atI);
     if (e) errors.push(e);
     const n = wordCount(item);
