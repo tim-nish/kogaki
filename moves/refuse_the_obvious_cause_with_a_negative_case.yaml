@@ -1,0 +1,71 @@
+id: refuse_the_obvious_cause_with_a_negative_case
+description: >-
+  A matched case where the deciding factor is absent closes the illustration;
+  then the obvious explanation is named and refused, and the real cause is
+  stated in general terms.
+before:
+  knowledge: >-
+    also holds the chain by which that factor produces its outcome, and several
+    further cases the same chain accounts for
+  question: >-
+    wants whether the traced chain holds beyond the single setting in which it
+    was shown
+  expectation: >-
+    expects a return to general terms, the illustration having been carried as
+    far as one setting allows
+  trust: >-
+    raised further still, since one cause is shown to account for several
+    ordinary cases without new assumptions
+after:
+  knowledge: >-
+    holds the cause named as the surrounding condition rather than the visible
+    feature, with a case where the feature is present and the outcome absent
+  question: >-
+    wants what the named cause implies for the general account now that the
+    illustration is closed
+  expectation: >-
+    expects the next stretch to leave the illustration behind, this one having
+    closed it with the cause stated in general terms
+  trust: >-
+    raised again, the explanation the reader likely arrived with having been
+    named and set aside rather than passed over
+breaks:
+  - >-
+    drop the case in which the deciding factor is absent — the traced cause is
+    left standing on one setting, and the reader cannot separate it from the
+    visible condition it travels with
+  - >-
+    state the real cause without first naming and refusing the easy account —
+    the reader keeps the account they arrived with and hears the replacement as
+    a rewording of it
+  - >-
+    leave the outcomes of the absent-factor case unsaid — the reader has the
+    arrangement but no sign that it makes the difference claimed
+  - >-
+    expand the controls and their rationale into their own stretch — the closing
+    statement of the cause arrives after the reader has stopped waiting for it
+segments:
+  - operation: >-
+      sets out a case in which one visible condition holds while the factor that
+      obscures reading it is absent and strict controls govern who may hold it
+  - operation: >-
+      draws the consequence that the purpose behind the visible condition
+      becomes legible
+    relation: states what follows from the arrangement just set out
+  - operation: >-
+      reports that the harms the visible condition is associated with do not
+      arise in the case at hand
+    relation: >-
+      moves from what becomes legible to the outcomes that are missing where it
+      is
+  - operation: refuses the explanation the outcome is ordinarily given
+    relation: >-
+      turns from the case just reported back to the setting it was matched
+      against, and rules out the easy account of it
+    manner: >-
+      the refused account is voiced as a brief cited phrase rather than
+      paraphrased
+  - operation: >-
+      locates the real cause in the surrounding situation that makes the
+      uncertainty unavoidable
+    relation: supplies the replacement for the account just refused

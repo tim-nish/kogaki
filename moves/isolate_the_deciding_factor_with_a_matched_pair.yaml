@@ -1,0 +1,70 @@
+id: isolate_the_deciding_factor_with_a_matched_pair
+description: >-
+  Carries a quantity just defined into a pair of familiar cases that share one
+  feature and differ in one, then names that difference as the cause of their
+  opposite outcomes.
+before:
+  knowledge: >-
+    holds one named graded quantity, its plain sense, and the direction in which
+    it bears on an outcome
+  question: >-
+    wants to know what in practice puts the quantity at one end of its range
+    rather than the other
+  expectation: >-
+    expects the next paragraph to show the quantity at work in concrete cases
+  trust: >-
+    raised, since a formal formulation is immediately given back in everyday
+    words
+after:
+  knowledge: >-
+    holds a worked pair of cases in which the quantity's value and the outcome
+    differ with a single factor
+  question: >-
+    answered for the worked cases, and now wants whether that single factor is
+    the only one able to move the quantity
+  expectation: >-
+    expects the next paragraph to carry the worked pair back into general terms,
+    the concrete illustration being complete
+  trust: >-
+    raised further, since the comparison varies one factor and holds the rest
+    level
+breaks:
+  - >-
+    let the two instances differ in more than the isolated respect — the reader
+    can no longer tell which difference produced the outcome
+  - >-
+    drop the step that holds the shared feature level — the contrast reads as
+    two unrelated descriptions and loses its isolating force
+  - >-
+    add further instances with mixed values — the clean pairing blurs and the
+    single lever the paragraph was built to show is lost
+  - >-
+    leave out the closing attribution of the outcomes — the reader is left
+    holding a difference with no statement of what it does
+  - >-
+    give the instances as abstract labels rather than cases already familiar to
+    the reader — nothing in the comparison can be checked against what the
+    reader already knows
+segments:
+  - operation: >-
+      sets up a pair of concrete instances as a simplified setting to work
+      through
+    manner: cast as a spoken invitation rather than a plain assertion
+  - operation: >-
+      fixes what the instances share and isolates the respect in which they
+      differ
+    relation: >-
+      fills in the pair just set up by sorting its features into the shared and
+      the differing
+  - operation: >-
+      traces the differing respect through to opposite values of the graded
+      quantity in each instance
+    relation: >-
+      carries the respect of difference named just before into its consequence
+      for the quantity
+  - operation: >-
+      attributes the opposed outcomes of the instances to the difference in the
+      quantity
+    relation: >-
+      closes the chain by making the difference just established the cause of
+      the instances' differing outcomes

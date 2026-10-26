@@ -1,0 +1,97 @@
+id: trace_the_mechanism_then_multiply_its_cases
+description: >-
+  Walks one side of a comparison from its cause through the behaviour it
+  compounds, then lets the same cause explain several familiar scenes, ending on
+  one that varies only the conditions.
+before:
+  knowledge: >-
+    holds a worked pair of cases in which the quantity's value and the outcome
+    differ with a single factor
+  question: >-
+    answered for the worked cases, and now wants whether that single factor is
+    the only one able to move the quantity
+  expectation: >-
+    expects the next paragraph to carry the worked pair back into general terms,
+    the concrete illustration being complete
+  trust: >-
+    raised further, since the comparison varies one factor and holds the rest
+    level
+after:
+  knowledge: >-
+    also holds the chain by which that factor produces its outcome, and several
+    further cases the same chain accounts for
+  question: >-
+    wants whether the traced chain holds beyond the single setting in which it
+    was shown
+  expectation: >-
+    expects a return to general terms, the illustration having been carried as
+    far as one setting allows
+  trust: >-
+    raised further still, since one cause is shown to account for several
+    ordinary cases without new assumptions
+breaks:
+  - >-
+    state the outcome and its cause with the intermediate link left out — the
+    reader is given an assertion to accept or refuse instead of a chain they can
+    check link by link
+  - >-
+    drop the second, differently placed group the same cause explains — the
+    account stays tied to one kind of actor and reads as a remark about that
+    kind rather than a mechanism
+  - >-
+    cut the bare physical gesture and keep only its reason — the chain loses the
+    one concrete image that shows it happening rather than merely being claimed
+  - >-
+    put the reason for the gesture in the same breath as the gesture — the small
+    gap that makes the reader supply the motive closes, and the detail lands as
+    illustration already explained
+  - >-
+    add a further run of corroborating cases after the last one — the
+    accumulation outgrows the point it carries and the reader begins weighing
+    instances instead of following a cause
+  - >-
+    remove the closing case that varies only the surrounding conditions — the
+    reader loses the demonstration that the cause moves with its circumstances
+    and not only with the people
+segments:
+  - operation: >-
+      names a condition prevailing in one setting and the limit it places on
+      what can be discerned of others
+  - operation: >-
+      derives from a general difficulty a specific ambiguity between two opposed
+      readings of one observable act, and names the state it leaves those who
+      must read it in
+    relation: >-
+      applies the broad limit of the step before it to a single observable act,
+      and carries it on to what that ambiguity does to those involved
+  - operation: >-
+      follows a stated reaction into the self-reinforcing behaviour it produces,
+      so the original difficulty compounds itself
+    relation: >-
+      takes the state the previous step ended on as a cause and adds the next
+      link, closing the loop back onto the difficulty
+  - operation: >-
+      carries an established explanation over to a second, differently placed
+      group, naming the protective end it serves there
+    relation: >-
+      turns from people at large to a particular group, reusing the explanation
+      already built rather than introducing another
+  - operation: reports one recurring physical act of a group
+    relation: >-
+      narrows the stated tendency of the step before it to a single observable
+      action that instances it
+    manner: >-
+      a close bodily gesture given as a bare image, with no reason yet attached
+      to it
+  - operation: >-
+      supplies the reason for an act, stated as readiness against a moment that
+      cannot be foreseen
+    relation: >-
+      completes the bare description before it by giving the motive that
+      description withheld
+  - operation: >-
+      accounts for a difference between two conditions of one setting by how
+      much can be discerned under each
+    relation: >-
+      adds a last case governed by the same cause, varying the surrounding
+      conditions rather than the people involved

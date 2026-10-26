@@ -1,0 +1,57 @@
+id: define_a_measure_then_state_its_direction
+description: >-
+  Defines a graded quantity, says it again in plain words, then states which
+  outcome follows at each end of its range.
+before:
+  knowledge: >-
+    no specialized knowledge of the field and no technical vocabulary for it
+  question: no settled question beyond whether this text will be followable
+  expectation: expects an unfamiliar subject to open with difficult terminology
+  orientation: >-
+    places the text loosely as an explanation by someone who knows more
+  trust: neutral, willing to read on
+after:
+  knowledge: >-
+    holds one named graded quantity, its plain sense, and the direction in which
+    it bears on an outcome
+  question: >-
+    wants to know what in practice puts the quantity at one end of its range
+    rather than the other
+  expectation: >-
+    expects the next paragraph to show the quantity at work in concrete cases
+  orientation: >-
+    places the text as one that makes its own vocabulary sayable before using it
+  trust: >-
+    raised, since a formal formulation is immediately given back in everyday
+    words
+breaks:
+  - >-
+    drop the plain restatement that follows the definition — the reader carries
+    a formal formulation they cannot yet say back, and the consequence lands on
+    nothing
+  - >-
+    state only one end of the range and leave its opposite unsaid — the reader
+    gets a direction without the contrast that makes it a graded quantity at all
+  - >-
+    insert a paragraph of qualifications and exceptions before the consequence
+    is stated — the reader reaches the payoff after their grip on the definition
+    has loosened
+  - >-
+    name the quantity without saying what it is the degree of — the reader takes
+    it as a label to memorize rather than something that can run high or low
+segments:
+  - operation: >-
+      defines a named graded quantity as the degree to which one alternative can
+      be told apart from its opposite
+  - operation: >-
+      restates a technical formulation in plain words, shortened to a single
+      clause
+    relation: >-
+      says again in everyday words what the step before it had put formally
+    manner: a brief direct statement that takes no elaboration
+  - operation: >-
+      states how the graded quantity bears on an outcome, naming two opposite
+      ends of its range
+    relation: >-
+      turns from what the quantity is to what difference it makes, resting on
+      the plain sense just given

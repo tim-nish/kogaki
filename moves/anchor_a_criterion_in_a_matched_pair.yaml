@@ -1,0 +1,74 @@
+id: anchor_a_criterion_in_a_matched_pair
+description: >-
+  States one criterion, then tests it on two everyday cases that share a surface
+  feature, tracing each side's mechanism so the criterion is felt rather than
+  asserted.
+before:
+  knowledge: >-
+    no specialized knowledge of the matter at hand; knows only what everyday
+    life supplies
+  question: >-
+    holds no settled question beyond whether an unfamiliar subject will be
+    followable
+  expectation: >-
+    expects general explanation in unfamiliar terms, possibly hard to follow
+  orientation: >-
+    places this among introductory treatments of a field they have not entered
+  trust: neutral; no reason yet to credit or doubt
+after:
+  knowledge: >-
+    holds one general criterion together with a worked case in which it decides
+    an outcome on both sides
+  question: >-
+    wants to know whether the criterion decides cases beyond the one it was
+    shown on
+  expectation: >-
+    expects the criterion now worked through on a paired case to be carried to
+    further cases
+  orientation: >-
+    places this as a treatment that grounds its general terms in cases anyone
+    can picture
+  trust: >-
+    raised: a general measure is put to a case where the obvious shared feature
+    does not decide the outcome
+breaks:
+  - >-
+    drop the general criterion and open straight on the paired cases — the
+    reader has no measure by which the two differ, and the comparison reads as
+    anecdote
+  - >-
+    give only the side where the criterion fails and leave the contrasting
+    member out — the shared surface feature is never ruled out as the cause, so
+    the criterion gains no support
+  - >-
+    state the pair's opposed outcomes without tracing either mechanism — the
+    reader holds a verdict they cannot check and the criterion stays a slogan
+  - >-
+    insert a passage of qualifications between the criterion and the pair — the
+    general measure goes cold before the case that would make it felt arrives
+  - >-
+    replace the shared surface feature with cases that differ in every visible
+    respect — the criterion no longer looks like what decides the outcome
+segments:
+  - operation: >-
+      a criterion is defined and the direction in which it governs an outcome is
+      stated
+  - operation: >-
+      two cases sharing one surface feature are set against each other on the
+      stated criterion and their opposed outcomes are named
+    relation: >-
+      it puts the criterion just defined to work on a concrete pair instead of
+      leaving it as a general statement
+    manner: closes on a brief verdict clause that takes no elaboration
+  - operation: >-
+      the mechanism is traced on the member of the pair where the criterion
+      fails, followed through to a self-reinforcing outcome
+    relation: >-
+      it supplies for the first member of the pair the working that the previous
+      step only asserted
+  - operation: >-
+      the mechanism is traced on the other member of the pair, the shared
+      feature being conceded and the differing conditions named
+    relation: >-
+      it mirrors the previous step on the opposite member, holding the shared
+      feature fixed so that the differing conditions carry the outcome

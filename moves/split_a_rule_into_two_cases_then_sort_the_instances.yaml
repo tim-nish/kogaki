@@ -1,0 +1,73 @@
+id: split_a_rule_into_two_cases_then_sort_the_instances
+description: >-
+  Limits a principle the reader has just accepted by splitting it into two
+  cases, makes the split concrete, then names the instance it explains and sorts
+  the instances onto its sides.
+before:
+  knowledge: >-
+    holds one general principle about a class of actors and one present case in
+    which it operates
+  question: >-
+    wants to know what results when each of two sides acts from the same
+    protective motive
+  expectation: >-
+    expects what comes next to draw the consequence out of the case just laid
+    out
+  trust: >-
+    raised: a commonplace is taken at face value and then carried into a case
+    the reader can check
+after:
+  knowledge: >-
+    holds that the principle operates only under some conditions, and that those
+    conditions sort instances unevenly
+  question: >-
+    wants to know what decides which side a given instance falls on, and why the
+    strongest one is the exception
+  expectation: >-
+    expects the conditions behind the division to be set out next, the division
+    and its stake now given
+  trust: >-
+    raised further: the principle just granted is at once limited by the one who
+    granted it
+breaks:
+  - >-
+    keep only the abstract division and drop the concrete restatement — the
+    reader cannot tell what would put a case on one side rather than the other,
+    and the division stays a bare label
+  - >-
+    draw the division without naming the larger question it bears on — the
+    reader reads the limit as the speaker hedging and carries nothing forward
+  - >-
+    explain in full here why the instances sort as they do — the paragraph
+    answers the question it exists to raise, and what follows has nothing left
+    to do
+  - >-
+    drop the note that the strongest instance runs against what its strength
+    would suggest — the sorting reads as plain description and loses the oddity
+    that makes the reader want the cause
+  - >-
+    add a second division cutting the same material another way — the reader now
+    holds two distinctions and no longer knows which one the larger question
+    turns on
+segments:
+  - operation: >-
+      divides a general claim into two opposed cases, one where it holds readily
+      and one where it does not
+  - operation: >-
+      restates a division in terms of how one and the same act is received under
+      differing circumstances
+    relation: >-
+      makes concrete, in terms of what is actually done and how it lands, the
+      division the step before stated abstractly
+  - operation: >-
+      asserts that the matter in hand bears on a larger question, naming that
+      question
+    relation: >-
+      turns from drawing the division to the use the division is going to be put
+      to
+    manner: a brief direct statement that takes no elaboration
+  - operation: >-
+      gives the reason by sorting the instances onto the two sides of the
+      division, setting the strongest instance against what its strength would
+      suggest
+    relation: pays the debt the previous step's claim of importance left owed
