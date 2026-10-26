@@ -362,10 +362,23 @@ function obligationRefusals(o, segments, at, nouns) {
   return errors;
 }
 
+// The Segment numbers a `why` names: "Segment 4", "Segments 3 and 5", "Segments 3 to 5".
+function segmentsNamed(why) {
+  const named = [];
+  for (const m of String(why).matchAll(/\bSegments?\s+(\d+(?:\s*(?:,|and|to|-|–)\s*\d+)*)/gi)) {
+    const nums = m[1].match(/\d+/g).map(Number);
+    if (/to|-|–/.test(m[1]) && nums.length === 2) for (let k = nums[0]; k <= nums[1]; k += 1) named.push(k);
+    else named.push(...nums);
+  }
+  return named;
+}
+
 // THE TRIGGER VERDICTS (FORMAT "The paragraph unit", rule 8, kogaki#1590): a map naming each of
-// OBLIGATION_TRIGGERS once, each `{ fired, why }`, and `obligation` present exactly where `counts`
-// fired. `at` names the map's place in the refusal.
-function triggersRefusals(t, o, at) {
+// OBLIGATION_TRIGGERS once, each `{ fired, why, segment }`, and `obligation` present exactly where
+// `counts` fired. `segment` names the Segment the verdict rests on, 1 to `n` (kogaki#1613); the
+// obligation call's answer always carries it, and a record written before it may not. `at` names
+// the map's place in the refusal.
+function triggersRefusals(t, o, at, n, { segmentRequired = false } = {}) {
   if (!isMap(t)) return [`${at} is not a map of ${OBLIGATION_TRIGGERS.join(", ")} (kogaki#1590)`];
   const extra = Object.keys(t).find((k) => !OBLIGATION_TRIGGERS.includes(k));
   if (extra) return [`${at} carries \`${extra}\`, which is retired or undeclared — the triggers are ${OBLIGATION_TRIGGERS.join(", ")} (kogaki#1590)`];
@@ -373,12 +386,18 @@ function triggersRefusals(t, o, at) {
   for (const k of OBLIGATION_TRIGGERS) {
     const v = t[k];
     const atK = `${at}.${k}`;
-    const bad = keysRefusal(v, ["fired", "why"], atK);
+    const bad = segmentRequired ? keysRefusal(v, ["fired", "why", "segment"], atK) : keysRefusal(v, ["fired", "why"], atK, ["segment"]);
     if (bad) { errors.push(bad); continue; }
     if (typeof v.fired !== "boolean") errors.push(`${atK}.fired is ${JSON.stringify(v.fired)} — it is true or false`);
     const line = lineRefusal(v.why, `${atK}.why`);
     if (line) errors.push(line);
     else if (wordCount(v.why) > OBLIGATION_WORDS_MAX) errors.push(`${atK}.why is ${wordCount(v.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words (kogaki#1590)`);
+    if (v.segment === undefined) continue;
+    if (!Number.isInteger(v.segment) || v.segment < 1 || v.segment > n) {
+      errors.push(`${atK}.segment is ${JSON.stringify(v.segment)}, and the Move has Segments 1 to ${n} — it names the Segment the verdict rests on (kogaki#1613)`);
+    } else if (v.fired === true && v.segment < n && !line && !segmentsNamed(v.why).some((x) => x > v.segment)) {
+      errors.push(`${atK} fired on Segment ${v.segment}, which is not the Move's last, and \`why\` names no later Segment — a count a later Segment uses leaves nothing open, so a fired verdict before the last names the later Segments that leave the items unused (kogaki#1613)`);
+    }
   }
   if (errors.length) return errors;
   if (t.counts.fired && o === undefined) return [`\`obligation\` is absent beside \`counts\` fired — a trigger that fires names its items`];
@@ -514,7 +533,7 @@ export function validateExtractionUnit(record, input) {
 
   if (r.obligation !== undefined) errors.push(...obligationRefusals(r.obligation, r.segments, at, nouns));
   if (r.obligation_triggers !== undefined) {
-    errors.push(...triggersRefusals(r.obligation_triggers, r.obligation, `${at}: \`obligation_triggers\``).map((e) => (e.startsWith(at) ? e : `${at}: ${e}`)));
+    errors.push(...triggersRefusals(r.obligation_triggers, r.obligation, `${at}: \`obligation_triggers\``, n).map((e) => (e.startsWith(at) ? e : `${at}: ${e}`)));
   } else if (r.obligation !== undefined) {
     errors.push(`${at}: \`obligation\` is present and \`obligation_triggers\` is absent — the verdict stands on every record the obligation call answered (FORMAT "The paragraph unit", rule 8)`);
   }
@@ -597,16 +616,16 @@ export function withContentBound(record, verdicts) {
 }
 
 // THE OBLIGATION CALL'S ANSWER, READ BACK (FORMAT "The paragraph unit", rule 8, kogaki#1590):
-// `{ triggers: { counts: { fired, why } } }`, with `obligation` beside it exactly where `counts`
-// fired; the record it is written onto is then read back whole, so an item the record's own
-// rules refuse is asked again here.
-export function obligationAnswerRefusal(answer) {
+// `{ triggers: { counts: { fired, why, segment } } }`, with `obligation` beside it exactly where
+// `counts` fired, and `segment` one of the Move's `n` Segments (kogaki#1613); the record it is
+// written onto is then read back whole, so an item the record's own rules refuse is asked again here.
+export function obligationAnswerRefusal(answer, n) {
   if (!isMap(answer)) return "the answer is not a map";
-  if (Object.hasOwn(answer, "trigger")) return "the answer carries `trigger`, the retired shape — it carries `triggers`, a map of counts to `{ fired, why }` (kogaki#1590)";
+  if (Object.hasOwn(answer, "trigger")) return "the answer carries `trigger`, the retired shape — it carries `triggers`, a map of counts to `{ fired, why, segment }` (kogaki#1590)";
   const extra = Object.keys(answer).find((k) => k !== "triggers" && k !== "obligation");
   if (extra) return `the answer carries \`${extra}\`, which it does not declare — it carries triggers and, where counts fired, obligation`;
   if (!Object.hasOwn(answer, "triggers")) return "the answer carries no `triggers`";
-  const bad = triggersRefusals(answer.triggers, answer.obligation, "`triggers`");
+  const bad = triggersRefusals(answer.triggers, answer.obligation, "`triggers`", n, { segmentRequired: true });
   return bad.length ? bad.join("\n") : null;
 }
 
@@ -616,7 +635,7 @@ export function withObligation(record, answer) {
 }
 
 export function validateObligationUnit(answer, { record, input }) {
-  const bad = obligationAnswerRefusal(answer);
+  const bad = obligationAnswerRefusal(answer, input.paragraph_you_must_extract.sentences.length);
   if (bad) return { error: `paragraph ${input.paragraph_you_must_extract.number}, the obligation: ${bad}` };
   return validateExtractionUnit(withObligation(record, answer), input);
 }
@@ -660,7 +679,7 @@ export function extractionRecord(record, input, runRel) {
     ...(record.content_bound ? { content_bound: record.content_bound.map((v) => ({ bound: v.bound, why: v.why.trim() })) } : {}),
     ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()) } : {}),
     ...(record.obligation_triggers ? { obligation_triggers: Object.fromEntries(Object.entries(record.obligation_triggers)
-      .map(([k, v]) => [k, { fired: v.fired, why: v.why.trim() }])) } : {}),
+      .map(([k, v]) => [k, { fired: v.fired, why: v.why.trim(), ...(v.segment !== undefined ? { segment: v.segment } : {}) }])) } : {}),
     description: record.description.trim(),
     notes: record.notes.trim(),
   };
@@ -701,7 +720,7 @@ export function extractionMarkdown(rec) {
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
     ...(r.obligation ? [`obligation: ${r.obligation.map(line).join(", ")}`] : []),
     ...(r.obligation_triggers ? [...Object.entries(r.obligation_triggers)
-      .map(([k, v]) => `obligation trigger ${k}: ${v.fired ? "fired" : "not fired"} — ${line(v.why)}`), ""] : r.obligation ? [""] : []),
+      .map(([k, v]) => `obligation trigger ${k}: ${v.fired ? "fired" : "not fired"} — ${v.segment !== undefined ? `Segment ${v.segment}: ` : ""}${line(v.why)}`), ""] : r.obligation ? [""] : []),
     "## 6. Description", "", line(r.description), "",
     "## 7. Candidate name", "", line(r.name), "",
     "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",
