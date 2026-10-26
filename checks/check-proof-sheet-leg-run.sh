@@ -106,7 +106,7 @@
 #       middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments
 #       heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they
 #       stand numbered after that Move's description and nowhere in the comparison table.
-#   (x) the obligation call's verdict under each Move description (kogaki#1593): its not fired, fired and not recorded forms.
+#   (x) the obligation call's verdict under each Move description (kogaki#1593): its not fired, fired and not recorded forms, the first two naming the Segment the verdict rests on before the reason (kogaki#1613).
 #   (y) the Leg Move (kogaki#1597), in checks/proof-sheet-leg-move-cases.mjs, whose header states the case.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
@@ -130,7 +130,7 @@ process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
-const COPY = '<button type="button" class="copy-table">copy table</button>', NOT_FIRED = '<p class="trigger">obligation trigger counts: not fired — No operation counts items.</p>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const COPY = '<button type="button" class="copy-table">copy table</button>', NOT_FIRED = '<p class="trigger">obligation trigger counts: not fired — Segment 1: No operation counts items.</p>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // (l) The ParagraphPlan card's Attempts part, cut into its per-attempt blocks.
 const attemptBlocks = (cardHtml) => {
   const a = cardHtml.indexOf('<details class="part attempts">');
@@ -213,7 +213,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   // The obligation call (kogaki#1590): \`counts\` does not fire in these Segments.
-  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
+  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items.", segment: 1 } } }, "extract");
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -680,8 +680,8 @@ else {
     `(w) paragraph 2's middle cell does not list Leg Waypoint 2's Paragraph Waypoints in order, the performs entry in italics: ${legRows[1]}`);
   const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
   ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger counts: fired — ${FIRED_WHY}</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><table`)
-    && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w) paragraph 3's two obligation items do not stand numbered after its Move description alone, outside the comparison table");
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger counts: fired — Segment 1: ${FIRED_WHY}</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><table`)
+    && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w)/(x) paragraph 3's verdict line does not name its Segment before the reason (kogaki#1613), or its two obligation items do not stand numbered after its Move description alone, outside the comparison table");
   ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><p class="trigger">obligation trigger: (not recorded)</p><table`), "(x) paragraph 1's record with no obligation_triggers does not render `obligation trigger: (not recorded)` after its Move description");
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
@@ -823,7 +823,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
   // The obligation call (kogaki#1590): \`counts\` does not fire in these Segments.
-  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
+  if (prompt.includes("\`obligation_unit\` judgment point")) return out({ triggers: { counts: { fired: false, why: "No operation counts items.", segment: 1 } } }, "extract");
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -1253,7 +1253,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   // The obligation call (kogaki#1590) reads the Segments' wording alone: the owing paragraph's
   // Segments fire \`counts\`, and no other paragraph's do.
   if (prompt.includes("\\\`obligation_unit\\\` judgment point")) {
-    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { triggers: { counts: { fired: true, why: "The Segments count the named items." } }, obligation: T.general } : { triggers: { counts: { fired: false, why: "No operation counts items." } } }, "extract");
+    return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { triggers: { counts: { fired: true, why: "The last Segment counts the named items.", segment: input().segments.length } }, obligation: T.general } : { triggers: { counts: { fired: false, why: "No operation counts items.", segment: 1 } } }, "extract");
   }
   if (prompt.includes('"paragraph_you_must_extract"')) {
     const x = input();

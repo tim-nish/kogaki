@@ -38,7 +38,8 @@
 //
 // THE OBLIGATION CALL'S VERDICT UNDER THE DESCRIPTION (kogaki#1593): between a bound Move's
 // description and its obligation, one line per entry of the Extraction record's
-// `obligation_triggers`, in the record's order, the `why` verbatim.
+// `obligation_triggers`, in the record's order, the `why` verbatim, after the Segment number the
+// verdict rests on where the record carries one (kogaki#1613).
 //
 // THE PARAGRAPH WAYPOINTS BETWEEN THE TWO PARAGRAPHS (kogaki#1591): the comparison table's middle
 // column lists the Leg Waypoint's Paragraph Waypoints from the plan file, item k against Segment k.
@@ -530,7 +531,8 @@ function moveObligationLine(r, i) {
 function obligationTriggerLines(rec) {
   const triggers = rec && rec.obligation_triggers && typeof rec.obligation_triggers === "object" ? Object.entries(rec.obligation_triggers) : [];
   return triggers.length
-    ? triggers.map(([name, t]) => `<p class="trigger">obligation trigger ${esc(name)}: ${t && t.fired ? "fired" : "not fired"} — ${esc((t && t.why) || "")}</p>`).join("")
+    ? triggers.map(([name, t]) => `<p class="trigger">obligation trigger ${esc(name)}: ${t && t.fired ? "fired" : "not fired"} — `
+      + `${t && t.segment !== undefined ? `Segment ${esc(t.segment)}: ` : ""}${esc((t && t.why) || "")}</p>`).join("")
     : `<p class="trigger">obligation trigger: (not recorded)</p>`;
 }
 
