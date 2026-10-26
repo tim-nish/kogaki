@@ -30,6 +30,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `figure` | unread | unread | unread | unread | unread | unread | unread |
 | `continues_from` | unread | unread | unread | unread | unread | unread | unread |
 | `obligation` | unread | unread | unread | unread | unread | content | unread |
+| `obligation_triggers` | unread | unread | unread | unread | unread | unread | unread |
 | `description` | unread | unread | unread | unread | unread | content | unread |
 | `evidence` | unread | unread | unread | unread | unread | unread | unread |
 | `segments.operation` | unread | unread | unread | operation | excluded | content | unread |

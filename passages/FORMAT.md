@@ -102,7 +102,7 @@ extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
 applies to a paragraph Extraction, except the rules here — rules 1 to 6
 are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's,
-rule 8 is kogaki#1583's, with its item forms kogaki#1602's, rule 9 is kogaki#1478's and rule 10 is retired:
+rule 8 is kogaki#1583's, with its two forms kogaki#1618's (retiring the count forms of kogaki#1602), rule 9 is kogaki#1478's and rule 10 is retired:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -151,7 +151,7 @@ rule 8 is kogaki#1583's, with its item forms kogaki#1602's, rule 9 is kogaki#147
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each; otherwise the key is absent. A counting operation names no number unless the number is the operation, as in a contrasting pair or the two sides of one measure. Where no operation names a number, `obligation` is ONE collective item naming the counted parts as a set, such as "each of the counted parts, in the order named", and an item carrying a number or ordinal word is refused; where an operation names the number or a fixed set, it is that many ordinal items in the order the Segments name them, and a collective item is refused (kogaki#1590, kogaki#1602). `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept ("Where each field goes"). Absent is the normal case.
+8. **`obligation` is absent unless `question` or `term` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage, and it fires on two forms and never on a count (kogaki#1618, owner reading 2026-10-26): **a question left standing**, where a Segment's `operation` poses a question to the reader and no later Segment's `operation` answers it, the item being that question; and **a term left unexplained**, where a Segment's `operation` introduces or names a term and no later Segment's `operation` defines, glosses or grounds it, the item being that term. Each form yields one item per question or per term, in the order the Segments raise them, each a term or question of at most twelve words; otherwise the key is absent. A term introduced and then explained in any later Segment owes nothing: whether the explanation was enough is the owner's judgment at the sheet, not the call's. An operation that counts or names a set of items is no trigger, and the count forms of kogaki#1602 (one collective item, or that many ordinal items) are retired with the `counts` trigger they served: an item may carry a number or ordinal word. `obligation_triggers` carries the verdict on `question` and on `term`, each with its one-line reason and the Segment it rests on, on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept ("Where each field goes"). Absent is the normal case.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -549,13 +549,14 @@ What each field holds:
   `subject_nouns`, and no word in the original's language, so that it tests
   the Move on any subject (kogaki#1519). A `breaks` that is not a list of
   one-line strings is refused at ingestion.
-- `obligation` — absent unless `counts` fires in the Move's own Segments
-  ("The paragraph unit", rule 8). Where present, it is the list of those
-  items, one term or question of at most twelve words each, carrying none
-  of `since`, `because`, `so that`, `must` or `which` (kogaki#1590), naming no
-  item twice: one collective item where no operation names a number, and
-  that many ordinal items, in the order the Segments name them, where one
-  does (kogaki#1602). The record carries no condition on how an item is
+- `obligation` — absent unless `question` or `term` fires in the Move's own
+  Segments ("The paragraph unit", rule 8): a question no later Segment
+  answers, or a term no later Segment explains (kogaki#1618). Where present,
+  it is the list of those items, one per fired question or term in the
+  order the Segments raise them, each a term or question of at most twelve
+  words, carrying none of `since`, `because`, `so that`, `must` or `which`
+  (kogaki#1590), naming no item twice; an item may carry a number or
+  ordinal word. The record carries no condition on how an item is
   kept; a map, and so a `kind`, is refused (kogaki#1568). Each item
   is written general, as `operation` is: it names no term, place, person or
   claim of the original and none of `subject_nouns` (kogaki#1576). An
@@ -565,11 +566,15 @@ What each field holds:
   `relation`, and nothing of the Passage (kogaki#1583). The ingest copies it
   to the Move unchanged (kogaki#1557).
 - `obligation_triggers` — on every record the obligation call answered ("The
-  paragraph unit", rule 8): a map naming `counts`, the one trigger, with
-  `fired`, true or false, and `why`, its reason in one line of at most
-  twelve words, so the verdict is read where nothing fired. `obligation` is
-  present exactly where `counts` fired. It stays on the Extraction and the
-  ingest does not copy it to the Move (kogaki#1590).
+  paragraph unit", rule 8): a map naming `question` and `term`, the two
+  triggers (kogaki#1618), each with `fired`, true or false, `why`, its
+  reason in one line of at most twelve words, and `segment`, the Segment the
+  verdict rests on, so the verdict is read where nothing fired. `obligation`
+  is present exactly where a trigger fired. It stays on the Extraction and
+  the ingest does not copy it to the Move (kogaki#1590); the library
+  re-judge (`extract.mjs rejudge --library`) writes both keys onto a Move
+  record from its own `segments`, and `moves/ROLES.json` names the field so
+  the record still loads.
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
   role: no prompt renders it, and the ingest reads only that it is present
