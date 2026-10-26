@@ -567,8 +567,11 @@ What each field holds:
 - `obligation_triggers` — on every record the obligation call answered ("The
   paragraph unit", rule 8): a map naming `counts`, the one trigger, with
   `fired`, true or false, and `why`, its reason in one line of at most
-  twelve words, so the verdict is read where nothing fired. `obligation` is
-  present exactly where `counts` fired. It stays on the Extraction and the
+  twelve words, so the verdict is read where nothing fired, and `segment`,
+  the number of the Segment the verdict rests on (kogaki#1613). `counts`
+  fires only where the counting Segment is the Move's last or no later
+  Segment uses the counted items. `obligation` is present exactly where
+  `counts` fired. It stays on the Extraction and the
   ingest does not copy it to the Move (kogaki#1590).
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
