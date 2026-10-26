@@ -41,6 +41,10 @@
 // `obligation_triggers`, in the record's order, the `why` verbatim, after the Segment number the
 // verdict rests on where the record carries one (kogaki#1613).
 //
+// AN UNBOUND CONTENT CLAUSE CARRIES ITS REASON (kogaki#1614): in a Segments table, a Segment the
+// kept record's `content_bound` judges unbound shows that verdict's `why` beside its content
+// clause; a bound one shows nothing.
+//
 // THE PARAGRAPH WAYPOINTS BETWEEN THE TWO PARAGRAPHS (kogaki#1591): the comparison table's middle
 // column lists the Leg Waypoint's Paragraph Waypoints from the plan file, item k against Segment k.
 // Each Segments heading ends in a `copy table` button copying its table as tab-separated text.
@@ -583,11 +587,17 @@ function extractionParagraphs(r) {
 // share. `edited` is the set of Segment numbers the run record names as edited by the owner
 // (kogaki#1512); each such row carries the badge, with the edited fields in its title.
 export const EDITED_BADGE = "edited by owner";
-const segmentsTable = (segs, edited = new Map()) => (segs.length
+// `bound` is the record's `content_bound` (kogaki#1614): a Segment judged unbound carries its
+// verdict's reason beside its content clause, and a bound one carries nothing.
+const unboundNote = (bound, j) => {
+  const v = Array.isArray(bound) ? bound[j] : null;
+  return v && v.bound === false ? ` <span class="unbound">not bound: ${esc(v.why || "")}</span>` : "";
+};
+export const segmentsTable = (segs, edited = new Map(), bound = null) => (segs.length
   ? `<table><thead><tr><th>#</th><th>content clause</th><th>operation</th><th>relation</th><th>manner</th></tr></thead><tbody>`
     + segs.map((s, j) => `<tr${edited.has(j + 1) ? ' class="edited"' : ""}><td>${j + 1}${edited.has(j + 1)
       ? ` <span class="badge edited" title="${esc(edited.get(j + 1).join(", "))}">${EDITED_BADGE}</span>` : ""}</td>`
-      + `<td>${esc(s.content || "")}</td><td>${esc(s.operation || "")}</td><td>${esc(s.relation || "")}</td>`
+      + `<td>${esc(s.content || "")}${unboundNote(bound, j)}</td><td>${esc(s.operation || "")}</td><td>${esc(s.relation || "")}</td>`
       + `<td>${esc(s.manner || "")}</td></tr>`).join("")
     + `</tbody></table>`
   : `<p class="muted">No Segments.</p>`);
@@ -608,7 +618,7 @@ function extractionCard(r, idx) {
   const output = stageNote(r, "extract")
     + per.map((p) => prowBlock("extraction", p.i + 1, idx, `paragraph ${p.i + 1}`,
       `<p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) + moveStatesBreaks(r, entries[p.i] && entries[p.i].move)
+      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound) + moveStatesBreaks(r, entries[p.i] && entries[p.i].move)
         + sub("rendering", pre(p.rendered || p.text || "(not written)"))
         + sub("record file", pre(p.text || "(not written)")) : ""))).join("");
 
@@ -1048,7 +1058,7 @@ function reviewBlock(r, idx) {
   };
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}${COPY_BUTTON}</h4>`
     + moveDescription(r, entries[p.i] && entries[p.i].move) + (entries[p.i] && entries[p.i].move ? obligationTriggerLines(p.rec) : "") + moveObligationLine(r, p.i)
-    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1)) : `<p class="muted">(not written)</p>`)).join("");
+    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge
   // named no does-not-fit, is a row too, carrying the job record's refusal: only an attempt
@@ -1109,7 +1119,7 @@ details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
 table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}.stop{color:var(--accent)}
 .badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
-.badge.copied,.badge.edited,.badge.source{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
+.unbound{color:var(--accent);font-size:12px}.badge.copied,.badge.edited,.badge.source{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
 .pcard.substitute{border-left:4px solid var(--accent)}
 .diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
 .legend{list-style:none;display:flex;gap:14px;flex-wrap:wrap;margin:4px 0;padding:0;font-size:12px;color:var(--muted)}

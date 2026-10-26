@@ -46,7 +46,7 @@
 #       sentences; and it carries rule 9's read-aloud test, which excludes the page's
 #       layout from `operation`, `content`, `relation`, `manner` and reader states
 #       (kogaki#1478, kogaki#1510).
-#   (d) every call ran with `--tools ""`, on the shared supervisor.
+#   (d) every call ran with `--tools ""`, on the shared supervisor, the content-bound calls among them.
 #   (e) paragraph 2 is handed the reader state paragraph 1 left (its `after` where a row
 #       moved, its `before` where not), and its before column carries it.
 #   (f) the validator refuses, naming the field: a `before` that is not the carried state,
@@ -96,6 +96,17 @@
 #   (j) the retired keys (kogaki#1583): a record carrying `discharges` or `obligation_content` is
 #       refused as an undeclared key, the extraction call's answer carrying `obligation` or
 #       `obligation_triggers` is refused, and FORMAT carries rule 8 and the retired rule 10 verbatim.
+#   (k) the content clause, judged source-bound (kogaki#1614), over the discriminating pair of the
+#       2026-10-26 run: the clause "two of the countries sit where the dilemma arises readily, while
+#       the strongest one sits where it does not" is refused naming "the strongest one", the refusal
+#       reaches the Extractor's next attempt verbatim beside the refused answer, and the clause naming
+#       Russia, China and the United States passes and is written with `content_bound`, one verdict
+#       per Segment; `p1/attempts.json` names both calls' attempts; the verdict call's input is each
+#       sentence beside its clause with `subject_nouns`; a clause refused on every attempt stops the run
+#       at the Extractor's own budget, writing nothing; and the verdict answer's shape -- one per
+#       Segment, a `why` of at most twelve words, an unbound verdict quoting a phrase of its clause --
+#       is refused by name, as is the extraction call's answer carrying `content_bound`; and the sheet's
+#       Segments table shows an unbound verdict's reason beside its content cell, and nothing for a bound one.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
 # shared supervisor's, held by checks/check-brief-reader-path-job.sh. Whether a live model's
@@ -134,6 +145,11 @@ appendFileSync(dir + "/argv.jsonl", JSON.stringify(process.argv.slice(2)) + "\\n
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
+  // The content-bound call (kogaki#1614): every clause here is bound.
+  if (input.subject_nouns && !input.paragraph_you_must_extract) {
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ verdicts: input.segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }) }) + "\\n");
+    process.exit(0);
+  }
   // The obligation call (kogaki#1590): its first answer carries items beside \`counts\` not
   // fired and is refused; every later one is \`counts\` not fired.
   if (!input.paragraph_you_must_extract) {
@@ -479,7 +495,7 @@ else {
 
 // (d) --tools ""
 const argvs = existsSync(join(root, "argv.jsonl")) ? readFileSync(join(root, "argv.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-ok(argvs.length === 8 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }),
+ok(argvs.length === 10 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }),
   `(d) a call ran without \`--tools ""\`: ${JSON.stringify(argvs)}`);
 
 // (f) the validator, directly
@@ -594,6 +610,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const prompt = Buffer.concat(c).toString("utf8");
   const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
   const answer = (r) => { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0); };
+  if (input.subject_nouns && !input.paragraph_you_must_extract) {
+    return answer({ verdicts: input.segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) });
+  }
   if (!input.paragraph_you_must_extract) {
     appendFileSync(dir + "/obligation-inputs.jsonl", JSON.stringify(input) + "\\n");
     if (input.segments.some((x) => /counts two/.test(x.operation))) {
@@ -758,6 +777,109 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const rule8 = "8. **`obligation` is absent unless `counts` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage: where an operation's wording counts items, `obligation` is the list of those items, one term or question of at most twelve words each; otherwise the key is absent. A counting operation names no number unless the number is the operation, as in a contrasting pair or the two sides of one measure. Where no operation names a number, `obligation` is ONE collective item naming the counted parts as a set, such as \"each of the counted parts, in the order named\", and an item carrying a number or ordinal word is refused; where an operation names the number or a fixed set, it is that many ordinal items in the order the Segments name them, and a collective item is refused (kogaki#1590, kogaki#1602). `obligation_triggers` carries the verdict on `counts` with its one-line reason on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept (\"Where each field goes\"). Absent is the normal case.";
   ok(format.includes(rule8), "(j) passages/FORMAT.md does not carry rule 8 verbatim");
   ok(format.includes("10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*"), "(j) passages/FORMAT.md does not carry the retired rule 10 verbatim");
+}
+
+// (k) THE CONTENT CLAUSE, JUDGED SOURCE-BOUND (kogaki#1614), over the discriminating pair of the
+// 2026-10-26 run: the clause replacing the three countries with "two of the countries" and "the
+// strongest one" is refused naming "the strongest one", and the clause naming Russia, China and
+// the United States passes. The fake verdict call judges that one phrase unresolved; the judgment
+// is a live model's, and what is held here is the call, the refusal and the re-ask.
+{
+  const kroot = join(root, "k");
+  mkdirSync(kroot, { recursive: true });
+  const S2 = "Russia and China sit where the dilemma arises readily, while the United States sits where it does not.";
+  writeFileSync(join(kroot, "leg.txt"), `Some powers meet the dilemma more often than others. ${S2}\n`);
+  const BAD = "two of the countries sit where the dilemma arises readily, while the strongest one sits where it does not";
+  const GOOD = "Russia and China sit where the dilemma arises readily, while the United States sits where it does not";
+  const kjudge = join(kroot, "fake-judge.mjs");
+  writeFileSync(kjudge, `#!/usr/bin/env node
+import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+if (process.argv.includes("--version")) { console.log("fake-judge 1.0"); process.exit(0); }
+const dir = process.env.PSX_FIXTURE_DIR;
+const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
+  const prompt = Buffer.concat(c).toString("utf8");
+  const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
+  const answer = (r) => { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0); };
+  if (input.subject_nouns && !input.paragraph_you_must_extract) {
+    appendFileSync(dir + "/bound-inputs.jsonl", JSON.stringify(input) + "\\n");
+    return answer({ verdicts: input.segments.map((s) => (s.content.includes("the strongest one")
+      ? { bound: false, why: '"the strongest one" resolves to no subject noun.' } : { bound: true, why: "Every reference resolves to a subject noun." })) });
+  }
+  if (!input.paragraph_you_must_extract) return answer({ triggers: { counts: { fired: false, why: "No operation counts items.", segment: 1 } } });
+  appendFileSync(dir + "/extract-prompts.jsonl", JSON.stringify(prompt) + "\\n");
+  const n = (existsSync(dir + "/attempt") ? Number(readFileSync(dir + "/attempt", "utf8")) : 0) + 1;
+  writeFileSync(dir + "/attempt", String(n));
+  const p = input.paragraph_you_must_extract;
+  answer({ version: "1", paragraph: p.number, source: "not given", prior_text: "not assumed", language: "English",
+    subject_nouns: ["Russia", "China", "United States", "dilemma"],
+    answers: { q1: "Places three powers against one test.", q2: "Raises which powers it binds.", q3: "Attention from a concrete contrast." },
+    what_it_does: "Places named powers on either side of one test.",
+    reader: ["knowledge", "question", "expectation", "orientation", "trust"].map((d, i) => ({ dimension: d, before: "BEFORE-" + d,
+      after: i === 0 ? "AFTER-" + d : "unchanged", segment: i === 0 ? "2" : "" })),
+    segments: [
+      { content: "Some powers meet the dilemma more often than others", operation: "states a general claim.", relation: "", manner: "" },
+      { content: process.env.PSX_ALWAYS || n === 1 ? ${JSON.stringify(BAD)} : ${JSON.stringify(GOOD)},
+        operation: "sorts named cases to either side of the claim.", relation: "gives instances of the claim before it", manner: "" }],
+    why_this_order: "The claim comes first.", presupposes: "The reader knows the powers.", breaks: ["drop the instances — the claim floats"],
+    description: "States a claim, then sorts named cases by it.", name: "sort_cases_by_a_claim", notes: "" });
+});
+`);
+  chmodSync(kjudge, 0o755);
+  const kRun = (tag, env = {}) => {
+    const d = join(kroot, tag);
+    mkdirSync(d, { recursive: true });
+    const res = spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "run", "--leg", join(kroot, "leg.txt"), "--out", join(d, "out")],
+      { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: kjudge, PSX_FIXTURE_DIR: d, ...env }, timeout: 300000 });
+    return { d, res, runDir: (res.stdout.match(/^run directory: (.+)$/m) || [])[1] || "" };
+  };
+  const pass = kRun("pass");
+  ok(pass.res.status === 0, `(k) the content-bound run exited ${pass.res.status}: ${pass.res.stdout}${pass.res.stderr}`);
+  const kf = join(pass.d, "out", "sort_cases_by_a_claim.yaml");
+  const kw = existsSync(kf) ? recordOf(kf) : {};
+  ok(((kw.segments || [])[1] || {}).content === GOOD, `(k) the written Segment 2 is not the clause naming Russia, China and the United States: ${JSON.stringify(kw.segments)}`);
+  ok(JSON.stringify((kw.content_bound || []).map((v) => v.bound)) === "[true,true]", `(k) the record does not carry \`content_bound\`, one bound verdict per Segment: ${JSON.stringify(kw.content_bound)}`);
+  const ka = existsSync(join(pass.runDir, "p1", "attempts.json")) ? JSON.parse(readFileSync(join(pass.runDir, "p1", "attempts.json"), "utf8")) : {};
+  const refusal = (ka.refusals || [])[0] || "";
+  ok(ka.attempts === 2 && ka.content_bound_attempts === 2 && /paragraph 1, Segment 2: the `content` clause leaves "the strongest one" unresolved/.test(refusal),
+    `(k) p1/attempts.json does not name the refusal of "the strongest one" and both calls' attempts: ${JSON.stringify(ka)}`);
+  ok(existsSync(join(pass.runDir, "p1", "content-bound", "attempts.json")) && existsSync(join(pass.runDir, "p1", "content-bound-2", "attempts.json")),
+    "(k) each round's content-bound call has no attempts record of its own");
+  const kp = existsSync(join(pass.d, "extract-prompts.jsonl")) ? readFileSync(join(pass.d, "extract-prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  ok(kp.length === 2 && !kp[0].includes(refusal) && refusal && kp[1].includes(refusal) && kp[1].includes(BAD),
+    `(k) the Extractor's second attempt does not carry the refusal verbatim beside the refused answer (${kp.length} prompt(s))`);
+  const kb = existsSync(join(pass.d, "bound-inputs.jsonl")) ? readFileSync(join(pass.d, "bound-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+  ok(kb.length === 2 && kb.every((x) => JSON.stringify(Object.keys(x)) === '["subject_nouns","segments"]'
+    && x.segments.every((s) => JSON.stringify(Object.keys(s)) === '["sentence","content"]')) && kb[0].segments[1].sentence === S2,
+    `(k) the content-bound call's input is not each sentence beside its content clause, with subject_nouns: ${JSON.stringify(kb[0])}`);
+  const kcp = existsSync(join(pass.runDir, "p1", "content-bound", "prompt.md")) ? readFileSync(join(pass.runDir, "p1", "content-bound", "prompt.md"), "utf8") : "";
+  ok(kcp.includes("You are the judge at the Extractor workflow's `content_bound_unit` judgment point."), "(k) p1/content-bound/prompt.md is not the content_bound_unit row rendered by judgePrompt");
+  // within the Extractor's own attempt budget: a clause refused on every attempt stops the run
+  const stop = kRun("stop", { PSX_ALWAYS: "1" });
+  const budget = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "utf8")).brief.unit_attempts;
+  ok(stop.res.status === 1 && new RegExp(`the content-bound call refused the Extraction after ${budget} attempt\\(s\\) — paragraph 1, Segment 2: the \`content\` clause leaves "the strongest one" unresolved`).test(stop.res.stdout)
+    && !existsSync(join(stop.d, "out", "sort_cases_by_a_claim.yaml")),
+    `(k) a clause refused on every attempt did not stop the run at the Extractor's budget of ${budget}: ${stop.res.stdout}${stop.res.stderr}`);
+  // the verdict call's own answer, read back
+  const kin = { paragraph_you_must_extract: { number: 1, sentences: ["A.", S2] } };
+  const krec = { segments: [{ content: "Some powers meet the dilemma" }, { content: BAD }] };
+  const vErr = (verdicts) => X.validateContentBoundUnit({ verdicts }, { record: krec, input: kin }).error || "";
+  ok(/`verdicts` carries 1 verdict\(s\) for 2 Segment\(s\)/.test(vErr([{ bound: true, why: "ok." }])), "(k) a verdict list short of the Segments was not refused");
+  ok(/Segment 2: `bound` is false and `why` quotes no phrase of the `content` clause/.test(vErr([{ bound: true, why: "ok." }, { bound: false, why: "a reference is unresolved." }])),
+    "(k) an unbound verdict quoting no phrase of the clause was not refused");
+  ok(/Segment 1: `why` is 13 words/.test(vErr([{ bound: true, why: "one two three four five six seven eight nine ten eleven twelve thirteen" }, { bound: true, why: "ok." }])),
+    "(k) a `why` over twelve words was not refused");
+  ok(!vErr([{ bound: true, why: "ok." }, { bound: false, why: '"the strongest one" resolves to nothing.' }]), "(k) a well-formed verdict list was refused");
+  ok(X.contentBoundRefusal([{ bound: true, why: "ok." }, { bound: true, why: "ok." }], { segments: [{ content: "x" }, { content: GOOD }] }, kin) === null,
+    "(k) the clause naming Russia, China and the United States was refused");
+  // the sheet (src/proof-sheet/leg-sheet.mjs): an unbound verdict's reason stands beside its content cell, a bound one shows nothing
+  const L = await import(pathToFileURL(join(repo, "src", "proof-sheet", "leg-sheet.mjs")).href);
+  const cells = L.segmentsTable([{ content: "Some powers meet the dilemma" }, { content: BAD }], new Map(),
+    [{ bound: true, why: "Every reference resolves." }, { bound: false, why: '"the strongest one" resolves to nothing.' }]);
+  ok(cells.includes(`${BAD} <span class="unbound">not bound: &quot;the strongest one&quot; resolves to nothing.</span></td>`) && cells.split('class="unbound"').length === 2,
+    `(k) the sheet does not show the unbound reason beside its content cell, and only there: ${cells}`);
+  ok(!L.segmentsTable([{ content: GOOD }], new Map(), [{ bound: true, why: "ok." }]).includes("unbound"), "(k) the sheet shows a reason beside a bound clause");
+  ok(/the record carries `content_bound` — the Harness judges each `content` clause in a call of its own/.test(X.validateExtractionAnswer({ content_bound: [] }, { paragraph_you_must_extract: { number: 1 } }).error || ""),
+    "(k) the extraction call's answer carrying `content_bound` was not refused");
 }
 
 // (g) announced blocks stay with their paragraph

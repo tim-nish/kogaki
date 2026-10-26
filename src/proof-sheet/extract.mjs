@@ -15,8 +15,9 @@
 // ONE JOB PER PARAGRAPH, IN ORDER. Paragraph N's `before` column is carried from paragraph
 // N-1's Extraction (FORMAT "The paragraph unit", rule 3), so N's input exists only once N-1
 // is written. `run` starts one supervisor per paragraph and waits on it before the next; after
-// it passes, a second supervisor asks the obligation over the record's Segments alone
-// (kogaki#1583), in the paragraph's `obligation/` subdirectory.
+// it passes, a second supervisor judges each Segment's `content` clause against its sentence
+// (kogaki#1614), in `content-bound/`, and a third asks the obligation over the record's
+// Segments alone (kogaki#1583), in the paragraph's `obligation/` subdirectory.
 //
 // WHAT THE HARNESS WRITES AND WHAT THE MODEL WRITES. The model answers a JSON record of
 // FORMAT's sections; the Harness cuts the paragraph into sentences (one Segment each), and
@@ -72,7 +73,10 @@ const ANSWER_KEYS = ["q1", "q2", "q3"];
 // `obligation` and `obligation_triggers` are the keys the extraction call's answer leaves out
 // (FORMAT "The paragraph unit", rule 8, kogaki#1590): the Harness writes `obligation_triggers`
 // from the obligation call onto every record, and `obligation` only where `counts` fired.
-const OPTIONAL_RECORD_KEYS = ["obligation", "obligation_triggers"];
+const OBLIGATION_KEYS = ["obligation", "obligation_triggers"];
+// `content_bound` is the content-bound call's verdict per Segment, written by the Harness too
+// (kogaki#1614).
+const OPTIONAL_RECORD_KEYS = [...OBLIGATION_KEYS, "content_bound"];
 // The obligation call judges these triggers, each with a verdict and its reason (kogaki#1590).
 export const OBLIGATION_TRIGGERS = ["counts"];
 // An item or a `why` is at most this many words, and an item carrying one of RATIONALE is a
@@ -202,9 +206,27 @@ function withExtractionRecordSkeleton(prompt, input) {
   return `${prompt.slice(0, lineEnd)}\n${skeleton}${prompt.slice(lineEnd)}`;
 }
 
-export function extractionUnitPrompt(row, input) {
+// `history` is the content-bound call's refusals of earlier answers (kogaki#1614), as
+// `judgeRefusalBlock` takes them; the first ask carries none.
+export function extractionUnitPrompt(row, input, history = null) {
   const held = bindFlow(FLOW);
-  try { return withExtractionRecordSkeleton(judgePrompt(row, JSON.stringify(input, null, 2), input, null), input); }
+  try { return withExtractionRecordSkeleton(judgePrompt(row, JSON.stringify(input, null, 2), input, history), input); }
+  finally { bindFlow(held); }
+}
+
+// THE CONTENT-BOUND CALL'S INPUT (kogaki#1614): each Segment's `content` clause beside its
+// sentence, and `subject_nouns` as the allowed vocabulary -- nothing of the general fields.
+export function contentBoundUnitInput(record, input) {
+  const sentences = input.paragraph_you_must_extract.sentences;
+  return {
+    subject_nouns: record.subject_nouns.map((s) => s.trim()).filter(Boolean),
+    segments: record.segments.map((s, i) => ({ sentence: sentences[i], content: s.content.trim() })),
+  };
+}
+
+export function contentBoundUnitPrompt(row, input) {
+  const held = bindFlow(FLOW);
+  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); }
   finally { bindFlow(held); }
 }
 
@@ -516,6 +538,10 @@ export function validateExtractionUnit(record, input) {
     errors.push(`${at}: \`obligation\` is present and \`obligation_triggers\` is absent — the verdict stands on every record the obligation call answered (FORMAT "The paragraph unit", rule 8)`);
   }
 
+  if (r.content_bound !== undefined) {
+    errors.push(...verdictsRefusals(r.content_bound, Array.isArray(r.segments) ? r.segments : [], `${at}: \`content_bound\``));
+  }
+
   if (!MOVE_ID.test(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`);
   else if (input.names_taken.includes(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
 
@@ -525,9 +551,68 @@ export function validateExtractionUnit(record, input) {
 // THE EXTRACTION CALL'S ANSWER carries no obligation: the Harness asks it in the second call
 // (kogaki#1583), so a model writing it here is refused rather than read.
 export function validateExtractionAnswer(record, input) {
-  const k = OPTIONAL_RECORD_KEYS.find((x) => record && typeof record === "object" && Object.hasOwn(record, x));
-  if (k) return { error: `paragraph ${input.paragraph_you_must_extract.number}: the record carries \`${k}\` — the Harness asks the obligation in a second call over your \`segments\` (FORMAT "The paragraph unit", rule 8)` };
+  const has = (x) => record && typeof record === "object" && Object.hasOwn(record, x);
+  const at = `paragraph ${input.paragraph_you_must_extract.number}`;
+  const k = OBLIGATION_KEYS.find(has);
+  if (k) return { error: `${at}: the record carries \`${k}\` — the Harness asks the obligation in a second call over your \`segments\` (FORMAT "The paragraph unit", rule 8)` };
+  if (has("content_bound")) return { error: `${at}: the record carries \`content_bound\` — the Harness judges each \`content\` clause in a call of its own (kogaki#1614)` };
   return validateExtractionUnit(record, input);
+}
+
+// THE CONTENT-BOUND VERDICTS (kogaki#1614): one `{ bound, why }` per Segment, in order, and
+// where `bound` is false `why` quotes, in double quotes, a phrase of that Segment's `content`
+// clause -- the unresolved reference the refusal names. `at` names the list's place.
+function verdictsRefusals(v, segments, at) {
+  if (!Array.isArray(v) || v.length !== segments.length) {
+    return [`${at} carries ${Array.isArray(v) ? v.length : "no"} verdict(s) for ${segments.length} Segment(s) — one per Segment, in order`];
+  }
+  const errors = [];
+  for (const [i, x] of v.entries()) {
+    const atV = `${at}, Segment ${i + 1}`;
+    const bad = keysRefusal(x, ["bound", "why"], atV);
+    if (bad) { errors.push(bad); continue; }
+    if (typeof x.bound !== "boolean") errors.push(`${atV}: \`bound\` is ${JSON.stringify(x.bound)} — it is true or false`);
+    const line = lineRefusal(x.why, `${atV}: \`why\``);
+    if (line) { errors.push(line); continue; }
+    if (wordCount(x.why) > OBLIGATION_WORDS_MAX) errors.push(`${atV}: \`why\` is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`);
+    if (x.bound === false && !unresolvedReference(x.why, segments[i])) {
+      errors.push(`${atV}: \`bound\` is false and \`why\` quotes no phrase of the \`content\` clause in double quotes — it names the unresolved reference`);
+    }
+  }
+  return errors;
+}
+
+// The phrase a `why` quotes that stands in the Segment's `content` clause, or null.
+function unresolvedReference(why, segment) {
+  const clause = String((segment && segment.content) || "").toLowerCase();
+  return [...String(why).matchAll(/["“]([^"”]+)["”]/g)].map((m) => m[1].trim()).find((q) => q && clause.includes(q.toLowerCase())) || null;
+}
+
+// THE CONTENT-BOUND CALL'S ANSWER, READ BACK (kogaki#1614): `{ verdicts: [...] }`. Only the
+// answer's shape is refused here, spending this call's own attempts; a Segment judged unbound
+// is the Extractor's refusal (`contentBoundRefusal`), not this call's.
+export function validateContentBoundUnit(answer, { record, input }) {
+  const at = `paragraph ${input.paragraph_you_must_extract.number}, the content-bound verdicts`;
+  if (!isMap(answer)) return { error: `${at}: the answer is not a map` };
+  const extra = Object.keys(answer).find((k) => k !== "verdicts");
+  if (extra) return { error: `${at}: the answer carries \`${extra}\`, which it does not declare — it carries \`verdicts\`` };
+  const errors = verdictsRefusals(answer.verdicts, record.segments, `${at}: \`verdicts\``);
+  return errors.length ? { error: errors.join("\n") } : {};
+}
+
+// THE EXTRACTION'S REFUSAL FROM THE VERDICTS (kogaki#1614): one line per Segment judged
+// unbound, naming the Segment and the reference, or null where every clause is bound.
+export function contentBoundRefusal(verdicts, record, input) {
+  const at = `paragraph ${input.paragraph_you_must_extract.number}`;
+  const lines = verdicts.map((v, i) => (v.bound ? null
+    : `${at}, Segment ${i + 1}: the \`content\` clause leaves "${unresolvedReference(v.why, record.segments[i])}" unresolved — `
+      + `${v.why.trim()}; the clause states the sentence's proposition, every definite reference resolving to a subject noun or to words of the sentence (kogaki#1614)`))
+    .filter(Boolean);
+  return lines.length ? lines.join("\n") : null;
+}
+
+export function withContentBound(record, verdicts) {
+  return { ...record, content_bound: verdicts.map((v) => ({ bound: v.bound, why: v.why.trim() })) };
 }
 
 // THE OBLIGATION CALL'S ANSWER, READ BACK (FORMAT "The paragraph unit", rule 8, kogaki#1590):
@@ -591,6 +676,7 @@ export function extractionRecord(record, input, runRel) {
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
+    ...(record.content_bound ? { content_bound: record.content_bound.map((v) => ({ bound: v.bound, why: v.why.trim() })) } : {}),
     ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()) } : {}),
     ...(record.obligation_triggers ? { obligation_triggers: Object.fromEntries(Object.entries(record.obligation_triggers)
       .map(([k, v]) => [k, { fired: v.fired, why: v.why.trim(), ...(v.segment !== undefined ? { segment: v.segment } : {}) }])) } : {}),
@@ -616,7 +702,9 @@ export function extractionMarkdown(rec) {
   const answers = Object.entries(r.answers || {}).flatMap(([k, a]) => [ANSWER_TITLES[k] || k,
     ...((a && a.candidates) || []).map((c, i) => `  ${i + 1}. ${line(c)}`), `  answer: ${line(a && a.answer)}`, ""]);
   const rows = Object.entries(r.reader || {}).map(([d, row]) => `| ${d} | ${cell(row.before)} | ${cell(row.after)} | ${cell(row.segment)} |`);
-  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)} — operation: ${line(s.operation)}`
+  // A clause judged unbound carries its verdict's reason (kogaki#1614); a bound one, nothing.
+  const unbound = (i) => { const v = (r.content_bound || [])[i]; return v && v.bound === false ? ` — not bound: ${line(v.why)}` : ""; };
+  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)} — operation: ${line(s.operation)}`
     + (line(s.relation) ? ` — relation: ${line(s.relation)}` : "") + (line(s.manner) ? ` — manner: ${line(s.manner)}` : ""));
   const splits = (r.split_notes || []).flatMap((n) => [`split: ${line(n.note)}`, ...(n.dismissed ? [`dismissed: ${line(n.dismissed)}`] : [])]);
   return [
@@ -713,6 +801,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const total = units.length;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const row = table.extraction_unit || fail("src/proof-sheet/extraction-workflow.json declares no extraction_unit row. Nothing was started.");
+  const boundRow = table.content_bound_unit || fail("src/proof-sheet/extraction-workflow.json declares no content_bound_unit row. Nothing was started.");
   const obligationRow = table.obligation_unit || fail("src/proof-sheet/extraction-workflow.json declares no obligation_unit row. Nothing was started.");
   const persona = readerPersona(resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" }))));
   if (persona.error) fail(persona.error);
@@ -750,10 +839,10 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
-    const unitJob = (jobDir, id, unitPrompt, recordArray, validator) => {
+    const unitJob = (jobDir, id, unitPrompt, recordArray, validator, attempts = unitAttempts) => {
       startDetachedJobSupervisor(jobDir, {
         units: [{ id, prompt: unitPrompt }], command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
-        callLimitS, unitAttempts, stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs, recordArray, validator,
+        callLimitS, unitAttempts: attempts, stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs, recordArray, validator,
       });
       const job = awaitJob(jobDir, heartbeatMs);
       const u = (job.units || [])[0] || {};
@@ -761,13 +850,57 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
         attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
       return job.state !== "done" || u.status !== "done" || !u.candidate ? { job, u, failed: true } : { job, u };
     };
-    const ex = unitJob(dir, `p${i + 1}`, prompt, "segments",
-      { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input });
-    if (ex.failed) {
-      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${ex.job.state}`
-        + ` after ${ex.u.attempts || 1} attempt(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}` };
+    // THE CONTENT CLAUSE, JUDGED SOURCE-BOUND (kogaki#1614): after the record passes, a call over
+    // each Segment's `content` beside its sentence; a Segment judged unbound refuses the
+    // Extraction, and the Extractor is asked again with that refusal, within its own attempt
+    // budget. Round 1 runs in the paragraph's directory, a later round in `extract-<k>/`, and
+    // each round's verdict call in `content-bound/` (`content-bound-<k>/` from round 2).
+    let ex;
+    let verdicts;
+    let spent = 0;
+    let boundAttempts = 0;
+    const history = [];
+    const refusals = [];
+    for (let k = 1; ; k++) {
+      const xdir = k === 1 ? dir : join(dir, `extract-${k}`);
+      mkdirSync(xdir, { recursive: true });
+      const xPrompt = k === 1 ? prompt : extractionUnitPrompt(row, input, history);
+      ex = unitJob(xdir, `p${i + 1}`, xPrompt, "segments",
+        { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input }, unitAttempts - spent);
+      spent += ex.u.attempts || 1;
+      refusals.push(...(ex.u.refusals || []));
+      if (ex.failed) {
+        return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${ex.job.state}`
+          + ` after ${spent} attempt(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}` };
+      }
+      const cdir = join(dir, k === 1 ? "content-bound" : `content-bound-${k}`);
+      mkdirSync(cdir, { recursive: true });
+      const cInput = contentBoundUnitInput(ex.u.candidate, input);
+      const cPrompt = contentBoundUnitPrompt(boundRow, cInput);
+      writeFileSync(join(cdir, "prompt.md"), cPrompt);
+      const cb = unitJob(cdir, `p${i + 1}-content-bound`, cPrompt, "verdicts",
+        { module: "src/proof-sheet/extract.mjs", export: "validateContentBoundUnit", inputs: { record: ex.u.candidate, input } });
+      boundAttempts += cb.u.attempts || 1;
+      if (cb.failed) {
+        return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the content-bound job ended ${cb.job.state}`
+          + ` after ${cb.u.attempts || 1} attempt(s) — ${String(lastRefusal(cb.job)).split("\n").join(" ")}` };
+      }
+      verdicts = cb.u.candidate.verdicts;
+      const refusal = contentBoundRefusal(verdicts, ex.u.candidate, input);
+      if (!refusal) break;
+      refusals.push(refusal);
+      history.push({ answer: ex.u.candidate, refusal });
+      if (spent >= unitAttempts) {
+        return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the content-bound call refused`
+          + ` the Extraction after ${spent} attempt(s) — ${refusal.split("\n").join(" ")}` };
+      }
     }
-    // THE OBLIGATION, ASKED SECOND (FORMAT "The paragraph unit", rule 8, kogaki#1583): its prompt
+    // THE RUN RECORD NAMES BOTH CALLS' ATTEMPTS (kogaki#1614): the Extractor's across every
+    // round, with every refusal in order, beside the content-bound call's.
+    writeJson(join(dir, "attempts.json"), { paragraph: i + 1, state: ex.job.state, status: ex.u.status || null,
+      attempts: spent, refusals, content_bound_attempts: boundAttempts });
+    ex = { ...ex, u: { ...ex.u, candidate: withContentBound(ex.u.candidate, verdicts) } };
+    // THE OBLIGATION, ASKED LAST (FORMAT "The paragraph unit", rule 8, kogaki#1583): its prompt
     // renders the record's Segments alone; the record rides only to the validator.
     const odir = join(dir, "obligation");
     mkdirSync(odir, { recursive: true });
