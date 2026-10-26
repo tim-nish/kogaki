@@ -4,11 +4,9 @@
 # pure validator calls over fixture paths, no model run.
 #   (f)-(k) the Thesis row and the Reader target Leg: the mark, closing Legs,
 #           the target after-state, and the mark reaching the Packet.
-#   (l) the record opens once and closes item by item (#1612); (m) two records
-#   open at one Leg refused.
-#   (n) Path Review's `discharge_rows`; (o) each item closes after the opening
-#   Leg, in order; (p) a Leg inside an open record opening a Section; (q) an
-#   item open at the last Leg, and every retired field refused by name.
+#   (l) the record opens once, closes item by item (#1612); (m) capacity;
+#   (n) `discharge_rows`; (o) items close after opening, in order; (p) no
+#   Section inside a record; (q) none open at the end, retired fields by name.
 #   (r) `introduces` `kind`; (s) a Move's slot, no count; (t) `closure`; (u) no
 #   Obligation item in `names`; (v) a record's `items`; (w) three items pass a
 #   one-item slot; (x) a Leg only naming its items does not close them (#1603).

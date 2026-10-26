@@ -3,14 +3,13 @@
 #   (am) the Journey use boundary in the record and Packet (kogaki#1286).
 #   (an) review_path's Discharge item, a record's items closed at one Leg (kogaki#1549,
 #        #1568, #1612); the question chain retired (kogaki#1283, kogaki#1325).
-#   (bc) the Obligation record over a whole path: opened once, closed item by item (kogaki#1612).
 #   (av) adoption writes brief.yaml in list or map form (kogaki#1328).
-#   (aw) the Brief's Defined Terms (kogaki#1331).
-#   (ax) no Move information reaches the Brief (kogaki#1375).
-#   (ay) Thesis attainment at composition (kogaki#1330).
+#   (aw) the Brief's Defined Terms (kogaki#1331); (ax) no Move information reaches
+#        the Brief (kogaki#1375); (ay) Thesis attainment at composition (kogaki#1330).
 #   (az) a Waypoint point is read alone (kogaki#1449); (bb) has no method verb (kogaki#1554).
 #   (ba) recoverability under the renderings record; adoption refusing an
 #        introduces entry the record renders (kogaki#1494).
+#   (bc) the Obligation record over a whole path (kogaki#1612).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
