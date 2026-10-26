@@ -69,7 +69,7 @@
 #       change is stated in one sentence, and a `manner` carrying the instruction, validate
 #       (kogaki#1604).
 #   (g) a block quotation or list announced by a paragraph stays with it (rule 1).
-#   (h) the obligation, derived from the Move's own Segments (rule 8, kogaki#1590, kogaki#1618):
+#   (h) the obligation, derived from the Move's own Segments (rule 8, kogaki#1590, kogaki#1602, kogaki#1613, kogaki#1618):
 #       a run over six paragraphs writes `question` fired with that question as the one item where
 #       Segment 1 poses one no later Segment answers, `term` fired with that term as the one item
 #       where Segment 2 names one no later Segment defines, and neither fired with no `obligation`
@@ -78,8 +78,9 @@
 #       an outcome; items carrying a number, an ordinal word or a collective form validate; the
 #       call's rendered prompt carries no `passage`, `earlier_paragraphs`, `reader_state_before`
 #       or `subject_nouns` key, and its input is the Segments' `operation` and `relation` alone.
-#   (i) the obligation call's answer (kogaki#1590, kogaki#1618): `obligation` beside no fired
-#       trigger, a fired trigger with no `obligation`, the retired `counts` trigger, a missing
+#   (i) the obligation call's answer (kogaki#1590, kogaki#1602, kogaki#1613, kogaki#1618): `obligation`
+#       beside no fired trigger, a fired trigger with no `obligation`, a fired trigger naming fewer
+#       items than triggers fired, the retired `counts` trigger, a missing
 #       trigger, a `why` over twelve words, an item carrying each of ` since `, ` because `,
 #       ` so that `, ` must ` and ` which `, an item over twelve words, a retired trigger and a
 #       `trigger` key of the old shape are each refused by name; the record written from the
@@ -727,6 +728,8 @@ const hjudge = join(hroot, "fake-judge.mjs");
   ok(/`obligation` is absent beside `question` fired/.test(answerErr({ triggers: fired() })), "(i) a fired `question` naming no items was not refused");
   const bothFired = { question: fired().question, term: { fired: true, why: "Segment 3 names a term no later Segment explains.", segment: 3 } };
   ok(/`obligation` is absent beside `question` and `term` fired/.test(answerErr({ triggers: bothFired })), "(i) two fired triggers naming no items were not refused naming both");
+  const under = answerErr({ triggers: bothFired, obligation: ["what is the first factor?"] });
+  ok(/`obligation` names 1 item\(s\) beside `question` and `term` fired — each fired trigger names at least one item/.test(under), `(i) one item beside two fired triggers was not refused by name: ${under}`);
   ok(!answerErr({ triggers: quiet() }) && !answerErr({ triggers: fired(), obligation: ["what is the first factor?"] })
     && !answerErr({ triggers: bothFired, obligation: ["what is the first factor?", "the second factor"] }),
     `(i) a well-formed obligation answer was refused: ${answerErr({ triggers: quiet() })} ${answerErr({ triggers: fired(), obligation: ["what is the first factor?"] })} ${answerErr({ triggers: bothFired, obligation: ["what is the first factor?", "the second factor"] })}`);
@@ -824,7 +827,7 @@ const hjudge = join(hroot, "fake-judge.mjs");
   }
   ok(!("open_obligation" in input), `(j) the extraction call's input still carries \`open_obligation\`: ${JSON.stringify(Object.keys(input))}`);
   const format = readFileSync(join(repo, "passages", "FORMAT.md"), "utf8");
-  const rule8 = "8. **`obligation` is absent unless `question` or `term` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage, and it fires on two forms and never on a count (kogaki#1618, owner reading 2026-10-26): **a question left standing**, where a Segment's `operation` poses a question to the reader and no later Segment's `operation` answers it, the item being that question; and **a term left unexplained**, where a Segment's `operation` introduces or names a term and no later Segment's `operation` defines, glosses or grounds it, the item being that term.";
+  const rule8 = "8. **`obligation` is absent unless `question` or `term` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage, and it fires on two forms and never on a count (kogaki#1618, owner reading 2026-10-26, beside kogaki#1590, kogaki#1602 and kogaki#1613): **a question left standing**, where a Segment's `operation` poses a question to the reader and no later Segment's `operation` answers it, the item being that question; and **a term left unexplained**, where a Segment's `operation` introduces or names a term and no later Segment's `operation` defines, glosses or grounds it, the item being that term.";
   ok(format.includes(rule8), "(j) passages/FORMAT.md does not carry rule 8 verbatim");
   ok(format.includes("10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*"), "(j) passages/FORMAT.md does not carry the retired rule 10 verbatim");
 }

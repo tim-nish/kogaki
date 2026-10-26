@@ -378,6 +378,9 @@ function triggersRefusals(t, o, at, n, { segmentRequired = false } = {}) {
   const fired = OBLIGATION_TRIGGERS.filter((k) => t[k].fired);
   if (fired.length && o === undefined) return [`\`obligation\` is absent beside \`${fired.join("\` and \`")}\` fired — a trigger that fires names its items (kogaki#1618)`];
   if (!fired.length && o !== undefined) return [`\`obligation\` is present beside no fired trigger — the key is present exactly where \`${OBLIGATION_TRIGGERS.join("\` or \`")}\` fired (kogaki#1618)`];
+  if (Array.isArray(o) && o.length < fired.length) {
+    return [`\`obligation\` names ${o.length} item(s) beside \`${fired.join("\` and \`")}\` fired — each fired trigger names at least one item, one per fired question or term (kogaki#1618)`];
+  }
   return [];
 }
 
