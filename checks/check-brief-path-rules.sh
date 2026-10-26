@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # check-brief-path-rules — the Brief record's own rules over a whole path.
 #   (am) the Journey use boundary in the record and Packet (kogaki#1286).
-#   (an) review_path's Discharge item, a row's ordered `item` list (kogaki#1549, #1568);
-#        the question chain retired (kogaki#1283, kogaki#1325).
+#   (an) review_path's Discharge item, a record's items closed at one Leg (kogaki#1549,
+#        #1568, #1612); the question chain retired (kogaki#1283, kogaki#1325).
+#   (bc) the Obligation record over a whole path: opened once, closed item by item (kogaki#1612).
 #   (av) adoption writes brief.yaml in list or map form (kogaki#1328).
 #   (aw) the Brief's Defined Terms (kogaki#1331).
 #   (ax) no Move information reaches the Brief (kogaki#1375).
@@ -88,15 +89,15 @@ const fails = [];
     ...extra,
   });
   const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] }), legOf("s3", { depends_on: ["s2"] })];
-  const obligations = [{ item: ["the case's generality is open"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
+  const obligations = [{ opened_by: "s1", items: [{ item: "the case's generality is open", closed_by: "s2" }] }];
 
-  // the mechanical half: one row per discharged obligation, named by its
-  // items, nothing compared.
+  // the mechanical half: one row per record and closing Leg, named by the
+  // items closed there, nothing compared (kogaki#1612).
   if ("questionChainPairs" in compose) fails.push("(an) src/compose.mjs still exports questionChainPairs, retired at kogaki#1325");
   const rows = dischargeRows(legs, obligations);
-  if (rows.length !== 1 || rows[0].row !== obligations[0].item[0] || "kind" in rows[0] || rows[0].discharging_leg !== "s2"
-      || JSON.stringify(rows[0].owed_legs) !== JSON.stringify([{ leg_id: "s2", points: ["the paragraph establishes what s2 claims"], claims: ["claim of s2"] }])) {
-    fails.push(`(an) dischargeRows did not carry the owed Legs' points and claims (kogaki#1529): ${JSON.stringify(rows)}`);
+  if (rows.length !== 1 || rows[0].row !== obligations[0].items[0].item || "kind" in rows[0] || rows[0].closed_by !== "s2"
+      || JSON.stringify(rows[0].closing_leg) !== JSON.stringify({ leg_id: "s2", points: ["the paragraph establishes what s2 claims"], claims: ["claim of s2"] })) {
+    fails.push(`(an) dischargeRows did not carry the closing Leg's points and claims (kogaki#1529, kogaki#1612): ${JSON.stringify(rows)}`);
   }
 
   const cand = (id, legsFor, obligationsFor = []) => ({ candidate_id: id, legs: legsFor, obligations: obligationsFor });
@@ -105,7 +106,7 @@ const fails = [];
   // cells exercise the discharge, not the register.
   const areas = () => ({ ...Object.fromEntries(REVIEW_AREAS.map((a) => [a, `reasoning for ${a}`])),
     claim_register: legs.map((l) => ({ leg_id: l.leg_id, verdict: "holds" })) });
-  const dc = (verdict = "holds") => [{ row: obligations[0].item[0], discharging_leg: "s2", verdict, why: "s2's claim answers the row" }];
+  const dc = (verdict = "holds") => [{ row: obligations[0].items[0].item, closed_by: "s2", verdict, why: "s2's claim answers the row" }];
 
   // holds: attach is not refused on its ground.
   const ok = attachReview([cand("cand-1", legs, obligations)],
@@ -131,7 +132,7 @@ const fails = [];
 
   // a discharge entry naming the wrong Leg is refused by name.
   const wrongLeg = attachReview([cand("cand-6", legs, obligations)],
-    { "cand-6": { ...areas(), discharge: [{ ...dc()[0], discharging_leg: "s3" }] } });
+    { "cand-6": { ...areas(), discharge: [{ ...dc()[0], closed_by: "s3" }] } });
   if (!wrongLeg.error || !/discharge entry/.test(wrongLeg.error)) fails.push(`(an) a discharge entry naming the wrong Leg was not refused by name: ${JSON.stringify(wrongLeg)}`);
 
   // the item is not required (check-brief-review.sh's plumbing fixtures
@@ -140,17 +141,51 @@ const fails = [];
   const neither = attachReview([cand("cand-7", legs, obligations)], { "cand-7": areas() });
   if (neither.error) fails.push(`(an) a review entry carrying no discharge was refused: ${neither.error}`);
 
-  // a row carrying a list of items (kogaki#1549, kogaki#1568) is named by the row dischargeRows hands
-  // the judge -- the items joined in raised order -- and an entry naming them out of order is refused.
-  const listRow = [{ item: ["ownership boundary", "non-member fallback"], raised_by: "s1", owed_by: ["s2"], discharged_by: "s2" }];
+  // a record whose items close at one Leg (kogaki#1549, kogaki#1568, kogaki#1612) is named by the row
+  // dischargeRows hands the judge -- the items joined in the order named -- and an entry naming them
+  // out of order is refused.
+  const listRow = [{ opened_by: "s1", items: [{ item: "ownership boundary", closed_by: "s2" }, { item: "non-member fallback", closed_by: "s2" }] }];
   const [handed] = dischargeRows(legs, listRow);
   const listed = attachReview([cand("cand-8", legs, listRow)],
-    { "cand-8": { ...areas(), discharge: [{ row: handed.row, discharging_leg: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
+    { "cand-8": { ...areas(), discharge: [{ row: handed.row, closed_by: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
   if (listed.error) fails.push(`(an) a discharge naming a list row as dischargeRows handed it was refused: ${listed.error}`);
   const reordered = attachReview([cand("cand-9", legs, listRow)],
-    { "cand-9": { ...areas(), discharge: [{ row: "non-member fallback, ownership boundary", discharging_leg: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
-  if (!reordered.error || !/discharge entry 1 does not name Obligation row "ownership boundary, non-member fallback"/.test(reordered.error)) {
+    { "cand-9": { ...areas(), discharge: [{ row: "non-member fallback, ownership boundary", closed_by: "s2", verdict: "holds", why: "s2 explains both terms" }] } });
+  if (!reordered.error || !/discharge entry 1 does not name the items "ownership boundary, non-member fallback"/.test(reordered.error)) {
     fails.push(`(an) a discharge naming a list row's items out of order was not refused by name: ${JSON.stringify(reordered)}`);
+  }
+}
+
+// (bc) kogaki#1612 -- THE OBLIGATION RECORD OVER A WHOLE PATH. `validateLegs` holds the record
+// `{opened_by, items}` to the schema's Obligation path rules, each refusal naming its rule: three
+// items closed two in one Leg and one in the next pass; an item closed out of order, a record
+// closed where it opened, an item open at the last Leg and a retired field are each refused. The
+// schema declares the five Obligation rules and not the retired one-conceded rule.
+{
+  const legSchema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  const ruleIds = Object.keys(legSchema.path_rules).filter((k) => k.startsWith("obligation_")).sort();
+  const want = ["obligation_closed_by_the_last_unit", "obligation_items_close_in_order", "obligation_one_open_per_unit",
+    "obligation_owed_leg_opens_no_section", "obligation_record_shape"];
+  if (JSON.stringify(ruleIds) !== JSON.stringify(want)) fails.push(`(bc) the schema's Obligation path rules are ${JSON.stringify(ruleIds)}, want ${JSON.stringify(want)}`);
+  const path = ["s1", "s2", "s3", "s4"].map((leg_id, i) => ({
+    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
+    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`, depends_on: [], rationale: `why ${leg_id}`,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    ...(i === 0 ? { opens_section: "A Section" } : {}), ...(i === 3 ? { reaches_target: true } : {}),
+  }));
+  const rec = (items) => [{ opened_by: "s1", items: items.map(([item, closed_by]) => ({ item, closed_by })) }];
+  const pass = validateLegs(path, "", rec([["first factor", "s2"], ["second factor", "s2"], ["third factor", "s3"]]));
+  if (pass.error) fails.push(`(bc) a three-item record closed two in one Leg and one in the next was refused: ${pass.error}`);
+  const name = (k) => legSchema.path_rules[k].name;
+  for (const [what, obligations, rule, says] of [
+    ["an item closed out of order", rec([["first factor", "s3"], ["second factor", "s2"]]), "obligation_items_close_in_order", /"second factor" before the earlier item "first factor"/],
+    ["a record closed where it opened", rec([["first factor", "s1"]]), "obligation_items_close_in_order", /where it opens it/],
+    ["an item open at the last Leg", rec([["first factor", "s2"], ["second factor", null]]), "obligation_closed_by_the_last_unit", /still holds the item "second factor" open/],
+    ["a retired field", [{ ...rec([["first factor", "s2"]])[0], [["discharged", "by"].join("_")]: "s2" }], "obligation_record_shape", new RegExp("`" + ["discharged", "by"].join("_") + "`, retired")],
+  ]) {
+    const v = validateLegs(path, "", obligations);
+    if (!v.error || !v.error.includes(name(rule)) || !says.test(v.error)) fails.push(`(bc) ${what} was not refused naming ${rule}: ${v.error}`);
   }
 }
 
@@ -472,5 +507,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); review_path's Discharge item and the retired question chain (kogaki#1283, kogaki#1325); adoption writing brief.yaml in list or map form with no line over 120 characters (kogaki#1328); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); no Leg Waypoint point carrying a method verb (kogaki#1554); and recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494).");
+console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); review_path's Discharge item and the retired question chain (kogaki#1283, kogaki#1325); adoption writing brief.yaml in list or map form with no line over 120 characters (kogaki#1328); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); no Leg Waypoint point carrying a method verb (kogaki#1554); recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494); and the Obligation record opened once and closed item by item over a whole path (kogaki#1612).");
 JS

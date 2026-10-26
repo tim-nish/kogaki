@@ -343,69 +343,38 @@ export function denyInternalVocabulary(payload, exemptByOption) {
 // the judge is shown; this enforces that declaration from `compose_path`'s validator inside
 // the re-ask window, and lives here for the reason `characteristicMaxLength` does: one
 // function, two readers.
-// IT REFUSES A SHAPE AND NEVER A JUDGMENT: an UNDISCHARGED obligation stays a disclosure, and
-// only the key names are a declared format.
+// IT REFUSES A SHAPE AND NEVER A JUDGMENT: an OPEN item stays a disclosure here, and only the
+// key names are a declared format.
 // Pure; returns a refusal string or null. `strandIds` is the Brief's closed set where the
 // caller holds it, and the checks needing it are skipped where it is empty.
-const OBLIGATION_SHAPE = "`{ item, raised_by, owed_by, discharged_by | conceded_by }`";
+const OBLIGATION_SHAPE = "`{ opened_by, items: [{ item, closed_by }] }`";
 export function candidateLedgerRefusal(c, strandIds = []) {
   const where = `candidate ${c?.candidate_id}`;
   const legIds = new Set((Array.isArray(c?.legs) ? c.legs : []).map((s) => s && s.leg_id));
   if (c?.obligations !== undefined) {
     if (!Array.isArray(c.obligations)) {
-      return `${where}: \`obligations\` is the obligations ledger and is an ARRAY of entries, each `
+      return `${where}: \`obligations\` is the obligations ledger and is an ARRAY of records, each `
         + `${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`). `
         + `Received ${JSON.stringify(typeof c.obligations)}`;
     }
     for (const [i, o] of c.obligations.entries()) {
       const at = `${where}, obligation ${i + 1}`;
       if (!o || typeof o !== "object" || Array.isArray(o)) {
-        return `${at}: each ledger entry is an object ${OBLIGATION_SHAPE}`;
+        return `${at}: each ledger entry is a record ${OBLIGATION_SHAPE}`;
       }
-      // THE CLOSURE ROW'S FIELD, REFUSED BY NAME (kogaki#1529): a row written
-      // in the retired shape is told which key replaced it, never that some
-      // other key is missing.
-      if ("introduced_by" in o) {
-        return `${at}: \`introduced_by\` is the retired Closure row's field — an Obligation names the Leg `
-          + `that raises it in \`raised_by\`, and carries ${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`)`;
-      }
-      // `kind`, `text` AND `term` ARE RETIRED, REFUSED BY NAME (kogaki#1568): `item` is the list
-      // of the items the raising Leg leaves unexplained, and it is what the Brief's ledger renders.
+      // EVERY RETIRED KEY IS REFUSED BY NAME (kogaki#1529, kogaki#1568, kogaki#1612): a record
+      // written in a retired shape is told which key replaced it, never that some other key is
+      // missing.
       const shape = obligationItemRefusal(o);
       if (shape) {
-        return `${at}: the entry ${shape}. The entry carries ${JSON.stringify(Object.keys(o))} `
+        return `${at}: the record ${shape}. The record carries ${JSON.stringify(Object.keys(o))} `
           + `(src/candidate-schema.json, \`obligations\`)`;
       }
-      if (typeof o.raised_by !== "string" || o.raised_by.trim() === "") {
-        return `${at}: \`raised_by\` is required and names the \`leg_id\` of the Leg that raises `
-          + `the obligation. The entry carries ${JSON.stringify(Object.keys(o))} `
-          + `(src/candidate-schema.json, \`obligations\`)`;
-      }
-      for (const id of [o.raised_by, ...(Array.isArray(o.owed_by) ? o.owed_by : [])]) {
-        if (!legIds.has(id)) {
-          return `${at}: ${JSON.stringify(id)} names no Leg of this Candidate (${[...legIds].join(", ")})`;
+      for (const id of [o.opened_by, ...o.items.map((e) => e.closed_by).filter((x) => x !== null)]) {
+        if (typeof id !== "string" || !legIds.has(id)) {
+          return `${at}: ${JSON.stringify(id ?? null)} names no Leg of this Candidate (${[...legIds].join(", ")}) — `
+            + "a record is opened BY A LEG and each item is closed by one";
         }
-      }
-      if (!Array.isArray(o.owed_by)) {
-        return `${at}: \`owed_by\` is required and lists the \`leg_id\`s that keep the obligation, in path order `
-          + `(src/candidate-schema.json, \`obligations\`)`;
-      }
-      for (const key of ["discharged_by", "conceded_by"]) {
-        if (o[key] !== undefined && (typeof o[key] !== "string" || !legIds.has(o[key]))) {
-          return `${at}: \`${key}\` ${JSON.stringify(o[key])} names no Leg of this `
-            + `Candidate (${[...legIds].join(", ")}) — an obligation is settled BY A LEG, and an entry `
-            + `left out of the ledger's key set is read as undischarged rather than as unreadable`;
-        }
-      }
-      // TWO TERMINAL STATES, EXACTLY ONE (kogaki#1151). "Unresolved" is not a
-      // state the ledger can hold: every row ends `discharged_by` (the promise
-      // is kept there) or `conceded_by` (the prose there tells the reader it is
-      // left open), and a row naming neither or both is refused by name rather
-      // than read as a disclosure.
-      if ((o.discharged_by !== undefined) === (o.conceded_by !== undefined)) {
-        return `${at}: every Obligation row ends \`discharged_by\` or \`conceded_by\`, naming the Leg — `
-          + `this row carries ${o.discharged_by !== undefined ? "BOTH" : "NEITHER"} `
-          + `(src/candidate-schema.json, \`obligations\`)`;
       }
     }
   }
@@ -460,20 +429,17 @@ export function candidateLedgerRefusal(c, strandIds = []) {
 }
 
 // THE READABILITY HALF, SPLIT OUT FOR THE SCORER (kogaki#1129). `candidateEvidence`
-// below counts undischarged entries, and a count is only honest over entries
-// whose key set the runtime can read: an entry written as
-// `raised_at`/`owed`/`settled_at` carries no `discharged_by`, so the scorer read
-// every one of four settled obligations as UNDISCHARGED and showed the owner a
-// confident number over a record it did not understand. This predicate is what
-// the scorer refuses on — narrower than the validator above, because the gate's
-// question is not "is the ledger well formed" but "can this entry's discharge
-// state be read at all".
+// below counts the items still open, and a count is only honest over records whose key set the
+// runtime can read: an entry written as `raised_at`/`owed`/`settled_at` once read as wholly open
+// at the gate, a confident number over a record the scorer did not understand. This predicate is
+// what the scorer refuses on — narrower than the validator above, because the gate's question is
+// not "is the ledger well formed" but "can this record's items be read as closed or open at all".
 function unreadableObligation(o) {
   if (!o || typeof o !== "object" || Array.isArray(o)) return "it is not an object";
-  if (!obligationItems(o).length) return "it carries no `item` list";
-  if (typeof o.raised_by !== "string" || o.raised_by.trim() === "") return "it carries no `raised_by`";
-  if (o.discharged_by !== undefined && typeof o.discharged_by !== "string") return "its `discharged_by` is not a leg id";
-  if (o.conceded_by !== undefined && typeof o.conceded_by !== "string") return "its `conceded_by` is not a leg id";
+  if (typeof o.opened_by !== "string" || o.opened_by.trim() === "") return "it carries no `opened_by`";
+  if (!Array.isArray(o.items) || !obligationItems(o).length) return "it carries no `items` list";
+  const bad = o.items.find((e) => !e || (e.closed_by !== null && typeof e.closed_by !== "string"));
+  if (bad) return "an item's `closed_by` is neither a leg id nor null";
   return null;
 }
 
@@ -502,7 +468,7 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // entries, 4 UNDISCHARGED — disclosed here, never a refusal" at the gate the
   // owner answered. A guard that scores a record it cannot read reports a
   // confident number, so an unreadable entry REFUSES here, naming the entry.
-  // The undischarged COUNT itself stays a disclosure and never a refusal: what
+  // The OPEN count itself stays a disclosure and never a refusal: what
   // is refused is the unreadability, not the owing.
   if (!Array.isArray(obligations)) {
     return { error: `candidate ${c.candidate_id}: \`obligations\` is not an array — the ledger's `
@@ -512,26 +478,20 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   for (const [i, o] of obligations.entries()) {
     const why = unreadableObligation(o);
     if (why) {
-      return { error: `candidate ${c.candidate_id}, obligation ${i + 1}: ${why}, so whether it is `
-        + "discharged cannot be read — the entry would be counted UNDISCHARGED at the Candidate gate "
+      return { error: `candidate ${c.candidate_id}, obligation ${i + 1}: ${why}, so whether its items are `
+        + "closed cannot be read — the record would be counted OPEN at the Candidate gate "
         + `on the strength of a key it was never written with. The entry carries `
         + `${JSON.stringify(o && typeof o === "object" ? Object.keys(o) : o)}; the declared shape is `
         + `${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`)` };
     }
   }
-  const undischarged = obligations.filter((o) => o.discharged_by === undefined && o.conceded_by === undefined).length;
-  // THE SPLIT IS RENDERED BESIDE THE COUNT (kogaki#1151; PR #1152 round 1,
-  // finding 4). Since `candidateLedgerRefusal` refuses a row carrying neither
-  // terminal state, a Candidate that came through composition can only ever
-  // render `0 UNDISCHARGED` — a number that is always zero tells the owner
-  // nothing about the ledger in front of them. What they do need to see is how
-  // the rows END: a path that CONCEDES six promises and a path that DISCHARGES
-  // six are different paths and read identically under a count of what is
-  // left. The UNDISCHARGED count is KEPT rather than replaced, because
-  // `candidateEvidence` is reachable by a caller that skipped composition and
-  // the count is the only thing that would say so at the gate.
-  const discharged = obligations.filter((o) => o.discharged_by !== undefined).length;
-  const conceded = obligations.filter((o) => o.conceded_by !== undefined).length;
+  // THE ITEMS, CLOSED AND OPEN, ARE RENDERED BESIDE THE COUNT (kogaki#1151, kogaki#1612). Since
+  // `validateLegs` refuses an item still open at the path's last Leg, a Candidate that came
+  // through composition renders `0 OPEN`; the OPEN count is KEPT because `candidateEvidence` is
+  // reachable by a caller that skipped composition, and the count is the only thing that would
+  // say so at the gate.
+  const items = obligations.flatMap((o) => o.items);
+  const open = items.filter((e) => e.closed_by === null).length;
   // The two reader values are this Candidate's own (kogaki#1225) and ride its evidence, so two
   // Candidates differing on the reader axis do not read identically. An ABSENCE DISCLOSES HERE
   // and REFUSES AT ADOPTION, which keeps the refusal reachable.
@@ -585,8 +545,8 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
       : `${bridges.length} bridge(s) inserted — ${bridgeLine}`,
     obligations_ledger: obligations.length === 0
       ? "the ledger is empty — a statement, not an omission"
-      : `${obligations.length} entr${obligations.length === 1 ? "y" : "ies"}, ${undischarged} UNDISCHARGED `
-        + `(${discharged} discharged, ${conceded} conceded) — disclosed here, never a refusal`,
+      : `${obligations.length} record${obligations.length === 1 ? "" : "s"}, ${items.length} item${items.length === 1 ? "" : "s"}, `
+        + `${items.length - open} closed, ${open} OPEN — disclosed here, never a refusal`,
     placement_count: `${placed.length} of ${strandIds.length} selected Strand(s) placed, counted in placements after this Candidate's composition${placed.length < strandIds.length ? " — the unplaced disclose at adoption" : ""}`,
     journey_coverage: journeyIds.length === 0
       ? "no selected Strand carries Journey material — nothing to place for this Brief, and nothing missing"

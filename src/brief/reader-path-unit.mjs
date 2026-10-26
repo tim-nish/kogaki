@@ -151,7 +151,7 @@ export function validateReaderPathUnit(candidate, inputs) {
 // it, read from src/specialization-schema.json. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`
 // in `compose_path`, ending at the input marker; this appends the unit's own input.
 // A LEG WHOSE MOVE CARRIES `obligation` (kogaki#1529, kogaki#1558) carries its slot beside the
-// Obligation rows the Leg raises, so a slot the composer left unfilled is judged.
+// Obligation records the Leg opens, so a slot the composer left unfilled is judged.
 export function readerPathFitInput(candidate, movesDir, readerStart, thesis) {
   const b = moveContractsForLegs(candidate.legs, movesDir);
   if (b.error) return { error: `candidate ${candidate.candidate_id}: ${b.error}` };
@@ -160,7 +160,7 @@ export function readerPathFitInput(candidate, movesDir, readerStart, thesis) {
     const slots = moveContract(entry.move, movesDir).deferred_slots;
     if (!slots) continue;
     entry.deferred_slots = slots;
-    entry.obligations_raised = rows.filter((o) => o && o.raised_by === entry.leg_id);
+    entry.obligations_raised = rows.filter((o) => o && o.opened_by === entry.leg_id);
   }
   return {
     input: {

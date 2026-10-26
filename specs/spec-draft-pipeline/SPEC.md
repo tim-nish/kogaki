@@ -1333,8 +1333,9 @@ legitimate output.
 
 **One Path Review item carries a verdict, and it is named rather than
 admitted by shape** (kogaki#1283, owner decision of 2026-10-06). `discharge`
-judges, per Closure row carrying `discharged_by`, whether every part of what
-the row owes is answered by the discharging Leg's claims (`holds` / `fails`).
+judges, per Obligation record and Leg closing any of its items (kogaki#1612),
+whether every item that Leg closes is explained by its Waypoints and claims
+(`holds` / `fails`).
 It compares two carriers rather than reading the writing, so a closed
 two-value verdict is its legitimate output. `src/review.mjs` exempts exactly
 that key from the verdict scan; every review-area entry stays prose and is
@@ -2497,25 +2498,26 @@ planner consumes it and it never reaches the Writer.
 
 **Obligations at the Paragraph scale** (kogaki#1528, owner decision
 2026-10-23). A Leg Waypoint's Paragraph Waypoints carry the same Obligation
-record §5.2 states for Legs — `{item, raised_by, owed_by, discharged_by |
-conceded_by}` — with `raised_by`, `owed_by` and the terminal field naming
+record §5.2 states for Legs — `{opened_by, items}`, each item `{item,
+closed_by}` (kogaki#1612) — with `opened_by` and every `closed_by` naming
 Paragraph Waypoints of that one Leg Waypoint, and the record lives in the
 ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's rules bind
 it as they bind the Leg scale, except the Section rule: a slot is raised by
-the bound paragraph Move's `obligation` and by nothing else, and its row's
-`item` list carries what this article leaves unexplained at that paragraph, in
-the article's own words and as many items as the article raises there, never
-counted against the slot (kogaki#1577, kogaki#1603); at most
-one row is open at any Paragraph Waypoint, `owed_by` is the unbroken run from
-the next Paragraph Waypoint, and a row open here may be open while a Leg-scale
-row is open too. **Discharge is planning, never prose**: a row is kept by the
-Paragraph Waypoints the plan generates for its owed units, the row lives in
-the ParagraphPlan file and reaches no Packet (kogaki#1584), and no stage
-inserts a paragraph or a sentence for it. Whether a discharge keeps the
-promise is the ParagraphPlan judge's to judge, beside the plan it already
-judges. *Status: stated ahead of the executables*: the file's reader still
-refuses any key outside those named above, and the Issue that writes the
-record fixes its key and how a row names a Paragraph Waypoint.
+the bound paragraph Move's `obligation` and by nothing else, and its record's
+`items` carry what this article leaves unexplained at that paragraph, in the
+article's own words and as many items as the article raises there, never
+counted against the slot (kogaki#1577, kogaki#1603); at most one record is
+open at any Paragraph Waypoint, its items close after `opened_by` in the order
+named, none is open at the Leg Waypoint's last Paragraph Waypoint, and a
+record open here may be open while a Leg-scale record is open too. **Closing
+is planning, never prose**: an item is closed by the Paragraph Waypoint the
+plan generates for it, the record lives in the ParagraphPlan file and reaches
+no Packet (kogaki#1584), and no stage inserts a paragraph or a sentence for
+it. Whether a closing Paragraph Waypoint explains its items is the
+ParagraphPlan judge's to judge, beside the plan it already judges. A Brief
+record with an item a Leg closes is handed to that Leg's plan call, carrying
+those items alone, and the plan lays it into the `discharges` of the Leg
+Waypoint whose Paragraph Waypoint explains them (kogaki#1530).
 
 **The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.
@@ -2903,79 +2905,96 @@ stated where the Brief's Closure section renders it, above the ledger, so a
 reader of the document meets it before the rows that instantiate it.
 
 **The Obligation record** (kogaki#1528). An Obligation is
-`{item, raised_by, owed_by, discharged_by | conceded_by}` (kogaki#1568, owner
-decision 2026-10-24), and these rules govern it:
+`{opened_by, items}`, each item `{item, closed_by}` (kogaki#1612, owner
+decision 2026-10-26, beside kogaki#1529 and kogaki#1530; kogaki#1568 before
+it). Discharge is out of the design: the record opens once and closes item by
+item, so a later unit sees which items an earlier one already closed — a
+promise of three items closed two in one unit and one in the next leaves the
+third unit knowing the first two are kept. The two terminal fields, the
+raising and owing fields, and the three fields a set-aside row carried
+(kogaki#1263, never approved) are retired and refused by name. These rules
+govern it:
 
-1. **One record, two scales.** `item` is a list of one or more one-line
-   items, each a term or a question the raising unit leaves unexplained, in
-   the order it names them: one promise, to explain them in sequence, open
-   until the last is explained. A list is non-empty and names no item twice.
-   At the **Leg scale** `raised_by`, `owed_by` and the terminal field name
-   Legs, and the record lives on the Brief. At the **Paragraph scale** they
-   name Paragraph Waypoints of one Leg Waypoint, and the record lives in the
-   ParagraphPlan file (§4.19). Both scales carry the same fields and the same
-   rules, except rule 5, which has no Paragraph counterpart. The items are the
-   article's, as many as the composer finds in the Strand, and an item is kept
-   by being explained, never by being named (kogaki#1603, beside kogaki#1549
-   and kogaki#1577, owner reading 2026-10-26).
+1. **One record, two scales.** `opened_by` names the unit that opens the
+   promise, and `items` lists one or more items in the order that unit names
+   them, each `item` one line — a term or a question the opening unit leaves
+   unexplained — and each `closed_by` the unit that explains it, or `null`
+   while it is still open. A list is non-empty and names no item twice. At
+   the **Leg scale** the units are Legs, and the record lives on the Brief.
+   At the **Paragraph scale** they are Paragraph Waypoints of one Leg
+   Waypoint, and the record lives in the ParagraphPlan file (§4.19). Both
+   scales carry the same fields and the same rules, except rule 5, which has
+   no Paragraph counterpart. The items are the article's, as many as the
+   composer finds in the Strand, and an item is closed by being explained,
+   never by being named (kogaki#1603, beside kogaki#1549 and kogaki#1577,
+   owner reading 2026-10-26).
 2. **One source.** A Move whose `obligation` names items it leaves
    unexplained raises a **slot** — items derived from the Move's own
    Segments and from nothing of any source text, so the inference holds no
    state and its boundary is one Move (kogaki#1583, owner decision
    2026-10-25) —: its items, general as every Move field is. The composer
-   fills the slot with ONE row whose `item` list carries what this article
-   leaves unexplained at that place, in the article's own words and in the
-   order the article names them. The row has no direct relationship with the
-   Move's items, which it is never counted against (kogaki#1603, beside
-   kogaki#1549 and kogaki#1577). No other row
+   fills the slot with ONE record opened by that unit whose `items` carry
+   what this article leaves unexplained at that place, in the article's own
+   words and in the order the article names them. The record has no direct
+   relationship with the Move's items, which it is never counted against
+   (kogaki#1603, beside kogaki#1549 and kogaki#1577). No other record
    exists: a promise the Strand material raises and no bound Move signals is
    not written, and the composer binds a Move that carries it or does not
    promise. The Obligations ledger is written by the Planner and by nothing
    else: the Proof Sheet, which replays the production stages from fixed
-   text, writes no row, because a description of an existing article cannot
-   be refused, only recorded (kogaki#1582, owner decision 2026-10-25). An
-   Obligation and an `introduces` entry are two registers, and no check
+   text, writes no record, because a description of an existing article
+   cannot be refused, only recorded (kogaki#1582, owner decision 2026-10-25).
+   An Obligation and an `introduces` entry are two registers, and no check
    compares them (kogaki#1577, owner decision 2026-10-24).
-3. **Capacity.** At most ONE Obligation is open at any unit of one
-   scale. A row is open from its `raised_by` unit up to, and not including,
-   the unit that closes it; a row raised and closed in one unit is open on
-   none. Obligations at different scales may be open at once.
-4. **Order and span.** `owed_by` is the unbroken run of units at the same
-   scale as `raised_by`, beginning with the unit immediately after it and
-   ending with the unit that discharges it; a conceded row's `owed_by` is that
-   run up to the conceding unit, or empty where the raising unit concedes. An
-   explanation may span several owed units, and the span from `raised_by`
-   through the last owed unit counts as one unit for every rule that groups
-   units. Whether each owed unit keeps its part is judged where rule 6 says;
-   the shape is checked here.
-5. **Section.** No Leg named in an open Obligation's `owed_by` carries
-   `opens_section`; the raising Leg opens the Section, under the Section
-   grouping's rule 1 (§4.15).
-6. **Discharge is planning, never prose, and the rows never leave the Plan.**
-   A discharge is kept by the owed unit's Waypoints and its Move binding: at
-   the Leg scale by the Leg's Waypoints, at the Paragraph scale by the
-   Paragraph Waypoints the plan generates. The Packet carries no row and no
-   line derived from one, and no stage inserts a paragraph or a sentence for
-   a row (kogaki#1584, owner decision 2026-10-25). Whether a discharge keeps
-   the promise is judged where Path Review judges `discharge` (§4.12.2) and
-   where the ParagraphPlan judge judges the plan (§4.19).
+3. **Capacity.** At most ONE Obligation is open at any unit of one scale. A
+   record is open from its `opened_by` unit up to, and not including, the
+   unit that closes its last item. Obligations at different scales may be
+   open at once.
+4. **Closing.** The four rules the validators hold at both scales
+   (kogaki#1612): the items close in the order named, so an item closed
+   before an earlier one, or while an earlier one is still open, is refused
+   naming both; every `closed_by` is a unit after `opened_by`, and one equal
+   to it is refused, since a promise kept where it is made is the unit's own
+   structure and not a promise; at most one record is open at any unit (rule
+   3); and a record whose item is still `null` at the last unit of its scale
+   is refused naming the item. A unit that only names an item does not close
+   it (kogaki#1603): whether a `closed_by` unit explains its item is judged
+   where rule 6 says; the shape is checked here.
+5. **Section.** No Leg after a record's `opened_by`, up to and including the
+   Leg closing its last item, carries `opens_section`; the opening Leg opens
+   the Section, under the Section grouping's rule 1 (§4.15).
+6. **Closing is planning, never prose, and the records never leave the
+   Plan.** An item is closed by the closing unit's Waypoints and its Move
+   binding: at the Leg scale by the Leg's Waypoints, at the Paragraph scale
+   by the Paragraph Waypoints the plan generates. An open record's items
+   reach the units inside it as material — each unit after the opening one,
+   up to the one closing the last item, is handed the items still open when
+   it begins — asking for no sentence. The Writer's Packet carries no record
+   and no line derived from one, and no stage inserts a paragraph or a
+   sentence for a record (kogaki#1584, owner decision 2026-10-25). Whether a
+   closing unit explains its items is judged where Path Review judges
+   `discharge` (§4.12.2) and where the ParagraphPlan judge judges the plan
+   (§4.19).
 7. **Terms.** `introduces` keeps `term` and `meaning` and drops `kind`: every
    introduced term is one the article gives its meaning to, and a term the
    reader already holds is not introduced. A term named and deferred is an
-   Obligation item, its meaning owed by `owed_by` (§4.13).
+   Obligation item, its meaning given by the unit its `closed_by` names
+   (§4.13).
 8. **The Thesis row** stays derived (kogaki#1328, below) and is outside the
    capacity rule, as it was.
 
-`src/leg-schema.json`'s `path_rules` states rules 3, 4 and 5 to the composer
-as checked entries, and `obligationLedgerRefusal` (`src/compose.mjs`) refuses
-over them naming the row and the Leg. *Status: the Leg scale is carried by the
-executables* (kogaki#1529): the Brief's `obligations` rows carry `kind`,
-`raised_by`, `owed_by` and one terminal field, the retired
-`closure` key and `introduced_by` field are refused by name, `introduces_item`
-carries no `kind`, and a Move's deferred slot reaches the composer's input.
-*The Paragraph scale stays ahead of the executables*: the ParagraphPlan file
-carries no Obligation. An Issue that changes it reads its rule here, and an
-Issue that changes a rule changes it here first.
+`src/leg-schema.json`'s `path_rules` states rules 1, 3, 4 and 5 to the
+composer as checked entries, and `obligationLedgerRefusal`
+(`src/compose.mjs`) refuses over them naming the record and the Leg; at the
+Paragraph scale `paragraphObligationsRefusal` refuses over the same rules.
+*Status: both scales are carried by the executables* (kogaki#1529,
+kogaki#1530, kogaki#1612): the Brief's `obligations` records and a Leg
+Waypoint's `obligations` in the ParagraphPlan file carry `opened_by` and
+`items`, the retired `closure` key, `introduced_by` field and every field
+kogaki#1612 retired are refused by name, `introduces_item` carries no `kind`,
+and a Move's deferred slot reaches the composer's input. An Issue that changes
+it reads its rule here, and an Issue that changes a rule changes it here
+first.
 
 **One ledger at two levels.** The **Thesis row** is the Thesis's own promise,
 and it is **derived, never written** (kogaki#1328): rendered from each placed
@@ -2985,15 +3004,15 @@ It was the Candidate's free-text `reasoning.thesis_closure`, copied into the
 Brief whole — one line of 1934 characters in the 2026-10-09 Brief, restating
 what the coverage already carried per Strand. The **Leg rows** are the
 obligations ledger — the owner's proposed name is *Legs closure* — the record's
-`obligations` list (the `closure` list until kogaki#1529), each row carrying
-`item`, `raised_by` and `owed_by`.
+`obligations` list (the `closure` list until kogaki#1529), each record carrying
+`opened_by` and its `items`.
 
-**Every row ends in one of two terminal states, written by the composer:**
-`discharged_by: <leg>` (the promise is kept there) or `conceded_by: <leg>`
-(the prose there tells the reader it is left open). **"Unresolved" is no
-longer a state the ledger can hold** — `validateLegs` (`src/compose.mjs`)
-refuses a Brief carrying a row with neither, naming the row, and a row carrying
-both (an ambiguous close) is refused the same way.
+**Every item is closed by a Leg, written by the composer** (kogaki#1612): its
+`closed_by` names the Leg that explains it. **"Unresolved" is not a state the
+finished ledger can hold** — `validateLegs` (`src/compose.mjs`) refuses a
+Brief carrying an item still open at the path's last Leg, naming the record
+and the item. No item is set aside: the conceded state is retired with its
+three fields.
 
 - **The Strand cover is counted in placements, after composition**, and an
   unplaced selected Strand discloses.
@@ -3025,20 +3044,21 @@ as the judgment-class `first_leg_binds_a_survivor` path rule.
 **A row that needs a sentence of its own gets a waypoint** (kogaki#1496, owner
 decision 2026-10-21: Closure "should influence Move selection, Waypoint
 creation, and noun phrases within Waypoints rather than independently adding
-prose"). The rows never reach the Packet (rule 6, kogaki#1584), so a row
-reaches the prose only through the plan. Where keeping or conceding a promise
-needs a sentence the Leg's other points do not already make, the Brief's
-reader-path unit composes a waypoint of the discharging or conceding Leg for
-it, and the row reaches the prose through that waypoint and its Paragraph
-Waypoints. The Path Review's `discharge` item (§4.12.2) already names each
-discharged row and its discharging Leg beside that Leg's claims, which is
-where a row no point answers is read; it is unchanged by this paragraph.
+prose"). The records never reach the Packet (rule 6, kogaki#1584), so a
+record reaches the prose only through the plan. Where explaining an item needs
+a sentence the closing Leg's other points do not already make, the Brief's
+reader-path unit composes a waypoint of the closing Leg for it, and the item
+reaches the prose through that waypoint and its Paragraph Waypoints. The Path
+Review's `discharge` item (§4.12.2) already names each record's items beside
+the claims of the Leg closing them (kogaki#1612), which is where an item no
+point explains is read; it is unchanged by this paragraph.
 
 **There is no mechanical judge of the CONTENT of any of this.** Whether an
-obligation is worth entering, and whether a discharge or a concession is the
-right call, is judged at Path Review (§4.3); Kogaki guarantees citations and
-the substrate guarantees facts. What the runtime enforces is SHAPE alone: every
-row terminal, and Reader start in its line-per-dimension shape.
+obligation is worth entering, and whether a closing Leg explains its items, is
+judged at Path Review (§4.3); Kogaki guarantees citations and the substrate
+guarantees facts. What the runtime enforces is SHAPE alone: every item closed
+in order after its opening Leg, and Reader start in its line-per-dimension
+shape.
 
 `necessity:` the field is in the record shape and the fill is carried by
 `src/compose.mjs`; the siting argument is not. "Why not a sidecar" is the

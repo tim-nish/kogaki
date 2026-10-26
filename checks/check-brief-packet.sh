@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # check-brief-packet — the Packet side of Brief composition: re-activate,
 # Journey resolution, the writer's refusal form, the typed introduces items
-# and conceded Obligation rows, and the Packet rendering of kogaki#1261.
+# and the Obligation record's schema, and the Packet rendering of kogaki#1261.
 #   (n)-(o)   re-activate's refusals and Packet rendering (kogaki#1237/#1282).
 #   (p)-(s)   Journey text resolution, writerRefusal, shard prose (kogaki#1250).
-#   (t)-(w)   kogaki#1263's schema widenings; (x)-(aa) and the first (am)
-#             kogaki#1260's compose refusals over them.
+#   (t)-(w)   kogaki#1263's schema widenings, (v) now the record of kogaki#1612;
+#             (x)-(aa) and the first (am) kogaki#1260's compose refusals.
 #   (ab)-(ae) the Write block, Journey crossing and typed terms in the Packet
-#             (kogaki#1261), a conceded row read off the record and reaching
+#             (kogaki#1261), an Obligation record read off the record and reaching
 #             no Packet (kogaki#1584), with the inner (aq) and (at).
 # A LIGHT member: pure calls, temporary fixture files, no model run. Cut from
 # check-brief-compose.sh by kogaki#1460; the registry row says more.
@@ -288,23 +288,26 @@ const fails = [];
   }
 }
 
-// (v) an Obligation row whose terminal state is `conceded_by` carries `open`,
-// `why_not_here` and `reader_keeps`, in both schemas (kogaki#1263):
-// src/candidate-schema.json's `obligations` field declares the three as
-// required only when conceded, and src/leg-schema.json's
-// obligation_one_conceded_row rule states the same three by name.
+// (v) both schemas declare the Obligation record `{opened_by, items}`, each item `{item, closed_by}`,
+// and neither declares the conceded state or its three fields (kogaki#1612, retiring kogaki#1263):
+// src/candidate-schema.json's `obligations` field names the record's keys and its items' keys, and
+// src/leg-schema.json carries no one-conceded rule. The retired names are composed, never spelled.
 {
+  const gone = [["why", "not", "here"].join("_"), ["reader", "keeps"].join("_"), ["conceded", "by"].join("_"), ["discharged", "by"].join("_")];
   const candidateSchema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
   const obligations = candidateSchema.fields.obligations;
   if (!obligations) fails.push("(v) src/candidate-schema.json declares no obligations field");
   else {
-    const required = obligations.entry_required_when_conceded;
-    if (JSON.stringify(required) !== JSON.stringify(["open", "why_not_here", "reader_keeps"])) fails.push(`(v) obligations does not require open/why_not_here/reader_keeps when conceded: ${JSON.stringify(required)}`);
-    if (!/\bopen\b/.test(obligations.description) || !/why_not_here/.test(obligations.description) || !/reader_keeps/.test(obligations.description)) fails.push(`(v) the obligations description does not name all three conceded-row fields: ${obligations.description}`);
+    if (JSON.stringify(obligations.entry_required_keys) !== JSON.stringify(["opened_by", "items"])) fails.push(`(v) obligations does not declare the record's keys opened_by and items: ${JSON.stringify(obligations.entry_required_keys)}`);
+    if (JSON.stringify(obligations.item_required_keys) !== JSON.stringify(["item", "closed_by"])) fails.push(`(v) obligations does not declare an item's keys item and closed_by: ${JSON.stringify(obligations.item_required_keys)}`);
+    for (const k of ["entry_optional_keys", "entry_required_when_conceded"]) if (k in obligations) fails.push(`(v) obligations still declares ${k}`);
+    for (const g of gone) if (JSON.stringify(obligations).includes(g)) fails.push(`(v) the obligations declaration still names \`${g}\``);
   }
   const legSchema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const concededRule = legSchema.path_rules.obligation_one_conceded_row;
-  if (!concededRule || !/why_not_here/.test(concededRule.rule) || !/reader_keeps/.test(concededRule.rule) || !/`open`/.test(concededRule.rule)) fails.push(`(v) obligation_one_conceded_row does not name the three conceded-row fields: ${concededRule && concededRule.rule}`);
+  if (legSchema.path_rules.obligation_one_conceded_row) fails.push("(v) src/leg-schema.json still carries obligation_one_conceded_row");
+  for (const g of gone) if (JSON.stringify(legSchema).includes(g)) fails.push(`(v) src/leg-schema.json still names \`${g}\``);
+  const shape = legSchema.path_rules.obligation_record_shape;
+  if (!shape || !/\{opened_by, items\}/.test(shape.rule) || !/\{item, closed_by\}/.test(shape.rule)) fails.push(`(v) obligation_record_shape does not state the record: ${shape && shape.rule}`);
 }
 
 // (w) the `reader_state_after` of the Leg marked `reaches_target` gains a
@@ -365,36 +368,30 @@ const fails = [];
   if (withAs.error) fails.push(`(am) a re-activate claim entry carrying an as sentence was refused: ${withAs.error}`);
 }
 
-// (z) a conceded Obligation row carries open, why_not_here and reader_keeps (kogaki#1251 item 3, kogaki#1260),
-// and a row carrying the retired `kind`, `text` or `term` is refused naming the key (kogaki#1568).
+// (z) a record carrying a field of the retired conceded state is refused naming the field
+// (kogaki#1612, retiring kogaki#1251 item 3 and kogaki#1260), and a record carrying the retired
+// `kind`, `text` or `term` is refused naming the key (kogaki#1568).
 {
   const { obligationLedgerRefusal } = compose;
   const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
-  const full = { item: ["a question set aside"], raised_by: "leg2", owed_by: [], conceded_by: "leg2", open: "what stays unresolved", why_not_here: "not this Leg's to close", reader_keeps: "a named open question" };
+  const full = { opened_by: "leg1", items: [{ item: "a question closed later", closed_by: "leg2" }] };
   const rFull = obligationLedgerRefusal(legs, [full]);
-  if (rFull) fails.push(`(z) a conceded row carrying all three fields was refused: ${rFull}`);
-  const { reader_keeps, ...noKeeps } = full;
-  const rKeeps = obligationLedgerRefusal(legs, [noKeeps]);
-  if (!rKeeps) fails.push("(z) a conceded row missing reader_keeps was not refused");
-  else {
-    if (!/"a question set aside"/.test(rKeeps)) fails.push(`(z) the refusal did not name the row: ${rKeeps}`);
-    if (!/carries no reader_keeps/.test(rKeeps)) fails.push(`(z) the refusal did not name the missing field: ${rKeeps}`);
-    if (/carries no open/.test(rKeeps)) fails.push(`(z) the refusal named a field the row carries: ${rKeeps}`);
+  if (rFull) fails.push(`(z) a record closing its one item in a later Leg was refused: ${rFull}`);
+  for (const key of ["open", ["why", "not", "here"].join("_"), ["reader", "keeps"].join("_")]) {
+    const r = obligationLedgerRefusal(legs, [{ ...full, [key]: "what stays unresolved" }]) || "";
+    if (!r.includes(`\`${key}\`, retired with the conceded state (kogaki#1612)`) || !/obligation 1/.test(r)) fails.push(`(z) a record carrying \`${key}\` was not refused naming the field: ${r || "no refusal"}`);
   }
-  const rEmpty = obligationLedgerRefusal(legs, [{ ...full, open: "" }]);
-  if (!rEmpty || !/carries no open/.test(rEmpty)) fails.push(`(z) a conceded row with an empty open was not refused naming open: ${rEmpty}`);
-  const rDischarged = obligationLedgerRefusal(legs, [{ item: ["a question closed"], raised_by: "leg1", owed_by: ["leg2"], discharged_by: "leg2" }]);
-  if (rDischarged) fails.push(`(z) a discharged row without the conceded-only fields was refused: ${rDischarged}`);
   // THE RETIRED `kind`, `text` AND `term`, REFUSED BY NAME (kogaki#1568).
-  for (const [key, row] of [["kind", { ...full, kind: "question" }], ["text", { ...full, item: undefined, text: "a question set aside" }],
-    ["term", { ...full, item: undefined, term: ["a question set aside"] }]]) {
-    if (row.item === undefined) delete row.item;
+  for (const [key, row] of [["kind", { ...full, kind: "question" }], ["text", { ...full, items: undefined, text: "a question set aside" }],
+    ["term", { ...full, items: undefined, term: ["a question set aside"] }]]) {
+    if (row.items === undefined) delete row.items;
     const r = obligationLedgerRefusal(legs, [row]) || "";
-    if (!r.includes(`carries \`${key}\`, retired (kogaki#1568)`)) fails.push(`(z) a row carrying the retired \`${key}\` was not refused naming the key: ${r || "no refusal"}`);
+    if (!r.includes(`carries \`${key}\`, retired (kogaki#1568)`)) fails.push(`(z) a record carrying the retired \`${key}\` was not refused naming the key: ${r || "no refusal"}`);
   }
   // ...and validateLegs refuses at the same ground over a full path.
-  const rPath = validateLegs(PATH_1260(), "", [{ ...noKeeps, raised_by: "s2", conceded_by: "s2" }]);
-  if (!rPath.error || !/carries no reader_keeps/.test(rPath.error)) fails.push(`(z) validateLegs did not refuse a full path over a conceded row missing reader_keeps: ${rPath.error}`);
+  const keeps = ["reader", "keeps"].join("_");
+  const rPath = validateLegs(PATH_1260(), "", [{ opened_by: "s1", items: [{ item: "a question closed later", closed_by: "s2" }], [keeps]: "a named open question" }]);
+  if (!rPath.error || !rPath.error.includes(`\`${keeps}\`, retired`)) fails.push(`(z) validateLegs did not refuse a full path over a record carrying a retired field: ${rPath.error}`);
 }
 
 // (aa) the reaching Leg's `names` is a subset of the union of every Leg's introduces (kogaki#1251 item 4, kogaki#1260).
@@ -566,22 +563,19 @@ const fails = [];
     if (!carried.refusals.some((m) => m.includes(`\`${retiredKey}\``))) fails.push(`(ad) a Brief header carrying the retired external-authority switch was not refused naming the key: ${JSON.stringify(carried.refusals)}`);
   }
 
-  // (ae) a conceded Obligation row is read off the record and reaches no Packet (kogaki#1584).
+  // (ae) an Obligation record is read off the record, each party Leg handed its items, and reaches no
+  // Packet (kogaki#1584, kogaki#1612).
   {
     const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] })];
-    const obligations = [{
-      item: ["Whether the guard can be fed at all"], raised_by: "s1", owed_by: ["s2"], conceded_by: "s2",
-      open: "whether any input reaches the guard",
-      why_not_here: "the article's evidence is one week of runs",
-      reader_keeps: "a way to check their own guard",
-    }];
+    const obligations = [{ opened_by: "s1", items: [{ item: "Whether the guard can be fed at all", closed_by: "s2" }] }];
     const brief = briefOf(legs, { compose_path: personaA, obligations });
-    const f = brief.refusals.length ? null : obligationRowsOf(brief.record, "s2").find((o) => o.conceded_by === "s2");
-    if (!f || f.open !== "whether any input reaches the guard" || f.why_not_here !== "the article's evidence is one week of runs" || f.reader_keeps !== "a way to check their own guard") fails.push(`(ae) obligationRowsOf did not read the row's three fields back off the record: ${JSON.stringify(f)}`);
-    if (!brief.refusals.length && obligationRowsOf(brief.record, "s1").some((o) => o.conceded_by === "s1")) fails.push("(ae) obligationRowsOf read a conceded row off a Leg that does not concede it");
+    if (brief.refusals.length) fails.push(`(ae) a Brief carrying one Obligation record was refused: ${JSON.stringify(brief.refusals)}`);
+    for (const id of ["s1", "s2"]) {
+      const f = brief.refusals.length ? null : obligationRowsOf(brief.record, id).find((o) => o.opened_by === "s1");
+      if (!f || JSON.stringify(f.items) !== JSON.stringify(obligations[0].items)) fails.push(`(ae) obligationRowsOf did not hand ${id} the record's item off the record: ${JSON.stringify(f)}`);
+    }
     // The retired heading is spelled apart: the Issue's Acceptance greps checks/ for it.
-    const ROW_WORDS = [["## This Leg's", "Obligations"].join(" "), "Whether the guard can be fed at all", "whether any input reaches the guard",
-      "the article's evidence is one week of runs", "a way to check their own guard"];
+    const ROW_WORDS = [["## This Leg's", "Obligations"].join(" "), "Whether the guard can be fed at all"];
     for (const [id, leg] of [["s1", brief.legs[0]], ["s2", brief.legs[1]]]) {
       const r = render(brief, leg);
       if (r.error) { fails.push(`(ae) the Packet for ${id} did not render: ${r.error}`); continue; }
@@ -653,5 +647,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, a conceded Obligation row reaching no Packet (kogaki#1584), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
+console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, an Obligation record reaching no Packet (kogaki#1584), the record's schema and the retired conceded fields refused by name (kogaki#1612), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
 JS

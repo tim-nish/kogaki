@@ -197,8 +197,9 @@ export function segmentsForPlanCall(segments) {
 
 // The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
 // like the persona, they say what the reader does not yet hold, never what a point says.
-// THE OBLIGATIONS RIDE BESIDE THEM (kogaki#1530): every Brief row whose `owed_by` names this Leg,
-// numbered as in the Brief, for the plan to lay into a Paragraph Waypoint; and a bound Move's
+// THE OBLIGATIONS RIDE BESIDE THEM (kogaki#1530, kogaki#1612): every Brief record with an item
+// this Leg closes, numbered as in the Brief and carrying those items alone, as material for the
+// plan to lay into a Paragraph Waypoint, asking for no sentence; and a bound Move's
 // `deferred_slots`, carried on its contract exactly as the Brief's composer receives it.
 export function paragraphPlanUnitInput(leg, moves, persona) {
   const { introduces, owes, ...planned } = leg;

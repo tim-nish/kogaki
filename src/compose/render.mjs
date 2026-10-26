@@ -12,7 +12,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseYaml } from "../yaml.mjs";
-import { obligationItems, obligationLine } from "./sections.mjs";
 
 // ---- rendering (SQ1: fenced blocks; this function IS the recorded
 // serialization, exercised by the check's fixture) ----
@@ -180,29 +179,33 @@ export function readMoveRecord(moveId, movesDir = "moves") {
 // line, and a judgment over a line and itself buys nothing. The Move's `after`
 // question against the state is the Move-fit judge's after-state comparison.
 
-// THE DISCHARGE JUDGE INPUT (kogaki#1283, kogaki#1529). One entry per
-// Obligation row carrying `discharged_by` -- the row's items, joined in order (kogaki#1568),
-// against every owed Leg's Waypoint points and claim lines (each claim's
-// `proposition`), for `review_path` to judge whether every part the row owes
-// is kept among them. Discharge is planning, never prose: what keeps a row is
-// the owed Legs' Waypoints, so the judge is handed those and no sentence.
+// THE DISCHARGE JUDGE INPUT (kogaki#1283, kogaki#1529, kogaki#1612). One entry per Obligation
+// record and Leg that closes any of its items -- the items closed there, joined in order
+// (kogaki#1568), against that Leg's Waypoint points and claim lines (each claim's
+// `proposition`), for `review_path` to judge whether the Leg explains every item it closes.
+// Closing is planning, never prose: what closes an item is the closing Leg's Waypoints, so the
+// judge is handed those and no sentence.
 export function dischargeRows(legs, obligations = []) {
   const byId = new Map(legs.map((l) => [l.leg_id, l]));
-  return (Array.isArray(obligations) ? obligations : [])
-    .filter((o) => o && o.discharged_by !== undefined)
-    .map((o) => ({
-      row: obligationLine(o),
-      item: obligationItems(o),
-      raised_by: o.raised_by,
-      owed_by: Array.isArray(o.owed_by) ? [...o.owed_by] : [],
-      discharging_leg: o.discharged_by,
-      owed_legs: (Array.isArray(o.owed_by) ? o.owed_by : []).map((id) => {
-        const leg = byId.get(id);
-        return {
+  const rows = [];
+  for (const o of Array.isArray(obligations) ? obligations : []) {
+    if (!o || !Array.isArray(o.items)) continue;
+    const closers = [...new Set(o.items.map((e) => e && e.closed_by).filter((id) => typeof id === "string"))];
+    for (const id of closers) {
+      const item = o.items.filter((e) => e.closed_by === id).map((e) => e.item.trim());
+      const leg = byId.get(id);
+      rows.push({
+        row: item.join(", "),
+        item,
+        opened_by: o.opened_by,
+        closed_by: id,
+        closing_leg: {
           leg_id: id,
           points: leg && Array.isArray(leg.waypoints) ? leg.waypoints.map((w) => w.point) : [],
           claims: leg && Array.isArray(leg.claims) ? leg.claims.map((cl) => cl.proposition) : [],
-        };
-      }),
-    }));
+        },
+      });
+    }
+  }
+  return rows;
 }

@@ -63,7 +63,8 @@ export {
   parseIntroducesEntry, introducedMeaning, introducedTermInReaderStart, opensSectionRefusal,
   opensSectionIntroducedTermRefusal, sectionHeadingsWithLastAfterState,
   sectionGroupingRefusal, targetLegIndex, obligationLedgerRefusal, RETIRED_OBLIGATION_KEYS,
-  obligationItems, obligationLine, obligationLabel, obligationTerminal, obligationItemRefusal,
+  obligationItems, obligationLine, obligationLabel, obligationItemRefusal, obligationCloseRefusal,
+  obligationLastClose, obligationItemsAt,
   readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,
   parseReactivateEntry, reactivateRefusal,
   reactivateSemanticRefusal, readerKnowledgeLedger, introducerOf,
@@ -84,7 +85,7 @@ export {
   joinRefusal, paragraphWaypointsRefusal, paragraphObligationsRefusal, dischargesShapeRefusal,
   briefRowsOwedBy, briefDischargeRefusal, briefStrandIds, briefJourneyStrands,
   briefRecordText, parseBriefRecord, readBriefRecord, unfilledSlots, fillSlot,
-  thesisClosureRow, thesisClosureLeg, CONCEDED_ROW_FIELDS, obligationRowsOf,
+  thesisClosureRow, thesisClosureLeg, obligationRowsOf,
   placements, journeyPlacements,
 } from "./compose/record.mjs";
 export { fillBrief } from "./compose/fill.mjs";

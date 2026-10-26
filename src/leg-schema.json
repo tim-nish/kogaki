@@ -294,37 +294,37 @@
     "closing_leg_introduces_nothing": {
       "class": "checked",
       "name": "the Reader target Leg -- a closing Leg introduces nothing and raises nothing",
-      "rule": "A Leg AFTER the one marked `reaches_target` is a CLOSING Leg. A closing Leg carries no `introduces` entry, and it is named as `raised_by` on no Obligation row: once the Reader target is reached, nothing new is put in front of the reader and no new promise is raised for a later Leg to keep (kogaki#1231)."
+      "rule": "A Leg AFTER the one marked `reaches_target` is a CLOSING Leg. A closing Leg carries no `introduces` entry, and it is named as `opened_by` on no Obligation record: once the Reader target is reached, nothing new is put in front of the reader and no new promise is opened for a later Leg to keep (kogaki#1231, kogaki#1612)."
     },
     "closing_leg_state_fixed": {
       "class": "checked",
       "name": "the Reader target Leg -- a closing Leg's orientation and knowledge hold at the target Leg's",
       "rule": "A closing Leg's `reader_state_after` carries the SAME `orientation` and `knowledge` lines, line for line, as the Leg marked `reaches_target` -- once the reader arrives, a closing Leg may not move them further in either dimension. Its `question`, `expectation` and `trust` lines are free to differ (kogaki#1231)."
     },
-    "obligation_one_conceded_row": {
+    "obligation_closed_by_the_last_unit": {
       "class": "checked",
-      "name": "Obligations -- at most one conceded row in the path",
-      "rule": "A path carries AT MOST ONE Obligation row whose terminal state is `conceded_by`. A Question a Leg will not close is set aside IN THAT LEG rather than carried forward (owner decision 2026-09-30): a row's `conceded_by` may name the same Leg as its `raised_by`, with an empty `owed_by`, and that is the ordinary case, not an exception. Two or three rows needing to be set aside is read as a sign the ReaderPath itself is not suitable, so a second `conceded_by` row is refused rather than rendered -- the repair is to close the row where it is raised, or to reshape the path. A conceded row carries three further fields, required only there and declared beside the row's other fields in `src/candidate-schema.json`'s `obligations`: `open` (what stays unresolved), `why_not_here` (why this Leg is not the one to close it) and `reader_keeps` (what the reader is left holding in its place)."
+      "name": "Obligations -- no item is still open at the path's last Leg",
+      "rule": "Every item of every Obligation record is closed by a Leg of the path (kogaki#1612, owner decision 2026-10-26): a record whose item is still `closed_by: null` at the path's last Leg is refused, naming the record and the item. No item is set aside -- a promise the path will not keep is not opened. [see: SPEC-draft-pipeline \"Obligations\"]"
+    },
+    "obligation_items_close_in_order": {
+      "class": "checked",
+      "name": "Obligations -- each item closes after the opening Leg, in the order named",
+      "rule": "Each item's `closed_by` names a Leg AFTER the record's `opened_by` (kogaki#1612): a `closed_by` equal to `opened_by` is refused, since a promise kept where it is made is that Leg's own structure and not a promise, and one before it is refused. The items close in the order the opening Leg names them -- two may close in one Leg and the next in a later one -- so an item closed before an earlier item, or while an earlier item is still open, is refused naming both. A Leg that only names an item does not close it (kogaki#1603); that is the Path Review's judgment. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "obligation_one_open_per_unit": {
       "class": "checked",
       "name": "Obligations -- at most one open at any Leg",
-      "rule": "An Obligation is a promise the path makes to the reader: a Question raised in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two are one expectation, that an item will be explained (kogaki#1568), so AT MOST ONE Obligation is open at any Leg. A row is OPEN on every Leg from its `raised_by` Leg up to, and NOT INCLUDING, the Leg that closes it (`discharged_by` or `conceded_by`); a row raised and closed in one Leg is open on none. Do not raise a second promise while one is still owed. A Leg on which more than one row is open is refused, naming the Leg and every row open there. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
-    },
-    "obligation_owed_contiguous": {
-      "class": "checked",
-      "name": "Obligations -- owed Legs are the unbroken run from the Leg after the raising Leg",
-      "rule": "Every row carries `owed_by`, the Legs that keep it: the unbroken run of Legs beginning with the Leg immediately after its `raised_by` Leg and ending with the Leg that discharges it; a conceded row's `owed_by` is that run up to the conceding Leg, or empty where the raising Leg concedes (owner decision 2026-10-24). An explanation may span several owed Legs, and the span from the raising Leg through the last owed Leg counts as one unit for every rule that groups Legs, the Section grouping included (kogaki#1528). An `owed_by` whose first Leg is not the one after the raising Leg, or that skips a Leg between two it names, is refused, naming the row and the idle Leg. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "rule": "An Obligation is a promise the path makes to the reader: a Question opened in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two are one expectation, that an item will be explained (kogaki#1568), so AT MOST ONE Obligation is open at any Leg. A record is OPEN on every Leg from its `opened_by` Leg up to, and NOT INCLUDING, the Leg that closes its last item (kogaki#1612). Do not open a second promise while one is still owed. A Leg on which more than one record is open is refused, naming the Leg and every record open there. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "obligation_owed_leg_opens_no_section": {
       "class": "checked",
-      "name": "Obligations -- a Leg that owes an open Obligation opens no Section",
-      "rule": "No Leg in an open row's `owed_by` carries `opens_section`: the promise and its keeping stay in one Section, and the RAISING Leg is the one that opens it, under the Section grouping rule 1 (kogaki#1528). A Section heading between a promise and its keeping would tell the reader a new question had begun while the old one was still owed. Refused naming the row and the owed Leg. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "name": "Obligations -- a Leg inside an open Obligation opens no Section",
+      "rule": "No Leg after a record's `opened_by`, up to and including the Leg that closes its last item, carries `opens_section`: the promise and its keeping stay in one Section, and the OPENING Leg is the one that opens it, under the Section grouping rule 1 (kogaki#1528, kogaki#1612). A Section heading between a promise and its keeping would tell the reader a new question had begun while the old one was still owed. Refused naming the record and the Leg. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
-    "obligation_row_terminal": {
+    "obligation_record_shape": {
       "class": "checked",
-      "name": "Obligations -- every row is an item list, raised by a Leg, and terminal",
-      "rule": "Every row is `{item, raised_by, owed_by, discharged_by | conceded_by}` (kogaki#1529, kogaki#1568): `item` is a list of one or more one-line items, each a term or a question the raising Leg leaves unexplained, in the order it names them -- one promise explained in that order and discharged by the last Leg in `owed_by`; an empty list, a list naming an item twice, or a row carrying the retired `kind`, `text` or `term` is refused by name; `raised_by` names a Leg of the path; and the row ends in EXACTLY ONE terminal field -- `discharged_by`, the LAST Leg in its `owed_by`, where the promise is kept, or `conceded_by`, the raising Leg or one in `owed_by`, where the prose tells the reader it is left open. A row carrying neither terminal field, or both, or the retired Closure field `introduced_by`, is refused, naming the row. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "name": "Obligations -- every record opens once and lists its items",
+      "rule": "Every record is `{opened_by, items}` (kogaki#1612, owner decision 2026-10-26; kogaki#1529, kogaki#1568 before it): `opened_by` names the Leg that opens the promise, and `items` is a list of one or more `{item, closed_by}` in the order the opening Leg names them -- `item` one line, a term or a question that Leg leaves unexplained, named once; `closed_by` the Leg that explains it. The record opens once and closes item by item, so a later Leg sees which items an earlier one already closed. An empty list, an item named twice, a key the record does not declare, or a retired key -- the row-level `item` list, `kind`, `text`, `term`, the Closure field `introduced_by`, the raising and owing fields, both terminal fields and the three fields a set-aside row carried -- is refused by name, naming the record. [see: SPEC-draft-pipeline \"Obligations\"]"
     },
     "first_leg_binds_a_survivor": {
       "class": "judgment",
@@ -537,8 +537,8 @@
       "this Leg (kogaki#1529, SPEC-draft-pipeline \"Obligations\" rule 7). A",
       "term the reader already holds is not introduced at all, and a term this",
       "Leg names and leaves for a LATER Leg to explain is not an entry here: it",
-      "is an Obligation item, raised by this Leg and owed by the Legs",
-      "that give its meaning. The retired `kind` (`coined` / `established`),",
+      "is an Obligation item, opened by this Leg and closed by the Leg",
+      "that gives its meaning. The retired `kind` (`coined` / `established`),",
       "`source`, `nearest` and `differs` are refused by name."
     ],
     "fields": {
