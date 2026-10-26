@@ -44,11 +44,11 @@
 //   The Extraction
 //       passages/FORMAT.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
-import { join, resolve, basename, extname } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, readdirSync } from "node:fs";
+import { join, resolve, basename, extname, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
-import { stringifyYaml } from "../yaml.mjs";
+import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { methodWordRefusal } from "../compose/leg-schema.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
@@ -72,13 +72,15 @@ export const DESCRIPTION_MAX = 200;
 const ANSWER_KEYS = ["q1", "q2", "q3"];
 // `obligation` and `obligation_triggers` are the keys the extraction call's answer leaves out
 // (FORMAT "The paragraph unit", rule 8, kogaki#1590): the Harness writes `obligation_triggers`
-// from the obligation call onto every record, and `obligation` only where `counts` fired.
+// from the obligation call onto every record, and `obligation` only where a trigger fired.
 const OBLIGATION_KEYS = ["obligation", "obligation_triggers"];
 // `content_bound` is the content-bound call's verdict per Segment, written by the Harness too
 // (kogaki#1614).
 const OPTIONAL_RECORD_KEYS = [...OBLIGATION_KEYS, "content_bound"];
-// The obligation call judges these triggers, each with a verdict and its reason (kogaki#1590).
-export const OBLIGATION_TRIGGERS = ["counts"];
+// The obligation call judges these triggers, each with a verdict and its reason (kogaki#1590):
+// a question no later Segment answers, and a term no later Segment explains (kogaki#1618, owner
+// reading 2026-10-26). `counts`, the trigger they replace, is refused by name.
+export const OBLIGATION_TRIGGERS = ["question", "term"];
 // An item or a `why` is at most this many words, and an item carrying one of RATIONALE is a
 // requirement sentence, not a term or a question (kogaki#1590).
 export const OBLIGATION_WORDS_MAX = 12;
@@ -310,11 +312,8 @@ const contentWords = (s) => (String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) |
 function definingClause(clause) {
   return [...String(clause).matchAll(DEFINING)].some((m) => !NEGATION.test(clause.slice(0, m.index)));
 }
-// THE COUNT IS FIXED ONLY BY AN OPERATION THAT NAMES IT (kogaki#1602). An item carries a number
-// or ordinal word only where some Segment's `operation` carries one; otherwise the count is open
-// and `obligation` is one collective item in the plural-each form, which a fixed count refuses.
-const COUNT_WORD = /\b(?:\d+(?:st|nd|rd|th)?|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|both|pairs?|couple|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b/i;
-const COLLECTIVE = /^\s*each\b/i;
+// An item's words are its own (kogaki#1618): the count-form rules of kogaki#1602 retired with the
+// `counts` trigger they served, so a number or ordinal word in an item is no refusal.
 function obligationRefusals(o, segments, at, nouns) {
   const atO = `${at}: \`obligation\``;
   if (isMap(o)) {
@@ -328,19 +327,8 @@ function obligationRefusals(o, segments, at, nouns) {
   const dup = o.findIndex((x, i) => o.findIndex((y) => y.trim() === x.trim()) !== i);
   if (dup >= 0) return [`${atO} names ${JSON.stringify(o[dup].trim())} twice (kogaki#1568)`];
   const errors = [];
-  const fixedAt = (Array.isArray(segments) ? segments : []).findIndex((s) => isMap(s) && COUNT_WORD.test(String(s.operation)));
-  const fixedBy = fixedAt >= 0 ? String(segments[fixedAt].operation).match(COUNT_WORD)[0] : null;
   for (const [i, item] of o.entries()) {
     const atI = `${atO} item ${i + 1}, ${JSON.stringify(item.trim())},`;
-    const counted = item.match(COUNT_WORD);
-    if (fixedBy === null && counted) {
-      errors.push(`${atI} carries "${counted[0]}", a number or ordinal word, and no Segment's \`operation\` names a number — `
-        + `an open count is one collective item, such as "each of the counted parts, in the order named" (kogaki#1602)`);
-    }
-    if (fixedBy !== null && COLLECTIVE.test(item)) {
-      errors.push(`${atI} is a collective item, and Segment ${fixedAt + 1}'s \`operation\` fixes the count with "${fixedBy}" — `
-        + `a fixed count is that many ordinal items (kogaki#1602)`);
-    }
     const e = generalRefusal(nouns, item, atI);
     if (e) errors.push(e);
     const n = wordCount(item);
@@ -362,26 +350,15 @@ function obligationRefusals(o, segments, at, nouns) {
   return errors;
 }
 
-// The Segment numbers a `why` names: "Segment 4", "Segments 3 and 5", "Segments 3 to 5".
-function segmentsNamed(why) {
-  const named = [];
-  for (const m of String(why).matchAll(/\bSegments?\s+(\d+(?:\s*(?:,|and|to|-|–)\s*\d+)*)/gi)) {
-    const nums = m[1].match(/\d+/g).map(Number);
-    if (/to|-|–/.test(m[1]) && nums.length === 2) for (let k = nums[0]; k <= nums[1]; k += 1) named.push(k);
-    else named.push(...nums);
-  }
-  return named;
-}
-
 // THE TRIGGER VERDICTS (FORMAT "The paragraph unit", rule 8, kogaki#1590): a map naming each of
 // OBLIGATION_TRIGGERS once, each `{ fired, why, segment }`, and `obligation` present exactly where
-// `counts` fired. `segment` names the Segment the verdict rests on, 1 to `n` (kogaki#1613); the
-// obligation call's answer always carries it, and a record written before it may not. `at` names
-// the map's place in the refusal.
+// at least one fired (kogaki#1618). `segment` names the Segment the verdict rests on, 1 to `n`
+// (kogaki#1613); the obligation call's answer always carries it, and a record written before it
+// may not. `at` names the map's place in the refusal.
 function triggersRefusals(t, o, at, n, { segmentRequired = false } = {}) {
   if (!isMap(t)) return [`${at} is not a map of ${OBLIGATION_TRIGGERS.join(", ")} (kogaki#1590)`];
   const extra = Object.keys(t).find((k) => !OBLIGATION_TRIGGERS.includes(k));
-  if (extra) return [`${at} carries \`${extra}\`, which is retired or undeclared — the triggers are ${OBLIGATION_TRIGGERS.join(", ")} (kogaki#1590)`];
+  if (extra) return [`${at} carries \`${extra}\`, which is retired or undeclared — the triggers are ${OBLIGATION_TRIGGERS.join(", ")} (kogaki#1590, kogaki#1618)`];
   const errors = [];
   for (const k of OBLIGATION_TRIGGERS) {
     const v = t[k];
@@ -395,13 +372,15 @@ function triggersRefusals(t, o, at, n, { segmentRequired = false } = {}) {
     if (v.segment === undefined) continue;
     if (!Number.isInteger(v.segment) || v.segment < 1 || v.segment > n) {
       errors.push(`${atK}.segment is ${JSON.stringify(v.segment)}, and the Move has Segments 1 to ${n} — it names the Segment the verdict rests on (kogaki#1613)`);
-    } else if (v.fired === true && v.segment < n && !line && !segmentsNamed(v.why).some((x) => x > v.segment)) {
-      errors.push(`${atK} fired on Segment ${v.segment}, which is not the Move's last, and \`why\` names no later Segment — a count a later Segment uses leaves nothing open, so a fired verdict before the last names the later Segments that leave the items unused (kogaki#1613)`);
     }
   }
   if (errors.length) return errors;
-  if (t.counts.fired && o === undefined) return [`\`obligation\` is absent beside \`counts\` fired — a trigger that fires names its items`];
-  if (!t.counts.fired && o !== undefined) return [`\`obligation\` is present beside \`counts\` not fired — the key is present exactly where \`counts\` fired`];
+  const fired = OBLIGATION_TRIGGERS.filter((k) => t[k].fired);
+  if (fired.length && o === undefined) return [`\`obligation\` is absent beside \`${fired.join("\` and \`")}\` fired — a trigger that fires names its items (kogaki#1618)`];
+  if (!fired.length && o !== undefined) return [`\`obligation\` is present beside no fired trigger — the key is present exactly where \`${OBLIGATION_TRIGGERS.join("\` or \`")}\` fired (kogaki#1618)`];
+  if (Array.isArray(o) && o.length < fired.length) {
+    return [`\`obligation\` names ${o.length} item(s) beside \`${fired.join("\` and \`")}\` fired — each fired trigger names at least one item, one per fired question or term (kogaki#1618)`];
+  }
   return [];
 }
 
@@ -616,14 +595,15 @@ export function withContentBound(record, verdicts) {
 }
 
 // THE OBLIGATION CALL'S ANSWER, READ BACK (FORMAT "The paragraph unit", rule 8, kogaki#1590):
-// `{ triggers: { counts: { fired, why, segment } } }`, with `obligation` beside it exactly where
-// `counts` fired, and `segment` one of the Move's `n` Segments (kogaki#1613); the record it is
-// written onto is then read back whole, so an item the record's own rules refuse is asked again here.
+// `{ triggers: { question: { fired, why, segment }, term: { ... } } }`, with `obligation` beside it
+// exactly where a trigger fired (kogaki#1618), and `segment` one of the Move's `n` Segments
+// (kogaki#1613); the record it is written onto is then read back whole, so an item the record's
+// own rules refuse is asked again here.
 export function obligationAnswerRefusal(answer, n) {
   if (!isMap(answer)) return "the answer is not a map";
-  if (Object.hasOwn(answer, "trigger")) return "the answer carries `trigger`, the retired shape — it carries `triggers`, a map of counts to `{ fired, why, segment }` (kogaki#1590)";
+  if (Object.hasOwn(answer, "trigger")) return `the answer carries \`trigger\`, the retired shape — it carries \`triggers\`, a map of ${OBLIGATION_TRIGGERS.join(" and ")} to \`{ fired, why, segment }\` (kogaki#1590)`;
   const extra = Object.keys(answer).find((k) => k !== "triggers" && k !== "obligation");
-  if (extra) return `the answer carries \`${extra}\`, which it does not declare — it carries triggers and, where counts fired, obligation`;
+  if (extra) return `the answer carries \`${extra}\`, which it does not declare — it carries triggers and, where a trigger fired, obligation`;
   if (!Object.hasOwn(answer, "triggers")) return "the answer carries no `triggers`";
   const bad = triggersRefusals(answer.triggers, answer.obligation, "`triggers`", n, { segmentRequired: true });
   return bad.length ? bad.join("\n") : null;
@@ -631,13 +611,26 @@ export function obligationAnswerRefusal(answer, n) {
 
 export function withObligation(record, answer) {
   const { obligation: _o, obligation_triggers: _t, ...rest } = record;
-  return { ...rest, obligation_triggers: answer.triggers, ...(answer.triggers.counts.fired ? { obligation: answer.obligation } : {}) };
+  const fired = OBLIGATION_TRIGGERS.some((k) => answer.triggers[k].fired);
+  return { ...rest, obligation_triggers: answer.triggers, ...(fired ? { obligation: answer.obligation } : {}) };
 }
 
 export function validateObligationUnit(answer, { record, input }) {
   const bad = obligationAnswerRefusal(answer, input.paragraph_you_must_extract.sentences.length);
   if (bad) return { error: `paragraph ${input.paragraph_you_must_extract.number}, the obligation: ${bad}` };
   return validateExtractionUnit(withObligation(record, answer), input);
+}
+
+// THE SAME CALL OVER AN ADMITTED MOVE RECORD (kogaki#1618): `segments` is the call's whole input,
+// so a library record is re-judged by it exactly as a fresh Extraction is. A Move carries no
+// `subject_nouns` and its Segments no `content`, so the answer is read back against the Move's
+// Segments alone: the answer shape, then the items' own rules.
+export function validateRejudgeUnit(answer, { record }) {
+  const segments = Array.isArray(record.segments) ? record.segments : [];
+  const bad = obligationAnswerRefusal(answer, segments.length);
+  if (bad) return { error: `move ${record.id}, the obligation: ${bad}` };
+  const errors = answer.obligation === undefined ? [] : obligationRefusals(answer.obligation, segments, `move ${record.id}`, []);
+  return errors.length ? { error: errors.join("\n") } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -774,6 +767,35 @@ export function lastRefusal(job) {
   return (u.failure && (u.failure.result || u.failure.stderr_tail)) || (job.failure && job.failure.note) || u.status || job.state;
 }
 
+// THE JUDGE AND THE JOB BOUNDS, read once per run from the workflow table (kogaki#1618: the
+// Extractor and the library re-judge read the same row, so neither can drift from the other).
+function judgeSetup(table) {
+  return {
+    callLimitS: positiveSetting(table.job, "call_limit_s"),
+    unitAttempts: positiveSetting(table.job, "unit_attempts"),
+    binary: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH),
+    model: String(settingValue(table.judge.model)),
+    outputFormat: String(table.judge.output_format || "json"),
+    stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S,
+    heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
+  };
+}
+
+// ONE UNIT, ONE JOB: starts the detached supervisor over one unit in `jobDir`, awaits it, writes
+// its `attempts.json` beside the job's own files (`label` names the unit for a reader), and
+// returns `{ job, u }`, with `failed: true` where the job or the unit did not end `done`.
+function runUnit(jobDir, setup, { id, prompt, recordArray, validator, attempts = setup.unitAttempts, label = {} }) {
+  startDetachedJobSupervisor(jobDir, {
+    units: [{ id, prompt }], command: setup.binary.path, model: setup.model, outputFormat: setup.outputFormat,
+    callLimitS: setup.callLimitS, unitAttempts: attempts, stallS: setup.stallS, heartbeatMs: setup.heartbeatMs, recordArray, validator,
+  });
+  const job = awaitJob(jobDir, setup.heartbeatMs);
+  const u = (job.units || [])[0] || {};
+  writeJson(join(jobDir, "attempts.json"), { ...label, state: job.state, status: u.status || null,
+    attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+  return job.state !== "done" || u.status !== "done" || !u.candidate ? { job, u, failed: true } : { job, u };
+}
+
 // SEVERAL CONSECUTIVE LEGS (kogaki#1532): `legPath` may be a list of Leg files, in order. Every
 // paragraph of every Leg is extracted in that order, as one sequence: `p<N>` numbers it across
 // the Legs, the reader state and the names taken carry over a Leg boundary, and each Leg's first
@@ -805,11 +827,8 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const obligationRow = table.obligation_unit || fail("src/proof-sheet/extraction-workflow.json declares no obligation_unit row. Nothing was started.");
   const persona = readerPersona(resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" }))));
   if (persona.error) fail(persona.error);
-  const callLimitS = positiveSetting(table.job, "call_limit_s");
-  const unitAttempts = positiveSetting(table.job, "unit_attempts");
-  const binary = resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH);
-  const model = String(settingValue(table.judge.model));
-  const heartbeatMs = jobHeartbeatMs(table.job.heartbeat_ms);
+  const setup = judgeSetup(table);
+  const { unitAttempts } = setup;
   const outDir = resolve(out);
   const runDir = resume ? resolve(resume) : join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
@@ -839,17 +858,8 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
-    const unitJob = (jobDir, id, unitPrompt, recordArray, validator, attempts = unitAttempts) => {
-      startDetachedJobSupervisor(jobDir, {
-        units: [{ id, prompt: unitPrompt }], command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
-        callLimitS, unitAttempts: attempts, stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs, recordArray, validator,
-      });
-      const job = awaitJob(jobDir, heartbeatMs);
-      const u = (job.units || [])[0] || {};
-      writeJson(join(jobDir, "attempts.json"), { paragraph: i + 1, state: job.state, status: u.status || null,
-        attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
-      return job.state !== "done" || u.status !== "done" || !u.candidate ? { job, u, failed: true } : { job, u };
-    };
+    const unitJob = (jobDir, id, unitPrompt, recordArray, validator, attempts = unitAttempts) =>
+      runUnit(jobDir, setup, { id, prompt: unitPrompt, recordArray, validator, attempts, label: { paragraph: i + 1 } });
     // THE CONTENT CLAUSE, JUDGED SOURCE-BOUND (kogaki#1614): after the record passes, a call over
     // each Segment's `content` beside its sentence; a Segment judged unbound refuses the
     // Extraction, and the Extractor is asked again with that refusal, within its own attempt
@@ -934,6 +944,64 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   return { written, runDir };
 }
 
+// RE-JUDGE A LIBRARY'S OBLIGATIONS (kogaki#1618). Every `*.yaml` record in `library` carrying
+// `segments` is put through the obligation call over those Segments alone, and its `obligation`
+// and `obligation_triggers` are rewritten from the answer: the two keys' top-level blocks are
+// cut from the file's text and the new ones appended, so every other field stays byte-identical.
+// The calls are recorded in a run directory beside the library, one subdirectory per record.
+// Returns `{ written: [paths], unchanged: [paths], runDir }`, or `{ stopped, written, unchanged, runDir }`.
+const RECORD_BLOCK = (key) => new RegExp(`^${key}:[^\\n]*\\n(?:(?:[ \\t]+[^\\n]*|)\\n)*`, "m");
+export function spliceObligation(text, { obligation, obligation_triggers }) {
+  let out = text;
+  for (const key of OBLIGATION_KEYS) out = out.replace(RECORD_BLOCK(key), "");
+  out = out.replace(/\s*$/, "\n");
+  // The items are written as the library writes them, one `- item` line each, never a flow list.
+  const scalar = (s) => (/^[A-Za-z0-9][^#]*$/.test(s) && !/: |:$/.test(s) ? s : JSON.stringify(s));
+  const items = obligation ? `obligation:\n${obligation.map((x) => `  - ${scalar(x)}\n`).join("")}` : "";
+  const tail = stringifyYaml({ obligation_triggers }, { width: 100 });
+  return `${out}${items}${tail.replace(/\s*$/, "\n")}`;
+}
+
+export function runRejudge(library) {
+  const dir = resolve(library);
+  let names;
+  try { names = readdirSync(dir).filter((f) => f.endsWith(".yaml")).sort(); } catch (e) { fail(`the library at ${dir} cannot be read (${e.message})`); }
+  if (!names.length) fail(`the library at ${dir} carries no .yaml record — there is nothing to re-judge`);
+  const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const obligationRow = table.obligation_unit || fail("src/proof-sheet/extraction-workflow.json declares no obligation_unit row. Nothing was started.");
+  const setup = judgeSetup(table);
+  const runDir = join(dirname(dir), `rejudge-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  mkdirSync(runDir, { recursive: true });
+  const written = [];
+  const unchanged = [];
+  for (const name of names) {
+    const file = join(dir, name);
+    const text = readFileSync(file, "utf8");
+    let record;
+    try { record = parseYaml(text, file); } catch (e) { return { stopped: `the re-judge stopped at ${name}: ${e.message}`, written, unchanged, runDir }; }
+    if (!record || !Array.isArray(record.segments) || !record.segments.length) { unchanged.push(file); continue; }
+    const id = typeof record.id === "string" && record.id ? record.id : basename(name, ".yaml");
+    const jobDir = join(runDir, id);
+    mkdirSync(jobDir, { recursive: true });
+    const input = obligationUnitInput({ segments: record.segments.map((s) => ({ operation: String(s.operation || ""), relation: String(s.relation || "") })) });
+    const prompt = obligationUnitPrompt(obligationRow, input);
+    writeFileSync(join(jobDir, "prompt.md"), prompt);
+    const ob = runUnit(jobDir, setup, { id: `${id}-obligation`, prompt, recordArray: false,
+      validator: { module: "src/proof-sheet/extract.mjs", export: "validateRejudgeUnit", inputs: { record: { id, segments: record.segments } } }, label: { move: id } });
+    if (ob.failed) {
+      return { stopped: `the re-judge stopped at ${name}: the obligation job ended ${ob.job.state} after ${ob.u.attempts || 1} attempt(s) — `
+        + `${String(lastRefusal(ob.job)).split("\n").join(" ")}`, written, unchanged, runDir };
+    }
+    const answer = ob.u.candidate;
+    writeJson(join(jobDir, "answer.json"), answer);
+    const fired = OBLIGATION_TRIGGERS.some((k) => answer.triggers[k].fired);
+    writeFileSync(file, spliceObligation(text, { ...(fired ? { obligation: answer.obligation.map((x) => x.trim()) } : {}), obligation_triggers: answer.triggers }));
+    written.push(file);
+  }
+  writeJson(join(runDir, "rejudge.json"), { library: dir, written: written.map((f) => basename(f)), unchanged: unchanged.map((f) => basename(f)) });
+  return { written, unchanged, runDir };
+}
+
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
@@ -951,6 +1019,15 @@ function parseArgs(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
+  if (args._cmd === "rejudge") {
+    if (typeof args.library !== "string") fail("usage: node src/proof-sheet/extract.mjs rejudge --library <directory of Move records>");
+    const r = runRejudge(args.library);
+    for (const f of r.written) console.log(`Move re-judged: ${f}`);
+    for (const f of r.unchanged) console.log(`Move left as it was (no segments): ${f}`);
+    console.log(`run directory: ${r.runDir}`);
+    if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
+    process.exit();
+  }
   if (args._cmd !== "run" || !Array.isArray(args.leg) || typeof args.out !== "string" || (args.leg.length > 1 && args.passage !== undefined)) {
     fail("usage: node src/proof-sheet/extract.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> "
       + "[--passage <slug>, with one Leg] [--audience <audiences/<name>.md>] [--resume <earlier Extractor run directory>]");

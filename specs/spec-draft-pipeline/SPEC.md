@@ -2932,7 +2932,17 @@ govern it:
    unexplained raises a **slot** — items derived from the Move's own
    Segments and from nothing of any source text, so the inference holds no
    state and its boundary is one Move (kogaki#1583, owner decision
-   2026-10-25) —: its items, general as every Move field is. The composer
+   2026-10-25) —: its items, general as every Move field is. The items
+   take two forms and never a count (kogaki#1618, owner reading
+   2026-10-26, retiring the count forms of kogaki#1602 and the `counts`
+   trigger of kogaki#1590 and kogaki#1613): a question a Segment's
+   `operation` poses that no later Segment's `operation` answers, and a
+   term a Segment's `operation` introduces that no later Segment's
+   `operation` defines, glosses or grounds — one item per question or term,
+   in the order the Segments raise them. Because the Segments are the
+   call's whole input, the same call re-judges an admitted Move record
+   (`extract.mjs rejudge --library <dir>`), rewriting its `obligation` and
+   `obligation_triggers` from its own `segments` and nothing else. The composer
    fills the slot with ONE record opened by that unit whose `items` carry
    what this article leaves unexplained at that place, in the article's own
    words and in the order the article names them. The record has no direct
