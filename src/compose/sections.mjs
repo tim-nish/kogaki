@@ -212,20 +212,38 @@ export function targetLegIndex(legs) {
   return legs.findIndex((s) => s && s.reaches_target === true);
 }
 
-// THE OBLIGATION LEDGER'S PATH RULES (kogaki#1529, kogaki#1568, SPEC-draft-pipeline
-// "Obligations"; kogaki#1232 before it). An Obligation is `{item, raised_by, owed_by,
-// discharged_by | conceded_by}`: `item` the list of one or more items -- terms or questions --
-// the raising Leg leaves unexplained, in the order it names them. `obligations` is the
+// THE OBLIGATION RECORD (kogaki#1612, owner decision 2026-10-26; kogaki#1529, kogaki#1568 before
+// it; SPEC-draft-pipeline "Obligations"). An Obligation is `{opened_by, items}`: `opened_by` the
+// unit that opens the promise, and `items` the list of `{item, closed_by}` in the order the
+// opening unit names them -- each `item` a term or a question left unexplained there, each
+// `closed_by` the unit that explains it, or `null` while it is still open. The record opens once
+// and closes item by item, so a later unit sees which items an earlier one already closed. The
+// helpers below are scale-free: a unit is a Leg id at the Leg scale and a Paragraph Waypoint
+// number at the Paragraph scale, and `pos` maps one to its place. `obligations` is the
 // Candidate's own ledger (src/candidate-schema.json); the Thesis row is derived and never
-// reaches this function. Each refusal names the row and the Leg. Returns a string to refuse
-// with, or null.
-const CONCEDED_FIELDS = ["open", "why_not_here", "reader_keeps"];
-// `kind`, `text` and `term` are the row's retired keys (kogaki#1568): a question and a term are
-// the same expectation, that an item will be explained, and `item` carries either.
-export const RETIRED_OBLIGATION_KEYS = Object.freeze(["kind", "text", "term"]);
+// reaches this file.
+// The retired keys are refused by name. Four of them are composed rather than spelled, so the
+// retirement leaves no live spelling of them in this repository (kogaki#1612 Acceptance).
+const joined = (...parts) => parts.join("_");
+export const RETIRED_OBLIGATION_KEYS = Object.freeze({
+  "item": "`item`, retired as the record's own list (kogaki#1612) — the items ride in `items`, each `{item, closed_by}`",
+  "kind": "`kind`, retired (kogaki#1568) — a question and a term are one expectation, an `item`",
+  "text": "`text`, retired (kogaki#1568) — an `item` carries the term or the question",
+  "term": "`term`, retired (kogaki#1568) — an `item` carries the term or the question",
+  "introduced_by": "`introduced_by`, the retired Closure row's field (kogaki#1529) — the record names its opening unit in `opened_by`",
+  "raised_by": "`raised_by`, retired (kogaki#1612) — the record names its opening unit in `opened_by`",
+  "owed_by": "`owed_by`, retired (kogaki#1612) — the units a record is open across are derived from `opened_by` and each item's `closed_by`",
+  [joined("discharged", "by")]: `\`${joined("discharged", "by")}\`, retired (kogaki#1612) — each item names the unit that explains it in its own \`closed_by\``,
+  [joined("conceded", "by")]: `\`${joined("conceded", "by")}\`, retired (kogaki#1612) — no item is set aside: each closes, in a later unit`,
+  "open": "`open`, retired with the conceded state (kogaki#1612)",
+  [joined("why", "not", "here")]: `\`${joined("why", "not", "here")}\`, retired with the conceded state (kogaki#1612)`,
+  [joined("reader", "keeps")]: `\`${joined("reader", "keeps")}\`, retired with the conceded state (kogaki#1612)`,
+});
+const OBLIGATION_KEYS = ["opened_by", "items"];
 export function obligationItems(o) {
-  return (o && Array.isArray(o.item) ? o.item : [])
-    .filter((t) => typeof t === "string" && t.trim() !== "").map((t) => t.trim());
+  return (o && Array.isArray(o.items) ? o.items : [])
+    .map((e) => (e && typeof e.item === "string" ? e.item.trim() : ""))
+    .filter((t) => t !== "");
 }
 export function obligationLine(o) {
   return obligationItems(o).join(", ");
@@ -233,27 +251,84 @@ export function obligationLine(o) {
 export function obligationLabel(o) {
   return `obligation ${JSON.stringify(obligationLine(o))}`;
 }
-// The row's own shape: no retired key, and `item` a non-empty list of one-line strings naming no
-// item twice. Returns the clause to refuse with, or null.
+// The record's own shape: no retired or undeclared key, and `items` a non-empty list of
+// `{item, closed_by}` whose `item` is one non-empty line, naming no item twice. Returns the
+// clause to refuse with, or null.
 export function obligationItemRefusal(o) {
-  const retired = RETIRED_OBLIGATION_KEYS.filter((k) => k in o);
-  if (retired.length) {
-    return `carries ${retired.map((k) => `\`${k}\``).join(", ")}, retired (kogaki#1568) — an Obligation carries \`item\`, the list of the items it leaves unexplained`;
-  }
-  if (!Array.isArray(o.item)) return "carries no `item` list — the items the raising unit leaves unexplained, in the order it names them";
-  if (o.item.length === 0) return "carries an empty `item` list — a list names at least one item";
-  const blank = o.item.findIndex((t) => typeof t !== "string" || t.trim() === "" || /[\r\n]/.test(t));
-  if (blank >= 0) return `carries an \`item\` list whose entry ${blank + 1} is not one non-empty line`;
+  const retired = Object.keys(RETIRED_OBLIGATION_KEYS).filter((k) => k in o);
+  if (retired.length) return `carries ${retired.map((k) => RETIRED_OBLIGATION_KEYS[k]).join("; ")}`;
+  const extra = Object.keys(o).find((k) => !OBLIGATION_KEYS.includes(k));
+  if (extra) return `carries \`${extra}\`, which an Obligation record does not declare — it is \`{opened_by, items}\``;
+  if (!Array.isArray(o.items)) return "carries no `items` list — the items the opening unit leaves unexplained, each `{item, closed_by}`, in the order it names them";
+  if (o.items.length === 0) return "carries an empty `items` list — a record names at least one item";
   const seen = new Set();
-  for (const t of o.item) {
-    const key = t.trim().toLowerCase();
-    if (seen.has(key)) return `carries an \`item\` list that repeats ${JSON.stringify(t.trim())} — each item is named once`;
+  for (const [i, e] of o.items.entries()) {
+    if (!e || typeof e !== "object" || Array.isArray(e)) return `carries an \`items\` entry ${i + 1} that is not a map \`{item, closed_by}\``;
+    const k = Object.keys(e).find((x) => x !== "item" && x !== "closed_by");
+    if (k) return `carries an \`items\` entry ${i + 1} with \`${k}\` — an entry is \`{item, closed_by}\` alone`;
+    if (typeof e.item !== "string" || e.item.trim() === "" || /[\r\n]/.test(e.item)) return `carries an \`items\` entry ${i + 1} whose \`item\` is not one non-empty line`;
+    if (!("closed_by" in e)) return `carries the item ${JSON.stringify(e.item.trim())} with no \`closed_by\` — the unit that explains it, or null while it is open`;
+    const key = e.item.trim().toLowerCase();
+    if (seen.has(key)) return `names the item ${JSON.stringify(e.item.trim())} twice — each item is named once`;
     seen.add(key);
   }
   return null;
 }
-export function obligationTerminal(o) {
-  return o.discharged_by !== undefined ? o.discharged_by : o.conceded_by;
+// THE CLOSING RULES, AT EITHER SCALE (kogaki#1612). `pos` maps a unit to its place, or
+// undefined where the unit is not one of the scale's. Each item's `closed_by` is a unit AFTER
+// `opened_by` -- one equal to it is refused, since a promise kept where it is made is the unit's
+// own structure -- and the items close in the order named, so an item closed before an earlier
+// one, or while an earlier one is still open, is refused naming both. A unit that only names an
+// item does not close it (kogaki#1603): that is the judges' to read, never this function's.
+// Returns `{ unit, clause }` to refuse with, or null.
+export function obligationCloseRefusal(o, pos, unitName) {
+  const label = obligationLabel(o);
+  if (pos(o.opened_by) === undefined) {
+    return { unit: null, clause: `The ${label} record names opened_by ${unitName(o.opened_by)}, which is not one of its scale's units.` };
+  }
+  const opened = pos(o.opened_by);
+  let prev = null;
+  for (const e of o.items) {
+    const item = JSON.stringify(e.item.trim());
+    if (e.closed_by !== null) {
+      if (pos(e.closed_by) === undefined) {
+        return { unit: o.opened_by, clause: `The ${label} record closes the item ${item} by ${unitName(e.closed_by)}, which is not one of its scale's units.` };
+      }
+      if (pos(e.closed_by) === opened) {
+        return { unit: o.opened_by, clause: `The ${label} record closes the item ${item} where it opens it — a promise kept where it is made is the unit's own structure, never an Obligation.` };
+      }
+      if (pos(e.closed_by) < opened) {
+        return { unit: e.closed_by, clause: `The ${label} record closes the item ${item} here, before ${unitName(o.opened_by)} opens it.` };
+      }
+    }
+    if (prev) {
+      const early = prev.closed_by === null ? e.closed_by !== null : e.closed_by !== null && pos(e.closed_by) < pos(prev.closed_by);
+      if (early) {
+        return { unit: e.closed_by, clause: `The ${label} record closes the item ${item} before the earlier item ${JSON.stringify(prev.item.trim())}, which ${prev.closed_by === null ? "is still open" : `closes at ${unitName(prev.closed_by)}`} — the items close in the order named.` };
+      }
+    }
+    prev = e;
+  }
+  return null;
+}
+// The place of the unit closing the record's last item, or null while an item is open.
+export function obligationLastClose(o, pos) {
+  const items = Array.isArray(o.items) ? o.items : [];
+  if (!items.length || items.some((e) => e.closed_by === null)) return null;
+  return Math.max(...items.map((e) => pos(e.closed_by)));
+}
+// THE ITEMS A UNIT IS HANDED (kogaki#1612): every unit after the opening one, up to and
+// including the one closing the last item, is a party to the record, and is handed the items
+// still open when it begins, each marked where it closes there. The opening unit is a party
+// too, and is handed every item it opens.
+export function obligationItemsAt(o, pos, unit) {
+  const at = pos(unit);
+  const opened = pos(o.opened_by);
+  if (at === undefined || opened === undefined || at < opened) return [];
+  const items = Array.isArray(o.items) ? o.items : [];
+  if (at === opened) return items.map((e) => ({ item: e.item, closed_by: e.closed_by }));
+  return items.filter((e) => e.closed_by === null || pos(e.closed_by) >= at)
+    .map((e) => ({ item: e.item, closed_by: e.closed_by }));
 }
 export function obligationLedgerRefusal(legs, obligations = []) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
@@ -261,92 +336,32 @@ export function obligationLedgerRefusal(legs, obligations = []) {
   const list = Array.isArray(obligations) ? obligations : [];
   const legIds = legs.map((s) => s.leg_id);
   const index = new Map(legIds.map((id, i) => [id, i]));
-  const legName = (id) => JSON.stringify(id);
+  const pos = (id) => (typeof id === "string" ? index.get(id) : undefined);
+  const legName = (id) => JSON.stringify(id ?? null);
+  const last = legs.length - 1;
 
-  // THE RECORD (rules 1, 4 and 6): the item list, a raising Leg, `owed_by`
-  // the unbroken run from the Leg after it, and exactly one terminal field
-  // naming a Leg the row is owed to or raised by.
+  // THE RECORD AND ITS CLOSING (rules 1, 2 and 4).
   for (const [n, o] of list.entries()) {
     const row = `obligation ${n + 1}`;
     if (!o || typeof o !== "object" || Array.isArray(o)) {
-      return pathRefusal("obligation_row_terminal", null, `${row} is not a map.`);
-    }
-    if ("introduced_by" in o) {
-      return pathRefusal("obligation_row_terminal", null,
-        `${row} carries \`introduced_by\`, the Closure row's field — an Obligation names the Leg that raises it in \`raised_by\` (kogaki#1529).`);
+      return pathRefusal("obligation_record_shape", null, `${row} is not a map.`);
     }
     const shape = obligationItemRefusal(o);
-    if (shape) return pathRefusal("obligation_row_terminal", null, `${row} ${shape}.`);
-    const label = obligationLabel(o);
-    if (typeof o.raised_by !== "string" || !index.has(o.raised_by)) {
-      return pathRefusal("obligation_row_terminal", null,
-        `The ${label} row names raised_by ${legName(o.raised_by ?? null)}, which is not a Leg of this path.`);
-    }
-    const raisedAt = atId(o.raised_by);
-    const raisedIdx = index.get(o.raised_by);
-    if (!Array.isArray(o.owed_by)) {
-      return pathRefusal("obligation_owed_contiguous", raisedAt,
-        `The ${label} row raised here carries no \`owed_by\` list — the unbroken run of Legs that keep it, from the one after this.`);
-    }
-    let prev = raisedIdx;
-    for (const id of o.owed_by) {
-      if (typeof id !== "string" || !index.has(id)) {
-        return pathRefusal("obligation_owed_contiguous", raisedAt,
-          `The ${label} row raised here names owed_by ${legName(id)}, which is not a Leg of this path.`);
-      }
-      if (index.get(id) <= prev) {
-        return pathRefusal("obligation_owed_contiguous", atId(id),
-          index.get(id) <= raisedIdx
-            ? `The ${label} row raised at ${o.raised_by} names this Leg in owed_by, which does not come after the raising Leg.`
-            : `The ${label} row raised at ${o.raised_by} names this Leg in owed_by after a later one — owed_by is in path order.`);
-      }
-      if (index.get(id) > prev + 1) {
-        return pathRefusal("obligation_owed_contiguous", at(prev + 1),
-          `The ${label} row raised at ${o.raised_by} skips this Leg: owed_by ${JSON.stringify(o.owed_by)} is not the unbroken run from the Leg after the raising one, so this Leg holds the promise open and owes nothing.`);
-      }
-      prev = index.get(id);
-    }
-    const hasD = o.discharged_by !== undefined;
-    const hasC = o.conceded_by !== undefined;
-    if (hasD === hasC) {
-      return pathRefusal("obligation_row_terminal", raisedAt,
-        `The ${label} row raised here carries ${hasD ? "BOTH discharged_by and conceded_by" : "NEITHER discharged_by nor conceded_by"}.`);
-    }
-    const end = obligationTerminal(o);
-    if (hasD && (o.owed_by.length === 0 || end !== o.owed_by[o.owed_by.length - 1])) {
-      return pathRefusal("obligation_row_terminal", raisedAt,
-        `The ${label} row raised here ends discharged_by ${legName(end)}, which is not the last Leg in its owed_by ${JSON.stringify(o.owed_by)} — the promise is kept by the last Leg that owes it.`);
-    }
-    if (hasC && end !== o.raised_by && !o.owed_by.includes(end)) {
-      return pathRefusal("obligation_row_terminal", raisedAt,
-        `The ${label} row raised here ends conceded_by ${legName(end)}, which is neither the raising Leg nor a Leg in its owed_by.`);
+    if (shape) return pathRefusal("obligation_record_shape", null, `${row} ${shape}.`);
+    const close = obligationCloseRefusal(o, pos, legName);
+    if (close) return pathRefusal("obligation_items_close_in_order", close.unit === null ? null : atId(close.unit), close.clause);
+    const open = o.items.find((e) => e.closed_by === null);
+    if (open) {
+      return pathRefusal("obligation_closed_by_the_last_unit", at(last),
+        `The ${obligationLabel(o)} record opened at ${o.opened_by} still holds the item ${JSON.stringify(open.item.trim())} open at the path's last Leg.`);
     }
   }
 
-  // AT MOST ONE CONCEDED ROW (kogaki#1232), each carrying `open`,
-  // `why_not_here` and `reader_keeps` (kogaki#1263): a concession is not
-  // silence, so the row says what stays unresolved, why this Leg is not the
-  // one to close it, and what the reader is left holding in its place.
-  const conceded = list.filter((o) => o.conceded_by !== undefined);
-  if (conceded.length > 1) {
-    return pathRefusal("obligation_one_conceded_row", null,
-      `${conceded.length} rows end conceded_by: ${conceded.map((o) => obligationLabel(o)).join(", ")}.`);
-  }
-  for (const o of conceded) {
-    const missing = CONCEDED_FIELDS.filter((k) => typeof o[k] !== "string" || o[k] === "");
-    if (missing.length) {
-      return pathRefusal("obligation_one_conceded_row", atId(o.raised_by),
-        `The conceded ${obligationLabel(o)} row carries no ${missing.join(", ")} — `
-        + "a conceded row ends conceded_by AND carries open, why_not_here and reader_keeps.");
-    }
-  }
-
-  // CAPACITY (rule 3): a row is open on every Leg from its `raised_by` up to,
-  // and NOT INCLUDING, the Leg that closes it; at most one row is
-  // open at any Leg.
+  // CAPACITY (rule 3): a record is open on every Leg from its `opened_by` up to, and NOT
+  // INCLUDING, the Leg that closes its last item; at most one record is open at any Leg.
   const openPerLeg = new Map();
   for (const o of list) {
-    for (let i = index.get(o.raised_by); i < index.get(obligationTerminal(o)); i++) {
+    for (let i = pos(o.opened_by); i < obligationLastClose(o, pos); i++) {
       if (!openPerLeg.has(legIds[i])) openPerLeg.set(legIds[i], []);
       openPerLeg.get(legIds[i]).push(o);
     }
@@ -355,17 +370,18 @@ export function obligationLedgerRefusal(legs, obligations = []) {
     const rows = openPerLeg.get(s.leg_id);
     if (rows && rows.length > 1) {
       return pathRefusal("obligation_one_open_per_unit", at(i),
-        `${rows.length} rows are open here: ${rows.map((o) => obligationLabel(o)).join(", ")}.`);
+        `${rows.length} records are open here: ${rows.map((o) => obligationLabel(o)).join(", ")}.`);
     }
   }
 
-  // SECTION (rule 5): no Leg owing an OPEN row carries `opens_section`.
+  // SECTION (rule 5): no Leg after a record's `opened_by`, up to the one closing its last item,
+  // carries `opens_section`.
   for (const o of list) {
-    if (index.get(obligationTerminal(o)) <= index.get(o.raised_by)) continue; // open on no Leg
-    const opener = o.owed_by.find((id) => legs[index.get(id)].opens_section !== undefined);
-    if (opener) {
-      return pathRefusal("obligation_owed_leg_opens_no_section", atId(opener),
-        `This Leg owes the ${obligationLabel(o)} row raised at ${o.raised_by}, and carries opens_section.`);
+    for (let i = pos(o.opened_by) + 1; i <= obligationLastClose(o, pos); i++) {
+      if (legs[i].opens_section !== undefined) {
+        return pathRefusal("obligation_owed_leg_opens_no_section", at(i),
+          `This Leg is inside the ${obligationLabel(o)} record opened at ${o.opened_by}, and carries opens_section.`);
+      }
     }
   }
   return null;
@@ -403,10 +419,10 @@ export function readerTargetLegRefusal(legs, obligations = []) {
       return pathRefusal("closing_leg_introduces_nothing", at(i),
         `This closing Leg (after ${targetLeg.leg_id}, which reaches the Reader target) still carries introduces: ${JSON.stringify(s.introduces)}.`);
     }
-    const raised = obligationList.find((o) => o && o.raised_by === s.leg_id);
-    if (raised) {
+    const opened = obligationList.find((o) => o && o.opened_by === s.leg_id);
+    if (opened) {
       return pathRefusal("closing_leg_introduces_nothing", at(i),
-        `This closing Leg (after ${targetLeg.leg_id}) is named raised_by on the ${obligationLabel(raised)} row.`);
+        `This closing Leg (after ${targetLeg.leg_id}) is named opened_by on the ${obligationLabel(opened)} record.`);
     }
     for (const dim of ["orientation", "knowledge"]) {
       const wantLine = readerStateDimensionLine(targetLeg.reader_state_after, dim);

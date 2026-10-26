@@ -45,7 +45,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { obligationLine } from "./compose/sections.mjs";
+import { dischargeRows } from "./compose/render.mjs";
 
 function fail(msg) {
   process.stderr.write(`review: ${msg}\n`);
@@ -240,29 +240,28 @@ export function attachReview(candidates, review) {
       const rcErr = recoverabilityRefusal(r.recoverability, c.legs);
       if (rcErr) return { error: `candidate ${c.candidate_id}: ${rcErr}` };
     }
-    // THE DISCHARGE (kogaki#1283, kogaki#1529) — one entry per Obligation row
-    // carrying `discharged_by`, named by the row's own text or term and its
-    // discharging Leg.
+    // THE DISCHARGE (kogaki#1283, kogaki#1529, kogaki#1612) — one entry per Obligation record
+    // and Leg closing any of its items, named by the items closed there and that Leg, in the
+    // order `dischargeRows` handed them to the judge.
     // VALIDATED WHEN PRESENT, the same as `bridges`/`introduces` on a Leg
-    // (src/compose.mjs): a caller whose Candidates carry no real Obligation rows
+    // (src/compose.mjs): a caller whose Candidates carry no real Obligation records
     // (the plumbing fixtures in checks/check-brief-review.sh) has nothing this
     // item could name, and is not this bullet's concern to retrofit.
     if ("discharge" in r) {
-      const dischargedRows = (Array.isArray(c.obligations) ? c.obligations : [])
-        .filter((o) => o && o.discharged_by !== undefined);
-      if (!Array.isArray(r.discharge) || r.discharge.length !== dischargedRows.length) {
+      const closedRows = dischargeRows(c.legs || [], c.obligations);
+      if (!Array.isArray(r.discharge) || r.discharge.length !== closedRows.length) {
         return { error: `candidate ${c.candidate_id}: \`discharge\` is not an array of exactly `
-          + `${dischargedRows.length} entr${dischargedRows.length === 1 ? "y" : "ies"} — one per Obligation row `
-          + `carrying \`discharged_by\`` };
+          + `${closedRows.length} entr${closedRows.length === 1 ? "y" : "ies"} — one per Obligation record `
+          + "and Leg that closes any of its items" };
       }
-      for (let i = 0; i < dischargedRows.length; i++) {
+      for (let i = 0; i < closedRows.length; i++) {
         const entry = r.discharge[i];
-        const row = dischargedRows[i];
-        const said = obligationLine(row); // the `row` dischargeRows handed the judge (kogaki#1549)
+        const row = closedRows[i];
+        const said = row.row; // the `row` dischargeRows handed the judge (kogaki#1549)
         if (!entry || typeof entry !== "object" || Array.isArray(entry)
-            || entry.row !== said || entry.discharging_leg !== row.discharged_by) {
-          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} does not name Obligation row `
-            + `${JSON.stringify(said)} and its discharging leg ${JSON.stringify(row.discharged_by)}` };
+            || entry.row !== said || entry.closed_by !== row.closed_by) {
+          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} does not name the items `
+            + `${JSON.stringify(said)} and the Leg closing them, ${JSON.stringify(row.closed_by)}` };
         }
         if (!DISCHARGE_VERDICTS.includes(entry.verdict)) {
           return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} (row `

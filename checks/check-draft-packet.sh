@@ -468,8 +468,9 @@ if (!r.error) {
   const ROW = "the reader is owed why the copy is overwritten";
   const RECOVERABLE = "Each claim above must be recoverable from what you write";
   const RETIRED_HEADING = ["## This Leg's", "Obligations"].join(" ");
-  const conceded = { item: [ROW], raised_by: "s1", owed_by: [], conceded_by: "s1",
-    open: "whether the copy may ever be edited", why_not_here: "the article covers one install", reader_keeps: "a rule to edit the source" };
+  // A record s1 opens (kogaki#1612); its closing Leg lies past this one-Leg fixture, which
+  // `readBrief` reads without validating the ledger.
+  const opened = { opened_by: "s1", items: [{ item: ROW, closed_by: "s2" }] };
   const jTextWith = (row) => briefRecordText({
     slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
@@ -477,7 +478,7 @@ if (!r.error) {
     reader_target: "s1", reader_path: [legRecord(leg)],
     strand_coverage: [], journey_coverage: [], obligations: [row], tradeoffs: {}, bridged: {},
   });
-  const jBrief = readBrief(jTextWith(conceded), "theses/packet-brief/brief.yaml");
+  const jBrief = readBrief(jTextWith(opened), "theses/packet-brief/brief.yaml");
   const jRender = (templateText) => {
     const split = splitPacketTemplate(templateText);
     if (split.error) return { error: split.error };
@@ -498,7 +499,7 @@ if (!r.error) {
     return null;
   };
   if ((jBrief.refusals || []).length) fails.push(`(j) the fixture Brief with an Obligation row was refused: ${JSON.stringify(jBrief.refusals)}`);
-  else if (!(jBrief.record.obligations || []).some((o) => (o.item || []).includes(ROW))) fails.push("(j) the fixture Brief's record does not carry the Obligation row");
+  else if (!(jBrief.record.obligations || []).some((o) => (o.items || []).some((e) => e.item === ROW))) fails.push("(j) the fixture Brief's record does not carry the Obligation record");
   else {
     const j = jRender(template);
     if (j.error) fails.push(`(j) the fixture Packet with an Obligation row did not render: ${j.error}`);

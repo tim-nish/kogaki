@@ -260,22 +260,24 @@
       }
     },
     "owed-kept": {
-      "source": "constructed: a Brief row owing the two factors, discharged at the Paragraph Waypoint that explains each of them",
+      "source": "constructed: a Brief record whose two factors this Leg closes, laid on the Paragraph Waypoint that explains each of them",
       "from": "leg3-explains",
       "edit": {
         "waypoint": 3,
         "owes": [
           {
             "obligation": 1,
-            "item": [
-              "offense-defense advantage",
-              "offense-defense distinguishability"
-            ],
-            "raised_by": "leg-0",
-            "owed_by": [
-              "leg-1"
-            ],
-            "discharged_by": "leg-1"
+            "opened_by": "leg-0",
+            "items": [
+              {
+                "item": "offense-defense advantage",
+                "closed_by": "leg-1"
+              },
+              {
+                "item": "offense-defense distinguishability",
+                "closed_by": "leg-1"
+              }
+            ]
           }
         ],
         "discharges": [
@@ -287,7 +289,7 @@
       }
     },
     "owed-named-only": {
-      "source": "constructed: the same row discharged at the run's Paragraph Waypoint that only names the two factors, the shape of the one-Leg run of 2026-10-26",
+      "source": "constructed: the same record laid on the run's Paragraph Waypoint that only names the two factors, the shape of the one-Leg run of 2026-10-26",
       "from": "leg3-clean",
       "at_waypoint": 3,
       "edit": {
@@ -295,15 +297,17 @@
         "owes": [
           {
             "obligation": 1,
-            "item": [
-              "offense-defense advantage",
-              "offense-defense distinguishability"
-            ],
-            "raised_by": "leg-0",
-            "owed_by": [
-              "leg-1"
-            ],
-            "discharged_by": "leg-1"
+            "opened_by": "leg-0",
+            "items": [
+              {
+                "item": "offense-defense advantage",
+                "closed_by": "leg-1"
+              },
+              {
+                "item": "offense-defense distinguishability",
+                "closed_by": "leg-1"
+              }
+            ]
           }
         ],
         "discharges": [
@@ -329,7 +333,7 @@
       }
     },
     "leg4-run": {
-      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Leg Waypoint 1's first Paragraph Waypoint already carries Segment 2's compression and the call answered fits",
+      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Leg Waypoint 1's first Paragraph Waypoint already carries Segment 2's compression and the call answered fits; its Obligation row, set aside where it was raised, is removed with that state (kogaki#1612)",
       "at_waypoint": 1,
       "input": {
         "leg_you_must_judge": {
@@ -385,19 +389,7 @@
                   ]
                 }
               ],
-              "obligations": [
-                {
-                  "item": [
-                    "why war grows less likely as the other side's intent grows clearer and likelier as it grows vaguer is asserted and not shown"
-                  ],
-                  "raised_by": 3,
-                  "owed_by": [],
-                  "conceded_by": 3,
-                  "open": "the grounds for the rule tying the clarity of the other side's intent to the likelihood of war",
-                  "why_not_here": "the rule closes this paragraph, so no later paragraph of it remains in which the grounds could be given",
-                  "reader_keeps": "the reader carries the rule as asserted into the matched pair of countries that follows, where it is worked through on cases"
-                }
-              ],
+              "obligations": [],
               "discharges": []
             },
             {
@@ -700,7 +692,7 @@
     },
     {
       "id": "PROMISE KEPT",
-      "sentence": "A Paragraph Waypoint named by a row's `discharged_by` or by a `discharges` entry states what every item that row owes means, never only its name.",
+      "sentence": "A Paragraph Waypoint named by a `discharges` entry states what every item its record closes there means, never only its name.",
       "fixtures": {
         "defect": [
           "owed-not-kept",

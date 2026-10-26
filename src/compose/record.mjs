@@ -18,7 +18,8 @@ import {
   READER_STATE_DIMENSIONS, deriveReaderStatesBefore, journeyUses,
   readerStateDimensionLine, waypointsRefusal,
 } from "./leg-schema.mjs";
-import { parseIntroducesEntry, obligationLabel, obligationTerminal, obligationItemRefusal } from "./sections.mjs";
+import { parseIntroducesEntry, obligationLabel, obligationItemRefusal, obligationCloseRefusal, obligationLastClose,
+  obligationItemsAt } from "./sections.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
 //
@@ -295,74 +296,36 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
 }
 
 // ---------------------------------------------------------------------------
-// THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, SPEC-draft-pipeline "Obligations").
-// A Leg Waypoint's `obligations` are rows of the Brief's shape -- `{item, raised_by, owed_by,
-// discharged_by | conceded_by}` (kogaki#1568) -- whose Leg ids are the numbers of that Leg Waypoint's
-// Paragraph Waypoints, held to the Brief's rules (`obligationLedgerRefusal`) except the Section
-// rule, which has no unit at this scale. Shared by the plan reader and the plan call's validator.
-// Returns a string to refuse with, or null.
+// THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, kogaki#1612, SPEC-draft-pipeline
+// "Obligations"). A Leg Waypoint's `obligations` are records of the Brief's shape --
+// `{opened_by, items}`, each item `{item, closed_by}` -- whose units are the numbers of that Leg
+// Waypoint's Paragraph Waypoints, held to the Brief's rules (`obligationLedgerRefusal`) except
+// the Section rule, which has no unit at this scale. Shared by the plan reader and the plan
+// call's validator. Returns a string to refuse with, or null.
 export function paragraphObligationsRefusal(rows, count, at) {
   if (rows === undefined) return null;
-  if (!Array.isArray(rows)) return `${at}: \`obligations\` is not a list of rows (kogaki#1530)`;
-  const pw = (n) => Number.isInteger(n) && n >= 1 && n <= count;
+  if (!Array.isArray(rows)) return `${at}: \`obligations\` is not a list of records (kogaki#1530)`;
+  const pos = (n) => (Number.isInteger(n) && n >= 1 && n <= count ? n : undefined);
   const name = (n) => `Paragraph Waypoint ${JSON.stringify(n ?? null)}`;
   for (const [i, o] of rows.entries()) {
     const row = `${at}: obligation ${i + 1}`;
     if (!o || typeof o !== "object" || Array.isArray(o)) return `${row} is not a map (kogaki#1530)`;
     const shape = obligationItemRefusal(o);
-    if (shape) return `${row} ${shape}`;
-    const label = `${at}: the ${obligationLabel(o)} row`;
-    const extra = undeclaredKey(o, ["item", "raised_by", "owed_by", "discharged_by", "conceded_by", ...CONCEDED_ROW_FIELDS]);
-    if (extra) return `${label} carries \`${extra}\`, which an Obligation row does not declare (kogaki#1530)`;
-    if (!pw(o.raised_by)) return `${label} names raised_by ${name(o.raised_by)}, which is not a Paragraph Waypoint of this Leg Waypoint (kogaki#1530)`;
-    if (!Array.isArray(o.owed_by)) {
-      return `${label} carries no \`owed_by\` list — the unbroken run of Paragraph Waypoints that keep it, from the one after Paragraph Waypoint ${o.raised_by} (kogaki#1530)`;
-    }
-    let prev = o.raised_by;
-    for (const n of o.owed_by) {
-      if (!pw(n)) return `${label} names owed_by ${name(n)}, which is not a Paragraph Waypoint of this Leg Waypoint (kogaki#1530)`;
-      if (n <= prev) {
-        return n <= o.raised_by
-          ? `${label} raised at Paragraph Waypoint ${o.raised_by} names Paragraph Waypoint ${n} in owed_by, which does not come after the raising one (kogaki#1530)`
-          : `${label} names Paragraph Waypoint ${n} in owed_by after a later one — owed_by is in order (kogaki#1530)`;
-      }
-      if (n > prev + 1) {
-        return `${label} raised at Paragraph Waypoint ${o.raised_by} skips Paragraph Waypoint ${prev + 1}: owed_by ${JSON.stringify(o.owed_by)} is not the unbroken run from the next Paragraph Waypoint, so Paragraph Waypoint ${prev + 1} holds the promise open and owes nothing (kogaki#1569)`;
-      }
-      prev = n;
-    }
-    const hasD = o.discharged_by !== undefined;
-    const hasC = o.conceded_by !== undefined;
-    if (hasD === hasC) {
-      return `${label} carries ${hasD ? "BOTH discharged_by and conceded_by" : "NEITHER discharged_by nor conceded_by"} — every row ends in exactly one (kogaki#1530)`;
-    }
-    const end = obligationTerminal(o);
-    if (hasD && (!o.owed_by.length || end !== o.owed_by[o.owed_by.length - 1])) {
-      return `${label} ends discharged_by ${name(end)}, which is not the last Paragraph Waypoint in its owed_by ${JSON.stringify(o.owed_by)} (kogaki#1530)`;
-    }
-    if (hasC && end !== o.raised_by && !o.owed_by.includes(end)) {
-      return `${label} ends conceded_by ${name(end)}, which is neither the raising Paragraph Waypoint nor one in its owed_by (kogaki#1530)`;
-    }
-    if (hasD && CONCEDED_ROW_FIELDS.some((k) => k in o)) {
-      return `${label} ends discharged_by and carries ${CONCEDED_ROW_FIELDS.filter((k) => k in o).join(", ")}, which only a conceded row carries (kogaki#1530)`;
+    if (shape) return `${row} ${shape} (kogaki#1612)`;
+    const close = obligationCloseRefusal(o, pos, name);
+    if (close) return `${at}${close.unit === null ? "" : `, ${name(close.unit)}`}: ${close.clause} (kogaki#1612)`;
+    const open = o.items.find((e) => e.closed_by === null);
+    if (open) {
+      return `${at}: the ${obligationLabel(o)} record opened at Paragraph Waypoint ${o.opened_by} still holds the item `
+        + `${JSON.stringify(open.item.trim())} open at the Leg Waypoint's last Paragraph Waypoint, ${count} (kogaki#1612)`;
     }
   }
-  const conceded = rows.filter((o) => o.conceded_by !== undefined);
-  if (conceded.length > 1) {
-    return `${at}: ${conceded.length} rows end conceded_by: ${conceded.map((o) => obligationLabel(o)).join(", ")} — at most one is conceded (kogaki#1530)`;
-  }
-  for (const o of conceded) {
-    const missing = CONCEDED_ROW_FIELDS.filter((k) => typeof o[k] !== "string" || o[k].trim() === "");
-    if (missing.length) {
-      return `${at}: the conceded ${obligationLabel(o)} row carries no ${missing.join(", ")} — a conceded row carries open, why_not_here and reader_keeps (kogaki#1530)`;
-    }
-  }
-  // CAPACITY: a row is open from its `raised_by` up to, and not including, the Paragraph
-  // Waypoint that closes it; at most one row is open at any Paragraph Waypoint.
+  // CAPACITY: a record is open from its `opened_by` up to, and not including, the Paragraph
+  // Waypoint that closes its last item; at most one record is open at any Paragraph Waypoint.
   for (let n = 1; n <= count; n++) {
-    const open = rows.filter((o) => o.raised_by <= n && n < obligationTerminal(o));
+    const open = rows.filter((o) => o.opened_by <= n && n < obligationLastClose(o, pos));
     if (open.length > 1) {
-      return `${at}, Paragraph Waypoint ${n}: ${open.length} rows are open here: ${open.map((o) => obligationLabel(o)).join(", ")} — at most one row is open at a Paragraph Waypoint (kogaki#1530)`;
+      return `${at}, Paragraph Waypoint ${n}: ${open.length} records are open here: ${open.map((o) => obligationLabel(o)).join(", ")} — at most one record is open at a Paragraph Waypoint (kogaki#1530)`;
     }
   }
   return null;
@@ -388,11 +351,15 @@ export function dischargesShapeRefusal(entries, count, at) {
   return null;
 }
 
-// THE BRIEF'S ROWS THIS LEG OWES (kogaki#1530): every row of the Brief's `obligations` whose
-// `owed_by` names the Leg, numbered by its place in that list.
+// THE BRIEF'S RECORDS THIS LEG OWES (kogaki#1530, kogaki#1612): every record of the Brief's
+// `obligations` with an item whose `closed_by` names the Leg, numbered by its place in that list,
+// carrying only the items this Leg closes.
 export function briefRowsOwedBy(obligations, legId) {
-  return (Array.isArray(obligations) ? obligations : []).map((o, i) => ({ obligation: i + 1, ...o }))
-    .filter((o) => Array.isArray(o.owed_by) && o.owed_by.includes(legId));
+  return (Array.isArray(obligations) ? obligations : []).map((o, i) => ({
+    obligation: i + 1,
+    opened_by: o.opened_by,
+    items: (Array.isArray(o.items) ? o.items : []).filter((e) => e && e.closed_by === legId),
+  })).filter((o) => o.items.length > 0);
 }
 
 // A BRIEF ROW THIS LEG OWES IS DISCHARGED HERE (kogaki#1530): every row `briefRowsOwedBy` names
@@ -531,7 +498,7 @@ export function briefRecordText(record) {
 // A key the Brief record carried once and carries no longer, refused by name
 // with the key that replaced it.
 const RETIRED_RECORD_KEYS = Object.freeze({
-  closure: "the Closure rows are retired (kogaki#1529): the Brief carries its promises as `obligations`, each row `{item, raised_by, owed_by, discharged_by | conceded_by}` (src/candidate-schema.json, `brief_record`).",
+  closure: "the Closure rows are retired (kogaki#1529): the Brief carries its promises as `obligations`, each record `{opened_by, items}`, every item `{item, closed_by}` (kogaki#1612; src/candidate-schema.json, `brief_record`).",
 });
 
 // The record read from its text, or a refusal naming what is wrong. A key the
@@ -611,22 +578,22 @@ export function thesisClosureLeg(record) {
   return marked.length === 1 ? marked[0].leg_id : null;
 }
 
-// THE LEG PACKET'S OWN OBLIGATION ROWS (kogaki#1151, kogaki#1529). A Leg is
-// handed only the rows it is a party to — where it is `raised_by`, named in
-// `owed_by`, or the Leg that discharges or concedes the row — and the derived
-// Thesis row is handed to the Leg marked `reaches_target`. Read from the
-// record's `obligations` list, which adoption wrote from the Candidate's
-// ledger.
-export const CONCEDED_ROW_FIELDS = ["open", "why_not_here", "reader_keeps"];
+// THE LEG PACKET'S OWN OBLIGATION ROWS (kogaki#1151, kogaki#1529, kogaki#1612). A Leg is
+// handed only the records it is a party to — the one opening it, and every Leg after it up to the
+// one closing its last item — each carrying the items `obligationItemsAt` hands that Leg, and the
+// derived Thesis row is handed to the Leg marked `reaches_target`. Read from the record's
+// `obligations` list, which adoption wrote from the Candidate's ledger.
 export function obligationRowsOf(record, legId) {
   const rows = [];
   if (thesisClosureLeg(record) === legId) {
     const t = thesisClosureRow(record);
     if (t) rows.push({ text: t });
   }
+  const ids = (Array.isArray(record?.reader_path) ? record.reader_path : []).map((s) => s.leg_id);
+  const pos = (id) => (ids.includes(id) ? ids.indexOf(id) : undefined);
   for (const o of Array.isArray(record?.obligations) ? record.obligations : []) {
-    if (o.raised_by === legId || (Array.isArray(o.owed_by) && o.owed_by.includes(legId))
-        || o.discharged_by === legId || o.conceded_by === legId) rows.push(o);
+    const items = obligationItemsAt(o, pos, legId);
+    if (items.length) rows.push({ opened_by: o.opened_by, items });
   }
   return rows;
 }

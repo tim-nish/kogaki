@@ -12,7 +12,7 @@ import { validateLegs } from "./leg-schema.mjs";
 import { definedTermsOf } from "./defined-terms.mjs";
 import { renderedTermIntroducedRefusal } from "./renderings.mjs";
 import {
-  CONCEDED_ROW_FIELDS, briefJourneyStrands, briefStrandIds, fillSlot,
+  briefJourneyStrands, briefStrandIds, fillSlot,
   journeyPlacements, legRecord, placements,
 } from "./record.mjs";
 
@@ -98,25 +98,15 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
     ? { strand: id, placed_by: jplace.get(id) }
     : { strand: id, omitted: unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)" }));
 
-  // THE OBLIGATIONS (kogaki#1529, SPEC-draft-pipeline "Obligations"). An
-  // obligation is a promise the prose makes to the reader that a later passage
-  // must keep. `validateLegs` above has refused every row that is not
-  // terminal, ordered and within capacity, so each row is written here in the
-  // record's own field order. The Thesis row is not a row of this list: it is
-  // derived (`thesisClosureRow`, kogaki#1328).
-  const rows = (Array.isArray(obligations) ? obligations : []).map((o) => {
-    const row = { item: [...o.item], raised_by: o.raised_by, owed_by: [...o.owed_by] };
-    if (o.discharged_by !== undefined) row.discharged_by = o.discharged_by;
-    else {
-      row.conceded_by = o.conceded_by;
-      // A CONCEDED ROW'S THREE FIELDS (kogaki#1263, kogaki#1261): what stays
-      // open, why this article does not close it, and what the reader keeps.
-      for (const k of CONCEDED_ROW_FIELDS) {
-        if (typeof o[k] === "string" && o[k] !== "") row[k] = o[k];
-      }
-    }
-    return row;
-  });
+  // THE OBLIGATIONS (kogaki#1529, kogaki#1612, SPEC-draft-pipeline "Obligations"). An
+  // obligation is a promise the prose makes to the reader that a later passage must keep.
+  // `validateLegs` above has refused every record that is not closed, ordered and within
+  // capacity, so each is written here in the record's own field order. The Thesis row is not a
+  // row of this list: it is derived (`thesisClosureRow`, kogaki#1328).
+  const rows = (Array.isArray(obligations) ? obligations : []).map((o) => ({
+    opened_by: o.opened_by,
+    items: o.items.map((e) => ({ item: e.item, closed_by: e.closed_by })),
+  }));
 
   let out = record;
   // WRITTEN BESIDE THE READER PATH COMPOSED UNDER IT (kogaki#1494). Not a slot:
