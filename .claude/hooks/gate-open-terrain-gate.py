@@ -24,14 +24,7 @@ into `gate-call.json`. This file makes that interval real at two events:
 WHY BOTH, AND WHY NEITHER ALONE. PreToolUse alone leaves the session free to
 say something and stop, which is the same outcome by another route -- the gate
 unrendered and the run silently abandoned. Stop alone leaves it free to do
-twenty other things first.
-
-A TYPED PROMPT IS ADMITTED (kogaki#1629). The owner's answer enters through the
-question's own free-text row, written by `write-gate-capture.py` under the
-pointer's `gate_instance_id`, so a typed prompt cannot enter the record
-whatever the model does with it. The typed-prompt arm that refused one
-defended nothing that hook does not already close, and in every wedge below it
-dropped the owner's only in-session word.
+twenty other things first. A typed prompt is admitted: kogaki#1629.
 
 AND THE INTERVAL ONCE CLOSED OVER ITS OWN OPENING (kogaki#1051). On 2026-09-09
 at 13:01 UTC the owner typed `/terrain` in two sessions. The skill's `!` line
@@ -42,8 +35,8 @@ system line, zero usage, and no Stop hook, because no turn ran. Every later
 prompt was refused the same way. THE RECOVERY WAS FROM OUTSIDE THE SESSION: the
 pointers were moved out of `~/.claude/kogaki-open-gates/` by hand, which is not
 a recovery this file offers and not one a session can perform. A gate whose
-only admissible act is unreachable is a wedged run. The arm and the mark that
-let the opening prompt past it are both gone since kogaki#1629.
+only admissible act is unreachable is a wedged run. The arm and its mark are
+gone: kogaki#1629.
 
 AND ONCE OVER THE PAYLOAD ITSELF (kogaki#1057). On 2026-09-09 at 15:48 UTC the
 tag gate opened cleanly and the prompt was admitted -- kogaki#1051's mark

@@ -571,9 +571,7 @@ const { surveyPath, selfPath, gs, execEnv, tp, tagRun, gatesFor, envFor, payload
     readdirSync(gatesFor("reraise")).filter((f) => f.endsWith(".json")).length === 1,
     `${readdirSync(gatesFor("reraise")).length} pointer(s)`);
 
-  // THE POINTER CARRIES NO OPENER MARK (kogaki#1629). The open-gate hook's
-  // prompt arm was its one reader, and it is gone, so neither the file an
-  // advance writes nor the one the start act writes records `opened_by`.
+  // No pointer carries `opened_by`: kogaki#1629.
   const readOnly = (name) => {
     const dir = gatesFor(name);
     if (!existsSync(dir)) return null;
@@ -584,8 +582,6 @@ const { surveyPath, selfPath, gs, execEnv, tp, tagRun, gatesFor, envFor, payload
     !!readOnly("reraise") && !("opened_by" in readOnly("reraise")),
     JSON.stringify((readOnly("reraise") || {}).opened_by));
 
-  // AND NEITHER DOES THE START ACT'S.
-  //
   // DRIVEN THROUGH `start` (kogaki#1257): the start act mints its own record and
   // its first state is the survey, which the fake gateway serves, so a two-state
   // table (`survey`, then the tag gate) carries it to a gate and the pointer it
