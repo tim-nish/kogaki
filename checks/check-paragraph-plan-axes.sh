@@ -72,9 +72,14 @@ if (/\n- [A-Z]/.test(table.paragraph_plan_judge_unit.judgment_point)) fails.push
 if (Object.hasOwn(table.criteria || {}, "paragraph_plan_judge_unit")) fails.push("(b) the workflow table's `criteria` names judge criteria of its own");
 
 // (c) the validator counts what the judge no longer judges.
+// The Move is the check's own fixture copy, never a record of the curated library, which
+// refills only from reviewed Proof Sheets (911bbd3, kogaki#1625); ROLES.json is the library's.
 const moveId = "apply_a_definition_to_one_everyday_instance";
-const segments = boundMoveContract(moveId, "moves").segments.length;
-const inputs = { movesDir: "moves", legs: [{ leg_id: "v1", waypoints: [{ waypoint: 1, point: "A point.", serves: ["L1"], next_point: null }] }] };
+const lib = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-lib-"));
+writeFileSync(join(lib, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
+writeFileSync(join(lib, `${moveId}.yaml`), readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`)));
+const segments = boundMoveContract(moveId, lib).segments.length;
+const inputs = { movesDir: lib, legs: [{ leg_id: "v1", waypoints: [{ waypoint: 1, point: "A point.", serves: ["L1"], next_point: null }] }] };
 const plan = (pws) => ({ version: "1", leg_id: "v1", waypoints: [{ waypoint: 1, move: moveId, why: "the Move carries this point", paragraph_waypoints: pws }] });
 const pw = (i) => ({ point: `Part ${i} of the point.`, serves: ["L1"] });
 const parts = (n) => Array.from({ length: n }, (_, i) => pw(i + 1));
