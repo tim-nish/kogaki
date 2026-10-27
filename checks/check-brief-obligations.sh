@@ -25,6 +25,23 @@ import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, obligationRowsOf, readerTargetLegRefusal, legRecord, obligationLedgerRefusal } = compose;
 const fails = [];
+// A Move record carrying no `obligation`, the template the library cases below derive their Moves
+// from: the check holds its own, since the library refills only from reviewed Proof Sheets (911bbd3).
+const MOVE_TEMPLATE = `id: name_the_consequence_then_define_the_name
+description: >-
+  Names a consequence, then gives the name it has just used its meaning in the
+  same step.
+before:
+  knowledge: holds a cause and wants its consequence
+after:
+  knowledge: holds the consequence and what its name means
+breaks:
+  - drop the definition — the name stays a label the reader cannot use
+segments:
+  - operation: names the consequence a cause leads to
+  - operation: gives the name just used its meaning
+    relation: defines the name the step before introduced
+`;
 
 // (f) the Thesis row reaches only the Reader target Leg (kogaki#1229, kogaki#1231).
 {
@@ -368,7 +385,7 @@ const RETIRED = ["raised_by", "owed_by", ["discharged", "by"].join("_"), ["conce
     const lib = join(dir, "moves");
     mkdirSync(lib);
     copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
-    const src = readFileSync("moves/name_the_consequence_then_define_the_name.yaml", "utf8");
+    const src = MOVE_TEMPLATE;
     writeFileSync(join(lib, "name_two_and_defer.yaml"), src.replace(/^id: .*$/m, "id: name_two_and_defer")
       + "obligation:\n  - named kind\n  - practice\n");
     writeFileSync(join(lib, "defer_in_prose_only.yaml"), src
@@ -497,7 +514,7 @@ const RETIRED = ["raised_by", "owed_by", ["discharged", "by"].join("_"), ["conce
     const lib = join(dir, "moves");
     mkdirSync(lib);
     copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
-    const src = readFileSync("moves/name_the_consequence_then_define_the_name.yaml", "utf8");
+    const src = MOVE_TEMPLATE;
     writeFileSync(join(lib, "name_the_factors.yaml"), src.replace(/^id: .*$/m, "id: name_the_factors")
       + "obligation:\n  - the factors that decide the outcome\n");
     const lc = compose.loadMoveContracts(lib);
