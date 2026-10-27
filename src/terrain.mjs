@@ -18,7 +18,7 @@ import { cmdSurvey, parseArgs, validateSurvey } from "./terrain/survey.mjs";
 import { cmdJobSupervise } from "./workflow/detached-job.mjs";
 import { cmdRun } from "./workflow/executor.mjs";
 import {
-  SKILL_EXPANSION_EXECUTOR, TERRAIN_LANE, advancedByFromPayload, fail, readHookPayload, readJson,
+  START_ACT_EXECUTOR, TERRAIN_LANE, advancedByFromPayload, fail, readHookPayload, readJson,
   setDefaultFlow,
 } from "./workflow/run-record.mjs";
 
@@ -79,10 +79,10 @@ switch (cmd) {
   // ---- THE START ACT (kogaki#1027 item 1). Executed by the harness's skill
   // expansion -- the terrain skill file's one `!` line runs this before the
   // model sees anything. It opens the run, runs to the first wait, and stops;
-  // its transitions carry the `skill-expansion` executor kind and no hook
+  // its transitions carry the `start-act` executor kind and no hook
   // fields, because no hook event produced them and inventing one would be the
   // fabricated attribution this issue removes.
-  case "start": cmdRun(args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
+  case "start": cmdRun(args, START_ACT_EXECUTOR, { stopAtFirstWait: true }); break;
   // ---- THE DETACHED JOB'S SUPERVISOR ENTRYPOINT (kogaki#1193). Reached only
   // by `startDetachedJobSupervisor`'s own `spawn(process.execPath, [scriptPath,
   // "job-supervise", ...])` -- never by a Bash command a session could type:

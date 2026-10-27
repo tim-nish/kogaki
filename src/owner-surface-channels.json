@@ -28,7 +28,7 @@
       "note": "the composed call carries no preview; a table longer than the 12-line preview bound would be clipped"
     },
     {
-      "surface": "hook systemMessage (PostToolUse, UserPromptSubmit)",
+      "surface": "hook systemMessage (PostToolUse)",
       "how": "not tried",
       "run": null,
       "visible": null,

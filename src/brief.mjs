@@ -18,7 +18,7 @@ import { BRIEF_FLOW } from "./brief/job-verbs.mjs";
 import { fail } from "./brief/run-state.mjs";
 import { runWorkflow } from "./workflow/executor.mjs";
 import {
-  SKILL_EXPANSION_EXECUTOR, advancedByFromPayload, readHookPayload,
+  START_ACT_EXECUTOR, advancedByFromPayload, readHookPayload,
 } from "./workflow/run-record.mjs";
 export {
   composeBrief, composeThesisCandidates, deriveSlugCandidate,
@@ -91,9 +91,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // skill file's one `!` line runs this before the model sees anything. It
     // opens the run, advances to its first wait, and stops; it refuses an
     // existing run record, so it never resumes one. Its transitions carry the
-    // `skill-expansion` executor kind and no hook fields, because no hook event
+    // `start-act` executor kind and no hook fields, because no hook event
     // produced them and inventing one would be a fabricated attribution.
-    case "start": runWorkflow(BRIEF_FLOW, args, SKILL_EXPANSION_EXECUTOR, { stopAtFirstWait: true }); break;
+    case "start": runWorkflow(BRIEF_FLOW, args, START_ACT_EXECUTOR, { stopAtFirstWait: true }); break;
     default: fail("usage: brief.mjs start <served Lesson address> ... | run [--status] | enter <served Lesson address> ... [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>] [--reader-file <path, defaults to src/brief-workflow.json's compose_path row>] [--external-authority on|off, defaults on]");
   }
 }

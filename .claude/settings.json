@@ -36,14 +36,6 @@
           { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" Stop", "timeout": 30 }
         ]
       }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" UserPromptSubmit", "timeout": 30 }
-        ]
-      }
     ]
   }
 }
