@@ -1,0 +1,68 @@
+id: build_the_familiar_side_of_a_contrast_up_to_its_principle
+description: >-
+  Works out the near side of a contrast from an everyday instance: what happens
+  on a breach, the rule behind it, its enforcement, then the principle that one
+  body holds the decisive capacity.
+before:
+  knowledge: >-
+    also holds that the answer turns on a difference between a contrasting pair
+    of settings
+  question: >-
+    holds the narrower question put in place of the earlier ones and wants it
+    answered
+  expectation: expects the next step to work out the contrast just named
+  trust: >-
+    slightly raised, since the opening allows that explanations other than the
+    text's own are reasonable
+after:
+  knowledge: >-
+    now holds a worked account of the near setting, in which one body holds the
+    decisive capacity and so forestalls its use by anyone else
+  question: >-
+    holds the question half answered and wants the far side of the pair treated
+    the same way
+  expectation: >-
+    expects the other side of the pair to be worked through on the same terms
+  trust: >-
+    further raised, since the account starts from an everyday instance the
+    reader can check unaided
+breaks:
+  - >-
+    state the general principle at the head and drop the everyday instance — the
+    reader takes the principle on the writer's word instead of recognising it
+    from experience
+  - >-
+    add two or three further illustrations at the same grain — the step loses
+    its brevity and the far side of the pair arrives too late to land as a
+    contrast
+  - >-
+    keep the enforcement but leave out the standing rule behind it — the
+    arrangement reads as bare force without obligation, and the closing
+    principle has nothing to generalise from
+  - >-
+    end at the enforcement with no summarising principle — the reader is left
+    with an anecdote and nothing stated that the other side of the pair can be
+    set against
+  - >-
+    work the far side of the pair into the same stretch — the near side is never
+    completed on its own terms, and the reader has no settled baseline to
+    measure the other against
+segments:
+  - operation: announces which single case is taken up first for examination
+  - operation: >-
+      names what routinely happens immediately after a transgression occurs
+    relation: >-
+      fills the announced case with the ordinary course of events inside it
+  - operation: >-
+      states the standing rule behind that routine and the obligation it places
+      on everyone under it
+    relation: >-
+      supplies the underlying ground for the course of events just described
+  - operation: states what follows for whoever disregards the standing rule
+    relation: >-
+      attaches to the rule just stated the consequence of its being broken
+  - operation: >-
+      restates the preceding steps as one general principle locating the
+      decisive capacity in a single body, and names what that securing achieves
+    relation: >-
+      gathers the preceding steps into the conclusion they jointly support

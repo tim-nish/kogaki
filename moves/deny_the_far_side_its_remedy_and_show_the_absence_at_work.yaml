@@ -1,0 +1,58 @@
+id: deny_the_far_side_its_remedy_and_show_the_absence_at_work
+description: >-
+  Turns to the second setting of a pair, denies it the remedy the first one had,
+  names the missing body as the reason, then lets one dated episode show the
+  absence at work.
+before:
+  knowledge: >-
+    now holds a worked account of the near setting, in which one body holds the
+    decisive capacity and so forestalls its use by anyone else
+  question: >-
+    holds the question half answered and wants the far side of the pair treated
+    the same way
+  expectation: >-
+    expects the other side of the pair to be worked through on the same terms
+after:
+  knowledge: >-
+    now holds that the second setting has no such body, so nothing forestalls
+    the decisive capacity being used
+  question: >-
+    holds both sides of the pair treated and wants what follows from the absence
+  expectation: expects the consequence of the absence to be drawn out next
+breaks:
+  - >-
+    drop the dated episode and keep the general reason alone — the absence rests
+    on the writer's word and nothing fixes it as real
+  - >-
+    leave out the closing note that onlookers objected without acting — the
+    reader supposes informal pressure stands in for the missing capacity, and
+    the absence looks only partial
+  - >-
+    put the episode before the general reason — the reader meets a particular
+    event with no frame and reads it as news rather than as an instance
+  - >-
+    add several further episodes beside the first — the single check becomes a
+    survey, and the paired structure the step rests on goes slack
+  - >-
+    state the absence without first denying the customary means — the reader has
+    nothing against which to measure what is missing
+  - >-
+    soften the denial into a statement that intervention is rare or difficult —
+    the contrast with the first half collapses into a matter of degree
+segments:
+  - operation: poses a question about what obtains in a broader setting
+  - operation: >-
+      denies that the customary means of intervention operates in that setting
+    relation: answers the question just posed, and answers it in the negative
+  - operation: gives as the reason that no such body exists at all
+    relation: >-
+      supplies the ground for the denial just made, turning a report of what
+      does not happen into an account of why
+    manner: a brief denial in one clause, set down and left without elaboration
+  - operation: narrates one dated episode and names its outcome
+    relation: >-
+      makes concrete, as a single instance, the general reason just given
+  - operation: adds that onlookers voiced disapproval while taking no action
+    relation: >-
+      completes the episode by naming what others did and did not do inside it,
+      closing off the obvious objection to it

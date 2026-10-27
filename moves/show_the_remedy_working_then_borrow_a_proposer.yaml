@@ -1,0 +1,59 @@
+id: show_the_remedy_working_then_borrow_a_proposer
+description: >-
+  Spells out how the arrangement just named would do the missing work, then
+  names a figure of standing who proposed the same thing, so the idea reads as
+  serious rather than invented.
+before:
+  knowledge: >-
+    now holds what would have to be brought into being for the missing capacity
+    to exist at all
+  question: >-
+    has the remedy named and now wants whether a remedy of that size could ever
+    be brought about
+  expectation: >-
+    the remedy having been named, expects the text to weigh whether it could be
+    reached
+  trust: >-
+    further raised, since the point that tells against the argument is granted
+    before the argument presses on
+after:
+  knowledge: >-
+    now holds what the arrangement would be able to do once in place, and that
+    it has been put forward before by someone other than the writer
+  question: >-
+    having seen the remedy work on paper and once advanced in earnest, now wants
+    why it has not come about
+  expectation: >-
+    the workings and a real precedent now given, expects the text to account for
+    why it has not been reached
+  trust: >-
+    raised again, since the position is shown to rest on more than the writer's
+    own say-so
+breaks:
+  - >-
+    cut the outside attribution — the arrangement reads as the writer's own
+    invention and carries no weight beyond their say-so
+  - >-
+    assert only that the arrangement would work, without naming what it would
+    establish and what would act on breaches — the reader cannot see it
+    supplying the capacity shown to be missing
+  - >-
+    expand the attribution into an account of the figure and their reasoning —
+    the borrowed weight thins out and the argument stalls just before its turn
+  - >-
+    put the attribution ahead of the working-out — the reader meets a name with
+    nothing yet for it to attach to
+  - >-
+    state the arrangement as settled fact rather than as a conditional — the
+    reader stops reading it as a proposal and starts doubting the writer's grip
+    on things
+segments:
+  - operation: >-
+      sets out, as a conditional, what an arrangement would be able to do once
+      in place, naming what it would establish and what would act on breaches
+  - operation: >-
+      attributes the position to a recognized figure from an earlier time
+    relation: >-
+      backs the step just made by showing the position was advanced in earnest
+      by someone other than the writer
+    manner: a single bare attribution, offered with no elaboration

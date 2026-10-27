@@ -1,0 +1,55 @@
+id: draw_the_only_remedy_and_name_what_it_amounts_to
+description: >-
+  Draws from a diagnosed absence the one remedy that would supply it, then
+  restates that remedy under the name it amounts to, so the reader sees its full
+  size.
+before:
+  knowledge: >-
+    now holds that a standing prohibition with nothing to compel it leaves
+    conduct unchecked
+  question: >-
+    has what follows from the absence and now wants whether the missing capacity
+    could ever be supplied
+  expectation: >-
+    the consequence having been drawn, expects the text to turn to whether
+    anything could fill what is missing
+after:
+  knowledge: >-
+    now holds what would have to be brought into being for the missing capacity
+    to exist at all
+  question: >-
+    has the remedy named and now wants whether a remedy of that size could ever
+    be brought about
+  expectation: >-
+    the remedy having been named, expects the text to weigh whether it could be
+    reached
+breaks:
+  - >-
+    drop the restating second step and keep only the mechanical description —
+    the reader never meets the familiar name the remedy amounts to, and its
+    scale stays abstract
+  - >-
+    present the remedy without marking it as what the diagnosed lack implies —
+    it reads as the writer's own preference rather than the only thing that
+    would fit
+  - >-
+    add a paragraph weighing whether the remedy is attainable — the reader is
+    answered before they have felt the remedy's size, and the question the next
+    step needs is already spent
+  - >-
+    hedge the remedy with qualifications as it is named — the flatness that
+    makes the reader take it as forced rather than merely favoured is lost
+  - >-
+    reverse the two steps so the named institution comes first — the reader has
+    to judge a label before the reasoning that makes it inevitable has reached
+    them
+segments:
+  - operation: >-
+      names the ultimate remedy for a lack as consolidating what is divided and
+      giving the whole a single enforcing capacity
+  - operation: >-
+      restates the remedy in a second formulation that names the institution it
+      amounts to
+    relation: >-
+      says the preceding step over again in other words, trading its mechanical
+      description for the name of the thing it comes to

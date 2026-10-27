@@ -1,0 +1,54 @@
+id: pose_a_question_and_grant_its_ready_answers
+description: >-
+  Puts a plain question to the reader, concedes that many answers are already
+  available, then runs through them to the most abstract, settling on none.
+before:
+  knowledge: everyday impressions only, with no specialist footing on the matter
+  question: none held about this text's matter
+  expectation: no expectation of what the text will do first
+  trust: >-
+    neutral, with no sense yet of how the author will treat the reader's own
+    opinions
+after:
+  knowledge: >-
+    holds that the matter raised already has several commonly offered
+    explanations
+  question: >-
+    wants to know which of the offered explanations, if any, actually holds
+  expectation: >-
+    expects the next step to sort among the explanations just granted or to set
+    them aside
+  trust: >-
+    slightly raised, since the opening allows that explanations other than the
+    text's own are reasonable
+breaks:
+  - >-
+    cut the opening question and begin from the answers — the reader is handed
+    replies to a question they were never given, and holds no gap for them to
+    fill
+  - >-
+    drop the admission that answers are many and name only one — the reader's
+    own ready explanations go unacknowledged, and the step reads as dismissal
+  - >-
+    replace the run of instances with one illustrative case — the range the
+    admission claimed is never shown, and that claim stays an assertion
+  - >-
+    argue against each instance as it is listed — the concession stops being a
+    concession, and the goodwill of granting the reader's own view is lost
+  - >-
+    add a paragraph defining the matter before the question is asked — the first
+    specialist demand arrives before the reader has any stake, and the text
+    reads as a textbook
+segments:
+  - operation: poses a question about why a condition persists
+    manner: a single unframed question that takes no lead-in and no elaboration
+  - operation: grants that the question admits many answers
+    relation: >-
+      replies to the step before it not with an answer but with the admission
+      that answers are many
+  - operation: >-
+      lists instances of what was granted in one run and carries the series out
+      to its most abstract end
+    relation: >-
+      fills the general admission of the step before it with instances, widening
+      as it goes

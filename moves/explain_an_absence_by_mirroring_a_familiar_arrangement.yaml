@@ -1,0 +1,91 @@
+id: explain_an_absence_by_mirroring_a_familiar_arrangement
+description: >-
+  Narrows a sprawling question to one, answers it by mirroring a familiar
+  everyday arrangement against its missing counterpart at a larger scale, and
+  closes on the remedy the absence implies.
+before:
+  knowledge: >-
+    holds scattered impressions of the subject and no account of why the
+    condition persists
+  question: wonders loosely why the condition never ends
+  expectation: expects a survey of causes, one after another
+  orientation: >-
+    places this among general commentary of the kind heard anywhere on the
+    subject
+  trust: neutral, with no sense of the speaker
+after:
+  knowledge: >-
+    holds one structural account of the persistence and the remedy that account
+    implies
+  question: >-
+    no longer asks why it persists and instead asks whether the implied remedy
+    could ever be brought about
+  expectation: >-
+    expects what follows to take up whether the remedy just named is achievable
+  orientation: >-
+    places this as an account working from a comparison of arrangements rather
+    than from motives or morals
+  trust: >-
+    raised: the speaker sets the easy answers aside, grants a point that cuts
+    against the account, and rests it on a checkable instance
+breaks:
+  - >-
+    Cut the opening spread of candidate answers and begin at the narrowed
+    question — the reader never sees what was set aside, and the one answer
+    reads as the only one anyone has offered
+  - >-
+    Describe the two sides in unmatched terms instead of part for part — the
+    mirror collapses and the reader has to build the comparison themselves
+  - >-
+    State the second side as a bare absence with no dated instance — the reader
+    grants the point in the abstract and feels nothing missing
+  - >-
+    Drop the concession that a partial arrangement already exists — the account
+    reads as unaware of the obvious objection and trust falls
+  - >-
+    Add several paragraphs weighing whether the implied remedy is achievable
+    before naming it — the line from absence to remedy is buried and the close
+    lands as a digression
+  - >-
+    Keep the remedy out and end on the consequence — the reader is left with a
+    diagnosis and no sense of what the account would take to undo
+segments:
+  - operation: >-
+      sets out the range of answers a broad question admits, settling on none of
+      them
+  - operation: >-
+      narrows the broad question to a single answerable one and names the one
+      difference its answer turns on
+    relation: >-
+      cuts away the spread of the step before it and puts one line of
+      explanation in its place
+  - operation: >-
+      sets out the first side of the named difference and shows what holds it
+      together
+    relation: >-
+      takes up the first of the two sides the previous step distinguished
+    manner: >-
+      a short concrete walk-through of one ordinary case in place of a general
+      statement
+  - operation: >-
+      sets out the second side of the difference as the absence of what the
+      first side holds
+    relation: >-
+      mirrors the previous step part by part, putting an absence where each part
+      stood
+    manner: one dated instance given as the evidence
+  - operation: >-
+      grants a partial counter to the account, withdraws it by naming what the
+      counter lacks, and draws out what follows
+    relation: >-
+      forestalls the objection that the absence named in the previous step is
+      not total
+  - operation: >-
+      derives the remedy the account implies by extending the working side to
+      cover the whole case
+    relation: >-
+      turns from why the trouble persists to what the same account says would
+      end it
+  - operation: spells out how the remedy would work in practice
+    relation: fills out the remedy the previous step named in outline
+    manner: a historical precedent named at the close

@@ -1,0 +1,60 @@
+id: grant_the_rule_then_withdraw_its_enforcer
+description: >-
+  Grants that a prohibition exists, withdraws the body that would impose it, and
+  turns the resulting gap into why some parties expect no penalty and act on
+  that.
+before:
+  knowledge: >-
+    now holds that the second setting has no such body, so nothing forestalls
+    the decisive capacity being used
+  question: >-
+    holds both sides of the pair treated and wants what follows from the absence
+  expectation: expects the consequence of the absence to be drawn out next
+  trust: >-
+    further raised, since the account starts from an everyday instance the
+    reader can check unaided
+after:
+  knowledge: >-
+    now holds that a standing prohibition with nothing to compel it leaves
+    conduct unchecked
+  question: >-
+    has what follows from the absence and now wants whether the missing capacity
+    could ever be supplied
+  expectation: >-
+    the consequence having been drawn, expects the text to turn to whether
+    anything could fill what is missing
+  trust: >-
+    further raised, since the point that tells against the argument is granted
+    before the argument presses on
+breaks:
+  - >-
+    drop the opening concession and state only the absence — the reader's
+    standing objection that a prohibition already exists goes unanswered and the
+    step reads as overstated
+  - >-
+    stop after the absence and leave the final inference unstated — the reader
+    holds a structural gap with nothing showing how it bears on anyone's conduct
+  - >-
+    add a survey of the partial arrangements that fill some of the gap — the
+    single line from concession to absence to conduct is broken and the
+    inference loses its edge
+  - >-
+    render the parties' reckoning as the writer's analysis of their motives
+    rather than in their own voice — the calculation reads as an attributed
+    assertion instead of something the reader works through
+segments:
+  - operation: >-
+      grants that a prohibition on the conduct at issue is formally in place
+  - operation: >-
+      denies the existence of any body able to impose compliance on all parties
+    relation: >-
+      withdraws from the thing just granted the backing that would make it bind
+  - operation: >-
+      infers the conduct that follows for some parties once no penalty is in
+      prospect
+    relation: >-
+      turns the gap the previous step opened into its effect on how some parties
+      act
+    manner: >-
+      the reckoning is voiced as the parties' own words rather than described
+      from outside

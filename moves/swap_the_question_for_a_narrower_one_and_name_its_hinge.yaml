@@ -1,0 +1,60 @@
+id: swap_the_question_for_a_narrower_one_and_name_its_hinge
+description: >-
+  Sets aside the explanations just granted by announcing a change of angle, puts
+  one narrower question in their place, then names the single contrast its
+  answer will turn on.
+before:
+  knowledge: >-
+    holds that the matter raised already has several commonly offered
+    explanations
+  question: >-
+    wants to know which of the offered explanations, if any, actually holds
+  expectation: >-
+    expects the next step to sort among the explanations just granted or to set
+    them aside
+  orientation: >-
+    places this among ordinary writing on the matter, with no sense of its
+    stance
+after:
+  knowledge: >-
+    also holds that the answer turns on a difference between a contrasting pair
+    of settings
+  question: >-
+    holds the narrower question put in place of the earlier ones and wants it
+    answered
+  expectation: expects the next step to work out the contrast just named
+  orientation: >-
+    places this as writing that redirects the matter onto one structural
+    contrast rather than canvassing views
+breaks:
+  - >-
+    drop the announcement of the change of angle and ask the new question
+    outright — the reader takes the new question as a refusal to answer the one
+    they were already holding
+  - >-
+    answer the narrowed question in the same breath instead of naming only where
+    its answer lies — the contrast everything after depends on arrives as a
+    conclusion the reader has no reason to grant
+  - >-
+    name the hinge of the answer without first narrowing the question — the
+    contrast has nothing to be a contrast for, and reads as a digression
+  - >-
+    insert a paragraph justifying the change of angle before the question is
+    posed — the narrowed question arrives after the reader's attention has been
+    spent on method rather than on the matter
+segments:
+  - operation: announces a shift of vantage point before the shift is made
+  - operation: poses a single narrowly drawn question and leaves it standing
+    relation: >-
+      it is the question for whose sake the announced change of angle was made
+  - operation: >-
+      names the difference between a contrasting pair of settings as the point
+      on which the answer turns
+    relation: >-
+      it withholds an answer to the question just posed and instead names where
+      that answer will be found
+obligation:
+  - item: the single question posed from the shifted vantage point
+    subitems:
+      - the first of the two contrasted settings
+      - the second of the two contrasted settings
