@@ -1,0 +1,76 @@
+id: choose_one_starting_point_and_unseat_the_habitual_view
+description: >-
+  Leaves the starting point open, grants the alternatives, names the one chosen,
+  then surfaces the reader's habitual view and corrects it by saying the chosen
+  one acts unnoticed.
+before:
+  knowledge: >-
+    nothing of the subject beyond ordinary impressions, and no sense that a
+    starting point has to be chosen
+  question: none settled, at most whether this text is worth entering
+  expectation: >-
+    expects an opening that defines its subject or lists what it covers
+  orientation: >-
+    places the text among undifferentiated general accounts of its subject
+  trust: neutral, with no reason yet to credit or doubt the speaker
+after:
+  knowledge: >-
+    holds one named starting point as the work's primary one and knows it is
+    claimed to act unnoticed
+  question: >-
+    wants to know how something that acts unnoticed can be shown to act at all
+  expectation: >-
+    expects the following text to show the chosen starting point at work where
+    it goes unseen
+  orientation: >-
+    places the text as one that selects a single starting point among several it
+    has granted
+  trust: >-
+    raised: the alternatives are granted their standing and the reader's own
+    customary view is named before being corrected
+breaks:
+  - >-
+    name the chosen starting point at once without granting the alternatives —
+    the choice reads as ignorance of the field rather than a selection, and
+    nothing stands against it
+  - >-
+    cut the description of the customary habit of attention and keep only the
+    counter-claim — the mistaken view has no source, so the correction has
+    nothing to correct
+  - >-
+    place the counter-claim before the habit and the view it fosters — the
+    reader meets a correction before holding anything to be corrected
+  - >-
+    add a stretch defending the chosen starting point against each alternative
+    in turn — the turn to the reader's own habit arrives too late to feel like
+    their own view
+  - >-
+    leave out the closing account of why the influence goes unnoticed — the
+    displaced view stays a live rival, with no reason given for why it was held
+  - >-
+    replace the open question of the first sentence with a flat announcement of
+    the choice — the alternatives have no place to be granted, and the selection
+    is never seen as one
+segments:
+  - operation: >-
+      poses as an open question which starting point is to be taken up first.
+  - operation: >-
+      grants standing to the available alternatives without ranking them.
+    relation: fills in the candidates that the open question leaves available.
+  - operation: names the one the present work puts first.
+    relation: selects from among the alternatives just granted.
+  - operation: describes what a customary habit of attention brings into view.
+    relation: >-
+      turns from the chosen starting point to the habit that keeps it out of
+      sight.
+  - operation: names the belief that such a habit of attention fosters.
+    relation: draws from the habit just described the view it tends to produce.
+  - operation: >-
+      asserts that the chosen starting point reaches further than is commonly
+      supposed.
+    relation: sets the work's own claim against the fostered view just named.
+    manner: a brief direct assertion that takes no elaboration.
+  - operation: >-
+      accounts for the underestimation by stating that the influence operates
+      without being noticed.
+    relation: gives the ground for the counter-claim made in the step before it.

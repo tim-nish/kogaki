@@ -6,6 +6,7 @@ Regenerated whole from `moves/` at each ingestion run (SPEC-draft-pipeline §6.9
 | --- | --- |
 | build_the_familiar_side_of_a_contrast_up_to_its_principle | Works out the near side of a contrast from an everyday instance: what happens on a breach, the rule behind it, its enforcement, then the principle that one body holds the decisive capacity. |
 | carry_a_worked_case_onto_the_wider_scale | Carries a chain already walked at a small scale onto the larger subject in a few clauses, then fixes the result with its technical name. |
+| choose_one_starting_point_and_unseat_the_habitual_view | Leaves the starting point open, grants the alternatives, names the one chosen, then surfaces the reader's habitual view and corrects it by saying the chosen one acts unnoticed. |
 | deny_the_far_side_its_remedy_and_show_the_absence_at_work | Turns to the second setting of a pair, denies it the remedy the first one had, names the missing body as the reason, then lets one dated episode show the absence at work. |
 | derive_a_universal_tendency_from_an_absent_protector | From the absence of any outside provider it derives the necessity of self-provision, then draws from that necessity the one tendency every party follows. |
 | draw_the_only_remedy_and_name_what_it_amounts_to | Draws from a diagnosed absence the one remedy that would supply it, then restates that remedy under the name it amounts to, so the reader sees its full size. |
