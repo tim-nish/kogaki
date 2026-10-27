@@ -1,0 +1,46 @@
+id: rank_one_cause_above_the_expected_reasons
+description: >-
+  Sets aside the expected grounds for a claim of distinction in favour of one
+  feature, and closes by naming that feature as the cause.
+before:
+  knowledge: >-
+    nothing beyond everyday awareness, with no specialist footing in the matter
+  question: none held yet
+  expectation: no settled expectation of what the text will do next
+  orientation: no placing of this text among other accounts of the matter
+  trust: neutral, neither sceptical nor won over
+after:
+  knowledge: holds one named feature as the cause of the standing claimed
+  question: wants to know what the single cause now named accounts for
+  expectation: >-
+    expects what follows to work out the consequences of the one cause now named
+  orientation: >-
+    places the text as pressing one explanation above the familiar ones
+  trust: >-
+    raised, the speaker having weighed the familiar grounds before setting one
+    feature above them
+breaks:
+  - >-
+    drop the list of expected grounds — the single feature arrives with nothing
+    to outrank and reads as one opinion among many
+  - >-
+    put the ranked feature first and the bare claim after it — the conclusion
+    reaches the reader before anything that makes it worth hearing
+  - >-
+    add a stretch of evidence between the ranking and the closing cause — the
+    ranking's momentum is spent, and the closing cause lands as a summary
+  - >-
+    cut the closing sentence naming the feature as a cause — the reader is left
+    holding a picture and no claim to carry forward
+segments:
+  - operation: asserts that the subject stands apart from its peers
+    manner: a brief direct statement, given with no elaboration
+  - operation: lists the grounds commonly offered for such a claim
+    relation: supplies the support the bare assertion before it withheld
+  - operation: singles out one feature as surpassing every other
+    relation: >-
+      sets the listed grounds aside by placing one item above all of them
+  - operation: states that one feature is the source of the standing claimed
+    relation: >-
+      names the item ranked earlier as the cause of the standing claimed at the
+      opening
