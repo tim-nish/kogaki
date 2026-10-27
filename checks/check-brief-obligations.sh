@@ -25,12 +25,10 @@ import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, obligationRowsOf, readerTargetLegRefusal, legRecord, obligationLedgerRefusal } = compose;
 const fails = [];
-// A Move record carrying no `obligation`, the template the library cases below derive their Moves
-// from: the check holds its own, since the library refills only from reviewed Proof Sheets (911bbd3).
+// A Move record carrying no `obligation`, the check's own (kogaki#1625).
 const MOVE_TEMPLATE = `id: name_the_consequence_then_define_the_name
 description: >-
-  Names a consequence, then gives the name it has just used its meaning in the
-  same step.
+  Names a consequence, then gives that name its meaning in the same step.
 before:
   knowledge: holds a cause and wants its consequence
 after:
