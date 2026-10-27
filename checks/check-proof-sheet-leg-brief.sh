@@ -398,7 +398,8 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   const mDir = join(lroot, "moves"); mkdirSync(mDir, { recursive: true });
   const moveId = "apply_a_definition_to_one_everyday_instance";
   writeFileSync(join(mDir, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
-  writeFileSync(join(mDir, `${moveId}.yaml`), `${readFileSync(join("moves", `${moveId}.yaml`), "utf8").trimEnd()}\nobligation:\n${GENERAL.map((x) => `  - ${x}\n`).join("")}`);
+  // The record is the check's own fixture copy, never one of the curated library (kogaki#1625).
+  writeFileSync(join(mDir, `${moveId}.yaml`), `${readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`), "utf8").trimEnd()}\nobligation:\n${GENERAL.map((x) => `  - ${x}\n`).join("")}`);
   writeFileSync(join(mDir, "ingest.json"), JSON.stringify({ entries: [{}, { move: moveId }, {}] }));
   const rroot = join(lroot, "retired"); mkdirSync(rroot, { recursive: true });
   const rr = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "run", "--extractions", lx, "--out", join(rroot, "out"),
