@@ -82,7 +82,7 @@ export {
   readerStateMap, readerStateText, legRecord, briefLegs, PARAGRAPH_PLAN_FILE,
   sha256, paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText,
   undeclaredKey, readParagraphPlanBeside, paragraphPlanShapeRefusal,
-  joinRefusal, paragraphWaypointsRefusal, paragraphObligationsRefusal, dischargesShapeRefusal,
+  joinRefusal, paragraphWaypointsRefusal, paragraphObligationsRefusal, RETIRED_WAYPOINT_OBLIGATIONS, dischargesShapeRefusal,
   briefRowsOwedBy, briefDischargeRefusal, briefStrandIds, briefJourneyStrands,
   briefRecordText, parseBriefRecord, readBriefRecord, unfilledSlots, fillSlot,
   thesisClosureRow, thesisClosureLeg, obligationRowsOf,

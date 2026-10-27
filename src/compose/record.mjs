@@ -167,8 +167,9 @@ const PLAN_HEADER = [
 
 // `legs[i].waypoints` is one array of Paragraph Waypoints per Leg Waypoint, and
 // `legs[i].joins`, where given, one join per Leg Waypoint -- null on the first (kogaki#1411);
-// `legs[i].obligations` and `legs[i].discharges`, where given, one list per Leg Waypoint, each
-// written only where it is not empty (kogaki#1530).
+// `legs[i].discharges`, where given, one list per Leg Waypoint, written only where it is not
+// empty (kogaki#1530); `legs[i].obligations`, where given, the Leg's one list of Paragraph
+// Obligation records, written only where it is not empty (kogaki#1620).
 export const oneLine = (s) => String(s).replace(/\s*\n\s*/g, " ").trim();
 export function paragraphPlanRecord({ briefPath, briefText, legs }) {
   const listAt = (lists, i) => (Array.isArray((lists || [])[i]) ? lists[i] : []);
@@ -177,14 +178,13 @@ export function paragraphPlanRecord({ briefPath, briefText, legs }) {
     brief: { path: relFromRepo(resolve(briefPath)), sha256: sha256(briefText) },
     legs: legs.map((l) => ({
       leg_id: l.leg_id,
+      ...(Array.isArray(l.obligations) && l.obligations.length ? { obligations: l.obligations.map((o) => structuredClone(o)) } : {}),
       waypoints: l.waypoints.map((pws, i) => {
         const join = (l.joins || [])[i];
-        const rows = listAt(l.obligations, i);
         const kept = listAt(l.discharges, i);
         return {
           waypoint: i + 1,
           ...(typeof join === "string" ? { join: oneLine(join) } : {}),
-          ...(rows.length ? { obligations: rows.map((o) => structuredClone(o)) } : {}),
           ...(kept.length ? { discharges: kept.map((d) => ({ obligation: d.obligation, by: d.by })) } : {}),
           paragraph_waypoints: pws.map((p) => ({ ...(Object.hasOwn(p, "performs")
             ? { performs: oneLine(p.performs) } : { point: oneLine(p.point), serves: [...p.serves] }) })),
@@ -200,8 +200,13 @@ export function paragraphPlanRecordText(record) {
 
 const PLAN_KEYS = ["version", "brief", "legs"];
 const PLAN_BRIEF_KEYS = ["path", "sha256"];
-const PLAN_LEG_KEYS = ["leg_id", "waypoints"];
-const PLAN_WAYPOINT_KEYS = ["waypoint", "join", "paragraph_waypoints", "obligations", "discharges"];
+const PLAN_LEG_KEYS = ["leg_id", "obligations", "waypoints"];
+const PLAN_WAYPOINT_KEYS = ["waypoint", "join", "paragraph_waypoints", "discharges"];
+// THE PARAGRAPH OBLIGATION LIVES ON THE LEG (kogaki#1620): a Leg Waypoint's own `obligations`, the
+// place kogaki#1530 gave it, is refused by name at both readers.
+export const RETIRED_WAYPOINT_OBLIGATIONS = "`obligations`, retired from the Leg Waypoint (kogaki#1620) — a Paragraph "
+  + "Obligation is kept among the paragraphs of one Leg, so its record rides in the Leg's own `obligations`, "
+  + "`opened_by` and `closed_by` naming the Leg's Leg Waypoints";
 const PARAGRAPH_WAYPOINT_KEYS = ["point", "serves"];
 // THE PERFORMS FORM (kogaki#1448, owner decision 2026-10-19): a Paragraph Waypoint for a
 // Segment that acts on the reader's reading -- announce, flag, concede difficulty, signal a
@@ -241,7 +246,7 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
   }
   const waypoints = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.paragraph_waypoints)]));
   const joins = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.join ?? null)]));
-  const obligations = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.obligations || [])]));
+  const obligations = new Map(record.legs.map((l) => [l.leg_id, l.obligations || []]));
   const discharges = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.discharges || [])]));
   return { path, waypoints, joins, obligations, discharges };
 }
@@ -279,6 +284,7 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
     for (const [j, w] of l.waypoints.entries()) {
       const atW = `${at}, Waypoint ${j + 1}`;
       if (!w || typeof w !== "object" || Array.isArray(w)) return `${atW} is not a map`;
+      if (Object.hasOwn(w, "obligations")) return `${atW} carries ${RETIRED_WAYPOINT_OBLIGATIONS}`;
       const kw = undeclaredKey(w, PLAN_WAYPOINT_KEYS);
       if (kw) return `${atW} carries \`${kw}\`, which a ParagraphPlan record does not declare — the file holds no Move id, `
         + "no Segment and no Move field (kogaki#1375)";
@@ -288,25 +294,27 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
       const bad = paragraphWaypointsRefusal(w.paragraph_waypoints, leg.waypoints[j].serves, atW);
       if (bad) return bad;
       const count = Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints.length : 0;
-      const owed = paragraphObligationsRefusal(w.obligations, count, atW) || dischargesShapeRefusal(w.discharges, count, atW);
+      const owed = dischargesShapeRefusal(w.discharges, count, atW);
       if (owed) return owed;
     }
+    const rows = paragraphObligationsRefusal(l.obligations, l.waypoints.length, at);
+    if (rows) return rows;
   }
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, kogaki#1612, SPEC-draft-pipeline
-// "Obligations"). A Leg Waypoint's `obligations` are records of the Brief's shape --
-// `{opened_by, items}`, each item `{item, closed_by}` -- whose units are the numbers of that Leg
-// Waypoint's Paragraph Waypoints, held to the Brief's rules (`obligationLedgerRefusal`) except
-// the Section rule, which has no unit at this scale. Shared by the plan reader and the plan
-// call's validator. Returns a string to refuse with, or null.
+// THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, kogaki#1612, kogaki#1620,
+// SPEC-draft-pipeline "Obligations"). A Leg's `obligations` are records of the Brief's shape --
+// `{opened_by, items}`, each item `{item, closed_by, subitems?}` -- whose units are the numbers of
+// that Leg's Leg Waypoints, its paragraphs, held to the Brief's rules (`obligationLedgerRefusal`)
+// except the Section rule, which has no unit at this scale. Shared by the plan reader and the plan
+// call's validator; `count` is the Leg's Leg Waypoint count. Returns a string to refuse with, or null.
 export function paragraphObligationsRefusal(rows, count, at) {
   if (rows === undefined) return null;
-  if (!Array.isArray(rows)) return `${at}: \`obligations\` is not a list of records (kogaki#1530)`;
+  if (!Array.isArray(rows)) return `${at}: \`obligations\` is not a list of records (kogaki#1620)`;
   const pos = (n) => (Number.isInteger(n) && n >= 1 && n <= count ? n : undefined);
-  const name = (n) => `Paragraph Waypoint ${JSON.stringify(n ?? null)}`;
+  const name = (n) => `Leg Waypoint ${JSON.stringify(n ?? null)}`;
   for (const [i, o] of rows.entries()) {
     const row = `${at}: obligation ${i + 1}`;
     if (!o || typeof o !== "object" || Array.isArray(o)) return `${row} is not a map (kogaki#1530)`;
@@ -316,16 +324,16 @@ export function paragraphObligationsRefusal(rows, count, at) {
     if (close) return `${at}${close.unit === null ? "" : `, ${name(close.unit)}`}: ${close.clause} (kogaki#1612)`;
     const open = o.items.find((e) => e.closed_by === null);
     if (open) {
-      return `${at}: the ${obligationLabel(o)} record opened at Paragraph Waypoint ${o.opened_by} still holds the item `
-        + `${JSON.stringify(open.item.trim())} open at the Leg Waypoint's last Paragraph Waypoint, ${count} (kogaki#1612)`;
+      return `${at}: the ${obligationLabel(o)} record opened at Leg Waypoint ${o.opened_by} still holds the item `
+        + `${JSON.stringify(open.item.trim())} open at the Leg's last paragraph, Leg Waypoint ${count} (kogaki#1612, kogaki#1620)`;
     }
   }
-  // CAPACITY: a record is open from its `opened_by` up to, and not including, the Paragraph
-  // Waypoint that closes its last item; at most one record is open at any Paragraph Waypoint.
+  // CAPACITY: a record is open from its `opened_by` up to, and not including, the Leg Waypoint
+  // that closes its last item; at most one record is open at any paragraph of the Leg.
   for (let n = 1; n <= count; n++) {
     const open = rows.filter((o) => o.opened_by <= n && n < obligationLastClose(o, pos));
     if (open.length > 1) {
-      return `${at}, Paragraph Waypoint ${n}: ${open.length} records are open here: ${open.map((o) => obligationLabel(o)).join(", ")} — at most one record is open at a Paragraph Waypoint (kogaki#1530)`;
+      return `${at}, Leg Waypoint ${n}: ${open.length} records are open here: ${open.map((o) => obligationLabel(o)).join(", ")} — at most one record is open at a paragraph of the Leg (kogaki#1530, kogaki#1620)`;
     }
   }
   return null;

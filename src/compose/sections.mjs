@@ -212,14 +212,12 @@ export function targetLegIndex(legs) {
   return legs.findIndex((s) => s && s.reaches_target === true);
 }
 
-// THE OBLIGATION RECORD (kogaki#1612, owner decision 2026-10-26; kogaki#1529, kogaki#1568 before
-// it; SPEC-draft-pipeline "Obligations"). An Obligation is `{opened_by, items}`: `opened_by` the
-// unit that opens the promise, and `items` the list of `{item, closed_by}` in the order the
-// opening unit names them -- each `item` a term or a question left unexplained there, each
-// `closed_by` the unit that explains it, or `null` while it is still open. The record opens once
-// and closes item by item, so a later unit sees which items an earlier one already closed. The
-// helpers below are scale-free: a unit is a Leg id at the Leg scale and a Paragraph Waypoint
-// number at the Paragraph scale, and `pos` maps one to its place. `obligations` is the
+// THE OBLIGATION RECORD (kogaki#1612, kogaki#1620; SPEC-draft-pipeline "Obligations"). An
+// Obligation is `{opened_by, items}`: `opened_by` the unit that opens the promise, and `items`
+// `{item, closed_by, subitems?}` in the order it names them -- `closed_by` the unit that explains
+// the item, or `null` while it is open, and `subitems` the `{item, closed_by}` parts it names, one
+// level deep. The helpers below are scale-free: a unit is a Leg id at the Leg scale and a Leg
+// Waypoint number at the Paragraph scale, and `pos` maps one to its place. `obligations` is the
 // Candidate's own ledger (src/candidate-schema.json); the Thesis row is derived and never
 // reaches this file.
 // The retired keys are refused by name. Four of them are composed rather than spelled, so the
@@ -252,8 +250,9 @@ export function obligationLabel(o) {
   return `obligation ${JSON.stringify(obligationLine(o))}`;
 }
 // The record's own shape: no retired or undeclared key, and `items` a non-empty list of
-// `{item, closed_by}` whose `item` is one non-empty line, naming no item twice. Returns the
-// clause to refuse with, or null.
+// `{item, closed_by, subitems?}` whose `item` is one non-empty line, `subitems` where present a
+// non-empty list of `{item, closed_by}` (kogaki#1620), naming no item twice across the record.
+// Returns the clause to refuse with, or null.
 export function obligationItemRefusal(o) {
   const retired = Object.keys(RETIRED_OBLIGATION_KEYS).filter((k) => k in o);
   if (retired.length) return `carries ${retired.map((k) => RETIRED_OBLIGATION_KEYS[k]).join("; ")}`;
@@ -262,15 +261,29 @@ export function obligationItemRefusal(o) {
   if (!Array.isArray(o.items)) return "carries no `items` list — the items the opening unit leaves unexplained, each `{item, closed_by}`, in the order it names them";
   if (o.items.length === 0) return "carries an empty `items` list — a record names at least one item";
   const seen = new Set();
-  for (const [i, e] of o.items.entries()) {
-    if (!e || typeof e !== "object" || Array.isArray(e)) return `carries an \`items\` entry ${i + 1} that is not a map \`{item, closed_by}\``;
-    const k = Object.keys(e).find((x) => x !== "item" && x !== "closed_by");
-    if (k) return `carries an \`items\` entry ${i + 1} with \`${k}\` — an entry is \`{item, closed_by}\` alone`;
-    if (typeof e.item !== "string" || e.item.trim() === "" || /[\r\n]/.test(e.item)) return `carries an \`items\` entry ${i + 1} whose \`item\` is not one non-empty line`;
+  const entryRefusal = (e, at, keys, shape) => {
+    if (!e || typeof e !== "object" || Array.isArray(e)) return `carries ${at} that is not a map \`${shape}\``;
+    const k = Object.keys(e).find((x) => !keys.includes(x));
+    if (k) return `carries ${at} with \`${k}\` — an entry is \`${shape}\` alone`;
+    if (typeof e.item !== "string" || e.item.trim() === "" || /[\r\n]/.test(e.item)) return `carries ${at} whose \`item\` is not one non-empty line`;
     if (!("closed_by" in e)) return `carries the item ${JSON.stringify(e.item.trim())} with no \`closed_by\` — the unit that explains it, or null while it is open`;
     const key = e.item.trim().toLowerCase();
     if (seen.has(key)) return `names the item ${JSON.stringify(e.item.trim())} twice — each item is named once`;
     seen.add(key);
+    return null;
+  };
+  for (const [i, e] of o.items.entries()) {
+    const bad = entryRefusal(e, `an \`items\` entry ${i + 1}`, ["item", "closed_by", "subitems"], "{item, closed_by, subitems?}");
+    if (bad) return bad;
+    if (!("subitems" in e)) continue;
+    const parent = JSON.stringify(e.item.trim());
+    if (!Array.isArray(e.subitems) || e.subitems.length === 0) {
+      return `carries the item ${parent} with \`subitems\` that is not a non-empty list of \`{item, closed_by}\` (kogaki#1620)`;
+    }
+    for (const [j, sub] of e.subitems.entries()) {
+      const badSub = entryRefusal(sub, `the item ${parent}'s SubItem ${j + 1}`, ["item", "closed_by"], "{item, closed_by}");
+      if (badSub) return `${badSub} (kogaki#1620)`;
+    }
   }
   return null;
 }
@@ -278,7 +291,9 @@ export function obligationItemRefusal(o) {
 // undefined where the unit is not one of the scale's. Each item's `closed_by` is a unit AFTER
 // `opened_by` -- one equal to it is refused, since a promise kept where it is made is the unit's
 // own structure -- and the items close in the order named, so an item closed before an earlier
-// one, or while an earlier one is still open, is refused naming both. A unit that only names an
+// one, or while an earlier one is still open, is refused naming both. An item's SubItems close
+// first, in the order named, and the item after its last SubItem (kogaki#1620): the closing
+// sequence is each item's SubItems and then the item, item by item. A unit that only names an
 // item does not close it (kogaki#1603): that is the judges' to read, never this function's.
 // Returns `{ unit, clause }` to refuse with, or null.
 export function obligationCloseRefusal(o, pos, unitName) {
@@ -287,27 +302,39 @@ export function obligationCloseRefusal(o, pos, unitName) {
     return { unit: null, clause: `The ${label} record names opened_by ${unitName(o.opened_by)}, which is not one of its scale's units.` };
   }
   const opened = pos(o.opened_by);
+  const named = (e, sub) => (sub ? `the SubItem ${JSON.stringify(e.item.trim())}` : `the item ${JSON.stringify(e.item.trim())}`);
   let prev = null;
-  for (const e of o.items) {
-    const item = JSON.stringify(e.item.trim());
-    if (e.closed_by !== null) {
-      if (pos(e.closed_by) === undefined) {
-        return { unit: o.opened_by, clause: `The ${label} record closes the item ${item} by ${unitName(e.closed_by)}, which is not one of its scale's units.` };
+  for (const parent of o.items) {
+    const subs = Array.isArray(parent.subitems) ? parent.subitems : [];
+    for (const [e, isSub] of [...subs.map((x) => [x, true]), [parent, false]]) {
+      const what = named(e, isSub);
+      if (e.closed_by !== null) {
+        if (pos(e.closed_by) === undefined) {
+          return { unit: o.opened_by, clause: `The ${label} record closes ${what} by ${unitName(e.closed_by)}, which is not one of its scale's units.` };
+        }
+        if (pos(e.closed_by) === opened) {
+          return { unit: o.opened_by, clause: `The ${label} record closes ${what} where it opens it — a promise kept where it is made is the unit's own structure, never an Obligation.` };
+        }
+        if (pos(e.closed_by) < opened) {
+          return { unit: e.closed_by, clause: `The ${label} record closes ${what} here, before ${unitName(o.opened_by)} opens it.` };
+        }
       }
-      if (pos(e.closed_by) === opened) {
-        return { unit: o.opened_by, clause: `The ${label} record closes the item ${item} where it opens it — a promise kept where it is made is the unit's own structure, never an Obligation.` };
+      if (prev) {
+        const [p, pSub] = prev;
+        const ownSub = !isSub && pSub && subs.includes(p);
+        const early = p.closed_by === null ? e.closed_by !== null
+          : e.closed_by !== null && (ownSub ? pos(e.closed_by) <= pos(p.closed_by) : pos(e.closed_by) < pos(p.closed_by));
+        if (early) {
+          const state = p.closed_by === null ? "is still open" : `closes at ${unitName(p.closed_by)}`;
+          const where = ownSub && p.closed_by !== null && pos(e.closed_by) === pos(p.closed_by) ? "at the unit of" : "before";
+          const earlier = isSub || pSub ? named(p, pSub) : `the earlier ${named(p, pSub).slice("the ".length)}`;
+          const rule = ownSub ? "an item closes after its last SubItem (kogaki#1620)"
+            : isSub || pSub ? "the SubItems close in the order named, each item after its own (kogaki#1620)" : "the items close in the order named";
+          return { unit: e.closed_by, clause: `The ${label} record closes ${what} ${where} ${earlier}, which ${state} — ${rule}.` };
+        }
       }
-      if (pos(e.closed_by) < opened) {
-        return { unit: e.closed_by, clause: `The ${label} record closes the item ${item} here, before ${unitName(o.opened_by)} opens it.` };
-      }
+      prev = [e, isSub];
     }
-    if (prev) {
-      const early = prev.closed_by === null ? e.closed_by !== null : e.closed_by !== null && pos(e.closed_by) < pos(prev.closed_by);
-      if (early) {
-        return { unit: e.closed_by, clause: `The ${label} record closes the item ${item} before the earlier item ${JSON.stringify(prev.item.trim())}, which ${prev.closed_by === null ? "is still open" : `closes at ${unitName(prev.closed_by)}`} — the items close in the order named.` };
-      }
-    }
-    prev = e;
   }
   return null;
 }
@@ -319,16 +346,17 @@ export function obligationLastClose(o, pos) {
 }
 // THE ITEMS A UNIT IS HANDED (kogaki#1612): every unit after the opening one, up to and
 // including the one closing the last item, is a party to the record, and is handed the items
-// still open when it begins, each marked where it closes there. The opening unit is a party
+// still open when it begins, each marked where it closes there, with its SubItems (kogaki#1620). The opening unit is a party
 // too, and is handed every item it opens.
 export function obligationItemsAt(o, pos, unit) {
   const at = pos(unit);
   const opened = pos(o.opened_by);
   if (at === undefined || opened === undefined || at < opened) return [];
   const items = Array.isArray(o.items) ? o.items : [];
-  if (at === opened) return items.map((e) => ({ item: e.item, closed_by: e.closed_by }));
-  return items.filter((e) => e.closed_by === null || pos(e.closed_by) >= at)
-    .map((e) => ({ item: e.item, closed_by: e.closed_by }));
+  const copy = (e) => ({ item: e.item, closed_by: e.closed_by,
+    ...(Array.isArray(e.subitems) ? { subitems: e.subitems.map((x) => ({ item: x.item, closed_by: x.closed_by })) } : {}) });
+  if (at === opened) return items.map(copy);
+  return items.filter((e) => e.closed_by === null || pos(e.closed_by) >= at).map(copy);
 }
 export function obligationLedgerRefusal(legs, obligations = []) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;

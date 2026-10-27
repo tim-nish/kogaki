@@ -193,14 +193,18 @@ function moveRecordContract(record, moveId, path, movesDir) {
 // to fill as one Obligation row and the Move-fit judge to hold the Leg's rows against. A Move
 // carrying no `obligation` raises none and its contract carries no key. The slot carries no
 // count: how many items the row names is the article's, decided by the composer (kogaki#1603).
+// An item naming SubItems keeps them under it, in the Move's order (kogaki#1620).
 function obligationSlot(items) {
-  return { items: items.map((x) => x.trim()) };
+  return { items: items.map((x) => (typeof x === "string" ? x.trim()
+    : { item: x.item.trim(), subitems: x.subitems.map((y) => y.trim()) })) };
 }
 
 // THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, kogaki#1568, owner decision
-// 2026-10-24): authored, absent by default, naming no scale. A list of one or more one-line
-// items, in the order the Move names them. Its words are not compared with the `after` state's:
-// whether the two contradict each other is a judgment (owner ruling 2026-10-24, kogaki#1576).
+// 2026-10-24): authored, absent by default, naming no scale. A list of one or more items, in the
+// order the Move names them, each one line, or `{item, subitems}` where the item names the parts
+// its answer turns on, `subitems` one or more one-line parts in the order named (kogaki#1620). Its
+// words are not compared with the `after` state's: whether the two contradict each other is a
+// judgment (owner ruling 2026-10-24, kogaki#1576).
 function obligationRefusal(v, field, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (isPlainMap(v)) {
@@ -208,10 +212,18 @@ function obligationRefusal(v, field, at) {
   }
   if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of one or more one-line items (kogaki#1568)`;
   if (!v.length) return `${at}: \`${field}\` is an empty list — a Move that leaves nothing unexplained leaves the key out (kogaki#1568)`;
-  const bad = v.findIndex((x) => !oneLine(x));
-  if (bad >= 0) return `${at}: \`${field}\` item ${bad + 1} is not one non-empty line (kogaki#1568)`;
-  const dup = v.findIndex((x, i) => v.findIndex((y) => y.trim() === x.trim()) !== i);
-  if (dup >= 0) return `${at}: \`${field}\` names ${JSON.stringify(v[dup].trim())} twice (kogaki#1568)`;
+  const names = [];
+  for (const [i, x] of v.entries()) {
+    if (oneLine(x)) { names.push(x.trim()); continue; }
+    if (!isPlainMap(x)) return `${at}: \`${field}\` item ${i + 1} is not one non-empty line (kogaki#1568)`;
+    const extra = Object.keys(x).find((k) => k !== "item" && k !== "subitems");
+    if (extra || !oneLine(x.item) || !Array.isArray(x.subitems) || !x.subitems.length || !x.subitems.every(oneLine)) {
+      return `${at}: \`${field}\` item ${i + 1} is a map that is not \`{item, subitems}\` — one line, and one or more one-line SubItems (kogaki#1620)`;
+    }
+    names.push(x.item.trim(), ...x.subitems.map((y) => y.trim()));
+  }
+  const dup = names.findIndex((x, i) => names.indexOf(x) !== i);
+  if (dup >= 0) return `${at}: \`${field}\` names ${JSON.stringify(names[dup])} twice (kogaki#1568)`;
   return null;
 }
 

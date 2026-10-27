@@ -34,7 +34,7 @@
 //
 // THE MOVE'S OBLIGATION UNDER ITS DESCRIPTION (kogaki#1582, moved by kogaki#1591): in the Segments
 // part, each paragraph's Move description is followed by the `obligation` items its Move carries,
-// numbered on one line. The sheet is the library view, not the Plan, so a Move field may appear.
+// numbered on one line, each item's SubItems indented under it (kogaki#1620). The sheet is the library view, not the Plan, so a Move field may appear.
 //
 // THE OBLIGATION CALL'S VERDICT UNDER THE DESCRIPTION (kogaki#1593): between a bound Move's
 // description and its obligation, one line per entry of the Extraction record's
@@ -523,12 +523,17 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
 
-// Paragraph `i`'s Move's `obligation` items, numbered on one line; nothing where its Move carries none.
+// Paragraph `i`'s Move's `obligation` items, numbered on one line, and each item's SubItems on
+// lines of their own indented under it (kogaki#1620); nothing where its Move carries none.
 function moveObligationLine(r, i) {
   const e = ((r.ingest && r.ingest.entries) || [])[i];
   const rec = e && e.move ? moveRecord(r, e.move) : null;
   const items = rec && Array.isArray(rec.obligation) ? rec.obligation : [];
-  return items.length ? `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(x)}`).join("; ")}</p>` : "";
+  if (!items.length) return "";
+  const text = (x) => (x && typeof x === "object" ? x.item : x);
+  const subs = items.flatMap((x, j) => (x && typeof x === "object" && Array.isArray(x.subitems)
+    ? x.subitems.map((y, k) => `<p class="obligation subitem">(${j + 1}.${k + 1}) ${esc(y)}</p>`) : []));
+  return `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(text(x))}`).join("; ")}</p>${subs.join("")}`;
 }
 
 // The Extraction record's obligation call verdict, one line per trigger; "(not recorded)" where it carries none.
@@ -1105,6 +1110,7 @@ const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--ac
 :root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
 .obligation,.trigger{color:var(--accent);font-size:13px}
+.obligation.subitem{margin-left:2em}
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}

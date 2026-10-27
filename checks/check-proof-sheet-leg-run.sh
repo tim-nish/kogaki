@@ -665,7 +665,7 @@ else {
   if (ingestRec.entries && ingestRec.entries[1]) delete ingestRec.entries[1].move;
   writeFileSync(ingestPath, JSON.stringify(ingestRec));
   const mv3 = join(unbound, "moves", "name_an_act_then_its_cost_3.yaml"); // (w)'s obligation line
-  writeFileSync(mv3, `${readOr(mv3, "").replace(/^obligation:.*\n?/m, "").trimEnd()}\nobligation:\n  - first item\n  - second item\n`);
+  writeFileSync(mv3, `${readOr(mv3, "").replace(/^obligation:.*\n?/m, "").trimEnd()}\nobligation:\n  - first item\n  - item: second item\n    subitems:\n      - part one\n      - part two\n`);
   const extractOf = (n) => join(unbound, "extract", readdirSync(join(unbound, "extract")).find((x) => x.startsWith(`name_an_act_then_its_cost_${n}`)) || "missing"), FIRED_WHY = "WHY-FIRED the first Segment asks what no later one answers."; for (const [n, edit] of [[3, (t) => t.replace("fired: false\n    why: No question is posed.", `fired: true\n    why: ${FIRED_WHY}`)], [1, (t) => t.replace(/^obligation_triggers:\n(?:  .*\n)*/m, "")]]) writeFileSync(extractOf(n), edit(readOr(extractOf(n), ""))); // (x)
   const nBuilt = S.buildSheet({ runs: [unbound], provenance: map, out: join(root, "unbound.html") });
   const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
@@ -680,8 +680,8 @@ else {
     `(w) paragraph 2's middle cell does not list Leg Waypoint 2's Paragraph Waypoints in order, the performs entry in italics: ${legRows[1]}`);
   const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
   ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger question: fired — Segment 1: ${FIRED_WHY}</p><p class="trigger">obligation trigger term: not fired — Segment 1: No term is left unexplained.</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><table`)
-    && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w)/(x) paragraph 3's verdict line does not name its Segment before the reason (kogaki#1613), or its two obligation items do not stand numbered after its Move description alone, outside the comparison table");
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger question: fired — Segment 1: ${FIRED_WHY}</p><p class="trigger">obligation trigger term: not fired — Segment 1: No term is left unexplained.</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><p class="obligation subitem">(2.1) part one</p><p class="obligation subitem">(2.2) part two</p><table`)
+    && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w)/(x) paragraph 3's verdict line does not name its Segment before the reason (kogaki#1613), or its two obligation items do not stand numbered after its Move description alone, outside the comparison table, the second's SubItems indented under it (kogaki#1620)");
   ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><p class="trigger">obligation trigger: (not recorded)</p><table`), "(x) paragraph 1's record with no obligation_triggers does not render `obligation trigger: (not recorded)` after its Move description");
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];

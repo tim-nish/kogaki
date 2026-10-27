@@ -312,6 +312,25 @@ const contentWords = (s) => (String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) |
 function definingClause(clause) {
   return [...String(clause).matchAll(DEFINING)].some((m) => !NEGATION.test(clause.slice(0, m.index)));
 }
+// THE ITEM'S TEXTS (kogaki#1620): an item is one line, or `{item, subitems}` where the Segments
+// name the parts a question's answer turns on; its texts are the item and each SubItem, in order.
+export function obligationItemTexts(x) {
+  return isMap(x) ? [x.item, ...(Array.isArray(x.subitems) ? x.subitems : [])] : [x];
+}
+// An item trimmed as it is written onto a record: the line, or the item and each SubItem.
+export function trimObligationItem(x) {
+  return isMap(x) ? { item: x.item.trim(), subitems: x.subitems.map((y) => y.trim()) } : x.trim();
+}
+// One item's own shape: a line, or a map of `item` and one or more one-line `subitems`.
+function obligationItemShapeRefusal(x) {
+  if (!isMap(x)) return typeof x === "string" ? lineRefusal(x, "item") : "is not a line";
+  const extra = Object.keys(x).find((k) => k !== "item" && k !== "subitems");
+  if (extra || typeof x.item !== "string" || lineRefusal(x.item, "item") || !Array.isArray(x.subitems) || !x.subitems.length
+    || x.subitems.some((y) => typeof y !== "string" || lineRefusal(y, "subitem"))) {
+    return "is a map that is not `{item, subitems}`, one line and one or more one-line SubItems (kogaki#1620)";
+  }
+  return null;
+}
 // An item's words are its own (kogaki#1618): the count-form rules of kogaki#1602 retired with the
 // `counts` trigger they served, so a number or ordinal word in an item is no refusal.
 function obligationRefusals(o, segments, at, nouns) {
@@ -321,25 +340,31 @@ function obligationRefusals(o, segments, at, nouns) {
     return [`${atO} is a map${retired.length ? ` carrying ${retired.map((k) => `\`${k}\``).join(", ")}` : ""} — `
       + `it is a list of one or more one-line items, and \`kind\` is retired (kogaki#1568)`];
   }
-  if (!Array.isArray(o) || !o.length || o.some((x) => typeof x !== "string" || lineRefusal(x, "item"))) {
-    return [`${atO} is not a list of one or more one-line items (kogaki#1568)`];
+  if (!Array.isArray(o) || !o.length) return [`${atO} is not a list of one or more one-line items (kogaki#1568)`];
+  const shape = o.findIndex((x) => obligationItemShapeRefusal(x));
+  if (shape >= 0) {
+    return isMap(o[shape]) ? [`${atO} item ${shape + 1} ${obligationItemShapeRefusal(o[shape])}`]
+      : [`${atO} is not a list of one or more one-line items (kogaki#1568)`];
   }
-  const dup = o.findIndex((x, i) => o.findIndex((y) => y.trim() === x.trim()) !== i);
-  if (dup >= 0) return [`${atO} names ${JSON.stringify(o[dup].trim())} twice (kogaki#1568)`];
+  const texts = o.flatMap(obligationItemTexts);
+  const dup = texts.findIndex((x, i) => texts.findIndex((y) => y.trim() === x.trim()) !== i);
+  if (dup >= 0) return [`${atO} names ${JSON.stringify(texts[dup].trim())} twice (kogaki#1568)`];
   const errors = [];
-  for (const [i, item] of o.entries()) {
-    const atI = `${atO} item ${i + 1}, ${JSON.stringify(item.trim())},`;
-    const e = generalRefusal(nouns, item, atI);
-    if (e) errors.push(e);
-    const n = wordCount(item);
-    if (n > OBLIGATION_WORDS_MAX) errors.push(`${atI} is ${n} words — an item is a term or a question of at most ${OBLIGATION_WORDS_MAX} words (kogaki#1590)`);
-    const why = RATIONALE.find((w) => ` ${item.trim().toLowerCase()} `.includes(w));
-    if (why) errors.push(`${atI} carries "${why.trim()}", which is rationale — an item is a term or a question (kogaki#1590)`);
+  for (const [i, entry] of o.entries()) {
+    for (const [j, item] of obligationItemTexts(entry).entries()) {
+      const atI = `${atO} item ${i + 1}${j ? ` SubItem ${j}` : ""}, ${JSON.stringify(item.trim())},`;
+      const e = generalRefusal(nouns, item, atI);
+      if (e) errors.push(e);
+      const n = wordCount(item);
+      if (n > OBLIGATION_WORDS_MAX) errors.push(`${atI} is ${n} words — an item is a term or a question of at most ${OBLIGATION_WORDS_MAX} words (kogaki#1590)`);
+      const why = RATIONALE.find((w) => ` ${item.trim().toLowerCase()} `.includes(w));
+      if (why) errors.push(`${atI} carries "${why.trim()}", which is rationale — an item is a term or a question (kogaki#1590)`);
+    }
   }
   for (const [i, s] of (Array.isArray(segments) ? segments : []).entries()) {
     if (!isMap(s) || typeof s.content !== "string" || !definingClause(s.content)) continue;
     const clause = String(s.content).toLowerCase();
-    const named = o.filter((item) => clause.includes(item.trim().toLowerCase())
+    const named = texts.filter((item) => clause.includes(item.trim().toLowerCase())
       || contentWords(item).some((w) => wordsOf(s.content).has(w)));
     if (named.length) {
       errors.push(`${at}, Segment ${i + 1}: the \`content\` clause defines or answers `
@@ -670,7 +695,7 @@ export function extractionRecord(record, input, runRel) {
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
     ...(record.content_bound ? { content_bound: record.content_bound.map((v) => ({ bound: v.bound, why: v.why.trim() })) } : {}),
-    ...(record.obligation ? { obligation: record.obligation.map((x) => x.trim()) } : {}),
+    ...(record.obligation ? { obligation: record.obligation.map(trimObligationItem) } : {}),
     ...(record.obligation_triggers ? { obligation_triggers: Object.fromEntries(Object.entries(record.obligation_triggers)
       .map(([k, v]) => [k, { fired: v.fired, why: v.why.trim(), ...(v.segment !== undefined ? { segment: v.segment } : {}) }])) } : {}),
     description: record.description.trim(),
@@ -711,7 +736,7 @@ export function extractionMarkdown(rec) {
     "## 3. The order inside the Passage", "", ...segs, "", line(r.why_this_order), "",
     "## 4. What the Passage presupposes", "", line(r.presupposes), "",
     "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
-    ...(r.obligation ? [`obligation: ${r.obligation.map(line).join(", ")}`] : []),
+    ...(r.obligation ? [`obligation: ${r.obligation.map((x) => (isMap(x) ? `${line(x.item)} (${x.subitems.map(line).join(", ")})` : line(x))).join(", ")}`] : []),
     ...(r.obligation_triggers ? [...Object.entries(r.obligation_triggers)
       .map(([k, v]) => `obligation trigger ${k}: ${v.fired ? "fired" : "not fired"} — ${v.segment !== undefined ? `Segment ${v.segment}: ` : ""}${line(v.why)}`), ""] : r.obligation ? [""] : []),
     "## 6. Description", "", line(r.description), "",
@@ -955,9 +980,11 @@ export function spliceObligation(text, { obligation, obligation_triggers }) {
   let out = text;
   for (const key of OBLIGATION_KEYS) out = out.replace(RECORD_BLOCK(key), "");
   out = out.replace(/\s*$/, "\n");
-  // The items are written as the library writes them, one `- item` line each, never a flow list.
+  // The items are written as the library writes them, one `- item` line each, never a flow list, and
+  // an item naming SubItems as its `item` line over its `subitems` lines (kogaki#1620).
   const scalar = (s) => (/^[A-Za-z0-9][^#]*$/.test(s) && !/: |:$/.test(s) ? s : JSON.stringify(s));
-  const items = obligation ? `obligation:\n${obligation.map((x) => `  - ${scalar(x)}\n`).join("")}` : "";
+  const entry = (x) => (isMap(x) ? `  - item: ${scalar(x.item)}\n    subitems:\n${x.subitems.map((y) => `      - ${scalar(y)}\n`).join("")}` : `  - ${scalar(x)}\n`);
+  const items = obligation ? `obligation:\n${obligation.map(entry).join("")}` : "";
   const tail = stringifyYaml({ obligation_triggers }, { width: 100 });
   return `${out}${items}${tail.replace(/\s*$/, "\n")}`;
 }
@@ -995,7 +1022,7 @@ export function runRejudge(library) {
     const answer = ob.u.candidate;
     writeJson(join(jobDir, "answer.json"), answer);
     const fired = OBLIGATION_TRIGGERS.some((k) => answer.triggers[k].fired);
-    writeFileSync(file, spliceObligation(text, { ...(fired ? { obligation: answer.obligation.map((x) => x.trim()) } : {}), obligation_triggers: answer.triggers }));
+    writeFileSync(file, spliceObligation(text, { ...(fired ? { obligation: answer.obligation.map(trimObligationItem) } : {}), obligation_triggers: answer.triggers }));
     written.push(file);
   }
   writeJson(join(runDir, "rejudge.json"), { library: dir, written: written.map((f) => basename(f)), unchanged: unchanged.map((f) => basename(f)) });
