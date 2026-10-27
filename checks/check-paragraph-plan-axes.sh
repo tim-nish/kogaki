@@ -72,8 +72,7 @@ if (/\n- [A-Z]/.test(table.paragraph_plan_judge_unit.judgment_point)) fails.push
 if (Object.hasOwn(table.criteria || {}, "paragraph_plan_judge_unit")) fails.push("(b) the workflow table's `criteria` names judge criteria of its own");
 
 // (c) the validator counts what the judge no longer judges.
-// The Move is the check's own fixture copy, never a record of the curated library, which
-// refills only from reviewed Proof Sheets (911bbd3, kogaki#1625); ROLES.json is the library's.
+// The Move is the check's own fixture copy (kogaki#1625).
 const moveId = "apply_a_definition_to_one_everyday_instance";
 const lib = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-lib-"));
 writeFileSync(join(lib, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
@@ -148,6 +147,7 @@ if (!silent.bench || silent.bench.axes["SCRATCH AXIS"].measured !== false || !si
   fails.push("(d3) an axis whose bench calls were never read was removed, or not reported as unmeasured");
 }
 rmSync(tmp, { recursive: true, force: true });
+rmSync(lib, { recursive: true, force: true });
 
 console.log(`fixture cases run: ${cases}`);
 if (fails.length) {
