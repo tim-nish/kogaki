@@ -1,0 +1,66 @@
+id: show_the_mechanism_missing_on_the_other_half
+description: >-
+  Turns the same question on the untreated half of a contrast, denies the
+  mechanism found in the first half, gives the cause of the absence, and seals
+  it with one dated case.
+before:
+  knowledge: >-
+    holds a full account of one side of the contrast, including the mechanism
+    that makes it hold
+  question: >-
+    wants the other side of the contrast given the same treatment and tested for
+    the same mechanism
+  expectation: >-
+    expects the next step to work the remaining side of the contrast in the same
+    order
+  trust: >-
+    raised: the speaker grants rival answers their due before advancing anything
+    of their own
+after:
+  knowledge: >-
+    holds both sides, the second one lacking that mechanism and shown lacking it
+    in a past case
+  question: wants to know what follows where the mechanism is absent
+  expectation: >-
+    expects the next step to draw out the consequence of the asymmetry now set
+    out
+  trust: >-
+    raised further: a sweeping negative claim is backed by a dated case the
+    reader can check
+breaks:
+  - >-
+    drop the hypothetical incident and assert the absence outright — the reader
+    meets a bare negative with nothing to picture, and the gap stops being felt
+  - >-
+    give the cause before the denial it explains — the reader is handed an
+    explanation for something not yet felt as surprising
+  - >-
+    add three further instances after the first — the single case stops reading
+    as proof and starts reading as a list, dulling the contrast
+  - >-
+    cut the closing line about the onlookers — the reader can still suppose help
+    merely arrived late, and the absence is never sealed
+  - >-
+    replace the dated instance with a hypothetical one — the claim loses its one
+    checkable support and trust stops rising
+segments:
+  - operation: >-
+      poses a direct question about how matters stand in a wider setting
+  - operation: >-
+      sets out a hypothetical incident and denies that the expected response is
+      available there
+    relation: >-
+      answers the question just posed with a concrete incident rather than an
+      abstraction
+  - operation: >-
+      attributes the denial to the sheer non-existence of any body holding that
+      role
+    relation: supplies the cause of what was just denied
+  - operation: >-
+      offers one dated past incident in which the asserted absence played out
+    relation: grounds the general claim in a single instance
+  - operation: >-
+      records that onlookers responded in words alone and withheld any action
+    relation: >-
+      completes the instance by naming what the onlookers did and did not do
+    manner: one sentence that grants a response and then withdraws it

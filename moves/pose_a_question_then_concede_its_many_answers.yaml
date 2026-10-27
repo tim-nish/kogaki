@@ -1,0 +1,53 @@
+id: pose_a_question_then_concede_its_many_answers
+description: >-
+  Opens on a plain question, grants that it has many familiar answers, then
+  sweeps through them quickly, handing the reader the whole field before
+  offering any answer of its own.
+before:
+  knowledge: no specialized knowledge of the subject, only everyday impressions
+  question: none in hand; no question has been put to them
+  expectation: expects a general introduction to the subject
+  trust: neutral; no reason yet to credit or doubt the speaker
+after:
+  knowledge: >-
+    holds that the opening question has many familiar answers, ranging from
+    practical to abstract
+  question: >-
+    holds the posed question and wants to know which of the many answers the
+    text will take
+  expectation: >-
+    expects the next step to set the listed answers aside and put forward a
+    different one
+  trust: >-
+    raised: the speaker grants rival answers their due before advancing anything
+    of their own
+breaks:
+  - >-
+    Cut the concession that many answers exist — the run that follows reads as
+    the speaker's own position instead of the field they are setting aside
+  - >-
+    Drop the run of instances — the breadth just conceded stays abstract, and
+    the reader cannot feel the size of what is being put to one side
+  - >-
+    Replace the opening question with a flat statement of the same point — the
+    reader is handed a position before holding a question, and the answers that
+    follow have nothing to attach to
+  - >-
+    Develop each listed answer into its own paragraph — the sweep loses its
+    speed and the reader takes the catalogue for the argument rather than its
+    background
+segments:
+  - operation: >-
+      opens with a direct question about why a long-standing state of affairs
+      persists
+  - operation: grants that many differing answers to the question are available
+    relation: >-
+      widens the single question of the step before into a field of answers
+      rather than narrowing toward one
+  - operation: >-
+      runs through several of the available answers in one sweep, reaching from
+      immediate causes to abstract ones
+    relation: fills in with instances the breadth the step before only asserted
+    manner: >-
+      a single accumulating run of parallel clauses gathered under one closing
+      verb

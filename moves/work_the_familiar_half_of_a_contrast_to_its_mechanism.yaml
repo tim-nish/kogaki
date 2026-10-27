@@ -1,0 +1,59 @@
+id: work_the_familiar_half_of_a_contrast_to_its_mechanism
+description: >-
+  Works one half of a comparison in full: a familiar case given as ordinary
+  events, then the rule behind them, then one compressed principle naming the
+  mechanism.
+before:
+  knowledge: >-
+    holds that the answer turns on a contrast between two comparable domains
+  question: >-
+    holds one sharper question in place of a choice among answers, and wants the
+    named contrast unfolded
+  expectation: >-
+    expects the next step to unfold the contrast just named into the answer
+after:
+  knowledge: >-
+    holds a full account of one side of the contrast, including the mechanism
+    that makes it hold
+  question: >-
+    wants the other side of the contrast given the same treatment and tested for
+    the same mechanism
+  expectation: >-
+    expects the next step to work the remaining side of the contrast in the same
+    order
+breaks:
+  - >-
+    drop the opening narrowing and begin straight at the events — the reader
+    cannot tell which side of the contrast is being worked and reads the detail
+    as the whole answer
+  - >-
+    state the closing principle first and the ordinary events after it — the
+    reader takes the principle on authority instead of watching it assembled
+  - >-
+    cut the closing compression and let the events stand alone — the reader
+    carries away incidents and not the mechanism the comparison turns on
+  - >-
+    add a passage qualifying how the arrangement fails in practice — the worked
+    side stops being the clean baseline the comparison needs
+  - >-
+    replace the concrete course of events with an abstract summary of the same
+    arrangement — the step loses the picturable ground that let a non-specialist
+    follow it
+segments:
+  - operation: takes up one familiar instance as the case to be examined
+    manner: cast as an invitation to consider rather than as a statement
+  - operation: >-
+      describes the ordinary course of events in concrete and immediate terms
+    relation: >-
+      fills the instance just singled out with what ordinarily happens there
+  - operation: >-
+      names the standing rule behind that course of events and the conduct it
+      compels
+    relation: moves behind the events just described to what stands behind them
+  - operation: states the consequence that attaches when the rule is broken
+    relation: completes the rule by covering the case where it is not obeyed
+  - operation: >-
+      compresses the account into one general principle and names what that
+      principle secures
+    relation: gathers the preceding steps into the single principle they share
+    manner: a short coined phrase stands in for the mechanism

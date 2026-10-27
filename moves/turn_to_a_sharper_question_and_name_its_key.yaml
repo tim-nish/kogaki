@@ -1,0 +1,52 @@
+id: turn_to_a_sharper_question_and_name_its_key
+description: >-
+  Turns away from a list of granted answers by announcing a change of angle,
+  posing one sharper question, and naming where its answer lies without giving
+  it.
+before:
+  knowledge: >-
+    holds that the opening question has many familiar answers, ranging from
+    practical to abstract
+  question: >-
+    holds the posed question and wants to know which of the many answers the
+    text will take
+  expectation: >-
+    expects the next step to set the listed answers aside and put forward a
+    different one
+after:
+  knowledge: >-
+    holds that the answer turns on a contrast between two comparable domains
+  question: >-
+    holds one sharper question in place of a choice among answers, and wants the
+    named contrast unfolded
+  expectation: >-
+    expects the next step to unfold the contrast just named into the answer
+breaks:
+  - >-
+    drop the announcement of a changed angle — the new question reads as one
+    more item on the list just granted rather than a turn away from it
+  - >-
+    answer the question in the same breath instead of naming where its answer
+    lies — the reader loses the pull that would carry them into what follows
+  - >-
+    name the hinge before putting the question — the reader is handed a
+    distinction with nothing for it to resolve and holds it as a topic, not a
+    key
+  - >-
+    widen the single question into several related ones — the one line of
+    inquiry blurs and the reader no longer knows which the text will pursue
+segments:
+  - operation: >-
+      announces a change in the angle from which the matter is to be considered
+  - operation: >-
+      poses a pointed question asking why no party is able to compel a halt
+    relation: >-
+      it supplies the changed angle the step before announced, narrowing the
+      inquiry to a single puzzle
+  - operation: >-
+      names where the answer will be found, locating it in a difference between
+      two contrasted domains
+    relation: >-
+      it says only where the question just put will be settled, naming the hinge
+      without yet working it out
+obligation: [why no party can compel a halt]
