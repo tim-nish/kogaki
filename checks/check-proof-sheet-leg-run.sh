@@ -99,15 +99,11 @@
 #       first and reaches the target, and records `legs: 2`; `--legs 3` records what a plain reuse records apart from
 #       `reuse.legs`, and a plain reuse records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan`
 #       are each refused naming `--legs`, with no run directory written.
-#   (v) the Proof Sheet writes no Obligation row and shows each Move's obligation under its
-#       description (kogaki#1582, kogaki#1591), as the block comment above the case states. The
-#       span of (s), raising nothing, carries `obligations: []`.
-#   (w) the Paragraph Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's
-#       middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments
-#       heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they
-#       stand numbered after that Move's description and nowhere in the comparison table.
+#   (v) the Proof Sheet writes no Obligation row and shows each Move's obligation under its description (kogaki#1582, kogaki#1591), as the block comment above the case states. The span of (s), raising nothing, carries `obligations: []`.
+#   (w) the Paragraph Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they stand numbered after that Move's description and nowhere in the comparison table.
 #   (x) the obligation call's verdict under each Move description (kogaki#1593): its not fired, fired and not recorded forms, the first two naming the Segment the verdict rests on before the reason (kogaki#1613).
 #   (y) the Leg Move (kogaki#1597), in checks/proof-sheet-leg-move-cases.mjs, whose header states the case.
+#   (z) the left column and the fired Segment (kogaki#1621): no built sheet carries an "Original Leg" header and the comparison table is headed "Original Paragraph"; on the (o) copy, paragraph 3's two obligation items stand under its paragraph in the left column and paragraph 1's, with none, carries no block; the Segment row the fired trigger names is the one row of the Segments part carrying the tint class, titled with the trigger's name.
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -683,6 +679,10 @@ else {
   ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger question: fired — Segment 1: ${FIRED_WHY}</p><p class="trigger">obligation trigger term: not fired — Segment 1: No term is left unexplained.</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><p class="obligation subitem">(2.1) part one</p><p class="obligation subitem">(2.2) part two</p><table`)
     && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w)/(x) paragraph 3's verdict line does not name its Segment before the reason (kogaki#1613), or its two obligation items do not stand numbered after its Move description alone, outside the comparison table, the second's SubItems indented under it (kogaki#1620)");
   ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><p class="trigger">obligation trigger: (not recorded)</p><table`), "(x) paragraph 1's record with no obligation_triggers does not render `obligation trigger: (not recorded)` after its Move description");
+  // (z) THE ORIGINAL PARAGRAPH, ITS OBLIGATION AND THE FIRED SEGMENT (kogaki#1621): each absence beside the presence it pairs with on the same sheet.
+  ok(!html.includes("Original Leg") && !nSeg.includes("Original Leg") && pairHead.includes('<th>Original Paragraph <span class="meta">'), "(z) a built sheet carries an Original Leg header, or its comparison table is not headed Original Paragraph");
+  const nPair = nSeg.indexOf('<table class="pair"'), nRows = nPair < 0 ? [] : nSeg.slice(nPair, nSeg.indexOf("</table>", nPair)).split("<tr><th>").slice(2); ok(nRows.length === 3 && nRows[2].split("</td>")[0].endsWith('<span class="para-obligation">obligation: <span>first item</span><span>second item</span></span>') && !nRows[0].includes("para-obligation"), `(z) paragraph 3's obligation items do not stand under its paragraph in the left column, or paragraph 1's carries a block: ${nRows[2]}`);
+  const nSegPart = nSeg.slice(nSeg.indexOf('<div class="rpart segments">'), nSeg.indexOf('<div class="rpart refused">')), p3Rows = ((nSegPart.split("<h4>")[3] || "").split("<tbody>")[1] || "").split("<tr").slice(1); ok(p3Rows.length >= 2 && p3Rows[0].startsWith(' class="fired" title="question">') && p3Rows.slice(1).every((x) => x.startsWith(">")) && (nSegPart.match(/class="fired"/g) || []).length === 1, `(z) paragraph 3's Segment 1 row is not the one tinted row, titled with the fired trigger: ${p3Rows.map((x) => x.slice(0, 40)).join(" | ")}`);
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
   ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")

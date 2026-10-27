@@ -41,6 +41,11 @@
 // `obligation_triggers`, in the record's order, the `why` verbatim, after the Segment number the
 // verdict rests on where the record carries one (kogaki#1613).
 //
+// THE OBLIGATION UNDER ITS PARAGRAPH, AND THE FIRED SEGMENT'S TINT (kogaki#1621): in the comparison
+// table, a paragraph whose Move carries an `obligation` shows its items beneath the paragraph in
+// the left column; in a Segments table, the row a fired trigger names is tinted and titled with
+// the trigger's name.
+//
 // AN UNBOUND CONTENT CLAUSE CARRIES ITS REASON (kogaki#1614): in a Segments table, a Segment the
 // kept record's `content_bound` judges unbound shows that verdict's `why` beside its content
 // clause; a bound one shows nothing.
@@ -51,7 +56,7 @@
 //
 // THE LEG MOVE BLOCKS (kogaki#1597): after the last Leg block (after the cards, for one Leg), one
 // block per entry of the run's `leg-move` stage, drawn by the same renderers over that Leg Move's
-// own nested run; its Original Leg is the Leg's Claims paragraph. A run without the stage has none.
+// own nested run; its Original Claims are the Leg's Claims paragraph. A run without the stage has none.
 //
 // EVERY PATH IS REPOSITORY-ROOT-RELATIVE (kogaki#1400, owner decision 2026-10-16), including
 // the run directory itself, printed once in the card header. Every card carries one badge,
@@ -495,12 +500,12 @@ function runConditionsLine(r) {
     + `</ul></div>`;
 }
 
-// THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original Leg beside written Leg
+// THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original paragraph beside written Leg
 // (one Leg Waypoint is one paragraph; the original is cut as The paragraph unit cuts it).
 // Every written-paragraph cell links down to that paragraph's own row in each per-paragraph
 // card -- Extraction, Move, ParagraphPlan, Packet and Draft -- so a reader reading the problem
 // in a row can reach its evidence without reconstructing the pipeline (kogaki#1402).
-function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop }) {
+function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop, original = "Original Paragraph" }) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const n = Math.max(r.paragraphs.length, writtenParas.length);
   const anchorLinks = (i) => `<p class="anchors">`
@@ -515,25 +520,50 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
   const pairs = [];
   for (let i = 0; i < n; i++) {
     const writtenCell = written ? `${esc(writtenParas[i] || "")}${anchorLinks(i + 1)}` : (i === 0 ? `<span class="stop">${esc(draftStop || "not written")}</span>` : "");
-    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td class="pws">${pwCell(i)}</td><td>${writtenCell}</td></tr>`);
+    pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}${paragraphObligation(r, i)}</td><td class="pws">${pwCell(i)}</td><td>${writtenCell}</td></tr>`);
   }
-  return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>Original Leg <span class="meta">${esc(rel(join(r.runDir, r.legCopy || "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
+  return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>${esc(original)} <span class="meta">${esc(rel(join(r.runDir, r.legCopy || "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
     + `<th>Paragraph Waypoints <span class="meta">${esc(rel(r.planPath))} · sha ${contentHash(planText)}</span></th>`
     + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
 
+// Paragraph `i`'s Move's `obligation` items; empty where its Move carries none.
+function moveObligation(r, i) {
+  const e = ((r.ingest && r.ingest.entries) || [])[i];
+  const rec = e && e.move ? moveRecord(r, e.move) : null;
+  return rec && Array.isArray(rec.obligation) ? rec.obligation : [];
+}
+
+// An item's text, and its SubItems' texts, whether it is written bare or as `{item, subitems}` (kogaki#1620).
+const itemText = (x) => (x && typeof x === "object" ? x.item : x);
+const subitemsOf = (x) => (x && typeof x === "object" && Array.isArray(x.subitems) ? x.subitems : []);
+
 // Paragraph `i`'s Move's `obligation` items, numbered on one line, and each item's SubItems on
 // lines of their own indented under it (kogaki#1620); nothing where its Move carries none.
 function moveObligationLine(r, i) {
-  const e = ((r.ingest && r.ingest.entries) || [])[i];
-  const rec = e && e.move ? moveRecord(r, e.move) : null;
-  const items = rec && Array.isArray(rec.obligation) ? rec.obligation : [];
+  const items = moveObligation(r, i);
   if (!items.length) return "";
-  const text = (x) => (x && typeof x === "object" ? x.item : x);
-  const subs = items.flatMap((x, j) => (x && typeof x === "object" && Array.isArray(x.subitems)
-    ? x.subitems.map((y, k) => `<p class="obligation subitem">(${j + 1}.${k + 1}) ${esc(y)}</p>`) : []));
-  return `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(text(x))}`).join("; ")}</p>${subs.join("")}`;
+  const subs = items.flatMap((x, j) => subitemsOf(x).map((y, k) => `<p class="obligation subitem">(${j + 1}.${k + 1}) ${esc(itemText(y))}</p>`));
+  return `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(itemText(x))}`).join("; ")}</p>${subs.join("")}`;
+}
+
+// The same items beneath the paragraph in the comparison table, one per line; nothing where there are none.
+function paragraphObligation(r, i) {
+  const items = moveObligation(r, i);
+  return items.length ? `<span class="para-obligation">obligation: ${items.map((x) => `<span>${esc(itemText(x))}</span>`
+    + subitemsOf(x).map((y) => `<span class="subitem">${esc(itemText(y))}</span>`).join("")).join("")}</span>` : "";
+}
+
+// The record's fired triggers by the Segment they name: Segment number -> trigger names.
+export function firedSegments(rec) {
+  const m = new Map();
+  const triggers = rec && rec.obligation_triggers && typeof rec.obligation_triggers === "object" ? Object.entries(rec.obligation_triggers) : [];
+  for (const [name, t] of triggers) {
+    const n = t && t.fired ? Number(t.segment) : NaN;
+    if (Number.isInteger(n)) m.set(n, [...(m.get(n) || []), name]);
+  }
+  return m;
 }
 
 // The Extraction record's obligation call verdict, one line per trigger; "(not recorded)" where it carries none.
@@ -598,9 +628,15 @@ const unboundNote = (bound, j) => {
   const v = Array.isArray(bound) ? bound[j] : null;
   return v && v.bound === false ? ` <span class="unbound">not bound: ${esc(v.why || "")}</span>` : "";
 };
-export const segmentsTable = (segs, edited = new Map(), bound = null) => (segs.length
+// `fired` is `firedSegments` of the record (kogaki#1621): a Segment a fired trigger names is
+// tinted, with the trigger's name in its title.
+const rowAttrs = (edited, fired, n) => {
+  const cls = [edited.has(n) ? "edited" : "", fired.has(n) ? "fired" : ""].filter(Boolean).join(" ");
+  return (cls ? ` class="${cls}"` : "") + (fired.has(n) ? ` title="${esc(fired.get(n).join(", "))}"` : "");
+};
+export const segmentsTable = (segs, edited = new Map(), bound = null, fired = new Map()) => (segs.length
   ? `<table><thead><tr><th>#</th><th>content clause</th><th>operation</th><th>relation</th><th>manner</th></tr></thead><tbody>`
-    + segs.map((s, j) => `<tr${edited.has(j + 1) ? ' class="edited"' : ""}><td>${j + 1}${edited.has(j + 1)
+    + segs.map((s, j) => `<tr${rowAttrs(edited, fired, j + 1)}><td>${j + 1}${edited.has(j + 1)
       ? ` <span class="badge edited" title="${esc(edited.get(j + 1).join(", "))}">${EDITED_BADGE}</span>` : ""}</td>`
       + `<td>${esc(s.content || "")}${unboundNote(bound, j)}</td><td>${esc(s.operation || "")}</td><td>${esc(s.relation || "")}</td>`
       + `<td>${esc(s.manner || "")}</td></tr>`).join("")
@@ -623,7 +659,7 @@ function extractionCard(r, idx) {
   const output = stageNote(r, "extract")
     + per.map((p) => prowBlock("extraction", p.i + 1, idx, `paragraph ${p.i + 1}`,
       `<p class="meta">${p.file ? esc(rel(p.file)) : "(not written)"} · sha ${contentHash(p.text)}</p>`
-      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound) + moveStatesBreaks(r, entries[p.i] && entries[p.i].move)
+      + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound, firedSegments(p.rec)) + moveStatesBreaks(r, entries[p.i] && entries[p.i].move)
         + sub("rendering", pre(p.rendered || p.text || "(not written)"))
         + sub("record file", pre(p.text || "(not written)")) : ""))).join("");
 
@@ -1063,7 +1099,7 @@ function reviewBlock(r, idx) {
   };
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}${COPY_BUTTON}</h4>`
     + moveDescription(r, entries[p.i] && entries[p.i].move) + (entries[p.i] && entries[p.i].move ? obligationTriggerLines(p.rec) : "") + moveObligationLine(r, p.i)
-    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound) : `<p class="muted">(not written)</p>`)).join("");
+    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound, firedSegments(p.rec)) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge
   // named no does-not-fit, is a row too, carrying the job record's refusal: only an attempt
@@ -1105,12 +1141,14 @@ function reviewBlock(r, idx) {
     + `</section>`;
 }
 
-const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--accent:#8a3b12;--off:#fbe3d6}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}}
-:root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
+const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--accent:#8a3b12;--off:#fbe3d6;--fired:#fdf3d0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c;--fired:#3d3519}}
+:root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c;--fired:#3d3519}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
 .obligation,.trigger{color:var(--accent);font-size:13px}
 .obligation.subitem{margin-left:2em}
+.para-obligation{display:block;white-space:normal;margin-top:6px;padding-left:8px;border-left:1px solid var(--line);color:var(--muted);font-size:12px}.para-obligation>span{display:block}.para-obligation>span.subitem{margin-left:2em}
+tr.fired>td{background:var(--fired)}
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
 .pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
@@ -1150,7 +1188,7 @@ export function libraryLine(run) {
 // THE LEG MOVE BLOCKS (see the header). The nested run draws no Brief card, so its cards name
 // the Brief they read without a link.
 export const LEG_MOVE_HEADING = "Leg Move of Leg";
-export const LEG_MOVE_NOTE = "The Original Leg here is the Leg's Claims from the Brief, one sentence each, in order.";
+export const LEG_MOVE_NOTE = "The Original Claims here are the Leg's Claims from the Brief, one sentence each, in order.";
 function legMoveBlocks(r, idx) {
   const runs = r.stage("leg-move").runs || [];
   const total = (r.run.legs || []).length || runs.length;
@@ -1160,7 +1198,7 @@ function legMoveBlocks(r, idx) {
     const sectionPath = v.legId ? join(v.ws, "sections", `${v.legId}.md`) : null;
     const written = sectionPath ? read(sectionPath) : null;
     const writtenParas = written ? written.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean) : [];
-    const shown = { sectionPath, written, writtenParas, draftStop: v.stage("draft").stopped || v.run.stopped || null };
+    const shown = { sectionPath, written, writtenParas, draftStop: v.stage("draft").stopped || v.run.stopped || null, original: "Original Claims" };
     const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
       + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
     return `<section class="leg-block leg-move" id="leg-${vidx}"><h3>${LEG_MOVE_HEADING} ${k + 1} of ${total} — ${esc(m.leg_id)}`
