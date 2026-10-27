@@ -189,7 +189,7 @@ const { surveyPath, selfPath, gs, execEnv, tp, tagRun, gatesFor, envFor, payload
       `${rows.map((t) => t.state).join(",")} vs ${recDrive.completed.join(",")}`);
   }
 
-  // ITEM 1. The start act carries the `skill-expansion` executor kind and
+  // ITEM 1. The start act carries the `start-act` executor kind and
   // NO hook fields, because no hook event produced it — and it refuses an
   // existing record, so it cannot walk states the hook route is supposed
   // to execute under an attribution that names no hook.
@@ -225,7 +225,7 @@ const { surveyPath, selfPath, gs, execEnv, tp, tagRun, gatesFor, envFor, payload
       rStart2.status === 0 && !!recStart, `exit ${rStart2.status}`);
     ok("the start act's transitions name the skill expansion and carry NO hook fields — an attribution no harness event supplied is never invented",
       startRows.length > 0 && startRows.every((t) => t.advanced_by
-        && t.advanced_by.executor === "skill-expansion"
+        && t.advanced_by.executor === "start-act"
         && t.advanced_by.hook_event_name === undefined
         && t.advanced_by.session_id === undefined
         && t.advanced_by.tool_use_id === undefined),
@@ -571,25 +571,20 @@ const { surveyPath, selfPath, gs, execEnv, tp, tagRun, gatesFor, envFor, payload
     readdirSync(gatesFor("reraise")).filter((f) => f.endsWith(".json")).length === 1,
     `${readdirSync(gatesFor("reraise")).length} pointer(s)`);
 
-  // THE POINTER NAMES WHO OPENED IT (kogaki#1051). The hook admits the
-  // prompt that invoked the skill for a `skill-expansion` pointer and for
-  // no other, so the field has to be on the file the start act writes --
-  // and it has to be the OTHER value on the file an advance writes, or
-  // every gate in every run would admit typed text.
+  // THE POINTER CARRIES NO OPENER MARK (kogaki#1629). The open-gate hook's
+  // prompt arm was its one reader, and it is gone, so neither the file an
+  // advance writes nor the one the start act writes records `opened_by`.
   const readOnly = (name) => {
     const dir = gatesFor(name);
     if (!existsSync(dir)) return null;
     const f = readdirSync(dir).filter((x) => x.endsWith(".json"))[0];
     return f ? readJson(join(dir, f)) : null;
   };
-  ok("a pointer written under a hook-attributed advance records `opened_by: hook` — the ordinary gate, where a turn has run by construction",
-    (readOnly("reraise") || {}).opened_by === "hook",
+  ok("a pointer written under a hook-attributed advance carries no `opened_by` field",
+    !!readOnly("reraise") && !("opened_by" in readOnly("reraise")),
     JSON.stringify((readOnly("reraise") || {}).opened_by));
 
-  // AND THE START ATTRIBUTION WRITES THE OTHER VALUE. The case above is the
-  // whole wiring (`hook` reaches the pointer only through `cmdRun`'s
-  // `setOpenedBy(advancedBy)`); what remains is the VALUE the start act carries,
-  // which ITEM 1 above asserts is `executor: "skill-expansion"`.
+  // AND NEITHER DOES THE START ACT'S.
   //
   // DRIVEN THROUGH `start` (kogaki#1257): the start act mints its own record and
   // its first state is the survey, which the fake gateway serves, so a two-state
@@ -608,8 +603,8 @@ const { surveyPath, selfPath, gs, execEnv, tp, tagRun, gatesFor, envFor, payload
     ] }));
     const rSW = terrain(["start", "--run-dir", join(swDir, "rd"), "--workflow", swTable],
       { env: { ...envFor("startwriter"), ...gateway(swDir, LONE_ANSWERS) } });
-    ok("a pointer written under the START attribution records `opened_by: skill-expansion` — the one state in which no model turn can yet have run, and the one the prompt arm admits",
-      rSW.status === 0 && existsSync(startGates) && (readOnly("startwriter") || {}).opened_by === "skill-expansion",
+    ok("a pointer written under the START attribution carries no `opened_by` field",
+      rSW.status === 0 && existsSync(startGates) && !!readOnly("startwriter") && !("opened_by" in readOnly("startwriter")),
       JSON.stringify((readOnly("startwriter") || {}).opened_by || rSW.out.trim().split("\n").slice(-1)[0].slice(0, 140)));
   }
 }

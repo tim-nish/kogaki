@@ -17,7 +17,7 @@ import {
   KIND_SEMANTICS, REPO, bindFlow, checkpointRun, classifyWriteOutcome, clearOpenRunPointer,
   completeState, derivedBaseline, endRunOnJudgeTimeout, fail, flow, loadWorkflowTable,
   mostRecentDoneRun, newRunRecord, openRunPointerPath, readJson, readOpenRunPointer, readRunRecord,
-  relFromRepo, runCounts, runDir, runRecordPath, setOpenedBy, setRunPersist, writeOpenRunPointer,
+  relFromRepo, runCounts, runDir, runRecordPath, setRunPersist, writeOpenRunPointer,
   writeRunRecord,
 } from "./run-record.mjs";
 
@@ -44,12 +44,8 @@ export async function runWorkflow(binding, args, advancedBy, opts = {}) {
 
 // `stopAtFirstWait` bounds the start act to what the owner licensed it to
 // produce -- `survey` and the stop at TAG_SELECTION -- so a start invocation
-// cannot walk a whole run under one skill-expansion attribution.
+// cannot walk a whole run under one start-act attribution.
 export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {}) {
-  // The attribution the caller resolved is also what every open-gate pointer
-  // this act writes records as `opened_by` (kogaki#1051). Set here rather than
-  // at the writer because here is where it is known.
-  setOpenedBy(advancedBy);
   // THE START ACT OPENS a workspace; an ADVANCE RESOLVES the one that is open
   // (PR #1034 round 1). An explicit `--run-dir` still wins for both, because a
   // caller who named a directory named it because they hold it -- that is the

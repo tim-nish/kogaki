@@ -133,7 +133,7 @@ def deny(reason):
 #
 # The first cut read the WHOLE command string for `--status`, so
 # `node src/terrain.mjs run --status; node src/terrain.mjs start` rode through
-# on the first segment's flag and minted a skill-expansion-attributed record
+# on the first segment's flag and minted a start-act-attributed record
 # from a model-typed Bash command -- the one route the executor's self-declared
 # kind is only trustworthy because it is closed. The declared trade in the
 # docstring above is OVER-refusal, never under-refusal, and this was the

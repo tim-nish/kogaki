@@ -80,7 +80,7 @@ export function fail(msg) {
 // `enterRun` prunes before it creates, so the bound is the run's first act.
 // ---- WHICH FLOW THIS ACT IS AN ACT OF (kogaki#1108) -----------------------
 // The executor names no state (kogaki#625); `FLOW` binds table, lane directory, capture prefix,
-// renderers and option composers. Process-wide, like `OPENED_BY` and `WRITING_STATE`: one
+// renderers and option composers. Process-wide, like `WRITING_STATE`: one
 // invocation is one act of one flow, set by `runWorkflow`. Default is Terrain's.
 let FLOW = null;
 // The default binding is Terrain's lane until `src/terrain.mjs` registers its whole flow (kogaki#1259).
@@ -281,10 +281,10 @@ const RUN_RECORD_FILE = "run-record.json";
 // ---- WHO EXECUTED THIS TRANSITION (kogaki#1027) ------------------------------
 // `advanced_by` is COPIED from the harness's own payload, never composed here.
 // The kinds are a closed set: `hook` carries the three payload fields verbatim;
-// `skill-expansion` carries no hook fields. A third kind is a decision, not an addition.
+// `start-act` carries no hook fields. A third kind is a decision, not an addition.
 // The self-declared kind is trustworthy only because `.claude/hooks/gate-terrain-executor.py`
 // denies the Bash route; the Removal Test fixture exercises that deny.
-const EXECUTOR_KINDS = ["hook", "skill-expansion", "detached-job"];
+const EXECUTOR_KINDS = ["hook", "start-act", "detached-job"];
 
 // The start act's attribution. It carries no hook fields, deliberately -- see
 // above.
@@ -293,10 +293,10 @@ const EXECUTOR_KINDS = ["hook", "skill-expansion", "detached-job"];
 // dispatcher below enters `cmdRun` with it — the attribution is a property of
 // WHICH ACT opened the run, not of which flow it opened, so a second flow that
 // minted its own constant would be a second answer to one question.
-export const SKILL_EXPANSION_EXECUTOR = { executor: "skill-expansion" };
+export const START_ACT_EXECUTOR = { executor: "start-act" };
 
 // THE THIRD KIND (kogaki#1193 -- "a decision, not an addition"). `hook` says an
-// owner clicked; `skill-expansion` says the harness ran the skill's own `!`
+// owner clicked; `start-act` says the harness ran the skill's own `!`
 // line; NEITHER is true of the act that turns a FINISHED detached job into a
 // completed `compose_path`. That act is `job await`, typed directly into Bash
 // by the session -- and it is trustworthy for the same reason `start` is: it
@@ -310,18 +310,6 @@ export function detachedJobExecutor(jobRecordRelPath) {
   return { executor: "detached-job", job_record: jobRecordRelPath };
 }
 
-// WHO OPENED THE POINTER THIS ACT WRITES (kogaki#1051).
-// For the START act the model has had no turn since the gate opened: the skill's `!`
-// line runs before UserPromptSubmit judges the invoking prompt.
-// Process-wide on purpose: one invocation is one act with one attribution, set by `cmdRun`.
-export let OPENED_BY = null;
-
-// Set once per act, by the one caller that knows: see `cmdRun`.
-export function setOpenedBy(advancedBy) {
-  OPENED_BY = (advancedBy && EXECUTOR_KINDS.includes(advancedBy.executor))
-    ? advancedBy.executor
-    : null;
-}
 
 // The hook payload, read from stdin ONCE per act. Returns null when there is
 // nothing readable there: no payload, an empty stream, or bytes that are not

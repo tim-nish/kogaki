@@ -170,7 +170,7 @@ assert_denied "a status flag on the start verb" "node src/terrain.mjs start --st
 # THE ADMISSION IS PER SEGMENT, NOT PER COMMAND (PR #1034 round 1, finding 2).
 # A whole-string read admits every segment on one segment's `--status`, so an
 # inspection command chained to a start act rides through and mints a
-# skill-expansion-attributed record from Bash — the one route the executor's
+# start-act-attributed record from Bash — the one route the executor's
 # self-declared kind is only trustworthy because it is closed.
 assert_denied "a status read chained to a start"   "node src/terrain.mjs run --status; node src/terrain.mjs start"
 assert_denied "a status read &&-chained to a run"  "node src/terrain.mjs run --status && node src/terrain.mjs run"
@@ -283,7 +283,7 @@ assert_denied "a stdbuf-wrapped direct run"  "stdbuf -o0 ./src/terrain.mjs start
 # lane executor on the same terms: a Brief run is STARTED by the brief skill's
 # own `!` line and ADVANCED inside `advance-brief.py`, and it runs Terrain's own
 # advance loop under a flow binding. A model-typed `node src/brief.mjs start`
-# mints a skill-expansion-attributed record from Bash, which is exactly the
+# mints a start-act-attributed record from Bash, which is exactly the
 # route the self-declared executor kind is only trustworthy because it is
 # closed — so the prohibition reaches it, through the same hook rather than a
 # second copy of the rule.
@@ -661,7 +661,7 @@ fs.writeFileSync(path.join(gd, instance + ".json"), JSON.stringify({
   declaration_path: path.resolve(path.join(dir, gate + ".gate-declaration.json")),
   capture_path: path.resolve(path.join(dir, "terrain" + process.env.FIXTURE_CAPSUF)),
   gate_call_path: path.resolve(callPath), gate_call_unavailable: null,
-  session_id: null, opened_by: "hook",
+  session_id: null,
   // Derived, never literal (kogaki#1092): a pointer older than POINTER_TTL
   // is dropped by the reader under test, so a fixed instant would make this
   // case expire on the calendar rather than on anything it asserts.
@@ -792,7 +792,7 @@ with open(out, "w") as f:
                "capture_path": os.path.realpath(os.path.join(dir_, "terrain" + suffix)),
                "gate_call_path": None,
                "gate_call_unavailable": "this pointer is already answered",
-               "session_id": None, "opened_by": "hook",
+               "session_id": None,
                # Live (kogaki#1092), so what keeps this pointer out of the
                # delivery is the ANSWERED filter this case is about. Staged
                # past the TTL it would pass for the wrong reason.
@@ -827,7 +827,7 @@ with open(out, "w") as f:
                "capture_path": os.path.realpath(os.path.join(dir_, "terrain" + suffix)),
                "gate_call_path": None,
                "gate_call_unavailable": "this pointer is past the TTL",
-               "session_id": None, "opened_by": "hook",
+               "session_id": None,
                # The odd one out, and derived from the same constant the live
                # ones are: one TTL plus an hour ago.
                "opened_at": os.environ["FIXTURE_OPENED_EXPIRED"]}, f)
@@ -866,7 +866,7 @@ with open(out, "w") as f:
                "capture_path": os.path.realpath(os.path.join(dir_, "terrain" + suffix)),
                "gate_call_path": os.path.realpath(call),
                "gate_call_unavailable": None, "session_id": None,
-               "opened_by": "hook", "opened_at": opened}, f)
+               "opened_at": opened}, f)
 PY
   done
   g_out=$(fire_stub)
@@ -964,7 +964,7 @@ fs.writeFileSync(path.join(gd, instance + ".json"), JSON.stringify({
   declaration_path: path.resolve(path.join(dir, gate + ".gate-declaration.json")),
   capture_path: path.resolve(path.join(dir, "terrain" + process.env.FIXTURE_CAPSUF)),
   gate_call_path: path.resolve(callPath), gate_call_unavailable: null,
-  session_id: null, opened_by: "hook",
+  session_id: null,
   // Derived, never literal (kogaki#1092): a pointer older than POINTER_TTL
   // is dropped by the reader under test, so a fixed instant would make this
   // case expire on the calendar rather than on anything it asserts.

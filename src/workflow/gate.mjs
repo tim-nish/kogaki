@@ -8,7 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { GATES_REGISTRY, GATE_SCHEMA, OPENED_BY, fail, flow, readJson } from "./run-record.mjs";
+import { GATES_REGISTRY, GATE_SCHEMA, fail, flow, readJson } from "./run-record.mjs";
 
 // ---- CLAIM / ADOPT --------------------------------------------------------
 // claim / adopt (SPEC.md, GroupClaim-first rendering). A claim is PINNED to its member set:
@@ -471,12 +471,6 @@ function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callU
     gate_call_path: callPath ? resolve(callPath) : null,
     gate_call_unavailable: callUnavailable,
     session_id: sessionId(),
-    // WHICH EXECUTOR OPENED THIS GATE (kogaki#1051). `skill-expansion` is the
-    // start act, and it is the one kind for which no model turn can yet have
-    // run -- see `OPENED_BY`. `hook` means a turn ran to produce the tool call
-    // the hook fired on. `null` is a run started outside either route, and the
-    // reader treats it as the ordinary pointer it was before this field.
-    opened_by: OPENED_BY,
     opened_at: declaration.declared_at,
   }, null, 2) + "\n");
 }
