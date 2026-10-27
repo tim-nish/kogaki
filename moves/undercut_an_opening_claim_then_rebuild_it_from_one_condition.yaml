@@ -1,0 +1,67 @@
+id: undercut_an_opening_claim_then_rebuild_it_from_one_condition
+description: >-
+  Asserts a claim, denies at once that it necessarily holds, then rebuilds it
+  from one condition of the case through a short chain until the reader derives
+  the conclusion themselves.
+before:
+  knowledge: no specialized knowledge of the subject, only everyday impressions
+  question: no question formed; unsure whether this text is worth following
+  expectation: no settled expectation of what the text will do next
+  orientation: >-
+    places the text among general explanatory writing for non-specialists
+  trust: neutral toward the speaker
+after:
+  knowledge: >-
+    holds one chain running from one condition of the case to the conduct it is
+    said to require
+  question: wants to know how far the conduct derived this way extends
+  expectation: >-
+    expects what follows to apply the derived necessity to particular cases
+  orientation: >-
+    reads the text as explaining conduct from the conditions of the case rather
+    than from intentions
+  trust: >-
+    raised, the speaker having questioned their own opening assertion before
+    supporting it
+breaks:
+  - >-
+    drop the opening assertion and begin from the plain fact — the chain has
+    nothing to overturn, and its conclusion lands as flat description
+  - >-
+    cut the step that doubts the opening claim — the claim stands unchallenged,
+    the reader has no reason to want it rebuilt, and goodwill does not rise
+  - >-
+    state the final definition first and derive it afterwards — the reader is
+    handed the conclusion before the condition that makes it feel inevitable
+  - >-
+    insert a paragraph of examples between the plain fact and its
+    consequence — the step from condition to requirement is broken and stops
+    being something the reader completes in one breath
+  - >-
+    replace the first-person step with a detached third-person statement — the
+    reader observes the situation from outside instead of standing inside it
+  - >-
+    qualify the final act with exceptions and conditions — the chain stops
+    arriving as a single consequence and the reader is left weighing cases
+    instead of holding one link
+segments:
+  - operation: asserts a claim outright with no support offered
+  - operation: >-
+      denies that the claim necessarily holds, resting the denial on a source
+      the reader can inspect
+    relation: >-
+      overturns the opening assertion instead of supporting it, and turns it
+      into a puzzle
+  - operation: states one plain fact of the case, open to inspection
+    relation: supplies the ground on which the denial just made rests
+  - operation: draws from a stated fact the general disadvantage it entails
+    relation: reads the fact just given for what follows from it
+  - operation: >-
+      turns a disadvantage into a requirement holding for anyone in that
+      position
+    relation: >-
+      converts the disadvantage just named into something that has to be done
+    manner: >-
+      a shift into the first person plural, spoken from inside the situation
+  - operation: gives a stated requirement its concrete content as an outward act
+    relation: specifies what the requirement just stated amounts to in practice
