@@ -1,0 +1,82 @@
+id: fence_a_term_with_its_own_imprecision
+description: >-
+  Defines a term by the capacity it stands for, admits it cannot be measured
+  exactly, shows the obvious indicator misleading, then restores the rough
+  distinction with undisputed extremes.
+before:
+  knowledge: >-
+    holds that the matched condition and its name apply at the wider scale,
+    reached there by the same steps
+  question: >-
+    holds the transfer question answered, and now wants to know what the named
+    general condition accounts for
+  expectation: >-
+    expects the next step to put the named general condition to work on the
+    wider subject
+  trust: >-
+    raised further, a technical term having been earned by a chain the reader
+    could check step by step
+after:
+  knowledge: >-
+    holds a working definition of the named condition's central quantity, known
+    to be only approximate
+  question: >-
+    holds the definitional question settled and still wants what the named
+    condition accounts for
+  expectation: >-
+    expects the next step to return to the wider subject now that the central
+    quantity is pinned down
+  trust: >-
+    raised again, a limit on the term's precision having been admitted before
+    any use is made of it
+breaks:
+  - >-
+    drop the admission that the quantity cannot be measured exactly — the
+    definition reads as precise, and the case that follows looks like a flaw in
+    it rather than a boundary on it
+  - >-
+    cut the case where the leading indicator misleads — the denial stays a bare
+    assertion and the reader keeps equating the quantity with its handiest proxy
+  - >-
+    leave out the turn back to the plain extremes — the reader takes the
+    qualification for a retraction and the term looks too soft to carry any
+    later weight
+  - >-
+    add a paragraph of further indicators and their weightings — the rough sense
+    the close settles on is buried under machinery nothing later in the argument
+    needs
+segments:
+  - operation: >-
+      defines a term by naming the capacity it stands for and restating that
+      capacity in everyday words
+  - operation: >-
+      concedes that the quantity just defined cannot be measured exactly
+    relation: >-
+      qualifies the definition just given, before anything is built on it
+  - operation: >-
+      grants that the obvious indicators are good ones while denying that they
+      settle the quantity on their own
+    relation: >-
+      specifies the imprecision just conceded by naming where the reader would
+      have looked for exactness
+  - operation: >-
+      sets out a case in which the leading indicator points one way and the
+      overall judgment does not follow
+    relation: illustrates the denial just made with a single case
+  - operation: >-
+      explains the case by listing the further respects in which the comparison
+      runs the other way
+    relation: gives the reason the case just set out comes out as it does
+  - operation: >-
+      turns back from the concession to affirm that the rough distinction holds
+      in fact
+    relation: >-
+      checks the qualification before the reader takes it as a retraction
+  - operation: names the two ends of the distinction with an instance of each
+    relation: >-
+      supplies the uncontested cases that carry the affirmation just made
+    manner: a brief direct statement, left without support
+  - operation: fixes the term's sense at the level of rough magnitude
+    relation: >-
+      settles the definition that the preceding qualification and affirmation
+      have bracketed from both sides

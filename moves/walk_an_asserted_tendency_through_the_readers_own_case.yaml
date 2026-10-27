@@ -1,0 +1,84 @@
+id: walk_an_asserted_tendency_through_the_readers_own_case
+description: >-
+  Transposes an asserted general tendency into a second-person hypothetical,
+  walks its consequences to a limit, and lets the reader reach the same
+  conclusion at their own scale.
+before:
+  knowledge: >-
+    holds that where no outside enforcer exists each party has to provide for
+    itself, and that this is why each aims at strength
+  question: >-
+    wants to know what aiming at strength consists of and what happens when
+    every party aims at it at once
+  expectation: >-
+    expects what comes next to take up the tendency just drawn and show where it
+    leads
+  trust: neutral, willing to be led by a writer who explains in ordinary terms
+after:
+  knowledge: >-
+    also holds what providing for oneself consists of concretely at the scale of
+    a single person
+  question: >-
+    has the first half answered at the small scale and still wants to know what
+    follows when all parties do the same at once
+  expectation: >-
+    having seen the reasoning carried through one small-scale case, expects the
+    next step to carry the same reasoning back to the larger scale
+  trust: >-
+    raised somewhat, the writer having carried an argument through a case the
+    reader can test from ordinary life
+breaks:
+  - >-
+    state the hypothetical in the third person rather than putting it to the
+    reader — the case becomes someone else's and the reader never tests the
+    consequences against their own life
+  - >-
+    give one consequence instead of a pair of the same kind — the situation
+    reads as a single piece of bad luck rather than a standing condition
+  - >-
+    leave out the gravest instance that grounds the worst outcome — the
+    paragraph's strongest claim stands asserted and the reader can discount it
+  - >-
+    stop at the stated course without the concrete instances — the course stays
+    abstract and the reader cannot picture carrying it out
+  - >-
+    put a paragraph of definitions before the invitation to imagine — the reader
+    meets the abstraction before the case that would have made it their own
+segments:
+  - operation: issues a brief invitation to imagine a situation
+  - operation: >-
+      poses a counterfactual that removes one standing feature of the present
+      arrangement and asks what one would do in it
+    relation: >-
+      turns the open invitation just issued into one definite case and puts the
+      case to the reader directly
+  - operation: >-
+      names one concrete consequence that would follow in the imagined situation
+    relation: >-
+      begins filling in the case the question left empty, taking one consequence
+      of it first
+  - operation: adds a further consequence of the same kind
+    relation: >-
+      repeats the construction of the step before it with a different instance,
+      so the consequence reads as general rather than particular
+  - operation: states the worst outcome the imagined situation can reach
+    relation: >-
+      gathers the paired instances into a single limit, moving from losing
+      things to not surviving
+  - operation: >-
+      names the gravest instance that nothing would check, to show why the limit
+      holds
+    relation: >-
+      supplies the ground for the limit the step before it had only asserted
+  - operation: >-
+      states what one in that situation would do to provide for oneself, as a
+      single course
+    relation: >-
+      turns from what the situation does to a person to what the person does
+      about it, and answers the question put earlier
+  - operation: >-
+      gives concrete instances of the stated course and names what each would
+      avert
+    relation: >-
+      makes the course just stated concrete, and its instances answer the
+      consequences named earlier one for one

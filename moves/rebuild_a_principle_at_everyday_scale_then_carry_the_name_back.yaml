@@ -1,0 +1,83 @@
+id: rebuild_a_principle_at_everyday_scale_then_carry_the_name_back
+description: >-
+  Sets out a domain's governing condition, reruns it where the reader already
+  lives until the resulting condition can be named, then carries the name back
+  and defines its remaining term.
+before:
+  knowledge: no specialized knowledge of the field, only everyday experience
+  question: >-
+    none formed beyond whether an unfamiliar subject can be followed at all
+  expectation: >-
+    expects an unfamiliar subject to open with definitions to be memorised
+  orientation: no placing of this text among others on the same subject
+  trust: neutral toward an unfamiliar author
+after:
+  knowledge: >-
+    holds a governing condition, the name of the evened-out condition it
+    produces, and a rough sense of how that is measured
+  question: >-
+    wants to know how the evened-out condition is judged in particular cases
+  expectation: >-
+    expects the next stretch to apply the named condition to particular cases
+  orientation: >-
+    places this as a text that builds from ordinary experience rather than from
+    definitions
+  trust: >-
+    raised, as the speaker admits a limit in the measure and gives a case that
+    runs against its obvious reading
+breaks:
+  - >-
+    cut the transposition into familiar surroundings and argue the principle
+    only at the scale it was first set out — the reader has nothing to check the
+    escalation against, and the named outcome arrives as a definition to
+    memorise
+  - >-
+    name the resulting condition only at the original scale and not in the
+    familiar one — the reader meets the name without having watched it form, and
+    the label does no work
+  - >-
+    stop before the final term is defined — the reader carries an unexplained
+    word out of the passage and cannot judge any particular case by it
+  - >-
+    drop the admission that the obvious indicators do not settle the measure —
+    the reader takes the measure as exact, and the account loses the credit its
+    own caution earns
+  - >-
+    add definitions of each term before the familiar setting is built — the
+    first demand for specialist knowledge arrives while the reader still has no
+    foothold
+segments:
+  - operation: >-
+      sets out the condition that governs a domain and the behaviour that
+      condition forces on everyone inside it
+  - operation: >-
+      transposes the same condition into a setting the reader already inhabits
+      and traces the consequences it produces there
+    relation: >-
+      takes the condition just set out and reruns it where the reader can check
+      it against their own experience
+  - operation: >-
+      introduces a second party inside the substitute setting whose greater
+      capacity makes the first party's remedy unreliable
+    relation: >-
+      pushes on the remedy the previous step arrived at and finds the opening it
+      leaves
+  - operation: >-
+      runs the escalation to its limit, where the two capacities match and
+      neither party gains by acting, and names the resulting condition
+    relation: >-
+      follows the opening found in the previous step forward until it closes on
+      a stable outcome
+  - operation: >-
+      carries the named outcome back from the substitute setting to the domain
+      the opening named, grounding it in a motive shared across kinds
+    relation: >-
+      applies the outcome reached at the familiar scale to the scale the first
+      step spoke of
+  - operation: >-
+      defines the term the whole account has leaned on, then qualifies the
+      definition by admitting that no indicator settles it and giving a case
+      where the obvious indicators mislead
+    relation: >-
+      supplies the one term the preceding account used without ever explaining
+      it

@@ -1,0 +1,79 @@
+id: let_mirrored_escalation_settle_into_a_named_state
+description: >-
+  Carries a small imagined case through a mirrored escalation to the point where
+  both sides are matched, then names that settled end with the subject's own
+  term.
+before:
+  knowledge: >-
+    also holds that the same remedy taken up by another party leaves one unable
+    to withstand it
+  question: >-
+    holds the sharpened question of what anyone can do once the remedy is
+    equally open to others
+  expectation: >-
+    having seen a difficulty raised inside the small-scale case, expects the
+    next step to follow out where that difficulty leads
+  trust: >-
+    raised somewhat, the writer having carried an argument through a case the
+    reader can test from ordinary life
+after:
+  knowledge: >-
+    holds that mutual escalation can settle into a matched condition where
+    neither side gains by striking, and holds a term for that condition
+  question: >-
+    holds that question answered, and now wants to know whether the settled
+    condition carries over from the small-scale case to the larger one
+  expectation: >-
+    the case having been carried through to a settled end, expects the next step
+    to transfer that result to the larger subject
+  trust: >-
+    raised further, a technical term having been earned by a chain the reader
+    could check step by step
+breaks:
+  - >-
+    give the term at the opening and then explain it — the label arrives before
+    the sequence that earns it, and the reader has nothing to attach it to
+  - >-
+    drop the step that turns the first response back on the other side — the
+    escalation has no engine, and the settled end reads as asserted rather than
+    reached
+  - >-
+    state the stopping point as certain rather than as something that may come —
+    the reader loses the sense that the parties reach it themselves rather than
+    having it imposed
+  - >-
+    leave the ground of the stopping point unstated — the halt reads as fatigue
+    instead of a calculation the reader can check
+  - >-
+    insert a paragraph of real-world illustration between the stopping point and
+    its naming — the chain the reader is holding goes slack before the term
+    arrives
+segments:
+  - operation: states the action the party in the case is driven to take.
+  - operation: >-
+      extends the same reasoning to the other side, yielding a matching
+      response.
+    relation: >-
+      turns the step just taken back on its author, granting the other side the
+      same reasoning.
+  - operation: compresses the repeated exchange into one continuing movement.
+    relation: >-
+      gathers the two matching responses into the single process they amount to.
+    manner: a short unelaborated statement standing alone between fuller ones.
+  - operation: posits a point at which the movement may cease of its own accord.
+    relation: >-
+      carries the continuing movement forward to a possible stopping point.
+  - operation: >-
+      gives the reason the stopping point arises, locating it in each side's
+      recognition of the other's matched capacity.
+    relation: >-
+      supplies the ground for the stopping point the step before allowed as
+      possible.
+  - operation: >-
+      names the resulting condition with a term and states what holds within it.
+    relation: >-
+      settles the recognition just given into a standing condition and gives it
+      a name.
+  - operation: draws out what the named condition rules out.
+    relation: >-
+      restates the named condition as the consequence it has for either side.

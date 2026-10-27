@@ -1,0 +1,47 @@
+id: derive_a_universal_tendency_from_an_absent_protector
+description: >-
+  From the absence of any outside protector it derives the necessity of
+  self-provision, then draws from that necessity the one tendency every party
+  follows.
+before:
+  knowledge: >-
+    no specialized grounding in the subject, only everyday impressions of how
+    order is kept
+  question: nothing settled, at most whether the subject is worth following
+  expectation: expects a plain explanation or some definitions to be set out
+after:
+  knowledge: >-
+    holds that where no outside enforcer exists each party has to provide for
+    itself, and that this is why each aims at strength
+  question: >-
+    wants to know what aiming at strength consists of and what happens when
+    every party aims at it at once
+  expectation: >-
+    expects what comes next to take up the tendency just drawn and show where it
+    leads
+breaks:
+  - >-
+    drop the opening contrastive signal — the step reads as a fresh assertion
+    instead of a correction of what the reader had been led to assume
+  - >-
+    give the consequence without first naming the missing protector — the
+    tendency looks like a claim about character rather than something
+    circumstances compel
+  - >-
+    hedge the necessity into a possibility — the outcome stops being unavoidable
+    and becomes one option among several the reader can set aside
+  - >-
+    expand the closing consequence over several sentences of elaboration — it
+    loses its force as a single inevitable step and no longer lands as a
+    conclusion
+segments:
+  - operation: >-
+      states that the absence of any outside protector leaves each party to
+      provide for its own safety
+  - operation: >-
+      draws one consequence and presents it as a tendency holding of every party
+      alike
+    relation: >-
+      it takes the necessity established in the step before and names the
+      behaviour that necessity produces everywhere
+    manner: realised as one brief closing statement that takes no elaboration

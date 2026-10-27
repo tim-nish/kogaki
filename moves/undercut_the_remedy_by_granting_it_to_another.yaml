@@ -1,0 +1,58 @@
+id: undercut_the_remedy_by_granting_it_to_another
+description: >-
+  Turns the remedy just granted against the reader: a one-line signal of
+  trouble, a hypothetical put as a question, a short answer, then the reason for
+  it.
+before:
+  knowledge: >-
+    also holds what providing for oneself consists of concretely at the scale of
+    a single person
+  question: >-
+    has the first half answered at the small scale and still wants to know what
+    follows when all parties do the same at once
+  expectation: >-
+    having seen the reasoning carried through one small-scale case, expects the
+    next step to carry the same reasoning back to the larger scale
+after:
+  knowledge: >-
+    also holds that the same remedy taken up by another party leaves one unable
+    to withstand it
+  question: >-
+    holds the sharpened question of what anyone can do once the remedy is
+    equally open to others
+  expectation: >-
+    having seen a difficulty raised inside the small-scale case, expects the
+    next step to follow out where that difficulty leads
+breaks:
+  - >-
+    state the difficulty as a general proposition instead of asking it as a
+    question about the reader's own situation — the reader is told of a danger
+    rather than feeling one, and the next step loses its motive
+  - >-
+    answer the question at length instead of in one short reply — the reaction
+    reads as the writer's analysis rather than as the reader's own, and its
+    immediacy goes
+  - >-
+    leave the reason for the reaction unstated — the reader holds a feeling with
+    no ground, and cannot carry it to the larger scale later
+  - >-
+    raise the difficulty before the remedy has been walked through — there is
+    nothing yet for it to undercut, and the reversal has no force
+  - >-
+    add a second hypothetical variation beside the first — the single pressure
+    point is diluted and the turn arrives too late to be felt
+segments:
+  - operation: signals that a difficulty arises at this point
+  - operation: >-
+      poses a hypothetical in which another party is better provided for than
+      oneself, and asks how that would feel
+    relation: >-
+      turns the announced difficulty into a concrete question about the case in
+      hand
+  - operation: answers the question with a single stated reaction
+    relation: supplies the answer to the question just put
+    manner: the reply is voiced as a likely guess rather than asserted outright
+  - operation: >-
+      gives the ground for the stated reaction by naming what the weaker party
+      could not do against a stronger one
+    relation: supplies the reason for the answer just given

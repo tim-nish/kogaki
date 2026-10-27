@@ -1,0 +1,58 @@
+id: carry_a_worked_case_onto_the_wider_scale
+description: >-
+  Carries a chain already walked at a small scale onto the larger subject in a
+  few clauses, then fixes the result with its technical name.
+before:
+  knowledge: >-
+    holds that mutual escalation can settle into a matched condition where
+    neither side gains by striking, and holds a term for that condition
+  question: >-
+    holds that question answered, and now wants to know whether the settled
+    condition carries over from the small-scale case to the larger one
+  expectation: >-
+    the case having been carried through to a settled end, expects the next step
+    to transfer that result to the larger subject
+after:
+  knowledge: >-
+    holds that the matched condition and its name apply at the wider scale,
+    reached there by the same steps
+  question: >-
+    holds the transfer question answered, and now wants to know what the named
+    general condition accounts for
+  expectation: >-
+    expects the next step to put the named general condition to work on the
+    wider subject
+breaks:
+  - >-
+    name the condition before the countervailing response is stated — the term
+    labels an assertion rather than a result the reader has watched arrive
+  - >-
+    drop the step that grants the same move to the other parties — the evened
+    condition has no cause at the wider scale and the name is taken on faith
+  - >-
+    expand the restated premise into a fresh explanation — the wider scale reads
+    as a new argument instead of the walked one carried over
+  - >-
+    begin from the shared aim with no opening transfer — the reader cannot tell
+    that the chain they just followed is the one being reused
+segments:
+  - operation: states that a relation holds at a wider scale
+  - operation: names an overriding aim held in common by the parties involved
+    relation: >-
+      supplies the shared aim on which the asserted relation at the wider scale
+      rests
+  - operation: >-
+      derives a requirement on each party from the absence of an external
+      protector
+    relation: >-
+      turns the shared aim into what it forces on each party once nothing
+      outside secures them
+  - operation: >-
+      states that the other parties answer the same move in kind until the
+      measure evens out
+    relation: >-
+      turns the requirement just derived back against itself by granting the
+      same move to the others
+  - operation: attaches a name to the condition just described
+    relation: >-
+      closes the sequence by labelling the condition the response arrives at
