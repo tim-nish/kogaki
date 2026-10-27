@@ -354,7 +354,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const planCounter = dir + "/plan-" + leg.leg_id;
   const planN = (existsSync(planCounter) ? Number(readFileSync(planCounter, "utf8")) : 0) + 1;
   writeFileSync(planCounter, String(planN));
-  out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => {
+  out({ version: "1", leg_id: leg.leg_id,
+    ...(mode === "owes" && leg.leg_id === "s1"
+      ? { obligations: [{ opened_by: 1, items: [{ item: "OWED-ROW which edit survives the next run?", closed_by: 2 }] }] } : {}),
+    waypoints: leg.waypoints.map((w) => {
     const nofit = mode === "nofit" && leg.leg_id === "s1" && w.waypoint === 2;
     const move = nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : (mode === "segments3" || mode === "content" || mode === "relation") ? "p4"
       : (mode === "performs" || mode === "performs-purpose") ? "p5" : mode === "owes" ? "p4" : mode === "own-step" ? "p7" : "p1";
@@ -367,8 +370,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return { waypoint: w.waypoint, move,
       why: nofit ? "NOFIT-SENTENCE-" + planN + " no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       ...(join ? { join } : {}),
-      ...(mode === "owes" && leg.leg_id === "s1" && w.waypoint === 1
-        ? { obligations: [{ opened_by: 1, items: [{ item: "OWED-ROW which edit survives the next run?", closed_by: 3 }] }] } : {}),
       ...(mode === "owes" && w.waypoint === 1 && owes.length && planN > 1
         ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 2 })) } : {}),
       paragraph_waypoints: nofit ? [] : mode === "own-step"
@@ -917,7 +918,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
 }
 
-// (u) THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, kogaki#1612).
+// (u) THE OBLIGATION RECORD AT THE PARAGRAPH SCALE, ON THE LEG (kogaki#1530, kogaki#1612, kogaki#1620).
 {
   const ROW = { opened_by: "s1", items: [{ item: "Why does the next run overwrite the edit?", closed_by: "s2" }] };
   const run = runStage("owes", legs, "owes", moves, [ROW]);
@@ -932,34 +933,54 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     fails.push(`(u) the job with an owed row wrote no plan file: ${(run.awaited && run.awaited.stdout) || (run.started && run.started.stderr)}`);
   } else {
     const plan = parseYaml(readFileSync(run.planPath, "utf8"), "plan");
-    const s1w1 = plan.legs[0].waypoints[0];
+    const s1 = plan.legs[0];
     const s2w1 = plan.legs[1].waypoints[0];
-    if (!Array.isArray(s1w1.obligations) || s1w1.obligations[0].opened_by !== 1 || s1w1.obligations[0].items[0].closed_by !== 3) {
-      fails.push(`(u) the plan file does not carry s1's Paragraph-scale row under its Leg Waypoint: ${JSON.stringify(s1w1)}`);
+    if (!Array.isArray(s1.obligations) || s1.obligations[0].opened_by !== 1 || s1.obligations[0].items[0].closed_by !== 2
+      || s1.waypoints.some((w) => "obligations" in w)) {
+      fails.push(`(u) the plan file does not carry s1's Paragraph-scale record on the Leg alone: ${JSON.stringify(s1)}`);
     }
     if (JSON.stringify(s2w1.discharges) !== JSON.stringify([{ obligation: 1, by: 2 }])) fails.push(`(u) the plan file does not carry s2's discharge: ${JSON.stringify(s2w1)}`);
     if (paragraphPlanShapeRefusal(plan, "plan.yaml", legs) !== null) fails.push(`(u) the plan reader refuses the plan file the stage wrote: ${paragraphPlanShapeRefusal(plan, "plan.yaml", legs)}`);
   }
   const judged = run.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
   if (!judged.some((p) => p.includes("OWED-ROW which edit survives"))) fails.push("(u) the judge's input does not carry the Paragraph-scale row");
+  // The items still open reach the paragraph after the opening one as material (rule 6, kogaki#1620).
+  const s1Judged = judged.find((p) => p.includes('"leg_id": "s1"')) || "";
+  if (!s1Judged.includes('"obligations_open_here"')) fails.push("(u) the judge's input hands Leg Waypoint 2 no open items of s1's record");
   if (!judged.some((p) => p.includes('"leg_id": "s2"') && owedIn(p) && p.includes('"discharges"'))) fails.push("(u) the judge's input for s2 does not carry the owed row beside its discharge");
 
   // The plan call's validator and the plan reader, over one Leg Waypoint bound to p4's three Segments.
   const three = [1, 2, 3].map((n) => ({ point: `part ${n} of the point.`, serves: ["L1"] }));
-  const unit = (rows) => ({ version: "1", leg_id: "s1", waypoints: [
-    { waypoint: 1, move: "p4", why: "its before holds the state.", obligations: rows, paragraph_waypoints: three },
+  const unit = (rows) => ({ version: "1", leg_id: "s1", ...(rows.length ? { obligations: rows } : {}), waypoints: [
+    { waypoint: 1, move: "p4", why: "its before holds the state.", paragraph_waypoints: three },
     { waypoint: 2, move: "p1", why: "its before holds the state.", join: "contrast", paragraph_waypoints: [{ point: "a point.", serves: ["L1", "L2"] }] }] });
   const record = (rows) => ({ version: "1", brief: { path: "theses/plan-brief/brief.yaml", sha256: "0" },
-    legs: [{ leg_id: "s1", waypoints: [{ waypoint: 1, obligations: rows, paragraph_waypoints: three },
+    legs: [{ leg_id: "s1", ...(rows.length ? { obligations: rows } : {}), waypoints: [{ waypoint: 1, paragraph_waypoints: three },
       { waypoint: 2, join: "contrast", paragraph_waypoints: [{ point: "a point.", serves: ["L1", "L2"] }] }] },
     { leg_id: "s2", waypoints: [{ waypoint: 1, paragraph_waypoints: [{ point: "a point.", serves: ["L2"] }] }] }] });
   const q = (text, opened, closed) => ({ opened_by: opened, items: [{ item: text, closed_by: closed }] });
   const planned = { legs: legs.map(planLeg), movesDir: moves };
+  // THE RECORD'S UNITS ARE THE LEG'S PARAGRAPHS (kogaki#1620): Leg s1 of five Leg Waypoints, each one
+  // paragraph bound to p1, carries its records in the plan record's own `obligations`.
+  const legs5 = [leg("s1", [{ strand: "L1", proposition: C1 }], [1, 2, 3, 4, 5].map((n) => ({ point: `The point of paragraph ${n}.`, serves: ["L1"] }))), legs[1]];
+  const planned5 = { legs: legs5.map(planLeg), movesDir: moves };
+  const entries5 = (extra = {}) => [1, 2, 3, 4, 5].map((n) => ({ waypoint: n, ...(n === 1 ? {} : { join: "contrast" }),
+    ...(n === 1 ? extra : {}), paragraph_waypoints: [{ point: "a point.", serves: ["L1"] }] }));
+  const unit5 = (rows, extra) => ({ version: "1", leg_id: "s1", ...(rows ? { obligations: rows } : {}),
+    waypoints: entries5(extra).map((e) => ({ ...e, move: "p1", why: "its before holds the state." })) });
+  const record5 = (rows, extra) => ({ version: "1", brief: { path: "theses/plan-brief/brief.yaml", sha256: "0" },
+    legs: [{ leg_id: "s1", ...(rows ? { obligations: rows } : {}), waypoints: entries5(extra) },
+      { leg_id: "s2", waypoints: [{ waypoint: 1, paragraph_waypoints: [{ point: "a point.", serves: ["L2"] }] }] }] });
+  const readers = (rows, extra) => [["validator", validateParagraphPlanUnit(unit5(rows, extra), planned5, "leg-1").error || null],
+    ["plan reader", paragraphPlanShapeRefusal(record5(rows, extra), "plan.yaml", legs5)]];
   const okRows = [q("first?", 1, 2), q("second?", 2, 3)];
   const threeItems = [{ opened_by: 1, items: [{ item: "first?", closed_by: 2 }, { item: "second?", closed_by: 2 }, { item: "third?", closed_by: 3 }] }];
-  for (const [what, rows] of [["two records open one after the other", okRows], ["three items closed two at one Paragraph Waypoint and one at the next", threeItems]]) {
-    for (const [reader, got] of [["validator", validateParagraphPlanUnit(unit(rows), planned, "leg-1").error || null],
-      ["plan reader", paragraphPlanShapeRefusal(record(rows), "plan.yaml", legs)]]) {
+  // Paragraph 2 poses the question and names its two parts, 3 and 4 explain them, 5 answers it (kogaki#1620).
+  const subs = (q5, a, b) => [{ opened_by: 2, items: [{ item: "why can no one stop it?", closed_by: q5,
+    subitems: [{ item: "the domestic half", closed_by: a }, { item: "the international half", closed_by: b }] }] }];
+  for (const [what, rows] of [["two records open one after the other", okRows], ["three items closed two at one paragraph and one at the next", threeItems],
+    ["a record opened by paragraph 2 whose SubItems close at 3 and 4 and whose item closes at 5", subs(5, 3, 4)]]) {
+    for (const [reader, got] of readers(rows)) {
       if (got !== null) fails.push(`(u) the ${reader} refused ${what}: ${got}`);
     }
   }
@@ -967,16 +988,27 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const RETIRED = ["raised_by", "owed_by", ["discharged", "by"].join("_"), ["conceded", "by"].join("_"), "open",
     ["why", "not", "here"].join("_"), ["reader", "keeps"].join("_"), "item"];
   const cases = [
-    ["two records open at one Paragraph Waypoint", [q("first?", 1, 3), q("second?", 2, 3)],
-      ["Paragraph Waypoint 2: 2 records are open here", "obligation \"first?\"", "obligation \"second?\""]],
+    ["two records open at one paragraph", [q("first?", 1, 3), q("second?", 2, 3)],
+      ["Leg Waypoint 2: 2 records are open here", "obligation \"first?\"", "obligation \"second?\""]],
     ["an item closed before its record opens", [q("first?", 2, 1)],
-      ["closes the item \"first?\" here, before Paragraph Waypoint 2 opens it"]],
+      ["closes the item \"first?\" here, before Leg Waypoint 2 opens it"]],
     ["a record closed where it opened", [q("first?", 2, 2)],
       ["closes the item \"first?\" where it opens it"]],
     ["an item closed out of order", [{ opened_by: 1, items: [{ item: "first?", closed_by: 3 }, { item: "second?", closed_by: 2 }] }],
       ["closes the item \"second?\" before the earlier item \"first?\"", "the items close in the order named"]],
-    ["an item still open at the last Paragraph Waypoint", [{ opened_by: 1, items: [{ item: "first?", closed_by: 2 }, { item: "second?", closed_by: null }] }],
-      ["still holds the item \"second?\" open at the Leg Waypoint's last Paragraph Waypoint, 3"]],
+    ["an item still open at the Leg's last paragraph", [{ opened_by: 1, items: [{ item: "first?", closed_by: 2 }, { item: "second?", closed_by: null }] }],
+      ["still holds the item \"second?\" open at the Leg's last paragraph, Leg Waypoint 5"]],
+    // SUBITEMS CLOSE IN ORDER, BEFORE THEIR ITEM (kogaki#1620).
+    ["the item closed at paragraph 4 and a SubItem at paragraph 5", subs(4, 3, 5),
+      ["closes the item \"why can no one stop it?\" before the SubItem \"the international half\"", "an item closes after its last SubItem"]],
+    ["the item closed while a SubItem is open", subs(5, 3, null),
+      ["closes the item \"why can no one stop it?\" before the SubItem \"the international half\", which is still open"]],
+    ["the item closed at its last SubItem's paragraph", subs(4, 3, 4),
+      ["closes the item \"why can no one stop it?\" at the unit of the SubItem \"the international half\""]],
+    ["SubItems closed out of order", subs(5, 4, 3),
+      ["closes the SubItem \"the international half\" before the SubItem \"the domestic half\"", "the SubItems close in the order named"]],
+    ["an empty subitems list", [{ opened_by: 2, items: [{ item: "why?", closed_by: 3, subitems: [] }] }],
+      ["`subitems` that is not a non-empty list"]],
     // THE RETIRED KEYS, REFUSED BY NAME (kogaki#1568, kogaki#1612).
     ["a record carrying the retired `kind`", [{ kind: "question", ...q("first?", 1, 2) }], ["carries `kind`, retired (kogaki#1568)"]],
     ["a record carrying the retired `text`", [{ text: "first?", opened_by: 1 }], ["carries `text`, retired (kogaki#1568)"]],
@@ -984,14 +1016,21 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     ...RETIRED.map((key) => [`a record carrying the retired \`${key}\``, [{ ...q("first?", 1, 2), [key]: 2 }], [`\`${key}\`, retired`]]),
   ];
   for (const [what, rows, want] of cases) {
-    const v = validateParagraphPlanUnit(unit(rows), planned, "leg-1").error || "";
-    if (!v.includes("Leg s1, Waypoint 1") || !want.every((w) => v.includes(w))) fails.push(`(u) the validator did not refuse ${what} naming the records: ${v || "no refusal"}`);
-    const r = paragraphPlanShapeRefusal(record(rows), "plan.yaml", legs) || "";
-    if (!want.every((w) => r.includes(w))) fails.push(`(u) the plan reader did not refuse ${what} naming the records: ${r || "no refusal"}`);
+    for (const [reader, got] of readers(rows)) {
+      if (!(got || "").includes("Leg s1") && reader === "validator" || !want.every((w) => (got || "").includes(w))) {
+        fails.push(`(u) the ${reader} did not refuse ${what} naming the records: ${got || "no refusal"}`);
+      }
+    }
   }
-  // A record open across an idle Paragraph Waypoint needs four, so the shared reader is read directly.
-  const idle = paragraphObligationsRefusal([q("first?", 1, 4)], 4, "Leg s1, Waypoint 1");
-  if (idle !== null) fails.push(`(u) a record open across an idle Paragraph Waypoint was refused: ${idle}`);
+  // A RECORD UNDER A LEG WAYPOINT'S OWN `obligations` IS REFUSED BY NAME (kogaki#1620).
+  for (const [reader, got] of readers(undefined, { obligations: [q("first?", 1, 2)] })) {
+    if (!(got || "").includes("Waypoint 1") || !(got || "").includes("carries `obligations`, retired from the Leg Waypoint (kogaki#1620)")) {
+      fails.push(`(u) the ${reader} did not refuse a record under a Leg Waypoint's own \`obligations\` by name: ${got || "no refusal"}`);
+    }
+  }
+  // A record open across an idle paragraph, read by the shared reader directly.
+  const idle = paragraphObligationsRefusal([q("first?", 1, 4)], 4, "Leg s1");
+  if (idle !== null) fails.push(`(u) a record open across an idle paragraph was refused: ${idle}`);
   const owing = { legs: legs.map((l) => planLeg(l, [ROW])), movesDir: moves };
   const s2unit = (discharges) => ({ version: "1", leg_id: "s2", waypoints: [{ waypoint: 1, move: "p1", why: "its before holds the state.",
     ...(discharges ? { discharges } : {}), paragraph_waypoints: [{ point: "a point.", serves: ["L2"] }] }] });
@@ -1034,7 +1073,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const slotted = (rows, pws = three) => { const u = unit(rows); u.waypoints[0].move = "p9"; u.waypoints[0].paragraph_waypoints = pws; return u; };
   const inSlotDir = { legs: legs.map(planLeg), movesDir: slotDir };
   const article = { opened_by: 1, items: [{ item: "offense-defense advantage", closed_by: 2 },
-    { item: "offense-defense distinguishability", closed_by: 2 }, { item: "the cost of the first strike", closed_by: 3 }] };
+    { item: "offense-defense distinguishability", closed_by: 2 }, { item: "the cost of the first strike", closed_by: 2 }] };
   const filled = validateParagraphPlanUnit(slotted([article]), inSlotDir, "leg-1").error;
   if (filled) fails.push(`(u) a row of three article items bound to a Move whose obligation is one collective item is refused: ${filled}`);
   // AN ITEM IS KEPT BY EXPLANATION, NEVER BY NAMING (kogaki#1603): a row whose discharging
@@ -1070,8 +1109,8 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   });
   if (!namesOnly) fails.push("(u) the PROMISE KEPT axis carries no defect fixture whose discharging Paragraph Waypoint only names the items");
   const owe = critOf(paragraphPlanUnitPrompt({ id: "paragraph_plan_unit", ...JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8")).paragraph_plan_unit }, input), "OWE");
-  if (!owe.includes("each closed by the later Paragraph Waypoint that explains it, in that order and never where it opens")) {
-    fails.push(`(u) the OWE step does not close each item at the later Paragraph Waypoint explaining it: ${JSON.stringify(owe)}`);
+  if (!owe.includes("each closed in order by the later Leg Waypoint that explains it, never where it opens, its `subitems` first")) {
+    fails.push(`(u) the OWE step does not close each item, its SubItems first, at the later Leg Waypoint explaining it: ${JSON.stringify(owe)}`);
   }
   if (/per slot item|per item of the bound Move/.test(owe)) fails.push(`(u) the OWE step still counts the row's items from the slot: ${JSON.stringify(owe)}`);
   const row = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8")).paragraph_plan_unit;
@@ -1097,17 +1136,15 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   // as two records opened at 1 is refused by the capacity rule; a repeated item is refused by name;
   // and the items reach no Packet line (kogaki#1584).
   const pair = { opened_by: 1, items: [{ item: "ownership boundary", closed_by: 2 }, { item: "non-member fallback", closed_by: 3 }] };
-  for (const [what, got] of [["validator", validateParagraphPlanUnit(unit([pair]), planned, "leg-1").error || null],
-    ["plan reader", paragraphPlanShapeRefusal(record([pair]), "plan.yaml", legs)]]) {
+  for (const [what, got] of readers([pair])) {
     if (got !== null) fails.push(`(v) the ${what} refused a two-item record closed in order: ${got}`);
   }
   const asTwo = [q("ownership boundary", 1, 2), q("non-member fallback", 1, 3)];
   const repeat = { opened_by: 1, items: [{ item: "ownership boundary", closed_by: 2 }, { item: "ownership boundary", closed_by: 3 }] };
-  for (const [what, rows, want] of [["the same promise as two records opened at one Paragraph Waypoint", asTwo, "Paragraph Waypoint 1: 2 records are open here"],
+  for (const [what, rows, want] of [["the same promise as two records opened at one paragraph", asTwo, "Leg Waypoint 1: 2 records are open here"],
     ["a list naming an item twice", [repeat], "names the item \"ownership boundary\" twice"],
     ["an empty items list", [{ opened_by: 1, items: [] }], "empty `items` list"]]) {
-    const v = validateParagraphPlanUnit(unit(rows), planned, "leg-1").error || "";
-    const r = paragraphPlanShapeRefusal(record(rows), "plan.yaml", legs) || "";
+    const [[, v], [, r]] = readers(rows).map(([k, x]) => [k, x || ""]);
     if (!v.includes(want) || !r.includes(want)) fails.push(`(v) ${what} was not refused by both readers naming it: ${v || "no refusal"} / ${r || "no refusal"}`);
   }
   const listed = waypointLines({ claims: s1.claims, waypoints: [{ ...s1.waypoints[0], paragraph_waypoints: three, obligations: [pair] }] }) || "";

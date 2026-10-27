@@ -9,8 +9,8 @@
 #   Section inside a record; (q) none open at the end, retired fields by name.
 #   (r) `introduces` `kind`; (s) a Move's slot, no count; (t) `closure`; (u) no
 #   Obligation item in `names`; (v) a record's `items`; (w) three items pass a
-#   one-item slot; (x) a Leg only naming its items does not close them (#1603).
-# Renamed from check-brief-closure.sh by kogaki#1529; the registry row says more.
+#   one-item slot; (x) a Leg only naming its items does not close them (#1603);
+#   (y) an item's SubItems close in order, before it (#1620). Renamed by #1529.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -327,6 +327,28 @@ const RETIRED = ["raised_by", "owed_by", ["discharged", "by"].join("_"), ["conce
   }
   const rIdle = obligationLedgerRefusal(legs, [q("held across an idle Leg", "leg1", "leg3")]);
   if (rIdle) fails.push(`(o) a record open across an idle Leg was refused: ${rIdle}`);
+}
+
+// (y) AN ITEM'S SUBITEMS CLOSE IN ORDER, BEFORE IT (kogaki#1620): a record opened by Leg 2 whose
+// SubItems close at Legs 3 and 4 and whose item closes at Leg 5 passes; the item closed at Leg 4
+// with a SubItem at Leg 5, or while a SubItem is still open, is refused naming both; and an item
+// still open at the path's last Leg is refused naming the item.
+{
+  const legs = ids(5);
+  const subs = (item, a, b) => ({ opened_by: "leg2", items: [{ item: "why can no one stop it?", closed_by: item,
+    subitems: [{ item: "the domestic half", closed_by: a }, { item: "the international half", closed_by: b }] }] });
+  const ok = obligationLedgerRefusal(legs, [subs("leg5", "leg3", "leg4")]);
+  if (ok) fails.push(`(y) a record whose SubItems close at Legs 3 and 4 and whose item closes at Leg 5 was refused: ${ok}`);
+  for (const [what, rec, want] of [
+    ["the item closed at Leg 4 and a SubItem at Leg 5", subs("leg4", "leg3", "leg5"), ["the item \"why can no one stop it?\" before the SubItem \"the international half\", which closes at \"leg5\"", "an item closes after its last SubItem"]],
+    ["the item closed while a SubItem is open", subs("leg5", "leg3", null), ["the item \"why can no one stop it?\" before the SubItem \"the international half\", which is still open"]],
+    ["SubItems closed out of order", subs("leg5", "leg4", "leg3"), ["the SubItem \"the international half\" before the SubItem \"the domestic half\""]],
+    ["an item still open at the last Leg", subs(null, "leg3", "leg4"), ["still holds the item \"why can no one stop it?\" open at the path's last Leg"]]]) {
+    const r = obligationLedgerRefusal(legs, [rec]) || "";
+    if (!want.every((w) => r.includes(w))) fails.push(`(y) ${what} was not refused naming both: ${r || "no refusal"}`);
+  }
+  const shape = obligationLedgerRefusal(legs, [{ opened_by: "leg2", items: [{ item: "why?", closed_by: "leg3", subitems: [{ item: "a part", closed_by: "leg3", depth: 2 }] }] }]) || "";
+  if (!shape.includes("SubItem 1 with `depth`")) fails.push(`(y) a SubItem carrying a key beside item and closed_by was not refused by name: ${shape || "no refusal"}`);
 }
 
 // (p) a Leg inside an open record carrying `opens_section` is refused.

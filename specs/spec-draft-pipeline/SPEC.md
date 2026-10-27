@@ -2497,27 +2497,31 @@ planner consumes it and it never reaches the Writer.
 > clause above).
 
 **Obligations at the Paragraph scale** (kogaki#1528, owner decision
-2026-10-23). A Leg Waypoint's Paragraph Waypoints carry the same Obligation
-record §5.2 states for Legs — `{opened_by, items}`, each item `{item,
-closed_by}` (kogaki#1612) — with `opened_by` and every `closed_by` naming
-Paragraph Waypoints of that one Leg Waypoint, and the record lives in the
-ParagraphPlan file, on the Leg Waypoint entry it belongs to. §5.2's rules bind
-it as they bind the Leg scale, except the Section rule: a slot is raised by
-the bound paragraph Move's `obligation` and by nothing else, and its record's
-`items` carry what this article leaves unexplained at that paragraph, in the
-article's own words and as many items as the article raises there, never
-counted against the slot (kogaki#1577, kogaki#1603); at most one record is
-open at any Paragraph Waypoint, its items close after `opened_by` in the order
-named, none is open at the Leg Waypoint's last Paragraph Waypoint, and a
-record open here may be open while a Leg-scale record is open too. **Closing
-is planning, never prose**: an item is closed by the Paragraph Waypoint the
-plan generates for it, the record lives in the ParagraphPlan file and reaches
-no Packet (kogaki#1584), and no stage inserts a paragraph or a sentence for
-it. Whether a closing Paragraph Waypoint explains its items is the
-ParagraphPlan judge's to judge, beside the plan it already judges. A Brief
-record with an item a Leg closes is handed to that Leg's plan call, carrying
-those items alone, and the plan lays it into the `discharges` of the Leg
-Waypoint whose Paragraph Waypoint explains them (kogaki#1530).
+2026-10-23; kogaki#1620, owner decision 2026-10-27). A Leg's paragraphs carry
+the same Obligation record §5.2 states for Legs — `{opened_by, items}`, each
+item `{item, closed_by, subitems?}` (kogaki#1612, kogaki#1620) — with
+`opened_by` and every `closed_by` naming Leg Waypoints of that one Leg, each
+Leg Waypoint being one paragraph, and the record lives in the ParagraphPlan
+file, in the Leg's own `obligations` list; a Leg Waypoint entry carrying
+`obligations`, the place kogaki#1530 gave it, is refused by name. §5.2's rules
+bind it as they bind the Leg scale, except the Section rule: a slot is raised
+by the bound paragraph Move's `obligation` and by nothing else, and its
+record's `items` carry what this article leaves unexplained at that
+paragraph, in the article's own words and as many items as the article raises
+there, never counted against the slot (kogaki#1577, kogaki#1603); at most one
+record is open at any paragraph of the Leg, its items close after `opened_by`
+in the order named, each item's SubItems before it, none is open at the Leg's
+last paragraph, and a record open here may be open while a Leg-scale record is
+open too. **Closing is planning, never prose**: an item is closed by the
+paragraph the plan generates for it, the record lives in the ParagraphPlan
+file and reaches no Packet (kogaki#1584), and no stage inserts a paragraph or a
+sentence for it. Whether a closing paragraph explains its items is the
+ParagraphPlan judge's to judge, beside the plan it already judges; the judge
+is handed the Leg's records, and each Leg Waypoint after the opening one the
+items still open when it begins (§5.2 rule 6). A Brief record with an item a
+Leg closes is handed to that Leg's plan call, carrying those items alone, and
+the plan lays it into the `discharges` of the Leg Waypoint whose Paragraph
+Waypoint explains them (kogaki#1530).
 
 **The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.
@@ -2921,13 +2925,41 @@ govern it:
    unexplained — and each `closed_by` the unit that explains it, or `null`
    while it is still open. A list is non-empty and names no item twice. At
    the **Leg scale** the units are Legs, and the record lives on the Brief.
-   At the **Paragraph scale** they are Paragraph Waypoints of one Leg
-   Waypoint, and the record lives in the ParagraphPlan file (§4.19). Both
-   scales carry the same fields and the same rules, except rule 5, which has
-   no Paragraph counterpart. The items are the article's, as many as the
-   composer finds in the Strand, and an item is closed by being explained,
-   never by being named (kogaki#1603, beside kogaki#1549 and kogaki#1577,
-   owner reading 2026-10-26).
+   At the **Paragraph scale** they are the paragraphs of one Leg — its Leg
+   Waypoints — and the record lives in the ParagraphPlan file, on the Leg
+   (§4.19, kogaki#1620). Both scales carry the same fields and the same
+   rules, except rule 5, which has no Paragraph counterpart. The items are
+   the article's, as many as the composer finds in the Strand, and an item
+   is closed by being explained, never by being named (kogaki#1603, beside
+   kogaki#1549 and kogaki#1577, owner reading 2026-10-26).
+
+   **A Move has a Scale** (kogaki#1620, owner decision 2026-10-27, beside
+   kogaki#1528, kogaki#1530 and kogaki#1612): the concept that names a
+   Move's target unit is its Scale, Paragraph or Leg. A paragraph Move the
+   Proof Sheet extracts is Paragraph Scale, and a Leg Move (kogaki#1601) is
+   Leg Scale. The boundaries, as the owner decided them:
+
+   > An Obligation is raised at the Move's Scale and kept among the units of
+   > that Scale inside one unit of the next Scale up: a Paragraph Obligation
+   > among the paragraphs of one Leg, a Leg Obligation among the Legs of the
+   > one Reader Path. An Obligation is never carried into a higher Scale.
+   > Where a Scale has one unit the Obligation belongs to the lower Scale:
+   > there is exactly one Reader Path, so Leg is the highest Scale, and any
+   > Obligation that can close within a single Leg is a Paragraph
+   > Obligation. There is no Scale below Paragraph: a promise opened and
+   > closed between the Segments of one Move is the Move's own
+   > responsibility and is not modelled.
+
+   **An item may carry SubItems** (kogaki#1620): `subitems`, a list of
+   `{item, closed_by}` one level deep, as many as the opening unit names and
+   never a count fixed by rule. They are the parts the item's answer turns
+   on, named by the opening unit without being explained: the SubItems close
+   first, in the order named, each by a unit that explains it, as a term
+   closes, and the item closes last, by the unit that answers it. Once a
+   SubItem has closed, the sequence does not return to the item and then to
+   a SubItem. The Move fixes this order: its `obligation` names the SubItems
+   under their item (rule 2).
+
 2. **One source.** A Move whose `obligation` names items it leaves
    unexplained raises a **slot** — items derived from the Move's own
    Segments and from nothing of any source text, so the inference holds no
@@ -2939,7 +2971,10 @@ govern it:
    `operation` poses that no later Segment's `operation` answers, and a
    term a Segment's `operation` introduces that no later Segment's
    `operation` defines, glosses or grounds — one item per question or term,
-   in the order the Segments raise them. Because the Segments are the
+   in the order the Segments raise them. Where a Segment poses a question
+   and a later Segment names, without explaining, the parts its answer turns
+   on, the question item carries those parts as its SubItems, in the order
+   that Segment names them (kogaki#1620). Because the Segments are the
    call's whole input, the same call re-judges an admitted Move record
    (`extract.mjs rejudge --library <dir>`), rewriting its `obligation` and
    `obligation_triggers` from its own `segments` and nothing else. The composer
@@ -2967,7 +3002,10 @@ govern it:
    to it is refused, since a promise kept where it is made is the unit's own
    structure and not a promise; at most one record is open at any unit (rule
    3); and a record whose item is still `null` at the last unit of its scale
-   is refused naming the item. A unit that only names an item does not close
+   is refused naming the item. SubItems are held to the same rules, and an
+   item's SubItems close in the order named, the item's `closed_by` after
+   its last SubItem's; an item closed at or before a SubItem's unit, or
+   while a SubItem is still open, is refused naming both (kogaki#1620). A unit that only names an item does not close
    it (kogaki#1603): whether a `closed_by` unit explains its item is judged
    where rule 6 says; the shape is checked here.
 5. **Section.** No Leg after a record's `opened_by`, up to and including the
@@ -2976,7 +3014,7 @@ govern it:
 6. **Closing is planning, never prose, and the records never leave the
    Plan.** An item is closed by the closing unit's Waypoints and its Move
    binding: at the Leg scale by the Leg's Waypoints, at the Paragraph scale
-   by the Paragraph Waypoints the plan generates. An open record's items
+   by the paragraph the plan generates, its Paragraph Waypoints. An open record's items
    reach the units inside it as material — each unit after the opening one,
    up to the one closing the last item, is handed the items still open when
    it begins — asking for no sentence. The Writer's Packet carries no record
@@ -2998,9 +3036,10 @@ composer as checked entries, and `obligationLedgerRefusal`
 (`src/compose.mjs`) refuses over them naming the record and the Leg; at the
 Paragraph scale `paragraphObligationsRefusal` refuses over the same rules.
 *Status: both scales are carried by the executables* (kogaki#1529,
-kogaki#1530, kogaki#1612): the Brief's `obligations` records and a Leg
-Waypoint's `obligations` in the ParagraphPlan file carry `opened_by` and
-`items`, the retired `closure` key, `introduced_by` field and every field
+kogaki#1530, kogaki#1612, kogaki#1620): the Brief's `obligations` records and
+a Leg's `obligations` in the ParagraphPlan file carry `opened_by` and `items`,
+each item's `subitems` held to rule 4, a Leg Waypoint's own `obligations` is
+refused by name, the retired `closure` key, `introduced_by` field and every field
 kogaki#1612 retired are refused by name, `introduces_item` carries no `kind`,
 and a Move's deferred slot reaches the composer's input. An Issue that changes
 it reads its rule here, and an Issue that changes a rule changes it here

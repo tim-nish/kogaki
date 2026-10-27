@@ -55,7 +55,8 @@ import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveC
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
   paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
-  paragraphObligationsRefusal, dischargesShapeRefusal, briefRowsOwedBy, briefDischargeRefusal } from "./compose.mjs";
+  paragraphObligationsRefusal, RETIRED_WAYPOINT_OBLIGATIONS, dischargesShapeRefusal, briefRowsOwedBy, briefDischargeRefusal,
+  obligationItemsAt } from "./compose.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -356,8 +357,8 @@ export function paragraphPlanUnitPrompt(row, input) {
   try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
 }
 
-const UNIT_KEYS = ["version", "leg_id", "waypoints"];
-const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "join", "paragraph_waypoints", "obligations", "discharges"];
+const UNIT_KEYS = ["version", "leg_id", "obligations", "waypoints"];
+const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "join", "paragraph_waypoints", "discharges"];
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
 
 // THE BOUND MOVE'S ROLES, OR A FATAL STOP (kogaki#1378). THROWS: inside the job the
@@ -391,7 +392,7 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   const r = record || {};
   const at = `Leg ${leg.leg_id}`;
   const extra = undeclaredKey(r, UNIT_KEYS);
-  if (extra) return { error: `${at}: the plan record carries \`${extra}\`, which it does not declare — it carries version, leg_id and waypoints` };
+  if (extra) return { error: `${at}: the plan record carries \`${extra}\`, which it does not declare — it carries version, leg_id, waypoints and, where the Leg has any, obligations` };
   if (String(r.version) !== "1") return { error: `${at}: the plan record's version is ${JSON.stringify(r.version)}, not "1"` };
   if (r.leg_id !== leg.leg_id) return { error: `${at}: the plan record names leg ${JSON.stringify(r.leg_id)}, not ${leg.leg_id}` };
   const ws = leg.waypoints;
@@ -405,8 +406,9 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   for (const [i, e] of r.waypoints.entries()) {
     const atW = `${at}, Waypoint ${i + 1}`;
     if (!e || typeof e !== "object" || Array.isArray(e)) return { error: `${atW}: the entry is not a map` };
+    if (Object.hasOwn(e, "obligations")) return { error: `${atW}: the entry carries ${RETIRED_WAYPOINT_OBLIGATIONS}` };
     const k = undeclaredKey(e, UNIT_WAYPOINT_KEYS);
-    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why, join (on every Leg Waypoint after the first), paragraph_waypoints, and obligations and discharges where it has any` };
+    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why, join (on every Leg Waypoint after the first), paragraph_waypoints, and discharges where it has any` };
     if (e.waypoint !== i + 1) return { error: `${atW}: the entry is numbered ${JSON.stringify(e.waypoint)} — entries are one per Leg Waypoint, in order` };
     if (typeof e.why !== "string" || words(e.why) < 4) return { error: `${atW}: \`why\` is under four words` };
     if (e.move === null) { noFit.push({ leg_id: leg.leg_id, waypoint: i + 1, point: ws[i].point, why: e.why.trim() }); continue; }
@@ -426,11 +428,14 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     if (badJoin) return { error: badJoin };
     const bad = paragraphWaypointsRefusal(e.paragraph_waypoints, ws[i].serves, atW);
     if (bad) return { error: bad };
-    // THE BRIEF'S OBLIGATION RULES AT THIS SCALE (kogaki#1530), by the plan reader's own rule.
-    const owed = paragraphObligationsRefusal(e.obligations, n, atW) || dischargesShapeRefusal(e.discharges, n, atW);
+    const owed = dischargesShapeRefusal(e.discharges, n, atW);
     if (owed) return { error: owed };
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit) };
+  // THE BRIEF'S OBLIGATION RULES AT THIS SCALE, OVER THE LEG'S PARAGRAPHS (kogaki#1530, kogaki#1620),
+  // by the plan reader's own rule.
+  const rows = paragraphObligationsRefusal(r.obligations, ws.length, at);
+  if (rows) return { error: rows };
   const undischarged = briefDischargeRefusal(leg.owes || [], r.waypoints.map((e) => e.discharges || []), at);
   if (undischarged) return { error: undischarged };
   return {};
@@ -448,15 +453,22 @@ export function noParagraphMoveFitsRefusal(failures) {
 // for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533); every Leg Waypoint
 // after the first also carries its `join` (kogaki#1411, kogaki#1477).
 // The Leg's introduced terms ride beside it, so TERM MEANING can refuse a first use with no meaning
-// (kogaki#1497); each entry's Obligation rows and discharges ride on it, and the Brief's rows the Leg
-// owes beside the Leg, so the judge reads whether a discharge keeps its promise (kogaki#1530).
+// (kogaki#1497); each entry's discharges ride on it, and the Brief's rows the Leg owes beside the
+// Leg, so the judge reads whether a discharge keeps its promise (kogaki#1530). The Leg's own
+// Obligation records ride on the Leg, and each Leg Waypoint after the opening one carries the items
+// still open when it begins, as material (kogaki#1620, SPEC-draft-pipeline "Obligations" rule 6).
 export function paragraphPlanJudgeInput(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
+  const rows = Array.isArray(record.obligations) ? record.obligations : [];
+  const pos = (n) => (Number.isInteger(n) && n >= 1 && n <= leg.waypoints.length ? n : undefined);
+  const openAt = (n) => rows.filter((o) => pos(o.opened_by) !== undefined && pos(o.opened_by) < n)
+    .map((o) => ({ opened_by: o.opened_by, items: obligationItemsAt(o, pos, n) })).filter((o) => o.items.length);
   return {
     leg_you_must_judge: {
       leg_id: leg.leg_id,
       reader_state_before: leg.reader_state_before,
       reader_state_after: leg.reader_state_after,
+      obligations: rows,
       waypoints: leg.waypoints.map((w, i) => {
         const e = record.waypoints[i];
         const c = boundMoveContract(e.move, inputs.movesDir);
@@ -464,7 +476,8 @@ export function paragraphPlanJudgeInput(record, inputs, unitId) {
           bound_move: { before: c.before, after: c.after, segments: c.segments, breaks: c.breaks },
           ...(i > 0 ? { join: e.join } : {}),
           paragraph_waypoints: e.paragraph_waypoints,
-          obligations: e.obligations || [], discharges: e.discharges || [] };
+          ...(openAt(i + 1).length ? { obligations_open_here: openAt(i + 1) } : {}),
+          discharges: e.discharges || [] };
       }),
     },
     terms_this_leg_introduces: leg.introduces || [],
@@ -655,7 +668,7 @@ export function finishParagraphPlan(dir) {
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
     waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null),
-    obligations: units[i].candidate.waypoints.map((e) => e.obligations || []),
+    obligations: units[i].candidate.obligations || [],
     discharges: units[i].candidate.waypoints.map((e) => e.discharges || []) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);

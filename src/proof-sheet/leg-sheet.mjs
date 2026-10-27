@@ -34,7 +34,7 @@
 //
 // THE MOVE'S OBLIGATION UNDER ITS DESCRIPTION (kogaki#1582, moved by kogaki#1591): in the Segments
 // part, each paragraph's Move description is followed by the `obligation` items its Move carries,
-// numbered on one line. The sheet is the library view, not the Plan, so a Move field may appear.
+// numbered on one line, each item's SubItems indented under it (kogaki#1620). The sheet is the library view, not the Plan, so a Move field may appear.
 //
 // THE OBLIGATION CALL'S VERDICT UNDER THE DESCRIPTION (kogaki#1593): between a bound Move's
 // description and its obligation, one line per entry of the Extraction record's
@@ -535,16 +535,24 @@ function moveObligation(r, i) {
   return rec && Array.isArray(rec.obligation) ? rec.obligation : [];
 }
 
-// Paragraph `i`'s Move's `obligation` items, numbered on one line; nothing where its Move carries none.
+// An item's text, and its SubItems' texts, whether it is written bare or as `{item, subitems}` (kogaki#1620).
+const itemText = (x) => (x && typeof x === "object" ? x.item : x);
+const subitemsOf = (x) => (x && typeof x === "object" && Array.isArray(x.subitems) ? x.subitems : []);
+
+// Paragraph `i`'s Move's `obligation` items, numbered on one line, and each item's SubItems on
+// lines of their own indented under it (kogaki#1620); nothing where its Move carries none.
 function moveObligationLine(r, i) {
   const items = moveObligation(r, i);
-  return items.length ? `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(x)}`).join("; ")}</p>` : "";
+  if (!items.length) return "";
+  const subs = items.flatMap((x, j) => subitemsOf(x).map((y, k) => `<p class="obligation subitem">(${j + 1}.${k + 1}) ${esc(itemText(y))}</p>`));
+  return `<p class="obligation">Move obligation: ${items.map((x, j) => `(${j + 1}) ${esc(itemText(x))}`).join("; ")}</p>${subs.join("")}`;
 }
 
 // The same items beneath the paragraph in the comparison table, one per line; nothing where there are none.
 function paragraphObligation(r, i) {
   const items = moveObligation(r, i);
-  return items.length ? `<span class="para-obligation">obligation: ${items.map((x) => `<span>${esc(x)}</span>`).join("")}</span>` : "";
+  return items.length ? `<span class="para-obligation">obligation: ${items.map((x) => `<span>${esc(itemText(x))}</span>`
+    + subitemsOf(x).map((y) => `<span class="subitem">${esc(itemText(y))}</span>`).join("")).join("")}</span>` : "";
 }
 
 // The record's fired triggers by the Segment they name: Segment number -> trigger names.
@@ -1138,7 +1146,8 @@ const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--ac
 :root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c;--fired:#3d3519}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
 .obligation,.trigger{color:var(--accent);font-size:13px}
-.para-obligation{display:block;white-space:normal;margin-top:6px;padding-left:8px;border-left:1px solid var(--line);color:var(--muted);font-size:12px}.para-obligation>span{display:block}
+.obligation.subitem{margin-left:2em}
+.para-obligation{display:block;white-space:normal;margin-top:6px;padding-left:8px;border-left:1px solid var(--line);color:var(--muted);font-size:12px}.para-obligation>span{display:block}.para-obligation>span.subitem{margin-left:2em}
 tr.fired>td{background:var(--fired)}
 .card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
 .run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}

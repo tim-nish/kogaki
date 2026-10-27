@@ -95,6 +95,9 @@
 #       rewrites each record's `obligation` and `obligation_triggers` from its `segments` alone,
 #       leaves every other field byte-identical, loads through the library's own reader, and
 #       records its calls in a run directory beside the library.
+#   (m) a question whose parts are named carries them as SubItems (kogaki#1620): the answer and the
+#       record admit `{item, subitems}`, refuse a malformed one by name, and the re-judge writes it
+#       so the library's reader hands the slot the item with its SubItems.
 #   (j) the retired keys (kogaki#1583): a record carrying `discharges` or `obligation_content` is
 #       refused as an undeclared key, the extraction call's answer carrying `obligation` or
 #       `obligation_triggers` is refused, and FORMAT carries rule 8 and the retired rule 10 verbatim.
@@ -635,7 +638,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         : { fired: false, why: asks >= 0 ? "Segment " + (asks + 2) + " answers the question Segment " + (asks + 1) + " poses." : "No question is posed.", segment: n },
       term: term ? { fired: true, why: "Segment " + (names + 1) + " names a term no later Segment explains.", segment: names + 1 }
         : { fired: false, why: names >= 0 ? "Segment " + (names + 2) + " defines the term Segment " + (names + 1) + " names." : "No term is left unexplained.", segment: n },
-    }, ...(question || term ? { obligation: [...(question ? ["what decides the pattern?"] : []), ...(term ? ["the named cause"] : [])] } : {}) });
+    }, ...(question || term ? { obligation: [...(question ? [ops.slice(asks + 1).some((o) => /names the two parts/.test(o))
+      ? { item: "what decides the pattern?", subitems: ["the first part", "the second part"] } : "what decides the pattern?"] : []), ...(term ? ["the named cause"] : [])] } : {}) });
   }
   const p = input.paragraph_you_must_extract;
   const carried = input.reader_state_before;
@@ -794,6 +798,10 @@ const hjudge = join(hroot, "fake-judge.mjs");
     { operation: "states how the quantity bears on an outcome, naming two opposite ends of its range", relation: "applies the quantity defined before it" }]), { width: 100 });
   writeFileSync(join(lib, "ask_then_name.yaml"), askText);
   writeFileSync(join(lib, "define_then_apply.yaml"), defineText);
+  // A question whose answer's two parts a later Segment names writes them as SubItems (kogaki#1620).
+  const partsText = stringifyYaml(base("ask_then_name_its_parts", [{ operation: "poses a direct question about what decides a pattern" },
+    { operation: "names the two parts its answer turns on", relation: "locates the answer the step before asked for" }]), { width: 100 });
+  writeFileSync(join(lib, "ask_then_name_its_parts.yaml"), partsText);
   const lr = spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", "--library", lib],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: lroot }, timeout: 300000 });
   ok(lr.status === 0, `(l) the re-judge exited ${lr.status}: ${lr.stdout}${lr.stderr}`);
@@ -803,14 +811,53 @@ const hjudge = join(hroot, "fake-judge.mjs");
     `(l) the record with an obligation was not rewritten from its Segments alone, every other field byte-identical: ${JSON.stringify(askAfter)}`);
   ok(defineAfter.startsWith(defineText) && defineAfter.slice(defineText.length) === "obligation_triggers:\n  question:\n    fired: false\n    why: No question is posed.\n    segment: 2\n  term:\n    fired: false\n    why: No term is left unexplained.\n    segment: 2\n",
     `(l) the record with no obligation did not gain the verdict alone, every other field byte-identical: ${JSON.stringify(defineAfter)}`);
+  const partsAfter = readFileSync(join(lib, "ask_then_name_its_parts.yaml"), "utf8");
+  ok(partsAfter.startsWith(partsText) && partsAfter.slice(partsText.length).startsWith("obligation:\n  - item: what decides the pattern?\n    subitems:\n      - the first part\n      - the second part\nobligation_triggers:\n"),
+    `(l) the record whose question's parts are named was not rewritten with the item over its SubItems: ${JSON.stringify(partsAfter)}`);
   const M = await import(pathToFileURL(join(repo, "src", "compose", "moves.mjs")).href);
+  const parts = M.moveContract("ask_then_name_its_parts", lib);
+  ok(!parts.error && JSON.stringify(parts.obligation) === JSON.stringify([{ item: "what decides the pattern?", subitems: ["the first part", "the second part"] }]),
+    `(l) the re-judged record with SubItems does not load through the library's reader: ${parts.error || JSON.stringify(parts.obligation)}`);
   const loaded = M.moveContract("ask_then_name", lib);
   ok(!loaded.error && JSON.stringify(loaded.obligation) === '["what decides the pattern?"]', `(l) the re-judged record does not load through the library's reader: ${loaded.error || JSON.stringify(loaded.obligation)}`);
   const lRun = (lr.stdout.match(/^run directory: (.+)$/m) || [])[1] || "";
   ok(lRun && dirname(lRun) === lroot && existsSync(join(lRun, "ask_then_name", "answer.json")) && existsSync(join(lRun, "ask_then_name", "prompt.md"))
     && existsSync(join(lRun, "rejudge.json")), `(l) the run directory is not beside the library with one subdirectory per record: ${lRun}`);
   const lInputs = existsSync(join(lroot, "obligation-inputs.jsonl")) ? readFileSync(join(lroot, "obligation-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-  ok(lInputs.length === 2 && lInputs.every((x) => JSON.stringify(Object.keys(x)) === '["segments"]'), `(l) the re-judge's call input is not the Segments alone: ${JSON.stringify(lInputs)}`);
+  ok(lInputs.length === 3 && lInputs.every((x) => JSON.stringify(Object.keys(x)) === '["segments"]'), `(l) the re-judge's call input is not the Segments alone: ${JSON.stringify(lInputs)}`);
+}
+
+// (m) A QUESTION WHOSE PARTS ARE NAMED CARRIES THEM AS SUBITEMS (kogaki#1620): an item
+// `{item, subitems}` validates on the answer and on the record and is written onto it as given; a
+// map with any other key, an empty `subitems`, a SubItem carrying rationale or naming the item
+// again is refused by name; the re-judge writes it as `item` over `subitems` lines, and the
+// library's reader loads it and hands it to the slot under its item.
+{
+  const asked = () => ({ ...good(), segments: good().segments.map((s, i) => (i === 1 ? { ...s, operation: "poses a direct question about the claim" } : s)) });
+  const fired = { question: { fired: true, why: "Segment 2 asks, and no later Segment answers.", segment: 2 }, term: { fired: false, why: "No term is left unexplained.", segment: 3 } };
+  const Q = { item: "why can no party compel a halt?", subitems: ["the first domain", "the second domain"] };
+  const err = (o) => X.validateObligationUnit({ triggers: fired, obligation: o }, { record: asked(), input }).error || "";
+  ok(!err([Q]), `(m) a question item with two SubItems was refused: ${err([Q])}`);
+  ok(JSON.stringify(X.withObligation(asked(), { triggers: fired, obligation: [Q] }).obligation) === JSON.stringify([Q]), "(m) the record written from the answer does not carry the item with its SubItems");
+  for (const [what, o, want] of [["a map carrying another key", [{ ...Q, kind: "question" }], /item 1 is a map that is not `\{item, subitems\}`/],
+    ["an empty subitems list", [{ ...Q, subitems: [] }], /item 1 is a map that is not `\{item, subitems\}`/],
+    ["a SubItem carrying rationale", [{ ...Q, subitems: ["the first domain because it holds", "the second domain"] }], /item 1 SubItem 1, .* carries "because", which is rationale/],
+    ["a SubItem naming the item again", [{ ...Q, subitems: [Q.item, "the second domain"] }], /names "why can no party compel a halt\?" twice/]]) {
+    ok(want.test(err(o)), `(m) ${what} was not refused by name: ${err(o)}`);
+  }
+  const mroot = join(root, "m", "moves");
+  mkdirSync(mroot, { recursive: true });
+  copyFileSync(join(repo, "moves", "ROLES.json"), join(mroot, "ROLES.json"));
+  const text = stringifyYaml({ id: "ask_then_name_its_parts", description: "a fixture Move.", before: { knowledge: "before." }, after: { knowledge: "after." },
+    breaks: ["breaks if the point is dropped."], segments: [{ operation: "poses a direct question" }, { operation: "names the two parts its answer turns on", relation: "locates the answer the step before asked for" }] }, { width: 100 });
+  const spliced = X.spliceObligation(text, { obligation: [Q], obligation_triggers: fired });
+  ok(spliced.includes("obligation:\n  - item: why can no party compel a halt?\n    subitems:\n      - the first domain\n      - the second domain\n"),
+    `(m) the re-judge does not write the item over its SubItems: ${JSON.stringify(spliced)}`);
+  writeFileSync(join(mroot, "ask_then_name_its_parts.yaml"), spliced);
+  const M = await import(pathToFileURL(join(repo, "src", "compose", "moves.mjs")).href);
+  const loaded = M.moveContract("ask_then_name_its_parts", mroot);
+  ok(!loaded.error && JSON.stringify(loaded.deferred_slots) === JSON.stringify([{ items: [Q] }]),
+    `(m) the library's reader does not hand the slot the item with its SubItems: ${loaded.error || JSON.stringify(loaded.deferred_slots)}`);
 }
 
 // (j) THE RETIRED KEYS (kogaki#1583): a record carrying `discharges` or `obligation_content` is
