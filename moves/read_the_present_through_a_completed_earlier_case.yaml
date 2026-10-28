@@ -1,0 +1,65 @@
+id: read_the_present_through_a_completed_earlier_case
+description: >-
+  Asserts a likeness between the present case and one whose course has already
+  run, fills the earlier case in with checkable particulars and what it gave
+  rise to, then maps it onto the present.
+before:
+  knowledge: no specialized knowledge of the subject beyond everyday awareness
+  question: none in particular, beyond whether the subject is worth attention
+  expectation: expects a general explanation pitched at a newcomer
+  orientation: >-
+    treats this as one more general account among many on the same subject
+  trust: neutral, with no reason yet to credit or doubt the author
+after:
+  knowledge: >-
+    holds an earlier case already run and what it gave rise to as settled
+    background
+  question: >-
+    wants to know whether the earlier case's outcome will repeat in the present
+  expectation: >-
+    expects what follows to work the present situation out through the earlier
+    case
+  orientation: >-
+    places this text as one that reads the present through a worked-out
+    precedent
+  trust: >-
+    raised, because a broad claim is carried by checkable particulars
+breaks:
+  - >-
+    name the parties of the earlier case without placing it in time — the earlier
+    case stops being checkable and the likeness reads as decoration
+  - >-
+    map onto the present first and fill the earlier case in after — the
+    particulars arrive as support for a claim the reader has already settled,
+    and they do no work
+  - >-
+    cut the step naming what the earlier case gave rise to — the closing claim
+    about a revived purpose has nothing to revive
+  - >-
+    name several points of likeness instead of the single strongest — the
+    particulars have no one point to bear on and the closing claim loses its
+    force
+  - >-
+    qualify how far the two cases differ before the mapping — the likeness is
+    diluted before it has been put to use
+segments:
+  - operation: >-
+      asserts a close likeness between the present case and one whose course has
+      already run, then names the single strongest point of that likeness
+  - operation: >-
+      fills the earlier case in with particulars of who held the leading position
+      and what unsettled it
+    relation: >-
+      supplies the particulars behind the likeness the previous step asserted
+  - operation: >-
+      fixes the founding instances of what arose from the earlier case and states
+      the aim they served
+    relation: >-
+      moves from the circumstances of the earlier case to what it produced,
+      presenting that as an answer to it
+  - operation: >-
+      pairs the earlier case with the present one element by element and closes
+      on the purpose carried over from the one to the other
+    relation: >-
+      completes the comparison by returning to the present named at the start,
+      now backed by the intervening particulars

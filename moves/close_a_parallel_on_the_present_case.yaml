@@ -1,0 +1,69 @@
+id: close_a_parallel_on_the_present_case
+description: >-
+  Closes a parallel by naming the present counterparts of an already walked
+  earlier case, then stating in one mirrored line that what arose for the first
+  is reviving for the second.
+before:
+  knowledge: >-
+    holds that the thing itself originated in those conditions, fixed by founding
+    instances placed in time and the danger each addressed
+  question: >-
+    wants to know what the remedies those founding instances urged would mean
+    for the case at hand
+  expectation: >-
+    having had the origin placed and motivated, expects the account to turn that
+    origin onto the case at hand and say what the same thing is for now
+  orientation: >-
+    places this as a text that reads the present through a parallel with a case
+    already run
+after:
+  knowledge: >-
+    holds the present case matched to the earlier one party for party, and the
+    present purpose of what arose stated
+  question: >-
+    has that answered in principle and now wants to know what the revived
+    guidance actually prescribes
+  expectation: >-
+    having had the comparison completed and the present purpose named, expects
+    what follows to work that purpose out in detail
+  orientation: >-
+    places this as a text that treats the earlier case as its working instrument
+    for the present rather than as illustration
+breaks:
+  - >-
+    assert the match and never spell out the present side — the reader keeps a
+    resemblance with nothing current to attach it to
+  - >-
+    spell out the present side before asserting the match — the description
+    reads as fresh reporting, and the fit the earlier case prepared is lost
+  - >-
+    drop the closing statement that lifts the match to what arose from the
+    earlier case — the reader holds a resemblance and no reason the present text
+    exists
+  - >-
+    hedge the match into a list of ways the two cases differ — the reader can no
+    longer carry one claim forward and treats the comparison as decorative
+  - >-
+    argue within the paragraph that the present position really is weakening —
+    the closing statement lands after the reader's attention has moved to a
+    dispute
+segments:
+  - operation: >-
+      asserts that a relation obtaining in the earlier case closely matches the
+      one obtaining in the present
+  - operation: >-
+      spells out the present side of the asserted match as a long-unrivalled
+      position now obliged to answer a newly risen contender, with the
+      arrangement built around that position unsettling
+    relation: >-
+      fills in the present term of the match just asserted, following the same
+      sequence in which the earlier case was laid out
+  - operation: >-
+      states that what arose to serve the earlier case is being taken up again to
+      serve the matching one
+    relation: >-
+      lifts the match from the two situations to the thing the earlier situation
+      produced
+    manner: >-
+      a mirrored construction setting the earlier case against the present inside
+      one statement, given without elaboration

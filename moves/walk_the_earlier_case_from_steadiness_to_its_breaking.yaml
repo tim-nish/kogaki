@@ -1,0 +1,63 @@
+id: walk_the_earlier_case_from_steadiness_to_its_breaking
+description: >-
+  Opens the earlier half of a claimed parallel: asserts the earlier case, bounds
+  it in time with the arrangement that held it steady, then names the pressure
+  that broke that steadiness.
+before:
+  knowledge: >-
+    holds that the present case resembles one already run, that the resemblance
+    rests on one point, and that the party concerned has long held an unrivalled
+    position
+  question: wants to know how a position held that long came to change
+  expectation: >-
+    expects the next paragraph to show how the long-held position eroded, the
+    baseline for it now set out
+  trust: neutral, with no reason yet to credit or doubt the author
+after:
+  knowledge: >-
+    holds that a like configuration arose in the earlier case, how it was held
+    steady, and what began to break it
+  question: >-
+    wants to know whether the course the earlier case ran is the one now being
+    run again
+  expectation: >-
+    expects the account to come back to the present case and carry the earlier
+    course onto it, that earlier course now run through to its turn
+  trust: >-
+    slightly raised by bounded, checkable specifics offered for the earlier case
+breaks:
+  - >-
+    leave the earlier stretch unbounded — the reader cannot tell how long the
+    steadiness lasted or how quickly it went, and the parallel floats free
+  - >-
+    leave out the arrangement that kept the earlier stretch steady — the later
+    breaking has nothing to break, and the reader is shown a change with no
+    mechanism behind it
+  - >-
+    stop before the challenger is named — the earlier case stands as a pleasant
+    interlude and the reader loses the half of it that carries the likeness
+  - >-
+    describe the breaking without turning against the steadiness just set out —
+    the two halves sit side by side and the reader has to infer that one undid
+    the other
+  - >-
+    run the earlier case on over several paragraphs — the reader loses hold of
+    the present case the parallel was raised to explain, and the return to it
+    reads as a change of subject
+segments:
+  - operation: >-
+      asserts that the same kind of configuration obtained in the earlier case
+  - operation: >-
+      bounds the earlier stretch in time and sets out the arrangement that kept
+      it steady
+    relation: >-
+      fills in the earlier case the step before it only pointed to, giving its
+      span and how it worked
+    manner: >-
+      a received appellation for the stretch, voiced as a name others use
+  - operation: >-
+      names a challenger rising late in the stretch and traces from it the
+      shaking of the holder's standing and the end of the steadiness
+    relation: >-
+      turns against the steadiness just described, showing the arrangement
+      giving way under a new pressure

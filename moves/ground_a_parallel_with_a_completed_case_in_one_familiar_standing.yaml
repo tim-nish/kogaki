@@ -1,0 +1,65 @@
+id: ground_a_parallel_with_a_completed_case_in_one_familiar_standing
+description: >-
+  Claims the present case mirrors one whose course has already run, narrows the
+  resemblance to its strongest point, then grounds that point in a long-held
+  position the reader already assumes.
+before:
+  knowledge: >-
+    no specialized knowledge of the subject, and no sense that the present case
+    resembles any other
+  question: >-
+    nothing in particular beyond whether this subject is worth their attention
+  expectation: expects a plain introduction to an unfamiliar subject
+  orientation: >-
+    places this as one more introduction to a subject they have only heard named
+after:
+  knowledge: >-
+    holds that the present case resembles one already run, that the resemblance
+    rests on one point, and that the party concerned has long held an unrivalled
+    position
+  question: wants to know how a position held that long came to change
+  expectation: >-
+    expects the next paragraph to show how the long-held position eroded, the
+    baseline for it now set out
+  orientation: >-
+    places this as a text that reads the present through a parallel with a case
+    already run
+breaks:
+  - >-
+    name several points of resemblance instead of narrowing to the strongest one
+    — the reader has nothing single to hold, and the parallel stays a bare
+    assertion
+  - >-
+    drop the long-held position and move straight to its change — the change has
+    no baseline, so its size is invisible
+  - >-
+    define the subject before the resemblance is asserted — specialist material
+    arrives before the reader has any familiar footing
+  - >-
+    move the resemblance to the end as a conclusion — the familiar standing reads
+    as background with no bearing on anything
+  - >-
+    state the change in the position within this same stretch — the question the
+    paragraph opens is closed before the reader has felt it
+segments:
+  - operation: >-
+      asserts a close resemblance between the present case and one whose course
+      has already run
+  - operation: narrows an asserted resemblance to its strongest point
+    relation: >-
+      it picks out the point on which the resemblance just asserted rests
+  - operation: >-
+      states the long-held elevated position of the particular party the point
+      concerns
+    relation: >-
+      it supplies the baseline against which the change named in the point can
+      be measured
+  - operation: >-
+      states the circumstance that left that position without a counterweight
+      and the reach it then had
+    relation: >-
+      it carries the baseline forward to its highest point rather than yet
+      turning toward the change
+    manner: >-
+      it closes on a short epithet reported as what others called it rather than
+      asserted by the speaker
