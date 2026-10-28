@@ -1,0 +1,48 @@
+id: fix_a_past_period_as_the_baseline_for_a_later_turn
+description: >-
+  Fixes a past span as a baseline on two axes, what its cases turned on and how
+  small the parties were, so that a later reversal has something definite to
+  work against.
+before:
+  knowledge: no specialized grasp of the subject beyond everyday impressions
+  question: none settled, at most whether this is worth reading
+  expectation: expects a general account to go on in the same vein
+  trust: neutral, willing to be led but not yet committed
+after:
+  knowledge: >-
+    holds a characterization of a past span on both what its cases turned on and
+    who took part in them
+  question: wants to know whether what held in that span still holds
+  expectation: >-
+    expects the next stretch to set a later state against the one just fixed
+  trust: slightly raised by instances the reader can place for themselves
+breaks:
+  - >-
+    drop the named instances and keep only the abstract classes — the reader has
+    nothing to check the characterization against, and trust stays flat
+  - >-
+    name only what the cases turned on and leave out who took part — the
+    baseline carries one axis instead of two, and half of any later reversal has
+    nothing to reverse
+  - >-
+    expand each named instance into its own account — the baseline swells into a
+    history lesson and the reader loses the sense that this is groundwork for a
+    turn
+  - >-
+    state the span's character as a standing present fact rather than as what
+    held then — the reader takes it for the author's permanent view and no later
+    change can register
+  - >-
+    soften the closing denial into a hedge — the second axis stops being a fixed
+    point and the later contrast has nothing firm to push against
+segments:
+  - operation: >-
+      classifies the cases of a past span by what they turned on, and marks a
+      further class of factor as having weighed little
+    manner: bare instances named beside each class and left without comment
+  - operation: >-
+      turns from what the cases turned on to who took part in them, and denies
+      any direct clash among the largest participants
+    relation: >-
+      adds a further axis to the characterization the step before set out,
+      moving from what was at stake to who was involved

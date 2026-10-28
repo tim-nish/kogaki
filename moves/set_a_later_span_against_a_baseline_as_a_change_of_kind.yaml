@@ -1,0 +1,61 @@
+id: set_a_later_span_against_a_baseline_as_a_change_of_kind
+description: >-
+  Sets a later span against a fixed earlier one as a change of kind, makes it
+  picturable with instances, restates it plainly, then draws the consequence
+  that follows.
+before:
+  knowledge: >-
+    holds a characterization of a past span on both what its cases turned on and
+    who took part in them
+  question: wants to know whether what held in that span still holds
+  expectation: >-
+    expects the next stretch to set a later state against the one just fixed
+  orientation: places this among ordinary popular accounts of current affairs
+after:
+  knowledge: >-
+    holds a contrast between two spans on both of those counts, and a
+    consequence drawn from it
+  question: wants to know what the way of looking just named actually shows
+  expectation: >-
+    expects the next stretch to take up the way of looking the consequence named
+  orientation: >-
+    places this as an account that explains why a way of looking came to matter
+breaks:
+  - >-
+    drop the instances and keep only the abstract difference — the reader has
+    nothing to picture, and the restatement that follows adds no weight because
+    nothing has been shown
+  - >-
+    state the consequence before the difference is restated plainly — the reader
+    is asked to accept a cause whose terms have only been illustrated, never
+    fixed
+  - >-
+    add a paragraph explaining the way of looking right where it is first named
+    — the consequence stops being a closing and becomes the start of a
+    definition, and the reader loses the pull toward the stretch ahead
+  - >-
+    name only the first feature of the later span and leave the second out — the
+    difference shrinks to one count, and the consequence drawn at the end no
+    longer follows from what was said
+  - >-
+    replace the change of kind with a change of amount in the opening — the
+    whole contrast collapses into more of the same, and nothing later has
+    anything to rest on
+segments:
+  - operation: >-
+      sets a later span against an earlier one and names the difference as a
+      change of kind rather than of amount
+  - operation: offers instances that make a stated difference easy to picture
+    relation: >-
+      supplies concrete cases for the difference the step before stated in the
+      abstract
+  - operation: >-
+      restates the difference as a counted pair of features of the later span
+    relation: >-
+      returns from the instances to a plainer statement of the same difference,
+      adding a second feature alongside the first
+  - operation: >-
+      draws the consequence of the stated difference as the ground on which a
+      way of looking came to attract attention
+    relation: >-
+      takes the features just named as a cause and states what they produced
