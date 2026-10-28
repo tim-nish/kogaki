@@ -1,0 +1,69 @@
+id: ground_a_figure_in_instances_then_demand_its_shape_first
+description: >-
+  Two everyday instances of a fixed condition limiting action, then one figure
+  that unifies them, then a demand that the limit be mapped before anything
+  about conduct is claimed.
+before:
+  knowledge: >-
+    no organizing idea about the subject, only scattered everyday impressions
+  question: none in particular, at most whether the subject concerns them
+  expectation: expects general explanation with no settled shape
+  orientation: >-
+    places the text among ordinary explanatory writing with no distinct angle
+  trust: neutral
+after:
+  knowledge: >-
+    holds concrete instances and one general claim that unifies them as a fixed
+    limit on what an actor can do
+  question: wants to know the particular shape of the limit in a given case
+  expectation: >-
+    expects the next stretch to set out the shape of the limit before any
+    account of what the constrained thing does
+  orientation: >-
+    places the text as one that treats a single fixed factor as prior to
+    everything else it will discuss
+  trust: >-
+    slightly raised by instances the reader can confirm from ordinary experience
+    before any abstraction is asked of them
+breaks:
+  - >-
+    state the unifying claim before the instances — the reader meets an
+    assertion with nothing granted behind it and takes it for a flourish
+  - >-
+    give one instance instead of a pair drawn from different conditions — the
+    claim looks like a restatement of a single case rather than a general one
+  - >-
+    unpack the figure over several further sentences — the compression that made
+    it land is spent, and the closing requirement arrives after the reader has
+    stopped waiting for it
+  - >-
+    cut the closing sentence that makes the limit prior — the reader is left
+    holding an image with no task and no reason to read on
+  - >-
+    replace the figure with a plain abstract statement of the same claim — the
+    pairing of confiner and confined goes unremembered and nothing is carried
+    forward
+segments:
+  - operation: >-
+      gives one concrete instance in which a fixed external condition shuts off
+      an activity
+  - operation: >-
+      gives an instance in which a fixed external condition raises the
+      difficulty of an undertaking
+    relation: >-
+      sets a parallel case beside the first, with a different condition and a
+      different activity and no connective between them
+  - operation: >-
+      unifies the preceding instances under one general claim pairing what
+      confines with what is confined
+    relation: >-
+      lifts the paired cases to a single claim that accounts for both at once
+    manner: >-
+      realised as a figurative identification asserted flatly, rather than as a
+      statement in plain terms
+  - operation: >-
+      converts the general claim into an order of inquiry, placing knowledge of
+      the limit before any account of what the limited thing can do
+    relation: >-
+      draws the working consequence of the claim just made, turning it into a
+      requirement about where to begin
