@@ -26,7 +26,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `before` | excluded | excluded | excluded | structural | excluded | content | excluded |
 | `after` | excluded | excluded | excluded | structural | excluded | content | unread |
 | `breaks` | excluded | excluded | excluded | structural | excluded | content | unread |
-| `segments` | unread | structural | excluded | structural | excluded | content | unread |
+| `segments` | excluded | structural | excluded | structural | excluded | content | unread |
 | `figure` | unread | unread | unread | unread | unread | unread | unread |
 | `continues_from` | unread | unread | unread | unread | unread | unread | unread |
 | `obligation` | unread | unread | unread | unread | unread | content | unread |
