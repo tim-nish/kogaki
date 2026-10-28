@@ -23,9 +23,9 @@ it does not read, and empty where the stage does not read the schema at all.
 | field | differentiation | reader_path_unit | reader_path_fit_unit | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit | leg_reader_start_unit |
 |---|---|---|---|---|---|---|---|
 | `id` | unread | unread | unread | unread | unread | unread | unread |
-| `before` | excluded | unread | excluded | structural | excluded | content | excluded |
-| `after` | unread | unread | excluded | structural | excluded | content | unread |
-| `breaks` | unread | unread | excluded | structural | excluded | content | unread |
+| `before` | excluded | excluded | excluded | structural | excluded | content | excluded |
+| `after` | excluded | excluded | excluded | structural | excluded | content | unread |
+| `breaks` | excluded | excluded | excluded | structural | excluded | content | unread |
 | `segments` | unread | structural | excluded | structural | excluded | content | unread |
 | `figure` | unread | unread | unread | unread | unread | unread | unread |
 | `continues_from` | unread | unread | unread | unread | unread | unread | unread |
@@ -33,9 +33,9 @@ it does not read, and empty where the stage does not read the schema at all.
 | `obligation_triggers` | unread | unread | unread | unread | unread | unread | unread |
 | `description` | unread | unread | unread | unread | unread | content | unread |
 | `evidence` | unread | unread | unread | unread | unread | unread | unread |
-| `segments.operation` | unread | unread | unread | operation | excluded | content | unread |
-| `segments.relation` | unread | unread | unread | structural | excluded | content | unread |
-| `segments.manner` | unread | unread | unread | excluded | excluded | content | unread |
+| `segments.operation` | excluded | operation | unread | operation | excluded | content | unread |
+| `segments.relation` | excluded | structural | unread | structural | excluded | content | unread |
+| `segments.manner` | excluded | excluded | unread | excluded | excluded | content | unread |
 
 - `differentiation` is src/brief-workflow.json `differentiation`.
 - `reader_path_unit` is src/brief-workflow.json `reader_path_unit`.
