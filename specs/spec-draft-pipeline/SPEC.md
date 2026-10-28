@@ -2422,17 +2422,34 @@ are copied onto no Paragraph Waypoint; a Move is an input to the Composer and
 to nothing else (kogaki#1585, owner decision 2026-10-25).
 
 **Two contributions, not one (kogaki#1403).** The Leg Waypoint's `point`
-supplies a Paragraph Waypoint's content; the bound Move supplies its order and
-its shape. A Segment reaches the plan call as its number, its function
-(raises | advances | settles) and its relation to the Segment before it —
-never its description, the Extractor's analysis of the original paragraph's
-technique, written for a reader of the Move and not for the planner. A
-Paragraph Waypoint is a part of the Leg Waypoint's `point`, placed and shaped
-by its Segment; one that instead states what the paragraph does to its reader
-— announcing, defining rather than arguing, closing a list, leaving nothing
-open — is refused rather than accepted as a stylistic variant. The `technique`
-fallback is unaffected, since it is the Move's only order where `segments` is
-empty, and `before`, `after` and `breaks` are unaffected.
+holds the facts; the bound Move supplies the order and the shape of the
+Paragraph Waypoints that lead to it. A Segment reaches the plan call as its
+number, its function (raises | advances | settles) and its relation to the
+Segment before it — never its description, the Extractor's analysis of the
+original paragraph's technique, written for a reader of the Move and not for
+the planner. The `technique` fallback is unaffected, since it is the Move's
+only order where `segments` is empty, and `before`, `after` and `breaks` are
+unaffected.
+
+**A Paragraph Waypoint explains its Leg Waypoint and adds nothing to it
+(kogaki#1632, owner decision 2026-10-28).** Each Paragraph Waypoint is the step
+its Segment's `operation` performs toward the Leg Waypoint's `point`, and the
+Paragraph Waypoints together carry the explanation of that point and the
+logical progression toward it, in the planner's own words and examples — an
+illustration such as airport security screening or a dispute between
+neighbours may explain a technical Leg Waypoint. A Paragraph Waypoint is
+refused where it contradicts its Leg Waypoint or breaks the progression toward
+it, where it states or implies a claim about the article's subject the Leg
+Waypoint does not make, or where it states a Segment's `operation` or
+`relation` as content; a Segment's `relation` is carried by the order of the
+Paragraph Waypoints alone. Given the Leg Waypoint "X is too complex", "X is far
+from simple" is accepted and "X is too complex and therefore should be
+eliminated" is refused. One that states what the paragraph does to its reader —
+announcing, defining rather than arguing, closing a list, leaving nothing open
+— is refused rather than accepted as a stylistic variant. This replaces the
+reading of kogaki#1449 that a Paragraph Waypoint is a part of the Leg
+Waypoint's `point` in that point's own terms: a one-sentence part can stand in
+its Segment's relation only by stating it.
 
 > **Status (kogaki#1533, owner decision 2026-10-23):** no judge axis
 > carries this refusal; the judge judges only the axes
