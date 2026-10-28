@@ -69,8 +69,7 @@
 #       template carries the Opens-from instruction in the waypoints block and
 #       the relation word in its Move-boundary comment.
 #   (o) A SEGMENT'S RELATION IS NEVER CONTENT (kogaki#1446): the plan row's
-#       ORDER states a Segment's `relation` is carried by the order of the
-#       Paragraph Waypoints and never stated in one (kogaki#1632).
+#       ORDER states a Segment's `relation` is never stated in a Paragraph Waypoint.
 #       The judge's axis for it was removed on the bench of 2026-10-23
 #       (kogaki#1533), so no judge refusal is asserted.
 #   (p) A SEGMENT THAT ACTS ON THE READING CARRIES `performs` (kogaki#1448): a
@@ -91,12 +90,9 @@
 #       clause; the refusal reaches the next plan attempt, whose bare-operation
 #       `performs` fits and is written. Whether a LIVE judge refuses it is the
 #       model's.
-#   (q) A PARAGRAPH WAYPOINT EXPLAINS ITS LEG WAYPOINT AND ADDS NO CLAIM
-#       (kogaki#1632): the rendered plan prompt's DIVIDE makes each Paragraph
-#       Waypoint the step its Segment's operation performs, no longer a part of
-#       the Leg Waypoint's point, and EXPLAIN, CONSISTENT and NO NEW FACT carry
-#       the Issue's sentences. Whether a LIVE planner keeps to them is the
-#       model's.
+#   (q) A PARAGRAPH WAYPOINT EXPLAINS ITS LEG WAYPOINT (kogaki#1632): the
+#       rendered plan prompt's DIVIDE, EXPLAIN, CONSISTENT and NO NEW FACT carry
+#       the Issue's sentences.
 #   (r) A TERM THE LEG INTRODUCES IS GIVEN ITS MEANING AT ITS FIRST USE
 #       (kogaki#1497): over a Leg whose `introduces` carries one term
 #       and whose second Leg Waypoint's `point` uses it, the rendered plan
@@ -158,8 +154,7 @@
 #       refuse it as two records open at once and refuse a repeated or empty
 #       list by name, and the items reach no Packet line (kogaki#1584).
 #   (w) A PARAGRAPH WAYPOINT PERFORMS ITS OWN SEGMENT'S OPERATION ALONE
-#       (kogaki#1605): the judge row carries OWN STEP, the one guard left since
-#       DIVIDE stopped naming a later Segment's result (kogaki#1632); bound to p7,
+#       (kogaki#1605): the judge row carries OWN STEP; bound to p7,
 #       whose Segment 2 compresses Segment 1's definition, a first plan whose
 #       first Paragraph Waypoint already carries the compressed form is refused by
 #       the fake judge -- which refuses only where the row it was handed carries
@@ -634,7 +629,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!plans.length || !plans.every((p) => critOf(p, "ORDER") === "A Segment's `relation` is carried by the order of the Paragraph Waypoints, and no Paragraph Waypoint states it.")) {
     fails.push("(o) a plan prompt's ORDER does not state that a Segment's relation is never stated in a Paragraph Waypoint");
   }
-  // (q) a Paragraph Waypoint explains its Leg Waypoint and adds no claim (kogaki#1632)
+  // (q) kogaki#1632
   const Q_LINES = {
     DIVIDE: "Write one Paragraph Waypoint per Segment of the bound Move, in its order, each the step its Segment's `operation` performs toward its Leg Waypoint's `point`.",
     EXPLAIN: "A Paragraph Waypoint may explain or illustrate its Leg Waypoint's `point` in words and examples of your own.",
