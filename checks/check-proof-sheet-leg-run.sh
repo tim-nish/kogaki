@@ -58,7 +58,7 @@
 #       resumed run (h), refused nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
 #       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
 #       followed by its bound Move's `description` as one plain paragraph and then its table, and a paragraph with no
-#       Move bound has nothing between the two (kogaki#1517).
+#       Move bound has nothing between the two (kogaki#1517); each table there is followed by its Move file's `breaks` as one ordered list in order, the unbound paragraph's by nothing (kogaki#1637).
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through `KOGAKI_JOB_STALL_S` and every
 #       ParagraphPlan call running 2.5 s past its first line (a stream line every 200 ms, as a live stream-json call
 #       writes), the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries the binary's
@@ -642,16 +642,16 @@ else {
   ok((segPart.match(/<th>content clause<\/th>/g) || []).length === 3 && [1, 2, 3].every((i) => segPart.includes(`CONTENT-${i}-1`) && segPart.includes(`paragraph ${i} — name_an_act_then_its_cost_${i}`)),
     "(o) the review block does not carry one Segments table per paragraph, headed by its paragraph and Move");
   // (o) THE MOVE'S DESCRIPTION (kogaki#1517): each paragraph heading is followed by its bound
-  // Move record's `description` as one plain paragraph, and only then by its Segments table.
+  // Move record's `description` as one plain paragraph, and only then by its Segments table. THE MOVE'S BREAKS (kogaki#1637) follow that table, read here since the Extraction card carries the same breaks.
+  const chunkAfterTable = (part, i) => { const a = part.indexOf(`<h4>paragraph ${i} — `), b = a < 0 ? -1 : part.indexOf("<h4>", a + 1), chunk = a < 0 ? "" : part.slice(a, b >= 0 ? b : part.lastIndexOf("</div>")), t = chunk.lastIndexOf("</table>"); return t >= 0 ? chunk.slice(t + 8) : null; };
   for (let i = 1; i <= 3; i++) {
     const head = segPart.indexOf(`<h4>paragraph ${i} — `);
     const mv = parseYaml(readOr(join(runDir, "moves", `name_an_act_then_its_cost_${i}.yaml`), "{}"), "move");
     const desc = typeof mv.description === "string" ? mv.description.trim() : "";
     const headEnd = head >= 0 ? segPart.indexOf("</h4>", head) + 5 : -1;
     const table = headEnd >= 0 ? segPart.indexOf("<table", headEnd) : -1;
-    ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd
-      && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>${NOT_FIRED}`,
-      `(o)/(x) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph, then its obligation trigger verdict, above its Segments table: ${segPart.slice(headEnd, table)}`);
+    ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>${NOT_FIRED}`, `(o)/(x) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph, then its obligation trigger verdict, above its Segments table: ${segPart.slice(headEnd, table)}`);
+    ok((mv.breaks || []).length === 3 && chunkAfterTable(segPart, i) === `<div class="move-breaks"><p class="caption">Breaks</p><ol>${mv.breaks.map((x) => `<li>${escHtml(String(x))}</li>`).join("")}</ol></div>`, `(o) paragraph ${i}'s Segments table in the review block is not followed by its Move's breaks as one ordered list in order: ${chunkAfterTable(segPart, i)}`);
   }
   // A paragraph with no Move bound shows its heading and its table with nothing between them.
   const unbound = join(root, "unbound-move-run");
@@ -667,8 +667,8 @@ else {
   const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
   const noMove = `<h4>paragraph 2 — (no Move)${COPY}</h4>`, nHead = nSeg.indexOf(noMove);
   const nAfter = nHead >= 0 ? nSeg.slice(nHead + noMove.length) : "";
-  ok(nHead >= 0 && nAfter.startsWith("<table") && nSeg.includes(escHtml("Names an act, then names who pays for it (paragraph 1).")),
-    "(o) a paragraph with no Move bound does not show its heading directly above its Segments table");
+  ok(nHead >= 0 && nAfter.startsWith("<table") && nSeg.includes(escHtml("Names an act, then names who pays for it (paragraph 1).")), "(o) a paragraph with no Move bound does not show its heading directly above its Segments table");
+  const nReview = nSeg.slice(nSeg.indexOf('<div class="rpart segments">'), nSeg.indexOf('<div class="rpart refused">')); ok(chunkAfterTable(nReview, 2) === "" && (chunkAfterTable(nReview, 1) || "").startsWith('<div class="move-breaks">'), `(o) the unbound paragraph's Segments table is followed by something, or its bound neighbour's by no breaks: ${chunkAfterTable(nReview, 2)}`);
   // (w) THE PARAGRAPH WAYPOINTS COLUMN AND THE COPY BUTTON (kogaki#1591); the obligation line is read on the unbound copy above.
   const pairHead = html.slice(pairStart, html.indexOf("</thead>", pairStart)), pw2 = (planWps.find((w) => w.waypoint === 2) || {}).paragraph_waypoints || [];
   ok((pairHead.match(/<th>/g) || []).length === 4 && pairHead.includes('<th>Paragraph Waypoints <span class="meta">') && legRows.every((row) => (row.match(/<td/g) || []).length === 3), "(w) the comparison table does not carry three columns, the Paragraph Waypoints between the two paragraphs");
