@@ -1068,6 +1068,17 @@ function moveStatesBreaks(r, move) {
     + `</tbody></table>`;
 }
 
+// A paragraph's Move's `breaks` under its Segments table on the review block (kogaki#1637): an
+// ordered list in the record's order; nothing where the paragraph has no Move.
+function moveBreaks(r, move) {
+  if (!move) return "";
+  const rec = moveRecord(r, move);
+  if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
+  const breaks = Array.isArray(rec.breaks) ? rec.breaks : [];
+  return `<div class="move-breaks"><p class="caption">Breaks</p>${breaks.length
+    ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>` : `<p class="muted">(none)</p>`}</div>`;
+}
+
 // WHERE A BOUND MOVE CAME FROM (kogaki#1521): `library` or `this run`, read from the run record's
 // `library.ids`; null for a run with no library, where every Move is the run's own.
 export function moveSource(run, move) {
@@ -1099,7 +1110,7 @@ function reviewBlock(r, idx) {
   };
   const segments = extractionParagraphs(r).map((p) => `<h4>paragraph ${p.i + 1} — ${esc((entries[p.i] && entries[p.i].move) || "(no Move)")}${boundAt(p.i + 1)}${COPY_BUTTON}</h4>`
     + moveDescription(r, entries[p.i] && entries[p.i].move) + (entries[p.i] && entries[p.i].move ? obligationTriggerLines(p.rec) : "") + moveObligationLine(r, p.i)
-    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound, firedSegments(p.rec)) : `<p class="muted">(not written)</p>`)).join("");
+    + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound, firedSegments(p.rec)) + moveBreaks(r, entries[p.i] && entries[p.i].move) : `<p class="muted">(not written)</p>`)).join("");
 
   // An attempt with no readable judge verdict, or one the job record refused where the judge
   // named no does-not-fit, is a row too, carrying the job record's refusal: only an attempt
@@ -1157,7 +1168,7 @@ tr.fired>td{background:var(--fired)}
 .pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
 details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
 details.sub{margin:4px 0 4px 8px}
-.move-states{margin:6px 0}.move-states caption{text-align:left;font-weight:bold;font-size:13px}details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
+.move-breaks .caption{margin:6px 0 2px;font-weight:bold;font-size:13px}.move-states{margin:6px 0}.move-states caption{text-align:left;font-weight:bold;font-size:13px}details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
 details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
 details.prow.off{background:var(--off)}
 pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
