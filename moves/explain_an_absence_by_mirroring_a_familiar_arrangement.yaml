@@ -27,7 +27,7 @@ after:
     than from motives or morals
   trust: >-
     raised: the speaker sets the easy answers aside, grants a point that cuts
-    against the account, and rests it on a checkable instance
+    against the account, and rests it on an instance the reader can recognise
 breaks:
   - >-
     Cut the opening spread of candidate answers and begin at the narrowed
@@ -37,8 +37,8 @@ breaks:
     Describe the two sides in unmatched terms instead of part for part — the
     mirror collapses and the reader has to build the comparison themselves
   - >-
-    State the second side as a bare absence with no dated instance — the reader
-    grants the point in the abstract and feels nothing missing
+    State the second side as a bare absence with no instance — the reader grants
+    the point in the abstract and feels nothing missing
   - >-
     Drop the concession that a partial arrangement already exists — the account
     reads as unaware of the obvious objection and trust falls
@@ -73,7 +73,8 @@ segments:
     relation: >-
       mirrors the previous step part by part, putting an absence where each part
       stood
-    manner: one dated instance given as the evidence
+    manner: >-
+      one concrete instance the reader can recognise, given as the evidence
   - operation: >-
       grants a partial counter to the account, withdraws it by naming what the
       counter lacks, and draws out what follows
@@ -88,4 +89,5 @@ segments:
       end it
   - operation: spells out how the remedy would work in practice
     relation: fills out the remedy the previous step named in outline
-    manner: a historical precedent named at the close
+    manner: >-
+      a recognisable instance of the remedy already tried, named at the close

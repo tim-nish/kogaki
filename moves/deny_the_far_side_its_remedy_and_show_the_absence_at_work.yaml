@@ -1,12 +1,12 @@
 id: deny_the_far_side_its_remedy_and_show_the_absence_at_work
 description: >-
-  Turns to the second setting of a pair, denies it the remedy the first one had,
-  names the missing body as the reason, then lets one dated episode show the
+  Turns to the second setting of a pair, denies it the mechanism the first one
+  had, names the missing role as the reason, then lets one instance show the
   absence at work.
 before:
   knowledge: >-
-    now holds a worked account of the near setting, in which one body holds the
-    decisive capacity and so forestalls its use by anyone else
+    now holds a worked account of the near setting, in which one party holds the
+    role that forestalls the act
   question: >-
     holds the question half answered and wants the far side of the pair treated
     the same way
@@ -14,45 +14,45 @@ before:
     expects the other side of the pair to be worked through on the same terms
 after:
   knowledge: >-
-    now holds that the second setting has no such body, so nothing forestalls
-    the decisive capacity being used
+    now holds that the second setting has nothing in that role, so nothing
+    forestalls the act
   question: >-
     holds both sides of the pair treated and wants what follows from the absence
   expectation: expects the consequence of the absence to be drawn out next
 breaks:
   - >-
-    drop the dated episode and keep the general reason alone — the absence rests
-    on the writer's word and nothing fixes it as real
+    drop the instance and keep the general reason alone — the absence rests on
+    the writer's word and nothing fixes it as real
   - >-
-    leave out the closing note that onlookers objected without acting — the
-    reader supposes informal pressure stands in for the missing capacity, and
-    the absence looks only partial
+    leave out the closing note that those placed to step in only objected — the
+    reader supposes informal pressure stands in for the missing role, and the
+    absence looks only partial
   - >-
-    put the episode before the general reason — the reader meets a particular
+    put the instance before the general reason — the reader meets a particular
     event with no frame and reads it as news rather than as an instance
   - >-
-    add several further episodes beside the first — the single check becomes a
+    add several further instances beside the first — the single check becomes a
     survey, and the paired structure the step rests on goes slack
   - >-
-    state the absence without first denying the customary means — the reader has
-    nothing against which to measure what is missing
+    state the absence without first denying the mechanism the first setting had
+    — the reader has nothing against which to measure what is missing
   - >-
-    soften the denial into a statement that intervention is rare or difficult —
-    the contrast with the first half collapses into a matter of degree
+    soften the denial into a statement that the mechanism is rare or weak there
+    — the contrast with the first half collapses into a matter of degree
 segments:
   - operation: poses a question about what obtains in a broader setting
   - operation: >-
-      denies that the customary means of intervention operates in that setting
+      denies that the mechanism the first setting relied on operates in this one
     relation: answers the question just posed, and answers it in the negative
-  - operation: gives as the reason that no such body exists at all
+  - operation: gives as the reason that nothing holds that role in this setting
     relation: >-
       supplies the ground for the denial just made, turning a report of what
       does not happen into an account of why
     manner: a brief denial in one clause, set down and left without elaboration
-  - operation: narrates one dated episode and names its outcome
+  - operation: gives one concrete instance and names how it ended
     relation: >-
       makes concrete, as a single instance, the general reason just given
-  - operation: adds that onlookers voiced disapproval while taking no action
+  - operation: adds that those placed to step in objected and did nothing
     relation: >-
-      completes the episode by naming what others did and did not do inside it,
-      closing off the obvious objection to it
+      closes the instance by naming what the others in it did and did not do,
+      shutting off the obvious objection

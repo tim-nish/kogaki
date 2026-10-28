@@ -10,7 +10,7 @@ before:
   orientation: no placing of this text among other accounts of the matter
   trust: neutral, neither sceptical nor won over
 after:
-  knowledge: holds one named feature as the cause of the standing claimed
+  knowledge: holds one named feature as the cause of the distinction claimed
   question: wants to know what the single cause now named accounts for
   expectation: >-
     expects what follows to work out the consequences of the one cause now named
@@ -40,7 +40,8 @@ segments:
   - operation: singles out one feature as surpassing every other
     relation: >-
       sets the listed grounds aside by placing one item above all of them
-  - operation: states that one feature is the source of the standing claimed
+  - operation: >-
+      states that the one feature is the source of the distinction claimed
     relation: >-
-      names the item ranked earlier as the cause of the standing claimed at the
-      opening
+      names the item ranked earlier as the cause of the distinction claimed at
+      the opening
