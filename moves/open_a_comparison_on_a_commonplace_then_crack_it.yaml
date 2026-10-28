@@ -1,0 +1,66 @@
+id: open_a_comparison_on_a_commonplace_then_crack_it
+description: >-
+  Hands the reader a commonplace, claims one case fits it best, stacks the
+  likeness in shared facts, concedes the two are still not held alike, then
+  names the one difference that explains it.
+before:
+  knowledge: >-
+    holds the two compared cases as unlike, and nothing from this text yet
+  question: holds no question beyond whether this text is worth entering
+  expectation: >-
+    expects an opening to announce in general terms what the text is about
+  orientation: >-
+    places this as one more general-interest discussion of a large subject
+  trust: neutral, with no basis either way
+after:
+  knowledge: >-
+    holds a likeness between two compared cases and one way they diverge
+  question: wants to know what follows from the divergence just named
+  expectation: >-
+    expects the next stretch to work out the divergence rather than extend the
+    likeness
+  orientation: >-
+    places it as a text that reads a rivalry by comparing the parties'
+    circumstances
+  trust: >-
+    mildly raised by an opening everyone recognises and facts that need no
+    expertise to check
+breaks:
+  - >-
+    drop the commonplace at the opening and begin from the shared features — the
+    comparison lands as a bare assertion with no reason for the reader to grant
+    it
+  - >-
+    put the divergence before the enumeration of likenesses — the likeness never
+    accumulates, so the break has nothing left to break
+  - >-
+    replace the enumerated shared features with one abstract statement of
+    likeness — the reader has nothing to picture and takes the claim on the
+    author's word
+  - >-
+    add a ground to the concession where it falls — the turn loses its brevity,
+    and the reader stops feeling the comparison give way
+  - >-
+    soften the superlative claim about the single case to a mild resemblance —
+    the stake of the comparison drops and the final divergence costs nothing
+segments:
+  - operation: states a commonplace as a given, without arguing for it
+  - operation: claims one case fits the stated commonplace better than any other
+    relation: >-
+      applies the commonplace just stated to a single case, and at its strongest
+  - operation: >-
+      narrows the claimed fit to one respect of likeness while granting the
+      discord
+    relation: says in what respect the case just named is held to fit
+  - operation: enumerates the shared features that carry the asserted likeness
+    relation: >-
+      fills in with concrete items the likeness the step before only named
+  - operation: >-
+      concedes that, for all the shared features, no one would call the two
+      cases alike
+    relation: >-
+      interrupts the accumulating likeness by granting the reader's own view
+      instead of adding to it
+    manner: a brief flat concession, with no ground given yet
+  - operation: names the one respect in which the compared cases come apart
+    relation: supplies the ground for the concession just made
