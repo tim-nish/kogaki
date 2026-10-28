@@ -1,0 +1,54 @@
+id: close_the_series_by_moving_instances_inward_to_the_present
+description: >-
+  Closes a series of recurrences by overturning the calm before it, then setting
+  down instances that step from a remote one to the nearest, ending on how
+  people there came to feel.
+before:
+  knowledge: >-
+    holds that attention fell away as the driving conditions eased, and that the
+    calm produced a widely held claim that the old pattern was finished
+  question: >-
+    holds what overturned a widely held claim that the old pattern had ended for
+    good
+  expectation: >-
+    expects the remaining episode to arrive as a reversal of the settled calm
+    just laid out
+after:
+  knowledge: >-
+    holds that the calm ended and that the pattern's last recurrence runs up to
+    the reader's own time and place
+  question: >-
+    holds whether the present moment is itself one of the pattern's recurrences
+  expectation: expects the completed series to be put to use in what follows
+breaks:
+  - >-
+    drop the opening turn and begin with the first instance — the instances read
+    as recent news rather than as the close of a pattern
+  - >-
+    order the instances from nearest to most remote — the inward movement is
+    lost and the closing step lands on something distant
+  - >-
+    explain why each instance came about — the pace slackens and the series
+    stops reading as one movement
+  - >-
+    end on the last instance without the state of feeling it produced — the
+    pattern stays about faraway places and never reaches the ground the reader
+    occupies
+segments:
+  - operation: >-
+      marks the close of a settled interval and the return of a condition that
+      had been taken for finished
+  - operation: supplies one dated instance of the stated turn
+    relation: >-
+      gives the first concrete case of the shift the opening step announced
+    manner: a bare statement set down with no elaboration after it
+  - operation: >-
+      adds a further instance nearer the reader's own standpoint and names where
+      it surfaces
+    relation: moves the series from a remote case to a nearer one
+  - operation: >-
+      brings the instance into the nearest setting and closes on the state of
+      feeling it produced there
+    relation: >-
+      completes the inward movement the previous step began by arriving at the
+      nearest setting of all

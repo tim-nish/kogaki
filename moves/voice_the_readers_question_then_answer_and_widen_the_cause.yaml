@@ -1,0 +1,58 @@
+id: voice_the_readers_question_then_answer_and_widen_the_cause
+description: >-
+  Turns the anomaly just granted into the reader's own question, answers it at
+  once with one named cause, then widens that cause into a recurring historical
+  pattern.
+before:
+  knowledge: >-
+    holds that the subject sustains a distinct and growing body of work within a
+    market otherwise flat
+  question: holds why this subject alone should be in such demand
+  expectation: >-
+    expects the demand just described to be accounted for, the survey of the
+    field being complete
+  orientation: places the text as one entry among many in an established field
+after:
+  knowledge: >-
+    holds a named cause for the present demand, and that such demand has
+    recurred whenever conditions worsened
+  question: >-
+    holds what the named instability consists of now, the earlier question
+    having been settled
+  expectation: >-
+    expects the named cause to be unfolded, the account of the demand being
+    complete
+  orientation: >-
+    places the field as a recurrent kind of writing rather than a present
+    fashion
+breaks:
+  - >-
+    leave the question unvoiced and open on the cause — the reader is handed an
+    answer to something they never heard asked, and the cause reads as bare
+    assertion
+  - >-
+    elaborate the answer across several sentences before generalising — the
+    directness that makes the answer feel settled is gone and the reader waits
+    for a point already available
+  - >-
+    cut the closing generalisation — the cause stays tied to the present moment
+    and the demand still reads as a passing fashion
+  - >-
+    put the generalisation ahead of the direct answer — the reader meets a long
+    pattern with nothing yet to attach it to
+  - >-
+    hedge the cause with several contributing factors — nothing is given to
+    carry forward, and the question the paragraph voiced stays open
+segments:
+  - operation: puts the question at issue as a direct question
+  - operation: names the foremost cause as the answer
+    relation: >-
+      settles the question just put, taking it up immediately rather than
+      approaching it
+    manner: a short declarative that takes no elaboration
+  - operation: >-
+      denies a recent origin and generalises the cause into a pattern that has
+      recurred over past time
+    relation: >-
+      widens the answer just given from the present case into a repeated one, so
+      the cause holds beyond the moment

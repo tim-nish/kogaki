@@ -1,0 +1,50 @@
+id: pick_out_a_counted_set_of_past_occurrences_to_take_in_turn
+description: >-
+  Turns a recurrence already claimed in general terms into a counted set of
+  past occurrences, named in their places, giving the reader a frame for the
+  account that takes them one at a time.
+before:
+  knowledge: >-
+    holds a named cause for the present demand, and that such demand has
+    recurred whenever conditions worsened
+  expectation: >-
+    expects the named cause to be unfolded, the account of the demand being
+    complete
+  trust: >-
+    raised, the speaker having opened on a fact the reader can confirm for
+    themselves rather than on a claim
+after:
+  knowledge: >-
+    holds that the recurrence has a counted set of occurrences, each with its
+    place in the past
+  expectation: >-
+    expects the occurrences to be taken in turn, their set being now fixed
+  trust: >-
+    raised further, the general tendency now resting on something the reader
+    could check
+breaks:
+  - >-
+    assert the occurrences without showing what they were read off — the reader
+    loses the sense that the pattern rests on anything checkable and takes it on
+    the speaker's word
+  - >-
+    leave the occurrences unordered — the reader is left with no frame to hang
+    the following account on and cannot anticipate its order
+  - >-
+    justify the choice of what the set was read off in an added paragraph before
+    the set arrives — the reader meets method before pattern and the single
+    step's force as a hinge is spent
+  - >-
+    name more occurrences than the following account takes up — the reader
+    waits for items that never come
+  - >-
+    explain any one occurrence here — the frame and its filling blur together,
+    and the following units have nothing left to open
+segments:
+  - operation: >-
+      looks back over the past and picks out a counted set of the stated
+      recurrence's occurrences, naming each in its place so the following units
+      can take them one at a time
+    manner: >-
+      the set is read off one checkable quantity rather than asserted, and each
+      occurrence is placed in time

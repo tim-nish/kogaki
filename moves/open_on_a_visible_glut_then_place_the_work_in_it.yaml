@@ -1,0 +1,57 @@
+id: open_on_a_visible_glut_then_place_the_work_in_it
+description: >-
+  Opens on a plainly visible state of the subject's field that anyone can check,
+  surveys the crowded variants, sets them against the wider trend, and seats the
+  present work among them.
+before:
+  knowledge: >-
+    no specialised knowledge of the subject and nothing about its standing
+  question: nothing settled, at most whether this is worth reading
+  expectation: >-
+    expects an opening that defines the subject or lays out what is to come
+  orientation: no sense of how this text sits among others on its subject
+  trust: neutral, with no basis for judging the speaker
+after:
+  knowledge: >-
+    holds that the subject sustains a distinct and growing body of work within a
+    market otherwise flat
+  question: holds why this subject alone should be in such demand
+  expectation: >-
+    expects the demand just described to be accounted for, the survey of the
+    field being complete
+  orientation: places the text as one entry among many in an established field
+  trust: >-
+    raised, the speaker having opened on a fact the reader can confirm for
+    themselves rather than on a claim
+breaks:
+  - >-
+    state the exception without the spread of variants before it — the exception
+    has nothing to be exceptional among, and the claim lands as bare assertion
+  - >-
+    cut the closing placement of the work at hand — the reader is left with a
+    field described from outside and no sense of where this text stands in it
+  - >-
+    open instead with a definition of the subject — the first thing the reader
+    meets needs expertise, and the easy way in is lost
+  - >-
+    assert the placement of the present work flatly rather than as a guess — the
+    speaker claims a standing the reader has not yet granted them
+segments:
+  - operation: >-
+      opens on a plainly visible state of the subject's field that the reader
+      can confirm for themselves.
+  - operation: surveys the range of forms the existing instances take.
+    relation: >-
+      breaks the single observation of the step before into the spread of cases
+      standing behind it.
+    manner: a run of parallel items closed by a summarising clause.
+  - operation: >-
+      sets a persistent exception against the wider trend it runs counter to,
+      and raises the exception to a standing category.
+    relation: >-
+      measures the spread just surveyed against the conditions around it.
+  - operation: places the present work inside the category just established.
+    relation: >-
+      locates the work at hand within the category the step before brought into
+      being.
+    manner: a hedged forecast rather than a flat assertion.

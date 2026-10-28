@@ -1,0 +1,58 @@
+id: date_the_next_episode_then_add_a_cause_beside_its_era
+description: >-
+  Dates the next case in a running series, fills in its period with one concrete
+  instance, then grants those conditions only part of the cause and adds a
+  factor of another kind.
+before:
+  knowledge: >-
+    holds that the earliest episode rose with the conditions of its period and
+    ended in the subject's proscription
+  question: >-
+    holds whether each remaining episode has a cause of its own, the earliest
+    one having been accounted for
+  expectation: >-
+    expects the next episode to be handled the same way, with its own cause and
+    its own end
+  orientation: >-
+    places the subject as one whose standing has risen and fallen with
+    conditions outside it
+after:
+  knowledge: >-
+    holds that a further episode rose with its own period's conditions and that
+    a cause of a different kind is offered beside them
+  question: >-
+    holds whether the one still-unhandled episode has its own cause, this one
+    having been given two
+  expectation: >-
+    expects the last remaining episode to be taken in turn, with its period and
+    its causes named
+  orientation: >-
+    places the subject as one whose standing answers both to outside conditions
+    and to the usage of those in office
+breaks:
+  - >-
+    drop the hedge on the added factor — a contested attribution reads as
+    settled fact, and the care that had been earning trust is spent
+  - >-
+    cut the concrete instance that shows how far the conditions went — the
+    period is named but not felt, and the cause claimed for it carries no weight
+  - >-
+    leave out the further factor and close on the conditions alone — the series
+    reads as one explanation stamped onto each case, and the reader stops
+    expecting anything new from the case still to come
+  - >-
+    describe the period at length before the case is dated — the reader loses
+    their place in the series and has to rebuild where this stretch sits
+segments:
+  - operation: >-
+      marks the trend's resumption after a lapse and places it in its period
+  - operation: >-
+      characterises the dated period by the conditions prevailing in it and
+      carries them to a concrete instance showing how far they went
+    relation: fills in the period that the step before it had only dated
+  - operation: >-
+      grants a condition already set out as one part of the cause and adds a
+      further factor of a different kind, hedged as the speaker's inference
+    relation: >-
+      turns from the condition the step before it had built up to a cause that
+      lies outside conditions altogether

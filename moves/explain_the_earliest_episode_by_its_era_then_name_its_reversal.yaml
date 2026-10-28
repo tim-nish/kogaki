@@ -1,0 +1,70 @@
+id: explain_the_earliest_episode_by_its_era_then_name_its_reversal
+description: >-
+  Takes the earliest item of a fixed series, grounds it in the conditions of its
+  period, then names the reversal that ended it, so the series reads as caused
+  rather than coincidental.
+before:
+  knowledge: >-
+    holds that the recurrence has a counted set of dated episodes, read off a
+    measurable quantity
+  question: >-
+    holds what the named instability consists of now, the earlier question
+    having been settled
+  expectation: >-
+    expects the dated episodes to be taken in turn, their set being now fixed
+  orientation: >-
+    places the field as a recurrent kind of writing rather than a present
+    fashion
+  trust: >-
+    raised further, the general tendency now resting on a quantity the reader
+    could check
+after:
+  knowledge: >-
+    holds that the earliest episode rose with the conditions of its period and
+    ended in the subject's proscription
+  question: >-
+    holds whether each remaining episode has a cause of its own, the earliest
+    one having been accounted for
+  expectation: >-
+    expects the next episode to be handled the same way, with its own cause and
+    its own end
+  orientation: >-
+    places the subject as one whose standing has risen and fallen with
+    conditions outside it
+  trust: >-
+    raised further, the offered cause being marked as the speaker's inference
+    rather than as fact
+breaks:
+  - >-
+    drop the hedge on the causal step — the inference reads as a settled
+    finding, and the reader loses the measure of what the speaker claims to know
+  - >-
+    cut the closing reversal — the episode reads as a rise with no end, and the
+    reader cannot see why a later episode was needed at all
+  - >-
+    paraphrase the borrowed phrase that names the ground of rejection — the
+    reversal loses the voice of those who made it and reads as the speaker's own
+    verdict
+  - >-
+    add a paragraph of background on the period before the cause is offered —
+    the item's own treatment is buried, and the reader loses the brisk pattern
+    the remaining items will follow
+segments:
+  - operation: >-
+      places one episode of the trend in its period and characterises the
+      conditions then prevailing
+  - operation: >-
+      proposes a cause for the item's rise, marked as inference rather than as
+      established fact
+    relation: >-
+      supplies the causal link that the preceding description of the period only
+      implied
+  - operation: >-
+      names the reversal that ended the episode and the ground on which the
+      subject was rejected
+    relation: >-
+      turns from the rise just explained to its collapse, the same item's other
+      side
+    manner: >-
+      the ground of the rejection is given in a borrowed phrase rather than in
+      the speaker's own words

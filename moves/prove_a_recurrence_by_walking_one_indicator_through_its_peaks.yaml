@@ -1,0 +1,91 @@
+id: prove_a_recurrence_by_walking_one_indicator_through_its_peaks
+description: >-
+  Opens on a condition anyone can see, names one cause and raises it to a
+  recurrence, then earns the recurrence by walking one indicator period by
+  period through its peaks into the reader's own time.
+before:
+  knowledge: nothing beyond a vague awareness that such a subject exists
+  question: none, or whether this is worth reading at all
+  expectation: an opening definition or a plan of the work
+  orientation: this is one more item on a crowded shelf
+  trust: neutral
+after:
+  knowledge: >-
+    holds one stated cause and a recurrence backed by one indicator tracked to
+    the present
+  question: >-
+    why attention is rising now is settled, and what in the present state will
+    be explained is left open
+  expectation: >-
+    expects the present state to be explained through the frame just justified
+  orientation: >-
+    places the subject as one whose rise and fall tracks outside conditions
+    rather than fashion
+  trust: >-
+    raised: the case stands on an indicator the reader could check and hedges
+    where the ground is thin
+breaks:
+  - >-
+    drop the indicator and keep only the generalization — the claim rests on
+    the speaker's word alone, and trust does not rise
+  - >-
+    walk the marked periods out of date order — the series no longer arrives at
+    the reader's own time, and the closing period loses its force
+  - >-
+    leave out the trough between two of the peaks — the pattern reads as a list
+    of occasions rather than a rise and fall tied to conditions
+  - >-
+    add a paragraph defining the subject before the opening observation — the
+    first specialist demand arrives before any foothold, and the easy entry is
+    lost
+  - >-
+    assert the causes of the distant periods flatly instead of at one remove —
+    the account claims more certainty than the record carries, and the reader
+    discounts the rest
+  - >-
+    hold the closing period in the same past framing as the earlier ones — the
+    last stretch reads as more history, and the reader never lands in the
+    present
+segments:
+  - operation: >-
+      states an observable present condition in which one class rises against
+      the general trend around it
+  - operation: >-
+      names a single cause for the condition and lifts that cause into a
+      regularity holding across a long past
+    relation: >-
+      supplies the cause of the condition the previous step put on the table,
+      then carries it beyond the present moment
+  - operation: >-
+      introduces one indicator tracked across a long span and marks the periods
+      at which it rises
+    relation: >-
+      turns the previous step's asserted regularity into something tracked,
+      naming where the peaks fall
+  - operation: >-
+      accounts for the earliest marked peak by the conditions around it and
+      records the collapse that followed
+    relation: >-
+      takes the first of the marked peaks and gives both its cause and its
+      aftermath
+  - operation: >-
+      explains the next marked peak by a change in outside conditions and adds
+      a further contributing factor of another kind
+    relation: >-
+      moves along the series to the next peak and treats it as the first was
+      treated, with one addition
+  - operation: >-
+      traces the indicator's decline through the reversal of that change and
+      reports the belief that grew in the interval
+    relation: >-
+      fills the trough between peaks, carrying the series through the years the
+      indicator fell
+  - operation: >-
+      closes the lull with the latest period and names the events that force the
+      old concern back
+    relation: >-
+      overturns the belief the previous step reported and ends the series on the
+      period the reader is living in
+    manner: >-
+      a shift into the present tense, so the closing stretch reads as the
+      reader's own time

@@ -1,0 +1,63 @@
+id: mark_the_lull_then_cite_works_that_declared_the_pattern_over
+description: >-
+  Records attention falling away as conditions eased, dates the prevailing claim
+  the calm produced, and gauges its hold by widely received works that advanced
+  it.
+before:
+  knowledge: >-
+    holds that a further episode rose with its own period's conditions and that
+    a cause of a different kind is offered beside them
+  question: >-
+    holds whether the one still-unhandled episode has its own cause, this one
+    having been given two
+  expectation: >-
+    expects the last remaining episode to be taken in turn, with its period and
+    its causes named
+after:
+  knowledge: >-
+    holds that attention fell away as the driving conditions eased, and that the
+    calm produced a widely held claim that the old pattern was finished
+  question: >-
+    holds what overturned a widely held claim that the old pattern had ended for
+    good
+  expectation: >-
+    expects the remaining episode to arrive as a reversal of the settled calm
+    just laid out
+breaks:
+  - >-
+    cut the two named instances and keep only the prevailing claim — the claim
+    reads as the speaker's characterisation of a period rather than as something
+    widely held
+  - >-
+    drop the opening fall in attention and begin at the prevailing claim — the
+    link between eased conditions and the belief they permitted is lost
+  - >-
+    rebut the prevailing claim here instead of leaving it standing — the
+    reversal the next step carries arrives early and spends its force
+  - >-
+    render the prevailing claim in the writer's own terms rather than the
+    wording it circulated in — the reader cannot gauge how confidently it was
+    asserted
+  - >-
+    extend the instances into a longer list of further cases — the stretch
+    becomes a survey, and the lull it is placed inside stops being the point
+segments:
+  - operation: >-
+      notes the measured quantity falling away as the conditions that had
+      driven it settle
+  - operation: >-
+      dates a period in which the settled conditions gave rise to a prevailing
+      claim that the former pattern had ended for good
+    relation: >-
+      fills the space left by the falling away with what took hold in the period
+      after it
+    manner: >-
+      the prevailing claim given in the wording it circulated in rather than
+      paraphrased
+  - operation: >-
+      measures how far a prevailing claim had taken hold by naming widely
+      received instances that advanced it, their reach as the gauge of its hold
+    relation: >-
+      supplies checkable instances for the claim just dated, and their reach as
+      the gauge of its hold
+    manner: each instance placed in time
