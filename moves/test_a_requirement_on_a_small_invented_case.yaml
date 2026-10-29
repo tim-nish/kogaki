@@ -1,0 +1,55 @@
+id: test_a_requirement_on_a_small_invented_case
+description: >-
+  Turns a general requirement into a small invented case with explicit
+  quantities, adds them up to show the shortfall, then names the outcome that
+  shortfall forces.
+before:
+  knowledge: holds a single requirement and the outcome its absence would permit
+  question: wants to know how the named requirement can be kept in practice
+  expectation: expects what follows to show how the requirement is upheld
+  trust: neutral toward the author
+after:
+  knowledge: >-
+    holds a worked case in which combined lesser quantities still fall short of
+    a single larger one
+  question: wants to know what can be done once combination alone falls short
+  expectation: >-
+    expects the next step to carry the worked case back to the general
+    requirement
+  trust: >-
+    raised slightly: the claim is laid out in figures the reader can check
+    unaided
+breaks:
+  - >-
+    Enlarge the imagined case to many more parts — the reader can no longer
+    carry the sum in their head, and the demonstration stops being checkable.
+  - >-
+    State the shortfall without assigning any quantities — the step returns to
+    assertion and the reader is left with nothing to verify.
+  - >-
+    Stop at the mismatch of totals and leave out the outcome it entails — the
+    reader sees a sum that does not come out but not why that matters.
+  - >-
+    Add a passage defending how the quantities were chosen — the illustration
+    takes on weight it cannot bear, and the reader begins arguing with the
+    figures instead of following the step.
+  - >-
+    Begin with the outcome and supply the figures afterward — the reader reads
+    the arithmetic as backfill for a conclusion already fixed.
+segments:
+  - operation: >-
+      opens a bounded imagined case containing a counted number of parts
+    manner: cast as a first-person invitation rather than as an assertion
+  - operation: >-
+      assigns a definite quantity to each part of the case, chosen so the
+      arithmetic will come out the way the claim needs
+    relation: fills the case just opened with specific values
+  - operation: >-
+      combines the lesser quantities and states that the two sides of the
+      comparison do not match
+    relation: draws the arithmetic consequence of the values just assigned
+  - operation: >-
+      converts the shortfall into the concrete outcome it entails, stated as
+      unavoidable
+    relation: >-
+      takes the mismatch just established and states what it forces in practice

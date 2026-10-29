@@ -1,0 +1,84 @@
+id: derive_a_universal_law_from_a_worked_numerical_case
+description: >-
+  Works a general condition through an invented quantified case, names the
+  outcome and the response that meets it, then shows the same pattern
+  repeating across unlike settings.
+before:
+  knowledge: nothing on the subject beyond everyday impressions
+  question: none in particular, beyond whether this concerns them at all
+  expectation: expects a general explanation opening with definitions
+  orientation: >-
+    places this among introductory accounts written for non-specialists
+  trust: neutral, with no reason to credit or doubt the author
+after:
+  knowledge: >-
+    holds one stated mechanism, the names of its stages, and that it recurs
+    across settings
+  question: >-
+    satisfied on what keeps the arrangement from collapsing, and now asks how
+    the pattern bears on nearer cases
+  expectation: >-
+    expects what follows to carry the now-complete general pattern onto one
+    particular case
+  orientation: >-
+    reads it as setting out a law that holds everywhere rather than reporting
+    one sphere's affairs
+  trust: >-
+    raised: the claim was worked out in front of them, then shown repeating in
+    unlike settings
+breaks:
+  - >-
+    drop the invented quantified case — the opening condition stays an assertion
+    the reader has no way of checking
+  - >-
+    name the central term before the case is worked — the reader meets a label
+    with nothing behind it and reads what follows as vocabulary to memorise
+  - >-
+    cut the closing run of instances from unlike settings — the claim to
+    universality rests on one sphere and reads as a specialist's local rule
+  - >-
+    keep a single instance at the close instead of several — the spread across
+    unlike settings disappears and the pattern looks like a quirk of that one
+    sphere
+  - >-
+    insert a paragraph of qualification between the worked case and the naming —
+    the outcome the case produced goes cold before it is given its name
+  - >-
+    re-run the second case with fresh figures instead of the first case's — the
+    reader starts a new calculation rather than seeing the same one at an
+    earlier moment
+segments:
+  - operation: >-
+      names the one condition a stated general outcome depends on, and gives the
+      reason for it in the same sentence.
+  - operation: >-
+      runs the stated condition through a small invented case with assigned
+      quantities, adding and comparing them to reach the outcome.
+    relation: >-
+      it puts the general claim just made to work on a case the reader can
+      check.
+  - operation: >-
+      attaches a name to the outcome the case produced and raises the rule
+      against it to a principle holding at every time and place.
+    relation: >-
+      it labels and elevates what the worked case has just shown happening.
+  - operation: >-
+      introduces an earlier-stage version of the same outcome and re-runs the
+      established case with altered quantities to locate it.
+    relation: >-
+      it turns from the end-state just named to the stage before it, reusing the
+      case already set up.
+  - operation: >-
+      names the response that meets that earlier stage and states the moment at
+      which it must act.
+    relation: it answers the danger the previous step has just defined.
+  - operation: >-
+      asserts that the pattern just described recurs everywhere and backs it
+      with instances from widely separated settings before stating the general
+      principle.
+    relation: >-
+      it lifts the mechanism just named out of the subject's own sphere and shows it
+      repeating outside it.
+    manner: >-
+      a rapid sequence of bare instances, each named and left without
+      elaboration.

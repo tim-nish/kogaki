@@ -1,0 +1,36 @@
+id: ground_one_requirement_in_what_its_failure_permits
+description: >-
+  Names the single requirement a large stated aim depends on, then gives the
+  consequence that would follow without it, so one claim arrives with its ground
+  attached.
+before:
+  knowledge: >-
+    no specialist grounding in the subject; only everyday experience of it
+  question: no question held about the subject yet
+  expectation: no belief about what the text will do next
+after:
+  knowledge: holds a single requirement and the outcome its absence would permit
+  question: wants to know how the named requirement can be kept in practice
+  expectation: expects what follows to show how the requirement is upheld
+breaks:
+  - >-
+    drop the consequence and leave the requirement alone — the claim stands as a
+    bare assertion and the reader has no reason to grant it
+  - >-
+    put the consequence first and the requirement after it — the reader meets a
+    hypothetical before knowing what it is for, and the aim reads as an
+    afterthought
+  - >-
+    insert a stretch of qualifications and historical cases between the two
+    steps — the ground arrives too late to hold up the requirement, and the
+    opening reads as a survey rather than a claim
+  - >-
+    widen the single requirement into several competing conditions — the reader
+    loses the one thing to hold, and what follows has no single thread to follow
+segments:
+  - operation: names the requirement on which a stated large-scale aim depends
+  - operation: >-
+      spells out the outcome that would follow were the requirement to fail
+    relation: >-
+      supplies the ground for the requirement just named by stating what its
+      absence would permit

@@ -1,0 +1,67 @@
+id: name_the_remedy_then_define_and_place_its_target
+description: >-
+  Asks the reader's own 'how' question, answers it with one named measure,
+  defines the single new category that measure targets, then fixes the category
+  on a case the reader already holds.
+before:
+  knowledge: >-
+    holds a named extreme case and a rule against its arising treated as
+    universal, and still holds the worked case with its assigned quantities
+  question: wants to know how such a rule is acted on in practice
+  expectation: >-
+    expects what follows to turn a general principle into means of acting on it
+after:
+  knowledge: >-
+    also holds a named measure for meeting the rule and a defined category of
+    cases it targets
+  question: wants to know what the named measure consists of when it is applied
+  expectation: >-
+    expects what follows to show the named measure in action now that its target
+    is defined and illustrated
+breaks:
+  - >-
+    use the new term immediately without defining it — the reader meets a label
+    whose boundary they cannot test, and the worked case that follows proves
+    nothing to them
+  - >-
+    state the measure before posing the question — the reader is handed an
+    answer to a question they were not yet holding, and the measure reads as one
+    option among many
+  - >-
+    invent a fresh case for the illustration instead of reusing the one already
+    set up — the reader has to rebuild the arithmetic before the assigned figure
+    means anything
+  - >-
+    give the figure without the reason it qualifies — the reader sees an
+    assertion about a borderline case and cannot tell what makes it borderline
+  - >-
+    add a paragraph arguing for the measure between the naming and the
+    definition — an unexplained label sits open while the reader is asked to
+    accept claims about it
+segments:
+  - operation: >-
+      poses a question asking by what means a general rule is put into practice
+  - operation: >-
+      answers the question with one named measure, introducing a term for what
+      the measure acts on
+    relation: it supplies the answer to the question just posed
+    manner: a brief direct statement that carries the whole answer in one clause
+  - operation: >-
+      defines the term just introduced by the condition that qualifies a case
+      for it
+    relation: >-
+      it glosses the term the step before used before anything is done with that
+      term
+  - operation: >-
+      applies the definition to a case already in play by assigning it a figure
+      that meets the condition
+    relation: >-
+      it tests the definition just given on material the reader has already
+      worked through
+  - operation: >-
+      grounds the assignment by noting that the case is still matched for now
+      yet would pass the limit if its trend held
+    relation: it gives the reason the figure in the step before qualifies
+    manner: >-
+      spoken as a continuation of the preceding sentence rather than as a
+      self-standing one

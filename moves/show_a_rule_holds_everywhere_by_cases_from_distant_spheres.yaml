@@ -1,0 +1,84 @@
+id: show_a_rule_holds_everywhere_by_cases_from_distant_spheres
+description: >-
+  Asserts a pattern holds anywhere, then runs cases from distant eras and an
+  everyday sphere, one worked out role by role, and closes by raising them to a
+  rule that holds everywhere.
+before:
+  knowledge: >-
+    also holds a name for the response’s named form and the moment by which
+    that form has to act
+  question: >-
+    wants to know how the newly named response is held together in
+    practice
+  expectation: >-
+    expects what follows to work out the newly named response, the
+    measure's mechanism having been stated, named and timed
+  orientation: >-
+    places this text as relaying a long-standing doctrine rather than an
+    author's own proposal
+after:
+  knowledge: >-
+    holds the pattern as recurring across settings of every kind, not only in
+    the one where it was first stated
+  question: >-
+    wants to know what a rule said to hold everywhere implies for the case at
+    hand
+  expectation: >-
+    expects the next stretch to turn to new matter, the pattern having been
+    closed as a rule holding everywhere
+  orientation: >-
+    places the text as relaying a rule that reaches past its own sphere into
+    ordinary affairs
+breaks:
+  - >-
+    cut the case drawn from a sphere far from the original one — the claim to
+    hold everywhere rests only on instances from one sphere, and the rule reads
+    as local after all
+  - >-
+    drop the step that assigns the parts of one case to the opposed roles — the
+    reader gets a list of names with no way to check that each is an instance of
+    the same thing
+  - >-
+    expand each of the later cases to the length of the worked one — the
+    accumulation loses its pace and the breadth that earns the closing claim is
+    buried in detail
+  - >-
+    state the closing rule at the outset and leave the cases out — the reader is
+    asked to take a claim about every setting on assertion alone
+  - >-
+    end on the last case without the closing restatement — the reader holds a
+    pile of instances and is left to infer the rule they were gathered to
+    establish
+segments:
+  - operation: >-
+      asserts that the pattern at issue occurs in settings of every kind
+  - operation: offers one concrete case from a setting remote from the reader's own
+    relation: >-
+      supplies the first instance of what the opening step asserted in the
+      abstract
+    manner: a bare naming of the case with no predicate completing it
+  - operation: >-
+      assigns each part of the case just offered to the opposed roles the
+      pattern names
+    relation: >-
+      works out the case the previous step only named, so the reader can see why
+      it counts as one
+  - operation: adds a further case drawn from another time and place
+    relation: >-
+      repeats the shape the previous step made legible, now without working it
+      out
+  - operation: >-
+      gathers several further cases into a single run, each marked as an
+      instance of the same thing
+    relation: >-
+      accelerates the series the previous step began, trading the detail of one
+      case for the breadth of many
+  - operation: >-
+      extends the series to a case from a wholly different sphere of activity
+    relation: >-
+      steps outside the sphere every earlier case shared while keeping the same
+      framing
+  - operation: restates the pattern as a rule holding everywhere
+    relation: >-
+      closes the series by raising the accumulated cases back to the claim the
+      opening step made

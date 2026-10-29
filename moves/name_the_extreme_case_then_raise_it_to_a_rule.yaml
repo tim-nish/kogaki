@@ -1,0 +1,49 @@
+id: name_the_extreme_case_then_raise_it_to_a_rule
+description: >-
+  Names the condition a worked case illustrated, then raises avoiding it into a
+  rule said to hold everywhere and always.
+before:
+  knowledge: >-
+    holds a worked case in which combined lesser quantities still fall short of
+    a single larger one
+  question: wants to know what can be done once combination alone falls short
+  expectation: >-
+    expects the next step to carry the worked case back to the general
+    requirement
+  orientation: places this text nowhere among other treatments of the subject
+  trust: >-
+    raised slightly: the claim is laid out in figures the reader can check
+    unaided
+after:
+  knowledge: >-
+    holds a named extreme case and a rule against its arising treated as
+    universal
+  question: wants to know how such a rule is acted on in practice
+  expectation: >-
+    expects what follows to turn a general principle into means of acting on it
+  orientation: >-
+    places this text as relaying a standing rule rather than an author's own
+    proposal
+  trust: >-
+    raised further: the rule is given the name and reach the worked case has
+    earned for it
+breaks:
+  - >-
+    drop the single name and keep the long description — the reader carries a
+    phrase instead of a handle that later steps can lean on
+  - >-
+    assert the principle without the claim of age and reach — the rule reads as
+    this author's own preference rather than a settled one
+  - >-
+    add further examples after the principle — the one clean statement is
+    diluted and the reader loses the sense that it needs no defending
+segments:
+  - operation: >-
+      fixes a single name for an extreme case and names the property that
+      defines it
+  - operation: >-
+      raises a single requirement into a principle presented as holding across
+      all times and places
+    relation: >-
+      lifts what the step before it only labelled into a standing rule about
+      that label
