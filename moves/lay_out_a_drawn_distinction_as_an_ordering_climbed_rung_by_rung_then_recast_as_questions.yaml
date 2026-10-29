@@ -1,0 +1,70 @@
+id: lay_out_a_drawn_distinction_as_an_ordering_climbed_rung_by_rung_then_recast_as_questions
+description: >-
+  Takes up a distinction just drawn and sorts it into a graded series of
+  positions: announces the series, defines each position from the lowest upward
+  by what the one above it requires, closes at the top by the end it names, then
+  recasts every position as one line of parallel plain questions.
+before:
+  knowledge: >-
+    holds a two-sided distinction between what the instances supply and what
+    they omit
+  expectation: expects the stated gap to be filled by what follows
+after:
+  knowledge: >-
+    holds the distinction as an ordered series of positions, each defined
+    against the one above it, and holds every position in a compact form
+    recallable without its defining lines
+  expectation: >-
+    expects the ordering, now in its most compact form, to be turned on the
+    material at once
+breaks:
+  - >-
+    begin the positions without announcing that a series is coming — the reader
+    takes the first position for the whole point and has to re-sort when the
+    rest arrive
+  - >-
+    define a position without reference to the one above it — the series stops
+    being an ordering and becomes a list of unrelated terms
+  - >-
+    define the topmost position by pointing to something further — the series
+    loses its stopping point and the reader keeps waiting for another rung
+  - >-
+    attach a case to any one definition — the compactness that lets the whole
+    series be held at once is lost, and that position reads as the point rather
+    than as one rung
+  - >-
+    skip the recasting and go straight to the application — the reader carries
+    the positions only in their defining wording and loses the hold needed to
+    follow the use made of them
+  - >-
+    recast only the position the argument will lean on — the contrast that gives
+    that position its force disappears and the reader keeps a single label
+    instead of an ordering
+segments:
+  - operation: >-
+      announces that the distinction just drawn will be set out as an ordered
+      series of positions, arriving immediately
+    relation: >-
+      takes up the two-sided distinction just drawn and undertakes to sort it
+      into graded positions
+    manner: a single short sentence with nothing elaborated after it
+  - operation: >-
+      defines each position of the series from the lowest upward, each by what
+      the position directly above it requires
+    relation: pays out the announced series one position at a time
+    manner: >-
+      one bare definitional clause per position, matched in form, taking no
+      elaboration
+  - operation: >-
+      closes the series by defining its topmost position by the end it names,
+      resting on no position beyond it
+    relation: stops the climb at the position the lower ones pointed toward
+  - operation: >-
+      recasts every position of the completed series into one compact line of
+      parallel formulations
+    relation: >-
+      restates together, in the plainest form, what the separate definitions
+      just established
+    manner: >-
+      a shift of form, each position voiced as a bare question rather than as a
+      description

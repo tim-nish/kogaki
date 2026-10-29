@@ -1,0 +1,63 @@
+id: press_a_ready_answer_back_until_it_fails
+description: >-
+  Shows that a missing level of explanation is what leaves everyday observation
+  unsatisfying, drives the readiest answer back through further questions, then
+  grants why such questions are hard.
+before:
+  knowledge: >-
+    knows the examined cases supply only the lower levels of the ordering and
+    leave the topmost one unsupplied
+  question: >-
+    still wants the omitted level supplied and now sees that supplying it is
+    hard
+  expectation: expects the work to take on the difficulty it has just conceded
+after:
+  knowledge: >-
+    also knows that the unsupplied level is what leaves ordinary observation
+    unsettled, and that the domain resists prediction for lacking fixed
+    regularities
+  question: >-
+    holds the want as a chain of why-questions that a readily available answer
+    has failed to close
+  expectation: >-
+    expects the work to supply what the open questions demand despite the
+    difficulty just accounted for
+breaks:
+  - >-
+    drop the opening statement of cost and begin from the case — the regress
+    becomes a puzzle for its own sake and the reader has no stake in it
+  - >-
+    stop at the first question rather than pressing behind the readiest answer —
+    the reader keeps that answer and never sees that it explains nothing
+  - >-
+    answer the last question here instead of leaving it standing — the gap the
+    work exists to fill closes and nothing is owed to what follows
+  - >-
+    cut the closing ground and leave the regress hanging — the reader takes the
+    open questions for the speaker's failure rather than for a feature of the
+    domain
+  - >-
+    add a second and a third case before pressing the first — the regress
+    spreads across instances and no single one is driven far enough to fail
+segments:
+  - operation: states the cost that follows from leaving one part ungrasped
+  - operation: posits a single hypothetical incident to work on
+    relation: narrows the cost just stated down to one imagined case
+  - operation: poses a question about why the posited behaviour occurs
+    relation: asks the question the imagined case invites
+  - operation: >-
+      supplies the answer that comes most readily, then asks what stands behind
+      it
+    relation: closes the question just posed only to reopen it one level deeper
+  - operation: >-
+      presses the regress one level deeper again, granting what the readiest
+      answer claimed and asking why once more
+    relation: >-
+      pushes the regress one step further by conceding what the step before left
+      wanted
+  - operation: >-
+      names where the regress ends: the ready answers run out, because the
+      domain follows no fixed regularity and turns on agents of differing minds,
+      so its deepest why resists prediction
+    relation: >-
+      grounds the cost the opening stated, saying why that gap is hard to close

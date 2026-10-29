@@ -1,0 +1,59 @@
+id: turn_the_ordering_back_on_the_instances
+description: >-
+  Turns a just-rehearsed ordering on each earlier illustration in turn, showing
+  both supply only the lower levels, then concedes that supplying the topmost
+  one is unexpectedly hard.
+before:
+  knowledge: >-
+    has seen the ordering carried out once on an ordinary case needing no
+    expertise
+  question: wants the omitted kind of explanation supplied
+  expectation: >-
+    expects the ordering, now rehearsed on an ordinary case, to be turned on the
+    material next
+  trust: >-
+    raised: an abstract ordering is shown to hold on a case checkable without
+    expertise
+after:
+  knowledge: >-
+    knows the examined cases supply only the lower levels of the ordering and
+    leave the topmost one unsupplied
+  question: >-
+    still wants the omitted level supplied and now sees that supplying it is
+    hard
+  expectation: expects the work to take on the difficulty it has just conceded
+  trust: >-
+    raised further: the difficulty of the undertaking is granted rather than
+    passed over
+breaks:
+  - >-
+    examine only one case and drop the other — the gap reads as a defect of a
+    single example rather than a pattern across the kind
+  - >-
+    supply the missing level here instead of conceding its difficulty — the
+    reader takes the answer as cheap and loses any sense that the work attempts
+    something hard
+  - >-
+    state the closing difficulty as a failing of the cases rather than of anyone
+    attempting the answer — the reader is left judging the examples instead of
+    feeling the pull of the question
+  - >-
+    restate each level of the distinction again before applying it — the
+    application arrives after the reader has been told the same thing twice, and
+    the test loses its edge
+segments:
+  - operation: >-
+      tests one case against the graded ordering, naming the lower positions it
+      supplies and the topmost one it leaves unsupplied
+  - operation: >-
+      applies the test to a further case, naming the lower positions it supplies
+      and the same topmost one it leaves unsupplied
+    relation: >-
+      carries the examination of the step before over to the other case, so the
+      finding reads as a pattern rather than a flaw in a single one
+  - operation: >-
+      states that supplying the unsupplied level proves harder than it looks
+      once attempted
+    relation: >-
+      steps back from the two examinations to what both leave open, moving the
+      difficulty off the cases and onto anyone who attempts the answer

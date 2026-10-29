@@ -1,0 +1,59 @@
+id: concede_the_instances_then_name_what_they_omit
+description: >-
+  Credits the instances already given without reserve, then names a residual
+  lack in them, and grounds that lack in one distinction between two kinds of
+  account.
+before:
+  knowledge: >-
+    holds a second instance of the same kind and the structure it depicts
+  question: wants to know what these recurring instances do and fail to do
+  expectation: >-
+    expects what the instances so far have in common to be turned to account
+  orientation: >-
+    places this among books that explain the wider world to non-specialists
+  trust: >-
+    raised: a general claim was backed by a case the reader can check unaided
+after:
+  knowledge: >-
+    holds a distinction between what the instances supply and what they omit
+  question: wants the omitted kind of explanation supplied
+  expectation: expects the stated gap to be filled by what follows
+  orientation: >-
+    places this as a work that departs from the standard treatments it has been
+    surveying
+  trust: >-
+    raised further: credit is given to the familiar accounts before any
+    objection is made
+breaks:
+  - >-
+    drop the opening concession and open on the reservation — the reader hears a
+    dismissal of what they just accepted, and trust falls
+  - >-
+    put the distinction before the reservation rather than after it — the lack
+    arrives as a definition to be learned rather than something the reader feels
+  - >-
+    expand the reservation across several sentences of hedging — the gap loses
+    its edge and the reader stops expecting it to be filled
+  - >-
+    make the reservation impersonal rather than the speaker's own — the reader
+    loses the sense of a particular position being staked out against the
+    standard ones
+  - >-
+    name a third kind of account alongside the two the distinction sets against
+    each other — the clean opposition blurs and the gap stops being one thing
+segments:
+  - operation: >-
+      affirms without reservation the worth of the instances already laid out
+  - operation: >-
+      voices a first-person reservation about the same instances just credited
+    relation: >-
+      turns against the concession just made, keeping the same objects in view
+    manner: >-
+      a shift into the speaker's own voice, stated as a personal residue rather
+      than a verdict
+  - operation: >-
+      grounds the reservation by distinguishing the means an account shows from
+      the purpose it leaves unexplained, and places the instances on the means
+      side
+    relation: >-
+      supplies the reason the reservation was withheld from in the step before

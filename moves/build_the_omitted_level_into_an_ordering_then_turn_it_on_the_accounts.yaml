@@ -1,0 +1,84 @@
+id: build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts
+description: >-
+  Lays out a distinction just drawn as a graded ordering, rehearses it on an
+  everyday case, turns it back on the standard accounts to show they stop below
+  the top, then presses an everyday observation through the regress until the
+  ready answers fail, and names why the domain resists.
+before:
+  knowledge: >-
+    holds two standard accounts of the subject and that both show the means a
+    party uses while leaving its purpose unexplained
+  question: wants the omitted level made exact and then supplied
+  expectation: >-
+    expects the gap just named to be sorted out before it is filled
+  orientation: >-
+    places this against the standard treatments as one that marks what they
+    leave out
+  trust: >-
+    raised: the standard accounts are credited before being faulted
+after:
+  knowledge: >-
+    holds a graded ordering of levels of explanation, knows the standard accounts
+    reach only its lower levels, and knows that the topmost level is what leaves
+    ordinary observation unsettled and resists prediction
+  question: >-
+    holds the want as a chain of why-questions that the ready answers have failed
+    to close
+  expectation: >-
+    expects the work to supply the topmost level for the matter at hand despite
+    the difficulty just accounted for
+  orientation: >-
+    places this as a text that treats the omitted level as its own ground
+  trust: >-
+    raised further: the ordering was tried on a case the reader could check
+    before it was used, and the difficulty is conceded rather than hidden
+breaks:
+  - >-
+    set out the ordering without rehearsing it on an everyday case — the levels
+    stay abstract and the reader cannot carry them to a case of their own
+  - >-
+    rehearse the ordering and never turn it back on the standard accounts — the
+    distinction is learned but the appraisal it was built for is never made
+    exact
+  - >-
+    turn the ordering on the accounts and stop — the omitted level stays a
+    defect in other people's explanations rather than a gap the reader feels in
+    their own observation
+  - >-
+    answer the deepest why instead of leaving it standing — the gap the rest of
+    the work exists to fill closes here, and nothing is owed to what follows
+  - >-
+    leave the regress hanging without naming why it is hard — the open questions
+    read as the speaker's failure rather than as a feature of the domain
+  - >-
+    give each level a long treatment before the return to the accounts — the
+    ordering's point arrives too late and the appraisal it was built for is
+    forgotten
+segments:
+  - operation: >-
+      sorts the distinction just drawn into a graded series of positions, each
+      defined against the one above it, and recasts the series as parallel plain
+      questions
+    relation: >-
+      takes up the omission just named by making exact the levels it involves
+    manner: a shift into bare definitional form that takes no elaboration
+  - operation: >-
+      rehearses the ordering on one case from the reader's own experience,
+      assigning each part its place and showing the places depend on one another
+    relation: >-
+      tries the ordering on a case far outside the subject before it is used
+      there
+  - operation: >-
+      tests each standard account against the ordering, naming the lower
+      positions it supplies and the topmost one it leaves unsupplied, and
+      concedes that supplying it is harder than it looks
+    relation: >-
+      returns to the accounts with the ordering in hand, making the earlier
+      appraisal exact
+  - operation: >-
+      states what the unsupplied level costs in everyday observation, presses one
+      imagined case through a regress of why-questions until the ready answers
+      run out, and names why the domain resists prediction
+    relation: >-
+      draws out the cost of the gap just marked and admits why it is hard to
+      close

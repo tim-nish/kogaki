@@ -1,0 +1,57 @@
+id: rehearse_an_ordering_on_an_everyday_case
+description: >-
+  Runs a just-defined ordering on one case from the reader's own experience:
+  each part is assigned its place, then the places are shown to depend on one
+  another.
+before:
+  knowledge: >-
+    holds every position of the ordering in a compact form recallable without
+    its defining lines
+  expectation: >-
+    expects the ordering, now in its most compact form, to be turned on the
+    material at once
+  trust: >-
+    raised further: credit is given to the familiar accounts before any
+    objection is made
+after:
+  knowledge: >-
+    has seen the ordering carried out once on an ordinary case needing no
+    expertise
+  expectation: >-
+    expects the ordering, now rehearsed on an ordinary case, to be turned on the
+    material next
+  trust: >-
+    raised: an abstract ordering is shown to hold on a case checkable without
+    expertise
+breaks:
+  - >-
+    replace the ordinary case with one drawn from the work's own material — the
+    ordering is tried on nothing the reader can check unaided, and the rehearsal
+    stops being a rehearsal
+  - >-
+    stop after the flat assignment — the reader sees labels attached to parts
+    but never that the places depend on one another
+  - >-
+    add a paragraph defending the choice of case before working it — the
+    rehearsal swells past the point where the reader still wants the material
+    itself
+  - >-
+    name the places without saying which part of the case fills each — the
+    reader is left to guess the mapping and takes nothing checkable from it
+segments:
+  - operation: announces one ordinary case as the instance to be worked through.
+    relation: >-
+      tries the ordering just recast on a case outside the subject before it is
+      applied there.
+    manner: >-
+      cast as an invitation to think it through together rather than a flat
+      statement.
+  - operation: >-
+      assigns each part of the case its place in the ordering in a single pass.
+    relation: fills the case just named by giving each of its parts a place.
+  - operation: >-
+      restates the assignment as a sequence of requirements descending from the
+      highest place to the lowest.
+    relation: >-
+      takes the same assignment and runs it in the opposite direction, from the
+      top downward.

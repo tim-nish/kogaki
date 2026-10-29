@@ -1,0 +1,63 @@
+id: credit_the_standard_accounts_then_name_the_level_they_omit
+description: >-
+  Claims the subject bears on the present, shows two standard accounts of it in
+  turn, credits them without reserve, then names the level of explanation they
+  stop below.
+before:
+  knowledge: >-
+    knows the subject only as a name, and holds no account of how it is usually
+    explained
+  question: >-
+    none settled, beyond whether the subject can be understood without special
+    training
+  expectation: expects a plain introduction to the subject
+  orientation: >-
+    places this among introductory treatments of the subject, taking them to be
+    much alike
+  trust: neutral, willing to be told
+after:
+  knowledge: >-
+    holds two standard accounts of the subject and that both show the means a
+    party uses while leaving its purpose unexplained
+  question: wants the omitted level made exact and then supplied
+  expectation: >-
+    expects the gap just named to be sorted out before it is filled
+  orientation: >-
+    places this against the standard treatments as one that marks what they
+    leave out
+  trust: >-
+    raised: the standard accounts are credited before being faulted, and the
+    dissatisfaction is owned as the speaker's own
+breaks:
+  - >-
+    drop the opening claim and begin on the first account — the reader is shown
+    an instance of nothing, and has no reason to care how far it reaches
+  - >-
+    show one standard account only — the omission at the close reads as a defect
+    of a single example rather than of the kind
+  - >-
+    fault the accounts without crediting them first — the fault reads as
+    dismissal, and trust does not rise
+  - >-
+    name the omitted level before the accounts are shown — the reader holds no
+    case in which the gap is felt, and the distinction reads as terminology
+  - >-
+    state the dissatisfaction as a general verdict rather than the speaker's own
+    — the reader loses the sense of a particular position staked against the
+    standard ones
+segments:
+  - operation: >-
+      asserts that the subject yields substantial purchase on a currently
+      unsettled matter, and makes good on it at once with one standard account
+      worked through to what it makes plain
+  - operation: >-
+      sets a second, equally common standard account beside the first and states
+      the arrangement it depicts
+    relation: >-
+      sets another instance beside the first in the same form, without appraising
+      either yet
+  - operation: >-
+      credits both accounts as sound, voices the speaker's own reservation, and
+      grounds it by distinguishing the means they show from the purpose they
+      leave unexplained
+    relation: turns from presenting the instances to appraising both at once

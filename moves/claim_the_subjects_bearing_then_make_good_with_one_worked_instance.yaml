@@ -1,0 +1,61 @@
+id: claim_the_subjects_bearing_then_make_good_with_one_worked_instance
+description: >-
+  Opens with a single unhedged claim that the subject bears on the present, then
+  makes good on it with one concrete instance: names it, works it through to the
+  point it makes plain, and extends it to a second matter.
+before:
+  knowledge: >-
+    no specialised knowledge of the subject and no sense that it bears on
+    anything the reader already finds confusing
+  question: nothing settled beyond whether the subject is worth their attention
+  expectation: expects a plain introduction that defines its terms before using them
+  trust: neutral, with no reason yet to credit or doubt the author
+after:
+  knowledge: >-
+    holds one worked instance of how the subject bears on present circumstances
+  question: wants to know whether a single such instance stands for the whole
+  expectation: >-
+    expects further instances of the same kind or a return to the general claim
+  trust: >-
+    raised: a general claim was backed by a case the reader can check unaided
+breaks:
+  - >-
+    hedge the opening claim with a qualifier — nothing is claimed that what
+    follows owes an account of, and the reader is given no reason to continue
+  - >-
+    define the subject before claiming anything for it — the first thing met is
+    vocabulary rather than a reason to care
+  - >-
+    state the general point directly instead of working one instance through —
+    the reader has nothing to verify and the claim stays as unsupported as when
+    it was made
+  - >-
+    drop the account of how slight the device is — the showing reads as the
+    product of expertise the reader has no access to, and the general claim
+    gains nothing checkable
+  - >-
+    add a second and a third instance here — the demonstration spreads thin and
+    the one case loses the force of being carried to its end
+  - >-
+    cut the closing extension to a second matter — the instance reads as a
+    one-off trick rather than something that keeps paying out
+segments:
+  - operation: >-
+      asserts that the subject yields substantial guidance for understanding
+      present circumstances
+    manner: a single short declaration offered without support or qualification
+  - operation: >-
+      names one concrete instance habitually used to make a general point
+      visible
+    relation: >-
+      makes good on the bare claim just made by naming one instance of it
+  - operation: >-
+      describes the instance as a minimal rearrangement of familiar material and
+      states the single thing it thereby makes plain
+    relation: >-
+      takes the instance just named and works it, saying what it is made of and
+      what it delivers
+  - operation: extends the same instance to account for a second matter
+    relation: >-
+      adds a further yield of the same instance beyond the one just drawn from it
+    manner: a short addition set down and left without elaboration
