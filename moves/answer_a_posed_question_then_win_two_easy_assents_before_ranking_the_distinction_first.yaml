@@ -1,9 +1,8 @@
 id: answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first
 description: >-
-  Asks which single element of a domain matters most, answers at once with the
-  position taken here, wins two assents to facts too plain to dispute, spends
-  them on the claim that the distinction they establish ranks first, then names
-  each kind by its defining trait with recognisable instances.
+  Asks which single element of a domain matters most, answers at once, wins two
+  assents to plain facts, spends them on ranking that distinction first, then
+  names each kind by its defining trait.
 before:
   knowledge: no specialized knowledge of the subject
   question: none settled, beyond whether the text is worth reading

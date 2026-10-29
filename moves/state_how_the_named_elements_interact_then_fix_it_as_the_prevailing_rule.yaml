@@ -1,8 +1,8 @@
 id: state_how_the_named_elements_interact_then_fix_it_as_the_prevailing_rule
 description: >-
-  Names the interaction among the elements just listed as the axis of the
-  domain's events, explains in one sentence how they act on one another, then
-  fixes that working as the prevailing state of affairs over a long span.
+  Names the interaction among the listed elements as the axis of the domain's
+  events, says in one sentence how they act on one another, then fixes that
+  working as the prevailing rule over a long span.
 before:
   knowledge: >-
     holds one division of the domain, the kinds of member it yields, and the

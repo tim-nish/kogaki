@@ -1,9 +1,8 @@
 id: build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts
 description: >-
-  Lays out a distinction just drawn as a graded ordering, rehearses it on an
-  everyday case, turns it back on the standard accounts to show they stop below
-  the top, then presses an everyday observation through the regress until the
-  ready answers fail, and names why the domain resists.
+  Sorts a drawn distinction into a graded ordering, rehearses it on an everyday
+  case, turns it on the standard accounts to show they stop short, then presses
+  the regress until the ready answers fail.
 before:
   knowledge: >-
     holds two standard accounts of the subject and that both show the means a
@@ -59,8 +58,6 @@ segments:
       sorts the distinction just drawn into a graded series of positions, each
       defined against the one above it, and recasts the series as parallel plain
       questions
-    relation: >-
-      takes up the omission just named by making exact the levels it involves
     manner: a shift into bare definitional form that takes no elaboration
   - operation: >-
       rehearses the ordering on one case from the reader's own experience,

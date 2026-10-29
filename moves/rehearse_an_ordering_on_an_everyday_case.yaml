@@ -40,9 +40,6 @@ breaks:
     reader is left to guess the mapping and takes nothing checkable from it
 segments:
   - operation: announces one ordinary case as the instance to be worked through.
-    relation: >-
-      tries the ordering just recast on a case outside the subject before it is
-      applied there.
     manner: >-
       cast as an invitation to think it through together rather than a flat
       statement.

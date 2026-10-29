@@ -1,9 +1,8 @@
 id: lay_out_a_drawn_distinction_as_an_ordering_climbed_rung_by_rung_then_recast_as_questions
 description: >-
-  Takes up a distinction just drawn and sorts it into a graded series of
-  positions: announces the series, defines each position from the lowest upward
-  by what the one above it requires, closes at the top by the end it names, then
-  recasts every position as one line of parallel plain questions.
+  Sorts a distinction just drawn into a graded series: announces it, defines
+  each position by what the one above requires, closes at the top, then recasts
+  every position as parallel plain questions.
 before:
   knowledge: >-
     holds a two-sided distinction between what the instances supply and what
@@ -44,9 +43,6 @@ segments:
   - operation: >-
       announces that the distinction just drawn will be set out as an ordered
       series of positions, arriving immediately
-    relation: >-
-      takes up the two-sided distinction just drawn and undertakes to sort it
-      into graded positions
     manner: a single short sentence with nothing elaborated after it
   - operation: >-
       defines each position of the series from the lowest upward, each by what

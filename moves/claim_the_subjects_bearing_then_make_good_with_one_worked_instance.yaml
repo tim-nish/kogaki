@@ -1,8 +1,8 @@
 id: claim_the_subjects_bearing_then_make_good_with_one_worked_instance
 description: >-
-  Opens with a single unhedged claim that the subject bears on the present, then
-  makes good on it with one concrete instance: names it, works it through to the
-  point it makes plain, and extends it to a second matter.
+  Opens with one unhedged claim that the subject bears on the present, then
+  makes good with one concrete instance: names it, works it to the point it
+  makes plain, extends it to a second matter.
 before:
   knowledge: >-
     no specialised knowledge of the subject and no sense that it bears on

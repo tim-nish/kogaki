@@ -1,9 +1,8 @@
 id: liken_the_subjects_root_condition_to_the_everyday_case_on_one_shared_property
 description: >-
-  Likens the subject's most fundamental determinant to the universal condition
-  just worked in an everyday case, on one property both share, then climbs from
-  that property through each case's own particulars to the claim that they
-  govern conduct.
+  Likens the subject's root determinant to the condition just worked in an
+  everyday case, on one shared property, then climbs through each case's own
+  particulars to the claim that they govern conduct.
 before:
   knowledge: >-
     holds a concrete model in which variable surface factors sit above one
@@ -49,7 +48,6 @@ segments:
       likens the subject's most fundamental determinant to the universal
       condition just worked in the everyday case, resting the likeness on one
       property both share
-    relation: carries the everyday case just worked over into the subject
     manner: a bare assertion standing alone, carrying no support with it
   - operation: >-
       lays down, as too plain to dispute, that the shared property holds of
