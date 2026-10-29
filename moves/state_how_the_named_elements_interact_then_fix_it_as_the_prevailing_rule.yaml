@@ -1,0 +1,51 @@
+id: state_how_the_named_elements_interact_then_fix_it_as_the_prevailing_rule
+description: >-
+  Names the interaction among the elements just listed as the axis of the
+  domain's events, explains in one sentence how they act on one another, then
+  fixes that working as the prevailing state of affairs over a long span.
+before:
+  knowledge: >-
+    holds one division of the domain, the kinds of member it yields, and the
+    trait that defines each
+  question: >-
+    the posed question answered, and now asks what follows from belonging to one
+    kind rather than another
+  expectation: expects the division to be put to work on the domain's events
+after:
+  knowledge: >-
+    holds that the interaction among the kinds drives the domain's events and
+    has done so over a long span
+  question: >-
+    that answered, and now asks why the interaction runs the way it does and
+    what has kept it in place so long
+  expectation: expects the asserted rule to be traced through particular cases
+breaks:
+  - >-
+    name the axis and leave out how the elements act on one another — the reader
+    has an abstraction with nothing to picture, and the rule that follows rests
+    on nothing
+  - >-
+    add qualification and counter-cases after the working — it arrives hedged,
+    and the reader stops treating it as the single axis for reading the domain
+  - >-
+    cut the closing reach over a long span — the working covers only the moment
+    described, and the reader takes it as commentary rather than a standing rule
+  - >-
+    give one element's part only — the interaction has no second term, and the
+    reader cannot tell what a further case would do
+  - >-
+    spell out the mechanism behind the working — the question the paragraph
+    leaves standing is spent here, and what follows loses its draw
+segments:
+  - operation: >-
+      names the interaction among the elements just listed as the axis on which
+      the domain's events turn
+  - operation: >-
+      explains in one sentence how those elements act on one another and what
+      follows from it
+    relation: fills the axis just named with its working
+  - operation: >-
+      fixes that working as the prevailing state of affairs, holding as a
+      general principle over a long span
+    relation: lifts the account from a description to a standing rule
+    manner: a brief closing assertion carried without any supporting case

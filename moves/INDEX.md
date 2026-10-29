@@ -4,6 +4,7 @@ Regenerated whole from `moves/` at each ingestion run (SPEC-draft-pipeline §6.9
 
 | id | description |
 | --- | --- |
+| answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first | Asks which single element of a domain matters most, answers at once with the position taken here, wins two assents to facts too plain to dispute, spends them on the claim that the distinction they establish ranks first, then names each kind by its defining trait with recognisable instances. |
 | build_the_familiar_side_of_a_contrast_up_to_its_principle | Works out the near side of a contrast from an everyday instance: what happens on a breach, the rule behind it, its enforcement, then the principle that one body holds the decisive capacity. |
 | build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts | Lays out a distinction just drawn as a graded ordering, rehearses it on an everyday case, turns it back on the standard accounts to show they stop below the top, then presses an everyday observation through the regress until the ready answers fail, and names why the domain resists. |
 | carry_a_worked_case_onto_the_wider_scale | Carries a chain already walked at a small scale onto the larger subject in a few clauses, then fixes the result with its technical name. |
@@ -44,6 +45,7 @@ Regenerated whole from `moves/` at each ingestion run (SPEC-draft-pipeline §6.9
 | set_a_later_span_against_a_baseline_as_a_change_of_kind | Sets a later span against a fixed earlier one as a change of kind, makes it picturable with instances, restates it plainly, then draws the consequence that follows. |
 | set_a_second_instance_beside_the_first | Sets a second, equally common instance beside the first, then states in one sentence the arrangement it depicts, turning one case into a pattern. |
 | show_the_remedy_working_then_borrow_a_proposer | Spells out how the arrangement just named would do the missing work, then names a figure of standing who proposed the same thing, so the idea reads as serious rather than invented. |
+| state_how_the_named_elements_interact_then_fix_it_as_the_prevailing_rule | Names the interaction among the elements just listed as the axis of the domain's events, explains in one sentence how they act on one another, then fixes that working as the prevailing state of affairs over a long span. |
 | swap_the_question_for_a_narrower_one_and_name_its_hinge | Sets aside the explanations just granted by announcing a change of angle, puts one narrower question in their place, then names the single contrast its answer will turn on. |
 | turn_the_ordering_back_on_the_instances | Turns a just-rehearsed ordering on each earlier illustration in turn, showing both supply only the lower levels, then concedes that supplying the topmost one is unexpectedly hard. |
 | undercut_an_opening_claim_then_rebuild_it_from_one_condition | Asserts a claim, denies at once that it necessarily holds, then rebuilds it from one condition of the case through a short chain until the reader derives the conclusion themselves. |

@@ -1,0 +1,68 @@
+id: answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first
+description: >-
+  Asks which single element of a domain matters most, answers at once with the
+  position taken here, wins two assents to facts too plain to dispute, spends
+  them on the claim that the distinction they establish ranks first, then names
+  each kind by its defining trait with recognisable instances.
+before:
+  knowledge: no specialized knowledge of the subject
+  question: none settled, beyond whether the text is worth reading
+  expectation: unsure what the text will do next
+  orientation: no sense of where this text sits among others on its subject
+  trust: neutral
+after:
+  knowledge: >-
+    holds one division of the domain, the kinds of member it yields, and the
+    trait that defines each
+  question: >-
+    the posed question answered, and now asks what follows from belonging to one
+    kind rather than another
+  expectation: expects the division to be put to work on the domain's events
+  orientation: >-
+    places the text as one that takes a single declared vantage point inside an
+    established subject
+  trust: >-
+    raised: the position is staked plainly, built on facts the reader has
+    already granted, and attached to instances the reader can check
+breaks:
+  - >-
+    cut the opening question and begin from the answer — the reader receives a
+    division with no sense of what it resolves, and reads it as a bare assertion
+  - >-
+    delay the answer behind a paragraph of background — the pull of the question
+    dissipates, and the eventual answer arrives as one option among several
+  - >-
+    make the main claim before the two plain facts — the reader meets it with
+    nothing yet granted, and weighs it instead of accepting it
+  - >-
+    argue either plain fact instead of laying it down — the assent it was there
+    to win is turned into a dispute, and the stack never forms
+  - >-
+    drop the sentence ranking the distinction — the reader has a division but
+    no reason to treat it as the one that organizes the rest
+  - >-
+    name the kinds without the defining trait and the instances — the reader
+    holds labels with nothing to attach them to and cannot test the division
+    against anything already known
+segments:
+  - operation: >-
+      poses a direct question asking which single element of a domain matters
+      most.
+  - operation: answers the question with the position taken here.
+    relation: gives directly the answer the step before asked for.
+    manner: a brief direct statement, given at once and taking no elaboration.
+  - operation: lays down a fact about the domain too plain to dispute.
+    relation: widens the answer into a footing the reader cannot refuse.
+  - operation: >-
+      draws from it a second fact the reader must equally grant, carrying the
+      first onto the members of the domain.
+    relation: stacks a second assent on the first.
+  - operation: >-
+      asserts, on the two facts just granted, that the distinction they
+      establish holds the highest importance in the subject.
+    relation: spends the two assents on the claim they were gathered for.
+  - operation: >-
+      names each kind by the one trait that defines it and gives recognisable
+      instances of it.
+    relation: >-
+      fills the kinds just named with instances the reader can place.
