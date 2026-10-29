@@ -1,0 +1,68 @@
+id: ground_the_subjects_governing_factor_in_an_everyday_case_then_prove_it_by_its_stability
+description: >-
+  Opens on an everyday instance whose decisive cause goes unremarked, likens the
+  subject's governing factor to that cause on one shared property, establishes
+  the factor's stability against shorter-lived rivals, then draws the governing
+  claim with its reason.
+before:
+  knowledge: no specialized knowledge of the subject beyond everyday experience
+  question: none, or whether this text is worth entering
+  expectation: a definition of the subject or a survey of its topics
+  orientation: treats this as one more introductory text on a subject with many
+  trust: neutral
+after:
+  knowledge: >-
+    holds one named factor as the most basic and most stable determinant in the
+    subject
+  question: wants to know how the named factor decides particular cases
+  expectation: >-
+    expects the work to derive its explanations from the single factor it has
+    named
+  orientation: >-
+    places this text beneath the other introductory texts, as the account of
+    what they take for granted
+  trust: >-
+    raised: the central claim rests on a fact the reader can check for
+    themselves
+breaks:
+  - >-
+    replace the everyday instance with a technical example from the subject —
+    the one foothold that needs no prior knowledge goes, and the likeness
+    arrives as bare assertion
+  - >-
+    cut the contrast with the shorter-lived factors — the stability of the
+    proposed factor is asserted rather than shown, and the governing claim reads
+    as the author's preference
+  - >-
+    add a long definition of the subject before the everyday instance — the
+    first specialist claim lands before any foothold is set, and the reader is
+    back to expecting a textbook
+  - >-
+    expand the governing claim into a paragraph of qualifications — it blurs
+    into the support around it and stops reading as the thing everything else
+    was for
+  - >-
+    rest the likeness on one property and the stability claim on another without
+    joining them — the reader holds two separate arguments and no single factor
+segments:
+  - operation: >-
+      opens on an everyday instance too plain to be remarked on and names the
+      single underlying cause that most decides how it behaves
+  - operation: >-
+      likens the subject's governing factor to that cause, resting the likeness
+      on one property both share, and carries the property through each case's
+      particulars to its effect on conduct
+    relation: >-
+      carries the ordinary case just set out over into the subject the work is
+      about
+  - operation: >-
+      asserts the proposed factor's stability by setting it against other
+      factors that matter but shift over much shorter spans
+    relation: >-
+      supplies the property the likeness of the previous step silently depends on
+  - operation: >-
+      draws the governing claim with its reason attached: the factor is the most
+      basic because it is the most stable
+    relation: >-
+      draws the conclusion the stability just established was there to license
+    manner: stated flatly in one short sentence and left without elaboration

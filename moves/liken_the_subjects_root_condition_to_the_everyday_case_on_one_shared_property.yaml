@@ -1,0 +1,68 @@
+id: liken_the_subjects_root_condition_to_the_everyday_case_on_one_shared_property
+description: >-
+  Likens the subject's most fundamental determinant to the universal condition
+  just worked in an everyday case, on one property both share, then climbs from
+  that property through each case's own particulars to the claim that they
+  govern conduct.
+before:
+  knowledge: >-
+    holds a concrete model in which variable surface factors sit above one
+    universal determinant
+  question: >-
+    wants to know what plays the part of the underlying determinant in the
+    actual subject
+  expectation: >-
+    expects the next stretch to carry the illustrative case back onto the actual
+    subject
+after:
+  knowledge: >-
+    holds the named counterpart of that universal determinant and the claim that
+    it steers what the actors do
+  question: >-
+    satisfied on the determinant's identity, now wants to know how it works out
+    in particular cases
+  expectation: >-
+    expects the next stretch to trace the determinant's effects in particular
+    cases
+breaks:
+  - >-
+    drop the opening likeness and begin from the plain fact — the reader has no
+    bridge from the everyday case and reads the plain fact as filler
+  - >-
+    shift the ground of the likeness midway — the reader loses the one property
+    the whole chain was hanging on, and the comparison reads as decoration
+  - >-
+    cut the run of contrasting circumstances — the claim that differences reach
+    the root is asserted rather than shown, and the reader can picture no case
+  - >-
+    add a paragraph defining the introduced term before the concrete range — the
+    chain stalls on vocabulary before the reader has seen one instance
+  - >-
+    put the consequence ahead of the plain fact — the governing claim arrives
+    with nothing yet underwriting it
+  - >-
+    replace the plain fact with a qualified version that notes exceptions — the
+    step stops being undeniable, and the chain loses the footing the rest stands
+    on
+segments:
+  - operation: >-
+      likens the subject's most fundamental determinant to the universal
+      condition just worked in the everyday case, resting the likeness on one
+      property both share
+    relation: carries the everyday case just worked over into the subject
+    manner: a bare assertion standing alone, carrying no support with it
+  - operation: >-
+      lays down, as too plain to dispute, that the shared property holds of
+      every case of the subject
+    relation: drops from the likeness to the plainest footing it rests on
+  - operation: introduces a term for what belongs to each case individually
+    relation: advances from what all cases share to what is particular to each
+  - operation: >-
+      runs through contrasting circumstances and states that the differences
+      reach to the root
+    relation: fills the term just introduced with the concrete range it covers
+    manner: a chained run of alternating alternatives inside one sentence
+  - operation: draws the consequence that differences at the root steer conduct
+    relation: >-
+      turns the catalogued variation into its effect, closing the chain begun at
+      the likeness

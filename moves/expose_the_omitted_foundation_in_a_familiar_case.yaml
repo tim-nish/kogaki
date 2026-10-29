@@ -1,0 +1,75 @@
+id: expose_the_omitted_foundation_in_a_familiar_case
+description: >-
+  Answers an abstract promise with an everyday case: gives its conventional
+  account, marks that account as ordinary, then names the obvious thing it omits
+  and ranks that first.
+before:
+  knowledge: holds a question about the subject that the usual accounts leave unasked
+  question: wants to know what the promised underlying material consists of
+  expectation: >-
+    expects the following text to begin on the foundational material just
+    promised
+  trust: neutral, willing to be led
+after:
+  knowledge: >-
+    holds a concrete model in which variable surface factors sit above one
+    universal determinant
+  question: >-
+    wants to know what plays the part of the underlying determinant in the
+    actual subject
+  expectation: >-
+    expects the next stretch to carry the illustrative case back onto the actual
+    subject
+  trust: >-
+    raised: an abstract promise is made good on ground the reader can check
+    without expertise
+breaks:
+  - >-
+    drop the flat line that marks the conventional account as ordinary — the
+    aspect named next loses the gap it fills and reads as one more factor on the
+    list
+  - >-
+    name the underlying determinant before laying out the conventional account —
+    the omission the later step exposes is no longer an omission, and nothing is
+    uncovered
+  - >-
+    add a paragraph expounding the underlying determinant in its own right — the
+    illustrative case becomes a lesson about itself and stops standing in for
+    the subject
+  - >-
+    replace the everyday case with one taken from the subject itself — the
+    reader without expertise loses the only foothold that required none
+  - >-
+    spell out the parallel with the actual subject at the close — the transfer
+    is handed over instead of being made, and the next stretch has nothing left
+    to arrive at
+segments:
+  - operation: >-
+      proposes an analogy drawn from a familiar everyday case, announcing it as
+      a likeness before the case is told
+    manner: >-
+      opened with an explicit likeness marker that frames the whole case as a
+      figure for the subject and promises a mapping back, the case named in one
+      phrase the reader pictures at once
+  - operation: >-
+      lays out the standard account of the case, naming the variable factors it
+      credits with the outcome
+    relation: >-
+      fills the proposed analogy in with the account the case is ordinarily
+      given
+  - operation: >-
+      labels the account just built as the conventional one and stops there
+    relation: >-
+      closes off the account of the step before by naming its status rather than
+      extending it
+    manner: a terse one-line verdict set down without elaboration
+  - operation: >-
+      names the aspect the conventional account leaves untouched because it is
+      too obvious to mention
+    relation: supplies exactly what the step before stopped short of
+  - operation: >-
+      identifies the newly named aspect as the effect of a universal condition
+      and as the most fundamental determinant of the outcome
+    relation: >-
+      grounds the aspect the step before named, and ranks it above the factors
+      listed earlier
