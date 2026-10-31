@@ -1,24 +1,13 @@
 #!/usr/bin/env bash
-# check-paragraph-plan-site-retry — a ParagraphPlan refusal that names a Leg Waypoint is
-# retried at that Leg Waypoint alone (kogaki#1642, owner decision 2026-10-31).
-#
-# Each case runs `node src/paragraph-plan.mjs start|await` over a scratch Brief and Move
-# library with a FAKE judge binary (`KOGAKI_JUDGE_CLI`) whose answers a scenario module
-# scripts per call kind -- the Leg call, the site call, the suffix call and the judge:
-#   (s1) a judge refusing Leg Waypoint 1 alone makes one site call there, holding its Move
-#        and after-state, composes no other entry again, and re-judges Waypoint 1 and the
-#        join of Waypoint 2 only;
-#   (s2) a site answer repeating the refused entry is refused by name, spends the site's
-#        attempt and makes no judge call;
-#   (s3) a second site retry moving the after-state at Waypoint 2 recomposes Waypoint 3 from
-#        the new state, leaves Waypoint 1 as it was, and still refuses a last entry whose
-#        after-state is not the Leg's;
-#   (s4) a `move: null` site retry is asked with the rejected Move named, an answer naming
-#        only it is refused as a repeat, and the Leg ends refused naming the Leg and the
-#        Waypoint once the site's attempts are spent while the other Leg finishes;
-#   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg whose sites still have
-#        attempts, naming the Waypoint;
-#   (s6) only the ParagraphPlan job declares the site loop: the Brief's compose job does not.
+# check-paragraph-plan-site-retry — a ParagraphPlan refusal naming a Leg Waypoint is retried
+# at that Leg Waypoint alone (kogaki#1642). A fake judge (`KOGAKI_JUDGE_CLI`) answers each
+# call kind -- Leg, site, suffix, judge -- from a scenario module:
+#   (s1) one site call holds the Move and after-state; only the site and the next join re-judged;
+#   (s2) a site answer repeating the refused entry is refused by name before any judge call;
+#   (s3) a later retry moving the after-state recomposes the entries after it, not before;
+#   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
+#   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
+#   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job.
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
