@@ -61,7 +61,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `no_move_fits` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `claims` | unread | excluded | content | excluded | unread | unread | unread | unread | unread | content | content | content |  |  |  |  |  |  | excluded |  |  |  |  |
 | `waypoints` | unread | unread | content | unread | excluded | unread | unread | structural | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `journeys` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  | content |  |  |  |  |  |  |  |  |  |  |
+| `journeys` | unread | unread | content | unread | unread | unread | unread | copied | unread | unread |  |  | content |  |  |  |  |  |  |  |  |  |  |
 | `entailed` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `entailment_reasoning` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `bridges` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
@@ -108,7 +108,14 @@ it does not read, and empty where the stage does not read the schema at all.
 | `waypoints` | content | unread |  |  |  |
 | `waypoints.waypoint` | copied | unread |  |  |  |
 | `waypoints.move` | copied | unread |  |  |  |
-| `waypoints.why` | content | unread |  |  |  |
+| `waypoints.materials` | copied | unread |  |  |  |
+| `waypoints.purpose` | content | unread |  |  |  |
+| `waypoints.reader_state_after` | content | unread |  |  |  |
+| `waypoints.depends_on` | content | unread |  |  |  |
+| `waypoints.rationale` | content | unread |  |  |  |
+| `waypoints.introduces` | content | unread |  |  |  |
+| `waypoints.re-activate` | content | unread |  |  |  |
+| `waypoints.journeys` | copied | unread |  |  |  |
 | `waypoints.join` | content | excluded | operation | excluded |  |
 | `waypoints.paragraph_waypoints` | content | unread |  |  |  |
 | `paragraph_waypoints.point` | content | excluded | content |  |  |

@@ -583,6 +583,15 @@ function planLeg(r) {
   return { planText, pl: (plan && plan.legs && ((r.legId && plan.legs.find((l) => l && l.leg_id === r.legId)) || plan.legs[0])) || null };
 }
 
+// THE BINDINGS ARE READ FROM THE PLAN FILE (kogaki#1639): each Leg Waypoint entry carries the
+// bound Move's id and its `rationale`, so the run directory keeps no bindings record. One row
+// per Leg Waypoint of this Leg's entry, `{ leg_id, waypoint, move, rationale }`.
+function planBindings(r) {
+  const { pl } = planLeg(r);
+  return pl && Array.isArray(pl.waypoints)
+    ? pl.waypoints.map((w) => ({ leg_id: pl.leg_id, waypoint: w.waypoint, move: w.move, rationale: w.rationale })) : [];
+}
+
 // CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
 // paragraph 1 (kogaki#1410, owner 2026-10-17: "having all of them expanded makes navigation
 // cumbersome"), each with its path and hash, opening on its Segments table, then its Move's
@@ -876,7 +885,7 @@ function paragraphPlanCard(r, idx) {
   const genCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_plan"'));
   const judgeCalls = r.planCalls.filter((c) => String(c.stdin).includes('"leg_you_must_judge"'));
   const { planText, pl } = planLeg(r);
-  const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
+  const bindings = planBindings(r);
   let verdictJson = null;
   try { verdictJson = verdict ? JSON.parse(verdict) : null; } catch { verdictJson = null; }
   const verdictLine = verdictJson && Array.isArray(verdictJson.verdicts)
@@ -886,7 +895,7 @@ function paragraphPlanCard(r, idx) {
   let countsTable = "";
   if (pl) {
     countsTable = pl.waypoints.map((w) => {
-      const bnd = ((bindings && bindings.bindings) || []).find((x) => x.waypoint === w.waypoint && (!x.leg_id || !pl.leg_id || x.leg_id === pl.leg_id)) || {};
+      const bnd = bindings.find((x) => x.waypoint === w.waypoint) || {};
       const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}${MOVE_RECORD_EXT}`))) : 0;
       const pws = w.paragraph_waypoints || [];
       return prowBlock("planwp", w.waypoint, idx, `Leg Waypoint ${w.waypoint}`,
@@ -902,7 +911,7 @@ function paragraphPlanCard(r, idx) {
     + `<p>${esc(verdictLine)}</p>`
     + countsTable
     + sub("the file", pre(planText || "(not written)"))
-    + sub("bindings", pre(bindings ? json(bindings) : "(none)"));
+    + sub("bindings", pre(bindings.length ? json({ note: "read from the plan file's entries (kogaki#1639)", bindings }) : "(none)"));
 
   // Every distinct judge prompt is shown once under Prompt -- each attempt's judge reads that
   // attempt's own record, so a judge prompt is never a retry of another -- under one
@@ -1095,14 +1104,14 @@ function sourceBadge(run, move) {
 // 2026-10-22): between the comparison table and the first card, three tables under their own
 // headings, with no heading above them and nothing folded -- every paragraph's Segments table
 // (by the Extraction card's own renderer), every `does-not-fit` verdict across the plan's
-// attempts with the judge's `why` in full, and the bindings record with each bound Move's
-// before and after in its row -- so a reader completes a review without opening a card. The
-// before and after fold closed under `before / after`, one row per Leg Waypoint (kogaki#1516).
-// Each paragraph's heading is followed by its bound Move's description (kogaki#1517).
+// attempts with the judge's `why` in full, and the bindings -- read from the plan file's own
+// entries (kogaki#1639) -- with each bound Move's before and after in its row -- so a reader
+// completes a review without opening a card. The before and after fold closed under
+// `before / after`, one row per Leg Waypoint (kogaki#1516). Each paragraph's heading is followed
+// by its bound Move's description (kogaki#1517).
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
-  const bindings = readJson(join(r.jobDir, "paragraph-plan-bindings.json"));
-  const rows = ((bindings && bindings.bindings) || []).filter((b) => !r.legId || !b.leg_id || b.leg_id === r.legId);
+  const rows = planBindings(r);
   // With a library, the heading also names the Move bound at the paragraph's Leg Waypoint and its source.
   const boundAt = (n) => {
     const b = r.run.library ? rows.find((x) => Number(x.waypoint) === n) : null;
@@ -1139,11 +1148,11 @@ function reviewBlock(r, idx) {
         + `</tbody></table>`;
 
   const bindingsHtml = rows.length
-    ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>why</th></tr></thead><tbody>`
+    ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>rationale</th></tr></thead><tbody>`
       + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a>${sourceBadge(r.run, b.move)}`
-        + `<details class="states"><summary>before / after</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.why || "")}</td></tr>`).join("")
+        + `<details class="states"><summary>before / after</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.rationale || "")}</td></tr>`).join("")
       + `</tbody></table>`
-    : `<p class="muted">No bindings record.</p>`;
+    : `<p class="muted">No plan file to read the bindings from.</p>`;
 
   return `<section class="review" id="review-${idx}">`
     + `<h3>Segments</h3><div class="rpart segments">${segments}</div>`

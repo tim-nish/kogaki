@@ -1693,7 +1693,8 @@ line, one line per Paragraph Waypoint, its `point` and the Strand ids it
 serves: the points the Leg Waypoint's one paragraph makes, in order, and not
 one sentence each. No Segment, Move id or other Move field
 renders, and `draft.mjs` opens no Move file — the ParagraphPlan file holds
-none. `draft.mjs resolve` refuses a Brief with no ParagraphPlan file beside
+the bound Move's id and the paragraph's schema (§4.19, kogaki#1639), and none
+of it reaches the Packet. `draft.mjs resolve` refuses a Brief with no ParagraphPlan file beside
 it, and a ParagraphPlan file whose recorded Brief hash is not the Brief's,
 naming both files; it refuses a Brief whose waypoint carries `move` or
 `segments` by name (§4.1). `checks/check-draft-packet.sh` carries the
@@ -2301,7 +2302,8 @@ one Writer call.
 Waypoint generation and nowhere after it. This stage is the last reader of a
 paragraph Move: it binds one and builds from its Segments, or its `technique`
 where the Move carries none, and what it writes for the Packet holds nothing
-of a Move. The 2026-10-09 boundary ("Information
+of a Move but the bound Move's id, which the Packet never renders
+(kogaki#1639). The 2026-10-09 boundary ("Information
 that belongs to Move has responsibility only up to CandidatePath creation")
 holds for the Leg Move; the paragraph Move's responsibility ends here, and the
 Writer never reads a Move (2026-10-12).
@@ -2456,15 +2458,54 @@ its Segment's relation only by stating it.
 > `src/paragraph-plan-axes.json` keeps (the Status block under the judge
 > clause above).
 
-**The ParagraphPlan file.** `theses/<slug>/paragraph-plan.yaml`, beside the
+**The ParagraphPlan file is the paragraph-level Reader Path** (kogaki#1639,
+owner decision 2026-10-31). `theses/<slug>/paragraph-plan.yaml`, beside the
 Brief, one YAML record: `version`; `brief`, the `path` and `sha256` of the
 Brief it was made from; and `legs`, one entry per Leg in order, each carrying
-one entry per Leg Waypoint in order with its `paragraph_waypoints` (`point`,
-`serves`). **It holds no Move id, no Segment and no Move field**; a key outside
-those is refused by name when it is read. Which Move was bound to which Leg
-Waypoint stays in the stage's run directory
-(`paragraph-plan-bindings.json`), a record of the run that no later stage
-reads. **The stage never writes the Brief, and the Brief names nothing
+one entry per Leg Waypoint in order. **Every entry carries the Leg schema at
+the paragraph scale**, beside its `waypoint`, its `join` and its
+`paragraph_waypoints` (`point`, `serves`):
+
+| field | the paragraph's |
+|---|---|
+| `move` | the id of the bound paragraph Move, and nothing else of the Move |
+| `materials` | the Strand ids it stands on, a subset of its Leg Waypoint's `serves` |
+| `purpose` | what it does to the reader |
+| `reader_state_after` | the reader's state when it ends, in the Leg's `dimension: value` shape |
+| `depends_on` | the earlier paragraphs of its Leg it stands on, by waypoint number; may be empty |
+| `rationale` | why it comes here rather than earlier or later |
+| `introduces` | the terms of the Leg's `introduces` it introduces, each `{term, meaning}`; may be empty |
+| `re-activate` | `<waypoint> term <term>` and `<waypoint> claim <Strand id> as <sentence>` lines over earlier paragraphs of its Leg; may be empty |
+| `journeys` | optional: the Leg's Journeys it places, as the Leg carries them |
+
+**The before-state is derived, never written**, as a Leg's is (§4.1,
+kogaki#1325): the Leg's derived before-state for the first paragraph, the
+previous paragraph's `reader_state_after` for every later one; a written
+`reader_state_before` is refused by name. **The last paragraph's
+`reader_state_after` is the Leg's, line for line**, and **each term the Leg
+introduces is introduced by exactly one of its paragraphs**. Every read of the
+file — the stage's own validator, `/draft`'s and the Proof Sheet's — refuses by
+name, naming the Leg and the Waypoint: a key outside the schema; a `move`
+naming no Move in a library the reader holds open (`/draft` opens no Move,
+kogaki#1311, so that one refusal is the validator's and the Proof Sheet's); a
+term the Leg does not introduce, or a Leg term introduced by no paragraph or
+by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
+later one or another Leg; a material outside the parent's `serves`; a last
+`reader_state_after` that is not the Leg's; a state out of the Leg's shape.
+The planner writes `reader_state_after` and is handed the before-state it
+never writes; its retired `why` is the entry's `rationale`. The run directory
+holds no bindings record: the file is the record of which Move was bound to
+which Leg Waypoint, which the Proof Sheet reads from it.
+
+> **Withdrawn (kogaki#1639, 2026-10-31):** the clause "It holds no Move id, no
+> Segment and no Move field; a key outside those is refused by name", and the
+> run directory's `paragraph-plan-bindings.json` as the record of the binding.
+> The clause came from kogaki#1375's Design, not from the owner's decision of
+> 2026-10-14, which bounded Move *information* — a Segment, a Move field —
+> and not the Move's id. The id is the paragraph's binding, as a Leg's `move`
+> is, and the Packet still renders none of it.
+
+**The stage never writes the Brief, and the Brief names nothing
 downstream**: the ParagraphPlan file names the Brief, not the reverse.
 `/draft` reads the file beside the Brief and refuses a missing one or one whose
 Brief hash is not the Brief's (§4.14). Its writer and reader

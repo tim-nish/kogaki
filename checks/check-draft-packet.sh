@@ -129,6 +129,18 @@ const { templateCriteriaFailures } = await import(pathToFileURL(join(repo, "src"
 
 const C1 = "the installer copies the kit into the consumer's tree.";
 const JOIN = "consequence";
+// EVERY PLAN ENTRY CARRIES THE PARAGRAPH'S SCHEMA (kogaki#1639): the bound Move's id (any id
+// the library holds -- /draft opens no Move, kogaki#1311), its Leg Waypoint's serves, a purpose,
+// an after-state (the Leg's on the last paragraph), the paragraph before, a rationale, no term
+// and no re-activation. The texts are marked so (m) can read their absence from the Packet.
+const ENTRY = (n, total, legId = "s1", serves = ["L1"]) => ({
+  move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...serves],
+  purpose: `PURPOSE-${n} brings the reader to the point.`,
+  reader_state_after: n === total ? `knowledge: after ${legId}.` : { knowledge: `STATE-${n} after this paragraph.` },
+  depends_on: n > 1 ? [n - 1] : [], rationale: `RATIONALE-${n} its before holds the state the paragraph before leaves.`,
+  introduces: [], "re-activate": [],
+});
+const ENTRIES = (total, legId = "s1", serves = ["L1"]) => Array.from({ length: total }, (_, i) => ENTRY(i + 1, total, legId, serves));
 const leg = {
   leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
   materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
@@ -299,7 +311,7 @@ const carriesCriteria = (packet) => {
     writeFileSync(briefPath, text);
     writeFileSync(join(dir, "paragraph-plan.yaml"), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
       legs: [{ leg_id: "s1", waypoints: [first, [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"] }]],
-        joins: [null, JOIN] }] })));
+        entries: ENTRIES(2), joins: [null, JOIN] }] })));
     return spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, name, "ws")],
       { encoding: "utf8", timeout: 120000 });
   };
@@ -323,7 +335,7 @@ const carriesCriteria = (packet) => {
   const planPath = join(dir, "paragraph-plan.yaml");
   const planText = paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
     legs: [{ leg_id: "s1", waypoints: [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], manner: MANNER }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"] }]], joins: [null, JOIN] }] }));
+      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"] }]], entries: ENTRIES(2), joins: [null, JOIN] }] }));
   writeFileSync(planPath, planText);
   if (/\bmanner\b/.test(planText) || planText.includes(MANNER)) fails.push(`(l) the ParagraphPlan written from manner-bearing Paragraph Waypoints carries a manner: ${planText}`);
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
@@ -346,6 +358,58 @@ const carriesCriteria = (packet) => {
     if (back.status === 0 || !(back.stderr || "").includes("Paragraph Waypoint 2 carries `manner`")) {
       fails.push(`(l) resolve did not refuse a plan file carrying a manner on a Paragraph Waypoint, naming it: ${(back.stderr || back.stdout || "").slice(0, 400)}`);
     }
+  }
+}
+
+// (m) THE PACKET CARRIES NOTHING OF THE PARAGRAPH'S SCHEMA (kogaki#1639): a plan whose every
+// entry carries the bound Move's id, `materials`, `purpose`, `reader_state_after`, `depends_on`,
+// `rationale`, `introduces` and `re-activate` renders a Packet with no `move`,
+// `reader_state_after`, `rationale` or `depends_on` text and none of their values; and a plan
+// missing a field, or writing `reader_state_before`, is refused by /draft naming the Leg and the
+// Waypoint.
+{
+  const root = mkdtempSync(join(tmpdir(), "draft-packet-schema-"));
+  const dir = join(root, "theses", "packet-brief");
+  mkdirSync(dir, { recursive: true });
+  const briefPath = join(dir, "brief.yaml");
+  writeFileSync(briefPath, text);
+  const planPath = join(dir, "paragraph-plan.yaml");
+  const plan = (entries) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
+    legs: [{ leg_id: "s1", waypoints: [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"] }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"] }]], entries, joins: [null, JOIN] }] }));
+  const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
+    { encoding: "utf8", timeout: 120000 });
+  const full = plan(ENTRIES(2));
+  writeFileSync(planPath, full);
+  for (const k of ["move", "materials", "purpose", "reader_state_after", "depends_on", "rationale", "introduces", "re-activate"]) {
+    if (!new RegExp(`^ +${k}:`, "m").test(full)) fails.push(`(m) the plan written carries no \`${k}\` on its entries`);
+  }
+  const ok = resolveIn("ws");
+  const packetPath = join(root, "ws", "packet-brief", "packets", "s1.md");
+  if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(m) resolve did not render the Packet from the schema-bearing plan: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
+  else {
+    const packet = readFileSync(packetPath, "utf8");
+    if (!packet.includes("PW-1-1") || !packet.includes("PW-2-1")) fails.push("(m) the Packet does not carry the plan's Paragraph Waypoints, so the absence below reads nothing");
+    for (const word of ["move", "reader_state_after", "rationale", "depends_on", "reader_state_before", "re-activate", "materials"]) {
+      if (new RegExp(`(^|[^A-Za-z_])${word}([^A-Za-z_]|$)`).test(packet)) fails.push(`(m) the Packet carries the field name \`${word}\``);
+    }
+    for (const value of ["PURPOSE-", "STATE-", "RATIONALE-", "answer_a_posed_question", "after s1."]) {
+      if (packet.includes(value)) fails.push(`(m) the Packet carries a plan entry's ${value} value`);
+    }
+  }
+  const dropped = ENTRIES(2).map((e, i) => (i === 1 ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== "rationale")) : e));
+  writeFileSync(planPath, plan(dropped));
+  const missing = resolveIn("ws-missing");
+  if (missing.status === 0 || !(missing.stderr || "").includes("leg s1") || !(missing.stderr || "").includes("Waypoint 2") || !(missing.stderr || "").includes("carries no `rationale`")) {
+    fails.push(`(m) resolve did not refuse a plan entry missing its rationale naming the Leg and the Waypoint: ${(missing.stderr || missing.stdout || "").slice(0, 400)}`);
+  }
+  const before = ENTRIES(2).map((e, i) => (i === 0 ? { ...e, reader_state_before: { knowledge: "written." } } : e));
+  const injected = plan(before).replace(/^( +)move:/m, "$1reader_state_before:\n$1  knowledge: written.\n$1move:");
+  if (!injected.includes("reader_state_before:")) fails.push("(m) the fixture could not write reader_state_before onto the plan file");
+  writeFileSync(planPath, injected);
+  const derived = resolveIn("ws-before");
+  if (derived.status === 0 || !(derived.stderr || "").includes("Waypoint 1") || !(derived.stderr || "").includes("`reader_state_before`")) {
+    fails.push(`(m) resolve did not refuse a written reader_state_before naming the Waypoint: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
   }
 }
 
@@ -528,5 +592,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the Waypoint (kogaki#1639).");
 JS

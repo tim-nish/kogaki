@@ -52,7 +52,7 @@
 #   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
 #       block carrying one Segments table per paragraph, a refused-attempts table with exactly one row -- attempt 1,
 #       Leg Waypoint 2, the judge's `why` -- linking to that attempt's block, and a Bindings table with one row per
-#       Leg Waypoint carrying its `point`, the bound Move and the bindings record's `why`, each row carrying a "before
+#       Leg Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "before
 #       / after" `<details>` closed on load holding the Move file's before and after, and no other row in the table
 #       (kogaki#1516); an attempt whose judge answer is unreadable is a row carrying the job record's refusal; the
 #       resumed run (h), refused nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
@@ -202,7 +202,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
     const fromLibrary = (n) => (bindable || []).some((m) => m.id.startsWith("lib_")) && (process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1));
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + MV + w.waypoint,
-      why: "its before holds the state and its after reaches the next point.",
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
@@ -690,7 +690,7 @@ else {
     `(o) the refused-attempts table does not carry exactly one row naming attempt 1, Leg Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
   const att1 = cards.paragraphPlan.indexOf('id="attempt-0-1"');
   ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part attempts">', att1) >= 0, "(o) the refused row's link names no attempt block on the ParagraphPlan card");
-  const bindRec = JSON.parse(readOr(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"), '{"bindings":[]}')).bindings;
+  if (existsSync(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"))) fails.push("(o) the run directory still carries a paragraph-plan-bindings.json, retired (kogaki#1639)"); const bindRec = (parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan").legs || []).flatMap((l) => (l.waypoints || []).map((w) => ({ waypoint: w.waypoint, move: w.move, rationale: w.rationale })));
   const bindPart = rpart("bindings");
   // A binding row runs to the next binding row: the Move's before / after table nests inside it.
   const rowAt = [...bindPart.matchAll(/<tr><td>(?=\d+<\/td><td>(?:POINT-|\(no point))/g)].map((m) => m.index);
@@ -698,8 +698,7 @@ else {
   ok(bindRec.length === 3 && bindRows.length === 3, `(o) the Bindings table holds ${bindRows.length} row(s) against the record's ${bindRec.length}`);
   for (const b of bindRec) {
     const row = bindRows.find((x) => x.startsWith(`${b.waypoint}</td>`)) || "";
-    ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.why)),
-      `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the record's why`);
+    ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.rationale)), `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the plan file's rationale`);
     const sAt = row.indexOf('<details class="states"><summary>before / after</summary>');
     const fold = sAt >= 0 ? row.slice(sAt, row.indexOf("</details>", sAt) + 10) : "";
     const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
@@ -818,7 +817,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
     const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === MV + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: MV + w.waypoint,
-      why: "its before holds the state and its after reaches the next point.",
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
@@ -1245,7 +1244,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // One Paragraph Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
     const segmentsOf = (id) => (plan.paragraph_moves_you_may_bind.find((m) => m.id === id) || { segments: [{}] }).segments;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: mv(w),
-      why: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}),
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
+      depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: w.waypoint === 1 ? (plan.terms_this_leg_introduces || []).map((t) => ({ term: t.term, meaning: t.meaning || "MEANING-" + t.term })) : [], "re-activate": [], rationale: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}), // the Leg's terms go to its first paragraph (kogaki#1639)
       ...(w.waypoint === 1 && owes.length ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 1 })) } : {}),
       paragraph_waypoints: segmentsOf(mv(w)).map((_, n) => ({
         point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
