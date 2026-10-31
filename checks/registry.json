@@ -512,6 +512,26 @@
       }
     },
     {
+      "id": "paragraph-plan-job",
+      "file": "checks/check-paragraph-plan-job.sh",
+      "covers": [
+        "src/workflow/detached-job.mjs",
+        "src/paragraph-plan.mjs",
+        "src/paragraph-plan-workflow.json"
+      ],
+      "admission": {
+        "contract": "A ParagraphPlan job keeps every finished Leg (kogaki#1641, owner decision 2026-10-31): a Leg's death or refusal ends that Leg alone, and a resume plans only the Legs the latest run of the same Brief did not finish. Each case drives `node src/paragraph-plan.mjs start|await` end to end over a real Brief of three one-Waypoint Legs, a scratch Move library and a fake judge whose per-Leg behaviour is read from a mode file. (a) a job in which one Leg's plan call exits non-zero ends with that unit `died`, its siblings `done` on their own merits, no unit `killed`, the job `died` under the table's `unit_isolation`, the failure block naming the kept candidates, no plan file, and stop lines naming the kept Legs and the Leg the next run plans; (b) a Leg refused on every attempt ends `refused` after `brief.unit_attempts` with each `done` sibling's candidate and verdict files in the run directory; (c) `start` on the same Brief with the earlier run as `--prior-run` spawns the unfinished Leg alone, carries the others with `carried_from` on the job and start records, and writes the plan file with every Leg; (d) a Brief whose content hash differs carries nothing and spawns every Leg, and (d2) so does a prior run whose plan file was written. Declared limit: the retry inside a Leg is its own Issue, and the Brief's compose job keeps kogaki#1273's sibling kill, asserted by check-brief-job-retry.sh (v4).",
+        "license": "kogaki#1641 (owner decision 2026-10-31: a ParagraphPlan is designed independently for each Leg, and nothing crosses a Leg)",
+        "tier": "pre-push",
+        "runtime_ms": 8000,
+        "runtime_ms_note": "Measured 2026-10-31 in the kogaki#1641 worktree: 3.98 s wall for the whole file, five fixture jobs under a 100 ms handed-in heartbeat, the refused case paying three attempts of two calls. 8000 is about twice the measurement, for peer-session load on this machine.",
+        "efficacy": "case: checks/check-paragraph-plan-job.sh::(a) a unit was killed on the tick the job ended died",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-10-31 in the kogaki#1641 worktree, applied once and restored): dropping the `!unitIsolation &&` guard on the died short-circuit in `classifyDetachedJobState` (src/workflow/detached-job.mjs) turned case (a) red on six labels -- both siblings read `killed`, their candidate files were missing, the failure block named no kept candidate and the stop lines named no kept Leg. Restored, and the member returned to passing.",
+        "removal_signal": "the ParagraphPlan job no longer runs one unit per Leg on the shared supervisor -- the stage plans the whole Brief in one unit, so there is no sibling to keep or carry",
+        "removal_instrument": "act: the PR that retires the per-Leg unit in `startParagraphPlan` (src/paragraph-plan.mjs) owes this member's removal row in the same act"
+      }
+    },
+    {
       "id": "draft-packet",
       "file": "checks/check-draft-packet.sh",
       "covers": ["src/packet-template.md", "src/draft.mjs"],

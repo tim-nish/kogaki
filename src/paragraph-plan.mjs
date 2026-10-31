@@ -46,7 +46,7 @@
 //   the ParagraphPlan stage
 //       SPEC-draft-pipeline
 //
-import { readFileSync, writeFileSync, existsSync, readdirSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, renameSync, copyFileSync } from "node:fs";
 import { join, resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -66,7 +66,7 @@ export { PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor, paragraphPlanRecord,
 import { judgePrompt, resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "./workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, readerPathJobPath, readerPathJobBounds,
-  jobStallS, jobHeartbeatMs } from "./workflow/detached-job.mjs";
+  jobStallS, jobHeartbeatMs, readerPathUnitCandidatePath, readerPathUnitSpecializationPath } from "./workflow/detached-job.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
 
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
@@ -577,13 +577,44 @@ function writeJson(path, doc) {
   renameSync(tmp, path);
 }
 
+// THE LEGS A PRIOR RUN FINISHED, CARRIED INTO THIS ONE (kogaki#1641, owner decision
+// 2026-10-31): a ParagraphPlan is designed for one Leg alone, so a Leg a prior run of the
+// SAME inputs already finished -- the same Brief by content hash, the same Move library --
+// is not planned again. Its candidate and verdict files are copied into the new run
+// directory and its row is written `done` with `carried_from` naming the earlier run; no
+// session is spawned for it. A prior run whose plan file was already written carries
+// nothing, as does one over a different Brief or library.
+function carriedUnits(source, dir, { briefSha, movesDir, legs }) {
+  if (!source || resolve(source) === resolve(dir)) return [];
+  if (existsSync(join(source, DONE_FILE)) || !existsSync(join(source, START_FILE))) return [];
+  const job = readReaderPathJob(source);
+  if (!job || !Array.isArray(job.units)) return [];
+  let start;
+  try { start = JSON.parse(readFileSync(join(source, START_FILE), "utf8")); } catch { return []; }
+  if (start.brief_sha256 !== briefSha || start.moves_dir !== movesDir) return [];
+  const ids = new Set(legs.map((_, i) => unitIdFor(i)));
+  const copy = (from, to) => { if (from && existsSync(from)) { copyFileSync(from, to); return to; } return undefined; };
+  return job.units.filter((u) => u.status === "done" && u.candidate && ids.has(u.id)).map((u) => {
+    const candidateFile = copy(u.candidate_file, readerPathUnitCandidatePath(dir, u.id));
+    const specializationFile = copy(u.specialization_file, readerPathUnitSpecializationPath(dir, u.id));
+    return { id: u.id, status: "done", bytes: u.bytes || 0, attempts: u.attempts || 1, phase: u.phase || "fit",
+      candidate: u.candidate, ...(candidateFile ? { candidate_file: candidateFile } : {}),
+      ...(u.specialization ? { specialization: u.specialization } : {}),
+      ...(specializationFile ? { specialization_file: specializationFile } : {}),
+      carried_from: relFromRepo(resolve(source)) };
+  });
+}
+
 // START: read the adopted Brief, the Move library and the Audience's persona, render one
 // prompt per Leg, and hand the units to the shared supervisor. Returns the run directory.
-export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves" } = {}) {
+// `priorRun` names the run whose finished Legs are carried; it is the latest run of the same
+// Brief unless handed in (a fixture's run directories live outside the lane).
+export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves", priorRun = undefined } = {}) {
   const brief = readAdoptedBrief(briefPath);
   if (brief.error) fail(brief.error);
   const slug = slugOf(brief.record, briefPath);
-  const prior = runDir ? (existsSync(readerPathJobPath(runDir)) ? runDir : null) : latestRunDir(slug);
+  const latest = priorRun !== undefined ? (priorRun || null) : latestRunDir(slug);
+  const prior = runDir ? (existsSync(readerPathJobPath(runDir)) ? runDir : null) : latest;
   if (prior) {
     const job = readReaderPathJob(prior);
     if (job && job.state === "running" && supervisorAlive(job.supervisor_pid)) {
@@ -610,14 +641,20 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const model = String(settingValue(table.judge.model));
   const legs = brief.legs.map((leg) => planLeg(leg, brief.record.obligations));
   const dir = runDir || enterRun("brief", `${runPrefix(slug)}${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  const briefSha = sha256(brief.text);
+  const carried = carriedUnits(latest, dir, { briefSha, movesDir, legs });
+  const carriedIds = new Set(carried.map((u) => u.id));
   writeJson(join(dir, START_FILE), {
-    brief: relFromRepo(resolve(briefPath)), brief_sha256: sha256(brief.text), started_at: new Date().toISOString(),
+    brief: relFromRepo(resolve(briefPath)), brief_sha256: briefSha, started_at: new Date().toISOString(),
     moves_dir: movesDir, legs,
+    ...(carried.length ? { carried: carried.map((u) => ({ unit: u.id, leg_id: legs[Number(u.id.split("-")[1]) - 1].leg_id, from: u.carried_from })) } : {}),
   });
-  const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, paragraphPlanUnitInput(leg, library.moves, persona)) }));
+  const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, paragraphPlanUnitInput(leg, library.moves, persona)) }))
+    .filter((u) => !carriedIds.has(u.id));
   startDetachedJobSupervisor(dir, {
-    units, command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
+    units, carried, command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
     callLimitS, unitAttempts,
+    unitIsolation: table.job.unit_isolation === true,
     stallS: jobStallS(table.job.stall_s),
     heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
     recordArray: "waypoints",
@@ -654,18 +691,37 @@ export function stoppedWaypoints(leg, refusal) {
   return set.length ? set : leg.waypoints.map((w) => w.waypoint);
 }
 
+// The job's unit for each Leg of the start record, by id (kogaki#1641): a carried unit is
+// written ahead of the spawned ones, so the record's order is not the Legs'.
+function unitsByLeg(start, job) {
+  const byId = new Map((job.units || []).map((u) => [u.id, u]));
+  return start.legs.map((leg, i) => ({ leg, unit: byId.get(unitIdFor(i)) }));
+}
+
+// THE STOP LINES SAY WHAT WAS KEPT (kogaki#1641): the Legs that finished and are kept in the
+// run directory, the Legs that ended refused or died with their last refusal, and that the
+// next run on the same Brief plans the unfinished Legs only.
 export function stopLines(start, job) {
-  const lines = [`ParagraphPlan stopped: the job ended ${job.state}, and the Brief at ${start.brief} is unchanged — `
-    + "nothing was written beside it. Run /paragraph-plan on the same Brief again to resume; the Reader Path is not composed again."];
-  for (const [i, u] of (job.units || []).entries()) {
-    if (u.status === "done") continue;
-    const leg = start.legs[i];
+  const rows = unitsByLeg(start, job);
+  const kept = rows.filter((r) => r.unit && r.unit.status === "done");
+  const unfinished = rows.filter((r) => !r.unit || r.unit.status !== "done");
+  const lines = [`ParagraphPlan stopped: the job ended ${job.state}, and the Brief at ${start.brief} is unchanged — nothing was written beside it.`];
+  if (kept.length) {
+    lines.push(`  Kept: Leg ${kept.map((r) => r.leg.leg_id).join(", ")} finished and ${kept.length === 1 ? "is" : "are"} kept in the run directory`
+      + `${kept.some((r) => r.unit.carried_from) ? ` (${kept.filter((r) => r.unit.carried_from).map((r) => `${r.leg.leg_id} carried from ${r.unit.carried_from}`).join("; ")})` : ""}.`);
+  }
+  for (const { leg, unit: u } of unfinished) {
+    if (!u) { lines.push(`  Leg ${leg.leg_id}: no unit on the job record.`); continue; }
     const last = Array.isArray(u.refusals) && u.refusals.length ? u.refusals[u.refusals.length - 1]
       : (u.failure && u.failure.stderr_tail) || (job.failure && job.failure.note) || u.status;
     const ws = stoppedWaypoints(leg, last);
     lines.push(`  Leg ${leg.leg_id}, Waypoint ${ws.join(", ")}: ${u.status} after ${u.attempts || 1} attempt(s) — ${String(last).split("\n").join(" ")}`);
   }
-  if (job.failure && job.failure.note && !(job.units || []).some((u) => u.status !== "done")) lines.push(`  ${job.failure.note}`);
+  if (job.failure && job.failure.note && !unfinished.length) lines.push(`  ${job.failure.note}`);
+  if (unfinished.length) {
+    lines.push(`  Next: run /paragraph-plan on the same Brief again; it plans Leg ${unfinished.map((r) => r.leg.leg_id).join(", ")} only`
+      + `${kept.length ? " and carries the kept Legs" : ""}; the Reader Path is not composed again.`);
+  }
   return lines;
 }
 
@@ -674,8 +730,9 @@ export function finishParagraphPlan(dir) {
   const start = JSON.parse(readFileSync(join(dir, START_FILE), "utf8"));
   const job = readReaderPathJob(dir);
   if (!job) return { stopped: [`ParagraphPlan: no job record at ${relFromRepo(dir)}`] };
-  const units = job.units || [];
-  if (job.state !== "done" || units.length !== start.legs.length || units.some((u) => u.status !== "done" || !u.candidate)) {
+  // CARRIED AND FRESH UNITS ALIKE, EACH FOUND BY ITS LEG (kogaki#1641).
+  const units = unitsByLeg(start, job).map((r) => r.unit);
+  if (job.state !== "done" || units.some((u) => !u || u.status !== "done" || !u.candidate)) {
     return { stopped: stopLines(start, job) };
   }
   const briefPath = resolve(REPO, start.brief);
@@ -764,7 +821,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   switch (args._cmd) {
     case "start": {
       const dir = startParagraphPlan(briefPath, { runDir: typeof args["run-dir"] === "string" ? resolve(args["run-dir"]) : null,
-        movesDir: typeof args["moves-dir"] === "string" ? args["moves-dir"] : "moves" });
+        movesDir: typeof args["moves-dir"] === "string" ? args["moves-dir"] : "moves",
+        // `--prior-run <dir>` names the run whose finished Legs are carried (kogaki#1641); an
+        // empty value carries nothing; absent, the latest run of the same Brief is read.
+        ...(typeof args["prior-run"] === "string" ? { priorRun: args["prior-run"] === "" ? null : resolve(args["prior-run"]) } : {}) });
       console.log(`ParagraphPlan job started at ${relFromRepo(readerPathJobPath(dir))}, one unit per Leg — run `
         + `\`node src/paragraph-plan.mjs await --brief ${briefPath}\` to poll it.`);
       break;
