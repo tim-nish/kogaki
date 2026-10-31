@@ -489,7 +489,7 @@ let okPrompts = [];
     for (const [legId, w] of entries) {
       const want = ["waypoint", ...SCHEMA, ...(w.waypoint > 1 ? ["join"] : []), "paragraph_waypoints"];
       if (JSON.stringify(Object.keys(w)) !== JSON.stringify(want)) {
-        fails.push(`(a) Leg ${legId}, Waypoint ${w.waypoint}'s entry does not carry exactly the paragraph's schema (${want.join(", ")}): ${Object.keys(w).join(", ")}`);
+        fails.push(`(a) an entry does not carry exactly the paragraph's schema: Leg ${legId}, Waypoint ${w.waypoint} carries ${Object.keys(w).join(", ")}, not ${want.join(", ")}`);
       }
       if (w.move !== "p1") fails.push(`(a) Leg ${legId}, Waypoint ${w.waypoint} does not carry the bound Move's id: ${JSON.stringify(w.move)}`);
       if (!/^PURPOSE-/.test(w.purpose) || !/^its before holds/.test(w.rationale) || JSON.stringify(w.introduces) !== "[]" || JSON.stringify(w["re-activate"]) !== "[]") {
