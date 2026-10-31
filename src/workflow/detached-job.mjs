@@ -100,7 +100,8 @@ function readerPathUnitStdoutPath(dir, unitId) {
 // per unit and never touched again, so a finished Candidate is recoverable by
 // itself whatever the job's own terminal state turns out to be and whatever
 // else the record is rewritten to say next tick.
-function readerPathUnitCandidatePath(dir, unitId) {
+// Exported for a starter that carries a finished unit's files into a new run (kogaki#1641).
+export function readerPathUnitCandidatePath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.candidate.json`);
 }
 
@@ -139,7 +140,7 @@ function readerPathUnitFitStdoutPath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.fit.stdout`);
 }
 
-function readerPathUnitSpecializationPath(dir, unitId) {
+export function readerPathUnitSpecializationPath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.specialization.json`);
 }
 
@@ -388,7 +389,15 @@ export const READER_PATH_JOB_SYSTEM_FAILURE_STATES = ["died", "stalled", "other"
 // THE REDUCTION OVER A FINISHED SET (kogaki#1273). One finished Candidate is
 // enough: the job is `done` when at least one unit is `done`, whatever its
 // siblings ended as, and `refused` only when every unit was refused.
-function reduceFinishedReaderPathUnits(units) {
+// UNDER UNIT ISOLATION (kogaki#1641) every unit is its own job: `done` only when
+// every unit is `done`, otherwise the worst unit state in this order -- `died`,
+// then `refused`.
+function reduceFinishedReaderPathUnits(units, { unitIsolation = false } = {}) {
+  if (unitIsolation) {
+    if (units.some((u) => u.status === "died")) return "died";
+    if (units.some((u) => u.status === "refused")) return "refused";
+    return "done";
+  }
   if (units.some((u) => u.status === "done")) return "done";
   if (units.some((u) => u.status === "refused")) return "refused";
   return "done";
@@ -404,13 +413,18 @@ function reduceFinishedReaderPathUnits(units) {
 // bound is read only while a unit is still running. There is no whole-job time
 // bound (kogaki#1355): a call past `call_limit_s` is the unit's own attempt to
 // spend, answered by the supervisor, never a state of the job.
+
+// UNDER UNIT ISOLATION (kogaki#1641, owner decision 2026-10-31) a died unit ends
+// that unit alone: its siblings keep running, and the job is reduced from the
+// finished set once none is. The owner's stop and the supervisor's own stall are
+// still read on their tick, as they are facts about the job rather than a unit.
 function classifyDetachedJobState(units, {
-  stopRequested, stalledS, stallS = READER_PATH_JOB_STALL_S,
+  stopRequested, stalledS, stallS = READER_PATH_JOB_STALL_S, unitIsolation = false,
 } = {}) {
   if (stopRequested) return "stopped";
-  if (units.some((u) => u.status === "died")) return "died";
+  if (!unitIsolation && units.some((u) => u.status === "died")) return "died";
   const running = units.filter((u) => u.status === "running");
-  if (running.length === 0) return reduceFinishedReaderPathUnits(units);
+  if (running.length === 0) return reduceFinishedReaderPathUnits(units, { unitIsolation });
   if (stalledS >= stallS) return "stalled";
   return "running";
 }
@@ -451,7 +465,7 @@ export function readerPathJobBounds(job) {
 export function readerPathAwaitStep(job, { stopRequested, stalledS } = {}) {
   readerPathJobBounds(job);
   const raw = job.units || [];
-  return { units: raw, state: classifyDetachedJobState(raw, { stopRequested, stalledS }) };
+  return { units: raw, state: classifyDetachedJobState(raw, { stopRequested, stalledS, unitIsolation: job.unit_isolation === true }) };
 }
 
 function readerPathRefusedUnits(unitRows) {
@@ -544,6 +558,13 @@ export async function cmdJobSupervise(args) {
     const fit = await loadReaderPathFitJudge(declared.fit_judge);
     const recordArray = declared.record_array === false ? false
       : typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
+    // UNIT ISOLATION AND THE CARRIED ROWS (kogaki#1641), both written by the starter from
+    // the job's own table: under `unit_isolation` a died unit ends that unit alone, and
+    // every row in `carried` is a unit a prior run of the same inputs already finished --
+    // written on the record as it stands, ahead of the units this job spawns, and never
+    // spawned again.
+    const unitIsolation = declared.unit_isolation === true;
+    const carriedRows = Array.isArray(declared.carried) ? declared.carried : [];
 
     // THE MINIMAL ENVIRONMENT (kogaki#1193, kogaki#1197): only `units[].prompt` and the
     // session's own login; do not add the bare-session flag (it breaks OAuth auth), and keep
@@ -749,7 +770,7 @@ export async function cmdJobSupervise(args) {
       // starts back at 0, so `bytesTotal` can fall even though real work just
       // happened -- tracked separately so a respawn is never mistaken for a stall.
       let progressed = false;
-      const unitRows = units.map((u) => {
+      const unitRows = [...carriedRows, ...units.map((u) => {
         const st = S.get(u.id);
         if (st.final) { bytesTotal += st.final.bytes || 0; return st.final; }
         const sp = unitsRunning.get(u.id);
@@ -764,10 +785,10 @@ export async function cmdJobSupervise(args) {
         if (a.progressed) progressed = true;
         bytesTotal += a.row.bytes || 0;
         return a.row;
-      });
+      })];
       if (progressed || bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
-      const state = classifyDetachedJobState(unitRows, { stopRequested, stalledS, stallS });
+      const state = classifyDetachedJobState(unitRows, { stopRequested, stalledS, stallS, unitIsolation });
       let rows = unitRows;
       if (READER_PATH_JOB_SYSTEM_FAILURE_STATES.includes(state)) {
         // A SYSTEM FAILURE ENDS EVERY UNIT ON THIS TICK (kogaki#1273): the
@@ -791,6 +812,7 @@ export async function cmdJobSupervise(args) {
         unit_attempts: unitAttempts,
         last_progress_at: new Date(lastProgressAt).toISOString(),
         supervisor_pid: process.pid,
+        ...(unitIsolation ? { unit_isolation: true } : {}),
         state,
         units: rows,
         ...(state === "done" ? readerPathDoneJobUnfinished(rows) : {}),
@@ -845,9 +867,16 @@ export function startDetachedJobSupervisor(dir, opts) {
   // EVERY UNIT PROMPT BEGINS WITH THE NO-TOOLS SENTENCE (kogaki#1307), written here so the
   // units file a reader opens is the prompt each headless session was given.
   const units = opts.units.map((u) => ({ ...u, prompt: withNoToolsSentence(u.prompt) }));
+  // THE CARRIED ROWS AND THE ISOLATION FLAG RIDE THE UNITS FILE (kogaki#1641): a row the
+  // starter carries from a prior run is handed over finished, so the supervisor writes it
+  // on every record and spawns nothing for it.
+  const carried = Array.isArray(opts.carried) ? opts.carried : [];
+  const unitIsolation = opts.unitIsolation === true;
   writeFileSync(unitsPath, `${JSON.stringify({ units, validator,
     ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
-    ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}) }, null, 2)}\n`);
+    ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
+    ...(unitIsolation ? { unit_isolation: true } : {}),
+    ...(carried.length ? { carried } : {}) }, null, 2)}\n`);
   const scriptPath = join(REPO, "src", "terrain.mjs");
   const child = spawn(process.execPath, [
     scriptPath, "job-supervise",
@@ -864,8 +893,9 @@ export function startDetachedJobSupervisor(dir, opts) {
     unit_attempts: unitAttempts,
     last_progress_at: now,
     supervisor_pid: child.pid,
+    ...(unitIsolation ? { unit_isolation: true } : {}),
     state: "running",
-    units: opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, attempts: 1, phase: "compose", attempt_started_at: now })),
+    units: [...carried, ...opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, attempts: 1, phase: "compose", attempt_started_at: now }))],
   });
   return { unitsPath, supervisorPid: child.pid };
 }

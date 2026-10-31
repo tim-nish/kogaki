@@ -2379,6 +2379,36 @@ composed again. **A bound paragraph Move that does not fill a role the stage
 needs (`before`, `after`, `breaks`, and neither `segments` nor `technique`) is
 a fatal stop naming the Move and the role**, never a default.
 
+**The Legs are independent (kogaki#1641, owner decision 2026-10-31).** A
+ParagraphPlan is designed for one Leg alone: Leg G1's ParagraphPlan is
+responsible for reaching G1's `reader_state_after` from its before-state and
+for nothing outside G1, and a failure in one Leg's ParagraphPlan carries no
+shared responsibility with another Leg's — the Brief judge has already
+guaranteed that the Legs form a coherent argument, provided each Leg's
+ParagraphPlan connects its before-state and after-state from its Claims. Three
+rules follow, and nothing crosses a Leg:
+
+1. **A Leg's death ends that Leg alone.** The job table sets `unit_isolation`,
+   and under it the shared supervisor records a died unit `died` with its
+   failure block while its siblings run on; the job's state is reduced from the
+   finished units once none is running — `done` only when every Leg is `done`,
+   otherwise the worst Leg state, `died` before `refused`. This narrows
+   kogaki#1273's sibling kill — a system failure ends every unit on the tick it
+   is seen — to the Brief's compose job, where it stands unchanged; the owner's
+   stop and the supervisor's own stall still end every unit on their tick,
+   being facts about the job rather than a Leg.
+2. **A finished Leg is kept the tick its judge passes it.** A unit ending
+   `done` writes its candidate and its verdict beside the job record on that
+   tick, so a later death or stop cannot lose it.
+3. **A resume plans only the Legs the latest run did not finish.** A run over
+   the same Brief by content hash and the same Move library carries every Leg
+   the latest run recorded `done` — its files copied, its row written `done`
+   with `carried_from` naming that run — and spawns a unit for the other Legs
+   only; a run over a changed Brief, or after the plan file was written,
+   carries nothing. The plan file is still written whole, so `/draft`'s reader
+   is unchanged, and the stop lines name the Legs kept and the Legs the next
+   run plans.
+
 > **Status (kogaki#1497, owner decision 2026-10-21):** the plan call reads
 > the Leg's `introduces` as its fourth input, each term with its meaning
 > read by `introducedMeaning`, the rule the Packet's crossing line reads

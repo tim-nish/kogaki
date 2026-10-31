@@ -29,9 +29,10 @@
     "unit_attempts": {
       "setting": "brief.unit_attempts"
     },
+    "unit_isolation": true,
     "stall_s": 90,
     "heartbeat_ms": 10000,
-    "note": "ONE JOB UNIT PER LEG, in Reader Path order, and the two bounds are the Brief's own settings (kogaki#1375): a call running past `brief.call_limit_s` is stopped and spends one attempt, a refused answer spends one, an unreadable answer is asked again without spending one, and a unit that has spent `brief.unit_attempts` stops naming its Leg and the Waypoint its last refusal named. There is no limit on the whole job. Each attempt makes two calls: `paragraph_plan_unit` binds a paragraph Move to every Leg Waypoint and generates its Paragraph Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move. A refusal of either is put back into the next attempt's prompt verbatim."
+    "note": "ONE JOB UNIT PER LEG, in Reader Path order, and the two bounds are the Brief's own settings (kogaki#1375): a call running past `brief.call_limit_s` is stopped and spends one attempt, a refused answer spends one, an unreadable answer is asked again without spending one, and a unit that has spent `brief.unit_attempts` stops naming its Leg and the Waypoint its last refusal named. There is no limit on the whole job. Each attempt makes two calls: `paragraph_plan_unit` binds a paragraph Move to every Leg Waypoint and generates its Paragraph Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move. A refusal of either is put back into the next attempt's prompt verbatim. THE LEGS ARE INDEPENDENT (kogaki#1641, owner decision 2026-10-31): `unit_isolation` tells the shared supervisor that one Leg's death ends that Leg alone, its siblings finishing on their own merits; a finished Leg is kept in the run directory the tick its judge passes it; and a later run on the same Brief carries every kept Leg and plans only the Legs left unfinished."
   },
   "paragraph_plan_unit": {
     "id": "paragraph_plan_unit",
