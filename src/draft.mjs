@@ -80,17 +80,27 @@ function cmdResolve(args) {
   // the other half of the same file. Where the Brief HAS moved, the old
   // entries are correctly dropped: they describe Packets rendered from a
   // Brief that no longer exists.
+  // THE PLAN IS THE SECOND EDGE (kogaki#1645): a plan rewritten under an unchanged Brief
+  // also drops the entries, because a Packet is a rendering of the plan at a hash.
   const prevRun = join(ws, "run.json");
+  const planSha = brief.paragraphPlan.sha256;
   let carried;
+  let planMoved = false;
+  let recordedPlan = null;
   try {
     const prev = JSON.parse(readFileSync(prevRun, "utf8"));
-    if (prev.brief_sha === sha256(brief.text) && prev.packets) carried = prev.packets;
+    if (prev.brief_sha === sha256(brief.text) && prev.packets) {
+      recordedPlan = prev.plan?.sha256 ?? null;
+      if (recordedPlan === planSha) carried = prev.packets;
+      else planMoved = true;
+    }
   } catch { /* no prior record, or unreadable — nothing to carry */ }
 
   writeFileSync(join(ws, "run.json"), JSON.stringify({
     ...(carried ? { packets: carried } : {}),
     brief: brief.path,
     brief_sha: sha256(brief.text),
+    plan: { path: brief.paragraphPlan.path, sha256: planSha },
     survey_pin: brief.surveyPin,
     strands: brief.strands.map((s) => s.id),
     legs: brief.legs.map((s) => s.leg_id),
@@ -98,6 +108,9 @@ function cmdResolve(args) {
   }, null, 2) + "\n");
   process.stdout.write(`brief: ${brief.path}\n`);
   process.stdout.write(`survey pin: ${brief.surveyPin}\n`);
+  if (planMoved) {
+    process.stdout.write(`the ParagraphPlan moved since the last run (recorded ${recordedPlan ? recordedPlan.slice(0, 12) : "none"}, now ${planSha.slice(0, 12)}): every Packet is rendered again\n`);
+  }
   driveNextPacket(brief, args, ws);
   process.stdout.write(`closed set: ${brief.strands.map((s) => s.id).join(", ")} — the Brief's own text plus these Strands' served renderings at the pin; nothing else is reachable\n`);
   process.stdout.write(`reader path: ${brief.legs.map((s) => s.leg_id).join(" → ")} (recorded order; realized in this order and no other)\n`);
@@ -158,7 +171,13 @@ function cmdPacket(args) {
 // that could fail `resolve` would make a template read gate the run's start.
 function driveNextPacket(brief, args, ws) {
   const lang = langOf(args);
-  const next = brief.legs.find((s) => !existsSync(join(sectionsDir(ws, lang), `${s.leg_id}.md`)));
+  // A LEG OWES A PACKET when its section is missing or no recorded Packet for it was
+  // rendered from the current plan (kogaki#1645): a moved plan walks the path again.
+  let recorded = {};
+  try { recorded = JSON.parse(readFileSync(join(ws, "run.json"), "utf8"))[packetsRecordKey(lang)] || {}; }
+  catch { /* no run record — every Leg owes its Packet */ }
+  const current = (id) => recorded[id]?.plan_sha256 === brief.paragraphPlan.sha256;
+  const next = brief.legs.find((s) => !existsSync(join(sectionsDir(ws, lang), `${s.leg_id}.md`)) || !current(s.leg_id));
   if (!next) return null;
   const r = renderAndStorePacket(brief, next.leg_id, args, ws);
   if (r.error) {
@@ -207,13 +226,20 @@ function cmdSection(args) {
     fail(`leg ${id} has no rendered Packet at ${packetPath} — the Packet is a Leg's ENTIRE input, so realizing one without it means the prose was written from something else. `
       + `The Harness renders it at \`resolve\` and after each \`section\`; if it was deleted, \`packet --leg ${id}\` restores it`);
   }
-  let recordedSha = null;
-  try { recordedSha = (JSON.parse(readFileSync(join(ws, "run.json"), "utf8"))[packetsRecordKey(lang)] || {})[id]?.sha256 || null; }
+  let entry = null;
+  try { entry = (JSON.parse(readFileSync(join(ws, "run.json"), "utf8"))[packetsRecordKey(lang)] || {})[id] || null; }
   catch { /* no run record — handled as unrecorded below */ }
+  const recordedSha = entry?.sha256 || null;
+  const recordedPlan = entry?.plan_sha256 || null;
   const packetText = readFileSync(packetPath, "utf8");
   const onDiskSha = sha256(packetText);
-  if (recordedSha === null) {
-    fail(`leg ${id} has a Packet file at ${packetPath} that no run record accounts for — a Packet is "rendered" when the run records its sha, and an unrecorded file cannot be shown to be the one this Leg was realized from. Re-render with \`packet --leg ${id}\``);
+  if (recordedSha === null || recordedPlan === null) {
+    fail(`leg ${id} has a Packet file at ${packetPath} that no run record accounts for — a Packet is "rendered" when the run records its sha and the ParagraphPlan's, and an unrecorded file cannot be shown to be the one this Leg was realized from. Re-render with \`packet --leg ${id}\``);
+  }
+  // THE PLAN EDGE (kogaki#1645): the file can match its own record while the record is stale.
+  if (recordedPlan !== brief.paragraphPlan.sha256) {
+    fail(`leg ${id}'s Packet was rendered from a ParagraphPlan that has since changed — recorded ${recordedPlan.slice(0, 12)}, now ${brief.paragraphPlan.sha256.slice(0, 12)}. `
+      + `Re-render with \`packet --leg ${id}\` and realize again`);
   }
   if (recordedSha !== onDiskSha) {
     fail(`leg ${id}'s Packet changed after it was rendered — recorded ${recordedSha.slice(0, 12)}, on disk ${onDiskSha.slice(0, 12)}. `
@@ -448,6 +474,7 @@ function cmdEmit(args) {
     "---",
     `brief: ${relative(dirname(outPath), brief.path)}`,
     `brief_pin: sha256:${sha256(brief.text)}`,
+    `plan_pin: sha256:${brief.paragraphPlan.sha256}`,
     `survey_pin: ${brief.surveyPin}`,
     `generated_by: ${JSON.stringify(generatedBy)}`,
     ...(lang !== "en" ? [`lang: ${lang}`, `terms_sha_at_generation: ${termsShaAtGeneration}`] : []),
@@ -472,6 +499,7 @@ function cmdEmit(args) {
       // identity (DESIGN.md, "Lifetimes: what is owner state and what is machine state").
       t.packet = relative(dirname(outPath), rec.path);
       t.packet_sha = rec.sha256;
+      if (typeof rec.plan_sha256 === "string") t.plan_sha = rec.plan_sha256;
     } else {
       // The trace never gates the write it traces — the same rule `snapshotDraft`
       // and `cmdPacket`'s own record write already hold.

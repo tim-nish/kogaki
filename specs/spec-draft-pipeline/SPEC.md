@@ -2585,6 +2585,22 @@ Brief hash is not the Brief's (§4.14). Its writer and reader
 shared code, since two commands touch the file and a command module never
 imports another's (kogaki#1302).
 
+**A Packet is a rendering of the plan at a hash (kogaki#1645)**, exactly as the
+plan is a rendering of the Brief at a hash. The hash is the sha256 of the plan
+file's text as `/draft` read it, and three records carry it: the run record's
+`plan` (`{path, sha256}`, beside `brief` and `brief_sha`), each Packet entry's
+`plan_sha256`, and the CanonicalDraft's `plan_pin` with a `plan_sha` on each
+`trace` row. `resolve` carries the previous run's Packet entries only where both
+the Brief's hash and the plan's equal the recorded ones; where the plan moved it
+says so, drops them, and **renders every Packet again**: a Leg owes its Packet
+when its section is missing or no recorded Packet for it was rendered from the
+current plan, so a moved plan walks the path from the first Leg as a first run
+does, and an unchanged one keeps the unrealized-first rule. `section` refuses a
+Packet whose recorded plan hash is not the current one, naming both, and a
+Packet entry with no plan hash is refused as unrecorded. On 2026-11-01 a
+rewritten plan under an unchanged Brief realized a Draft from the old Packets,
+because the run record carried them on the Brief's hash alone.
+
 **The join is a typed relation (kogaki#1477, owner decision 2026-10-20).**
 Every Leg Waypoint entry after the first carries a `join`, and the first
 carries none: the connection between Legs is the Brief's (kogaki#1282). A join
