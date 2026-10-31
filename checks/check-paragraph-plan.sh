@@ -12,16 +12,18 @@
 #       NOTHING OF A MOVE — no id, no Segment, no field; the Brief is
 #       byte-for-byte unchanged; which Move was bound stays in the run
 #       directory's `paragraph-plan-bindings.json`. A `does-not-fit` from the
-#       judge on a first attempt is put verbatim into the second attempt's
-#       prompt, beside the attempt-1 plan record it judged (kogaki#1438); the plan call is handed the Move's `segments` and `breaks`
+#       judge on a first attempt is put verbatim into the site prompt of the
+#       Leg Waypoint it names, beside the refused entry, with its bound Move and
+#       after-state held (kogaki#1642); the plan call is handed the Move's `segments` and `breaks`
 #       beside the Leg Waypoint's own `point`, `serves` and `next_point` and
 #       the persona, and NO Claim proposition (kogaki#1382); the judge call
 #       is handed the four roles -- `before`, `after`, `segments` and
 #       `breaks` (kogaki#1378) -- and neither call is handed a `technique`
 #       (kogaki#1412).
 #   (b) a Leg Waypoint no Move fits (`move: null`) refuses the unit
-#       `no_paragraph_move_fits` and is asked again until `brief.unit_attempts`
-#       is spent; the stage then stops naming the Leg and the Waypoint, writes
+#       `no_paragraph_move_fits` and is asked again at that Leg Waypoint until
+#       `brief.unit_attempts` is spent there (kogaki#1642); the stage then stops
+#       naming the Leg and the Waypoint, writes
 #       no ParagraphPlan file, and leaves the Brief unchanged.
 #   (c) a library holding a Move with no `segments` stops the stage naming the
 #       Move and `segments` (kogaki#1412); nothing is defaulted and no
@@ -349,8 +351,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const n = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
     writeFileSync(counter, String(n));
     const doesOf = (w) => ((w.bound_move && w.bound_move.segments) || []).map((s) => String(s.operation || "").trim()).filter(Boolean);
-    const restatesDescription = mode === "content" && leg.waypoints.some((w) =>
-      (w.paragraph_waypoints || []).some((pw) => doesOf(w).some((d) => d && String(pw.point || "").includes(d))));
+    // EACH REFUSAL NAMES ITS OWN LEG WAYPOINT (kogaki#1642): a retry is scoped to the one it names.
+    const restates = (w) => mode === "content"
+      && (w.paragraph_waypoints || []).some((pw) => doesOf(w).some((d) => d && String(pw.point || "").includes(d)));
     // (p): refuses a \`performs\` Paragraph Waypoint carrying a purpose clause, only where the row
     // it was handed carries PERFORMS IS BARE, the mirror of the planner's bound (kogaki#1485).
     const purposeRule = crit("PERFORMS IS BARE").includes("the reader's resulting reading");
@@ -361,40 +364,47 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const termRule = crit("TERM MEANING").includes("is given its meaning");
     const terms = body("leg_you_must_judge").terms_this_leg_introduces || [];
     const pws = leg.waypoints.flatMap((w) => w.paragraph_waypoints || []);
+    const firstUse = (t) => pws.find((pw) => String(pw.point || "").includes(t.term));
     const bareTerm = mode === "introduces" && termRule ? terms.find((t) => {
-      const first = pws.find((pw) => String(pw.point || "").includes(t.term));
+      const first = firstUse(t);
       return first && !String(first.point).includes(t.meaning);
     }) : undefined;
+    const bareAt = (w) => Boolean(bareTerm) && (w.paragraph_waypoints || []).includes(firstUse(bareTerm));
     // (w): refuses a first Paragraph Waypoint already carrying the second Segment's compressed
     // form, only where the row it was handed carries OWN STEP (kogaki#1605).
     const ownRule = crit("OWN STEP").includes("nothing a later Segment's \`operation\` produces");
     const earlyWp = mode === "own-step" && ownRule ? leg.waypoints.find((w) =>
       String(((w.paragraph_waypoints || [])[0] || {}).point || "").includes("COMPRESSED")) : undefined;
-    const refuse = (mode === "ok" && leg.leg_id === "s2" && n === 1) || Boolean(bareTerm) || restatesDescription || Boolean(purposeWp) || Boolean(earlyWp);
-    const why = earlyWp ? "OWN-STEP-SENTENCE Paragraph Waypoint 1 already states what Paragraph Waypoint 2's Segment 2 produces."
-      : bareTerm ? "TERM-SENTENCE the Paragraph Waypoint that first uses \\\"" + bareTerm.term + "\\\" gives no meaning for it."
-      : purposeWp ? "PURPOSE-SENTENCE Paragraph Waypoint " + (purposeAt(purposeWp) + 1) + " carries performs with the clause \\\"so that"
+    const refuse = (w) => (mode === "ok" && leg.leg_id === "s2" && n === 1) || bareAt(w) || restates(w) || purposeWp === w || earlyWp === w;
+    const why = (w) => earlyWp === w ? "OWN-STEP-SENTENCE Paragraph Waypoint 1 already states what Paragraph Waypoint 2's Segment 2 produces."
+      : bareAt(w) ? "TERM-SENTENCE the Paragraph Waypoint that first uses \\\"" + bareTerm.term + "\\\" gives no meaning for it."
+      : purposeWp === w ? "PURPOSE-SENTENCE Paragraph Waypoint " + (purposeAt(purposeWp) + 1) + " carries performs with the clause \\\"so that"
         + purposeWp.paragraph_waypoints[purposeAt(purposeWp)].performs.split(" so that")[1] + "\\\"."
-      : restatesDescription
+      : restates(w)
       ? "CONTENT-SENTENCE the Paragraph Waypoint restates a Segment's does rather than a part of the point."
-      : refuse ? "JUDGE-SENTENCE the first paragraph waypoint never reaches the after state." : "they begin at before and end at after.";
+      : refuse(w) ? "JUDGE-SENTENCE the first paragraph waypoint never reaches the after state." : "they begin at before and end at after.";
     out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint,
-      verdict: refuse ? "does-not-fit" : "fits", why })) });
+      verdict: refuse(w) ? "does-not-fit" : "fits", why: why(w) })) });
   }
-  const leg = body("leg_you_must_plan").leg_you_must_plan;
+  // A SITE CALL (kogaki#1642) is answered by the same builder over its one Leg Waypoint, the
+  // entry's terms and discharges carried, its Paragraph Waypoints marked as rewritten there.
+  const site = prompt.includes('"leg_waypoint_you_must_plan"') ? body("leg_waypoint_you_must_plan") : null;
+  const sw = site && site.leg_waypoint_you_must_plan;
+  const planIn = site ? null : body("leg_you_must_plan");
+  const leg = site ? { leg_id: sw.leg_id, reader_state_after: sw.reader_state_after, waypoints: Array.from({ length: sw.waypoints_in_leg },
+    (_, i) => (i + 1 === sw.waypoint ? { waypoint: sw.waypoint, point: sw.point, serves: sw.serves } : { waypoint: i + 1, point: "", serves: [] })) }
+    : planIn.leg_you_must_plan;
   // (u): the Brief records this Leg closes, laid only from the second attempt on (kogaki#1530).
-  const owes = body("leg_you_must_plan").obligations_this_leg_owes || [];
+  const owes = site ? [] : planIn.obligations_this_leg_owes || [];
   const planCounter = dir + "/plan-" + leg.leg_id;
   const planN = (existsSync(planCounter) ? Number(readFileSync(planCounter, "utf8")) : 0) + 1;
   writeFileSync(planCounter, String(planN));
-  out({ version: "1", leg_id: leg.leg_id,
-    ...(mode === "owes" && leg.leg_id === "s1"
-      ? { obligations: [{ opened_by: 1, items: [{ item: "OWED-ROW which edit survives the next run?", closed_by: 2 }] }] } : {}),
-    waypoints: leg.waypoints.map((w) => {
+  const entryOf = (w) => {
     const nofit = mode === "nofit" && leg.leg_id === "s1" && w.waypoint === 2;
     const move = nofit ? null : mode === "broken" ? "p3" : mode === "technique" ? "p2" : (mode === "segments3" || mode === "content" || mode === "relation") ? "p4"
       : (mode === "performs" || mode === "performs-purpose") ? "p5" : mode === "owes" ? "p4" : mode === "own-step" ? "p7" : "p1";
-    const pw = (n) => ({ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-" + n + " the paragraph establishes its point.", serves: [...w.serves] });
+    const pw = (n) => ({ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-" + n + " the paragraph establishes its point"
+      + (site ? ", rewritten at its site." : "."), serves: [...w.serves] });
     const restated = mode === "content" && leg.leg_id === "s1" && w.waypoint === 1 && planN === 1;
     const join = w.waypoint === 1 || nofit ? undefined
       : mode === "join-sentence" && planN === 1 ? "The overwrite takes up the edit the installer's write left open."
@@ -404,9 +414,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // Waypoint's serves as materials, a purpose, the after-state (the Leg's on the last
     // paragraph), the paragraph before as its dependency, a rationale, the Leg's term where
     // this paragraph's point first uses it, and no re-activation.
-    const last = w.waypoint === leg.waypoints.length;
-    const terms = body("leg_you_must_plan").terms_this_leg_introduces || [];
-    const introduces = terms.filter((t) => String(w.point).includes(t.term) && !leg.waypoints.some((o) => o.waypoint < w.waypoint && String(o.point).includes(t.term)))
+    const last = w.waypoint === Math.max(...leg.waypoints.map((o) => o.waypoint));
+    const terms = site ? [] : planIn.terms_this_leg_introduces || [];
+    const introduces = site ? site.terms_this_entry_introduces : terms.filter((t) => String(w.point).includes(t.term) && !leg.waypoints.some((o) => o.waypoint < w.waypoint && String(o.point).includes(t.term)))
       .map((t) => ({ term: t.term, meaning: t.meaning || "MEANING-" + t.term }));
     return { waypoint: w.waypoint, move, materials: [...w.serves],
       purpose: "PURPOSE-" + leg.leg_id + "-" + w.waypoint + " brings the reader to the point.",
@@ -417,6 +427,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ...(join ? { join } : {}),
       ...(mode === "owes" && w.waypoint === 1 && owes.length && planN > 1
         ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 2 })) } : {}),
+      ...(site && site.discharges_this_entry_keeps.length ? { discharges: site.discharges_this_entry_keeps } : {}),
       paragraph_waypoints: nofit ? [] : mode === "own-step"
         ? [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-1 the measure grades how far the copy is the installer's"
           + (planN === 1 ? ", that is, COMPRESSED who owns the copy." : "."), serves: [...w.serves] },
@@ -432,7 +443,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         ? [{ point: "PW-" + leg.leg_id + "-" + w.waypoint + "-1 the " + ${JSON.stringify(TERM.term)}
           + (planN === 1 ? "" : ", " + ${JSON.stringify(TERM.meaning)} + ",") + " is rewritten by the next run.", serves: [...w.serves] }]
         : (mode === "segments3" || mode === "content" || mode === "owes") ? [pw(1), pw(2), pw(3)] : [pw(1)] };
-  }) });
+  };
+  if (site) out(entryOf(leg.waypoints[sw.waypoint - 1]));
+  out({ version: "1", leg_id: leg.leg_id,
+    ...(mode === "owes" && leg.leg_id === "s1"
+      ? { obligations: [{ opened_by: 1, items: [{ item: "OWED-ROW which edit survives the next run?", closed_by: 2 }] }] } : {}),
+    waypoints: leg.waypoints.map(entryOf) });
 });
 `);
 chmodSync(judge, 0o755);
@@ -462,6 +478,13 @@ function runStage(name, ls, mode, movesDir = moves, obligations = []) {
     ? readFileSync(join(dir, "prompts.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
   return { dir, briefPath, text, runDir, started, awaited, prompts, planPath: join(briefDir, PARAGRAPH_PLAN_FILE) };
 }
+
+// A REFUSAL NAMING A LEG WAYPOINT IS RETRIED THERE ALONE (kogaki#1642): its retry is a site
+// prompt, whose refusals ride in `refused_here` beside the entries they refused.
+const isSite = (p) => p.includes('"leg_waypoint_you_must_plan"');
+const siteInput = (p) => JSON.parse(p.slice(p.lastIndexOf("{", p.lastIndexOf('"leg_waypoint_you_must_plan"'))));
+const retriesOf = (prompts, legId) => prompts.filter((p) => (p.includes('"leg_you_must_plan"') || isSite(p)) && p.includes(`"leg_id": "${legId}"`));
+const retryText = (p) => (isSite(p) ? siteInput(p).refused_here.map((h) => `${h.refusal}\n${JSON.stringify(h.entry)}`).join("\n") : p);
 
 // (a) A PLANNED JOB WRITES THE PARAGRAPH-LEVEL READER PATH (kogaki#1639): every entry carries
 // the Leg schema at the paragraph scale -- the bound Move's id, `materials`, `purpose`,
@@ -519,23 +542,17 @@ let okPrompts = [];
   if (existsSync(bindings)) fails.push("(a) the run directory still carries a paragraph-plan-bindings.json, retired (kogaki#1639): the plan file is the record");
   if (readdirSync(r.runDir).some((f) => /bindings/.test(f))) fails.push(`(a) the run directory holds a bindings record: ${readdirSync(r.runDir).join(", ")}`);
   const plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
-  const s2Plans = plans.filter((p) => p.includes("The copy is the installer's, not the consumer's."));
-  if (s2Plans.length !== 2 || !s2Plans[1].includes("JUDGE-SENTENCE")) {
-    fails.push(`(a) the judge's does-not-fit sentence was not put into Leg s2's second plan prompt (${s2Plans.length} plan prompt(s))`);
+  // THE RETRY IS A SITE CALL (kogaki#1642): the judge refused Leg s2's one Leg Waypoint, so its
+  // second prompt holds the bound Move and the after-state and carries the refused entry beside
+  // the judge's sentence.
+  const s2Plans = retriesOf(r.prompts, "s2");
+  const site2 = s2Plans[1] && isSite(s2Plans[1]) ? siteInput(s2Plans[1]) : null;
+  if (s2Plans.length !== 2 || !site2 || !retryText(s2Plans[1]).includes("JUDGE-SENTENCE")) {
+    fails.push(`(a) the judge's does-not-fit sentence was not put into Leg s2's site prompt (${s2Plans.length} plan or site prompt(s))`);
   }
-  // THE REFUSED PLAN RIDES BESIDE THE VERDICT (kogaki#1438): the second prompt carries, above
-  // the input marker, attempt 1's plan record as 2-space JSON and then the judge's `why`, in one block.
-  {
-    const p2 = s2Plans[1] || "";
-    const A = "----- YOUR PREVIOUS ANSWER (attempt 1) -----\n", R = "\n----- IT WAS REFUSED -----\n";
-    const at = p2.indexOf(A), rat = at >= 0 ? p2.indexOf(R, at) : -1, inAt = p2.indexOf("\n----- INPUT (JSON) -----\n");
-    let answer = null;
-    try { answer = rat > at ? JSON.parse(p2.slice(at + A.length, rat)) : null; } catch { answer = null; }
-    const pretty = answer && p2.slice(at + A.length, rat) === JSON.stringify(answer, null, 2);
-    if (!answer || !pretty || answer.leg_id !== "s2" || !Array.isArray(answer.waypoints)
-      || !JSON.stringify(answer).includes("PW-s2-") || !(rat < inAt) || !p2.slice(rat, inAt).includes("JUDGE-SENTENCE")) {
-      fails.push("(a) Leg s2's second plan prompt does not carry its attempt-1 plan record as 2-space JSON and the judge's why in one block above the input (kogaki#1438)");
-    }
+  if (!site2 || !site2.fixed || site2.fixed.move !== "p1" || !site2.fixed.reader_state_after
+    || !JSON.stringify((site2.refused_here[0] || {}).entry).includes("PW-s2-1-1")) {
+    fails.push(`(a) Leg s2's site prompt does not hold the bound Move and after-state beside the refused entry: ${JSON.stringify(site2 && { fixed: site2.fixed, refused_here: site2.refused_here })}`);
   }
   if (!plans.length || !plans.every((p) => p.includes(`"operation": ${JSON.stringify(PSEG_OPERATION)}`) && p.includes('"relation": ""')
     && p.includes('"persona"') && p.includes("breaks if the point is dropped."))) {
@@ -566,12 +583,13 @@ let okPrompts = [];
   if (!out.includes("Leg s1, Waypoint 2") || !out.includes(NO_PARAGRAPH_MOVE_FITS)) {
     fails.push(`(b) the stop does not name Leg s1, Waypoint 2 and ${NO_PARAGRAPH_MOVE_FITS}: ${out.slice(0, 600)}`);
   }
-  const s1Plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"') && p.includes('"leg_id": "s1"'));
+  // The site's attempts (kogaki#1642): the Leg call, then two site calls at Waypoint 2.
+  const s1Plans = retriesOf(r.prompts, "s1");
   if (s1Plans.length !== 3) fails.push(`(b) Leg s1 was not asked brief.unit_attempts (3) times: ${s1Plans.length}`);
-  if (s1Plans.length > 1 && !s1Plans[1].includes("NOFIT-SENTENCE-1")) fails.push("(b) the no_paragraph_move_fits refusal was not put into the next attempt's prompt");
-  // the shared supervisor's retry prompt carries every refusal so far, not only the last one (kogaki#1395)
-  if (s1Plans.length > 2 && !(s1Plans[2].includes("NOFIT-SENTENCE-1") && s1Plans[2].includes("NOFIT-SENTENCE-2")
-    && s1Plans[2].indexOf("NOFIT-SENTENCE-1") < s1Plans[2].indexOf("NOFIT-SENTENCE-2"))) {
+  if (s1Plans.length > 1 && !retryText(s1Plans[1]).includes("NOFIT-SENTENCE-1")) fails.push("(b) the no_paragraph_move_fits refusal was not put into the next attempt's prompt");
+  // the site prompt carries every refusal at the site so far, not only the last one (kogaki#1395)
+  if (s1Plans.length > 2 && !(retryText(s1Plans[2]).includes("NOFIT-SENTENCE-1") && retryText(s1Plans[2]).includes("NOFIT-SENTENCE-2")
+    && retryText(s1Plans[2]).indexOf("NOFIT-SENTENCE-1") < retryText(s1Plans[2]).indexOf("NOFIT-SENTENCE-2"))) {
     fails.push("(b) the third attempt's prompt does not carry BOTH the first and second attempts' refusals, oldest first");
   }
   if (existsSync(r.planPath)) fails.push("(b) a ParagraphPlan file was written for a stopped job");
@@ -680,8 +698,8 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!plans.length || !plans.every((p) => p.includes("A Segment's `operation` is an operation performed on a part of the Leg Waypoint's `point`, never a point to state."))) {
     fails.push("(h) a plan prompt's row does not state that a Segment's operation is an operation to perform and never a point to state");
   }
-  const s1Plans = plans.filter((p) => p.includes('"leg_id": "s1"') && p.includes("The installer writes into a tree the consumer thought was theirs alone."));
-  if (s1Plans.length !== 2 || !s1Plans[1].includes("CONTENT-SENTENCE")) {
+  const s1Plans = retriesOf(r.prompts, "s1").filter((p) => p.includes("The installer writes into a tree the consumer thought was theirs alone."));
+  if (s1Plans.length !== 2 || !retryText(s1Plans[1]).includes("CONTENT-SENTENCE")) {
     fails.push(`(h) the judge's content refusal was not put into Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
   }
 }
@@ -749,8 +767,9 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (JSON.stringify(introducedBy) !== JSON.stringify(["[]", JSON.stringify([TERM])])) {
     fails.push(`(r) the ParagraphPlan file does not assign the term to the one paragraph that first uses it, in its \`introduces\`: ${introducedBy.join(" / ")}`);
   }
-  if (s1Plans.length !== 2 || !s1Plans[1].includes(`TERM-SENTENCE the Paragraph Waypoint that first uses "${TERM.term}" gives no meaning for it.`)) {
-    fails.push(`(r) the judge's refusal naming the bare first use of "${TERM.term}" was not put into Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
+  const s1Retries = retriesOf(r.prompts, "s1");
+  if (s1Retries.length !== 2 || !retryText(s1Retries[1]).includes(`TERM-SENTENCE the Paragraph Waypoint that first uses "${TERM.term}" gives no meaning for it.`)) {
+    fails.push(`(r) the judge's refusal naming the bare first use of "${TERM.term}" was not put into Leg s1's next plan or site prompt (${s1Retries.length} prompt(s))`);
   }
   const s1Judges = judges.filter((p) => p.includes('"leg_id": "s1"'));
   if (!s1Judges.length || !s1Judges.every((p) => p.includes(`"term": "${TERM.term}"`) && p.includes(TERM.meaning))) {
@@ -789,9 +808,10 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!judges.length || !judges.every((p) => critOf(p, "OWN STEP").includes("names by both Paragraph Waypoints and that Segment"))) {
     fails.push("(w) a judge prompt's OWN STEP does not refuse a later Segment's result naming both Paragraph Waypoints and the Segment");
   }
-  const s1Plans = plans.filter((p) => p.includes('"leg_id": "s1"'));
-  if (s1Plans.length !== 2 || !s1Plans[1].includes("OWN-STEP-SENTENCE Paragraph Waypoint 1 already states what Paragraph Waypoint 2's Segment 2 produces.")) {
-    fails.push(`(w) the judge's refusal naming Paragraph Waypoints 1 and 2 and Segment 2 was not put into Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
+  const s1Plans = retriesOf(r.prompts, "s1");
+  // Both Leg Waypoints carry the defect, each repaired at its own site (kogaki#1642).
+  if (s1Plans.length !== 3 || !retryText(s1Plans[1]).includes("OWN-STEP-SENTENCE Paragraph Waypoint 1 already states what Paragraph Waypoint 2's Segment 2 produces.")) {
+    fails.push(`(w) the judge's refusal naming Paragraph Waypoints 1 and 2 and Segment 2 was not put into Leg s1's site prompt (${s1Plans.length} plan or site prompt(s))`);
   }
   if (!existsSync(r.planPath)) fails.push("(w) no ParagraphPlan file was written once the compression was held to the second Paragraph Waypoint");
   else {
@@ -839,9 +859,10 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const r = runStage("performs-purpose", legs, "performs-purpose", moves);
   if (r.started.status !== 0) fails.push(`(p) start failed on the purpose-clause plan: ${(r.started.stderr || "").slice(0, 400)}`);
   else if (!r.awaited || r.awaited.status !== 0) fails.push(`(p) await did not finish the purpose-clause job: ${(r.awaited && (r.awaited.stdout + r.awaited.stderr) || "").slice(0, 600)}`);
-  const s1Plans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"') && p.includes('"leg_id": "s1"'));
+  const s1Plans = retriesOf(r.prompts, "s1");
   const named = "PURPOSE-SENTENCE Paragraph Waypoint 1 carries performs with the clause";
-  if (s1Plans.length !== 2 || !s1Plans[1].includes(named) || !s1Plans[1].includes("what follows is taken as an admitted shortcut")) {
+  // Both Leg Waypoints carry the defect, each repaired at its own site (kogaki#1642).
+  if (s1Plans.length !== 3 || !retryText(s1Plans[1]).includes(named) || !retryText(s1Plans[1]).includes("what follows is taken as an admitted shortcut")) {
     fails.push(`(p) the judge's refusal naming the performs entry and its so-that clause did not reach Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
   }
   if (!existsSync(r.planPath)) fails.push("(p) no ParagraphPlan file was written once the performs entry named the operation alone");
@@ -893,8 +914,8 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     fails.push("(l) a row still carries the retired join test (\"names no noun phrase\")");
   }
   if (!judges.length || !judges[0].includes('"join": "consequence"')) fails.push("(l) the judge call is not handed the join");
-  const s1Plans = plans.filter((p) => p.includes('"leg_id": "s1"'));
-  if (s1Plans.length !== 2 || !s1Plans[1].includes("Waypoint 2 carries a sentence for `join`")) {
+  const s1Plans = retriesOf(r.prompts, "s1");
+  if (s1Plans.length !== 2 || !retryText(s1Plans[1]).includes("Waypoint 2 carries a sentence for `join`")) {
     fails.push(`(l) the validator's refusal of a sentence join, naming the entry, did not reach Leg s1's next plan prompt (${s1Plans.length} plan prompt(s))`);
   }
   if (existsSync(r.planPath) && !/join: consequence\n/.test(readFileSync(r.planPath, "utf8"))) fails.push("(l) the ParagraphPlan file does not carry the re-planned type word");
