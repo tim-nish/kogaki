@@ -11,5 +11,9 @@
     "judge_model_means": "The model every Brief judgment and every job unit is asked with.",
     "audience_file": "audiences/dev-to-zenn.md",
     "audience_file_means": "The Audience file the Brief composes for. Its `persona` key says who the reader is and what they already know; its `register` key says how the prose addresses them."
+  },
+  "paragraph_plan": {
+    "leg_attempts": 6,
+    "leg_attempts_means": "How many site retries one Leg of a /paragraph-plan job gets in total, across all of its Leg Waypoints. A refusal that names one Leg Waypoint is retried at that Leg Waypoint alone, and each Leg Waypoint gets brief.unit_attempts attempts counting the Leg's first; this number ends a Leg whose retries keep reopening the paragraphs after the one being repaired."
   }
 }

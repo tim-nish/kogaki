@@ -35,12 +35,11 @@
 #   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each record its language,
 #       hand it to the Leg Brief composer and the Packet, and the Brief and the Draft carry it; another Audience's
 #       language replaces it throughout; an Audience declaring none is refused by name at the Brief stage.
-#   (l) the ParagraphPlan card's Attempts part (kogaki#1437): the main run's fake judge answers `does-not-fit` at Leg
-#       Waypoint 2 on the first attempt and `fits` on the second, and the part carries two blocks -- the first with
-#       that attempt's Paragraph Waypoints, the verdict and its `why`, and the refusal block the second attempt
-#       received; the second `fits` on every Leg Waypoint and "no further attempt". A run refused on every attempt
-#       shows every attempt and an Output of "(not written)". The Calls part names "the judge call" and never "the
-#       check call".
+#   (l) the ParagraphPlan card's Attempts part (kogaki#1437, kogaki#1642): the main run's fake judge answers
+#       `does-not-fit` at Leg Waypoint 2 on the Leg call and `fits` on the site retry there, and the part carries two
+#       blocks -- the Leg call's, with its Paragraph Waypoints, the verdict and its `why`, naming where the site call's
+#       prompt is shown; and the site retry's, titled by its Leg Waypoint, `fits` at Leg Waypoints 2 and 3 alone, and "no further
+#       attempt". A run refused on every attempt shows the Leg call and every site retry, as many blocks as the job's attempts, and an Output of "(not written)". The Calls part names "the judge call" and never "the check call".
 #   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
 #       for each Leg Waypoint after the first carries its `join` type word (kogaki#1477), read from the row block
 #       alone since the Attempts part shows it too, and the row for Leg Waypoint 1 carries none.
@@ -133,12 +132,6 @@ const attemptBlocks = (cardHtml) => {
   if (a < 0) return [];
   return cardHtml.slice(a, cardHtml.indexOf('<details class="part in"', a)).split("<summary>attempt ").slice(1);
 };
-// (l) The refusal block a retry's prompt carries: from its refusal marker to its input marker.
-const refusalBlock = (retry) => {
-  const at = retry.indexOf("----- YOUR PREVIOUS ANSWER (attempt ");
-  const end = retry.indexOf("----- INPUT (JSON) -----");
-  return at >= 0 && end > at ? retry.slice(at, end).trim() : null;
-};
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const S = await imp("src/proof-sheet/leg-sheet.mjs");
@@ -195,6 +188,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => (refuse && w.waypoint === 2
       ? { waypoint: w.waypoint, verdict: "does-not-fit", why: "WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on." }
       : { waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
+  }
+  // A site retry (kogaki#1642) answers with the refused entry, its Paragraph Waypoints rewritten.
+  if (prompt.includes('"leg_waypoint_you_must_plan"')) {
+    const refused = body("leg_waypoint_you_must_plan").refused_here.map((h) => h.entry).filter(Boolean), e = refused[refused.length - 1];
+    return out({ ...e, paragraph_waypoints: e.paragraph_waypoints.map((p) => (p.point ? { ...p, point: p.point + " Rewritten " + refused.length + "." } : p)) }, "plan-generator");
   }
   if (prompt.includes('"leg_you_must_plan"')) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
@@ -595,23 +593,24 @@ else {
       `(n) the Extraction block for paragraph ${i} carries no open before / after / breaks table of its Move between its Segments table and the folded rendering`);
   }
 
-  // (l) THE ATTEMPTS PART (kogaki#1437): the first attempt was refused at Leg Waypoint 2 and the
-  // second passed, so the part holds two blocks; the refusal block the second attempt received
-  // is cut from the two recorded plan prompts, so the sheet is held to what was actually sent.
+  // (l) THE ATTEMPTS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Leg Waypoint 2
+  // and the site retry there passed, so the part holds two blocks, the second titled by its site
+  // and judged at Leg Waypoint 2 and the join of Leg Waypoint 3 alone.
   const planCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_you_must_plan"'));
-  ok(planCalls.length === 2, `(l) the ParagraphPlan made ${planCalls.length} plan call(s), not 2 (refused once, then passed)`);
+  const siteCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_waypoint_you_must_plan"'));
+  ok(planCalls.length === 1 && siteCalls.length === 1, `(l) the ParagraphPlan made ${planCalls.length} Leg call(s) and ${siteCalls.length} site call(s), not one each (refused at Leg Waypoint 2, then repaired there)`);
   const blocks = attemptBlocks(cards.paragraphPlan);
   ok(blocks.length === 2, `(l) the Attempts part holds ${blocks.length} block(s), not 2`);
-  if (blocks.length === 2 && planCalls.length === 2) {
+  if (blocks.length === 2 && siteCalls.length === 1) {
     const [b1, b2] = blocks;
     ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) attempt 1's block does not show its Paragraph Waypoints");
     ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) attempt 1's block does not show the performs Paragraph Waypoint in italics");
     ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
       "(l) attempt 1's block does not show the does-not-fit verdict with its why");
-    const inserted = refusalBlock(planCalls[1].stdin);
-    ok(!!inserted && b1.includes(`<pre>${escHtml(inserted)}`),
-      "(l) attempt 1's block does not show the refusal block the second attempt received, verbatim");
-    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 3, "(l) attempt 2's block does not show fits on every Leg Waypoint");
+    ok(b1.includes("The next attempt's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2, byte for byte."), "(l) attempt 1's block does not name where the site call's prompt is shown");
+    ok(b2.startsWith("2 of 2 — site retry at Leg Waypoint 2") && b2.includes("PW-2-1 the paragraph makes its point. Rewritten 1."),
+      "(l) attempt 2's block is not titled as the site retry at Leg Waypoint 2, or does not show its rewritten Paragraph Waypoints");
+    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 2 && b2.includes("Leg Waypoint 3: <b>fits</b>"), "(l) attempt 2's block does not show fits at Leg Waypoint 2 and the join of Leg Waypoint 3 alone");
     ok(b2.includes("no further attempt: the job ended `done`"), "(l) attempt 2's block does not say no further attempt");
     ok(!/class="stop">The judge answered/.test(b1 + b2), "(l) the Attempts part shows a mismatch between the judge and the job record on a run where they agree");
   }
@@ -774,7 +773,8 @@ if (lRunDir) {
   const blocks = attemptBlocks(ppCard);
   ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Attempts part holds ${blocks.length} block(s) against the ${spent} attempt(s) the job spent`);
   ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused attempt's block does not show its does-not-fit verdict and why");
-  ok(blocks.slice(0, -1).every((b) => b.includes("----- YOUR PREVIOUS ANSWER (attempt ")), "(l) a refused attempt's block does not show the refusal block the next attempt received");
+  ok(blocks.slice(1).every((b) => b.includes("site retry at Leg Waypoint 2")), "(l) a refused attempt after the Leg call is not titled as the site retry at Leg Waypoint 2");
+  ok(blocks.slice(0, -1).every((b) => b.includes("The next attempt's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2")), "(l) a refused attempt's block does not name where the next site call's prompt is shown");
   ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further attempt: the job ended \`${lJob.state}\``), "(l) the last refused attempt does not say no further attempt and the job's state");
   const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part attempts"'));
   ok(output.includes("(not written)"), "(l) the refused run's ParagraphPlan Output does not read (not written)");

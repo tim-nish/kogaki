@@ -532,6 +532,22 @@
       }
     },
     {
+      "id": "paragraph-plan-site-retry",
+      "file": "checks/check-paragraph-plan-site-retry.sh",
+      "covers": ["src/workflow/site-retry.mjs", "src/paragraph-plan.mjs", "src/paragraph-plan-workflow.json", "src/workflow/detached-job.mjs", "kogaki.settings.json"],
+      "admission": {
+        "contract": "A ParagraphPlan refusal that names a Leg Waypoint is retried at that Leg Waypoint alone (kogaki#1642, owner decision 2026-10-31), driven end to end through `node src/paragraph-plan.mjs start|await` over a scratch Brief, a scratch Move library and a fake judge whose answers a scenario scripts per call: a judge refusing Waypoint 1 alone makes one site call there holding the refused entry's `move` and `reader_state_after`, composes no other entry again, and re-judges Waypoint 1 and Waypoint 2's join only beside the standing record (s1); a site answer repeating the refused entry is refused by name, spends the site's attempt and reaches no judge (s2); a second site retry moving Waypoint 2's after-state hands Waypoint 3 to the Leg call again from the new state with Waypoint 1 unchanged, and a recomposed last entry whose after-state is not the Leg's is refused and asked again (s3); a `move: null` site retry is handed the rejected Move, an answer naming only it is refused as a repeat, and the Leg ends refused naming the Waypoint and its spent attempts while the other Leg finishes (s4); `paragraph_plan.leg_attempts` ends a Leg whose sites still have attempts (s5); and the Brief's runtime declares no site loop while the ParagraphPlan table does (s6). Declared limit: whether a live planner repairs what the refusal names is the model's.",
+        "license": "kogaki#1642 (owner decision 2026-10-31: the site of a retry is the Leg Waypoint the judge named, a repair holds the endpoints first, an attempt not acting on the refusal is not an attempt, the budget belongs to the site under a Leg ceiling)",
+        "tier": "pre-push",
+        "runtime_ms": 7000,
+        "runtime_ms_note": "Measured 2026-10-31 in the kogaki#1642 worktree: 4.8 s for the five fixture jobs at a 100 ms heartbeat, under peer-session load on this machine; 7000 leaves room for that load.",
+        "efficacy": "case: checks/check-paragraph-plan-site-retry.sh::(s2) the second site call is not handed the repeat refusal by name",
+        "efficacy_note": "mutation-verified at authoring: disabling the repeat refusal in `validateParagraphPlanSite` failed (s2) on both its repeat assertions -- the named defect, an answer identical at the site judged again, constructed rather than a neighbour.",
+        "removal_signal": "the ParagraphPlan job no longer declares a site loop -- a refusal is answered by the whole Leg again, or the stage is retired",
+        "removal_instrument": "probe: ! grep -q '\"site_retry\"' src/paragraph-plan-workflow.json"
+      }
+    },
+    {
       "id": "draft-packet",
       "file": "checks/check-draft-packet.sh",
       "covers": ["src/packet-template.md", "src/draft.mjs"],

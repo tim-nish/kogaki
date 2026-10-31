@@ -8,6 +8,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { JUDGE_INPUT_MARKER, judgeRefusalBlock } from "./judge.mjs";
 import { REPO, fail, readJson } from "./run-record.mjs";
+import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
 // `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
@@ -291,9 +292,11 @@ async function loadReaderPathUnitValidator(declared) {
   // plain string-or-falsy refusal regardless of which declared validator
   // supplied it. The unit's own id rides as the third argument (kogaki#1301),
   // so a job whose units each judge a different subject can resolve which one.
+  // A refusal naming its sites rides as `{ text, sites }` for a job's site loop (kogaki#1642).
   return (candidate, unitId) => {
     const r = fn(candidate, inputs, unitId);
-    return r && r.error ? r.error : null;
+    if (!r || !r.error) return null;
+    return Array.isArray(r.sites) && r.sites.length ? { text: r.error, sites: r.sites } : r.error;
   };
 }
 
@@ -316,8 +319,8 @@ async function loadReaderPathFitJudge(declared) {
   if (typeof verdictFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.verdict_export)}.`);
   const inputs = declared.inputs || {};
   return {
-    prompt: (candidate, unitId) => promptFn(candidate, inputs, unitId),
-    verdict: (record, candidate, unitId) => verdictFn(record, candidate, inputs, unitId) || {},
+    prompt: (candidate, unitId, scope) => promptFn(candidate, inputs, unitId, scope),
+    verdict: (record, candidate, unitId, scope) => verdictFn(record, candidate, inputs, unitId, scope) || {},
   };
 }
 
@@ -352,7 +355,9 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
     if (refusal) {
       // The refused record rides the classification so the next attempt can be shown it
       // (kogaki#1438); `endUnit` keeps it off the row, where `candidate` means schema-valid.
-      return { status: "refused", candidate: r.candidate, failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+      const text = typeof refusal === "string" ? refusal : refusal.text;
+      return { status: "refused", candidate: r.candidate, failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(text), 4000), bytes_written: out.bytes, ended_at: out.endedAt,
+        ...(typeof refusal === "object" ? { sites: refusal.sites } : {}) } };
     }
   }
   return { status: "done", candidate: r.candidate };
@@ -364,10 +369,10 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
 // verdict function refuses, is `malformed` and is respawned; a `contradicts` or
 // `cannot-determine` on any Leg is a SCHEMA REFUSAL of the unit's Candidate, carrying
 // the judge's sentences verbatim, which the unit's next attempt answers.
-function classifyFitJudgeCall(out, fit, candidate, unitId) {
+function classifyFitJudgeCall(out, fit, candidate, unitId, scope = null) {
   const base = classifyDetachedJobUnit(out, null, "verdicts", unitId);
   if (base.status !== "done") return base;
-  const v = fit.verdict(base.candidate, candidate, unitId);
+  const v = fit.verdict(base.candidate, candidate, unitId, scope);
   if (v.error) {
     return { status: "malformed", failure: { class: MALFORMED_OUTPUT, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(v.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
   }
@@ -556,6 +561,7 @@ export async function cmdJobSupervise(args) {
     const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
     const validate = await loadReaderPathUnitValidator(declared.validator);
     const fit = await loadReaderPathFitJudge(declared.fit_judge);
+    const siteRetry = await loadSiteRetry(declared.site_retry);
     const recordArray = declared.record_array === false ? false
       : typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
     // UNIT ISOLATION AND THE CARRIED ROWS (kogaki#1641), both written by the starter from
@@ -590,13 +596,16 @@ export async function cmdJobSupervise(args) {
     // the fit call judges.
     const S = new Map(units.map((u) => [u.id, {
       attempts: 1, malformed: 0, malformedThisAttempt: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
-      composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined,
+      composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined, loop: null, callPrompt: null, scope: null,
       attemptStartedAt: startedAt, callStartedAt: startedAt, final: null,
     }]));
     const spawnCompose = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).prompt, () => {}, childEnv,
       { path: readerPathUnitStdoutPath(dir, u.id), flag });
     const spawnFit = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).fitPrompt, () => {}, childEnv,
       { path: readerPathUnitFitStdoutPath(dir, u.id), flag });
+    // A SITE OR SUFFIX CALL (kogaki#1642) writes beside the unit's own call, in its stdout file.
+    const spawnSite = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).callPrompt, () => {}, childEnv,
+      { path: readerPathUnitStdoutPath(dir, u.id), flag });
     unitsRunning = new Map(units.map((u) => [u.id, spawnCompose(u, "w")]));
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
@@ -667,9 +676,10 @@ export async function cmdJobSupervise(args) {
       return row;
     };
 
-    const callStdoutPath = (u) => (S.get(u.id).phase === "compose" ? readerPathUnitStdoutPath(dir, u.id) : readerPathUnitFitStdoutPath(dir, u.id));
+    const callStdoutPath = (u) => (S.get(u.id).phase === "fit" ? readerPathUnitFitStdoutPath(dir, u.id) : readerPathUnitStdoutPath(dir, u.id));
     const respawnCall = (u) => {
-      const sp = S.get(u.id).phase === "compose" ? spawnCompose(u, "a") : spawnFit(u, "a");
+      const phase = S.get(u.id).phase;
+      const sp = phase === "compose" ? spawnCompose(u, "a") : phase === "fit" ? spawnFit(u, "a") : spawnSite(u, "a");
       unitsRunning.set(u.id, sp);
       S.get(u.id).callStartedAt = Date.now();
       return sp;
@@ -685,6 +695,11 @@ export async function cmdJobSupervise(args) {
       const callS = secondsSince(st.callStartedAt);
       st.timedOut.push({ attempt: st.attempts, phase: st.phase, call_s: callS });
       const stdoutPath = callStdoutPath(u);
+      // INSIDE A SITE LOOP the killed call is that site's refusal, or a judgment asked again.
+      if (st.loop) {
+        const text = `the ${st.phase} call ran past the ${callLimitS}s per-call limit`;
+        return siteAct(u, st.phase === "fit" ? st.loop.judged([], text) : st.loop.answered(null, text), sp, stdoutPath);
+      }
       if (st.attempts < unitAttempts) {
         beginNextAttempt(st, Date.now());
         try { appendFileSync(stdoutPath, `\n----- the ${st.phase} call ran past the ${callLimitS}s per-call limit; attempt ${st.attempts} asks it again with the same prompt -----\n`); } catch { /* best-effort */ }
@@ -696,14 +711,49 @@ export async function cmdJobSupervise(args) {
       return { row: endUnit(u, { status: "refused", failure: { class: CALL_TIME_LIMIT, stderr_tail: refusal, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
     };
 
+    // THE SITE LOOP'S NEXT ACT, CARRIED OUT (kogaki#1642): a site, suffix or judge call
+    // spawned, or the unit ended `done` on the standing record or `refused` naming the site.
+    const siteAct = (u, act, sp, stdoutPath, specialization = null) => {
+      const st = S.get(u.id);
+      for (const refusal of st.loop.drain()) st.refusals.push({ refusal });
+      if (act.done) {
+        st.composed = act.done;
+        return { row: endUnit(u, { status: "done", candidate: act.done, ...(specialization ? { specialization } : {}) }, sp.out.bytes, stdoutPath), progressed: false };
+      }
+      if (act.refused) {
+        st.composed = st.loop.standing;
+        st.refusals.push({ refusal: act.refused });
+        return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.refused, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
+      }
+      if (act.kind === "judge") {
+        st.malformedThisAttempt = 0;
+        st.callStartedAt = Date.now();
+        st.phase = "fit";
+        st.composed = st.loop.standing;
+        st.scope = act.scope;
+        st.fitPrompt = withNoToolsSentence(fit.prompt(st.composed, u.id, act.scope));
+        unitsRunning.set(u.id, spawnFit(u, "a"));
+        return { row: runningRow(u, 0), progressed: true };
+      }
+      // EVERY PLANNING CALL IS AN ATTEMPT ON THE ROW: a site or suffix call counts as the whole
+      // call did, so `attempts` is the number of records asked for and the Proof Sheet's blocks.
+      beginNextAttempt(st, Date.now());
+      st.phase = act.kind;
+      st.callPrompt = withNoToolsSentence(act.prompt);
+      const label = act.kind === "site" ? `site retry at Waypoint ${act.site}` : `the entries from Waypoint ${act.ctx.from} composed again`;
+      try { appendFileSync(readerPathUnitStdoutPath(dir, u.id), `\n----- ${label} -----\n`); } catch { /* best-effort */ }
+      unitsRunning.set(u.id, spawnSite(u, "a"));
+      return { row: runningRow(u, 0), progressed: true };
+    };
+
     // ONE FINISHED CALL OF ONE UNIT, ANSWERED (kogaki#1307, attempts counted by
     // kogaki#1355). Returns the row while the unit is still working, and sets `st.final`
     // once it has ended.
     const answer = (u, sp) => {
       const st = S.get(u.id);
-      const cls = st.phase === "compose"
-        ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
-        : classifyFitJudgeCall(sp.out, fit, st.composed, u.id);
+      const cls = st.phase === "compose" ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
+        : st.phase === "fit" ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id, st.scope)
+        : classifyDetachedJobUnit(sp.out, null, st.phase === "suffix" ? recordArray : false, u.id);
       const stdoutPath = callStdoutPath(u);
       const endedAt = Date.parse(sp.out.endedAt) || Date.now();
       // MALFORMED OUTPUT IS RETRIED MECHANICALLY (kogaki#1307): the same prompt again,
@@ -721,6 +771,23 @@ export async function cmdJobSupervise(args) {
         cls.failure = { ...cls.failure, stderr_tail: `malformed output ${st.malformedThisAttempt} times on attempt ${st.attempts}, past the bound of ${unitAttempts} respawns per attempt; the last: ${cls.failure.stderr_tail}` };
         st.refusals.push({ refusal: cls.failure.stderr_tail });
         return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
+      }
+      // INSIDE A SITE LOOP every answered call is the loop's to read (kogaki#1642).
+      if (st.loop && cls.status !== "died") {
+        if (st.phase !== "fit") return siteAct(u, st.loop.answered(cls.candidate), sp, stdoutPath);
+        return siteAct(u, st.loop.judged(cls.status === "refused" ? cls.failure.move_fit || [] : []), sp, stdoutPath, cls.specialization);
+      }
+      // A REFUSAL NAMING ITS SITES OPENS THE LOOP, where the job declares one (kogaki#1642): the
+      // refused record stands, and only the Leg Waypoints it names are asked again.
+      if (siteRetry && cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL) {
+        const sites = st.phase === "compose" ? (cls.failure.sites || []).map((n) => ({ waypoint: n, refusal: cls.failure.stderr_tail }))
+          : (cls.failure.move_fit || []).map((f) => ({ waypoint: f.waypoint, refusal: f.refusal || f.why }));
+        if (sites.length) {
+          st.loop = new SiteLoop(siteRetry, u.id, unitAttempts);
+          const standing = st.phase === "compose" ? cls.candidate : st.composed;
+          st.refusals.push({ answer: standing, refusal: cls.failure.stderr_tail });
+          return siteAct(u, st.loop.open(standing, sites, { byJudge: st.phase === "fit" }), sp, stdoutPath);
+        }
       }
       // A FINISHED, VALID RECORD WITH A DECLARED MOVE-FIT JUDGE IS JUDGED NEXT, inside
       // the same unit and the same attempt (kogaki#1307).
@@ -874,6 +941,7 @@ export function startDetachedJobSupervisor(dir, opts) {
   const unitIsolation = opts.unitIsolation === true;
   writeFileSync(unitsPath, `${JSON.stringify({ units, validator,
     ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
+    ...(opts.siteRetry ? { site_retry: opts.siteRetry } : {}),
     ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
     ...(unitIsolation ? { unit_isolation: true } : {}),
     ...(carried.length ? { carried } : {}) }, null, 2)}\n`);

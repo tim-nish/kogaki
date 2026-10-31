@@ -113,6 +113,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       verdict: refuse ? "does-not-fit" : "fits",
       why: refuse ? "JUDGE-SENTENCE Waypoint 1 never reaches the after state." : "they begin at before and end at after." })) });
   }
+  // A site retry (kogaki#1642) answers with the refused entry, its Paragraph Waypoint rewritten.
+  if (prompt.includes('"leg_waypoint_you_must_plan"')) {
+    const site = body("leg_waypoint_you_must_plan"), e = site.refused_here[site.refused_here.length - 1].entry;
+    appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: site.leg_waypoint_you_must_plan.leg_id }) + "\\n");
+    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.leg_waypoint_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", serves: [...e.paragraph_waypoints[0].serves] }] });
+  }
   const leg = body("leg_you_must_plan").leg_you_must_plan;
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: leg.leg_id }) + "\\n");
   if (modes[leg.leg_id] === "die") { process.stderr.write("DIED-SENTENCE the planner binary is gone\\n"); process.exit(3); }
