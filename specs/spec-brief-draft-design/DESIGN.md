@@ -290,6 +290,14 @@ drafting of this paragraph wrote "the refusal stays" and "still refuses", which
 assert the CONTINUITY of something that never existed and let a reader arriving
 before those land read the gap this section exists to name as already closed.
 
+**What `section` refuses on is two hashes, the Brief's and the plan's
+(kogaki#1645).** A Packet is a rendering of the ParagraphPlan at a hash, so a
+Packet file that still matches its own recorded sha is stale when the plan it
+was rendered from has moved: the record is what is stale, not the file. Each
+Packet entry in the run record therefore names the plan's hash beside its own,
+`section` refuses one whose plan hash is not the current plan's, and `resolve`
+drops the carried entries and renders every Packet again when the plan moved.
+
 This is the gate-plus-backstop split rather than a belt-and-braces habit:
 
 > "the preflight stays the BACKSTOP that catches the act's absence, never the

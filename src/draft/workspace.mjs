@@ -13,7 +13,7 @@ import { join, resolve } from "node:path";
 import { waypointsRefusal, readParagraphPlanBeside } from "../compose.mjs";
 import { renderFigure } from "../render-figure.mjs";
 import { enterRun, laneDir } from "../runs.mjs";
-import { fail, argString, readBrief } from "./brief-reader.mjs";
+import { fail, argString, readBrief, sha256 } from "./brief-reader.mjs";
 
 // ---------------------------------------------------------------------------
 // Workspace — machine identity lives here and only here (the three-layer boundary): run record,
@@ -124,7 +124,10 @@ export function loadBrief(args) {
       const join = plan.joins.get(leg.leg_id)[i];
       return { ...w, ...(join ? { join } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] };
     }) }));
-  return { ...brief, legs, path: resolve(path), paragraphPlanPath: plan.path };
+  // A PACKET IS A RENDERING OF THE PLAN AT A HASH (kogaki#1645): the hash of the plan file's
+  // text as read, which the run record, each Packet entry and the Draft carry.
+  const planSha = sha256(readFileSync(plan.path, "utf8"));
+  return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha } };
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing

@@ -716,6 +716,26 @@
         "efficacy": "case: checks/check-file-bound.sh::(f1) a tracked source file over module_max_lines and not exempt fails naming the file",
         "efficacy_note": "MUTATION EVIDENCE (run 2026-10-19 in the kogaki#1457 worktree). Removing `src/assemble.mjs` from `module_max_lines_exempt` FAILED naming the file (`src/assemble.mjs\t1548 lines over module_max_lines=1500`); restoring it restored PASS. With `GITHUB_ACTIONS=1` and HOME pointed at a missing directory the member printed only the skip line and exited 0; without it, and with the tool absent, it exited 1 naming the tool's path."
       }
+    },
+    {
+      "id": "draft-plan-pin",
+      "file": "checks/check-draft-plan-pin.sh",
+      "covers": [
+        "src/draft.mjs",
+        "src/draft/workspace.mjs",
+        "src/draft/render-packet.mjs"
+      ],
+      "admission": {
+        "contract": "A Packet is a rendering of the ParagraphPlan at a hash (kogaki#1645), exactly as the plan is a rendering of the Brief at a hash (kogaki#1375). Driven end to end through `node src/draft.mjs resolve|section|emit` over a fixture Brief with two Legs, its `paragraph-plan.yaml` and a stub writer (`KOGAKI_JUDGE_CLI`) that answers with the plan marker the Packet carries: (a) `run.json` carries `plan: {path, sha256}` for the plan as read and each `packets.<leg>` entry its `plan_sha256`, and the emitted Draft's frontmatter carries `plan_pin` equal to the plan file's hash and each `trace` row `plan_sha`; (b) a re-resolve over an unchanged plan carries the Packet entries, renders nothing, reports no move, and `section` refuses nothing and renders no realized Leg's Packet; (c) with every Leg realized and the plan rewritten under the same Brief, `section --leg G1` before `resolve` is refused naming the recorded and current hashes; (d) `resolve` then says the plan moved, naming both hashes, drops the carried entries and renders G1's Packet from the new plan, `section` on G1 renders G2's, and the emitted Draft's paragraphs and `plan_pin` are the new plan's alone; (e) an entry with no `plan_sha256` is refused as unrecorded. THE NAMED DEFECT: on 2026-11-01 `/draft` on `theses/set-automatic-rules-only-sees/brief.yaml` emitted a Draft from the Packets of 2026-10-29 after the plan beside the Brief had been rewritten, because the run record carried Packets on the Brief's hash alone and every Leg was already realized.",
+        "license": "kogaki#1645",
+        "tier": "pre-push",
+        "runtime_ms": 1700,
+        "runtime_ms_note": "Measured 2026-11-01 at 50a3dd8 plus the uncommitted kogaki#1645 tree in its worktree: 1680 ms; eleven `node src/draft.mjs` subprocesses and seven stub-writer subprocesses, no gateway.",
+        "efficacy": "case: checks/check-draft-plan-pin.sh::(c) the plan is rewritten under the same Brief; section before resolve is refused.",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-01 in the kogaki#1645 worktree): with `src/` restored to 50a3dd8 the member FAILED at (a), (c) and (d) -- run.json carried no plan, `section --leg G1` over the rewritten plan recorded the Leg instead of refusing, and `resolve` reported no move; with the change applied it passed.",
+        "removal_signal": "/draft no longer reads a ParagraphPlan file beside the Brief -- `src/draft/workspace.mjs` stops calling `readParagraphPlanBeside`, so there is no plan for a Packet to be a rendering of.",
+        "removal_instrument": "probe: ! grep -q 'readParagraphPlanBeside' src/draft/workspace.mjs"
+      }
     }
   ]
 }
