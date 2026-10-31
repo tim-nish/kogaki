@@ -725,9 +725,9 @@ export async function cmdJobSupervise(args) {
         st.refusals.push({ refusal: act.refused });
         return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.refused, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
       }
-      st.malformedThisAttempt = 0;
-      st.callStartedAt = Date.now();
       if (act.kind === "judge") {
+        st.malformedThisAttempt = 0;
+        st.callStartedAt = Date.now();
         st.phase = "fit";
         st.composed = st.loop.standing;
         st.scope = act.scope;
@@ -735,6 +735,9 @@ export async function cmdJobSupervise(args) {
         unitsRunning.set(u.id, spawnFit(u, "a"));
         return { row: runningRow(u, 0), progressed: true };
       }
+      // EVERY PLANNING CALL IS AN ATTEMPT ON THE ROW: a site or suffix call counts as the whole
+      // call did, so `attempts` is the number of records asked for and the Proof Sheet's blocks.
+      beginNextAttempt(st, Date.now());
       st.phase = act.kind;
       st.callPrompt = withNoToolsSentence(act.prompt);
       const label = act.kind === "site" ? `site retry at Waypoint ${act.site}` : `the entries from Waypoint ${act.ctx.from} composed again`;
