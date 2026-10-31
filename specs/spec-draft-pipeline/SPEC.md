@@ -1432,7 +1432,12 @@ starts:
   fit call, one review call) may run before it is stopped. The stall bound
   stays beneath it as the no-progress guard.
 - `brief.unit_attempts` — how many attempts a unit gets. A compose unit makes
-  two calls per attempt (compose, then fit); a review unit makes one.
+  two calls per attempt (compose, then fit); a review unit makes one. A job
+  that declares `site_retry` — the ParagraphPlan's (§4.19, kogaki#1642) —
+  reads it **per Leg Waypoint**: each site the unit's first call counted at
+  gets that many attempts, and `paragraph_plan.leg_attempts` bounds every
+  site retry of the Leg together. The Brief's compose job declares none and
+  reads it per unit, as below.
 
 What spends an attempt: a **schema refusal** — the validator's, or the fit
 judge's — is asked again with the refusal spliced in verbatim, until the
@@ -2369,7 +2374,44 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
    they survive each test in the Move's `breaks`. A `does-not-fit` on any of
    the four refuses the attempt.
 
-A refused attempt is asked again with the refusal text verbatim until
+**A refusal is repaired at the Leg Waypoint it names (kogaki#1642, owner
+decision 2026-10-31).** A Leg's refused record stands, and each refused Leg
+Waypoint is asked again on its own, never the whole Leg and never another Leg,
+by five rules:
+
+1. **The retry is scoped to the site.** A refusal that names a Leg Waypoint —
+   the judge's verdict on its entry or join, or the validator's on its entry —
+   asks again for that entry alone, handed the entry, its refusal verbatim, the
+   Leg Waypoint's point, states and next point, and the entries that stand
+   beside it. A refusal naming no Leg Waypoint asks the Leg's call again.
+2. **The first site retry holds the endpoints.** The site's first retry keeps
+   the refused entry's `move` and `reader_state_after` fixed and re-plans its
+   Paragraph Waypoints only; an answer changing either is refused naming the
+   field. A later retry may rebind the Move or move the after-state, and when
+   it does on a Leg Waypoint before the last, the entries after it are composed
+   again by one call that is handed the standing entries before them.
+3. **An identical answer is refused before the judge.** A site answer that
+   repeats a refused entry — after a judge's refusal, the same `move`,
+   Paragraph Waypoints, after-state and join; after the validator's, the same
+   whole entry — is refused with `the answer repeats the refused entry at Leg
+   Waypoint n; the refusal asked for a change at that site`, spending an
+   attempt; a `move: null` answer naming only Moves already rejected at the
+   site is the same repeat. The site's later calls are handed the Moves
+   rejected there.
+4. **The budget belongs to the site, under a Leg ceiling.** Each Leg Waypoint
+   gets `brief.unit_attempts` attempts, the Leg's first call counting at each,
+   and every site retry of the Leg together is bounded by
+   `paragraph_plan.leg_attempts` (`kogaki.settings.json`). Spending either
+   stops the stage naming the Leg Waypoint, its first refusal and its last.
+   The judge then judges the entries that changed and the join of the entry
+   after each, never again the entries it already passed.
+5. **No fallback.** A spent budget stops, as below; nothing composes a default
+   entry and nothing re-plans the Brief.
+
+The supervisor carries this as the job table's `site_retry` option, naming the
+declaring module's site and suffix prompts and validators; the Brief's compose
+job declares none and is unchanged. Without a site, a refused attempt is asked
+again with the refusal text verbatim until
 `brief.unit_attempts` is spent; a call is bounded by `brief.call_limit_s`;
 there is no limit on the whole job — the Brief's own settings and rules, read
 by name. A unit that spends its attempts stops the stage naming the Leg and the
