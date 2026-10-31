@@ -169,6 +169,11 @@ else {
   const pp = readAdoptedBrief(briefPath);
   ok(!pp.error, `(b) /paragraph-plan refused the Brief: ${pp.error}`);
   const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints.map((w, i) => [{ point: `Paragraph ${i + 1}.`, serves: [...w.serves] }]),
+    // every entry carries the paragraph's schema, the last one's after-state the Leg's (kogaki#1639).
+    entries: l.waypoints.map((w, i) => ({ move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...w.serves],
+      purpose: `brings the reader to the point of paragraph ${i + 1}.`,
+      reader_state_after: i + 1 === l.waypoints.length ? l.reader_state_after : { knowledge: `after paragraph ${i + 1}.` },
+      depends_on: i ? [i] : [], rationale: "its before holds the state the paragraph before leaves.", introduces: [], "re-activate": [] })),
     // a later Leg Waypoint's join is one relation word (kogaki#1477).
     joins: l.waypoints.map((w, i) => (i ? "consequence" : null)) }));
   writeFileSync(paragraphPlanPathFor(briefPath), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, legs: planLegs })));

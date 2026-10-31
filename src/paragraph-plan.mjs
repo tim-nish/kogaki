@@ -11,17 +11,17 @@
 // one Writer call. [see: SPEC-draft-pipeline "the ParagraphPlan stage"]
 //
 // THE MOVE BOUNDARY. Move information may be used up to Paragraph Waypoint generation
-// and nowhere after it. So the ParagraphPlan file holds `point` and `serves` per
-// Paragraph Waypoint -- or `performs` alone, the planner's own words for a Segment that
-// acts on the reader's reading and carries no part of the point (kogaki#1448) -- and
-// NOTHING OF A MOVE — no id, no Segment, no field — and which
-// Move was bound to which Leg Waypoint stays in this stage's run directory
-// (`paragraph-plan-bindings.json`), a record of the run that no later stage reads. The one
-// thing the file holds beside them is each later Leg Waypoint's `join` (kogaki#1411): one
-// word of a closed set (`JOIN_TYPES`, kogaki#1477) naming how its paragraph's first point
-// stands to the paragraph before, chosen from reader state, naming no Move and no Segment.
-// The stage never writes the Brief, and the Brief names nothing downstream: the
-// ParagraphPlan file names the Brief it was made from, by path and content hash.
+// and nowhere after it. THE PARAGRAPHPLAN IS THE PARAGRAPH-LEVEL READER PATH (kogaki#1639,
+// owner decision 2026-10-31): every Leg Waypoint entry of the file carries the Leg schema
+// -- the bound Move's id (`move`, an id and nothing else of the Move, as a Leg's `move` is
+// an id), `materials`, `purpose`, `reader_state_after`, `depends_on`, `rationale`,
+// `introduces`, `re-activate` -- beside its `join` (kogaki#1411, kogaki#1477) and its
+// Paragraph Waypoints, each `point` and `serves` or `performs` alone (kogaki#1448). No
+// Segment and no Move field reaches the file; the before-state is derived and never
+// written; and the plan file is the record of the binding, so the run directory keeps no
+// bindings record of its own. The stage never writes the Brief, and the Brief names
+// nothing downstream: the ParagraphPlan file names the Brief it was made from, by path
+// and content hash.
 //
 // THE LOOP. One Detached Job unit per Leg, in Reader Path order, on the shared
 // supervisor (src/workflow/detached-job.mjs). Each attempt is two headless calls:
@@ -57,11 +57,12 @@ import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveC
   paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
   paragraphObligationsRefusal, RETIRED_WAYPOINT_OBLIGATIONS, dischargesShapeRefusal, briefRowsOwedBy, briefDischargeRefusal,
   obligationItemsAt } from "./compose.mjs";
+import { paragraphSchemaRefusal, paragraphLegRefusal, DERIVED_PLAN_BEFORE_STATE, PLAN_SCHEMA_KEYS } from "./compose/record.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
 export { PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText,
-  readParagraphPlanBeside, paragraphPlanShapeRefusal, paragraphWaypointsRefusal };
+  readParagraphPlanBeside, paragraphPlanShapeRefusal, paragraphWaypointsRefusal, paragraphSchemaRefusal, paragraphLegRefusal };
 import { judgePrompt, resolveJudgeBinary, settingValue } from "./workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "./workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, readerPathJobPath, readerPathJobBounds,
@@ -78,9 +79,10 @@ export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
 // retired (kogaki#1412) and a Move without `segments` is refused at the Adapter. A
 // bound Move missing one is a fatal stop, never a default.
 export const PARAGRAPH_MOVE_ROLES = ["before", "after", "segments", "breaks"];
-// The run directory's own files, beside the supervisor's.
+// The run directory's own files, beside the supervisor's. THE BINDINGS RECORD IS RETIRED
+// (kogaki#1639): the plan file carries each paragraph's bound Move id and `rationale`, so the
+// run directory holds no `paragraph-plan-bindings.json`.
 const START_FILE = "paragraph-plan-start.json";
-const BINDINGS_FILE = "paragraph-plan-bindings.json";
 const DONE_FILE = "paragraph-plan-done.json";
 // THE AWAIT'S OWN BOUND, the Brief's (kogaki#1271): `await` returns after at most this
 // long with the status lines, and the skill runs it again.
@@ -141,11 +143,12 @@ function legForUnit(inputs, unitId) {
   return leg;
 }
 
-// What a unit is handed about its Leg: the derived before-state, the after-state, and
-// each Leg Waypoint's own point, serves and the next Leg Waypoint's point -- no Claim
+// What a unit is handed about its Leg: the derived before-state, the after-state, each
+// Leg Waypoint's own point, serves and the next Leg Waypoint's point -- no Claim
 // proposition (kogaki#1382, owner decision 2026-10-14: the Leg Waypoint alone is
 // sufficient input; the served Claim justified the Leg Waypoint's selection, not its
-// generation). Kept small and plain so the validator and the judge read the same Leg
+// generation) -- and the Leg's Journeys, `{strand, use}`, for a paragraph to place
+// (kogaki#1639). Kept small and plain so the validator and the judge read the same Leg
 // the prompt showed.
 export function planLeg(leg, obligations = []) {
   const ws = leg.waypoints || [];
@@ -159,6 +162,7 @@ export function planLeg(leg, obligations = []) {
       serves: [...w.serves],
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
     })),
+    journeys: (leg.journeys || []).filter((j) => j && typeof j === "object").map((j) => ({ strand: j.strand, use: j.use })),
     introduces: introducedTerms(leg.introduces),
     owes: briefRowsOwedBy(obligations, leg.leg_id),
   };
@@ -358,7 +362,9 @@ export function paragraphPlanUnitPrompt(row, input) {
 }
 
 const UNIT_KEYS = ["version", "leg_id", "obligations", "waypoints"];
-const UNIT_WAYPOINT_KEYS = ["waypoint", "move", "why", "join", "paragraph_waypoints", "discharges"];
+// THE ENTRY IS THE PARAGRAPH'S SCHEMA (kogaki#1639): the plan file's own key set, `rationale` in
+// place of the retired `why`; `reader_state_before` is handed to the call and never written back.
+const UNIT_WAYPOINT_KEYS = ["waypoint", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints", "discharges"];
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
 
 // THE BOUND MOVE'S ROLES, OR A FATAL STOP (kogaki#1378). THROWS: inside the job the
@@ -407,14 +413,23 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     const atW = `${at}, Waypoint ${i + 1}`;
     if (!e || typeof e !== "object" || Array.isArray(e)) return { error: `${atW}: the entry is not a map` };
     if (Object.hasOwn(e, "obligations")) return { error: `${atW}: the entry carries ${RETIRED_WAYPOINT_OBLIGATIONS}` };
+    if (Object.hasOwn(e, "reader_state_before")) return { error: `${atW}: the entry carries ${DERIVED_PLAN_BEFORE_STATE}` };
+    if (Object.hasOwn(e, "why")) return { error: `${atW}: the entry carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\`` };
     const k = undeclaredKey(e, UNIT_WAYPOINT_KEYS);
-    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, move, why, join (on every Leg Waypoint after the first), paragraph_waypoints, and discharges where it has any` };
+    if (k) return { error: `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every Leg Waypoint after the first), paragraph_waypoints, and discharges where it has any` };
     if (e.waypoint !== i + 1) return { error: `${atW}: the entry is numbered ${JSON.stringify(e.waypoint)} — entries are one per Leg Waypoint, in order` };
-    if (typeof e.why !== "string" || words(e.why) < 4) return { error: `${atW}: \`why\` is under four words` };
-    if (e.move === null) { noFit.push({ leg_id: leg.leg_id, waypoint: i + 1, point: ws[i].point, why: e.why.trim() }); continue; }
-    if (typeof e.move !== "string" || !library.ids.has(e.move)) {
+    if (typeof e.rationale !== "string" || words(e.rationale) < 4) return { error: `${atW}: \`rationale\` is under four words` };
+    if (e.move === null) { noFit.push({ leg_id: leg.leg_id, waypoint: i + 1, point: ws[i].point, why: e.rationale.trim() }); continue; }
+    if (typeof e.move !== "string" || e.move.trim() === "") {
+      return { error: `${atW}: carries no \`move\` — a paragraph names the Move bound to it by id, or null where no Move fits (kogaki#1639)` };
+    }
+    if (!library.ids.has(e.move)) {
       return { error: `${atW}: binds move ${JSON.stringify(e.move)}, which names no Move in the library at ${inputs.movesDir}` };
     }
+    // THE PARAGRAPH'S SCHEMA, BY THE PLAN READER'S OWN RULE (kogaki#1639): so the record this
+    // stage writes is one every later read accepts, and a refusal names the field here first.
+    const schema = paragraphSchemaRefusal(e, i, leg, r.waypoints.slice(0, i), atW, { library: library.ids });
+    if (schema) return { error: schema };
     const contract = boundMoveContract(e.move, inputs.movesDir);
     // ONE PER SEGMENT, COUNTED HERE AND NOT JUDGED (kogaki#1533).
     const n = Array.isArray(e.paragraph_waypoints) ? e.paragraph_waypoints.length : 0;
@@ -432,6 +447,10 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     if (owed) return { error: owed };
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit) };
+  // THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639), by the plan reader's own rule: each
+  // introduced term assigned to exactly one paragraph, and the last paragraph's after-state the Leg's.
+  const legRule = paragraphLegRefusal(r.waypoints, leg, at);
+  if (legRule) return { error: legRule };
   // THE BRIEF'S OBLIGATION RULES AT THIS SCALE, OVER THE LEG'S PARAGRAPHS (kogaki#1530, kogaki#1620),
   // by the plan reader's own rule.
   const rows = paragraphObligationsRefusal(r.obligations, ws.length, at);
@@ -610,9 +629,9 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
 }
 
 // ---------------------------------------------------------------------------
-// THE END OF A JOB. Every Leg done writes the ParagraphPlan file and the run's own
-// binding record; any Leg not done stops the stage naming the Leg and the Waypoint,
-// and writes nothing beside the Brief.
+// THE END OF A JOB. Every Leg done writes the ParagraphPlan file, which is the record of
+// the binding too (kogaki#1639); any Leg not done stops the stage naming the Leg and the
+// Waypoint, and writes nothing beside the Brief.
 
 export function jobStatusLines(dir, job, now = Date.now()) {
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
@@ -665,19 +684,17 @@ export function finishParagraphPlan(dir) {
     return { stopped: [`ParagraphPlan stopped: the Brief at ${start.brief} changed while the job ran (sha256 ${start.brief_sha256} `
       + `at the start, ${sha256(briefText)} now) — nothing was written; run /paragraph-plan on it again.`] };
   }
+  // EACH ENTRY'S SCHEMA RIDES INTO THE FILE (kogaki#1639): the bound Move's id and the paragraph's
+  // Leg-schema fields, exactly as the validator passed them; the file is the record of the binding.
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
     waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
+    entries: units[i].candidate.waypoints.map((e) => Object.fromEntries(PLAN_SCHEMA_KEYS.filter((k) => Object.hasOwn(e, k)).map((k) => [k, e[k]]))),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null),
     obligations: units[i].candidate.obligations || [],
     discharges: units[i].candidate.waypoints.map((e) => e.discharges || []) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);
   writeFileSync(planPath, paragraphPlanRecordText(record));
-  writeJson(join(dir, BINDINGS_FILE), {
-    note: "Which paragraph Move was bound to which Leg Waypoint in this run (kogaki#1375). A record of the run: no later stage reads it.",
-    brief: start.brief,
-    bindings: start.legs.flatMap((leg, i) => units[i].candidate.waypoints.map((e) => ({ leg_id: leg.leg_id, waypoint: e.waypoint, move: e.move, why: e.why }))),
-  });
   writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString() });
   return { written: planPath };
 }

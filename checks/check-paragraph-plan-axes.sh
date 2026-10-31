@@ -79,7 +79,9 @@ writeFileSync(join(lib, "ROLES.json"), readFileSync(join("moves", "ROLES.json"))
 writeFileSync(join(lib, `${moveId}.yaml`), readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`)));
 const segments = boundMoveContract(moveId, lib).segments.length;
 const inputs = { movesDir: lib, legs: [{ leg_id: "v1", waypoints: [{ waypoint: 1, point: "A point.", serves: ["L1"], next_point: null }] }] };
-const plan = (pws) => ({ version: "1", leg_id: "v1", waypoints: [{ waypoint: 1, move: moveId, why: "the Move carries this point", paragraph_waypoints: pws }] });
+// The entry carries the paragraph's schema (kogaki#1639); the Leg's after-state is the one paragraph's.
+const plan = (pws) => ({ version: "1", leg_id: "v1", waypoints: [{ waypoint: 1, move: moveId, materials: ["L1"], purpose: "brings the reader to the point.",
+  reader_state_after: { knowledge: "after v1." }, depends_on: [], rationale: "the Move carries this point", introduces: [], "re-activate": [], paragraph_waypoints: pws }] });
 const pw = (i) => ({ point: `Part ${i} of the point.`, serves: ["L1"] });
 const parts = (n) => Array.from({ length: n }, (_, i) => pw(i + 1));
 cases++;
