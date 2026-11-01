@@ -1092,8 +1092,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   ok(s2.attempts === 2 && s2.state_bound_attempts === 2 && /^paragraph 2, the `question` row's `before` "asks a question BEYOND what was left" is a Precondition the predecessor does not meet: the previous paragraph left "holds no claim on the matter question"/.test((s2.refusals || [])[0] || ""),
     `(n) a \`before\` requiring what the predecessor's state does not hold was not refused as a Precondition the predecessor does not meet: ${JSON.stringify(s2)}`);
   const sPrompts = existsSync(join(sroot, "prompts.jsonl")) ? readFileSync(join(sroot, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-  ok(sPrompts.length === 5 && sPrompts[1].includes((s1.refusals || [])[0] || "\u0000") && sPrompts[2].includes((s1.refusals || [])[1] || "\u0000")
-    && sPrompts[4].includes((s2.refusals || [])[0] || "\u0000"), "(n) a state-bound refusal did not reach the Extractor's next attempt verbatim");
+  ok(sPrompts.length === 5 && sPrompts[1].includes((s1.refusals || [])[0] || "NO REFUSAL RECORDED") && sPrompts[2].includes((s1.refusals || [])[1] || "NO REFUSAL RECORDED")
+    && sPrompts[4].includes((s2.refusals || [])[0] || "NO REFUSAL RECORDED"), "(n) a state-bound refusal did not reach the Extractor's next attempt verbatim");
   ok(existsSync(join(sout, "state_a_claim_1.yaml")) && existsSync(join(sout, "state_a_claim_2.yaml")), "(n) the consistent answers were not written");
   const sIn = existsSync(join(sroot, "state-inputs.jsonl")) ? readFileSync(join(sroot, "state-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
   ok(sIn.length === 5 && sIn.every((x) => JSON.stringify(Object.keys(x)) === '["reader","segments","reader_state_before"]'
