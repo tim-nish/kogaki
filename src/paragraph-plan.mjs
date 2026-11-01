@@ -624,6 +624,57 @@ export function repeatsRefusedEntry(answer, refused, byJudge) {
     && canonical(answer.join) === canonical(refused.join);
 }
 
+// THE TEXT OF AN ENTRY'S PARAGRAPH WAYPOINTS, IN ORDER (kogaki#1651): each one's `point` or
+// `performs`, or the first sentence it carries under any other key, so a restatement under a
+// changed shape still reads as the same text.
+export function paragraphPointsText(entry) {
+  const pws = isMap(entry) && Array.isArray(entry.paragraph_waypoints) ? entry.paragraph_waypoints : [];
+  return pws.map((pw) => {
+    if (!isMap(pw)) return String(pw ?? "").trim();
+    const text = [pw.point, pw.performs, ...Object.values(pw)].find((v) => typeof v === "string" && v.trim() !== "");
+    return text ? text.trim() : "";
+  });
+}
+
+// AN ANSWER THAT RESTATES A REFUSED ATTEMPT (kogaki#1651): its Paragraph Waypoints' text equals a
+// refused entry's, in order, whatever else the record changed. Returns the unchanged points.
+export function restatedPoints(answer, history) {
+  const mine = paragraphPointsText(answer);
+  if (!mine.length) return null;
+  for (const h of history || []) {
+    const theirs = paragraphPointsText(h.entry);
+    if (theirs.length === mine.length && theirs.every((t, i) => t === mine[i])) return mine;
+  }
+  return null;
+}
+export const siteRestatementRefusal = (n, points) => `the answer restates the refused attempt's Paragraph Waypoints at Leg Waypoint ${n} unchanged — `
+  + `${points.map((t) => JSON.stringify(t)).join(", ")}; the refusal asked for a change to what they say`;
+
+// THE MOVES BOUND BESIDE A SITE (kogaki#1651): the previous and next entries' Moves, each with the
+// Leg Waypoint that binds it.
+export function movesBoundBeside(entries, n) {
+  return [n - 1, n + 1].filter((m) => m >= 1 && isMap(entries[m - 1]) && typeof entries[m - 1].move === "string")
+    .map((m) => ({ waypoint: m, move: entries[m - 1].move }));
+}
+
+// PROSE THAT DESCRIBES THE REPAIR RATHER THAN THE PARAGRAPH (kogaki#1651): a word of the refusal or
+// the attempt, an Issue reference, or a field of the record named in backticks.
+const SITE_PROSE_FIELDS = ["purpose", "rationale"];
+const RECORD_FIELD_NAMES = new Set([...UNIT_KEYS, ...UNIT_WAYPOINT_KEYS, "point", "serves", "performs", "paragraph_waypoint",
+  "leg_waypoint_you_must_plan", "fixed", "paragraph_moves_you_may_bind", "moves_rejected_here", "moves_bound_beside",
+  "refused_here", "reader_state_before", "after_state_is_the_legs", "terms_this_entry_introduces",
+  "re_activations_this_entry_carries", "discharges_this_entry_keeps", "before", "after", "segments", "operation"]);
+export function repairProse(answer) {
+  for (const field of SITE_PROSE_FIELDS) {
+    const text = typeof answer[field] === "string" ? answer[field] : "";
+    const word = (/\w*refus\w*/i.exec(text) || /\w*attempt\w*/i.exec(text) || /kogaki#\d*/i.exec(text) || [])[0];
+    const named = [...text.matchAll(/`([^`\n]+)`/g)].map((m) => m[1].trim()).find((k) => RECORD_FIELD_NAMES.has(k));
+    if (word) return { field, said: JSON.stringify(word) };
+    if (named) return { field, said: `\`${named}\`` };
+  }
+  return null;
+}
+
 // THE ENDPOINTS THE FIRST RETRY HOLDS: the refused entry's bound Move and after-state, where it
 // bound one; `null` on a later retry, or where the refused entry bound none.
 export function siteFixed(ctx) {
@@ -660,6 +711,7 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
     fixed: siteFixed(ctx),
     paragraph_moves_you_may_bind: moves,
     moves_rejected_here: [...rejectedMoves(ctx.history, new Set(moves.map((m) => m.id)))],
+    moves_bound_beside: movesBoundBeside(entries, n),
     persona: inputs.persona,
     terms_this_entry_introduces: entry.introduces || [],
     re_activations_this_entry_carries: entry["re-activate"] || [],
@@ -690,6 +742,12 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
     || (answer.move === null && movesNamed(answer.rationale, library.ids).every((m) => rejected.has(m)))) {
     return { error: `${at}: ${siteRepeatRefusal(n)}` };
   }
+  const restated = restatedPoints(answer, ctx.history);
+  if (restated) return { error: `${at}: ${siteRestatementRefusal(n, restated)}` };
+  const prose = repairProse(answer);
+  if (prose) {
+    return { error: `${at}: the answer's \`${prose.field}\` carries ${prose.said} — it describes the paragraph and its reader, and carries no word of the refusal, the attempt, the shape of the record or any rule by name` };
+  }
   const fixed = siteFixed(ctx);
   if (fixed && answer.move !== fixed.move) {
     return { error: `${at}: the answer changes \`move\` from ${JSON.stringify(fixed.move)} to ${JSON.stringify(answer.move)} — the first retry at a Leg Waypoint keeps its bound Move and rewrites its Paragraph Waypoints` };
@@ -698,6 +756,10 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
     return { error: `${at}: the answer changes \`reader_state_after\` — the first retry at a Leg Waypoint keeps the after-state it was refused with and rewrites its Paragraph Waypoints` };
   }
   const standing = ctx.standing.waypoints;
+  const beside = !fixed && movesBoundBeside(standing, n).find((b) => b.move === answer.move);
+  if (beside) {
+    return { error: `${at}: the answer binds ${JSON.stringify(answer.move)}, the Move Leg Waypoint ${beside.waypoint} beside it already binds — a rebound paragraph binds no Move of \`moves_bound_beside\`` };
+  }
   const was = isMap(standing[n - 1]) ? standing[n - 1] : {};
   const moved = n < total && (stateCanonical(answer.reader_state_after) !== stateCanonical(was.reader_state_after)
     || (typeof was.move === "string" && answer.move !== was.move));
