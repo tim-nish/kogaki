@@ -131,6 +131,10 @@ def ordered_record(mapping):
         if field in STATE_FIELDS and isinstance(value, dict):
             value = {d: value[d] for d in DIMENSIONS if d in value}
         record[field] = value
+        # The Segment column renders beside the state it credits (kogaki#1652).
+        if field == "after" and isinstance(mapping.get("after_segment"), dict):
+            column = mapping["after_segment"]
+            record["after_segment"] = {d: column[d] for d in DIMENSIONS if d in column}
     for field in OPTIONAL_RENDER_FIELDS:
         if field in mapping:
             record[field] = mapping[field]

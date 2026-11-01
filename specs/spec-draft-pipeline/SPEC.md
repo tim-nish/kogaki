@@ -651,6 +651,7 @@ condition 3.
 | `evidence` | optional | the source work and where the Passage sits — no quotation |
 | `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
 | `segments` | added by the tool | the Extraction's ordered Segments, copied in by `tools/move_ingest.py`, never authored by the model |
+| `after_segment` | added by the tool | per dimension `after` names, the Segment after which that state holds, copied from the Extraction (kogaki#1652) |
 
 **`before` / `after`.** One line per reader dimension the Move changes;
 unchanged dimensions are omitted. The dimension set — knowledge, question,
@@ -659,6 +660,27 @@ against the Corpus (Property 1, below); all five survived (kogaki#1173,
 2026-09-23: trust is never the *strongest* change in the Corpus, but no
 disagreement was raised against dropping it, since a slower-moving dimension
 is still a dimension).
+
+**A Precondition is what the Move's own first Segment presupposes (kogaki#1652,
+owner decision 2026-11-02).** A Move's `before` is not the predecessor
+paragraph's `after` copied: it is the state Segment 1's `operation`
+presupposes, written in general terms, carrying no line no Segment needs, so a
+Move stands on its own Segments and never depends on a Move the library may not
+hold. Where the Extraction has a predecessor, its `before` is a
+**specialization** of the predecessor's Postcondition — a narrower or equal
+state, never one requiring what the predecessor did not leave. **Every
+Postcondition row names its Segment**: the Move carries `after_segment`, keyed
+by the dimensions `after` names, each value the Segment after which that state
+holds, copied by the ingest from the Extraction's `segment` cell; a record
+written before kogaki#1652 carries none and is admitted. **The check is the
+state-bound call** (`src/proof-sheet/extraction-workflow.json`
+`state_bound_unit`): at extraction it judges each `before` against Segment 1,
+each changed `after` against the Segment it names, and each `before` against
+the predecessor's state, and an unsupported row refuses the Extraction into
+the Extractor's next attempt; over an admitted library,
+`src/proof-sheet/extract.mjs rejudge --state --library moves` runs the same
+call and lists the unsupported rows, changing no record. Both states stay
+authored; neither is derived from the Segments.
 
 **The reader's question lives in `before`/`after`.** Its `question:` line
 states the question the reader holds (`holds: none` where the reader arrives

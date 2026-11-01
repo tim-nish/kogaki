@@ -133,6 +133,19 @@ figure:
   reader holds, and `after` states whether the Move settled it, replaced it with a narrower
   one, or raised a new one beside it. Write `question: holds: none.` as the
   `before` entry when the reader arrives with no live question.
+  **A `before` entry is what the Move's first Segment presupposes**
+  (kogaki#1652): the state Segment 1's `operation` needs the reader in, written
+  generally, and no entry no Segment needs; it is never the previous
+  paragraph's `after` copied, and where a previous paragraph exists it is a
+  specialization of that paragraph's state, requiring nothing it did not
+  leave. **Every `after` entry names its Segment**: the tool copies each
+  changed row's `segment` cell into `after_segment`, keyed by the same
+  dimension. **The state-bound call is the check**: it judges each `before`
+  entry against Segment 1, each `after` entry against the Segment it names and
+  each `before` against the previous paragraph's state, refusing an
+  Extraction whose row it finds unsupported, and `src/proof-sheet/extract.mjs
+  rejudge --state --library moves` runs it over the saved library without
+  changing a record.
 - **breaks** — general to the technique, never specific to this article's
   subject, replacing the old `constraints` + `failure_modes` pair: what
   removing a step, reordering the Move's parts, or stretching it past its
