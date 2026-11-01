@@ -180,6 +180,8 @@ function moveRecordContract(record, moveId, path, movesDir) {
     return { error: `${at} carries ${unnamed.map((k) => `\`${k}\``).join(", ")}, which the library's ROLES.json maps to no role — `
       + `a Move carries the fields its declaration maps plus ${MOVE_CARRIED_FIELDS.map((k) => `\`${k}\``).join(" and ")}, and an unnamed field is refused, not carried into the library (kogaki#1418)` };
   }
+  const afterSegment = afterSegmentRefusal(record, optional["state-after-segments"], required["state-after"], optional.segments, at);
+  if (afterSegment) return { error: afterSegment };
   const description = descriptionRefusal(record.description, at);
   if (description) return { error: description };
   const figure = figureBlockRefusal(record.figure, at);
@@ -224,6 +226,29 @@ function obligationRefusal(v, field, at) {
   }
   const dup = names.findIndex((x, i) => names.indexOf(x) !== i);
   if (dup >= 0) return `${at}: \`${field}\` names ${JSON.stringify(names[dup])} twice (kogaki#1568)`;
+  return null;
+}
+
+// THE SEGMENT COLUMN (kogaki#1652, moves/ROLES.json `shapes.after_segment`): absent on a record
+// written before it, and where present a map keyed by exactly the dimensions `after` names, each
+// value one Segment number or several comma-separated, each a Segment the record has. A value the
+// YAML reader hands back as a number is the one-Segment case.
+function afterSegmentRefusal(record, field, afterField, segmentsField, at) {
+  if (typeof field !== "string" || field === "" || record[field] === undefined || record[field] === null) return null;
+  const v = record[field];
+  const after = isPlainMap(record[afterField]) ? Object.keys(record[afterField]) : [];
+  if (!isPlainMap(v)) return `${at}: \`${field}\` is not a map keyed by the dimensions \`${afterField}\` names (kogaki#1652)`;
+  const keys = Object.keys(v);
+  const extra = keys.find((k) => !after.includes(k));
+  if (extra) return `${at}: \`${field}\` carries \`${extra}\`, which \`${afterField}\` does not name — the column is keyed by the dimensions \`${afterField}\` names (kogaki#1652)`;
+  const missing = after.find((k) => !keys.includes(k));
+  if (missing) return `${at}: \`${field}\` carries no \`${missing}\` — every dimension \`${afterField}\` names carries the Segment after which it holds (kogaki#1652)`;
+  const n = Array.isArray(record[segmentsField]) ? record[segmentsField].length : 0;
+  for (const k of keys) {
+    const nums = String(v[k]).split(",").map((x) => x.trim());
+    const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);
+    if (off !== undefined) return `${at}: \`${field}.${k}\` names Segment ${JSON.stringify(off)}, and the Move has Segments 1 to ${n} (kogaki#1652)`;
+  }
   return null;
 }
 

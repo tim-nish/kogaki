@@ -206,8 +206,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
         : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
-  // The obligation call (kogaki#1590, kogaki#1618): neither \`question\` nor \`term\` fires; the content-bound call (kogaki#1614): every clause is bound.
-  if (/\`(obligation|content_bound)_unit\` judgment point/.test(prompt)) return out(prompt.includes("\`obligation_unit\`") ? { triggers: { question: { fired: false, why: "No question is posed.", segment: 1 }, term: { fired: false, why: "No term is left unexplained.", segment: 1 } } } : { verdicts: JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)).segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }, "extract");
+  // The obligation call (kogaki#1590, kogaki#1618): neither \`question\` nor \`term\` fires; the content-bound call (kogaki#1614): every clause is bound; the state-bound call (kogaki#1652): every reader row is supported.
+  if (/\`(obligation|content_bound|state_bound)_unit\` judgment point/.test(prompt)) { const SI = JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)); return out(prompt.includes("\`obligation_unit\`") ? { triggers: { question: { fired: false, why: "No question is posed.", segment: 1 }, term: { fired: false, why: "No term is left unexplained.", segment: 1 } } } : SI.reader ? { rows: SI.reader.map((r) => ({ dimension: r.dimension, before: { supported: true, why: "Segment 1 presupposes it." }, ...(String(r.after).trim().toLowerCase() === "unchanged" ? {} : { after: { supported: true, why: "The named Segment produces it." } }), ...(SI.reader_state_before && typeof SI.reader_state_before[r.dimension] === "string" ? { predecessor: { supported: true, why: "The previous state holds it." } } : {}) })) } : { verdicts: SI.segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }, "extract"); }
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -281,7 +281,7 @@ else {
   const run = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
   ok(run.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
     `(a) the stages are not all done: ${JSON.stringify(run.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  const want = { extract: ["extract", 10], brief: ["brief-reader-start|brief-leg-path", 2], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
+  const want = { extract: ["extract", 13], brief: ["brief-reader-start|brief-leg-path", 2], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
   for (const [stage, [kinds, n]] of Object.entries(want)) {
     const cs = calls(stage);
     const ks = kinds.split("|");
@@ -415,8 +415,8 @@ else {
     const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
     for (const [n, c] of recorded.entries()) {
       const text = String(c.stdin);
-      // The obligation and content-bound calls (kogaki#1583, kogaki#1614) are not drawn on the sheet; their answers are, on the record.
-      if (/`(obligation|content_bound)_unit` judgment point/.test(text)) continue;
+      // The obligation, content-bound and state-bound calls (kogaki#1583, kogaki#1614, kogaki#1652) are not drawn on the sheet; the first two's answers are, on the record.
+      if (/`(obligation|content_bound|state_bound)_unit` judgment point/.test(text)) continue;
       const cut = [text.indexOf(REFUSED), text.indexOf(INPUT)].filter((x) => x >= 0);
       const end = cut.length ? Math.min(...cut) : text.length;
       const at = text.indexOf(INPUT);
@@ -821,8 +821,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
-  // The obligation call (kogaki#1590, kogaki#1618): neither \`question\` nor \`term\` fires; the content-bound call (kogaki#1614): every clause is bound.
-  if (/\`(obligation|content_bound)_unit\` judgment point/.test(prompt)) return out(prompt.includes("\`obligation_unit\`") ? { triggers: { question: { fired: false, why: "No question is posed.", segment: 1 }, term: { fired: false, why: "No term is left unexplained.", segment: 1 } } } : { verdicts: JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)).segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }, "extract");
+  // The obligation call (kogaki#1590, kogaki#1618): neither \`question\` nor \`term\` fires; the content-bound call (kogaki#1614): every clause is bound; the state-bound call (kogaki#1652): every reader row is supported.
+  if (/\`(obligation|content_bound|state_bound)_unit\` judgment point/.test(prompt)) { const SI = JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + 24)); return out(prompt.includes("\`obligation_unit\`") ? { triggers: { question: { fired: false, why: "No question is posed.", segment: 1 }, term: { fired: false, why: "No term is left unexplained.", segment: 1 } } } : SI.reader ? { rows: SI.reader.map((r) => ({ dimension: r.dimension, before: { supported: true, why: "Segment 1 presupposes it." }, ...(String(r.after).trim().toLowerCase() === "unchanged" ? {} : { after: { supported: true, why: "The named Segment produces it." } }), ...(SI.reader_state_before && typeof SI.reader_state_before[r.dimension] === "string" ? { predecessor: { supported: true, why: "The previous state holds it." } } : {}) })) } : { verdicts: SI.segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }, "extract"); }
   if (prompt.includes("----- INPUT (JSON) -----") && prompt.includes('"paragraph_you_must_extract"')) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const p = input.paragraph_you_must_extract;
@@ -1250,8 +1250,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: segmentsOf(mv(w)).map((_, n) => ({
         point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan-generator");
   }
-  // The content-bound call (kogaki#1614) finds every clause bound; the obligation call (kogaki#1590) fires \`counts\` on the owing paragraph alone.
-  if (prompt.includes("\\\`content_bound_unit\\\` judgment point")) return out({ verdicts: input().segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }, "extract");
+  // The content-bound call (kogaki#1614) finds every clause bound; the state-bound call (kogaki#1652) supports every reader row; the obligation call (kogaki#1590) fires \`counts\` on the owing paragraph alone.
+  if (/\\\`(content_bound|state_bound)_unit\\\` judgment point/.test(prompt)) { const SI = input(); return out(SI.reader ? { rows: SI.reader.map((r) => ({ dimension: r.dimension, before: { supported: true, why: "Segment 1 presupposes it." }, ...(String(r.after).trim().toLowerCase() === "unchanged" ? {} : { after: { supported: true, why: "The named Segment produces it." } }), ...(SI.reader_state_before && typeof SI.reader_state_before[r.dimension] === "string" ? { predecessor: { supported: true, why: "The previous state holds it." } } : {}) })) } : { verdicts: SI.segments.map(() => ({ bound: true, why: "Every reference resolves to the sentence." })) }, "extract"); }
   if (prompt.includes("\\\`obligation_unit\\\` judgment point")) {
     return out(input().segments.some((s) => s.operation.includes("explains neither")) ? { triggers: { question: { fired: false, why: "No question is posed.", segment: 1 }, term: { fired: true, why: "The last Segment names items it explains neither.", segment: input().segments.length } }, obligation: T.general } : { triggers: { question: { fired: false, why: "No question is posed.", segment: 1 }, term: { fired: false, why: "No term is left unexplained.", segment: 1 } } }, "extract");
   }
@@ -1431,7 +1431,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         .filter((x) => x.stage === "extract").map((x) => JSON.parse(x.prompt.slice(x.prompt.lastIndexOf(IN) + IN.length)));
       return { dir, run, rec, text: readOr(join(dir, "brief", "brief.yaml"), ""), bj: lb ? JSON.parse(readOr(join(lb, "brief.json"), "{}")) : {},
         sheet: readOr(join(dir, "sheet.html"), ""), extractInputs: stageInputs.filter((x) => x.paragraph_you_must_extract),
-        obligationInputs: stageInputs.filter((x) => !x.paragraph_you_must_extract && !x.subject_nouns) };
+        obligationInputs: stageInputs.filter((x) => !x.paragraph_you_must_extract && !x.subject_nouns && !x.reader) };
     };
     const block = (sheet, k) => { const a = sheet.indexOf(`<section class="leg-block" id="leg-0-${k}">`); return a < 0 ? "" : sheet.slice(a, sheet.indexOf("</table>", a)); };
     const segs = (sheet, k) => { const b = block(sheet, k), a = b ? sheet.indexOf('<div class="rpart segments">', sheet.indexOf(b)) : -1; return a < 0 ? [] : sheet.slice(a, sheet.indexOf('<div class="rpart refused">', a)).split("<h4>").slice(1); };

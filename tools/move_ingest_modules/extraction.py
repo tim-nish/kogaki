@@ -338,7 +338,7 @@ def check_segments(mapping, record, line_no):
 # off a written Extraction, never authored by a model. Every Move field comes
 # from one Extraction field, the table passages/FORMAT.md "Where each field
 # goes" states: `id` is `name`, `before` and `after` are `reader`'s changed
-# rows only, `description` is `description` (kogaki#1412) and `breaks` is
+# rows only, `after_segment` is each changed row's `segment` (kogaki#1652), `description` is `description` (kogaki#1412) and `breaks` is
 # `breaks` (kogaki#1377), and `segments` is the Extraction's `segments` exactly as `check_segments`
 # copies it on the Passage path.
 # --------------------------------------------------------------------------
@@ -417,6 +417,9 @@ def derive_from_extraction(record, line_no=1):
             "id": move_id,
             "before": {dim: before for dim, before, _a, _s in rows},
             "after": {dim: after for dim, _b, after, _s in rows},
+            # The Segment column, kept (kogaki#1652): each changed row's
+            # `segment` cell beside its `after`, keyed by the same dimension.
+            "after_segment": {dim: segment for dim, _b, _a, segment in rows},
             "description": description,
             "breaks": breaks,
         }

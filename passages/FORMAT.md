@@ -100,8 +100,8 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the rules here — rules 1 to 6
-are mechanism m2's (kogaki#1348), carried verbatim, rule 7 is kogaki#1440's,
+applies to a paragraph Extraction, except the rules here — rules 1, 2
+and 4 to 6 are mechanism m2's (kogaki#1348), carried verbatim, rule 3 is kogaki#1652's, rule 7 is kogaki#1440's,
 rule 8 is kogaki#1583's, with its two forms kogaki#1618's (retiring the count forms of kogaki#1602), rule 9 is kogaki#1478's and rule 10 is retired:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
@@ -112,11 +112,20 @@ rule 8 is kogaki#1583's, with its two forms kogaki#1618's (retiring the count fo
    N, read paragraphs 1 to N-1 of the same Passage in full, and the end of
    the Passage that precedes it in the work when one is given. The reader
    state you write is the state of a reader who has just read all of that.
-3. **The before column is carried, not drafted.** In `reader`,
-   every row's `before` is written in full and is copied from the previous paragraph's
-   state for that row: its `after` where that row changed, its `before`
-   where it was unchanged. For paragraph 1 the before column is the state
-   the preceding text leaves the reader in. The `after` cell is
+3. **The before column is what Segment 1 presupposes** (kogaki#1652). In
+   `reader`, every row's `before` is written in full, in general terms, as
+   the state Segment 1's `operation` presupposes: what the reader must hold,
+   lack or expect for the first step to work, and no line no Segment needs.
+   It is not copied from the previous paragraph. That paragraph's state for
+   the row, its `after` where the row changed and its `before` where it was
+   unchanged, is given beside it, and every `before` row is a specialization
+   of it: a narrower or equal state, never one requiring what the previous
+   paragraph did not leave. For paragraph 1 the before column is also read
+   against the state the preceding text leaves the reader in. A judged call
+   checks every row against the Segments, the state-bound call: a `before`
+   Segment 1 does not presuppose, a changed `after` the Segment it names does
+   not produce, and a `before` the previous paragraph's state does not meet
+   are each refused, naming the dimension and the Segment. The `after` cell is
    `unchanged` where this paragraph does not move the row; otherwise the new
    state in one short clause. `dimensions changed` counts the rows whose
    `after` is not `unchanged`.
@@ -141,7 +150,7 @@ rule 8 is kogaki#1583's, with its two forms kogaki#1618's (retiring the count fo
    state is written as `operation` is, in general terms, naming no term, place,
    person or claim of the original and none of `subject_nouns`, and
    describing nothing of a neighbouring paragraph's content, so that
-   `before` states copied from it stay general. Segment 1's `operation`
+   the next paragraph's `before`, judged against it, stays general. Segment 1's `operation`
    carries no reference to any earlier step or earlier paragraph. A later
    Segment's `operation` is the operation alone, and its `relation`
    carries the connection to the step before. Every prose field of the
@@ -192,7 +201,7 @@ fields; nothing in the copy is judged.
 | Extraction field | Move field |
 |------------------|------------|
 | `name` | `id` |
-| `reader`, the rows whose `after` is not `unchanged` | `before`, each row's `before`, and `after`, each row's `after` — maps keyed by dimension, one entry per changed row |
+| `reader`, the rows whose `after` is not `unchanged` | `before`, each row's `before`, and `after`, each row's `after` — maps keyed by dimension, one entry per changed row; and `after_segment`, each row's `segment`, the Segment number(s) after which the new state holds, keyed by the same dimensions (kogaki#1652) |
 | `segments` | `segments` — each Segment's `operation`, its `relation` on every Segment after the first, and its `manner` where one is filled; never `opening` or `content` |
 | `breaks` | `breaks`, the list of prose tests |
 | `description` | `description` — copied, with no machine role; over 200 characters is refused naming the length |

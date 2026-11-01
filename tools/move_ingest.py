@@ -271,7 +271,8 @@ def main_passage(argv):
         help="one or more written Extractions (one Passage's paragraph "
         "Extractions, passages/FORMAT.md \"The paragraph unit\"): each record "
         "is read off its Extraction record -- id from `name`, before/after from "
-        "`reader`'s changed rows, segments from `segments` -- and no model "
+        "`reader`'s changed rows, after_segment from their `segment` cells, "
+        "segments from `segments` -- and no model "
         "is called",
     )
     parser.add_argument("--model", help="the pinned model id for the authorship step")

@@ -37,7 +37,10 @@
 # the control that stops the deny passing vacuously. The authored `obligation`
 # (kogaki#1557, kogaki#1568) is a list of items: it loads, and loads where an
 # item shares no word with any `after` line (kogaki#1576), and a map (the retired
-# `kind`), an empty list and an item named twice are each refused.
+# `kind`), an empty list and an item named twice are each refused. The Segment column (kogaki#1652):
+# a record carrying `after_segment` loads, so the library passes with the column as `moves/` passes
+# without it, and a column naming a dimension `after` does not, missing one, or naming a Segment the
+# Move lacks is refused.
 #
 # WHAT IT DOES NOT VERIFY, stated rather than left to look covered: whether a
 # record's prose is any good is the owner's reading at the ingest's selection
@@ -217,8 +220,27 @@ const WHOLE = {
   ok(/`obligation` names "leverage" twice/.test(twice.error || ""),
     `(c7g) an item named twice is refused: ${twice.error || "admitted"}`);
 }
+// (c8) THE SEGMENT COLUMN (kogaki#1652): a record carrying `after_segment` beside `after` loads in a
+// library whose INDEX is fresh, so the library passes with the column as the committed one passes
+// without it; a column naming a dimension `after` does not, missing one it does, or naming a Segment
+// the Move lacks is refused naming the field.
+{
+  const d = fixture("after-segment");
+  const two = { ...WHOLE, segments: [{ operation: "states the point once, plainly." }, { operation: "grounds it.", relation: "extends the point before it" }] };
+  writeRecord(d, "p1.yaml", { ...two, after_segment: { knowledge: "2" } });
+  reindex(d);
+  const f = libraryFailures(d, "(c8)");
+  ok(f.length === 0, `(c8a) a library whose record carries \`after_segment\` passes: ${f.join(" | ")}`);
+  const back = parseYaml(readFileSync(join(d, "moves", "p1.yaml"), "utf8"), "p1.yaml");
+  ok(String(back.after_segment && back.after_segment.knowledge) === "2", `(c8a) the column does not survive the YAML round trip: ${JSON.stringify(back.after_segment)}`);
+  const err = (col) => validateMoveRecord({ ...two, after_segment: col }, join(d, "moves"), "p1.yaml").error || "";
+  ok(/`after_segment` carries `trust`, which `after` does not name/.test(err({ knowledge: "2", trust: "1" })), `(c8b) a column naming a dimension \`after\` does not was not refused: ${err({ knowledge: "2", trust: "1" })}`);
+  ok(/`after_segment` carries no `knowledge`/.test(err({})), `(c8c) a column missing a dimension \`after\` names was not refused: ${err({})}`);
+  ok(/`after_segment.knowledge` names Segment "3", and the Move has Segments 1 to 2/.test(err({ knowledge: "1, 3" })), `(c8d) a column naming a Segment the Move lacks was not refused: ${err({ knowledge: "1, 3" })}`);
+  ok(!err({ knowledge: "1, 2" }), `(c8e) a column naming two Segments was refused: ${err({ knowledge: "1, 2" })}`);
+}
 rmSync(root, { recursive: true, force: true });
-console.log("fixture cases run: 13");
+console.log("fixture cases run: 19");
 
 // ---- the committed library ----
 const real = libraryFailures(repo, "(a/b)");
