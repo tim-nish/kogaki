@@ -5,19 +5,40 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" PreToolUse", "timeout": 30 }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" PreToolUse",
+            "timeout": 30
+          }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-terrain-executor.py\"", "timeout": 30 }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-terrain-executor.py\"",
+            "timeout": 30
+          }
         ]
       },
       {
         "matcher": "Skill",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-skill-dispatch-under-run.py\"", "timeout": 30 }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-skill-dispatch-under-run.py\"",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/policy/kit/bin/require-term-receipt.mjs\""
+          }
         ]
       }
     ],
@@ -25,7 +46,20 @@
       {
         "matcher": "AskUserQuestion",
         "hooks": [
-          { "type": "command", "command": "sh -c 'p=$(cat); printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/write-gate-capture.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-terrain.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-brief.py\"'", "timeout": 540 }
+          {
+            "type": "command",
+            "command": "sh -c 'p=$(cat); printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/write-gate-capture.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-terrain.py\"; printf %s \"$p\" | python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/advance-brief.py\"'",
+            "timeout": 540
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__tsurezure__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/log-consult.py\""
+          }
         ]
       }
     ],
@@ -33,7 +67,21 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" Stop", "timeout": 30 }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" Stop",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/policy/kit/bin/consult-on-prompt.mjs\""
+          }
         ]
       }
     ]
