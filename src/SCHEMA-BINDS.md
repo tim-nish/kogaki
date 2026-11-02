@@ -111,7 +111,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `waypoints.move` | copied | unread |  |  |  |
 | `waypoints.materials` | copied | unread |  |  |  |
 | `waypoints.purpose` | content | unread |  |  |  |
-| `waypoints.reader_state_after` | content | unread |  |  |  |
+| `waypoints.reader_state_after` | content | excluded |  |  |  |
 | `waypoints.depends_on` | content | unread |  |  |  |
 | `waypoints.rationale` | content | unread |  |  |  |
 | `waypoints.introduces` | content | unread |  |  |  |
