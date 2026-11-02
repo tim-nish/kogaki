@@ -1194,11 +1194,13 @@ function viewRun(runDir, briefSha) {
 }
 
 // The refusals of one Leg's unit, each with the Leg Waypoints it names (none: the whole Leg)
-// and the judge axes it names, read off the refusal text as the stop lines read it.
-function legRefusals(job, unitId, axisIds) {
+// and the judge axes it names. A refusal names its site as `Leg <id>, Waypoint <n>` or opens with
+// `Waypoint <n>:`; a bare `Leg Waypoint <n>` in its prose is a neighbour it cites, never its site.
+const REFUSAL_SITE = /(?:^|Leg [^,\s]+, )Waypoint (\d+)/g;
+export function legRefusals(job, unitId, axisIds) {
   const u = (job.units || []).find((x) => x.id === unitId);
   return ((u && u.refusals) || []).map((r) => String(r)).map((text) => ({ text: oneLineText(text),
-    waypoints: [...new Set([...text.matchAll(/Waypoint (\d+)/g)].map((m) => Number(m[1])))],
+    waypoints: [...new Set([...text.matchAll(REFUSAL_SITE)].map((m) => Number(m[1])))],
     axes: axisIds.filter((a) => new RegExp(`\\b${escapeRe(a)}\\b`).test(text)) }));
 }
 const refusalLine = (r) => `  - ${r.text} — axes: ${r.axes.length ? r.axes.join(", ") : "none named"}`;

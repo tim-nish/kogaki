@@ -42,8 +42,8 @@
 #       over the plan (c) wrote prints each Leg Waypoint's point, entry state,
 #       Move `before`, Segments table with the Paragraph Waypoint beside its
 #       Segment, Move `after` and `reader_state_after`; `--run` adds the
-#       refusals of (b) with the axis they name; and an edited Brief is refused.
-#
+#       refusals of (b) with the axis they name, each under the Leg Waypoint
+#       it names as its site; and an edited Brief is refused.
 
 # NOT COVERED, stated rather than implied: the retry inside a Leg -- which Leg
 # Waypoint is re-planned, and the refusal of an identical attempt -- is its own
@@ -306,6 +306,10 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   const s2r = (r.stdout || "").slice((r.stdout || "").indexOf("## Leg s2"), (r.stdout || "").indexOf("## Leg s3"));
   if (r.status !== 0 || !/JUDGE-SENTENCE BREAKS Waypoint 1[^\n]* — axes: BREAKS/.test(s2r)) fails.push(`(e) view --run does not add (b)'s refusal with its axis: ${(r.stderr || "") + s2r.slice(0, 900)}`);
   if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a Leg Waypoint met no refusal");
+  const { legRefusals } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
+  const cited = legRefusals({ units: [{ id: "leg-1", refusals: [
+    "Waypoint 3: its 2 attempts are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Leg Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
+  if (JSON.stringify(cited.map((r) => r.waypoints)) !== "[[3]]") fails.push(`(e) a refusal citing its neighbour is attributed to it: ${JSON.stringify(cited)}`);
   writeFileSync(resumedRun.briefPath, briefText("The fixture claim, edited after the plan."));
   const moved = view("--moves-dir", moves);
   if (moved.status === 0 || !/was made from a different Brief/.test(moved.stderr || "")) fails.push(`(e) view did not refuse a plan whose Brief moved: ${(moved.stderr || "") + (moved.stdout || "").slice(0, 300)}`);
