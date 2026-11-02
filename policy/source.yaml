@@ -6,3 +6,7 @@ policy_source:
                   # Unreachable gateway: one logged degradation line, then
                   # proceed without policy interaction.
 consumer: kogaki
+packages: [coding]
+common_words: []
+consult_text_max: 600
+receipt_exempt: [policy/kit/, .claude/]
