@@ -31,7 +31,7 @@
 #   (d) `start` on a Brief whose content hash differs from the prior run's
 #       carries nothing and spawns every Leg; (d2) a prior run whose plan file
 #       was already written carries nothing either.
-#
+
 #   (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM
 #       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
 #       per Leg, one `waypoints` row per Leg Waypoint carrying `point`,
