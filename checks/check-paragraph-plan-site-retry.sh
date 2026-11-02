@@ -9,8 +9,7 @@
 #   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
 #   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
-#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint;
-#   (s11)-(s12) a judge-forced rewrite and rebind carry the axis, and the done record counts it (kogaki#1649).
+#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint.
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
