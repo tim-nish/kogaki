@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 # The ParagraphPlan judge's criteria are a registry of one-sentence axes, each kept on
-# evidence, and the countable rules are the validator's (kogaki#1533, owner decision
-# 2026-10-23). Five assertions: (a) every axis in src/paragraph-plan-axes.json is one
-# sentence carrying one responsibility, with a defect and a clean fixture and a
-# `justified_by` bench run; (b) the rendered judge prompt carries every axis, in order,
-# and the workflow table writes no criterion of its own; (c) the plan-record validator
-# refuses a Leg Waypoint whose Paragraph Waypoints are not one per Segment of the bound
-# Move, and an entry carrying both `performs` and `point`, naming the entry; (d) the
-# bench runs a scratch axis over a fake judge, writes its rates, and records or removes it,
-# leaving an axis whose calls were never read as it was; (e) the criteria table of
-# specs/spec-draft-pipeline/SPEC.md §4.19 carries every criterion of both judges and no
-# other, and the judge is handed each entry's before- and after-state (kogaki#1647).
+# evidence, and the countable rules are the validator's (kogaki#1533, kogaki#1647). (a) every
+# axis is one sentence with one responsibility, a defect and a clean fixture and a
+# `justified_by` bench run; (b) the judge prompt carries every axis in order and the table
+# writes no criterion of its own; (c) the validator refuses a Paragraph Waypoint count off
+# the bound Move's Segments, and an entry carrying both `performs` and `point`; (d) the bench
+# records or removes a scratch axis over a fake judge, leaving an unread one as it was;
+# (e) the criteria table of the spec's ParagraphPlan stage carries every criterion of both
+# judges and no other, and the judge is handed each entry's before- and after-state.
 # Declared limit: the one-responsibility test is lexical; whether a fixture violates
 # its axis and no other is the bench's measurement, never this check's.
 set -u

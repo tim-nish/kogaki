@@ -8,10 +8,8 @@
 #   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
 #   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
-#   (s7)-(s9) a `rationale` naming the repair, a rebind to the neighbour's Move, and a retry
-#   restating the refused points under a changed shape are each refused by name before the judge;
-#   (s10) a judge's refusal on PRECONDITION or POSTCONDITION holds no endpoint on the first
-#   retry, `fixed` null, and one on BREAKS holds both (kogaki#1647).
+#   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
+#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint.
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
