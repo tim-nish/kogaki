@@ -6,7 +6,9 @@
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. This module names no spec content,
 // so its names table is empty — stated here rather than left to be inferred.
-import { join, relative } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
+import { forcedMarksOf } from "../draft/render-packet.mjs";
 import { PASS_OUTCOMES } from "./regression.mjs";
 import { currentPass } from "./workspace.mjs";
 
@@ -114,6 +116,20 @@ function evidenceLines(ws, run, recordDir) {
       "  `regressed` is the word neither of them carries.");
   }
   return out;
+}
+
+// kogaki#1649: the closing section, each Leg Waypoint whose Packet marks a judge-forced Paragraph Waypoint, read from the Packet alone.
+export function forcedParagraphLines(legs, draftDir) {
+  const rows = [];
+  for (const s of legs) {
+    const path = resolve(draftDir, String(s.packet));
+    if (!existsSync(path)) continue;
+    for (const m of forcedMarksOf(readFileSync(path, "utf8"))) rows.push(`- \`${s.leg_id}\`, Leg Waypoint ${m.waypoint} — ${m.axes.join(", ")}`);
+  }
+  return ["## Forced paragraphs", "",
+    "Each line is a Leg Waypoint whose paragraph plan was rewritten until the plan's judge passed it,",
+    "with the criteria that forced the rewrite. It is a count to read, and no review item acts on it.", "",
+    ...(rows.length ? rows : ["_None._"]), ""];
 }
 
 export { chosenJudged, findingEvidencePaths, evidenceLines };

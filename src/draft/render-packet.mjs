@@ -41,8 +41,29 @@ export function waypointLines(leg) {
   const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
   const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
   const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n));
+  const markOf = (p) => (Array.isArray(p.forced_by) && p.forced_by.length ? [`      ${forcedMarkLine(p.forced_by)}`] : []);
   return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
-    ...(w.paragraph_waypoints || []).map((p, j) => `   ${sub(p, j + 1)}`)].join("\n")).join("\n");
+    ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...markOf(p)])].join("\n")).join("\n");
+}
+
+// kogaki#1649: a judge-forced Paragraph Waypoint's mark, an HTML comment on a line of its own beneath it.
+export const forcedMarkLine = (axes) => `<!-- forced by: ${axes.join(", ")} -->`;
+const FORCED_MARK = /^\s+<!-- forced by: (.+) -->$/;
+
+// kogaki#1649: the marks a Packet carries, one row per Leg Waypoint, its axes in the order first marked.
+export function forcedMarksOf(packet) {
+  const out = [];
+  let n = null;
+  for (const l of String(packet).split("\n")) {
+    const top = l.match(/^(\d+)\.\s/);
+    if (top) { n = Number(top[1]); continue; }
+    const m = l.match(FORCED_MARK);
+    if (!m || n === null) continue;
+    let row = out.find((r) => r.waypoint === n);
+    if (!row) out.push(row = { waypoint: n, axes: [] });
+    for (const a of m[1].split(", ")) if (!row.axes.includes(a)) row.axes.push(a);
+  }
+  return out;
 }
 
 // The performs criteria bound (kogaki#1555).

@@ -9,7 +9,8 @@
 #   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
 #   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
-#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint.
+#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint;
+#   (s11)-(s12) a judge-forced rewrite and rebind carry the axis, and the done record counts it (kogaki#1649).
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
@@ -318,9 +319,47 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
   }
 }
 
+// (s11) A REWRITE THE JUDGE FORCED CARRIES ITS AXIS, AND THE RUN COUNTS IT (kogaki#1649).
+{
+  const r = run("s11", `export const site = (i) => siteEntry(i, { tag: "-site" });
+export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n === 1 && w === 1);
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "TERM MEANING fails: the paragraph uses a term before it says what it means.";
+  return v; };`);
+  const marks = (l, w) => { const e = pwOf(r.plan, l, w); return e ? e.paragraph_waypoints.map((p) => p.forced_by || null) : []; };
+  if (!r.plan) fails.push(`(s11) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
+  else {
+    if (JSON.stringify(marks("s1", 1)) !== JSON.stringify([["TERM MEANING"]])) {
+      fails.push(`(s11) the rewritten Paragraph Waypoint at Leg s1, Waypoint 1 does not carry forced_by [TERM MEANING]: ${JSON.stringify(marks("s1", 1))}`);
+    }
+    for (const [l, w] of [["s1", 2], ["s1", 3], ["s2", 1]]) {
+      if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, Waypoint ${w} passed on its first attempt and carries forced_by: ${JSON.stringify(marks(l, w))}`);
+    }
+    if (Object.hasOwn(pwOf(r.plan, "s1", 1), "move_forced_by")) fails.push("(s11) a site call that held the Move marks the entry's move");
+  }
+  const donePath = join(root, "s11", "run", "paragraph-plan-done.json");
+  const c = existsSync(donePath) ? JSON.parse(readFileSync(donePath, "utf8")).collisions : null;
+  const row = c && c.rows.find((x) => x.axis === "TERM MEANING");
+  if (!row || row.entries !== 1 || c.total !== 1 || c.rows.some((x) => x.axis !== "TERM MEANING" && x.entries !== 0)) {
+    fails.push(`(s11) paragraph-plan-done.json does not count TERM MEANING at 1 and the total at 1: ${JSON.stringify(c)}`);
+  }
+}
+
+// (s12) A REBIND THE JUDGE FORCED MARKS THE ENTRY'S MOVE WITH THE SAME AXES (kogaki#1649).
+{
+  const r = run("s12", `export const site = (i) => siteEntry(i, { move: "p2", tag: "-site" });
+export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s2" && n === 1 && w === 1);
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "PRECONDITION fails: the bound Move needs a state the reader does not hold.";
+  return v; };`);
+  const e = pwOf(r.plan, "s2", 1);
+  if (!e || e.move !== "p2" || JSON.stringify(e.move_forced_by) !== JSON.stringify(["PRECONDITION"])
+    || JSON.stringify(e.paragraph_waypoints.map((p) => p.forced_by)) !== JSON.stringify([["PRECONDITION"]])) {
+    fails.push(`(s12) the rebound entry at Leg s2, Waypoint 1 does not carry move_forced_by and forced_by [PRECONDITION]: ${JSON.stringify(e)}`);
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move and after-state first; a repeat is refused before the judge; a moved after-state recomposes only the entries after it; a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651); a PRECONDITION or POSTCONDITION refusal holds no endpoint on the first retry (kogaki#1647).");
+console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move and after-state first; a repeat is refused before the judge; a moved after-state recomposes only the entries after it; a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651); a PRECONDITION or POSTCONDITION refusal holds no endpoint on the first retry (kogaki#1647); a Paragraph Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
 JS

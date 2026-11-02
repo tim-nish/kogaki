@@ -110,6 +110,8 @@
 # (checks/check-review-draft.sh) is what reads that. The rest of the Packet's
 # layout is held by checks/check-brief-compose.sh and
 # checks/check-paragraph-plan.sh (n).
+# AND (k) a judge-forced Paragraph Waypoint renders its mark on a line of its own beneath it,
+#   read back by forcedMarksOf, and the template says nothing of it (kogaki#1649).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -125,7 +127,7 @@ const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragraphPlanRecordText } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg, OPENS_FROM_LABEL } =
   await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
-const { templateCriteriaFailures } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
+const { templateCriteriaFailures, waypointLines, forcedMarkLine, forcedMarksOf } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
 
 const C1 = "the installer copies the kit into the consumer's tree.";
 const JOIN = "consequence";
@@ -588,9 +590,28 @@ if (!r.error) {
   }
 }
 
+// (k) A FORCED PARAGRAPH WAYPOINT CARRIES ITS MARK ON A LINE OF ITS OWN, AND THE WRITER'S
+// INSTRUCTIONS SAY NOTHING OF IT (kogaki#1649).
+{
+  const block = waypointLines({ claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
+    waypoints: [{ point: "The Leg Waypoint's point.", serves: ["L1"], paragraph_waypoints: [
+      { point: "The forced point.", serves: ["L1"], forced_by: ["TERM MEANING"] },
+      { point: "The unforced point.", serves: ["L1"] }] }] });
+  const lines = block.split("\n");
+  const at = lines.findIndex((l) => l.includes("The forced point."));
+  if (at === -1 || lines[at + 1] !== `      ${forcedMarkLine(["TERM MEANING"])}`) {
+    fails.push(`(k) the forced Paragraph Waypoint is not followed by its mark line: ${JSON.stringify(lines)}`);
+  }
+  if (lines.filter((l) => l.includes("forced by")).length !== 1) fails.push(`(k) not exactly one mark line in the block: ${JSON.stringify(lines)}`);
+  if (/forced/i.test(template)) fails.push("(k) the Packet template mentions the mark; the Writer's instructions carry nothing of it");
+  if (JSON.stringify(forcedMarksOf(block)) !== JSON.stringify([{ waypoint: 1, axes: ["TERM MEANING"] }])) {
+    fails.push(`(k) the mark does not read back as Leg Waypoint 1 forced by TERM MEANING: ${JSON.stringify(forcedMarksOf(block))}`);
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the Waypoint (kogaki#1639).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the Waypoint (kogaki#1639); a judge-forced Paragraph Waypoint carries its mark on a line of its own beneath it, the unforced one none, and the template says nothing of it (kogaki#1649).");
 JS

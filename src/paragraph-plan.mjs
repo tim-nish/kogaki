@@ -730,6 +730,34 @@ function bindableMoves(movesDir) {
   return library.moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) }));
 }
 
+// kogaki#1649: the passing record, each Paragraph Waypoint and rebind that differs from the first refused attempt marked with the axes the judge's refusals named.
+export function paragraphPlanForcedMark(record, history, inputs) {
+  const axes = (inputs && inputs.axes) || [];
+  const named = (text) => axes.filter((id) => new RegExp(`\\b${escapeRe(id)}\\b`).test(String(text)));
+  const waypoints = record.waypoints.map((e, i) => {
+    const refusals = ((history && history.get(i + 1)) || []).filter((h) => h.by_judge);
+    const forced = axes.filter((id) => refusals.some((h) => named(h.refusal).includes(id)));
+    if (!forced.length || !isMap(e)) return e;
+    const refused = isMap(refusals[0].entry) ? refusals[0].entry : {};
+    const before = new Set((Array.isArray(refused.paragraph_waypoints) ? refused.paragraph_waypoints : []).map(canonical));
+    const pws = (e.paragraph_waypoints || []).map((p) => (before.has(canonical(p)) ? p : { ...p, forced_by: [...forced] }));
+    return { ...e, ...(refused.move !== e.move ? { move_forced_by: [...forced] } : {}), paragraph_waypoints: pws };
+  });
+  return { ...record, waypoints };
+}
+
+// kogaki#1649: one row per axis with the entries it forced across the plan's Legs, and the total.
+export function paragraphPlanCollisions(legs, axes) {
+  const rows = axes.map((axis) => ({ axis, entries: 0 }));
+  for (const l of legs) {
+    for (const e of l.waypoints || []) {
+      const hit = new Set([...(e.move_forced_by || []), ...(e.paragraph_waypoints || []).flatMap((p) => p.forced_by || [])]);
+      for (const r of rows) if (hit.has(r.axis)) r.entries += 1;
+    }
+  }
+  return { rows, total: rows.reduce((n, r) => n + r.entries, 0) };
+}
+
 // THE SITE CALL'S INPUT. `ctx` is `{ standing, site, retry, history }`: the Leg's standing
 // record, the Leg Waypoint's number, the site retry this is (1 for the first), and every
 // refused entry at the site beside its refusal, oldest first.
@@ -998,8 +1026,8 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     // THE SITE LOOP (kogaki#1642): a refusal naming a Leg Waypoint is retried there alone.
     siteRetry: { module: siteRetry.module, site_prompt_export: siteRetry.site_prompt_export,
       site_validator_export: siteRetry.site_validator_export, suffix_prompt_export: siteRetry.suffix_prompt_export,
-      suffix_validator_export: siteRetry.suffix_validator_export, leg_attempts: legAttempts,
-      inputs: { legs, movesDir, persona: planned, siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
+      suffix_validator_export: siteRetry.suffix_validator_export, mark_export: siteRetry.mark_export, leg_attempts: legAttempts,
+      inputs: { legs, movesDir, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
         planHead: renderRowHead({ id: "paragraph_plan_unit", ...row }) } },
   });
   return dir;
@@ -1085,14 +1113,15 @@ export function finishParagraphPlan(dir) {
   // Leg-schema fields, exactly as the validator passed them; the file is the record of the binding.
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
     waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
-    entries: units[i].candidate.waypoints.map((e) => Object.fromEntries(PLAN_SCHEMA_KEYS.filter((k) => Object.hasOwn(e, k)).map((k) => [k, e[k]]))),
+    entries: units[i].candidate.waypoints.map((e) => Object.fromEntries([...PLAN_SCHEMA_KEYS, "move_forced_by"].filter((k) => Object.hasOwn(e, k)).map((k) => [k, e[k]]))),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null),
     obligations: units[i].candidate.obligations || [],
     discharges: units[i].candidate.waypoints.map((e) => e.discharges || []) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);
   writeFileSync(planPath, paragraphPlanRecordText(record));
-  writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString() });
+  writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString(),
+    collisions: paragraphPlanCollisions(record.legs, readAxes().axes.map((a) => String(a.id))) });
   return { written: planPath };
 }
 

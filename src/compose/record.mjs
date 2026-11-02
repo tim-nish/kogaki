@@ -192,6 +192,17 @@ export function paragraphReaderStateMap(value) {
 export const oneLine = (s) => String(s).replace(/\s*\n\s*/g, " ").trim();
 const PLAN_INTRODUCES_KEYS = ["term", "meaning"];
 const PLAN_JOURNEY_KEYS = ["strand", "use", "meaning"];
+// kogaki#1649: a judge-forced mark is a non-empty list of axis ids, written by the site loop and never by a planner.
+const marked = (v) => Array.isArray(v) && v.length > 0;
+const FORCED_MARK_KEYS = ["forced_by", "move_forced_by"];
+function forcedMarkRefusal(v, at, key) {
+  if (v === undefined) return null;
+  return marked(v) && v.every((x) => typeof x === "string" && x.trim() !== "") ? null
+    : `${at} carries \`${key}\` that is not a non-empty list of axis ids (kogaki#1649)`;
+}
+const unmarked = (o) => (o && typeof o === "object" && !Array.isArray(o)
+  ? Object.fromEntries(Object.entries(o).filter(([k]) => !FORCED_MARK_KEYS.includes(k))) : o);
+
 export function paragraphPlanRecord({ briefPath, briefText, legs }) {
   const listAt = (lists, i) => (Array.isArray((lists || [])[i]) ? lists[i] : []);
   const strings = (v) => (Array.isArray(v) ? v.map((x) => oneLine(x)) : []);
@@ -207,6 +218,7 @@ export function paragraphPlanRecord({ briefPath, briefText, legs }) {
         const kept = listAt(l.discharges, i);
         const schema = {};
         if (typeof e.move === "string") schema.move = e.move;
+        if (marked(e.move_forced_by)) schema.move_forced_by = e.move_forced_by.map(String);
         if (Array.isArray(e.materials)) schema.materials = e.materials.map(String);
         if (typeof e.purpose === "string") schema.purpose = oneLine(e.purpose);
         const after = paragraphReaderStateMap(e.reader_state_after);
@@ -228,7 +240,8 @@ export function paragraphPlanRecord({ briefPath, briefText, legs }) {
           ...(typeof join === "string" ? { join: oneLine(join) } : {}),
           ...(kept.length ? { discharges: kept.map((d) => ({ obligation: d.obligation, by: d.by })) } : {}),
           paragraph_waypoints: pws.map((p) => ({ ...(Object.hasOwn(p, "performs")
-            ? { performs: oneLine(p.performs) } : { point: oneLine(p.point), serves: [...p.serves] }) })),
+            ? { performs: oneLine(p.performs) } : { point: oneLine(p.point), serves: [...p.serves] }),
+            ...(marked(p.forced_by) ? { forced_by: p.forced_by.map(String) } : {}) })),
         };
       }),
     })),
@@ -247,7 +260,7 @@ const PLAN_LEG_KEYS = ["leg_id", "obligations", "waypoints"];
 // paragraph reaching the Leg's after-state is a rule of the record, never a field.
 export const PLAN_SCHEMA_KEYS = ["move", "materials", "purpose", "reader_state_after", "depends_on", "rationale",
   "introduces", "re-activate", "journeys"];
-const PLAN_WAYPOINT_KEYS = ["waypoint", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints", "discharges"];
+const PLAN_WAYPOINT_KEYS = ["waypoint", ...PLAN_SCHEMA_KEYS, "move_forced_by", "join", "paragraph_waypoints", "discharges"];
 // THE BEFORE-STATE IS DERIVED (kogaki#1639), as a Leg's is (kogaki#1325): refused by name when written.
 export const DERIVED_PLAN_BEFORE_STATE = "`reader_state_before`, which a paragraph never writes — its before-state is derived: "
   + "the Leg's derived before-state for the first paragraph, the previous paragraph's `reader_state_after` for every "
@@ -498,7 +511,11 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, d
       if (schema) return schema;
       const badJoin = joinRefusal(w, j, atW);
       if (badJoin) return badJoin;
-      const bad = paragraphWaypointsRefusal(w.paragraph_waypoints, leg.waypoints[j].serves, atW);
+      const badMark = forcedMarkRefusal(w.move_forced_by, atW, "move_forced_by")
+        || (Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints : []).map((p, k) => forcedMarkRefusal(p && p.forced_by, `${atW}, Paragraph Waypoint ${k + 1}`, "forced_by")).find(Boolean);
+      if (badMark) return badMark;
+      const pws = Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints.map(unmarked) : w.paragraph_waypoints;
+      const bad = paragraphWaypointsRefusal(pws, leg.waypoints[j].serves, atW);
       if (bad) return bad;
       const count = Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints.length : 0;
       const owed = dischargesShapeRefusal(w.discharges, count, atW);
