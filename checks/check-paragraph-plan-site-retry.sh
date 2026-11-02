@@ -8,8 +8,8 @@
 #   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
 #   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
-#   (s7)-(s9) a `rationale` naming the repair, a rebind to the neighbour's Move, and a retry
-#   restating the refused points under a changed shape are each refused by name before the judge.
+#   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
+#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint.
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
@@ -306,9 +306,21 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
   if (r.of("judge").length !== 1) fails.push(`(s9) the judge was called ${r.of("judge").length} times for Leg s1, not once -- a restatement reaches no judge`);
 }
 
+// (s10) A REFUSAL OF THE BINDING HOLDS NO ENDPOINT; A REFUSAL OF THE POINTS HOLDS BOTH (kogaki#1647).
+for (const [axis, held] of [["PRECONDITION", false], ["POSTCONDITION", false], ["BREAKS", true]]) {
+  const r = run(`s10-${axis.toLowerCase()}`, `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
+export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n === 1 && w === 1);
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "${axis} fails at the paragraph's first point.";
+  return v; };`);
+  const fixed = r.of("site").length ? r.of("site")[0].input.fixed : undefined;
+  if (held ? !(fixed && fixed.move === "p1") : fixed !== null) {
+    fails.push(`(s10) the first site call after a ${axis} refusal is handed \`fixed\` ${JSON.stringify(fixed)}, ${held ? "not the refused entry's Move" : "not null"}`);
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move and after-state first; a repeat is refused before the judge; a moved after-state recomposes only the entries after it; a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651).");
+console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move and after-state first; a repeat is refused before the judge; a moved after-state recomposes only the entries after it; a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651); a PRECONDITION or POSTCONDITION refusal holds no endpoint on the first retry (kogaki#1647).");
 JS

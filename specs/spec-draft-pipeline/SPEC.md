@@ -2394,7 +2394,11 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
    read in order, they follow the Move's order as its Segments give it, or as
    its `technique` gives it where the Move carries no Segments; and whether
    they survive each test in the Move's `breaks`. A `does-not-fit` on any of
-   the four refuses the attempt.
+   the four refuses the attempt. The four are the judge's axes PRECONDITION,
+   POSTCONDITION, OWN STEP and BREAKS, each read against the paragraph's
+   entry state and `reader_state_after`, which ride on its entry in the
+   judge's input; the criteria table below names each beside its Leg
+   counterpart (kogaki#1647).
 
 **A refusal is repaired at the Leg Waypoint it names (kogaki#1642, owner
 decision 2026-10-31).** A Leg's refused record stands, and each refused Leg
@@ -2411,7 +2415,11 @@ by five rules:
    Paragraph Waypoints only; an answer changing either is refused naming the
    field. A later retry may rebind the Move or move the after-state, and when
    it does on a Leg Waypoint before the last, the entries after it are composed
-   again by one call that is handed the standing entries before them.
+   again by one call that is handed the standing entries before them. A
+   judge's refusal on PRECONDITION or POSTCONDITION refuses the binding
+   itself, so its first retry holds neither endpoint: `fixed` is null and the
+   retry may rebind; a BREAKS refusal is a refusal of the Paragraph Waypoints
+   and holds both, as every other refusal does (kogaki#1647).
 3. **An identical answer is refused before the judge.** A site answer that
    repeats a refused entry — after a judge's refusal, the same `move`,
    Paragraph Waypoints, after-state and join; after the validator's, the same
@@ -2442,6 +2450,41 @@ from the same Brief by running `/paragraph-plan` again; the Reader Path is not
 composed again. **A bound paragraph Move that does not fill a role the stage
 needs (`before`, `after`, `breaks`, and neither `segments` nor `technique`) is
 a fatal stop naming the Move and the role**, never a default.
+
+**The criteria table: the ParagraphPlan judge is the Leg judge one level down
+(kogaki#1647, owner decision 2026-11-02).** A paragraph owes its Move what a
+Leg owes its Move, with the paragraph-only axes on top, and every difference
+between the two judges is stated here with its reason. Strict unification is
+not the aim: the two judges tend toward consistency through this one table,
+and neither is generated from it. The Leg column names the item as
+`reader_path_fit_unit`'s judgment point lists it (`src/brief-workflow.json`);
+the Paragraph column names an axis of `src/paragraph-plan-axes.json` or a
+shared criterion of `src/paragraph-plan-workflow.json`. `binds` says which
+half of the row is load-bearing: `criterion` where any wording that keeps the
+criterion would do, `wording` where the present sentence is what was kept,
+by a bench run or by the shared-text rule (kogaki#1452).
+
+| criterion | standing | Leg | Paragraph | reason | binds |
+|---|---|---|---|---|---|
+| Precondition fit | shared | `the before-state criterion` | `PRECONDITION` | the entry state is derived the same way at both levels, the Leg's from the Leg before it and the paragraph's from the paragraph before it | criterion |
+| Postcondition specialization | shared | `the after-state specialization` | `POSTCONDITION` | a paragraph's `reader_state_after` is its Move's `after` made particular, as a Leg's is | criterion |
+| Segment order | shared | `the waypoints against the Move's order (its segments role)` | `OWN STEP` | tightened at the paragraph: a Paragraph Waypoint is one Segment, so it carries nothing a later Segment produces, where a Leg need not reproduce the Move element for element | wording |
+| Breaks | shared | `the waypoints against the tests role` | `BREAKS` | a test names a change to the points, and the points exist at both levels | criterion |
+| Operation performed | paragraph only | — | `operation_is_performed` | a Segment's operation is performed only where a Paragraph Waypoint is that Segment, and a Leg Waypoint is a point | wording |
+| Manner not content | paragraph only | — | `manner_is_not_content` | a manner realises one Segment, and only a Paragraph Waypoint realises one | wording |
+| Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their derived states | wording |
+| Term meaning | paragraph only | — | `TERM MEANING` | a meaning is given in a sentence, and the Paragraph Waypoint is the first unit that is one; a Leg carries the term and its meaning in `introduces`, which the validator counts | wording |
+| Promise kept | paragraph only | — | `PROMISE KEPT` | an Obligation is kept where its items are stated, which a paragraph does; the Leg opens the record, row Obligation slots | wording |
+| Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Paragraph Waypoint's field | wording |
+| Section heading | Leg only | `the heading against its Section's last after-state` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
+| Thesis attainment | Leg only | `the after-state against the Thesis` | — | the Thesis is attained at the Leg marked `reaches_target` (kogaki#1330), a Leg-level object | criterion |
+| Obligation slots | Leg only | `the rows against the slots` | — | a Move's deferred slot is filled by the records a Leg opens, a Leg-level object | criterion |
+
+`checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
+Paragraph cell is an axis or a shared criterion the judge row names, every
+Leg cell is an item of the Leg judge's list, and an axis, shared criterion or
+list item the table does not carry fails, naming it. The assertion is dropped
+with the table if the table is ever folded into the judge files themselves.
 
 **The Legs are independent (kogaki#1641, owner decision 2026-10-31).** A
 ParagraphPlan is designed for one Leg alone: Leg G1's ParagraphPlan is

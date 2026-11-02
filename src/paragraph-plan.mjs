@@ -309,8 +309,9 @@ export function axisSentenceRefusal(sentence) {
 }
 
 // A fixture record as the judge reads it: a judge input whole, or `from` another record
-// with its one `edit` applied -- a Paragraph Waypoint or a `join` replaced, or a Leg Waypoint's
-// `discharges` replaced, with the Brief rows the Leg owes set beside it where `owes` is given.
+// with its one `edit` applied -- a Paragraph Waypoint or a `join` replaced, a Leg Waypoint's
+// `discharges` replaced, with the Brief rows the Leg owes set beside it where `owes` is given,
+// an entry's `reader_state_after` replaced, or its bound Move's `before` (`move_before`).
 export function axisRecord(registry, name, seen = new Set()) {
   const r = (registry.records || {})[name];
   if (!r) throw new Error(`src/paragraph-plan-axes.json names the record "${name}", which \`records\` does not hold`);
@@ -318,9 +319,17 @@ export function axisRecord(registry, name, seen = new Set()) {
   if (r.input) return structuredClone(r.input);
   const input = axisRecord(registry, r.from, new Set([...seen, name]));
   const e = r.edit || {};
-  const w = input.leg_you_must_judge.waypoints[Number(e.waypoint) - 1];
+  const ws = input.leg_you_must_judge.waypoints;
+  const w = ws[Number(e.waypoint) - 1];
   if (!w) throw new Error(`record "${name}" edits Leg Waypoint ${e.waypoint}, which "${r.from}" does not carry`);
   if (Object.hasOwn(e, "join")) { w.join = e.join; return input; }
+  if (Object.hasOwn(e, "move_before")) { w.bound_move.before = e.move_before; return input; }
+  // A moved after-state is the next entry's before-state, as the planner derives it (kogaki#1647).
+  if (Object.hasOwn(e, "reader_state_after")) {
+    w.reader_state_after = e.reader_state_after;
+    if (ws[Number(e.waypoint)]) ws[Number(e.waypoint)].reader_state_before = e.reader_state_after;
+    return input;
+  }
   if (Object.hasOwn(e, "discharges")) {
     if (Object.hasOwn(e, "owes")) input.obligations_this_leg_owes = e.owes;
     w.discharges = e.discharges;
@@ -513,6 +522,8 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
         const c = boundMoveContract(e.move, inputs.movesDir);
         return { waypoint: n, point: w.point, next_point: w.next_point,
           ...(joinOnly.has(n) ? { judge_its_join_only: true } : {}),
+          reader_state_before: i === 0 ? leg.reader_state_before : record.waypoints[i - 1].reader_state_after,
+          reader_state_after: e.reader_state_after,
           bound_move: { before: c.before, after: c.after, segments: c.segments, breaks: c.breaks },
           ...(i > 0 ? { join: e.join } : {}),
           paragraph_waypoints: e.paragraph_waypoints,
@@ -676,10 +687,14 @@ export function repairProse(answer) {
 }
 
 // THE ENDPOINTS THE FIRST RETRY HOLDS: the refused entry's bound Move and after-state, where it
-// bound one; `null` on a later retry, or where the refused entry bound none.
+// bound one; `null` on a later retry, where the refused entry bound none, or where the judge
+// refused the binding itself, on an axis of `BINDING_AXES` (kogaki#1647).
+export const BINDING_AXES = ["PRECONDITION", "POSTCONDITION"];
+const BINDING_REFUSAL = new RegExp(`\\b(?:${BINDING_AXES.join("|")})\\b`);
 export function siteFixed(ctx) {
   const last = (ctx.history || [])[ctx.history.length - 1];
   const e = last && isMap(last.entry) ? last.entry : null;
+  if (last && last.by_judge && BINDING_REFUSAL.test(String(last.refusal))) return null;
   return ctx.retry === 1 && e && typeof e.move === "string" ? { move: e.move, reader_state_after: e.reader_state_after } : null;
 }
 
