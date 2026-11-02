@@ -8,5 +8,5 @@ policy_source:
 consumer: kogaki
 packages: [coding]
 common_words: []
-consult_text_max: 600
+consult_text_max: 2000
 receipt_exempt: [policy/kit/, .claude/]
