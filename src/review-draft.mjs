@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chosenJudged, findingEvidencePaths, evidenceLines } from "./review-draft/close.mjs";
+import { chosenJudged, findingEvidencePaths, evidenceLines, forcedParagraphLines } from "./review-draft/close.mjs";
 import { withReplyFile, draftLane, readJoin, figureItemIds, failingSides, correctionOwedProse, figureCorrectionOwed, seatsStillOwed, correctionEvidence, renderCorrectionBlock, driftOf, driftBlocks, correctionInputPath, correctFigure, passTwoBound } from "./review-draft/correction.mjs";
 import { readItems, declaredFor } from "./review-draft/declared-side.mjs";
 import { fail, sha256, argString, STDIN_LABEL, readReply, requireReply, readDraft, resolveInputs, checkJaTermsFreshness } from "./review-draft/draft-reader.mjs";
@@ -1147,6 +1147,7 @@ function cmdClose(args) {
     }
     lines.push("");
   }
+  lines.push(...forcedParagraphLines(run.legs, dirname(resolve(draftPath))));
 
   // A trailing newline, like every other write in this file: `review.md` is
   // repo-visible and committed, so without one it lands as a no-final-newline

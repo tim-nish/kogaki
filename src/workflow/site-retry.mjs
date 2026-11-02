@@ -31,8 +31,12 @@ export async function loadSiteRetry(declared) {
     return fn;
   });
   const inputs = declared.inputs || {};
+  // kogaki#1649: an optional `mark_export` marks the passing record with the judge refusals that forced it.
+  const mark = declared.mark_export ? mod[String(declared.mark_export)] : null;
+  if (declared.mark_export && typeof mark !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.mark_export)}.`);
   return {
     legAttempts,
+    mark: mark ? (record, history, unitId) => mark(record, history, inputs, unitId) : null,
     sitePrompt: (ctx, unitId) => sitePrompt(ctx, inputs, unitId),
     siteAccept: (answer, ctx, unitId) => siteAccept(answer, ctx, inputs, unitId) || {},
     suffixPrompt: (ctx, unitId) => suffixPrompt(ctx, inputs, unitId),
@@ -104,7 +108,7 @@ export class SiteLoop {
       const total = this.standing.waypoints.length;
       const judge = [];
       for (let n = 1; n <= total; n++) if (!this.verdicts.has(n)) judge.push(n);
-      if (!judge.length) return { done: this.standing };
+      if (!judge.length) return { done: this.h.mark ? this.h.mark(this.standing, this.history, this.unitId) : this.standing };
       const joinOnly = judge.map((n) => n + 1).filter((m) => m <= total && !judge.includes(m));
       this.call = { kind: "judge", scope: { judge, join_only: joinOnly } };
       return this.call;

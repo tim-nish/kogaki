@@ -39,6 +39,7 @@
       "site_validator_export": "validateParagraphPlanSite",
       "suffix_prompt_export": "paragraphPlanSuffixPrompt",
       "suffix_validator_export": "validateParagraphPlanSuffix",
+      "mark_export": "paragraphPlanForcedMark",
       "leg_attempts": {"setting": "paragraph_plan.leg_attempts"},
       "note": "THE RETRY IS SCOPED TO THE LEG WAYPOINT THE REFUSAL NAMED (kogaki#1642, owner decision 2026-10-31). A judge's `does-not-fit`, a `move: null` or a validator refusal naming one Leg Waypoint keeps the attempt's record as the Leg's standing record and asks `paragraph_plan_site_unit` for that one entry; the Leg Waypoints the judge passed are not composed again. The first site retry holds the refused entry's `move` and `reader_state_after`; a later one may move either, and then the entries after it are composed again by `paragraph_plan_unit` over the Leg Waypoints after it, from the new state. An answer repeating a refused entry at the site is refused before the judge. The judge is then asked for the changed entries and the join after them, its other verdicts carried. `brief.unit_attempts` is read per site, the Leg call's first attempt counting at every site, and `leg_attempts` bounds the site retries of one Leg. The supervisor runs the loop (src/workflow/site-retry.mjs) when a job declares it; the Brief's compose job declares none."
     }
