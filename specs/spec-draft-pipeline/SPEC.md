@@ -2489,6 +2489,23 @@ rules follow, and nothing crosses a Leg:
 > whether a meaning is given, never whether it matches the input's.
 > `checks/check-paragraph-plan.sh` (r) carries both.
 
+> **Status (kogaki#1648, owner decision 2026-11-02):** a Leg's `introduces`
+> is the reader-knowledge ledger, and the Brief's `defined_terms` selects the
+> coined subset of it. An `introduces` entry whose `term` `defined_terms`
+> classifies `defined` is coined; every other entry is a referent. Only the
+> coined subset is placed and judged. The plan call is handed
+> `terms_this_leg_coins` beside `terms_this_leg_introduces`, which keeps the
+> whole ledger. BIND binds, at the Leg Waypoint that first uses a coined
+> term, a Move carrying a Segment whose `operation` defines, names or grounds
+> a term. The validator refuses an entry that introduces a coined term under
+> a Move with no such Segment, naming the term and the Move. TERMS assigns
+> each coined term to exactly one entry and a referent to none: a referent is
+> handled by a Move's Segments, without a definition. The judge is handed
+> `terms_this_leg_coins` alone, and TERM MEANING reads "a term the Leg
+> coins". A referent still owes a `re-activate` line where a later paragraph
+> uses it. This narrows the kogaki#1497 status above, under which every
+> introduced term was placed and judged.
+
 > **Status (kogaki#1533, owner decision 2026-10-23):** the judge no longer
 > judges the four things above, the FIFTH, the SEVENTH, or any criterion
 > written here. Its criteria are the axes `src/paragraph-plan-axes.json`
@@ -2577,13 +2594,14 @@ kogaki#1325): the Leg's derived before-state for the first paragraph, the
 previous paragraph's `reader_state_after` for every later one; a written
 `reader_state_before` is refused by name. **The last paragraph's
 `reader_state_after` is the Leg's, line for line**, and **each term the Leg
-introduces is introduced by exactly one of its paragraphs**. Every read of the
+coins is introduced by exactly one of its paragraphs, and no term by two**
+(kogaki#1648). Every read of the
 file — the stage's own validator, `/draft`'s and the Proof Sheet's — refuses by
 name, naming the Leg and the Waypoint: a key outside the schema; a `move`
 naming no Move in a library the reader holds open (`/draft` opens no Move,
 kogaki#1311, so that one refusal is the validator's and the Proof Sheet's); a
-term the Leg does not introduce, or a Leg term introduced by no paragraph or
-by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
+term the Leg does not introduce, a coined term introduced by no paragraph, or
+a Leg term introduced by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
 later one or another Leg; a material outside the parent's `serves`; a last
 `reader_state_after` that is not the Leg's; a state out of the Leg's shape.
 The planner writes `reader_state_after` and is handed the before-state it

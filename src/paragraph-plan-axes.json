@@ -202,7 +202,7 @@
             }
           ]
         },
-        "terms_this_leg_introduces": [
+        "terms_this_leg_coins": [
           {
             "term": "security dilemma",
             "meaning": null
@@ -239,6 +239,20 @@
         "paragraph_waypoint": 1,
         "to": {
           "point": "The security dilemma splits into cases where the dilemma arises easily and cases where it does not.",
+          "serves": [
+            "L2"
+          ]
+        }
+      }
+    },
+    "referent-used-bare": {
+      "source": "constructed: Leg Waypoint 2's last Paragraph Waypoint uses `hegemon`, a word the Leg does not coin, with no meaning given (kogaki#1648)",
+      "from": "leg3-clean",
+      "edit": {
+        "waypoint": 2,
+        "paragraph_waypoint": 4,
+        "to": {
+          "point": "Two large powers sit where the dilemma arises easily, while the hegemon sits where the dilemma does not.",
           "serves": [
             "L2"
           ]
@@ -615,7 +629,7 @@
             }
           ]
         },
-        "terms_this_leg_introduces": [
+        "terms_this_leg_coins": [
           {
             "term": "attack-defence distinguishability",
             "meaning": "How clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all."
@@ -665,18 +679,19 @@
     },
     {
       "id": "TERM MEANING",
-      "sentence": "A term the Leg introduces is given its meaning on a Paragraph Waypoint of the Leg Waypoint that first uses it.",
+      "sentence": "A term the Leg coins is given its meaning on a Paragraph Waypoint of the Leg Waypoint that first uses it.",
       "fixtures": {
         "defect": [
           "term-not-given-meaning"
         ],
         "clean": [
-          "leg3-clean"
+          "leg3-clean",
+          "referent-used-bare"
         ]
       },
       "justified_by": {
-        "date": "2026-10-23",
-        "run": "runs/judge-bench/2026-10-23-all-5",
+        "date": "2026-11-02",
+        "run": "runs/judge-bench/2026-11-02-term-meaning-coins-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
