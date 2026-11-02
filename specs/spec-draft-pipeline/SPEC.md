@@ -2766,6 +2766,44 @@ Brief and rendering them for the writer, which broke the 2026-10-09 and
 2026-10-12 boundaries; this section is the carrier of the answer that replaced
 it.
 
+#### 4.19.1 The selection input record and the View (kogaki#1650)
+
+The owner decided on 2026-11-01 that ParagraphPlan is the Brief's Waypoints
+viewed from the Brief: what selection compared is stored in the run in a form
+a reader can address, and one command joins the Brief, the Move and the plan
+for each Leg Waypoint.
+
+**The input record.** Beside the job's units file, which keeps each Leg's
+rendered prompt as one string, the run directory holds one
+`paragraph-plan-input-<unit>.json` per Leg, `<unit>` being the Leg's unit id
+(`leg-1`, `leg-2`, ...). It carries `leg_id`, `unit`, `waypoints` and
+`site_calls`. Each `waypoints` row is one Leg Waypoint as the plan call was
+handed it: `waypoint`, `point`, `serves`, `next_point`, `entry_state`,
+`terms_this_leg_introduces` and `paragraph_moves_you_may_bind`, the last as
+Move ids. `entry_state` is the Leg's derived before-state on the first row and
+`null` on every later row, because the plan call writes that state itself.
+Each `site_calls` row is one site call, appended when the call is asked: the
+same fields for its Leg Waypoint, `entry_state` being the state the call was
+handed, plus `retry`, `refused_here`, `fixed` and `moves_rejected_here`. The
+prompt string is unchanged and carries the same values; the record is what a
+reader addresses. A Leg carried from a prior run carries that run's record.
+
+**The View.** `node src/paragraph-plan.mjs view --plan
+theses/<slug>/paragraph-plan.yaml [--run <dir>] [--moves-dir <dir>]` prints
+Markdown to stdout and writes nothing. For each Leg Waypoint, in order, it
+prints the Leg Waypoint's `point` from the Brief, the entry state, the bound
+Move's `before`, one table row per Segment (operation, relation, manner) with
+the Paragraph Waypoint that stands on it, the Move's `after`, and the plan's
+`reader_state_after`. With `--run` it adds each refusal the entry met in that
+run and the judge axes the refusal names, and reads the Move library the run's
+start record names. It reads the plan, the Brief the plan names, the Move
+library and, with `--run`, the run's job and start records. It refuses a plan
+whose Brief hash differs from the Brief's, with the refusal `/draft` gives,
+and a run made from a different Brief.
+
+The View is a rendering. No stage reads its output, and nothing it prints is
+written to any record.
+
 ## 5. The Brief's centre, and Obligations inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's

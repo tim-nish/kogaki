@@ -790,7 +790,9 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
 }
 
 export function paragraphPlanSitePrompt(ctx, inputs, unitId) {
-  return `${inputs.siteHead}${JSON.stringify(paragraphPlanSiteInput(ctx, inputs, unitId), null, 2)}`;
+  const input = paragraphPlanSiteInput(ctx, inputs, unitId);
+  if (inputs.runDir) appendSiteCallInput(inputs.runDir, unitId, siteCallInputRow(input, ctx, legForUnit(inputs, unitId)));
+  return `${inputs.siteHead}${JSON.stringify(input, null, 2)}`;
 }
 
 // THE SITE CALL'S ANSWER, READ BACK. Returns `{ error }`, a refusal at the site that spends its
@@ -896,6 +898,40 @@ export function validateParagraphPlanSuffix(answer, ctx, inputs, unitId) {
   const r = validateParagraphPlanUnit(merged, inputs, unitId);
   if (r.error) return { error: r.error };
   return { record: merged, changed: merged.waypoints.map((e, i) => i + 1).filter((m) => m >= ctx.from) };
+}
+
+// ---------------------------------------------------------------------------
+// THE SELECTION INPUT RECORD (kogaki#1650, owner decision 2026-11-01): one file per Leg in the
+// run directory, holding the values the plan call and each site call were handed, by Leg
+// Waypoint, so a reader addresses them without reading a prompt. The prompt string is unchanged.
+export const PARAGRAPH_PLAN_INPUT_PREFIX = "paragraph-plan-input-";
+export const paragraphPlanInputPath = (dir, unitId) => join(dir, `${PARAGRAPH_PLAN_INPUT_PREFIX}${unitId}.json`);
+const moveIdsOf = (moves) => moves.map((m) => m.id);
+
+// The plan call's rows: `entry_state` is the Leg's on the first and null on every later one,
+// whose before-state the plan call itself writes.
+export function planCallInputRows(input) {
+  const leg = input.leg_you_must_plan;
+  return leg.waypoints.map((w) => ({ waypoint: w.waypoint, point: w.point, serves: [...w.serves], next_point: w.next_point,
+    entry_state: w.waypoint === 1 ? leg.reader_state_before : null,
+    terms_this_leg_introduces: input.terms_this_leg_introduces,
+    paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind) }));
+}
+
+export function siteCallInputRow(input, ctx, leg) {
+  const w = input.leg_waypoint_you_must_plan;
+  return { waypoint: w.waypoint, retry: ctx.retry, point: w.point, serves: [...w.serves], next_point: w.next_point,
+    entry_state: w.reader_state_before, terms_this_leg_introduces: leg.introduces || [],
+    paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind),
+    refused_here: input.refused_here, fixed: input.fixed, moves_rejected_here: input.moves_rejected_here };
+}
+
+function appendSiteCallInput(dir, unitId, row) {
+  const path = paragraphPlanInputPath(dir, unitId);
+  let doc;
+  try { doc = JSON.parse(readFileSync(path, "utf8")); } catch { doc = { unit: unitId, waypoints: [], site_calls: [] }; }
+  doc.site_calls = [...(doc.site_calls || []), row];
+  writeJson(path, doc);
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,7 +1046,14 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     moves_dir: movesDir, legs,
     ...(carried.length ? { carried: carried.map((u) => ({ unit: u.id, leg_id: legs[Number(u.id.split("-")[1]) - 1].leg_id, from: u.carried_from })) } : {}),
   });
-  const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, paragraphPlanUnitInput(leg, library.moves, persona)) }))
+  const unitInputs = legs.map((leg) => paragraphPlanUnitInput(leg, library.moves, persona));
+  for (const [i, leg] of legs.entries()) {
+    const id = unitIdFor(i);
+    const prior = carriedIds.has(id) && latest ? paragraphPlanInputPath(latest, id) : null;
+    if (prior && existsSync(prior)) copyFileSync(prior, paragraphPlanInputPath(dir, id));
+    else writeJson(paragraphPlanInputPath(dir, id), { leg_id: leg.leg_id, unit: id, waypoints: planCallInputRows(unitInputs[i]), site_calls: [] });
+  }
+  const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, unitInputs[i]) }))
     .filter((u) => !carriedIds.has(u.id));
   const planned = { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) };
   startDetachedJobSupervisor(dir, {
@@ -1027,7 +1070,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     siteRetry: { module: siteRetry.module, site_prompt_export: siteRetry.site_prompt_export,
       site_validator_export: siteRetry.site_validator_export, suffix_prompt_export: siteRetry.suffix_prompt_export,
       suffix_validator_export: siteRetry.suffix_validator_export, mark_export: siteRetry.mark_export, leg_attempts: legAttempts,
-      inputs: { legs, movesDir, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
+      inputs: { legs, movesDir, runDir: dir, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
         planHead: renderRowHead({ id: "paragraph_plan_unit", ...row }) } },
   });
   return dir;
@@ -1125,6 +1168,98 @@ export function finishParagraphPlan(dir) {
   return { written: planPath };
 }
 
+// ---------------------------------------------------------------------------
+// THE VIEW (kogaki#1650): per Leg Waypoint, the Brief's point, the entry state, the bound Move's
+// before, Segments and after with each Paragraph Waypoint beside its Segment, and the plan's
+// after-state; with a run, the refusals the entry met and the axes they name. A rendering that
+// writes nothing; the plan is read through /draft's own reader, so a moved Brief is refused alike.
+const stateText = (v) => (v && typeof v === "object" && !Array.isArray(v)
+  ? Object.entries(v).map(([k, x]) => `${k}: ${oneLineText(x)}`).join("; ") : v == null ? "(none)" : oneLineText(v));
+const oneLineText = (v) => String(v).replace(/\s*\n\s*/g, " ").trim();
+const cell = (v) => oneLineText(v ?? "").replace(/\|/g, "\\|");
+const paragraphWaypointText = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `performs: ${p.performs}`
+  : `${p.point} (serves ${(p.serves || []).join(", ")})`);
+
+function viewRun(runDir, briefSha) {
+  let start;
+  try { start = JSON.parse(readFileSync(join(runDir, START_FILE), "utf8")); }
+  catch (e) { return { error: `the run at ${relFromRepo(runDir)} has no start record a reader can read (${e.message})` }; }
+  if (start.brief_sha256 !== briefSha) {
+    return { error: `the run at ${relFromRepo(runDir)} was made from a different Brief: its start record names sha256 `
+      + `${start.brief_sha256}, and the plan names sha256 ${briefSha}` };
+  }
+  const job = readReaderPathJob(runDir);
+  if (!job) return { error: `the run at ${relFromRepo(runDir)} has no job record` };
+  return { start, job };
+}
+
+// The refusals of one Leg's unit, each with the Leg Waypoints it names (none: the whole Leg)
+// and the judge axes it names. A refusal names its site as `Leg <id>, Waypoint <n>` or opens with
+// `Waypoint <n>:`; a bare `Leg Waypoint <n>` in its prose is a neighbour it cites, never its site.
+const REFUSAL_SITE = /(?:^|Leg [^,\s]+, )Waypoint (\d+)/g;
+export function legRefusals(job, unitId, axisIds) {
+  const u = (job.units || []).find((x) => x.id === unitId);
+  return ((u && u.refusals) || []).map((r) => String(r)).map((text) => ({ text: oneLineText(text),
+    waypoints: [...new Set([...text.matchAll(REFUSAL_SITE)].map((m) => Number(m[1])))],
+    axes: axisIds.filter((a) => new RegExp(`\\b${escapeRe(a)}\\b`).test(text)) }));
+}
+const refusalLine = (r) => `  - ${r.text} — axes: ${r.axes.length ? r.axes.join(", ") : "none named"}`;
+
+export function paragraphPlanView(planPath, { runDir = null, movesDir = null } = {}) {
+  let record;
+  try { record = parseYaml(readFileSync(planPath, "utf8"), planPath); }
+  catch (e) { return { error: `the ParagraphPlan file at ${planPath} cannot be read (${e.message})` }; }
+  const named = record && record.brief && record.brief.path;
+  if (typeof named !== "string" || named === "") return { error: `the ParagraphPlan file at ${planPath} names no Brief` };
+  const briefPath = resolve(REPO, named);
+  if (paragraphPlanPathFor(briefPath) !== resolve(planPath)) {
+    return { error: `the ParagraphPlan file at ${planPath} is not beside the Brief it names (${named})` };
+  }
+  const brief = readAdoptedBrief(briefPath);
+  if (brief.error) return { error: brief.error };
+  const plan = readParagraphPlanBeside(briefPath, brief.text, brief.legs);
+  if (plan.error) return { error: plan.error };
+  const run = runDir ? viewRun(runDir, plan.record.brief.sha256) : null;
+  if (run && run.error) return { error: run.error };
+  const dirOfMoves = movesDir || (run && run.start.moves_dir) || "moves";
+  const library = loadMoveContracts(dirOfMoves);
+  if (library.error) return { error: library.error };
+  const moves = new Map(library.moves.map((m) => [m.id, m]));
+  const axisIds = (readAxes().axes || []).map((a) => a.id);
+  const lines = [`# ParagraphPlan view: ${relFromRepo(resolve(planPath))}`, "",
+    `Brief: \`${plan.record.brief.path}\` (sha256 \`${plan.record.brief.sha256}\`). Move library: \`${dirOfMoves}\`. `
+    + `Run: ${run ? `\`${relFromRepo(resolve(runDir))}\`` : "none given"}.`];
+  for (const [li, leg] of brief.legs.entries()) {
+    const entries = plan.record.legs[li].waypoints;
+    const refusals = run ? legRefusals(run.job, unitIdFor(li), axisIds) : [];
+    lines.push("", `## Leg ${leg.leg_id}`);
+    const legWide = refusals.filter((r) => !r.waypoints.length);
+    if (legWide.length) lines.push("", "Refusals in this run naming no Leg Waypoint:", ...legWide.map(refusalLine));
+    for (const [i, w] of leg.waypoints.entries()) {
+      const e = entries[i];
+      const move = moves.get(e.move);
+      const segments = (move && move.segments) || [];
+      const pws = e.paragraph_waypoints || [];
+      lines.push("", `### Leg Waypoint ${i + 1}`, "", `- **Point:** ${oneLineText(w.point)}`,
+        `- **Entry state:** ${stateText(i === 0 ? leg.reader_state_before : entries[i - 1].reader_state_after)}`,
+        `- **Move:** \`${e.move}\`${move ? "" : ` — not in the Move library at ${dirOfMoves}`}`,
+        `- **Move before:** ${move ? stateText(move.before) : "(not read)"}`, "",
+        "| Segment | Operation | Relation | Manner | Paragraph Waypoint |", "|---|---|---|---|---|");
+      for (let k = 0; k < Math.max(segments.length, pws.length); k++) {
+        const g = segments[k] || {};
+        lines.push(`| ${k < segments.length ? k + 1 : "—"} | ${cell(g.operation)} | ${cell(g.relation)} | ${cell(g.manner)} | ${cell(paragraphWaypointText(pws[k]))} |`);
+      }
+      lines.push("", `- **Move after:** ${move ? stateText(move.after) : "(not read)"}`,
+        `- **reader_state_after:** ${stateText(e.reader_state_after)}`);
+      if (run) {
+        const met = refusals.filter((r) => r.waypoints.includes(i + 1));
+        lines.push(`- **Refusals in this run:** ${met.length ? "" : "none"}`, ...met.map(refusalLine));
+      }
+    }
+  }
+  return { lines };
+}
+
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
@@ -1185,6 +1320,18 @@ function parseArgs(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
+  if (args._cmd === "view") {
+    if (typeof args.plan !== "string" || args.plan === "") fail("view needs --plan <path to theses/<slug>/paragraph-plan.yaml>");
+    const v = paragraphPlanView(resolve(args.plan), { runDir: typeof args.run === "string" ? resolve(args.run) : null,
+      movesDir: typeof args["moves-dir"] === "string" ? args["moves-dir"] : null });
+    if (v.error) fail(v.error);
+    console.log(v.lines.join("\n"));
+  } else {
+    runStageCommand(args);
+  }
+}
+
+function runStageCommand(args) {
   const briefPath = typeof args.brief === "string" && args.brief !== "" ? args.brief
     : fail("this command needs --brief <path to theses/<slug>/brief.yaml>");
   switch (args._cmd) {
@@ -1212,6 +1359,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       break;
     }
     default:
-      fail("usage: node src/paragraph-plan.mjs start|status|await --brief <theses/<slug>/brief.yaml>");
+      fail("usage: node src/paragraph-plan.mjs start|status|await --brief <theses/<slug>/brief.yaml> | view --plan <theses/<slug>/paragraph-plan.yaml> [--run <dir>] [--moves-dir <dir>]");
   }
 }

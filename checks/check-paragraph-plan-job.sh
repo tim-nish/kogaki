@@ -31,7 +31,19 @@
 #   (d) `start` on a Brief whose content hash differs from the prior run's
 #       carries nothing and spawns every Leg; (d2) a prior run whose plan file
 #       was already written carries nothing either.
-#
+
+#   (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM
+#       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
+#       per Leg, one `waypoints` row per Leg Waypoint carrying `point`,
+#       `serves`, `next_point`, `entry_state`, `terms_this_leg_introduces` and
+#       the Move ids, each value also in that unit's prompt string; a site call
+#       appends a `site_calls` row carrying `refused_here`, `fixed` and
+#       `moves_rejected_here`; (c) carries the kept Legs' records; `view --plan`
+#       over the plan (c) wrote prints each Leg Waypoint's point, entry state,
+#       Move `before`, Segments table with the Paragraph Waypoint beside its
+#       Segment, Move `after` and `reader_state_after`; `--run` adds the
+#       refusals of (b) with the axis they name, each under the Leg Waypoint
+#       it names as its site; and an edited Brief is refused.
 
 # NOT COVERED, stated rather than implied: the retry inside a Leg -- which Leg
 # Waypoint is re-planned, and the refusal of an identical attempt -- is its own
@@ -68,7 +80,7 @@ const moves = join(root, "moves");
 mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
 writeFileSync(join(moves, "p1.yaml"), stringifyYaml({ id: "p1", description: "a fixture Move.",
-  before: { knowledge: "before." }, after: { knowledge: "after." },
+  before: { knowledge: "MOVE-BEFORE the reader holds the claim." }, after: { knowledge: "MOVE-AFTER the reader holds the point." },
   breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }] }));
 
 // ---- the Brief: three Legs, one Leg Waypoint each ----
@@ -111,7 +123,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const refuse = modes[leg.leg_id] === "refuse";
     out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint,
       verdict: refuse ? "does-not-fit" : "fits",
-      why: refuse ? "JUDGE-SENTENCE Waypoint 1 never reaches the after state." : "they begin at before and end at after." })) });
+      why: refuse ? "JUDGE-SENTENCE BREAKS Waypoint 1 never reaches the after state." : "they begin at before and end at after." })) });
   }
   // A site retry (kogaki#1642) answers with the refused entry, its Paragraph Waypoint rewritten.
   if (prompt.includes('"leg_waypoint_you_must_plan"')) {
@@ -250,6 +262,58 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   if (calls.length !== 6) fails.push(`(d2) a run after a written plan did not spawn every Leg: ${JSON.stringify(calls)}`);
   if ((r.job && r.job.units || []).some((u) => u.carried_from)) fails.push("(d2) a run after a written plan carried a Leg");
 }
+
+// (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM (kogaki#1650).
+const inputRecord = (dir, id) => { const p = join(dir, `paragraph-plan-input-${id}.json`); return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null; };
+if (refusedRun) {
+  const prompts = new Map(JSON.parse(readFileSync(join(refusedRun.runDir, "reader-path-job-units.json"), "utf8")).units.map((u) => [u.id, u.prompt]));
+  for (const [i, l] of legs.entries()) {
+    const id = `leg-${i + 1}`, rec = inputRecord(refusedRun.runDir, id), prompt = prompts.get(id) || "";
+    const row = rec && rec.waypoints && rec.waypoints[0];
+    if (!rec || rec.leg_id !== l.leg_id || rec.waypoints.length !== 1 || !row) { fails.push(`(e) ${id} has no input record of one Leg Waypoint row: ${JSON.stringify(rec)}`); continue; }
+    if (row.point !== l.waypoints[0].point || JSON.stringify(row.serves) !== '["L1"]' || row.next_point !== null) fails.push(`(e) ${id}'s row does not carry the Leg Waypoint's point, serves and next_point: ${JSON.stringify(row)}`);
+    if (typeof row.entry_state !== "string" || !row.entry_state || !Array.isArray(row.terms_this_leg_introduces)) fails.push(`(e) ${id}'s row lacks entry_state or terms_this_leg_introduces: ${JSON.stringify(row)}`);
+    if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
+    for (const v of [row.point, row.entry_state, ...row.serves, ...row.paragraph_moves_you_may_bind]) {
+      if (!prompt.includes(JSON.stringify(v))) fails.push(`(e) ${id}'s prompt string does not carry ${JSON.stringify(v)}`);
+    }
+  }
+  const sites = (inputRecord(refusedRun.runDir, "leg-2") || {}).site_calls || [];
+  const first = sites[0] || {};
+  if (!sites.length) fails.push("(e) the refused Leg's site calls appended no site_calls row");
+  else if (first.waypoint !== 1 || first.retry !== 1 || !first.refused_here || !first.refused_here.length || !Object.hasOwn(first, "fixed")
+    || !Array.isArray(first.moves_rejected_here) || typeof first.entry_state !== "string") fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
+  if (JSON.stringify((inputRecord(refusedRun.runDir, "leg-1") || {}).site_calls) !== "[]") fails.push("(e) a Leg with no site call does not carry an empty site_calls");
+}
+if (resumedRun && existsSync(resumedRun.planPath)) {
+  for (const id of ["leg-1", "leg-3"]) {
+    if (JSON.stringify(inputRecord(resumedRun.runDir, id)) !== JSON.stringify(inputRecord(refusedRun.runDir, id))) fails.push(`(e) the carried ${id} does not carry the earlier run's input record`);
+  }
+  const view = (...args) => spawnSync(process.execPath, [join(repo, "src", "paragraph-plan.mjs"), "view", "--plan", resumedRun.planPath, ...args],
+    { cwd: repo, encoding: "utf8", timeout: 60000 });
+  const v = view("--moves-dir", moves);
+  const out = v.stdout || "";
+  if (v.status !== 0) fails.push(`(e) view failed: ${(v.stderr || "").slice(0, 400)}`);
+  for (const l of legs) if (!out.includes(`## Leg ${l.leg_id}`) || !out.includes(l.waypoints[0].point)) fails.push(`(e) the view does not print Leg ${l.leg_id} with its point`);
+  const s2 = out.slice(out.indexOf("## Leg s2"), out.indexOf("## Leg s3"));
+  const want = ["- **Entry state:** knowledge: after s1.", "- **Move:** `p1`", "- **Move before:** knowledge: MOVE-BEFORE the reader holds the claim.",
+    "| 1 | states the point once, plainly. |  |  | PW-s2 the paragraph establishes its point. (serves L1) |",
+    "- **Move after:** knowledge: MOVE-AFTER the reader holds the point.", "- **reader_state_after:** knowledge: after s2."];
+  for (const w of want) if (!s2.includes(w)) fails.push(`(e) the view's Leg s2 lacks ${JSON.stringify(w)}: ${s2.slice(0, 900)}`);
+  if (s2.indexOf("Entry state") > s2.indexOf("Move before") || s2.indexOf("| 1 |") > s2.indexOf("Move after")) fails.push("(e) the view's lines are not in the stated order");
+  if (out.includes("Refusals in this run")) fails.push("(e) the view without --run printed refusals");
+  const r = view("--run", refusedRun.runDir);
+  const s2r = (r.stdout || "").slice((r.stdout || "").indexOf("## Leg s2"), (r.stdout || "").indexOf("## Leg s3"));
+  if (r.status !== 0 || !/JUDGE-SENTENCE BREAKS Waypoint 1[^\n]* — axes: BREAKS/.test(s2r)) fails.push(`(e) view --run does not add (b)'s refusal with its axis: ${(r.stderr || "") + s2r.slice(0, 900)}`);
+  if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a Leg Waypoint met no refusal");
+  const { legRefusals } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
+  const cited = legRefusals({ units: [{ id: "leg-1", refusals: [
+    "Waypoint 3: its 2 attempts are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Leg Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
+  if (JSON.stringify(cited.map((r) => r.waypoints)) !== "[[3]]") fails.push(`(e) a refusal citing its neighbour is attributed to it: ${JSON.stringify(cited)}`);
+  writeFileSync(resumedRun.briefPath, briefText("The fixture claim, edited after the plan."));
+  const moved = view("--moves-dir", moves);
+  if (moved.status === 0 || !/was made from a different Brief/.test(moved.stderr || "")) fails.push(`(e) view did not refuse a plan whose Brief moved: ${(moved.stderr || "") + (moved.stdout || "").slice(0, 300)}`);
+} else fails.push("(e) the view was not run: (c) wrote no plan");
 
 if (fails.length) { for (const f of fails) console.error(`FAIL ${f}`); process.exit(1); }
 console.log("check-paragraph-plan-job: ok");
