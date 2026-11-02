@@ -10,7 +10,6 @@ before:
   question: wants to know whether what held in that span still holds
   expectation: >-
     expects the next stretch to set a later state against the one just fixed
-  orientation: places this among ordinary popular accounts of current affairs
 after:
   knowledge: >-
     holds a contrast between two spans on both of those counts, and a

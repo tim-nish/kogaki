@@ -5,14 +5,11 @@ description: >-
   rule that holds everywhere.
 before:
   knowledge: >-
-    also holds a name for the response’s named form and the moment by which
-    that form has to act
-  question: >-
-    wants to know how the newly named response is held together in
-    practice
+    holds a stated pattern shown so far only in the sphere where it was first
+    stated
+  question: wants to know whether the pattern holds beyond that sphere
   expectation: >-
-    expects what follows to work out the newly named response, the
-    measure's mechanism having been stated, named and timed
+    expects the pattern either bounded to its sphere or shown beyond it
   orientation: >-
     places this text as relaying a long-standing doctrine rather than an
     author's own proposal
