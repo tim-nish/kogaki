@@ -4,11 +4,9 @@ description: >-
   makes good with one concrete instance: names it, works it to the point it
   makes plain, extends it to a second matter.
 before:
-  knowledge: >-
-    no specialised knowledge of the subject and no sense that it bears on
-    anything the reader already finds confusing
+  knowledge: no specialised knowledge of the subject
   question: nothing settled beyond whether the subject is worth their attention
-  expectation: expects a plain introduction that defines its terms before using them
+  expectation: no settled expectation of what the text will do first
   trust: neutral, with no reason yet to credit or doubt the author
 after:
   knowledge: >-

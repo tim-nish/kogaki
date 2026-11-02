@@ -4,9 +4,11 @@ description: >-
   outcome and the response that meets it, then shows the same pattern
   repeating across unlike settings.
 before:
-  knowledge: nothing on the subject beyond everyday impressions
+  knowledge: >-
+    holds a stated general outcome as the aim at issue and nothing of what it
+    depends on
   question: none in particular, beyond whether this concerns them at all
-  expectation: expects a general explanation opening with definitions
+  expectation: no settled expectation of how the aim is explained
   orientation: >-
     places this among introductory accounts written for non-specialists
   trust: neutral, with no reason to credit or doubt the author

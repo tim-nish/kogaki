@@ -4,9 +4,8 @@ description: >-
   consequence that would follow without it, so one claim arrives with its ground
   attached.
 before:
-  knowledge: >-
-    no specialist grounding in the subject; only everyday experience of it
-  question: no question held about the subject yet
+  knowledge: holds a stated large-scale aim and nothing of what it depends on
+  question: none yet about how the aim is secured
   expectation: no belief about what the text will do next
 after:
   knowledge: holds a single requirement and the outcome its absence would permit

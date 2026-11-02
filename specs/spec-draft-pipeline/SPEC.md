@@ -682,6 +682,13 @@ the Extractor's next attempt; over an admitted library,
 call and lists the unsupported rows, changing no record. Both states stay
 authored; neither is derived from the Segments.
 
+**A Precondition carries only what its own Segments read (kogaki#1653,
+owner decision 2026-11-02).** Every dimension `before` names is one the Move's
+first Segment presupposes, and a dimension the predecessor's Postcondition
+carries is not copied into `before` unless the Move's own Segments read it, so
+a chain is closed by each Move standing on its own Segments, never by
+re-admitting a removed or unadmitted predecessor.
+
 **The reader's question lives in `before`/`after`.** Its `question:` line
 states the question the reader holds (`holds: none` where the reader arrives
 with no live question), and `after`'s line states whether the Move settled

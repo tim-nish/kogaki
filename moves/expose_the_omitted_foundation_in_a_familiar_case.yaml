@@ -4,11 +4,10 @@ description: >-
   account, marks that account as ordinary, then names the obvious thing it omits
   and ranks that first.
 before:
-  knowledge: holds a question about the subject that the usual accounts leave unasked
-  question: wants to know what the promised underlying material consists of
-  expectation: >-
-    expects the following text to begin on the foundational material just
-    promised
+  knowledge: >-
+    holds the usual accounts of the subject and nothing of what they rest on
+  question: none settled about what underlies the usual accounts
+  expectation: expects the subject explained on its own terms
   trust: neutral, willing to be led
 after:
   knowledge: >-
@@ -21,7 +20,7 @@ after:
     expects the next stretch to carry the illustrative case back onto the actual
     subject
   trust: >-
-    raised: an abstract promise is made good on ground the reader can check
+    raised: an abstract claim is made good on ground the reader can check
     without expertise
 breaks:
   - >-

@@ -9,8 +9,6 @@ before:
   question: wants to know what these recurring instances do and fail to do
   expectation: >-
     expects what the instances so far have in common to be turned to account
-  orientation: >-
-    places this among books that explain the wider world to non-specialists
   trust: >-
     raised: a general claim was backed by a case the reader can check unaided
 after:
