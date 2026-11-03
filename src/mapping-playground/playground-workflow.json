@@ -89,5 +89,13 @@
     "refusal": "a key the record or the Leg does not declare, or a declared key missing; an `introduces`; not exactly one Leg; a Claim whose `proposition` is not its entry's `holds`; a `point` or a `reader_state_after` line carrying a word of `forbidden_words`, refused naming the word and the field; and the Proof Sheet's `validateLegPathUnit` over the Leg, imported, with each entry's `material` as the text its Claim and point are recovered from. Each refusal is put back into your next attempt verbatim.",
     "schema_file": "src/leg-schema.json",
     "governing": "src/brief-workflow.json, the `reader_path_unit` row; the Proof Sheet's `leg_path_unit` row; kogaki#1664"
+  },
+  "sme_map_roles": {
+    "id": "sme_map_roles",
+    "note": "The first Structure-Mapping Engine (kogaki#1665): one call reads the strand's claim into a RelationalStructure for the Persona. A second variant is a second row and a second Trial, never an edit of this one.",
+    "judgment_point": "read the claim in the input, `claim`, as a relation among Roles, with `rendering` as the Strand's served text the claim is read from. For each Role, name in one or two sentences, as its `context`, what a reader with the Persona in `persona` must come to hold, in the reader's own world, using no word of the claim that is not a function word. Name each relation among Roles as the claim states it, as its `holds`, again using no content word of the claim, with `between` naming the Roles it relates. Name the one relation among those relations the claim turns on, as `higher_order`, with `relates` naming the relations it relates and `holds` stating it in the same words of the reader's world. Answer the RelationalStructure record and nothing else.",
+    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `strand` -- the input's `strand`, verbatim; `roles` -- a non-empty list of `{ \"id\": <a short unique id>, \"context\": <one or two sentences> }`; `relations` -- a non-empty list of `{ \"id\": <a short unique id, no Role's>, \"between\": [<two or more Role ids>], \"holds\": <one sentence> }`; and `higher_order` -- `{ \"relates\": [<two or more relation ids>], \"holds\": <one sentence> }`.",
+    "refusal": "a key the record, a Role, a relation or `higher_order` does not declare, or a declared key missing; an id that is empty, repeated, or names nothing; a `strand` that is not the input's; and a `context` or `holds` carrying a content word of `claim`, refused naming the word and the field. The first refusal is put back into your next attempt verbatim with your answer; a second ends the Trial.",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The first SME; kogaki#1665"
   }
 }

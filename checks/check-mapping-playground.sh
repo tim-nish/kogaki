@@ -9,7 +9,10 @@
 #   (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
 #   (g) a run without `--structure` refuses naming the flag.
-#   (h) the composed `brief.yaml` carries one Leg with no `introduces` and an empty `defined_terms`.
+#   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant (kogaki#1665).
+#   (i) a Mapper answering a claim word twice stops the Trial at the SME stage, naming the word.
+#   (j) `--structure` with `--mapper` is refused naming both.
+#   (k) the composed `brief.yaml` carries one Leg with no `introduces` and an empty `defined_terms`.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -78,6 +81,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const input = () => JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
   const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
+  if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) {
+    return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "sme");
+  }
   if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
     return out({ version: "1", reader_start: ["knowledge: holds that a house has many rooms", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief");
   }
@@ -165,12 +171,54 @@ else {
     "(f) a stage carries no state or names a calls.jsonl that does not exist");
   ok(record.reading && readFileSync(join(repo, record.reading), "utf8") === `# Reading of Trial ${record.trial}\n`,
     "(f) reading.md is not empty under its header naming the Trial");
-  // (h) the composed Brief
+  // (k) the composed Brief
   const brief = record.brief ? parseYaml(readFileSync(join(repo, record.brief.path), "utf8"), "brief") : {};
   ok(Array.isArray(brief.reader_path) && brief.reader_path.length === 1 && !("introduces" in brief.reader_path[0])
     && Array.isArray(brief.defined_terms) && brief.defined_terms.length === 0,
-    "(h) brief.yaml does not carry one Leg with no introduces and an empty defined_terms");
+    "(k) brief.yaml does not carry one Leg with no introduces and an empty defined_terms");
 }
+
+// (h) the Mapper's valid answer becomes the Trial's structure, and the record names the variant
+const mapped = (crewContext) => ({ strand: CITE,
+  roles: [{ id: "crew", context: crewContext },
+    { id: "list", context: "The written list names the rooms the crew was told about at the door." },
+    { id: "room", context: "A room nobody wrote down stays dusty, even when it is next door." }],
+  relations: [{ id: "cleans", between: ["crew", "list"], holds: "The crew cleans each room the list names." },
+    { id: "missed", between: ["list", "room"], holds: "A room missing from the list is never reached." }],
+  higher_order: { relates: ["cleans", "missed"], holds: "Because the crew follows the list, what the list leaves out stays dusty." } });
+const mapperTrial = (name, answer, extra = []) => {
+  const dir = join(root, name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "answer.json"), JSON.stringify(answer));
+  const o = join(outDir, name);
+  const res = spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "run", "--strand", strand, "--mapper", "sme_map_roles", "--out", o, ...extra],
+    { encoding: "utf8", env: { ...env, SMP_FIXTURE_DIR: dir, SMP_MAPPER_ANSWER: join(dir, "answer.json") }, timeout: 600000 });
+  const rec = existsSync(join(o, "trial.json")) ? JSON.parse(readFileSync(join(o, "trial.json"), "utf8")) : null;
+  return { res, o, rec };
+};
+const h = mapperTrial("mapped", mapped("A cleaning crew arrives at a house with a written list of rooms."));
+ok(h.res.status === 0, `(h) the --mapper run exited ${h.res.status}: ${h.res.stdout}${h.res.stderr}`);
+ok(existsSync(join(h.o, "structure.yaml")), "(h) the --mapper run wrote no structure.yaml");
+ok(h.rec && h.rec.mapper && h.rec.mapper.variant === "sme_map_roles" && /^[0-9a-f]{64}$/.test(String(h.rec.mapper.prompt_sha256))
+  && existsSync(join(h.o, "sme", "job", "prompt.md")) && h.rec.mapper.prompt_sha256 === sha(join(h.o, "sme", "job", "prompt.md")),
+  `(h) trial.json's mapper does not carry the variant and its prompt's sha256: ${JSON.stringify(h.rec && h.rec.mapper)}`);
+ok(h.rec && h.rec.structure && h.rec.structure.author === "sme" && existsSync(join(h.o, "structure.yaml")) && h.rec.structure.sha256 === sha(join(h.o, "structure.yaml")),
+  `(h) trial.json's structure is not the mapped file with author: sme: ${JSON.stringify(h.rec && h.rec.structure)}`);
+ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:done,brief:done,paragraph-plan:done,draft:done",
+  `(h) the --mapper run's stages are not all done: ${JSON.stringify(h.rec && h.rec.stages.map((x) => [x.stage, x.state, x.stopped]))}`);
+
+// (i) an answer carrying a claim word, twice, stops the Trial at the SME stage naming the word
+const i = mapperTrial("mapped-bad", mapped("A cleaning crew arrives with a rule about which rooms to clean."));
+const iAtt = existsSync(join(i.o, "sme", "job", "attempts.json")) ? JSON.parse(readFileSync(join(i.o, "sme", "job", "attempts.json"), "utf8")) : {};
+ok(i.res.status !== 0 && i.rec && /^sme: /.test(String(i.rec.stopped)) && String(i.rec.stopped).includes('roles[0].context carries "rule"')
+  && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:stopped,brief:not run,paragraph-plan:not run,draft:not run"
+  && iAtt.attempts === 2 && !existsSync(join(i.o, "structure.yaml")),
+  `(i) the Mapper answering "rule" twice did not stop the Trial at the SME stage naming the word: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
+
+// (j) --structure with --mapper is refused naming both
+const jOut = join(outDir, "both");
+const j = trial(["--strand", strand, "--structure", structure, "--mapper", "sme_map_roles", "--out", jOut]);
+ok(j.status !== 0 && j.stderr.includes("`--structure` and `--mapper`") && !existsSync(jOut), `(j) --structure with --mapper was not refused naming both: ${j.status} ${j.stderr}`);
 
 // (b) a structure carrying a claim word is refused naming it and the field, before anything is written
 const bOut = join(outDir, "bad");

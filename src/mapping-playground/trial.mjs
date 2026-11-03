@@ -23,19 +23,21 @@ import { EXTRACTION_TABLE, awaitJob, lastRefusal, writeJson } from "../proof-she
 import { derivedRow, readerStartUnitInput, readerStartText, completedLeg } from "../proof-sheet/leg-brief.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
-import { parseYaml } from "../yaml.mjs";
+import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseStrandFile, validateStructure, structureClaims } from "./structure.mjs";
+import { mapperRow, mapperInput, MAPPER_ATTEMPTS } from "./sme.mjs";
 
 export const PLAYGROUND_TABLE = "src/mapping-playground/playground-workflow.json";
 export const TRIALS_DIR = join("runs", "mapping-playground");
 export const TRIAL_FILE = "trial.json";
 export const READING_FILE = "reading.md";
+export const STRUCTURE_FILE = "structure.yaml";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 export const CONSTANT_COMMENT = "# TRIAL CONSTANT (kogaki#1664): not composed — the parser requires it.";
 const PLAN_AWAIT_S = 60;
 const PLAN_AWAITS_MAX = 60;
-const USAGE = "usage: node src/mapping-playground/trial.mjs run --strand <file> --structure <file> --out <dir under runs/mapping-playground/> "
-  + "[--audience <audiences/<name>.md>] [--library <dir>]";
+const USAGE = "usage: node src/mapping-playground/trial.mjs run --strand <file> (--structure <file> | --mapper <sme_map_<variant>>) "
+  + "--out <dir under runs/mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
   process.stderr.write(`trial: ${msg}\n`);
@@ -47,11 +49,16 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 
 // The strand file and the structure, read and validated; a refusal ends the process before
 // anything is written.
-function readInputs(strandFile, structureFile) {
+function readStrand(strandFile) {
   let strandText;
   try { strandText = readFileSync(strandFile, "utf8"); } catch (e) { fail(`the strand file cannot be read (${e.message}). Nothing was started.`); }
   const strand = parseStrandFile(strandText);
   if (strand.error) fail(`${strand.error}. Nothing was started.`);
+  return strand;
+}
+
+function readInputs(strandFile, structureFile) {
+  const strand = readStrand(strandFile);
   let structure;
   try { structure = parseYaml(readFileSync(structureFile, "utf8"), structureFile); }
   catch (e) { fail(`the structure cannot be read (${e.message}). Nothing was started.`); }
@@ -109,6 +116,40 @@ function trialBriefText({ slug, composePath, claims, readerStart, leg, thesis })
   }).join("\n");
 }
 
+function judgeBounds(extraction) {
+  return {
+    command: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || extraction.judge.command), process.env.PATH).path,
+    model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
+    callLimitS: positiveSetting(extraction.job, "call_limit_s"), unitAttempts: positiveSetting(extraction.job, "unit_attempts"),
+    stallS: Number(extraction.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: jobHeartbeatMs(extraction.job.heartbeat_ms),
+  };
+}
+
+function audienceOf(audience) {
+  const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
+  const persona = readerPersona(audiencePath);
+  if (persona.error) fail(persona.error);
+  return { audiencePath, persona };
+}
+
+// THE MAPPER (kogaki#1665): the variant's row, one job under the one-retry bound, its answer
+// written as the Trial's structure file.
+export function mapStructure({ strandFile, mapper, out, structureOut, audience }) {
+  const strand = readStrand(strandFile);
+  const playground = JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
+  const m = mapperRow(playground, mapper);
+  if (m.error) fail(`${m.error}. Nothing was started.`);
+  const { persona } = audienceOf(audience);
+  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const dir = resolve(out);
+  const r = runRow({ dir, unitId: "map", row: m.row, recordArray: "roles", input: mapperInput(strand, persona),
+    validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, claim: strand.claim } },
+    bounds: { ...judgeBounds(extraction), unitAttempts: MAPPER_ATTEMPTS } });
+  if (r.stopped) return { stopped: r.stopped.replace("the Trial's Brief stopped", "the Mapper stopped") };
+  writeFileSync(resolve(structureOut), stringifyYaml(r.record));
+  return { structure: resolve(structureOut), prompt: join(dir, "prompt.md") };
+}
+
 export function composeTrialBrief({ strandFile, structureFile, out, slug, audience }) {
   const { strand, structure } = readInputs(strandFile, structureFile);
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
@@ -117,20 +158,13 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
   if (rs.error) fail(`${rs.error}. Nothing was started.`);
   const lr = derivedRow(playground, "smp_leg_unit", PLAYGROUND_TABLE);
   if (lr.error) fail(`${lr.error}. Nothing was started.`);
-  const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
-  const persona = readerPersona(audiencePath);
-  if (persona.error) fail(persona.error);
+  const { audiencePath, persona } = audienceOf(audience);
   const lang = audienceLanguage(audiencePath);
   if (lang.error) fail(`${lang.error} Nothing was started.`);
   const outDir = resolve(out);
   const briefPath = join(outDir, "brief.yaml");
   if (existsSync(briefPath)) fail(`a Brief already exists at ${briefPath}, and nothing was written over it. Nothing was started.`);
-  const bounds = {
-    command: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || extraction.judge.command), process.env.PATH).path,
-    model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
-    callLimitS: positiveSetting(extraction.job, "call_limit_s"), unitAttempts: positiveSetting(extraction.job, "unit_attempts"),
-    stallS: Number(extraction.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: jobHeartbeatMs(extraction.job.heartbeat_ms),
-  };
+  const bounds = judgeBounds(extraction);
   mkdirSync(outDir, { recursive: true });
   const { roles, relations, higher_order } = structure;
   const r1 = runRow({ dir: join(outDir, "reader-start"), unitId: "reader-start", row: rs.row, recordArray: "reader_start",
@@ -174,13 +208,19 @@ function trialSlug(out) {
   return basename(out).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "trial";
 }
 
-export function runTrial({ strand: strandFile, structure: structureFile, out, audience = null, library = null }) {
+export function runTrial({ strand: strandFile, structure: givenStructure = null, mapper = null, out, audience = null, library = null }) {
   const outDir = resolve(out);
   const trials = resolve(REPO, TRIALS_DIR);
   const rel = relative(trials, outDir);
   if (rel === "" || rel.startsWith("..") || rel.startsWith(sep)) fail(`--out ${out} is not a directory under ${TRIALS_DIR}/. Nothing was started.`);
   if (existsSync(join(outDir, TRIAL_FILE))) fail(`a Trial already exists at ${outDir}, and nothing was written over it. Nothing was started.`);
-  const { strand } = readInputs(strandFile, structureFile);
+  let strand;
+  if (mapper) {
+    strand = readStrand(strandFile);
+    const m = mapperRow(JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8")), mapper);
+    if (m.error) fail(`${m.error}. Nothing was started.`);
+  } else ({ strand } = readInputs(strandFile, givenStructure));
+  const structureFile = mapper ? join(outDir, STRUCTURE_FILE) : resolve(givenStructure);
   const audiencePath = audience || String(settingValue({ setting: "brief.audience_file" }));
   const libraryDir = resolve(REPO, library || "moves");
   if (!existsSync(libraryDir)) fail(`the library ${libraryDir} does not exist. Nothing was started.`);
@@ -193,8 +233,9 @@ export function runTrial({ strand: strandFile, structure: structureFile, out, au
   const record = {
     trial: slug,
     strand: { cite: strand.cite, path: relFromRepo(resolve(strandFile)), sha256: sha256(strandFile) },
-    structure: { path: relFromRepo(resolve(structureFile)), sha256: sha256(structureFile), author: "owner" },
-    mapper: "owner-authored",
+    structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "sme" }
+      : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
+    mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     audience: audiencePath,
     library: relFromRepo(libraryDir),
     model_command: realPath,
@@ -218,10 +259,22 @@ export function runTrial({ strand: strandFile, structure: structureFile, out, au
     return r;
   };
   save();
+  if (mapper) {
+    stage("sme", (d, env, log) => {
+      const job = join(d, "job");
+      const c = runCommand(d, "map", [process.execPath, "src/mapping-playground/trial.mjs", "map", "--strand", resolve(strandFile),
+        "--mapper", mapper, "--out", job, "--structure-out", structureFile, "--audience", audiencePath], env, log);
+      const prompt = join(job, "prompt.md");
+      if (existsSync(prompt)) record.mapper.prompt_sha256 = sha256(prompt);
+      if (c.exit !== 0 || !existsSync(structureFile)) return { stopped: stopLine(c) };
+      record.structure.sha256 = sha256(structureFile);
+      return {};
+    });
+  }
   const briefPath = join(outDir, "brief", "brief.yaml");
   stage("brief", (d, env, log) => {
     const c = runCommand(d, "compose", [process.execPath, "src/mapping-playground/trial.mjs", "compose", "--strand", resolve(strandFile),
-      "--structure", resolve(structureFile), "--out", d, "--slug", slug, "--audience", audiencePath], env, log);
+      "--structure", structureFile, "--out", d, "--slug", slug, "--audience", audiencePath], env, log);
     return c.exit === 0 && existsSync(briefPath) ? {} : { stopped: stopLine(c) };
   });
   const planPath = join(outDir, "brief", "paragraph-plan.yaml");
@@ -278,10 +331,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   const need = (keys) => { for (const k of keys) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`); };
   if (args._cmd === "run") {
-    need(["strand", "structure", "out"]);
-    const r = runTrial({ strand: str("strand"), structure: str("structure"), out: str("out"), audience: str("audience"), library: str("library") });
+    if (str("structure") && str("mapper")) fail(`\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`);
+    need(["strand", ...(str("mapper") ? [] : ["structure"]), "out"]);
+    const r = runTrial({ strand: str("strand"), structure: str("structure"), mapper: str("mapper"), out: str("out"),
+      audience: str("audience"), library: str("library") });
     console.log(`trial directory: ${r.outDir}`);
     if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
+  } else if (args._cmd === "map") {
+    need(["strand", "mapper", "out", "structure-out", "audience"]);
+    const r = mapStructure({ strandFile: str("strand"), mapper: str("mapper"), out: str("out"), structureOut: str("structure-out"), audience: str("audience") });
+    if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
+    else console.log(`structure written: ${r.structure}`);
   } else if (args._cmd === "compose") {
     need(["strand", "structure", "out", "slug", "audience"]);
     const r = composeTrialBrief({ strandFile: str("strand"), structureFile: str("structure"), out: str("out"), slug: str("slug"), audience: str("audience") });

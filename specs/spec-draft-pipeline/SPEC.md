@@ -2894,6 +2894,38 @@ there, and the record shows the stop.
 result. A criterion of correctness is derived from those readings later, and
 no score is kept until then.
 
+#### 4.20.1 The first SME (kogaki#1665)
+
+**What it is.** The first Structure-Mapping Engine that is not the owner is
+one model call. A Trial runs it with `--mapper <variant>` in place of
+`--structure`: `node src/mapping-playground/trial.mjs run --strand <file>
+--mapper sme_map_roles --out <dir>`. Giving both flags is refused, naming
+both. The Mapper's answer is written as `<out>/structure.yaml`, and the
+stages above run over it unchanged.
+
+**The judgment point.** The `sme_map_roles` row reads the strand file's
+`claim:` and rendering and the Persona's prior-knowledge line. It reads the
+claim as a relation among Roles. For each Role it names, in one or two
+sentences, what a reader with this Persona must come to hold, in the reader's
+own world, using no word of the claim that is not a function word. It names
+each relation among Roles as the claim states it, and the one relation among
+relations the claim turns on. It answers the RelationalStructure record and
+nothing else.
+
+**The one-retry bound.** The Playground's structure validator runs over the
+answer. A first refusal is put back verbatim with the answer for one retry. A
+second refusal stops the Trial at the `sme` stage, and `trial.json` carries
+the refusal.
+
+**What the record says.** `trial.json` carries `mapper: { variant,
+prompt_sha256 }`, the hash of the rendered prompt, and `structure.author:
+sme`. The owner-authored route keeps `mapper: owner-authored`.
+
+**A variant is a workflow row.** A variant is a row `sme_map_<variant>` of
+`src/mapping-playground/playground-workflow.json`. A second variant is a
+second row and a second Trial, never an edit of the first. Comparing two
+variants is the owner's reading of two Trials.
+
 ## 5. The Brief's centre, and Obligations inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
