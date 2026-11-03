@@ -2587,8 +2587,9 @@ rules follow, and nothing crosses a Leg:
 > and one responsibility each, an axis kept only where an ablation bench run
 > (`src/proof-sheet/judge-bench.mjs`) shows its defect fixture refused with
 > it and rarely without it, and its clean fixture passed, at the rates the
-> file's `retention` names. Two axes are kept:
-> PERFORMS IS BARE and TERM MEANING. The two countable rules are refusals of
+> file's `retention` names. Two axes were kept then:
+> PERFORMS IS BARE and TERM MEANING, the second retired by kogaki#1663. The
+> two countable rules are refusals of
 > the plan-record validator (`src/paragraph-plan.mjs`), not of the judge: the
 > Paragraph Waypoint count equals the bound Move's Segment count, and every
 > entry carries exactly one of `performs` and `point`.
