@@ -595,17 +595,17 @@ if (!r.error) {
 {
   const block = waypointLines({ claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
     waypoints: [{ point: "The Leg Waypoint's point.", serves: ["L1"], paragraph_waypoints: [
-      { point: "The forced point.", serves: ["L1"], forced_by: ["TERM MEANING"] },
+      { point: "The forced point.", serves: ["L1"], forced_by: ["PERFORMS IS BARE"] },
       { point: "The unforced point.", serves: ["L1"] }] }] });
   const lines = block.split("\n");
   const at = lines.findIndex((l) => l.includes("The forced point."));
-  if (at === -1 || lines[at + 1] !== `      ${forcedMarkLine(["TERM MEANING"])}`) {
+  if (at === -1 || lines[at + 1] !== `      ${forcedMarkLine(["PERFORMS IS BARE"])}`) {
     fails.push(`(k) the forced Paragraph Waypoint is not followed by its mark line: ${JSON.stringify(lines)}`);
   }
   if (lines.filter((l) => l.includes("forced by")).length !== 1) fails.push(`(k) not exactly one mark line in the block: ${JSON.stringify(lines)}`);
   if (/forced/i.test(template)) fails.push("(k) the Packet template mentions the mark; the Writer's instructions carry nothing of it");
-  if (JSON.stringify(forcedMarksOf(block)) !== JSON.stringify([{ waypoint: 1, axes: ["TERM MEANING"] }])) {
-    fails.push(`(k) the mark does not read back as Leg Waypoint 1 forced by TERM MEANING: ${JSON.stringify(forcedMarksOf(block))}`);
+  if (JSON.stringify(forcedMarksOf(block)) !== JSON.stringify([{ waypoint: 1, axes: ["PERFORMS IS BARE"] }])) {
+    fails.push(`(k) the mark does not read back as Leg Waypoint 1 forced by PERFORMS IS BARE: ${JSON.stringify(forcedMarksOf(block))}`);
   }
 }
 

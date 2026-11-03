@@ -302,9 +302,7 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
   let record;
   try { record = parseYaml(readFileSync(path, "utf8"), rel); }
   catch (e) { return { error: `the ParagraphPlan file ${rel} is not a YAML record this reader can read: ${e.message}` }; }
-  let briefRecord = null;
-  try { briefRecord = parseYaml(briefText, briefRel); } catch { briefRecord = null; }
-  const r = paragraphPlanShapeRefusal(record, rel, legs, { definedTerms: briefRecord && briefRecord.defined_terms });
+  const r = paragraphPlanShapeRefusal(record, rel, legs);
   if (r) return { error: r };
   const want = sha256(briefText);
   if (record.brief.sha256 !== want) {
@@ -328,19 +326,6 @@ export function legIntroducedTerms(leg) {
     const p = parseIntroducesEntry(raw);
     return p.error ? "" : p.term;
   }).filter(Boolean);
-}
-
-// THE COINED SUBSET OF A LEG'S LEDGER (kogaki#1648): an `introduces` term the Brief's
-// `defined_terms` classifies `defined` is coined, and every other term is a referent. `defined`
-// is the Brief's `defined_terms` list; a planned Leg carries its coined terms as `coins` already.
-export function definedTermSet(defined) {
-  return new Set((Array.isArray(defined) ? defined : []).filter((d) => d && d.class === "defined" && typeof d.term === "string")
-    .map((d) => d.term.trim().toLowerCase()));
-}
-export function legCoinedTerms(leg, defined = null) {
-  if (leg && Array.isArray(leg.coins)) return leg.coins.map((t) => String(t.term).trim());
-  const set = definedTermSet(defined);
-  return legIntroducedTerms(leg).filter((t) => set.has(t.toLowerCase()));
 }
 
 // A reader state in canonical line form, from a line-form string or a dimension map, for
@@ -441,18 +426,16 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at, { library = null 
   return null;
 }
 
-// THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639): each term the Leg coins is introduced by
-// exactly one paragraph and no term by two (kogaki#1648), and the last paragraph's
-// `reader_state_after` is the Leg's, line for line. `entries` are the Leg's entries, each already
-// passed `paragraphSchemaRefusal`; `defined` is the Brief's `defined_terms`, where the Leg is not
-// a planned one carrying `coins`. Returns a string to refuse with, or null.
-export function paragraphLegRefusal(entries, leg, at, defined = null) {
-  const coined = new Set(legCoinedTerms(leg, defined));
+// THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639): no term of the Leg's `introduces` is
+// introduced by two paragraphs (kogaki#1663), and the last paragraph's `reader_state_after` is
+// the Leg's, line for line. `entries` are the Leg's entries, each already passed
+// `paragraphSchemaRefusal`. Returns a string to refuse with, or null.
+export function paragraphLegRefusal(entries, leg, at) {
   for (const term of legIntroducedTerms(leg)) {
     const by = entries.map((e, i) => ((e.introduces || []).some((t) => t && String(t.term).trim() === term) ? i + 1 : 0)).filter(Boolean);
-    if (by.length > 1 || (by.length === 0 && coined.has(term))) {
-      return `${at}: the term ${JSON.stringify(term)} of the Leg's \`introduces\` is introduced by ${by.length ? `paragraphs ${by.join(" and ")}` : "no paragraph"} — `
-        + "each term the Leg coins is introduced by exactly one of its paragraphs, named in that paragraph's `introduces`, and no term by two (kogaki#1639, kogaki#1648)";
+    if (by.length > 1) {
+      return `${at}: the term ${JSON.stringify(term)} of the Leg's \`introduces\` is introduced by paragraphs ${by.join(" and ")} — `
+        + "a term of the Leg is introduced by at most one of its paragraphs, named in that paragraph's `introduces` (kogaki#1639, kogaki#1663)";
     }
   }
   const last = entries[entries.length - 1];
@@ -473,7 +456,7 @@ export function paragraphLegRefusal(entries, leg, at, defined = null) {
 // own rule, over the parent's Claims — and carrying `point` and `serves` alone. A key
 // outside those is refused by name: the file holds the bound Move's id and nothing else of
 // the Move (kogaki#1639). `library`, where given, is the Set of Move ids a `move` may name.
-export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, definedTerms = null } = {}) {
+export function paragraphPlanShapeRefusal(record, rel, legs, { library = null } = {}) {
   if (!record || typeof record !== "object" || Array.isArray(record)) return `the ParagraphPlan file ${rel} is not a YAML map`;
   const k0 = undeclaredKey(record, PLAN_KEYS);
   if (k0) return `the ParagraphPlan file ${rel} carries \`${k0}\`, which a ParagraphPlan record does not declare (kogaki#1375)`;
@@ -521,7 +504,7 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, d
       const owed = dischargesShapeRefusal(w.discharges, count, atW);
       if (owed) return owed;
     }
-    const legRule = paragraphLegRefusal(l.waypoints, leg, at, definedTerms);
+    const legRule = paragraphLegRefusal(l.waypoints, leg, at);
     if (legRule) return legRule;
     const rows = paragraphObligationsRefusal(l.obligations, l.waypoints.length, at);
     if (rows) return rows;
