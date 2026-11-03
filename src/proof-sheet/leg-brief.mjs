@@ -130,9 +130,10 @@ export function applySubstitutions(text, substitutions, at) {
 }
 
 // The row as `judgePrompt` renders it: the table's own entry, its `judgment_point` derived.
-export function derivedRow(table, key) {
+// `tableFile` names the table in a refusal; the Structure-Mapping Playground passes its own (kogaki#1664).
+export function derivedRow(table, key, tableFile = "src/proof-sheet/extraction-workflow.json") {
   const row = table[key];
-  const at = `src/proof-sheet/extraction-workflow.json's \`${key}\``;
+  const at = `${tableFile}'s \`${key}\``;
   if (!row || !row.copy_of) return { error: `${at} is not declared, or names no production row it copies` };
   const src = sourceRow(row.copy_of, at);
   if (src.error) return src;

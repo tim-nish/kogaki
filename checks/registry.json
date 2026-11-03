@@ -638,6 +638,26 @@
       }
     },
     {
+      "id": "mapping-playground",
+      "file": "checks/check-mapping-playground.sh",
+      "covers": [
+        "src/mapping-playground/trial.mjs",
+        "src/mapping-playground/structure.mjs",
+        "src/mapping-playground/playground-workflow.json"
+      ],
+      "admission": {
+        "contract": "One command runs a Trial of the Structure-Mapping Playground: a strand file and an owner-authored RelationalStructure, through a one-Leg Brief, the unchanged `/paragraph-plan` and `/draft`, to a Trial record (kogaki#1664, owner rulings 2026-11-03 and 2026-11-04). Driven end to end through `node src/mapping-playground/trial.mjs run` with one fake model binary answering every stage: (a) the run exits 0 with every stage `done`, and each stage's `calls.jsonl` holds the calls the binary saw; (b) a structure whose `context` carries a content word of the `claim:` is refused naming the word and the field, with no Trial written; (c) a Leg Waypoint `point` carrying such a word refuses that Leg attempt naming the word; (d) the Writer's recorded stdin is the Packet byte for byte; (e) nothing under the repository's `moves/` or `theses/` changes; (f) `trial.json` carries the strand's cite and sha256, the structure's path, sha256 and `author: owner`, `mapper: owner-authored`, the Brief, plan and Draft files with their sha256, each stage's state and calls file, and `reading.md`, empty under its header; (g) a run without `--structure` is refused naming the flag; (h) the composed Brief carries one Leg with no `introduces` and an empty `defined_terms`.",
+        "license": "kogaki#1664",
+        "tier": "pre-push",
+        "runtime_ms": 2400,
+        "runtime_ms_note": "MEASURED AT AUTHORING (kogaki#1664, 2026-11-04): two plain serial runs of the file, 1840 and 1900 ms; 2400 is within 25% above the slower. The fixture jobs run under the check's handed-in 100 ms heartbeat (`KOGAKI_JOB_HEARTBEAT_MS`), and the fake model answers at once.",
+        "efficacy": "case: checks/check-mapping-playground.sh::(c) the Leg attempt carrying \"walker\" was not refused naming it",
+        "efficacy_note": "mutation-verified at authoring: skipping the claim-word test over each Leg Waypoint `point` in `validateSmpLegUnit` failed (c), because the attempt was then refused by the recoverability criterion, which does not name the word as the Strand's own -- the named defect, a Leg whose points carry the Strand's words through to the Writer, constructed rather than a neighbour.",
+        "removal_signal": "a ruling retires the Structure-Mapping Playground, or moves the Trial onto a production command -- either way the run this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/mapping-playground/trial.mjs"
+      }
+    },
+    {
       "id": "move-library",
       "file": "checks/check-move-library.sh",
       "covers": ["moves/"],

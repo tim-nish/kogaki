@@ -2834,6 +2834,66 @@ and a run made from a different Brief.
 The View is a rendering. No stage reads its output, and nothing it prints is
 written to any record.
 
+### 4.20 The Structure-Mapping Playground (kogaki#1664)
+
+**What it is.** The owner ruled on 2026-11-03 that an article's work is to
+transform a WriterBasedStrand into a ReaderBasedStrand through Moves, without
+introducing the WriterBasedStrand's compressed vocabulary, and that the
+mechanism for this is found by trials outside the production commands. The
+**Structure-Mapping Playground (SMP)** is where those trials run. One run of it
+is a **Trial**: `node src/mapping-playground/trial.mjs run --strand <file>
+--structure <file> --out <dir> [--audience <file>] [--library <dir>]`.
+
+**The terms**, as the owner set them on 2026-11-03 and 2026-11-04:
+
+- **WriterBasedStrand (WBS)**: a Strand as supplied at its pin, written by its
+  author for its author (after Flower, 1979). `Strand` keeps its meaning; the
+  pin attaches here.
+- **ReaderBasedStrand (RBS)**: the form a WBS takes once its Roles are built
+  for the Persona in material the Persona holds, with none of the WBS's
+  compressed vocabulary required. It is not necessarily prose.
+- **RelationalStructure**: the Roles a WBS relates and the relations among
+  them, as read from the WBS (after Gentner, 1983). A **HigherOrderRelation**
+  is a relation whose arguments are relations.
+- **Structure-Mapping**: the internal process of DocumentPlanning that
+  transforms a WBS into an RBS. The **Structure-Mapping Engine (SME)** is the
+  Actor that produces a RelationalStructure.
+
+**What a Trial holds fixed**: the Move library (`moves/`, or `--library`),
+`/paragraph-plan`, `/draft section`, and the Strand at its pin. The strand file
+carries a `cite:` line, a `claim:` line and the Strand's served rendering below
+them; the runner never fetches.
+
+**What a Trial varies**: the SME that produces the RelationalStructure. The
+first SME is the owner: the structure file is owner-authored, and the Trial
+record says so. The structure carries `strand` (the strand file's `cite:`),
+`roles` (`{ id, context }`), `relations` (`{ id, between, holds }`) and
+`higher_order` (`{ relates, holds }`), every id resolving. A `context` or
+`holds` that carries a content word of the `claim:` line is refused, naming
+the word and the field. The same test runs over every Leg Waypoint `point` and
+the Leg's `reader_state_after`. The WBS's words do not reach the reader.
+
+**How the Brief is made.** The runner composes a one-Leg Brief from the
+structure. The Reader start comes from the Proof Sheet's
+`leg_reader_start_unit` row. The Leg comes from the `smp_leg_unit` row of
+`src/mapping-playground/playground-workflow.json`, which is derived from the
+production `reader_path_unit` row by `copy_of` and `substitutions`. The Leg's
+Claims are the structure's `holds` sentences, word for word. The Leg carries
+no `introduces`, and the Brief's `defined_terms` is empty.
+
+**What a Trial records.** `<out>/trial.json` carries `strand` (its cite and
+the file's sha256), `structure` (its path, its sha256 and `author: owner`),
+`mapper: owner-authored`, the `brief`, `plan` and `draft` files with their
+sha256, each stage's state and its `calls.jsonl`, and `reading`, which names
+`<out>/reading.md`. Every model call goes through the Proof Sheet's recorder.
+The runner writes `reading.md` once, empty under a header naming the Trial,
+and never writes it again: it is the owner's. A stage that stops ends the run
+there, and the record shows the stop.
+
+**No Judge exists at this stage.** The owner's reading of the Draft is the
+result. A criterion of correctness is derived from those readings later, and
+no score is kept until then.
+
 ## 5. The Brief's centre, and Obligations inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
