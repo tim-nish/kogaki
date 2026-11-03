@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// The Structure-Mapping Playground's Trial (kogaki#1664): a Strand and an owner-authored
-// RelationalStructure, through a one-Leg Brief, `/paragraph-plan` and `/draft`, to a Trial record.
+// The Structure-Mapping Playground's Trial (kogaki#1664): a Strand and a RelationalStructure, owner-authored
+// or mapped by an SME variant (kogaki#1665), through a one-Leg Brief, `/paragraph-plan` and `/draft`, to a Trial record.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   The Structure-Mapping Playground
+//       specs/spec-draft-pipeline/SPEC.md
+//   The first SME
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";

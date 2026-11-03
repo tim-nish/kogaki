@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground (kogaki#1664, kogaki#1665),
-# end to end through `node src/mapping-playground/trial.mjs run` with ONE fake model binary (`KOGAKI_JUDGE_CLI`):
+# check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground, end to end through `node src/mapping-playground/trial.mjs run` with ONE fake model binary (`KOGAKI_JUDGE_CLI`) answering every stage (kogaki#1664, kogaki#1665):
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
 #   (b) a structure whose `context` carries a content word of the `claim:` is refused naming the word and the field.
 #   (c) a `point` carrying such a word refuses the Leg attempt naming the word.
-#   (d) the Writer's recorded stdin equals the Packet file byte for byte; (e) `moves/` and `theses/` are unchanged.
+#   (d) the Writer's recorded stdin equals the Packet file byte for byte.
+#   (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
 #   (g) a run without `--structure` refuses naming the flag.
 #   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant.
