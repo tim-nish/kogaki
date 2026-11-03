@@ -2383,9 +2383,13 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
 `judgePrompt`. Each attempt makes two calls:
 
 1. `paragraph_plan_unit` binds one paragraph Move from `moves/` to each Leg
-   Waypoint — its `before` against the state the reader is in when the Leg
-   Waypoint begins, its `after` toward the next Leg Waypoint's point, with that
-   point in view — and generates the Paragraph Waypoints of the one paragraph
+   Waypoint — a Move whose `before` contradicts, on no dimension it declares,
+   the state the reader is in when the Leg Waypoint begins (the Leg's
+   `reader_state_before` for the first, the previous bound Move's `after` for
+   every later one), a Move that omits a dimension not excluded on it
+   (exclusion, never ranking), and whose Segments can carry the Leg
+   Waypoint's `point`, or `move: null` with a `rationale` naming the
+   dimension no Move could hold, never the nearest Move — and generates the Paragraph Waypoints of the one paragraph
    carrying that Leg Waypoint: one per Segment of the bound Move, in the
    Move's order, or, where the Move carries no Segments, the points its
    `technique` gives — the Leg composer's own rule (§4.1) — from four inputs
@@ -2483,7 +2487,6 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Operation performed | paragraph only | — | `operation_is_performed` | a Segment's operation is performed only where a Paragraph Waypoint is that Segment, and a Leg Waypoint is a point | wording |
 | Manner not content | paragraph only | — | `manner_is_not_content` | a manner realises one Segment, and only a Paragraph Waypoint realises one | wording |
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their derived states | wording |
-| Term meaning | paragraph only | — | `TERM MEANING` | a meaning is given in a sentence, and the Paragraph Waypoint is the first unit that is one; a Leg carries the term and its meaning in `introduces`, which the validator counts | wording |
 | Promise kept | paragraph only | — | `PROMISE KEPT` | an Obligation is kept where its items are stated, which a paragraph does; the Leg opens the record, row Obligation slots | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Paragraph Waypoint's field | wording |
 | Section heading | Leg only | `the heading against its Section's last after-state` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
@@ -2558,6 +2561,24 @@ rules follow, and nothing crosses a Leg:
 > coins". A referent still owes a `re-activate` line where a later paragraph
 > uses it. This narrows the kogaki#1497 status above, under which every
 > introduced term was placed and judged.
+
+> **Status (kogaki#1663, owner decisions 2026-11-03 and 2026-11-04):** the
+> kogaki#1648 coined-term clause, the TERM MEANING axis and the validator
+> refusing a coined term under a Move with no defining Segment are retired,
+> and so is the trajectory clause "its `after` toward the next Leg
+> Waypoint's point". The owner's rulings are the ground: introducing a term
+> is a means and never an objective of an article, so the `defined_terms` →
+> `introduces` → coined-term chain is to be redesigned under
+> Structure-Mapping rather than patched, and the production pipeline may be
+> modified while a commit restores it. A paragraph Move is bound on
+> non-contradiction over the dimensions its `before` declares (item 1 of
+> the loop above), never on an exact match of reader states. The connection
+> between consecutive paragraphs is the `join` (the join rule below) and the
+> bound Move's own Segments; no rule requires a Move's `before` to equal the
+> previous Move's `after`. `defined_terms` and `introduces` stay where they
+> are until the redesign: the plan call is handed `terms_this_leg_introduces`
+> alone, and a paragraph names a term in its `introduces` only where it gives
+> the meaning, no term in two.
 
 > **Status (kogaki#1533, owner decision 2026-10-23):** the judge no longer
 > judges the four things above, the FIFTH, the SEVENTH, or any criterion
@@ -2646,15 +2667,13 @@ the paragraph scale**, beside its `waypoint`, its `join` and its
 kogaki#1325): the Leg's derived before-state for the first paragraph, the
 previous paragraph's `reader_state_after` for every later one; a written
 `reader_state_before` is refused by name. **The last paragraph's
-`reader_state_after` is the Leg's, line for line**, and **each term the Leg
-coins is introduced by exactly one of its paragraphs, and no term by two**
-(kogaki#1648). Every read of the
+`reader_state_after` is the Leg's, line for line**, and **no term of the
+Leg's `introduces` is introduced by two of its paragraphs** (kogaki#1663). Every read of the
 file — the stage's own validator, `/draft`'s and the Proof Sheet's — refuses by
 name, naming the Leg and the Waypoint: a key outside the schema; a `move`
 naming no Move in a library the reader holds open (`/draft` opens no Move,
 kogaki#1311, so that one refusal is the validator's and the Proof Sheet's); a
-term the Leg does not introduce, a coined term introduced by no paragraph, or
-a Leg term introduced by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
+term the Leg does not introduce, or a Leg term introduced by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
 later one or another Leg; a material outside the parent's `serves`; a last
 `reader_state_after` that is not the Leg's; a state out of the Leg's shape.
 The planner writes `reader_state_after` and is handed the before-state it

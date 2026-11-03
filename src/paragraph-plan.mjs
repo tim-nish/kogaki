@@ -57,7 +57,7 @@ import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveC
   paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
   paragraphObligationsRefusal, RETIRED_WAYPOINT_OBLIGATIONS, dischargesShapeRefusal, briefRowsOwedBy, briefDischargeRefusal,
   obligationItemsAt } from "./compose.mjs";
-import { paragraphSchemaRefusal, paragraphLegRefusal, paragraphReaderStateMap, DERIVED_PLAN_BEFORE_STATE, PLAN_SCHEMA_KEYS, definedTermSet } from "./compose/record.mjs";
+import { paragraphSchemaRefusal, paragraphLegRefusal, paragraphReaderStateMap, DERIVED_PLAN_BEFORE_STATE, PLAN_SCHEMA_KEYS } from "./compose/record.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -150,10 +150,8 @@ function legForUnit(inputs, unitId) {
 // generation) -- and the Leg's Journeys, `{strand, use}`, for a paragraph to place
 // (kogaki#1639). Kept small and plain so the validator and the judge read the same Leg
 // the prompt showed.
-export function planLeg(leg, obligations = [], definedTerms = []) {
+export function planLeg(leg, obligations = []) {
   const ws = leg.waypoints || [];
-  const introduces = introducedTerms(leg.introduces);
-  const defined = definedTermSet(definedTerms);
   return {
     leg_id: leg.leg_id,
     reader_state_before: leg.reader_state_before ?? null,
@@ -165,17 +163,14 @@ export function planLeg(leg, obligations = [], definedTerms = []) {
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
     })),
     journeys: (leg.journeys || []).filter((j) => j && typeof j === "object").map((j) => ({ strand: j.strand, use: j.use })),
-    introduces,
-    coins: introduces.filter((t) => defined.has(t.term.toLowerCase())),
+    introduces: introducedTerms(leg.introduces),
     owes: briefRowsOwedBy(obligations, leg.leg_id),
   };
 }
 
-// THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497); `coins` is the subset the
-// Brief's `defined_terms` classifies `defined`, the only terms placed and judged (kogaki#1648). The plan call binds a Move
-// whose Segment can define a term at the point that first uses it, or carries the meaning in
-// that Paragraph Waypoint's noun phrase, so it is handed each term with its meaning and
-// nothing else (an item carries no `kind` since kogaki#1529).
+// THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497): the reader-knowledge ledger,
+// handed to the plan call with each term's meaning and nothing else; a paragraph names a term in
+// its `introduces` only where it gives the meaning (kogaki#1663) (an item carries no `kind` since kogaki#1529).
 // The meaning is `introducedMeaning`'s, the rule the Packet's crossing line reads: a typed
 // entry's `meaning`, a legacy anchored entry's anchor, and for a bare term with neither,
 // `null`, for the planner to give in its own words.
@@ -211,13 +206,12 @@ export function segmentsForPlanCall(segments) {
 // plan to lay into a Paragraph Waypoint, asking for no sentence; and a bound Move's
 // `deferred_slots`, carried on its contract exactly as the Brief's composer receives it.
 export function paragraphPlanUnitInput(leg, moves, persona) {
-  const { introduces, coins, owes, ...planned } = leg;
+  const { introduces, owes, ...planned } = leg;
   return {
     leg_you_must_plan: planned,
     paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
     terms_this_leg_introduces: introduces || [],
-    terms_this_leg_coins: coins || [],
     obligations_this_leg_owes: owes || [],
   };
 }
@@ -437,14 +431,12 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit), sites: noFit.map((f) => f.waypoint) };
   // THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639), by the plan reader's own rule: each
-  // introduced term assigned to exactly one paragraph, and the last paragraph's after-state the Leg's.
+  // introduced term assigned to at most one paragraph, and the last paragraph's after-state the Leg's.
   const legRule = paragraphLegRefusal(r.waypoints, leg, at);
   if (legRule) {
     const last = new RegExp(`Waypoint ${ws.length}: the last paragraph's`).test(legRule);
     return { error: legRule, ...(last ? { sites: [ws.length] } : {}) };
   }
-  const unbound = coinedBindRefusal(r.waypoints, leg, inputs.movesDir, at);
-  if (unbound) return unbound;
   // THE BRIEF'S OBLIGATION RULES AT THIS SCALE, OVER THE LEG'S PARAGRAPHS (kogaki#1530, kogaki#1620),
   // by the plan reader's own rule.
   const rows = paragraphObligationsRefusal(r.obligations, ws.length, at);
@@ -452,25 +444,6 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   const undischarged = briefDischargeRefusal(leg.owes || [], r.waypoints.map((e) => e.discharges || []), at);
   if (undischarged) return { error: undischarged };
   return {};
-}
-
-// A COINED TERM IS BOUND TO A DEFINING SEGMENT (kogaki#1648): the entry that introduces a term
-// the Leg coins binds a Move one of whose Segments' `operation` begins with defines, names or
-// grounds. `null` where every coined term's entry does.
-const DEFINING_OPERATION = /^(define|defines|name|names|ground|grounds)\b/i;
-const coinedTerm = (leg, t) => (leg.coins || []).some((c) => c.term === String((t && t.term) || "").trim());
-function coinedBindRefusal(entries, leg, movesDir, at) {
-  for (const c of leg.coins || []) {
-    const i = entries.findIndex((e) => (e.introduces || []).some((t) => t && String(t.term).trim() === c.term));
-    if (i < 0 || typeof entries[i].move !== "string") continue;
-    const segments = boundMoveContract(entries[i].move, movesDir).segments || [];
-    if (!segments.some((g) => DEFINING_OPERATION.test(String((g && g.operation) || "").trim()))) {
-      return { error: `${at}, Waypoint ${i + 1}: the term ${JSON.stringify(c.term)} the Leg coins is introduced here, and the bound Move `
-        + `${JSON.stringify(entries[i].move)} carries no Segment whose \`operation\` defines, names or grounds a term — the Leg Waypoint `
-        + "that first uses a coined term binds a Move with such a Segment, and its Paragraph Waypoint carries the meaning", sites: [i + 1] };
-    }
-  }
-  return null;
 }
 
 // ONE ENTRY'S RULES, against the entries before it: the Leg call's validator and the site
@@ -518,8 +491,7 @@ export function noParagraphMoveFitsRefusal(failures) {
 // before, after, segments and breaks, and the Paragraph Waypoints generated
 // for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533); every Leg Waypoint
 // after the first also carries its `join` (kogaki#1411, kogaki#1477).
-// The terms the Leg coins ride beside it, so TERM MEANING can refuse a first use with no meaning
-// (kogaki#1497, kogaki#1648); each entry's discharges ride on it, and the Brief's rows the Leg owes beside the
+// Each entry's discharges ride on it, and the Brief's rows the Leg owes beside the
 // Leg, so the judge reads whether a discharge keeps its promise (kogaki#1530). The Leg's own
 // Obligation records ride on the Leg, and each Leg Waypoint after the opening one carries the items
 // still open when it begins, as material (kogaki#1620, SPEC-draft-pipeline "Obligations" rule 6).
@@ -559,7 +531,6 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
     },
     ...(scope ? { standing_paragraphs: record.waypoints.map((e) => ({ waypoint: e.waypoint, move: e.move,
       ...(e.waypoint > 1 ? { join: e.join } : {}), paragraph_waypoints: e.paragraph_waypoints })) } : {}),
-    terms_this_leg_coins: leg.coins || [],
     obligations_this_leg_owes: leg.owes || [],
   };
 }
@@ -699,7 +670,7 @@ export function movesBoundBeside(entries, n) {
 const SITE_PROSE_FIELDS = ["purpose", "rationale"];
 const RECORD_FIELD_NAMES = new Set([...UNIT_KEYS, ...UNIT_WAYPOINT_KEYS, "point", "serves", "performs", "paragraph_waypoint",
   "leg_waypoint_you_must_plan", "fixed", "paragraph_moves_you_may_bind", "moves_rejected_here", "moves_bound_beside",
-  "refused_here", "reader_state_before", "after_state_is_the_legs", "terms_this_entry_coins",
+  "refused_here", "reader_state_before", "after_state_is_the_legs", "terms_this_entry_introduces",
   "re_activations_this_entry_carries", "discharges_this_entry_keeps", "before", "after", "segments", "operation"]);
 export function repairProse(answer) {
   for (const field of SITE_PROSE_FIELDS) {
@@ -782,7 +753,7 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
     moves_rejected_here: [...rejectedMoves(ctx.history, new Set(moves.map((m) => m.id)))],
     moves_bound_beside: movesBoundBeside(entries, n),
     persona: inputs.persona,
-    terms_this_entry_coins: (entry.introduces || []).filter((t) => coinedTerm(leg, t)),
+    terms_this_entry_introduces: entry.introduces || [],
     re_activations_this_entry_carries: entry["re-activate"] || [],
     discharges_this_entry_keeps: entry.discharges || [],
     refused_here: (ctx.history || []).map((h) => ({ entry: h.entry ?? null, refusal: h.refusal })),
@@ -856,7 +827,7 @@ export function paragraphPlanSuffixInput(ctx, inputs, unitId) {
   const stand = ctx.standing.waypoints.slice(0, ctx.from - 1);
   const introduced = new Set(stand.flatMap((e) => (e.introduces || []).map((t) => String(t.term).trim())));
   const discharged = new Set(stand.flatMap((e) => (e.discharges || []).map((d) => d.obligation)));
-  const { introduces, coins, owes, ...planned } = leg;
+  const { introduces, owes, ...planned } = leg;
   return {
     leg_you_must_plan: { ...planned, reader_state_before: stand[stand.length - 1].reader_state_after,
       waypoints: planned.waypoints.filter((w) => w.waypoint >= ctx.from) },
@@ -864,7 +835,6 @@ export function paragraphPlanSuffixInput(ctx, inputs, unitId) {
     paragraph_moves_you_may_bind: bindableMoves(inputs.movesDir),
     persona: inputs.persona,
     terms_this_leg_introduces: (introduces || []).filter((t) => !introduced.has(t.term)),
-    terms_this_leg_coins: (coins || []).filter((t) => !introduced.has(t.term)),
     obligations_this_leg_owes: (owes || []).filter((o) => !discharged.has(o.obligation)),
   };
 }
@@ -1036,7 +1006,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
   const binary = resolveJudgeBinary(String(declared), process.env.PATH);
   const model = String(settingValue(table.judge.model));
-  const legs = brief.legs.map((leg) => planLeg(leg, brief.record.obligations, brief.record.defined_terms));
+  const legs = brief.legs.map((leg) => planLeg(leg, brief.record.obligations));
   const dir = runDir || enterRun("brief", `${runPrefix(slug)}${new Date().toISOString().replace(/[:.]/g, "-")}`);
   const briefSha = sha256(brief.text);
   const carried = carriedUnits(latest, dir, { briefSha, movesDir, legs });

@@ -224,7 +224,7 @@ else {
 // (i) review.md CLOSES WITH THE FORCED PARAGRAPHS, READ FROM THE PACKET ALONE (kogaki#1649).
 {
   const leg = (forced) => ({ ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
-    paragraph_waypoints: [{ point: w.point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["TERM MEANING"] } : {}) }] })) });
+    paragraph_waypoints: [{ point: w.point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}) }] })) });
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
   for (const [name, forced] of [["forced", true], ["plain", false]]) {
@@ -233,8 +233,8 @@ else {
     writeFileSync(join(dir, "packets", `${name}.md`), r.packet || "");
   }
   const got = forcedParagraphLines([{ leg_id: "s1", packet: "packets/forced.md" }], dir);
-  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, Leg Waypoint 1 — TERM MEANING") || got.some((l) => /fail|finding/i.test(l))) {
-    fails.push(`(i) the Forced paragraphs section does not name Leg s1, Leg Waypoint 1 and TERM MEANING as a list with no finding: ${JSON.stringify(got)}`);
+  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, Leg Waypoint 1 — PERFORMS IS BARE") || got.some((l) => /fail|finding/i.test(l))) {
+    fails.push(`(i) the Forced paragraphs section does not name Leg s1, Leg Waypoint 1 and PERFORMS IS BARE as a list with no finding: ${JSON.stringify(got)}`);
   }
   const none = forcedParagraphLines([{ leg_id: "s1", packet: "packets/plain.md" }], dir);
   if (!none.includes("_None._") || none.some((l) => l.startsWith("- "))) fails.push(`(i) a Packet with no mark lists a forced paragraph: ${JSON.stringify(none)}`);

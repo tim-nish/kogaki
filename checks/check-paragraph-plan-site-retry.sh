@@ -322,13 +322,13 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
 {
   const r = run("s11", `export const site = (i) => siteEntry(i, { tag: "-site" });
 export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n === 1 && w === 1);
-  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "TERM MEANING fails: the paragraph uses a term before it says what it means.";
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "PERFORMS IS BARE fails: the performs line states the reading the reader then takes.";
   return v; };`);
   const marks = (l, w) => { const e = pwOf(r.plan, l, w); return e ? e.paragraph_waypoints.map((p) => p.forced_by || null) : []; };
   if (!r.plan) fails.push(`(s11) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
   else {
-    if (JSON.stringify(marks("s1", 1)) !== JSON.stringify([["TERM MEANING"]])) {
-      fails.push(`(s11) the rewritten Paragraph Waypoint at Leg s1, Waypoint 1 does not carry forced_by [TERM MEANING]: ${JSON.stringify(marks("s1", 1))}`);
+    if (JSON.stringify(marks("s1", 1)) !== JSON.stringify([["PERFORMS IS BARE"]])) {
+      fails.push(`(s11) the rewritten Paragraph Waypoint at Leg s1, Waypoint 1 does not carry forced_by [PERFORMS IS BARE]: ${JSON.stringify(marks("s1", 1))}`);
     }
     for (const [l, w] of [["s1", 2], ["s1", 3], ["s2", 1]]) {
       if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, Waypoint ${w} passed on its first attempt and carries forced_by: ${JSON.stringify(marks(l, w))}`);
@@ -337,9 +337,9 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
   }
   const donePath = join(root, "s11", "run", "paragraph-plan-done.json");
   const c = existsSync(donePath) ? JSON.parse(readFileSync(donePath, "utf8")).collisions : null;
-  const row = c && c.rows.find((x) => x.axis === "TERM MEANING");
-  if (!row || row.entries !== 1 || c.total !== 1 || c.rows.some((x) => x.axis !== "TERM MEANING" && x.entries !== 0)) {
-    fails.push(`(s11) paragraph-plan-done.json does not count TERM MEANING at 1 and the total at 1: ${JSON.stringify(c)}`);
+  const row = c && c.rows.find((x) => x.axis === "PERFORMS IS BARE");
+  if (!row || row.entries !== 1 || c.total !== 1 || c.rows.some((x) => x.axis !== "PERFORMS IS BARE" && x.entries !== 0)) {
+    fails.push(`(s11) paragraph-plan-done.json does not count PERFORMS IS BARE at 1 and the total at 1: ${JSON.stringify(c)}`);
   }
 }
 
