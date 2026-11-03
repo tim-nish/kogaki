@@ -187,7 +187,14 @@ export function declaredCommand() {
   return commands[0];
 }
 
-function stageEnv(runDir, stageDir, realPath) {
+// The recorder written into `dir`, the run directory `stageEnv` names it from. Exported for the
+// Structure-Mapping Playground's Trial (kogaki#1664).
+export function installRecorder(dir) {
+  writeFileSync(join(dir, RECORDER_FILE), RECORDER_TEXT);
+  chmodSync(join(dir, RECORDER_FILE), 0o755);
+}
+
+export function stageEnv(runDir, stageDir, realPath) {
   return { ...process.env, KOGAKI_JUDGE_CLI: join(runDir, RECORDER_FILE), KOGAKI_PROOF_SHEET_REAL_CLI: realPath,
     KOGAKI_PROOF_SHEET_CALLS: join(stageDir, CALLS_FILE) };
 }
@@ -457,8 +464,7 @@ function runNested(dir, legFile, { slug, audience, realPath }) {
   const prior = existsSync(runFile) ? JSON.parse(readFileSync(runFile, "utf8")) : null;
   if (prior && prior.finished_at && !prior.stopped) return prior;
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, RECORDER_FILE), RECORDER_TEXT);
-  chmodSync(join(dir, RECORDER_FILE), 0o755);
+  installRecorder(dir);
   const record = prior ? { ...prior, stages: [], model_command: realPath } : { leg: resolve(legFile), passage: slug, paragraphs: 1,
     legs: writeLegs(dir, readLegs([legFile])), audience, language: recordedLanguage(audience), model_command: realPath,
     library: null, started_at: new Date().toISOString(), stages: [] };
@@ -626,8 +632,7 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
   const runDir = join(resolve(out), `leg-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
   const legsRecord = writeLegs(runDir, legs);
-  writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
-  chmodSync(join(runDir, RECORDER_FILE), 0o755);
+  installRecorder(runDir);
   const audiencePath = resolvedAudience(audience);
   const record = { leg: legs.length === 1 ? resolve(legs[0].path) : null, passage: slug,
     paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0), legs: legsRecord, audience: audiencePath,
@@ -673,8 +678,7 @@ export function reuseLeg(source, { from, out, audience = null, provenance, terms
     mkdirSync(dirname(join(runDir, l.copy)), { recursive: true });
     writeFileSync(join(runDir, l.copy), readFileSync(join(source, l.copy), "utf8"));
   }
-  writeFileSync(join(runDir, RECORDER_FILE), RECORDER_TEXT);
-  chmodSync(join(runDir, RECORDER_FILE), 0o755);
+  installRecorder(runDir);
   const paragraphs = legsRecord.reduce((a, l) => a + l.paragraphs, 0);
   const { prior, kept, reuse } = copyStages(source, runDir, from, k === null ? {} : { legs: legsRecord, paragraphs });
   const audiencePath = audience ? resolvedAudience(audience) : prior.audience;

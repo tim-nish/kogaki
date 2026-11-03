@@ -1,0 +1,93 @@
+{
+  "version": "1",
+  "governing_text": "specs/spec-draft-pipeline/SPEC.md, The Structure-Mapping Playground",
+  "licensed_by": "kogaki#1664",
+  "smp_leg_unit": {
+    "id": "smp_leg_unit",
+    "binds": {
+      "leg": {
+        "leg_id": "content",
+        "materials": "copied",
+        "purpose": "content",
+        "reader_state_after": "content",
+        "rationale": "content",
+        "claims": "content",
+        "waypoints": "content",
+        "introduces": "content",
+        "depends_on": "copied",
+        "reader_state_before": "structural",
+        "waypoints.point": "content",
+        "waypoints.serves": "copied"
+      }
+    },
+    "binds_unread": {
+      "leg": [
+        "reaches_target",
+        "names",
+        "move",
+        "no_move_fits",
+        "journeys",
+        "entailed",
+        "entailment_reasoning",
+        "bridges",
+        "re-activate",
+        "opens_section",
+        "figure",
+        "figure_roles",
+        "budget"
+      ]
+    },
+    "note": "The one Leg of a Trial's Brief (kogaki#1664). Derived from the production `reader_path_unit` row by `copy_of` and `substitutions`, as the Proof Sheet's `leg_path_unit` is.",
+    "copy_of": {
+      "file": "src/brief-workflow.json",
+      "row": "reader_path_unit",
+      "field": "judgment_point"
+    },
+    "substitutions": [
+      {
+        "from": "compose ONE CANDIDATE READER PATH for this Brief -- an ordered sequence of Legs taking the reader from the Brief's Reader start (given, authored from the Persona and the Thesis at the `differentiation` state, kogaki#1216) to the adopted Thesis, opening with the reader-state dimension and the Move the `differentiation` state assigned THIS unit (kogaki#1206), rendered above this prompt's input marker as YOUR ASSIGNED DIFFERENTIATION together with that Reader start; the first Leg begins AT it",
+        "to": "compose ONE LEG for this Brief -- the Leg that builds the RelationalStructure in the input, `structure`, for the reader, taking the reader from the Leg's Reader start (given, authored from the Persona and the structure's Roles at the `leg_reader_start_unit` row, kogaki#1664), rendered in the input as `reader_start`; the Leg begins AT it"
+      },
+      {
+        "from": "and the LAST Leg's `reader_state_after` is the Brief's Reader target (kogaki#1225)",
+        "to": "and the Leg's `reader_state_after` names only the dimensions the Leg changes, one `dimension: value` line per dimension (kogaki#1664)"
+      },
+      {
+        "from": "and no Reader start line may carry a term any Leg lists under `introduces:`.",
+        "to": "and no Reader start line may carry a term any Leg lists under `introduces:`; this Leg carries no `introduces` (kogaki#1664)."
+      },
+      {
+        "from": "written as this Leg's own specialization of its Move, because the Move is read here and by no stage after the Candidate.",
+        "to": "ONE LEG WAYPOINT PER ENTRY OF `claims` IN THE INPUT, IN ORDER (kogaki#1664)."
+      },
+      {
+        "from": "and it is never the Move's specialized-by-the-Leg role with the subject filled in.",
+        "to": "and Leg Waypoint N is what the reader must come to hold for Claim N."
+      },
+      {
+        "from": "Write the points from the Move's segments role, IN ORDER, where the library's `moves/ROLES.json` declaration maps it, and every Move carries them: a Move without `segments` is refused at the Adapter (kogaki#1320, kogaki#1349, kogaki#1412) -- a Leg may carry fewer waypoints than its Move has segments where the subject does not need them.",
+        "to": "Write the points from the structure's Role `context` and relation `holds` sentences, IN ORDER (kogaki#1664)."
+      },
+      {
+        "from": "A reinforcing waypoint -- an example, a consequence, an answer to an objection -- names in `serves` the claim it reinforces; and a waypoint whose point no claim of the Leg supports is the signal to pull in a Journey, bind another Move, or report `no_move_fits`, never to write the waypoint anyway.",
+        "to": "THE STRUCTURE STANDS IN FOR STRANDS (kogaki#1664): Claim N is the `holds` sentence of entry N of `claims` in the input, addressed `L<N>` as its `claim_strand`, and its `proposition` is that sentence word for word; the Leg carries ONE Claim per entry, and Leg Waypoint N names in `serves` the Claim of entry N. Leg Waypoint N's `point` is written from entry N's `material`, the `context` of each Role and the `holds` of each relation the entry relates, and neither a `point` nor the Leg's `reader_state_after` carries a word of `forbidden_words` in the input: the content words of the Strand's own claim, which the reader does not hold."
+      },
+      {
+        "from": "How many waypoints a Leg carries is yours, and you need not reproduce the Move's internal structure element for element.",
+        "to": "The Leg carries exactly as many Leg Waypoints as `claims` has entries."
+      },
+      {
+        "from": "Two sibling units are composing the other Candidates independently over the same Brief and will not see this one's answer; the three Candidates differ BY ASSIGNMENT and not by chance, so nothing here asks a unit to guess at its siblings' choice.",
+        "to": "Bind no Move: the paragraph Move is bound per Leg Waypoint by /paragraph-plan, after the Brief (kogaki#1375)."
+      },
+      {
+        "from": "THE RENDERINGS RECORD (kogaki#1494): `renderings` in the input lists the served words this article does not keep, each with the plain phrase it uses instead, and `strand_claims` carries each Strand's served claim; a claim's `proposition` and a waypoint's `point` use a served word as served or as its declared rendering, and no third form -- a word that is neither in the served claim of the Strand it draws on, nor a declared rendering of a word in it, nor in the `introduces` of its Leg or an earlier one, nor a function word, fails the Path Review naming the word; a served word with no entry is kept as served, and no `introduces` entry carries a term the record renders, which adoption refuses.",
+        "to": "THE WORDS ARE THE STRUCTURE'S (kogaki#1664): this Brief composes no renderings record; Claim N's `proposition` and Leg Waypoint N's `point` are written in the words of entry N's `material` -- a word that is in none of it and is not a function word is refused naming the word."
+      }
+    ],
+    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying `legs`, an array of EXACTLY ONE Leg, and nothing else. The Leg carries exactly these keys: `leg_id`; `purpose`; `rationale`; `reader_state_after` (`dimension: value` lines joined by line breaks, one per dimension the Leg changes); `claims` -- one `{ \"type\": \"strand\", \"strand\": \"L<N>\", \"proposition\": <entry N's holds, word for word> }` per entry of `claims` in the input, in order; and `waypoints` -- one `{ \"point\": <one sentence>, \"serves\": [\"L<N>\"] }` per entry, in order. It carries no `introduces`. Every field means what src/leg-schema.json, rendered below, says it means. The Harness writes `materials` and `depends_on`.",
+    "refusal": "a key the record or the Leg does not declare, or a declared key missing; an `introduces`; not exactly one Leg; a Claim whose `proposition` is not its entry's `holds`; a `point` or a `reader_state_after` line carrying a word of `forbidden_words`, refused naming the word and the field; and the Proof Sheet's `validateLegPathUnit` over the Leg, imported, with each entry's `material` as the text its Claim and point are recovered from. Each refusal is put back into your next attempt verbatim.",
+    "schema_file": "src/leg-schema.json",
+    "governing": "src/brief-workflow.json, the `reader_path_unit` row; the Proof Sheet's `leg_path_unit` row; kogaki#1664"
+  }
+}
