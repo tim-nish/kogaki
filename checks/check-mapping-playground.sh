@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-# check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground
-# (kogaki#1664, owner rulings 2026-11-03 and 2026-11-04).
-#
-# WHAT THIS COVERS, driven end to end through `node src/mapping-playground/trial.mjs run` over a
-# fixture strand file, an owner-authored RelationalStructure and ONE fake model binary
-# (`KOGAKI_JUDGE_CLI`) answering every stage -- never the actual `claude` CLI:
+# check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground (kogaki#1664).
+# Driven end to end through `node src/mapping-playground/trial.mjs run` with ONE fake model binary
+# (`KOGAKI_JUDGE_CLI`) answering every stage, never the actual `claude` CLI:
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
 #   (b) a structure whose `context` carries a content word of the `claim:` is refused naming the word and the field.
 #   (c) a `point` carrying such a word refuses the Leg attempt naming the word.
