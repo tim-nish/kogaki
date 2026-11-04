@@ -68,7 +68,7 @@ export function validateRbsTable(record, claim, { movesDir = "moves" } = {}) {
   if (!isMap(record) || !Array.isArray(record.pairs) || !record.pairs.length) {
     return { error: "the correspondence table carries no non-empty `pairs` list" };
   }
-  const b = Object.hasOwn(record, "base") ? baseRefusal(record.base) : null;
+  const b = baseRefusal(record.base);
   if (b) return { error: b };
   const forms = claimForms(claim);
   for (const [i, p] of record.pairs.entries()) {

@@ -9,8 +9,11 @@
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
-#   (j)-(k) `--rbs-file` with `move` and `waypoints` makes one call, `bind.state: supplied`; with `--rbs` it is refused naming both (kogaki#1671).
-#   (l)-(m) a bad `base.kind`, `move`, `waypoints` or `point` is refused naming the field; `attributes` resolve their Roles; the sheet's two new cards follow the table.
+
+#   (j) the `--rbs-file` route with `move` and `waypoints` exits 0 with one call, `bind.state: supplied`, `rbs.variant: owner-authored` (kogaki#1671).
+#   (k) `--rbs-file` with `--rbs` is refused naming both flags.
+#   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
+#   (m) a structure's `attributes` passes, an unresolved Role is refused naming it, and the sheet carries the base and attributes cards after the table.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -163,7 +166,7 @@ ok(d.res.status !== 0 && stagesOf(d.rec) === "rbs:done,bind:stopped,write:not ru
   `(d) a move: null answer did not stop the Trial at bind: ${d.res.status} ${stagesOf(d.rec)} ${JSON.stringify(d.rec && d.rec.stopped)}`);
 
 // (g) a target carrying a claim word is refused naming it
-const g = validateRbsTable({ variant: "rbs_x", pairs: [{ base: null, target: "The crew follows its list." }, { base: "walker", target: { step: "The walker sees a room." } }] }, CLAIM);
+const g = validateRbsTable({ variant: "rbs_x", base: { domain: null, kind: null }, pairs: [{ base: null, target: "The crew follows its list." }, { base: "walker", target: { step: "The walker sees a room." } }] }, CLAIM);
 ok(g.error && g.error.includes('pairs[1].target carries "walker"'), `(g) a target carrying "walker" was not refused naming it: ${JSON.stringify(g)}`);
 
 // (j) the owner-authored table with a supplied binding: one writer call, no binding call
@@ -192,6 +195,8 @@ ok(k.res.status !== 0 && k.res.stderr.includes("`--rbs`") && k.res.stderr.includ
 
 // (l) each bad field of the table is refused naming it
 const lv = (edit) => validateRbsTable({ ...owned, ...edit }, CLAIM, { movesDir: join(repo, "moves") });
+const l0 = validateRbsTable({ pairs: owned.pairs }, CLAIM);
+ok(l0.error && l0.error.includes("`base`"), `(l) a table with no base was not refused naming base: ${JSON.stringify(l0)}`);
 const l1 = lv({ base: { domain: "a house", kind: "metaphor" } });
 ok(l1.error && l1.error.includes("base.kind"), `(l) a kind outside the four was not refused naming base.kind: ${JSON.stringify(l1)}`);
 const l2 = lv({ move: "no_such_move" });
