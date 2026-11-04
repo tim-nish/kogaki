@@ -5,11 +5,8 @@
 #   (c) a `--rbs` naming no `rbs_<variant>` row is refused naming the rows the table declares.
 #   (d) a binding answer of `move: null` stops at `bind`, and the record shows it.
 #   (e) the writer's recorded stdin equals the Packet byte for byte.
-#   (f) sheet.html is dark at its root, its h2s are the five sections in order, the WBS and the Paragraph sit in one
-#       .cols block, the Segments table carries one row per Segment with its operation and point and no `serves L`,
-#       the Mapping headers are Role, Abstraction, Strand words dropped and `Analogy: <domain>`, and the Structure
-#       table carries one row per element with its category, a Role in no relation marked `unreached`, beside a
-#       Mermaid `graph LR` naming the three subgraphs (kogaki#1673, kogaki#1675).
+#   (f) the sheet is dark, its five h2s in order, WBS beside Paragraph; Segments, Mapping headers and Structure table,
+#       `unreached` mark and Mermaid graph LR are as kogaki#1675 states, and `serves L` occurs nowhere (kogaki#1673).
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
