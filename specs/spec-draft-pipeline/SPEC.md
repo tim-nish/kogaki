@@ -2944,17 +2944,26 @@ the ReaderBasedStrand is remains an open design discussion, held against the
 research the terms come from before any RBS is built. A short Trial carries
 the RBS as a slot it compares, not a thing it defines.
 
+**Base and target** (kogaki#1673). Both terms are Gentner 1983's. The
+*target* is the domain being explained: the Strand, the WriterBasedStrand.
+The *base* is the reader's domain, the one that supplies the objects. The ids
+of a RelationalStructure's `roles` (R, G, K, K_absent and A in the first
+owner-authored Trial) are *Roles* wherever the sheet and this section name
+them, never targets.
+
 **The stages**, in order: `sme` (with `--mapper` only: the Mapper of §4.20.1
 under its one-retry bound), `rbs`, `bind` and `write`. A stage that stops ends
 the run there, and the record shows the stop. The owner-authored route makes
 two model calls and the `--mapper` route three.
 
 **The correspondence table.** The `rbs` stage writes `<out>/rbs.yaml`:
-`variant`, `placeholder`, and `pairs`, a list of `{ base, target }`. `base` is
-the words of the WBS the pair reads from, or null where the variant cannot
-say. `target` is the RBS side, a prose string or a YAML mapping, so prose and
-schema representations are both admitted. The claim-word test of §4.20 runs
-over every `target`, naming the word.
+`variant`, `placeholder`, and `pairs`, a list of `{ base, target }`. `target`
+names the structure element the pair maps, on the target side: a Role,
+relation or higher-order id, or the element's sentence, as a prose string or
+a YAML mapping, so prose and schema representations are both admitted.
+`base` is the base's object the element maps to, or null where the variant
+cannot say. The claim-word test of §4.20 runs over every `target`, naming the
+word.
 
 **The base and its kind of match** (kogaki#1671). The table carries `base`,
 `{ domain, kind }`. `domain` names the reader's situation in one phrase.
@@ -3010,11 +3019,20 @@ paragraph is `<out>/paragraph.md`.
 
 **The sheet.** `<out>/sheet.html` reuses the Proof Sheet's CSS and cards, with
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
-from a Proof Sheet at a glance. It carries, in order: the WBS beside the RBS,
-the correspondence table, the base with its kind, the attributes beside the
-Role each belongs to, the RelationalStructure, the bound Move with its
-Paragraph Waypoints, the paragraph, and every model call. The runner writes it
-once and never reads it.
+from a Proof Sheet at a glance. It opens on the comparison the owner reads,
+as the Proof Sheet opens on the Passage beside the Draft (kogaki#1673). Its
+sections, in order: `WBS and Paragraph`, the Strand's claim and rendering
+beside the paragraph in two columns, with the stop reason in the paragraph's
+place where the run stopped before it; `Mapping`, one table; `RBS: the bound
+Move and its points`, the bound Move with its Paragraph Waypoints;
+`RelationalStructure`, folded; and `Model calls`, folded. The mapping table
+has one row per Role and four columns: `Role`, `What the Role is` (the Role's
+`context`), `Strand words dropped` (its `attributes` words, or empty) and `In
+the base`, whose header carries the base's `domain` and `kind` and whose cells
+are the `base` of the pairs naming that Role. Its caption is the table's
+`variant`. A pair naming a relation or the higher-order relation is a further
+row under the Roles, keyed by that id. The runner writes the sheet once and
+never reads it.
 
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
