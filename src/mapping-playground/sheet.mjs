@@ -1,6 +1,4 @@
-// The short Trial's sheet (kogaki#1669, kogaki#1671, kogaki#1673): the WBS beside the Paragraph, one
-// mapping table of the Roles and the base, the binding, the RelationalStructure and every model call,
-// on the Proof Sheet's cards.
+// The short Trial's sheet (kogaki#1673).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -22,8 +20,6 @@ const CSS_DECLARATION = /^const CSS = `([\s\S]*?)`;$/m;
 const ACCENT = ':root[data-theme="dark"]{--accent:#6cc3d5;--off:#163a42}h1,h2{color:var(--accent)}'
   + ".cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cols>div{border:1px solid var(--line);border-radius:6px;padding:8px}"
   + ".cols h3{margin:4px 0 8px;font-size:15px}.prose{white-space:pre-wrap}";
-// The part ids, in the order the sheet carries them.
-export const SHEET_PARTS = ["wbs-paragraph", "mapping", "binding", "structure", "calls"];
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const pre = (t) => `<pre>${esc(t)}</pre>`;
@@ -46,8 +42,6 @@ function readCalls(outDir, stages) {
   });
 }
 
-// The structure's elements, Roles first: each with the id a pair names it by and the sentence that says
-// what it is. The placeholder names an element by that sentence, so either form resolves.
 function elementsOf(structure) {
   if (!structure) return [];
   const roles = (structure.roles || []).map((r) => ({ id: r.id, what: r.context, role: true }));

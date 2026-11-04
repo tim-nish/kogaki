@@ -157,6 +157,10 @@ const d = run("no-move", ["--structure", structure], { SMP_BIND_NULL: "1" });
 ok(d.res.status !== 0 && stagesOf(d.rec) === "rbs:done,bind:stopped,write:not run" && /^bind: /.test(String(d.rec.stopped))
   && String(d.rec.stopped).includes("no_paragraph_move_fits") && !existsSync(join(d.o, "paragraph.md")) && existsSync(join(d.o, "sheet.html")),
   `(d) a move: null answer did not stop the Trial at bind: ${d.res.status} ${stagesOf(d.rec)} ${JSON.stringify(d.rec && d.rec.stopped)}`);
+const dSheet = existsSync(join(d.o, "sheet.html")) ? readFileSync(join(d.o, "sheet.html"), "utf8") : "";
+const dParagraph = (/<div><h3>Paragraph<\/h3>([\s\S]*?)<\/div><\/div><\/section>/.exec(dSheet) || [])[1] || "";
+ok(d.rec && dParagraph.includes(`stopped — ${d.rec.stopped}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")),
+  `(d) the stopped Trial's Paragraph column does not carry the stop reason: ${dParagraph}`);
 
 // (g) a target carrying a claim word is refused naming it
 const g = validateRbsTable({ variant: "rbs_x", base: { domain: null, kind: null }, pairs: [{ base: null, target: "The crew follows its list." }, { base: "walker", target: { step: "The walker sees a room." } }] }, CLAIM);
