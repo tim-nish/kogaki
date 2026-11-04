@@ -1,5 +1,6 @@
-// The short Trial's sheet (kogaki#1669): the WBS beside the RBS slot, the correspondence table, the
-// RelationalStructure, the binding, the paragraph and every model call, on the Proof Sheet's cards.
+// The short Trial's sheet (kogaki#1669, kogaki#1671): the WBS beside the RBS slot, the correspondence
+// table, the base, the dropped attributes, the RelationalStructure, the binding, the paragraph and every
+// model call, on the Proof Sheet's cards.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -22,13 +23,14 @@ const ACCENT = ':root[data-theme="dark"]{--accent:#6cc3d5;--off:#163a42}h1,h2{co
   + ".cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cols>div{border:1px solid var(--line);border-radius:6px;padding:8px}"
   + ".cols h3{margin:4px 0 8px;font-size:15px}.prose{white-space:pre-wrap}";
 // The part ids, in the order the sheet carries them.
-export const SHEET_PARTS = ["wbs-rbs", "table", "structure", "binding", "paragraph", "calls"];
+export const SHEET_PARTS = ["wbs-rbs", "table", "base", "attributes", "structure", "binding", "paragraph", "calls"];
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const pre = (t) => `<pre>${esc(t)}</pre>`;
 const targetHtml = (t) => (typeof t === "string" ? esc(t) : pre(stringifyYaml(t)));
 const part = (id, title, body) => `<section class="card" id="${id}"><h2>${esc(title)}</h2>${body}</section>`;
 const none = (what) => `<p class="muted">${esc(what)}</p>`;
+const orNull = (v) => (v === null || v === undefined ? '<span class="muted">null</span>' : esc(v));
 
 export function proofSheetCss() {
   const m = CSS_DECLARATION.exec(readFileSync(LEG_SHEET, "utf8"));
@@ -56,8 +58,16 @@ export function renderShortSheet({ outDir, record, strand, structure, table, ent
     ? `<table><thead><tr><th>#</th><th>base (WBS)</th><th>target (RBS)</th></tr></thead><tbody>${pairs.map((p, i) =>
       `<tr><td>${i + 1}</td><td>${p.base === null ? '<span class="muted">null</span>' : targetHtml(p.base)}</td><td>${targetHtml(p.target)}</td></tr>`).join("")}</tbody></table>`
     : none("The table was not filled.");
+  const base = table && table.base
+    ? `<p><b>domain:</b> ${orNull(table.base.domain)}</p><p><b>kind:</b> ${orNull(table.base.kind)}</p>`
+    : none("The table names no base.");
+  const attributes = structure && Array.isArray(structure.attributes) && structure.attributes.length
+    ? `<table><thead><tr><th>Role</th><th>words dropped</th></tr></thead><tbody>${structure.attributes.map((a) =>
+      `<tr><td>${esc(a.role)}</td><td>${targetHtml(Array.isArray(a.words) ? a.words.join(", ") : a.words)}</td></tr>`).join("")}</tbody></table>`
+    : none("The structure names no attributes.");
+  const supplied = record.bind && record.bind.state === "supplied" ? ' <span class="meta">supplied by the owner, no model call</span>' : "";
   const binding = entry
-    ? `<p><b>Move:</b> ${esc(entry.move)}</p><ol>${(entry.paragraph_waypoints || []).map((p) =>
+    ? `<p><b>Move:</b> ${esc(entry.move)}${supplied}</p><ol>${(entry.paragraph_waypoints || []).map((p) =>
       `<li>${Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>` : `${esc(p.point)} <span class="meta">serves ${esc((p.serves || []).join(", "))}</span>`}</li>`).join("")}</ol>`
     : none("No Move was bound.");
   const paragraph = existsSync(paragraphPath) ? `<div class="prose">${esc(readFileSync(paragraphPath, "utf8"))}</div>` : none("No paragraph was written.");
@@ -73,6 +83,8 @@ export function renderShortSheet({ outDir, record, strand, structure, table, ent
     + `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}`
     + part("wbs-rbs", "WBS and RBS", wbsRbs)
     + part("table", "Correspondence table", tableHtml)
+    + part("base", "Base and its kind of match", base)
+    + part("attributes", "Attributes the mapping drops", attributes)
     + part("structure", "RelationalStructure", structure ? pre(stringifyYaml(structure)) : none("No structure was read."))
     + part("binding", "Bound Move and Paragraph Waypoints", binding)
     + part("paragraph", "Paragraph", paragraph)

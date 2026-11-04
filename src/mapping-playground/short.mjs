@@ -9,7 +9,7 @@
 //   The short Trial
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -25,7 +25,8 @@ import { splitPacketTemplate } from "../draft/packet.mjs";
 import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseStrandFile, validateStructure, structureClaims, claimForms, claimWordIn } from "./structure.mjs";
+import { parseStrandFile, validateStructure, structureClaims } from "./structure.mjs";
+import { validateRbsTable, suppliedEntry } from "./rbs.mjs";
 import { mapperRow } from "./sme.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
@@ -33,6 +34,7 @@ import { renderShortSheet } from "./sheet.mjs";
 export const RBS_ROW_PREFIX = "rbs_";
 export const RBS_DEFAULT = "rbs_placeholder";
 export const RBS_FILE = "rbs.yaml";
+export const RBS_OWNER = "owner-authored";
 export const BIND_FILE = "bind.yaml";
 export const PACKET_FILE = "packet.md";
 export const PARAGRAPH_FILE = "paragraph.md";
@@ -42,7 +44,7 @@ const LEG_ID = "smp";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE = "usage: node src/mapping-playground/short.mjs run --strand <file> (--structure <file> | --mapper <sme_map_<variant>>) "
-  + "--out <dir under runs/mapping-playground/> [--rbs <rbs_<variant>>] [--audience <audiences/<name>.md>] [--library <dir>]";
+  + "--out <dir under runs/mapping-playground/> [--rbs <rbs_<variant>> | --rbs-file <file>] [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
   process.stderr.write(`short: ${msg}\n`);
@@ -78,35 +80,7 @@ const RBS_FILLS = {
 };
 
 export function fillRbs(row, structure) {
-  return { variant: row.id, placeholder: row.placeholder === true, pairs: RBS_FILLS[row.fill](structure) };
-}
-
-// Every string a `target` carries: the prose itself, or each leaf of a mapping.
-function targetTexts(target) {
-  if (typeof target === "string") return [target];
-  if (Array.isArray(target)) return target.flatMap(targetTexts);
-  if (target && typeof target === "object") return Object.values(target).flatMap(targetTexts);
-  return [];
-}
-
-// The table, refused or `{}`: its shape, then the claim-word test over every `target`.
-export function validateRbsTable(record, claim) {
-  if (!record || typeof record !== "object" || !Array.isArray(record.pairs) || !record.pairs.length) {
-    return { error: "the correspondence table carries no non-empty `pairs` list" };
-  }
-  const forms = claimForms(claim);
-  for (const [i, p] of record.pairs.entries()) {
-    if (!p || typeof p !== "object" || !Object.hasOwn(p, "base") || !Object.hasOwn(p, "target")) {
-      return { error: `pairs[${i}] is not a \`{ base, target }\` pair` };
-    }
-    const texts = targetTexts(p.target).filter((t) => t.trim() !== "");
-    if (!texts.length) return { error: `pairs[${i}].target is empty` };
-    for (const t of texts) {
-      const w = claimWordIn(t, forms);
-      if (w) return { error: `pairs[${i}].target carries "${w}", a content word of the Strand's claim — the reader does not hold the Strand's words (kogaki#1669)` };
-    }
-  }
-  return {};
+  return { variant: row.id, placeholder: row.placeholder === true, base: { domain: null, kind: null }, pairs: RBS_FILLS[row.fill](structure) };
 }
 
 const targetLine = (target) => (typeof target === "string" ? target.trim() : stringifyYaml(target).trim().replace(/\s*\n\s*/g, "; "));
@@ -211,6 +185,13 @@ function readStrand(strandFile) {
   return strand;
 }
 
+function readRbsFile(file, strand, libraryDir) {
+  let record;
+  try { record = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the correspondence table cannot be read (${e.message})` }; }
+  const v = validateRbsTable(record, strand.claim, { movesDir: libraryDir });
+  return v.error ? v : { record: { ...record, variant: RBS_OWNER, placeholder: false } };
+}
+
 function readStructure(file, strand) {
   let structure;
   try { structure = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the structure cannot be read (${e.message})` }; }
@@ -219,13 +200,13 @@ function readStructure(file, strand) {
 }
 
 export function runShortTrial({ strand: strandFile, structure: givenStructure = null, mapper = null, out, rbs = RBS_DEFAULT,
-  audience = null, library = null }) {
+  rbsFile = null, audience = null, library = null }) {
   const outDir = resolve(out);
   const rel = relative(resolve(REPO, TRIALS_DIR), outDir);
   if (rel === "" || rel.startsWith("..") || rel.startsWith(sep)) fail(`--out ${out} is not a directory under ${TRIALS_DIR}/. Nothing was started.`);
   if (existsSync(join(outDir, TRIAL_FILE))) fail(`a Trial already exists at ${outDir}, and nothing was written over it. Nothing was started.`);
   const table = readTable();
-  const rr = rbsRow(table, rbs);
+  const rr = rbsFile ? { row: { id: RBS_OWNER, placeholder: false } } : rbsRow(table, rbs);
   if (rr.error) fail(`${rr.error}. Nothing was started.`);
   const strand = readStrand(strandFile);
   if (mapper) {
@@ -241,6 +222,8 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   if (persona.error) fail(`${persona.error}. Nothing was started.`);
   const libraryDir = resolve(REPO, library || "moves");
   if (!existsSync(libraryDir)) fail(`the library ${libraryDir} does not exist. Nothing was started.`);
+  const owned = rbsFile ? readRbsFile(rbsFile, strand, libraryDir) : null;
+  if (owned && owned.error) fail(`${owned.error}. Nothing was started.`);
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const slug = basename(outDir).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "trial";
   mkdirSync(outDir, { recursive: true });
@@ -305,8 +288,13 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     const s = readStructure(structureFile, strand);
     if (s.error) return { stopped: s.error };
     structure = s.structure;
+    if (owned) {
+      copyFileSync(rbsFile, rbsPath);
+      record.rbs = { variant: RBS_OWNER, placeholder: false, ...fileRecord(rbsPath) };
+      return { value: owned.record };
+    }
     const filled = fillRbs(rr.row, structure);
-    const v = validateRbsTable(filled, strand.claim);
+    const v = validateRbsTable(filled, strand.claim, { movesDir: libraryDir });
     if (v.error) return { stopped: v.error };
     writeFileSync(rbsPath, stringifyYaml(filled));
     record.rbs = { variant: filled.variant, placeholder: filled.placeholder, ...fileRecord(rbsPath) };
@@ -314,6 +302,12 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   });
   const leg = table1 ? shortLeg(structure, table1, persona) : null;
   const entry = stage("bind", (d, env) => {
+    const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
+    if (supplied) {
+      writeFileSync(bindPath, stringifyYaml(supplied));
+      record.bind = { state: "supplied", author: "owner", move: supplied.move, ...fileRecord(bindPath) };
+      return { value: supplied };
+    }
     const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
     if (r.stopped) return r;
     writeFileSync(bindPath, stringifyYaml(r.entry));
@@ -349,10 +343,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   if (args._cmd !== "run") fail(USAGE);
+  if (str("rbs") && str("rbs-file")) fail(`\`--rbs\` and \`--rbs-file\` are given together: a Trial's correspondence table is a variant row's or the owner's file, never both. Nothing was started. ${USAGE}`);
   if (str("structure") && str("mapper")) fail(`\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`);
   for (const k of ["strand", ...(str("mapper") ? [] : ["structure"]), "out"]) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
   const r = runShortTrial({ strand: str("strand"), structure: str("structure"), mapper: str("mapper"), out: str("out"),
-    rbs: str("rbs") || RBS_DEFAULT, audience: str("audience"), library: str("library") });
+    rbs: str("rbs") || RBS_DEFAULT, rbsFile: str("rbs-file"), audience: str("audience"), library: str("library") });
   console.log(`trial directory: ${r.outDir}`);
   if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
 }

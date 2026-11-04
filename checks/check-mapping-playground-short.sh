@@ -9,6 +9,10 @@
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
+#   (j) the `--rbs-file` route with `move` and `waypoints` exits 0 with one call, `bind.state: supplied`, `rbs.variant: owner-authored` (kogaki#1671).
+#   (k) `--rbs-file` with `--rbs` is refused naming both flags.
+#   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
+#   (m) a structure's `attributes` passes, an unresolved Role is refused naming it, and the sheet carries the base and attributes cards after the table.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -25,7 +29,9 @@ const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const { parseYaml, stringifyYaml } = await import(pathToFileURL(join(repo, "src/yaml.mjs")).href);
-const { validateRbsTable } = await import(pathToFileURL(join(repo, "src/mapping-playground/short.mjs")).href);
+const { validateRbsTable } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
+const { validateStructure } = await import(pathToFileURL(join(repo, "src/mapping-playground/structure.mjs")).href);
+const { moveContract } = await import(pathToFileURL(join(repo, "src/compose.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "mapping-playground-short-"));
 const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
@@ -161,6 +167,52 @@ ok(d.res.status !== 0 && stagesOf(d.rec) === "rbs:done,bind:stopped,write:not ru
 // (g) a target carrying a claim word is refused naming it
 const g = validateRbsTable({ variant: "rbs_x", pairs: [{ base: null, target: "The crew follows its list." }, { base: "walker", target: { step: "The walker sees a room." } }] }, CLAIM);
 ok(g.error && g.error.includes('pairs[1].target carries "walker"'), `(g) a target carrying "walker" was not refused naming it: ${JSON.stringify(g)}`);
+
+// (j) the owner-authored table with a supplied binding: one writer call, no binding call
+const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
+const SEGMENTS = moveContract(MOVE, join(repo, "moves")).segments.length;
+const owned = { base: { domain: "a cleaning crew working through a house", kind: "analogy" },
+  pairs: wantTargets.map((t) => ({ base: "the crew's list", target: t })), move: MOVE,
+  waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1, point: `OWNED-${n + 1} the crew keeps to its list.` })) };
+const ownedFile = join(root, "rbs-owned.yaml");
+writeFileSync(ownedFile, stringifyYaml(owned));
+const withAttrs = join(root, "structure-attrs.yaml");
+writeFileSync(withAttrs, stringifyYaml({ ...mapped, attributes: [{ role: "room", words: ["dusty", "next door"] }] }));
+const j = run("owned", ["--structure", withAttrs, "--rbs-file", ownedFile]);
+const jCalls = [...j.calls("bind"), ...j.calls("write")];
+ok(j.res.status === 0 && stagesOf(j.rec) === "rbs:done,bind:done,write:done" && jCalls.length === 1 && j.seen.length === 1
+  && j.rec.bind.state === "supplied" && j.rec.bind.author === "owner" && j.rec.bind.move === MOVE
+  && j.rec.rbs.variant === "owner-authored" && j.rec.rbs.placeholder === false && j.rec.rbs.sha256 === sha(ownedFile),
+  `(j) the --rbs-file run did not make one call with bind.state supplied: ${j.res.status} ${stagesOf(j.rec)} ${jCalls.length} ${JSON.stringify(j.rec && j.rec.bind)} ${j.res.stderr}`);
+const jPacket = existsSync(join(j.o, "write", "packet.md")) ? readFileSync(join(j.o, "write", "packet.md"), "utf8") : "";
+ok(jPacket.includes("OWNED-1 the crew") && jPacket.includes(`OWNED-${SEGMENTS} the crew`), "(j) the Packet does not carry the supplied points as its Paragraph Waypoints");
+
+// (k) --rbs-file with --rbs is refused naming both flags
+const k = run("both-rbs", ["--structure", structure, "--rbs", "rbs_placeholder", "--rbs-file", ownedFile]);
+ok(k.res.status !== 0 && k.res.stderr.includes("`--rbs`") && k.res.stderr.includes("`--rbs-file`") && !existsSync(k.o),
+  `(k) --rbs with --rbs-file was not refused naming both: ${k.res.status} ${k.res.stderr}`);
+
+// (l) each bad field of the table is refused naming it
+const lv = (edit) => validateRbsTable({ ...owned, ...edit }, CLAIM, { movesDir: join(repo, "moves") });
+const l1 = lv({ base: { domain: "a house", kind: "metaphor" } });
+ok(l1.error && l1.error.includes("base.kind"), `(l) a kind outside the four was not refused naming base.kind: ${JSON.stringify(l1)}`);
+const l2 = lv({ move: "no_such_move" });
+ok(l2.error && l2.error.startsWith("move "), `(l) a move naming no Move was not refused naming move: ${JSON.stringify(l2)}`);
+const l3 = lv({ waypoints: owned.waypoints.slice(1) });
+ok(l3.error && l3.error.startsWith("waypoints "), `(l) a waypoints list of the wrong length was not refused naming waypoints: ${JSON.stringify(l3)}`);
+const l4 = lv({ waypoints: owned.waypoints.map((w, n) => (n === 2 ? { ...w, point: "The walker sees a room." } : w)) });
+ok(l4.error && l4.error.includes('waypoints[2].point carries "walker"'), `(l) a point carrying a claim word was not refused naming the field: ${JSON.stringify(l4)}`);
+
+// (m) attributes: passes, an unresolved Role refused, and the sheet's two cards after the table
+const strandRec = { cite: CITE, claim: CLAIM, rendering: "x" };
+ok(!validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"] }] }, strandRec).error, "(m) a structure carrying attributes was refused");
+const m2 = validateStructure({ ...mapped, attributes: [{ role: "attic", words: ["dusty"] }] }, strandRec);
+ok(m2.error && m2.error.includes('"attic"'), `(m) an attribute naming no Role was not refused naming it: ${JSON.stringify(m2)}`);
+const jSheet = existsSync(join(j.o, "sheet.html")) ? readFileSync(join(j.o, "sheet.html"), "utf8") : "";
+const jAt = ["table", "base", "attributes", "structure"].map((id) => jSheet.indexOf(`id="${id}"`));
+ok(jAt.every((x) => x >= 0) && jAt.every((x, n) => n === 0 || x > jAt[n - 1]) && jSheet.includes("a cleaning crew working through a house")
+  && jSheet.includes("analogy") && jSheet.includes("dusty, next door"),
+  `(m) sheet.html does not carry the base and attributes cards after the table: ${jAt.join(",")}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
