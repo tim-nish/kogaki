@@ -5,7 +5,9 @@
 #   (c) a `--rbs` naming no `rbs_<variant>` row is refused naming the rows the table declares.
 #   (d) a binding answer of `move: null` stops at `bind`, and the record shows it.
 #   (e) the writer's recorded stdin equals the Packet byte for byte.
-#   (f) sheet.html is dark at its root and carries its parts in order, one table row per pair.
+#   (f) sheet.html is dark at its root, its h2s are the five sections in order, the WBS and the Paragraph sit in one
+#       .cols block, and the one mapping table carries a row per Role with its context, its dropped words and its
+#       base object under a base header naming the domain and kind (kogaki#1673).
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
@@ -13,7 +15,7 @@
 #   (j) the `--rbs-file` route with `move` and `waypoints` exits 0 with one call, `bind.state: supplied`, `rbs.variant: owner-authored` (kogaki#1671).
 #   (k) `--rbs-file` with `--rbs` is refused naming both flags.
 #   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
-#   (m) a structure's `attributes` passes, an unresolved Role is refused naming it, and the sheet carries the base and attributes cards after the table.
+#   (m) a structure's `attributes` passes, and an unresolved Role is refused naming it.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -137,15 +139,6 @@ const w = a.calls("write");
 const packet = existsSync(join(a.o, "write", "packet.md")) ? readFileSync(join(a.o, "write", "packet.md"), "utf8") : null;
 ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(e) the writer's recorded stdin is not the Packet byte for byte");
 
-// (f) the sheet: dark at its root, its parts in order, one table row per pair
-const sheet = rec.sheet && existsSync(join(repo, rec.sheet)) ? readFileSync(join(repo, rec.sheet), "utf8") : "";
-ok(/^<!doctype html><html data-theme="dark">/.test(sheet), "(f) sheet.html does not carry data-theme=\"dark\" on its root");
-const at = ["wbs-rbs", "table", "structure", "binding", "paragraph", "calls"].map((id) => sheet.indexOf(`id="${id}"`));
-ok(at.every((x) => x >= 0) && at.every((x, i) => i === 0 || x > at[i - 1]), `(f) sheet.html does not carry its parts in order: ${at.join(",")}`);
-const tbody = (/<section class="card" id="table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/.exec(sheet) || [])[1] || "";
-ok((tbody.match(/<tr>/g) || []).length === PAIRS, "(f) the correspondence table is not one row per pair");
-ok(sheet.includes(String(rec.bind && rec.bind.move)) && sheet.includes("WRITTEN the crew") && sheet.includes(CLAIM), "(f) sheet.html does not carry the Move, the paragraph and the WBS");
-
 // (b) the Mapper route
 writeFileSync(join(root, "answer.json"), JSON.stringify(mapped));
 const b = run("mapped", ["--mapper", "sme_map_roles"], { SMP_MAPPER_ANSWER: join(root, "answer.json") });
@@ -164,6 +157,10 @@ const d = run("no-move", ["--structure", structure], { SMP_BIND_NULL: "1" });
 ok(d.res.status !== 0 && stagesOf(d.rec) === "rbs:done,bind:stopped,write:not run" && /^bind: /.test(String(d.rec.stopped))
   && String(d.rec.stopped).includes("no_paragraph_move_fits") && !existsSync(join(d.o, "paragraph.md")) && existsSync(join(d.o, "sheet.html")),
   `(d) a move: null answer did not stop the Trial at bind: ${d.res.status} ${stagesOf(d.rec)} ${JSON.stringify(d.rec && d.rec.stopped)}`);
+const dSheet = existsSync(join(d.o, "sheet.html")) ? readFileSync(join(d.o, "sheet.html"), "utf8") : "";
+const dParagraph = (/<div><h3>Paragraph<\/h3>([\s\S]*?)<\/div><\/div><\/section>/.exec(dSheet) || [])[1] || "";
+ok(d.rec && dParagraph.includes(`stopped — ${d.rec.stopped}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")),
+  `(d) the stopped Trial's Paragraph column does not carry the stop reason: ${dParagraph}`);
 
 // (g) a target carrying a claim word is refused naming it
 const g = validateRbsTable({ variant: "rbs_x", base: { domain: null, kind: null }, pairs: [{ base: null, target: "The crew follows its list." }, { base: "walker", target: { step: "The walker sees a room." } }] }, CLAIM);
@@ -206,16 +203,33 @@ ok(l3.error && l3.error.startsWith("waypoints "), `(l) a waypoints list of the w
 const l4 = lv({ waypoints: owned.waypoints.map((w, n) => (n === 2 ? { ...w, point: "The walker sees a room." } : w)) });
 ok(l4.error && l4.error.includes('waypoints[2].point carries "walker"'), `(l) a point carrying a claim word was not refused naming the field: ${JSON.stringify(l4)}`);
 
-// (m) attributes: passes, an unresolved Role refused, and the sheet's two cards after the table
+// (m) attributes: passes, and an unresolved Role is refused
 const strandRec = { cite: CITE, claim: CLAIM, rendering: "x" };
 ok(!validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"] }] }, strandRec).error, "(m) a structure carrying attributes was refused");
 const m2 = validateStructure({ ...mapped, attributes: [{ role: "attic", words: ["dusty"] }] }, strandRec);
 ok(m2.error && m2.error.includes('"attic"'), `(m) an attribute naming no Role was not refused naming it: ${JSON.stringify(m2)}`);
+
+// (f) the sheet: dark, its five sections in order, the WBS beside the Paragraph, one mapping table
+const SECTIONS = ["WBS and Paragraph", "Mapping", "RBS: the bound Move and its points", "RelationalStructure", "Model calls"];
+const sheet = rec.sheet && existsSync(join(repo, rec.sheet)) ? readFileSync(join(repo, rec.sheet), "utf8") : "";
+ok(/^<!doctype html><html data-theme="dark">/.test(sheet), "(f) sheet.html does not carry data-theme=\"dark\" on its root");
 const jSheet = existsSync(join(j.o, "sheet.html")) ? readFileSync(join(j.o, "sheet.html"), "utf8") : "";
-const jAt = ["table", "base", "attributes", "structure"].map((id) => jSheet.indexOf(`id="${id}"`));
-ok(jAt.every((x) => x >= 0) && jAt.every((x, n) => n === 0 || x > jAt[n - 1]) && jSheet.includes("a cleaning crew working through a house")
-  && jSheet.includes("analogy") && jSheet.includes("dusty, next door"),
-  `(m) sheet.html does not carry the base and attributes cards after the table: ${jAt.join(",")}`);
+const h2s = [...jSheet.matchAll(/<h2>([\s\S]*?)<\/h2>/g)].map((x) => x[1]);
+ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the five sections in order: ${JSON.stringify(h2s)}`);
+const cols = (/<div class="cols">([\s\S]*?)<\/div><\/div><\/section>/.exec(jSheet) || [])[1] || "";
+ok(cols.includes(CLAIM) && cols.includes("WRITTEN the crew"), "(f) the WBS and the Paragraph do not sit in one .cols block");
+const mapping = (/<section class="card" id="mapping">([\s\S]*?)<\/section>/.exec(jSheet) || [])[1] || "";
+const ths = [...mapping.matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
+ok((mapping.match(/<table>/g) || []).length === 1 && ths.filter((t) => t === "Role").length === 1
+  && ths.filter((t) => t.startsWith("In the base") && t.includes(owned.base.domain) && t.includes(owned.base.kind)).length === 1,
+  `(f) the mapping section is not one table with one Role header and one base header naming the domain and kind: ${JSON.stringify(ths)}`);
+const rows = [...mapping.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
+ok(mapped.roles.every((r) => rows.filter((x) => x[1] === r.id && x[2] === r.context && x[4] === "the crew's list").length === 1)
+  && rows.some((x) => x[1] === "room" && x[3] === "dusty, next door"),
+  `(f) the mapping table is not one row per Role carrying its context, its dropped words and its base object: ${rows.map((x) => x.slice(1).join("|")).join(" / ")}`);
+ok(!sheet.includes("base (WBS)") && !sheet.includes("target (RBS)") && !jSheet.includes("base (WBS)") && !jSheet.includes("target (RBS)"),
+  "(f) a sheet still carries `base (WBS)` or `target (RBS)`");
+ok(sheet.includes(String(rec.bind && rec.bind.move)) && sheet.includes("WRITTEN the crew") && sheet.includes(CLAIM), "(f) sheet.html does not carry the Move, the paragraph and the WBS");
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
