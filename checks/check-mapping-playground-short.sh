@@ -9,10 +9,8 @@
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
-#   (j) the `--rbs-file` route with `move` and `waypoints` exits 0 with one call, `bind.state: supplied`, `rbs.variant: owner-authored` (kogaki#1671).
-#   (k) `--rbs-file` with `--rbs` is refused naming both flags.
-#   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
-#   (m) a structure's `attributes` passes, an unresolved Role is refused naming it, and the sheet carries the base and attributes cards after the table.
+#   (j)-(k) `--rbs-file` with `move` and `waypoints` makes one call, `bind.state: supplied`; with `--rbs` it is refused naming both (kogaki#1671).
+#   (l)-(m) a bad `base.kind`, `move`, `waypoints` or `point` is refused naming the field; `attributes` resolve their Roles; the sheet's two new cards follow the table.
 set -u
 cd "$(dirname "$0")/.."
 
