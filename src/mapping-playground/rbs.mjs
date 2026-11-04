@@ -43,6 +43,7 @@ function baseRefusal(base) {
 
 // The supplied binding: `move` resolving in the library, and one `{ segment, point }` per segment, in order.
 function bindingRefusal(record, forms, movesDir) {
+  if (Object.hasOwn(record, "grounds") && !isText(record.grounds)) return "grounds is not one text — why the Move was chosen (kogaki#1675)";
   const hasMove = Object.hasOwn(record, "move");
   const hasWaypoints = Object.hasOwn(record, "waypoints");
   if (!hasMove && !hasWaypoints) return null;
@@ -87,8 +88,9 @@ export function validateRbsTable(record, claim, { movesDir = "moves" } = {}) {
 }
 
 // The binding the owner supplied, as the `bind` stage's entry, or null where the table carries none.
+// `grounds` is null where the table carries none (kogaki#1675).
 export function suppliedEntry(record, serves) {
   if (!Object.hasOwn(record, "move")) return null;
-  return { waypoint: 1, move: record.move,
+  return { waypoint: 1, move: record.move, grounds: Object.hasOwn(record, "grounds") ? String(record.grounds).trim() : null,
     paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim(), serves: [...serves] })) };
 }

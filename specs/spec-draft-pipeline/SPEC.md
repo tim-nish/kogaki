@@ -3003,8 +3003,17 @@ of the library, and `waypoints`, one `{ segment, point }` per segment of that
 Move in order, each `point` the segment expressed in the base's objects. The
 claim-word test runs over every `point`. With both present, the `bind` stage
 makes no model call: it records `bind: { state: supplied, author: owner, move,
-path, sha256 }`, and the Paragraph Waypoints are the `point`s in segment order.
-The Trial is then one writer call. Without them the `bind` stage runs as above.
+grounds, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
+segment order. The Trial is then one writer call. Without them the `bind`
+stage runs as above.
+
+**The grounds of the binding** (kogaki#1675). The table may carry `grounds`,
+one text saying why the Move was chosen, and a `grounds` that is not text is
+refused naming the field. `<out>/bind.yaml` and the record's `bind` carry
+`grounds` in both routes: the owner's text in the supplied route, and `null`
+in the model route until a Composer field carries it. `bind.yaml` keeps
+`serves` because the ParagraphPlan unit shape requires it, and the sheet
+renders it nowhere.
 
 **The attributes** (kogaki#1671). The RelationalStructure may carry
 `attributes`, a list of `{ role, words }`: a Role id and the Strand's words
@@ -3021,22 +3030,41 @@ paragraph is `<out>/paragraph.md`.
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
 from a Proof Sheet at a glance. It opens on the comparison the owner reads,
 as the Proof Sheet opens on the Passage beside the Draft (kogaki#1673). Its
-sections, in order: `WBS and Paragraph`, the Strand's claim and rendering
-beside the paragraph in two columns, with the stop reason in the paragraph's
-place where the run stopped before it; `Mapping`, one table; `RBS: the bound
-Move and its points`, the bound Move with its Paragraph Waypoints;
-`RelationalStructure`, folded; and `Model calls`, folded. The mapping table
-has one row per Role and four columns: `Role`, `What the Role is` (the Role's
-`context`), `Strand words dropped` (its `attributes` words, or empty) and `In
-the base`, whose header carries the base's `domain` and `kind` and whose cells
-are the `base` of the pairs naming that Role. Its caption is the table's
-`variant`. A pair naming a relation or the higher-order relation is a further
-row under the Roles, keyed by that id. The runner writes the sheet once and
+sections, in order (kogaki#1675): `WBS and Paragraph`, `Segments`, `Mapping`,
+`Structure` and `Model calls`, folded. The runner writes the sheet once and
 never reads it.
+
+- `WBS and Paragraph` sets the Strand's claim and rendering beside the
+  paragraph in two columns, with the stop reason in the paragraph's place
+  where the run stopped before it.
+- `Segments` is one table with one row per Segment of the bound Move, read
+  from the record's `library`: `#`, `operation`, `relation`, `manner` and the
+  `point` written for it. A Segment without `relation` or `manner` has an
+  empty cell. The caption carries the Move id, `supplied by the owner` or
+  the model route's `bind` state, and `grounds`.
+- `Mapping` is one table with one row per Role and four columns: `Role`,
+  `Abstraction` (the Role's `context`), `Strand words dropped` (its
+  `attributes` words, or empty) and the base column, headed `<Kind>:
+  <domain>` with the kind's word capitalised (`Analogy: smoke detectors in a
+  house`), or `Base: null` for the placeholder. Its cells are the `base` of
+  the pairs naming that Role, and its caption is the table's `variant`. A
+  pair naming a relation or the higher-order relation is a further row under
+  the Roles, keyed by that id.
+- `Structure` is a table with one row per element: `id`, `category` (Role,
+  relation or higher-order), `arguments` (a Role's `context`, a relation's
+  `between`, the higher-order relation's `relates`) and `holds`. A Role no
+  relation names in `between`, and a relation `higher_order.relates` does not
+  name, is marked `unreached` in its `category` cell: Gentner's
+  systematicity read as a check on extraction. Beneath it is a Mermaid
+  `graph LR`, loaded as the Proof Sheet loads Mermaid, with three subgraphs
+  as columns, `Roles`, `Relations` and `Higher-order relations`, an edge from
+  each Role to every relation naming it and from each relation to the
+  higher-order relation naming it, the edges into the higher-order relation
+  in the accent colour. The structure's YAML follows, folded.
 
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
-`bind: { move, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
+`bind: { move, grounds, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
 `reading` and `stages`.
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation

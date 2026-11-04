@@ -242,7 +242,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     rbs: { variant: rr.row.id, placeholder: rr.row.placeholder === true, path: null, sha256: null },
-    bind: { move: null, path: null, sha256: null },
+    bind: { move: null, grounds: null, path: null, sha256: null },
     paragraph: { path: null, sha256: null },
     sheet: relFromRepo(sheetPath),
     audience: relFromRepo(audiencePath),
@@ -305,14 +305,16 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
     if (supplied) {
       writeFileSync(bindPath, stringifyYaml(supplied));
-      record.bind = { state: "supplied", author: "owner", move: supplied.move, ...fileRecord(bindPath) };
+      record.bind = { state: "supplied", author: "owner", move: supplied.move, grounds: supplied.grounds, ...fileRecord(bindPath) };
       return { value: supplied };
     }
     const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
     if (r.stopped) return r;
-    writeFileSync(bindPath, stringifyYaml(r.entry));
-    record.bind = { move: r.entry.move, ...fileRecord(bindPath) };
-    return { value: r.entry };
+    // The model route records no grounds until a Composer field carries them (kogaki#1675).
+    const bound = { ...r.entry, grounds: null };
+    writeFileSync(bindPath, stringifyYaml(bound));
+    record.bind = { move: bound.move, grounds: null, ...fileRecord(bindPath) };
+    return { value: bound };
   });
   stage("write", (d, env) => {
     const r = writeStage({ dir: d, env, leg, entry, audiencePath, paragraphPath });

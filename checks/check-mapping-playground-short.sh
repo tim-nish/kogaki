@@ -6,8 +6,10 @@
 #   (d) a binding answer of `move: null` stops at `bind`, and the record shows it.
 #   (e) the writer's recorded stdin equals the Packet byte for byte.
 #   (f) sheet.html is dark at its root, its h2s are the five sections in order, the WBS and the Paragraph sit in one
-#       .cols block, and the one mapping table carries a row per Role with its context, its dropped words and its
-#       base object under a base header naming the domain and kind (kogaki#1673).
+#       .cols block, the Segments table carries one row per Segment with its operation and point and no `serves L`,
+#       the Mapping headers are Role, Abstraction, Strand words dropped and `Analogy: <domain>`, and the Structure
+#       table carries one row per element with its category, a Role in no relation marked `unreached`, beside a
+#       Mermaid `graph LR` naming the three subgraphs (kogaki#1673, kogaki#1675).
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
@@ -16,6 +18,8 @@
 #   (k) `--rbs-file` with `--rbs` is refused naming both flags.
 #   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
 #   (m) a structure's `attributes` passes, and an unresolved Role is refused naming it.
+#   (n) `grounds` in the rbs file reaches bind.yaml and the Segments caption, the model route's bind.yaml carries
+#       `grounds: null`, and a non-text `grounds` is refused naming the field (kogaki#1675).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -171,11 +175,13 @@ const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_t
 const SEGMENTS = moveContract(MOVE, join(repo, "moves")).segments.length;
 const owned = { base: { domain: "a cleaning crew working through a house", kind: "analogy" },
   pairs: wantTargets.map((t) => ({ base: "the crew's list", target: t })), move: MOVE,
+  grounds: "GROUNDS the Move asks and answers, as the crew asks which room comes first.",
   waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1, point: `OWNED-${n + 1} the crew keeps to its list.` })) };
 const ownedFile = join(root, "rbs-owned.yaml");
 writeFileSync(ownedFile, stringifyYaml(owned));
 const withAttrs = join(root, "structure-attrs.yaml");
-writeFileSync(withAttrs, stringifyYaml({ ...mapped, attributes: [{ role: "room", words: ["dusty", "next door"] }] }));
+const LONE = { id: "porch", context: "A porch light glows by the gate." };
+writeFileSync(withAttrs, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], attributes: [{ role: "room", words: ["dusty", "next door"] }] }));
 const j = run("owned", ["--structure", withAttrs, "--rbs-file", ownedFile]);
 const jCalls = [...j.calls("bind"), ...j.calls("write")];
 ok(j.res.status === 0 && stagesOf(j.rec) === "rbs:done,bind:done,write:done" && jCalls.length === 1 && j.seen.length === 1
@@ -209,8 +215,8 @@ ok(!validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"]
 const m2 = validateStructure({ ...mapped, attributes: [{ role: "attic", words: ["dusty"] }] }, strandRec);
 ok(m2.error && m2.error.includes('"attic"'), `(m) an attribute naming no Role was not refused naming it: ${JSON.stringify(m2)}`);
 
-// (f) the sheet: dark, its five sections in order, the WBS beside the Paragraph, one mapping table
-const SECTIONS = ["WBS and Paragraph", "Mapping", "RBS: the bound Move and its points", "RelationalStructure", "Model calls"];
+// (f) the sheet: dark, its five sections in order, the WBS beside the Paragraph, Segments, Mapping and Structure
+const SECTIONS = ["WBS and Paragraph", "Segments", "Mapping", "Structure", "Model calls"];
 const sheet = rec.sheet && existsSync(join(repo, rec.sheet)) ? readFileSync(join(repo, rec.sheet), "utf8") : "";
 ok(/^<!doctype html><html data-theme="dark">/.test(sheet), "(f) sheet.html does not carry data-theme=\"dark\" on its root");
 const jSheet = existsSync(join(j.o, "sheet.html")) ? readFileSync(join(j.o, "sheet.html"), "utf8") : "";
@@ -218,18 +224,48 @@ const h2s = [...jSheet.matchAll(/<h2>([\s\S]*?)<\/h2>/g)].map((x) => x[1]);
 ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the five sections in order: ${JSON.stringify(h2s)}`);
 const cols = (/<div class="cols">([\s\S]*?)<\/div><\/div><\/section>/.exec(jSheet) || [])[1] || "";
 ok(cols.includes(CLAIM) && cols.includes("WRITTEN the crew"), "(f) the WBS and the Paragraph do not sit in one .cols block");
-const mapping = (/<section class="card" id="mapping">([\s\S]*?)<\/section>/.exec(jSheet) || [])[1] || "";
-const ths = [...mapping.matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
-ok((mapping.match(/<table>/g) || []).length === 1 && ths.filter((t) => t === "Role").length === 1
-  && ths.filter((t) => t.startsWith("In the base") && t.includes(owned.base.domain) && t.includes(owned.base.kind)).length === 1,
-  `(f) the mapping section is not one table with one Role header and one base header naming the domain and kind: ${JSON.stringify(ths)}`);
-const rows = [...mapping.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
-ok(mapped.roles.every((r) => rows.filter((x) => x[1] === r.id && x[2] === r.context && x[4] === "the crew's list").length === 1)
-  && rows.some((x) => x[1] === "room" && x[3] === "dusty, next door"),
-  `(f) the mapping table is not one row per Role carrying its context, its dropped words and its base object: ${rows.map((x) => x.slice(1).join("|")).join(" / ")}`);
+const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const section = (html, id) => (new RegExp(`<section class="card" id="${id}">([\\s\\S]*?)<\\/section>`).exec(html) || [])[1] || "";
+const segs = moveContract(MOVE, join(repo, "moves")).segments;
+const segRows = [...section(jSheet, "segments").matchAll(/<tr><td>(\d+)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
+ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === String(n + 1) && segRows[n][2] === esc(sg.operation)
+  && segRows[n][3] === esc(sg.relation || "") && segRows[n][4] === esc(sg.manner || "") && segRows[n][5] === esc(owned.waypoints[n].point)),
+  `(f) the Segments table is not one row per Segment with its operation, relation, manner and point: ${segRows.length} rows for ${segs.length} segments`);
+ok(!sheet.includes("serves L") && !jSheet.includes("serves L"), "(f) a sheet still carries `serves L`");
+const ths = [...section(jSheet, "mapping").matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
+ok(JSON.stringify(ths) === JSON.stringify(["Role", "Abstraction", "Strand words dropped", `Analogy: ${owned.base.domain}`]),
+  `(f) the Mapping headers are not Role, Abstraction, Strand words dropped and Analogy: <domain>: ${JSON.stringify(ths)}`);
+const pHeads = [...section(sheet, "mapping").matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
+ok(pHeads[3] === "Base: null", `(f) the placeholder's base header is not \`Base: null\`: ${JSON.stringify(pHeads)}`);
+const mapRows = [...section(jSheet, "mapping").matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
+ok(mapped.roles.every((r) => mapRows.filter((x) => x[1] === r.id && x[2] === r.context && x[4] === "the crew's list").length === 1)
+  && mapRows.some((x) => x[1] === "room" && x[3] === "dusty, next door"),
+  `(f) the mapping table is not one row per Role carrying its context, its dropped words and its base object: ${mapRows.map((x) => x.slice(1).join("|")).join(" / ")}`);
+const struct = section(jSheet, "structure");
+const elRows = [...struct.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
+const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...mapped.relations.map((r) => [r.id, "relation"]), ["higher_order", "higher-order"]];
+const category = (c) => c.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+ok(elRows.length === wantEls.length && wantEls.every(([id, cat]) => elRows.some((x) => x[1] === id && category(x[2]) === cat)),
+  `(f) the Structure table is not one row per element with its category and the lone Role unreached: ${elRows.map((x) => `${x[1]}:${category(x[2])}`).join(" / ")}`);
+const graph = (/<div class="mermaid">([\s\S]*?)<\/div>/.exec(struct) || [])[1] || "";
+ok(graph.startsWith("graph LR") && ["Roles", "Relations", "Higher-order relations"].every((t) => graph.includes(`[&quot;${t}&quot;]`))
+  && jSheet.includes("mermaid.initialize"), `(f) the Structure section carries no Mermaid graph LR naming the three subgraphs: ${graph.slice(0, 200)}`);
+ok(struct.includes("<details") && struct.indexOf("<details") > struct.indexOf('class="mermaid"'), "(f) the folded YAML does not follow the graph");
 ok(!sheet.includes("base (WBS)") && !sheet.includes("target (RBS)") && !jSheet.includes("base (WBS)") && !jSheet.includes("target (RBS)"),
   "(f) a sheet still carries `base (WBS)` or `target (RBS)`");
 ok(sheet.includes(String(rec.bind && rec.bind.move)) && sheet.includes("WRITTEN the crew") && sheet.includes(CLAIM), "(f) sheet.html does not carry the Move, the paragraph and the WBS");
+
+// (n) grounds: the supplied text reaches bind.yaml and the Segments caption; the model route records null; a non-text one is refused
+const jBind = existsSync(join(j.o, "bind.yaml")) ? parseYaml(readFileSync(join(j.o, "bind.yaml"), "utf8"), "bind") : {};
+const caption = (/<caption>([\s\S]*?)<\/caption>/.exec(section(jSheet, "segments")) || [])[1] || "";
+ok(jBind.grounds === owned.grounds && j.rec.bind.grounds === owned.grounds && caption.includes(esc(owned.grounds))
+  && caption.includes(MOVE) && caption.includes("supplied by the owner"),
+  `(n) the supplied grounds did not reach bind.yaml, the record and the Segments caption: ${JSON.stringify(jBind.grounds)} / ${caption}`);
+const aBind = existsSync(join(a.o, "bind.yaml")) ? parseYaml(readFileSync(join(a.o, "bind.yaml"), "utf8"), "bind") : {};
+ok(Object.hasOwn(aBind, "grounds") && aBind.grounds === null && rec.bind.grounds === null,
+  `(n) the model route's bind.yaml does not carry grounds: null: ${JSON.stringify(aBind.grounds)}`);
+const n1 = lv({ grounds: ["a list"] });
+ok(n1.error && n1.error.startsWith("grounds "), `(n) a non-text grounds was not refused naming grounds: ${JSON.stringify(n1)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
