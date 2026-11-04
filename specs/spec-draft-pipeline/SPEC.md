@@ -2935,8 +2935,9 @@ that costs an hour to reach a reading fails before it finds anything. The
 shortest cycle is one WriterBasedStrand, one Move and one Paragraph, read on a
 sheet. A **short Trial** is `node src/mapping-playground/short.mjs run --strand
 <file> (--structure <file> | --mapper sme_map_<variant>) --out <dir under
-runs/mapping-playground/> [--rbs <rbs_<variant>>] [--audience <file>]
-[--library <dir>]`. It runs in one process with no await loop.
+runs/mapping-playground/> [--rbs <rbs_<variant>> | --rbs-file <file>]
+[--audience <file>] [--library <dir>]`. It runs in one process with no await
+loop.
 
 **What the RBS is stays open.** The owner also ruled on 2026-11-04 that what
 the ReaderBasedStrand is remains an open design discussion, held against the
@@ -2955,6 +2956,14 @@ say. `target` is the RBS side, a prose string or a YAML mapping, so prose and
 schema representations are both admitted. The claim-word test of §4.20 runs
 over every `target`, naming the word.
 
+**The base and its kind of match** (kogaki#1671). The table carries `base`,
+`{ domain, kind }`. `domain` names the reader's situation in one phrase.
+`kind` is one of `analogy`, `abstraction`, `literal-similarity` and
+`mere-appearance`, the four kinds of match of Gentner 1983. The placeholder
+writes `{ domain: null, kind: null }`. In `pairs`, each `base` names the base's
+object and each `target` the structure element it stands for.
+`src/mapping-playground/rbs.mjs` is the one validator of the table.
+
 **The `rbs_<variant>` family.** A variant is a row `rbs_<variant>` of
 `src/mapping-playground/playground-workflow.json`. A `--rbs` naming no such
 row is refused, naming the rows the table declares. The first member is
@@ -2963,6 +2972,12 @@ structure element in the structure's order, `base` null, `target` the
 element's `context` or `holds` sentence. **The placeholder is not an RBS**, and
 the record names it a placeholder. A second variant is a second row and a
 second Trial, never an edit of the first.
+
+**The owner-authored table is the first SME of the short Trial** (kogaki#1671,
+owner discussion 2026-11-04). `--rbs-file <file>` supplies `rbs.yaml` by file,
+the way `--structure` supplies the structure, and is refused together with
+`--rbs`, naming both flags. The record carries `rbs: { variant: owner-authored,
+placeholder: false, path, sha256 }`.
 
 **The binding.** The `bind` stage is one call of the `smp_bind_unit` row,
 derived from `paragraph_plan_unit` by `copy_of` and `substitutions`. It binds
@@ -2974,6 +2989,20 @@ ParagraphPlan unit over a one-Waypoint input, and `move: null` stops the Trial
 at `bind`. No Brief is composed, and no Judge runs: the owner's reading is the
 judgment.
 
+**The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
+of the library, and `waypoints`, one `{ segment, point }` per segment of that
+Move in order, each `point` the segment expressed in the base's objects. The
+claim-word test runs over every `point`. With both present, the `bind` stage
+makes no model call: it records `bind: { state: supplied, author: owner, move,
+path, sha256 }`, and the Paragraph Waypoints are the `point`s in segment order.
+The Trial is then one writer call. Without them the `bind` stage runs as above.
+
+**The attributes** (kogaki#1671). The RelationalStructure may carry
+`attributes`, a list of `{ role, words }`: a Role id and the Strand's words
+the mapping drops from it. The validator checks only that every `role`
+resolves. The list is carried for the owner's inspection, and no stage reads
+it.
+
 **The paragraph.** The `write` stage renders one Section Packet from the
 binding, with the Persona from the audience file, and calls the writer of
 `src/draft-workflow.json` once with the Packet as its entire stdin. The
@@ -2982,7 +3011,8 @@ paragraph is `<out>/paragraph.md`.
 **The sheet.** `<out>/sheet.html` reuses the Proof Sheet's CSS and cards, with
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
 from a Proof Sheet at a glance. It carries, in order: the WBS beside the RBS,
-the correspondence table, the RelationalStructure, the bound Move with its
+the correspondence table, the base with its kind, the attributes beside the
+Role each belongs to, the RelationalStructure, the bound Move with its
 Paragraph Waypoints, the paragraph, and every model call. The runner writes it
 once and never reads it.
 

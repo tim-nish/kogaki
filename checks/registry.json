@@ -664,6 +664,7 @@
       "covers": [
         "src/mapping-playground/short.mjs",
         "src/mapping-playground/sheet.mjs",
+        "src/mapping-playground/rbs.mjs",
         "src/mapping-playground/playground-workflow.json"
       ],
       "admission": {

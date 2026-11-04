@@ -68,8 +68,10 @@ function keysRefusal(obj, keys, at) {
 }
 
 // The RelationalStructure record, refused or `{}`. `strand` is `parseStrandFile`'s answer.
+// `attributes` is optional and carried for the owner's inspection only (kogaki#1671).
 export function validateStructure(record, strand) {
-  const bad = keysRefusal(record, ["strand", "roles", "relations", "higher_order"], "the structure");
+  const keys = ["strand", "roles", "relations", "higher_order"];
+  const bad = keysRefusal(record, isMap(record) && "attributes" in record ? [...keys, "attributes"] : keys, "the structure");
   if (bad) return { error: bad };
   if (record.strand !== strand.cite) {
     return { error: `the structure's \`strand\` ${JSON.stringify(record.strand)} is not the strand file's \`cite:\` ${JSON.stringify(strand.cite)}` };
@@ -110,6 +112,15 @@ export function validateStructure(record, strand) {
   const stray = h.relates.find((x) => !relationIds.has(x));
   if (stray !== undefined) return { error: `higher_order's \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };
   if (!isText(h.holds)) return { error: "higher_order's `holds` is empty" };
+  if ("attributes" in record) {
+    if (!Array.isArray(record.attributes)) return { error: "the structure's `attributes` is not a list" };
+    for (const [i, a] of record.attributes.entries()) {
+      const at = `attributes[${i}]`;
+      const ab = keysRefusal(a, ["role", "words"], at);
+      if (ab) return { error: ab };
+      if (!roleIds.has(a.role)) return { error: `${at}'s \`role\` names ${JSON.stringify(a.role)}, which is no Role's id` };
+    }
+  }
   const texts = [
     ...roles.map((r, i) => [r.context, `roles[${i}].context`]),
     ...relations.map((r, i) => [r.holds, `relations[${i}].holds`]),
