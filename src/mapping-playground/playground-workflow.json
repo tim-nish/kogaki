@@ -97,5 +97,32 @@
     "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `strand` -- the input's `strand`, verbatim; `roles` -- a non-empty list of `{ \"id\": <a short unique id>, \"context\": <one or two sentences> }`; `relations` -- a non-empty list of `{ \"id\": <a short unique id, no Role's>, \"between\": [<two or more Role ids>], \"holds\": <one sentence> }`; and `higher_order` -- `{ \"relates\": [<two or more relation ids>], \"holds\": <one sentence> }`.",
     "refusal": "a key the record, a Role, a relation or `higher_order` does not declare, or a declared key missing; an id that is empty, repeated, or names nothing; a `strand` that is not the input's; and a `context` or `holds` carrying a content word of `claim`, refused naming the word and the field. The first refusal is put back into your next attempt verbatim with your answer; a second ends the Trial.",
     "governing": "specs/spec-draft-pipeline/SPEC.md, The first SME; kogaki#1665"
+  },
+  "rbs_placeholder": {
+    "id": "rbs_placeholder",
+    "note": "The first member of the `rbs_<variant>` family of the short Trial (kogaki#1669), and NOT a ReaderBasedStrand: what the RBS is stays an open owner discussion (ruling 2026-11-04), so this row only fills the table's slot. It makes no model call: one pair per structure element in the structure's order, `base` null, `target` the element's `context` or `holds` sentence. A second variant is a second row and a second Trial, never an edit of this one.",
+    "placeholder": true,
+    "fill": "structure_elements",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1669"
+  },
+  "smp_bind_unit": {
+    "id": "smp_bind_unit",
+    "note": "The short Trial's one binding call (kogaki#1669). Derived from the production `paragraph_plan_unit` row by `copy_of` and `substitutions`, as `smp_leg_unit` is derived from `reader_path_unit`; its `input_shape`, `refusal` and shared text are the production row's, read at run time, and its answer is validated by `validateParagraphPlanUnit`. No judge call follows it: the owner's reading is the judgment.",
+    "copy_of": {
+      "file": "src/paragraph-plan-workflow.json",
+      "row": "paragraph_plan_unit",
+      "field": "judgment_point"
+    },
+    "substitutions": [
+      {
+        "from": "plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input,",
+        "to": "plan the ONE paragraph of a short Trial of the Structure-Mapping Playground (kogaki#1669), `leg_you_must_plan` in the input, a Leg of ONE Leg Waypoint whose `point` is the target side of a correspondence table, its entries in order,"
+      },
+      {
+        "from": "- OWE: Where a bound Move's `obligation` leaves items for later, open ONE record in your record's `obligations`, `items` the article's own, each closed in order by the later Leg Waypoint that explains it, never where it opens, its `subitems` first, one open at a time, and lay each owed record into the `discharges` of the entry whose Paragraph Waypoint explains it.",
+        "to": "- OWE: This Leg owes nothing and has no later Leg Waypoint to close a promise, so open no `obligations` record and write no `discharges` (kogaki#1669)."
+      }
+    ],
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; src/paragraph-plan-workflow.json, the `paragraph_plan_unit` row; kogaki#1669"
   }
 }

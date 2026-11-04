@@ -2926,6 +2926,74 @@ sme`. The owner-authored route keeps `mapper: owner-authored`.
 second row and a second Trial, never an edit of the first. Comparing two
 variants is the owner's reading of two Trials.
 
+#### 4.20.2 The short Trial (kogaki#1669)
+
+**Why it is short.** The owner ruled on 2026-11-04 that the Trial of §4.20 is
+the wrong shape for a rig with no correctness criterion. Every SME output is
+found by trial and error, and the Draft is read rather than judged, so a cycle
+that costs an hour to reach a reading fails before it finds anything. The
+shortest cycle is one WriterBasedStrand, one Move and one Paragraph, read on a
+sheet. A **short Trial** is `node src/mapping-playground/short.mjs run --strand
+<file> (--structure <file> | --mapper sme_map_<variant>) --out <dir under
+runs/mapping-playground/> [--rbs <rbs_<variant>>] [--audience <file>]
+[--library <dir>]`. It runs in one process with no await loop.
+
+**What the RBS is stays open.** The owner also ruled on 2026-11-04 that what
+the ReaderBasedStrand is remains an open design discussion, held against the
+research the terms come from before any RBS is built. A short Trial carries
+the RBS as a slot it compares, not a thing it defines.
+
+**The stages**, in order: `sme` (with `--mapper` only: the Mapper of §4.20.1
+under its one-retry bound), `rbs`, `bind` and `write`. A stage that stops ends
+the run there, and the record shows the stop. The owner-authored route makes
+two model calls and the `--mapper` route three.
+
+**The correspondence table.** The `rbs` stage writes `<out>/rbs.yaml`:
+`variant`, `placeholder`, and `pairs`, a list of `{ base, target }`. `base` is
+the words of the WBS the pair reads from, or null where the variant cannot
+say. `target` is the RBS side, a prose string or a YAML mapping, so prose and
+schema representations are both admitted. The claim-word test of §4.20 runs
+over every `target`, naming the word.
+
+**The `rbs_<variant>` family.** A variant is a row `rbs_<variant>` of
+`src/mapping-playground/playground-workflow.json`. A `--rbs` naming no such
+row is refused, naming the rows the table declares. The first member is
+`rbs_placeholder`, and it is the default. It makes no model call: one pair per
+structure element in the structure's order, `base` null, `target` the
+element's `context` or `holds` sentence. **The placeholder is not an RBS**, and
+the record names it a placeholder. A second variant is a second row and a
+second Trial, never an edit of the first.
+
+**The binding.** The `bind` stage is one call of the `smp_bind_unit` row,
+derived from `paragraph_plan_unit` by `copy_of` and `substitutions`. It binds
+one paragraph Move from the library and writes that one paragraph's Paragraph
+Waypoints. The one Leg Waypoint's `point` is the `target` texts in order, and
+its `reader_state_before` is the Persona's prior-knowledge line. There are no
+introduced terms and no obligations. The answer is validated as a
+ParagraphPlan unit over a one-Waypoint input, and `move: null` stops the Trial
+at `bind`. No Brief is composed, and no Judge runs: the owner's reading is the
+judgment.
+
+**The paragraph.** The `write` stage renders one Section Packet from the
+binding, with the Persona from the audience file, and calls the writer of
+`src/draft-workflow.json` once with the Packet as its entire stdin. The
+paragraph is `<out>/paragraph.md`.
+
+**The sheet.** `<out>/sheet.html` reuses the Proof Sheet's CSS and cards, with
+`data-theme="dark"` fixed on its root and an accent of its own, so it is told
+from a Proof Sheet at a glance. It carries, in order: the WBS beside the RBS,
+the correspondence table, the RelationalStructure, the bound Move with its
+Paragraph Waypoints, the paragraph, and every model call. The runner writes it
+once and never reads it.
+
+**The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
+as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
+`bind: { move, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
+`reading` and `stages`.
+
+**The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
+of a mapping that reads well on a short sheet.
+
 ## 5. The Brief's centre, and Obligations inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's

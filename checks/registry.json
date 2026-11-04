@@ -659,6 +659,26 @@
       }
     },
     {
+      "id": "mapping-playground-short",
+      "file": "checks/check-mapping-playground-short.sh",
+      "covers": [
+        "src/mapping-playground/short.mjs",
+        "src/mapping-playground/sheet.mjs",
+        "src/mapping-playground/playground-workflow.json"
+      ],
+      "admission": {
+        "contract": "One command runs a short Trial of the Structure-Mapping Playground: one strand, an `rbs_<variant>` correspondence table, one binding call and one writer call, read on a dark sheet (kogaki#1669, owner rulings 2026-11-04). Driven end to end through `node src/mapping-playground/short.mjs run` with one fake model binary: (a) the owner-authored route exits 0 with two calls recorded, and writes `rbs.yaml` (one pair per structure element, `base` null), `paragraph.md`, `sheet.html` and `trial.json` carrying `strand`, `structure`, `mapper`, `rbs` with `placeholder: true`, `bind`, `paragraph`, `sheet`, `reading` and every stage `done`; (b) `--mapper sme_map_roles` records three calls and `structure.author: sme`; (c) a `--rbs` naming no `rbs_<variant>` row is refused naming the rows the table declares, with nothing written; (d) a binding answer of `move: null` stops the Trial at `bind` naming `no_paragraph_move_fits`; (e) the writer's recorded stdin equals the Packet byte for byte; (f) `sheet.html` carries `data-theme=\"dark\"` on its root and the WBS beside the RBS, the table, the structure, the binding, the paragraph and the calls in that order, with one table row per pair; (g) a `target` carrying a content word of the `claim:` is refused naming the word; (h) nothing under the repository's `moves/` or `theses/` changes; (i) `checks/check-mapping-playground.sh` still passes.",
+        "license": "kogaki#1669",
+        "tier": "pre-push",
+        "runtime_ms": 7600,
+        "runtime_ms_note": "MEASURED AT AUTHORING (kogaki#1669, 2026-11-04): three plain serial runs of the file, 6242, 5913 and 6002 ms, of which case (i) runs checks/check-mapping-playground.sh at about 4500 ms; 7600 is within 25% above the slowest. The fake model answers at once.",
+        "efficacy": "case: checks/check-mapping-playground-short.sh::(g) a target carrying \"walker\" was not refused naming it",
+        "efficacy_note": "mutation-verified at authoring: skipping the claim-word test in `validateRbsTable` failed (g), naming the empty answer -- the named defect, a table whose RBS side carries the Strand's words through to the binding and the Writer, constructed rather than a neighbour. Separately, dropping `data-theme=\"dark\"` from the sheet's root failed (f).",
+        "removal_signal": "a ruling retires the short Trial, or folds it into the full-pipeline Trial of src/mapping-playground/trial.mjs -- either way the run this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/mapping-playground/short.mjs"
+      }
+    },
+    {
       "id": "move-library",
       "file": "checks/check-move-library.sh",
       "covers": ["moves/"],
