@@ -17,6 +17,7 @@
 #   (n) `binding_rationale` in the rbs file reaches bind.yaml and the Segments caption, the model route's bind.yaml carries
 #       `binding_rationale: null`, a non-text one is refused naming the field, and `grounds` is refused naming
 #       `binding_rationale` (kogaki#1675, kogaki#1678).
+
 #   (o) an rbs file with `projection` exits 0 with two calls, `bind2.yaml` `state: supplied`, `paragraph2.md`, and the second
 #       writer's stdin carrying paragraph one under the article-so-far heading and the claim as a Leg claim (kogaki#1676).
 #   (p) a projecting point carrying a claim word passes, an attribute word is recorded in `bind2.yaml` and on the sheet,
