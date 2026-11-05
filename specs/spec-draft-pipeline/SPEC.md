@@ -3062,10 +3062,64 @@ never reads it.
   higher-order relation naming it, the edges into the higher-order relation
   in the accent colour. The structure's YAML follows, folded.
 
+**The projecting paragraph** (kogaki#1676, owner decision 2026-11-05). A
+higher-order relation is a relation, not a claim. What a mapping asserts about
+the target is a *candidate inference*: base structure projected across the
+correspondences onto the target's objects (Gentner 1983). The Strand's claim
+is the structure's higher-order relation projected onto the target, so the
+projection is what carries the claim. Readers do not project alone. Gick and
+Holyoak's readers almost never applied an analogous case to the target
+problem without a hint. Clement's students accepted an anchor case and carried
+it to the target only after a bridging case. Kotovsky and Gentner's
+progressive alignment finds far transfer only after close comparison has made
+the relational structure salient. So the claim is owed by a second paragraph,
+not by a sentence added to the first. No Harness-level obligation on structure
+or projection is introduced: the Leg's claims, the reader state and the
+ordinary binding carry it.
+
+**The `projection` field.** The table may carry `projection`, `{ move,
+waypoints, grounds }`, validated as the first binding is, with each field
+named under `projection.`. The claim-word test does not run over its points,
+because paragraph two uses the target's words. `projection` without the first
+binding's `move` and `waypoints` is refused naming both.
+
+**Two Legs and the reader state between them.** With `projection`, Leg 1 is
+the Leg above, and its `reader_state_after` is one composed line: `The reader
+holds, in the base's objects (<domain>): ` followed by the first binding's
+points in order. Leg 2 depends on Leg 1, and its `reader_state_before` is
+that line. Its claims are the Strand's `claim:` line, as `strand: S0`, then
+Leg 1's claims. Its one Leg Waypoint's `point` is the Strand's claim. Paragraph
+two's Packet carries paragraph one as the article so far and Leg 1's claims as
+re-activated, through the existing Packet inputs. Paragraph one's Packet is the
+Packet written without `projection`, byte for byte.
+
+**The stages `bind2` and `write2`** run after `write`, only with `projection`.
+`bind2` makes no model call. It writes `<out>/bind2.yaml` with `state:
+supplied`, `author: owner`, `move`, `grounds`, the Paragraph Waypoints and
+`attribute_hits`. `write2` writes `write2/packet.md`, calls the writer once
+and writes `<out>/paragraph2.md`. A stop at `write2` keeps paragraph one. The
+Trial is then two writer calls.
+
+**The attribute test is recorded, never refused.** Each projecting point is
+tested against the structure's `attributes` words with the claim-word test's
+word forms. Each hit is `{ segment, word, role }` in `attribute_hits`, which
+is empty when there are none.
+
+**The sheet, with `projection`.** The Paragraph column carries paragraph one,
+a line `Reader state: ` with Leg 1's `reader_state_after`, then paragraph two.
+`Segments` carries a second table under the first, captioned with paragraph
+two's Move id and `grounds`. Under it is one line, `Attribute words in the
+points: `, followed by each hit as `segment N: word (Role)`, or by `none, over
+N points` when there are none. The empty case is spelled out so a test that
+ran and found nothing is not mistaken for a test that never ran. Where
+`bind2` did not run, the line reads `not tested, bind2 <state>`, and the
+Paragraph column says that `write2` did not run.
+
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
 `bind: { move, grounds, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
-`reading` and `stages`.
+`reading` and `stages`. With `projection` it also carries `projection: { bind,
+paragraph }`, in the same shape as `bind` and `paragraph`.
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.
