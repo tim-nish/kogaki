@@ -2868,9 +2868,13 @@ them; the runner never fetches.
 first SME is the owner: the structure file is owner-authored, and the Trial
 record says so. The structure carries `strand` (the strand file's `cite:`),
 `roles` (`{ id, context }`), `relations` (`{ id, between, holds }`) and
-`higher_order` (`{ relates, holds }`), every id resolving. A `context` or
-`holds` that carries a content word of the `claim:` line is refused, naming
-the word and the field. The same test runs over every Leg Waypoint `point` and
+`higher_order`, every id resolving. `higher_order` is a non-empty list of
+`{ id, relates, holds }` (kogaki#1678), each id unique and distinct from every
+Role and relation id, and a refusal names the entry's index and field. The
+one-map form `{ relates, holds }` is read as a list of one with id `h1`. The
+Leg's Claims are one per relation and then one per higher-order relation, in
+order. A `context` or `holds` that carries a content word of the `claim:` line
+is refused, naming the word and the field. The same test runs over every Leg Waypoint `point` and
 the Leg's `reader_state_after`. The WBS's words do not reach the reader.
 
 **How the Brief is made.** The runner composes a one-Leg Brief from the
@@ -3003,14 +3007,17 @@ of the library, and `waypoints`, one `{ segment, point }` per segment of that
 Move in order, each `point` the segment expressed in the base's objects. The
 claim-word test runs over every `point`. With both present, the `bind` stage
 makes no model call: it records `bind: { state: supplied, author: owner, move,
-grounds, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
+binding_rationale, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
 segment order. The Trial is then one writer call. Without them the `bind`
 stage runs as above.
 
-**The grounds of the binding** (kogaki#1675). The table may carry `grounds`,
-one text saying why the Move was chosen, and a `grounds` that is not text is
-refused naming the field. `<out>/bind.yaml` and the record's `bind` carry
-`grounds` in both routes: the owner's text in the supplied route, and `null`
+**The binding's rationale** (kogaki#1675, kogaki#1678). The table may carry
+`binding_rationale`, one text saying why the Move was chosen, and one that is
+not text is refused naming the field. It is an inspection field of the
+Playground, read by nothing of §4.5: the grounds test is the opposite act, a
+Leg's `rationale` standing with the Move's name deleted. A table carrying
+`grounds` is refused naming `binding_rationale`. `<out>/bind.yaml` and the
+record's `bind` carry `binding_rationale` in both routes: the owner's text in the supplied route, and `null`
 in the model route until a Composer field carries it. `bind.yaml` keeps
 `serves` because the ParagraphPlan unit shape requires it, and the sheet
 renders it nowhere.
@@ -3041,26 +3048,30 @@ never reads it.
   from the record's `library`: `#`, `operation`, `relation`, `manner` and the
   `point` written for it. A Segment without `relation` or `manner` has an
   empty cell. The caption carries the Move id, `supplied by the owner` or
-  the model route's `bind` state, and `grounds`.
+  the model route's `bind` state, and `binding_rationale`.
 - `Mapping` is one table with one row per Role and four columns: `Role`,
   `Abstraction` (the Role's `context`), `Strand words dropped` (its
   `attributes` words, or empty) and the base column, headed `<Kind>:
   <domain>` with the kind's word capitalised (`Analogy: smoke detectors in a
   house`), or `Base: null` for the placeholder. Its cells are the `base` of
   the pairs naming that Role, and its caption is the table's `variant`. A
-  pair naming a relation or the higher-order relation is a further row under
+  pair naming a relation or a higher-order relation is a further row under
   the Roles, keyed by that id.
-- `Structure` is a table with one row per element: `id`, `category` (Role,
-  relation or higher-order), `arguments` (a Role's `context`, a relation's
-  `between`, the higher-order relation's `relates`) and `holds`. A Role no
-  relation names in `between`, and a relation `higher_order.relates` does not
-  name, is marked `unreached` in its `category` cell: Gentner's
-  systematicity read as a check on extraction. Beneath it is a Mermaid
-  `graph LR`, loaded as the Proof Sheet loads Mermaid, with three subgraphs
-  as columns, `Roles`, `Relations` and `Higher-order relations`, an edge from
-  each Role to every relation naming it and from each relation to the
-  higher-order relation naming it, the edges into the higher-order relation
-  in the accent colour. The structure's YAML follows, folded.
+- `Structure` is a table with one row per element, a higher-order relation
+  keyed by its id: `id`, `category` (Role, relation or higher-order),
+  `arguments` (a Role's `context`, a relation's `between`, a higher-order
+  relation's `relates`) and `holds`. A Role no relation names in `between`,
+  and a relation no higher-order relation's `relates` names, is marked
+  `unreached` in its `category` cell: Gentner's systematicity read as a check
+  on extraction. Beneath it is a Mermaid `graph BT` with the init line
+  `%%{init: {"flowchart": {"curve": "linear"}}}%%`, loaded as the Proof Sheet
+  loads Mermaid, so edges are straight and leave the top of a node. Its three
+  subgraphs stack as rows, `Higher-order relations` at the top, `Relations`
+  in the middle and `Roles` at the bottom. Each node is labelled by the
+  element's id. An edge runs from each Role to every relation naming it and
+  from each relation to every higher-order relation naming it, the edges into
+  a higher-order relation in the accent colour. The structure's YAML follows,
+  folded.
 
 **The projecting paragraph** (kogaki#1676, owner decision 2026-11-05). A
 higher-order relation is a relation, not a claim. What a mapping asserts about
@@ -3078,7 +3089,7 @@ or projection is introduced: the Leg's claims, the reader state and the
 ordinary binding carry it.
 
 **The `projection` field.** The table may carry `projection`, `{ move,
-waypoints, grounds }`, validated as the first binding is, with each field
+waypoints, binding_rationale }`, validated as the first binding is, with each field
 named under `projection.`. The claim-word test does not run over its points,
 because paragraph two uses the target's words. `projection` without the first
 binding's `move` and `waypoints` is refused naming both.
@@ -3095,7 +3106,7 @@ Packet written without `projection`, byte for byte.
 
 **The stages `bind2` and `write2`** run after `write`, only with `projection`.
 `bind2` makes no model call. It writes `<out>/bind2.yaml` with `state:
-supplied`, `author: owner`, `move`, `grounds`, the Paragraph Waypoints and
+supplied`, `author: owner`, `move`, `binding_rationale`, the Paragraph Waypoints and
 `attribute_hits`. `write2` writes `write2/packet.md`, calls the writer once
 and writes `<out>/paragraph2.md`. A stop at `write2` keeps paragraph one. The
 Trial is then two writer calls.
@@ -3108,7 +3119,7 @@ is empty when there are none.
 **The sheet, with `projection`.** The Paragraph column carries paragraph one,
 a line `Reader state: ` with Leg 1's `reader_state_after`, then paragraph two.
 `Segments` carries a second table under the first, captioned with paragraph
-two's Move id and `grounds`. Under it is one line, `Attribute words in the
+two's Move id and `binding_rationale`. Under it is one line, `Attribute words in the
 points: `, followed by each hit as `segment N: word (Role)`, or by `none, over
 N points` when there are none. The empty case is spelled out so a test that
 ran and found nothing is not mistaken for a test that never ran. Where
@@ -3117,7 +3128,7 @@ Paragraph column says that `write2` did not run.
 
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
-`bind: { move, grounds, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
+`bind: { move, binding_rationale, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
 `reading` and `stages`. With `projection` it also carries `projection: { bind,
 paragraph }`, in the same shape as `bind` and `paragraph`.
 

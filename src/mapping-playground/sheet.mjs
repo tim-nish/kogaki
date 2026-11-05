@@ -13,6 +13,7 @@ import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { moveContract } from "../compose.mjs";
+import { higherOrderOf } from "./structure.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
 // The Proof Sheet's stylesheet is its renderer's `CSS` constant, read from the source rather than copied.
@@ -54,7 +55,7 @@ function elementsOf(structure) {
   if (!structure) return [];
   const roles = (structure.roles || []).map((r) => ({ id: r.id, what: r.context, role: true }));
   const relations = (structure.relations || []).map((r) => ({ id: r.id, what: r.holds, role: false }));
-  const higher = structure.higher_order ? [{ id: "higher_order", what: structure.higher_order.holds, role: false }] : [];
+  const higher = (higherOrderOf(structure) || []).map((h) => ({ id: h.id, what: h.holds, role: false }));
   return [...roles, ...relations, ...higher];
 }
 
@@ -87,7 +88,8 @@ function segmentsTable(record, entry, bind = record.bind, stageName = "bind") {
   const points = entry.paragraph_waypoints || [];
   const how = bind && bind.state === "supplied" ? "supplied by the owner"
     : `bound by the model, ${stageName} ${(record.stages.find((s) => s.stage === stageName) || { state: "not run" }).state}`;
-  const caption = `${entry.move} — ${how} — grounds: ${entry.grounds === null || entry.grounds === undefined ? "null" : entry.grounds}`;
+  const rationale = entry.binding_rationale === null || entry.binding_rationale === undefined ? "null" : entry.binding_rationale;
+  const caption = `${entry.move} — ${how} — binding_rationale: ${rationale}`;
   const n = Math.max(segments.length, points.length);
   const pointCell = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>` : esc(p.point));
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
@@ -98,29 +100,33 @@ function segmentsTable(record, entry, bind = record.bind, stageName = "bind") {
     + "</tbody></table>";
 }
 
+// A Mermaid node id: the element's own id, else `n<i>`; an authored `n<digits>` takes the fallback, so none collide.
+const MERMAID_WORDS = new Set(["end", "graph", "flowchart", "subgraph", "style", "class", "classDef", "click", "linkStyle", "direction", "higher", "relations", "roles"]);
+const nodeId = (id, i) => (/^[A-Za-z][A-Za-z0-9_]*$/.test(id) && !/^n\d+$/.test(id) && !MERMAID_WORDS.has(id) ? id : `n${i}`);
+
 function structureSection(structure) {
   const roles = structure.roles || [];
   const relations = structure.relations || [];
-  const h = structure.higher_order;
+  const higher = higherOrderOf(structure) || [];
   const inRelation = new Set(relations.flatMap((r) => r.between || []));
-  const inHigher = new Set(h ? h.relates || [] : []);
+  const inHigher = new Set(higher.flatMap((h) => h.relates || []));
   const unreached = (yes) => (yes ? ' <span class="stop">unreached</span>' : "");
   const row = (id, category, args, holds) => `<tr><td>${esc(id)}</td><td>${category}</td><td>${args}</td><td>${holds}</td></tr>`;
   const table = `<table><thead><tr><th>id</th><th>category</th><th>arguments</th><th>holds</th></tr></thead><tbody>`
     + roles.map((r) => row(r.id, `Role${unreached(!inRelation.has(r.id))}`, esc(r.context), "")).join("")
     + relations.map((r) => row(r.id, `relation${unreached(!inHigher.has(r.id))}`, esc((r.between || []).join(", ")), esc(r.holds))).join("")
-    + (h ? row("higher_order", "higher-order", esc((h.relates || []).join(", ")), esc(h.holds)) : "")
+    + higher.map((h) => row(h.id, "higher-order", esc((h.relates || []).join(", ")), esc(h.holds))).join("")
     + "</tbody></table>";
-  const node = new Map([...roles.map((r, i) => [r.id, `R${i}`]), ...relations.map((r, i) => [r.id, `L${i}`]), ["higher_order", "H0"]]);
+  const node = new Map([...roles, ...relations, ...higher].map((e, i) => [e.id, nodeId(String(e.id), i)]));
   const label = (id) => `${node.get(id)}["${String(id).replace(/"/g, "#quot;")}"]`;
   const edges = [];
   for (const r of relations) for (const x of r.between || []) edges.push([node.get(x), node.get(r.id), false]);
-  if (h) for (const x of h.relates || []) edges.push([node.get(x), "H0", true]);
+  for (const h of higher) for (const x of h.relates || []) edges.push([node.get(x), node.get(h.id), true]);
   const accented = edges.map((e, i) => (e[2] ? i : -1)).filter((i) => i >= 0);
-  const graph = ["graph LR",
-    '  subgraph roles["Roles"]', ...roles.map((r) => `    ${label(r.id)}`), "  end",
+  const graph = ['%%{init: {"flowchart": {"curve": "linear"}}}%%', "graph BT",
+    '  subgraph higher["Higher-order relations"]', ...higher.map((h) => `    ${label(h.id)}`), "  end",
     '  subgraph relations["Relations"]', ...relations.map((r) => `    ${label(r.id)}`), "  end",
-    '  subgraph higher["Higher-order relations"]', ...(h ? [`    ${label("higher_order")}`] : []), "  end",
+    '  subgraph roles["Roles"]', ...roles.map((r) => `    ${label(r.id)}`), "  end",
     ...edges.map(([a, b]) => `  ${a} --> ${b}`),
     ...(accented.length ? [`  linkStyle ${accented.join(",")} stroke:${ACCENT_COLOUR},stroke-width:2px`] : [])].join("\n");
   return table + `<div class="diagram"><div class="mermaid">${esc(graph)}</div></div>`

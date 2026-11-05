@@ -44,7 +44,10 @@ function baseRefusal(base) {
 // A binding: `move` resolving in the library, and one `{ segment, point }` per segment, in order.
 // `at` prefixes every field it names; `forms` null skips the claim-word test (the projecting binding).
 function bindingRefusal(record, forms, movesDir, at = "") {
-  if (Object.hasOwn(record, "grounds") && !isText(record.grounds)) return `${at}grounds is not one text — why the Move was chosen (kogaki#1675)`;
+  if (Object.hasOwn(record, "grounds")) return `${at}grounds is no field of a binding: why the Move was chosen is \`${at}binding_rationale\` (kogaki#1678)`;
+  if (Object.hasOwn(record, "binding_rationale") && !isText(record.binding_rationale)) {
+    return `${at}binding_rationale is not one text — why the Move was chosen (kogaki#1675)`;
+  }
   const hasMove = Object.hasOwn(record, "move");
   const hasWaypoints = Object.hasOwn(record, "waypoints");
   if (!hasMove && !hasWaypoints) return null;
@@ -71,7 +74,7 @@ function bindingRefusal(record, forms, movesDir, at = "") {
 function projectionRefusal(record, movesDir) {
   if (!Object.hasOwn(record, "projection")) return null;
   const p = record.projection;
-  if (!isMap(p)) return "projection is not a `{ move, waypoints, grounds }` map";
+  if (!isMap(p)) return "projection is not a `{ move, waypoints, binding_rationale }` map";
   if (!Object.hasOwn(record, "move") || !Object.hasOwn(record, "waypoints")) {
     return "the correspondence table carries `projection` without `move` and `waypoints`: paragraph two projects what paragraph one's binding gave the reader";
   }
@@ -106,7 +109,7 @@ export function validateRbsTable(record, claim, { movesDir = "moves" } = {}) {
 // The binding the owner supplied, as the `bind` stage's entry, or null where the table carries none.
 export function suppliedEntry(record, serves) {
   if (!record || !Object.hasOwn(record, "move")) return null;
-  return { waypoint: 1, move: record.move, grounds: Object.hasOwn(record, "grounds") ? String(record.grounds).trim() : null,
+  return { waypoint: 1, move: record.move, binding_rationale: Object.hasOwn(record, "binding_rationale") ? String(record.binding_rationale).trim() : null,
     paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim(), serves: [...serves] })) };
 }
 

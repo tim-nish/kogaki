@@ -67,6 +67,14 @@ function keysRefusal(obj, keys, at) {
   return missing ? `${at} carries no \`${missing}\`` : null;
 }
 
+// The structure's higher-order relations as a list (kogaki#1678): the list itself, the one-map form read as
+// a list of one with id `h1`, or null where `higher_order` is neither.
+export function higherOrderOf(record) {
+  const h = isMap(record) ? record.higher_order : undefined;
+  if (Array.isArray(h)) return h.length ? h : null;
+  return isMap(h) ? [{ id: "h1", ...h }] : null;
+}
+
 // The RelationalStructure record, refused or `{}`. `strand` is `parseStrandFile`'s answer.
 // `attributes` is optional and carried for the owner's inspection only (kogaki#1671).
 export function validateStructure(record, strand) {
@@ -105,13 +113,21 @@ export function validateStructure(record, strand) {
     ids.add(r.id);
     relationIds.add(r.id);
   }
-  const h = record.higher_order;
-  const b = keysRefusal(h, ["relates", "holds"], "higher_order");
-  if (b) return { error: b };
-  if (!Array.isArray(h.relates) || h.relates.length < 2) return { error: "higher_order's `relates` names fewer than two relations" };
-  const stray = h.relates.find((x) => !relationIds.has(x));
-  if (stray !== undefined) return { error: `higher_order's \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };
-  if (!isText(h.holds)) return { error: "higher_order's `holds` is empty" };
+  const higher = higherOrderOf(record);
+  if (!higher) return { error: "the structure's `higher_order` is neither a `{ relates, holds }` map nor a non-empty list of `{ id, relates, holds }`" };
+  const listed = Array.isArray(record.higher_order);
+  for (const [i, h] of higher.entries()) {
+    const at = listed ? `higher_order[${i}]` : "higher_order";
+    const b = keysRefusal(listed ? h : record.higher_order, listed ? ["id", "relates", "holds"] : ["relates", "holds"], at);
+    if (b) return { error: b };
+    if (!listed && ids.has(h.id)) return { error: "higher_order is read as `h1`, which a Role or relation already names: rename that element or write higher_order as a list" };
+    if (!isText(h.id) || ids.has(h.id)) return { error: `${at}'s \`id\` is empty or not unique` };
+    if (!Array.isArray(h.relates) || h.relates.length < 2) return { error: `${at}'s \`relates\` names fewer than two relations` };
+    const stray = h.relates.find((x) => !relationIds.has(x));
+    if (stray !== undefined) return { error: `${at}'s \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };
+    if (!isText(h.holds)) return { error: `${at}'s \`holds\` is empty` };
+    ids.add(h.id);
+  }
   if ("attributes" in record) {
     if (!Array.isArray(record.attributes)) return { error: "the structure's `attributes` is not a list" };
     for (const [i, a] of record.attributes.entries()) {
@@ -124,7 +140,7 @@ export function validateStructure(record, strand) {
   const texts = [
     ...roles.map((r, i) => [r.context, `roles[${i}].context`]),
     ...relations.map((r, i) => [r.holds, `relations[${i}].holds`]),
-    [h.holds, "higher_order.holds"],
+    ...higher.map((h, i) => [h.holds, listed ? `higher_order[${i}].holds` : "higher_order.holds"]),
   ];
   for (const [text, field] of texts) {
     const r = claimWordRefusal(text, forms, field);
@@ -133,16 +149,17 @@ export function validateStructure(record, strand) {
   return {};
 }
 
-// The Leg's Claims, one per relation in order and then the HigherOrderRelation: each `holds`
+// The Leg's Claims, one per relation in order and then one per higher-order relation: each `holds`
 // sentence, with the `material` its Claim and point are recovered from.
 export function structureClaims(record) {
   const role = new Map(record.roles.map((r) => [r.id, r.context]));
   const relation = new Map(record.relations.map((r) => [r.id, r]));
   const rows = record.relations.map((r) => ({ from: r.id, holds: r.holds, material: [r.holds, ...r.between.map((id) => role.get(id))] }));
-  const h = record.higher_order;
-  const under = h.relates.map((id) => relation.get(id));
-  rows.push({ from: "higher-order", holds: h.holds,
-    material: [h.holds, ...under.map((r) => r.holds), ...[...new Set(under.flatMap((r) => r.between))].map((id) => role.get(id))] });
+  for (const h of higherOrderOf(record)) {
+    const under = h.relates.map((id) => relation.get(id));
+    rows.push({ from: h.id, holds: h.holds,
+      material: [h.holds, ...under.map((r) => r.holds), ...[...new Set(under.flatMap((r) => r.between))].map((id) => role.get(id))] });
+  }
   return rows.map((r, i) => ({ claim_strand: `L${i + 1}`, ...r }));
 }
 
