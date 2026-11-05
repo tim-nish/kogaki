@@ -21,7 +21,7 @@
 #   (p) a projecting point carrying a claim word passes, an attribute word is recorded in `bind2.yaml` and on the sheet,
 #       and a table with no hits renders `none, over`.
 #   (q) `projection` with a wrong-length `waypoints` or an unknown `move`, or without the first binding, is refused naming it.
-#   (r) a second-writer refusal stops at `write2` with `paragraph.md` kept.
+#   (r) a stop at `write2` keeps `paragraph.md`; a stop before `bind2` renders the attribute test as not tested.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -89,6 +89,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) }] }, "bind");
   }
   if (prompt.includes("WRITTEN the crew")) return out(process.env.SMP_WRITE2_REFUSE ? "refusal: the second paragraph cannot be written." : "SECOND the walker's rule set, projected.", "writer");
+  if (process.env.SMP_WRITE_REFUSE) return out("refusal: the first paragraph cannot be written.", "writer");
   return out("WRITTEN the crew, its list and the room left off.", "writer");
 });
 `);
@@ -330,6 +331,12 @@ const r = run("write2-refused", ["--structure", withAttrs, "--rbs-file", projFil
 ok(r.res.status !== 0 && stagesOf(r.rec) === "rbs:done,bind:done,write:done,bind2:done,write2:stopped" && /^write2: /.test(String(r.rec.stopped))
   && existsSync(join(r.o, "paragraph.md")) && !existsSync(join(r.o, "paragraph2.md")) && fileOk(r.rec.paragraph),
   `(r) a second-writer refusal did not stop at write2 with paragraph.md kept: ${r.res.status} ${stagesOf(r.rec)} ${JSON.stringify(r.rec && r.rec.stopped)}`);
+
+const r1 = run("write-refused", ["--structure", withAttrs, "--rbs-file", projFile], { SMP_WRITE_REFUSE: "1" });
+const r1Segs = section(existsSync(join(r1.o, "sheet.html")) ? readFileSync(join(r1.o, "sheet.html"), "utf8") : "", "segments");
+ok(r1.res.status !== 0 && stagesOf(r1.rec) === "rbs:done,bind:done,write:stopped,bind2:not run,write2:not run"
+  && r1Segs.includes("Attribute words in the points: not tested, bind2 not run") && !r1Segs.includes("none, over"),
+  `(r) a stop before bind2 does not render the attribute test as not tested: ${r1.res.status} ${stagesOf(r1.rec)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");

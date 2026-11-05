@@ -127,10 +127,14 @@ function structureSection(structure) {
     + `<details class="part"><summary>the structure the Trial read</summary>${pre(stringifyYaml(structure))}</details>`;
 }
 
-// The attribute words paragraph two's points carry, or `none, over N points`, so the test's having run shows.
-function attributeHitsLine(bind, points) {
-  const hits = bind && Array.isArray(bind.attribute_hits) ? bind.attribute_hits : [];
-  const said = hits.length ? hits.map((h) => `segment ${h.segment}: ${h.word} (${h.role})`).join("; ") : `none, over ${points} points`;
+const stageState = (record, name) => (record.stages.find((s) => s.stage === name) || { state: "not run" }).state;
+
+// The attribute words paragraph two's points carry, `none, over N points`, or the test's not having run.
+function attributeHitsLine(record, points) {
+  const state = stageState(record, "bind2");
+  const hits = record.projection.bind.attribute_hits || [];
+  const said = state !== "done" ? `not tested, bind2 ${state}`
+    : hits.length ? hits.map((h) => `segment ${h.segment}: ${h.word} (${h.role})`).join("; ") : `none, over ${points} points`;
   return `<p>Attribute words in the points: ${esc(said)}</p>`;
 }
 
@@ -138,9 +142,9 @@ const paragraphHtml = (path, record, what) => (existsSync(path) ? `<div class="p
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none(`No ${what} was written.`));
 
 export function renderShortSheet({ outDir, record, strand, structure, table, entry, paragraphPath, leg = null, entry2 = null, paragraph2Path = null }) {
-  const projected = record.projection
-    ? `<p><b>Reader state:</b> ${esc(leg && leg.reader_state_after ? leg.reader_state_after : "null")}</p>`
-      + paragraphHtml(paragraph2Path, record, "second paragraph") : "";
+  const projected = !record.projection ? ""
+    : stageState(record, "write2") === "not run" ? none(`No second paragraph was written: write2 not run.`)
+      : `<p><b>Reader state:</b> ${esc(leg.reader_state_after)}</p>` + paragraphHtml(paragraph2Path, record, "second paragraph");
   const paragraph = paragraphHtml(paragraphPath, record, "paragraph") + projected;
   const wbsParagraph = `<div class="cols"><div><h3>WBS <span class="meta">${esc(strand.cite)}</span></h3>`
     + `<p><b>claim:</b> ${esc(strand.claim)}</p><div class="prose">${esc(strand.rendering)}</div></div>`
@@ -160,7 +164,7 @@ export function renderShortSheet({ outDir, record, strand, structure, table, ent
     + part("wbs-paragraph", "WBS and Paragraph", wbsParagraph)
     + part("segments", "Segments", segmentsTable(record, entry) + (record.projection
       ? segmentsTable(record, entry2, record.projection.bind, "bind2")
-        + attributeHitsLine(record.projection.bind, entry2 ? (entry2.paragraph_waypoints || []).length : 0) : ""))
+        + attributeHitsLine(record, entry2 ? entry2.paragraph_waypoints.length : 0) : ""))
     + part("mapping", "Mapping", mapping)
     + part("structure", "Structure", structureHtml)
     + part("calls", "Model calls", callsHtml)

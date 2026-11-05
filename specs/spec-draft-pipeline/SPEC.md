@@ -3111,7 +3111,9 @@ a line `Reader state: ` with Leg 1's `reader_state_after`, then paragraph two.
 two's Move id and `grounds`. Under it is one line, `Attribute words in the
 points: `, followed by each hit as `segment N: word (Role)`, or by `none, over
 N points` when there are none. The empty case is spelled out so a test that
-ran and found nothing is not mistaken for a test that never ran.
+ran and found nothing is not mistaken for a test that never ran. Where
+`bind2` did not run, the line reads `not tested, bind2 <state>`, and the
+Paragraph column says that `write2` did not run.
 
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
