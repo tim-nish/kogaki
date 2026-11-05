@@ -43,8 +43,8 @@
 
 #   (u) `--rbs rbs_base` with a valid answer exits 0 with the base, bind and writer calls recorded, `rbs.yaml` carrying `base.domain`,
 #       `base.kind` and one pair per Role, and `rbs.variant: rbs_base`; a first answer carrying a proposition word in a base text is
-#       refused naming the word and `pairs[i].base`, the second attempt's stdin carries that refusal, and a second refusal stops at
-#       `rbs` (kogaki#1688).
+#       refused naming the word and `pairs[i].base`, the second attempt's stdin carries that refusal, each attempt's prompt and answer
+#       are kept, and a second refusal stops at `rbs` (kogaki#1688).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -84,7 +84,7 @@ const mapped = { strand: CITE,
 const structure = join(root, "structure.yaml");
 writeFileSync(structure, stringifyYaml(mapped));
 const ROLE_IDS = mapped.roles.map((r) => r.id);
-// The first Leg Waypoint's point, as the Design states it: each `holds`, a `{<id>}` replaced by `base(id)`, first letter raised.
+// The first Leg Waypoint's point (kogaki#1688).
 const pointOf = (holds, base) => holds.map((h) => h.replace(/\{([^{}\s]+)\}/g, (_, id) => base(id))).map((h) => h[0].toUpperCase() + h.slice(1)).join(" ");
 
 // ---- the one fake model binary ----
@@ -514,6 +514,9 @@ const u2Calls = u2.calls("rbs");
 ok(u2.res.status === 0 && u2Calls.length === 2
   && u2Calls[1].stdin.includes('pairs[0].base carries "walker"') && !u2Calls[0].stdin.includes("pairs[0].base carries"),
   `(u) a first answer carrying "walker" was not refused into the second attempt's stdin: ${u2.res.status} ${u2Calls.length} ${u2.res.stderr}`);
+ok([1, 2].every((n) => existsSync(join(u2.o, "rbs", `prompt-${n}.md`)) && existsSync(join(u2.o, "rbs", `answer-${n}.json`)))
+  && JSON.parse(readFileSync(join(u2.o, "rbs", "answer-1.json"), "utf8")).pairs[0].base === "the walker",
+  "(u) the retried rbs stage does not keep each attempt's prompt and answer");
 const u3 = run("rbs-base-stop", ["--structure", structure, "--rbs", "rbs_base"], answers("rbs-base-stop", [WALKED]));
 ok(u3.res.status !== 0 && stagesOf(u3.rec) === "rbs:stopped,bind:not run,write:not run" && u3.calls("rbs").length === 2
   && /^rbs: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('pairs[0].base carries "walker"') && !existsSync(join(u3.o, "rbs.yaml")),

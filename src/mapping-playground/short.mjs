@@ -58,8 +58,7 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
 
 // ---------------------------------------------------------------------------
-// THE CORRESPONDENCE TABLE: a row `rbs_<variant>` fills it; `fill` names the code that does, and a row with a
-// `judgment_point` is one model call (kogaki#1688).
+// THE CORRESPONDENCE TABLE: a row `rbs_<variant>` fills it; `fill` names the code that does.
 
 export function rbsRow(table, variant) {
   const rows = Object.keys(table).filter((k) => k.startsWith(RBS_ROW_PREFIX));
@@ -75,7 +74,7 @@ export function rbsRow(table, variant) {
 }
 
 const RBS_FILLS = {
-  // One pair per Role, in the structure's order; the variant cannot say which base object a Role maps to.
+  // One pair per Role, in the structure's order; the variant cannot say which base object plays it.
   roles: (structure) => structure.roles.map((r) => ({ base: null, target: r.id })),
 };
 
@@ -91,7 +90,6 @@ export function rbsBaseInput(structure, persona) {
   };
 }
 
-// The model row's answer: `base` and `pairs` and nothing else, validated as the owner's file is.
 function rbsBaseRefusal(answer, proposition, structure, libraryDir) {
   const isMap = answer && typeof answer === "object" && !Array.isArray(answer);
   const extra = isMap ? Object.keys(answer).find((k) => k !== "base" && k !== "pairs") : null;
@@ -100,7 +98,7 @@ function rbsBaseRefusal(answer, proposition, structure, libraryDir) {
   return v.error || null;
 }
 
-// One call per attempt through the run's recorder; the first refusal goes back verbatim with the answer, and a second stops.
+// The `rbs_base` row (kogaki#1688).
 function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryDir }) {
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const input = rbsBaseInput(structure, persona);
@@ -109,11 +107,12 @@ function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryD
     const held = bindFlow(FLOW);
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
-    writeFileSync(join(dir, "prompt.md"), prompt);
+    writeFileSync(join(dir, `prompt-${attempt}.md`), prompt);
     const call = oneCall({ env, model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
       timeoutS: Number(settingValue(extraction.job.call_limit_s)), input: prompt });
     if (call.stopped) return { stopped: call.stopped };
     const a = answerRecord(call.text);
+    if (a.record !== undefined) writeFileSync(join(dir, `answer-${attempt}.json`), JSON.stringify(a.record, null, 2) + "\n");
     const refusal = a.stopped || rbsBaseRefusal(a.record, proposition, structure, libraryDir);
     if (!refusal) return { table: { variant: row.id, placeholder: false, base: a.record.base, pairs: a.record.pairs } };
     history.push({ answer: a.record ?? null, refusal });
@@ -124,8 +123,7 @@ function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryD
 // ---------------------------------------------------------------------------
 // THE ONE LEG (kogaki#1681, kogaki#1685): its one claim is the proposition, in the Brief's form, and one Leg Waypoint per
 // paragraph binding, in order.
-// The first point (kogaki#1688): each `holds`, relations then the higher-order relation, with `{<Role id>}` replaced by
-// the Role's base text, or by its id where the base is null.
+// The first Leg Waypoint's point (kogaki#1688).
 export function firstPoint(structure, rbs) {
   const base = new Map(rbs.pairs.map((p) => [p.target, p.base === null ? p.target : String(p.base).trim()]));
   return [...structure.relations, ...higherOrderOf(structure)]
@@ -230,7 +228,6 @@ function readProposition(file) {
   return proposition;
 }
 
-// An owner's file is never a placeholder table, whatever it says; `structure` is null until the Mapper has written one.
 function readRbsFile(file, proposition, libraryDir, structure) {
   let record;
   try { record = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the correspondence table cannot be read (${e.message})` }; }

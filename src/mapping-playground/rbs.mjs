@@ -11,7 +11,7 @@
 import { moveContract } from "../compose.mjs";
 import { propositionForms, propositionWordIn } from "./structure.mjs";
 
-// The four kinds of match of Gentner 1983, each with its one-line definition.
+// The four kinds of match of Gentner 1983.
 export const BASE_KIND_DEFINITIONS = {
   analogy: "relations are mapped from base to target, and few attributes of the objects are",
   abstraction: "the base is an abstract relational structure whose objects carry few attributes, and its relations are mapped",
@@ -101,7 +101,6 @@ function projectionRefusal(record, movesDir) {
   return null;
 }
 
-// `structure`, where given, adds the Role rules: each `target` names one of its Roles, and every Role is paired once.
 export function validateRbsTable(record, proposition, { movesDir = "moves", structure = null } = {}) {
   if (!isMap(record) || !Array.isArray(record.pairs) || !record.pairs.length) {
     return { error: "the correspondence table carries no non-empty `pairs` list" };

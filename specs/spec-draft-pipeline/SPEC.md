@@ -2977,15 +2977,17 @@ call, or two where its first answer is refused.
 `variant`, `placeholder`, and `pairs`, a list of `{ base, target }`. `target`
 is the id of the Role the pair maps (kogaki#1685, kogaki#1688). `base` is the
 base text: a noun phrase naming the base's object that plays the Role. The
-validator applies three rules to every table, the placeholder's included:
+validator applies these rules to every table, the placeholder's included:
 
 - The proposition-word test of §4.20 runs over every `base` text, refused
   naming the word and `pairs[<i>].base`.
 - A `base` that is not one non-empty text is refused naming `pairs[<i>].base`.
   `base: null` passes only on a table whose `placeholder` is `true`, and an
   owner's file is never one.
-- A `target` naming no Role of the structure is refused naming the id. A Role
-  paired other than once is refused naming the Role.
+- Given the structure, a `target` naming no Role of it is refused naming the
+  id, and a Role paired other than once is refused naming the Role. The `rbs`
+  stage always passes the structure, so an owner's file read before `--mapper`
+  has written one is checked against these two rules there.
 
 **The base and its kind of match** (kogaki#1671). The table carries `base`,
 `{ domain, kind }`. `domain` names the reader's situation in one phrase.
@@ -3013,7 +3015,8 @@ four, and one base text per Role. Its answer is `{ base: { domain, kind },
 pairs: [{ base, target }] }`, one pair per Role in the structure's order, and
 any other key is refused. The answer is validated by `validateRbsTable` as the
 owner's file is. The first refusal is put back verbatim into the second
-attempt, and a second refusal stops the Trial at `rbs`. The record carries
+attempt, and a second refusal stops the Trial at `rbs`. Each attempt's prompt
+and answer are kept as `<out>/rbs/prompt-<n>.md` and `answer-<n>.json`. The record carries
 `rbs: { variant: rbs_base, placeholder: false, path, sha256 }`, and
 `<out>/rbs/calls.jsonl` holds the call.
 
