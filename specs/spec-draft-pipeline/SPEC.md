@@ -3026,16 +3026,20 @@ the way `--structure` supplies the structure, and is refused together with
 `--rbs`, naming both flags. The record carries `rbs: { variant: owner-authored,
 placeholder: false, path, sha256 }`.
 
-**The binding.** The `bind` stage is one call of the `smp_bind_unit` row,
-derived from `paragraph_plan_unit` by `copy_of` and `substitutions`. It binds
-one paragraph Move from the library and writes that one paragraph's Paragraph
-Waypoints. The one Leg Waypoint's `point` is the structure in the base's
-objects, as the Leg paragraph below states, and its `reader_state_before` is
-the Persona's prior-knowledge line. There are no
+**The binding** (kogaki#1689). The `bind` stage is one call of the
+`smp_bind_unit` row, derived from `paragraph_plan_unit` by `copy_of` and
+`substitutions`. Its Leg carries two Leg Waypoints, both serving `L1`: the
+first's `point` is the structure in the base's objects, as the Leg paragraph
+below states, and the second's is the proposition. The one call receives the
+Leg as a ParagraphPlan unit does, `next_point` set on the first, and binds one
+paragraph Move from the library to each Leg Waypoint with its Paragraph
+Waypoints, the second's written in the proposition's own words. The Leg's
+`reader_state_before` is the Persona's prior-knowledge line. There are no
 introduced terms and no obligations. The answer is validated as a
-ParagraphPlan unit over a one-Waypoint input, and `move: null` stops the Trial
-at `bind`. No Brief is composed, and no Judge runs: the owner's reading is the
-judgment.
+ParagraphPlan unit over the two-Waypoint Leg, and `move: null` on either
+Waypoint stops the Trial at `bind`, naming the Waypoint. `bind.yaml` and the
+record's `bind.paragraphs` list both entries in order. No Brief is composed,
+and no Judge runs: the owner's reading is the judgment.
 
 **The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
 of the library, and `waypoints`, one `{ segment, point }` per segment of that
@@ -3043,8 +3047,9 @@ Move in order, each `point` the segment expressed in the base's objects. The
 proposition-word test runs over every `point`. With both present, the `bind` stage
 makes no model call: it records `bind: { state: supplied, author: owner, move,
 binding_rationale, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
-segment order. The Trial is then one writer call. Without them the `bind`
-stage runs as above.
+segment order. The Trial is then one writer call. An owner's file must also
+carry `projection`, below, and one without it is refused naming `projection`:
+a Trial that never states the proposition has no reading (kogaki#1689).
 
 **The binding's rationale** (kogaki#1675, kogaki#1678). The table may carry
 `binding_rationale`, one text saying why the Move was chosen, and one that is
