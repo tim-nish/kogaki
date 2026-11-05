@@ -17,7 +17,6 @@ import { moveContract } from "../compose.mjs";
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
 // The Proof Sheet's stylesheet is its renderer's `CSS` constant, read from the source rather than copied.
 const CSS_DECLARATION = /^const CSS = `([\s\S]*?)`;$/m;
-// Mermaid is the Proof Sheet's, read from the same source (kogaki#1675).
 const MERMAID_DECLARATION = /^const MERMAID_CDN = "([^"]+)";$/m;
 const ACCENT_COLOUR = "#6cc3d5";
 // The Playground's own accent, so its sheet is told from a Proof Sheet at a glance.
@@ -81,7 +80,6 @@ function mappingTable(structure, table) {
     + "</tbody></table>";
 }
 
-// One row per Segment of the bound Move beside the point written for it (kogaki#1675).
 function segmentsTable(record, entry) {
   if (!entry) return none("No Move was bound.");
   const c = moveContract(entry.move, join(REPO, record.library));
@@ -100,7 +98,6 @@ function segmentsTable(record, entry) {
     + "</tbody></table>";
 }
 
-// The Structure section: the element table with its `unreached` marks, and a Mermaid graph LR (kogaki#1675).
 function structureSection(structure) {
   const roles = structure.roles || [];
   const relations = structure.relations || [];

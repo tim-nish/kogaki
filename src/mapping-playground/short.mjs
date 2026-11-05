@@ -310,7 +310,6 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     }
     const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
     if (r.stopped) return r;
-    // The model route records no grounds until a Composer field carries them (kogaki#1675).
     const bound = { ...r.entry, grounds: null };
     writeFileSync(bindPath, stringifyYaml(bound));
     record.bind = { move: bound.move, grounds: null, ...fileRecord(bindPath) };

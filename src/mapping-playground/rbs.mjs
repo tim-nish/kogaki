@@ -88,7 +88,6 @@ export function validateRbsTable(record, claim, { movesDir = "moves" } = {}) {
 }
 
 // The binding the owner supplied, as the `bind` stage's entry, or null where the table carries none.
-// `grounds` is null where the table carries none (kogaki#1675).
 export function suppliedEntry(record, serves) {
   if (!Object.hasOwn(record, "move")) return null;
   return { waypoint: 1, move: record.move, grounds: Object.hasOwn(record, "grounds") ? String(record.grounds).trim() : null,
