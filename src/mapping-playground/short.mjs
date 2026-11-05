@@ -26,8 +26,9 @@ import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
-import { validateRbsTable, suppliedEntry, projectionsOf } from "./rbs.mjs";
-import { mapperRow } from "./sme.mjs";
+import { validateRbsTable, suppliedEntry, projectionsOf, BASE_KIND_DEFINITIONS } from "./rbs.mjs";
+import { mapperRow, MAPPER_ATTEMPTS } from "./sme.mjs";
+import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
 
@@ -57,7 +58,8 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
 
 // ---------------------------------------------------------------------------
-// THE CORRESPONDENCE TABLE: a row `rbs_<variant>` fills it; `fill` names the code that does.
+// THE CORRESPONDENCE TABLE: a row `rbs_<variant>` fills it; `fill` names the code that does, and a row with a
+// `judgment_point` is one model call (kogaki#1688).
 
 export function rbsRow(table, variant) {
   const rows = Object.keys(table).filter((k) => k.startsWith(RBS_ROW_PREFIX));
@@ -65,6 +67,7 @@ export function rbsRow(table, variant) {
     return { error: `--rbs ${JSON.stringify(variant)} names no \`${RBS_ROW_PREFIX}<variant>\` row of the Playground's table — it declares ${rows.join(", ") || "none"}` };
   }
   const row = { id: variant, ...table[variant] };
+  if (row.judgment_point) return { row };
   if (!Object.hasOwn(RBS_FILLS, row.fill)) {
     return { error: `the \`${variant}\` row's \`fill\` ${JSON.stringify(row.fill)} names no fill this runner carries — it carries ${Object.keys(RBS_FILLS).join(", ")}` };
   }
@@ -72,25 +75,66 @@ export function rbsRow(table, variant) {
 }
 
 const RBS_FILLS = {
-  // One pair per structure element, in the structure's order; the variant cannot say which WBS words it reads from.
-  structure_elements: (structure) => [
-    ...structure.roles.map((r) => ({ base: null, target: r.context })),
-    ...structure.relations.map((r) => ({ base: null, target: r.holds })),
-    ...higherOrderOf(structure).map((h) => ({ base: null, target: h.holds })),
-  ],
+  // One pair per Role, in the structure's order; the variant cannot say which base object a Role maps to.
+  roles: (structure) => structure.roles.map((r) => ({ base: null, target: r.id })),
 };
 
 export function fillRbs(row, structure) {
   return { variant: row.id, placeholder: row.placeholder === true, base: { domain: null, kind: null }, pairs: RBS_FILLS[row.fill](structure) };
 }
 
-const targetLine = (target) => (typeof target === "string" ? target.trim() : stringifyYaml(target).trim().replace(/\s*\n\s*/g, "; "));
+export function rbsBaseInput(structure, persona) {
+  return {
+    structure,
+    persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    kinds: Object.entries(BASE_KIND_DEFINITIONS).map(([kind, definition]) => ({ kind, definition })),
+  };
+}
+
+// The model row's answer: `base` and `pairs` and nothing else, validated as the owner's file is.
+function rbsBaseRefusal(answer, proposition, structure, libraryDir) {
+  const isMap = answer && typeof answer === "object" && !Array.isArray(answer);
+  const extra = isMap ? Object.keys(answer).find((k) => k !== "base" && k !== "pairs") : null;
+  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and pairs`;
+  const v = validateRbsTable(isMap ? { ...answer, placeholder: false } : answer, proposition, { movesDir: libraryDir, structure });
+  return v.error || null;
+}
+
+// One call per attempt through the run's recorder; the first refusal goes back verbatim with the answer, and a second stops.
+function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryDir }) {
+  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const input = rbsBaseInput(structure, persona);
+  const history = [];
+  for (let attempt = 1; attempt <= MAPPER_ATTEMPTS; attempt++) {
+    const held = bindFlow(FLOW);
+    let prompt;
+    try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
+    writeFileSync(join(dir, "prompt.md"), prompt);
+    const call = oneCall({ env, model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
+      timeoutS: Number(settingValue(extraction.job.call_limit_s)), input: prompt });
+    if (call.stopped) return { stopped: call.stopped };
+    const a = answerRecord(call.text);
+    const refusal = a.stopped || rbsBaseRefusal(a.record, proposition, structure, libraryDir);
+    if (!refusal) return { table: { variant: row.id, placeholder: false, base: a.record.base, pairs: a.record.pairs } };
+    history.push({ answer: a.record ?? null, refusal });
+  }
+  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}` };
+}
 
 // ---------------------------------------------------------------------------
 // THE ONE LEG (kogaki#1681, kogaki#1685): its one claim is the proposition, in the Brief's form, and one Leg Waypoint per
 // paragraph binding, in order.
-export function shortLeg(proposition, rbs, persona) {
-  const first = { point: rbs.pairs.map((p) => targetLine(p.target)).join(" "), serves: ["L1"] };
+// The first point (kogaki#1688): each `holds`, relations then the higher-order relation, with `{<Role id>}` replaced by
+// the Role's base text, or by its id where the base is null.
+export function firstPoint(structure, rbs) {
+  const base = new Map(rbs.pairs.map((p) => [p.target, p.base === null ? p.target : String(p.base).trim()]));
+  return [...structure.relations, ...higherOrderOf(structure)]
+    .map((e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (base.has(id) ? base.get(id) : all)))
+    .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
+}
+
+export function shortLeg(proposition, rbs, persona, structure) {
+  const first = { point: firstPoint(structure, rbs), serves: ["L1"] };
   return {
     leg_id: LEG_ID,
     reader_state_before: personaPriorKnowledgeLine(persona),
@@ -186,10 +230,12 @@ function readProposition(file) {
   return proposition;
 }
 
-function readRbsFile(file, proposition, libraryDir) {
+// An owner's file is never a placeholder table, whatever it says; `structure` is null until the Mapper has written one.
+function readRbsFile(file, proposition, libraryDir, structure) {
   let record;
   try { record = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the correspondence table cannot be read (${e.message})` }; }
-  const v = validateRbsTable(record, proposition.proposition, { movesDir: libraryDir });
+  const v = validateRbsTable(record && typeof record === "object" ? { ...record, placeholder: false } : record, proposition.proposition,
+    { movesDir: libraryDir, structure });
   return v.error ? v : { record: { ...record, variant: RBS_OWNER, placeholder: false } };
 }
 
@@ -210,12 +256,14 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
   const rr = rbsFile ? { row: { id: RBS_OWNER, placeholder: false } } : rbsRow(table, rbs);
   if (rr.error) fail(`${rr.error}. Nothing was started.`);
   const proposition = readProposition(propositionFile);
+  let given = null;
   if (mapper) {
     const m = mapperRow(table, mapper);
     if (m.error) fail(`${m.error}. Nothing was started.`);
   } else {
     const s = readStructure(givenStructure, proposition);
     if (s.error) fail(`${s.error}. Nothing was started.`);
+    given = s.structure;
   }
   const structureFile = mapper ? join(outDir, STRUCTURE_FILE) : resolve(givenStructure);
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
@@ -223,7 +271,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
   if (persona.error) fail(`${persona.error}. Nothing was started.`);
   const libraryDir = resolve(REPO, library || "moves");
   if (!existsSync(libraryDir)) fail(`the library ${libraryDir} does not exist. Nothing was started.`);
-  const owned = rbsFile ? readRbsFile(rbsFile, proposition, libraryDir) : null;
+  const owned = rbsFile ? readRbsFile(rbsFile, proposition, libraryDir, given) : null;
   if (owned && owned.error) fail(`${owned.error}. Nothing was started.`);
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const slug = basename(outDir).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "trial";
@@ -285,23 +333,30 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     });
   }
   let structure = null;
-  const table1 = stage("rbs", () => {
+  const table1 = stage("rbs", (d, env) => {
     const s = readStructure(structureFile, proposition);
     if (s.error) return { stopped: s.error };
     structure = s.structure;
     if (owned) {
+      const v = readRbsFile(rbsFile, proposition, libraryDir, structure);
+      if (v.error) return { stopped: v.error };
       copyFileSync(rbsFile, rbsPath);
       record.rbs = { variant: RBS_OWNER, placeholder: false, ...fileRecord(rbsPath) };
       return { value: owned.record };
     }
-    const filled = fillRbs(rr.row, structure);
-    const v = validateRbsTable(filled, proposition.proposition, { movesDir: libraryDir });
+    let filled;
+    if (rr.row.judgment_point) {
+      const r = rbsBaseStage({ dir: d, env, row: rr.row, structure, persona, proposition: proposition.proposition, libraryDir });
+      if (r.stopped) return { stopped: r.stopped };
+      filled = r.table;
+    } else filled = fillRbs(rr.row, structure);
+    const v = validateRbsTable(filled, proposition.proposition, { movesDir: libraryDir, structure });
     if (v.error) return { stopped: v.error };
     writeFileSync(rbsPath, stringifyYaml(filled));
     record.rbs = { variant: filled.variant, placeholder: filled.placeholder, ...fileRecord(rbsPath) };
     return { value: filled };
   });
-  const leg = table1 ? shortLeg(proposition.proposition, table1, persona) : null;
+  const leg = table1 ? shortLeg(proposition.proposition, table1, persona, structure) : null;
   const paragraphs = stage("bind", (d, env) => {
     const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
     if (supplied) {

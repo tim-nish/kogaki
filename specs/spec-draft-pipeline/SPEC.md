@@ -2970,16 +2970,22 @@ them, never targets.
 **The stages**, in order: `sme` (with `--mapper` only: the Mapper of §4.20.1
 under its one-retry bound), `rbs`, `bind` and `write`. A stage that stops ends
 the run there, and the record shows the stop. The owner-authored route makes
-two model calls and the `--mapper` route three.
+two model calls and the `--mapper` route three, and `--rbs rbs_base` adds one
+call, or two where its first answer is refused.
 
 **The correspondence table.** The `rbs` stage writes `<out>/rbs.yaml`:
 `variant`, `placeholder`, and `pairs`, a list of `{ base, target }`. `target`
-names the structure element the pair maps, on the target side: a Role,
-relation or higher-order id, or the element's sentence, as a prose string or
-a YAML mapping, so prose and schema representations are both admitted.
-`base` is the base's object the element maps to, or null where the variant
-cannot say. The proposition-word test of §4.20 runs over every `target`,
-naming the word.
+is the id of the Role the pair maps (kogaki#1685, kogaki#1688). `base` is the
+base text: a noun phrase naming the base's object that plays the Role. The
+validator applies three rules to every table, the placeholder's included:
+
+- The proposition-word test of §4.20 runs over every `base` text, refused
+  naming the word and `pairs[<i>].base`.
+- A `base` that is not one non-empty text is refused naming `pairs[<i>].base`.
+  `base: null` passes only on a table whose `placeholder` is `true`, and an
+  owner's file is never one.
+- A `target` naming no Role of the structure is refused naming the id. A Role
+  paired other than once is refused naming the Role.
 
 **The base and its kind of match** (kogaki#1671). The table carries `base`,
 `{ domain, kind }`. `domain` names the reader's situation in one phrase.
@@ -2993,10 +2999,23 @@ object and each `target` the structure element it stands for.
 `src/mapping-playground/playground-workflow.json`. A `--rbs` naming no such
 row is refused, naming the rows the table declares. The first member is
 `rbs_placeholder`, and it is the default. It makes no model call: one pair per
-structure element in the structure's order, `base` null, `target` the
-element's `context` or `holds` sentence. **The placeholder is not an RBS**, and
-the record names it a placeholder. A second variant is a second row and a
-second Trial, never an edit of the first.
+Role in the structure's order, `base` null, `target` the Role's id. **The
+placeholder is not an RBS**, and the record names it a placeholder. A second
+variant is a second row and a second Trial, never an edit of the first.
+
+**The `rbs_base` row** (kogaki#1688). The second member is one model call
+through the run's recorder, under the Mapper's bound of two attempts. Its
+input is the structure record, the Persona's prior-knowledge line, and the
+four kinds of match, each with its one-line definition. It chooses one domain
+the Persona already holds in which the Roles, the relations and the
+higher-order relation hold as stated. It names the domain's `kind` among the
+four, and one base text per Role. Its answer is `{ base: { domain, kind },
+pairs: [{ base, target }] }`, one pair per Role in the structure's order, and
+any other key is refused. The answer is validated by `validateRbsTable` as the
+owner's file is. The first refusal is put back verbatim into the second
+attempt, and a second refusal stops the Trial at `rbs`. The record carries
+`rbs: { variant: rbs_base, placeholder: false, path, sha256 }`, and
+`<out>/rbs/calls.jsonl` holds the call.
 
 **The owner-authored table is the first SME of the short Trial** (kogaki#1671,
 owner discussion 2026-11-04). `--rbs-file <file>` supplies `rbs.yaml` by file,
@@ -3007,8 +3026,9 @@ placeholder: false, path, sha256 }`.
 **The binding.** The `bind` stage is one call of the `smp_bind_unit` row,
 derived from `paragraph_plan_unit` by `copy_of` and `substitutions`. It binds
 one paragraph Move from the library and writes that one paragraph's Paragraph
-Waypoints. The one Leg Waypoint's `point` is the `target` texts in order, and
-its `reader_state_before` is the Persona's prior-knowledge line. There are no
+Waypoints. The one Leg Waypoint's `point` is the structure in the base's
+objects, as the Leg paragraph below states, and its `reader_state_before` is
+the Persona's prior-knowledge line. There are no
 introduced terms and no obligations. The answer is validated as a
 ParagraphPlan unit over a one-Waypoint input, and `move: null` stops the Trial
 at `bind`. No Brief is composed, and no Judge runs: the owner's reading is the
@@ -3113,12 +3133,20 @@ refused naming both.
 **One Leg, one Packet, one writer call** (kogaki#1681). A Trial is one Leg.
 Its one claim is the proposition, in the Brief's form `claims: [{ strand: L1,
 proposition }]` (kogaki#1685). Each paragraph binding is one Leg Waypoint, in
-order, serving `L1`: the first one's `point` is the `target` texts in order,
-and each projecting one's `point` is the proposition. No reader state is composed. `bind` writes `<out>/bind.yaml`
+order, serving `L1`: the first one's `point` is the structure in the base's
+objects, and each projecting one's `point` is the proposition. No reader state is composed. `bind` writes `<out>/bind.yaml`
 with the first binding's fields and `paragraphs`, every binding in order as
 `{ move, binding_rationale, paragraph_waypoints }`. `write` renders one Packet
 from the Leg, calls the writer once and writes its whole answer to
-`<out>/paragraph.md`. The structure's `holds` enter no Packet.
+`<out>/paragraph.md`.
+
+**The first point is the structure in the base's objects** (kogaki#1688). It
+is the structure's `holds` sentences in order, the relations and then the
+higher-order relation, each with its first letter raised. A `holds` may name a
+Role by a `{<Role id>}` placeholder, which is replaced by that Role's base
+text, or by the Role's id where the base is null. A `holds` without
+placeholders is used verbatim. The Packet renders the point as its first
+numbered line, and the model binding route plans from it.
 
 **The sheet, with `projection`.** The paragraph carries `paragraph.md`
 whole. `Segments` carries one Segments table and `Bindings` one `Binding`

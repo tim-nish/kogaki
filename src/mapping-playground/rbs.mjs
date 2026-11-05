@@ -11,8 +11,14 @@
 import { moveContract } from "../compose.mjs";
 import { propositionForms, propositionWordIn } from "./structure.mjs";
 
-// The four kinds of match of Gentner 1983.
-export const BASE_KINDS = ["analogy", "abstraction", "literal-similarity", "mere-appearance"];
+// The four kinds of match of Gentner 1983, each with its one-line definition.
+export const BASE_KIND_DEFINITIONS = {
+  analogy: "relations are mapped from base to target, and few attributes of the objects are",
+  abstraction: "the base is an abstract relational structure whose objects carry few attributes, and its relations are mapped",
+  "literal-similarity": "both relations and many attributes of the objects are mapped",
+  "mere-appearance": "attributes of the objects are mapped, and few relations are",
+};
+export const BASE_KINDS = Object.keys(BASE_KIND_DEFINITIONS);
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -95,22 +101,39 @@ function projectionRefusal(record, movesDir) {
   return null;
 }
 
-export function validateRbsTable(record, proposition, { movesDir = "moves" } = {}) {
+// `structure`, where given, adds the Role rules: each `target` names one of its Roles, and every Role is paired once.
+export function validateRbsTable(record, proposition, { movesDir = "moves", structure = null } = {}) {
   if (!isMap(record) || !Array.isArray(record.pairs) || !record.pairs.length) {
     return { error: "the correspondence table carries no non-empty `pairs` list" };
   }
   const b = baseRefusal(record.base);
   if (b) return { error: b };
   const forms = propositionForms(proposition);
+  const placeholder = record.placeholder === true;
   for (const [i, p] of record.pairs.entries()) {
     if (!isMap(p) || !Object.hasOwn(p, "base") || !Object.hasOwn(p, "target")) {
       return { error: `pairs[${i}] is not a \`{ base, target }\` pair` };
+    }
+    if (!(placeholder && p.base === null)) {
+      if (!isText(p.base)) return { error: `pairs[${i}].base is not one base text — only a placeholder table pairs a Role with null` };
+      const r = propositionWordRefusal(p.base, forms, `pairs[${i}].base`);
+      if (r) return { error: r };
     }
     const texts = targetTexts(p.target).filter((t) => t.trim() !== "");
     if (!texts.length) return { error: `pairs[${i}].target is empty` };
     for (const t of texts) {
       const r = propositionWordRefusal(t, forms, `pairs[${i}].target`);
       if (r) return { error: r };
+    }
+  }
+  if (structure) {
+    const roles = structure.roles.map((r) => r.id);
+    for (const [i, p] of record.pairs.entries()) {
+      if (!roles.includes(p.target)) return { error: `pairs[${i}].target ${JSON.stringify(p.target)} names no Role of the structure — it names ${roles.join(", ")}` };
+    }
+    for (const id of roles) {
+      const n = record.pairs.filter((p) => p.target === id).length;
+      if (n !== 1) return { error: `the Role ${JSON.stringify(id)} is paired ${n} times, and every Role is paired once` };
     }
   }
   const m = bindingRefusal(record, forms, movesDir) || projectionRefusal(record, movesDir);
