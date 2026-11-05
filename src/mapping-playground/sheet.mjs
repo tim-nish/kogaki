@@ -9,7 +9,7 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readFileSync, existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
@@ -23,8 +23,7 @@ const MERMAID_DECLARATION = /^const MERMAID_CDN = "([^"]+)";$/m;
 const ACCENT_COLOUR = "#6cc3d5";
 // The Playground's own accent, so its sheet is told from a Proof Sheet at a glance.
 const ACCENT = `:root[data-theme="dark"]{--accent:${ACCENT_COLOUR};--off:#163a42}h1,h2{color:var(--accent)}`
-  + ".cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cols>div{border:1px solid var(--line);border-radius:6px;padding:8px}"
-  + ".cols h3{margin:4px 0 8px;font-size:15px}.prose{white-space:pre-wrap}.diagram .mermaid{max-height:none}";
+  + ".prose{white-space:pre-wrap}.diagram .mermaid{max-height:none}";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const pre = (t) => `<pre>${esc(t)}</pre>`;
@@ -96,11 +95,11 @@ function stateRows(state) {
   return rows.map(esc);
 }
 
-function bindingTable(record, entry, contracts) {
+function bindingTable(record, entry, contracts, n) {
   const c = contracts.get(entry.move);
   const absent = [esc("not in the library")];
   const rationale = entry.binding_rationale === null || entry.binding_rationale === undefined ? "none" : entry.binding_rationale;
-  return "<table><caption>Binding</caption><tbody>"
+  return `<table><caption>Binding ${n}</caption><tbody>`
     + labelledRow("Move", [esc(entry.move)])
     + labelledRow("Bound by", [esc(record.bind.author)])
     + labelledRow("Before", c ? stateRows(c.before) : absent)
@@ -109,7 +108,7 @@ function bindingTable(record, entry, contracts) {
     + "</tbody></table>";
 }
 
-function segmentsTable(record, entry) {
+function segmentsTable(record, entry, number) {
   const c = moveContract(entry.move, join(REPO, record.library));
   const segments = c.error ? [] : c.segments;
   const points = entry.paragraph_waypoints || [];
@@ -117,29 +116,23 @@ function segmentsTable(record, entry) {
   const pointCell = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>` : esc(p.point));
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   return (c.error ? `<p class="stop">${esc(c.error)}</p>` : "")
-    + `<table><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>`
+    + `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>`
     + Array.from({ length: n }, (_, i) => `<tr><td>${i + 1}</td><td>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td>`
       + `<td>${field(segments[i], "manner")}</td><td>${pointCell(points[i])}</td></tr>`).join("")
     + "</tbody></table>";
 }
 
-function writerInputTable(outDir, record, leg) {
-  const write = record.stages.find((s) => s.stage === "write");
-  const packet = write && write.packet ? relative(outDir, join(REPO, write.packet)) : null;
-  return "<table><caption>Writer input</caption><tbody>"
-    + labelledRow("Asserts", (leg ? leg.claims : []).map((c) => esc(c.proposition)))
-    + labelledRow("Points", [esc("the point column of each Segments table above")])
-    + labelledRow("Packet", [packet ? `<a href="${esc(packet)}">${esc(packet)}</a>` : esc("none")])
-    + "</tbody></table>";
+function segmentsSection(record, paragraphs) {
+  if (!paragraphs || !paragraphs.length) return none("No Move was bound.");
+  return paragraphs.map((p, i) => segmentsTable(record, p, i + 1)).join("");
 }
 
-function segmentsSection(outDir, record, leg, paragraphs) {
+function bindingsSection(record, paragraphs) {
   if (!paragraphs || !paragraphs.length) return none("No Move was bound.");
   const library = loadMoveContracts(join(REPO, record.library));
   const contracts = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
   return (library.error ? `<p class="stop">${esc(library.error)}</p>` : "")
-    + paragraphs.map((p) => bindingTable(record, p, contracts) + segmentsTable(record, p)).join("")
-    + writerInputTable(outDir, record, leg);
+    + paragraphs.map((p, i) => bindingTable(record, p, contracts, i + 1)).join("");
 }
 
 // A Mermaid node id: the element's own id, else `n<i>`; an authored `n<digits>` takes the fallback, so none collide.
@@ -178,11 +171,9 @@ function structureSection(structure) {
 const paragraphHtml = (path, record) => (existsSync(path) ? `<div class="prose">${esc(readFileSync(path, "utf8"))}</div>`
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none("No paragraph was written."));
 
-export function renderShortSheet({ outDir, record, proposition, structure, table, leg, paragraphs, paragraphPath }) {
-  const paragraph = paragraphHtml(paragraphPath, record);
-  const cite = `<p><b>cite:</b> ${esc(proposition.cite)}</p>`;
-  const propositionParagraph = `<div class="cols"><div><h3>Proposition</h3><p>${esc(proposition.proposition)}</p></div>`
-    + `<div><h3>Paragraph</h3>${paragraph}</div></div>`;
+export function renderShortSheet({ outDir, record, proposition, structure, table, paragraphs, paragraphPath }) {
+  const propositionParagraph = `<p>${esc(proposition.proposition)}</p><p class="meta">cite: ${esc(proposition.cite)}</p>`
+    + paragraphHtml(paragraphPath, record);
   const mapping = structure || table ? mappingTable(structure, table) : none("Neither a structure nor a table was read.");
   const structureHtml = structure ? structureSection(structure) : none("No structure was read.");
   const calls = readCalls(outDir, record.stages);
@@ -195,9 +186,9 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
   return `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>`
     + `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}`
-    + part("strand", "Strand", cite)
     + part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph)
-    + part("segments", "Segments", segmentsSection(outDir, record, leg, paragraphs))
+    + part("segments", "Segments", segmentsSection(record, paragraphs))
+    + part("bindings", "Bindings", bindingsSection(record, paragraphs))
     + part("mapping", "Mapping", mapping)
     + part("structure", "Structure", structureHtml)
     + part("calls", "Model calls", callsHtml)

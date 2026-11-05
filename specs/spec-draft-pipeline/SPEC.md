@@ -3043,30 +3043,27 @@ paragraph is `<out>/paragraph.md`.
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
 from a Proof Sheet at a glance. It opens on the comparison the owner reads,
 as the Proof Sheet opens on the Passage beside the Draft (kogaki#1673). Its
-sections, in order (kogaki#1675, kogaki#1685): `Strand`, `Proposition and
-Paragraph`, `Segments`, `Mapping`, `Structure` and `Model calls`, folded. The
-runner writes the sheet once and never reads it.
+sections, in order (kogaki#1675, kogaki#1685, kogaki#1687): `Proposition and
+Paragraph`, `Segments`, `Bindings`, `Mapping`, `Structure` and `Model calls`,
+folded. The runner writes the sheet once and never reads it.
 
-- `Strand` carries the proposition file's cite line only: a Trial never has
-  the rendering to show.
-- `Proposition and Paragraph` sets the proposition sentence beside the
-  paragraph in two columns, and nothing else in the left column, with the
-  stop reason in the paragraph's place where the run stopped before it.
-- `Segments` is one table with one row per Segment of the bound Move, read
-  from the record's `library`: `#`, `operation`, `relation`, `manner` and the
-  `point` written for it. A Segment without `relation` or `manner` has an
-  empty cell. Above it is a two-column table captioned `Binding`, one
-  labelled row each (kogaki#1682): `Move`, the id; `Bound by`, the record's
-  `bind.author`, `owner` or the model route's row `smp_bind_unit`; `Before`
-  and `After`, the Move's `before` and `after` read through
-  `loadMoveContracts` from the record's `library`, one sub-row per key; and
-  `Rationale`, `binding_rationale`, or `none` where it is null. A Move the
-  library no longer holds renders `not in the library` in `Before` and
-  `After`. Under the Segments tables is one two-column table captioned
-  `Writer input`, read from the Leg and the record: `Asserts`, the Leg's
-  claims one per sub-row; `Points`, the text `the point column of each
-  Segments table above`; and `Packet`, a relative link to `write/packet.md`.
-  No caption line precedes a Segments table.
+- `Proposition and Paragraph` sets the proposition sentence on its own line,
+  the proposition file's cite line under it in the `meta` style, and the
+  paragraph beneath them at the part's full width, with the stop reason in
+  the paragraph's place where the run stopped before it.
+- `Segments` is one table per binding, captioned `Paragraph N` with the
+  bound Move's id in the caption's `meta` span, with one row per Segment of
+  that Move, read from the record's `library`: `#`, `operation`, `relation`,
+  `manner` and the `point` written for it. A Segment without `relation` or
+  `manner` has an empty cell.
+- `Bindings` is one two-column table per binding, in order, captioned
+  `Binding N` with N its paragraph's number, one labelled row each
+  (kogaki#1682): `Move`, the id; `Bound by`, the record's `bind.author`,
+  `owner` or the model route's row `smp_bind_unit`; `Before` and `After`,
+  the Move's `before` and `after` read through `loadMoveContracts` from the
+  record's `library`, one sub-row per key; and `Rationale`,
+  `binding_rationale`, or `none` where it is null. A Move the library no
+  longer holds renders `not in the library` in `Before` and `After`.
 - `Mapping` is one table with one row per Role and three columns: `Role`,
   `Abstraction` (the Role's `context`) and the base column, headed `<Kind>:
   <domain>` with the kind's word capitalised (`Analogy: smoke detectors in a
@@ -3123,10 +3120,9 @@ with the first binding's fields and `paragraphs`, every binding in order as
 from the Leg, calls the writer once and writes its whole answer to
 `<out>/paragraph.md`. The structure's `holds` enter no Packet.
 
-**The sheet, with `projection`.** The Paragraph column carries
-`paragraph.md` whole. `Segments` carries one `Binding` table and one
-Segments table per binding in `paragraphs`, in order, and one `Writer input`
-table after them.
+**The sheet, with `projection`.** The paragraph carries `paragraph.md`
+whole. `Segments` carries one Segments table and `Bindings` one `Binding`
+table per binding in `paragraphs`, in order.
 
 **The record.** `<out>/trial.json` carries `proposition` (the file's `cite`
 and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),

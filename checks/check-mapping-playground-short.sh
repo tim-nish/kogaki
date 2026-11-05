@@ -6,8 +6,9 @@
 #   (d) a binding answer of `move: null` stops at `bind`, and the record shows it.
 #   (e) the writer's recorded stdin equals the Packet byte for byte.
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678), with its
-#       Binding table of five labelled rows and its Writer input table (kogaki#1682), its `Strand` part carrying the cite line and
-#       its `Proposition and Paragraph` part, and no `WBS` text (kogaki#1685).
+#       parts in order, no `strand` part, no `Writer input` text, the proposition and cite line above the prose with no `cols` div,
+#       and a `bindings` part after `segments` holding `Binding 1` and `Binding 2` of five labelled rows for a two-binding table
+#       (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685).
 #   (g) a `target` carrying a content word of the `proposition:` is refused naming the word and `proposition`.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
@@ -16,9 +17,9 @@
 #   (k) `--rbs-file` with `--rbs` is refused naming both flags.
 #   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
 #   (m) a structure carrying `attributes` is refused naming `attributes` (kogaki#1685).
-#   (n) `binding_rationale` in the rbs file reaches bind.yaml and the Binding table's `Rationale` row, the model route's bind.yaml carries
+#   (n) `binding_rationale` in the rbs file reaches bind.yaml and the `Rationale` row of `Binding 1`, the model route's bind.yaml carries
 #       `binding_rationale: null`, a non-text one is refused naming the field, and `grounds` is refused naming
-#       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682).
+#       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682, kogaki#1687).
 
 #   (o) a `projection` map and a list of one each exit 0 with one writer call, `bind.yaml`'s `paragraphs` has two entries, and
 #       the writer's stdin carries two numbered lines with their points indented, one claim line equal to the proposition,
@@ -176,9 +177,9 @@ ok(d.res.status !== 0 && stagesOf(d.rec) === "rbs:done,bind:stopped,write:not ru
   && String(d.rec.stopped).includes("no_paragraph_move_fits") && !existsSync(join(d.o, "paragraph.md")) && existsSync(join(d.o, "sheet.html")),
   `(d) a move: null answer did not stop the Trial at bind: ${d.res.status} ${stagesOf(d.rec)} ${JSON.stringify(d.rec && d.rec.stopped)}`);
 const dSheet = existsSync(join(d.o, "sheet.html")) ? readFileSync(join(d.o, "sheet.html"), "utf8") : "";
-const dParagraph = (/<div><h3>Paragraph<\/h3>([\s\S]*?)<\/div><\/div><\/section>/.exec(dSheet) || [])[1] || "";
+const dParagraph = (/<section class="card" id="proposition-paragraph">([\s\S]*?)<\/section>/.exec(dSheet) || [])[1] || "";
 ok(d.rec && dParagraph.includes(`stopped — ${d.rec.stopped}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")),
-  `(d) the stopped Trial's Paragraph column does not carry the stop reason: ${dParagraph}`);
+  `(d) the stopped Trial's Proposition and Paragraph part does not carry the stop reason: ${dParagraph}`);
 
 // (g) a target carrying a claim word is refused naming it
 const g = validateRbsTable({ variant: "rbs_x", base: { domain: null, kind: null }, pairs: [{ base: null, target: "The crew follows its list." }, { base: "walker", target: { step: "The walker sees a room." } }] }, PROPOSITION);
@@ -230,19 +231,22 @@ const propositionRec = { cite: CITE, proposition: PROPOSITION };
 const m1 = validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"] }] }, propositionRec);
 ok(m1.error && m1.error.includes("`attributes`"), `(m) a structure carrying attributes was not refused naming it: ${JSON.stringify(m1)}`);
 
-// (f) the sheet: dark, its six sections in order, the cite line, the proposition beside the Paragraph, Segments, Mapping and Structure
-const SECTIONS = ["Strand", "Proposition and Paragraph", "Segments", "Mapping", "Structure", "Model calls"];
+// (f) the sheet: dark, its six sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
+const SECTIONS = ["Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Structure", "Model calls"];
+const PART_IDS = ["proposition-paragraph", "segments", "bindings", "mapping", "structure", "calls"];
+const partIds = (html) => [...html.matchAll(/<section class="card" id="([^"]+)">/g)].map((x) => x[1]);
 const sheet = rec.sheet && existsSync(join(repo, rec.sheet)) ? readFileSync(join(repo, rec.sheet), "utf8") : "";
 ok(/^<!doctype html><html data-theme="dark">/.test(sheet), "(f) sheet.html does not carry data-theme=\"dark\" on its root");
 const jSheet = existsSync(join(j.o, "sheet.html")) ? readFileSync(join(j.o, "sheet.html"), "utf8") : "";
 const h2s = [...jSheet.matchAll(/<h2>([\s\S]*?)<\/h2>/g)].map((x) => x[1]);
 ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the six sections in order: ${JSON.stringify(h2s)}`);
-const cols = (/<div class="cols">([\s\S]*?)<\/div><\/div><\/section>/.exec(jSheet) || [])[1] || "";
-const leftCol = (/<div><h3>Proposition<\/h3>([\s\S]*?)<\/div>/.exec(cols) || [])[1];
-ok(leftCol === `<p>${PROPOSITION}</p>` && cols.includes("WRITTEN the crew"), `(f) the proposition alone and the Paragraph do not sit in one .cols block: ${cols}`);
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const section = (html, id) => (new RegExp(`<section class="card" id="${id}">([\\s\\S]*?)<\\/section>`).exec(html) || [])[1] || "";
-ok(section(jSheet, "strand") === `<h2>Strand</h2><p><b>cite:</b> ${esc(CITE)}</p>`, `(f) the Strand part is not the cite line alone: ${section(jSheet, "strand")}`);
+ok(JSON.stringify(partIds(jSheet)) === JSON.stringify(PART_IDS) && !jSheet.includes("Writer input"),
+  `(f) sheet.html's parts are not the six ids in order with no strand part and no Writer input: ${JSON.stringify(partIds(jSheet))}`);
+const pp = section(jSheet, "proposition-paragraph");
+ok(!pp.includes('class="cols"') && pp.startsWith(`<h2>Proposition and Paragraph</h2><p>${esc(PROPOSITION)}</p><p class="meta">cite: ${esc(CITE)}</p><div class="prose">WRITTEN the crew`),
+  `(f) the proposition and its cite line do not stand above the full-width Paragraph with no cols div: ${pp}`);
 ok(!sheet.includes("WBS") && !jSheet.includes("WBS"), "(f) a sheet still carries `WBS`");
 const segs = moveContract(MOVE, join(repo, "moves")).segments;
 const segRows = [...section(jSheet, "segments").matchAll(/<tr><td>(\d+)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
@@ -254,16 +258,14 @@ const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
 const labelsOf = (table) => [...table.matchAll(/<th rowspan="\d+">([\s\S]*?)<\/th>/g)].map((x) => x[1]);
 const KNOWLEDGE = (moveContract(MOVE, join(repo, "moves")).before.split("\n").find((l) => l.startsWith("knowledge: ")) || "knowledge: ?");
-const [jBinding] = tableOf(section(jSheet, "segments"), "Binding");
+ok(section(jSheet, "segments").includes(`<caption>Paragraph 1 <span class="meta">${MOVE}</span></caption>`) && !section(jSheet, "segments").includes("<caption>Binding"),
+  "(f) the Segments table is not captioned `Paragraph 1` with its Move, or a Binding table remains inside Segments");
+const [jBinding] = tableOf(section(jSheet, "bindings"), "Binding 1");
 ok(jBinding && JSON.stringify(labelsOf(jBinding)) === JSON.stringify(["Move", "Bound by", "Before", "After", "Rationale"])
   && rowOf(jBinding, "Move").includes(`<td>${MOVE}</td>`) && rowOf(jBinding, "Bound by").includes("<td>owner</td>")
   && rowOf(jBinding, "Before").includes(`<td>${esc(KNOWLEDGE)}</td>`) && rowOf(jBinding, "After").includes("<td>knowledge: "),
   `(f) the Binding table is not the five labelled rows with the Move's before.knowledge: ${jBinding}`);
-const jWriter = tableOf(section(jSheet, "segments"), "Writer input");
-ok(jWriter.length === 1 && rowOf(jWriter[0], "Asserts") === `<td>${esc(PROPOSITION)}</td></tr>` && jWriter[0].includes('<a href="write/packet.md">')
-  && section(jSheet, "segments").lastIndexOf("<table><caption>Writer input") > section(jSheet, "segments").lastIndexOf("<th>operation</th>"),
-  `(f) the Writer input table does not follow the Segments tables carrying the proposition and a link to write/packet.md: ${jWriter}`);
-const [aBinding] = tableOf(section(sheet, "segments"), "Binding");
+const [aBinding] = tableOf(section(sheet, "bindings"), "Binding 1");
 ok(aBinding && rowOf(aBinding, "Bound by").includes("<td>smp_bind_unit</td>") && rowOf(aBinding, "Rationale").includes("<td>none</td>"),
   `(f) the model route's Binding table does not carry its row name and a Rationale of none: ${aBinding}`);
 ok(![...section(jSheet, "segments").matchAll(/<caption>([\s\S]*?)<\/caption>/g)].some((x) => x[1].includes("—")),
@@ -301,7 +303,7 @@ const jBind = existsSync(join(j.o, "bind.yaml")) ? parseYaml(readFileSync(join(j
 const rationaleRow = rowOf(jBinding || "", "Rationale");
 ok(jBind.binding_rationale === owned.binding_rationale && j.rec.bind.binding_rationale === owned.binding_rationale
   && rationaleRow === `<td>${esc(owned.binding_rationale)}</td></tr>` && !Object.hasOwn(jBind, "grounds"),
-  `(n) the supplied binding_rationale did not reach bind.yaml, the record and the Rationale row: ${JSON.stringify(jBind)} / ${rationaleRow}`);
+  `(n) the supplied binding_rationale did not reach bind.yaml, the record and the Rationale row of Binding 1: ${JSON.stringify(jBind)} / ${rationaleRow}`);
 const aBind = existsSync(join(a.o, "bind.yaml")) ? parseYaml(readFileSync(join(a.o, "bind.yaml"), "utf8"), "bind") : {};
 ok(Object.hasOwn(aBind, "binding_rationale") && aBind.binding_rationale === null && rec.bind.binding_rationale === null,
   `(n) the model route's bind.yaml does not carry binding_rationale: null: ${JSON.stringify(aBind)}`);
@@ -350,13 +352,15 @@ for (const [name, file] of [["projected", projFile], ["projected-list", listFile
   ok(readFileSync(join(o.o, "paragraph.md"), "utf8").startsWith("WRITTEN") && !existsSync(join(o.o, "bind2.yaml")) && !existsSync(join(o.o, "paragraph2.md")),
     `(o) ${name}: paragraph.md is not the whole answer, or bind2.yaml or paragraph2.md was written`);
   const oSheet = existsSync(join(o.o, "sheet.html")) ? readFileSync(join(o.o, "sheet.html"), "utf8") : "";
-  const oBindings = tableOf(section(oSheet, "segments"), "Binding");
-  const oWriter = tableOf(section(oSheet, "segments"), "Writer input");
+  const oBindings = tableOf(section(oSheet, "bindings"), "Binding \\d+");
+  const oCaps = [...section(oSheet, "bindings").matchAll(/<caption>([\s\S]*?)<\/caption>/g)].map((x) => x[1]);
+  ok(JSON.stringify(partIds(oSheet)) === JSON.stringify(PART_IDS) && JSON.stringify(oCaps) === JSON.stringify(["Binding 1", "Binding 2"])
+    && !oSheet.includes("Writer input") && !section(oSheet, "segments").includes("<caption>Binding"),
+    `(f) ${name}: the bindings part does not follow segments carrying Binding 1 and Binding 2, or a Writer input remains: ${JSON.stringify(partIds(oSheet))} ${JSON.stringify(oCaps)}`);
   ok(oBindings.length === 2 && rowOf(oBindings[0], "Rationale").includes(esc(owned.binding_rationale))
     && rowOf(oBindings[1], "Rationale").includes(esc(PROJ.binding_rationale))
     && oBindings.every((t) => JSON.stringify(labelsOf(t)) === JSON.stringify(["Move", "Bound by", "Before", "After", "Rationale"]) && rowOf(t, "Before").includes(esc(KNOWLEDGE)))
-    && oWriter.length === 1 && rowOf(oWriter[0], "Asserts") === `<td>${esc(PROPOSITION)}</td></tr>`
-    && !oSheet.includes("Reader state:"), `(o) ${name}: the sheet does not carry two Binding tables, one Writer input table and no reader state: ${oBindings.length} ${oWriter.length}`);
+    && !oSheet.includes("Reader state:"), `(o) ${name}: the sheet does not carry two Binding tables and no reader state: ${oBindings.length}`);
   // (p) no attribute test anywhere in the run
   const files = [];
   const walk = (dd) => { for (const f of readdirSync(dd)) { const pth = join(dd, f); if (statSync(pth).isDirectory()) walk(pth); else files.push(pth); } };
@@ -368,7 +372,7 @@ const twoFile = join(root, "rbs-projected-two.yaml");
 writeFileSync(twoFile, stringifyYaml({ ...byId, projection: [PROJ, { ...PROJ, binding_rationale: "RATIONALE3 a third paragraph." }] }));
 const o3 = run("projected-two", ["--structure", wide, "--rbs-file", twoFile]);
 const o3Sheet = existsSync(join(o3.o, "sheet.html")) ? readFileSync(join(o3.o, "sheet.html"), "utf8") : "";
-const o3Caps = tableOf(section(o3Sheet, "segments"), "Binding");
+const o3Caps = tableOf(section(o3Sheet, "bindings"), "Binding \\d+");
 ok(o3.res.status === 0 && o3.seen.length === 1 && o3Caps.length === 3, `(o) a projection list of two did not exit 0 with three Binding tables: ${o3.res.status} ${o3Caps.length} ${o3.res.stderr}`);
 
 // (p) a projecting point carrying a claim word passes ("walker" in PROJ-1)
