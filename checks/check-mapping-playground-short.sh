@@ -5,7 +5,7 @@
 #   (c) a `--rbs` naming no `rbs_<variant>` row is refused naming the rows the table declares.
 #   (d) a binding answer of `move: null` stops at `bind`, and the record shows it.
 #   (e) the writer's recorded stdin equals the Packet byte for byte.
-#   (f) the sheet (kogaki#1673, kogaki#1675).
+#   (f) the sheet (kogaki#1673, kogaki#1675), over a structure carrying two higher-order relations (kogaki#1678).
 #   (g) a `target` carrying a content word of the `claim:` is refused naming the word.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
@@ -14,14 +14,17 @@
 #   (k) `--rbs-file` with `--rbs` is refused naming both flags.
 #   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
 #   (m) a structure's `attributes` passes, and an unresolved Role is refused naming it.
-#   (n) `grounds` in the rbs file reaches bind.yaml and the Segments caption, the model route's bind.yaml carries
-#       `grounds: null`, and a non-text `grounds` is refused naming the field (kogaki#1675).
+#   (n) `binding_rationale` in the rbs file reaches bind.yaml and the Segments caption, the model route's bind.yaml carries
+#       `binding_rationale: null`, a non-text one is refused naming the field, and `grounds` is refused naming
+#       `binding_rationale` (kogaki#1675, kogaki#1678).
 #   (o) an rbs file with `projection` exits 0 with two calls, `bind2.yaml` `state: supplied`, `paragraph2.md`, and the second
 #       writer's stdin carrying paragraph one under the article-so-far heading and the claim as a Leg claim (kogaki#1676).
 #   (p) a projecting point carrying a claim word passes, an attribute word is recorded in `bind2.yaml` and on the sheet,
 #       and a table with no hits renders `none, over`.
 #   (q) `projection` with a wrong-length `waypoints` or an unknown `move`, or without the first binding, is refused naming it.
 #   (r) a stop at `write2` keeps `paragraph.md`; a stop before `bind2` renders the attribute test as not tested.
+#   (s) the one-map `higher_order` passes and renders as `h1`; a list entry with a duplicate id or an unknown relation
+#       is refused naming its index (kogaki#1678).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -179,13 +182,17 @@ const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_t
 const SEGMENTS = moveContract(MOVE, join(repo, "moves")).segments.length;
 const owned = { base: { domain: "a cleaning crew working through a house", kind: "analogy" },
   pairs: wantTargets.map((t) => ({ base: "the crew's list", target: t })), move: MOVE,
-  grounds: "GROUNDS the Move asks and answers, as the crew asks which room comes first.",
+  binding_rationale: "RATIONALE the Move asks and answers, as the crew asks which room comes first.",
   waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1, point: `OWNED-${n + 1} the crew keeps to its list.` })) };
 const ownedFile = join(root, "rbs-owned.yaml");
 writeFileSync(ownedFile, stringifyYaml(owned));
 const withAttrs = join(root, "structure-attrs.yaml");
 const LONE = { id: "porch", context: "A porch light glows by the gate." };
-writeFileSync(withAttrs, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], attributes: [{ role: "room", words: ["dusty", "next door"] }] }));
+const PASSED = { id: "passed", between: ["crew", "room"], holds: "The crew goes past a room nobody wrote down." };
+const HIGHER = [{ id: "h1", ...mapped.higher_order },
+  { id: "h2", relates: ["missed", "passed"], holds: "Because nobody wrote that room down, the crew goes past it as if it were not there." }];
+writeFileSync(withAttrs, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], relations: [...mapped.relations, PASSED], higher_order: HIGHER,
+  attributes: [{ role: "room", words: ["dusty", "next door"] }] }));
 const j = run("owned", ["--structure", withAttrs, "--rbs-file", ownedFile]);
 const jCalls = [...j.calls("bind"), ...j.calls("write")];
 ok(j.res.status === 0 && stagesOf(j.rec) === "rbs:done,bind:done,write:done" && jCalls.length === 1 && j.seen.length === 1
@@ -247,32 +254,43 @@ ok(mapped.roles.every((r) => mapRows.filter((x) => x[1] === r.id && x[2] === r.c
   `(f) the mapping table is not one row per Role carrying its context, its dropped words and its base object: ${mapRows.map((x) => x.slice(1).join("|")).join(" / ")}`);
 const struct = section(jSheet, "structure");
 const elRows = [...struct.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
-const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...mapped.relations.map((r) => [r.id, "relation"]), ["higher_order", "higher-order"]];
+const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...[...mapped.relations, PASSED].map((r) => [r.id, "relation"]),
+  ["h1", "higher-order"], ["h2", "higher-order"]];
 const category = (c) => c.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 ok(elRows.length === wantEls.length && wantEls.every(([id, cat]) => elRows.some((x) => x[1] === id && category(x[2]) === cat)),
-  `(f) the Structure table is not one row per element with its category and the lone Role unreached: ${elRows.map((x) => `${x[1]}:${category(x[2])}`).join(" / ")}`);
+  `(f) the Structure table is not one row per element with its category, the lone Role unreached and h2's relation reached: ${elRows.map((x) => `${x[1]}:${category(x[2])}`).join(" / ")}`);
 const graph = (/<div class="mermaid">([\s\S]*?)<\/div>/.exec(struct) || [])[1] || "";
-ok(graph.startsWith("graph LR") && ["Roles", "Relations", "Higher-order relations"].every((t) => graph.includes(`[&quot;${t}&quot;]`))
-  && jSheet.includes("mermaid.initialize"), `(f) the Structure section carries no Mermaid graph LR naming the three subgraphs: ${graph.slice(0, 200)}`);
+const INIT = esc('%%{init: {"flowchart": {"curve": "linear"}}}%%');
+const subAt = ["Higher-order relations", "Relations", "Roles"].map((t) => graph.indexOf(`[&quot;${t}&quot;]`));
+ok(graph.startsWith(`${INIT}\ngraph BT\n`) && subAt.every((n, x) => n >= 0 && (x === 0 || n > subAt[x - 1])) && jSheet.includes("mermaid.initialize"),
+  `(f) the Structure section carries no Mermaid graph BT with the linear init line and the three subgraphs top to bottom: ${graph.slice(0, 300)}`);
+const higherBlock = (/subgraph higher\[&quot;Higher-order relations&quot;\]\n([\s\S]*?)\n  end/.exec(graph) || [])[1] || "";
+ok(JSON.stringify(higherBlock.split("\n").map((l) => l.trim())) === JSON.stringify(["h1[&quot;h1&quot;]", "h2[&quot;h2&quot;]"])
+  && graph.includes("  passed --&gt; h2") && !/\b[HL]0\b/.test(graph),
+  `(f) the Higher-order subgraph is not one node per entry labelled by its id, with h2's relation edged to it: ${higherBlock}`);
 ok(struct.includes("<details") && struct.indexOf("<details") > struct.indexOf('class="mermaid"'), "(f) the folded YAML does not follow the graph");
 ok(!sheet.includes("base (WBS)") && !sheet.includes("target (RBS)") && !jSheet.includes("base (WBS)") && !jSheet.includes("target (RBS)"),
   "(f) a sheet still carries `base (WBS)` or `target (RBS)`");
 ok(sheet.includes(String(rec.bind && rec.bind.move)) && sheet.includes("WRITTEN the crew") && sheet.includes(CLAIM), "(f) sheet.html does not carry the Move, the paragraph and the WBS");
 
-// (n) grounds: the supplied text reaches bind.yaml and the Segments caption; the model route records null; a non-text one is refused
+// (n) binding_rationale: the supplied text reaches bind.yaml and the Segments caption; the model route records null;
+// a non-text one is refused; `grounds` is refused naming binding_rationale
 const jBind = existsSync(join(j.o, "bind.yaml")) ? parseYaml(readFileSync(join(j.o, "bind.yaml"), "utf8"), "bind") : {};
 const caption = (/<caption>([\s\S]*?)<\/caption>/.exec(section(jSheet, "segments")) || [])[1] || "";
-ok(jBind.grounds === owned.grounds && j.rec.bind.grounds === owned.grounds && caption.includes(esc(owned.grounds))
+ok(jBind.binding_rationale === owned.binding_rationale && j.rec.bind.binding_rationale === owned.binding_rationale
+  && caption.includes(`binding_rationale: ${esc(owned.binding_rationale)}`) && !Object.hasOwn(jBind, "grounds")
   && caption.includes(MOVE) && caption.includes("supplied by the owner"),
-  `(n) the supplied grounds did not reach bind.yaml, the record and the Segments caption: ${JSON.stringify(jBind.grounds)} / ${caption}`);
+  `(n) the supplied binding_rationale did not reach bind.yaml, the record and the Segments caption: ${JSON.stringify(jBind)} / ${caption}`);
 const aBind = existsSync(join(a.o, "bind.yaml")) ? parseYaml(readFileSync(join(a.o, "bind.yaml"), "utf8"), "bind") : {};
-ok(Object.hasOwn(aBind, "grounds") && aBind.grounds === null && rec.bind.grounds === null,
-  `(n) the model route's bind.yaml does not carry grounds: null: ${JSON.stringify(aBind.grounds)}`);
-const n1 = lv({ grounds: ["a list"] });
-ok(n1.error && n1.error.startsWith("grounds "), `(n) a non-text grounds was not refused naming grounds: ${JSON.stringify(n1)}`);
+ok(Object.hasOwn(aBind, "binding_rationale") && aBind.binding_rationale === null && rec.bind.binding_rationale === null,
+  `(n) the model route's bind.yaml does not carry binding_rationale: null: ${JSON.stringify(aBind)}`);
+const n1 = lv({ binding_rationale: ["a list"] });
+ok(n1.error && n1.error.startsWith("binding_rationale "), `(n) a non-text binding_rationale was not refused naming it: ${JSON.stringify(n1)}`);
+const n2 = lv({ grounds: "the old field" });
+ok(n2.error && n2.error.startsWith("grounds ") && n2.error.includes("`binding_rationale`"), `(n) grounds was not refused naming binding_rationale: ${JSON.stringify(n2)}`);
 
 // (o) the projecting binding: a second writer call over paragraph one and the Strand's claim
-const PROJ = { move: MOVE, grounds: "GROUNDS2 the Move carries the crew's list over to the walker.",
+const PROJ = { move: MOVE, binding_rationale: "RATIONALE2 the Move carries the crew's list over to the walker.",
   waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1,
     point: n === 0 ? "PROJ-1 the walker sees the files." : n === 1 ? "PROJ-2 a dusty file is never reached." : `PROJ-${n + 1} the rule set keeps to its list.` })) };
 const projFile = join(root, "rbs-projected.yaml");
@@ -282,8 +300,8 @@ const oCalls = [...o.calls("bind"), ...o.calls("write"), ...o.calls("bind2"), ..
 ok(o.res.status === 0 && stagesOf(o.rec) === "rbs:done,bind:done,write:done,bind2:done,write2:done" && oCalls.length === 2 && o.seen.length === 2,
   `(o) the projecting run did not exit 0 with two calls: ${o.res.status} ${stagesOf(o.rec)} ${oCalls.length} ${o.res.stderr}`);
 const oBind2 = existsSync(join(o.o, "bind2.yaml")) ? parseYaml(readFileSync(join(o.o, "bind2.yaml"), "utf8"), "bind2") : {};
-ok(oBind2.state === "supplied" && oBind2.author === "owner" && oBind2.move === MOVE && oBind2.grounds === PROJ.grounds,
-  `(o) bind2.yaml does not carry state: supplied with the Move and grounds: ${JSON.stringify(oBind2)}`);
+ok(oBind2.state === "supplied" && oBind2.author === "owner" && oBind2.move === MOVE && oBind2.binding_rationale === PROJ.binding_rationale,
+  `(o) bind2.yaml does not carry state: supplied with the Move and binding_rationale: ${JSON.stringify(oBind2)}`);
 ok(o.rec && o.rec.projection && fileOk(o.rec.projection.bind) && o.rec.projection.bind.state === "supplied" && fileOk(o.rec.projection.paragraph)
   && readFileSync(join(o.o, "paragraph2.md"), "utf8").startsWith("SECOND"), `(o) the record's projection is not filled: ${JSON.stringify(o.rec && o.rec.projection)}`);
 const w2 = o.calls("write2");
@@ -301,7 +319,7 @@ ok(oCol.indexOf("WRITTEN the crew") >= 0 && oCol.indexOf("WRITTEN the crew") < o
   `(o) the Paragraph column is not paragraph one, the reader-state line and paragraph two in order: ${oCol}`);
 const oSegs = section(oSheet, "segments");
 const oCaps = [...oSegs.matchAll(/<caption>([\s\S]*?)<\/caption>/g)].map((x) => x[1]);
-ok(oCaps.length === 2 && oCaps[1].includes(MOVE) && oCaps[1].includes(esc(PROJ.grounds)), `(o) the sheet carries no second Segments table captioned with the Move and grounds: ${JSON.stringify(oCaps)}`);
+ok(oCaps.length === 2 && oCaps[1].includes(MOVE) && oCaps[1].includes(esc(PROJ.binding_rationale)), `(o) the sheet carries no second Segments table captioned with the Move and binding_rationale: ${JSON.stringify(oCaps)}`);
 
 // (p) the claim word passes, the attribute word is recorded and rendered, and no hit renders `none, over`
 ok(JSON.stringify(oBind2.attribute_hits) === JSON.stringify([{ segment: 2, word: "dusty", role: "room" }])
@@ -337,6 +355,18 @@ const r1Segs = section(existsSync(join(r1.o, "sheet.html")) ? readFileSync(join(
 ok(r1.res.status !== 0 && stagesOf(r1.rec) === "rbs:done,bind:done,write:stopped,bind2:not run,write2:not run"
   && r1Segs.includes("Attribute words in the points: not tested, bind2 not run") && !r1Segs.includes("none, over"),
   `(r) a stop before bind2 does not render the attribute test as not tested: ${r1.res.status} ${stagesOf(r1.rec)}`);
+
+// (s) the one-map higher_order is read as h1; a list entry is refused naming its index
+ok(!validateStructure(mapped, strandRec).error, "(s) the one-map higher_order was refused");
+const aRows = [...section(sheet, "structure").matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td>/g)].filter((x) => category(x[2]) === "higher-order");
+ok(aRows.length === 1 && aRows[0][1] === "h1", `(s) the one-map higher_order does not render as the one row h1: ${aRows.map((x) => x[1]).join(", ")}`);
+const listed = (higher) => validateStructure({ ...mapped, relations: [...mapped.relations, PASSED], higher_order: higher }, strandRec);
+ok(!listed(HIGHER).error, `(s) the two-entry higher_order list was refused: ${JSON.stringify(listed(HIGHER))}`);
+const s1 = listed([HIGHER[0], { ...HIGHER[1], id: "h1" }]);
+ok(s1.error && s1.error.startsWith("higher_order[1]'s `id`"), `(s) a duplicate higher-order id was not refused naming its index: ${JSON.stringify(s1)}`);
+const s2 = listed([HIGHER[0], { ...HIGHER[1], relates: ["missed", "nowhere"] }]);
+ok(s2.error && s2.error.startsWith("higher_order[1]'s `relates`") && s2.error.includes('"nowhere"'),
+  `(s) an unknown relation in a higher-order entry was not refused naming its index: ${JSON.stringify(s2)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");

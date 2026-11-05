@@ -26,7 +26,7 @@ import { derivedRow, readerStartUnitInput, readerStartText, completedLeg } from 
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseStrandFile, validateStructure, structureClaims } from "./structure.mjs";
+import { parseStrandFile, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
 import { mapperRow, mapperInput, MAPPER_ATTEMPTS } from "./sme.mjs";
 
 export const PLAYGROUND_TABLE = "src/mapping-playground/playground-workflow.json";
@@ -185,7 +185,7 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
     bounds });
   if (r2.stopped) return { stopped: r2.stopped };
   writeFileSync(briefPath, trialBriefText({ slug, composePath: relFromRepo(audiencePath), claims, readerStart,
-    leg: r2.record.legs[0], thesis: higher_order.holds }));
+    leg: r2.record.legs[0], thesis: higherOrderOf(structure).map((h) => h.holds).join(" ") }));
   return { brief: briefPath };
 }
 

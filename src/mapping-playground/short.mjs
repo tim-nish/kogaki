@@ -25,7 +25,7 @@ import { splitPacketTemplate } from "../draft/packet.mjs";
 import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseStrandFile, validateStructure, structureClaims } from "./structure.mjs";
+import { parseStrandFile, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
 import { validateRbsTable, suppliedEntry, attributeHits } from "./rbs.mjs";
 import { mapperRow } from "./sme.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
@@ -80,7 +80,7 @@ const RBS_FILLS = {
   structure_elements: (structure) => [
     ...structure.roles.map((r) => ({ base: null, target: r.context })),
     ...structure.relations.map((r) => ({ base: null, target: r.holds })),
-    { base: null, target: structure.higher_order.holds },
+    ...higherOrderOf(structure).map((h) => ({ base: null, target: h.holds })),
   ],
 };
 
@@ -269,10 +269,10 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     rbs: { variant: rr.row.id, placeholder: rr.row.placeholder === true, path: null, sha256: null },
-    bind: { move: null, grounds: null, path: null, sha256: null },
+    bind: { move: null, binding_rationale: null, path: null, sha256: null },
     paragraph: { path: null, sha256: null },
     ...(owned && Object.hasOwn(owned.record, "projection")
-      ? { projection: { bind: { move: null, grounds: null, path: null, sha256: null }, paragraph: { path: null, sha256: null } } } : {}),
+      ? { projection: { bind: { move: null, binding_rationale: null, path: null, sha256: null }, paragraph: { path: null, sha256: null } } } : {}),
     sheet: relFromRepo(sheetPath),
     audience: relFromRepo(audiencePath),
     library: relFromRepo(libraryDir),
@@ -334,14 +334,14 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
     if (supplied) {
       writeFileSync(bindPath, stringifyYaml(supplied));
-      record.bind = { state: "supplied", author: "owner", move: supplied.move, grounds: supplied.grounds, ...fileRecord(bindPath) };
+      record.bind = { state: "supplied", author: "owner", move: supplied.move, binding_rationale: supplied.binding_rationale, ...fileRecord(bindPath) };
       return { value: supplied };
     }
     const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
     if (r.stopped) return r;
-    const bound = { ...r.entry, grounds: null };
+    const bound = { ...r.entry, binding_rationale: null };
     writeFileSync(bindPath, stringifyYaml(bound));
-    record.bind = { move: bound.move, grounds: null, ...fileRecord(bindPath) };
+    record.bind = { move: bound.move, binding_rationale: null, ...fileRecord(bindPath) };
     return { value: bound };
   });
   stage("write", (d, env) => {
@@ -358,7 +358,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
       const supplied = suppliedEntry(projection, leg2.waypoints[0].serves);
       const bound = { state: "supplied", author: "owner", ...supplied, attribute_hits: attributeHits(projection.waypoints, structure.attributes) };
       writeFileSync(join(outDir, BIND2_FILE), stringifyYaml(bound));
-      record.projection.bind = { state: "supplied", author: "owner", move: bound.move, grounds: bound.grounds,
+      record.projection.bind = { state: "supplied", author: "owner", move: bound.move, binding_rationale: bound.binding_rationale,
         attribute_hits: bound.attribute_hits, ...fileRecord(join(outDir, BIND2_FILE)) };
       return { value: bound };
     });
