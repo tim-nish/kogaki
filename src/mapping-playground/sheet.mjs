@@ -1,4 +1,4 @@
-// The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681).
+// The short Trial's sheet (kogaki#1673), with one Binding and one Segments table per paragraph binding (kogaki#1681, kogaki#1682).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -8,11 +8,11 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
-import { moveContract } from "../compose.mjs";
+import { moveContract, loadMoveContracts, MOVE_STATE_DIMENSIONS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
@@ -81,22 +81,70 @@ function mappingTable(structure, table) {
     + "</tbody></table>";
 }
 
+// A labelled row of a two-column table; several values make one sub-row each under one label.
+function labelledRow(label, values) {
+  const vs = values.length ? values : [""];
+  return `<tr><th rowspan="${vs.length}">${esc(label)}</th><td>${vs[0]}</td></tr>`
+    + vs.slice(1).map((v) => `<tr><td>${v}</td></tr>`).join("");
+}
+
+// A Move's state as the contract renders it, `<dimension>: <text>` per dimension, one sub-row each.
+const STATE_LINE = new RegExp(`^(${MOVE_STATE_DIMENSIONS.join("|")}): `);
+function stateRows(state) {
+  const rows = [];
+  for (const line of String(state).split("\n")) {
+    if (STATE_LINE.test(line) || !rows.length) rows.push(line);
+    else rows[rows.length - 1] += `\n${line}`;
+  }
+  return rows.map(esc);
+}
+
+function bindingTable(record, entry, contracts) {
+  const c = contracts.get(entry.move);
+  const absent = [esc("not in the library")];
+  const boundBy = record.bind && record.bind.author ? record.bind.author : "not recorded";
+  const rationale = entry.binding_rationale === null || entry.binding_rationale === undefined ? "none" : entry.binding_rationale;
+  return "<table><caption>Binding</caption><tbody>"
+    + labelledRow("Move", [esc(entry.move)])
+    + labelledRow("Bound by", [esc(boundBy)])
+    + labelledRow("Before", c ? stateRows(c.before) : absent)
+    + labelledRow("After", c ? stateRows(c.after) : absent)
+    + labelledRow("Rationale", [esc(rationale)])
+    + "</tbody></table>";
+}
+
 function segmentsTable(record, entry) {
   const c = moveContract(entry.move, join(REPO, record.library));
   const segments = c.error ? [] : c.segments;
   const points = entry.paragraph_waypoints || [];
-  const how = record.bind && record.bind.state === "supplied" ? "supplied by the owner"
-    : `bound by the model, bind ${(record.stages.find((s) => s.stage === "bind") || { state: "not run" }).state}`;
-  const rationale = entry.binding_rationale === null || entry.binding_rationale === undefined ? "null" : entry.binding_rationale;
-  const caption = `${entry.move} — ${how} — binding_rationale: ${rationale}`;
   const n = Math.max(segments.length, points.length);
   const pointCell = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>` : esc(p.point));
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   return (c.error ? `<p class="stop">${esc(c.error)}</p>` : "")
-    + `<table><caption>${esc(caption)}</caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>`
+    + `<table><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>`
     + Array.from({ length: n }, (_, i) => `<tr><td>${i + 1}</td><td>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td>`
       + `<td>${field(segments[i], "manner")}</td><td>${pointCell(points[i])}</td></tr>`).join("")
     + "</tbody></table>";
+}
+
+// What the writer was given, read from the Leg and the record: its claims, where its points are shown, and its Packet.
+function writerInputTable(outDir, record, leg) {
+  const write = record.stages.find((s) => s.stage === "write");
+  const packet = write && write.packet ? relative(outDir, join(REPO, write.packet)) : null;
+  return "<table><caption>Writer input</caption><tbody>"
+    + labelledRow("Asserts", (leg ? leg.claims : []).map((c) => esc(c.proposition)))
+    + labelledRow("Points", [esc("the point column of each Segments table above")])
+    + labelledRow("Packet", [packet ? `<a href="${esc(packet)}">${esc(packet)}</a>` : esc("none")])
+    + "</tbody></table>";
+}
+
+function segmentsSection(outDir, record, leg, paragraphs) {
+  if (!paragraphs || !paragraphs.length) return none("No Move was bound.");
+  const library = loadMoveContracts(join(REPO, record.library));
+  const contracts = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
+  return (library.error ? `<p class="stop">${esc(library.error)}</p>` : "")
+    + paragraphs.map((p) => bindingTable(record, p, contracts) + segmentsTable(record, p)).join("")
+    + writerInputTable(outDir, record, leg);
 }
 
 // A Mermaid node id: the element's own id, else `n<i>`; an authored `n<digits>` takes the fallback, so none collide.
@@ -135,7 +183,7 @@ function structureSection(structure) {
 const paragraphHtml = (path, record) => (existsSync(path) ? `<div class="prose">${esc(readFileSync(path, "utf8"))}</div>`
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none("No paragraph was written."));
 
-export function renderShortSheet({ outDir, record, strand, structure, table, paragraphs, paragraphPath }) {
+export function renderShortSheet({ outDir, record, strand, structure, table, leg, paragraphs, paragraphPath }) {
   const paragraph = paragraphHtml(paragraphPath, record);
   const wbsParagraph = `<div class="cols"><div><h3>WBS <span class="meta">${esc(strand.cite)}</span></h3>`
     + `<p><b>claim:</b> ${esc(strand.claim)}</p><div class="prose">${esc(strand.rendering)}</div></div>`
@@ -153,8 +201,7 @@ export function renderShortSheet({ outDir, record, strand, structure, table, par
     + `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>`
     + `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}`
     + part("wbs-paragraph", "WBS and Paragraph", wbsParagraph)
-    + part("segments", "Segments", paragraphs && paragraphs.length
-      ? paragraphs.map((p) => segmentsTable(record, p)).join("") : none("No Move was bound."))
+    + part("segments", "Segments", segmentsSection(outDir, record, leg, paragraphs))
     + part("mapping", "Mapping", mapping)
     + part("structure", "Structure", structureHtml)
     + part("calls", "Model calls", callsHtml)
