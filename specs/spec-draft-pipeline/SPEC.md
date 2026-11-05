@@ -2865,8 +2865,10 @@ is a **Trial**: `node src/mapping-playground/trial.mjs run --strand <file>
 and nothing else. The proposition is the one sentence the Leg asserts, a
 Strand's `proposition` as a Brief's Leg carries it; reducing a Strand to it is
 the Brief's work, which the owner stands in for here. A `claim:` line is
-refused naming `proposition`, and any text below the two lines is refused: a
-Strand's rendering is not an input of the Playground, so no stage can read it.
+refused naming `proposition`, a second `cite:` or `proposition:` line is
+refused, and any other text is refused, naming the line where it stands
+beside the two and with `a Strand's rendering is not an input of the
+Playground` where it stands below them, so no stage can read a rendering.
 The runner never fetches.
 
 **What a Trial varies**: the SME that produces the RelationalStructure. The

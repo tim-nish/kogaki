@@ -29,7 +29,8 @@
 #   (r) a writer stop leaves no `paragraph.md`.
 #   (s) the one-map `higher_order` and a list of one pass and render as `h1`; a two-entry list is refused naming the count, and a
 #       list entry with a duplicate id or an unknown relation is refused naming its index (kogaki#1678, kogaki#1685).
-#   (t) a proposition file with text below its two lines is refused naming that text, a `claim:` line is refused naming
+#   (t) a proposition file with text below its two lines is refused naming that text, a line above them is refused naming that
+#       line, a second `proposition:` line is refused, a `claim:` line is refused naming
 #       `proposition`, `--strand` is refused naming `--proposition`, and the Mapper's recorded stdin carries no rendering (kogaki#1685).
 set -u
 cd "$(dirname "$0")/.."
@@ -421,6 +422,12 @@ ok(t1.res.status !== 0 && t1.res.stderr.includes("the proposition file carries t
 const t2 = tRun("claimed", `cite: ${CITE}\nclaim: ${PROPOSITION}\n`);
 ok(t2.res.status !== 0 && t2.res.stderr.includes("`claim:`") && t2.res.stderr.includes("`proposition:`") && !existsSync(t2.o),
   `(t) a claim: line was not refused naming proposition: ${t2.res.status} ${t2.res.stderr}`);
+const t4 = tRun("titled", `# a title\ncite: ${CITE}\nproposition: ${PROPOSITION}\n`);
+ok(t4.res.status !== 0 && t4.res.stderr.includes('"# a title" beside its two lines') && !t4.res.stderr.includes("below its two lines") && !existsSync(t4.o),
+  `(t) a line above the two lines was not refused naming that line: ${t4.res.status} ${t4.res.stderr}`);
+const t5 = tRun("twice", `cite: ${CITE}\nproposition: an earlier draft.\nproposition: ${PROPOSITION}\n`);
+ok(t5.res.status !== 0 && t5.res.stderr.includes("more than one `proposition:` line") && !existsSync(t5.o),
+  `(t) a second proposition: line was not refused: ${t5.res.status} ${t5.res.stderr}`);
 const t3 = run("strand-flag", ["--strand", proposition, "--structure", structure]);
 ok(t3.res.status !== 0 && t3.res.stderr.includes("`--strand`") && t3.res.stderr.includes("`--proposition <file>`") && !existsSync(t3.o),
   `(t) --strand was not refused naming --proposition: ${t3.res.status} ${t3.res.stderr}`);

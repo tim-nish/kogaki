@@ -28,9 +28,13 @@ export function parseProposition(text) {
   if (!cite) return { error: "the proposition file carries no `cite:` line" };
   if (!CITE.test(cite)) return { error: `the proposition file's \`cite:\` ${JSON.stringify(cite)} is not a UnitID at a content hash` };
   if (!proposition) return { error: "the proposition file carries no `proposition:` line" };
-  if (lines.some((l) => l.trim() !== "" && !l.startsWith("cite:") && !l.startsWith("proposition:"))) {
-    return { error: "the proposition file carries text below its two lines; a Strand's rendering is not an input of the Playground" };
+  for (const key of ["cite", "proposition"]) {
+    if (lines.filter((l) => l.startsWith(`${key}:`)).length > 1) return { error: `the proposition file carries more than one \`${key}:\` line` };
   }
+  const last = Math.max(lines.findIndex((l) => l.startsWith("cite:")), lines.findIndex((l) => l.startsWith("proposition:")));
+  const stray = lines.findIndex((l) => l.trim() !== "" && !l.startsWith("cite:") && !l.startsWith("proposition:"));
+  if (stray > last) return { error: "the proposition file carries text below its two lines; a Strand's rendering is not an input of the Playground" };
+  if (stray >= 0) return { error: `the proposition file carries ${JSON.stringify(lines[stray].trim())} beside its two lines — it carries \`cite:\` and \`proposition:\` and nothing else` };
   return { cite, proposition };
 }
 
