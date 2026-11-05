@@ -5,10 +5,9 @@
 #   (c) a `--rbs` naming no `rbs_<variant>` row is refused naming the rows the table declares.
 #   (d) a binding answer of `move: null` stops at `bind`, and the record shows it.
 #   (e) the writer's recorded stdin equals the Packet byte for byte.
-#   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678), with its
-#       parts in order, no `strand` part, no `Writer input` text, the proposition and cite line above the prose with no `cols` div,
-#       and a `bindings` part after `segments` holding `Binding 1` and `Binding 2` of five labelled rows for a two-binding table
-#       (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685).
+#   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
+#       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
+#       `Binding 1` and `Binding 2` of five labelled rows (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685).
 #   (g) a `target` carrying a content word of the `proposition:` is refused naming the word and `proposition`.
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
