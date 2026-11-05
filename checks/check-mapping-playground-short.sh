@@ -16,6 +16,12 @@
 #   (m) a structure's `attributes` passes, and an unresolved Role is refused naming it.
 #   (n) `grounds` in the rbs file reaches bind.yaml and the Segments caption, the model route's bind.yaml carries
 #       `grounds: null`, and a non-text `grounds` is refused naming the field (kogaki#1675).
+#   (o) an rbs file with `projection` exits 0 with two calls, `bind2.yaml` `state: supplied`, `paragraph2.md`, and the second
+#       writer's stdin carrying paragraph one under the article-so-far heading and the claim as a Leg claim (kogaki#1676).
+#   (p) a projecting point carrying a claim word passes, an attribute word is recorded in `bind2.yaml` and on the sheet,
+#       and a table with no hits renders `none, over`.
+#   (q) `projection` with a wrong-length `waypoints` or an unknown `move`, or without the first binding, is refused naming it.
+#   (r) a second-writer refusal stops at `write2` with `paragraph.md` kept.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -82,6 +88,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       depends_on: [], introduces: [], "re-activate": [], rationale: "it is the only paragraph of the Trial.",
       paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) }] }, "bind");
   }
+  if (prompt.includes("WRITTEN the crew")) return out(process.env.SMP_WRITE2_REFUSE ? "refusal: the second paragraph cannot be written." : "SECOND the walker's rule set, projected.", "writer");
   return out("WRITTEN the crew, its list and the room left off.", "writer");
 });
 `);
@@ -262,6 +269,67 @@ ok(Object.hasOwn(aBind, "grounds") && aBind.grounds === null && rec.bind.grounds
   `(n) the model route's bind.yaml does not carry grounds: null: ${JSON.stringify(aBind.grounds)}`);
 const n1 = lv({ grounds: ["a list"] });
 ok(n1.error && n1.error.startsWith("grounds "), `(n) a non-text grounds was not refused naming grounds: ${JSON.stringify(n1)}`);
+
+// (o) the projecting binding: a second writer call over paragraph one and the Strand's claim
+const PROJ = { move: MOVE, grounds: "GROUNDS2 the Move carries the crew's list over to the walker.",
+  waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1,
+    point: n === 0 ? "PROJ-1 the walker sees the files." : n === 1 ? "PROJ-2 a dusty file is never reached." : `PROJ-${n + 1} the rule set keeps to its list.` })) };
+const projFile = join(root, "rbs-projected.yaml");
+writeFileSync(projFile, stringifyYaml({ ...owned, projection: PROJ }));
+const o = run("projected", ["--structure", withAttrs, "--rbs-file", projFile]);
+const oCalls = [...o.calls("bind"), ...o.calls("write"), ...o.calls("bind2"), ...o.calls("write2")];
+ok(o.res.status === 0 && stagesOf(o.rec) === "rbs:done,bind:done,write:done,bind2:done,write2:done" && oCalls.length === 2 && o.seen.length === 2,
+  `(o) the projecting run did not exit 0 with two calls: ${o.res.status} ${stagesOf(o.rec)} ${oCalls.length} ${o.res.stderr}`);
+const oBind2 = existsSync(join(o.o, "bind2.yaml")) ? parseYaml(readFileSync(join(o.o, "bind2.yaml"), "utf8"), "bind2") : {};
+ok(oBind2.state === "supplied" && oBind2.author === "owner" && oBind2.move === MOVE && oBind2.grounds === PROJ.grounds,
+  `(o) bind2.yaml does not carry state: supplied with the Move and grounds: ${JSON.stringify(oBind2)}`);
+ok(o.rec && o.rec.projection && fileOk(o.rec.projection.bind) && o.rec.projection.bind.state === "supplied" && fileOk(o.rec.projection.paragraph)
+  && readFileSync(join(o.o, "paragraph2.md"), "utf8").startsWith("SECOND"), `(o) the record's projection is not filled: ${JSON.stringify(o.rec && o.rec.projection)}`);
+const w2 = o.calls("write2");
+const w2Packet = existsSync(join(o.o, "write2", "packet.md")) ? readFileSync(join(o.o, "write2", "packet.md"), "utf8") : null;
+ok(w2.length === 1 && w2[0].stdin === w2Packet && w2Packet.includes("## The article so far, up to this Leg:\n\nWRITTEN the crew")
+  && w2Packet.includes(`\n- ${CLAIM}\n`) && w2Packet.includes("PROJ-1 the walker"),
+  "(o) the second writer's stdin does not carry paragraph one as the article so far and the claim as a Leg claim");
+ok(existsSync(join(o.o, "write", "packet.md")) && readFileSync(join(o.o, "write", "packet.md"), "utf8") === jPacket,
+  "(o) the first paragraph's Packet is not byte for byte the Packet written without projection");
+const oSheet = existsSync(join(o.o, "sheet.html")) ? readFileSync(join(o.o, "sheet.html"), "utf8") : "";
+const oCol = (/<div><h3>Paragraph<\/h3>([\s\S]*?)<\/div><\/div><\/section>/.exec(oSheet) || [])[1] || "";
+const held = `The reader holds, in the base's objects (${owned.base.domain}): ${owned.waypoints.map((x) => x.point).join(" ")}`;
+ok(oCol.indexOf("WRITTEN the crew") >= 0 && oCol.indexOf("WRITTEN the crew") < oCol.indexOf(`Reader state:</b> ${esc(held)}`)
+  && oCol.indexOf(`Reader state:</b> ${esc(held)}`) < oCol.indexOf("SECOND the walker"),
+  `(o) the Paragraph column is not paragraph one, the reader-state line and paragraph two in order: ${oCol}`);
+const oSegs = section(oSheet, "segments");
+const oCaps = [...oSegs.matchAll(/<caption>([\s\S]*?)<\/caption>/g)].map((x) => x[1]);
+ok(oCaps.length === 2 && oCaps[1].includes(MOVE) && oCaps[1].includes(esc(PROJ.grounds)), `(o) the sheet carries no second Segments table captioned with the Move and grounds: ${JSON.stringify(oCaps)}`);
+
+// (p) the claim word passes, the attribute word is recorded and rendered, and no hit renders `none, over`
+ok(JSON.stringify(oBind2.attribute_hits) === JSON.stringify([{ segment: 2, word: "dusty", role: "room" }])
+  && JSON.stringify(o.rec.projection.bind.attribute_hits) === JSON.stringify(oBind2.attribute_hits),
+  `(p) bind2.yaml does not record the one attribute hit: ${JSON.stringify(oBind2.attribute_hits)}`);
+ok(oSegs.includes("Attribute words in the points: segment 2: dusty (room)"), "(p) the sheet does not render the attribute hit");
+const cleanFile = join(root, "rbs-projected-clean.yaml");
+writeFileSync(cleanFile, stringifyYaml({ ...owned, projection: { ...PROJ, waypoints: PROJ.waypoints.map((x) => ({ ...x, point: `CLEAN-${x.segment} the walker sees the files.` })) } }));
+const p2 = run("projected-clean", ["--structure", withAttrs, "--rbs-file", cleanFile]);
+const p2Sheet = existsSync(join(p2.o, "sheet.html")) ? readFileSync(join(p2.o, "sheet.html"), "utf8") : "";
+ok(p2.res.status === 0 && p2Sheet.includes(`Attribute words in the points: none, over ${SEGMENTS} points`),
+  `(p) a projection with no attribute hit does not render \`none, over ${SEGMENTS} points\`: ${p2.res.status} ${p2.res.stderr}`);
+
+// (q) the projecting binding's fields are refused naming them
+const qv = (edit, base = owned) => validateRbsTable({ ...base, projection: { ...PROJ, ...edit } }, CLAIM, { movesDir: join(repo, "moves") });
+const q1 = qv({ waypoints: PROJ.waypoints.slice(1) });
+ok(q1.error && q1.error.startsWith("projection.waypoints "), `(q) a wrong-length projection.waypoints was not refused naming it: ${JSON.stringify(q1)}`);
+const q2 = qv({ move: "no_such_move" });
+ok(q2.error && q2.error.startsWith("projection.move "), `(q) an unknown projection.move was not refused naming it: ${JSON.stringify(q2)}`);
+const { move: _m, waypoints: _w, ...unbound } = owned;
+const q3 = qv({}, unbound);
+ok(q3.error && q3.error.includes("`projection`") && q3.error.includes("`move`") && q3.error.includes("`waypoints`"),
+  `(q) projection without the first binding was not refused naming both: ${JSON.stringify(q3)}`);
+
+// (r) a second-writer refusal stops at write2 with paragraph one kept
+const r = run("write2-refused", ["--structure", withAttrs, "--rbs-file", projFile], { SMP_WRITE2_REFUSE: "1" });
+ok(r.res.status !== 0 && stagesOf(r.rec) === "rbs:done,bind:done,write:done,bind2:done,write2:stopped" && /^write2: /.test(String(r.rec.stopped))
+  && existsSync(join(r.o, "paragraph.md")) && !existsSync(join(r.o, "paragraph2.md")) && fileOk(r.rec.paragraph),
+  `(r) a second-writer refusal did not stop at write2 with paragraph.md kept: ${r.res.status} ${stagesOf(r.rec)} ${JSON.stringify(r.rec && r.rec.stopped)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");

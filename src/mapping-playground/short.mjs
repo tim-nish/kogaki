@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's short Trial (kogaki#1669): one Strand, one Move, one paragraph,
-// read on a sheet that compares the WBS with the RBS slot.
+// read on a sheet that compares the WBS with the RBS slot; with `projection`, a second paragraph (kogaki#1676).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -26,7 +26,7 @@ import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseStrandFile, validateStructure, structureClaims } from "./structure.mjs";
-import { validateRbsTable, suppliedEntry } from "./rbs.mjs";
+import { validateRbsTable, suppliedEntry, attributeHits } from "./rbs.mjs";
 import { mapperRow } from "./sme.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
@@ -38,9 +38,14 @@ export const RBS_OWNER = "owner-authored";
 export const BIND_FILE = "bind.yaml";
 export const PACKET_FILE = "packet.md";
 export const PARAGRAPH_FILE = "paragraph.md";
+export const BIND2_FILE = "bind2.yaml";
+export const PARAGRAPH2_FILE = "paragraph2.md";
 export const SHEET_FILE = "sheet.html";
-export const SHORT_STAGES = ["sme", "rbs", "bind", "write"];
+// `bind2` and `write2` run only when the table carries `projection` (kogaki#1676).
+export const SHORT_STAGES = ["sme", "rbs", "bind", "write", "bind2", "write2"];
 const LEG_ID = "smp";
+const LEG2_ID = "smp-2";
+const STRAND_CLAIM_ID = "S0";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE = "usage: node src/mapping-playground/short.mjs run --strand <file> (--structure <file> | --mapper <sme_map_<variant>>) "
@@ -88,15 +93,36 @@ const targetLine = (target) => (typeof target === "string" ? target.trim() : str
 // ---------------------------------------------------------------------------
 // THE ONE LEG: one Leg Waypoint whose `point` is the target texts in order, serving the structure's Claims.
 
+// What the reader holds after paragraph one, composed from the first binding (kogaki#1676).
+export function heldLine(rbs) {
+  const domain = rbs.base && rbs.base.domain !== null && rbs.base.domain !== undefined ? rbs.base.domain : "null";
+  return `The reader holds, in the base's objects (${domain}): ${rbs.waypoints.map((w) => String(w.point).trim()).join(" ")}`;
+}
+
 export function shortLeg(structure, rbs, persona) {
   const claims = structureClaims(structure);
   return {
     leg_id: LEG_ID,
     reader_state_before: personaPriorKnowledgeLine(persona),
-    reader_state_after: null,
+    reader_state_after: Object.hasOwn(rbs, "projection") ? heldLine(rbs) : null,
     claims: claims.map((c) => ({ strand: c.claim_strand, proposition: c.holds })),
     waypoints: [{ point: rbs.pairs.map((p) => targetLine(p.target)).join(" "), serves: claims.map((c) => c.claim_strand) }],
     introduces: [],
+    journeys: [],
+  };
+}
+
+// THE PROJECTING LEG (kogaki#1676): after Leg 1, from the reader state it leaves, asserting the Strand's claim.
+export function projectingLeg(leg1, claim) {
+  return {
+    leg_id: LEG2_ID,
+    depends_on: [leg1.leg_id],
+    reader_state_before: leg1.reader_state_after,
+    reader_state_after: null,
+    claims: [{ strand: STRAND_CLAIM_ID, proposition: claim }, ...leg1.claims],
+    waypoints: [{ point: claim, serves: [STRAND_CLAIM_ID] }],
+    introduces: [],
+    "re-activate": leg1.claims.map((c) => `${leg1.leg_id} claim ${c.strand} as ${c.proposition}`),
     journeys: [],
   };
 }
@@ -150,17 +176,18 @@ function bindStage({ dir, env, leg, persona, libraryDir, table }) {
 }
 
 // THE ONE PARAGRAPH: one Packet over a one-Leg, one-Waypoint Brief, and the writer called once with it.
-export function shortPacket({ leg, entry, audiencePath }) {
+// `before` is the Legs written above this one with their paragraphs, `{ leg, text }`, empty for paragraph one.
+export function shortPacket({ leg, entry, audiencePath, before = [] }) {
   const split = splitPacketTemplate(readFileSync(PACKET_TEMPLATE, "utf8"));
   if (split.error) return { error: split.error };
   const packetLeg = { ...leg, waypoints: [{ ...leg.waypoints[0], paragraph_waypoints: entry.paragraph_waypoints }] };
-  const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [packetLeg], strands: [] };
-  return renderPacket({ template: split.packet, brief, leg: packetLeg, priorSections: [], section: sectionOfLeg(brief.legs).get(LEG_ID),
-    sections: sectionsOf(brief.legs) });
+  const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [...before.map((b) => b.leg), packetLeg], strands: [] };
+  return renderPacket({ template: split.packet, brief, leg: packetLeg, priorSections: before.map((b) => ({ leg_id: b.leg.leg_id, text: b.text })),
+    section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
 }
 
-function writeStage({ dir, env, leg, entry, audiencePath, paragraphPath }) {
-  const p = shortPacket({ leg, entry, audiencePath });
+function writeStage({ dir, env, leg, entry, audiencePath, paragraphPath, before = [] }) {
+  const p = shortPacket({ leg, entry, audiencePath, before });
   if (p.error) return { stopped: p.error };
   const packetPath = join(dir, PACKET_FILE);
   writeFileSync(packetPath, p.packet);
@@ -244,6 +271,8 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     rbs: { variant: rr.row.id, placeholder: rr.row.placeholder === true, path: null, sha256: null },
     bind: { move: null, grounds: null, path: null, sha256: null },
     paragraph: { path: null, sha256: null },
+    ...(owned && Object.hasOwn(owned.record, "projection")
+      ? { projection: { bind: { move: null, grounds: null, path: null, sha256: null }, paragraph: { path: null, sha256: null } } } : {}),
     sheet: relFromRepo(sheetPath),
     audience: relFromRepo(audiencePath),
     library: relFromRepo(libraryDir),
@@ -320,9 +349,32 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
     return r;
   });
+  let leg2 = null;
+  let entry2 = null;
+  if (record.projection) {
+    const projection = owned.record.projection;
+    leg2 = leg ? projectingLeg(leg, strand.claim) : null;
+    entry2 = stage("bind2", () => {
+      const supplied = suppliedEntry(projection, leg2.waypoints[0].serves);
+      const bound = { state: "supplied", author: "owner", ...supplied, attribute_hits: attributeHits(projection.waypoints, structure.attributes) };
+      writeFileSync(join(outDir, BIND2_FILE), stringifyYaml(bound));
+      record.projection.bind = { state: "supplied", author: "owner", move: bound.move, grounds: bound.grounds,
+        attribute_hits: bound.attribute_hits, ...fileRecord(join(outDir, BIND2_FILE)) };
+      return { value: bound };
+    });
+    stage("write2", (d, env) => {
+      const paragraph2Path = join(outDir, PARAGRAPH2_FILE);
+      const r = writeStage({ dir: d, env, leg: leg2, entry: entry2, audiencePath, paragraphPath: paragraph2Path,
+        before: [{ leg: { ...leg, waypoints: [{ ...leg.waypoints[0], paragraph_waypoints: entry.paragraph_waypoints }] },
+          text: readFileSync(paragraphPath, "utf8").trim() }] });
+      if (!r.stopped) record.projection.paragraph = fileRecord(paragraph2Path);
+      return r;
+    });
+  }
   record.finished_at = new Date().toISOString();
   save();
-  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, entry, paragraphPath });
+  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, entry, paragraphPath, leg, entry2,
+    paragraph2Path: join(outDir, PARAGRAPH2_FILE) });
   writeFileSync(sheetPath, sheet);
   return { outDir, stopped: record.stopped || null };
 }
