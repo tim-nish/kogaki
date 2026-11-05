@@ -100,9 +100,9 @@ function segmentsTable(record, entry, bind = record.bind, stageName = "bind") {
     + "</tbody></table>";
 }
 
-// A Mermaid node id for an element: its own id where Mermaid reads it as one and no subgraph carries it, else `n<i>`.
+// A Mermaid node id: the element's own id, else `n<i>`; an authored `n<digits>` takes the fallback, so none collide.
 const MERMAID_WORDS = new Set(["end", "graph", "flowchart", "subgraph", "style", "class", "classDef", "click", "linkStyle", "direction", "higher", "relations", "roles"]);
-const nodeId = (id, i) => (/^[A-Za-z][A-Za-z0-9_]*$/.test(id) && !MERMAID_WORDS.has(id) ? id : `n${i}`);
+const nodeId = (id, i) => (/^[A-Za-z][A-Za-z0-9_]*$/.test(id) && !/^n\d+$/.test(id) && !MERMAID_WORDS.has(id) ? id : `n${i}`);
 
 function structureSection(structure) {
   const roles = structure.roles || [];

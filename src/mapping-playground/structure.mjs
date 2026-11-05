@@ -120,6 +120,7 @@ export function validateStructure(record, strand) {
     const at = listed ? `higher_order[${i}]` : "higher_order";
     const b = keysRefusal(listed ? h : record.higher_order, listed ? ["id", "relates", "holds"] : ["relates", "holds"], at);
     if (b) return { error: b };
+    if (!listed && ids.has(h.id)) return { error: "higher_order is read as `h1`, which a Role or relation already names: rename that element or write higher_order as a list" };
     if (!isText(h.id) || ids.has(h.id)) return { error: `${at}'s \`id\` is empty or not unique` };
     if (!Array.isArray(h.relates) || h.relates.length < 2) return { error: `${at}'s \`relates\` names fewer than two relations` };
     const stray = h.relates.find((x) => !relationIds.has(x));
