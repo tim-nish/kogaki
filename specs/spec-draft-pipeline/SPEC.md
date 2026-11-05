@@ -3047,8 +3047,18 @@ never reads it.
 - `Segments` is one table with one row per Segment of the bound Move, read
   from the record's `library`: `#`, `operation`, `relation`, `manner` and the
   `point` written for it. A Segment without `relation` or `manner` has an
-  empty cell. The caption carries the Move id, `supplied by the owner` or
-  the model route's `bind` state, and `binding_rationale`.
+  empty cell. Above it is a two-column table captioned `Binding`, one
+  labelled row each (kogaki#1682): `Move`, the id; `Bound by`, the record's
+  `bind.author`, `owner` or the model route's row `smp_bind_unit`; `Before`
+  and `After`, the Move's `before` and `after` read through
+  `loadMoveContracts` from the record's `library`, one sub-row per key; and
+  `Rationale`, `binding_rationale`, or `none` where it is null. A Move the
+  library no longer holds renders `not in the library` in `Before` and
+  `After`. Under the Segments tables is one two-column table captioned
+  `Writer input`, read from the Leg and the record: `Asserts`, the Leg's
+  claims one per sub-row; `Points`, the text `the point column of each
+  Segments table above`; and `Packet`, a relative link to `write/packet.md`.
+  No caption line precedes a Segments table.
 - `Mapping` is one table with one row per Role and four columns: `Role`,
   `Abstraction` (the Role's `context`), `Strand words dropped` (its
   `attributes` words, or empty) and the base column, headed `<Kind>:
@@ -3107,9 +3117,9 @@ from the Leg, calls the writer once and writes its whole answer to
 `<out>/paragraph.md`. The structure's `holds` enter no Packet.
 
 **The sheet, with `projection`.** The Paragraph column carries
-`paragraph.md` whole. `Segments` carries one table per binding in
-`paragraphs`, in order, each captioned with its Move id and
-`binding_rationale`.
+`paragraph.md` whole. `Segments` carries one `Binding` table and one
+Segments table per binding in `paragraphs`, in order, and one `Writer input`
+table after them.
 
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,

@@ -41,6 +41,7 @@ export const PARAGRAPH_FILE = "paragraph.md";
 export const SHEET_FILE = "sheet.html";
 export const SHORT_STAGES = ["sme", "rbs", "bind", "write"];
 const LEG_ID = "smp";
+const BIND_ROW = "smp_bind_unit";
 const STRAND_CLAIM_ID = "S0";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
@@ -125,7 +126,7 @@ function answerRecord(text) {
 
 function bindStage({ dir, env, leg, persona, libraryDir, table }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
-  const d = derivedRow(table, "smp_bind_unit", PLAYGROUND_TABLE);
+  const d = derivedRow(table, BIND_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
   const row = { ...plan.paragraph_plan_unit, ...d.row, shared_text_file: plan.paragraph_plan_unit.shared_text_file };
   const library = loadMoveContracts(libraryDir);
@@ -316,7 +317,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     const bound = { ...r.entry, binding_rationale: null };
     const listed = [{ move: bound.move, binding_rationale: null, paragraph_waypoints: bound.paragraph_waypoints }];
     writeFileSync(bindPath, stringifyYaml({ ...bound, paragraphs: listed }));
-    record.bind = { move: bound.move, binding_rationale: null, paragraphs: listed, ...fileRecord(bindPath) };
+    record.bind = { author: BIND_ROW, move: bound.move, binding_rationale: null, paragraphs: listed, ...fileRecord(bindPath) };
     return { value: listed };
   });
   stage("write", (d, env) => {
@@ -326,7 +327,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   });
   record.finished_at = new Date().toISOString();
   save();
-  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, paragraphs, paragraphPath });
+  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, leg, paragraphs, paragraphPath });
   writeFileSync(sheetPath, sheet);
   return { outDir, stopped: record.stopped || null };
 }
