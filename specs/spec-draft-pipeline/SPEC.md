@@ -2860,22 +2860,33 @@ is a **Trial**: `node src/mapping-playground/trial.mjs run --strand <file>
   Actor that produces a RelationalStructure.
 
 **What a Trial holds fixed**: the Move library (`moves/`, or `--library`),
-`/paragraph-plan`, `/draft section`, and the Strand at its pin. The strand file
-carries a `cite:` line, a `claim:` line and the Strand's served rendering below
-them; the runner never fetches.
+`/paragraph-plan`, `/draft section`, and the Strand at its pin. The input is a
+**proposition file** (kogaki#1685): a `cite:` line and a `proposition:` line,
+and nothing else. The proposition is the one sentence the Leg asserts, a
+Strand's `proposition` as a Brief's Leg carries it; reducing a Strand to it is
+the Brief's work, which the owner stands in for here. A `claim:` line is
+refused naming `proposition`, a second `cite:` or `proposition:` line is
+refused, and any other text is refused, naming the line where it stands
+beside the two and with `a Strand's rendering is not an input of the
+Playground` where it stands below them, so no stage can read a rendering.
+The runner never fetches.
 
 **What a Trial varies**: the SME that produces the RelationalStructure. The
 first SME is the owner: the structure file is owner-authored, and the Trial
-record says so. The structure carries `strand` (the strand file's `cite:`),
-`roles` (`{ id, context }`), `relations` (`{ id, between, holds }`) and
-`higher_order`, every id resolving. `higher_order` is a non-empty list of
-`{ id, relates, holds }` (kogaki#1678), each id unique and distinct from every
-Role and relation id, and a refusal names the entry's index and field. The
-one-map form `{ relates, holds }` is read as a list of one with id `h1`. The
-Leg's Claims are one per relation and then one per higher-order relation, in
-order. A `context` or `holds` that carries a content word of the `claim:` line
-is refused, naming the word and the field. The same test runs over every Leg Waypoint `point` and
-the Leg's `reader_state_after`. The WBS's words do not reach the reader.
+record says so. The structure is the proposition's. It carries `strand` (the
+proposition file's `cite:`), `roles` (`{ id, context }`), `relations`
+(`{ id, between, holds }`) and `higher_order`, every id resolving, and no
+`attributes`, which is refused by name. A proposition has one higher-order
+relation (kogaki#1685): `higher_order` is a list of one `{ id, relates, holds }`
+(kogaki#1678), its id distinct from every Role and relation id, a refusal
+naming the entry's index and field, and a list of more than one is refused
+naming the count. The one-map form `{ relates, holds }` is read as a list of
+one with id `h1`. The Leg's Claims are one per relation and then the
+higher-order relation, in order. **The proposition-word test**: a `context` or
+`holds` that carries a content word of the `proposition:` line is refused,
+naming the word and the field. The same test runs over every Leg Waypoint
+`point` and the Leg's `reader_state_after`. The WBS's words do not reach the
+reader.
 
 **How the Brief is made.** The runner composes a one-Leg Brief from the
 structure. The Reader start comes from the Proof Sheet's
@@ -2907,13 +2918,13 @@ one model call. A Trial runs it with `--mapper <variant>` in place of
 both. The Mapper's answer is written as `<out>/structure.yaml`, and the
 stages above run over it unchanged.
 
-**The judgment point.** The `sme_map_roles` row reads the strand file's
-`claim:` and rendering and the Persona's prior-knowledge line. It reads the
-claim as a relation among Roles. For each Role it names, in one or two
-sentences, what a reader with this Persona must come to hold, in the reader's
-own world, using no word of the claim that is not a function word. It names
-each relation among Roles as the claim states it, and the one relation among
-relations the claim turns on. It answers the RelationalStructure record and
+**The judgment point.** The `sme_map_roles` row reads the proposition file's
+`proposition:` and the Persona's prior-knowledge line, and no rendering. It
+reads the proposition as a relation among Roles. For each Role it names, in
+one or two sentences, what a reader with this Persona must come to hold, in
+the reader's own world, using no word of the proposition that is not a
+function word. It names each relation among Roles as the proposition states
+it, and the one relation among relations the proposition turns on. It answers the RelationalStructure record and
 nothing else.
 
 **The one-retry bound.** The Playground's structure validator runs over the
@@ -2937,11 +2948,12 @@ the wrong shape for a rig with no correctness criterion. Every SME output is
 found by trial and error, and the Draft is read rather than judged, so a cycle
 that costs an hour to reach a reading fails before it finds anything. The
 shortest cycle is one WriterBasedStrand, one Move and one Paragraph, read on a
-sheet. A **short Trial** is `node src/mapping-playground/short.mjs run --strand
-<file> (--structure <file> | --mapper sme_map_<variant>) --out <dir under
-runs/mapping-playground/> [--rbs <rbs_<variant>> | --rbs-file <file>]
-[--audience <file>] [--library <dir>]`. It runs in one process with no await
-loop.
+sheet. A **short Trial** is `node src/mapping-playground/short.mjs run
+--proposition <file> (--structure <file> | --mapper sme_map_<variant>) --out
+<dir under runs/mapping-playground/> [--rbs <rbs_<variant>> | --rbs-file
+<file>] [--audience <file>] [--library <dir>]`, over the proposition file of
+§4.20; `--strand` is refused naming `--proposition`. It runs in one process
+with no await loop.
 
 **What the RBS is stays open.** The owner also ruled on 2026-11-04 that what
 the ReaderBasedStrand is remains an open design discussion, held against the
@@ -2966,8 +2978,8 @@ names the structure element the pair maps, on the target side: a Role,
 relation or higher-order id, or the element's sentence, as a prose string or
 a YAML mapping, so prose and schema representations are both admitted.
 `base` is the base's object the element maps to, or null where the variant
-cannot say. The claim-word test of §4.20 runs over every `target`, naming the
-word.
+cannot say. The proposition-word test of §4.20 runs over every `target`,
+naming the word.
 
 **The base and its kind of match** (kogaki#1671). The table carries `base`,
 `{ domain, kind }`. `domain` names the reader's situation in one phrase.
@@ -3005,7 +3017,7 @@ judgment.
 **The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
 of the library, and `waypoints`, one `{ segment, point }` per segment of that
 Move in order, each `point` the segment expressed in the base's objects. The
-claim-word test runs over every `point`. With both present, the `bind` stage
+proposition-word test runs over every `point`. With both present, the `bind` stage
 makes no model call: it records `bind: { state: supplied, author: owner, move,
 binding_rationale, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
 segment order. The Trial is then one writer call. Without them the `bind`
@@ -3022,12 +3034,6 @@ in the model route until a Composer field carries it. `bind.yaml` keeps
 `serves` because the ParagraphPlan unit shape requires it, and the sheet
 renders it nowhere.
 
-**The attributes** (kogaki#1671). The RelationalStructure may carry
-`attributes`, a list of `{ role, words }`: a Role id and the Strand's words
-the mapping drops from it. The validator checks only that every `role`
-resolves. The list is carried for the owner's inspection, and no stage reads
-it.
-
 **The paragraph.** The `write` stage renders one Section Packet from the
 binding, with the Persona from the audience file, and calls the writer of
 `src/draft-workflow.json` once with the Packet as its entire stdin. The
@@ -3037,13 +3043,15 @@ paragraph is `<out>/paragraph.md`.
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
 from a Proof Sheet at a glance. It opens on the comparison the owner reads,
 as the Proof Sheet opens on the Passage beside the Draft (kogaki#1673). Its
-sections, in order (kogaki#1675): `WBS and Paragraph`, `Segments`, `Mapping`,
-`Structure` and `Model calls`, folded. The runner writes the sheet once and
-never reads it.
+sections, in order (kogaki#1675, kogaki#1685): `Strand`, `Proposition and
+Paragraph`, `Segments`, `Mapping`, `Structure` and `Model calls`, folded. The
+runner writes the sheet once and never reads it.
 
-- `WBS and Paragraph` sets the Strand's claim and rendering beside the
-  paragraph in two columns, with the stop reason in the paragraph's place
-  where the run stopped before it.
+- `Strand` carries the proposition file's cite line only: a Trial never has
+  the rendering to show.
+- `Proposition and Paragraph` sets the proposition sentence beside the
+  paragraph in two columns, and nothing else in the left column, with the
+  stop reason in the paragraph's place where the run stopped before it.
 - `Segments` is one table with one row per Segment of the bound Move, read
   from the record's `library`: `#`, `operation`, `relation`, `manner` and the
   `point` written for it. A Segment without `relation` or `manner` has an
@@ -3059,9 +3067,8 @@ never reads it.
   claims one per sub-row; `Points`, the text `the point column of each
   Segments table above`; and `Packet`, a relative link to `write/packet.md`.
   No caption line precedes a Segments table.
-- `Mapping` is one table with one row per Role and four columns: `Role`,
-  `Abstraction` (the Role's `context`), `Strand words dropped` (its
-  `attributes` words, or empty) and the base column, headed `<Kind>:
+- `Mapping` is one table with one row per Role and three columns: `Role`,
+  `Abstraction` (the Role's `context`) and the base column, headed `<Kind>:
   <domain>` with the kind's word capitalised (`Analogy: smoke detectors in a
   house`), or `Base: null` for the placeholder. Its cells are the `base` of
   the pairs naming that Role, and its caption is the table's `variant`. A
@@ -3101,16 +3108,16 @@ it.
 **The `projection` field** (kogaki#1681). The table may carry `projection`, a
 list of `{ move, waypoints, binding_rationale }`, one per paragraph after the
 first, each validated as the first binding is, with each field named under
-`projection[<i>].`. A map is read as a list of one. The claim-word test does
-not run over its points, because a projecting paragraph uses the target's
+`projection[<i>].`. A map is read as a list of one. The proposition-word test
+does not run over its points, because a projecting paragraph uses the target's
 words. `projection` without the first binding's `move` and `waypoints` is
 refused naming both.
 
 **One Leg, one Packet, one writer call** (kogaki#1681). A Trial is one Leg.
-Its one claim is the Strand's `claim:` line, as `strand: S0`. Each paragraph
-binding is one Leg Waypoint, in order, serving `S0`: the first one's `point`
-is the `target` texts in order, and each projecting one's `point` is the
-Strand's claim. No reader state is composed. `bind` writes `<out>/bind.yaml`
+Its one claim is the proposition, in the Brief's form `claims: [{ strand: L1,
+proposition }]` (kogaki#1685). Each paragraph binding is one Leg Waypoint, in
+order, serving `L1`: the first one's `point` is the `target` texts in order,
+and each projecting one's `point` is the proposition. No reader state is composed. `bind` writes `<out>/bind.yaml`
 with the first binding's fields and `paragraphs`, every binding in order as
 `{ move, binding_rationale, paragraph_waypoints }`. `write` renders one Packet
 from the Leg, calls the writer once and writes its whole answer to
@@ -3121,8 +3128,9 @@ from the Leg, calls the writer once and writes its whole answer to
 Segments table per binding in `paragraphs`, in order, and one `Writer input`
 table after them.
 
-**The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
-as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
+**The record.** `<out>/trial.json` carries `proposition` (the file's `cite`
+and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),
+`structure` and `mapper` as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
 `bind: { move, binding_rationale, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
 `reading` and `stages`. Its `bind` also carries `paragraphs`, as `bind.yaml`
 does.

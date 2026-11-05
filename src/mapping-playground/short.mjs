@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The Structure-Mapping Playground's short Trial (kogaki#1669): one Strand, one Move, one paragraph,
-// read on a sheet that compares the WBS with the RBS slot; with `projection`, further paragraphs of the same Leg (kogaki#1681).
+// The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, one Move, one paragraph,
+// read on a sheet that compares the proposition with the RBS slot; with `projection`, further paragraphs of the same Leg (kogaki#1681).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -25,7 +25,7 @@ import { splitPacketTemplate } from "../draft/packet.mjs";
 import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseStrandFile, validateStructure, higherOrderOf } from "./structure.mjs";
+import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
 import { validateRbsTable, suppliedEntry, projectionsOf } from "./rbs.mjs";
 import { mapperRow } from "./sme.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
@@ -42,10 +42,9 @@ export const SHEET_FILE = "sheet.html";
 export const SHORT_STAGES = ["sme", "rbs", "bind", "write"];
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_unit";
-const STRAND_CLAIM_ID = "S0";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
-const USAGE = "usage: node src/mapping-playground/short.mjs run --strand <file> (--structure <file> | --mapper <sme_map_<variant>>) "
+const USAGE = "usage: node src/mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) "
   + "--out <dir under runs/mapping-playground/> [--rbs <rbs_<variant>> | --rbs-file <file>] [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
@@ -88,15 +87,16 @@ export function fillRbs(row, structure) {
 const targetLine = (target) => (typeof target === "string" ? target.trim() : stringifyYaml(target).trim().replace(/\s*\n\s*/g, "; "));
 
 // ---------------------------------------------------------------------------
-// THE ONE LEG (kogaki#1681): its one claim is the Strand's claim, and one Leg Waypoint per paragraph binding, in order.
-export function shortLeg(claim, rbs, persona) {
-  const first = { point: rbs.pairs.map((p) => targetLine(p.target)).join(" "), serves: [STRAND_CLAIM_ID] };
+// THE ONE LEG (kogaki#1681, kogaki#1685): its one claim is the proposition, in the Brief's form, and one Leg Waypoint per
+// paragraph binding, in order.
+export function shortLeg(proposition, rbs, persona) {
+  const first = { point: rbs.pairs.map((p) => targetLine(p.target)).join(" "), serves: ["L1"] };
   return {
     leg_id: LEG_ID,
     reader_state_before: personaPriorKnowledgeLine(persona),
     reader_state_after: null,
-    claims: [{ strand: STRAND_CLAIM_ID, proposition: claim }],
-    waypoints: [first, ...projectionsOf(rbs).map(() => ({ point: claim, serves: [STRAND_CLAIM_ID] }))],
+    claims: [{ strand: "L1", proposition }],
+    waypoints: [first, ...projectionsOf(rbs).map(() => ({ point: proposition, serves: ["L1"] }))],
     introduces: [],
     journeys: [],
   };
@@ -178,29 +178,29 @@ function writeStage({ dir, env, leg, paragraphs, audiencePath, paragraphPath }) 
 // ---------------------------------------------------------------------------
 // THE SHORT TRIAL.
 
-function readStrand(strandFile) {
+function readProposition(file) {
   let text;
-  try { text = readFileSync(strandFile, "utf8"); } catch (e) { fail(`the strand file cannot be read (${e.message}). Nothing was started.`); }
-  const strand = parseStrandFile(text);
-  if (strand.error) fail(`${strand.error}. Nothing was started.`);
-  return strand;
+  try { text = readFileSync(file, "utf8"); } catch (e) { fail(`the proposition file cannot be read (${e.message}). Nothing was started.`); }
+  const proposition = parseProposition(text);
+  if (proposition.error) fail(`${proposition.error}. Nothing was started.`);
+  return proposition;
 }
 
-function readRbsFile(file, strand, libraryDir) {
+function readRbsFile(file, proposition, libraryDir) {
   let record;
   try { record = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the correspondence table cannot be read (${e.message})` }; }
-  const v = validateRbsTable(record, strand.claim, { movesDir: libraryDir });
+  const v = validateRbsTable(record, proposition.proposition, { movesDir: libraryDir });
   return v.error ? v : { record: { ...record, variant: RBS_OWNER, placeholder: false } };
 }
 
-function readStructure(file, strand) {
+function readStructure(file, proposition) {
   let structure;
   try { structure = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the structure cannot be read (${e.message})` }; }
-  const v = validateStructure(structure, strand);
+  const v = validateStructure(structure, proposition);
   return v.error ? v : { structure };
 }
 
-export function runShortTrial({ strand: strandFile, structure: givenStructure = null, mapper = null, out, rbs = RBS_DEFAULT,
+export function runShortTrial({ proposition: propositionFile, structure: givenStructure = null, mapper = null, out, rbs = RBS_DEFAULT,
   rbsFile = null, audience = null, library = null }) {
   const outDir = resolve(out);
   const rel = relative(resolve(REPO, TRIALS_DIR), outDir);
@@ -209,12 +209,12 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   const table = readTable();
   const rr = rbsFile ? { row: { id: RBS_OWNER, placeholder: false } } : rbsRow(table, rbs);
   if (rr.error) fail(`${rr.error}. Nothing was started.`);
-  const strand = readStrand(strandFile);
+  const proposition = readProposition(propositionFile);
   if (mapper) {
     const m = mapperRow(table, mapper);
     if (m.error) fail(`${m.error}. Nothing was started.`);
   } else {
-    const s = readStructure(givenStructure, strand);
+    const s = readStructure(givenStructure, proposition);
     if (s.error) fail(`${s.error}. Nothing was started.`);
   }
   const structureFile = mapper ? join(outDir, STRUCTURE_FILE) : resolve(givenStructure);
@@ -223,7 +223,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   if (persona.error) fail(`${persona.error}. Nothing was started.`);
   const libraryDir = resolve(REPO, library || "moves");
   if (!existsSync(libraryDir)) fail(`the library ${libraryDir} does not exist. Nothing was started.`);
-  const owned = rbsFile ? readRbsFile(rbsFile, strand, libraryDir) : null;
+  const owned = rbsFile ? readRbsFile(rbsFile, proposition, libraryDir) : null;
   if (owned && owned.error) fail(`${owned.error}. Nothing was started.`);
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const slug = basename(outDir).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "trial";
@@ -238,7 +238,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   const record = {
     trial: slug,
     kind: "short",
-    strand: { cite: strand.cite, path: relFromRepo(resolve(strandFile)), sha256: sha256(strandFile) },
+    proposition: { cite: proposition.cite, proposition: proposition.proposition, path: relFromRepo(resolve(propositionFile)), sha256: sha256(propositionFile) },
     structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "sme" }
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
@@ -272,7 +272,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   if (mapper) {
     stage("sme", (d, env) => {
       const job = join(d, "job");
-      const c = spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "map", "--strand", resolve(strandFile), "--mapper", mapper,
+      const c = spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "map", "--strand", resolve(propositionFile), "--mapper", mapper,
         "--out", job, "--structure-out", structureFile, "--audience", audiencePath], { cwd: REPO, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       const prompt = join(job, "prompt.md");
       if (existsSync(prompt)) record.mapper.prompt_sha256 = sha256(prompt);
@@ -286,7 +286,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   }
   let structure = null;
   const table1 = stage("rbs", () => {
-    const s = readStructure(structureFile, strand);
+    const s = readStructure(structureFile, proposition);
     if (s.error) return { stopped: s.error };
     structure = s.structure;
     if (owned) {
@@ -295,13 +295,13 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
       return { value: owned.record };
     }
     const filled = fillRbs(rr.row, structure);
-    const v = validateRbsTable(filled, strand.claim, { movesDir: libraryDir });
+    const v = validateRbsTable(filled, proposition.proposition, { movesDir: libraryDir });
     if (v.error) return { stopped: v.error };
     writeFileSync(rbsPath, stringifyYaml(filled));
     record.rbs = { variant: filled.variant, placeholder: filled.placeholder, ...fileRecord(rbsPath) };
     return { value: filled };
   });
-  const leg = table1 ? shortLeg(strand.claim, table1, persona) : null;
+  const leg = table1 ? shortLeg(proposition.proposition, table1, persona) : null;
   const paragraphs = stage("bind", (d, env) => {
     const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
     if (supplied) {
@@ -327,7 +327,7 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
   });
   record.finished_at = new Date().toISOString();
   save();
-  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, leg, paragraphs, paragraphPath });
+  const sheet = renderShortSheet({ outDir, record, proposition, structure, table: table1, leg, paragraphs, paragraphPath });
   writeFileSync(sheetPath, sheet);
   return { outDir, stopped: record.stopped || null };
 }
@@ -351,8 +351,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (args._cmd !== "run") fail(USAGE);
   if (str("rbs") && str("rbs-file")) fail(`\`--rbs\` and \`--rbs-file\` are given together: a Trial's correspondence table is a variant row's or the owner's file, never both. Nothing was started. ${USAGE}`);
   if (str("structure") && str("mapper")) fail(`\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`);
-  for (const k of ["strand", ...(str("mapper") ? [] : ["structure"]), "out"]) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
-  const r = runShortTrial({ strand: str("strand"), structure: str("structure"), mapper: str("mapper"), out: str("out"),
+  if (Object.hasOwn(args, "strand")) fail(`\`--strand\` is no flag of the short Trial: its input is \`--proposition <file>\` (kogaki#1685). Nothing was started. ${USAGE}`);
+  for (const k of ["proposition", ...(str("mapper") ? [] : ["structure"]), "out"]) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
+  const r = runShortTrial({ proposition: str("proposition"), structure: str("structure"), mapper: str("mapper"), out: str("out"),
     rbs: str("rbs") || RBS_DEFAULT, rbsFile: str("rbs-file"), audience: str("audience"), library: str("library") });
   console.log(`trial directory: ${r.outDir}`);
   if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
