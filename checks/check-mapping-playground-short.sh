@@ -18,12 +18,13 @@
 #       `binding_rationale: null`, a non-text one is refused naming the field, and `grounds` is refused naming
 #       `binding_rationale` (kogaki#1675, kogaki#1678).
 
-#   (o) an rbs file with `projection` exits 0 with two calls, `bind2.yaml` `state: supplied`, `paragraph2.md`, and the second
-#       writer's stdin carrying paragraph one under the article-so-far heading and the claim as a Leg claim (kogaki#1676).
-#   (p) a projecting point carrying a claim word passes, an attribute word is recorded in `bind2.yaml` and on the sheet,
-#       and a table with no hits renders `none, over`.
-#   (q) `projection` with a wrong-length `waypoints` or an unknown `move`, or without the first binding, is refused naming it.
-#   (r) a stop at `write2` keeps `paragraph.md`; a stop before `bind2` renders the attribute test as not tested.
+#   (o) a `projection` map and a list of one each exit 0 with one writer call, `bind.yaml`'s `paragraphs` has two entries, and
+#       the writer's stdin carries two numbered lines with their points indented, one claim line equal to the Strand's claim,
+#       no `holds` of the structure and no article-so-far prose; a list of two writes three Segments tables (kogaki#1681).
+#   (p) a projecting point carrying a claim word passes, and `attribute_hits` and `Attribute words` appear in no file of the run.
+#   (q) a `projection` entry with a wrong-length `waypoints` or an unknown `move` is refused naming its index, and
+#       `projection` without the first binding is refused naming both.
+#   (r) a writer stop leaves no `paragraph.md`.
 #   (s) the one-map `higher_order` passes and renders as `h1`; a list entry with a duplicate id or an unknown relation
 #       is refused naming its index (kogaki#1678).
 set -u
@@ -92,7 +93,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       depends_on: [], introduces: [], "re-activate": [], rationale: "it is the only paragraph of the Trial.",
       paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) }] }, "bind");
   }
-  if (prompt.includes("WRITTEN the crew")) return out(process.env.SMP_WRITE2_REFUSE ? "refusal: the second paragraph cannot be written." : "SECOND the walker's rule set, projected.", "writer");
   if (process.env.SMP_WRITE_REFUSE) return out("refusal: the first paragraph cannot be written.", "writer");
   return out("WRITTEN the crew, its list and the room left off.", "writer");
 });
@@ -290,72 +290,84 @@ ok(n1.error && n1.error.startsWith("binding_rationale "), `(n) a non-text bindin
 const n2 = lv({ grounds: "the old field" });
 ok(n2.error && n2.error.startsWith("grounds ") && n2.error.includes("`binding_rationale`"), `(n) grounds was not refused naming binding_rationale: ${JSON.stringify(n2)}`);
 
-// (o) the projecting binding: a second writer call over paragraph one and the Strand's claim
+// (o) the projecting bindings: one Leg, one Packet, one writer call
 const PROJ = { move: MOVE, binding_rationale: "RATIONALE2 the Move carries the crew's list over to the walker.",
   waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1,
     point: n === 0 ? "PROJ-1 the walker sees the files." : n === 1 ? "PROJ-2 a dusty file is never reached." : `PROJ-${n + 1} the rule set keeps to its list.` })) };
+// Pairs naming the Roles by id, as an owner's file does, so no `holds` reaches a Leg Waypoint's point.
+const byId = { ...owned, pairs: mapped.roles.map((x) => ({ base: "the crew's list", target: x.id })) };
 const projFile = join(root, "rbs-projected.yaml");
-writeFileSync(projFile, stringifyYaml({ ...owned, projection: PROJ }));
-const o = run("projected", ["--structure", withAttrs, "--rbs-file", projFile]);
-const oCalls = [...o.calls("bind"), ...o.calls("write"), ...o.calls("bind2"), ...o.calls("write2")];
-ok(o.res.status === 0 && stagesOf(o.rec) === "rbs:done,bind:done,write:done,bind2:done,write2:done" && oCalls.length === 2 && o.seen.length === 2,
-  `(o) the projecting run did not exit 0 with two calls: ${o.res.status} ${stagesOf(o.rec)} ${oCalls.length} ${o.res.stderr}`);
-const oBind2 = existsSync(join(o.o, "bind2.yaml")) ? parseYaml(readFileSync(join(o.o, "bind2.yaml"), "utf8"), "bind2") : {};
-ok(oBind2.state === "supplied" && oBind2.author === "owner" && oBind2.move === MOVE && oBind2.binding_rationale === PROJ.binding_rationale,
-  `(o) bind2.yaml does not carry state: supplied with the Move and binding_rationale: ${JSON.stringify(oBind2)}`);
-ok(o.rec && o.rec.projection && fileOk(o.rec.projection.bind) && o.rec.projection.bind.state === "supplied" && fileOk(o.rec.projection.paragraph)
-  && readFileSync(join(o.o, "paragraph2.md"), "utf8").startsWith("SECOND"), `(o) the record's projection is not filled: ${JSON.stringify(o.rec && o.rec.projection)}`);
-const w2 = o.calls("write2");
-const w2Packet = existsSync(join(o.o, "write2", "packet.md")) ? readFileSync(join(o.o, "write2", "packet.md"), "utf8") : null;
-ok(w2.length === 1 && w2[0].stdin === w2Packet && w2Packet.includes("## The article so far, up to this Leg:\n\nWRITTEN the crew")
-  && w2Packet.includes(`\n- ${CLAIM}\n`) && w2Packet.includes("PROJ-1 the walker"),
-  "(o) the second writer's stdin does not carry paragraph one as the article so far and the claim as a Leg claim");
-ok(existsSync(join(o.o, "write", "packet.md")) && readFileSync(join(o.o, "write", "packet.md"), "utf8") === jPacket,
-  "(o) the first paragraph's Packet is not byte for byte the Packet written without projection");
-const oSheet = existsSync(join(o.o, "sheet.html")) ? readFileSync(join(o.o, "sheet.html"), "utf8") : "";
-const oCol = (/<div><h3>Paragraph<\/h3>([\s\S]*?)<\/div><\/div><\/section>/.exec(oSheet) || [])[1] || "";
-const held = `The reader holds, in the base's objects (${owned.base.domain}): ${owned.waypoints.map((x) => x.point).join(" ")}`;
-ok(oCol.indexOf("WRITTEN the crew") >= 0 && oCol.indexOf("WRITTEN the crew") < oCol.indexOf(`Reader state:</b> ${esc(held)}`)
-  && oCol.indexOf(`Reader state:</b> ${esc(held)}`) < oCol.indexOf("SECOND the walker"),
-  `(o) the Paragraph column is not paragraph one, the reader-state line and paragraph two in order: ${oCol}`);
-const oSegs = section(oSheet, "segments");
-const oCaps = [...oSegs.matchAll(/<caption>([\s\S]*?)<\/caption>/g)].map((x) => x[1]);
-ok(oCaps.length === 2 && oCaps[1].includes(MOVE) && oCaps[1].includes(esc(PROJ.binding_rationale)), `(o) the sheet carries no second Segments table captioned with the Move and binding_rationale: ${JSON.stringify(oCaps)}`);
+writeFileSync(projFile, stringifyYaml({ ...byId, projection: PROJ }));
+const listFile = join(root, "rbs-projected-list.yaml");
+writeFileSync(listFile, stringifyYaml({ ...byId, projection: [PROJ] }));
+const blockOf = (packet, heading) => { const at = packet.indexOf(heading); if (at < 0) return null; const rest = packet.slice(at + heading.length); const nx = rest.indexOf("\n## "); return nx < 0 ? rest : rest.slice(0, nx); };
+const HOLDS = [...mapped.relations, PASSED, ...HIGHER].map((x) => x.holds);
+const SO_FAR = "## The article so far, up to this Leg:";
+for (const [name, file] of [["projected", projFile], ["projected-list", listFile]]) {
+  const o = run(name, ["--structure", withAttrs, "--rbs-file", file]);
+  const oCalls = [...o.calls("bind"), ...o.calls("write")];
+  ok(o.res.status === 0 && stagesOf(o.rec) === "rbs:done,bind:done,write:done" && oCalls.length === 1 && o.seen.length === 1,
+    `(o) ${name}: the projecting run did not exit 0 with one writer call: ${o.res.status} ${stagesOf(o.rec)} ${oCalls.length} ${o.res.stderr}`);
+  const oBind = existsSync(join(o.o, "bind.yaml")) ? parseYaml(readFileSync(join(o.o, "bind.yaml"), "utf8"), "bind") : {};
+  ok(Array.isArray(oBind.paragraphs) && oBind.paragraphs.length === 2 && oBind.move === MOVE && oBind.binding_rationale === owned.binding_rationale
+    && oBind.paragraphs[1].move === MOVE && oBind.paragraphs[1].binding_rationale === PROJ.binding_rationale
+    && oBind.paragraphs[1].paragraph_waypoints[0].point === PROJ.waypoints[0].point
+    && JSON.stringify(o.rec && o.rec.bind.paragraphs) === JSON.stringify(oBind.paragraphs),
+    `(o) ${name}: bind.yaml's paragraphs is not the two bindings in order: ${JSON.stringify(oBind.paragraphs)}`);
+  const pk = existsSync(join(o.o, "write", "packet.md")) ? readFileSync(join(o.o, "write", "packet.md"), "utf8") : "";
+  const w1 = o.calls("write");
+  ok(w1.length === 1 && w1[0].stdin === pk, `(o) ${name}: the writer's stdin is not the Packet`);
+  const tops = pk.split("\n").filter((l) => /^\d+\. .* \*Serves:\* /.test(l));
+  ok(tops.length === 2 && tops[0].startsWith("1. ") && tops[1] === `2. ${CLAIM} *Serves:* ${CLAIM}`
+    && pk.includes(`\n   1. ${owned.waypoints[0].point} *Serves:* ${CLAIM}\n`) && pk.includes(`\n   1. ${PROJ.waypoints[0].point} *Serves:* ${CLAIM}\n`)
+    && pk.indexOf(owned.waypoints[0].point) < pk.indexOf(tops[1]) && pk.indexOf(tops[1]) < pk.indexOf(PROJ.waypoints[0].point),
+    `(o) ${name}: the Packet does not carry two numbered lines with their points indented: ${JSON.stringify(tops)}`);
+  const claimLines = (blockOf(pk, "## The claims this Leg asserts") || "").split("\n").filter((l) => l.startsWith("- "));
+  ok(JSON.stringify(claimLines) === JSON.stringify([`- ${CLAIM}`]), `(o) ${name}: the claims block is not the Strand's claim alone: ${JSON.stringify(claimLines)}`);
+  ok(HOLDS.every((h) => !pk.includes(h)), `(o) ${name}: the Packet carries a \`holds\` of the structure`);
+  const soFar = blockOf(pk, SO_FAR);
+  ok(soFar !== null && soFar === blockOf(jPacket, SO_FAR) && !soFar.includes("WRITTEN"), `(o) ${name}: the Packet carries article-so-far prose: ${soFar}`);
+  ok(readFileSync(join(o.o, "paragraph.md"), "utf8").startsWith("WRITTEN") && !existsSync(join(o.o, "bind2.yaml")) && !existsSync(join(o.o, "paragraph2.md")),
+    `(o) ${name}: paragraph.md is not the whole answer, or bind2.yaml or paragraph2.md was written`);
+  const oSheet = existsSync(join(o.o, "sheet.html")) ? readFileSync(join(o.o, "sheet.html"), "utf8") : "";
+  const oCaps = [...section(oSheet, "segments").matchAll(/<caption>([\s\S]*?)<\/caption>/g)].map((x) => x[1]);
+  ok(oCaps.length === 2 && oCaps[0].includes(esc(owned.binding_rationale)) && oCaps[1].includes(esc(PROJ.binding_rationale))
+    && !oSheet.includes("Reader state:"), `(o) ${name}: the sheet does not carry two Segments tables and no reader state: ${JSON.stringify(oCaps)}`);
+  // (p) no attribute test anywhere in the run
+  const files = [];
+  const walk = (dd) => { for (const f of readdirSync(dd)) { const pth = join(dd, f); if (statSync(pth).isDirectory()) walk(pth); else files.push(pth); } };
+  walk(o.o);
+  ok(files.every((f) => { const t = readFileSync(f, "utf8"); return !t.includes("attribute_hits") && !t.includes("Attribute words"); }),
+    `(p) ${name}: a file of the run carries attribute_hits or Attribute words`);
+}
+const twoFile = join(root, "rbs-projected-two.yaml");
+writeFileSync(twoFile, stringifyYaml({ ...byId, projection: [PROJ, { ...PROJ, binding_rationale: "RATIONALE3 a third paragraph." }] }));
+const o3 = run("projected-two", ["--structure", withAttrs, "--rbs-file", twoFile]);
+const o3Sheet = existsSync(join(o3.o, "sheet.html")) ? readFileSync(join(o3.o, "sheet.html"), "utf8") : "";
+const o3Caps = [...section(o3Sheet, "segments").matchAll(/<caption>/g)];
+ok(o3.res.status === 0 && o3.seen.length === 1 && o3Caps.length === 3, `(o) a projection list of two did not exit 0 with three Segments tables: ${o3.res.status} ${o3Caps.length} ${o3.res.stderr}`);
 
-// (p) the claim word passes, the attribute word is recorded and rendered, and no hit renders `none, over`
-ok(JSON.stringify(oBind2.attribute_hits) === JSON.stringify([{ segment: 2, word: "dusty", role: "room" }])
-  && JSON.stringify(o.rec.projection.bind.attribute_hits) === JSON.stringify(oBind2.attribute_hits),
-  `(p) bind2.yaml does not record the one attribute hit: ${JSON.stringify(oBind2.attribute_hits)}`);
-ok(oSegs.includes("Attribute words in the points: segment 2: dusty (room)"), "(p) the sheet does not render the attribute hit");
-const cleanFile = join(root, "rbs-projected-clean.yaml");
-writeFileSync(cleanFile, stringifyYaml({ ...owned, projection: { ...PROJ, waypoints: PROJ.waypoints.map((x) => ({ ...x, point: `CLEAN-${x.segment} the walker sees the files.` })) } }));
-const p2 = run("projected-clean", ["--structure", withAttrs, "--rbs-file", cleanFile]);
-const p2Sheet = existsSync(join(p2.o, "sheet.html")) ? readFileSync(join(p2.o, "sheet.html"), "utf8") : "";
-ok(p2.res.status === 0 && p2Sheet.includes(`Attribute words in the points: none, over ${SEGMENTS} points`),
-  `(p) a projection with no attribute hit does not render \`none, over ${SEGMENTS} points\`: ${p2.res.status} ${p2.res.stderr}`);
+// (p) a projecting point carrying a claim word passes ("walker" in PROJ-1)
+ok(!validateRbsTable({ ...owned, projection: [PROJ] }, CLAIM, { movesDir: join(repo, "moves") }).error, "(p) a projecting point carrying a claim word was refused");
 
-// (q) the projecting binding's fields are refused naming them
-const qv = (edit, base = owned) => validateRbsTable({ ...base, projection: { ...PROJ, ...edit } }, CLAIM, { movesDir: join(repo, "moves") });
-const q1 = qv({ waypoints: PROJ.waypoints.slice(1) });
-ok(q1.error && q1.error.startsWith("projection.waypoints "), `(q) a wrong-length projection.waypoints was not refused naming it: ${JSON.stringify(q1)}`);
-const q2 = qv({ move: "no_such_move" });
-ok(q2.error && q2.error.startsWith("projection.move "), `(q) an unknown projection.move was not refused naming it: ${JSON.stringify(q2)}`);
+// (q) a projecting binding's fields are refused naming its index
+const qv = (projection, base = owned) => validateRbsTable({ ...base, projection }, CLAIM, { movesDir: join(repo, "moves") });
+const q1 = qv([PROJ, { ...PROJ, waypoints: PROJ.waypoints.slice(1) }]);
+ok(q1.error && q1.error.startsWith("projection[1].waypoints "), `(q) a wrong-length projection[1].waypoints was not refused naming it: ${JSON.stringify(q1)}`);
+const q2 = qv([PROJ, { ...PROJ, move: "no_such_move" }]);
+ok(q2.error && q2.error.startsWith("projection[1].move "), `(q) an unknown projection[1].move was not refused naming it: ${JSON.stringify(q2)}`);
+const q2m = qv({ ...PROJ, move: "no_such_move" });
+ok(q2m.error && q2m.error.startsWith("projection[0].move "), `(q) an unknown move in a projection map was not refused naming index 0: ${JSON.stringify(q2m)}`);
 const { move: _m, waypoints: _w, ...unbound } = owned;
-const q3 = qv({}, unbound);
+const q3 = qv(PROJ, unbound);
 ok(q3.error && q3.error.includes("`projection`") && q3.error.includes("`move`") && q3.error.includes("`waypoints`"),
   `(q) projection without the first binding was not refused naming both: ${JSON.stringify(q3)}`);
 
-// (r) a second-writer refusal stops at write2 with paragraph one kept
-const r = run("write2-refused", ["--structure", withAttrs, "--rbs-file", projFile], { SMP_WRITE2_REFUSE: "1" });
-ok(r.res.status !== 0 && stagesOf(r.rec) === "rbs:done,bind:done,write:done,bind2:done,write2:stopped" && /^write2: /.test(String(r.rec.stopped))
-  && existsSync(join(r.o, "paragraph.md")) && !existsSync(join(r.o, "paragraph2.md")) && fileOk(r.rec.paragraph),
-  `(r) a second-writer refusal did not stop at write2 with paragraph.md kept: ${r.res.status} ${stagesOf(r.rec)} ${JSON.stringify(r.rec && r.rec.stopped)}`);
-
-const r1 = run("write-refused", ["--structure", withAttrs, "--rbs-file", projFile], { SMP_WRITE_REFUSE: "1" });
-const r1Segs = section(existsSync(join(r1.o, "sheet.html")) ? readFileSync(join(r1.o, "sheet.html"), "utf8") : "", "segments");
-ok(r1.res.status !== 0 && stagesOf(r1.rec) === "rbs:done,bind:done,write:stopped,bind2:not run,write2:not run"
-  && r1Segs.includes("Attribute words in the points: not tested, bind2 not run") && !r1Segs.includes("none, over"),
-  `(r) a stop before bind2 does not render the attribute test as not tested: ${r1.res.status} ${stagesOf(r1.rec)}`);
+// (r) a writer stop leaves no paragraph.md
+const r = run("write-refused", ["--structure", withAttrs, "--rbs-file", projFile], { SMP_WRITE_REFUSE: "1" });
+ok(r.res.status !== 0 && stagesOf(r.rec) === "rbs:done,bind:done,write:stopped" && /^write: /.test(String(r.rec.stopped))
+  && !existsSync(join(r.o, "paragraph.md")) && existsSync(join(r.o, "sheet.html")),
+  `(r) a writer refusal did not stop at write with no paragraph.md: ${r.res.status} ${stagesOf(r.rec)} ${JSON.stringify(r.rec && r.rec.stopped)}`);
 
 // (s) the one-map higher_order is read as h1; a list entry is refused naming its index
 ok(!validateStructure(mapped, strandRec).error, "(s) the one-map higher_order was refused");
