@@ -115,7 +115,7 @@
   },
   "smp_bind_unit": {
     "id": "smp_bind_unit",
-    "note": "The short Trial's one binding call (kogaki#1669). Derived from the production `paragraph_plan_unit` row by `copy_of` and `substitutions`, as `smp_leg_unit` is derived from `reader_path_unit`; its `input_shape`, `refusal` and shared text are the production row's, read at run time, and its answer is validated by `validateParagraphPlanUnit`. No judge call follows it: the owner's reading is the judgment.",
+    "note": "The short Trial's one binding call, over its Leg of two Leg Waypoints (kogaki#1669, kogaki#1689). Derived from the production `paragraph_plan_unit` row by `copy_of` and `substitutions`, as `smp_leg_unit` is derived from `reader_path_unit`; its `input_shape`, `refusal` and shared text are the production row's, read at run time, and its answer is validated by `validateParagraphPlanUnit`. No judge call follows it: the owner's reading is the judgment.",
     "copy_of": {
       "file": "src/paragraph-plan-workflow.json",
       "row": "paragraph_plan_unit",
@@ -124,7 +124,7 @@
     "substitutions": [
       {
         "from": "plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input,",
-        "to": "plan the ONE paragraph of a short Trial of the Structure-Mapping Playground (kogaki#1669), `leg_you_must_plan` in the input, a Leg of ONE Leg Waypoint whose `point` is the target side of a correspondence table, its entries in order,"
+        "to": "plan the TWO paragraphs of a short Trial of the Structure-Mapping Playground (kogaki#1669, kogaki#1689), `leg_you_must_plan` in the input, a Leg of two Leg Waypoints, the first the structure in the base's objects and the second the proposition, each bound to one Move of the library with its Paragraph Waypoints, the second's written in the proposition's own words, its entries in order,"
       },
       {
         "from": "- OWE: Where a bound Move's `obligation` leaves items for later, open ONE record in your record's `obligations`, `items` the article's own, each closed in order by the later Leg Waypoint that explains it, never where it opens, its `subitems` first, one open at a time, and lay each owed record into the `discharges` of the entry whose Paragraph Waypoint explains it.",

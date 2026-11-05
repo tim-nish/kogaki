@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, one Move, one paragraph,
-// read on a sheet that compares the proposition with the RBS slot; with `projection`, further paragraphs of the same Leg (kogaki#1681).
+// read on a sheet that compares the proposition with the RBS slot; a second Leg Waypoint states the proposition (kogaki#1681, kogaki#1689).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -121,8 +121,8 @@ function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryD
 }
 
 // ---------------------------------------------------------------------------
-// THE ONE LEG (kogaki#1681, kogaki#1685): its one claim is the proposition, in the Brief's form, and one Leg Waypoint per
-// paragraph binding, in order.
+// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1689): its one claim is the proposition, in the Brief's form; its first Leg Waypoint is
+// the structure in the base's objects, and one Leg Waypoint whose point is the proposition follows per projecting binding, one in the model route.
 // The first Leg Waypoint's point (kogaki#1688).
 export function firstPoint(structure, rbs) {
   const base = new Map(rbs.pairs.map((p) => [p.target, p.base === null ? p.target : String(p.base).trim()]));
@@ -138,7 +138,7 @@ export function shortLeg(proposition, rbs, persona, structure) {
     reader_state_before: personaPriorKnowledgeLine(persona),
     reader_state_after: null,
     claims: [{ strand: "L1", proposition }],
-    waypoints: [first, ...projectionsOf(rbs).map(() => ({ point: proposition, serves: ["L1"] }))],
+    waypoints: [first, ...Array.from({ length: Math.max(1, projectionsOf(rbs).length) }, () => ({ point: proposition, serves: ["L1"] }))],
     introduces: [],
     journeys: [],
   };
@@ -189,7 +189,7 @@ function bindStage({ dir, env, leg, persona, libraryDir, table }) {
   try { v = validateParagraphPlanUnit(a.record, { legs: [planned], movesDir: libraryDir }, "leg-1"); }
   catch (e) { v = { error: String(e && e.message || e) }; }
   if (v.error) return { stopped: v.error.split("\n").join(" ") };
-  return { entry: a.record.waypoints[0] };
+  return { entries: a.record.waypoints };
 }
 
 // THE PARAGRAPHS: one Packet over a one-Leg Brief, each Leg Waypoint carrying its binding's points, and the writer called once.
@@ -233,7 +233,12 @@ function readRbsFile(file, proposition, libraryDir, structure) {
   try { record = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the correspondence table cannot be read (${e.message})` }; }
   const v = validateRbsTable(record && typeof record === "object" ? { ...record, placeholder: false } : record, proposition.proposition,
     { movesDir: libraryDir, structure });
-  return v.error ? v : { record: { ...record, variant: RBS_OWNER, placeholder: false } };
+  if (v.error) return v;
+  if (!Object.hasOwn(record, "projection")) {
+    return { error: "the correspondence table carries no `projection`: the owner's table binds the paragraph whose point is the proposition, "
+      + "and a Trial that never states the proposition has no reading (kogaki#1689)" };
+  }
+  return { record: { ...record, variant: RBS_OWNER, placeholder: false } };
 }
 
 function readStructure(file, proposition) {
@@ -366,8 +371,8 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     }
     const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
     if (r.stopped) return r;
-    const bound = { ...r.entry, binding_rationale: null };
-    const listed = [{ move: bound.move, binding_rationale: null, paragraph_waypoints: bound.paragraph_waypoints }];
+    const bound = { ...r.entries[0], binding_rationale: null };
+    const listed = r.entries.map((e) => ({ move: e.move, binding_rationale: null, paragraph_waypoints: e.paragraph_waypoints }));
     writeFileSync(bindPath, stringifyYaml({ ...bound, paragraphs: listed }));
     record.bind = { author: BIND_ROW, move: bound.move, binding_rationale: null, paragraphs: listed, ...fileRecord(bindPath) };
     return { value: listed };
