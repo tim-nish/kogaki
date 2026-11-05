@@ -1,4 +1,5 @@
-// The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681).
+// The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681) and the proposition
+// in place of the Strand's rendering (kogaki#1685).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -61,23 +62,21 @@ function elementsOf(structure) {
 
 function mappingTable(structure, table) {
   const elements = elementsOf(structure);
-  const dropped = new Map((structure && Array.isArray(structure.attributes) ? structure.attributes : [])
-    .map((a) => [a.role, Array.isArray(a.words) ? a.words.join(", ") : a.words]));
   const pairs = table ? table.pairs : [];
   const named = (p, e) => p.target === e.id || p.target === e.what;
-  const rows = elements.filter((e) => e.role).map((e) => ({ key: e.id, what: e.what, words: dropped.get(e.id), pairs: pairs.filter((p) => named(p, e)) }));
+  const rows = elements.filter((e) => e.role).map((e) => ({ key: e.id, what: e.what, pairs: pairs.filter((p) => named(p, e)) }));
   for (const p of pairs.filter((q) => !rows.some((r) => r.pairs.includes(q)))) {
     const e = elements.find((x) => named(p, x));
-    rows.push({ key: e ? e.id : null, what: e ? e.what : p.target, words: undefined, pairs: [p] });
+    rows.push({ key: e ? e.id : null, what: e ? e.what : p.target, pairs: [p] });
   }
   const base = table && table.base ? table.base : { domain: null, kind: null };
   const kind = base.kind ? base.kind[0].toUpperCase() + base.kind.slice(1) : "Base";
   const cell = (v) => (v === undefined ? "" : targetHtml(v));
   const baseCell = (ps) => ps.map((p) => (p.base === null ? '<span class="muted">null</span>' : targetHtml(p.base))).join("<br>");
   const caption = table ? `${table.variant}${table.placeholder ? " — a placeholder, not an RBS" : ""}` : "no table";
-  return `<table><caption>${esc(caption)}</caption><thead><tr><th>Role</th><th>Abstraction</th><th>Strand words dropped</th>`
+  return `<table><caption>${esc(caption)}</caption><thead><tr><th>Role</th><th>Abstraction</th>`
     + `<th>${esc(kind)}: ${esc(base.domain === null || base.domain === undefined ? "null" : base.domain)}</th></tr></thead><tbody>`
-    + rows.map((r) => `<tr><td>${r.key === null ? "" : esc(r.key)}</td><td>${cell(r.what)}</td><td>${cell(r.words)}</td><td>${baseCell(r.pairs)}</td></tr>`).join("")
+    + rows.map((r) => `<tr><td>${r.key === null ? "" : esc(r.key)}</td><td>${cell(r.what)}</td><td>${baseCell(r.pairs)}</td></tr>`).join("")
     + "</tbody></table>";
 }
 
@@ -179,10 +178,10 @@ function structureSection(structure) {
 const paragraphHtml = (path, record) => (existsSync(path) ? `<div class="prose">${esc(readFileSync(path, "utf8"))}</div>`
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none("No paragraph was written."));
 
-export function renderShortSheet({ outDir, record, strand, structure, table, leg, paragraphs, paragraphPath }) {
+export function renderShortSheet({ outDir, record, proposition, structure, table, leg, paragraphs, paragraphPath }) {
   const paragraph = paragraphHtml(paragraphPath, record);
-  const wbsParagraph = `<div class="cols"><div><h3>WBS <span class="meta">${esc(strand.cite)}</span></h3>`
-    + `<p><b>claim:</b> ${esc(strand.claim)}</p><div class="prose">${esc(strand.rendering)}</div></div>`
+  const cite = `<p><b>cite:</b> ${esc(proposition.cite)}</p>`;
+  const propositionParagraph = `<div class="cols"><div><h3>Proposition</h3><p>${esc(proposition.proposition)}</p></div>`
     + `<div><h3>Paragraph</h3>${paragraph}</div></div>`;
   const mapping = structure || table ? mappingTable(structure, table) : none("Neither a structure nor a table was read.");
   const structureHtml = structure ? structureSection(structure) : none("No structure was read.");
@@ -196,7 +195,8 @@ export function renderShortSheet({ outDir, record, strand, structure, table, leg
   return `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>`
     + `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}`
-    + part("wbs-paragraph", "WBS and Paragraph", wbsParagraph)
+    + part("strand", "Strand", cite)
+    + part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph)
     + part("segments", "Segments", segmentsSection(outDir, record, leg, paragraphs))
     + part("mapping", "Mapping", mapping)
     + part("structure", "Structure", structureHtml)

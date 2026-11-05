@@ -26,7 +26,7 @@ import { derivedRow, readerStartUnitInput, readerStartText, completedLeg } from 
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseStrandFile, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
+import { parseProposition, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
 import { mapperRow, mapperInput, MAPPER_ATTEMPTS } from "./sme.mjs";
 
 export const PLAYGROUND_TABLE = "src/mapping-playground/playground-workflow.json";
@@ -49,12 +49,12 @@ function fail(msg) {
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(path), sha256: sha256(path) } : null);
 
-// The strand file and the structure, read and validated; a refusal ends the process before
+// The proposition file (kogaki#1685) and the structure, read and validated; a refusal ends the process before
 // anything is written.
 function readStrand(strandFile) {
   let strandText;
-  try { strandText = readFileSync(strandFile, "utf8"); } catch (e) { fail(`the strand file cannot be read (${e.message}). Nothing was started.`); }
-  const strand = parseStrandFile(strandText);
+  try { strandText = readFileSync(strandFile, "utf8"); } catch (e) { fail(`the proposition file cannot be read (${e.message}). Nothing was started.`); }
+  const strand = parseProposition(strandText);
   if (strand.error) fail(`${strand.error}. Nothing was started.`);
   return strand;
 }
@@ -145,7 +145,7 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const dir = resolve(out);
   const r = runRow({ dir, unitId: "map", row: m.row, recordArray: "roles", input: mapperInput(strand, persona),
-    validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, claim: strand.claim } },
+    validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, proposition: strand.proposition } },
     bounds: { ...judgeBounds(extraction), unitAttempts: MAPPER_ATTEMPTS } });
   if (r.stopped) return { stopped: r.stopped.replace("the Trial's Brief stopped", "the Mapper stopped") };
   writeFileSync(resolve(structureOut), stringifyYaml(r.record));
@@ -176,12 +176,12 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
   if (r1.stopped) return { stopped: r1.stopped };
   const readerStart = readerStartText(r1.record);
   const claims = structureClaims(structure);
-  const forbidden = [...new Set(wordsOf(strand.claim).filter((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)))];
+  const forbidden = [...new Set(wordsOf(strand.proposition).filter((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)))];
   const r2 = runRow({ dir: join(outDir, "leg"), unitId: "leg", row: lr.row, recordArray: "legs",
     input: { reader_start: readerStart, language: lang.language, leg_ids_already_carried: [], forbidden_words: forbidden,
       structure: { roles, relations, higher_order }, claims },
     validator: { module: "src/mapping-playground/structure.mjs", export: "validateSmpLegUnit",
-      inputs: { holds: claims.map((c) => c.holds), claim: strand.claim, reader_start: readerStart, segments: claims.map((c) => c.material) } },
+      inputs: { holds: claims.map((c) => c.holds), proposition: strand.proposition, reader_start: readerStart, segments: claims.map((c) => c.material) } },
     bounds });
   if (r2.stopped) return { stopped: r2.stopped };
   writeFileSync(briefPath, trialBriefText({ slug, composePath: relFromRepo(audiencePath), claims, readerStart,

@@ -1,4 +1,4 @@
-// The Structure-Mapping Playground's inputs, read and refused (kogaki#1664): the strand file,
+// The Structure-Mapping Playground's inputs, read and refused (kogaki#1664): the proposition file,
 // the owner-authored RelationalStructure, and the Trial's one Leg.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
@@ -15,38 +15,38 @@ const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const CITE = /^\S+::\S+\/\S+@[0-9a-f]{12,}$/;
 
-// The strand file: a `cite:` line and a `claim:` line, a blank line, then the served rendering.
-export function parseStrandFile(text) {
+// The proposition file (kogaki#1685): a `cite:` line and a `proposition:` line, and nothing else.
+export function parseProposition(text) {
   const lines = String(text).split("\n");
-  const blank = lines.findIndex((l) => l.trim() === "");
-  const head = blank < 0 ? lines : lines.slice(0, blank);
   const field = (key) => {
-    const l = head.find((x) => x.startsWith(`${key}:`));
+    const l = lines.find((x) => x.startsWith(`${key}:`));
     return l === undefined ? null : l.slice(key.length + 1).trim();
   };
+  if (field("claim") !== null) return { error: "the proposition file carries a `claim:` line — its sentence is the `proposition:` line" };
   const cite = field("cite");
-  const claim = field("claim");
-  const rendering = blank < 0 ? "" : lines.slice(blank + 1).join("\n").trim();
-  if (!cite) return { error: "the strand file carries no `cite:` line before its first blank line" };
-  if (!CITE.test(cite)) return { error: `the strand file's \`cite:\` ${JSON.stringify(cite)} is not a UnitID at a content hash` };
-  if (!claim) return { error: "the strand file carries no `claim:` line before its first blank line" };
-  if (!rendering) return { error: "the strand file carries no served rendering below its `cite:` and `claim:` lines" };
-  return { cite, claim, rendering };
+  const proposition = field("proposition");
+  if (!cite) return { error: "the proposition file carries no `cite:` line" };
+  if (!CITE.test(cite)) return { error: `the proposition file's \`cite:\` ${JSON.stringify(cite)} is not a UnitID at a content hash` };
+  if (!proposition) return { error: "the proposition file carries no `proposition:` line" };
+  if (lines.some((l) => l.trim() !== "" && !l.startsWith("cite:") && !l.startsWith("proposition:"))) {
+    return { error: "the proposition file carries text below its two lines; a Strand's rendering is not an input of the Playground" };
+  }
+  return { cite, proposition };
 }
 
-// The content words of the Strand's claim, as the forms `wordForms` folds them to: the word test
+// The content words of the proposition, as the forms `wordForms` folds them to: the word test
 // `recoverabilityOf` runs, inverted.
-export function claimForms(claim) {
+export function propositionForms(proposition) {
   const forms = new Set();
-  for (const w of wordsOf(claim)) {
+  for (const w of wordsOf(proposition)) {
     if (FUNCTION_WORDS.has(w) || /^[\p{N}]+$/u.test(w)) continue;
     for (const f of wordForms(w)) forms.add(f);
   }
   return forms;
 }
 
-// The first word of `text` that is a content word of the claim, or null.
-export function claimWordIn(text, forms) {
+// The first word of `text` that is a content word of the proposition, or null.
+export function propositionWordIn(text, forms) {
   for (const w of wordsOf(text)) {
     if (FUNCTION_WORDS.has(w) || /^[\p{N}]+$/u.test(w)) continue;
     if ([...wordForms(w)].some((f) => forms.has(f))) return w;
@@ -54,9 +54,9 @@ export function claimWordIn(text, forms) {
   return null;
 }
 
-function claimWordRefusal(text, forms, field) {
-  const w = claimWordIn(text, forms);
-  return w ? `${field} carries "${w}", a content word of the Strand's claim — the reader does not hold the Strand's words (kogaki#1664)` : null;
+function propositionWordRefusal(text, forms, field) {
+  const w = propositionWordIn(text, forms);
+  return w ? `${field} carries "${w}", a content word of the proposition — the reader does not hold the Strand's words (kogaki#1664)` : null;
 }
 
 function keysRefusal(obj, keys, at) {
@@ -75,16 +75,15 @@ export function higherOrderOf(record) {
   return isMap(h) ? [{ id: "h1", ...h }] : null;
 }
 
-// The RelationalStructure record, refused or `{}`. `strand` is `parseStrandFile`'s answer.
-// `attributes` is optional and carried for the owner's inspection only (kogaki#1671).
-export function validateStructure(record, strand) {
-  const keys = ["strand", "roles", "relations", "higher_order"];
-  const bad = keysRefusal(record, isMap(record) && "attributes" in record ? [...keys, "attributes"] : keys, "the structure");
+// The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer.
+export function validateStructure(record, proposition) {
+  if (isMap(record) && "attributes" in record) return { error: "the structure carries `attributes`, which is no field of the proposition's structure (kogaki#1685)" };
+  const bad = keysRefusal(record, ["strand", "roles", "relations", "higher_order"], "the structure");
   if (bad) return { error: bad };
-  if (record.strand !== strand.cite) {
-    return { error: `the structure's \`strand\` ${JSON.stringify(record.strand)} is not the strand file's \`cite:\` ${JSON.stringify(strand.cite)}` };
+  if (record.strand !== proposition.cite) {
+    return { error: `the structure's \`strand\` ${JSON.stringify(record.strand)} is not the proposition file's \`cite:\` ${JSON.stringify(proposition.cite)}` };
   }
-  const forms = claimForms(strand.claim);
+  const forms = propositionForms(proposition.proposition);
   const ids = new Set();
   const listOf = (key) => (Array.isArray(record[key]) && record[key].length ? record[key] : null);
   const roles = listOf("roles");
@@ -115,6 +114,7 @@ export function validateStructure(record, strand) {
   }
   const higher = higherOrderOf(record);
   if (!higher) return { error: "the structure's `higher_order` is neither a `{ relates, holds }` map nor a non-empty list of `{ id, relates, holds }`" };
+  if (higher.length > 1) return { error: `the structure's \`higher_order\` carries ${higher.length} entries, and a proposition has one higher-order relation` };
   const listed = Array.isArray(record.higher_order);
   for (const [i, h] of higher.entries()) {
     const at = listed ? `higher_order[${i}]` : "higher_order";
@@ -128,22 +128,13 @@ export function validateStructure(record, strand) {
     if (!isText(h.holds)) return { error: `${at}'s \`holds\` is empty` };
     ids.add(h.id);
   }
-  if ("attributes" in record) {
-    if (!Array.isArray(record.attributes)) return { error: "the structure's `attributes` is not a list" };
-    for (const [i, a] of record.attributes.entries()) {
-      const at = `attributes[${i}]`;
-      const ab = keysRefusal(a, ["role", "words"], at);
-      if (ab) return { error: ab };
-      if (!roleIds.has(a.role)) return { error: `${at}'s \`role\` names ${JSON.stringify(a.role)}, which is no Role's id` };
-    }
-  }
   const texts = [
     ...roles.map((r, i) => [r.context, `roles[${i}].context`]),
     ...relations.map((r, i) => [r.holds, `relations[${i}].holds`]),
     ...higher.map((h, i) => [h.holds, listed ? `higher_order[${i}].holds` : "higher_order.holds"]),
   ];
   for (const [text, field] of texts) {
-    const r = claimWordRefusal(text, forms, field);
+    const r = propositionWordRefusal(text, forms, field);
     if (r) return { error: r };
   }
   return {};
@@ -163,18 +154,18 @@ export function structureClaims(record) {
   return rows.map((r, i) => ({ claim_strand: `L${i + 1}`, ...r }));
 }
 
-// The Trial's Leg, refused or `{}`: the claim-word test first, then the Proof Sheet's own
-// validator over the Leg. `inputs` carries `holds`, `claim`, `reader_start` and `segments`.
+// The Trial's Leg, refused or `{}`: the proposition-word test first, then the Proof Sheet's own
+// validator over the Leg. `inputs` carries `holds`, `proposition`, `reader_start` and `segments`.
 export function validateSmpLegUnit(record, inputs) {
   const leg = isMap(record) && Array.isArray(record.legs) && record.legs.length === 1 ? record.legs[0] : null;
   if (isMap(leg)) {
     if ("introduces" in leg) return { error: "leg 1 carries `introduces` — a Trial's Leg introduces no term (kogaki#1664)" };
-    const forms = claimForms(inputs.claim);
+    const forms = propositionForms(inputs.proposition);
     for (const [i, w] of (Array.isArray(leg.waypoints) ? leg.waypoints : []).entries()) {
-      const r = isMap(w) && typeof w.point === "string" ? claimWordRefusal(w.point, forms, `leg 1: waypoints[${i}].point`) : null;
+      const r = isMap(w) && typeof w.point === "string" ? propositionWordRefusal(w.point, forms, `leg 1: waypoints[${i}].point`) : null;
       if (r) return { error: r };
     }
-    const after = typeof leg.reader_state_after === "string" ? claimWordRefusal(leg.reader_state_after, forms, "leg 1: reader_state_after") : null;
+    const after = typeof leg.reader_state_after === "string" ? propositionWordRefusal(leg.reader_state_after, forms, "leg 1: reader_state_after") : null;
     if (after) return { error: after };
     for (const [i, g] of (Array.isArray(leg.claims) ? leg.claims : []).entries()) {
       if (isMap(g) && inputs.holds[i] !== undefined && g.proposition !== inputs.holds[i]) {

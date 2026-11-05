@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground, end to end through `node src/mapping-playground/trial.mjs run` with ONE fake model binary (`KOGAKI_JUDGE_CLI`) answering every stage (kogaki#1664, kogaki#1665):
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
-#   (b) a structure whose `context` carries a content word of the `claim:` is refused naming the word and the field.
+#   (b) a structure whose `context` carries a content word of the `proposition:` is refused naming the word and the field.
 #   (c) a `point` carrying such a word refuses the Leg attempt naming the word.
 #   (d) the Writer's recorded stdin equals the Packet file byte for byte.
 #   (e) the repository's `moves/` and `theses/` are unchanged.
@@ -32,11 +32,10 @@ const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 
-// ---- the fixture strand file and RelationalStructure ----
+// ---- the fixture proposition file and RelationalStructure ----
 const CITE = "coding::lesson/a-fixture-strand@0123456789abcdef";
 const strand = join(root, "strand.md");
-writeFileSync(strand, `cite: ${CITE}\nclaim: A rule set applies automatically only to the files the walker sees.\n\n`
-  + "The walker lists the files; the rule set applies to that list and to nothing else.\n");
+writeFileSync(strand, `cite: ${CITE}\nproposition: A rule set applies automatically only to the files the walker sees.\n`);
 const structureText = (crewContext) => [
   `strand: "${CITE}"`,
   "roles:",

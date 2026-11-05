@@ -1,5 +1,5 @@
 // The Structure-Mapping Playground's Mapper (kogaki#1665): an SME variant, one row of
-// `playground-workflow.json`, reads the strand file and the Persona into a RelationalStructure.
+// `playground-workflow.json`, reads the proposition file and the Persona into a RelationalStructure.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -26,17 +26,16 @@ export function mapperRow(table, variant) {
   return { row: { id: variant, ...table[variant] } };
 }
 
-export function mapperInput(strand, persona) {
+export function mapperInput(proposition, persona) {
   return {
-    strand: strand.cite,
-    claim: strand.claim,
-    rendering: strand.rendering,
+    strand: proposition.cite,
+    proposition: proposition.proposition,
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
   };
 }
 
 // The Mapper's answer, refused or `{}`: the Playground's own structure validator. `inputs` carries
-// the strand file's `cite` and `claim`.
+// the proposition file's `cite` and `proposition`.
 export function validateMapperAnswer(record, inputs) {
-  return validateStructure(record, { cite: inputs.cite, claim: inputs.claim });
+  return validateStructure(record, { cite: inputs.cite, proposition: inputs.proposition });
 }

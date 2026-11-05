@@ -9,7 +9,7 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { moveContract } from "../compose.mjs";
-import { claimForms, claimWordIn } from "./structure.mjs";
+import { propositionForms, propositionWordIn } from "./structure.mjs";
 
 // The four kinds of match of Gentner 1983.
 export const BASE_KINDS = ["analogy", "abstraction", "literal-similarity", "mere-appearance"];
@@ -25,9 +25,9 @@ function targetTexts(target) {
   return [];
 }
 
-function claimWordRefusal(text, forms, field) {
-  const w = claimWordIn(text, forms);
-  return w ? `${field} carries "${w}", a content word of the Strand's claim — the reader does not hold the Strand's words (kogaki#1669)` : null;
+function propositionWordRefusal(text, forms, field) {
+  const w = propositionWordIn(text, forms);
+  return w ? `${field} carries "${w}", a content word of the proposition — the reader does not hold the Strand's words (kogaki#1669)` : null;
 }
 
 function baseRefusal(base) {
@@ -42,7 +42,7 @@ function baseRefusal(base) {
 }
 
 // A binding: `move` resolving in the library, and one `{ segment, point }` per segment, in order.
-// `at` prefixes every field it names; `forms` null skips the claim-word test (a projecting binding).
+// `at` prefixes every field it names; `forms` null skips the proposition-word test (a projecting binding).
 function bindingRefusal(record, forms, movesDir, at = "") {
   if (Object.hasOwn(record, "grounds")) return `${at}grounds is no field of a binding: why the Move was chosen is \`${at}binding_rationale\` (kogaki#1678)`;
   if (Object.hasOwn(record, "binding_rationale") && !isText(record.binding_rationale)) {
@@ -63,7 +63,7 @@ function bindingRefusal(record, forms, movesDir, at = "") {
     const field = `${at}waypoints[${i}]`;
     if (!isMap(w) || w.segment !== i + 1) return `${field} is not \`{ segment: ${i + 1}, point }\``;
     if (!isText(w.point)) return `${field}.point is empty`;
-    const r = forms ? claimWordRefusal(w.point, forms, `${field}.point`) : null;
+    const r = forms ? propositionWordRefusal(w.point, forms, `${field}.point`) : null;
     if (r) return r;
   }
   return null;
@@ -75,7 +75,7 @@ export function projectionsOf(record) {
   return Array.isArray(record.projection) ? record.projection : [record.projection];
 }
 
-// Each projecting binding has the first binding's shape, with no claim-word test, and only beside a first binding.
+// Each projecting binding has the first binding's shape, with no proposition-word test, and only beside a first binding.
 function projectionRefusal(record, movesDir) {
   if (!Object.hasOwn(record, "projection")) return null;
   const list = projectionsOf(record);
@@ -95,13 +95,13 @@ function projectionRefusal(record, movesDir) {
   return null;
 }
 
-export function validateRbsTable(record, claim, { movesDir = "moves" } = {}) {
+export function validateRbsTable(record, proposition, { movesDir = "moves" } = {}) {
   if (!isMap(record) || !Array.isArray(record.pairs) || !record.pairs.length) {
     return { error: "the correspondence table carries no non-empty `pairs` list" };
   }
   const b = baseRefusal(record.base);
   if (b) return { error: b };
-  const forms = claimForms(claim);
+  const forms = propositionForms(proposition);
   for (const [i, p] of record.pairs.entries()) {
     if (!isMap(p) || !Object.hasOwn(p, "base") || !Object.hasOwn(p, "target")) {
       return { error: `pairs[${i}] is not a \`{ base, target }\` pair` };
@@ -109,7 +109,7 @@ export function validateRbsTable(record, claim, { movesDir = "moves" } = {}) {
     const texts = targetTexts(p.target).filter((t) => t.trim() !== "");
     if (!texts.length) return { error: `pairs[${i}].target is empty` };
     for (const t of texts) {
-      const r = claimWordRefusal(t, forms, `pairs[${i}].target`);
+      const r = propositionWordRefusal(t, forms, `pairs[${i}].target`);
       if (r) return { error: r };
     }
   }
