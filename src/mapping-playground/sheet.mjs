@@ -1,4 +1,4 @@
-// The short Trial's sheet (kogaki#1673), with one Binding and one Segments table per paragraph binding (kogaki#1681, kogaki#1682).
+// The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -81,14 +81,12 @@ function mappingTable(structure, table) {
     + "</tbody></table>";
 }
 
-// A labelled row of a two-column table; several values make one sub-row each under one label.
 function labelledRow(label, values) {
   const vs = values.length ? values : [""];
   return `<tr><th rowspan="${vs.length}">${esc(label)}</th><td>${vs[0]}</td></tr>`
     + vs.slice(1).map((v) => `<tr><td>${v}</td></tr>`).join("");
 }
 
-// A Move's state as the contract renders it, `<dimension>: <text>` per dimension, one sub-row each.
 const STATE_LINE = new RegExp(`^(${MOVE_STATE_DIMENSIONS.join("|")}): `);
 function stateRows(state) {
   const rows = [];
@@ -102,11 +100,10 @@ function stateRows(state) {
 function bindingTable(record, entry, contracts) {
   const c = contracts.get(entry.move);
   const absent = [esc("not in the library")];
-  const boundBy = record.bind && record.bind.author ? record.bind.author : "not recorded";
   const rationale = entry.binding_rationale === null || entry.binding_rationale === undefined ? "none" : entry.binding_rationale;
   return "<table><caption>Binding</caption><tbody>"
     + labelledRow("Move", [esc(entry.move)])
-    + labelledRow("Bound by", [esc(boundBy)])
+    + labelledRow("Bound by", [esc(record.bind.author)])
     + labelledRow("Before", c ? stateRows(c.before) : absent)
     + labelledRow("After", c ? stateRows(c.after) : absent)
     + labelledRow("Rationale", [esc(rationale)])
@@ -127,7 +124,6 @@ function segmentsTable(record, entry) {
     + "</tbody></table>";
 }
 
-// What the writer was given, read from the Leg and the record: its claims, where its points are shown, and its Packet.
 function writerInputTable(outDir, record, leg) {
   const write = record.stages.find((s) => s.stage === "write");
   const packet = write && write.packet ? relative(outDir, join(REPO, write.packet)) : null;

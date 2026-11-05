@@ -21,7 +21,7 @@
 
 #   (o) a `projection` map and a list of one each exit 0 with one writer call, `bind.yaml`'s `paragraphs` has two entries, and
 #       the writer's stdin carries two numbered lines with their points indented, one claim line equal to the Strand's claim,
-#       no `holds` of the structure and no article-so-far prose; a list of two writes three Binding tables (kogaki#1681, kogaki#1682).
+#       no `holds` of the structure and no article-so-far prose; a list of two writes three Segments tables (kogaki#1681).
 #   (p) a projecting point carrying a claim word passes, and `attribute_hits` and `Attribute words` appear in no file of the run.
 #   (q) a `projection` entry with a wrong-length `waypoints` or an unknown `move` is refused naming its index, and
 #       `projection` without the first binding is refused naming both.
@@ -293,8 +293,6 @@ ok(!sheet.includes("base (WBS)") && !sheet.includes("target (RBS)") && !jSheet.i
   "(f) a sheet still carries `base (WBS)` or `target (RBS)`");
 ok(sheet.includes(String(rec.bind && rec.bind.move)) && sheet.includes("WRITTEN the crew") && sheet.includes(CLAIM), "(f) sheet.html does not carry the Move, the paragraph and the WBS");
 
-// (n) binding_rationale: the supplied text reaches bind.yaml and the Binding table's Rationale row; the model route records null;
-// a non-text one is refused; `grounds` is refused naming binding_rationale
 const jBind = existsSync(join(j.o, "bind.yaml")) ? parseYaml(readFileSync(join(j.o, "bind.yaml"), "utf8"), "bind") : {};
 const rationaleRow = rowOf(jBinding || "", "Rationale");
 ok(jBind.binding_rationale === owned.binding_rationale && j.rec.bind.binding_rationale === owned.binding_rationale
