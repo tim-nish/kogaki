@@ -3085,52 +3085,37 @@ it to the target only after a bridging case. Kotovsky and Gentner's
 progressive alignment finds far transfer only after close comparison has made
 the relational structure salient. So the claim is owed by a second paragraph,
 not by a sentence added to the first. No Harness-level obligation on structure
-or projection is introduced: the Leg's claims, the reader state and the
-ordinary binding carry it.
+or projection is introduced: the Leg's claim and the ordinary binding carry
+it.
 
-**The `projection` field.** The table may carry `projection`, `{ move,
-waypoints, binding_rationale }`, validated as the first binding is, with each field
-named under `projection.`. The claim-word test does not run over its points,
-because paragraph two uses the target's words. `projection` without the first
-binding's `move` and `waypoints` is refused naming both.
+**The `projection` field** (kogaki#1681). The table may carry `projection`, a
+list of `{ move, waypoints, binding_rationale }`, one per paragraph after the
+first, each validated as the first binding is, with each field named under
+`projection[<i>].`. A map is read as a list of one. The claim-word test does
+not run over its points, because a projecting paragraph uses the target's
+words. `projection` without the first binding's `move` and `waypoints` is
+refused naming both.
 
-**Two Legs and the reader state between them.** With `projection`, Leg 1 is
-the Leg above, and its `reader_state_after` is one composed line: `The reader
-holds, in the base's objects (<domain>): ` followed by the first binding's
-points in order. Leg 2 depends on Leg 1, and its `reader_state_before` is
-that line. Its claims are the Strand's `claim:` line, as `strand: S0`, then
-Leg 1's claims. Its one Leg Waypoint's `point` is the Strand's claim. Paragraph
-two's Packet carries paragraph one as the article so far and Leg 1's claims as
-re-activated, through the existing Packet inputs. Paragraph one's Packet is the
-Packet written without `projection`, byte for byte.
+**One Leg, one Packet, one writer call** (kogaki#1681). A Trial is one Leg.
+Its one claim is the Strand's `claim:` line, as `strand: S0`. Each paragraph
+binding is one Leg Waypoint, in order, serving `S0`: the first one's `point`
+is the `target` texts in order, and each projecting one's `point` is the
+Strand's claim. No reader state is composed. `bind` writes `<out>/bind.yaml`
+with the first binding's fields and `paragraphs`, every binding in order as
+`{ move, binding_rationale, paragraph_waypoints }`. `write` renders one Packet
+from the Leg, calls the writer once and writes its whole answer to
+`<out>/paragraph.md`. The structure's `holds` enter no Packet.
 
-**The stages `bind2` and `write2`** run after `write`, only with `projection`.
-`bind2` makes no model call. It writes `<out>/bind2.yaml` with `state:
-supplied`, `author: owner`, `move`, `binding_rationale`, the Paragraph Waypoints and
-`attribute_hits`. `write2` writes `write2/packet.md`, calls the writer once
-and writes `<out>/paragraph2.md`. A stop at `write2` keeps paragraph one. The
-Trial is then two writer calls.
-
-**The attribute test is recorded, never refused.** Each projecting point is
-tested against the structure's `attributes` words with the claim-word test's
-word forms. Each hit is `{ segment, word, role }` in `attribute_hits`, which
-is empty when there are none.
-
-**The sheet, with `projection`.** The Paragraph column carries paragraph one,
-a line `Reader state: ` with Leg 1's `reader_state_after`, then paragraph two.
-`Segments` carries a second table under the first, captioned with paragraph
-two's Move id and `binding_rationale`. Under it is one line, `Attribute words in the
-points: `, followed by each hit as `segment N: word (Role)`, or by `none, over
-N points` when there are none. The empty case is spelled out so a test that
-ran and found nothing is not mistaken for a test that never ran. Where
-`bind2` did not run, the line reads `not tested, bind2 <state>`, and the
-Paragraph column says that `write2` did not run.
+**The sheet, with `projection`.** The Paragraph column carries
+`paragraph.md` whole. `Segments` carries one table per binding in
+`paragraphs`, in order, each captioned with its Move id and
+`binding_rationale`.
 
 **The record.** `<out>/trial.json` carries `strand`, `structure` and `mapper`
 as §4.20.1 writes them, `rbs: { variant, placeholder, path, sha256 }`,
 `bind: { move, binding_rationale, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
-`reading` and `stages`. With `projection` it also carries `projection: { bind,
-paragraph }`, in the same shape as `bind` and `paragraph`.
+`reading` and `stages`. Its `bind` also carries `paragraphs`, as `bind.yaml`
+does.
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.

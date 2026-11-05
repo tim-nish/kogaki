@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's short Trial (kogaki#1669): one Strand, one Move, one paragraph,
-// read on a sheet that compares the WBS with the RBS slot; with `projection`, a second paragraph (kogaki#1676).
+// read on a sheet that compares the WBS with the RBS slot; with `projection`, further paragraphs of the same Leg (kogaki#1681).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -25,8 +25,8 @@ import { splitPacketTemplate } from "../draft/packet.mjs";
 import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseStrandFile, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
-import { validateRbsTable, suppliedEntry, attributeHits } from "./rbs.mjs";
+import { parseStrandFile, validateStructure, higherOrderOf } from "./structure.mjs";
+import { validateRbsTable, suppliedEntry, projectionsOf } from "./rbs.mjs";
 import { mapperRow } from "./sme.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
@@ -38,13 +38,9 @@ export const RBS_OWNER = "owner-authored";
 export const BIND_FILE = "bind.yaml";
 export const PACKET_FILE = "packet.md";
 export const PARAGRAPH_FILE = "paragraph.md";
-export const BIND2_FILE = "bind2.yaml";
-export const PARAGRAPH2_FILE = "paragraph2.md";
 export const SHEET_FILE = "sheet.html";
-// `bind2` and `write2` run only when the table carries `projection` (kogaki#1676).
-export const SHORT_STAGES = ["sme", "rbs", "bind", "write", "bind2", "write2"];
+export const SHORT_STAGES = ["sme", "rbs", "bind", "write"];
 const LEG_ID = "smp";
-const LEG2_ID = "smp-2";
 const STRAND_CLAIM_ID = "S0";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
@@ -91,38 +87,16 @@ export function fillRbs(row, structure) {
 const targetLine = (target) => (typeof target === "string" ? target.trim() : stringifyYaml(target).trim().replace(/\s*\n\s*/g, "; "));
 
 // ---------------------------------------------------------------------------
-// THE ONE LEG: one Leg Waypoint whose `point` is the target texts in order, serving the structure's Claims.
-
-// What the reader holds after paragraph one, composed from the first binding (kogaki#1676).
-export function heldLine(rbs) {
-  const domain = rbs.base && rbs.base.domain !== null && rbs.base.domain !== undefined ? rbs.base.domain : "null";
-  return `The reader holds, in the base's objects (${domain}): ${rbs.waypoints.map((w) => String(w.point).trim()).join(" ")}`;
-}
-
-export function shortLeg(structure, rbs, persona) {
-  const claims = structureClaims(structure);
+// THE ONE LEG (kogaki#1681): its one claim is the Strand's claim, and one Leg Waypoint per paragraph binding, in order.
+export function shortLeg(claim, rbs, persona) {
+  const first = { point: rbs.pairs.map((p) => targetLine(p.target)).join(" "), serves: [STRAND_CLAIM_ID] };
   return {
     leg_id: LEG_ID,
     reader_state_before: personaPriorKnowledgeLine(persona),
-    reader_state_after: Object.hasOwn(rbs, "projection") ? heldLine(rbs) : null,
-    claims: claims.map((c) => ({ strand: c.claim_strand, proposition: c.holds })),
-    waypoints: [{ point: rbs.pairs.map((p) => targetLine(p.target)).join(" "), serves: claims.map((c) => c.claim_strand) }],
-    introduces: [],
-    journeys: [],
-  };
-}
-
-// THE PROJECTING LEG (kogaki#1676): after Leg 1, from the reader state it leaves, asserting the Strand's claim.
-export function projectingLeg(leg1, claim) {
-  return {
-    leg_id: LEG2_ID,
-    depends_on: [leg1.leg_id],
-    reader_state_before: leg1.reader_state_after,
     reader_state_after: null,
-    claims: [{ strand: STRAND_CLAIM_ID, proposition: claim }, ...leg1.claims],
-    waypoints: [{ point: claim, serves: [STRAND_CLAIM_ID] }],
+    claims: [{ strand: STRAND_CLAIM_ID, proposition: claim }],
+    waypoints: [first, ...projectionsOf(rbs).map(() => ({ point: claim, serves: [STRAND_CLAIM_ID] }))],
     introduces: [],
-    "re-activate": leg1.claims.map((c) => `${leg1.leg_id} claim ${c.strand} as ${c.proposition}`),
     journeys: [],
   };
 }
@@ -175,19 +149,18 @@ function bindStage({ dir, env, leg, persona, libraryDir, table }) {
   return { entry: a.record.waypoints[0] };
 }
 
-// THE ONE PARAGRAPH: one Packet over a one-Leg, one-Waypoint Brief, and the writer called once with it.
-// `before` is the Legs written above this one with their paragraphs, `{ leg, text }`, empty for paragraph one.
-export function shortPacket({ leg, entry, audiencePath, before = [] }) {
+// THE PARAGRAPHS: one Packet over a one-Leg Brief, each Leg Waypoint carrying its binding's points, and the writer called once.
+export function shortPacket({ leg, paragraphs, audiencePath }) {
   const split = splitPacketTemplate(readFileSync(PACKET_TEMPLATE, "utf8"));
   if (split.error) return { error: split.error };
-  const packetLeg = { ...leg, waypoints: [{ ...leg.waypoints[0], paragraph_waypoints: entry.paragraph_waypoints }] };
-  const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [...before.map((b) => b.leg), packetLeg], strands: [] };
-  return renderPacket({ template: split.packet, brief, leg: packetLeg, priorSections: before.map((b) => ({ leg_id: b.leg.leg_id, text: b.text })),
+  const packetLeg = { ...leg, waypoints: leg.waypoints.map((w, i) => ({ ...w, paragraph_waypoints: paragraphs[i].paragraph_waypoints })) };
+  const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [packetLeg], strands: [] };
+  return renderPacket({ template: split.packet, brief, leg: packetLeg, priorSections: [],
     section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
 }
 
-function writeStage({ dir, env, leg, entry, audiencePath, paragraphPath, before = [] }) {
-  const p = shortPacket({ leg, entry, audiencePath, before });
+function writeStage({ dir, env, leg, paragraphs, audiencePath, paragraphPath }) {
+  const p = shortPacket({ leg, paragraphs, audiencePath });
   if (p.error) return { stopped: p.error };
   const packetPath = join(dir, PACKET_FILE);
   writeFileSync(packetPath, p.packet);
@@ -271,8 +244,6 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     rbs: { variant: rr.row.id, placeholder: rr.row.placeholder === true, path: null, sha256: null },
     bind: { move: null, binding_rationale: null, path: null, sha256: null },
     paragraph: { path: null, sha256: null },
-    ...(owned && Object.hasOwn(owned.record, "projection")
-      ? { projection: { bind: { move: null, binding_rationale: null, path: null, sha256: null }, paragraph: { path: null, sha256: null } } } : {}),
     sheet: relFromRepo(sheetPath),
     audience: relFromRepo(audiencePath),
     library: relFromRepo(libraryDir),
@@ -329,52 +300,33 @@ export function runShortTrial({ strand: strandFile, structure: givenStructure = 
     record.rbs = { variant: filled.variant, placeholder: filled.placeholder, ...fileRecord(rbsPath) };
     return { value: filled };
   });
-  const leg = table1 ? shortLeg(structure, table1, persona) : null;
-  const entry = stage("bind", (d, env) => {
+  const leg = table1 ? shortLeg(strand.claim, table1, persona) : null;
+  const paragraphs = stage("bind", (d, env) => {
     const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
     if (supplied) {
-      writeFileSync(bindPath, stringifyYaml(supplied));
-      record.bind = { state: "supplied", author: "owner", move: supplied.move, binding_rationale: supplied.binding_rationale, ...fileRecord(bindPath) };
-      return { value: supplied };
+      const all = [supplied, ...projectionsOf(table1).map((p) => suppliedEntry(p, leg.waypoints[0].serves))];
+      const listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
+      writeFileSync(bindPath, stringifyYaml({ ...supplied, paragraphs: listed }));
+      record.bind = { state: "supplied", author: "owner", move: supplied.move, binding_rationale: supplied.binding_rationale,
+        paragraphs: listed, ...fileRecord(bindPath) };
+      return { value: listed };
     }
     const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
     if (r.stopped) return r;
     const bound = { ...r.entry, binding_rationale: null };
-    writeFileSync(bindPath, stringifyYaml(bound));
-    record.bind = { move: bound.move, binding_rationale: null, ...fileRecord(bindPath) };
-    return { value: bound };
+    const listed = [{ move: bound.move, binding_rationale: null, paragraph_waypoints: bound.paragraph_waypoints }];
+    writeFileSync(bindPath, stringifyYaml({ ...bound, paragraphs: listed }));
+    record.bind = { move: bound.move, binding_rationale: null, paragraphs: listed, ...fileRecord(bindPath) };
+    return { value: listed };
   });
   stage("write", (d, env) => {
-    const r = writeStage({ dir: d, env, leg, entry, audiencePath, paragraphPath });
+    const r = writeStage({ dir: d, env, leg, paragraphs, audiencePath, paragraphPath });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
     return r;
   });
-  let leg2 = null;
-  let entry2 = null;
-  if (record.projection) {
-    const projection = owned.record.projection;
-    leg2 = leg ? projectingLeg(leg, strand.claim) : null;
-    entry2 = stage("bind2", () => {
-      const supplied = suppliedEntry(projection, leg2.waypoints[0].serves);
-      const bound = { state: "supplied", author: "owner", ...supplied, attribute_hits: attributeHits(projection.waypoints, structure.attributes) };
-      writeFileSync(join(outDir, BIND2_FILE), stringifyYaml(bound));
-      record.projection.bind = { state: "supplied", author: "owner", move: bound.move, binding_rationale: bound.binding_rationale,
-        attribute_hits: bound.attribute_hits, ...fileRecord(join(outDir, BIND2_FILE)) };
-      return { value: bound };
-    });
-    stage("write2", (d, env) => {
-      const paragraph2Path = join(outDir, PARAGRAPH2_FILE);
-      const r = writeStage({ dir: d, env, leg: leg2, entry: entry2, audiencePath, paragraphPath: paragraph2Path,
-        before: [{ leg: { ...leg, waypoints: [{ ...leg.waypoints[0], paragraph_waypoints: entry.paragraph_waypoints }] },
-          text: readFileSync(paragraphPath, "utf8").trim() }] });
-      if (!r.stopped) record.projection.paragraph = fileRecord(paragraph2Path);
-      return r;
-    });
-  }
   record.finished_at = new Date().toISOString();
   save();
-  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, entry, paragraphPath, leg, entry2,
-    paragraph2Path: join(outDir, PARAGRAPH2_FILE) });
+  const sheet = renderShortSheet({ outDir, record, strand, structure, table: table1, paragraphs, paragraphPath });
   writeFileSync(sheetPath, sheet);
   return { outDir, stopped: record.stopped || null };
 }
