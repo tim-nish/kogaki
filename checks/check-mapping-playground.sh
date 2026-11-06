@@ -105,7 +105,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const m = bindable[0];
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: m.id,
       materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.",
-      reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: "consequence" } : {}),
       paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan");

@@ -2,14 +2,17 @@
 # check-paragraph-plan-site-retry — a ParagraphPlan refusal naming a Leg Waypoint is retried
 # at that Leg Waypoint alone (kogaki#1642). A fake judge (`KOGAKI_JUDGE_CLI`) answers each
 # call kind -- Leg, site, suffix, judge -- from a scenario module:
-#   (s1) one site call holds the Move and after-state; only the site and the next join re-judged;
+#   (s1) one site call holds the Move alone, handed what stands to be taken up (kogaki#1701);
+#        only the site and the next join re-judged;
 #   (s2) a site answer repeating the refused entry is refused by name before any judge call;
-#   (s3) a later retry moving the after-state recomposes the entries after it, not before;
+#   (s3) a later retry rebinding the Move recomposes the entries after it, not before, the
+#        suffix call handed what the rebound Move leaves (kogaki#1701);
 #   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
 #   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
 #   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
-#   are refused before the judge; (s10) a PRECONDITION or POSTCONDITION refusal holds no endpoint.
+#   are refused before the judge; (s10) a TAKEN or LEFT refusal holds no endpoint
+#   (kogaki#1701).
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
@@ -35,9 +38,12 @@ const root = mkdtempSync(join(tmpdir(), "paragraph-plan-site-"));
 const moves = join(root, "moves");
 mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-for (const id of ["p1", "p2"]) {
-  writeFileSync(join(moves, `${id}.yaml`), stringifyYaml({ id, description: "a fixture Move.", before: { knowledge: "before." },
-    after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
+// p2 leaves one entry, so (s3) can see what a rebound Move leaves handed to the suffix call
+// (kogaki#1701); a_leg_move is the Move the Brief binds to every Leg.
+const P2_LEAVES = { kind: "explain", what: "P2-LEAVES the term the rebound paragraph names.", segment: 1 };
+for (const id of ["p1", "p2", "a_leg_move"]) {
+  writeFileSync(join(moves, `${id}.yaml`), stringifyYaml({ id, description: "a fixture Move.",
+    breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: id === "p2" ? [P2_LEAVES] : [] }));
 }
 
 // ---- the Brief: Leg s1 of three Leg Waypoints, Leg s2 of one ----
@@ -83,16 +89,15 @@ chmodSync(judge, 0o755);
 // THE SCENARIO'S SHARED BUILDERS: one entry of the paragraph schema, tagged where it was
 // rewritten, and a verdict record refusing the Leg Waypoints `bad` names.
 const BUILDERS = `
-export const entry = (w, legId, total, legAfter, { move = "p1", tag = "", after = null, rationale = null } = {}) => ({
+export const entry = (w, legId, { move = "p1", tag = "", rationale = null } = {}) => ({
   waypoint: w, move, materials: ["L1"], purpose: "brings the reader to point " + w + ".",
-  reader_state_after: w === total && legAfter ? legAfter : after || { knowledge: "STATE-" + legId + "-" + w + " after." },
-  depends_on: w > 1 ? [w - 1] : [], rationale: rationale || "its before holds the state the paragraph before leaves.",
+  depends_on: w > 1 ? [w - 1] : [], rationale: rationale || "its takes are met by what the paragraph before leaves.",
   introduces: [], "re-activate": [], ...(w > 1 ? { join: "consequence" } : {}),
   paragraph_waypoints: move === null ? [] : [{ point: "PW-" + legId + "-" + w + tag + " the paragraph makes its point.", serves: ["L1"], cast: {} }] });
 export const plan = (input) => { const l = input.leg_you_must_plan;
-  return { version: "1", leg_id: l.leg_id, waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, l.waypoints.length, l.reader_state_after)) }; };
+  return { version: "1", leg_id: l.leg_id, waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id)) }; };
 export const siteEntry = (input, opts = {}) => { const s = input.leg_waypoint_you_must_plan;
-  return entry(s.waypoint, s.leg_id, s.waypoints_in_leg, s.reader_state_after, { ...(input.fixed || {}), ...opts }); };
+  return entry(s.waypoint, s.leg_id, { ...(input.fixed || {}), ...opts }); };
 export const verdicts = (input, bad) => { const l = input.leg_you_must_judge;
   return { version: "1", leg_id: l.leg_id, verdicts: l.waypoints.map((w) => ({ waypoint: w.waypoint,
     verdict: bad(w.waypoint) ? "does-not-fit" : "fits", why: bad(w.waypoint) ? "REFUSED-AT-" + w.waypoint + " the paragraph misses its step." : "the paragraph performs its step." })) }; };
@@ -143,8 +148,13 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
   if (r.of("plan").length !== 1) fails.push(`(s1) Leg s1's Leg call was asked ${r.of("plan").length} times, not once`);
   if (sites.length !== 1 || sites[0].input.leg_waypoint_you_must_plan.waypoint !== 1) fails.push(`(s1) not one site call at Waypoint 1: ${JSON.stringify(sites.map((c) => c.input.leg_waypoint_you_must_plan.waypoint))}`);
   const fixed = sites[0] && sites[0].input.fixed;
-  if (!fixed || fixed.move !== "p1" || JSON.stringify(fixed.reader_state_after) !== JSON.stringify({ knowledge: "STATE-s1-1 after." })) {
-    fails.push(`(s1) the site call does not hold the refused entry's move and reader_state_after: ${JSON.stringify(fixed)}`);
+  if (!fixed || JSON.stringify(fixed) !== JSON.stringify({ move: "p1" })) {
+    fails.push(`(s1) the site call does not hold the refused entry's move alone: ${JSON.stringify(fixed)}`);
+  }
+  const site1 = sites[0] && sites[0].input.leg_waypoint_you_must_plan;
+  if (!site1 || !Array.isArray(site1.stands_to_be_taken_up) || "reader_state_after" in site1 || "reader_state_before" in site1
+    || !Array.isArray(sites[0].input.leaves_for_next_leg)) {
+    fails.push(`(s1) the site call is not handed what stands to be taken up and the Leg's leaves_for_next_leg, with no reader state (kogaki#1701): ${JSON.stringify(site1)}`);
   }
   if (!sites[0] || !sites[0].input.refused_here.some((h) => h.refusal.includes("REFUSED-AT-1") && point(h.entry).startsWith("PW-s1-1 "))) {
     fails.push("(s1) the site call is not handed the refused entry beside the judge's sentence");
@@ -165,7 +175,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
 {
   const r = run("s2", `export const site = (i, n) => (n === 1 ? i.refused_here[0].entry : siteEntry(i, { move: "p2", tag: "-site" }));
 export const suffix = (i) => { const l = i.leg_you_must_plan; return { version: "1", leg_id: l.leg_id,
-  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, 3, l.reader_state_after)) }; };
+  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id)) }; };
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 1);`);
   const sites = r.of("site");
   const want = `Leg s1, Waypoint 1: ${siteRepeatRefusal(1)}`;
@@ -180,24 +190,23 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
   if (!row || row.status !== "done" || !(row.refusals || []).includes(want)) fails.push(`(s2) the unit row does not end done carrying the repeat refusal: ${JSON.stringify(row && { status: row.status, refusals: row.refusals })}`);
 }
 
-// (s3) A MOVED AFTER-STATE REOPENS THE ENTRIES AFTER IT, AND NONE BEFORE IT.
+// (s3) A REBOUND MOVE REOPENS THE ENTRIES AFTER IT, AND NONE BEFORE IT; the suffix call's first
+// Leg Waypoint is handed what the rebound Move leaves (kogaki#1701).
 {
-  const MOVED = { knowledge: "MOVED-STATE after." };
-  const r = run("s3", `export const site = (i, n) => (n === 1 ? siteEntry(i, { tag: "-site1" }) : siteEntry(i, { move: "p2", tag: "-site2", after: ${JSON.stringify(MOVED)} }));
+  const r = run("s3", `export const site = (i, n) => (n === 1 ? siteEntry(i, { tag: "-site1" }) : siteEntry(i, { move: "p2", tag: "-site2" }));
 export const suffix = (i, n) => { const l = i.leg_you_must_plan; return { version: "1", leg_id: l.leg_id,
-  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, 3, l.reader_state_after, { tag: "-suffix" + n })) }; };
+  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, { tag: "-suffix" + n })) }; };
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n <= 2 && w === 2);`);
   const suffixes = r.of("suffix");
   const first = suffixes[0] && suffixes[0].input;
-  if (suffixes.length !== 1 || JSON.stringify(first.leg_you_must_plan.reader_state_before) !== JSON.stringify(MOVED)
-    || JSON.stringify(first.leg_you_must_plan.waypoints.map((w) => w.waypoint)) !== "[3]") {
-    fails.push(`(s3) the entries after Waypoint 2 were not composed again from the moved state: ${JSON.stringify(first && first.leg_you_must_plan)}`);
+  const stands = first && first.leg_you_must_plan.waypoints[0] && first.leg_you_must_plan.waypoints[0].stands_to_be_taken_up;
+  if (suffixes.length !== 1 || JSON.stringify(first.leg_you_must_plan.waypoints.map((w) => w.waypoint)) !== "[3]"
+    || !(stands || []).some((x) => x.what === P2_LEAVES.what && x.kind === "explain" && x.left_by === "Leg Waypoint 2")) {
+    fails.push(`(s3) the entries after Waypoint 2 were not composed again from what the rebound Move leaves: ${JSON.stringify(first && first.leg_you_must_plan)}`);
   }
   if (!first || first.paragraphs_that_stand.length !== 2 || !point(first.paragraphs_that_stand[0]).startsWith("PW-s1-1 ")) {
     fails.push("(s3) the suffix call is not handed Waypoint 1 as the Leg call wrote it and the moved Waypoint 2");
   }
-  // A suffix whose last after-state is not the Leg's is no longer refused: a Leg carries no
-  // state since kogaki#1699, so the one suffix call stands.
   const judges = r.of("judge");
   const last = judges[judges.length - 1];
   if (!last || JSON.stringify(last.input.leg_you_must_judge.waypoints.map((w) => w.waypoint)) !== "[2,3]") {
@@ -206,8 +215,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n <= 2 && w =
   if (!r.plan) fails.push(`(s3) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
   else {
     const [e1, e2, e3] = [1, 2, 3].map((w) => pwOf(r.plan, "s1", w));
-    if (!point(e1).startsWith("PW-s1-1 ") || e2.move !== "p2" || JSON.stringify(e2.reader_state_after) !== JSON.stringify(MOVED)
-      || !point(e3).includes("-suffix1") || JSON.stringify(e3.reader_state_after) !== JSON.stringify({ knowledge: "STATE-s1-3 after." })) {
+    if (!point(e1).startsWith("PW-s1-1 ") || e2.move !== "p2" || !point(e2).includes("-site2") || !point(e3).includes("-suffix1")) {
       fails.push(`(s3) the plan file is not Waypoint 1 unchanged, Waypoint 2 rebound and Waypoint 3 recomposed to the Leg's end: ${JSON.stringify([e1, e2, e3])}`);
     }
   }
@@ -306,7 +314,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
 }
 
 // (s10) A REFUSAL OF THE BINDING HOLDS NO ENDPOINT; A REFUSAL OF THE POINTS HOLDS BOTH (kogaki#1647).
-for (const [axis, held] of [["PRECONDITION", false], ["POSTCONDITION", false], ["BREAKS", true]]) {
+for (const [axis, held] of [["TAKEN", false], ["LEFT", false], ["BREAKS", true]]) {
   const r = run(`s10-${axis.toLowerCase()}`, `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
 export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n === 1 && w === 1);
   for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "${axis} fails at the paragraph's first point.";
@@ -346,12 +354,12 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
 {
   const r = run("s12", `export const site = (i) => siteEntry(i, { move: "p2", tag: "-site" });
 export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s2" && n === 1 && w === 1);
-  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "PRECONDITION fails: the bound Move needs a state the reader does not hold.";
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "TAKEN fails: the bound Move takes up an answer nothing stands to be taken up for.";
   return v; };`);
   const e = pwOf(r.plan, "s2", 1);
-  if (!e || e.move !== "p2" || JSON.stringify(e.move_forced_by) !== JSON.stringify(["PRECONDITION"])
-    || JSON.stringify(e.paragraph_waypoints.map((p) => p.forced_by)) !== JSON.stringify([["PRECONDITION"]])) {
-    fails.push(`(s12) the rebound entry at Leg s2, Waypoint 1 does not carry move_forced_by and forced_by [PRECONDITION]: ${JSON.stringify(e)}`);
+  if (!e || e.move !== "p2" || JSON.stringify(e.move_forced_by) !== JSON.stringify(["TAKEN"])
+    || JSON.stringify(e.paragraph_waypoints.map((p) => p.forced_by)) !== JSON.stringify([["TAKEN"]])) {
+    fails.push(`(s12) the rebound entry at Leg s2, Waypoint 1 does not carry move_forced_by and forced_by [TAKEN]: ${JSON.stringify(e)}`);
   }
 }
 
@@ -359,5 +367,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move and after-state first; a repeat is refused before the judge; a moved after-state recomposes only the entries after it; a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651); a PRECONDITION or POSTCONDITION refusal holds no endpoint on the first retry (kogaki#1647); a Paragraph Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
+console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move first and handed what stands to be taken up (kogaki#1701); a repeat is refused before the judge; a rebound Move recomposes only the entries after it, the suffix call handed what it leaves (kogaki#1701); a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651); a TAKEN or LEFT refusal holds no endpoint on the first retry (kogaki#1647, kogaki#1701); a Paragraph Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
 JS

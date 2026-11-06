@@ -7,7 +7,8 @@
 # the bound Move's Segments, and an entry carrying both `performs` and `point`; (d) the bench
 # records or removes a scratch axis over a fake judge, leaving an unread one as it was;
 # (e) the criteria table of the spec's ParagraphPlan stage carries every criterion of both
-# judges and no other, and the judge is handed each entry's before- and after-state.
+# judges and no other, and the judge is handed, per entry, what stands to be taken up and the
+# bound Move's `takes` and `leaves` (kogaki#1701).
 # Declared limit: the one-responsibility test is lexical; whether a fixture violates
 # its axis and no other is the bench's measurement, never this check's.
 set -u
@@ -78,9 +79,9 @@ writeFileSync(join(lib, "ROLES.json"), readFileSync(join("moves", "ROLES.json"))
 writeFileSync(join(lib, `${moveId}.yaml`), readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`)));
 const segments = boundMoveContract(moveId, lib).segments.length;
 const inputs = { movesDir: lib, legs: [{ leg_id: "v1", waypoints: [{ waypoint: 1, point: "A point.", serves: ["L1"], next_point: null }] }] };
-// The entry carries the paragraph's schema (kogaki#1639); the Leg's after-state is the one paragraph's.
+// The entry carries the paragraph's schema (kogaki#1639) and no reader state (kogaki#1701).
 const plan = (pws) => ({ version: "1", leg_id: "v1", waypoints: [{ waypoint: 1, move: moveId, materials: ["L1"], purpose: "brings the reader to the point.",
-  reader_state_after: { knowledge: "after v1." }, depends_on: [], rationale: "the Move carries this point", introduces: [], "re-activate": [], paragraph_waypoints: pws }] });
+  depends_on: [], rationale: "the Move carries this point", introduces: [], "re-activate": [], paragraph_waypoints: pws }] });
 const pw = (i) => ({ point: `Part ${i} of the point.`, serves: ["L1"], cast: {} });
 const parts = (n) => Array.from({ length: n }, (_, i) => pw(i + 1));
 cases++;
@@ -147,25 +148,36 @@ const tableRefusals = [
   ["(e1) an axis the table does not carry", spec, [...paragraphIds, "SCRATCH AXIS"], legList, "SCRATCH AXIS is not in the criteria table"],
   ["(e2) a Leg item the table does not carry", spec, paragraphIds, [...legList, "the scratch item"], "\"the scratch item\" is not in the criteria table"],
   ["(e3) a row naming no criterion of the judge", spec.replace("`BREAKS` |", "`BREAKING` |"), paragraphIds, legList, "BREAKING is no criterion of the ParagraphPlan judge"],
-  ["(e4) a row with no binding half", spec.replace(/(Precondition fit \|.*\| )criterion \|/, "$1either |"), paragraphIds, legList, "row Precondition fit says neither"],
+  ["(e4) a row with no binding half", spec.replace(/(Takes met \|.*\| )criterion \|/, "$1either |"), paragraphIds, legList, "row Takes met says neither"],
 ];
 for (const [label, text, ids, list, want] of tableRefusals) {
   cases++;
   const why = tableFailures(text, ids, list).join("; ");
   if (!why.includes(want)) fails.push(`${label} is not refused naming it: ${why || "no refusal"}`);
 }
-// (e5) the judge is handed each entry's before-state, derived, and its after-state.
+// (e5) the judge is handed, per entry, what stands to be taken up when it begins and the bound Move's
+// `takes` and `leaves` (kogaki#1701): the first entry the Leg's own list, a later one that list with
+// the earlier bound Moves' `leaves` added, each naming the Leg Waypoint that left it.
 cases++;
 {
-  const two = { movesDir: lib, legs: [{ leg_id: "v1", reader_state_before: "knowledge: before v1.", reader_state_after: { knowledge: "after v1." },
-    waypoints: [1, 2].map((n) => ({ waypoint: n, point: `Point ${n}.`, serves: ["L1"], next_point: null })) }] };
-  const entry = (n, after) => ({ ...plan(parts(segments)).waypoints[0], waypoint: n, reader_state_after: after });
-  const ws = paragraphPlanJudgeInput({ version: "1", leg_id: "v1", waypoints: [entry(1, { knowledge: "after one." }), entry(2, { knowledge: "after v1." })] },
-    two, "leg-1").leg_you_must_judge.waypoints;
-  if (ws[0].reader_state_before !== "knowledge: before v1." || JSON.stringify(ws[1].reader_state_before) !== JSON.stringify({ knowledge: "after one." })
-      || JSON.stringify(ws[0].reader_state_after) !== JSON.stringify({ knowledge: "after one." })) {
-    fails.push(`(e5) the judge is not handed each entry's derived before-state and its after-state: ${JSON.stringify(ws.map((w) => [w.reader_state_before, w.reader_state_after]))}`);
+  const scratch = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-left-"));
+  writeFileSync(join(scratch, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
+  const text = readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`), "utf8")
+    .replace(/^leaves: \[\]$/m, "leaves:\n  - kind: explain\n    what: the instance's one named part\n    segment: 1");
+  writeFileSync(join(scratch, `${moveId}.yaml`), text);
+  const prior = { what: "holds what a definition is", left_by: "the reader's prior knowledge" };
+  const two = { movesDir: scratch, legs: [{ leg_id: "v1", leaves_for_next_leg: [{ kind: "explain", what: "the instance's one named part" }],
+    waypoints: [1, 2].map((n) => ({ waypoint: n, point: `Point ${n}.`, serves: ["L1"], next_point: null, ...(n === 1 ? { stands_to_be_taken_up: [prior] } : {}) })) }] };
+  const entry = (n) => ({ ...plan(parts(segments)).waypoints[0], waypoint: n });
+  const judged = paragraphPlanJudgeInput({ version: "1", leg_id: "v1", waypoints: [entry(1), entry(2)] }, two, "leg-1").leg_you_must_judge;
+  const ws = judged.waypoints;
+  const left = { kind: "explain", what: "the instance's one named part", left_by: "Leg Waypoint 1" };
+  if (JSON.stringify(ws[0].stands_to_be_taken_up) !== JSON.stringify([prior]) || JSON.stringify(ws[1].stands_to_be_taken_up) !== JSON.stringify([prior, left])
+      || !Array.isArray(ws[0].bound_move.takes) || ws[0].bound_move.leaves.length !== 1 || JSON.stringify(judged.leaves_for_next_leg) !== JSON.stringify(two.legs[0].leaves_for_next_leg)
+      || ws.some((w) => "reader_state_before" in w || "reader_state_after" in w || "before" in w.bound_move || "after" in w.bound_move)) {
+    fails.push(`(e5) the judge is not handed what stands to be taken up and the bound Move's takes and leaves: ${JSON.stringify(judged)}`);
   }
+  rmSync(scratch, { recursive: true, force: true });
 }
 
 // (d) the bench, over a scratch axis added to a copy of the registry and a fake judge that refuses
@@ -224,5 +236,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-axes -- every judge axis is one sentence with a defect and a clean fixture and the bench run that kept it, the judge prompt renders exactly the registry's axes, the validator refuses a Paragraph Waypoint count off the bound Move's Segments and an entry carrying both performs and point, the bench writes an axis's rates and records or removes it, and the criteria table carries every criterion of both judges and no other");
+console.log("ok: check-paragraph-plan-axes -- every judge axis is one sentence with a defect and a clean fixture and the bench run that kept it, the judge prompt renders exactly the registry's axes, the validator refuses a Paragraph Waypoint count off the bound Move's Segments and an entry carrying both performs and point, the bench writes an axis's rates and records or removes it, the criteria table carries every criterion of both judges and no other, and the judge is handed what stands to be taken up and each bound Move's takes and leaves");
 JS

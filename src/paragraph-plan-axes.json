@@ -771,6 +771,17 @@
         "clean": [
           "leg3-clean"
         ]
+      },
+      "justified_by": {
+        "date": "2026-11-06",
+        "run": "runs/judge-bench/2026-11-06-taken-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
       }
     },
     {
@@ -783,6 +794,17 @@
         "clean": [
           "leg3-clean"
         ]
+      },
+      "justified_by": {
+        "date": "2026-11-06",
+        "run": "runs/judge-bench/2026-11-06-left-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
       }
     },
     {

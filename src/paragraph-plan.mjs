@@ -577,11 +577,12 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
   if (!failures.length) return {};
   return { failures, refusal: ["THE PARAGRAPH WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG WAYPOINT:",
     ...failures.map((f) => f.refusal),
-    "Generate the Paragraph Waypoints again so that they begin where the bound Move's before holds, end where its "
-    + "after leaves the reader, follow the Move's order (its segments), "
+    "Generate the Paragraph Waypoints again so that the bound Move's takes are each met by what stands to be "
+    + "taken up, its leaves are each taken up by a later paragraph or left for the next Leg, they follow the "
+    + "Move's order (its segments), "
     + "each perform its own Segment's operation and stand in that Segment's relation, "
     + "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the "
-    + "previous paragraph's bound Move's after leaves open, restates no Paragraph Waypoint, names no noun phrase "
+    + "previous paragraph's bound Move leaves, restates no Paragraph Waypoint, names no noun phrase "
     + "of either paragraph's Paragraph Waypoints, brings no case, example or term of its own and states no effect "
     + "on the reader."].join("\n") };
 }

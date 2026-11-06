@@ -136,7 +136,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       const m = bindable.find((x) => x.id === w.move);
       return { waypoint: i + 1, move: process.env.SMP_WRONG_MOVE && i === 0 ? process.env.SMP_WRONG_MOVE : w.move, materials: [...w.serves],
         ...(i > 0 ? { join: "consequence" } : {}),
-        purpose: "brings the reader to the chart as the bound of the gardener.", reader_state_after: { knowledge: "holds that the chart bounds the gardener." },
+        purpose: "brings the reader to the chart as the bound of the gardener.",
         depends_on: [], introduces: [], "re-activate": [], rationale: "it is paragraph " + (i + 1) + " of the Trial.",
         paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({
           point: i === 0 && n === 0 ? "PW-1-1 " + exprs.join(" and ") + " hold together." : "PW-" + (i + 1) + "-" + (n + 1) + " the paragraph makes its point.",
