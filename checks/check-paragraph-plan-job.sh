@@ -35,14 +35,12 @@
 #   (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM
 #       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
 #       per Leg, one `waypoints` row per Leg Waypoint carrying `point`,
-#       `serves`, `next_point`, `stands_to_be_taken_up` (the Persona's prior
-#       knowledge on the first Leg, kogaki#1701), `terms_this_leg_introduces` and
-#       the Move ids, each value also in that unit's prompt string; a site call
+#       `serves`, `next_point`, `stands_to_be_taken_up` (kogaki#1701),
+#       `terms_this_leg_introduces` and the Move ids, each in the prompt; a site call
 #       appends a `site_calls` row carrying `refused_here`, `fixed` and
 #       `moves_rejected_here`; (c) carries the kept Legs' records; `view --plan`
 #       over the plan (c) wrote prints each Leg Waypoint's point, Move `takes`,
-#       Segments table with the Paragraph Waypoint beside its Segment and Move
-#       `leaves`, and no reader state (kogaki#1701); `--run` adds the
+#       Segments table with each Paragraph Waypoint and Move `leaves`; `--run` adds the
 #       refusals of (b) with the axis they name, each under the Leg Waypoint
 #       it names as its site; and an edited Brief is refused.
 

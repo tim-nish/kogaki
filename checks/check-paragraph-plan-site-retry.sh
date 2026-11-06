@@ -2,17 +2,14 @@
 # check-paragraph-plan-site-retry — a ParagraphPlan refusal naming a Leg Waypoint is retried
 # at that Leg Waypoint alone (kogaki#1642). A fake judge (`KOGAKI_JUDGE_CLI`) answers each
 # call kind -- Leg, site, suffix, judge -- from a scenario module:
-#   (s1) one site call holds the Move alone, handed what stands to be taken up (kogaki#1701);
-#        only the site and the next join re-judged;
+#   (s1) one site call holds the Move alone and what stands; only the site and next join re-judged;
 #   (s2) a site answer repeating the refused entry is refused by name before any judge call;
-#   (s3) a later retry rebinding the Move recomposes the entries after it, not before, the
-#        suffix call handed what the rebound Move leaves (kogaki#1701);
+#   (s3) a rebound Move recomposes the entries after it, handed what it leaves (kogaki#1701);
 #   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
 #   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
 #   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
-#   are refused before the judge; (s10) a TAKEN or LEFT refusal holds no endpoint
-#   (kogaki#1701).
+#   are refused before the judge; (s10) a TAKEN or LEFT refusal holds no endpoint (kogaki#1701).
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
