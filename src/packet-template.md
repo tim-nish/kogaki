@@ -97,7 +97,9 @@ ParagraphPlan file beside the Brief and rendered under each waypoint -- and
 nothing of the Move itself. No Move file is opened here. The *Opens from* line
 under a waypoint is the ParagraphPlan's join, one word of a closed set of
 relations the stage chose from the reader state the previous paragraph leaves,
-and carries nothing of a Move (kogaki#1411, kogaki#1477).
+and carries nothing of a Move (kogaki#1411, kogaki#1477). A *Cast* line under
+a Paragraph Waypoint is the ParagraphPlan's cast, keys of a closed set the stage
+set from the Segment's manner, and is not the manner (kogaki#1695).
 No Segment field is copied onto a Paragraph Waypoint, `manner` included
 (kogaki#1585, owner decision 2026-10-25, reverting kogaki#1510's copy).
 NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25):
@@ -110,7 +112,7 @@ WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
 field it renders is held to; checks/check-schema-binds.sh reads it and
 src/SCHEMA-BINDS.md renders it beside the workflow rows.
-BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation"}}, "claims": {"leg": {"claims": "content"}}, "journeys": {"leg": {"journeys": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}, "crosses_here": {"leg": {"introduces": "content", "re-activate": "content"}}, "budget": {"leg": {"budget": "structural"}}, "figure_reason": {"leg": {"figure": "content"}}}
+BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation", "paragraph_waypoints.cast": "operation"}}, "claims": {"leg": {"claims": "content"}}, "journeys": {"leg": {"journeys": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}, "crosses_here": {"leg": {"introduces": "content", "re-activate": "content"}}, "budget": {"leg": {"budget": "structural"}}, "figure_reason": {"leg": {"figure": "content"}}}
 -->
 
 # Write one Leg
@@ -142,6 +144,21 @@ clause of the register's own, or with nothing where the order of the sentences
 already carries it; `none` adds nothing. Never state the relation as a
 proposition of its own: the opening does not say that something was left open,
 is owed, or is now taken up. The word is not copied and not announced.
+
+A *Cast* line under an indented line names, from a fixed set, the shape the
+sentences of the line above it take. It is realised in those sentences' form
+and never as a sentence or clause of its own; nothing of it is copied or
+announced. The set:
+
+- terse: one short statement given at once, taking no elaboration after it.
+- plain: laid down without support, ground or qualification.
+- hedged: offered as a guess or forecast rather than asserted.
+- chained: a run of parallel items or alternatives inside one sentence.
+- asked: put as a question that takes no lead-in.
+- voiced: spoken in a named voice, the first person, an invitation, or words reported as another's.
+- instanced: one recognisable instance named and left without comment.
+- dated: each instance placed in time.
+- figured: asserted as a likeness or a figurative identification.
 
 {{waypoints}}
 
@@ -202,7 +219,7 @@ Prose that writes its own heading is refused when the Leg is recorded.
 **The reader's own world.** {{reader_own_world}}
 
 **What the register below governs.** The register governs how sentences read
-inside the structure the numbered lines and the italic lines above give: it
+inside the structure the numbered, italic and *Cast* lines above give: it
 adds, removes and reorders no point and no operation. Where a register rule
 and one of those lines conflict, the line holds and the
 rule yields for that sentence. Do not return a refusal for such a conflict.

@@ -10,6 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
+import { CAST_KEYS } from "../compose/record.mjs";
 import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
 import { resolveLegJourneys, packetPersonaPath, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
@@ -29,11 +30,14 @@ export const READER_OWN_WORLD_ABSENT =
 // Beneath each, an indented `*Opens from:* <join>` line where the ParagraphPlan
 // carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Paragraph Waypoints as a numbered
 // sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
-// with no point and no Serves (kogaki#1448); no Segment field rides on it (kogaki#1585). No
+// with no point and no Serves (kogaki#1448); no Segment field rides on it (kogaki#1585). Under a
+// point whose `cast` sets any key, one further indented `*Cast:* <keys>` line, the true keys in
+// CAST_KEYS order (kogaki#1695). No
 // Obligation row and no line derived from one is rendered: the ledger is the Plan's
 // (kogaki#1584). Nothing else of a Move is rendered; a missing plan refuses at the
 // realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
+export const CAST_LABEL = "*Cast:*";
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
@@ -41,9 +45,13 @@ export function waypointLines(leg) {
   const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
   const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
   const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n));
+  const castOf = (p) => {
+    const keys = Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
+    return keys.length ? [`      ${CAST_LABEL} ${keys.join(", ")}`] : [];
+  };
   const markOf = (p) => (Array.isArray(p.forced_by) && p.forced_by.length ? [`      ${forcedMarkLine(p.forced_by)}`] : []);
   return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
-    ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...markOf(p)])].join("\n")).join("\n");
+    ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...castOf(p), ...markOf(p)])].join("\n")).join("\n");
 }
 
 // kogaki#1649: a judge-forced Paragraph Waypoint's mark, an HTML comment on a line of its own beneath it.

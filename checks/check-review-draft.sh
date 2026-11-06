@@ -172,7 +172,7 @@ else {
 const OPERATION = "announce that a definition follows";
 const packetWith = ({ performs = false } = {}) => {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
-    paragraph_waypoints: [{ point: w.point, serves: w.serves },
+    paragraph_waypoints: [{ point: w.point, serves: w.serves, cast: {} },
       ...(i === 0 && performs ? [{ performs: OPERATION }] : [])] })) };
   const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
@@ -224,7 +224,7 @@ else {
 // (i) review.md CLOSES WITH THE FORCED PARAGRAPHS, READ FROM THE PACKET ALONE (kogaki#1649).
 {
   const leg = (forced) => ({ ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
-    paragraph_waypoints: [{ point: w.point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}) }] })) });
+    paragraph_waypoints: [{ point: w.point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) });
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
   for (const [name, forced] of [["forced", true], ["plain", false]]) {

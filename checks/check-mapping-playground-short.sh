@@ -11,12 +11,15 @@
 #   (d) a binding answer of `move: null` on the second Leg Waypoint stops at `bind` naming Waypoint 2, and the record shows it (kogaki#1689).
 
 #   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet's first numbered line is each `holds` in order with
-#       every `{<Role id>}` replaced by its correspondence's `expression` and no Role id (kogaki#1688, kogaki#1693).
+#       every `{<Role id>}` replaced by its correspondence's `expression` and no Role id (kogaki#1688, kogaki#1693); the fake binding
+#       sets `cast: { terse: true }` on the first Paragraph Waypoint alone, and the Packet carries `*Cast:* terse` on the line beneath
+#       it and no other `*Cast:*` line (kogaki#1695).
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
 #       `Binding 1` and `Binding 2` of five labelled rows (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685); the Mapping
 #       part carries `Base: <domain>` above a table headed `Abstract`, `Attribute`, `Correspondence`, the fixture's attribute word
-#       in its Role's `Attribute` cell, and no kind word (kogaki#1693).
+#       in its Role's `Attribute` cell, and no kind word (kogaki#1693); and the Segments table's point cell carries its true cast
+#       keys in a `meta` span, on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
 
 #   (g) an `expression` carrying a content word of the `proposition:` is refused naming the word and `correspondences[i].expression`,
 #       in a table and in the owner's file; a null `expression` passes only on a placeholder table; a `role` naming no Role is refused
@@ -127,7 +130,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       : { waypoint: i + 1, move: m.id, materials: [...w.serves], ...(i > 0 ? { join: "consequence" } : {}),
       purpose: "brings the reader to the list as the bound of the crew.", reader_state_after: { knowledge: "holds that the list bounds the crew." },
       depends_on: [], introduces: [], "re-activate": [], rationale: "it is paragraph " + (i + 1) + " of the Trial.",
-      paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + (i + 1) + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "bind");
+      paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + (i + 1) + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: i === 0 && n === 0 ? { terse: true } : {} })) })) }, "bind");
   }
   if (process.env.SMP_WRITE_REFUSE) return out("refusal: the first paragraph cannot be written.", "writer");
   return out("WRITTEN the crew, its list and the room left off.", "writer");
@@ -197,6 +200,10 @@ ok(Array.isArray(aBindYaml.paragraphs) && aBindYaml.paragraphs.length === 2 && J
 const w = a.calls("write");
 const packet = existsSync(join(a.o, "write", "packet.md")) ? readFileSync(join(a.o, "write", "packet.md"), "utf8") : null;
 ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(e) the writer's recorded stdin is not the Packet byte for byte");
+const pLines = (packet || "").split("\n");
+const castAt = pLines.findIndex((l) => l.includes("PW-1-1 the paragraph makes its point."));
+ok(castAt !== -1 && pLines[castAt + 1] === "      *Cast:* terse" && pLines.filter((l) => l.includes("*Cast:*")).length === 1,
+  `(e) the Packet does not carry \`*Cast:* terse\` beneath the first Paragraph Waypoint alone: ${JSON.stringify(pLines.slice(castAt, castAt + 2))}`);
 
 // (b) the Mapper route
 writeFileSync(join(root, "answer.json"), JSON.stringify(mapped));
@@ -345,6 +352,9 @@ ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === Str
   && segRows[n][3] === esc(sg.relation || "") && segRows[n][4] === esc(sg.manner || "") && segRows[n][5] === esc(owned.waypoints[n].point)),
   `(f) the Segments table is not one row per Segment with its operation, relation, manner and point: ${segRows.length} rows for ${segs.length} segments`);
 ok(!sheet.includes("serves L") && !jSheet.includes("serves L"), "(f) a sheet still carries `serves L`");
+ok(section(sheet, "segments").includes('<td>PW-1-1 the paragraph makes its point. <span class="meta">terse</span></td>')
+  && (section(sheet, "segments").match(/class="meta">terse</g) || []).length === 1,
+  "(f) the Segments table's point cell of the Paragraph Waypoint whose cast sets `terse` does not carry it in a meta span, alone (kogaki#1695)");
 const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption>${caption}</caption>([\\s\\S]*?)</table>`, "g"))].map((x) => x[1]);
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
 const labelsOf = (table) => [...table.matchAll(/<th rowspan="\d+">([\s\S]*?)<\/th>/g)].map((x) => x[1]);

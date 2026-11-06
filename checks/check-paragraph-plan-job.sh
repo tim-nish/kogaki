@@ -129,7 +129,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes('"leg_waypoint_you_must_plan"')) {
     const site = body("leg_waypoint_you_must_plan"), e = site.refused_here[site.refused_here.length - 1].entry;
     appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: site.leg_waypoint_you_must_plan.leg_id }) + "\\n");
-    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.leg_waypoint_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", serves: [...e.paragraph_waypoints[0].serves] }] });
+    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.leg_waypoint_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", serves: [...e.paragraph_waypoints[0].serves], cast: {} }] });
   }
   const leg = body("leg_you_must_plan").leg_you_must_plan;
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: leg.leg_id }) + "\\n");
@@ -138,7 +138,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     materials: [...w.serves], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
     reader_state_after: leg.reader_state_after, depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
     introduces: [], "re-activate": [],
-    paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: [...w.serves] }] })) });
+    paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: [...w.serves], cast: {} }] })) });
 });
 `);
 chmodSync(judge, 0o755);
