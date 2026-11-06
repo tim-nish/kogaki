@@ -506,8 +506,11 @@ those paths into.
     they are "handed". The effect form kogaki#1311 introduced — what a step
     does to the reader — was narrated by the writer: on the 2026-10-09 Draft
     the stage directions became topic sentences, and a Leg's waypoints were
-    its Move's technique with the subject filled in. The point is not quoted;
-    its wording stays the writer's.
+    its Move's technique with the subject filled in. That is why the point
+    was once left unquoted, its wording the writer's; since kogaki#1375 a
+    point is a sentence written for the reader, so the Packet renders each
+    indented line as the sentences it is, joined in order, and the paragraph
+    adds no sentence no line carries (kogaki#1694).
   - **It serves a claim.** A point need not restate the claim; it is
     obtainable from the claim it serves, and a reinforcing point — an
     example, a consequence, an answer to an objection — names the claim it
@@ -1715,8 +1718,11 @@ rendering the Move beside it would put the general and the specialized
 statement of one thing side by side and leave the model to choose. The block
 renders the points as a **numbered list**, each point once and in route order,
 with the claim it serves in the claim's own words (kogaki#1326), under a fixed
-usage header: the point is not quoted and its wording is the writer's, and
-the paragraphs that carry it are the Paragraph Waypoints beneath it. The header carries no sentence about what a
+usage header: each indented line is rendered as the sentences it is, in
+order, joined with only a connective or a reference changed, and the paragraph
+adds no sentence no line carries (kogaki#1694, retiring the unquoted point the
+effect form of kogaki#1311 needed), and the paragraphs that carry it are the
+Paragraph Waypoints beneath it. The header carries no sentence about what a
 step does to the reader. Reverse Outlining reads the points back: the Blind
 Reader writes the point each paragraph makes, and the `waypoints` row asks
 whether each declared point is among them. `draft.mjs` opens no

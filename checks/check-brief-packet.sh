@@ -140,8 +140,8 @@ const fails = [];
           if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);
         }
         // THE WAYPOINTS BLOCK REPLACED THE MOVE BLOCK (kogaki#1311): its header
-        // says each line is a point whose wording is the writer's (kogaki#1326).
-        if (!/The point is not quoted/.test(packet)) fails.push("(o) the Packet's waypoints block header does not carry \"The point is not quoted\"");
+        // renders each line as the sentences it is (kogaki#1694).
+        if (!/rendered as the sentences it is/.test(packet.replace(/\s+/g, " "))) fails.push("(o) the Packet's waypoints block header does not carry \"rendered as the sentences it is\"");
       }
     }
   }

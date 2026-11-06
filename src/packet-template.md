@@ -120,9 +120,10 @@ BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claim
 Each numbered line below is a point this Leg makes, in order, and the claim
 it serves — one paragraph, carrying that point. Under it, the indented
 numbered lines are the points that paragraph makes, in order, each with the
-claim it serves: they are not one sentence each, and the paragraph expresses
-them in as many sentences as it needs.
-The point is not quoted: its wording is yours, and no line here is copied or
+claim it serves. Each indented line is rendered as the sentences it is, in
+their order, and the paragraph is those sentences joined: the register may
+change a connective or a reference between them, and changes nothing else.
+The paragraph adds no sentence that no indented line carries. No line is
 announced to the reader.
 
 - ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.

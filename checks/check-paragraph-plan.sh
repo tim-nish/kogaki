@@ -37,8 +37,9 @@
 #       retiring the fallback kogaki#1378 gave).
 #   (g) a bound Move carrying three `segments` yields a plan record with
 #       three Paragraph Waypoints under its Leg Waypoint, and the rendered
-#       Packet carries the three indented lines under the one point, under the
-#       revised header (kogaki#1381).
+#       Packet carries the three indented lines under the one point, under a
+#       header that renders each line as the sentences it is and adds none
+#       (kogaki#1694, retiring kogaki#1381's licence to reword).
 #   (h) a plan prompt built over a Move with three Segments carries every
 #       Segment's number, `operation`, `relation` and `manner` as separate fields (kogaki#1414,
 #       reverting the withholding of kogaki#1403), the plan row states that a
@@ -663,11 +664,12 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     for (const n of [1, 2, 3]) if (!(rendered || "").includes(`PW-s1-1-${n}`)) fails.push(`(g) the rendered Packet waypoints block lacks Paragraph Waypoint ${n}`);
   }
   const header = readFileSync("src/packet-template.md", "utf8");
-  if (!header.includes("they are not one sentence each") || !header.includes("as many sentences as it needs")) {
-    fails.push("(g) src/packet-template.md's waypoints header does not state the revised rule");
+  const flatHeader = header.replace(/\s+/g, " ");
+  if (!flatHeader.includes("rendered as the sentences it is") || !flatHeader.includes("adds no sentence that no indented line carries")) {
+    fails.push("(g) src/packet-template.md's waypoints header does not state that each line is rendered as the sentences it is and none is added");
   }
-  if (header.includes("One paragraph per indented line is the expected shape")) {
-    fails.push("(g) src/packet-template.md's waypoints header still carries the retired one-sentence-per-line rule");
+  for (const retired of ["as many sentences as it needs", "its wording is yours"]) {
+    if (flatHeader.includes(retired)) fails.push(`(g) src/packet-template.md's waypoints header still carries the retired "${retired}"`);
   }
 }
 
