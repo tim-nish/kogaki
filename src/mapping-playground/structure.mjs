@@ -81,7 +81,6 @@ export function higherOrderOf(record) {
 
 // The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer.
 export function validateStructure(record, proposition) {
-  if (isMap(record) && "attributes" in record) return { error: "the structure carries `attributes`, which is no field of the proposition's structure (kogaki#1685)" };
   const bad = keysRefusal(record, ["strand", "roles", "relations", "higher_order"], "the structure");
   if (bad) return { error: bad };
   if (record.strand !== proposition.cite) {
@@ -94,10 +93,15 @@ export function validateStructure(record, proposition) {
   if (!roles) return { error: "the structure's `roles` is not a non-empty list" };
   for (const [i, r] of roles.entries()) {
     const at = `roles[${i}]`;
-    const b = keysRefusal(r, ["id", "context"], at);
-    if (b) return { error: b };
+    const b = keysRefusal(r, ["id", "context", "attributes"], at);
+    if (b) return { error: isMap(r) && isText(r.id) ? `${b} (the Role ${JSON.stringify(r.id)})` : b };
     if (!isText(r.id) || ids.has(r.id)) return { error: `${at}'s \`id\` is empty or not unique` };
     if (!isText(r.context)) return { error: `${at}'s \`context\` is empty` };
+    if (!Array.isArray(r.attributes)) return { error: `the Role ${JSON.stringify(r.id)}'s \`attributes\` is not a list` };
+    for (const [n, a] of r.attributes.entries()) {
+      if (!isText(a)) return { error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` is empty or not text` };
+      if (r.attributes.indexOf(a) !== n) return { error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` repeats ${JSON.stringify(a)}` };
+    }
     ids.add(r.id);
   }
   const relations = listOf("relations");
