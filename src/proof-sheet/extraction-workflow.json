@@ -27,7 +27,7 @@
       "move": { "breaks": "content", "segments": "content", "description": "content", "segments.operation": "content", "segments.relation": "content", "segments.manner": "content", "takes": "content", "leaves": "content" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "evidence", "obligation", "obligation_triggers", "before", "after", "after_segment"]
+      "move": ["id", "figure", "continues_from", "evidence", "before", "after", "after_segment"]
     },
     "schema_file": "passages/FORMAT.md",
     "note": "The one call per paragraph (kogaki#1384). `src/proof-sheet/extract.mjs` renders this row through the shared `judgePrompt` renderer, FORMAT.md verbatim above the input marker, and the paragraph's own input below it; `validateExtractionUnit` reads the answer back against FORMAT and `extractionFileText` writes it as FORMAT's YAML record, `<name>.yaml` (kogaki#1413), so `tools/move_ingest.py passage --from-extraction` reads it unchanged through the same YAML module; `extractionMarkdown` renders the record for reading on the Proof Sheet. The fields the Harness can count or knows -- `unit`, `length`, `status` -- and each Segment's quoted `opening` words are written by the Harness, never asked.",

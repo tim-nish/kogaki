@@ -175,14 +175,16 @@ export const PRIOR_KNOWLEDGE = "the reader's prior knowledge";
 
 // The planLeg options for every Leg of a Brief, read off the Move library: each Leg's own Move's
 // `leaves`, the previous Leg's, and the Persona's prior-knowledge line on the first Leg. A Leg
-// naming a Move the library does not hold is refused by name.
+// binding no Move (a Trial's Brief, kogaki#1664) leaves nothing; a Leg naming a Move the library
+// does not hold is refused by name.
 export function planLegOptions(legs, moves, priorKnowledge) {
   const byId = new Map(moves.map((m) => [m.id, m]));
+  const leavesOf = (leg) => (typeof leg.move === "string" ? (byId.get(leg.move) || {}).leaves || [] : []);
   return legs.map((leg, i) => {
-    const own = byId.get(leg.move);
-    if (!own) return { error: `the Brief's Leg ${leg.leg_id} binds the Move ${JSON.stringify(leg.move)}, which the Move library does not hold — the ParagraphPlan reads what that Move leaves for the next Leg (kogaki#1701)` };
-    const prev = i > 0 ? byId.get(legs[i - 1].move) : null;
-    return { leaves: own.leaves || [], previousLeaves: prev ? prev.leaves || [] : [], previousLegId: i > 0 ? legs[i - 1].leg_id : null,
+    if (typeof leg.move === "string" && !byId.has(leg.move)) {
+      return { error: `the Brief's Leg ${leg.leg_id} binds the Move ${JSON.stringify(leg.move)}, which the Move library does not hold — the ParagraphPlan reads what that Move leaves for the next Leg (kogaki#1701)` };
+    }
+    return { leaves: leavesOf(leg), previousLeaves: i > 0 ? leavesOf(legs[i - 1]) : [], previousLegId: i > 0 ? legs[i - 1].leg_id : null,
       priorKnowledge: i === 0 ? priorKnowledge : null };
   });
 }

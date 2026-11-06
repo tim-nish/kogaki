@@ -2761,8 +2761,10 @@ Move's `leaves` to that list: every entry is taken up by a later paragraph of
 the Leg or is among `leaves_for_next_leg`, and a `carry` one paragraph leaves
 is taken up by the next. Whether an entry is met or taken up is judged by
 sense, never compared verbatim, and is the judge's TAKEN and LEFT; the plan
-file records none of it. The Obligations ledger this replaced is retired
-(§5.2).
+file records none of it. A Leg the Brief binds no Move to (a Trial's Brief)
+leaves nothing; a Leg naming a Move the library does not hold stops the stage
+at `start`, naming the Leg and the Move. The Obligations ledger this replaced is
+retired (§5.2).
 
 **The Audience.** Paragraph Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.

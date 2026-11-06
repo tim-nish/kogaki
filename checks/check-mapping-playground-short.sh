@@ -160,7 +160,8 @@ const snapshot = () => {
 const before = snapshot();
 // THE LIBRARY THE TRIAL READS (kogaki#1698, kogaki#1700): a copy of `moves/` under the Trials directory in which every record
 // carries the `takes` and `leaves` this check sets: MOVE leaves a `carry`, INFER takes one, PLAIN leaves none, and every other
-// record carries both lists empty, so the Trial reads every other field of the library as written.
+// record carries both lists empty, and no record the retired `obligation` (kogaki#1701), so the Trial reads every
+// other field of the library as written.
 const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
 const INFER = "build_the_familiar_side_of_a_contrast_up_to_its_principle";
 const PLAIN = "build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts";
@@ -175,6 +176,8 @@ const library = (() => {
     const id = n.replace(/\.yaml$/, "");
     r.takes = id === INFER ? [{ kind: "carry", what: INFER_TAKES }] : [];
     r.leaves = id === MOVE ? [{ kind: "carry", what: CARRY_WHAT, segment: r.segments.length }] : [];
+    // The retired `obligation` (kogaki#1701) is cut, as the owner's `--retire-obligation` run cuts it.
+    delete r.obligation; delete r.obligation_triggers;
     writeFileSync(join(dir, n), stringifyYaml(r));
   }
   return dir;
