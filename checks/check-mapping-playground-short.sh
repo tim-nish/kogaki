@@ -8,6 +8,7 @@
 #       leaving no `carry` writes one paragraph, one Leg Waypoint and one binding.
 #   (b) `--mapper sme_map_roles --compose` records five calls and `structure.author: sme`.
 #   (c) `--rbs` is refused naming `--compose` and `--rbs-file`, and a run with neither is refused naming both, with nothing written.
+
 #   (d) the `smp_bind_move` row's refusals by name: an id not in the library, an `inference_move` null where the base Move leaves a
 #       `carry` (naming the entry), one given where it leaves none, and an inference Move whose `takes` holds no `carry`; a first
 #       refusal reaches the second attempt's stdin, and a second stops at `bind`. A waypoints answer binding another Move stops at
