@@ -13,6 +13,7 @@ import {
   isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord,
 } from "./render.mjs";
 import { oneLine } from "./record.mjs";
+import { moveConstraintsRefusal } from "../move-validate.mjs";
 
 // ---- THE ADAPTER (kogaki#1349): Move field -> role, declared by the library ----
 //
@@ -45,10 +46,10 @@ export function moveRoles(movesDir = "moves") {
   return { roles: decl };
 }
 
-// The required roles, mapped to the compose/judge output key each has always
-// emitted under (kogaki#1349: "each role emitting under its current output
-// key so compose and judge inputs stay byte-identical").
-const REQUIRED_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "after"]];
+// The required roles beside `identity`, mapped to the output key each emits
+// under (kogaki#1349, kogaki#1698).
+const REQUIRED_ROLE_OUTPUT_KEYS = [["takes", "takes"], ["leaves", "leaves"]];
+const STATE_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "after"]];
 // The optional roles this reader has a use for. A role this library's
 // declaration leaves null is carried on the output as null, exactly as
 // `segments` already was before this adapter existed (kogaki#1320).
@@ -116,16 +117,11 @@ function moveRecordContract(record, moveId, path, movesDir) {
     const field = required[role];
     if (typeof field !== "string" || field === "") {
       return { error: `${movesDir}/ROLES.json names no field for the required role "${role}" — every schema maps `
-        + `identity, state-before and state-after (specs/spec-draft-pipeline/SPEC.md field-roles table)` };
+        + `identity, takes and leaves (specs/spec-draft-pipeline/SPEC.md field-roles table)` };
     }
     const v = record[field];
     if (v === undefined || v === null) { missing.push(field); continue; }
-    // A STATE IS A MAP KEYED BY DIMENSION (kogaki#1413), rendered here one
-    // line per dimension: that is the text the binding contract and the judge
-    // read, so the map's shape is checked at the one place it is rendered.
-    const bad = moveStateRefusal(v, field, at);
-    if (bad) return { error: bad };
-    out[outKey] = moveStateLines(v);
+    out[outKey] = v;
   }
   if (missing.length) {
     // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
@@ -134,6 +130,18 @@ function moveRecordContract(record, moveId, path, movesDir) {
     return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${path}) — `
       + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
       + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
+  }
+  // A STATE IS A MAP KEYED BY DIMENSION (kogaki#1413), rendered here one
+  // line per dimension: that is the text the binding contract and the judge
+  // read, so the map's shape is checked at the one place it is rendered;
+  // optional since kogaki#1698.
+  for (const [role, outKey] of STATE_ROLE_OUTPUT_KEYS) {
+    const field = optional[role];
+    const v = typeof field === "string" && field !== "" ? record[field] : undefined;
+    if (v === undefined || v === null) { out[outKey] = null; continue; }
+    const bad = moveStateRefusal(v, field, at);
+    if (bad) return { error: bad };
+    out[outKey] = moveStateLines(v);
   }
   for (const [role, outKey] of OPTIONAL_ROLE_OUTPUT_KEYS) {
     const field = optional[role];
@@ -180,7 +188,12 @@ function moveRecordContract(record, moveId, path, movesDir) {
     return { error: `${at} carries ${unnamed.map((k) => `\`${k}\``).join(", ")}, which the library's ROLES.json maps to no role — `
       + `a Move carries the fields its declaration maps plus ${MOVE_CARRIED_FIELDS.map((k) => `\`${k}\``).join(" and ")}, and an unnamed field is refused, not carried into the library (kogaki#1418)` };
   }
-  const afterSegment = afterSegmentRefusal(record, optional["state-after-segments"], required["state-after"], optional.segments, at);
+  const segmentCount = Array.isArray(record[optional.segments]) ? record[optional.segments].length : 0;
+  const constraints = moveConstraintsRefusal({ takes: record[required.takes], leaves: record[required.leaves] }, segmentCount, at);
+  if (constraints) return { error: constraints };
+  out.takes = out.takes.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim() }));
+  out.leaves = out.leaves.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim(), segment: Number(x.segment) }));
+  const afterSegment = afterSegmentRefusal(record, optional["state-after-segments"], optional["state-after"], optional.segments, at);
   if (afterSegment) return { error: afterSegment };
   const description = descriptionRefusal(record.description, at);
   if (description) return { error: description };

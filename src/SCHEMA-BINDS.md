@@ -23,13 +23,15 @@ it does not read, and empty where the stage does not read the schema at all.
 | field | differentiation | reader_path_unit | reader_path_fit_unit | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit | leg_reader_start_unit |
 |---|---|---|---|---|---|---|---|
 | `id` | unread | unread | unread | unread | unread | unread | unread |
+| `takes` | unread | unread | unread | unread | unread | content | unread |
+| `leaves` | unread | unread | unread | unread | unread | content | unread |
 | `before` | excluded | excluded | excluded | structural | excluded | content | excluded |
 | `after` | excluded | excluded | excluded | structural | excluded | content | unread |
 | `breaks` | excluded | excluded | excluded | structural | excluded | content | unread |
 | `segments` | excluded | structural | excluded | structural | excluded | content | unread |
 | `figure` | unread | unread | unread | unread | unread | unread | unread |
 | `continues_from` | unread | unread | unread | unread | unread | unread | unread |
-| `obligation` | unread | unread | unread | unread | unread | content | unread |
+| `obligation` | unread | unread | unread | unread | unread | unread | unread |
 | `obligation_triggers` | unread | unread | unread | unread | unread | unread | unread |
 | `after_segment` | unread | unread | unread | unread | unread | unread | unread |
 | `description` | unread | unread | unread | unread | unread | content | unread |

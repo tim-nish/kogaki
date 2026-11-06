@@ -147,12 +147,27 @@ const snapshot = () => {
   return rows.sort().join("\n");
 };
 const before = snapshot();
+// THE LIBRARY THE TRIAL READS (kogaki#1698): `moves/` itself once the owner's
+// `rejudge --constraints --write` run has given its records `takes` and `leaves`; until then a
+// copy under the Trials directory in which each record carrying no `takes` carries both lists
+// empty, so the Trial reads every other field of the library as written.
+const library = (() => {
+  const names = readdirSync(join(repo, "moves"));
+  if (names.some((n) => n.endsWith(".yaml") && /^takes:/m.test(readFileSync(join(repo, "moves", n), "utf8")))) return "moves";
+  mkdirSync(trials, { recursive: true });
+  const dir = mkdtempSync(join(trials, "check-library-"));
+  for (const n of names.filter((x) => x.endsWith(".yaml") || x === "ROLES.json")) {
+    const text = readFileSync(join(repo, "moves", n), "utf8");
+    writeFileSync(join(dir, n), n.endsWith(".yaml") ? `${text.replace(/\s*$/, "\n")}takes: []\nleaves: []\n` : text);
+  }
+  return dir;
+})();
 const outDir = mkdtempSync(join(trials, "check-short-"));
 const run = (name, args, extraEnv = {}) => {
   const dir = join(root, name);
   mkdirSync(dir, { recursive: true });
   const o = join(outDir, name);
-  const res = spawnSync(process.execPath, ["src/mapping-playground/short.mjs", "run", ...(args.includes("--strand") ? [] : ["--proposition", proposition]), "--out", o, ...args],
+  const res = spawnSync(process.execPath, ["src/mapping-playground/short.mjs", "run", "--library", library, ...(args.includes("--strand") ? [] : ["--proposition", proposition]), "--out", o, ...args],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, SMP_FIXTURE_DIR: dir, ...extraEnv }, timeout: 600000 });
   const rec = existsSync(join(o, "trial.json")) ? JSON.parse(readFileSync(join(o, "trial.json"), "utf8")) : null;
   const seen = existsSync(join(dir, "seen.jsonl")) ? readFileSync(join(dir, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
@@ -266,7 +281,7 @@ ok(gcRun.res.status !== 0 && gcRun.res.stderr.includes("correspondences[0].expre
 
 // (j) the owner-authored table with a supplied binding: one writer call, no binding call
 const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
-const SEGMENTS = moveContract(MOVE, join(repo, "moves")).segments.length;
+const SEGMENTS = moveContract(MOVE, resolve(repo, library)).segments.length;
 const LONE = { id: "porch", context: "A porch light glows by the gate.", attributes: [] };
 const owned = { base: { domain: "a cleaning crew working through a house" },
   correspondences: [...ROLE_IDS, LONE.id].map((id) => ({ role: id, expression: "the crew's list" })), move: MOVE,
@@ -301,7 +316,7 @@ ok(k.res.status !== 0 && k.res.stderr.includes("`--rbs`") && k.res.stderr.includ
   `(k) --rbs with --rbs-file was not refused naming both: ${k.res.status} ${k.res.stderr}`);
 
 // (l) each bad field of the table is refused naming it
-const lv = (edit) => validateRbsTable({ ...owned, ...edit }, PROPOSITION, { movesDir: join(repo, "moves") });
+const lv = (edit) => validateRbsTable({ ...owned, ...edit }, PROPOSITION, { movesDir: resolve(repo, library) });
 const l0 = validateRbsTable({ correspondences: owned.correspondences }, PROPOSITION);
 ok(l0.error && l0.error.includes("`base`"), `(l) a table with no base was not refused naming base: ${JSON.stringify(l0)}`);
 const l1 = lv({ base: { domain: "a house", kind: "analogy" } });
@@ -345,7 +360,7 @@ const pp = section(jSheet, "proposition-paragraph");
 ok(!pp.includes('class="cols"') && pp.startsWith(`<h2>Proposition and Paragraph</h2><p>${esc(PROPOSITION)}</p><p class="meta">cite: ${esc(CITE)}</p><div class="prose">WRITTEN the crew`),
   `(f) the proposition and its cite line do not stand above the full-width Paragraph with no cols div: ${pp}`);
 ok(!sheet.includes("WBS") && !jSheet.includes("WBS"), "(f) a sheet still carries `WBS`");
-const segs = moveContract(MOVE, join(repo, "moves")).segments;
+const segs = moveContract(MOVE, resolve(repo, library)).segments;
 const segTables = [...section(jSheet, "segments").matchAll(/<table><caption>Paragraph \d+ [\s\S]*?<\/table>/g)].map((x) => x[0]);
 const segRows = [...(segTables[0] || "").matchAll(/<tr><td>(\d+)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
 ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === String(n + 1) && segRows[n][2] === esc(sg.operation)
@@ -358,7 +373,7 @@ ok(section(sheet, "segments").includes('<td>PW-1-1 the paragraph makes its point
 const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption>${caption}</caption>([\\s\\S]*?)</table>`, "g"))].map((x) => x[1]);
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
 const labelsOf = (table) => [...table.matchAll(/<th rowspan="\d+">([\s\S]*?)<\/th>/g)].map((x) => x[1]);
-const KNOWLEDGE = (moveContract(MOVE, join(repo, "moves")).before.split("\n").find((l) => l.startsWith("knowledge: ")) || "knowledge: ?");
+const KNOWLEDGE = (moveContract(MOVE, resolve(repo, library)).before.split("\n").find((l) => l.startsWith("knowledge: ")) || "knowledge: ?");
 ok(section(jSheet, "segments").includes(`<caption>Paragraph 1 <span class="meta">${MOVE}</span></caption>`) && !section(jSheet, "segments").includes("<caption>Binding"),
   "(f) the Segments table is not captioned `Paragraph 1` with its Move, or a Binding table remains inside Segments");
 const [jBinding] = tableOf(section(jSheet, "bindings"), "Binding 1");
@@ -482,10 +497,10 @@ const o3Caps = tableOf(section(o3Sheet, "bindings"), "Binding \\d+");
 ok(o3.res.status === 0 && o3.seen.length === 1 && o3Caps.length === 3, `(o) a projection list of two did not exit 0 with three Binding tables: ${o3.res.status} ${o3Caps.length} ${o3.res.stderr}`);
 
 // (p) a projecting point carrying a claim word passes ("walker" in PROJ-1)
-ok(!validateRbsTable({ ...owned, projection: [PROJ] }, PROPOSITION, { movesDir: join(repo, "moves") }).error, "(p) a projecting point carrying a claim word was refused");
+ok(!validateRbsTable({ ...owned, projection: [PROJ] }, PROPOSITION, { movesDir: resolve(repo, library) }).error, "(p) a projecting point carrying a claim word was refused");
 
 // (q) a projecting binding's fields are refused naming its index
-const qv = (projection, base = owned) => validateRbsTable({ ...base, projection }, PROPOSITION, { movesDir: join(repo, "moves") });
+const qv = (projection, base = owned) => validateRbsTable({ ...base, projection }, PROPOSITION, { movesDir: resolve(repo, library) });
 const q1 = qv([PROJ, { ...PROJ, waypoints: PROJ.waypoints.slice(1) }]);
 ok(q1.error && q1.error.startsWith("projection[1].waypoints "), `(q) a wrong-length projection[1].waypoints was not refused naming it: ${JSON.stringify(q1)}`);
 const q2 = qv([PROJ, { ...PROJ, move: "no_such_move" }]);
@@ -523,7 +538,7 @@ ok(s2.error && s2.error.startsWith("higher_order[0]'s `relates`") && s2.error.in
 const RENDERING = "The walker lists the files; the rule set applies to that list and to nothing else.";
 const tRun = (name, text, args = []) => { const f = join(root, `${name}.md`); writeFileSync(f, text);
   const o = join(outDir, name);
-  const res = spawnSync(process.execPath, ["src/mapping-playground/short.mjs", "run", "--proposition", f, "--structure", structure, "--out", o, ...args],
+  const res = spawnSync(process.execPath, ["src/mapping-playground/short.mjs", "run", "--library", library, "--proposition", f, "--structure", structure, "--out", o, ...args],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, SMP_FIXTURE_DIR: root } });
   return { res, o }; };
 const t1 = tRun("rendered", `cite: ${CITE}\nproposition: ${PROPOSITION}\n\n${RENDERING}\n`);
@@ -591,6 +606,7 @@ ok(i.status === 0, `(i) checks/check-mapping-playground.sh failed: ${i.stdout}${
 
 rmSync(root, { recursive: true, force: true });
 if (!fails.length) rmSync(outDir, { recursive: true, force: true });
+if (library !== "moves") rmSync(library, { recursive: true, force: true });
 if (fails.length) { for (const f of fails) console.log(`FAIL: ${f}`); console.log(`kept: ${outDir}`); process.exit(1); }
 console.log("check-mapping-playground-short: ok");
 JS

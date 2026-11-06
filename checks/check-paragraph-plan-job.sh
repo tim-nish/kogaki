@@ -81,7 +81,7 @@ mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
 writeFileSync(join(moves, "p1.yaml"), stringifyYaml({ id: "p1", description: "a fixture Move.",
   before: { knowledge: "MOVE-BEFORE the reader holds the claim." }, after: { knowledge: "MOVE-AFTER the reader holds the point." },
-  breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }] }));
+  breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
 
 // ---- the Brief: three Legs, one Leg Waypoint each ----
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;

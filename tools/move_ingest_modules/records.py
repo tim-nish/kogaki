@@ -19,6 +19,8 @@ import subprocess
 FIELDS = (
     "id",
     "description",
+    "takes",
+    "leaves",
     "before",
     "after",
     "breaks",

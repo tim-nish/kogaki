@@ -65,7 +65,7 @@ export function fitMoveLibrary() {
   // A Move record is YAML read by the Brief's own reader (kogaki#1413), so the
   // fixture is written by its writer, with `before` and `after` maps.
   for (const [id, f] of Object.entries(FIT_MOVE)) {
-    const rec = { id, description: `the fixture Move ${id}.`, before: { knowledge: `before ${id}.` }, after: { knowledge: `after ${id}.` }, breaks: f.breaks, segments: f.segments };
+    const rec = { id, description: `the fixture Move ${id}.`, before: { knowledge: `before ${id}.` }, after: { knowledge: `after ${id}.` }, breaks: f.breaks, segments: f.segments, takes: [], leaves: [] };
     writeFileSync(join(fitMoves, `${id}.yaml`), stringifyYaml(rec));
   }
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in

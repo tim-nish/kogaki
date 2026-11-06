@@ -272,6 +272,7 @@ def main_passage(argv):
         "Extractions, passages/FORMAT.md \"The paragraph unit\"): each record "
         "is read off its Extraction record -- id from `name`, before/after from "
         "`reader`'s changed rows, after_segment from their `segment` cells, "
+        "takes and leaves from `takes` and `leaves`, "
         "segments from `segments` -- and no model "
         "is called",
     )

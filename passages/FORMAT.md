@@ -102,7 +102,7 @@ extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
 applies to a paragraph Extraction, except the rules here — rules 1, 2
 and 4 to 6 are mechanism m2's (kogaki#1348), carried verbatim, rule 3 is kogaki#1652's, rule 7 is kogaki#1440's,
-rule 8 is kogaki#1583's, with its two forms kogaki#1618's (retiring the count forms of kogaki#1602), rule 9 is kogaki#1478's and rule 10 is retired:
+rule 8 is kogaki#1698's (replacing kogaki#1583's obligation), rule 9 is kogaki#1478's and rule 10 is retired:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
    Passage verbatim. A definition list or block quotation announced by the
@@ -155,12 +155,12 @@ rule 8 is kogaki#1583's, with its two forms kogaki#1618's (retiring the count fo
    Segment's `operation` is the operation alone, and its `relation`
    carries the connection to the step before. Every prose field of the
    record, `operation`, `relation`, `manner`, each entry of `breaks`, each
-   dimension state of the reader table and each item of `obligation`, names no term, place, person or
+   dimension state of the reader table and each `what` of `takes` and `leaves`, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`obligation` is absent unless `question` or `term` fires in the Move's own Segments.** The obligation is derived from the record's `segments` alone, each `operation` and `relation`, and nothing of the Passage, and it fires on two forms and never on a count (kogaki#1618, owner reading 2026-10-26, beside kogaki#1590, kogaki#1602 and kogaki#1613): **a question left standing**, where a Segment's `operation` poses a question to the reader and no later Segment's `operation` answers it, the item being that question; and **a term left unexplained**, where a Segment's `operation` introduces or names a term and no later Segment's `operation` defines, glosses or grounds it, the item being that term. Each form yields one item per question or per term, in the order the Segments raise them, each a term or question of at most twelve words; otherwise the key is absent. **A question whose parts are named** (kogaki#1620): where a Segment poses a question and a later Segment names, without explaining, the parts its answer turns on, the question's item carries those parts as its `subitems`, in the order that Segment names them, so the item is `{item, subitems}`; the parts are the SubItems that close first, each by being explained, and the question closes last, by being answered. A term introduced and then explained in any later Segment owes nothing: whether the explanation was enough is the owner's judgment at the sheet, not the call's. An operation that counts or names a set of items is no trigger, and the count forms of kogaki#1602 (one collective item, or that many ordinal items) are retired with the `counts` trigger they served: an item may carry a number or ordinal word. `obligation_triggers` carries the verdict on `question` and on `term`, each with its one-line reason and the Segment it rests on, on every record. The obligation belongs to the Move as a whole, and no Segment position is required; it shapes prose and carries no condition on how an item is kept ("Where each field goes"). Absent is the normal case.
+8. **`takes` and `leaves` are the Move's constraints** (kogaki#1698, owner ruling 2026-11-06, replacing the obligation of kogaki#1583 and kogaki#1618). `takes` is what Segment 1 takes up on entry, written as what a predecessor could leave; `leaves` is what the paragraph's Segments leave for a later unit to take up. Each is a list, possibly empty, of `{ kind, what }`, `kind` one of four (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs, each rendered with its definition: `answer` a question raised, to be answered; `explain` a term or item named, to be explained; `carry` a structure given in a base, to be carried onto the subject; `apply` a principle, division or general statement given, to be put to work on a case) and `what` one line written general, as `operation` is; a `leaves` entry also carries `segment`, the Segment that leaves it. A question the paragraph answers, or a term it explains, in a later Segment of its own is left for nothing. Both are read by judgment, never compared verbatim. After the record passes the state-bound call, a fourth call (`constraints_unit`) reads the record's `segments`, each `operation` and `relation`, and its two lists, and nothing of the Passage: an entry its Segment does not support, or a question, term, base or principle a Segment leaves that no entry names, refuses the Extraction, and the refusal goes back into the Extractor's next attempt. An empty list is a normal case. `obligation` and `obligation_triggers` are retired from the Extraction: a record carrying either is refused.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
@@ -204,6 +204,8 @@ fields; nothing in the copy is judged.
 | `reader`, the rows whose `after` is not `unchanged` | `before`, each row's `before`, and `after`, each row's `after` — maps keyed by dimension, one entry per changed row; and `after_segment`, each row's `segment`, the Segment number(s) after which the new state holds, keyed by the same dimensions (kogaki#1652) |
 | `segments` | `segments` — each Segment's `operation`, its `relation` on every Segment after the first, and its `manner` where one is filled; never `opening` or `content` |
 | `breaks` | `breaks`, the list of prose tests |
+| `takes` | `takes`, copied unchanged (kogaki#1698) |
+| `leaves` | `leaves`, copied unchanged, each entry with its `segment` (kogaki#1698) |
 | `description` | `description` — copied, with no machine role; over 200 characters is refused naming the length |
 
 The `answers` (Q1 to Q3), `what_it_does`, `presupposes`, `notes` and the header fields
@@ -218,7 +220,10 @@ and a Move's state carries no Segment. `technique` is retired (kogaki#1412):
 
 A Move's fields serve two readers (kogaki#1604). `operation`, `relation`
 and `manner`, the three fields of each Segment, and `obligation` shape the
-structure of the prose the Move produces. `before`, `after` and `breaks`
+structure of the prose the Move produces. `takes` and `leaves` (kogaki#1698)
+are read by judgment, at extraction and by the Composers that move to them,
+for what the Move takes up and leaves; `obligation` is carried until the
+ParagraphPlan's Issue retires it. `before`, `after` and `breaks`
 tell the Composer what the Move needs of the Strand and what it gives the
 reader; they are read for Strand fit and shape no sentence, so an `after`
 entry or a `breaks` test that instructs wording or sentence order is
@@ -558,37 +563,23 @@ What each field holds:
   `subject_nouns`, and no word in the original's language, so that it tests
   the Move on any subject (kogaki#1519). A `breaks` that is not a list of
   one-line strings is refused at ingestion.
-- `obligation` — absent unless `question` or `term` fires in the Move's own
-  Segments ("The paragraph unit", rule 8): a question no later Segment
-  answers, or a term no later Segment explains (kogaki#1618). Where present,
-  it is the list of those items, one per fired question or term in the
-  order the Segments raise them, each a term or question of at most twelve
-  words, carrying none of `since`, `because`, `so that`, `must` or `which`
-  (kogaki#1590), naming no item or SubItem twice; an item may carry a number or
-  ordinal word. Where a Segment poses a question and a later Segment names,
-  without explaining, the parts its answer turns on, the question's entry is
-  `{item, subitems}`: `item` the question and `subitems` those parts, one
-  per entry in the order that Segment names them, each held to an item's
-  rules (kogaki#1620). The record carries no condition on how an item is
-  kept; an entry carrying any key but `item` and `subitems`, and so a
-  `kind`, is refused (kogaki#1568). Each item
-  is written general, as `operation` is: it names no term, place, person or
-  claim of the original and none of `subject_nouns` (kogaki#1576). An
-  `obligation` naming an item a Segment's `content` clause defines or
-  answers is refused, naming the Segment. The Extractor asks it in a second
-  call whose input is the record's `segments`, each `operation` and
-  `relation`, and nothing of the Passage (kogaki#1583). The ingest copies it
-  to the Move unchanged (kogaki#1557).
-- `obligation_triggers` — on every record the obligation call answered ("The
-  paragraph unit", rule 8): a map naming `question` and `term`, the two
-  triggers (kogaki#1618), each with `fired`, true or false, `why`, its
-  reason in one line of at most twelve words, and `segment`, the Segment the
-  verdict rests on, so the verdict is read where nothing fired. `obligation`
-  is present exactly where a trigger fired. It stays on the Extraction and
-  the ingest does not copy it to the Move (kogaki#1590); the library
-  re-judge (`extract.mjs rejudge --library`) writes both keys onto a Move
-  record from its own `segments`, and `moves/ROLES.json` names the field so
-  the record still loads.
+- `takes` — always present, possibly empty: a list of `{kind, what}`, what
+  Segment 1 takes up on entry ("The paragraph unit", rule 8, kogaki#1698).
+  `kind` is one of `answer`, `explain`, `carry` and `apply`; `what` is one
+  line, written general; no two entries are alike in both. An entry
+  carrying `segment` or any other key is refused. The ingest copies it to
+  the Move unchanged.
+- `leaves` — always present, possibly empty: a list of
+  `{kind, what, segment}`, what the paragraph leaves for a later unit, each
+  entry naming the Segment that leaves it, under the same rules as `takes`;
+  a `segment` outside the record's Segments is refused. The ingest copies
+  it to the Move unchanged.
+- `obligation`, `obligation_triggers` — retired from the Extraction by
+  kogaki#1698. A Move record admitted before it may still carry both; the
+  library re-judge (`extract.mjs rejudge --constraints --library <dir>`)
+  derives `takes` and `leaves` for such a record from its `segments`,
+  `before`, `after` and `obligation`, and `moves/ROLES.json` names the
+  fields so the record still loads.
 - `description` — one or two sentences telling a person reading the Move
   library what this Passage does, at most 200 characters. It has no machine
   role: no prompt renders it, and the ingest reads only that it is present

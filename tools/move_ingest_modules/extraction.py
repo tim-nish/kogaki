@@ -338,7 +338,7 @@ def check_segments(mapping, record, line_no):
 # off a written Extraction, never authored by a model. Every Move field comes
 # from one Extraction field, the table passages/FORMAT.md "Where each field
 # goes" states: `id` is `name`, `before` and `after` are `reader`'s changed
-# rows only, `after_segment` is each changed row's `segment` (kogaki#1652), `description` is `description` (kogaki#1412) and `breaks` is
+# rows only, `after_segment` is each changed row's `segment` (kogaki#1652), `description` is `description` (kogaki#1412), `takes` and `leaves` are `takes` and `leaves` (kogaki#1698) and `breaks` is
 # `breaks` (kogaki#1377), and `segments` is the Extraction's `segments` exactly as `check_segments`
 # copies it on the Passage path.
 # --------------------------------------------------------------------------
@@ -437,6 +437,10 @@ def derive_from_extraction(record, line_no=1):
         # `obligation_triggers` stays on the Extraction (kogaki#1590).
         if record.get("obligation") is not None:
             mapping["obligation"] = record.get("obligation")
+        # `takes` and `leaves`, copied unchanged (kogaki#1698).
+        for field in ("takes", "leaves"):
+            if record.get(field) is not None:
+                mapping[field] = record.get(field)
         validate_move(mapping, line_no)
     except Refusal as refusal:
         return Proposal(line_no, refusal=refusal)

@@ -655,6 +655,8 @@ condition 3.
 | `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
 | `segments` | added by the tool | the Extraction's ordered Segments, copied in by `tools/move_ingest.py`, never authored by the model |
 | `after_segment` | added by the tool | per dimension `after` names, the Segment after which that state holds, copied from the Extraction (kogaki#1652) |
+| `takes` | always | what the Move's first Segment takes up, a list of `{ kind, what }`, possibly empty (kogaki#1698) |
+| `leaves` | always | what the Move leaves for a later unit, a list of `{ kind, what, segment }`, possibly empty (kogaki#1698) |
 
 **`before` / `after`.** One line per reader dimension the Move changes;
 unchanged dimensions are omitted. The dimension set — knowledge, question,
@@ -694,6 +696,42 @@ re-admitting a removed or unadmitted predecessor: a record whose state line no
 Segment supports is corrected field by field from the rows `rejudge --state`
 lists, and a dimension no Segment reads is deleted from `before` rather than
 reworded.
+
+**`takes` and `leaves` (kogaki#1698, owner ruling 2026-11-06).** A Move's
+constraints are one key with two sides: `takes`, what the Move's first Segment
+takes up on entry, in the terms of what a predecessor could leave, and
+`leaves`, what the Move leaves for a later unit to take up. Each is a list,
+possibly empty, of entries `{ kind, what }`: `kind` one of a closed set of
+four, `MOVE_CONSTRAINT_KINDS` in `src/move-validate.mjs`, `what` one
+subject-free line, and no two entries of one list alike in both; a `leaves`
+entry also carries `segment`, the number of the Segment that leaves it. The
+kinds, each with its definition, rendered into every row that reads them:
+
+- `answer`: a question raised, to be answered.
+- `explain`: a term or item named, to be explained.
+- `carry`: a structure given in a base, to be carried onto the subject.
+- `apply`: a principle, division or general statement given, to be put to
+  work on a case or shown in an instance.
+
+A Move whose `takes` is empty can follow any unit; a Move whose `leaves` is
+empty leaves nothing. Both are read by judgment, never as a Schema the Harness
+compares: the kinds match as words, the `what` lines are never compared
+verbatim, a successor need take up one entry and not all, and an entry may be
+taken up by any later unit of the scale, not only the next. There is no
+Obligation schema and no reader-state schema behind them, only constraints the
+model reads. At extraction the constraints call (`constraints_unit`) judges
+each `takes` entry against Segment 1 and each `leaves` entry against the
+Segment it names, and refuses the Extraction for an unsupported entry or a
+question, term, base or principle a Segment leaves that no entry names;
+`src/proof-sheet/extract.mjs rejudge --constraints --library moves --write`
+derives both lists for an admitted library from each record's `segments`,
+`before`, `after` and `obligation`. The Precondition (`before`), the
+Postcondition (`after`), `after_segment` and `obligation` are retired as their
+readers move: the Brief's selection row, Path Review and Leg schema move to
+`takes` and `leaves` in the Brief's Issue, which retires the three state
+fields from the Move, and the ParagraphPlan's OWE line and §5.2's ledger in the
+ParagraphPlan's Issue, which retires `obligation` and `obligation_triggers`.
+Until then the Move carries them as optional roles.
 
 **The reader's question lives in `before`/`after`.** Its `question:` line
 states the question the reader holds (`holds: none` where the reader arrives
@@ -808,8 +846,12 @@ because a role's *reader* is prose this file states and the JSON does not:
 | role | field (current schema) | read by |
 |---|---|---|
 | `identity` | `id` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
-| `state-before` | `before` | Path Review's specialization judgment (§4.4) |
-| `state-after` | `after` | Path Review's specialization judgment (§4.4) |
+| `takes` | `takes` | the constraints call at extraction (kogaki#1698); the Brief's and the ParagraphPlan's composers once their Issues move to it |
+| `leaves` | `leaves` | the constraints call at extraction (kogaki#1698); the Brief's and the ParagraphPlan's composers once their Issues move to it |
+| `state-before` | `before` | Path Review's specialization judgment (§4.4); retired-pending, by the Brief's Issue (kogaki#1698) |
+| `state-after` | `after` | Path Review's specialization judgment (§4.4); retired-pending, by the Brief's Issue (kogaki#1698) |
+| `state-after-segments` | `after_segment` | the state-bound re-judge (kogaki#1652); retired-pending, by the Brief's Issue (kogaki#1698) |
+| `obligation` | `obligation` | the composer's deferred slot and §5.2's ledger; retired-pending, by the ParagraphPlan's Issue (kogaki#1698) |
 | `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage, as the Paragraph Waypoints' order where the Move carries no `segments`, and as a criterion of its judge (§4.19, kogaki#1378) |
 | `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage's judge, against the Paragraph Waypoints (§4.19, kogaki#1378) |
 | `segments` | `segments` | the composer and the per-unit Move-fit judgment, as the waypoints' order where the Move carries it (§4.12.2, kogaki#1320); for a paragraph Move, the ParagraphPlan stage, as the Paragraph Waypoints' order (§4.19, kogaki#1375); no stage after it |
@@ -817,8 +859,8 @@ because a role's *reader* is prose this file states and the JSON does not:
 | `continues-from` | `continues_from` | nothing downstream; kept for the record's own sake |
 | not read downstream | `evidence` | nothing; kept for the record's own sake |
 
-`identity`, `state-before` and `state-after` are the roles every schema must
-map; the rest are optional, null where a schema has nothing to map them to
+`identity`, `takes` and `leaves` are the roles every schema must map
+(kogaki#1698, which made the two states optional); the rest are optional, null where a schema has nothing to map them to
 (`moves/ROLES.json`). No Move field has a role read after the Candidate: the
 `rendered-to-writer` role left this table with kogaki#1311, when the Packet
 stopped carrying the Move. The multi-schema manifest itself — one library,
@@ -3660,10 +3702,11 @@ govern it:
    in the order the Segments raise them. Where a Segment poses a question
    and a later Segment names, without explaining, the parts its answer turns
    on, the question item carries those parts as its SubItems, in the order
-   that Segment names them (kogaki#1620). Because the Segments are the
-   call's whole input, the same call re-judges an admitted Move record
-   (`extract.mjs rejudge --library <dir>`), rewriting its `obligation` and
-   `obligation_triggers` from its own `segments` and nothing else. The composer
+   that Segment names them (kogaki#1620). The obligation call is retired from
+   extraction by kogaki#1698, whose constraints call judges `takes` and
+   `leaves` in its place; a Move keeps the `obligation` it carries until the
+   ParagraphPlan's Issue retires it, and `extract.mjs rejudge --constraints`
+   derives its `leaves` from it. The composer
    fills the slot with ONE record opened by that unit whose `items` carry
    what this article leaves unexplained at that place, in the article's own
    words and in the order the article names them. The record has no direct
@@ -4308,8 +4351,11 @@ a second route that calls no model. `tools/move_ingest.py passage
 paragraph Extractions (`passages/FORMAT.md` "The paragraph unit", `unit:
 paragraph <N> of <M> in <slug>`) and READS each record off its Extraction: the
 `id` from section 7, `before`/`after` from section 2's changed rows,
-`technique` from section 6, `breaks` from section 5, and `segments` from
-section 3; the model authored the Extraction and authors nothing here. An
+`technique` from section 6, `breaks` from section 5, `segments` from
+section 3, and `takes` and `leaves` from the Extraction's own `takes` and
+`leaves`, which the constraints call (`constraints_unit`, in place of the
+retired `obligation_unit`, kogaki#1698) judged against the Segments at
+extraction; the model authored the Extraction and authors nothing here. An
 Extraction with no section 5 or no section 6, or an empty one, is refused
 naming the section, and nothing is proposed for it (kogaki#1377) — the same
 Leg Moves and Paragraph Moves are one kind of Move, under one schema (§4.2),

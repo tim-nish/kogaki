@@ -53,7 +53,7 @@
       "paragraph_plan": { "version": "copied", "leg_id": "copied", "waypoints": "content", "waypoints.waypoint": "copied", "waypoints.move": "copied", "waypoints.materials": "copied", "waypoints.purpose": "content", "waypoints.reader_state_after": "content", "waypoints.depends_on": "content", "waypoints.rationale": "content", "waypoints.introduces": "content", "waypoints.re-activate": "content", "waypoints.journeys": "copied", "waypoints.join": "content", "waypoints.paragraph_waypoints": "content", "paragraph_waypoints.point": "content", "paragraph_waypoints.serves": "copied", "paragraph_waypoints.cast": "content", "paragraph_waypoints.performs": "content" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "after_segment"],
+      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "after_segment", "takes", "leaves"],
       "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget"]
     },
     "shared_text_file": "src/paragraph-plan-workflow.json",
@@ -71,7 +71,7 @@
       "paragraph_plan": { "waypoints.reader_state_after": "excluded", "waypoints.join": "excluded", "paragraph_waypoints.point": "excluded", "paragraph_waypoints.performs": "excluded" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "after_segment"],
+      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "after_segment", "takes", "leaves"],
       "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "waypoints", "journeys", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget", "waypoints.serves"],
       "paragraph_plan": ["version", "leg_id", "waypoints", "waypoints.waypoint", "waypoints.move", "waypoints.materials", "waypoints.purpose", "waypoints.depends_on", "waypoints.rationale", "waypoints.introduces", "waypoints.re-activate", "waypoints.journeys", "waypoints.paragraph_waypoints", "paragraph_waypoints.serves", "paragraph_waypoints.cast"]
     },

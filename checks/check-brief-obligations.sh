@@ -39,6 +39,8 @@ segments:
   - operation: names the consequence a cause leads to
   - operation: gives the name just used its meaning
     relation: defines the name the step before introduced
+takes: []
+leaves: []
 `;
 
 // (f) the Thesis row reaches only the Reader target Leg (kogaki#1229, kogaki#1231).

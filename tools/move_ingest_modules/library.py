@@ -124,8 +124,8 @@ def ordered_record(mapping):
     for field in FIELDS:
         # A field `moves/ROLES.json` leaves optional and the record does not
         # carry renders nothing; the three required roles are always present
-        # on a record the Adapter admitted.
-        if field not in mapping and field not in ("id", "before", "after"):
+        # on a record the Adapter admitted (`takes` and `leaves`, kogaki#1698).
+        if field not in mapping and field not in ("id", "takes", "leaves"):
             continue
         value = mapping.get(field, "")
         if field in STATE_FIELDS and isinstance(value, dict):
