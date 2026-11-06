@@ -19,10 +19,8 @@ export const recordOf = (legs, keys = {}) => ({
   slug: "fixture", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64) }],
   thesis: "The fixture claim.",
-  reader_start: readerStateMap(`orientation: before ${legs[0].leg_id}\nknowledge: before ${legs[0].leg_id}`),
-  reader_target: (legs.find((s) => s.reaches_target === true) || legs[legs.length - 1]).leg_id,
   reader_path: legs.map(legRecord),
-  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
   ...keys,
 });
 export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);
@@ -35,14 +33,12 @@ export const READER_START = "knowledge: can read code and has used a CI system\n
 export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1", "L2"], purpose: `purpose of ${leg_id}`,
-    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
     depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
   const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"], ...s1extra }),
     legOf("s2", { depends_on: ["s1"], reaches_target: true, ...s2extra }),
     legOf("s3", { depends_on: ["s2"] })];
-  legs[2].reader_state_after = legs[1].reader_state_after;
   return legs;
 };
 
@@ -77,14 +73,13 @@ export function fitMoveLibrary() {
 export const START_1276 = "knowledge: before\nquestion: holds: none";
 export const leg1276 = (legId, extra) => ({
   leg_id: legId, move: "m_open", materials: ["L1"], purpose: `what ${legId} is for`,
-  reader_state_after: "knowledge: after\nquestion: holds: none",
   depends_on: [], rationale: `why ${legId} sits here`,
   claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
   ...extra,
 });
 export const cand1276 = (id, leg2Extra = {}) => ({
   candidate_id: id, characteristic: `path ${id}`, reader_experience: `experience ${id}`,
-  reader_start: START_1276, reasoning: { leg_validity: "x" },
+  reasoning: { leg_validity: "x" },
   legs: [leg1276("s1", { opens_section: "Intro" }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
 });
 
@@ -112,7 +107,7 @@ export function runDifferentiation({ renderings }) {
   const renderingsPath = join(dir, "renderings.json");
   writeFileSync(renderingsPath, JSON.stringify({ version: "1", renderings }));
   const diffPath = join(dir, "differentiation.json");
-  writeFileSync(diffPath, JSON.stringify({ version: "1", reader_start: START_1276, leg1_survivors: ["m_open"],
+  writeFileSync(diffPath, JSON.stringify({ version: "1", leg1_survivors: ["m_open"],
     entries: [1, 2, 3].map((n) => ({ unit_number: n, dimension: ["knowledge", "question", "trust"][n - 1], opening_move: "m_open", reader_experience: `exp ${n}` })) }));
   const out = join(dir, "rec.json");
   const driver = `

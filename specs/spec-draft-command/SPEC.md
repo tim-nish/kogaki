@@ -226,8 +226,8 @@ put two writers on one article's structure. The trace guard is evaluated
 the reason it was always given.
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
-Leg's declared `reader_state_before → reader_state_after` transition, written
-from that Leg's stated grounds. Register per `src/packet-template.md`, grounded
+Leg's `waypoints` and claims (the state fields are retired, kogaki#1699),
+written from that Leg's stated grounds. Register per `src/packet-template.md`, grounded
 at `specs/spec-brief-draft-design/DESIGN.md` §4. **A claim widened beyond its
 quoted scope is the author's judgment and is attributed as such.**
 

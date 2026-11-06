@@ -59,10 +59,8 @@ const fails = [];
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
   // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
   writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  const START = "knowledge: before\nquestion: holds: none";
   const leg = (legId, extra) => ({
     leg_id: legId, move: "m_open", materials: ["L1"], purpose: `what ${legId} is for`,
-    reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
     ...extra,
@@ -115,7 +113,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     writeFileSync(briefPath, composeBrief({ slug: "fixture", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
       thesis: "The fixture claim.", composePath: "audiences/dev-to-zenn.md" }));
     const diffPath = join(dir, "differentiation.json");
-    writeFileSync(diffPath, JSON.stringify({ reader_start: START, leg1_survivors: ["m_open"],
+    writeFileSync(diffPath, JSON.stringify({ leg1_survivors: ["m_open"],
       entries: [1, 2, 3].map((n) => ({ unit_number: n, dimension: ["knowledge", "question", "trust"][n - 1], opening_move: "m_open", reader_experience: `exp ${n}` })) }));
     writeFileSync(runRecordPath(dir), JSON.stringify({
       workflow: { path: "src/brief-workflow.json", version: briefTable.version }, judge_binary: null, survey_record: null,
@@ -186,7 +184,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     brief_review_units: { "review-1": "c1", "review-2": "c2", "review-3": "c3" }, detached_job_dirs: { review_path: "review-path" },
   });
   const candsPath = join(dir2, "brief-candidates.json");
-  writeFileSync(candsPath, JSON.stringify(cands.map((c) => ({ ...c, reader_start: START, differentiation_unit: Number(c.candidate_id.slice(1)) })), null, 2));
+  writeFileSync(candsPath, JSON.stringify(cands.map((c) => ({ ...c, differentiation_unit: Number(c.candidate_id.slice(1)) })), null, 2));
   const rec2 = recOf(dir2);
   writeFileSync(runRecordPath(dir2), JSON.stringify({ ...rec2, brief_candidates: candsPath }, null, 2) + "\n");
   mkdirSync(join(dir2, "review-path"));

@@ -1,11 +1,11 @@
-// compose/fill — the fill: reader_path, strand_coverage, journey_coverage, obligations
+// compose/fill — the fill: reader_path, strand_coverage, journey_coverage
 // (cut from src/compose.mjs at its named section, kogaki#1465; the entry
 // re-exports every name src/compose.mjs exported before the cut).
 
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   SPEC-draft-pipeline: the Leg's shape; the claims rule;
-//       the obligations ledger; the durable home and the entry point;
+//       the durable home and the entry point;
 //       journey register as a Candidate axis
 //
 import { validateLegs } from "./leg-schema.mjs";
@@ -16,11 +16,11 @@ import {
   journeyPlacements, legRecord, placements,
 } from "./record.mjs";
 
-// ---- the fill: reader_path, strand_coverage, journey_coverage, obligations ----
+// ---- the fill: reader_path, strand_coverage, journey_coverage ----
 // Pure over the record; exported for the check. Returns `{ record, placed,
 // total }` or `{ error }`.
-export function fillBrief(record, { legs, coverage = {}, obligations = [], unused = {}, readerStart, renderings = null }) {
-  const v = validateLegs(legs, readerStart, obligations, definedTermsOf(record));
+export function fillBrief(record, { legs, coverage = {}, unused = {}, renderings = null }) {
+  const v = validateLegs(legs, definedTermsOf(record));
   if (v.error) return { error: v.error };
   legs = v.legs;
   // THE RENDERINGS RECORD (kogaki#1494): `introduces` carries only terms the
@@ -84,7 +84,7 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
   }
 
   // Strand coverage: used_by_legs DERIVED from the composed legs; an
-  // unplaced selected Strand DISCLOSES rather than silently drops (the obligations ledger).
+  // unplaced selected Strand DISCLOSES rather than silently drops.
   const place = placements(legs, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
   const strandCoverage = strandIds.map((id) => (place.get(id).length > 0
@@ -98,16 +98,6 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
     ? { strand: id, placed_by: jplace.get(id) }
     : { strand: id, omitted: unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)" }));
 
-  // THE OBLIGATIONS (kogaki#1529, kogaki#1612, SPEC-draft-pipeline "Obligations"). An
-  // obligation is a promise the prose makes to the reader that a later passage must keep.
-  // `validateLegs` above has refused every record that is not closed, ordered and within
-  // capacity, so each is written here in the record's own field order. The Thesis row is not a
-  // row of this list: it is derived (`thesisClosureRow`, kogaki#1328).
-  const rows = (Array.isArray(obligations) ? obligations : []).map((o) => ({
-    opened_by: o.opened_by,
-    items: o.items.map((e) => ({ item: e.item, closed_by: e.closed_by })),
-  }));
-
   let out = record;
   // WRITTEN BESIDE THE READER PATH COMPOSED UNDER IT (kogaki#1494). Not a slot:
   // the record is composed at `differentiation`, and a Brief adopted before
@@ -117,7 +107,6 @@ export function fillBrief(record, { legs, coverage = {}, obligations = [], unuse
     ["reader_path", legs.map(legRecord)],
     ["strand_coverage", strandCoverage],
     ["journey_coverage", journeyCoverage],
-    ["obligations", rows],
   ]) {
     const r = fillSlot(out, key, value);
     if (r.error) return r;

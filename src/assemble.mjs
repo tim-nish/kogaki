@@ -19,8 +19,7 @@
 // THE NAMES THIS FILE USES, each naming SPEC-draft-pipeline: the read-not-invented rule; the
 // Leg's shape; the Bridge Leg; the Leg-Move instantiation contract; the owner gate over a
 // passing specialization record; the figure decision; the Reader Path artifact and its five
-// blocks; the claims rule; the judgment rule; the settled structure section; the obligations
-// ledger; the durable home and the entry point; the Candidate gate; journey register as a
+// blocks; the claims rule; the judgment rule; the settled structure section; the durable home and the entry point; the Candidate gate; journey register as a
 // Candidate axis; the Move library.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname, join, basename } from "node:path";
@@ -28,9 +27,8 @@ import { fileURLToPath } from "node:url";
 import { fillBrief, fillSlot, briefStrandIds, placements,
   validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
   figureClause, figureLegs,
-  ownerGateDigest, validateOwnerAnswer, targetLegIndex, readerStateMap,
-  briefJourneyStrands, journeyPlacements, snapshotBrief, readBriefRecord, briefRecordText,
-  obligationItemRefusal, obligationItems } from "./compose.mjs";
+  ownerGateDigest, validateOwnerAnswer, targetLegIndex,
+  briefJourneyStrands, journeyPlacements, snapshotBrief, readBriefRecord, briefRecordText } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
 
@@ -53,8 +51,6 @@ export const REASONING_FIELDS = ["leg_validity"];
 
 // The owner reads the gate, not the spec (kogaki#520): every evidence key renders under one
 // plain-register label and never by its key name.
-// READER_FIELDS below pairs each reader record key with its Brief slot heading (kogaki#521);
-// src/brief.mjs's FIELDS table owns the headings, and every reader reads this one list.
 // THE CHARACTERISTIC'S BOUND, ONE DECLARATION (kogaki#1126): read from
 // `src/candidate-schema.json`, which the composing judge is shown, never typed twice; the
 // refusal names the file and the number it read.
@@ -78,25 +74,18 @@ export function characteristicMaxLength() {
   return n;
 }
 
-export const READER_FIELDS = [
-  ["reader_start", "Reader start"],
-  ["reader_target", "Reader target"],
-];
-
-// BOTH HEADINGS ABOVE ARE RENDERED, AND NEITHER IS AUTHORED BY A CANDIDATE (kogaki#1225, owner
-// decision 2026-09-29; the derivation is kogaki#1231). `reader_start` is GIVEN, set on the
-// Candidate by the Harness at the reader-path job's boundary (kogaki#1216); `reader_target` is
-// DERIVED, the `reader_state_after` of the Leg marked `reaches_target`, whole.
-// The Opening question heading is gone (kogaki#1225). A Candidate carrying either retired field
-// is refused BY NAME with the message declared here; `readerFieldValues` below is the one
-// reader of both rendered values.
+// A Candidate carries no reader value (kogaki#1699): the Brief's Reader start heading renders the
+// Persona's prior-knowledge line and its Reader target heading the Thesis. A Candidate carrying a
+// retired reader field is refused BY NAME with the message declared here.
 export const RETIRED_READER_FIELDS = new Map([
-  ["reader_target", "`reader_target` is a retired field (kogaki#1225) — Reader target is the `reader_state_after` "
-    + "of the Leg marked `reaches_target` (kogaki#1231) and is read from it; write where the path leaves the "
-    + "reader INTO that Leg's after-state and remove the field"],
+  ["reader_target", "`reader_target` is a retired field (kogaki#1225, kogaki#1699) — the Reader target heading "
+    + "renders the Thesis, which the Leg marked `reaches_target` attains; remove the field"],
+  ["reader_start", "`reader_start` is a retired field (kogaki#1699) — the first Leg's entry condition is the "
+    + "Persona's prior-knowledge line, which the Reader start heading renders; remove the field"],
+  ["obligations", "`obligations` is a retired field (kogaki#1699) — the Obligations ledger is retired: what a Leg "
+    + "takes up and leaves is its Move's `takes` and `leaves`, judged across the path; remove the field"],
   ["opening_question", "`opening_question` is a retired field (kogaki#1216; its heading is removed by kogaki#1225) — "
-    + "no Opening question is rendered; the first Leg's after-state carries whatever question the opening "
-    + "leaves the reader holding, and no field authors one apart"],
+    + "no Opening question is rendered, and no field authors one"],
 ]);
 
 // The refusal for a Candidate carrying a retired field, or null. One
@@ -140,54 +129,11 @@ export function retiredReasoningFieldRefusal(c) {
   return null;
 }
 
-// The after-state of the Leg marked `reaches_target` (kogaki#1231), or null
-// where the path carries no such Leg, or names more than one, or its
-// after-state is not a non-empty string. `targetLegIndex` (src/compose.mjs)
-// is the same search `validateLegs`' own `readerTargetLegRefusal` runs, so a
-// well-formed path and this function agree on which Leg the target is; a
-// malformed one (zero or several marked) reads null here and is refused by
-// name where composition itself is checked.
-export function targetLegAfterState(legs) {
-  if (!Array.isArray(legs) || legs.length === 0) return null;
-  const marked = legs.filter((s) => s && s.reaches_target === true);
-  if (marked.length !== 1) return null;
-  const idx = targetLegIndex(legs);
-  const v = idx >= 0 && legs[idx] && legs[idx].reader_state_after;
-  return typeof v === "string" && v !== "" ? v : null;
-}
-
-// One value per rendered heading, or a refusal naming the field. The
-// first-Leg survivor count is NOT folded into Reader start here: the draft
-// side reads the Brief's `Reader start` section verbatim into every Leg
-// Packet, and a count is a fact about the library, not about the reader. It
-// renders under `Tradeoffs` instead (`survivorSentence` below).
-export function readerFieldValues(c) {
-  const retired = retiredReaderFieldRefusal(c);
-  if (retired) return { error: retired };
-  if (typeof c.reader_start !== "string" || c.reader_start === "") {
-    return { error: `candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation record `
-      + "and set on the Candidate by the Harness at the reader-path job's boundary (kogaki#1216), so its absence "
-      + "is the runtime's fault rather than the composer's" };
-  }
-  const target = targetLegAfterState(c.legs);
-  if (target === null) {
-    return { error: `candidate ${c.candidate_id}: Reader target cannot be derived — it is the \`reader_state_after\` `
-      + "of the Leg marked `reaches_target` (kogaki#1231), and the path carries no such Leg with one "
-      + "(zero marked, several marked, or the marked Leg's after-state is absent)" };
-  }
-  return {
-    values: {
-      reader_start: c.reader_start,
-      reader_target: target,
-    },
-  };
-}
-
 // THE SURVIVOR COUNT, RECORDED IN THE BRIEF (kogaki#1216 amendment). Where the
 // Candidate rides `leg1_survivor_count` (a Harness-set COUNT from the
 // differentiation record's `leg1_survivors` id list -- named apart because the
-// two are different types on two records, PR #1222 round 1), one sentence names how many Moves were not
-// excluded against Reader start for the first Leg. A count of one names the
+// two are different types on two records, PR #1222 round 1), one sentence names how many Moves' `takes`
+// the Persona's prior knowledge meets for the first Leg (kogaki#1699). A count of one names the
 // LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a
 // Move extracted from an opening passage -- said here so the reader of the
 // Brief is told where the repair goes. Null where no count rides (a run
@@ -195,7 +141,7 @@ export function readerFieldValues(c) {
 export function survivorSentence(c) {
   if (!Number.isInteger(c.leg1_survivor_count)) return null;
   const n = c.leg1_survivor_count;
-  return `Opening: ${n} Move${n === 1 ? "" : "s"} in the library could open from this Reader start without contradicting it, `
+  return `Opening: ${n} Move${n === 1 ? "" : "s"} in the library could open from what the Persona already knows, `
     + `and the first Leg binds one of them.${n === 1 ? " A count of one names the library, not the rule, as the cause of a repeated opening; the repair is a Move extracted from an opening passage." : ""}`;
 }
 
@@ -211,10 +157,7 @@ export function survivorSentence(c) {
 // make the cheap reversal an expensive one, to save nothing an execution pays
 // for. What is NOT retained is any claim that they reach the owner.
 export const EVIDENCE_LABELS = [
-  ["reader_start", "What stance does this path assume the reader arrives in?"],
-  ["reader_target", "What stance does this path leave the reader in?"],
   ["leg_validity", "Does each leg stand on the material it cites?"],
-  ["obligations_ledger", "What does this path still owe the reader?"],
   ["placement_count", "How much of the settled material does this path use?"],
   ["journey_coverage", "How much of the selected Journey material does this path use?"],
   ["bridges", "Which gaps did this path bridge, and on what reasoning?"],
@@ -338,8 +281,8 @@ export function denyInternalVocabulary(payload, exemptByOption) {
   return {};
 }
 
-// ---- THE THREE LEDGER FIELDS, READ FROM ONE DECLARATION (kogaki#1129).
-// `obligations`, `coverage` and `unused` are declared in `src/candidate-schema.json`, the file
+// ---- THE TWO LEDGER FIELDS, READ FROM ONE DECLARATION (kogaki#1129).
+// `coverage` and `unused` are declared in `src/candidate-schema.json`, the file
 // the judge is shown; this enforces that declaration from `compose_path`'s validator inside
 // the re-ask window, and lives here for the reason `characteristicMaxLength` does: one
 // function, two readers.
@@ -347,37 +290,8 @@ export function denyInternalVocabulary(payload, exemptByOption) {
 // key names are a declared format.
 // Pure; returns a refusal string or null. `strandIds` is the Brief's closed set where the
 // caller holds it, and the checks needing it are skipped where it is empty.
-const OBLIGATION_SHAPE = "`{ opened_by, items: [{ item, closed_by }] }`";
 export function candidateLedgerRefusal(c, strandIds = []) {
   const where = `candidate ${c?.candidate_id}`;
-  const legIds = new Set((Array.isArray(c?.legs) ? c.legs : []).map((s) => s && s.leg_id));
-  if (c?.obligations !== undefined) {
-    if (!Array.isArray(c.obligations)) {
-      return `${where}: \`obligations\` is the obligations ledger and is an ARRAY of records, each `
-        + `${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`). `
-        + `Received ${JSON.stringify(typeof c.obligations)}`;
-    }
-    for (const [i, o] of c.obligations.entries()) {
-      const at = `${where}, obligation ${i + 1}`;
-      if (!o || typeof o !== "object" || Array.isArray(o)) {
-        return `${at}: each ledger entry is a record ${OBLIGATION_SHAPE}`;
-      }
-      // EVERY RETIRED KEY IS REFUSED BY NAME (kogaki#1529, kogaki#1568, kogaki#1612): a record
-      // written in a retired shape is told which key replaced it, never that some other key is
-      // missing.
-      const shape = obligationItemRefusal(o);
-      if (shape) {
-        return `${at}: the record ${shape}. The record carries ${JSON.stringify(Object.keys(o))} `
-          + `(src/candidate-schema.json, \`obligations\`)`;
-      }
-      for (const id of [o.opened_by, ...o.items.map((e) => e.closed_by).filter((x) => x !== null)]) {
-        if (typeof id !== "string" || !legIds.has(id)) {
-          return `${at}: ${JSON.stringify(id ?? null)} names no Leg of this Candidate (${[...legIds].join(", ")}) — `
-            + "a record is opened BY A LEG and each item is closed by one";
-        }
-      }
-    }
-  }
   if (c?.coverage !== undefined) {
     if (!c.coverage || typeof c.coverage !== "object" || Array.isArray(c.coverage)) {
       return `${where}: \`coverage\` is an OBJECT keyed by selected Strand id, each value carrying `
@@ -428,28 +342,9 @@ export function candidateLedgerRefusal(c, strandIds = []) {
   return null;
 }
 
-// THE READABILITY HALF, SPLIT OUT FOR THE SCORER (kogaki#1129). `candidateEvidence`
-// below counts the items still open, and a count is only honest over records whose key set the
-// runtime can read: an entry written as `raised_at`/`owed`/`settled_at` once read as wholly open
-// at the gate, a confident number over a record the scorer did not understand. This predicate is
-// what the scorer refuses on — narrower than the validator above, because the gate's question is
-// not "is the ledger well formed" but "can this record's items be read as closed or open at all".
-function unreadableObligation(o) {
-  if (!o || typeof o !== "object" || Array.isArray(o)) return "it is not an object";
-  if (typeof o.opened_by !== "string" || o.opened_by.trim() === "") return "it carries no `opened_by`";
-  if (!Array.isArray(o.items) || !obligationItems(o).length) return "it carries no `items` list";
-  const bad = o.items.find((e) => !e || (e.closed_by !== null && typeof e.closed_by !== "string"));
-  if (bad) return "an item's `closed_by` is neither a leg id nor null";
-  return null;
-}
-
-// The obligations ledger's state and the placement count are PER-CANDIDATE
-// composition-time values: at assembly the Brief is pre-adoption (its
-// sequence and ledger are still typed unfilled slots — only the adopted
-// Candidate's path ever lands, the settled structure section), so each Candidate's evidence is
-// computed MECHANICALLY from its own legs and obligations against the
-// Brief's closed Strand set. The count is taken after that Candidate's
-// composition, counted in placements (the obligations ledger's rider, applied per Candidate).
+// The placement count is a PER-CANDIDATE composition-time value: at assembly the Brief is
+// pre-adoption, so each Candidate's evidence is computed MECHANICALLY from its own legs against
+// the Brief's closed Strand set, counted in placements after that Candidate's composition.
 export function candidateEvidence(c, strandIds, journeyIds = []) {
   const place = placements(c.legs, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
@@ -460,46 +355,10 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
   // would average exactly the difference the owner is selecting on.
   const jplace = journeyPlacements(c.legs, journeyIds);
   const jplaced = journeyIds.filter((id) => jplace.get(id).length > 0);
-  const obligations = c.obligations || [];
-  // NOTHING IS SCORED THAT CANNOT BE READ (kogaki#1129). The filter below reads
-  // ONE declared key, and an entry that does not carry the declared key set
-  // answers it the same way a genuinely undischarged entry does — which is how
-  // a Candidate whose every obligation named its settling Leg rendered "4
-  // entries, 4 UNDISCHARGED — disclosed here, never a refusal" at the gate the
-  // owner answered. A guard that scores a record it cannot read reports a
-  // confident number, so an unreadable entry REFUSES here, naming the entry.
-  // The OPEN count itself stays a disclosure and never a refusal: what
-  // is refused is the unreadability, not the owing.
-  if (!Array.isArray(obligations)) {
-    return { error: `candidate ${c.candidate_id}: \`obligations\` is not an array — the ledger's `
-      + "state cannot be read, and an unreadable ledger is not an empty one "
-      + "(src/candidate-schema.json, `obligations`)" };
-  }
-  for (const [i, o] of obligations.entries()) {
-    const why = unreadableObligation(o);
-    if (why) {
-      return { error: `candidate ${c.candidate_id}, obligation ${i + 1}: ${why}, so whether its items are `
-        + "closed cannot be read — the record would be counted OPEN at the Candidate gate "
-        + `on the strength of a key it was never written with. The entry carries `
-        + `${JSON.stringify(o && typeof o === "object" ? Object.keys(o) : o)}; the declared shape is `
-        + `${OBLIGATION_SHAPE} (src/candidate-schema.json, \`obligations\`)` };
-    }
-  }
-  // THE ITEMS, CLOSED AND OPEN, ARE RENDERED BESIDE THE COUNT (kogaki#1151, kogaki#1612). Since
-  // `validateLegs` refuses an item still open at the path's last Leg, a Candidate that came
-  // through composition renders `0 OPEN`; the OPEN count is KEPT because `candidateEvidence` is
-  // reachable by a caller that skipped composition, and the count is the only thing that would
-  // say so at the gate.
-  const items = obligations.flatMap((o) => o.items);
-  const open = items.filter((e) => e.closed_by === null).length;
-  // The two reader values are this Candidate's own (kogaki#1225) and ride its evidence, so two
-  // Candidates differing on the reader axis do not read identically. An ABSENCE DISCLOSES HERE
-  // and REFUSES AT ADOPTION, which keeps the refusal reachable.
   // BRIDGE DISCLOSURE (the Bridge Leg v16, kogaki#524). Approval is post-hoc, so the one gate
   // carries what was inserted and why, from THIS Candidate's own legs. A Bridge Leg is
   // recognised by `bridges` naming the pair it sits between; its reasoning is its entailment
-  // reasoning. The `reader_assumption` fallback is gone (kogaki#1095): the reader premise
-  // renders at READER START, from `READER_FIELDS`.
+  // reasoning.
   const bridges = (c.legs || []).filter((st) => st && Array.isArray(st.bridges) && st.bridges.length > 0);
   const bridgeLine = bridges.length === 0
     ? "no gaps were bridged — the path's transitions stand on the material as composed"
@@ -510,43 +369,10 @@ export function candidateEvidence(c, strandIds, journeyIds = []) {
         return `between ${between}: ${why}`;
       }).join(" | ");
 
-  // PER FIELD, NEVER ALL-OR-NOTHING (PR #1222 round 1): this is the defensive
-  // path -- `compose_path`'s validator refuses every shape below first -- and
-  // it exists to tell the owner WHICH field is missing, so a Candidate whose
-  // marked Leg states no after-state still renders the Reader start the
-  // Harness set on it. Reader target is DERIVED from the Leg marked
-  // `reaches_target` (kogaki#1231), so "not stated" here means the path
-  // carries no such Leg with one.
-  const reader = {};
-  const absent = "not stated by this path — adopting it will refuse, because the composing act did not run";
-  const direct = {
-    reader_start: c.reader_start,
-    reader_target: targetLegAfterState(c.legs),
-  };
-  for (const [key] of READER_FIELDS) {
-    reader[key] = typeof direct[key] === "string" && direct[key] !== "" ? direct[key] : absent;
-  }
-  // A retired field the Candidate still carries is disclosed on the Reader
-  // target line, since that is the value the retirement re-derives. EVERY
-  // carried retired field is named, in the order `retiredReaderFieldRefusal`
-  // reads them (PR #1227 round 1): a per-key overwrite disclosed only the
-  // last key while the refusal named the first, so the gate evidence and the
-  // adoption refusal named different fields for one Candidate.
-  const carried = [...RETIRED_READER_FIELDS.keys()]
-    .filter((key) => Object.prototype.hasOwnProperty.call(c, key));
-  if (carried.length > 0) {
-    reader.reader_target = `${carried.map((k) => `\`${k}\``).join(" and ")} authored apart from the Legs — `
-      + `${carried.length === 1 ? "a retired field" : "retired fields"} (kogaki#1225); adopting it will refuse`;
-  }
   return {
-    ...reader,
     bridges: bridges.length === 0
       ? bridgeLine
       : `${bridges.length} bridge(s) inserted — ${bridgeLine}`,
-    obligations_ledger: obligations.length === 0
-      ? "the ledger is empty — a statement, not an omission"
-      : `${obligations.length} record${obligations.length === 1 ? "" : "s"}, ${items.length} item${items.length === 1 ? "" : "s"}, `
-        + `${items.length - open} closed, ${open} OPEN — disclosed here, never a refusal`,
     placement_count: `${placed.length} of ${strandIds.length} selected Strand(s) placed, counted in placements after this Candidate's composition${placed.length < strandIds.length ? " — the unplaced disclose at adoption" : ""}`,
     journey_coverage: journeyIds.length === 0
       ? "no selected Strand carries Journey material — nothing to place for this Brief, and nothing missing"
@@ -833,10 +659,8 @@ export function selectionOptionIds(reviewed, record) {
 // through the Leg's shape fill, and tradeoffs from its reasoning; the Thesis row of Closure is derived (kogaki#1328).
 // THE LEG THE THESIS CLOSURE ROW NAMES (kogaki#1229, moved from the last Leg
 // to the marked one by kogaki#1231, owner decision 2026-09-30): the Leg
-// marked `reaches_target` alone -- the one whose after-state IS the Brief's
-// Reader target. Adoption writes it as the record's `reader_target`, and the
-// derived Thesis row reaches that Leg alone (`obligationRowsOf`, src/compose.mjs,
-// kogaki#1328): naming every Leg leaked the whole path's closure narrative
+// marked `reaches_target` alone -- the one that attains the Thesis. The
+// derived Thesis row reaches that Leg alone (kogaki#1328): naming every Leg leaked the whole path's closure narrative
 // into every earlier Packet, and naming the last Leg under the reversed rule
 // would name a plain closing Leg instead of the one that actually reaches
 // the target. Exported so the fixture in checks/check-brief-compose.sh
@@ -854,19 +678,9 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
     return { error: `candidate ${JSON.stringify(candidateId)} is not in the reviewed set `
       + `(${cands.map((x) => x.candidate_id).join(", ") || "empty"}) — the owner adopts from what the gate offered` };
   }
-  // the settled structure section v12: an adopted Candidate whose two reader
-  // values cannot be read REFUSES, naming the field, BEFORE anything is
-  // written. Neither is authored by the Candidate (kogaki#1225): Reader start
-  // is given and Reader target is the last Leg's after-state, so an absence is
-  // the runtime's or the path's, never a slot to default. This is not the
-  // claims rule's `unsupported completion` and does not borrow that term:
-  // nothing here was invented from outside the material. The refusal is named
-  // distinctly from the not-in-the-reviewed-set refusal above so a caller is
-  // never sent to re-answer a gate that is not the problem, and it fills no
-  // default: a default would be this file inventing reader state, which is
-  // exactly what the read-not-invented rule refuses.
-  const readerFields = readerFieldValues(c);
-  if (readerFields.error) return { error: `${readerFields.error}. Nothing was written to the Brief.` };
+  // A RETIRED READER FIELD IS REFUSED BEFORE ANYTHING IS WRITTEN (kogaki#1225, kogaki#1699).
+  const retiredReader = retiredReaderFieldRefusal(c);
+  if (retiredReader) return { error: `${retiredReader}. Nothing was written to the Brief.` };
   // A RETIRED REASONING KEY IS REFUSED AT ADOPTION TOO (kogaki#1328), by the
   // same map composition and assembly read: `reasoning.thesis_closure` would
   // otherwise be carried to the write in silence, and the Brief's Thesis row
@@ -929,8 +743,7 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
   // record" is a fact about the act that did not happen. The validator owns everything else.
   if (instantiation.specialization === undefined) {
     return { error: `candidate ${candidateId}: no specialization record — whether each Leg's `
-      + `Move fits it — its \`before\` requiring nothing the derived before-state does not hold (kogaki#1325), its `
-      + `reader_state_after a consistent specialization of the Move's \`after\` — is a `
+      + `Move fits it — each of its \`takes\` met and each of its \`leaves\` taken up across the path (kogaki#1699) — is a `
       + `JUDGMENT, and it is a mandatory occasion at Brief composition (the Leg-Move instantiation contract, kogaki#747). Adoption `
       + `composes no verdict of its own and fills no default. Judge the path, record the verdicts `
       + `(src/specialization-schema.json), and pass --specialization <path>. Nothing was written.` };
@@ -948,16 +761,13 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
   const digest = specializationDigest(instantiation.specialization, c.legs);
 
   // THE RECORD'S SLOTS FILL FROM THIS CANDIDATE, in one write (kogaki#1328).
-  // `fillBrief` writes the Reader Path, the two coverage lists and the Obligation
-  // rows; the Thesis row of Closure is not written at all — it is derived from
+  // `fillBrief` writes the Reader Path and the two coverage lists; the Thesis row of Closure is not written at all — it is derived from
   // the coverage and the Leg marked `reaches_target` wherever it is read
   // (`thesisClosureRow`, src/compose.mjs).
   const filled = fillBrief(record, {
     legs: c.legs,
     coverage: c.coverage || {},
-    obligations: c.obligations || [],
     unused: c.unused || {},
-    readerStart: c.reader_start,
     // THE RENDERINGS RECORD (kogaki#1494), written beside the Reader Path
     // composed under it; `null` where the run carries none.
     renderings: instantiation.renderings === undefined ? null : instantiation.renderings,
@@ -987,15 +797,6 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
     if (r.error) return r;
     out = r.record;
   }
-  // The two reader values land from THIS Candidate (the settled structure
-  // section v12): Reader start as its five-key map, Reader target as the name
-  // of the Leg whose after-state it is — written there once, never twice.
-  r = fillSlot(out, "reader_start", readerStateMap(readerFields.values.reader_start));
-  if (r.error) return r;
-  out = r.record;
-  r = fillSlot(out, "reader_target", targetLegIds(c.legs)[0]);
-  if (r.error) return r;
-  out = r.record;
   // THE DISCLOSURE THE SUMMARY SENTENCE IS COMPOSED FROM, returned rather than
   // recomputed by the caller: the tally is over the SAME verdict list the
   // digest was taken across, so the sentence cannot name a record other than

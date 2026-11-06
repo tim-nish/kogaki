@@ -1,6 +1,6 @@
 # A brief is the working plan for one article: the served material (Strands) the owner settled on, and the composition
-# fields -- thesis, Reader Path, coverage, obligations -- filled in as composition proceeds. It is the durable document
-# a drafting sitting resumes from. A key reading null is still awaiting composition.
+# fields -- thesis, Reader Path, coverage -- filled in as composition proceeds. It is the durable document a drafting
+# sitting resumes from. A key reading null is still awaiting composition.
 
 slug: check-adopt-candidate-fixture
 compose_path: audiences/fixture.md
@@ -13,22 +13,16 @@ strands:
 # The claim this article makes. You adopted it when the Brief was named; it is composed from the settled Strands and
 # never invented.
 thesis: The fixture Strand's claim, carried by a two-Leg path.
-# Where the reader stands before the article.
-reader_start: null
-# Where the article leaves them: the state after the Leg named here.
-reader_target: null
-# The ordered legs the article walks. Each leg starts from the state the one before it ends in.
+# The words this article gives a meaning to, and the words it uses as the reader already knows them. Written once, when
+# the Brief was named; a word marked defined is used only after the leg that introduces it.
+defined_terms: []
+# The ordered legs the article walks.
 reader_path: null
 # Per settled Strand: which legs use it, and the part it plays in the claim. Counted after composition, never declared
 # ahead of it.
 strand_coverage: null
 # Per Strand carrying Journey material: the legs that place it, or why it was left out.
 journey_coverage: null
-# An obligation is a promise the prose makes to the reader that a later passage must keep: a question raised, or a term
-# named here and explained later. Each row names the leg that raises it and the legs that owe it, and ends kept or
-# conceded by the leg that closes it. The Thesis itself is closed by the leg named under reader target, from the
-# coverage above.
-obligations: null
 # What adopting this path gave up.
 tradeoffs: null
 # What the composer inserted to carry the reader across a gap, and on what reasoning.

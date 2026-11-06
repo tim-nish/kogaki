@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
-import { moveContract, loadMoveContracts, MOVE_STATE_DIMENSIONS, CAST_KEYS } from "../compose.mjs";
+import { moveContract, loadMoveContracts, CAST_KEYS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
@@ -83,19 +83,12 @@ function labelledRow(label, values) {
     + vs.slice(1).map((v) => `<tr><td>${v}</td></tr>`).join("");
 }
 
-const STATE_LINE = new RegExp(`^(${MOVE_STATE_DIMENSIONS.join("|")}): `);
-function stateRows(state) {
-  const rows = [];
-  for (const line of String(state).split("\n")) {
-    if (STATE_LINE.test(line) || !rows.length) rows.push(line);
-    else rows[rows.length - 1] += `\n${line}`;
-  }
-  return rows.map(esc);
+// THE MOVE'S CONSTRAINTS (kogaki#1699): `before` and `after` are retired, so the Binding table
+// renders the Move's `takes` and `leaves`, one `kind: what` row per entry.
+function constraintRows(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  return list.length ? list.map((e) => esc(`${e.kind}: ${e.what}`)) : [esc("none")];
 }
-
-// One sub-row per constraint entry, `<kind>: <what>` (kogaki#1700); `none` where the list is empty.
-const constraintRows = (list) => (list && list.length ? list.map((x) => esc(`${x.kind}: ${x.what}`)) : [esc("none")]);
-const stateOrNone = (state) => (state === null || state === undefined ? [esc("none")] : stateRows(state));
 
 function bindingTable(record, entry, contracts, n) {
   const c = contracts.get(entry.move);
@@ -104,8 +97,6 @@ function bindingTable(record, entry, contracts, n) {
   return `<table><caption>Binding ${n}</caption><tbody>`
     + labelledRow("Move", [esc(entry.move)])
     + labelledRow("Bound by", [esc(record.bind.author)])
-    + labelledRow("Before", c ? stateOrNone(c.before) : absent)
-    + labelledRow("After", c ? stateOrNone(c.after) : absent)
     + labelledRow("Takes", c ? constraintRows(c.takes) : absent)
     + labelledRow("Leaves", c ? constraintRows(c.leaves) : absent)
     + labelledRow("Rationale", [esc(rationale)])

@@ -48,9 +48,8 @@ const legs = [leg("G1", []), leg("G2", ["G1"])];
 const briefText = briefRecordText({
   slug: "plan-pin", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-  thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-  reader_target: "G2", reader_path: legs.map(legRecord),
-  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+  thesis: "The fixture claim.", reader_path: legs.map(legRecord),
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 });
 const dir = join(root, "theses", "plan-pin");
 mkdirSync(dir, { recursive: true });

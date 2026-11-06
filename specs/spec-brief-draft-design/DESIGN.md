@@ -74,8 +74,8 @@ time:
 | **Move** | a **transformation contract** — a reusable technique, with `requires`/`effect` as reader states | `moves/<id>.md` |
 | **Leg** | an **instantiated application** — this Move, on this material, for this reader | a Brief's Reader Path |
 
-**A Leg instantiates a Move.** Its `reader_state_before`/`after` are the
-instance forms of the Move's `requires`/`effect`. Two halves follow, and they
+**A Leg instantiates a Move.** Its `waypoints` specialize the Move, and its
+reader states are retired (kogaki#1699). Two halves follow, and they
 are carried by different machinery on purpose: **id resolution is mechanical**
 (a Leg's `move` must name a record that exists) and **specialization is
 judged** (whether the instantiated states are consistent specializations).

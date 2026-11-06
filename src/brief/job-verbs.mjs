@@ -375,8 +375,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
     }
     // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206): `u.id`
     // is the Harness's own unit name, so `c.differentiation_unit` is not a field
-    // the Model could have written. Reader start and the survivor count are set
-    // here too, by the Harness, from the differentiation record (kogaki#1216):
+    // the Model could have written. The survivor count is set here too, by the
+    // Harness, from the differentiation record (kogaki#1216; Reader start retired, kogaki#1699):
     // `leg1_survivor_count` is an integer, named apart from the id list (PR
     // #1222 round 1). Read from the run record the job belongs to.
     const jobRec = readRunRecord(dir);
@@ -393,9 +393,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
       const c = u.candidate;
       const m = /^candidate-(\d+)$/.exec(String(u.id || ""));
       if (m) c.differentiation_unit = Number(m[1]);
-      if (differentiation && typeof differentiation.reader_start === "string") {
-        c.reader_start = differentiation.reader_start;
-        c.leg1_survivor_count = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
+      if (differentiation && Array.isArray(differentiation.leg1_survivors)) {
+        c.leg1_survivor_count = differentiation.leg1_survivors.length;
       }
       return c;
     });

@@ -43,7 +43,7 @@ for (const id of ["p1", "p2"]) {
 // ---- the Brief: Leg s1 of three Leg Waypoints, Leg s2 of one ----
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
 const leg = (id, n) => ({
-  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
+  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
   materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`, claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
   waypoints: Array.from({ length: n }, (_, i) => ({ point: `Point ${i + 1} of ${id} is made.`, serves: ["L1"] })),
 });
@@ -51,9 +51,9 @@ const briefText = briefRecordText({
   slug: "site-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") }],
   thesis: "The fixture claim.",
-  reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-  reader_target: "s2", reader_path: [leg("s1", 3), leg("s2", 1)].map(legRecord),
-  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+  // No Reader start, Reader target or Obligations ledger, and no Leg state (kogaki#1699).
+  reader_path: [leg("s1", 3), leg("s2", 1)].map(legRecord),
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 });
 
 // ---- the fake judge: it classifies the call, records it, and asks the scenario ----
@@ -85,7 +85,7 @@ chmodSync(judge, 0o755);
 const BUILDERS = `
 export const entry = (w, legId, total, legAfter, { move = "p1", tag = "", after = null, rationale = null } = {}) => ({
   waypoint: w, move, materials: ["L1"], purpose: "brings the reader to point " + w + ".",
-  reader_state_after: w === total ? legAfter : after || { knowledge: "STATE-" + legId + "-" + w + " after." },
+  reader_state_after: w === total && legAfter ? legAfter : after || { knowledge: "STATE-" + legId + "-" + w + " after." },
   depends_on: w > 1 ? [w - 1] : [], rationale: rationale || "its before holds the state the paragraph before leaves.",
   introduces: [], "re-activate": [], ...(w > 1 ? { join: "consequence" } : {}),
   paragraph_waypoints: move === null ? [] : [{ point: "PW-" + legId + "-" + w + tag + " the paragraph makes its point.", serves: ["L1"], cast: {} }] });
@@ -185,20 +185,19 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
   const MOVED = { knowledge: "MOVED-STATE after." };
   const r = run("s3", `export const site = (i, n) => (n === 1 ? siteEntry(i, { tag: "-site1" }) : siteEntry(i, { move: "p2", tag: "-site2", after: ${JSON.stringify(MOVED)} }));
 export const suffix = (i, n) => { const l = i.leg_you_must_plan; return { version: "1", leg_id: l.leg_id,
-  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, 3, n === 1 ? { knowledge: "WRONG-END after." } : l.reader_state_after, { tag: "-suffix" + n })) }; };
+  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, 3, l.reader_state_after, { tag: "-suffix" + n })) }; };
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n <= 2 && w === 2);`);
   const suffixes = r.of("suffix");
   const first = suffixes[0] && suffixes[0].input;
-  if (suffixes.length !== 2 || JSON.stringify(first.leg_you_must_plan.reader_state_before) !== JSON.stringify(MOVED)
+  if (suffixes.length !== 1 || JSON.stringify(first.leg_you_must_plan.reader_state_before) !== JSON.stringify(MOVED)
     || JSON.stringify(first.leg_you_must_plan.waypoints.map((w) => w.waypoint)) !== "[3]") {
     fails.push(`(s3) the entries after Waypoint 2 were not composed again from the moved state: ${JSON.stringify(first && first.leg_you_must_plan)}`);
   }
   if (!first || first.paragraphs_that_stand.length !== 2 || !point(first.paragraphs_that_stand[0]).startsWith("PW-s1-1 ")) {
     fails.push("(s3) the suffix call is not handed Waypoint 1 as the Leg call wrote it and the moved Waypoint 2");
   }
-  if (!suffixes[1] || !suffixes[1].head.includes("is not the Leg's, line for line") || !suffixes[1].head.includes("WRONG-END")) {
-    fails.push("(s3) a suffix whose last after-state is not the Leg's was not refused and asked again with the refused answer and its refusal above the input");
-  }
+  // A suffix whose last after-state is not the Leg's is no longer refused: a Leg carries no
+  // state since kogaki#1699, so the one suffix call stands.
   const judges = r.of("judge");
   const last = judges[judges.length - 1];
   if (!last || JSON.stringify(last.input.leg_you_must_judge.waypoints.map((w) => w.waypoint)) !== "[2,3]") {
@@ -208,7 +207,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n <= 2 && w =
   else {
     const [e1, e2, e3] = [1, 2, 3].map((w) => pwOf(r.plan, "s1", w));
     if (!point(e1).startsWith("PW-s1-1 ") || e2.move !== "p2" || JSON.stringify(e2.reader_state_after) !== JSON.stringify(MOVED)
-      || !point(e3).includes("-suffix2") || JSON.stringify(e3.reader_state_after) !== JSON.stringify({ knowledge: "after s1." })) {
+      || !point(e3).includes("-suffix1") || JSON.stringify(e3.reader_state_after) !== JSON.stringify({ knowledge: "STATE-s1-3 after." })) {
       fails.push(`(s3) the plan file is not Waypoint 1 unchanged, Waypoint 2 rebound and Waypoint 3 recomposed to the Leg's end: ${JSON.stringify([e1, e2, e3])}`);
     }
   }

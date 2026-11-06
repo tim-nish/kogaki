@@ -46,13 +46,14 @@
 #   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Leg Waypoint 2 a `performs` Paragraph
 #       Waypoint, and the ParagraphPlan card's Output row and Attempts part carry its text in italics with no list
 #       item empty; each Extraction paragraph block opens on its Segments table, with the folded "rendering" and
-#       "record file" blocks after it. Between the two sits an open `before / after / breaks` table (kogaki#1534): one
-#       row per reader dimension carrying the paragraph's Move file's `before` and `after`, then one row listing that file's `breaks` in order.
+#       "record file" blocks after it. Between the two sits an open `takes / leaves / breaks` table (kogaki#1534, kogaki#1699):
+#       one row each for the paragraph's Move file's `takes` and `leaves`, then one row listing that file's `breaks` in
+#       order; the Move file carries no `before` or `after` (kogaki#1699).
 #   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
 #       block carrying one Segments table per paragraph, a refused-attempts table with exactly one row -- attempt 1,
 #       Leg Waypoint 2, the judge's `why` -- linking to that attempt's block, and a Bindings table with one row per
-#       Leg Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "before
-#       / after" `<details>` closed on load holding the Move file's before and after, and no other row in the table
+#       Leg Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "takes
+#       / leaves" `<details>` closed on load holding the Move file's takes and leaves, and no other row in the table
 #       (kogaki#1516); an attempt whose judge answer is unreadable is a row carrying the job record's refusal; the
 #       resumed run (h), refused nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
 #       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
@@ -74,7 +75,7 @@
 #       copied stage's card "copied from <source>"; a copied Extraction with one Segment's content clause edited is
 #       recorded as paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner"; one
 #       the ingest refuses stops the run, naming the Move and item (kogaki#1576). The paragraph tables (o) render with
-#       no details element but the before / after folds and no "Review" heading.
+#       no details element but the takes / leaves folds and no "Review" heading.
 #   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places the library's three
 #       records beside the run's own three in the plan's Move directory, and `run.json`'s `library` carries the
 #       directory, the records' sha256 and the ids by source; with the fake plan binding Leg Waypoint 1 from the
@@ -200,7 +201,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
     const fromLibrary = (n) => (bindable || []).some((m) => m.id.startsWith("lib_")) && (process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1));
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + MV + w.waypoint,
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
@@ -221,8 +222,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       language: "English", subject_nouns: ["installer", "kit"],
       answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
-      reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
-        after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
       // the Segment content carries every word the fake Leg call writes (kogaki#1495)
       segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does: CLAIM-" + p.number + ", POINT-" + p.number + ", in English or Japanese.",
         operation: "states one consequence of an act the reader did not ask for.",
@@ -235,14 +234,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     if (first && !retried) delete record.segments[0].operation;
     return out(record, "extract");
   }
-  if (prompt.includes("\`leg_reader_start_unit\` judgment point")) {
-    return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
-  }
   if (prompt.includes("\`leg_path_unit\` judgment point")) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
-      rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
+      rationale: "It is the only Leg.",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       // (t) PSR_LEG_DROP=first: the first Leg answer's point 2 drops its Claim's language word (kogaki#1547).
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph
@@ -283,7 +279,7 @@ else {
   const run = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
   ok(run.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
     `(a) the stages are not all done: ${JSON.stringify(run.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  const want = { extract: ["extract", 13], brief: ["brief-reader-start|brief-leg-path", 2], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
+  const want = { extract: ["extract", 10], brief: ["brief-leg-path", 1], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
   for (const [stage, [kinds, n]] of Object.entries(want)) {
     const cs = calls(stage);
     const ks = kinds.split("|");
@@ -585,14 +581,15 @@ else {
     ok(seg >= 0 && blk.includes(`CONTENT-${i}-1`) && !blk.slice(0, seg).includes("<details"),
       `(n) the Extraction block for paragraph ${i} does not open on its Segments table`);
     ok(seg >= 0 && rend > seg && file > rend, `(n) the Extraction block for paragraph ${i} does not carry the folded rendering and record file after its Segments table`);
-    const stAt = blk.indexOf(`<table class="move-states"><caption>before / after / breaks</caption>`);
+    const stAt = blk.indexOf(`<table class="move-states"><caption>takes / leaves / breaks</caption>`);
     const st = stAt >= 0 ? blk.slice(stAt, blk.indexOf("</table>", stAt)) : "";
     const mv = parseYaml(readOr(join(runDir, "moves", `name_an_act_then_its_cost_${i}.yaml`), "{}"), "move");
-    const dimRows = Object.keys(mv.before || {}).map((d) => `<tr><td>${escHtml(d)}</td><td>${escHtml(String(mv.before[d]))}</td><td>${escHtml(String((mv.after || {})[d] ?? ""))}</td></tr>`);
+    // the Move's `takes` and `leaves` (kogaki#1699: its `before` and `after` are retired), one row per list
+    const listRows = ["takes", "leaves"].map((k) => `<tr><td>${k}</td><td colspan="2">${S.constraintEntriesHtml(mv[k])}</td></tr>`);
     const brk = `<tr class="breaks"><td>breaks</td><td colspan="2"><ol>${(mv.breaks || []).map((x) => `<li>${escHtml(String(x))}</li>`).join("")}</ol></td></tr>`;
-    ok(stAt > seg && stAt < rend && !blk.slice(seg, stAt).includes("<details") && dimRows.length > 0 && (mv.breaks || []).length > 0
-      && st.includes(dimRows.join("") + brk),
-      `(n) the Extraction block for paragraph ${i} carries no open before / after / breaks table of its Move between its Segments table and the folded rendering`);
+    ok(stAt > seg && stAt < rend && !blk.slice(seg, stAt).includes("<details") && (mv.breaks || []).length > 0
+      && !("before" in mv) && !("after" in mv) && st.includes(listRows.join("") + brk),
+      `(n) the Extraction block for paragraph ${i} carries no open takes / leaves / breaks table of its Move between its Segments table and the folded rendering`);
   }
 
   // (l) THE ATTEMPTS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Leg Waypoint 2
@@ -635,8 +632,8 @@ else {
   };
   // (o) THE PARAGRAPH TABLES ARE PLAIN (kogaki#1512): three headings and no section heading,
   // no details element anywhere between the comparison table and the first card but each
-  // binding's closed before / after fold (kogaki#1516).
-  ok(!review.replace(/<details class="states"><summary>before \/ after<\/summary>/g, "").includes("<details") && !review.includes("<h3>Review</h3>")
+  // binding's closed takes / leaves fold (kogaki#1516, kogaki#1699).
+  ok(!review.replace(/<details class="states"><summary>takes \/ leaves<\/summary>/g, "").includes("<details") && !review.includes("<h3>Review</h3>")
     && ["Segments", "Refused attempts", "Bindings"].every((h) => review.includes(`<h3>${h}</h3>`)),
     "(o) the paragraph tables carry a details element or a Review heading, or lack their own three headings");
   const segPart = rpart("segments");
@@ -693,27 +690,25 @@ else {
   ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part attempts">', att1) >= 0, "(o) the refused row's link names no attempt block on the ParagraphPlan card");
   if (existsSync(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"))) fails.push("(o) the run directory still carries a paragraph-plan-bindings.json, retired (kogaki#1639)"); const bindRec = (parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan").legs || []).flatMap((l) => (l.waypoints || []).map((w) => ({ waypoint: w.waypoint, move: w.move, rationale: w.rationale })));
   const bindPart = rpart("bindings");
-  // A binding row runs to the next binding row: the Move's before / after table nests inside it.
+  // A binding row runs to the next binding row: the Move's takes / leaves table nests inside it.
   const rowAt = [...bindPart.matchAll(/<tr><td>(?=\d+<\/td><td>(?:POINT-|\(no point))/g)].map((m) => m.index);
   const bindRows = rowAt.map((at, i) => bindPart.slice(at + 8, i + 1 < rowAt.length ? rowAt[i + 1] : bindPart.length));
   ok(bindRec.length === 3 && bindRows.length === 3, `(o) the Bindings table holds ${bindRows.length} row(s) against the record's ${bindRec.length}`);
   for (const b of bindRec) {
     const row = bindRows.find((x) => x.startsWith(`${b.waypoint}</td>`)) || "";
     ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.rationale)), `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the plan file's rationale`);
-    const sAt = row.indexOf('<details class="states"><summary>before / after</summary>');
+    const sAt = row.indexOf('<details class="states"><summary>takes / leaves</summary>');
     const fold = sAt >= 0 ? row.slice(sAt, row.indexOf("</details>", sAt) + 10) : "";
     const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
-    const lines = Object.keys(mv.before || {}).map((d) => [mv.before[d], (mv.after || {})[d]]);
-    ok(fold.includes("<table>") && lines.length > 0
-      && lines.every(([bf, af]) => fold.includes(escHtml(String(bf))) && fold.includes(escHtml(String(af ?? "")))),
-      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no closed before / after fold with the Move's lines`);
+    ok(fold.includes("<table>") && ["takes", "leaves"].every((k) => fold.includes(`<tr><td>${k}</td><td colspan="2">${S.constraintEntriesHtml(mv[k])}</td></tr>`)),
+      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no closed takes / leaves fold with the Move's lists`);
   }
-  // The before / after folds are closed on load and sit inside their binding's own row, so the
+  // The takes / leaves folds are closed on load and sit inside their binding's own row, so the
   // table's body holds one row per Leg Waypoint and nothing else (kogaki#1516).
   const bindBody = bindPart.includes("<tbody>") ? bindPart.slice(bindPart.indexOf("<tbody>") + 7, bindPart.lastIndexOf("</tbody>")) : "";
   const bodyRows = (bindBody.replace(/<details class="states">[\s\S]*?<\/details>/g, "").match(/<tr[\s>]/g) || []).length;
   ok(bodyRows === bindRec.length && !/<details class="states"[^>]*\sopen/.test(bindPart) && !bindPart.includes('<tr class="states">'),
-    `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Leg Waypoint(s), or a before / after fold is open on load`);
+    `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Leg Waypoint(s), or a takes / leaves fold is open on load`);
   // An attempt whose judge answer is unreadable is a row carrying the job record's refusal,
   // never a silence read as "no attempt was refused".
   const unreadable = join(root, "unreadable-judge-run");
@@ -819,7 +814,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
     const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === MV + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: MV + w.waypoint,
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan-generator");
   }
@@ -838,8 +833,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       language: "English", subject_nouns: ["installer", "kit"],
       answers: { q1: "Hands the reader one fact and its cost.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: first ? "Hands the reader a fact and then the cost of it." : "Draws the consequence of the previous act for the reader.",
-      reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
-        after: i === 0 ? "AFTER-" + p.number + "-" + d : "unchanged", segment: i === 0 ? String(p.sentences.length) : "" })),
       // the Segment content carries every word the fake Leg call writes (kogaki#1495)
       segments: p.sentences.map((s, i) => ({ content: "CONTENT-" + p.number + "-" + (i + 1) + " names what the copy does: CLAIM-" + p.number + ", POINT-" + p.number + ", in English or Japanese.",
         operation: "states one consequence of an act the reader did not ask for.",
@@ -851,14 +844,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     if (p.number === ${brokenParagraph === null ? "null" : String(brokenParagraph)}) delete record.notes;
     return out(record, "extract");
   }
-  if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
-    return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
-  }
   if (prompt.includes("\\\`leg_path_unit\\\` judgment point")) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
-      rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
+      rationale: "It is the only Leg.",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand] })) }] }, "brief-leg-path");
   }
@@ -1152,7 +1142,8 @@ const languageOf = (dir, want) => {
   const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
   ok(run.language === want, `${at}: run.json names language ${JSON.stringify(run.language)}, not ${want}`);
   const bc = existsSync(join(dir, "brief", "calls.jsonl")) ? readFileSync(join(dir, "brief", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
-  ok(bc.length === 2 && bc.every((c) => c.stdin.includes(`"language": "${want}"`) && c.stdin.includes("THE ARTICLE'S LANGUAGE (kogaki#1417)")),
+  // one Leg call, the Reader start call being retired (kogaki#1699)
+  ok(bc.length === 1 && bc.every((c) => c.stdin.includes(`"language": "${want}"`) && c.stdin.includes("THE ARTICLE'S LANGUAGE (kogaki#1417)")),
     `${at}: the Leg Brief composer's calls do not each carry the language ${want} and the row's language sentence`);
   const brief = existsSync(join(dir, "brief", "brief.yaml")) ? readFileSync(join(dir, "brief", "brief.yaml"), "utf8") : "";
   ok((brief.match(new RegExp(`\\(in ${want}\\)`, "g")) || []).length === 3, `${at}: the Brief's three claims are not written in ${want}`);
@@ -1248,7 +1239,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // One Paragraph Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
     const segmentsOf = (id) => (plan.paragraph_moves_you_may_bind.find((m) => m.id === id) || { segments: [{}] }).segments;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: mv(w),
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: w.waypoint === 1 ? (plan.terms_this_leg_introduces || []).map((t) => ({ term: t.term, meaning: t.meaning || "MEANING-" + t.term })) : [], "re-activate": [], rationale: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}), // the Leg's terms go to its first paragraph (kogaki#1639)
       ...(w.waypoint === 1 && owes.length ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 1 })) } : {}),
       paragraph_waypoints: segmentsOf(mv(w)).map((_, n) => ({
@@ -1268,24 +1259,17 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       language: "English", subject_nouns: ["installer"],
       answers: { q1: "Hands the reader one fact.", q2: "Raises who owns the copy.", q3: "Attention from an unasked act." },
       what_it_does: "Hands the reader one fact about the copy.",
-      reader: dims.map((d, i) => ({ dimension: d, before: carried ? carried[d] : "BEFORE-" + d,
-        after: i === 0 ? "AFTER-" + p.passage + "-" + p.number + (owes ? " holds " + owes.length + " items unexplained" : "") : "unchanged",
-        segment: i === 0 ? String(p.sentences.length) : "" })),
       segments: p.sentences.map((_, i) => ({ content: "CONTENT names" + term + " CLAIM-" + p.number + ", POINT-" + p.number + ", in English.",
         operation: owes && i === p.sentences.length - 1 ? "names two devices and explains neither." : "states one consequence of an act the reader did not ask for.", relation: i === 0 ? "" : "widens the step before it", manner: "" })),
       takes: [], leaves: owes ? T.general.map((what) => ({ kind: "explain", what, segment: p.sentences.length })) : [], why_this_order: "The fact comes first.", presupposes: "The reader has a tree of their own.",
       breaks: ["drop the fact — the point floats", "add a second example — the point blurs"],
       description: "Names one fact about the copy.", name: "move_" + p.passage.replace(/-/g, "_") + "_" + p.number, notes: "" }, "extract");
   }
-  if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
-    return out({ version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief-reader-start");
-  }
   if (prompt.includes("\\\`leg_path_unit\\\` judgment point")) {
     const x = input();
     const id = { L1: "leg-a", L3: "leg-b", L5: "leg-c", L7: "leg-d" }[x.paragraphs[0].claim_strand];
     const intro = T ? (T.introduces[id] || []) : id === "leg-a" ? ["frobnicator"] : [];
     return out({ legs: [{ leg_id: id, purpose: "Move the reader one step on.", rationale: "It is one Leg of three.",
-      reader_state_after: "knowledge: holds the step of " + id + "\\norientation: sees where the copy of " + id + " ends up",
       claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + "." })),
       waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand] })),
       ...(intro.length ? { introduces: intro.map((t) => ({ term: t, meaning: t === "frobnicator" ? "the part that copies the kit" : "the part called " + t })) } : {}) }] }, "brief-leg-path");
@@ -1311,8 +1295,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(ex.length === 6 && JSON.stringify(ex.map((x) => `${x.paragraph_you_must_extract.passage}:${x.paragraph_you_must_extract.number}`)) === JSON.stringify(["leg_a:1", "leg_a:2", "leg_b:1", "leg_b:2", "leg_c:1", "leg_c:2"]),
       `(s) the Extractor did not run every paragraph of every Leg in order: ${JSON.stringify(ex.map((x) => x.paragraph_you_must_extract))}`);
     ok(ex.length === 6 && JSON.stringify(ex[2].earlier_paragraphs) === JSON.stringify([LEGS.leg_a[1]]) && JSON.stringify(ex[3].earlier_paragraphs) === JSON.stringify([LEGS.leg_b[0]])
-      && ex[2].reader_state_before && ex[2].reader_state_before.knowledge === "AFTER-leg_a-2",
-      "(s) Leg B's first paragraph did not read Leg A's last paragraph as its earlier text, carrying its reader state");
+      && !("reader_state_before" in ex[2]),
+      "(s) Leg B's first paragraph did not read Leg A's last paragraph as its earlier text, or was handed a retired reader state (kogaki#1699)");
     // One Brief, three Legs, every cross-Leg field derived as stated.
     const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
     const { validateLegs } = await imp("src/compose.mjs");
@@ -1323,9 +1307,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(JSON.stringify(legs.map((l) => l.leg_id)) === '["leg-a","leg-b","leg-c"]', `(s) the Brief does not carry the three Legs in order: ${JSON.stringify(legs.map((l) => l.leg_id))}`);
     if (legs.length === 3) {
       ok(JSON.stringify(legs.map((l) => l.depends_on)) === '[[],["leg-a"],["leg-a","leg-b"]]', `(s) depends_on is not derived as stated: ${JSON.stringify(legs.map((l) => l.depends_on))}`);
-      ok(legs[0].opens_section === "sees where the copy of leg-c ends up" && legs.slice(1).every((l) => l.opens_section == null),
-        `(s) opens_section is not the first Leg's alone, stating the last Leg's orientation: ${JSON.stringify(legs.map((l) => l.opens_section))}`);
-      ok(JSON.stringify(legs.map((l) => l.reaches_target === true)) === "[false,false,true]" && rec.reader_target === "leg-c", "(s) reaches_target is not the last Leg's alone");
+      ok(legs[0].opens_section === legs[2].claims.at(-1).proposition && legs.slice(1).every((l) => l.opens_section == null),
+        `(s) opens_section is not the first Leg's alone, stating the last Leg's last Claim (kogaki#1699): ${JSON.stringify(legs.map((l) => l.opens_section))}`);
+      ok(JSON.stringify(legs.map((l) => l.reaches_target === true)) === "[false,false,true]" && !("reader_target" in rec) && !("reader_start" in rec),
+        "(s) reaches_target is not the last Leg's alone, or the Brief carries a retired Reader start or Reader target (kogaki#1699)");
+      ok(legs.every((l) => !("reader_state_after" in l) && !("reader_state_before" in l)), "(s) a Leg of the Brief carries a retired reader state (kogaki#1699)");
       ok(JSON.stringify(legs.map((l) => l["re-activate"] || [])) === '[[],[],["leg-a term frobnicator"]]', `(s) re-activate is not carried by the first later Leg whose content uses the term: ${JSON.stringify(legs.map((l) => l["re-activate"]))}`);
       const intro = legs.flatMap((l) => l.introduces || []);
       ok(intro.length === 1 && intro.every((e) => JSON.stringify(Object.keys(e).sort()) === '["meaning","term"]'),
@@ -1334,16 +1320,16 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const legBriefRun = (run.stages.find((st) => st.stage === "brief") || {}).leg_brief_run;
     const bj = legBriefRun ? JSON.parse(readOr(join(legBriefRun, "brief.json"), "{}")) : {};
     // The production validateLegs over the whole path the composer wrote: the three Legs as
-    // composed, completed by the derivation, from the Brief's Reader start.
+    // composed, completed by the derivation; no Reader start call is made (kogaki#1699).
     const answers = [1, 2, 3].map((k) => JSON.parse(readOr(join(legBriefRun || sRoot, `leg-path-${k}`, "answer.json"), '{"legs":[null]}')).legs[0]);
-    const startRec = JSON.parse(readOr(join(legBriefRun || sRoot, "reader-start", "answer.json"), '{"reader_start":[]}'));
+    ok(legBriefRun && !existsSync(join(legBriefRun, "reader-start")), "(s) the composer made a Reader start call, which is retired (kogaki#1699)");
     if (answers.every(Boolean)) {
       const segs = [0, 2, 4].map((o) => [o, o + 1].map((i) => { const a = JSON.parse(readOr(join((run.stages[0] || {}).extractor_run || sRoot, `p${i + 1}`, "answer.json"), '{"segments":[]}')); return a.segments.map((g) => g.content); }));
-      const v = validateLegs(LB.crossLegPath(answers, [2, 2, 2], segs).legs, LB.readerStartText(startRec), [], []);
+      const v = validateLegs(LB.crossLegPath(answers, [2, 2, 2], segs).legs, []);
       ok(!v.error, `(s) the production validateLegs refuses the composed path: ${v.error}`);
     } else fails.push("(s) a Leg path answer is not on disk");
-    ok(rec && Array.isArray(rec.obligations) && rec.obligations.length === 0 && !("deferrals" in bj),
-      `(s) a span with no deferring Move does not carry obligations: [] (kogaki#1548): ${JSON.stringify(rec && rec.obligations)} / ${JSON.stringify(bj.deferrals)}`);
+    ok(rec && !("obligations" in rec) && !("deferrals" in bj),
+      `(s) the Brief carries the retired \`obligations\` (kogaki#1699) or brief.json \`deferrals\`: ${JSON.stringify(rec && rec.obligations)} / ${JSON.stringify(bj.deferrals)}`);
     ok(JSON.stringify((bj.derived || []).map((d) => `${d.leg_id}:${d.field}`).sort()) === JSON.stringify(["leg-a:opens_section", "leg-b:depends_on", "leg-c:depends_on", "leg-c:re-activate", "leg-c:reaches_target"]),
       `(s) brief.json does not mark every derived cross-Leg field: ${JSON.stringify(bj.derived)}`);
     const draft = run.stages.find((st) => st.stage === "draft") || {};
@@ -1408,7 +1394,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   // (v) NO OBLIGATION ROW, AND THE ITEMS IN THE MOVE'S `leaves` (kogaki#1582, kogaki#1698): Leg A's second paragraph's last
   // Segment names two devices and explains neither, so its Extraction's `leaves` names two general items of kind `explain`, and each
   // paragraph's constraints call is handed the kinds, the Segments and the two lists alone; no extraction call is handed an open
-  // obligation. Over two Legs the Brief carries `obligations: []` under the comment naming the Planner, `brief.json` no `deferrals` and
+  // obligation. Over two Legs the Brief carries no `obligations` key (kogaki#1699), `brief.json` no `deferrals` and
   // no derived `obligations` row, the plan call for Leg B is handed no row to owe, the Move carries the items in `leaves` and no
   // `obligation`, and the sheet carries no Move obligation line.
   {
@@ -1442,12 +1428,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       const moveA2 = readOr(join(two.dir, "moves", "move_leg_a_2.yaml"), "");
       ok(two.extractInputs.length === 4 && two.extractInputs.every((x) => !("open_obligation" in x)),
         `(v) an extraction call is handed an open obligation: ${JSON.stringify(two.extractInputs.map((x) => Object.keys(x)))}`);
-      ok(two.constraintsInputs.length === 4 && two.constraintsInputs.every((x) => JSON.stringify(Object.keys(x)) === '["kinds","segments","takes","leaves","before","after","obligation"]' && x.before === null && x.after === null && x.obligation === null),
+      ok(two.constraintsInputs.length === 4 && two.constraintsInputs.every((x) => JSON.stringify(Object.keys(x)) === '["kinds","segments","takes","leaves","obligation"]' && x.obligation === null),
         `(v) the constraints calls are not one per paragraph, each handed the kinds, the Segments and the two lists alone: ${JSON.stringify(two.constraintsInputs)}`);
       const leavesA2 = (parseYaml(moveA2 || "{}", "move_leg_a_2.yaml") || {}).leaves || [];
-      ok(JSON.stringify(two.rec.obligations) === "[]" && JSON.stringify(leavesA2.map((x) => x.what)) === JSON.stringify(GENERAL) && leavesA2.every((x) => x.kind === "explain") && !/^obligation:/m.test(moveA2),
+      ok(!("obligations" in two.rec) && JSON.stringify(leavesA2.map((x) => x.what)) === JSON.stringify(GENERAL) && leavesA2.every((x) => x.kind === "explain") && !/^obligation:/m.test(moveA2),
         `(v) the two-Leg Brief carries an Obligation row, or its Move does not carry the general items in \`leaves\` and no \`obligation\`: ${JSON.stringify(two.rec.obligations)} / ${moveA2}`);
-      ok(two.text.includes(`${LBv.DERIVED_COMMENT}\nobligations: []`), "(v) the Brief does not carry `obligations: []` under the comment naming the Planner");
+      ok(!/^obligations:/m.test(two.text), "(v) the Brief carries the retired `obligations` key (kogaki#1699)");
       ok(!("deferrals" in two.bj) && !(two.bj.derived || []).some((d) => d.field === "obligations"),
         `(v) brief.json carries deferrals or a derived obligations row: ${JSON.stringify(two.bj)}`);
       ok(segs(two.sheet, 1).length === 2 && !two.sheet.includes("Move obligation") && !two.sheet.includes("raised here"), `(v) the sheet carries a Move obligation line, which no extracted Move carries now: ${segs(two.sheet, 1).join("")}`);

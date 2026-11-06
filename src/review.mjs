@@ -45,7 +45,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dischargeRows } from "./compose/render.mjs";
 
 function fail(msg) {
   process.stderr.write(`review: ${msg}\n`);
@@ -68,13 +67,8 @@ export const REVIEW_AREAS = [
 const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
   "score", "grade", "ok", "approved", "rating", "result", "status"]);
 
-// THE DISCHARGE (kogaki#1283). A review item added to `review_path`
-// alongside the six prose REVIEW_AREAS, carrying an EXPLICIT verdict rather
-// than prose: unlike the review areas, the judgment here is not whether the
-// Candidate's writing is good but whether a Closure row's claims answer it --
-// a closed-set answer the human gate reads as a verdict on purpose, the same
-// shape the Move-fit judge's `consistent`/`contradicts` already is inside the
-// compose job.
+// THE DISCHARGE IS RETIRED (kogaki#1699) with the Obligations ledger it judged; a record
+// carrying `discharge` is refused by name below.
 //
 // THE QUESTION CHAIN IS RETIRED (kogaki#1325). It was the second such item:
 // whether Leg N's after-state question line and Leg N+1's before-state
@@ -82,8 +76,6 @@ const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
 // previous Leg's after-state by construction, so the two lines are one line;
 // a record carrying `question_chain` is refused by name below rather than
 // read as a seventh prose area.
-export const DISCHARGE_VERDICTS = ["fails", "holds"];
-const STRUCTURED_REVIEW_KEYS = new Set(["discharge"]);
 
 // ---------------------------------------------------------------------------
 // THE CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331, owner decisions
@@ -197,13 +189,16 @@ export function attachReview(candidates, review) {
         + `machine-side PER CANDIDATE (kogaki#490), and an unreviewed Candidate `
         + `cannot ride into the selection gate as if reviewed` };
     }
+    if (r && typeof r === "object" && "discharge" in r) {
+      return { error: `candidate ${c.candidate_id}: \`discharge\` is a retired review item (kogaki#1699) — `
+        + "the Obligations ledger it judged is retired. Remove the field." };
+    }
     if (r && typeof r === "object" && "question_chain" in r) {
       return { error: `candidate ${c.candidate_id}: \`question_chain\` is a retired review item (kogaki#1325) — `
         + "a Leg's before-state is the previous Leg's after-state, so the two question lines it compared are one "
-        + "line. Remove the field; the Move's `after` question is judged at Move fit." };
+        + "line. Remove the field." };
     }
     for (const [k, v] of Object.entries(r)) {
-      if (STRUCTURED_REVIEW_KEYS.has(k)) continue;
       if (VERDICT_KEYS.has(k)) {
         return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
           + `verdict-shaped — the agent's output is REASONING SURFACED FOR THE HUMAN GATE, `
@@ -239,40 +234,6 @@ export function attachReview(candidates, review) {
     if ("recoverability" in r) {
       const rcErr = recoverabilityRefusal(r.recoverability, c.legs);
       if (rcErr) return { error: `candidate ${c.candidate_id}: ${rcErr}` };
-    }
-    // THE DISCHARGE (kogaki#1283, kogaki#1529, kogaki#1612) — one entry per Obligation record
-    // and Leg closing any of its items, named by the items closed there and that Leg, in the
-    // order `dischargeRows` handed them to the judge.
-    // VALIDATED WHEN PRESENT, the same as `bridges`/`introduces` on a Leg
-    // (src/compose.mjs): a caller whose Candidates carry no real Obligation records
-    // (the plumbing fixtures in checks/check-brief-review.sh) has nothing this
-    // item could name, and is not this bullet's concern to retrofit.
-    if ("discharge" in r) {
-      const closedRows = dischargeRows(c.legs || [], c.obligations);
-      if (!Array.isArray(r.discharge) || r.discharge.length !== closedRows.length) {
-        return { error: `candidate ${c.candidate_id}: \`discharge\` is not an array of exactly `
-          + `${closedRows.length} entr${closedRows.length === 1 ? "y" : "ies"} — one per Obligation record `
-          + "and Leg that closes any of its items" };
-      }
-      for (let i = 0; i < closedRows.length; i++) {
-        const entry = r.discharge[i];
-        const row = closedRows[i];
-        const said = row.row; // the `row` dischargeRows handed the judge (kogaki#1549)
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)
-            || entry.row !== said || entry.closed_by !== row.closed_by) {
-          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} does not name the items `
-            + `${JSON.stringify(said)} and the Leg closing them, ${JSON.stringify(row.closed_by)}` };
-        }
-        if (!DISCHARGE_VERDICTS.includes(entry.verdict)) {
-          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} (row `
-            + `${JSON.stringify(said)}): verdict ${JSON.stringify(entry.verdict)} is not one of `
-            + `${DISCHARGE_VERDICTS.map((v) => JSON.stringify(v)).join(", ")}` };
-        }
-        if (typeof entry.why !== "string" || entry.why === "") {
-          return { error: `candidate ${c.candidate_id}: discharge entry ${i + 1} (row `
-            + `${JSON.stringify(said)}) carries no \`why\`` };
-        }
-      }
     }
     out.push({ ...c, review: r });
   }

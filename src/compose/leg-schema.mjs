@@ -16,7 +16,6 @@ import { fileURLToPath } from "node:url";
 import { laneDir } from "../runs.mjs";
 import { figureClaimRefusal, figureRefusal } from "./figure.mjs";
 import {
-  obligationLedgerRefusal, introducedTermInReaderStart,
   introducesRefusal, opensSectionIntroducedTermRefusal, opensSectionRefusal,
   parseIntroducesEntry, reactivateRefusal, reactivateSemanticRefusal,
   readerTargetLegRefusal, readerTargetNamesRefusal, sectionGroupingRefusal,
@@ -356,42 +355,27 @@ export function methodWordRefusal(text, at) {
 // `waypointsRefusal` above. Exported for the checks that build the refused case.
 export const RETIRED_WAYPOINT_MOVE_FIELDS = ["move", "segments"];
 
-// THE FIVE DIMENSIONS A STANCE OR A STATE IS WRITTEN IN
-// (specs/move-extraction-contract.md; SPEC-draft-pipeline §"The three reader
-// fields, and the block that authors them", kogaki#1176). Nothing in src/
-// declares this set structurally — src/leg-schema.json and
-// src/candidate-schema.json both name it only in a field's `description`
-// prose — so it is read here, once, as the closed set the shape predicate
-// below checks against.
+// THE FIVE DIMENSIONS A PARAGRAPH'S READER STATE IS WRITTEN IN. The Leg's reader states are
+// retired (kogaki#1699); the ParagraphPlan's paragraph `reader_state_after` keeps this shape
+// until the ParagraphPlan's Issue, and these three names are its readers'.
 export const READER_STATE_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
 
-// `reader_start` and `reader_state_after` (and the derived
-// `reader_state_before`, kogaki#1325) are a STANCE/STATE in the Move
-// library's dimensions (kogaki#1176): one `dimension: value` LINE per
-// dimension, drawn from READER_STATE_DIMENSIONS — the shape the composition
-// prompt shows, not a Move record's YAML map (kogaki#1413). A semicolon
-// inside a line is prose (kogaki#1211); only the line's LEADING token is
-// checked. Returns an error string or null; presence is another check's.
+// One `dimension: value` line per dimension, drawn from READER_STATE_DIMENSIONS; only a line's
+// LEADING token is checked. Returns an error string or null; presence is another check's.
 export function readerStateShapeRefusal(value, at, fieldName) {
   if (typeof value !== "string" || value === "") return null;
   for (const line of value.split("\n")) {
     if (line === "") continue;
     const m = /^([a-z]+):\s*\S/.exec(line);
     if (!m || !READER_STATE_DIMENSIONS.includes(m[1])) {
-      return `${at}: ${fieldName} is not written as \`dimension: value\` lines over the Move `
-        + `library's dimension set (${READER_STATE_DIMENSIONS.join(", ")}) — it is a STANCE/STATE in `
-        + "those dimensions, not a knowledge sentence (SPEC-draft-pipeline §\"The three reader fields, "
-        + `and the block that authors them\", kogaki#1176). Received: ${JSON.stringify(value)}`;
+      return `${at}: ${fieldName} is not written as \`dimension: value\` lines over the dimension set `
+        + `(${READER_STATE_DIMENSIONS.join(", ")}). Received: ${JSON.stringify(value)}`;
     }
   }
   return null;
 }
 
-// ONE DIMENSION'S LINE, read off a line-per-dimension reader state. Returns
-// the value after `<dim>:` on the line whose LEADING token is `dim`, or null
-// where no line carries it. A later colon inside the value is the value's own
-// (`question: holds: none` reads as `holds: none`), which is the same
-// leading-token rule `readerStateShapeRefusal` checks by.
+// ONE DIMENSION'S LINE, read off a line-per-dimension reader state, or null where no line carries it.
 export function readerStateDimensionLine(value, dim) {
   if (typeof value !== "string") return null;
   for (const line of value.split("\n")) {
@@ -401,59 +385,17 @@ export function readerStateDimensionLine(value, dim) {
   return null;
 }
 
-// NO OPENING QUESTION IS READ OFF THE FIRST LEG ANY MORE (owner decision
-// 2026-09-29, kogaki#1225). `openingQuestionOf` stood here: it read the first
-// Leg's after-state `question:` line and the Brief rendered it under an
-// `Opening question` heading. The first Leg already carries a before-state
-// and an after-state, so a heading repeating its after-state question was a
-// second Question inside Leg 1, rendered three times over. The heading, the
-// Packet's fixed-points line and the first-Leg `question:` requirement are
-// gone together; the Leg marked `reaches_target`'s `reader_state_after` is
-// what the Brief now derives (Reader target, kogaki#1231, src/assemble.mjs
-// `targetLegAfterState`) -- superseding kogaki#1225's last-Leg derivation.
+// The Leg fields retired with the reader states (kogaki#1699).
+export const RETIRED_LEG_STATE_FIELDS = Object.freeze(["reader_state_after", "reader_state_before"]);
 
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
 // THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
-export function validateLegs(legs, readerStart, obligations = [], definedTerms = []) {
+export function validateLegs(legs, definedTerms = []) {
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
-  // READER START IS SHAPE-CHECKED HERE AND BOUND NOWHERE (kogaki#1216).
-  // `readerStart` is OPTIONAL: a bare shape check is not asked to invent one.
-  // Reader start is a cold read authored from the Persona and the Thesis
-  // (src/differentiation-schema.json), never from a Move; the retired
-  // `reader_start_binds_first_leg` forced it backwards from the first Move.
-  // THE FIRST LEG'S BEFORE-STATE IS READER START BY CONSTRUCTION (kogaki#1325,
-  // owner decision 2026-10-10): `deriveReaderStatesBefore` writes every
-  // before-state, and a Leg that carries one is refused by name in the loop.
-  if (typeof readerStart === "string" && readerStart !== "") {
-    const shapeErr = readerStateShapeRefusal(readerStart, "reader_start", "reader_start");
-    if (shapeErr) return { error: shapeErr };
-  }
   const schema = legschema();
-  // A TERM THE PATH INTRODUCES IS ONE THE READER DOES NOT HOLD ON ARRIVAL
-  // (owner decision 2026-09-29, kogaki#1225): a Reader start line carrying a
-  // term some Leg lists under `introduces:` is refused — the one deterministic
-  // refusal in Reader start's content. Whole-word, case-insensitive, over the
-  // term before the anchor separator. Runs before the per-Leg loop so the
-  // first offending Leg is named; a malformed entry is `introducesRefusal`'s.
-  if (typeof readerStart === "string" && readerStart !== "" && Array.isArray(legs)) {
-    for (const [i, s] of legs.entries()) {
-      if (!s || typeof s !== "object" || !Array.isArray(s.introduces)) continue;
-      const at = `leg ${i + 1}${s.leg_id ? ` (${s.leg_id})` : ""}`;
-      for (const raw of s.introduces) {
-        const e = parseIntroducesEntry(raw);
-        if (e.error) continue;
-        if (introducedTermInReaderStart(e.term, readerStart)) {
-          return { error: `${at}: reader_start contains "${e.term}", a term this Leg lists under introduces — `
-            + "a term the path introduces is by definition one the reader does not hold on arrival (kogaki#1225). "
-            + "Reader start is a reader who has seen the Thesis as a title and nothing else: remove the term from "
-            + "Reader start, or from this Leg's introduces if the reader really does arrive holding it" };
-        }
-      }
-    }
-  }
   const seen = new Set();
   for (const [i, s] of legs.entries()) {
     const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
@@ -463,14 +405,13 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
     // composer should never write it — but a Leg that did would otherwise have
     // its marking silently dropped, which is the failure the draft side's
     // by-name refusal of a `relation:` line exists against.
-    // `reader_state_before` IS DERIVED, NEVER COMPOSED (kogaki#1325), and is
-    // refused BY NAME for the reason `relations` below is: a value the
-    // composer wrote would otherwise be silently replaced by the derivation,
-    // and a composer whose state was replaced never learns it wrote one.
-    if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, "reader_state_before")) {
-      return { error: `${at}: carries \`reader_state_before\` — a Leg's before-state is not composed (kogaki#1325): `
-        + "it is the previous Leg's reader_state_after, or the Brief's Reader start for the first Leg, derived by "
-        + "the Harness. Remove the field; write only reader_state_after, which the next Leg begins from." };
+    // THE READER STATES ARE RETIRED (kogaki#1699) and refused BY NAME for the
+    // reason `relations` below is: a dropped field never tells its composer.
+    for (const f of RETIRED_LEG_STATE_FIELDS) {
+      if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, f)) {
+        return { error: `${at}: carries \`${f}\` — the Leg's reader states are retired (kogaki#1699): what a Leg `
+          + "takes up and leaves is its Move's `takes` and `leaves`, judged across the path. Remove the field." };
+      }
     }
     if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, "relations")) {
       return { error: `${at}: \`relations\` is a retired field — the relations layer is retired (kogaki#1215): `
@@ -495,17 +436,6 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
       }
     }
     if (errs.length) return { error: errs[0] };
-    // A KNOWLEDGE-ONLY reader_state_after IS THE DEFECT THIS ISSUE
-    // CLOSES (kogaki#1176 repair): presence is checked above by
-    // `requiredLegFields`; the SHAPE — `dimension: value` lines over the
-    // Move library's dimension set — is checked here, so a bare sentence is
-    // refused naming the rule rather than accepted as a non-empty string.
-    // The before-state needs no check of its own: it is an earlier after-state
-    // or Reader start, each shape-checked where it is written (kogaki#1325).
-    {
-      const shapeErr = readerStateShapeRefusal(s.reader_state_after, at, "reader_state_after");
-      if (shapeErr) return { error: shapeErr };
-    }
     if (seen.has(s.leg_id)) {
       return { error: pathRefusal("leg_id_unique", at, `An earlier Leg already carries the id ${JSON.stringify(s.leg_id)} — this is a duplicate leg_id, and the repair is to rename one of the two, never to merge them.`) };
     }
@@ -678,67 +608,17 @@ export function validateLegs(legs, readerStart, obligations = [], definedTerms =
   // introduces a term is known only once the whole path is.
   const defined = definedTermBeforeIntroductionRefusal(legs, definedTerms);
   if (defined) return { error: defined };
-  // THE OBLIGATIONS (kogaki#1529, kogaki#1232 before it), run for the same
-  // reason the Section grouping and the Reader target Leg do: every rule is a
-  // statement about the whole ledger against the whole path, not about one
-  // Leg or one row alone.
-  const ledger = obligationLedgerRefusal(legs, obligations);
-  if (ledger) return { error: ledger };
   // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
   // POSITION relative to every other Leg, so it is decidable only once every
   // Leg above is known to be well formed — the same reason the Section
   // grouping runs after the per-Leg loop rather than inside it.
-  const target = readerTargetLegRefusal(legs, obligations);
+  const target = readerTargetLegRefusal(legs);
   if (target) return { error: target };
   // THE REACHING LEG'S `names` (kogaki#1251 item 4, kogaki#1260), run right
   // after: it is a further statement about that same Leg, decidable only
   // once `readerTargetLegRefusal` has confirmed which Leg that is.
   const names = readerTargetNamesRefusal(legs);
   if (names) return { error: names };
-  return { legs: deriveReaderStatesBefore(legs, readerStart) };
+  return { legs };
 }
 
-// THE BEFORE-STATE, DERIVED (kogaki#1325, owner decision 2026-10-10). Each
-// Leg begins where the previous Leg left the reader — its `reader_state_after`,
-// verbatim — and the first Leg begins at the Brief's Reader start. Nothing
-// else may stand there: a before-state holding content no earlier text stated
-// is the defect this derivation makes unwritable. Pure: returns copies, so a
-// Candidate record keeps the shape the composer wrote and the derivation is
-// re-run wherever a reader needs the state (the Move-fit input, path review,
-// the Brief's Legs). `readerStart` absent leaves the first Leg's state absent
-// rather than inventing one.
-export function deriveReaderStatesBefore(legs, readerStart) {
-  const first = typeof readerStart === "string" && readerStart !== "" ? readerStart : undefined;
-  return legs.map((s, i) => {
-    const before = i === 0 ? first : legs[i - 1].reader_state_after;
-    const out = {};
-    for (const [k, v] of Object.entries(s)) {
-      out[k] = v;
-      if (k === "purpose" && before !== undefined) out.reader_state_before = before;
-    }
-    if (before !== undefined && !("reader_state_before" in out)) out.reader_state_before = before;
-    return out;
-  });
-}
-
-// WHAT THE READER SAW AT THE TITLE ENTERS `question` ONLY (kogaki#1325). Reader
-// start is a reader who has seen the Thesis read as a title and nothing else;
-// a `knowledge:` line carrying the Thesis says the reader already holds the
-// claim the article exists to establish — the 2026-10-09 run's "holds the
-// sentence as a slogan". The Thesis may appear in `question` as the reader's
-// reaction to the wording. Matched case-insensitively over the Thesis with its
-// closing punctuation and runs of whitespace normalized, so a restated
-// paraphrase is the differentiation judge's to avoid and never linted here.
-// Returns an error string or null; an absent Thesis or Reader start is not
-// this function's refusal.
-export function readerStartThesisRefusal(readerStart, thesis) {
-  if (typeof thesis !== "string" || typeof readerStart !== "string") return null;
-  const norm = (t) => t.toLowerCase().replace(/\s+/g, " ").trim().replace(/[.!?。]+$/, "").trim();
-  const t = norm(thesis);
-  if (t === "") return null;
-  const knowledge = readerStateDimensionLine(readerStart, "knowledge");
-  if (knowledge === null || !norm(knowledge).includes(t)) return null;
-  return `reader_start: its knowledge line contains the Thesis (${JSON.stringify(thesis.trim())}) — Reader start is `
-    + "a reader who has seen the Thesis read as a title and nothing else, so the Thesis may appear in the `question` "
-    + "line, as the reader's reaction to the wording, and never in `knowledge`: no text has stated it yet (kogaki#1325)";
-}

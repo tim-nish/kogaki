@@ -107,7 +107,7 @@ if (!two.includes("Leg v1, Waypoint 1") || !two.includes("Paragraph Waypoint 2 c
 const spec = readFileSync("specs/spec-draft-pipeline/SPEC.md", "utf8");
 const legPoint = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit.judgment_point;
 const legItems = (point) => {
-  const m = /Answer `consistent` only where all of them hold -- (.*?)\. The before-state itself/s.exec(point);
+  const m = /Answer `consistent` only where all of them hold -- (.*?)\. `taken` in the input/s.exec(point);
   return m ? m[1].split(/,\s+(?:and\s+)?/).map((t) => t.replace(/^\([^)]*\)\s*/, "").trim()) : [];
 };
 const sharedIds = (row) => [...row.judgment_point.matchAll(/\{\{shared:([a-z_]+)\}\}/g)].map((m) => m[1]);

@@ -21,7 +21,7 @@
     "",
     "THE RECORD IS FILLED AFTER THE PROSE. That is the hub's third moment --",
     "concrete design after the text -- and it is why `caption` is stated in the",
-    "Leg's `reader_state_after` terms: the caption says what the reader holds",
+    "Leg's claims' terms: the caption says what the reader holds",
     "after looking, which is only answerable once what they have read exists.",
     "",
     "NOTHING HERE JUDGES WORDING. Whether an element's text is a fair wording",
@@ -74,7 +74,7 @@
     },
     "caption": {
       "type": "string",
-      "why": "the line rendered under the block, in the Leg's `reader_state_after` terms -- what the reader holds after looking"
+      "why": "the line rendered under the block, in the terms of the Leg's claims -- what the reader holds after looking"
     },
     "position": {
       "type": "string",

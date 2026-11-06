@@ -61,7 +61,7 @@ export function composeBrief(input) {
   }
   // THE AUDIENCE'S PATH, RECORDED AT MINT (kogaki#1262, carrying kogaki#1251
   // item 1). `compose_path` names the Audience file the `compose_path` workflow
-  // state will author the Brief's Reader start from — so the Packet can read
+  // state reads the Persona from — so the Packet can read
   // the Audience's `register` from the same path the Brief itself names,
   // rather than from the workflow table a Packet has no reach into.
   if (typeof composePath !== "string" || composePath === "") {

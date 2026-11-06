@@ -224,8 +224,6 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
     "```leg",
     `leg_id: ${leg.leg_id}`,
     "purpose: …",
-    "reader_state_before: …",
-    "reader_state_after: …",
     "claim …",
     "claim …",
     "waypoint …",
@@ -285,10 +283,6 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
 const RECONSTRUCTIBLE_FIELDS = [
   { name: "purpose", kind: "line",
     definition: "what this passage is for — what it does for the reader, in your words." },
-  { name: "reader_state_before", kind: "line",
-    definition: "what a reader knows and believes as they arrive at this passage." },
-  { name: "reader_state_after", kind: "line",
-    definition: "what a reader knows and believes once they have read it." },
   { name: "claims", kind: "claim-lines",
     definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept." },
   // THE ROUTE, READ BACK (kogaki#1311, kogaki#1326). The forward Leg carries
@@ -573,8 +567,6 @@ function validateReverseOutline(text, leg, file) {
   return {
     leg_id: outline.leg_id,
     purpose: legField(body, "purpose"),
-    reader_state_before: legField(body, "reader_state_before"),
-    reader_state_after: legField(body, "reader_state_after"),
     claims: outlineClaims(body).map((l) => ({ text: l.replace(/^claim[ \t]+/, "").trim() })),
     waypoints: outlineWaypoints(body).map((t) => ({ text: t })),
     introduces: repeatedLines(body, "introduces").map((t) => ({ text: t })),

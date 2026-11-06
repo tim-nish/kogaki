@@ -2,8 +2,9 @@
 # check-brief-compose — the composition-side refusals kogaki#1225 added, over
 # the pure validator and by absence over the carriers. A LIGHT member: no model
 # run; (f) alone spawns `node` over a state renderer with its records supplied.
-#   (a)-(c) `validateLegs` refuses a Reader start carrying a term a Leg lists
-#           under `introduces:`, naming term and Leg; whole-word, any case.
+#   (a)-(c) Reader start is retired (kogaki#1699): the introduced-term refusal
+#           over it is gone, and a Leg carrying `reader_state_after` is refused
+#           naming the field.
 #   (d)     `openingQuestionOf` is gone from src/compose.mjs and src/compose/.
 #   (e)     the carriers derive nothing from why the reader opened the post.
 #   (f)     the renderings record composed at `differentiation`, one entry per
@@ -16,59 +17,24 @@ cd "$(dirname "$0")/.."
 node --input-type=module - <<'JS'
 import { readFileSync, readdirSync } from "node:fs";
 import * as compose from "./src/compose.mjs";
-import { READER_START, runDifferentiation } from "./checks/fixtures/brief-compose/fixtures.mjs";
-const { validateLegs, introducedTermInReaderStart } = compose;
+import { runDifferentiation } from "./checks/fixtures/brief-compose/fixtures.mjs";
+const { validateLegs } = compose;
 const fails = [];
 
-// (a) a Reader start carrying an introduced term is refused naming the term and the Leg.
+// (a)-(c) READER START IS RETIRED (kogaki#1699). The introduced-term refusal over Reader start
+// (kogaki#1225) went with it: no record carries a Reader start for a term to appear in.
 {
+  if ("introducedTermInReaderStart" in compose) fails.push("(a) src/compose.mjs still exports introducedTermInReaderStart");
+  if ("readerStartThesisRefusal" in compose) fails.push("(a) src/compose.mjs still exports readerStartThesisRefusal");
   const legs = [
     { leg_id: "s1", introduces: ["pipeline"] },
     { leg_id: "s2", introduces: ["CI — the system that runs the checks"] },
   ];
-  const r = validateLegs(legs, READER_START);
-  if (!r.error) fails.push("(a) a Reader start carrying a term a Leg introduces was not refused");
-  else {
-    if (!/"CI"/.test(r.error)) fails.push(`(a) the refusal did not name the term: ${r.error}`);
-    if (!/leg 2 \(s2\)/.test(r.error)) fails.push(`(a) the refusal did not name the Leg: ${r.error}`);
-    if (!/lists under introduces/.test(r.error)) fails.push(`(a) the refusal did not name the introduces ground: ${r.error}`);
-  }
-}
-
-// (b) the same path with the term absent from Reader start is not refused on that ground.
-{
-  const legs = [
-    { leg_id: "s1", introduces: ["pipeline"] },
-    { leg_id: "s2", introduces: ["invariant — a condition that must always hold"] },
-  ];
-  const r = validateLegs(legs, READER_START);
-  if (r.error && /lists under introduces/.test(r.error)) fails.push(`(b) a Reader start carrying no introduced term was refused on the introduced-term ground: ${r.error}`);
-  const none = validateLegs(legs, "");
-  if (none.error && /lists under introduces/.test(none.error)) fails.push(`(b) with no Reader start to hand, the introduced-term clause still fired: ${none.error}`);
-}
-
-// (c) whole-word, case-insensitive matching.
-{
-  if (typeof introducedTermInReaderStart !== "function") fails.push("(c) src/compose.mjs exports no introducedTermInReaderStart");
-  else {
-    const cases = [
-      ["check", "question: why did my checks pass", false, "a term inside a longer word"],
-      ["Check", "knowledge: a check ran", true, "a term differing only in case"],
-      ["x", "knowledge: x marks it", true, "a one-character term standing alone"],
-      ["x", "knowledge: an xylophone", false, "a one-character term inside a word"],
-      ["CI", "knowledge: has used a CI system", true, "a term at a word boundary"],
-      ["fail-closed", "orientation: expects fail-closed checks", true, "a hyphenated term"],
-      // The dimension LABELS are never matchable text (PR #1228 round 1).
-      ["trust", "knowledge: one claim\ntrust: a peer's default", false, "a term equal to a dimension label, absent from the values"],
-      ["question", "question: holds: none\ntrust: a peer's default", false, "the question label with no question in the values"],
-      ["trust", "knowledge: one claim\norientation: trust is the issue", true, "a term equal to a dimension label, present in a value"],
-    ];
-    for (const [term, start, want, why] of cases) {
-      const got = introducedTermInReaderStart(term, start);
-      if (got !== want) fails.push(`(c) ${why}: introducedTermInReaderStart(${JSON.stringify(term)}, ${JSON.stringify(start)}) = ${got}, want ${want}`);
-    }
-    const anchored = validateLegs([{ leg_id: "s1", introduces: ["gate — the default a peer's post gets"] }], READER_START);
-    if (anchored.error && /lists under introduces/.test(anchored.error)) fails.push(`(c) the anchor after the separator was read as part of the term: ${anchored.error}`);
+  const r = validateLegs(legs);
+  if (r.error && /lists under introduces/.test(r.error)) fails.push(`(b) a path was refused on the retired Reader start ground: ${r.error}`);
+  const stated = validateLegs([{ leg_id: "s1", reader_state_after: "knowledge: k" }]);
+  if (!stated.error || !/carries `reader_state_after`/.test(stated.error) || !/kogaki#1699/.test(stated.error)) {
+    fails.push(`(c) a Leg carrying reader_state_after was not refused naming the field and kogaki#1699: ${stated.error}`);
   }
 }
 
@@ -88,9 +54,8 @@ const fails = [];
   const persona = readFileSync("audiences/dev-to-zenn.md", "utf8");
   if (/to fix or avoid/.test(persona)) fails.push("(e) audiences/dev-to-zenn.md's `persona.reader` field still carries the purpose clause");
   const schema = JSON.parse(readFileSync("src/differentiation-schema.json", "utf8"));
-  const q = schema.record.reader_start.lines.question;
-  if (typeof q !== "string" || /opened the post/.test(q)) fails.push(`(e) src/differentiation-schema.json's question line still derives from why the reader opened the post: ${JSON.stringify(q)}`);
-  if (!/holds: none/.test(q) || !/reaction to the wording/.test(q)) fails.push(`(e) src/differentiation-schema.json's question line does not state the pinned stimulus rule: ${JSON.stringify(q)}`);
+  if (schema.record.reader_start !== undefined) fails.push("(e) src/differentiation-schema.json's record still declares `reader_start` (kogaki#1699)");
+  if (/opened the post/.test(JSON.stringify(schema))) fails.push("(e) src/differentiation-schema.json still derives something from why the reader opened the post");
   const workflow = readFileSync("src/brief-workflow.json", "utf8");
   if (/and why they opened it\)/.test(workflow)) fails.push("(e) src/brief-workflow.json's Persona note still lists why they opened it as a `reader` field clause");
 }
@@ -126,5 +91,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose — the introduced-term refusal (named term and Leg; not fired without the term or without a Reader start; whole-word and case-insensitive; the anchor is not the term), openingQuestionOf's absence, and the carriers deriving nothing from why the reader opened the post (kogaki#1225); the renderings record composed at differentiation with one entry per term the Thesis does not keep, and a record rendering the Thesis's term, carrying a third key or naming a term in no claim refused by name (kogaki#1494).");
+console.log("ok: check-brief-compose — Reader start retired with its introduced-term refusal and a Leg carrying reader_state_after refused by name (kogaki#1699), openingQuestionOf's absence, and the carriers deriving nothing from why the reader opened the post (kogaki#1225); the renderings record composed at differentiation with one entry per term the Thesis does not keep, and a record rendering the Thesis's term, carrying a third key or naming a term in no claim refused by name (kogaki#1494).");
 JS

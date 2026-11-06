@@ -163,7 +163,7 @@ export function structureClaims(record) {
 }
 
 // The Trial's Leg, refused or `{}`: the proposition-word test first, then the Proof Sheet's own
-// validator over the Leg. `inputs` carries `holds`, `proposition`, `reader_start` and `segments`.
+// validator over the Leg. `inputs` carries `holds`, `proposition` and `segments`.
 export function validateSmpLegUnit(record, inputs) {
   const leg = isMap(record) && Array.isArray(record.legs) && record.legs.length === 1 ? record.legs[0] : null;
   if (isMap(leg)) {
@@ -173,13 +173,11 @@ export function validateSmpLegUnit(record, inputs) {
       const r = isMap(w) && typeof w.point === "string" ? propositionWordRefusal(w.point, forms, `leg 1: waypoints[${i}].point`) : null;
       if (r) return { error: r };
     }
-    const after = typeof leg.reader_state_after === "string" ? propositionWordRefusal(leg.reader_state_after, forms, "leg 1: reader_state_after") : null;
-    if (after) return { error: after };
     for (const [i, g] of (Array.isArray(leg.claims) ? leg.claims : []).entries()) {
       if (isMap(g) && inputs.holds[i] !== undefined && g.proposition !== inputs.holds[i]) {
         return { error: `leg 1: Claim ${i + 1}'s \`proposition\` is not entry ${i + 1}'s \`holds\` word for word: ${JSON.stringify(inputs.holds[i])}` };
       }
     }
   }
-  return validateLegPathUnit(record, { paragraph_count: inputs.holds.length, reader_start: inputs.reader_start, segments: inputs.segments });
+  return validateLegPathUnit(record, { paragraph_count: inputs.holds.length, segments: inputs.segments });
 }

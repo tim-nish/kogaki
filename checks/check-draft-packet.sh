@@ -76,8 +76,8 @@
 #       a name" nor "may be handed this name as given".
 #   (j) NO OBLIGATION ROW REACHES THE PACKET, AND THE PACKET ASKS FOR NO
 #       SENTENCE THE PLAN DOES NOT CARRY (kogaki#1584, kogaki#1496): a Leg
-#       party to an Obligation row -- the Brief read with the row on its
-#       record, so the row is known to be in scope -- renders a Packet
+#       of a Brief, which carries no Obligation row since kogaki#1699 (a
+#       Brief carrying one is refused naming the key) -- renders a Packet
 #       carrying none of the retired Obligations heading, "*Promise:*",
 #       "*Keeps:*" or the row's item words (the heading spelled apart, since
 #       the Issue's Acceptance greps checks/ for it), whose Write block carries the
@@ -170,9 +170,8 @@ const leg = {
 const text = briefRecordText({
   slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-  thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-  reader_target: "s1", reader_path: [legRecord(leg)],
-  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+  thesis: "The fixture claim.", reader_path: [legRecord(leg)],
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 });
 const brief = readBrief(text, "theses/packet-brief/brief.yaml");
 const render = (templateText) => {
@@ -521,9 +520,8 @@ if (!r.error) {
   const recordWith = (term) => briefRecordText({
     slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-    thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-    reader_target: "s1", reader_path: [{ ...legRecord(leg), introduces: [term] }],
-    strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+    thesis: "The fixture claim.", reader_path: [{ ...legRecord(leg), introduces: [term] }],
+    strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
   });
   const gBrief = readBrief(recordWith(TERM), "theses/packet-brief/brief.yaml");
   const split = splitPacketTemplate(template);
@@ -552,17 +550,18 @@ if (!r.error) {
   const ROW = "the reader is owed why the copy is overwritten";
   const RECOVERABLE = "Each claim above must be recoverable from what you write";
   const RETIRED_HEADING = ["## This Leg's", "Obligations"].join(" ");
-  // A record s1 opens (kogaki#1612); its closing Leg lies past this one-Leg fixture, which
-  // `readBrief` reads without validating the ledger.
+  // A record s1 opens (kogaki#1612). The Brief carries no Obligations ledger since kogaki#1699,
+  // so a Brief carrying one is refused naming the key, and the Packet is rendered from the
+  // ledgerless fixture Brief.
   const opened = { opened_by: "s1", items: [{ item: ROW, closed_by: "s2" }] };
   const jTextWith = (row) => briefRecordText({
     slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-    thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-    reader_target: "s1", reader_path: [legRecord(leg)],
+    thesis: "The fixture claim.", reader_path: [legRecord(leg)],
     strand_coverage: [], journey_coverage: [], obligations: [row], tradeoffs: {}, bridged: {},
   });
-  const jBrief = readBrief(jTextWith(opened), "theses/packet-brief/brief.yaml");
+  const ledgered = readBrief(jTextWith(opened), "theses/packet-brief/brief.yaml");
+  const jBrief = brief;
   const jRender = (templateText) => {
     const split = splitPacketTemplate(templateText);
     if (split.error) return { error: split.error };
@@ -582,8 +581,8 @@ if (!r.error) {
     }
     return null;
   };
-  if ((jBrief.refusals || []).length) fails.push(`(j) the fixture Brief with an Obligation row was refused: ${JSON.stringify(jBrief.refusals)}`);
-  else if (!(jBrief.record.obligations || []).some((o) => (o.items || []).some((e) => e.item === ROW))) fails.push("(j) the fixture Brief's record does not carry the Obligation record");
+  if (!(ledgered.refusals || []).some((m) => m.includes("carries `obligations`") && m.includes("kogaki#1699"))) fails.push(`(j) a Brief carrying an Obligation row was not refused naming the key: ${JSON.stringify(ledgered.refusals)}`);
+  if ((jBrief.refusals || []).length) fails.push(`(j) the fixture Brief was refused: ${JSON.stringify(jBrief.refusals)}`);
   else {
     const j = jRender(template);
     if (j.error) fails.push(`(j) the fixture Packet with an Obligation row did not render: ${j.error}`);

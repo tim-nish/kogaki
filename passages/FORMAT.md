@@ -100,8 +100,9 @@ Three artifacts touch the source text, and each keeps a different amount.
 A Passage is extracted once as a whole, and each of its paragraphs may be
 extracted again on its own. Two levels, no more: a Passage-level Extraction
 and the paragraph Extractions it contains. Everything in "The Extraction" below
-applies to a paragraph Extraction, except the rules here — rules 1, 2
-and 4 to 6 are mechanism m2's (kogaki#1348), carried verbatim, rule 3 is kogaki#1652's, rule 7 is kogaki#1440's,
+applies to a paragraph Extraction, except the rules here — rules 1, 2,
+4 and 5 are mechanism m2's (kogaki#1348), carried verbatim, rules 3 and 6 are retired with the reader table
+(kogaki#1699), rule 7 is kogaki#1440's,
 rule 8 is kogaki#1698's (replacing kogaki#1583's obligation), rule 9 is kogaki#1478's and rule 10 is retired:
 
 1. **The unit is one paragraph.** `passage` holds one paragraph of the
@@ -110,25 +111,10 @@ rule 8 is kogaki#1698's (replacing kogaki#1583's obligation), rule 9 is kogaki#1
    `unit: paragraph <N> of <M> in <passage slug>`.
 2. **The reader enters with the earlier text.** Before extracting paragraph
    N, read paragraphs 1 to N-1 of the same Passage in full, and the end of
-   the Passage that precedes it in the work when one is given. The reader
-   state you write is the state of a reader who has just read all of that.
-3. **The before column is what Segment 1 presupposes** (kogaki#1652). In
-   `reader`, every row's `before` is written in full, in general terms, as
-   the state Segment 1's `operation` presupposes: what the reader must hold,
-   lack or expect for the first step to work, and no line no Segment needs.
-   It is not copied from the previous paragraph. That paragraph's state for
-   the row, its `after` where the row changed and its `before` where it was
-   unchanged, is given beside it, and every `before` row is a specialization
-   of it: a narrower or equal state, never one requiring what the previous
-   paragraph did not leave. For paragraph 1 the before column is also read
-   against the state the preceding text leaves the reader in. A judged call
-   checks every row against the Segments, the state-bound call: a `before`
-   Segment 1 does not presuppose, a changed `after` the Segment it names does
-   not produce, and a `before` the previous paragraph's state does not meet
-   are each refused, naming the dimension and the Segment. The `after` cell is
-   `unchanged` where this paragraph does not move the row; otherwise the new
-   state in one short clause. `dimensions changed` counts the rows whose
-   `after` is not `unchanged`.
+   the Passage that precedes it in the work when one is given. What you
+   write is written for a reader who has just read all of that.
+3. *(retired, kogaki#1699: the before column and the state-bound call that
+   judged it, with the Extraction's reader table.)*
 4. **The model answers Q2 and Q3 itself**, as it already answers Q1:
    one answer each, recorded as `answer: model — <answer>`, no candidates.
    No human round. The Segment cut is the model's own and is not confirmed.
@@ -140,33 +126,23 @@ rule 8 is kogaki#1698's (replacing kogaki#1583's obligation), rule 9 is kogaki#1
    A Move carries no relation to what precedes it (kogaki#1411), and the
    relation Segment 1 once carried was read by nothing downstream, so it is
    not recorded (kogaki#1510).
-6. **A row is credited where the paragraph finishes moving it.** A section
-   2 row's `segment` names the Segment after which the new state holds, not
-   the Segment that first mentions something the state is about. Write the
-   `expectation` `after` as what the reader, having finished the paragraph,
-   expects the next paragraph to do, and say what this paragraph has
-   completed.
-7. **The whole record is written general.** A section 2 `after`
-   state is written as `operation` is, in general terms, naming no term, place,
-   person or claim of the original and none of `subject_nouns`, and
-   describing nothing of a neighbouring paragraph's content, so that
-   the next paragraph's `before`, judged against it, stays general. Segment 1's `operation`
+6. *(retired, kogaki#1699: where a reader-table row was credited.)*
+7. **The whole record is written general.** Segment 1's `operation`
    carries no reference to any earlier step or earlier paragraph. A later
    Segment's `operation` is the operation alone, and its `relation`
    carries the connection to the step before. Every prose field of the
-   record, `operation`, `relation`, `manner`, each entry of `breaks`, each
-   dimension state of the reader table and each `what` of `takes` and `leaves`, names no term, place, person or
+   record, `operation`, `relation`, `manner`, each entry of `breaks` and each `what` of `takes` and `leaves`, names no term, place, person or
    claim of the original, none of `subject_nouns`, and no word in the
    original's language; the record's `content` clause and `opening` are the
    only fields bound to the source (kogaki#1519). A `content` clause opens on
    what the sentence says, never on a verb naming how the paragraph treats it.
-8. **`takes` and `leaves` are the Move's constraints** (kogaki#1698, owner ruling 2026-11-06, replacing the obligation of kogaki#1583 and kogaki#1618). `takes` is what Segment 1 takes up on entry, written as what a predecessor could leave; `leaves` is what the paragraph's Segments leave for a later unit to take up. Each is a list, possibly empty, of `{ kind, what }`, `kind` one of four (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs, each rendered with its definition: `answer` a question raised, to be answered; `explain` a term or item named, to be explained; `carry` a structure given in a base, to be carried onto the subject; `apply` a principle, division or general statement given, to be put to work on a case) and `what` one line written general, as `operation` is; a `leaves` entry also carries `segment`, the Segment that leaves it. A question the paragraph answers, or a term it explains, in a later Segment of its own is left for nothing. Both are read by judgment, never compared verbatim. After the record passes the state-bound call, a fourth call (`constraints_unit`) reads the record's `segments`, each `operation` and `relation`, and its two lists, and nothing of the Passage: an entry its Segment does not support, or a question, term, base or principle a Segment leaves that no entry names, refuses the Extraction, and the refusal goes back into the Extractor's next attempt. An empty list is a normal case. `obligation` and `obligation_triggers` are retired from the Extraction: a record carrying either is refused.
+8. **`takes` and `leaves` are the Move's constraints** (kogaki#1698, owner ruling 2026-11-06, replacing the obligation of kogaki#1583 and kogaki#1618). `takes` is what Segment 1 takes up on entry, written as what a predecessor could leave; `leaves` is what the paragraph's Segments leave for a later unit to take up. Each is a list, possibly empty, of `{ kind, what }`, `kind` one of four (`MOVE_CONSTRAINT_KINDS` in src/move-validate.mjs, each rendered with its definition: `answer` a question raised, to be answered; `explain` a term or item named, to be explained; `carry` a structure given in a base, to be carried onto the subject; `apply` a principle, division or general statement given, to be put to work on a case) and `what` one line written general, as `operation` is; a `leaves` entry also carries `segment`, the Segment that leaves it. A question the paragraph answers, or a term it explains, in a later Segment of its own is left for nothing. Both are read by judgment, never compared verbatim. After the record passes the content-bound call, a third call (`constraints_unit`) reads the record's `segments`, each `operation` and `relation`, and its two lists, and nothing of the Passage: an entry its Segment does not support, or a question, term, base or principle a Segment leaves that no entry names, refuses the Extraction, and the refusal goes back into the Extractor's next attempt. An empty list is a normal case. `obligation` and `obligation_triggers` are retired from the Extraction: a record carrying either is refused.
 9. **`operation`, `content`, `relation` and `manner` describe what the
    sentence does when read aloud.** Anything the reader would know only
    from the page, such as emphasis, bullets, numbering, headings, line
    breaks or a quotation's marks, is layout: it is recorded in `passage`
-   and nowhere else, never in `operation`, `content`, `relation`, `manner`
-   or a reader-state line. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
+   and nowhere else, never in `operation`, `content`, `relation` or
+   `manner`. "Introduces a bolded term" fails the test; "introduces a term" passes it. The test is the whole
    mechanism, one rule covering the class rather than a list of its members.
 10. *(retired, kogaki#1583: `discharges` held state across paragraphs.)*
 
@@ -201,7 +177,6 @@ fields; nothing in the copy is judged.
 | Extraction field | Move field |
 |------------------|------------|
 | `name` | `id` |
-| `reader`, the rows whose `after` is not `unchanged` | `before`, each row's `before`, and `after`, each row's `after` — maps keyed by dimension, one entry per changed row; and `after_segment`, each row's `segment`, the Segment number(s) after which the new state holds, keyed by the same dimensions (kogaki#1652) |
 | `segments` | `segments` — each Segment's `operation`, its `relation` on every Segment after the first, and its `manner` where one is filled; never `opening` or `content` |
 | `breaks` | `breaks`, the list of prose tests |
 | `takes` | `takes`, copied unchanged (kogaki#1698) |
@@ -210,11 +185,9 @@ fields; nothing in the copy is judged.
 
 The `answers` (Q1 to Q3), `what_it_does`, `presupposes`, `notes` and the header fields
 fields become no Move field. Of the stages after the Extraction, only the
-Proof Sheet's Leg Brief composer reads them: it hands each paragraph's whole
-record to its reader-start call and its Leg call
-(`src/proof-sheet/leg-brief.mjs`). The `segment` cell of a `reader` row
-stays in the Extraction too: it records where the Passage moved the reader,
-and a Move's state carries no Segment. `technique` is retired (kogaki#1412):
+Proof Sheet's Leg Brief composer reads them: it hands each paragraph's
+`what_it_does` and Segment `content` to its Leg call
+(`src/proof-sheet/leg-brief.mjs`; its reader-start call is retired, kogaki#1699). `technique` is retired (kogaki#1412):
 `segments` is the Move's whole structure, and a Move record carrying
 `technique` is refused by name.
 
@@ -223,11 +196,12 @@ and `manner`, the three fields of each Segment, and `obligation` shape the
 structure of the prose the Move produces. `takes` and `leaves` (kogaki#1698)
 are read by judgment, at extraction and by the Composers that move to them,
 for what the Move takes up and leaves; `obligation` is carried until the
-ParagraphPlan's Issue retires it. `before`, `after` and `breaks`
-tell the Composer what the Move needs of the Strand and what it gives the
-reader; they are read for Strand fit and shape no sentence, so an `after`
-entry or a `breaks` test that instructs wording or sentence order is
-refused by name. No other field shapes prose, and no field carries a
+ParagraphPlan's Issue retires it. `breaks` tells the Composer what the
+Move needs of the Strand; it is read for Strand fit and shapes no sentence,
+so a `breaks` test that instructs wording or sentence order is refused by
+name. No Extraction writes `before` or `after` since kogaki#1699; a Move
+admitted before then still carries them, read by the ParagraphPlan stage
+alone until its Issue. No other field shapes prose, and no field carries a
 condition on how a promise is kept: that condition is the Composer's,
 written in the Plan and never in the Move.
 
@@ -275,7 +249,10 @@ where it describes how content is arranged rather than why it captivates.
 
 ### The five reader dimensions
 
-Used wherever a reader state is written.
+Used wherever a reader state is written. Since kogaki#1699 no Extraction
+and no Leg writes one: the set is read by a ParagraphPlan paragraph's
+`reader_state_after` and by the `before` and `after` a Move admitted before
+then carries, until the ParagraphPlan's Issue.
 
 - **knowledge** — what the reader knows to be the case.
 - **question** — what the reader currently wants answered.
@@ -465,13 +442,6 @@ answers:
     candidates: [<candidate>, <candidate>, <candidate>]
     answer: <as above>
 what_it_does: <one sentence>
-reader:
-  knowledge: {before: unchanged, after: unchanged, segment: ""}
-  question: {before: unchanged, after: unchanged, segment: ""}
-  expectation: {before: unchanged, after: unchanged, segment: ""}
-  orientation: {before: unchanged, after: unchanged, segment: ""}
-  trust: {before: unchanged, after: unchanged, segment: ""}
-dimensions_changed: <N>
 segments:
   - opening: <the quoted opening words>
     content: <what this Segment does with the Passage's own content>
@@ -517,14 +487,9 @@ What each field holds:
   candidates shown at step 2 and the answer recorded there.
 - `what_it_does` — one sentence. A verb phrase about the reader, with no
   words from the Passage's subject, built on the answers above.
-- `reader` — the reader before and after, one entry per dimension. Every
-  `before` and `after` defaults to "unchanged". A dimension that changes is
-  given its state before and after, and `segment` names the Segment, by its
-  number in `segments`, that moved it. `specs/move-extraction-contract.md`
-  states the rule that follows from this: a Move omits any dimension this
-  map records as unchanged.
-- `dimensions_changed` — the count of dimensions in `reader` that are not
-  "unchanged"; zero is a valid answer.
+- `reader` and `dimensions_changed` — retired (kogaki#1699): an Extraction
+  records no reader state. What the Passage takes up and leaves is `takes`
+  and `leaves`.
 - `segments` — one entry per Segment, in the cut the human confirmed at
   step 2. `opening` is the quoted opening words of that Segment. `content`
   is one clause saying what the Segment does, written about this Passage's
@@ -720,32 +685,6 @@ what_it_does: >-
   Opens a subject the reader expects to be hard by standing entirely on
   things that need no expertise, and only then hands them the question the
   subject exists to answer.
-reader:
-  knowledge:
-    before: little; may know the word
-    after: "one claim: interest rises when the world is unstable"
-    segment: 6, 7
-  question:
-    before: none, or "should I read this?"
-    after: >-
-      "why is everyone reading about this now?" answered; "what is unstable
-      now?" opened
-    segment: 6, 7
-  expectation:
-    before: a definition or a table of contents
-    after: the book will explain instability through geopolitics
-    segment: 4, 6
-  orientation:
-    before: this is one more geopolitics book
-    after: this book knows the genre and places itself inside it
-    segment: 3, 5
-  trust:
-    before: neutral
-    after: >-
-      raised: the author admits their own position and names a fact against
-      interest
-    segment: "1"
-dimensions_changed: 5
 segments:
   - opening: It may sound strange for someone who...
     content: >-

@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { relFromRepo } from "../workflow/run-record.mjs";
 import {
-  READER_STATE_DIMENSIONS, deriveReaderStatesBefore, journeyUses,
+  READER_STATE_DIMENSIONS, journeyUses,
   readerStateDimensionLine, readerStateShapeRefusal, waypointsRefusal,
 } from "./leg-schema.mjs";
 import { parseIntroducesEntry, parseReactivateEntry, obligationLabel, obligationItemRefusal, obligationCloseRefusal,
@@ -26,10 +26,7 @@ import { parseIntroducesEntry, parseReactivateEntry, obligationLabel, obligation
 // `theses/<slug>/brief.yaml` is the Brief, read through `parseBriefRecord`
 // and the readers beside it; nothing reads it back from a rendering. Its
 // shape is `brief_record` in `src/candidate-schema.json`, whose key set this
-// file reads (`briefRecordKeys`). EACH READER STATE IS WRITTEN ONCE PER
-// BOUNDARY: `reader_start` before the first Leg, `reader_state_after` per
-// Leg, before-states derived on read (`deriveReaderStatesBefore`,
-// kogaki#1325); `reader_target` names the Leg marked `reaches_target`.
+// file reads (`briefRecordKeys`). It carries no reader state (kogaki#1699).
 export const BRIEF_RECORD_FILE = "brief.yaml";
 const RECORD_WIDTH = 120;
 
@@ -54,9 +51,8 @@ export function briefSlotKeys() {
   return Object.keys(keys).filter((k) => keys[k].filled_at === "adoption");
 }
 
-// A reader state's line form — one `dimension: value` line per dimension, the
-// form the Candidate carries and every in-memory reader reads — to the
-// record's five-key map, and back. The map is keyed by READER_STATE_DIMENSIONS
+// A paragraph reader state's line form — one `dimension: value` line per dimension — to the
+// ParagraphPlan record's five-key map, and back (the Leg's states are retired, kogaki#1699). The map is keyed by READER_STATE_DIMENSIONS
 // in that order; a dimension the state does not carry is absent.
 export function readerStateMap(value) {
   if (value === null || value === undefined) return null;
@@ -72,8 +68,7 @@ export function readerStateText(map) {
   return READER_STATE_DIMENSIONS.filter((d) => typeof map[d] === "string").map((d) => `${d}: ${map[d]}`).join("\n");
 }
 
-// One Leg as the record carries it: its fields in the schema's order, the
-// before-state left out (derived on read), the reader state as a map, an
+// One Leg as the record carries it: its fields in the schema's order, an
 // `introduces` object with its fields in the schema's own order.
 const INTRODUCES_KEYS = ["term", "meaning"];
 export function legRecord(s) {
@@ -81,7 +76,6 @@ export function legRecord(s) {
   if (s.move) out.move = s.move;
   out.materials = [...s.materials];
   out.purpose = s.purpose;
-  out.reader_state_after = readerStateMap(s.reader_state_after);
   out.depends_on = [...(s.depends_on || [])];
   out.rationale = s.rationale;
   out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
@@ -119,14 +113,11 @@ export function legRecord(s) {
   return out;
 }
 
-// The record's Legs back to the in-memory shape every reader of a Leg reads:
-// the reader states in their line form, each before-state derived from the
-// state before it.
+// The record's Legs back to the in-memory shape every reader of a Leg reads.
 export function briefLegs(record) {
   const path = Array.isArray(record?.reader_path) ? record.reader_path : [];
   const legs = path.map((r) => {
     const s = { ...r };
-    s.reader_state_after = readerStateText(r.reader_state_after);
     if (Array.isArray(r.journeys)) s.journeys = r.journeys.map((j) => ({ strand: j.strand, use: j.use }));
     if (r.figure_roles && typeof r.figure_roles === "object") s.figure_roles = { ...r.figure_roles };
     s.materials = Array.isArray(r.materials) ? r.materials.map(String) : [];
@@ -135,7 +126,7 @@ export function briefLegs(record) {
     s.waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
     return s;
   });
-  return deriveReaderStatesBefore(legs, readerStateText(record?.reader_start));
+  return legs;
 }
 
 // ---------------------------------------------------------------------------
@@ -517,8 +508,8 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null } 
 // THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, kogaki#1612, kogaki#1620,
 // SPEC-draft-pipeline "Obligations"). A Leg's `obligations` are records of the Brief's shape --
 // `{opened_by, items}`, each item `{item, closed_by, subitems?}` -- whose units are the numbers of
-// that Leg's Leg Waypoints, its paragraphs, held to the Brief's rules (`obligationLedgerRefusal`)
-// except the Section rule, which has no unit at this scale. Shared by the plan reader and the plan
+// that Leg's Leg Waypoints, its paragraphs, held to the rules the Brief's retired ledger was held to
+// (kogaki#1699) except the Section rule, which has no unit at this scale. Shared by the plan reader and the plan
 // call's validator; `count` is the Leg's Leg Waypoint count. Returns a string to refuse with, or null.
 export function paragraphObligationsRefusal(rows, count, at) {
   if (rows === undefined) return null;
@@ -749,8 +740,13 @@ export function briefRecordText(record) {
 
 // A key the Brief record carried once and carries no longer, refused by name
 // with the key that replaced it.
+const RETIRED_LEDGER = "the Obligations ledger is retired (kogaki#1699): what a Leg takes up and leaves is its Move's `takes` and `leaves`, judged across the path, and the record carries no field for it.";
 const RETIRED_RECORD_KEYS = Object.freeze({
-  closure: "the Closure rows are retired (kogaki#1529): the Brief carries its promises as `obligations`, each record `{opened_by, items}`, every item `{item, closed_by}` (kogaki#1612; src/candidate-schema.json, `brief_record`).",
+  closure: RETIRED_LEDGER,
+  obligations: RETIRED_LEDGER,
+  discharges: RETIRED_LEDGER,
+  reader_start: "Reader start is retired as a record field (kogaki#1699): the Reader start heading renders the Persona's prior-knowledge line.",
+  reader_target: "Reader target is retired as a record field (kogaki#1699): the Reader target heading renders the Thesis, which the Leg marked `reaches_target` attains.",
 });
 
 // The record read from its text, or a refusal naming what is wrong. A key the
@@ -815,7 +811,7 @@ export function fillSlot(record, key, value) {
 // line of 1934 characters in the 2026-10-09 Brief, carrying what the Strand
 // coverage already carried per Strand. It is now rendered from that coverage
 // — each placed Strand's `role_in_thesis` — and handed to the one Leg marked
-// `reaches_target`, the Leg whose after-state is the Reader target. Null where
+// `reaches_target`, the Leg that attains the Thesis. Null where
 // the record carries no such Leg or no stated role.
 export function thesisClosureRow(record) {
   const roles = (Array.isArray(record?.strand_coverage) ? record.strand_coverage : [])
@@ -830,29 +826,8 @@ export function thesisClosureLeg(record) {
   return marked.length === 1 ? marked[0].leg_id : null;
 }
 
-// THE LEG PACKET'S OWN OBLIGATION ROWS (kogaki#1151, kogaki#1529, kogaki#1612). A Leg is
-// handed only the records it is a party to — the one opening it, and every Leg after it up to the
-// one closing its last item — each carrying the items `obligationItemsAt` hands that Leg, and the
-// derived Thesis row is handed to the Leg marked `reaches_target`. Read from the record's
-// `obligations` list, which adoption wrote from the Candidate's ledger.
-export function obligationRowsOf(record, legId) {
-  const rows = [];
-  if (thesisClosureLeg(record) === legId) {
-    const t = thesisClosureRow(record);
-    if (t) rows.push({ text: t });
-  }
-  const ids = (Array.isArray(record?.reader_path) ? record.reader_path : []).map((s) => s.leg_id);
-  const pos = (id) => (ids.includes(id) ? ids.indexOf(id) : undefined);
-  for (const o of Array.isArray(record?.obligations) ? record.obligations : []) {
-    const items = obligationItemsAt(o, pos, legId);
-    if (items.length) rows.push({ opened_by: o.opened_by, items });
-  }
-  return rows;
-}
-
 // The placement count, taken AFTER composition and COUNTED IN PLACEMENTS
-// (the obligations ledger; the read-not-invented
-// rule's completeness rider): a placement is a leg whose materials
+// (the read-not-invented rule's completeness rider): a placement is a leg whose materials
 // carry the Strand. Derived from the composed legs themselves, never from
 // a declaration — a composer that cannot omit in principle can still omit
 // in fact, and a declared cover would hide exactly that.

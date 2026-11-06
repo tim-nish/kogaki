@@ -11,7 +11,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  gateSchema, readBriefRecord, readerStartThesisRefusal, readerStateShapeRefusal,
+  gateSchema, readBriefRecord,
 } from "../compose.mjs";
 import { attachReview } from "../review.mjs";
 import { BRIEF_ENTRIES, enterSubRun } from "../runs.mjs";
@@ -258,29 +258,22 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
     return { error: `\`version\` must be "1" (src/differentiation-schema.json); received `
       + `${JSON.stringify(record && record.version)}` };
   }
-  // READER START AND THE FIRST-LEG SURVIVORS (kogaki#1216). Both are
-  // properties of the Brief and of no path, so they are checked here, once,
-  // before the per-unit entries that draw on them. Reader start is a shape
-  // check only -- its DERIVATION from the Persona and the Thesis is judgment
-  // and is linted nowhere; the survivor list is checked for resolution and
-  // non-emptiness, and every unit's `opening_move` must be a member of it,
-  // which is the whole of what the exclusion rule makes mechanical.
-  if (typeof record.reader_start !== "string" || record.reader_start.trim() === "") {
-    return { error: "`reader_start` is required and cannot be blank -- the Brief's one Reader start, a cold read "
-      + "authored from the Audience's persona and the adopted Thesis (src/differentiation-schema.json, kogaki#1216)" };
+  // THE FIRST-LEG SURVIVORS (kogaki#1216; Reader start retired, kogaki#1699).
+  // A property of the Brief and of no path, so it is checked here, once, before
+  // the per-unit entries that draw on it. Which Moves survive is judgment --
+  // each Move whose `takes` the Persona's prior knowledge meets -- and is linted
+  // nowhere; the list is checked for resolution and non-emptiness, and every
+  // unit's `opening_move` must be a member of it.
+  if (record.reader_start !== undefined) {
+    return { error: "the differentiation record carries `reader_start` -- Reader start is retired (kogaki#1699): "
+      + "the first Leg opens from the Persona's prior knowledge, which its opening Move's `takes` must meet, "
+      + "and no record authors a Reader start (src/differentiation-schema.json)" };
   }
-  const shapeErr = readerStateShapeRefusal(record.reader_start, "reader_start", "reader_start");
-  if (shapeErr) return { error: shapeErr };
-  // THE THESIS ENTERS `question` ONLY (kogaki#1325). `thesis` is optional for
-  // a caller with none to hand; the differentiation state always passes the
-  // Brief's own.
-  const thesisErr = readerStartThesisRefusal(record.reader_start, thesis);
-  if (thesisErr) return { error: thesisErr };
   const survivors = record.leg1_survivors;
   if (!Array.isArray(survivors) || survivors.length === 0) {
-    return { error: "`leg1_survivors` is required and cannot be empty -- every Move whose `before` does not contradict "
-      + "`reader_start` on a dimension it declares, by id (src/differentiation-schema.json, kogaki#1216); an empty list "
-      + "names a library with no Move able to open from this Reader start, which is a store fault and not a Brief" };
+    return { error: "`leg1_survivors` is required and cannot be empty -- every Move whose `takes` the Persona's "
+      + "prior knowledge meets, by id (src/differentiation-schema.json, kogaki#1216, kogaki#1699); an empty list "
+      + "names a library with no Move able to open from what the Persona already knows, which is a store fault and not a Brief" };
   }
   for (const id of survivors) {
     if (typeof id !== "string" || id === "" || !moves.some((m) => m.id === id)) {
@@ -324,8 +317,8 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
     }
     if (!survivors.includes(e.opening_move)) {
       return { error: `unit ${e.unit_number}: \`opening_move\` ${JSON.stringify(e.opening_move)} is not a member of `
-        + "`leg1_survivors` -- the first Leg binds a Move whose `before` does not contradict Reader start, and the "
-        + "survivor list is where that exclusion is recorded (src/differentiation-schema.json, kogaki#1216)" };
+        + "`leg1_survivors` -- the first Leg binds a Move whose `takes` the Persona's prior knowledge meets, and "
+        + "the survivor list is where that exclusion is recorded (src/differentiation-schema.json, kogaki#1216, kogaki#1699)" };
     }
     if (e.journey_placement !== undefined) {
       if (!journeyBearing) {
@@ -352,27 +345,24 @@ export function validateDifferentiationRecord(record, { units, moves, journeyBea
 // its per-unit prompt already carries — the same layer the rendered schema
 // and record example occupy — so the unit is told what it was assigned
 // before it ever reaches the input file it is judging over.
-export function differentiationBlockFor(entry, readerStart, survivorCount) {
+export function differentiationBlockFor(entry, priorKnowledge, survivorCount) {
   return [
     "YOUR ASSIGNED DIFFERENTIATION (kogaki#1206) — decided before any unit composed, so the three",
     "Candidates differ BY ASSIGNMENT and not by chance (src/differentiation-schema.json):",
-    `  reader-state dimension you lead with: ${entry.dimension}`,
+    `  dimension you lead with: ${entry.dimension}`,
     `  opening Move your first Leg MUST bind: ${entry.opening_move}`,
     `  journey placement: ${entry.journey_placement || "(none assigned — carry no Journey material for this unit)"}`,
     `  intended reader experience: ${entry.reader_experience}`,
     "",
-    // READER START IS GIVEN, NOT COMPOSED (kogaki#1216). It was authored once
-    // at `differentiation` from the Persona and the Thesis, and every unit
-    // composes from the same one; the Harness sets it on the Candidate, so a
-    // unit that writes its own is writing a value nothing reads.
-    "THE BRIEF'S READER START (kogaki#1216) — a cold read authored from the Persona and the Thesis, never from",
-    "a Move; GIVEN to you, not yours to compose. It IS your first Leg's before-state (kogaki#1325): no Leg writes a",
-    "`reader_state_before` -- each begins at the previous Leg's `reader_state_after`, the first at Reader start, and",
-    "a Leg carrying the field is refused by name. Your opening Move's `before` must require nothing Reader start",
-    "does not hold. Your LAST Leg's `reader_state_after`",
-    "IS the Brief's Reader target (kogaki#1225) — no field authors it apart from the Leg. Your assigned opening",
-    `Move is one of the ${survivorCount} Move(s) whose \`before\` does not contradict this Reader start:`,
-    ...String(readerStart).split("\n").map((l) => `  ${l}`),
+    // THE FIRST LEG OPENS FROM WHAT THE PERSONA ALREADY KNOWS (kogaki#1699).
+    // Reader start and the Leg's reader states are retired: no Leg writes a
+    // before- or after-state, and a Leg carrying either is refused by name.
+    "THE FIRST LEG OPENS FROM WHAT THE PERSONA ALREADY KNOWS (kogaki#1699). No Leg writes a reader state:",
+    "`reader_state_before` and `reader_state_after` are retired and a Leg carrying either is refused by name.",
+    "Your opening Move's `takes` must be met by the Persona's prior knowledge; every later Leg's Move's `takes`",
+    "must be met by what an earlier Leg's Move `leaves`. Your assigned opening Move is one of the",
+    `${survivorCount} Move(s) whose \`takes\` this prior knowledge meets:`,
+    ...String(priorKnowledge || "(none stated)").split("\n").map((l) => `  ${l}`),
   ].join("\n");
 }
 

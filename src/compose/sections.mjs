@@ -7,7 +7,7 @@
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   SPEC-draft-pipeline: the reader-knowledge ledger; the Section grouping
 //
-import { pathRefusal, readerStateDimensionLine } from "./leg-schema.mjs";
+import { pathRefusal } from "./leg-schema.mjs";
 import { INTRODUCES_SEP } from "./specialization.mjs";
 
 // AN ENTRY IS A STRING (the Brief's own serialized form, round-tripped by
@@ -67,8 +67,7 @@ export function introducedMeaning(p) {
 }
 
 // THE WHOLE-WORD, CASE-INSENSITIVE MATCH ITSELF, shared by every mechanical
-// introduced-term refusal (Reader start, kogaki#1225; a Section heading,
-// kogaki#1327). The boundary is "not adjacent to a letter or digit" rather
+// introduced-term refusal (a Section heading, kogaki#1327). The boundary is "not adjacent to a letter or digit" rather
 // than `\b`, so a term ending in punctuation or a non-ASCII letter still
 // bounds on both sides, and a one-character term matches only standing alone.
 export function wholeWordMatch(term, text) {
@@ -85,18 +84,6 @@ export function wholeWordMatch(term, text) {
     if (!wordish(before) && !wordish(after)) return true;
     from = i + 1;
   }
-}
-
-// THE MATCH READS EACH LINE'S CONTENT, NEVER ITS DIMENSION LABEL (PR #1228
-// round 1): a Reader start is `dimension: value` lines, so matching the whole
-// string let a Leg introducing "trust" or "question" refuse every Reader
-// start on the label alone. The `<dimension>:` prefix is stripped per line
-// the way `readerStateDimensionLine` reads it, and the values are searched.
-export function introducedTermInReaderStart(term, readerStart) {
-  const text = String(readerStart).split("\n")
-    .map((line) => line.replace(/^\s*[a-z]+:\s*/i, ""))
-    .join("\n");
-  return wholeWordMatch(term, text);
 }
 
 // the Section grouping's `opens_section` (kogaki#822) — OPTIONAL, and shape-validated here for
@@ -141,19 +128,14 @@ export function opensSectionIntroducedTermRefusal(legs) {
   return null;
 }
 
-// EACH SECTION'S HEADING BESIDE ITS LAST AFTER-STATE (owner decision
-// 2026-10-10, kogaki#1327): one entry per Leg that opens a Section, the
-// heading it carries and the `reader_state_after` of the LAST Leg of that
-// Section — the destination SPEC-draft-pipeline §"The Thesis is the title,
-// and a heading states a destination" rule 2 says the heading states, read
-// here rather than left for the fit judge to walk the path and find the
-// Section's end itself. A path opening no Section (shape rule 3's refusal
-// handles that case) returns no entries.
-export function sectionHeadingsWithLastAfterState(legs) {
+// EACH SECTION'S HEADING BESIDE ITS LAST LEG'S CLAIMS (kogaki#1327, kogaki#1699): one entry
+// per Leg that opens a Section, the heading it carries and the `claims` of the LAST Leg of that
+// Section, the destination the fit judge reads the heading against.
+export function sectionHeadingsWithLastClaims(legs) {
   const opens = legs.map((s, i) => (typeof s.opens_section === "string" && s.opens_section !== "" ? i : -1)).filter((i) => i >= 0);
   return opens.map((i, k) => {
     const end = k + 1 < opens.length ? opens[k + 1] : legs.length;
-    return { leg_id: legs[i].leg_id, heading: legs[i].opens_section, after_state: legs[end - 1].reader_state_after };
+    return { leg_id: legs[i].leg_id, heading: legs[i].opens_section, last_leg_claims: (legs[end - 1].claims || []).map((g) => g.proposition) };
   });
 }
 
@@ -212,14 +194,13 @@ export function targetLegIndex(legs) {
   return legs.findIndex((s) => s && s.reaches_target === true);
 }
 
-// THE OBLIGATION RECORD (kogaki#1612, kogaki#1620; SPEC-draft-pipeline "Obligations"). An
-// Obligation is `{opened_by, items}`: `opened_by` the unit that opens the promise, and `items`
-// `{item, closed_by, subitems?}` in the order it names them -- `closed_by` the unit that explains
-// the item, or `null` while it is open, and `subitems` the `{item, closed_by}` parts it names, one
-// level deep. The helpers below are scale-free: a unit is a Leg id at the Leg scale and a Leg
-// Waypoint number at the Paragraph scale, and `pos` maps one to its place. `obligations` is the
-// Candidate's own ledger (src/candidate-schema.json); the Thesis row is derived and never
-// reaches this file.
+// THE PARAGRAPH OBLIGATION RECORD (kogaki#1612, kogaki#1620; SPEC-draft-pipeline "Obligations").
+// The Leg-scale ledger is retired (kogaki#1699); the ParagraphPlan's Leg still carries these
+// records until the ParagraphPlan's Issue. An Obligation is `{opened_by, items}`: `opened_by`
+// the Leg Waypoint that opens the promise, and `items` `{item, closed_by, subitems?}` in the
+// order it names them -- `closed_by` the Leg Waypoint that explains the item, or `null` while it
+// is open, and `subitems` the `{item, closed_by}` parts it names, one level deep. `pos` maps a
+// unit to its place.
 // The retired keys are refused by name. Four of them are composed rather than spelled, so the
 // retirement leaves no live spelling of them in this repository (kogaki#1612 Acceptance).
 const joined = (...parts) => parts.join("_");
@@ -358,75 +339,14 @@ export function obligationItemsAt(o, pos, unit) {
   if (at === opened) return items.map(copy);
   return items.filter((e) => e.closed_by === null || pos(e.closed_by) >= at).map(copy);
 }
-export function obligationLedgerRefusal(legs, obligations = []) {
-  const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
-  const atId = (id) => (index.has(id) ? at(index.get(id)) : null);
-  const list = Array.isArray(obligations) ? obligations : [];
-  const legIds = legs.map((s) => s.leg_id);
-  const index = new Map(legIds.map((id, i) => [id, i]));
-  const pos = (id) => (typeof id === "string" ? index.get(id) : undefined);
-  const legName = (id) => JSON.stringify(id ?? null);
-  const last = legs.length - 1;
-
-  // THE RECORD AND ITS CLOSING (rules 1, 2 and 4).
-  for (const [n, o] of list.entries()) {
-    const row = `obligation ${n + 1}`;
-    if (!o || typeof o !== "object" || Array.isArray(o)) {
-      return pathRefusal("obligation_record_shape", null, `${row} is not a map.`);
-    }
-    const shape = obligationItemRefusal(o);
-    if (shape) return pathRefusal("obligation_record_shape", null, `${row} ${shape}.`);
-    const close = obligationCloseRefusal(o, pos, legName);
-    if (close) return pathRefusal("obligation_items_close_in_order", close.unit === null ? null : atId(close.unit), close.clause);
-    const open = o.items.find((e) => e.closed_by === null);
-    if (open) {
-      return pathRefusal("obligation_closed_by_the_last_unit", at(last),
-        `The ${obligationLabel(o)} record opened at ${o.opened_by} still holds the item ${JSON.stringify(open.item.trim())} open at the path's last Leg.`);
-    }
-  }
-
-  // CAPACITY (rule 3): a record is open on every Leg from its `opened_by` up to, and NOT
-  // INCLUDING, the Leg that closes its last item; at most one record is open at any Leg.
-  const openPerLeg = new Map();
-  for (const o of list) {
-    for (let i = pos(o.opened_by); i < obligationLastClose(o, pos); i++) {
-      if (!openPerLeg.has(legIds[i])) openPerLeg.set(legIds[i], []);
-      openPerLeg.get(legIds[i]).push(o);
-    }
-  }
-  for (const [i, s] of legs.entries()) {
-    const rows = openPerLeg.get(s.leg_id);
-    if (rows && rows.length > 1) {
-      return pathRefusal("obligation_one_open_per_unit", at(i),
-        `${rows.length} records are open here: ${rows.map((o) => obligationLabel(o)).join(", ")}.`);
-    }
-  }
-
-  // SECTION (rule 5): no Leg after a record's `opened_by`, up to the one closing its last item,
-  // carries `opens_section`.
-  for (const o of list) {
-    for (let i = pos(o.opened_by) + 1; i <= obligationLastClose(o, pos); i++) {
-      if (legs[i].opens_section !== undefined) {
-        return pathRefusal("obligation_owed_leg_opens_no_section", at(i),
-          `This Leg is inside the ${obligationLabel(o)} record opened at ${o.opened_by}, and carries opens_section.`);
-      }
-    }
-  }
-  return null;
-}
-
 // THE READER TARGET LEG (kogaki#1231, owner decision 2026-09-30, reversing
 // kogaki#1225's last-Leg derivation): exactly one Leg is marked
 // `reaches_target`, never the first, and every Leg after it is a CLOSING
-// Leg — held to the three rules this function raises. Run after every Leg
+// Leg — held to the rule this function raises. Run after every Leg
 // is known to be well formed, for the reason `sectionGroupingRefusal` runs
 // there: this is a statement about a Leg's position relative to the whole
-// path, not about one Leg alone. `obligations` is the Candidate's own
-// ledger (src/candidate-schema.json), OPTIONAL for the same reason
-// `readerStart` is — a bare shape check over legs alone hands none, and an
-// absent ledger is read as empty rather than invented. Returns a string to
-// refuse with, or null.
-export function readerTargetLegRefusal(legs, obligations = []) {
+// path, not about one Leg alone. Returns a string to refuse with, or null.
+export function readerTargetLegRefusal(legs) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
   const marked = legs.map((s, i) => (s && s.reaches_target === true ? i : -1)).filter((i) => i >= 0);
   if (marked.length !== 1) {
@@ -440,25 +360,11 @@ export function readerTargetLegRefusal(legs, obligations = []) {
     return pathRefusal("reaches_target_marked", at(0), "The first Leg carries it, leaving no Leg free to reach the target from anywhere.");
   }
   const targetLeg = legs[targetIdx];
-  const obligationList = Array.isArray(obligations) ? obligations : [];
   for (let i = targetIdx + 1; i < legs.length; i++) {
     const s = legs[i];
     if (Array.isArray(s.introduces) && s.introduces.length > 0) {
       return pathRefusal("closing_leg_introduces_nothing", at(i),
-        `This closing Leg (after ${targetLeg.leg_id}, which reaches the Reader target) still carries introduces: ${JSON.stringify(s.introduces)}.`);
-    }
-    const opened = obligationList.find((o) => o && o.opened_by === s.leg_id);
-    if (opened) {
-      return pathRefusal("closing_leg_introduces_nothing", at(i),
-        `This closing Leg (after ${targetLeg.leg_id}) is named opened_by on the ${obligationLabel(opened)} record.`);
-    }
-    for (const dim of ["orientation", "knowledge"]) {
-      const wantLine = readerStateDimensionLine(targetLeg.reader_state_after, dim);
-      const gotLine = readerStateDimensionLine(s.reader_state_after, dim);
-      if (gotLine !== wantLine) {
-        return pathRefusal("closing_leg_state_fixed", at(i),
-          `Its ${dim} line reads ${JSON.stringify(gotLine)}; the target Leg ${targetLeg.leg_id}'s reads ${JSON.stringify(wantLine)}.`);
-      }
+        `This closing Leg (after ${targetLeg.leg_id}, which attains the Thesis) still carries introduces: ${JSON.stringify(s.introduces)}.`);
     }
   }
   return null;

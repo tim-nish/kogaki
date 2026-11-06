@@ -5,7 +5,7 @@ import os
 import re
 
 from .records import (
-    DIMENSIONS, Refusal, validate_move, yaml_read,
+    Refusal, validate_move, yaml_read,
 )
 from .library import (
     Proposal, merge_into, save_accepted,
@@ -17,10 +17,9 @@ from .passage import (
 
 # --------------------------------------------------------------------------
 # THE EXTRACTION IS A YAML RECORD (kogaki#1413). passages/FORMAT.md's sections
-# are its keys: `reader` a map of dimension rows, `segments` a list of
-# Segment maps, `breaks` a list of prose
-# tests. Every reader below takes the PARSED record, read by `src/yaml.mjs`;
-# none scans Markdown, so no file-specific hierarchy rule survives here. A
+# are its keys: `segments` a list of Segment maps, `breaks` a list of prose
+# tests; the reader table is retired (kogaki#1699). Every reader below takes
+# the PARSED record, read by `src/yaml.mjs`; none scans Markdown, so no file-specific hierarchy rule survives here. A
 # Markdown Extraction is refused by name.
 # --------------------------------------------------------------------------
 
@@ -51,58 +50,6 @@ def read_extraction(path):
             "rather than scanned" % path,
         )
     return text, None
-
-
-def extraction_rows(record):
-    """Section 2's rows, `{dimension: (before, after, segment)}`, in the
-    dimensions' order, for each dimension the record carries."""
-    reader = (record or {}).get("reader")
-    if not isinstance(reader, dict):
-        return {}
-    rows = {}
-    for dim in DIMENSIONS:
-        row = reader.get(dim)
-        if not isinstance(row, dict):
-            continue
-        rows[dim] = (_cell(row.get("before")), _cell(row.get("after")),
-                     _cell(row.get("segment")))
-    return rows
-
-
-def _is_unchanged(cell):
-    return cell.strip().lower() == "unchanged"
-
-
-# --------------------------------------------------------------------------
-# The question BEFORE the passage, read off the Extraction (kogaki#1216).
-# --------------------------------------------------------------------------
-#
-# Where the Extraction's `reader` `question` row reads `none` BEFORE (alone or
-# followed by a hedge), the proposal's `before.question` is written
-# `holds: none.` -- never a composed question. Applied before the screen
-# renders, and the screen names the rewrite so it is never silent.
-NONE_QUESTION = re.compile(r"^\s*none\b", re.I)
-
-
-def extraction_question_before(record):
-    """The BEFORE cell of the Extraction's `question` row, stripped, or None
-    where there is no record or no such row (a bare Passage)."""
-    row = extraction_rows(record).get("question")
-    return row[0] if row else None
-
-
-def write_none_question(mapping, record):
-    """Where the Extraction records the question before the passage as none,
-    write `holds: none.` into the proposal's `before.question` and return the
-    fields rewritten; otherwise leave the mapping untouched and return []."""
-    before_cell = extraction_question_before(record)
-    if before_cell is None or not NONE_QUESTION.match(before_cell):
-        return []
-    before = mapping.get("before")
-    if isinstance(before, dict) and "question" in before and before["question"] != "holds: none.":
-        before["question"] = "holds: none."
-        return ["before"]
-    return []
 
 
 # --------------------------------------------------------------------------
@@ -154,30 +101,10 @@ def check_subject_nouns(mapping, record, line_no):
 
 
 # --------------------------------------------------------------------------
-# `reader`'s dimension/Segment pairing, and the `split_notes` entries
-# (kogaki#1319). Both read the Extraction as given, before the model is
-# spawned: a defect in the Extraction itself, never a defect the extraction
-# step could have caused.
+# The `split_notes` entries (kogaki#1319), read off the Extraction as given,
+# before the model is spawned: a defect in the Extraction itself, never a
+# defect the extraction step could have caused.
 # --------------------------------------------------------------------------
-
-def check_extraction_dimensions(record, line_no=None):
-    """`passages/FORMAT.md` §2: every cell of the reader-dimension rows
-    defaults to "unchanged"; a row that records a change on either side
-    names the Segment, by number, that moved it. A changed row with no
-    Segment named is refused, naming the dimension. Returns a `Refusal`,
-    or `None`."""
-    for dim, (before, after, segment) in extraction_rows(record).items():
-        if _is_unchanged(before) and _is_unchanged(after):
-            continue
-        if not segment:
-            return Refusal(
-                "dimension-segment",
-                "the `%s` row of `reader` records a change naming no "
-                "Segment" % dim,
-                line_no=line_no,
-            )
-    return None
-
 
 # --------------------------------------------------------------------------
 # The paragraph unit (kogaki#1358, design on kogaki#1329): two levels, no
@@ -242,9 +169,7 @@ def check_extraction_split_note(record, line_no=None):
 # outside SEGMENT_ENTRY_KEYS is refused by name rather than read in part; whether
 # the copied `operation`, `relation` and `manner` are a Segment is the Adapter's question
 # (`validateMoveRecord`, reached through `validate_move`, kogaki#1418), asked
-# once, so the ingest carries no second reading of the Segment's shape. A
-# `reader` row naming a Segment the list does not hold is the Extraction
-# disagreeing with its own count, and is refused naming that Segment.
+# once, so the ingest carries no second reading of the Segment's shape.
 SEGMENT_ENTRY_KEYS = ("opening", "content", "operation", "relation", "manner")
 
 
@@ -254,8 +179,7 @@ def extraction_segments(record, line_no=None):
     ...}, ...]`, one per entry, each carrying `manner` where the entry fills
     one. Returns `None` where there is no record or it carries no
     `segments`, and raises `Refusal` naming the entry where it is not a map
-    or carries a key a Segment entry does not, or naming the Segment where a
-    `reader` row names one the list does not hold."""
+    or carries a key a Segment entry does not."""
     entries = (record or {}).get("segments")
     if entries is None:
         return None
@@ -282,24 +206,7 @@ def extraction_segments(record, line_no=None):
         if _cell(entry.get("manner")):
             segment["manner"] = _cell(entry.get("manner"))
         segments.append(segment)
-    check_reader_segment_numbers(record, len(segments), line_no)
     return segments
-
-
-def check_reader_segment_numbers(record, count, line_no=None):
-    """Every Segment number a `reader` row's `segment` cell names (`3`, or
-    `4, 6`) is one of the `count` Segments `segments` lists; a row naming
-    any other is refused, naming the row and the Segment."""
-    for dim, (_before, _after, cell) in extraction_rows(record).items():
-        for token in [t.strip() for t in cell.split(",") if t.strip()]:
-            if not token.isdigit() or not 1 <= int(token) <= count:
-                raise Refusal(
-                    "segments",
-                    "the `%s` row of `reader` names Segment %s, and `segments` "
-                    "lists %d — the Extraction disagrees with its own Segment "
-                    "count" % (dim, token, count),
-                    line_no=line_no,
-                )
 
 
 def check_segments(mapping, record, line_no):
@@ -337,20 +244,11 @@ def check_segments(mapping, record, line_no):
 # `--from-extraction` (kogaki#1358, design on kogaki#1329): the record is READ
 # off a written Extraction, never authored by a model. Every Move field comes
 # from one Extraction field, the table passages/FORMAT.md "Where each field
-# goes" states: `id` is `name`, `before` and `after` are `reader`'s changed
-# rows only, `after_segment` is each changed row's `segment` (kogaki#1652), `description` is `description` (kogaki#1412), `takes` and `leaves` are `takes` and `leaves` (kogaki#1698) and `breaks` is
+# goes" states: `id` is `name`, `description` is `description` (kogaki#1412), `takes` and `leaves` are `takes` and `leaves` (kogaki#1698) and `breaks` is
 # `breaks` (kogaki#1377), and `segments` is the Extraction's `segments` exactly as `check_segments`
 # copies it on the Passage path.
 # --------------------------------------------------------------------------
 MOVE_ID = re.compile(r"^[a-z0-9_]+$")
-
-
-def changed_dimension_rows(record):
-    """Section 2's rows whose `after` is not `unchanged`, in the dimensions'
-    order, each `(dimension, before, after, segment)`."""
-    return [(dim, before, after, segment)
-            for dim, (before, after, segment) in extraction_rows(record).items()
-            if after and not _is_unchanged(after)]
 
 
 def extraction_breaks(record):
@@ -374,9 +272,6 @@ def derive_from_extraction(record, line_no=1):
     a `Proposal` carrying its `Refusal` where the Extraction cannot supply a
     field. Nothing here is judged: every value is a copy of a field."""
     try:
-        # Not `check_extraction_dimensions`: under m2 rule 3 every `before`
-        # cell is carried in full, so only an `after` other than `unchanged`
-        # is a change, and only a change owes its Segment.
         for refusal in (check_paragraph_level(record),
                         check_extraction_split_note(record)):
             if refusal is not None:
@@ -386,20 +281,6 @@ def derive_from_extraction(record, line_no=1):
             raise Refusal(
                 "from-extraction",
                 "`name` carries no Move id -- got %r" % move_id,
-            )
-        rows = changed_dimension_rows(record)
-        for dim, _before, _after, segment in rows:
-            if not segment:
-                raise Refusal(
-                    "dimension-segment",
-                    "the `%s` row of `reader` records a change naming no "
-                    "Segment" % dim,
-                )
-        if not rows:
-            raise Refusal(
-                "from-extraction",
-                "`reader` records no changed row, so there is no `before` "
-                "or `after` to read",
             )
         description = _cell(record.get("description"))
         if not description:
@@ -415,11 +296,6 @@ def derive_from_extraction(record, line_no=1):
             )
         mapping = {
             "id": move_id,
-            "before": {dim: before for dim, before, _a, _s in rows},
-            "after": {dim: after for dim, _b, after, _s in rows},
-            # The Segment column, kept (kogaki#1652): each changed row's
-            # `segment` cell beside its `after`, keyed by the same dimension.
-            "after_segment": {dim: segment for dim, _b, _a, segment in rows},
             "description": description,
             "breaks": breaks,
         }

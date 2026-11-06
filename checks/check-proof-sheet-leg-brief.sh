@@ -7,35 +7,36 @@
 # a three-paragraph Leg, an Extractor run directory this member writes, and a FAKE judge
 # binary (`KOGAKI_JUDGE_CLI`) — never the actual `claude` CLI:
 #   (a) the run writes `brief.yaml` with ONE Leg carrying three Leg Waypoints and three
-#       Claims, its Reader start and after-state as the record's five-key maps, and every
-#       constant field marked by the constant comment, `obligations` by the comment naming the
-#       Planner (kogaki#1582).
+#       Claims, and every constant field marked by the constant comment; READER START IS
+#       RETIRED (kogaki#1699): the Brief carries no `reader_start`, `reader_target` or
+#       `obligations`, and its Leg no `reader_state_after` or `reader_state_before`.
 #   (b) the gate the Brief must pass: /paragraph-plan's own `readAdoptedBrief` accepts it,
 #       and `node src/draft.mjs resolve` accepts it with a plan written beside it by the
 #       ParagraphPlan stage's own writer — neither file edited.
-#   (c) the run directory holds, per row, the prompt as rendered, the answer, and the
-#       attempt count with every refusal: the Reader start's first answer is a knowledge
-#       sentence, is refused by the production shape check, and the refusal is put
-#       verbatim into the second attempt's prompt.
-#   (d) each rendered prompt carries its row's judgment point DERIVED from the production
+#   (c) the run directory holds the Leg call's prompt as rendered, the answer, and the
+#       attempt count with every refusal: the Leg's first answer carries the retired
+#       `reader_state_after`, is refused by the production `validateLegs` naming it
+#       (kogaki#1699), and the refusal is put verbatim into the second attempt's prompt; no
+#       Reader start call is made, and the Leg call is handed the Persona's prior knowledge.
+#   (d) the rendered prompt carries the row's judgment point DERIVED from the production
 #       row — production text outside the substitutions present, the substituted spans
 #       absent — and `leg-brief.mjs diff` lists the substitutions and applies cleanly; a
 #       substitution naming a span production no longer carries refuses naming it.
 #   (e) every call ran with `--tools ""`, on the shared supervisor.
 #   (f) the validators refuse by name: a Leg carrying `move`, a Leg Waypoint count other
 #       than the paragraph count, Claim N not naming L<N>, a Leg Waypoint carrying the
-#       retired `effect` (production `waypointsRefusal`), a `reader_state_after` that is
-#       not `dimension: value` lines (production `validateLegs`), and a Reader start that is
-#       not (production `readerStateShapeRefusal`); a good Leg passes.
+#       retired `effect` (production `waypointsRefusal`), and a Leg carrying the retired
+#       `reader_state_after` or `reader_state_before` (production `validateLegs`); a good Leg passes.
 #   (g) THE LEG CALL READS AN EXTRACTION'S PARAGRAPH CONTENT ONLY (kogaki#1449): the fixture
 #       Extractions carry `why_this_order`, `breaks`, `presupposes`, `description` and `notes`,
 #       and the Leg call's rendered input carries none of them, nor `name`, while it still
-#       carries each paragraph's `what_it_does`, `reader` rows and Segment `content` clauses.
+#       carries each paragraph's `what_it_does` and Segment `content` clauses, and no `reader`
+#       rows (the reader table is retired, kogaki#1699).
 #   (h) THE LEG CALL WRITES A CLAIM FROM WHAT THE PARAGRAPH SAYS (kogaki#1480): the rendered
 #       Leg call instruction names the paragraph's `text` and its Segment `content` clauses as
 #       the source of the `proposition` and the `point`, forbids a characterisation of the
-#       paragraph in them, and names `what_it_does` and `reader` beside `reader_state_after`,
-#       `purpose` and `rationale` and never as a `proposition`'s source.
+#       paragraph in them, and names `what_it_does` beside `purpose` and `rationale` and never
+#       as a `proposition`'s source.
 #   (i) THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495): the Leg validator, handed each
 #       paragraph's Segment `content`, refuses a Leg Waypoint whose point carries a word in no
 #       Segment `content` of its paragraph, naming the word and the Segments, and the same for a
@@ -51,10 +52,10 @@
 #   (k) THE EARLIER LEGS' IDS ARE SHOWN (kogaki#1560): over a two-Leg Extractor run, the first
 #       Leg's rendered prompt carries `leg_ids_already_carried` empty and the second Leg's carries
 #       the first Leg's id, and the rendered Leg call states that this Leg's `leg_id` is none of them.
-#   (l) THE BUILDER WRITES NO OBLIGATION ROW (kogaki#1582): a two-Leg run whose second paragraph's
-#       Extraction carries a Move's `obligation` items and no later paragraph is marked
-#       `discharges` writes its Brief with `obligations: []` under the comment naming the Planner,
-#       and its `brief.json` carries no `deferrals` and no derived `obligations` row; given
+#   (l) THE BUILDER WRITES NO OBLIGATION ROW (kogaki#1582, kogaki#1699): a two-Leg run whose second
+#       paragraph's Extraction carries a Move's `obligation` items writes its Brief with no
+#       `obligations` key, derives the Section heading from the last Leg's last Claim, and its
+#       `brief.json` carries no `deferrals` and no derived `obligations` row; given
 #       `--moves` and `--ingest` over Moves carrying `obligation` items, the run exits non-zero
 #       with the retirement sentence and starts no run directory.
 #
@@ -118,19 +119,13 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify(prompt) + "\\n");
   const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
   const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
-  let record;
-  if (prompt.includes("\`leg_reader_start_unit\` judgment point")) {
-    record = retried
-      ? { version: "1", reader_start: ["knowledge: holds that installers copy files", "question: holds: none", "trust: extends a peer's ordinary good faith"] }
-      : { version: "1", reader_start: ["The reader knows installers copy files."] };
-  } else {
-    const ps = input.paragraphs;
-    // a later Leg's id is its own, so the two-Leg run of (k) composes (kogaki#1560)
-    record = { legs: [{ leg_id: ps[0].claim_strand === "L1" ? "copy-leg" : "copy-leg-" + ps[0].claim_strand, purpose: "Move the reader from owning the copy to seeing who owns it.",
-      rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the installer owns the copy\\norientation: sees the copy as the installer's",
-      claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
-      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " CLAIM-" + p.paragraph, serves: [p.claim_strand] })) }] };
-  }
+  const ps = input.paragraphs;
+  // a later Leg's id is its own, so the two-Leg run of (k) composes (kogaki#1560); the first
+  // attempt carries the retired \`reader_state_after\` and is refused naming it (kogaki#1699)
+  const record = { legs: [{ leg_id: ps[0].claim_strand === "L1" ? "copy-leg" : "copy-leg-" + ps[0].claim_strand, purpose: "Move the reader from owning the copy to seeing who owns it.",
+    rationale: "It is the only Leg.", ...(retried ? {} : { reader_state_after: "knowledge: holds that the installer owns the copy" }),
+    claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
+    waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " CLAIM-" + p.paragraph, serves: [p.claim_strand] })) }] };
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
   process.exit(0);
 });
@@ -157,11 +152,13 @@ else {
   ok((leg.waypoints || []).length === 3 && (leg.claims || []).length === 3, "(a) the Leg does not carry three Leg Waypoints and three Claims");
   ok((leg.waypoints || []).every((w, i) => w.point === `POINT-${i + 1} CLAIM-${i + 1}` && w.serves[0] === `L${i + 1}`), "(a) a Leg Waypoint is not paragraph N's point serving L<N>");
   ok(!("move" in leg) && !("no_move_fits" in leg), "(a) the Brief's Leg carries a Move field");
-  ok(rec.reader_start && rec.reader_start.knowledge === "holds that installers copy files", `(a) the Reader start is not the composed one as a map: ${JSON.stringify(rec.reader_start)}`);
-  ok(leg.reader_state_after && leg.reader_state_after.orientation === "sees the copy as the installer's", "(a) the Leg's after-state is not the composed one as a map");
-  for (const k of Object.keys(LB.constantFields({ slug: "s", paragraphs: PARAS, legId: "x" }))) {
-    const comment = k === "obligations" ? LB.DERIVED_COMMENT : LB.CONSTANT_COMMENT;
-    ok(new RegExp(`^${comment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n${k}:`, "m").test(text), `(a) the constant field \`${k}\` is not marked`);
+  for (const k of ["reader_start", "reader_target", "obligations"]) {
+    ok(!(k in rec) && !new RegExp(`^${k}:`, "m").test(text), `(a) the Brief carries the retired \`${k}\` (kogaki#1699)`);
+  }
+  ok(!("reader_state_after" in leg) && !("reader_state_before" in leg) && !/reader_state_(after|before)/.test(text),
+    "(a) the Brief's Leg carries a retired reader state (kogaki#1699)");
+  for (const k of Object.keys(LB.constantFields({ slug: "s", paragraphs: PARAS }))) {
+    ok(new RegExp(`^${LB.CONSTANT_COMMENT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n${k}:`, "m").test(text), `(a) the constant field \`${k}\` is not marked`);
   }
   ok(text.split("\n").every((l) => l.length <= 120), "(a) a line of the Brief is longer than 120 characters");
 
@@ -172,7 +169,7 @@ else {
     // every entry carries the paragraph's schema, the last one's after-state the Leg's (kogaki#1639).
     entries: l.waypoints.map((w, i) => ({ move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...w.serves],
       purpose: `brings the reader to the point of paragraph ${i + 1}.`,
-      reader_state_after: i + 1 === l.waypoints.length ? l.reader_state_after : { knowledge: `after paragraph ${i + 1}.` },
+      reader_state_after: { knowledge: `after paragraph ${i + 1}.` },
       depends_on: i ? [i] : [], rationale: "its before holds the state the paragraph before leaves.", introduces: [], "re-activate": [] })),
     // a later Leg Waypoint's join is one relation word (kogaki#1477).
     joins: l.waypoints.map((w, i) => (i ? "consequence" : null)) }));
@@ -186,7 +183,8 @@ else {
 if (!runDir) fails.push("(c) the run printed no run directory");
 else {
   const table = JSON.parse(readFileSync(join(repo, "src", "proof-sheet", "extraction-workflow.json"), "utf8"));
-  for (const [sub, key, attempts] of [["reader-start", "leg_reader_start_unit", 2], ["leg-path", "leg_path_unit", 1]]) {
+  ok(!existsSync(join(runDir, "reader-start")), "(c) the run made a Reader start call, which is retired (kogaki#1699)");
+  for (const [sub, key, attempts] of [["leg-path", "leg_path_unit", 2]]) {
     const d = join(runDir, sub);
     const prompt = existsSync(join(d, "prompt.md")) ? readFileSync(join(d, "prompt.md"), "utf8") : "";
     ok(prompt.includes(`You are the judge at the Leg Brief composer workflow's \`${key}\` judgment point.`), `(c) ${sub}/prompt.md is not the ${key} row rendered by judgePrompt`);
@@ -199,14 +197,18 @@ else {
       if (s.from) ok(!prompt.includes(s.from), `(d) ${sub}/prompt.md still carries the substituted production span ${JSON.stringify(s.from.slice(0, 60))}`);
     }
   }
-  const rs = existsSync(join(runDir, "reader-start", "attempts.json")) ? JSON.parse(readFileSync(join(runDir, "reader-start", "attempts.json"), "utf8")) : {};
-  ok(Array.isArray(rs.refusals) && rs.refusals.length === 1 && /reader_start is not written as `dimension: value` lines/.test(rs.refusals[0]),
-    `(c) reader-start/attempts.json does not record the production shape refusal: ${JSON.stringify(rs.refusals)}`);
+  const lp = existsSync(join(runDir, "leg-path", "attempts.json")) ? JSON.parse(readFileSync(join(runDir, "leg-path", "attempts.json"), "utf8")) : {};
+  ok(Array.isArray(lp.refusals) && lp.refusals.length === 1 && /carries `reader_state_after` — the Leg's reader states are retired \(kogaki#1699\)/.test(lp.refusals[0]),
+    `(c) leg-path/attempts.json does not record the production retired-field refusal: ${JSON.stringify(lp.refusals)}`);
   const prompts = readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
-  ok(prompts.length === 3, `(c) the fake judge was called ${prompts.length} time(s), not 3`);
-  ok(prompts[1] && rs.refusals && prompts[1].includes(rs.refusals[0]), "(c) the second Reader start attempt's prompt does not carry the refusal verbatim");
-  ok(prompts[0] && prompts[0].includes("Author this Leg's READER START") && !prompts[0].includes("leg1_survivors"), "(d) the Reader start prompt is not the cut production row");
-  ok(prompts[2] && prompts[2].includes("EVERY LEG CARRIES ITS WAYPOINTS (kogaki#1311)") && prompts[2].includes("THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- src/leg-schema.json"),
+  ok(prompts.length === 2, `(c) the fake judge was called ${prompts.length} time(s), not 2`);
+  ok(prompts[1] && lp.refusals && prompts[1].includes(lp.refusals[0]), "(c) the second Leg attempt's prompt does not carry the refusal verbatim");
+  const marker = "----- INPUT (JSON) -----";
+  let in0 = {};
+  try { in0 = JSON.parse(prompts[0].slice(prompts[0].indexOf(marker) + marker.length)); } catch { /* reported below */ }
+  ok(typeof in0.persona_prior_knowledge === "string" && in0.persona_prior_knowledge !== "" && !("reader_start" in in0),
+    `(c) the Leg call is not handed the Persona's prior knowledge in place of a Reader start: ${JSON.stringify(Object.keys(in0))}`);
+  ok(prompts[0] && prompts[0].includes("EVERY LEG CARRIES ITS WAYPOINTS (kogaki#1311)") && prompts[0].includes("THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- src/leg-schema.json"),
     "(d) the Leg path prompt does not carry the production text kept or the Leg schema");
 }
 // (g) the Leg call's input: each paragraph's Extraction, its paragraph-content parts only
@@ -222,14 +224,14 @@ else {
     for (const k of ["why_this_order", "breaks", "presupposes", "description", "name", "notes"]) {
       ok(!(k in x), `(g) paragraph ${i + 1}'s Extraction in the Leg call's input carries \`${k}\``);
     }
-    ok(x.what_it_does === `WHAT-${i + 1}` && Array.isArray(x.reader) && x.reader.length === 5,
-      `(g) paragraph ${i + 1}'s Extraction in the Leg call's input lost \`what_it_does\` or its \`reader\` rows`);
+    ok(x.what_it_does === `WHAT-${i + 1}` && !("reader" in x),
+      `(g) paragraph ${i + 1}'s Extraction in the Leg call's input lost \`what_it_does\` or still carries \`reader\` rows`);
     ok(JSON.stringify(x.segments) === JSON.stringify([{ content: `CONTENT-${i + 1} CLAIM-${i + 1} POINT-${i + 1}` }]),
       `(g) paragraph ${i + 1}'s Extraction in the Leg call's input does not carry its Segment content clauses alone: ${JSON.stringify(x.segments)}`);
   }
   ok(!/ORDER-\d|BREAKS-\d/.test(leg), "(g) the Leg call's rendered prompt still carries a `why_this_order` or `breaks` text");
 }
-// (h) the Leg call's instruction: the Claim and the point from the text, the reader states from the analysis
+// (h) the Leg call's instruction: the Claim and the point from the text, the purpose and rationale from the analysis
 {
   const prompts = existsSync(join(root, "prompts.jsonl")) ? readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
   const leg = prompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
@@ -240,13 +242,15 @@ else {
   ok(/carry no characterisation of the paragraph -- no "exhaustively", "exactly", "only" or "in parallel"/.test(jp),
     "(h) the Leg call's instruction does not forbid a characterisation of the paragraph in the proposition and the point");
   const clauses = jp.split(/; |\. /);
-  const analysis = clauses.filter((c) => c.includes("`what_it_does`") || c.includes("(`reader`)"));
-  ok(analysis.length > 0 && analysis.every((c) => /`reader_state_after`, `purpose` and `rationale` only/.test(c)),
-    `(h) a clause naming \`what_it_does\` or \`reader\` does not name them for \`reader_state_after\`, \`purpose\` and \`rationale\`: ${JSON.stringify(analysis)}`);
-  ok(!analysis.some((c) => /`proposition`[^;]*written from/.test(c)), `(h) the Leg call's instruction still writes a \`proposition\` from \`what_it_does\` or \`reader\`: ${JSON.stringify(analysis)}`);
+  const analysis = clauses.filter((c) => c.includes("`what_it_does`"));
+  ok(analysis.length > 0 && analysis.every((c) => /`purpose` and `rationale` only/.test(c)),
+    `(h) a clause naming \`what_it_does\` does not name it for \`purpose\` and \`rationale\`: ${JSON.stringify(analysis)}`);
+  ok(!/reader_state_after|\(`reader`\)/.test(jp), "(h) the Leg call's instruction still names a reader state or the reader table (kogaki#1699)");
+  ok(!analysis.some((c) => /`proposition`[^;]*written from/.test(c)), `(h) the Leg call's instruction still writes a \`proposition\` from \`what_it_does\`: ${JSON.stringify(analysis)}`);
 }
 const diff = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "diff"], { encoding: "utf8" });
-ok(diff.status === 0 && (diff.stdout.match(/applies cleanly to the production text/g) || []).length === 2, `(d) \`leg-brief.mjs diff\` does not apply both rows cleanly: ${diff.stdout}${diff.stderr}`);
+ok(diff.status === 0 && (diff.stdout.match(/applies cleanly to the production text/g) || []).length === 1 && !diff.stdout.includes("leg_reader_start_unit"),
+  `(d) \`leg-brief.mjs diff\` does not apply the one Leg row cleanly: ${diff.stdout}${diff.stderr}`);
 {
   const table = JSON.parse(readFileSync(join(repo, "src", "proof-sheet", "extraction-workflow.json"), "utf8"));
   table.leg_path_unit.substitutions[0] = { from: "a span production never carried", to: "x" };
@@ -256,11 +260,11 @@ ok(diff.status === 0 && (diff.stdout.match(/applies cleanly to the production te
 
 // (e) --tools ""
 const argvs = existsSync(join(root, "argv.jsonl")) ? readFileSync(join(root, "argv.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
-ok(argvs.length === 3 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }), `(e) a call ran without \`--tools ""\`: ${JSON.stringify(argvs)}`);
+ok(argvs.length === 2 && argvs.every((a) => { const i = a.indexOf("--tools"); return i >= 0 && a[i + 1] === ""; }), `(e) a call ran without \`--tools ""\`: ${JSON.stringify(argvs)}`);
 
 // (f) the validators, directly
-const inputs = { paragraph_count: 2, reader_start: "knowledge: holds nothing yet", segments: [["one first"], ["two second"]] };
-const good = () => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", reader_state_after: "knowledge: holds it",
+const inputs = { paragraph_count: 2, segments: [["one first"], ["two second"]] };
+const good = () => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r",
   claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
   waypoints: [{ point: "first", serves: ["L1"] }, { point: "two second", serves: ["L2"] }] }] });
 ok(!LB.validateLegPathUnit(good(), inputs).error, `(f) a good Leg was refused: ${LB.validateLegPathUnit(good(), inputs).error}`);
@@ -272,20 +276,21 @@ const m3 = good(); m3.legs[0].claims[1].strand = "L7";
 ok(/Claim 2 names "L7", not L2/.test(LB.validateLegPathUnit(m3, inputs).error || ""), "(f) Claim N not naming L<N> was not refused");
 const m4 = good(); m4.legs[0].waypoints[1].effect = "the reader feels it";
 ok(/waypoint 2 carries `effect`, which is retired/.test(LB.validateLegPathUnit(m4, inputs).error || ""), "(f) a Leg Waypoint carrying `effect` was not refused by waypointsRefusal");
-const m5 = good(); m5.legs[0].reader_state_after = "The reader now holds it.";
-ok(/reader_state_after is not written as `dimension: value` lines/.test(LB.validateLegPathUnit(m5, inputs).error || ""), "(f) a reader_state_after that is not dimension lines was not refused by validateLegs");
-ok(/reader_start is not written as `dimension: value` lines/.test(LB.validateLegReaderStartUnit({ version: "1", reader_start: ["A sentence."] }).error || ""), "(f) a malformed Reader start was not refused by readerStateShapeRefusal");
-ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: holds nothing"] }).error, "(f) a good Reader start was refused");
+for (const f of ["reader_state_after", "reader_state_before"]) {
+  const m5 = good(); m5.legs[0][f] = "knowledge: holds it";
+  ok(new RegExp(`carries \`${f}\` — the Leg's reader states are retired \\(kogaki#1699\\)`).test(LB.validateLegPathUnit(m5, inputs).error || ""),
+    `(f) a Leg carrying the retired \`${f}\` was not refused by validateLegs naming it`);
+}
+ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f) leg-brief still exports the retired Reader start row's validator or input");
 
 // (i) the recoverability criterion over the Segment content
 {
   const segs = [["The installer copies the kit.", "The consumer's tree receives it."], ["The next run copies it again."]];
   const leg = (point2, proposition1 = "The installer copies the kit") => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r",
-    reader_state_after: "knowledge: holds it",
     introduces: ["copy — the kit as it stands in the consumer's tree"],
     claims: [{ type: "strand", strand: "L1", proposition: proposition1 }, { type: "strand", strand: "L2", proposition: "The next run copies it" }],
     waypoints: [{ point: "The installer copies the kit into the consumer's tree", serves: ["L1"] }, { point: point2, serves: ["L2"] }] }] });
-  const iIn = { paragraph_count: 2, reader_start: "knowledge: holds nothing yet", segments: segs };
+  const iIn = { paragraph_count: 2, segments: segs };
   const pass = LB.validateLegPathUnit(leg("The next run copies the copy again"), iIn);
   ok(!pass.error, `(i) a point built from its Segment's own words, an introduced term and function words was refused: ${pass.error}`);
   const bad = LB.validateLegPathUnit(leg("The next run overwrites the copy again"), iIn).error || "";
@@ -306,7 +311,7 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
     `(i) a point dropping a word of the Claim it serves was not refused naming the Claim, the word and the Waypoint: ${dropped}`);
   const m6 = leg("The next run copies the copy again"); m6.legs[0].waypoints[0].point = "The installer copies the copy";
   ok(!LB.validateLegPathUnit(m6, iIn).error, `(i) a Claim word carried by an \`introduces\` entry and no point was refused: ${LB.validateLegPathUnit(m6, iIn).error}`);
-  const none = LB.validateLegPathUnit(leg("The next run copies it again"), { paragraph_count: 2, reader_start: "knowledge: holds nothing yet" }).error || "";
+  const none = LB.validateLegPathUnit(leg("The next run copies it again"), { paragraph_count: 2 }).error || "";
   ok(/handed no paragraph\(s\) of Segment content/.test(none), `(i) a validator handed no Segment content did not refuse: ${none}`);
   ok(JSON.stringify(LB.segmentContents([{ segments: [{ content: "a", operation: "x" }, { content: "b" }] }, {}])) === JSON.stringify([["a", "b"], []]),
     "(i) segmentContents does not read each paragraph's Segment content clauses alone");
@@ -338,7 +343,7 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
   ok(jr.status !== 0 && `${jr.stdout}${jr.stderr}`.includes(LB.TERMS_RETIRED), `(j) a run given --terms was not refused with the retirement sentence: ${jr.status} ${jr.stdout}${jr.stderr}`);
   ok(!/^run directory: /m.test(jr.stdout) && !existsSync(join(jroot, "prompts.jsonl")), "(j) a run given --terms started a run");
 
-  const leg = (entry) => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", reader_state_after: "knowledge: holds it", introduces: [entry],
+  const leg = (entry) => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", introduces: [entry],
     claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
     waypoints: [{ point: "first", serves: ["L1"] }, { point: "second", serves: ["L2"] }] }] });
   const refused = LB.validateLegPathUnit(leg({ term: "ownership boundary", kind: "established", meaning: "where it ends" }), inputs).error || "";
@@ -394,8 +399,12 @@ ok(!LB.validateLegReaderStartUnit({ version: "1", reader_start: ["knowledge: hol
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSL_FIXTURE_DIR: lroot }, timeout: 300000 });
   const lRun = (lr.stdout.match(/^run directory: (.+)$/m) || [])[1];
   const brief = existsSync(join(lroot, "out", "brief.yaml")) ? readFileSync(join(lroot, "out", "brief.yaml"), "utf8") : "";
-  ok(lr.status === 0 && brief.includes(`${LB.DERIVED_COMMENT}\nobligations: []`),
-    `(l) a two-Leg run over a paragraph carrying obligation items did not write \`obligations: []\` under the Planner comment: ${lr.status} ${lr.stdout}${lr.stderr}`);
+  const lp = brief ? parseBriefRecord(brief, "l") : { error: "no Brief" };
+  ok(lr.status === 0 && !lp.error && !/^obligations:/m.test(brief),
+    `(l) a two-Leg run over a paragraph carrying obligation items did not write a Brief with no \`obligations\` key: ${lr.status} ${lp.error || ""} ${lr.stdout}${lr.stderr}`);
+  const lLegs = (lp.record && lp.record.reader_path) || [];
+  ok(lLegs.length === 2 && lLegs[0].opens_section === lLegs[1].claims.at(-1).proposition && lLegs[1].reaches_target === true,
+    `(l) the two-Leg Brief's Section heading is not the last Leg's last Claim, or its last Leg does not reach the target: ${JSON.stringify(lLegs.map((l) => [l.opens_section, l.reaches_target]))}`);
   const bj = lRun && existsSync(join(lRun, "brief.json")) ? JSON.parse(readFileSync(join(lRun, "brief.json"), "utf8")) : null;
   ok(bj && !("deferrals" in bj) && !(bj.derived || []).some((d) => d.field === "obligations"),
     `(l) brief.json carries deferrals or a derived obligations row: ${JSON.stringify(bj)}`);

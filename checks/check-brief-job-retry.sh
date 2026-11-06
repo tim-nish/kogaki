@@ -542,15 +542,13 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
   // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
   writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  const START = "knowledge: before\nquestion: holds: none";
   const legOf = (legId, extra) => ({
     leg_id: legId, move: "m1", materials: ["L1"], purpose: `what ${legId} is for`,
-    reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }], ...extra,
   });
   const candidate = {
-    candidate_id: "c1", characteristic: "x", reader_experience: "y", reader_start: START,
+    candidate_id: "c1", characteristic: "x", reader_experience: "y",
     reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
   };
@@ -569,7 +567,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   writeFileSync(${JSON.stringify(counter)}, String(n));
   const verdicts = ["s1", "s2"].map((leg) => ({ leg_id: leg, move: "m1",
     verdict: n === 1 && leg === "s2" ? "contradicts" : "consistent",
-    why: n === 1 && leg === "s2" ? ${JSON.stringify(SENTENCE)} : "both reader states specialize the Move's before and after." }));
+    why: n === 1 && leg === "s2" ? ${JSON.stringify(SENTENCE)} : "every takes entry is met and every leaves entry taken up." }));
   out({ version: "1", candidate_id: "c1", verdicts });
 });
 `);
@@ -577,9 +575,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const unitsPath = join(base, "units.json");
   writeFileSync(unitsPath, JSON.stringify({
     units: [{ id: "c1", prompt: "COMPOSE ONE CANDIDATE" }],
-    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: { strandIds: ["L1"], movesDir: moves, readerStart: START } },
+    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: { strandIds: ["L1"], movesDir: moves } },
     fit_judge: { module: "src/brief.mjs", prompt_export: "readerPathFitPrompt", verdict_export: "readerPathFitVerdict",
-      inputs: { movesDir: moves, readerStart: START, promptHead: "FIT_JUDGE_HEAD\n" } },
+      inputs: { movesDir: moves, priorKnowledge: "has used a CI system", promptHead: "FIT_JUDGE_HEAD\n" } },
   }, null, 2));
   spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", base, "--units", unitsPath,
     "--command", judgeFile, "--model", "m", "--output-format", "json",
