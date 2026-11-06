@@ -17,6 +17,7 @@
 #       `Binding 1` and `Binding 2` of five labelled rows (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685); the Mapping
 #       part carries `Base: <domain>` above a table headed `Abstract`, `Attribute`, `Correspondence`, the fixture's attribute word
 #       in its Role's `Attribute` cell, and no kind word (kogaki#1693).
+
 #   (g) an `expression` carrying a content word of the `proposition:` is refused naming the word and `correspondences[i].expression`,
 #       in a table and in the owner's file; a null `expression` passes only on a placeholder table; a `role` naming no Role is refused
 #       naming the id, on a placeholder table too, and a Role with other than one correspondence is refused naming the Role
@@ -232,7 +233,7 @@ ok(g.error && g.error.includes('correspondences[1].expression carries "walker", 
   `(g) an expression carrying "walker" was not refused naming it and correspondences[1].expression: ${JSON.stringify(g)}`);
 const gRole = validateRbsTable({ placeholder: true, base: { domain: null }, correspondences: [{ role: "The walker sees a room.", expression: null }] }, PROPOSITION);
 ok(gRole.error && gRole.error.includes('correspondences[0].role carries "walker", a content word of the proposition'),
-  `(g) a role carrying "walker" was not refused naming it and the proposition: ${JSON.stringify(gRole)}`);
+  `(g) a target carrying "walker" was not refused naming it and correspondences[0].role: ${JSON.stringify(gRole)}`);
 const gNull = gv({ ...BASES, correspondences: BASES.correspondences.map((c, i) => (i === 0 ? { ...c, expression: null } : { ...c, expression: "a bed" })) });
 ok(gNull.error && gNull.error.startsWith("correspondences[0].expression "),
   `(g) a null expression on a table that is not a placeholder was not refused naming correspondences[0].expression: ${JSON.stringify(gNull)}`);
