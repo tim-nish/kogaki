@@ -9,13 +9,11 @@
         "leg_id": "content",
         "materials": "copied",
         "purpose": "content",
-        "reader_state_after": "content",
         "rationale": "content",
         "claims": "content",
         "waypoints": "content",
         "introduces": "content",
         "depends_on": "copied",
-        "reader_state_before": "structural",
         "waypoints.point": "content",
         "waypoints.serves": "copied"
       }
@@ -45,16 +43,16 @@
     },
     "substitutions": [
       {
-        "from": "compose ONE CANDIDATE READER PATH for this Brief -- an ordered sequence of Legs taking the reader from the Brief's Reader start (given, authored from the Persona and the Thesis at the `differentiation` state, kogaki#1216) to the adopted Thesis, opening with the reader-state dimension and the Move the `differentiation` state assigned THIS unit (kogaki#1206), rendered above this prompt's input marker as YOUR ASSIGNED DIFFERENTIATION together with that Reader start; the first Leg begins AT it",
-        "to": "compose ONE LEG for this Brief -- the Leg that builds the RelationalStructure in the input, `structure`, for the reader, taking the reader from the Leg's Reader start (given, authored from the Persona and the structure's Roles at the `leg_reader_start_unit` row, kogaki#1664), rendered in the input as `reader_start`; the Leg begins AT it"
+        "from": "compose ONE CANDIDATE READER PATH for this Brief -- an ordered sequence of Legs taking the reader to the adopted Thesis, opening with the reader-state dimension and the Move the `differentiation` state assigned THIS unit (kogaki#1206), rendered above this prompt's input marker as YOUR ASSIGNED DIFFERENTIATION.",
+        "to": "compose ONE LEG for this Brief -- the Leg that builds the RelationalStructure in the input, `structure`, for the reader, opening from what the Persona already knows, rendered in the input as `persona_prior_knowledge` (kogaki#1664, kogaki#1699); this Leg carries no `introduces`."
       },
       {
-        "from": "and the LAST Leg's `reader_state_after` is the Brief's Reader target (kogaki#1225)",
-        "to": "and the Leg's `reader_state_after` names only the dimensions the Leg changes, one `dimension: value` line per dimension (kogaki#1664)"
+        "from": "A Leg carries no reader state (kogaki#1699): what a Leg's Move takes up and leaves is the Move's own `takes` and `leaves`, which `moves_you_may_bind` carries per Move, read as abstract constraints and never copied into the Leg. TAKE: every Leg binds a Move whose `takes` entries are each met by an entry an earlier Leg's Move leaves and no Leg between has taken up, or, on the first Leg, by what the Persona's prior-knowledge line supplies, which the assigned opening Move's `takes` already meet -- the kinds matching as words and the `what` lines by sense, never verbatim. LEAVE: every entry a Leg's Move leaves is taken up by a later Leg's Move, or is left by the Leg marked `reaches_target` as what the article leaves the reader with, and a `carry` is never left at the end.",
+        "to": "A Leg carries no reader state (kogaki#1699), and this Leg binds no Move, so no Move's `takes` or `leaves` is read here."
       },
       {
-        "from": "and no Reader start line may carry a term any Leg lists under `introduces:`.",
-        "to": "and no Reader start line may carry a term any Leg lists under `introduces:`; this Leg carries no `introduces` (kogaki#1664)."
+        "from": "The Leg marked `reaches_target` attains the Thesis (kogaki#1330), and no Opening question is rendered.",
+        "to": "The Harness marks the last Leg `reaches_target` (kogaki#1532), and no Opening question is rendered."
       },
       {
         "from": "written as this Leg's own specialization of its Move, because the Move is read here and by no stage after the Candidate.",
@@ -70,7 +68,7 @@
       },
       {
         "from": "A reinforcing waypoint -- an example, a consequence, an answer to an objection -- names in `serves` the claim it reinforces; and a waypoint whose point no claim of the Leg supports is the signal to pull in a Journey, bind another Move, or report `no_move_fits`, never to write the waypoint anyway.",
-        "to": "THE STRUCTURE STANDS IN FOR STRANDS (kogaki#1664): Claim N is the `holds` sentence of entry N of `claims` in the input, addressed `L<N>` as its `claim_strand`, and its `proposition` is that sentence word for word; the Leg carries ONE Claim per entry, and Leg Waypoint N names in `serves` the Claim of entry N. Leg Waypoint N's `point` is written from entry N's `material`, the `context` of each Role and the `holds` of each relation the entry relates, and neither a `point` nor the Leg's `reader_state_after` carries a word of `forbidden_words` in the input: the content words of the Strand's own claim, which the reader does not hold."
+        "to": "THE STRUCTURE STANDS IN FOR STRANDS (kogaki#1664): Claim N is the `holds` sentence of entry N of `claims` in the input, addressed `L<N>` as its `claim_strand`, and its `proposition` is that sentence word for word; the Leg carries ONE Claim per entry, and Leg Waypoint N names in `serves` the Claim of entry N. Leg Waypoint N's `point` is written from entry N's `material`, the `context` of each Role and the `holds` of each relation the entry relates, and no `point` carries a word of `forbidden_words` in the input: the content words of the Strand's own claim, which the reader does not hold."
       },
       {
         "from": "How many waypoints a Leg carries is yours, and you need not reproduce the Move's internal structure element for element.",
@@ -85,8 +83,8 @@
         "to": "THE WORDS ARE THE STRUCTURE'S (kogaki#1664): this Brief composes no renderings record; Claim N's `proposition` and Leg Waypoint N's `point` are written in the words of entry N's `material` -- a word that is in none of it and is not a function word is refused naming the word."
       }
     ],
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying `legs`, an array of EXACTLY ONE Leg, and nothing else. The Leg carries exactly these keys: `leg_id`; `purpose`; `rationale`; `reader_state_after` (`dimension: value` lines joined by line breaks, one per dimension the Leg changes); `claims` -- one `{ \"type\": \"strand\", \"strand\": \"L<N>\", \"proposition\": <entry N's holds, word for word> }` per entry of `claims` in the input, in order; and `waypoints` -- one `{ \"point\": <one sentence>, \"serves\": [\"L<N>\"] }` per entry, in order. It carries no `introduces`. Every field means what src/leg-schema.json, rendered below, says it means. The Harness writes `materials` and `depends_on`.",
-    "refusal": "a key the record or the Leg does not declare, or a declared key missing; an `introduces`; not exactly one Leg; a Claim whose `proposition` is not its entry's `holds`; a `point` or a `reader_state_after` line carrying a word of `forbidden_words`, refused naming the word and the field; and the Proof Sheet's `validateLegPathUnit` over the Leg, imported, with each entry's `material` as the text its Claim and point are recovered from. Each refusal is put back into your next attempt verbatim.",
+    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying `legs`, an array of EXACTLY ONE Leg, and nothing else. The Leg carries exactly these keys: `leg_id`; `purpose`; `rationale`; `claims` -- one `{ \"type\": \"strand\", \"strand\": \"L<N>\", \"proposition\": <entry N's holds, word for word> }` per entry of `claims` in the input, in order; and `waypoints` -- one `{ \"point\": <one sentence>, \"serves\": [\"L<N>\"] }` per entry, in order. It carries no `introduces`. Every field means what src/leg-schema.json, rendered below, says it means. The Harness writes `materials` and `depends_on`.",
+    "refusal": "a key the record or the Leg does not declare, or a declared key missing; an `introduces`; not exactly one Leg; a Claim whose `proposition` is not its entry's `holds`; a `point` carrying a word of `forbidden_words`, refused naming the word and the field; and the Proof Sheet's `validateLegPathUnit` over the Leg, imported, with each entry's `material` as the text its Claim and point are recovered from. Each refusal is put back into your next attempt verbatim.",
     "schema_file": "src/leg-schema.json",
     "governing": "src/brief-workflow.json, the `reader_path_unit` row; the Proof Sheet's `leg_path_unit` row; kogaki#1664"
   },

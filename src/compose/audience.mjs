@@ -155,7 +155,7 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
     // against those two, so the input sets them side by side rather than
     // leaving the judge to find them in the Leg array. `segments` is the
     // Move's whole structure and is never null here (kogaki#1412).
-    out.push({ leg_id: s.leg_id, move: s.move, before: c.before, after: c.after, segments: c.segments, breaks: c.breaks,
+    out.push({ leg_id: s.leg_id, move: s.move, takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks,
       waypoints: s.waypoints });
   }
   return { contracts: out };

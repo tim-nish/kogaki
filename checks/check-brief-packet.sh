@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# check-brief-packet — the Packet side of Brief composition: re-activate,
-# Journey resolution, the writer's refusal form, the typed introduces items
-# and the Obligation record's schema, and the Packet rendering of kogaki#1261.
+# check-brief-packet — the Packet side of Brief composition: re-activate, Journey
+# resolution, the writer's refusal form, the typed introduces items, the Obligation
+# record's retirement (kogaki#1699) and kogaki#1261's Packet rendering.
 #   (n)-(o)   re-activate's refusals and Packet rendering (kogaki#1237/#1282).
 #   (p)-(s)   Journey text resolution, writerRefusal, shard prose (kogaki#1250).
-#   (t)-(w)   kogaki#1263's schema widenings, (v) now the record of kogaki#1612;
+#   (t)-(w)   kogaki#1263's schema widenings, (v) now the record's retirement
+#             from both schemas (kogaki#1699); (z) the ledger refusal retired;
 #             (x)-(aa) and the first (am) kogaki#1260's compose refusals.
 #   (ab)-(ae) the Write block, Journey crossing and typed terms in the Packet
-#             (kogaki#1261), an Obligation record read off the record and reaching
-#             no Packet (kogaki#1584), with the inner (aq) and (at).
-# A LIGHT member: pure calls, temporary fixture files, no model run. Cut from
-# check-brief-compose.sh by kogaki#1460; the registry row says more.
+#             (kogaki#1261), a Brief carrying an Obligation record refused naming
+#             the key (kogaki#1699), with the inner (aq) and (at).
+# A LIGHT member: pure calls, no model run; cut from check-brief-compose.sh (kogaki#1460).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -23,7 +23,7 @@ import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
   journeyProseFromShardLines, READER_OWN_WORLD_ABSENT } from "./src/draft.mjs";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
-const { validateLegs, obligationRowsOf, legRecord } = compose;
+const { validateLegs, legRecord } = compose;
 const fails = [];
 
 // (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282 owner
@@ -37,7 +37,6 @@ const fails = [];
   if (typeof reactivateRefusal !== "function" || typeof reactivateSemanticRefusal !== "function") fails.push("(n) src/compose.mjs exports no re-activate refusals");
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
     depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
@@ -45,18 +44,17 @@ const fails = [];
     const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"] }),
       legOf("s2", { depends_on: ["s1"], reaches_target: true, ...s2extra }),
       legOf("s3", { depends_on: ["s2"] })];
-    legs[2].reader_state_after = legs[1].reader_state_after;
     return legs;
   };
-  const outside = validateLegs(path({ "re-activate": ["s3 term pipeline"], depends_on: ["s1"] }), "");
+  const outside = validateLegs(path({ "re-activate": ["s3 term pipeline"], depends_on: ["s1"] }));
   if (!outside.error || !/not in this Leg's depends_on/.test(outside.error) || !/"s3 term pipeline"/.test(outside.error)) fails.push(`(n) a re-activate naming a Leg outside depends_on was not refused naming the entry: ${outside.error}`);
-  const noTerm = validateLegs(path({ "re-activate": ["s1 term deterrence"] }), "");
+  const noTerm = validateLegs(path({ "re-activate": ["s1 term deterrence"] }));
   if (!noTerm.error || !/does not introduce "deterrence"/.test(noTerm.error) || !/"s1 term deterrence"/.test(noTerm.error)) fails.push(`(n) a re-activate naming a term the Leg does not introduce was not refused naming the entry: ${noTerm.error}`);
-  const noClaim = validateLegs(path({ "re-activate": ["s1 claim L9 as a restated claim"] }), "");
+  const noClaim = validateLegs(path({ "re-activate": ["s1 claim L9 as a restated claim"] }));
   if (!noClaim.error || !/carries no claim for strand "L9"/.test(noClaim.error) || !/"s1 claim L9 as a restated claim"/.test(noClaim.error)) fails.push(`(n) a re-activate naming a Strand the Leg carries no claim for was not refused naming the entry: ${noClaim.error}`);
-  const shape = validateLegs(path({ "re-activate": ["s1 pipeline"] }), "");
+  const shape = validateLegs(path({ "re-activate": ["s1 pipeline"] }));
   if (!shape.error || !/re-activate/.test(shape.error)) fails.push(`(n) a malformed re-activate entry was not refused: ${shape.error}`);
-  const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1 as a restated claim"] }), "");
+  const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1 as a restated claim"] }));
   if (good.error) fails.push(`(n) a well-formed re-activate over depends_on material was refused: ${good.error}`);
 
   // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
@@ -105,7 +103,6 @@ const fails = [];
 {
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
     depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
@@ -288,30 +285,25 @@ const fails = [];
   }
 }
 
-// (v) both schemas declare the Obligation record `{opened_by, items}`, each item `{item, closed_by}`,
-// and neither declares the conceded state or its three fields (kogaki#1612, retiring kogaki#1263):
-// src/candidate-schema.json's `obligations` field names the record's keys and its items' keys, and
-// src/leg-schema.json carries no one-conceded rule. The retired names are composed, never spelled.
+// (v) THE OBLIGATION RECORD IS RETIRED FROM BOTH SCHEMAS (kogaki#1699, retiring kogaki#1612):
+// src/candidate-schema.json declares no `obligations` field and lists it among its retired fields,
+// and src/leg-schema.json declares no `obligation_*` path rule. The conceded state's names, retired
+// at kogaki#1612, stay out of both; they are composed, never spelled.
 {
   const gone = [["why", "not", "here"].join("_"), ["reader", "keeps"].join("_"), ["conceded", "by"].join("_"), ["discharged", "by"].join("_")];
   const candidateSchema = JSON.parse(readFileSync("src/candidate-schema.json", "utf8"));
-  const obligations = candidateSchema.fields.obligations;
-  if (!obligations) fails.push("(v) src/candidate-schema.json declares no obligations field");
-  else {
-    if (JSON.stringify(obligations.entry_required_keys) !== JSON.stringify(["opened_by", "items"])) fails.push(`(v) obligations does not declare the record's keys opened_by and items: ${JSON.stringify(obligations.entry_required_keys)}`);
-    if (JSON.stringify(obligations.item_required_keys) !== JSON.stringify(["item", "closed_by"])) fails.push(`(v) obligations does not declare an item's keys item and closed_by: ${JSON.stringify(obligations.item_required_keys)}`);
-    for (const k of ["entry_optional_keys", "entry_required_when_conceded"]) if (k in obligations) fails.push(`(v) obligations still declares ${k}`);
-    for (const g of gone) if (JSON.stringify(obligations).includes(g)) fails.push(`(v) the obligations declaration still names \`${g}\``);
-  }
+  if (candidateSchema.fields.obligations) fails.push("(v) src/candidate-schema.json still declares an obligations field");
+  if (!candidateSchema.retired_fields || !/kogaki#1699/.test(candidateSchema.retired_fields.obligations || "")) fails.push("(v) src/candidate-schema.json does not list obligations among its retired fields naming kogaki#1699");
   const legSchema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  if (legSchema.path_rules.obligation_one_conceded_row) fails.push("(v) src/leg-schema.json still carries obligation_one_conceded_row");
-  for (const g of gone) if (JSON.stringify(legSchema).includes(g)) fails.push(`(v) src/leg-schema.json still names \`${g}\``);
-  const shape = legSchema.path_rules.obligation_record_shape;
-  if (!shape || !/\{opened_by, items\}/.test(shape.rule) || !/\{item, closed_by\}/.test(shape.rule)) fails.push(`(v) obligation_record_shape does not state the record: ${shape && shape.rule}`);
+  const rules = Object.keys(legSchema.path_rules).filter((k) => k.startsWith("obligation_"));
+  if (rules.length) fails.push(`(v) src/leg-schema.json still declares the Obligation path rules ${JSON.stringify(rules)}`);
+  for (const g of gone) {
+    if (JSON.stringify(legSchema).includes(g)) fails.push(`(v) src/leg-schema.json still names \`${g}\``);
+    if (JSON.stringify(candidateSchema).includes(g)) fails.push(`(v) src/candidate-schema.json still names \`${g}\``);
+  }
 }
 
-// (w) the `reader_state_after` of the Leg marked `reaches_target` gains a
-// `names` list (kogaki#1263): src/leg-schema.json declares `names` as an
+// (w) the Leg marked `reaches_target` carries a `names` list (kogaki#1263): src/leg-schema.json declares `names` as an
 // array of string, required only when reaches_target is true.
 {
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
@@ -326,29 +318,29 @@ const fails = [];
 // (x) re-activate's third form, `<leg_id> journey <strand id>` (kogaki#1263, kogaki#1260).
 {
   const withJourney = { journeys: [{ strand: "L2", use: "illustrate" }] };
-  const good = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L2"] }), "");
+  const good = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L2"] }));
   if (good.error) fails.push(`(x) \`re-activate: s1 journey L2\` over a Leg that names L2 in its journeys was refused: ${good.error}`);
-  const noJourney = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L9"] }), "");
+  const noJourney = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L9"] }));
   if (!noJourney.error || !/carries no journey for strand "L9"/.test(noJourney.error) || !/"s1 journey L9"/.test(noJourney.error)) fails.push(`(x) a re-activate naming a Strand the Leg carries no journey for was not refused naming the entry: ${noJourney.error}`);
-  const noneAtAll = validateLegs(PATH_1260({}, { "re-activate": ["s1 journey L2"] }), "");
+  const noneAtAll = validateLegs(PATH_1260({}, { "re-activate": ["s1 journey L2"] }));
   if (!noneAtAll.error || !/carries no journey for strand "L2"/.test(noneAtAll.error)) fails.push(`(x) a re-activate naming a journey on a Leg with no journeys was not refused: ${noneAtAll.error}`);
 }
 
 // (y) an introduces_item's own shape: `term` and `meaning`, every retired key refused by name.
 {
   // kind and source are retired (kogaki#1529), nearest and differs (kogaki#1571), and meaning is required.
-  const withKind = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" }] }), "");
+  const withKind = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" }] }));
   if (!withKind.error || !/"unfed guard" carries `kind`/.test(withKind.error)) fails.push(`(y) an introduces_item carrying the retired kind was not refused by name: ${withKind.error}`);
-  const withSource = validateLegs(PATH_1260({ introduces: [{ term: "pipeline", meaning: "a chain of stages", source: "build practice" }] }), "");
+  const withSource = validateLegs(PATH_1260({ introduces: [{ term: "pipeline", meaning: "a chain of stages", source: "build practice" }] }));
   if (!withSource.error || !/"pipeline" carries `source`/.test(withSource.error)) fails.push(`(y) an introduces_item carrying the retired source was not refused by name: ${withSource.error}`);
   for (const k of ["nearest", "differs"]) {
-    const withRetired = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", [k]: "guard clause" }] }), "");
+    const withRetired = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", [k]: "guard clause" }] }));
     if (!withRetired.error || !withRetired.error.includes(`"unfed guard" carries \`${k}\``)) fails.push(`(y) an introduces_item carrying the retired ${k} was not refused by name: ${withRetired.error}`);
   }
   // an introduces_item with no meaning is refused naming the entry (kogaki#1282, kogaki#1529).
-  const noMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard" }, "pipeline"] }), "");
+  const noMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard" }, "pipeline"] }));
   if (!noMeaning.error || !/"unfed guard" carries no meaning/.test(noMeaning.error)) fails.push(`(y) an introduces_item with no meaning was not refused naming the entry: ${noMeaning.error}`);
-  const withMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds" }, "pipeline"] }), "");
+  const withMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds" }, "pipeline"] }));
   if (withMeaning.error && /with no meaning/.test(withMeaning.error)) fails.push(`(y) an introduces_item carrying meaning was refused on the meaning ground: ${withMeaning.error}`);
 }
 
@@ -356,49 +348,33 @@ const fails = [];
 // the claim crosses as a plain restatement written at Brief time, never as its own proposition.
 {
   const withClaim = (reactivate) => PATH_1260({}, { "re-activate": reactivate });
-  const noAs = validateLegs(withClaim(["s1 claim L1"]), "");
+  const noAs = validateLegs(withClaim(["s1 claim L1"]));
   if (!noAs.error || !/a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required/.test(noAs.error)) {
     fails.push(`(am) a re-activate claim entry with no as sentence was not refused naming the grammar: ${noAs.error}`);
   }
-  const noAsEither = validateLegs(withClaim(["s1 claim L1 as"]), "");
+  const noAsEither = validateLegs(withClaim(["s1 claim L1 as"]));
   if (!noAsEither.error || !/a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required/.test(noAsEither.error)) {
     fails.push(`(am) a re-activate claim entry with a bare trailing as was not refused naming the grammar: ${noAsEither.error}`);
   }
-  const withAs = validateLegs(withClaim(["s1 claim L1 as the grounded claim, restated plainly"]), "");
+  const withAs = validateLegs(withClaim(["s1 claim L1 as the grounded claim, restated plainly"]));
   if (withAs.error) fails.push(`(am) a re-activate claim entry carrying an as sentence was refused: ${withAs.error}`);
 }
 
-// (z) a record carrying a field of the retired conceded state is refused naming the field
-// (kogaki#1612, retiring kogaki#1251 item 3 and kogaki#1260), and a record carrying the retired
-// `kind`, `text` or `term` is refused naming the key (kogaki#1568).
+// (z) THE BRIEF-SCALE LEDGER REFUSAL IS RETIRED (kogaki#1699, retiring kogaki#1612 and kogaki#1568):
+// `obligationLedgerRefusal` is no longer exported, and `validateLegs` reads no ledger, so a path is
+// judged on its Legs alone.
 {
-  const { obligationLedgerRefusal } = compose;
-  const legs = ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
-  const full = { opened_by: "leg1", items: [{ item: "a question closed later", closed_by: "leg2" }] };
-  const rFull = obligationLedgerRefusal(legs, [full]);
-  if (rFull) fails.push(`(z) a record closing its one item in a later Leg was refused: ${rFull}`);
-  for (const key of ["open", ["why", "not", "here"].join("_"), ["reader", "keeps"].join("_")]) {
-    const r = obligationLedgerRefusal(legs, [{ ...full, [key]: "what stays unresolved" }]) || "";
-    if (!r.includes(`\`${key}\`, retired with the conceded state (kogaki#1612)`) || !/obligation 1/.test(r)) fails.push(`(z) a record carrying \`${key}\` was not refused naming the field: ${r || "no refusal"}`);
-  }
-  // THE RETIRED `kind`, `text` AND `term`, REFUSED BY NAME (kogaki#1568).
-  for (const [key, row] of [["kind", { ...full, kind: "question" }], ["text", { ...full, items: undefined, text: "a question set aside" }],
-    ["term", { ...full, items: undefined, term: ["a question set aside"] }]]) {
-    if (row.items === undefined) delete row.items;
-    const r = obligationLedgerRefusal(legs, [row]) || "";
-    if (!r.includes(`carries \`${key}\`, retired (kogaki#1568)`)) fails.push(`(z) a record carrying the retired \`${key}\` was not refused naming the key: ${r || "no refusal"}`);
-  }
-  // ...and validateLegs refuses at the same ground over a full path.
-  const keeps = ["reader", "keeps"].join("_");
-  const rPath = validateLegs(PATH_1260(), "", [{ opened_by: "s1", items: [{ item: "a question closed later", closed_by: "s2" }], [keeps]: "a named open question" }]);
-  if (!rPath.error || !rPath.error.includes(`\`${keeps}\`, retired`)) fails.push(`(z) validateLegs did not refuse a full path over a record carrying a retired field: ${rPath.error}`);
+  if ("obligationLedgerRefusal" in compose) fails.push("(z) src/compose.mjs still exports obligationLedgerRefusal, retired at kogaki#1699");
+  if ("obligationRowsOf" in compose) fails.push("(z) src/compose.mjs still exports obligationRowsOf, retired at kogaki#1699");
+  const rPath = validateLegs(PATH_1260());
+  if (rPath.error) fails.push(`(z) validateLegs refused a well-formed path over no ledger: ${rPath.error}`);
 }
 
 // (aa) the reaching Leg's `names` is a subset of the union of every Leg's introduces (kogaki#1251 item 4, kogaki#1260).
 {
   const { readerTargetNamesRefusal } = compose;
   if (typeof readerTargetNamesRefusal !== "function") fails.push("(aa) src/compose.mjs exports no readerTargetNamesRefusal");
-  const stray = validateLegs(PATH_1260({}, { names: ["unfed guard", "default-deny"] }), "");
+  const stray = validateLegs(PATH_1260({}, { names: ["unfed guard", "default-deny"] }));
   if (!stray.error) fails.push("(aa) a reaching Leg naming a term no Leg introduces was not refused");
   else {
     if (!/"default-deny"/.test(stray.error)) fails.push(`(aa) the refusal did not name the term: ${stray.error}`);
@@ -406,9 +382,9 @@ const fails = [];
     if (!/no Leg of this path introduces it/.test(stray.error)) fails.push(`(aa) the refusal did not name the rule: ${stray.error}`);
   }
   // the union reaches across Legs: a term introduced by the reaching Leg itself, and one by an earlier Leg.
-  const subset = validateLegs(PATH_1260({}, { introduces: [{ term: "silent pass", meaning: "a check that passes having read nothing" }], names: ["unfed guard", "pipeline", "silent pass"] }), "");
+  const subset = validateLegs(PATH_1260({}, { introduces: [{ term: "silent pass", meaning: "a check that passes having read nothing" }], names: ["unfed guard", "pipeline", "silent pass"] }));
   if (subset.error && /no Leg of this path introduces it/.test(subset.error)) fails.push(`(aa) a names list inside the union of every Leg's introduces was refused on the names ground: ${subset.error}`);
-  const absent = validateLegs(PATH_1260(), "");
+  const absent = validateLegs(PATH_1260());
   if (absent.error && /no Leg of this path introduces it/.test(absent.error)) fails.push(`(aa) a reaching Leg with no names list was refused on the names ground: ${absent.error}`);
 }
 
@@ -439,7 +415,6 @@ const fails = [];
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    reader_state_after: `orientation: after ${leg_id}\nknowledge: after ${leg_id}`,
     depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
     ...extra,
   });
@@ -563,24 +538,24 @@ const fails = [];
     if (!carried.refusals.some((m) => m.includes(`\`${retiredKey}\``))) fails.push(`(ad) a Brief header carrying the retired external-authority switch was not refused naming the key: ${JSON.stringify(carried.refusals)}`);
   }
 
-  // (ae) an Obligation record is read off the record, each party Leg handed its items, and reaches no
-  // Packet (kogaki#1584, kogaki#1612).
+  // (ae) A BRIEF CARRYING AN OBLIGATION RECORD IS REFUSED NAMING THE KEY (kogaki#1699, retiring
+  // kogaki#1584 and kogaki#1612), and the Packet of a ledgerless Brief carries no Obligations block.
   {
     const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] })];
     const obligations = [{ opened_by: "s1", items: [{ item: "Whether the guard can be fed at all", closed_by: "s2" }] }];
-    const brief = briefOf(legs, { compose_path: personaA, obligations });
-    if (brief.refusals.length) fails.push(`(ae) a Brief carrying one Obligation record was refused: ${JSON.stringify(brief.refusals)}`);
-    for (const id of ["s1", "s2"]) {
-      const f = brief.refusals.length ? null : obligationRowsOf(brief.record, id).find((o) => o.opened_by === "s1");
-      if (!f || JSON.stringify(f.items) !== JSON.stringify(obligations[0].items)) fails.push(`(ae) obligationRowsOf did not hand ${id} the record's item off the record: ${JSON.stringify(f)}`);
+    const ledgered = briefOf(legs, { compose_path: personaA, obligations });
+    if (!ledgered.refusals.some((m) => m.includes("carries `obligations`") && m.includes("kogaki#1699"))) {
+      fails.push(`(ae) a Brief carrying one Obligation record was not refused naming the key: ${JSON.stringify(ledgered.refusals)}`);
     }
-    // The retired heading is spelled apart: the Issue's Acceptance greps checks/ for it.
-    const ROW_WORDS = [["## This Leg's", "Obligations"].join(" "), "Whether the guard can be fed at all"];
-    for (const [id, leg] of [["s1", brief.legs[0]], ["s2", brief.legs[1]]]) {
-      const r = render(brief, leg);
-      if (r.error) { fails.push(`(ae) the Packet for ${id} did not render: ${r.error}`); continue; }
-      for (const bad of ROW_WORDS) {
-        if (r.packet.includes(bad)) fails.push(`(ae) the Packet for ${id}, a Leg party to the row, carries ${JSON.stringify(bad)}`);
+    const brief = briefOf(legs, { compose_path: personaA });
+    if (brief.refusals.length) fails.push(`(ae) the ledgerless Brief was refused: ${JSON.stringify(brief.refusals)}`);
+    else {
+      // The retired heading is spelled apart: the Issue's Acceptance greps checks/ for it.
+      const RETIRED_HEADING = ["## This Leg's", "Obligations"].join(" ");
+      for (const [id, leg] of [["s1", brief.legs[0]], ["s2", brief.legs[1]]]) {
+        const r = render(brief, leg);
+        if (r.error) { fails.push(`(ae) the Packet for ${id} did not render: ${r.error}`); continue; }
+        if (r.packet.includes(RETIRED_HEADING)) fails.push(`(ae) the Packet for ${id} carries the retired Obligations heading`);
       }
     }
   }
@@ -647,5 +622,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, an Obligation record reaching no Packet (kogaki#1584), the record's schema and the retired conceded fields refused by name (kogaki#1612), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
+console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, a Brief carrying an Obligation record refused naming the key, the record retired from both schemas and the ledger refusal no longer exported (kogaki#1699), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
 JS

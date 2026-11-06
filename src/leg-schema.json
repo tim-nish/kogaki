@@ -57,8 +57,6 @@
     "  The figure decision",
     "      SPEC-draft-pipeline",
     "  Every MUST is judgment, and nothing becomes a lint",
-    "      SPEC-draft-pipeline",
-    "  Obligations",
     "      SPEC-draft-pipeline"
   ],
   "version": "1",
@@ -89,21 +87,16 @@
       "type": "string",
       "description": "What this Leg is for in the path -- the work it does toward the adopted Thesis, in one or two sentences. A VERB ABOUT THE READER, carrying no proposition from the material: a purpose that could be true or false of the world is a claim in the wrong field."
     },
-    "reader_state_after": {
-      "required": true,
-      "type": "string",
-      "description": "What the reader holds when this Leg ends, in the Move library's own dimensions (knowledge, question, expectation, orientation, trust -- the Move library entry) -- one `dimension: value` LINE per dimension the Leg's Move addresses, a line-per-dimension shape and not the bound Move's own folded `after` paragraph (kogaki#1211). Judged against the Move's `after`: it must be a consistent specialization of what the Move leaves the reader holding. It is also the NEXT Leg's before-state, word for word (kogaki#1325): no Leg writes a before-state of its own. The two state fields are the Leg's transition, written as the reader's condition rather than as the writer's intent -- the reader's CONDITION afterwards, never a proposition about the world. ON THE LEG MARKED `reaches_target` this field IS the Brief's Reader target (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's last-Leg derivation): the Brief renders that Leg's after-state, whole and line for line, under its `Reader target` heading, and no separate field authors it -- a Candidate carrying `reader_target` is refused by name. No Opening question is rendered any more and the first Leg's after-state owes no `question:` line: whatever question the opening leaves the reader holding belongs here, in the reader's own words, and nowhere else."
-    },
     "reaches_target": {
       "required": false,
       "type": "boolean",
-      "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231, owner decision 2026-09-30, reversing kogaki#1225's rule that the Reader target sits wherever the path ends). That Leg's `reader_state_after` IS the Brief's Reader target, and it is the one Leg the Brief's derived Thesis row of Closure is handed to (kogaki#1328). Every Leg AFTER the marked one is a CLOSING Leg, held to the three closing-Leg path_rules below: it introduces nothing, raises no Obligation row, and its `orientation` and `knowledge` lines hold at the marked Leg's -- only `question`, `expectation` and `trust` may still move. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
+      "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231). That Leg is the one that attains the Thesis: the Brief's Reader target heading renders the Thesis (kogaki#1699), and the Brief's derived Thesis row is handed to this Leg (kogaki#1328). Every Leg AFTER the marked one is a CLOSING Leg, held to the closing-Leg path_rule below: it introduces nothing. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
     },
     "names": {
       "required": false,
       "required_when": "reaches_target is true",
       "type": "array of string",
-      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries -- and no Obligation item (kogaki#1568) -- have put in the reader's hands by the time `reader_state_after` -- the Brief's Reader target -- is reached. It is a LIST, not prose, because the Reader target heading renders `reader_state_after` whole and line for line and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
+      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries have put in the reader's hands by the time the Thesis is attained. It is a LIST, not prose, because the Reader target heading renders the Thesis and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
     },
     "depends_on": {
       "required": true,
@@ -119,7 +112,7 @@
     "move": {
       "required": false,
       "type": "string",
-      "description": "The Move library entry this Leg binds, by id. The Move IS the State component of a Leg. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `before`, `after`, `segments` and `breaks`, read from the Move file. `before` and `after` are the reader states the Move moves between; `segments` is the general route between them, its ordered steps, which this Leg SPECIALIZES in its own `waypoints`; `breaks` are the tests that route must survive. Choose a Move only where you can write waypoints that specialize its `segments` from this Leg's own claims and materials and that survive each `breaks` test. THE MOVE IS READ HERE AND NEVER AGAIN (kogaki#1311, owner decision 2026-10-09): no stage after the Candidate opens a Move, so the writer meets this Leg's waypoints and never the Move's prose. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
+      "description": "The Move library entry this Leg binds, by id. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `takes`, `leaves`, `segments` and `breaks`, read from the Move file. `takes` is what the Move's first Segment takes up on entry and `leaves` what it leaves for a later Leg's Move to take up (kogaki#1698, kogaki#1699); `segments` is the Move's general route, its ordered steps, which this Leg SPECIALIZES in its own `waypoints`; `breaks` are the tests that route must survive. Choose a Move only where you can write waypoints that specialize its `segments` from this Leg's own claims and materials and that survive each `breaks` test. THE MOVE IS READ HERE AND NEVER AGAIN (kogaki#1311, owner decision 2026-10-09): no stage after the Candidate opens a Move, so the writer meets this Leg's waypoints and never the Move's prose. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
     },
     "no_move_fits": {
       "required": false,
@@ -137,7 +130,7 @@
       "required": true,
       "type": "array of waypoint",
       "min_length": 1,
-      "description": "The route this Leg takes the reader along, from `reader_state_before` to `reader_state_after`, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `segments` (kogaki#1311, owner decision 2026-10-09). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326, owner decision 2026-10-10) -- what the paragraph establishes, never how the reader is to feel or what they are handed, and never a stage direction. The point is not quoted; its wording is the writer's. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `segments` hold a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose point no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
+      "description": "The route this Leg takes the reader along, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `segments` (kogaki#1311, owner decision 2026-10-09). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326, owner decision 2026-10-10) -- what the paragraph establishes, never how the reader is to feel or what they are handed, and never a stage direction. The point is not quoted; its wording is the writer's. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `segments` hold a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose point no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
       "see": "waypoint"
     },
     "journeys": {
@@ -165,7 +158,7 @@
     "introduces": {
       "required": false,
       "type": "array of introduces_item",
-      "description": "Terms this Leg introduces to the reader for the first time AND gives the meaning of, one item per term; a term it names and leaves for a later Leg to explain is an Obligation item instead (kogaki#1529, kogaki#1568). The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds. See `introduces_item` below -- its `term` field is what `re-activate`'s `term` form and the introduced-term refusal both match against.",
+      "description": "Terms this Leg introduces to the reader for the first time AND gives the meaning of, one item per term (kogaki#1529). The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds. See `introduces_item` below -- its `term` field is what `re-activate`'s `term` form and the introduced-term refusal both match against.",
       "see": "introduces_item"
     },
     "re-activate": {
@@ -196,14 +189,7 @@
       "description": "The word bound this Leg's realized prose may spend, rendered in the Packet's write instruction. A LIMIT THE WRITER SEES, never a target to reach -- its absence means no bound is declared, and nothing asks about it."
     }
   },
-  "derived": {
-    "reader_state_before": {
-      "composed": false,
-      "derivation": "the previous Leg's `reader_state_after`, verbatim; for the FIRST Leg, the Brief's Reader start",
-      "description": "What the reader holds when this Leg begins. NOT A FIELD YOU WRITE (kogaki#1325, owner decision 2026-10-10): the Harness derives it as the previous Leg's `reader_state_after`, or the Brief's Reader start for the first Leg, and a Leg carrying `reader_state_before` is refused by name. A before-state therefore holds nothing no earlier text stated -- the reader arrives at a Leg holding exactly what the Leg before it left them holding. What the Move-fit judge asks of a Leg's Move is one question: does its `before` require, on any dimension, something this derived state does not hold. A Move whose `before` needs a stated claim that no earlier Leg's claims or `introduces` entries carry is refused, naming the dimension -- at the first Leg, where nothing has been stated yet, most of all.",
-      "retired": "a composed `reader_state_before`, judged as a 'consistent specialization' of its Move's `before` (or of Reader start for the first Leg, kogaki#1216). No file defined a specialization beyond the word, and on 2026-10-09 the first Leg's composed before-state moved the Thesis out of Reader start's `question` line into `knowledge` -- a reader holding a general claim no text had stated -- and the judge accepted it (kogaki#1325)."
-    }
-  },
+  "derived": {},
   "path_rules": {
     "note": [
       "THE RULES OVER THE WHOLE PATH, AND WHY THEY ARE DECLARED HERE",
@@ -289,49 +275,20 @@
     "reaches_target_marked": {
       "class": "checked",
       "name": "the Reader target Leg -- exactly one Leg marked, and never the first",
-      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true`, and it is not the first Leg. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which after-state is the target; marking the first Leg leaves no Leg free to reach it from anywhere (kogaki#1231)."
+      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true`, and it is not the first Leg. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which Leg attains the Thesis; marking the first Leg leaves no Leg free to reach it from anywhere (kogaki#1231)."
     },
     "closing_leg_introduces_nothing": {
       "class": "checked",
-      "name": "the Reader target Leg -- a closing Leg introduces nothing and raises nothing",
-      "rule": "A Leg AFTER the one marked `reaches_target` is a CLOSING Leg. A closing Leg carries no `introduces` entry, and it is named as `opened_by` on no Obligation record: once the Reader target is reached, nothing new is put in front of the reader and no new promise is opened for a later Leg to keep (kogaki#1231, kogaki#1612)."
-    },
-    "closing_leg_state_fixed": {
-      "class": "checked",
-      "name": "the Reader target Leg -- a closing Leg's orientation and knowledge hold at the target Leg's",
-      "rule": "A closing Leg's `reader_state_after` carries the SAME `orientation` and `knowledge` lines, line for line, as the Leg marked `reaches_target` -- once the reader arrives, a closing Leg may not move them further in either dimension. Its `question`, `expectation` and `trust` lines are free to differ (kogaki#1231)."
-    },
-    "obligation_closed_by_the_last_unit": {
-      "class": "checked",
-      "name": "Obligations -- no item is still open at the path's last Leg",
-      "rule": "Every item of every Obligation record is closed by a Leg of the path (kogaki#1612, owner decision 2026-10-26): a record whose item is still `closed_by: null` at the path's last Leg is refused, naming the record and the item. No item is set aside -- a promise the path will not keep is not opened. [see: SPEC-draft-pipeline \"Obligations\"]"
-    },
-    "obligation_items_close_in_order": {
-      "class": "checked",
-      "name": "Obligations -- each item closes after the opening Leg, in the order named",
-      "rule": "Each item's `closed_by` names a Leg AFTER the record's `opened_by` (kogaki#1612): a `closed_by` equal to `opened_by` is refused, since a promise kept where it is made is that Leg's own structure and not a promise, and one before it is refused. The items close in the order the opening Leg names them -- two may close in one Leg and the next in a later one -- so an item closed before an earlier item, or while an earlier item is still open, is refused naming both. A Leg that only names an item does not close it (kogaki#1603); that is the Path Review's judgment. [see: SPEC-draft-pipeline \"Obligations\"]"
-    },
-    "obligation_one_open_per_unit": {
-      "class": "checked",
-      "name": "Obligations -- at most one open at any Leg",
-      "rule": "An Obligation is a promise the path makes to the reader: a Question opened in one Leg and answered in a later one, or a term a Leg names and leaves for a later Leg to explain (kogaki#1528, owner decision 2026-10-23). The two are one expectation, that an item will be explained (kogaki#1568), so AT MOST ONE Obligation is open at any Leg. A record is OPEN on every Leg from its `opened_by` Leg up to, and NOT INCLUDING, the Leg that closes its last item (kogaki#1612). Do not open a second promise while one is still owed. A Leg on which more than one record is open is refused, naming the Leg and every record open there. The Thesis row is outside it. [see: SPEC-draft-pipeline \"Obligations\"]"
-    },
-    "obligation_owed_leg_opens_no_section": {
-      "class": "checked",
-      "name": "Obligations -- a Leg inside an open Obligation opens no Section",
-      "rule": "No Leg after a record's `opened_by`, up to and including the Leg that closes its last item, carries `opens_section`: the promise and its keeping stay in one Section, and the OPENING Leg is the one that opens it, under the Section grouping rule 1 (kogaki#1528, kogaki#1612). A Section heading between a promise and its keeping would tell the reader a new question had begun while the old one was still owed. Refused naming the record and the Leg. [see: SPEC-draft-pipeline \"Obligations\"]"
-    },
-    "obligation_record_shape": {
-      "class": "checked",
-      "name": "Obligations -- every record opens once and lists its items",
-      "rule": "Every record is `{opened_by, items}` (kogaki#1612, owner decision 2026-10-26; kogaki#1529, kogaki#1568 before it): `opened_by` names the Leg that opens the promise, and `items` is a list of one or more `{item, closed_by}` in the order the opening Leg names them -- `item` one line, a term or a question that Leg leaves unexplained, named once; `closed_by` the Leg that explains it. The record opens once and closes item by item, so a later Leg sees which items an earlier one already closed. An empty list, an item named twice, a key the record does not declare, or a retired key -- the row-level `item` list, `kind`, `text`, `term`, the Closure field `introduced_by`, the raising and owing fields, both terminal fields and the three fields a set-aside row carried -- is refused by name, naming the record. [see: SPEC-draft-pipeline \"Obligations\"]"
+      "name": "the Reader target Leg -- a closing Leg introduces nothing",
+      "rule": "A Leg AFTER the one marked `reaches_target` is a CLOSING Leg. A closing Leg carries no `introduces` entry: once the Thesis is attained, nothing new is put in front of the reader (kogaki#1231)."
     },
     "first_leg_binds_a_survivor": {
       "class": "judgment",
-      "name": "the first Leg binds a Move that does not contradict Reader start",
-      "rule": "The FIRST Leg opens from the Brief's READER START -- a cold read authored from the Persona and the Thesis at the `differentiation` state, never from any Move (kogaki#1216, owner decision 2026-09-28). Which Move it may bind is decided by EXCLUSION, NOT OPTIMIZATION: a Move is excluded when its `before` contradicts Reader start on a dimension it declares; a Move that omits a dimension is not excluded on it. The survivors are listed on the differentiation record as `leg1_survivors` and are NOT RANKED -- no score exists anywhere -- and your assigned `opening_move` is one of them. You bind it by the SAME composition order every Leg uses (Strand information, then Leg reasoning, then the Move), and the grounds test applies: delete the Move name from the first Leg's `rationale`, and what remains must still stand on its grounds. Your first Leg's before-state IS Reader start (kogaki#1325): it is derived, never written, and the Move-fit judge asks whether your opening Move's `before` requires, on any dimension, something Reader start does not hold -- a Move whose `before` needs a claim no text has stated yet is refused at the first Leg, naming the dimension. Reader start is the state of a reader who has seen the Thesis as a title and nothing else (kogaki#1225), so ONE refusal is deterministic: a Reader start line containing a term ANY Leg of this path lists under `introduces:` is refused at adoption naming the term and the Leg -- a term the path introduces is by definition one the reader does not hold on arrival. The Brief records how many Moves survived; a count of one names the library, not this rule, as the cause of a repeated opening.",
+      "name": "the first Leg binds a Move whose `takes` the Persona's prior knowledge meets",
+      "rule": "The FIRST Leg opens from what the Persona's prior-knowledge line supplies (`differentiation`'s `reader.prior_knowledge`, kogaki#1699): nothing before it leaves anything. Which Move it may bind is decided by EXCLUSION, NOT OPTIMIZATION: a Move is excluded when an entry of its `takes` is not met by what that line supplies; a Move whose `takes` is empty is never excluded. The survivors are listed on the differentiation record as `leg1_survivors` and are NOT RANKED -- no score exists anywhere -- and your assigned `opening_move` is one of them. You bind it by the SAME composition order every Leg uses (Strand information, then Leg reasoning, then the Move), and the grounds test applies: delete the Move name from the first Leg's `rationale`, and what remains must still stand on its grounds. The Brief records how many Moves survived; a count of one names the library, not this rule, as the cause of a repeated opening.",
       "retired": {
-        "reader_start_binds_first_leg": "a `checked` rule that refused the first Leg's `reader_state_before` on anything but a VERBATIM match with Reader start. With the specialization rule beside it, it forced Reader start to be written backwards from the first Leg's Move -- the Move's `before` with the article's nouns substituted -- which is the defect kogaki#1216 removes. Its EFFECT returns by construction at kogaki#1325, without its cause: the first Leg's before-state is Reader start because it is derived from it, and Reader start stays a cold read because the judgment now runs from the state to the Move's `before` rather than from a composed before-state back to Reader start."
+        "reader_start_binds_first_leg": "a `checked` rule that refused the first Leg's `reader_state_before` on anything but a VERBATIM match with Reader start. With the specialization rule beside it, it forced Reader start to be written backwards from the first Leg's Move -- the Move's `before` with the article's nouns substituted -- which is the defect kogaki#1216 removes. Its EFFECT returns by construction at kogaki#1325, without its cause: the first Leg's before-state is Reader start because it is derived from it, and Reader start stays a cold read because the judgment now runs from the state to the Move's `before` rather than from a composed before-state back to Reader start.",
+        "reader_start": "the Brief's Reader start, a five-dimension stance the first Leg's derived before-state was, and the exclusion by the Move's `before` against it (kogaki#1216, kogaki#1325); retired with the reader states (kogaki#1699)."
       }
     }
   },
@@ -351,8 +308,7 @@
       "A CLAIM IS A PROPOSITION ABOUT THE WORLD AND NAMES NO READER. The",
       "boundary against the Leg's other fields is one of grammatical kind:",
       "`purpose` is a verb about the reader and carries no proposition from",
-      "the material, `reader_state_after` is the reader's condition",
-      "afterwards, and `rationale` is the order argument. A claim that",
+      "the material, and `rationale` is the order argument. A claim that",
       "mentions the reader, or a purpose that could be true or false of the",
       "world, is in the wrong field.",
       "",
@@ -374,9 +330,9 @@
       "it.",
       "",
       "A CLAIM IS ONE PROPOSITION DERIVED FROM A STRAND, AND NOTHING ELSE. The",
-      "type set is closed at `strand`. Inherited reader state belongs to",
-      "`reader_state_before` and to the computed `already knows` ledger; a",
-      "presupposed premise belongs to the Brief's Reader start. Neither is an",
+      "type set is closed at `strand`. What the reader already holds is the",
+      "computed `already knows` ledger and the Persona's prior knowledge.",
+      "Neither is an",
       "assertion, so a passage that realizes its Leg correctly never states",
       "one and the Blind Reader never recovers it.",
       "",
@@ -386,8 +342,8 @@
       "strand"
     ],
     "retired_types": {
-      "leg_effect": "inherited reader state, which is already carried by this Leg's `reader_state_before` and by the computed `already knows` ledger",
-      "reader_assumption": "a presupposed premise, which belongs to the Brief's Reader start"
+      "leg_effect": "inherited reader state, which is already carried by the computed `already knows` ledger",
+      "reader_assumption": "a presupposed premise, which belongs to the Persona's prior knowledge"
     },
     "one_per_strand": true,
     "fields": {
@@ -412,9 +368,8 @@
     "definition": [
       "A WAYPOINT IS A POINT ITS PARAGRAPH MAKES (kogaki#1326, owner decision",
       "2026-10-10, replacing the effect form kogaki#1311 introduced). The",
-      "Leg's `reader_state_before` and `reader_state_after` say where the",
-      "reader starts and ends; the waypoints say, in order, what the Leg's",
-      "paragraphs establish to get them from one to the other. The Move's",
+      "Leg's waypoints say, in order, what the Leg's paragraphs establish.",
+      "The Move's",
       "`segments` say that in general and for every article; a Leg's",
       "waypoints say it for THIS Leg's claims, in the article's subject.",
       "",
@@ -534,11 +489,8 @@
   "introduces_item": {
     "definition": [
       "ONE TERM A LEG INTRODUCES: a term the article gives its meaning to, in",
-      "this Leg (kogaki#1529, SPEC-draft-pipeline \"Obligations\" rule 7). A",
-      "term the reader already holds is not introduced at all, and a term this",
-      "Leg names and leaves for a LATER Leg to explain is not an entry here: it",
-      "is an Obligation item, opened by this Leg and closed by the Leg",
-      "that gives its meaning. The retired `kind` (`coined` / `established`),",
+      "this Leg (kogaki#1529). A term the reader already holds is not",
+      "introduced at all. The retired `kind` (`coined` / `established`),",
       "`source`, `nearest` and `differs` are refused by name."
     ],
     "fields": {

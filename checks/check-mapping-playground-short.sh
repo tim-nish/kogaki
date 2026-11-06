@@ -20,8 +20,8 @@
 #       on the line beneath it and no other `*Cast:*` line (kogaki#1695).
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
-#       `Binding 1` and `Binding 2` of seven labelled rows, `Takes` and `Leaves` one sub-row per entry as `<kind>: <what>`
-#       (kogaki#1682, kogaki#1687, kogaki#1700), and no `WBS` text (kogaki#1685); the Mapping part carries `Base: <domain>`
+#       `Binding 1` and `Binding 2` of five labelled rows, `Takes` and `Leaves` one sub-row per entry as `<kind>: <what>`
+#       (kogaki#1682, kogaki#1687, kogaki#1700, kogaki#1699), and no `WBS` text (kogaki#1685); the Mapping part carries `Base: <domain>`
 #       above a table headed `Abstract`, `Attribute`, `Correspondence`, the fixture's attribute word in its Role's `Attribute`
 #       cell, and no kind word (kogaki#1693); and the Segments table's point cell carries its true cast keys in a `meta` span,
 #       on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
@@ -454,15 +454,20 @@ ok(section(sheet, "segments").includes('<td>PW-1-1 the gardener and the planting
 const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption>${caption}</caption>([\\s\\S]*?)</table>`, "g"))].map((x) => x[1]);
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
 const labelsOf = (table) => [...table.matchAll(/<th rowspan="\d+">([\s\S]*?)<\/th>/g)].map((x) => x[1]);
-const KNOWLEDGE = (moveContract(MOVE, resolve(repo, library)).before.split("\n").find((l) => l.startsWith("knowledge: ")) || "knowledge: ?");
+// THE MOVE'S CONSTRAINTS (kogaki#1699): the Binding table renders the Move's `takes` and `leaves`, one
+// `kind: what` cell per entry, "none" for an empty list; its `before` and `after` are retired.
+const MC = moveContract(MOVE, resolve(repo, library));
+const listCells = (xs) => ((xs || []).length ? xs.map((x) => `<td>${esc(`${x.kind}: ${x.what}`)}</td>`) : ["<td>none</td>"]);
+const TAKES = listCells(MC.takes), LEAVES = listCells(MC.leaves);
 ok(section(jSheet, "segments").includes(`<caption>Paragraph 1 <span class="meta">${MOVE}</span></caption>`) && !section(jSheet, "segments").includes("<caption>Binding"),
   "(f) the Segments table is not captioned `Paragraph 1` with its Move, or a Binding table remains inside Segments");
 const [jBinding] = tableOf(section(jSheet, "bindings"), "Binding 1");
-const LABELS = ["Move", "Bound by", "Before", "After", "Takes", "Leaves", "Rationale"];
+const LABELS = ["Move", "Bound by", "Takes", "Leaves", "Rationale"];
 ok(jBinding && JSON.stringify(labelsOf(jBinding)) === JSON.stringify(LABELS)
   && rowOf(jBinding, "Move").includes(`<td>${MOVE}</td>`) && rowOf(jBinding, "Bound by").includes("<td>owner</td>")
-  && rowOf(jBinding, "Before").includes(`<td>${esc(KNOWLEDGE)}</td>`) && rowOf(jBinding, "After").includes("<td>knowledge: "),
-  `(f) the Binding table is not the seven labelled rows with the Move's before.knowledge: ${jBinding}`);
+  && TAKES.every((c) => rowOf(jBinding, "Takes").includes(c)) && LEAVES.every((c) => rowOf(jBinding, "Leaves").includes(c))
+  && !/<th rowspan="\d+">(Before|After)<\/th>/.test(jBinding),
+  `(f) the Binding table is not the five labelled rows with the Move's takes and leaves (kogaki#1699): ${jBinding}`);
 const [aBinding] = tableOf(section(sheet, "bindings"), "Binding 1");
 const segCaps = (html) => [...section(html, "segments").matchAll(/<caption>(Paragraph \d+) /g)].map((x) => x[1]);
 ok(JSON.stringify(segCaps(sheet)) === JSON.stringify(["Paragraph 1", "Paragraph 2"]) && tableOf(section(sheet, "bindings"), "Binding \\d+").length === 2,
@@ -568,7 +573,7 @@ for (const [name, file] of [["projected", projFile], ["projected-list", listFile
     `(f) ${name}: the bindings part does not follow segments carrying Binding 1 and Binding 2, or a Writer input remains: ${JSON.stringify(partIds(oSheet))} ${JSON.stringify(oCaps)}`);
   ok(oBindings.length === 2 && rowOf(oBindings[0], "Rationale").includes(esc(owned.binding_rationale))
     && rowOf(oBindings[1], "Rationale").includes(esc(PROJ.binding_rationale))
-    && oBindings.every((t) => JSON.stringify(labelsOf(t)) === JSON.stringify(LABELS) && rowOf(t, "Before").includes(esc(KNOWLEDGE)))
+    && oBindings.every((t) => JSON.stringify(labelsOf(t)) === JSON.stringify(LABELS))
     && !oSheet.includes("Reader state:"), `(o) ${name}: the sheet does not carry two Binding tables and no reader state: ${oBindings.length}`);
   // (p) no attribute test anywhere in the run
   const files = [];

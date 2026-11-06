@@ -32,9 +32,8 @@ import { fail } from "./compose/leg-schema.mjs";
 export {
   snapshotBrief, legschema, requiredLegFields, pathRules, pathRule,
   journeysRefusal, budgetRefusal, waypointsRefusal, READ_ALONE_OPENERS,
-  RETIRED_WAYPOINT_MOVE_FIELDS, READER_STATE_DIMENSIONS,
+  RETIRED_WAYPOINT_MOVE_FIELDS, READER_STATE_DIMENSIONS, RETIRED_LEG_STATE_FIELDS,
   readerStateShapeRefusal, readerStateDimensionLine, validateLegs,
-  deriveReaderStatesBefore, readerStartThesisRefusal,
 } from "./compose/leg-schema.mjs";
 export {
   figureKinds, renderFigureRoles, parseFigureRoles, figureRefusal,
@@ -43,7 +42,7 @@ export {
 } from "./compose/figure.mjs";
 export {
   loadMoveIds, resolveMoveIds, MOVE_RECORD_EXT, MOVE_STATE_DIMENSIONS,
-  moveStateRefusal, moveStateLines, readMoveRecord, dischargeRows,
+  moveStateRefusal, moveStateLines, readMoveRecord,
 } from "./compose/render.mjs";
 export {
   moveRoles, moveContract, validateMoveRecord, RETIRED_MOVE_FIELDS,
@@ -60,9 +59,9 @@ export {
   validateOwnerAnswer,
 } from "./compose/specialization.mjs";
 export {
-  parseIntroducesEntry, introducedMeaning, introducedTermInReaderStart, opensSectionRefusal,
-  opensSectionIntroducedTermRefusal, sectionHeadingsWithLastAfterState,
-  sectionGroupingRefusal, targetLegIndex, obligationLedgerRefusal, RETIRED_OBLIGATION_KEYS,
+  parseIntroducesEntry, introducedMeaning, opensSectionRefusal,
+  opensSectionIntroducedTermRefusal, sectionHeadingsWithLastClaims,
+  sectionGroupingRefusal, targetLegIndex, RETIRED_OBLIGATION_KEYS,
   obligationItems, obligationLine, obligationLabel, obligationItemRefusal, obligationCloseRefusal,
   obligationLastClose, obligationItemsAt,
   readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,
@@ -85,7 +84,7 @@ export {
   joinRefusal, CAST_KEYS, castRefusal, paragraphWaypointsRefusal, paragraphObligationsRefusal, RETIRED_WAYPOINT_OBLIGATIONS, dischargesShapeRefusal,
   briefRowsOwedBy, briefDischargeRefusal, briefStrandIds, briefJourneyStrands,
   briefRecordText, parseBriefRecord, readBriefRecord, unfilledSlots, fillSlot,
-  thesisClosureRow, thesisClosureLeg, obligationRowsOf,
+  thesisClosureRow, thesisClosureLeg,
   placements, journeyPlacements,
 } from "./compose/record.mjs";
 export { fillBrief } from "./compose/fill.mjs";

@@ -77,8 +77,12 @@ export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
 // and judge against, `breaks` to judge the Paragraph Waypoints survive, and `segments`
 // to order them by -- the Move's whole structure, with no fallback: `technique` is
 // retired (kogaki#1412) and a Move without `segments` is refused at the Adapter. A
-// bound Move missing one is a fatal stop, never a default.
-export const PARAGRAPH_MOVE_ROLES = ["before", "after", "segments", "breaks"];
+// bound Move missing a required one is a fatal stop, never a default. `before` and
+// `after` LEFT THE REQUIRED SET at kogaki#1699: the extractor writes neither any more, so
+// a Move carries them only where it was admitted before that Issue, and they are read
+// where present and handed as null where absent, until the ParagraphPlan's Issue moves
+// this stage to `takes` and `leaves`.
+export const PARAGRAPH_MOVE_ROLES = ["segments", "breaks"];
 // The run directory's own files, beside the supervisor's. THE BINDINGS RECORD IS RETIRED
 // (kogaki#1639): the plan file carries each paragraph's bound Move id and `rationale`, so the
 // run directory holds no `paragraph-plan-bindings.json`.
@@ -384,13 +388,13 @@ export function boundMoveContract(moveId, movesDir) {
     throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and cannot be read for the roles `
       + `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}) — ${c.error}`);
   }
-  // `before` and `after` arrive rendered one line per dimension, `breaks` as a list of
-  // prose tests and `segments` as a list of Segments (kogaki#1413).
+  // `before` and `after`, where carried, arrive rendered one line per dimension, `breaks` as a
+  // list of prose tests and `segments` as a list of Segments (kogaki#1413).
   const filled = (v) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "");
   for (const role of PARAGRAPH_MOVE_ROLES) {
     if (!filled(c[role])) {
       throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and does not fill the role `
-        + `\`${role}\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage binds and judges against its before and after, judges `
+        + `\`${role}\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage judges `
         + "that the Paragraph Waypoints survive its breaks, and orders them by its segments, so nothing is defaulted. "
         + "Repair the Move record under its own issue.");
     }
@@ -745,8 +749,10 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
       leg_id: leg.leg_id, waypoint: n, waypoints_in_leg: leg.waypoints.length,
       point: w.point, serves: [...w.serves], next_point: w.next_point,
       reader_state_before: n === 1 ? leg.reader_state_before : entries[n - 2].reader_state_after,
-      reader_state_after: last ? leg.reader_state_after : entry.reader_state_after ?? null,
-      after_state_is_the_legs: last,
+      // A LEG CARRIES NO STATE SINCE kogaki#1699: its last paragraph's after-state is the
+      // Leg's only where the Leg still carries one, and is otherwise the paragraph's own.
+      reader_state_after: last && leg.reader_state_after ? leg.reader_state_after : entry.reader_state_after ?? null,
+      after_state_is_the_legs: last && Boolean(leg.reader_state_after),
     },
     fixed: siteFixed(ctx),
     paragraph_moves_you_may_bind: moves,

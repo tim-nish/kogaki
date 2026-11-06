@@ -188,7 +188,7 @@ export function figureRecordRefusal(record, leg, form, schema) {
     return `${at}: relations is a non-empty list of lines — the kind's whole content is the relation it holds (${form.kind}: ${form.relation}), so a record asserting none is a list rather than a figure`;
   }
   if (typeof record.caption !== "string" || record.caption.trim() === "") {
-    return `${at}: caption is one line in the terms of this Leg's reader_state_after — what the reader holds after looking`;
+    return `${at}: caption is one line in the terms of this Leg's claims — what the reader holds after looking`;
   }
   if (Object.prototype.hasOwnProperty.call(record, "emphasis")
       && !form.roles.includes(record.emphasis)) {

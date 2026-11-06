@@ -80,13 +80,11 @@ const PARA2_OWN = "The second run replaces the copy wholesale, edits included.";
 const brief = readBrief(briefRecordText({
   slug: "review-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-  thesis: "The fixture claim.", reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-  reader_target: "s1",
-  reader_path: [legRecord({ leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
+  thesis: "The fixture claim.", reader_path: [legRecord({ leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
     materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
     waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"] },
       { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }] })],
-  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 }), "theses/review-brief/brief.yaml");
 const template = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8")).packet;
 const packetFor = (join_) => {

@@ -107,9 +107,9 @@ function legRecordRefusal(raw, declared, at) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `${at}: a Leg is a map of named fields`;
   if (typeof raw.leg_id !== "string" || raw.leg_id === "") return `${at}: carries no \`leg_id\``;
   for (const k of Object.keys(raw)) {
-    if (k === "reader_state_before") {
-      return `${at}: carries \`reader_state_before\` — a Leg's before-state is the state written before it `
-        + "(the Reader start, or the previous Leg's after-state) and is derived on read, never written (kogaki#1325, kogaki#1328)";
+    if (k === "reader_state_before" || k === "reader_state_after") {
+      return `${at}: carries \`${k}\` — the Leg's reader states are retired (kogaki#1699): a Leg's entry and `
+        + "exit are its Move's `takes` and `leaves`, which no Brief records";
     }
     // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28):
     // a Leg marking a satellite cannot be realized, and is refused by name.
@@ -120,9 +120,6 @@ function legRecordRefusal(raw, declared, at) {
     if (!declared.has(k)) {
       return `${at}: carries \`${k}\`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read`;
     }
-  }
-  if (raw.reader_state_after === null || typeof raw.reader_state_after !== "object" || Array.isArray(raw.reader_state_after)) {
-    return `${at}: \`reader_state_after\` is a map of the reader's state, one key per dimension`;
   }
   if (!Array.isArray(raw.claims) || raw.claims.some((g) => !g || typeof g.strand !== "string" || typeof g.proposition !== "string")) {
     return `${at}: \`claims\` is a list of maps, each naming its \`strand\` and its \`proposition\``;

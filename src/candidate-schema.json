@@ -34,7 +34,7 @@
     "refusal enforces are one text and cannot disagree.",
     "",
     "THE LEDGER FIELDS ARE HERE FOR THE SAME REASON THE TWO RENDERING",
-    "FIELDS ARE (kogaki#1129). `obligations`, `coverage` and `unused` were named",
+    "FIELDS ARE (kogaki#1129). `coverage` and `unused` (and the Obligations ledger, retired at kogaki#1699) were named",
     "in one prose sentence -- `compose_path`'s `input_shape` -- and in no",
     "declaration, so the composing Model chose their key names and the code that",
     "reads them bound different ones: `raised_at`/`owed`/`settled_at` against",
@@ -67,7 +67,7 @@
   "version": "1",
   "what_a_candidate_is": [
     "A Candidate is ONE COMPOSED READER PATH: an ordered sequence of Legs",
-    "taking the reader from the Brief's Reader start to the adopted Thesis,",
+    "taking the reader from what the Persona already knows to the adopted Thesis,",
     "plus the reasoning it was composed with. Two or three are composed per",
     "article and they DIFFER IN READER EXPERIENCE -- not in decoration, not in",
     "wording, and not in which Strands they happen to name first.",
@@ -133,24 +133,11 @@
       },
       "description": "The composition-time reasoning this Candidate was composed with, one non-blank string per key. It is the Candidate's gate evidence; adoption fills no default, so a blank value is refused here, inside the re-ask window, rather than at the write."
     },
-    "reader_start": {
-      "required": false,
-      "given": true,
-      "type": "string",
-      "description": "The reader's STANCE when the path begins -- one `dimension: value` LINE per dimension, drawn from the Move library's own dimension set (knowledge, question, expectation, orientation, trust -- the Move library entry), NOT a knowledge state alone (kogaki#1176). GIVEN, NOT COMPOSED HERE (kogaki#1216, owner decision 2026-09-28): Reader start is a cold read authored ONCE per Brief at the `differentiation` state, from the Persona (the reader file the workflow table names) and the adopted Thesis, never from the Move any first Leg binds. It is rendered above this prompt's input marker as YOUR ASSIGNED DIFFERENTIATION and the Harness sets it on the Candidate from the differentiation record; a value composed here is overwritten by that record and never read. It IS your first Leg's before-state (kogaki#1325): write no `reader_state_before` on any Leg -- the Harness derives each Leg's before-state as the previous Leg's `reader_state_after`, and the first Leg's as this Reader start, and a Leg carrying the field is refused by name. Bind an opening Move whose `before` requires nothing this Reader start does not hold. It is a line-per-dimension shape, not `moves_you_may_bind`'s own `before`/`after` shape verbatim -- a Move's `before`/`after` folds its dimensions into one paragraph, and a dimension's value there is ordinary prose free to carry any punctuation (kogaki#1211)."
-    },
     "coverage": {
       "required": false,
       "type": "object keyed by selected Strand id",
       "value_required_keys": ["role_in_thesis"],
       "description": "WHAT EACH SELECTED STRAND DOES IN THE THESIS, on this path. An OBJECT whose KEYS are the Strand ids of the Brief's closed set -- `L1`, `L2` -- and whose value carries `role_in_thesis`, one non-blank string. The Brief's Strand coverage section renders that string beside the Strand's derived placement, so a value under any other key renders as `(not stated by the composer)` beside a Strand the path in fact placed. An absent `coverage` is the empty object and every placed Strand renders unstated; a key naming a Strand outside the closed set is ignored by the render and refused here, because the set closed at mint and a Brief never fetches."
-    },
-    "obligations": {
-      "required": false,
-      "type": "array of object",
-      "entry_required_keys": ["opened_by", "items"],
-      "item_required_keys": ["item", "closed_by"],
-      "description": "THE LEG HALF OF THE OBLIGATIONS LEDGER (kogaki#1151, kogaki#1529, kogaki#1612, SPEC-draft-pipeline \"Obligations\"): a promise the path makes to the reader that a later Leg must keep. Every entry is a RECORD `{opened_by, items}`: `opened_by` is the `leg_id` of the Leg that opens the promise, and `items` is the list of the items it leaves unexplained, each `{item, closed_by}`, in the order it names them -- `item` one line, a term or a question, named once; `closed_by` the `leg_id` of the Leg that explains that item, AFTER `opened_by`. The record opens once and closes item by item: a promise of three items may close two in one Leg and the third in the next, and the third Leg sees that the first two are already closed. Every id names a Leg OF THIS CANDIDATE and is refused otherwise. THE RULES `validateLegs` HOLDS: the items close in the order named, so an item closed before an earlier one is refused naming both; a `closed_by` equal to `opened_by` is refused, since a promise kept where it is made is the Leg's own structure and not a promise; a record is OPEN from its `opened_by` Leg up to, and not including, the Leg closing its last item, and at most one record is open at any Leg; an item still open at the path's last Leg is refused, naming it; and no Leg inside an open record carries `opens_section`. A Leg that only names an item does not close it (kogaki#1603). The row-level `item` list, the raising and owing fields, both terminal fields and the three fields a set-aside row carried are retired and refused by name (kogaki#1612); no item is set aside. That is exactly why the key names bind: a ledger the runtime cannot read is scored as wholly open and the owner is shown a confident number over a record nothing understood (kogaki#1129). An absent `obligations` is the empty ledger, which is a statement and not an omission. A MOVE YOUR LEG BINDS MAY RAISE A SLOT: where its `obligation` (in `moves_you_may_bind`) names an item it leaves unexplained, fill the slot with ONE record opened by that Leg -- one `items` entry per item THIS article leaves unexplained there, in the article's own words, in the order it names them (the slot's `items` are the Move's general template, never copied, and fix no count, kogaki#1603), each closed by the later Leg that explains it: one promise held open until the last of them is explained (kogaki#1549), never one record per item. NO OTHER RECORD EXISTS (kogaki#1568): a promise the Strand material raises and no bound Move signals is not written -- bind a Move that carries it, or do not promise."
     },
     "unused": {
       "required": false,
@@ -159,7 +146,9 @@
     }
   },
   "retired_fields": {
-    "reader_target": "RETIRED (kogaki#1225, owner decision 2026-09-29) and REFUSED BY NAME where a Candidate carries it. Reader target is DERIVED, not authored: it is the `reader_state_after` of the ONE Leg marked `reaches_target: true` (kogaki#1231, owner decision 2026-09-30, reversing #1225's last-Leg derivation -- see `reaches_target` and the three closing-Leg `path_rules` in src/leg-schema.json), whole, line for line, and the Brief renders that state under the `Reader target` heading the settled structure section names (src/assemble.mjs `readerFieldValues`). Authored apart from the Leg, it was a second statement of where the path leaves the reader that the Harness compared with nothing -- it checked only that the string was non-empty. Write where the path leaves the reader INTO the marked Leg's after-state, in the reader's own condition, and carry no field.",
+    "reader_target": "RETIRED (kogaki#1225, kogaki#1699) and REFUSED BY NAME where a Candidate carries it. The Brief's Reader target heading renders the Thesis, which the Leg marked `reaches_target` attains; no field authors it.",
+    "reader_start": "RETIRED (kogaki#1699) and REFUSED BY NAME where a Candidate carries it. The first Leg's entry condition is the Persona's prior-knowledge line, which the Reader start heading renders.",
+    "obligations": "RETIRED (kogaki#1699) and REFUSED BY NAME where a Candidate carries it. What a Leg takes up and leaves is its Move's `takes` and `leaves`, judged across the path; no field records it.",
     "opening_question": "RETIRED (kogaki#1216, owner decision 2026-09-28) and REFUSED BY NAME where a Candidate carries it. SINCE kogaki#1225 (owner decision 2026-09-29) NO Opening question is rendered at all: the `Opening question` heading is gone from the Brief, the fixed-points line is gone from the Leg Packet, and the first Leg's after-state is no longer required to carry a `question:` line. The first Leg already carries a before-state and an after-state, so a heading repeating its after-state question was a second Question inside Leg 1, rendered three times. Whatever question the opening leaves the reader holding belongs in the first Leg's after-state, in the reader's own words, and nowhere else."
   },
   "what_is_judged_elsewhere": [
@@ -182,11 +171,9 @@
       "here because most of it is copied from the Candidate record above, and src/compose.mjs reads this key set",
       "to refuse a record carrying any other key. A key below marked `filled_at: adoption` is `null` until the",
       "Candidate is adopted; a Brief with a null key is a template, and /draft refuses it naming the key.",
-      "Each reader state is a five-key map (knowledge, question, expectation, orientation, trust) written once",
-      "per boundary: `reader_start` before the first Leg, then each Leg's `reader_state_after`; a Leg's",
-      "before-state is the state written before it. No line of the file is longer than 120 characters."
+      "The record carries no reader state (kogaki#1699). No line of the file is longer than 120 characters."
     ],
-    "header": "A brief is the working plan for one article: the served material (Strands) the owner settled on, and the composition fields -- thesis, Reader Path, coverage, obligations -- filled in as composition proceeds. It is the durable document a drafting sitting resumes from. A key reading null is still awaiting composition.",
+    "header": "A brief is the working plan for one article: the served material (Strands) the owner settled on, and the composition fields -- thesis, Reader Path, coverage -- filled in as composition proceeds. It is the durable document a drafting sitting resumes from. A key reading null is still awaiting composition.",
     "keys": {
       "slug": {
         "required": true,
@@ -196,7 +183,7 @@
       "compose_path": {
         "required": true,
         "filled_at": "mint",
-        "description": "The path of the reader file (the Persona) the Reader start is authored from and the Packet reads its prose rules from (kogaki#1262)."
+        "description": "The path of the reader file (the Persona) whose prior-knowledge line the first Leg's `takes` are judged against and the Packet reads its prose rules from (kogaki#1262, kogaki#1699)."
       },
       "strands": {
         "required": true,
@@ -226,23 +213,11 @@
         "entry_keys": ["term", "as"],
         "description": "The renderings record (kogaki#1494, owner decision 2026-10-21): one entry per term of the served material the article will not keep, `term` the served word and `as` the plain phrase the article uses in its place. Composed once at the `differentiation` state, before any reader-path unit runs, from the settled Strands and the Defined Terms (the `renderings_unit` row of src/brief-workflow.json); every reader-path unit composes under it and the Path Review judges each claim and point recoverable from its served material under it. Written into the Brief at adoption, beside the Reader Path composed under it; it is not a slot, so a Brief adopted before the field carries none and renders nothing. A term an `introduces` entry carries is refused here at adoption: `introduces` carries only terms the article keeps."
       },
-      "reader_start": {
-        "required": true,
-        "filled_at": "adoption",
-        "caption": "Where the reader stands before the article.",
-        "description": "The reader's state before the first Leg, as a five-key map -- given by the differentiation record and carried on the adopted Candidate."
-      },
-      "reader_target": {
-        "required": true,
-        "filled_at": "adoption",
-        "caption": "Where the article leaves them: the state after the Leg named here.",
-        "description": "The `leg_id` of the one Leg marked `reaches_target`; the Reader target is that Leg's `reader_state_after`, written there once."
-      },
       "reader_path": {
         "required": true,
         "filled_at": "adoption",
-        "caption": "The ordered legs the article walks. Each leg starts from the state the one before it ends in.",
-        "description": "The adopted Candidate's Legs, in order, each with the fields src/leg-schema.json declares, its `reader_state_after` as a five-key map, and no `reader_state_before`."
+        "caption": "The ordered legs the article walks.",
+        "description": "The adopted Candidate's Legs, in order, each with the fields src/leg-schema.json declares."
       },
       "strand_coverage": {
         "required": true,
@@ -256,17 +231,11 @@
         "caption": "Per Strand carrying Journey material: the legs that place it, or why it was left out.",
         "description": "One entry per Journey-bearing Strand: `placed_by` derived from the Legs' journeys, or `omitted` with the disclosure; an empty list where no settled Strand carries Journey material."
       },
-      "obligations": {
-        "required": true,
-        "filled_at": "adoption",
-        "caption": "An obligation is a promise the prose makes to the reader that a later passage must keep: a question raised, or a term named here and explained later. Each record names the leg that opens it, and each of its items names the leg that explains it. The Thesis itself is closed by the leg named under reader target, from the coverage above.",
-        "description": "The Candidate's obligations ledger (kogaki#1529, kogaki#1612): each record's `opened_by` and its `items`, every item `{item, closed_by}`. The Thesis row is derived, never written here."
-      },
       "tradeoffs": {
         "required": true,
         "filled_at": "adoption",
         "caption": "What adopting this path gave up.",
-        "description": "`reader_experience`, the adopted Candidate's own; `gave_up` where the Candidate states its tradeoffs; `opening` where the run counted the Moves that could open from the Reader start."
+        "description": "`reader_experience`, the adopted Candidate's own; `gave_up` where the Candidate states its tradeoffs; `opening` where the run counted the Moves whose `takes` the Persona's prior knowledge meets."
       },
       "bridged": {
         "required": true,

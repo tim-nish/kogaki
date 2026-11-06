@@ -331,14 +331,12 @@ const fails = [];
   const legOf = (legId, extra) => ({
     leg_id: legId, move: "m1", materials: ["L1"],
     purpose: `what ${legId} is for`,
-    reader_state_after: "knowledge: after\nquestion: holds: none",
     depends_on: [], rationale: `why ${legId} sits here`,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
     ...extra,
   });
   const candidateOf = (leg2Extra) => ({
     candidate_id: "c1", characteristic: "x", reader_experience: "y",
-    reader_start: "knowledge: before\nquestion: holds: none",
     reasoning: { leg_validity: "x" },
     legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
   });
@@ -347,8 +345,7 @@ const fails = [];
   delete missingRationaleCandidate.legs[1].rationale;
 
   const legValidator = { module: "src/brief.mjs", export: "validateReaderPathUnit",
-    inputs: { strandIds: ["L1"], movesDir: movesScratchDir,
-      readerStart: "knowledge: before\nquestion: holds: none" } };
+    inputs: { strandIds: ["L1"], movesDir: movesScratchDir } };
 
   // A SEPARATE fake judge, selecting its answer by prompt token the same way
   // `fakeJudge` above does, but answering with these Candidates rather than

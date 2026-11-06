@@ -604,7 +604,7 @@ function planBindings(r) {
 // CARD 1 — EXTRACTION. Output: one collapsible block per paragraph, closed by default except
 // paragraph 1 (kogaki#1410, owner 2026-10-17: "having all of them expanded makes navigation
 // cumbersome"), each with its path and hash, opening on its Segments table, then its Move's
-// open `before / after / breaks` table (kogaki#1534, owner 2026-10-23), with the record's
+// open `takes / leaves / breaks` table (kogaki#1534, owner 2026-10-23; kogaki#1699), with the record's
 // rendering and the record file folded beneath them (kogaki#1479, owner 2026-10-20). Inputs:
 // none drawn as a card (the original paragraph is in the comparison table above, the Audience
 // is in the run-conditions line). Prompt: one per paragraph. Calls: one group per paragraph,
@@ -729,24 +729,22 @@ function derivedTable(r) {
     + `</tbody></table>`;
 }
 
-// CARD 3 — BRIEF. Output (folded, kogaki#1487): the Brief file, whole, with its path and hash. Inputs: Extraction (the reader state and claims the Leg Brief composer reads).
-// Prompt/Calls: the composer's two calls, Reader start and Leg path, each titled by what it
-// produced.
+// CARD 3 — BRIEF. Output (folded, kogaki#1487): the Brief file, whole, with its path and hash. Inputs: Extraction (the claims the Leg Brief composer reads).
+// Prompt/Calls: the composer's Leg path call, one per Leg, each titled by what it produced. The
+// Reader start call is retired (kogaki#1699).
 function briefCard(r, idx) {
   const rel = (p) => (p ? relFromRepo(resolve(p), REPO) : "(none)");
   const output = (r.briefText ? "" : stageNote(r, "brief"))
     + derivedTable(r)
     + `<p class="meta">${esc(rel(r.briefPath))} · sha ${contentHash(r.briefText)}</p>` + pre(r.briefText || "(not written)");
 
-  const readerStartMarker = "`leg_reader_start_unit` judgment point";
   const legPathMarker = "`leg_path_unit` judgment point";
   const legs = r.run.legs && r.run.legs.length > 1 ? r.run.legs : null;
   // Several Legs' Leg calls are told apart by the first Strand each Leg's input names.
   const strandKey = (k) => `"claim_strand": "L${legs.slice(0, k).reduce((a, l) => a + l.paragraphs, 0) + 1}"`;
   const rowsFor = legs
-    ? [["reader-start", [readerStartMarker], "Brief, Reader start"],
-      ...legs.map((l, k) => [`leg-path-${k + 1}`, [legPathMarker, strandKey(k)], `Brief, Leg Waypoint, Leg ${k + 1}`])]
-    : [["reader-start", [readerStartMarker], "Brief, Reader start"], ["leg-path", [legPathMarker], "Brief, Leg Waypoint"]];
+    ? legs.map((l, k) => [`leg-path-${k + 1}`, [legPathMarker, strandKey(k)], `Brief, Leg Waypoint, Leg ${k + 1}`])
+    : [["leg-path", [legPathMarker], "Brief, Leg Waypoint"]];
   const named = [];
   let callsHtml = "";
   for (const [sub_, markers, title] of rowsFor) {
@@ -1080,14 +1078,16 @@ function moveDescription(r, move) {
   return d ? `<p>${esc(d)}</p>` : "";
 }
 
-// A bound Move's `before` and `after`, one row per dimension, read from the run's moves directory.
-function stateRows(rec) {
-  const before = (rec.before && typeof rec.before === "object") ? rec.before : {};
-  const after = (rec.after && typeof rec.after === "object") ? rec.after : {};
-  const dims = [...new Set([...Object.keys(before), ...Object.keys(after)])];
-  return dims.map((d) => `<tr><td>${esc(d)}</td><td>${esc(before[d] ?? "")}</td><td>${esc(after[d] ?? "")}</td></tr>`).join("");
+// A bound Move's `takes` and `leaves` (kogaki#1698), one row per list, each entry `kind: what` in
+// order, read from the run's moves directory. The Move's `before` and `after` are retired (kogaki#1699).
+export function constraintEntriesHtml(list) {
+  const xs = Array.isArray(list) ? list : [];
+  return xs.length ? `<ol>${xs.map((x) => `<li>${esc(`${x && x.kind}: ${x && x.what}`)}</li>`).join("")}</ol>` : `<span class="muted">(none)</span>`;
 }
-const STATES_HEAD = `<thead><tr><th>dimension</th><th>before</th><th>after</th></tr></thead>`;
+function stateRows(rec) {
+  return ["takes", "leaves"].map((k) => `<tr><td>${k}</td><td colspan="2">${constraintEntriesHtml(rec[k])}</td></tr>`).join("");
+}
+const STATES_HEAD = `<thead><tr><th>list</th><th colspan="2">entries</th></tr></thead>`;
 function moveStates(r, move) {
   const rec = moveRecord(r, move);
   if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
@@ -1095,14 +1095,14 @@ function moveStates(r, move) {
 }
 
 // A paragraph's Move under its Segments table on the Extraction card, open on load (kogaki#1534):
-// the before / after rows, then one row listing the Move's `breaks` in order; nothing where the
+// the takes / leaves rows, then one row listing the Move's `breaks` in order; nothing where the
 // paragraph has no Move.
 function moveStatesBreaks(r, move) {
   if (!move) return "";
   const rec = moveRecord(r, move);
   if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
   const breaks = Array.isArray(rec.breaks) ? rec.breaks : [];
-  return `<table class="move-states"><caption>before / after / breaks</caption>${STATES_HEAD}<tbody>${stateRows(rec)}`
+  return `<table class="move-states"><caption>takes / leaves / breaks</caption>${STATES_HEAD}<tbody>${stateRows(rec)}`
     + `<tr class="breaks"><td>breaks</td><td colspan="2">${breaks.length
       ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>` : `<span class="muted">(none)</span>`}</td></tr>`
     + `</tbody></table>`;
@@ -1136,9 +1136,9 @@ function sourceBadge(run, move) {
 // headings, with no heading above them and nothing folded -- every paragraph's Segments table
 // (by the Extraction card's own renderer), every `does-not-fit` verdict across the plan's
 // attempts with the judge's `why` in full, and the bindings -- read from the plan file's own
-// entries (kogaki#1639) -- with each bound Move's before and after in its row -- so a reader
-// completes a review without opening a card. The before and after fold closed under
-// `before / after`, one row per Leg Waypoint (kogaki#1516). Each paragraph's heading is followed
+// entries (kogaki#1639) -- with each bound Move's takes and leaves in its row -- so a reader
+// completes a review without opening a card. The takes and leaves fold closed under
+// `takes / leaves`, one row per Leg Waypoint (kogaki#1516). Each paragraph's heading is followed
 // by its bound Move's description (kogaki#1517).
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
@@ -1181,7 +1181,7 @@ function reviewBlock(r, idx) {
   const bindingsHtml = rows.length
     ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>rationale</th></tr></thead><tbody>`
       + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a>${sourceBadge(r.run, b.move)}`
-        + `<details class="states"><summary>before / after</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.rationale || "")}</td></tr>`).join("")
+        + `<details class="states"><summary>takes / leaves</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.rationale || "")}</td></tr>`).join("")
       + `</tbody></table>`
     : `<p class="muted">No plan file to read the bindings from.</p>`;
 

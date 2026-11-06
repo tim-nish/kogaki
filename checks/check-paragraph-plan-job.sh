@@ -86,7 +86,7 @@ writeFileSync(join(moves, "p1.yaml"), stringifyYaml({ id: "p1", description: "a 
 // ---- the Brief: three Legs, one Leg Waypoint each ----
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
 const leg = (id, point) => ({
-  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
+  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
   materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`,
   claims: [{ strand: "L1", proposition: "the installer copies the kit into the consumer's tree." }],
   waypoints: [{ point, serves: ["L1"] }],
@@ -100,10 +100,9 @@ const briefText = (thesis) => briefRecordText({
   slug: "job-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") }],
   thesis,
-  reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-  reader_target: "s3",
+  // No Reader start, Reader target or Obligations ledger, and no Leg state (kogaki#1699).
   reader_path: legs.map(legRecord),
-  strand_coverage: [], journey_coverage: [], obligations: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 });
 
 // ---- the fake judge: per-Leg behaviour read from the mode file -- `ok`, `die`, `refuse` ----
@@ -136,7 +135,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (modes[leg.leg_id] === "die") { process.stderr.write("DIED-SENTENCE the planner binary is gone\\n"); process.exit(3); }
   out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "p1",
     materials: [...w.serves], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
-    reader_state_after: leg.reader_state_after, depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
+    reader_state_after: { knowledge: "after " + leg.leg_id + "." }, depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
     introduces: [], "re-activate": [],
     paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: [...w.serves], cast: {} }] })) });
 });
@@ -272,9 +271,10 @@ if (refusedRun) {
     const row = rec && rec.waypoints && rec.waypoints[0];
     if (!rec || rec.leg_id !== l.leg_id || rec.waypoints.length !== 1 || !row) { fails.push(`(e) ${id} has no input record of one Leg Waypoint row: ${JSON.stringify(rec)}`); continue; }
     if (row.point !== l.waypoints[0].point || JSON.stringify(row.serves) !== '["L1"]' || row.next_point !== null) fails.push(`(e) ${id}'s row does not carry the Leg Waypoint's point, serves and next_point: ${JSON.stringify(row)}`);
-    if (typeof row.entry_state !== "string" || !row.entry_state || !Array.isArray(row.terms_this_leg_introduces)) fails.push(`(e) ${id}'s row lacks entry_state or terms_this_leg_introduces: ${JSON.stringify(row)}`);
+    // A Leg's first Waypoint enters from no state since kogaki#1699: the key is carried, null.
+    if (!Object.hasOwn(row, "entry_state") || row.entry_state !== null || !Array.isArray(row.terms_this_leg_introduces)) fails.push(`(e) ${id}'s row lacks entry_state or terms_this_leg_introduces: ${JSON.stringify(row)}`);
     if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
-    for (const v of [row.point, row.entry_state, ...row.serves, ...row.paragraph_moves_you_may_bind]) {
+    for (const v of [row.point, ...row.serves, ...row.paragraph_moves_you_may_bind]) {
       if (!prompt.includes(JSON.stringify(v))) fails.push(`(e) ${id}'s prompt string does not carry ${JSON.stringify(v)}`);
     }
   }
@@ -282,7 +282,7 @@ if (refusedRun) {
   const first = sites[0] || {};
   if (!sites.length) fails.push("(e) the refused Leg's site calls appended no site_calls row");
   else if (first.waypoint !== 1 || first.retry !== 1 || !first.refused_here || !first.refused_here.length || !Object.hasOwn(first, "fixed")
-    || !Array.isArray(first.moves_rejected_here) || typeof first.entry_state !== "string") fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
+    || !Array.isArray(first.moves_rejected_here) || first.entry_state !== null) fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
   if (JSON.stringify((inputRecord(refusedRun.runDir, "leg-1") || {}).site_calls) !== "[]") fails.push("(e) a Leg with no site call does not carry an empty site_calls");
 }
 if (resumedRun && existsSync(resumedRun.planPath)) {
@@ -296,7 +296,7 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   if (v.status !== 0) fails.push(`(e) view failed: ${(v.stderr || "").slice(0, 400)}`);
   for (const l of legs) if (!out.includes(`## Leg ${l.leg_id}`) || !out.includes(l.waypoints[0].point)) fails.push(`(e) the view does not print Leg ${l.leg_id} with its point`);
   const s2 = out.slice(out.indexOf("## Leg s2"), out.indexOf("## Leg s3"));
-  const want = ["- **Entry state:** knowledge: after s1.", "- **Move:** `p1`", "- **Move before:** knowledge: MOVE-BEFORE the reader holds the claim.",
+  const want = ["- **Entry state:** (none)", "- **Move:** `p1`", "- **Move before:** knowledge: MOVE-BEFORE the reader holds the claim.",
     "| 1 | states the point once, plainly. |  |  | PW-s2 the paragraph establishes its point. (serves L1) |",
     "- **Move after:** knowledge: MOVE-AFTER the reader holds the point.", "- **reader_state_after:** knowledge: after s2."];
   for (const w of want) if (!s2.includes(w)) fails.push(`(e) the view's Leg s2 lacks ${JSON.stringify(w)}: ${s2.slice(0, 900)}`);

@@ -130,8 +130,8 @@ function packetBlock(text, heading, { after = null } = {}) {
 // ONE READER PER BLOCK KIND, and every label, heading and fixed sentence it
 // keys on comes from `packet_blocks` in the item table. The runtime therefore
 // carries no literal that happens to equal a field name somewhere else —
-// `claims`, `purpose` and `reader_state_after` are each a Packet label AND an
-// item id AND (for two of them) a Reverse Outline field, and a runtime
+// `claims` and `purpose` are each a Packet label AND an
+// item id AND a Reverse Outline field, and a runtime
 // spelling them out cannot be told apart from one restating the table or the
 // schema.
 const PACKET_READERS = {

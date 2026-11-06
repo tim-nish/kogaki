@@ -3,11 +3,11 @@
 # Brief composition. A LIGHT member: pure calls, no model run.
 #   (af) `nearest` and `differs` are retired: introduces_item declares
 #        neither, and an entry carrying either is refused naming it (kogaki#1571).
-#   (ar) `persona_prior_knowledge` reaches no composition or path-review
-#        input; review_path carries `defined_terms` instead (kogaki#1331).
-#   (as) the claim register, one judged entry per Leg (kogaki#1281).
-#   (bb) `composeBrief` records `compose_path` and refuses one missing
-#        (kogaki#1262, kogaki#1328).
+#   (ar) `persona_prior_knowledge` reaches no path-review input and no unit
+#        validator; review_path carries `defined_terms` instead (kogaki#1331);
+#        compose_path hands it to TAKE alone (kogaki#1699).
+#   (as) the claim register, one judged entry per Leg (kogaki#1281); (bb)
+#        `composeBrief` records `compose_path`, refusing one missing (kogaki#1262, #1328).
 #   (cc) the external-authority switch is retired: the mint writes no such
 #        header key, and the key or its input is refused by name (kogaki#1571).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
@@ -48,17 +48,25 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
 // (ar) kogaki#1331: `persona_prior_knowledge` reaches no composition or path-review
 // input -- the grant it carried is removed (owner decision 2026-10-10) -- and
 // review_path's input carries the Brief's `defined_terms` in its place. The
-// Persona's line keeps its one reader, differentiation's Reader start.
+// Persona's line is read by differentiation, for the first-Leg survivors, and by
+// compose_path, as what the first Leg's Move's `takes` must be met by (kogaki#1699).
 {
   const brief = briefRuntimeText();
   const code = (t) => t.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
   const composePath = code(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")));
   const reviewPath = code(brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:")));
   const differentiation = code(brief.slice(brief.indexOf("  differentiation: async"), brief.indexOf("  compose_path: async")));
-  if (/persona_prior_knowledge|personaPriorKnowledgeLine/.test(composePath)) fails.push("(ar) compose_path still reads or passes the Persona's prior_knowledge");
+  // THE FIRST LEG'S ENTRY CONDITION (kogaki#1699): compose_path reads the line once and hands
+  // it to the unit, the assignment block and the Move-fit judge for TAKE -- never to the
+  // validator, so the word grant kogaki#1331 removed is not restored.
+  if ((composePath.match(/personaPriorKnowledgeLine\(/g) || []).length !== 1) fails.push("(ar) compose_path does not read the Persona's prior_knowledge exactly once");
+  for (const at of ["persona_prior_knowledge: priorKnowledge", "differentiationBlockFor(entry, priorKnowledge", "inputs: { movesDir, priorKnowledge,"]) {
+    if (!composePath.includes(at)) fails.push(`(ar) compose_path does not hand the Persona's prior_knowledge at ${JSON.stringify(at)}`);
+  }
+  if (/inputs: \{ strandIds,[^}]*priorKnowledge/.test(composePath)) fails.push("(ar) compose_path hands the Persona's prior_knowledge to the unit validator");
   if (/persona_prior_knowledge|personaPriorKnowledgeLine/.test(reviewPath)) fails.push("(ar) review_path still reads or passes the Persona's prior_knowledge");
   if ((reviewPath.match(/defined_terms: definedTerms,/g) || []).length !== 2) fails.push("(ar) review_path's base write and per-unit input do not both carry defined_terms");
-  if (!/prior_knowledge: personaPriorKnowledgeLine\(persona\)/.test(differentiation)) fails.push("(ar) differentiation no longer carries the Persona's prior_knowledge for Reader start");
+  if (!/prior_knowledge: personaPriorKnowledgeLine\(persona\)/.test(differentiation)) fails.push("(ar) differentiation no longer carries the Persona's prior_knowledge for the first-Leg survivors");
 }
 
 // (as) kogaki#1281: the claim register -- one judged entry per Leg, a closed
@@ -116,7 +124,7 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   }
   // THE RECORD REQUIRES IT (kogaki#1328): a Brief record carrying no
   // compose_path is refused by the Draft's reader, naming the key.
-  const bare = recordOf([{ leg_id: "s1", move: "m", materials: ["L1"], purpose: "p", reader_state_after: "knowledge: k",
+  const bare = recordOf([{ leg_id: "s1", move: "m", materials: ["L1"], purpose: "p",
     depends_on: [], rationale: "r", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w", serves: ["L1"] }] }]);
   delete bare.compose_path;
   const noPath = briefOfRecord(bare, "bb.yaml");
@@ -145,5 +153,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no compose_path or review_path input, review_path carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), and the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571).");
+console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), and the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571).");
 JS

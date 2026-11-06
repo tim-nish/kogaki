@@ -11,10 +11,10 @@ import { join, resolve } from "node:path";
 import { cmdAdoptCandidate, cmdAssemble, selectionOptionIds } from "../assemble.mjs";
 import {
   audienceLanguage, briefJourneyStrands, briefStrandIds, definedTermsOf, definedTermsRefusal,
-  deriveReaderStatesBefore, dischargeRows, loadMoveContracts, personaPriorKnowledgeLine,
+  loadMoveContracts, personaPriorKnowledgeLine,
   readerPersona, recoverabilityOf, renderingsRefusal,
 } from "../compose.mjs";
-import { DISCHARGE_VERDICTS, REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
+import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
   DetachedJobStarted, READER_PATH_JOB_AWAIT_COMMAND, READER_PATH_JOB_STALL_S, jobHeartbeatMs,
   readReaderPathJob, readerPathJobPath, startDetachedJobSupervisor,
@@ -186,8 +186,8 @@ export const STATE_WORK = {
       units,
       journey_bearing: journeyBearing,
       // THE PERSONA, verbatim from the Audience file's `persona` and named by
-      // path (kogaki#1216, kogaki#1370): `reader` and `prior_knowledge` are what `reader_start`
-      // is derived from, line by line, beside the Thesis in `brief_document`.
+      // path (kogaki#1216, kogaki#1370): `prior_knowledge` is what each survivor's `takes`
+      // is judged against (kogaki#1699).
       reader_file: readerFile,
       reader: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
       language: language.language,
@@ -222,11 +222,16 @@ export const STATE_WORK = {
     // specialized terminology"). It granted a claim the words it named, and
     // that grant is what let a word's article-specific sense through; which
     // words need introducing is now the Brief's `defined_terms`, refused by
-    // `validateLegs`. `prior_knowledge` keeps its one reader at Reader start.
+    // `validateLegs`. `prior_knowledge` is read for one use only: what the first
+    // Leg's Move's `takes` must be met by (kogaki#1699), handed to the assignment
+    // block and the Move-fit judge, never to the claims.
     // THE ARTICLE'S LANGUAGE (kogaki#1417): the Audience's `language`, handed to
     // every unit, refused by name before anything starts where it is missing.
     const language = audienceLanguage(resolve(BRIEF_REPO, briefAudienceFile(table)));
     if (language.error) fail(`${st.id}: ${language.error}`);
+    const persona = readerPersona(resolve(BRIEF_REPO, briefAudienceFile(table)));
+    if (persona.error) fail(`${st.id}: ${persona.error}`);
+    const priorKnowledge = personaPriorKnowledgeLine(persona);
     let composed = null;
     // CROSS-CANDIDATE RULES ONLY (kogaki#1240). Every per-unit rule -- the Leg
     // shape (`validateLegs`), the Move ids, the closed Strand set, the
@@ -406,9 +411,9 @@ export const STATE_WORK = {
         strands_you_may_use: strandIds,
         moves_you_may_bind: library.moves,
         unit_number: n,
-        // GIVEN, not composed (kogaki#1216): the Brief's one Reader start, the
-        // same value the assignment block above the marker renders.
-        reader_start: differentiation.reader_start,
+        // WHAT THE FIRST LEG OPENS FROM (kogaki#1699): the Persona's prior
+        // knowledge, the same value the assignment block above the marker renders.
+        persona_prior_knowledge: priorKnowledge,
         language: language.language,
         strand_claims: strandClaimList,
         renderings,
@@ -424,7 +429,7 @@ export const STATE_WORK = {
       // example already occupy.
       const markerAt = basePrompt.indexOf(JUDGE_INPUT_MARKER);
       const prompt = markerAt === -1 ? basePrompt
-        : `${basePrompt.slice(0, markerAt)}${differentiationBlockFor(entry, differentiation.reader_start, survivorCount)}\n\n${basePrompt.slice(markerAt)}`;
+        : `${basePrompt.slice(0, markerAt)}${differentiationBlockFor(entry, priorKnowledge, survivorCount)}\n\n${basePrompt.slice(markerAt)}`;
       return { id: `candidate-${n}`, prompt };
     });
     startDetachedJobSupervisor(dir, {
@@ -444,20 +449,19 @@ export const STATE_WORK = {
         module: "src/brief.mjs",
         prompt_export: "readerPathFitPrompt",
         verdict_export: "readerPathFitVerdict",
-        inputs: { movesDir, readerStart: differentiation.reader_start, thesis: briefThesis(record),
+        inputs: { movesDir, priorKnowledge, thesis: briefThesis(record),
           promptHead: judgePrompt(fitRow, "", null, null) },
       },
       // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit. The
       // detached `job-supervise` process is a fresh `node src/terrain.mjs`
       // entrypoint and never statically imports Brief-specific code; it
       // dynamically imports exactly this module and export, and the Candidate
-      // ids every unit's materials and ledger must resolve against, and the
-      // Reader start they must carry back unchanged, are handed over here
+      // ids every unit's materials must resolve against are handed over here
       // rather than re-derived inside the subprocess.
       validator: {
         module: "src/brief.mjs",
         export: "validateReaderPathUnit",
-        inputs: { strandIds, readerStart: differentiation.reader_start, movesDir, definedTerms: definedTermsOf(record) },
+        inputs: { strandIds, movesDir, definedTerms: definedTermsOf(record) },
       },
     });
     throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
@@ -471,7 +475,7 @@ export const STATE_WORK = {
   // `compose_path` was split at kogaki#1193: the one synchronous call over
   // every Candidate outgrew the hook advance's bound. Every item this state
   // judges is per Candidate, so each unit carries its own Candidate, that
-  // Candidate's own `discharge_rows`, the Persona's
+  // Candidate alone (kogaki#1699: no `discharge_rows`), the Persona's
   // line and the review areas, and nothing of its siblings. `attachReview` is
   // still the validator, applied per unit at the unit's own classification
   // (`validateReviewPathUnit`), so a review that would be unattachable is
@@ -547,7 +551,6 @@ export const STATE_WORK = {
     writeJudgeInput(rec, st, {
       state: st.id,
       review_areas: REVIEW_AREAS,
-      discharge_verdicts: DISCHARGE_VERDICTS,
       defined_terms: definedTerms,
       units: cands.map((c, i) => ({ unit: `review-${i + 1}`, candidate_id: c.candidate_id })),
     });
@@ -558,13 +561,10 @@ export const STATE_WORK = {
       const input = {
         state: st.id,
         review_areas: REVIEW_AREAS,
-        discharge_verdicts: DISCHARGE_VERDICTS,
-        // THE LEGS CARRY THEIR DERIVED BEFORE-STATES (kogaki#1325), the same
-        // states the Brief will render, so the review reads the path the
-        // reader walks rather than a Candidate missing half of each transition.
-        candidate_you_must_review: { ...c, legs: deriveReaderStatesBefore(c.legs, c.reader_start) },
+        // THE CANDIDATE AS COMPOSED (kogaki#1699): its Legs carry no reader
+        // states and it carries no Obligations ledger, so nothing is derived.
+        candidate_you_must_review: c,
         defined_terms: definedTerms,
-        discharge_rows: dischargeRows(c.legs, c.obligations),
       };
       return { id: `review-${i + 1}`, prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) };
     });

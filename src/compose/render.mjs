@@ -16,9 +16,9 @@ import { parseYaml } from "../yaml.mjs";
 // ---- rendering (SQ1: fenced blocks; this function IS the recorded
 // serialization, exercised by the check's fixture) ----
 // THE LEG↔MOVE INSTANTIATION CONTRACT (kogaki#747; owner rulings
-// 2026-09-01). A Leg INSTANTIATES a Move: its reader_state_after is the
-// instance form of the Move's `after`; its derived before-state (kogaki#1325)
-// instantiates nothing. MECHANICAL — does the id resolve? Refused here.
+// 2026-09-01). A Leg INSTANTIATES a Move; since kogaki#1699 the Brief reads the
+// Move's `takes` and `leaves`, and its `before` and `after` only /paragraph-plan
+// reads. MECHANICAL — does the id resolve? Refused here.
 // JUDGED — does the Leg fit the Move's contract (src/specialization-
 // schema.json)? An LLM judgment in a typed record this file VALIDATES AND
 // NEVER COMPOSES — never a lint (the judgment rule clause 3, and
@@ -179,33 +179,6 @@ export function readMoveRecord(moveId, movesDir = "moves") {
 // line, and a judgment over a line and itself buys nothing. The Move's `after`
 // question against the state is the Move-fit judge's after-state comparison.
 
-// THE DISCHARGE JUDGE INPUT (kogaki#1283, kogaki#1529, kogaki#1612). One entry per Obligation
-// record and Leg that closes any of its items -- the items closed there, joined in order
-// (kogaki#1568), against that Leg's Waypoint points and claim lines (each claim's
-// `proposition`), for `review_path` to judge whether the Leg explains every item it closes.
-// Closing is planning, never prose: what closes an item is the closing Leg's Waypoints, so the
-// judge is handed those and no sentence.
-export function dischargeRows(legs, obligations = []) {
-  const byId = new Map(legs.map((l) => [l.leg_id, l]));
-  const rows = [];
-  for (const o of Array.isArray(obligations) ? obligations : []) {
-    if (!o || !Array.isArray(o.items)) continue;
-    const closers = [...new Set(o.items.map((e) => e && e.closed_by).filter((id) => typeof id === "string"))];
-    for (const id of closers) {
-      const item = o.items.filter((e) => e.closed_by === id).map((e) => e.item.trim());
-      const leg = byId.get(id);
-      rows.push({
-        row: item.join(", "),
-        item,
-        opened_by: o.opened_by,
-        closed_by: id,
-        closing_leg: {
-          leg_id: id,
-          points: leg && Array.isArray(leg.waypoints) ? leg.waypoints.map((w) => w.point) : [],
-          claims: leg && Array.isArray(leg.claims) ? leg.claims.map((cl) => cl.proposition) : [],
-        },
-      });
-    }
-  }
-  return rows;
-}
+// THE DISCHARGE JUDGE INPUT IS RETIRED (kogaki#1699). `dischargeRows` stood here: one entry
+// per Obligation record and closing Leg, for `review_path` to judge whether the Leg explained
+// every item it closed. The Brief carries no Obligations ledger, so there is nothing to discharge.

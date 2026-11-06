@@ -131,11 +131,9 @@
 #       `waypointLines` renders no Manner label for a Paragraph Waypoint object
 #       that carries one.
 #   (u) THE OBLIGATION RECORD AT THE PARAGRAPH SCALE (kogaki#1530, kogaki#1612):
-#       a job over a Brief whose record has an item Leg s2 closes hands s2's
-#       plan call that record, refuses the first answer that lays it nowhere
-#       naming it, puts that refusal into the next attempt, and writes the plan
-#       file carrying s1's Paragraph-scale record and s2's discharge, both
-#       reaching the judge's input. The plan call's validator and the plan
+#       a job over a Brief, which carries no Obligations ledger (kogaki#1699),
+#       hands every plan call an empty owed list and writes the plan file
+#       carrying s1's Paragraph-scale record, reaching the judge's input. The plan call's validator and the plan
 #       reader admit three items closed two at one Paragraph Waypoint and one
 #       at the next, and refuse two records open at one Paragraph Waypoint
 #       naming both, an item closed out of order naming both items, a record
@@ -317,7 +315,7 @@ const C1 = "the installer copies the kit into the consumer's tree.";
 const C2 = "a second run refreshes the copy and its stamp.";
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
 const leg = (id, claims, waypoints) => ({
-  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
+  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
   materials: ["L1", "L2"], depends_on: [], rationale: `rationale for ${id}.`, claims, waypoints,
 });
 const legs = [
@@ -339,10 +337,10 @@ const briefText = (ls, obligations = [], defined = []) => briefRecordText({
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") },
     { id: "L2", slug: "second-strand", cite: lessonCite("second-strand") }],
   thesis: "The fixture claim.",
-  reader_start: readerStateMap("knowledge: The reader believes the fixture claim is obvious."),
-  reader_target: ls[ls.length - 1].leg_id,
+  // NO READER START, READER TARGET OR OBLIGATIONS (kogaki#1699): the Brief record carries none,
+  // so a Leg owes no Brief row; `obligations` is kept as a parameter and never written.
   reader_path: ls.map(legRecord),
-  strand_coverage: [], journey_coverage: [], obligations, tradeoffs: {}, bridged: {},
+  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
   ...(defined.length ? { defined_terms: defined } : {}),
 });
 
@@ -425,7 +423,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       .map((t) => ({ term: t.term, meaning: t.meaning || "MEANING-" + t.term }));
     return { waypoint: w.waypoint, move, materials: [...w.serves],
       purpose: "PURPOSE-" + leg.leg_id + "-" + w.waypoint + " brings the reader to the point.",
-      reader_state_after: last ? leg.reader_state_after : { knowledge: "STATE-" + leg.leg_id + "-" + w.waypoint + " after this paragraph." },
+      reader_state_after: last && leg.reader_state_after ? leg.reader_state_after : { knowledge: "STATE-" + leg.leg_id + "-" + w.waypoint + " after this paragraph." },
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [],
       rationale: nofit ? "NOFIT-SENTENCE-" + planN + " no paragraph Move's before holds this state." : "its before holds the state and its after reaches the next point.",
       introduces, "re-activate": [],
@@ -529,10 +527,11 @@ let okPrompts = [];
     if (JSON.stringify(s1.map((w) => w.materials)) !== JSON.stringify([["L1"], ["L1", "L2"]]) || JSON.stringify(s1.map((w) => w.depends_on)) !== JSON.stringify([[], [1]])) {
       fails.push(`(a) Leg s1's entries do not carry their materials and dependencies as the planner wrote them: ${JSON.stringify(s1.map((w) => [w.materials, w.depends_on]))}`);
     }
+    // A LEG CARRIES NO STATE (kogaki#1699), so every paragraph's after-state is the planner's own.
     if (JSON.stringify(s1[0].reader_state_after) !== JSON.stringify({ knowledge: "STATE-s1-1 after this paragraph." })
-      || JSON.stringify(s1[1].reader_state_after) !== JSON.stringify({ knowledge: "after s1." })
-      || JSON.stringify(rec.legs[1].waypoints[0].reader_state_after) !== JSON.stringify({ knowledge: "after s2." })) {
-      fails.push(`(a) the after-states are not the planner's, the last paragraph's the Leg's line for line: ${JSON.stringify(rec.legs.map((l) => l.waypoints.map((w) => w.reader_state_after)))}`);
+      || JSON.stringify(s1[1].reader_state_after) !== JSON.stringify({ knowledge: "STATE-s1-2 after this paragraph." })
+      || JSON.stringify(rec.legs[1].waypoints[0].reader_state_after) !== JSON.stringify({ knowledge: "STATE-s2-1 after this paragraph." })) {
+      fails.push(`(a) the after-states are not the planner's: ${JSON.stringify(rec.legs.map((l) => l.waypoints.map((w) => w.reader_state_after)))}`);
     }
     const joins = rec.legs.map((l) => l.waypoints.map((w) => w.join ?? null));
     if (JSON.stringify(joins) !== JSON.stringify([[null, "consequence"], [null]])) {
@@ -1067,15 +1066,16 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
 
 // (u) THE OBLIGATION RECORD AT THE PARAGRAPH SCALE, ON THE LEG (kogaki#1530, kogaki#1612, kogaki#1620).
 {
+  // THE BRIEF CARRIES NO OBLIGATIONS LEDGER (kogaki#1699): no Leg owes a Brief row, so every
+  // plan call is handed an empty `obligations_this_leg_owes`; the Paragraph-scale record stays.
+  const run = runStage("owes", legs, "owes", moves);
+  // A Brief-shaped row, for the unit readers below that still take one (`planLeg`'s helpers stay
+  // until the ParagraphPlan's Issue); no Brief record carries it.
   const ROW = { opened_by: "s1", items: [{ item: "Why does the next run overwrite the edit?", closed_by: "s2" }] };
-  const run = runStage("owes", legs, "owes", moves, [ROW]);
-  const planPrompts = run.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
-  const s2Plans = planPrompts.filter((p) => p.includes('"leg_id": "s2"'));
-  const owedIn = (p) => { const at = p.lastIndexOf('"obligations_this_leg_owes"'); return at >= 0 && p.slice(at).includes(ROW.items[0].item); };
-  if (!s2Plans.length || !owedIn(s2Plans[0])) fails.push("(u) the plan call for Leg s2 is not handed the Brief row s2 owes");
-  if (planPrompts.some((p) => p.includes('"leg_id": "s1"') && owedIn(p))) fails.push("(u) the plan call for Leg s1, which owes no row, is handed one");
   const refusal = "the Brief's obligation 1, the obligation \"Why does the next run overwrite the edit?\" row, is owed by this Leg and discharged by no Paragraph Waypoint";
-  if (!(s2Plans[1] || "").includes(refusal)) fails.push(`(u) the second plan attempt for s2 does not carry the undischarged-row refusal verbatim: ${JSON.stringify((s2Plans[1] || "").slice(-600))}`);
+  const planPrompts = run.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
+  const owesNothing = (p) => { const at = p.lastIndexOf('"obligations_this_leg_owes"'); return at < 0 || /^"obligations_this_leg_owes": \[\]/.test(p.slice(at)); };
+  if (!planPrompts.length || !planPrompts.every(owesNothing)) fails.push("(u) a plan call is handed a Brief row to owe, and the Brief carries no Obligations ledger (kogaki#1699)");
   if (!existsSync(run.planPath)) {
     fails.push(`(u) the job with an owed row wrote no plan file: ${(run.awaited && run.awaited.stdout) || (run.started && run.started.stderr)}`);
   } else {
@@ -1086,7 +1086,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
       || s1.waypoints.some((w) => "obligations" in w)) {
       fails.push(`(u) the plan file does not carry s1's Paragraph-scale record on the Leg alone: ${JSON.stringify(s1)}`);
     }
-    if (JSON.stringify(s2w1.discharges) !== JSON.stringify([{ obligation: 1, by: 2 }])) fails.push(`(u) the plan file does not carry s2's discharge: ${JSON.stringify(s2w1)}`);
+    if (s2w1.discharges !== undefined && JSON.stringify(s2w1.discharges) !== "[]") fails.push(`(u) the plan file carries a discharge of a Brief row: ${JSON.stringify(s2w1)}`);
     if (paragraphPlanShapeRefusal(plan, "plan.yaml", legs) !== null) fails.push(`(u) the plan reader refuses the plan file the stage wrote: ${paragraphPlanShapeRefusal(plan, "plan.yaml", legs)}`);
   }
   const judged = run.prompts.filter((p) => p.includes('"leg_you_must_judge"'));
@@ -1094,7 +1094,6 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   // The items still open reach the paragraph after the opening one as material (rule 6, kogaki#1620).
   const s1Judged = judged.find((p) => p.includes('"leg_id": "s1"')) || "";
   if (!s1Judged.includes('"obligations_open_here"')) fails.push("(u) the judge's input hands Leg Waypoint 2 no open items of s1's record");
-  if (!judged.some((p) => p.includes('"leg_id": "s2"') && owedIn(p) && p.includes('"discharges"'))) fails.push("(u) the judge's input for s2 does not carry the owed row beside its discharge");
 
   // The plan call's validator and the plan reader, over one Leg Waypoint bound to p4's three Segments.
   const three = [1, 2, 3].map((n) => ({ point: `part ${n} of the point.`, serves: ["L1"], cast: {} }));
@@ -1423,9 +1422,7 @@ for (const k of ["move", "segments"]) {
     ["a re-activated term the paragraph does not introduce", { introduces: [TERM] }, { "re-activate": ["1 term other"] }, ["Waypoint 2", "paragraph 1 does not introduce \"other\""]],
     ["a re-activated claim the paragraph does not stand on", {}, { "re-activate": ["1 claim L2 as the copy is refreshed."] }, ["Waypoint 2", "paragraph 1 does not stand on \"L2\""]],
     ["a material outside the parent's serves", { materials: ["L2"] }, {}, ["Waypoint 1", "names \"L2\" in `materials`", "does not serve"]],
-    ["a last after-state that is not the Leg's", {}, { reader_state_after: { knowledge: "elsewhere." } }, ["Waypoint 2", "not the Leg's, line for line"]],
     ["an after-state out of the Leg's shape", {}, { reader_state_after: { mood: "x" } }, ["Waypoint 2", "carries no `reader_state_after` in the Leg's shape"]],
-    ["an after-state as a joined line", {}, { reader_state_after: "knowledge: a. belief: b." }, ["Waypoint 2", "`reader_state_after`"]],
     ["the retired `why`", {}, { why: "its before holds the state." }, ["Waypoint 2", "`why`"]],
   ];
   for (const [what, w1, w2, wants] of cases) {
@@ -1443,7 +1440,9 @@ for (const k of ["move", "segments"]) {
   // claim from an earlier paragraph are well formed.
   const ok = rawPlanShapeRefusal(rec({ introduces: [TERM] }, { introduces: [], "re-activate": ["1 term kit stamp", "1 claim L1 as the installer writes into the tree."] }), "plan.yaml", L);
   if (ok !== null) fails.push(`(x) the plan reader refused a well-formed re-activation: ${ok}`);
-  // The Leg's after-state matches line for line in either form the record may carry.
+  // A LEG CARRIES NO STATE (kogaki#1699), so the last paragraph's after-state is matched against
+  // nothing; the cases a last after-state not the Leg's, and a joined line it mismatched, are gone.
+  // A line-form after-state is read.
   const asLine = rawPlanShapeRefusal(rec({}, { reader_state_after: "knowledge: after s1." }), "plan.yaml", L);
   if (asLine !== null) fails.push(`(x) the plan reader refused the Leg's after-state in line form: ${asLine}`);
   // A LEG TERM MAY BE PLACED NOWHERE (kogaki#1663): a Leg term introduced by no paragraph is read
@@ -1467,5 +1466,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief as the paragraph-level Reader Path, every entry carrying the bound Move's id, materials, purpose, reader_state_after, depends_on, rationale, introduces and re-activate beside its join and Paragraph Waypoints and nothing else of the Move, no reader_state_before, the last paragraph's after-state the Leg's line for line, no term assigned to two paragraphs (kogaki#1663), every undeclared, missing or out-of-Leg field refused by name by the validator and the plan reader, and no bindings record in the run directory (kogaki#1639); the plan call carries the bound Move's segments (each Segment's number, operation, relation and manner as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's operation is refused by the judge same as any other does-not-fit; the plan row's ORDER never states a Segment's relation (kogaki#1446); a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); every Leg Waypoint after the first carries a join and no first one does, the plan reader and the plan call's validator refuse a missing, empty or misplaced join, a sentence and a word outside the set by name, the Brief refuses one, both rows name the closed set with one definition per word and neither carries the retired noun-phrase test, a plan answering a sentence for join is refused naming the entry and re-planned (kogaki#1477), and the Packet renders each join as its Opens-from line under the template's instruction (kogaki#1411); a Segment that acts on the reader's reading carries a performs Paragraph Waypoint the plan file and the judge's input carry, and a Leg Waypoint with no point entry is refused (kogaki#1448); a performs entry carrying a clause stating the reader's resulting reading is refused naming the entry and the clause, and the bare operation fits (kogaki#1485); the plan row makes each Paragraph Waypoint the step its Segment performs toward its Leg Waypoint's point, which it may explain in its own words but not contradict or add a claim to (kogaki#1632); both rows are named one-sentence criteria within the workflow file's word bound, the judge's read from the axis registry (kogaki#1533), and a row grown past it is refused naming the criterion (kogaki#1511); the plan call is handed the Leg's introduced terms with their meanings beside the persona and no coined subset, its BIND step binds on non-contradiction over the dimensions a Move's before declares, and a term the Brief marks defined introduced at the first Leg Waypoint under a Move with no defining Segment is admitted (kogaki#1497, kogaki#1663); a Brief record with an item the Leg closes reaches its plan call, an answer laying it nowhere is refused naming it and re-planned, three items closed two at one Paragraph Waypoint and one at the next pass while two records open at one Paragraph Waypoint, an item closed out of order, a record closed where it opened, an item open at the last Paragraph Waypoint and every retired field are refused by the validator and the plan reader naming them (kogaki#1612), a Move's deferred slot reaches the plan call carrying no count, a record of three article items passes against a one-item slot, a discharge that only names its items is refused by the judge naming the Leg and the Waypoint (kogaki#1603), and no Paragraph-scale record or discharge reaches the Packet (kogaki#1584); a record carrying an ordered list of items is admitted at the Paragraph scale under the same rules and renders its terms in order (kogaki#1549); the plan call is handed each Segment's manner, a job binding a Move whose Segment carries one hands it to the plan call and writes a plan file holding none, a planner answer carrying one is refused by name, the plan reader refuses one on a point or a performs Paragraph Waypoint naming it, and the Packet renders no Manner label (kogaki#1585); a first Paragraph Waypoint already carrying a later Segment's result is refused naming both Paragraph Waypoints and the Segment, and the same plan with that result held to the later Paragraph Waypoint fits (kogaki#1605); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief as the paragraph-level Reader Path, every entry carrying the bound Move's id, materials, purpose, reader_state_after, depends_on, rationale, introduces and re-activate beside its join and Paragraph Waypoints and nothing else of the Move, no reader_state_before, every paragraph's after-state the planner's own since a Leg carries none (kogaki#1699), no term assigned to two paragraphs (kogaki#1663), every undeclared, missing or out-of-Leg field refused by name by the validator and the plan reader, and no bindings record in the run directory (kogaki#1639); the plan call carries the bound Move's segments (each Segment's number, operation, relation and manner as separate fields) and breaks and each Leg Waypoint's point, serves and next_point, and no Claim proposition; the judge call carries the four roles and neither call a technique (kogaki#1412); a judge refusal is carried into the next attempt; a Leg Waypoint no Move fits stops after brief.unit_attempts naming the Leg and the Waypoint, and a library holding a Move with no segments stops naming the Move whether or not it carries technique, each with the Brief unchanged and no file written (kogaki#1412); a Move carrying three segments yields three Paragraph Waypoints under its Leg Waypoint, rendered as three indented lines under the revised header; a Paragraph Waypoint restating a Segment's operation is refused by the judge same as any other does-not-fit; the plan row's ORDER never states a Segment's relation (kogaki#1446); a Leg Waypoint carrying move or segments is refused at start by name; the Move record is read as YAML, its before map rendered one dimension per line, and a .md Move or a joined-line state is refused by name (kogaki#1413); every Leg Waypoint after the first carries a join and no first one does, the plan reader and the plan call's validator refuse a missing, empty or misplaced join, a sentence and a word outside the set by name, the Brief refuses one, both rows name the closed set with one definition per word and neither carries the retired noun-phrase test, a plan answering a sentence for join is refused naming the entry and re-planned (kogaki#1477), and the Packet renders each join as its Opens-from line under the template's instruction (kogaki#1411); a Segment that acts on the reader's reading carries a performs Paragraph Waypoint the plan file and the judge's input carry, and a Leg Waypoint with no point entry is refused (kogaki#1448); a performs entry carrying a clause stating the reader's resulting reading is refused naming the entry and the clause, and the bare operation fits (kogaki#1485); the plan row makes each Paragraph Waypoint the step its Segment performs toward its Leg Waypoint's point, which it may explain in its own words but not contradict or add a claim to (kogaki#1632); both rows are named one-sentence criteria within the workflow file's word bound, the judge's read from the axis registry (kogaki#1533), and a row grown past it is refused naming the criterion (kogaki#1511); the plan call is handed the Leg's introduced terms with their meanings beside the persona and no coined subset, its BIND step binds on non-contradiction over the dimensions a Move's before declares, and a term the Brief marks defined introduced at the first Leg Waypoint under a Move with no defining Segment is admitted (kogaki#1497, kogaki#1663); the Brief carries no Obligations ledger, so no plan call is handed a Brief row (kogaki#1699), three items closed two at one Paragraph Waypoint and one at the next pass while two records open at one Paragraph Waypoint, an item closed out of order, a record closed where it opened, an item open at the last Paragraph Waypoint and every retired field are refused by the validator and the plan reader naming them (kogaki#1612), a Move's deferred slot reaches the plan call carrying no count, a record of three article items passes against a one-item slot, a discharge that only names its items is refused by the judge naming the Leg and the Waypoint (kogaki#1603), and no Paragraph-scale record or discharge reaches the Packet (kogaki#1584); a record carrying an ordered list of items is admitted at the Paragraph scale under the same rules and renders its terms in order (kogaki#1549); the plan call is handed each Segment's manner, a job binding a Move whose Segment carries one hands it to the plan call and writes a plan file holding none, a planner answer carrying one is refused by name, the plan reader refuses one on a point or a performs Paragraph Waypoint naming it, and the Packet renders no Manner label (kogaki#1585); a first Paragraph Waypoint already carrying a later Segment's result is refused naming both Paragraph Waypoints and the Segment, and the same plan with that result held to the later Paragraph Waypoint fits (kogaki#1605); the Move the stage binds is one the ingest admitted through the Adapter's validator (kogaki#1418); the skill names only entry points the Harness has.");
 JS

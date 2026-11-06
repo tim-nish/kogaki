@@ -10,11 +10,11 @@ import { existsSync, rmSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
   candidateLedgerRefusal, characteristicMaxLength, retiredReaderFieldRefusal,
-  retiredReasoningFieldRefusal, targetLegAfterState,
+  retiredReasoningFieldRefusal,
 } from "../assemble.mjs";
 import {
-  BRIEF_RECORD_FILE, deriveReaderStatesBefore, moveContract, moveContractsForLegs, resolveFigureForms,
-  resolveMoveIds, sectionHeadingsWithLastAfterState, specializationFailures,
+  BRIEF_RECORD_FILE, moveContractsForLegs, resolveFigureForms,
+  resolveMoveIds, sectionHeadingsWithLastClaims, specializationFailures,
   specializationSchema, validateLegs, validateSpecialization,
 } from "../compose.mjs";
 import { checkpointRun, clearOpenRunPointer, relFromRepo } from "../workflow/run-record.mjs";
@@ -28,7 +28,7 @@ import { fail, needBrief } from "./run-state.mjs";
 // runs outside any judged/re-ask window.
 export function validateReaderPathUnit(candidate, inputs) {
   const c = candidate || {};
-  const { strandIds = [], readerStart, movesDir, definedTerms = [] } = inputs || {};
+  const { strandIds = [], movesDir, definedTerms = [] } = inputs || {};
   if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
     return { error: `candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
       + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
@@ -49,20 +49,10 @@ export function validateReaderPathUnit(candidate, inputs) {
       + `\`reader_experience\`, which renders as the description beside it. Received: `
       + `${JSON.stringify(charValue)}` };
   }
-  // READER START IS GIVEN (kogaki#1216), not composed: `src/candidate-schema.json`
-  // declares it `given: true` and a unit's own written value is overwritten by
-  // the differentiation record and never read (`finishReaderPathJobAwait` sets
-  // it on the Candidate AFTER classification). So the value validated here --
-  // against `validateLegs` and against the unit's own answer below -- is the
-  // one the job's boundary handed this validator, `inputs.readerStart`, and it
-  // is set onto the candidate before `validateLegs` runs so the two readers of
-  // the field never disagree.
-  if (typeof readerStart !== "string" || readerStart === "") {
-    return { error: `candidate ${c.candidate_id}: Reader start is absent — it is GIVEN by the differentiation `
-      + "record and handed to this validator at the reader-path job's boundary (kogaki#1216), so its absence "
-      + "here is the runtime's fault rather than the composer's" };
-  }
-  c.reader_start = readerStart;
+  // A RETIRED READER FIELD (kogaki#1225, kogaki#1699) IS REFUSED BY NAME FIRST: a Candidate
+  // carrying `reader_start`, `reader_target` or `obligations` is told the field is retired.
+  const retired = retiredReaderFieldRefusal(c);
+  if (retired) return { error: retired };
   // THE LEG REFUSALS ARE `validateLegs`' OWN, re-implemented nowhere.
   // One-claim-per-Strand, the closed claim type set, every required field
   // and its description all come from `src/leg-schema.json` through that
@@ -73,7 +63,7 @@ export function validateReaderPathUnit(candidate, inputs) {
   // A WAYPOINT CARRYING `move` OR `segments` IS REFUSED BY NAME inside `validateLegs`
   // (kogaki#1375): no Move information reaches the Brief, and the paragraph Move is bound
   // by /paragraph-plan after the Brief is adopted.
-  const v = validateLegs(c.legs, c.reader_start, c.obligations, definedTerms);
+  const v = validateLegs(c.legs, definedTerms);
   if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
   // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
   // (kogaki#1276). The refusal is the retry prompt's text verbatim
@@ -120,18 +110,7 @@ export function validateReaderPathUnit(candidate, inputs) {
         + "gate evidence, and adoption fills no default" };
     }
   }
-  // `opening_question` (kogaki#1216) AND `reader_target` (kogaki#1225) ARE
-  // RETIRED FIELDS, refused BY NAME -- Reader target is the after-state of
-  // the Leg marked `reaches_target` (kogaki#1231) and no Opening question is
-  // rendered.
-  const retired = retiredReaderFieldRefusal(c);
-  if (retired) return { error: retired };
-  if (targetLegAfterState(c.legs) === null) {
-    return { error: `candidate ${c.candidate_id}: the Leg marked \`reaches_target\`'s \`reader_state_after\` `
-      + "is absent, or the path carries none or several such Legs -- it IS the Brief's Reader target "
-      + "(kogaki#1231), and adoption fills no default" };
-  }
-  // THE THREE LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129).
+  // THE TWO LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129).
   // `candidateLedgerRefusal` reads the declaration in
   // `src/candidate-schema.json`, which the executor renders into the unit's
   // own prompt -- the same two-readers property `validateLegs` has, one
@@ -144,47 +123,35 @@ export function validateReaderPathUnit(candidate, inputs) {
 // THE MOVE-FIT JUDGMENT, PER JOB UNIT (kogaki#1307; the judged half of the Leg-Move
 // instantiation contract, kogaki#1276). Once a compose unit's record passes
 // `validateReaderPathUnit`, the supervisor runs one more headless session over that
-// Candidate alone, with each Leg beside its Move's `before`, `after`, `segments` and
-// `breaks` verbatim from `moves/<id>.yaml`. Each Leg carries its DERIVED before-state
-// (kogaki#1325) -- the previous Leg's after-state, or Reader start for the first --
-// and `before_state` carries the one question asked of the Move's `before` against
-// it, read from src/specialization-schema.json. `inputs.promptHead` is the `reader_path_fit_unit` row rendered by `judgePrompt`
-// in `compose_path`, ending at the input marker; this appends the unit's own input.
-// A LEG WHOSE MOVE CARRIES `obligation` (kogaki#1529, kogaki#1558) carries its slot beside the
-// Obligation records the Leg opens, so a slot the composer left unfilled is judged.
-export function readerPathFitInput(candidate, movesDir, readerStart, thesis) {
+// Candidate alone, with each Leg beside its Move's `takes`, `leaves`, `segments` and
+// `breaks` verbatim from `moves/<id>.yaml` (kogaki#1699). `taken` carries the TAKEN and LEFT
+// questions, read from src/specialization-schema.json, and `persona_prior_knowledge` what the
+// first Leg's `takes` are met by. `inputs.promptHead` is the `reader_path_fit_unit` row rendered
+// by `judgePrompt` in `compose_path`, ending at the input marker; this appends the unit's own input.
+export function readerPathFitInput(candidate, movesDir, priorKnowledge, thesis) {
   const b = moveContractsForLegs(candidate.legs, movesDir);
   if (b.error) return { error: `candidate ${candidate.candidate_id}: ${b.error}` };
-  const rows = Array.isArray(candidate.obligations) ? candidate.obligations : [];
-  for (const entry of b.contracts) {
-    const slots = moveContract(entry.move, movesDir).deferred_slots;
-    if (!slots) continue;
-    entry.deferred_slots = slots;
-    entry.obligations_raised = rows.filter((o) => o && o.opened_by === entry.leg_id);
-  }
+  const taken = specializationSchema().taken;
   return {
     input: {
       candidate_you_must_judge: {
         candidate_id: candidate.candidate_id,
-        legs: deriveReaderStatesBefore(candidate.legs, readerStart),
+        legs: candidate.legs,
         move_contracts: b.contracts,
-        reader_start: readerStart,
+        persona_prior_knowledge: priorKnowledge,
         // THE BRIEF'S THESIS (kogaki#1330), judged only on the Leg marked
         // `reaches_target`: Thesis attainment is verified here, at
         // composition, never at the review of the Draft.
         thesis,
-        before_state: {
-          derived_from: specializationSchema().before_state.derived_from,
-          question: specializationSchema().before_state.question,
-        },
-        section_headings: sectionHeadingsWithLastAfterState(candidate.legs),
+        taken: { met_by: taken.met_by, question: taken.question, left_question: taken.left_question },
+        section_headings: sectionHeadingsWithLastClaims(candidate.legs),
       },
     },
   };
 }
 
 export function readerPathFitPrompt(candidate, inputs) {
-  const r = readerPathFitInput(candidate, inputs.movesDir, inputs.readerStart, inputs.thesis);
+  const r = readerPathFitInput(candidate, inputs.movesDir, inputs.priorKnowledge, inputs.thesis);
   // A MOVE THE VALIDATOR ADMITTED AND THIS CANNOT READ is a store fault, not a Candidate's.
   if (r.error) throw new Error(r.error);
   return `${inputs.promptHead}${JSON.stringify(r.input, null, 2)}`;

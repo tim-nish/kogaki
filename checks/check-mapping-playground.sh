@@ -10,7 +10,7 @@
 #   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant.
 #   (i) a Mapper answering a claim word twice stops the Trial at the SME stage, naming the word.
 #   (j) `--structure` with `--mapper` is refused naming both.
-#   (k) the composed `brief.yaml` carries one Leg with no `introduces` and an empty `defined_terms`.
+#   (k) the composed `brief.yaml` carries one Leg with no `introduces`, an empty `defined_terms`, no `reader_start`, `reader_target`, `obligations` or Leg reader state; the Leg call is handed `persona_prior_knowledge`, and no Reader start call is made (kogaki#1699).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -84,14 +84,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) {
     return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "sme");
   }
-  if (prompt.includes("\\\`leg_reader_start_unit\\\` judgment point")) {
-    return out({ version: "1", reader_start: ["knowledge: holds that a house has many rooms", "question: holds: none", "trust: extends a peer's ordinary good faith"] }, "brief");
-  }
   if (prompt.includes("\\\`smp_leg_unit\\\` judgment point")) {
     const x = input();
     // (c) the first Leg answer's point 1 carries "walker", a content word of the claim.
     return out({ legs: [{ leg_id: "crew-leg", purpose: "Bring the reader to the list as the bound of the crew's work.",
-      rationale: "It is the only Leg.", reader_state_after: "knowledge: holds that the crew cleans the rooms its list names",
+      rationale: "It is the only Leg.",
       claims: x.claims.map((g) => ({ type: "strand", strand: g.claim_strand, proposition: g.holds })),
       waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The walker." : ""), serves: [g.claim_strand] })) }] }, "brief");
   }
@@ -108,7 +105,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const m = bindable[0];
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: m.id,
       materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.",
-      reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
+      reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: "consequence" } : {}),
       paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan");
@@ -157,7 +154,7 @@ else {
   // (a) every stage done, every call through the recorder
   ok(record.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "brief:done,paragraph-plan:done,draft:done",
     `(a) the stages are not all done: ${JSON.stringify(record.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  for (const [stage, kind, n] of [["brief", "brief", 3], ["paragraph-plan", "plan", null], ["draft", "writer", 1]]) {
+  for (const [stage, kind, n] of [["brief", "brief", 2], ["paragraph-plan", "plan", null], ["draft", "writer", 1]]) {
     const cs = calls(stage);
     const fake = seen.filter((s) => s.stage === kind);
     ok(n === null ? cs.length >= 2 : cs.length === n, `(a) ${stage}/calls.jsonl records ${cs.length} call(s)`);
@@ -191,6 +188,16 @@ else {
   ok(Array.isArray(brief.reader_path) && brief.reader_path.length === 1 && !("introduces" in brief.reader_path[0])
     && Array.isArray(brief.defined_terms) && brief.defined_terms.length === 0,
     "(k) brief.yaml does not carry one Leg with no introduces and an empty defined_terms");
+  // (k) READER START IS RETIRED (kogaki#1699): no Reader start call, and no retired key in the Brief
+  ok(!existsSync(join(out, "brief", "reader-start")) && ["reader_start", "reader_target", "obligations"].every((k) => !(k in brief))
+    && (brief.reader_path || []).every((l) => !("reader_state_after" in l) && !("reader_state_before" in l)),
+    "(k) the Trial made a Reader start call, or brief.yaml carries a retired Reader start, Reader target, obligations or reader state");
+  const legCall = calls("brief").find((c) => c.stdin.includes("`smp_leg_unit` judgment point"));
+  const IN = "----- INPUT (JSON) -----";
+  let legIn = {};
+  try { legIn = JSON.parse(legCall.stdin.slice(legCall.stdin.lastIndexOf(IN) + IN.length)); } catch { /* reported below */ }
+  ok(typeof legIn.persona_prior_knowledge === "string" && !("reader_start" in legIn),
+    "(k) the Leg call is not handed the Persona's prior knowledge in place of a Reader start");
 }
 
 // (h) the Mapper's valid answer becomes the Trial's structure, and the record names the variant

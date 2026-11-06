@@ -89,23 +89,20 @@ the article.
 
 ## Output format
 
-One record per Move, exactly these seven keys admissible — four always
+One record per Move, exactly these five keys admissible — two always
 present, three optional — in this order, separated by one blank line.
-Multi-line values use YAML folded style (`>-`). `before` and `after` are
-maps keyed by dimension, one entry per dimension, never one joined line;
-`breaks` is a list. The saved Move is one `.yaml` record, `moves/<id>.yaml`,
+Multi-line values use YAML folded style (`>-`). `breaks` is a list.
+`before`, `after` and `after_segment` are retired with the Extraction's
+reader table (kogaki#1699): the tool writes none of the three, a record
+already carrying them keeps them for the ParagraphPlan stage alone until its
+Issue (specs/spec-draft-pipeline/SPEC.md §4.2), and
+what a Move takes up and leaves is `takes` and `leaves`, copied by the tool
+from the Extraction (kogaki#1698). The saved Move is one `.yaml` record, `moves/<id>.yaml`,
 read by the Brief's one YAML reader (`src/yaml.mjs`); a `.md` Move is the
 retired form and is refused by name (kogaki#1413).
 
 ```
 id: <snake_case verb phrase naming the transformation>
-before:
-  <dimension>: <the reader's state on that dimension before the Move, one
-    sentence, e.g. question: holds an unanswered question about X. Omit
-    dimensions this Move does not touch.>
-after:
-  <dimension>: <the reader's state on that dimension after the Move, same
-    dimension set as before>
 breaks:
   - <one prose test: a change a careful writer might make, and what the
     reader loses>
@@ -123,29 +120,6 @@ figure:
 
 - **id** — a verb phrase describing the transformation, not the topic:
   `derive_mitigation_from_causal_mechanism`, not `north_korea_diplomacy`.
-- **before / after** — reader states, one map entry per dimension the
-  Move changes, keyed by the dimension's name. `passages/FORMAT.md` states
-  the rule once, at the Extraction's `reader`, for the Extraction this Move
-  is drawn from: a dimension it records as unchanged is omitted from the
-  Move. Written at the **dimension level**, generalizable to another
-  article — not this article's own facts. The `question` entry is the one
-  question-under-discussion analysis governs: it states the question the
-  reader holds, and `after` states whether the Move settled it, replaced it with a narrower
-  one, or raised a new one beside it. Write `question: holds: none.` as the
-  `before` entry when the reader arrives with no live question.
-  **A `before` entry is what the Move's first Segment presupposes**
-  (kogaki#1652): the state Segment 1's `operation` needs the reader in, written
-  generally, and no entry no Segment needs; it is never the previous
-  paragraph's `after` copied, and where a previous paragraph exists it is a
-  specialization of that paragraph's state, requiring nothing it did not
-  leave. **Every `after` entry names its Segment**: the tool copies each
-  changed row's `segment` cell into `after_segment`, keyed by the same
-  dimension. **The state-bound call is the check**: it judges each `before`
-  entry against Segment 1, each `after` entry against the Segment it names and
-  each `before` against the previous paragraph's state, refusing an
-  Extraction whose row it finds unsupported, and `src/proof-sheet/extract.mjs
-  rejudge --state --library moves` runs it over the saved library without
-  changing a record.
 - **breaks** — general to the technique, never specific to this article's
   subject, replacing the old `constraints` + `failure_modes` pair: what
   removing a step, reordering the Move's parts, or stretching it past its
@@ -160,7 +134,7 @@ figure:
 
 1. **`evidence` names the work and where the Passage sits — never a
    quotation, and never an account of the reader movement.** That account
-   belongs in `before`/`after` and the Extraction's `segments`.
+   belongs in the Extraction's `segments`.
 2. **Do not paste the source text.** A short quoted phrase naming the
    Passage's location is fine; a transcribed passage is not.
 3. **Optional, and typically empty.** Leave it out where source metadata is

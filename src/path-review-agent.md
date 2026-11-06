@@ -35,7 +35,7 @@ than merely discouraged.
 ## What you are the only control over — read this before diagnosing a defect
 
 **Every Leg field reaching you is LLM-authored with no harness** (kogaki#549,
-verified 2026-08-19). `purpose`, `rationale`, `reader_state_before/after`, the
+verified 2026-08-19). `purpose`, `rationale`, the
 claims, `entailed` and its reasoning are all written wholesale by the
 composing sitting under the spec's policy prose. There is **no per-field input
 specification, no field-level prose contract, and no mechanism holding declared
@@ -48,11 +48,12 @@ and materials inside the Brief's closed set, `entailed` requiring reasoning, and
 here.**
 
 Leg-to-Leg connection is deliberately weaker than it was — only `depends_on`
-and reader-state continuity that nothing verifies. A claim is one proposition derived
+and the Move's `takes` and `leaves`, which only the Move-fit judge reads (kogaki#1699; the
+reader states that once carried continuity are retired). A claim is one proposition derived
 from a Strand and nothing else (kogaki#1095), so the `leg_effect` claim that
-used to name an earlier Leg's effect is gone: inherited state is carried by
-`reader_state_before` and by the computed `already knows` ledger, which are the
-two places to read it from.
+used to name an earlier Leg's effect is gone: what a Leg inherits is what an
+earlier Leg's Move `leaves`, and the computed `already knows` ledger, which are
+the two places to read it from.
 
 **So when a Draft comes out strange, inspect this absence FIRST** before
 attributing the defect to composition strategy, Move selection, or the
@@ -68,9 +69,9 @@ dogfood failure (kogaki#549, owner ruling).
    of them one proposition derived from a Strand, and nothing else
    (kogaki#1095)? A named
    earlier Leg's effect and a declared reader assumption were claims and
-   are not: inherited state is `reader_state_before`'s and the computed
-   already-knows ledger's, and a reader premise is the Brief's Reader
-   start's. Write what you find: which Legs stand, which read
+   are not: what a Leg inherits is an earlier Leg's Move's `leaves` and the
+   computed already-knows ledger's, and a reader premise is the Persona's
+   prior-knowledge line's (kogaki#1699). Write what you find: which Legs stand, which read
    Move-first, and why. The observable defect is a rationale that cannot
    be stated without naming the Move.
 2. **Entailment.** For each Leg flagged `entailed`: read its

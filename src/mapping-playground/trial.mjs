@@ -16,13 +16,13 @@ import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { readerPersona, audienceLanguage, deriveReaderStatesBefore, legRecord, readerStateMap, briefRecordText,
+import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, legRecord, briefRecordText,
   wordsOf, FUNCTION_WORDS } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, awaitJob, lastRefusal, writeJson } from "../proof-sheet/extract.mjs";
-import { derivedRow, readerStartUnitInput, readerStartText, completedLeg } from "../proof-sheet/leg-brief.mjs";
+import { derivedRow, completedLeg } from "../proof-sheet/leg-brief.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
@@ -97,20 +97,19 @@ function runRow({ dir, unitId, row, input, recordArray, validator, bounds }) {
   return { record: u.candidate };
 }
 
-function trialBriefText({ slug, composePath, claims, readerStart, leg, thesis }) {
-  const full = deriveReaderStatesBefore([completedLeg(leg, claims.length)], readerStart);
+// READER START IS RETIRED (kogaki#1699): the Trial's Brief carries no `reader_start`,
+// `reader_target`, `obligations` or `reader_state_after`.
+function trialBriefText({ slug, composePath, claims, leg, thesis }) {
   const constants = {
     strands: claims.map((c) => ({ id: c.claim_strand, slug: `${slug}-${c.from}`, cite: `mapping-playground::claim/${slug}-${c.from}` })),
     thesis,
-    reader_target: full.at(-1).leg_id,
     strand_coverage: [],
     journey_coverage: [],
-    obligations: [],
     tradeoffs: {},
     bridged: {},
   };
   const text = briefRecordText({ slug, compose_path: composePath, ...constants, defined_terms: [],
-    reader_start: readerStateMap(readerStart), reader_path: full.map(legRecord) });
+    reader_path: [completedLeg(leg, claims.length)].map(legRecord) });
   const keys = new Set(Object.keys(constants));
   return text.split("\n").flatMap((line) => {
     const m = /^([a-z_]+):/.exec(line);
@@ -156,8 +155,6 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
   const { strand, structure } = readInputs(strandFile, structureFile);
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const playground = JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
-  const rs = derivedRow(extraction, "leg_reader_start_unit");
-  if (rs.error) fail(`${rs.error}. Nothing was started.`);
   const lr = derivedRow(playground, "smp_leg_unit", PLAYGROUND_TABLE);
   if (lr.error) fail(`${lr.error}. Nothing was started.`);
   const { audiencePath, persona } = audienceOf(audience);
@@ -169,22 +166,17 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
   const bounds = judgeBounds(extraction);
   mkdirSync(outDir, { recursive: true });
   const { roles, relations, higher_order } = structure;
-  const r1 = runRow({ dir: join(outDir, "reader-start"), unitId: "reader-start", row: rs.row, recordArray: "reader_start",
-    input: readerStartUnitInput({ paragraphs: [roles.map((r) => r.context).join(" ")], extractions: [{ roles, relations, higher_order }],
-      persona, language: lang.language }),
-    validator: { module: "src/proof-sheet/leg-brief.mjs", export: "validateLegReaderStartUnit", inputs: {} }, bounds });
-  if (r1.stopped) return { stopped: r1.stopped };
-  const readerStart = readerStartText(r1.record);
+  const priorKnowledge = personaPriorKnowledgeLine(persona);
   const claims = structureClaims(structure);
   const forbidden = [...new Set(wordsOf(strand.proposition).filter((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)))];
   const r2 = runRow({ dir: join(outDir, "leg"), unitId: "leg", row: lr.row, recordArray: "legs",
-    input: { reader_start: readerStart, language: lang.language, leg_ids_already_carried: [], forbidden_words: forbidden,
+    input: { persona_prior_knowledge: priorKnowledge, language: lang.language, leg_ids_already_carried: [], forbidden_words: forbidden,
       structure: { roles, relations, higher_order }, claims },
     validator: { module: "src/mapping-playground/structure.mjs", export: "validateSmpLegUnit",
-      inputs: { holds: claims.map((c) => c.holds), proposition: strand.proposition, reader_start: readerStart, segments: claims.map((c) => c.material) } },
+      inputs: { holds: claims.map((c) => c.holds), proposition: strand.proposition, segments: claims.map((c) => c.material) } },
     bounds });
   if (r2.stopped) return { stopped: r2.stopped };
-  writeFileSync(briefPath, trialBriefText({ slug, composePath: relFromRepo(audiencePath), claims, readerStart,
+  writeFileSync(briefPath, trialBriefText({ slug, composePath: relFromRepo(audiencePath), claims,
     leg: r2.record.legs[0], thesis: higherOrderOf(structure).map((h) => h.holds).join(" ") }));
   return { brief: briefPath };
 }

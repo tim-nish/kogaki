@@ -466,36 +466,15 @@ those paths into.
 - **`move`** — a binding to a Move library entry (§7). **Required.**
 - **`materials`** — which Strands, which Journeys, the Thesis, a reader
   premise, or `constructed_material` it works on. **Many-to-many** with Legs.
-  The reader premise is the Brief's **Reader start**, named here in words
-  rather than by the retired `reader_assumption` token: that token was a
-  CLAIM type, it left the grammar at §4.4, and leaving it standing as this
-  field's one surviving use would hand a reader a term with nothing left
-  defining it (kogaki#1095). Reader start is a **stance**, written in the same
-  five dimensions and the same `dimension: value` line as a Move's `before`/
-  `after` (§4.2, §5.1.1) — not the knowledge-only field it was before
-  kogaki#1176.
+  The reader premise is the Persona's prior-knowledge line (§5.1.1,
+  kogaki#1699).
 - **`purpose`** — what the Leg does to the reader.
-- **`reader_state_after`** — what the reader holds when the Leg ends, judged
-  against the Move's `after` (§4.12.2).
-- **`reader_state_before`** — **derived, never composed** (kogaki#1325, owner
-  decision 2026-10-10: "The proposal for `specializes` seems to have returned
-  to the original design. I approve."). It is the previous Leg's
-  `reader_state_after`, verbatim, and the Brief's Reader start for the first
-  Leg; `validateLegs` writes it and refuses a Candidate whose Leg carries the
-  field, by name. So a before-state can hold nothing no earlier text stated:
-  the reader arrives at a Leg holding exactly what the Leg before it left them
-  holding. **What replaced it** was a composed before-state judged a
-  "consistent specialization" of its Move's `before`, or of Reader start for
-  the first Leg (kogaki#1216). Nothing defined a specialization beyond the
-  word, and in the Brief run of 2026-10-09 the first Leg's before-state moved
-  the Thesis out of Reader start's `question` line into `knowledge` — "holds
-  the sentence as a slogan" — and the judge accepted it; the Move's `before`
-  then held a general claim no text had stated, and the Draft's opening left
-  the reader without the rule. The Brief still renders the derived value as
-  the Leg block's `reader_state_before:` line, so every reader of the file
-  keeps working until the record writes each state once (kogaki#1328).
+- **`reader_state_after`** and **`reader_state_before`** — **retired**
+  (kogaki#1699): a Leg carrying either is refused naming the field. What the
+  reader arrives with and leaves with is the bound Move's `takes` and
+  `leaves` (§4.2), judged across the path (§4.12.2).
 - **`waypoints`** — **required** (kogaki#1311). The ordered route from
-  `reader_state_before` to `reader_state_after`: this Leg's own
+  what the Move takes to what it leaves: this Leg's own
   specialization of its Move's `technique`, written when the Leg is composed.
   Each waypoint carries a `point` and the claims it `serves`, by Strand id.
   - **A point, never an effect** (kogaki#1326, owner decision 2026-10-10:
@@ -551,8 +530,8 @@ those paths into.
   The record the pair eventually produces is §4.17's.
 
 **Why `move` is required.** `Leg = Input + State`. The inputs are the Strands,
-the Thesis and previous Leg output; **the Move is the State**, and
-`reader_state_before`/`after` are that framework's result. So `move` is not a
+the Thesis and previous Leg output; **the Move is the State**, and its
+`takes`/`leaves` are that framework's result (kogaki#1699). So `move` is not a
 candidate carrier for some property that could be delivered another way — it is
 what a Leg is made of, and a Leg without one has no defined reader-state
 transition type rather than an undertested one.
@@ -646,56 +625,26 @@ condition 3.
 | field | present | what it holds |
 |---|---|---|
 | `id` | always | verb phrase naming the transformation, snake_case |
-| `before` | always | one line per reader dimension the Move starts from |
-| `after` | always | one line per reader dimension the Move leaves the reader in |
 | `technique` | always | what the Move does, subject-free |
 | `breaks` | always | the three tests a correct performance must survive |
 | `continues_from` | optional | a prior Move's `id`, when this one picks up from it |
 | `evidence` | optional | the source work and where the Passage sits — no quotation |
 | `figure` | optional | a Figure spec's `kind`, `positions` and `relations`, never its content |
 | `segments` | added by the tool | the Extraction's ordered Segments, copied in by `tools/move_ingest.py`, never authored by the model |
-| `after_segment` | added by the tool | per dimension `after` names, the Segment after which that state holds, copied from the Extraction (kogaki#1652) |
 | `takes` | always | what the Move's first Segment takes up, a list of `{ kind, what }`, possibly empty (kogaki#1698) |
 | `leaves` | always | what the Move leaves for a later unit, a list of `{ kind, what, segment }`, possibly empty (kogaki#1698) |
 
-**`before` / `after`.** One line per reader dimension the Move changes;
-unchanged dimensions are omitted. The dimension set — knowledge, question,
-expectation, orientation, trust — is the hypothesis the derivation tested
-against the Corpus (Property 1, below); all five survived (kogaki#1173,
-2026-09-23: trust is never the *strongest* change in the Corpus, but no
-disagreement was raised against dropping it, since a slower-moving dimension
-is still a dimension).
-
-**A Precondition is what the Move's own first Segment presupposes (kogaki#1652,
-owner decision 2026-11-02).** A Move's `before` is not the predecessor
-paragraph's `after` copied: it is the state Segment 1's `operation`
-presupposes, written in general terms, carrying no line no Segment needs, so a
-Move stands on its own Segments and never depends on a Move the library may not
-hold. Where the Extraction has a predecessor, its `before` is a
-**specialization** of the predecessor's Postcondition — a narrower or equal
-state, never one requiring what the predecessor did not leave. **Every
-Postcondition row names its Segment**: the Move carries `after_segment`, keyed
-by the dimensions `after` names, each value the Segment after which that state
-holds, copied by the ingest from the Extraction's `segment` cell; a record
-written before kogaki#1652 carries none and is admitted. **The check is the
-state-bound call** (`src/proof-sheet/extraction-workflow.json`
-`state_bound_unit`): at extraction it judges each `before` against Segment 1,
-each changed `after` against the Segment it names, and each `before` against
-the predecessor's state, and an unsupported row refuses the Extraction into
-the Extractor's next attempt; over an admitted library,
-`src/proof-sheet/extract.mjs rejudge --state --library moves` runs the same
-call and lists the unsupported rows, changing no record. Both states stay
-authored; neither is derived from the Segments.
-
-**A Precondition carries only what its own Segments read (kogaki#1653,
-owner decision 2026-11-02).** Every dimension `before` names is one the Move's
-first Segment presupposes, and a dimension the predecessor's Postcondition
-carries is not copied into `before` unless the Move's own Segments read it. A
-chain is closed by each Move standing on its own Segments, never by
-re-admitting a removed or unadmitted predecessor: a record whose state line no
-Segment supports is corrected field by field from the rows `rejudge --state`
-lists, and a dimension no Segment reads is deleted from `before` rather than
-reworded.
+**`before`, `after` and `after_segment` leave the Brief (kogaki#1699).** No
+Brief stage reads the Precondition, the Postcondition or their Segment column
+(kogaki#1652, kogaki#1653), and the state-bound call that judged them at
+extraction is retired, so a newly extracted Move carries none of the three. They
+stay OPTIONAL roles of the record for one reader alone: the ParagraphPlan stage
+(§4.19) still binds and judges a paragraph Move by its `before` and `after`,
+and a Move's library cannot hold two schemas, so refusing them would leave
+every admitted Move unbindable there. The ParagraphPlan's Issue moves that
+stage to `takes` and `leaves`, and then the three are refused by name;
+`rejudge --constraints --write --retire-state` deletes them from each record it
+writes, and is run over `moves/` once that Issue lands, not before.
 
 **`takes` and `leaves` (kogaki#1698, owner ruling 2026-11-06).** A Move's
 constraints are one key with two sides: `takes`, what the Move's first Segment
@@ -725,20 +674,9 @@ Segment it names, and refuses the Extraction for an unsupported entry or a
 question, term, base or principle a Segment leaves that no entry names;
 `src/proof-sheet/extract.mjs rejudge --constraints --library moves --write`
 derives both lists for an admitted library from each record's `segments`,
-`before`, `after` and `obligation`. The Precondition (`before`), the
-Postcondition (`after`), `after_segment` and `obligation` are retired as their
-readers move: the Brief's selection row, Path Review and Leg schema move to
-`takes` and `leaves` in the Brief's Issue, which retires the three state
-fields from the Move, and the ParagraphPlan's OWE line and §5.2's ledger in the
-ParagraphPlan's Issue, which retires `obligation` and `obligation_triggers`.
-Until then the Move carries them as optional roles.
-
-**The reader's question lives in `before`/`after`.** Its `question:` line
-states the question the reader holds (`holds: none` where the reader arrives
-with no live question), and `after`'s line states whether the Move settled
-it, replaced it with a narrower one taken up in its stead, or raised a new
-one beside it — question-under-discussion analysis treats a sub-question
-taken up in place of a larger one as a strategy distinct from answering it.
+`before`, `after` and `obligation`. The Brief reads `takes` and `leaves` (kogaki#1699);
+`obligation` and `obligation_triggers` stay as optional roles until the
+ParagraphPlan's Issue retires them with its OWE line.
 
 **`question` retired (kogaki#1324, owner ruling 2026-10-10).** The record
 carried a separate `question` field (`holds:` / `settles:` / `replaces:` /
@@ -846,11 +784,11 @@ because a role's *reader* is prose this file states and the JSON does not:
 | role | field (current schema) | read by |
 |---|---|---|
 | `identity` | `id` | `tools/move_ingest.py`'s dedupe and filename derivation (§6.9) |
-| `takes` | `takes` | the constraints call at extraction (kogaki#1698); the Brief's and the ParagraphPlan's composers once their Issues move to it |
-| `leaves` | `leaves` | the constraints call at extraction (kogaki#1698); the Brief's and the ParagraphPlan's composers once their Issues move to it |
-| `state-before` | `before` | Path Review's specialization judgment (§4.4); retired-pending, by the Brief's Issue (kogaki#1698) |
-| `state-after` | `after` | Path Review's specialization judgment (§4.4); retired-pending, by the Brief's Issue (kogaki#1698) |
-| `state-after-segments` | `after_segment` | the state-bound re-judge (kogaki#1652); retired-pending, by the Brief's Issue (kogaki#1698) |
+| `state-before` | `before` | for a paragraph Move, the ParagraphPlan stage, until its Issue moves it to `takes` (§4.19); no Brief stage (kogaki#1699) |
+| `state-after` | `after` | for a paragraph Move, the ParagraphPlan stage, until its Issue moves it to `leaves` (§4.19); no Brief stage (kogaki#1699) |
+| `state-after-segments` | `after_segment` | nothing downstream since the state-bound re-judge was retired (kogaki#1699); kept until `--retire-state` |
+| `takes` | `takes` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699) |
+| `leaves` | `leaves` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699) |
 | `obligation` | `obligation` | the composer's deferred slot and §5.2's ledger; retired-pending, by the ParagraphPlan's Issue (kogaki#1698) |
 | `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage, as the Paragraph Waypoints' order where the Move carries no `segments`, and as a criterion of its judge (§4.19, kogaki#1378) |
 | `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage's judge, against the Paragraph Waypoints (§4.19, kogaki#1378) |
@@ -860,7 +798,7 @@ because a role's *reader* is prose this file states and the JSON does not:
 | not read downstream | `evidence` | nothing; kept for the record's own sake |
 
 `identity`, `takes` and `leaves` are the roles every schema must map
-(kogaki#1698, which made the two states optional); the rest are optional, null where a schema has nothing to map them to
+(kogaki#1698); the state roles are read by the ParagraphPlan stage alone until its Issue (kogaki#1699); the rest are optional, null where a schema has nothing to map them to
 (`moves/ROLES.json`). No Move field has a role read after the Candidate: the
 `rendered-to-writer` role left this table with kogaki#1311, when the Packet
 stopped carrying the Move. The multi-schema manifest itself — one library,
@@ -946,8 +884,7 @@ side.
 **The boundary against the Leg's other fields is one of grammatical kind.**
 `purpose` is a verb about the reader and contains no proposition from the
 material; a **claim is a proposition about the world and names no reader**;
-`reader_state_after` is the reader's condition afterwards; `rationale` is the
-order argument. A claim that mentions the reader, or a purpose that could be
+`rationale` is the order argument. A claim that mentions the reader, or a purpose that could be
 true or false of the world, is in the wrong field.
 
 **A Lesson and a Journey are not treated alike, and the asymmetry is the
@@ -966,9 +903,9 @@ never states them and the Blind Reader, asked for one line per thing the passage
 asserts, never recovers them. The first full review run failed `claims-unused`
 on 8 of 8 Legs against premise-type entries alone: a comparison whose declared
 side carries a category its reverse side cannot produce measures nothing.
-**Inherited state stays where it already lives** — `reader_state_before` and the
-computed `already knows` ledger, which were already carrying it twice over — and
-**a reader premise belongs to the Brief's Reader start**.
+**Inherited state stays where it already lives** — the bound Move's `takes`
+and the computed `already knows` ledger — and **a reader premise belongs to
+the Persona's prior-knowledge line** (kogaki#1699).
 
 **One claim per Strand named in `materials`**, and a Strand that serves several
 Legs carries a **different** claim in each — that is what makes the path a
@@ -1176,9 +1113,9 @@ Once the Thesis is decided and the Leg sequence is being composed, a causal
 gap between adjacent Legs is repaired by inserting a **Bridge Leg**.
 
 **An insertion contract, not a type.** A Bridge Leg is an ordinary §4.1 Leg
-whose placement is constrained by its neighbours: its `reader_state_before` is
-the predecessor's `reader_state_after`, as every Leg's is (§4.1); its `reader_state_after` supplies what
-the successor's `reader_state_before` requires; `depends_on` is updated across
+whose placement is constrained by its neighbours: its Move takes what the
+predecessor's Move leaves and leaves what the successor's Move takes
+(§4.12.2); `depends_on` is updated across
 the splice. It may use Strands or not, and bind a Move or not; where its
 connecting claim is not traceable to Strand material it carries the flags every
 Leg already has (§4.4).
@@ -1315,12 +1252,9 @@ disclosure shape is conduct at a judgment point.
 
 ### 4.12 The Leg↔Move instantiation contract
 
-A Leg **instantiates** a Move: `move` names a record in the library (§7), and
-the Leg's `reader_state_after` is the **instance form** of that Move's
-`after`, specialized to this reader and these Strands. Its
-`reader_state_before` instantiates nothing: it is derived (§4.1, kogaki#1325),
-and what is asked of the Move's `before` is whether it requires anything that
-derived state does not hold. §4.1
+A Leg **instantiates** a Move: `move` names a record in the library (§7), the
+Leg's `waypoints` specialize its `segments` to this reader and these Strands,
+and its `takes` and `leaves` are met across the path (§4.12.2, kogaki#1699). §4.1
 makes the binding required; this section governs **the relationship the binding
 asserts**.
 
@@ -1330,7 +1264,7 @@ which added the third for the reason §4.12.3 states:
 | half | the question | who answers | where it is carried |
 |---|---|---|---|
 | mechanical | does the id resolve? | the runtime | a set-membership test over the library |
-| judged | does the Leg fit its Move — the `before` requiring nothing the derived state lacks, the after-state and the points specializing the rest? | the composing sitting | a typed record the runtime validates and never composes |
+| judged | does the Leg fit its Move — its `takes` met, its `leaves` taken up, its points specializing the rest? | the composing sitting | a typed record the runtime validates and never composes |
 | ratified | does the owner accept that judgment as the ground for writing this path? | the owner | a capture at a declared gate, bound to the Candidate and to the record |
 
 `necessity:` that the contract HAS these halves, and that which half a property
@@ -1373,20 +1307,17 @@ responsibility ends, which no call site states.
    order, **quoting the sentence the judging sitting wrote** rather than
    paraphrasing a judgment the runtime did not make.
 
-**What is judged, per Leg** (kogaki#1311, replacing #1276's second and third
-clauses; the first clause split by kogaki#1325). Four things, all against the
-Move the Leg binds, whose contract the input carries beside the Leg's own
-`waypoints` and its derived `reader_state_before`:
+**What is judged, per Leg** (kogaki#1699, replacing the two state readings
+of kogaki#1311 and kogaki#1325). Four things, against the Move the Leg binds,
+whose `takes` and `leaves` the input carries in `move_contracts` beside every
+Leg's `waypoints`:
 
-- **one question of the Move's `before`**: does it require, on any dimension,
-  something the derived before-state does not hold? A Move whose `before`
-  needs a stated claim that no earlier Leg's claims or `introduces` entries
-  carry does not fit — `contradicts`, with the `why` naming the dimension —
-  and at the first Leg, where nothing has been stated, that is any stated
-  claim at all. The before-state itself is never judged: it is derived, so
-  there is nothing in it a composer could have specialized well or badly;
-- whether `reader_state_after` is a consistent specialization of the Move's
-  `after`;
+- **TAKEN**: each `takes` entry of the Leg's Move is met by an entry an
+  earlier Leg's Move leaves and no Leg between has taken up, or, on the first
+  Leg, by what the Persona's prior-knowledge line supplies — the kinds
+  matching as words, the `what` lines by sense, never verbatim. A miss is
+  `contradicts`, the `why` naming the entry by kind and `what` and the Leg
+  that was to leave it (`src/specialization-schema.json`, `before_state`);
 - whether the Leg's **points, read in order, follow the Move's order** as its
   `segments` give it, or as its `technique` gives it where the Move carries
   no `segments` (kogaki#1320 — the 21 Moves ingested before the field
@@ -1395,7 +1326,14 @@ Move the Leg binds, whose contract the input carries beside the Leg's own
   are judged, not the claims and not the state lines: on 2026-10-08 the
   judgment read Leg 4's state lines, which the composer had written to
   mirror the Move, and passed a Leg the writer then could not perform;
-- whether the waypoints **survive each test in the Move's `breaks`**.
+- whether the waypoints **survive each test in the Move's `breaks`**;
+- **LEFT**: each `leaves` entry of the Leg's Move is taken up by a later
+  Leg's Move, or is left by the `reaches_target` Leg as what the article
+  leaves the reader with, and a `carry` is never left at the end; the `why`
+  names the entry and that no later Leg takes it up.
+
+`compose_path_unit` states the same two rules to the composer as TAKE and
+LEAVE; the record carries no field for either.
 
 **Count fidelity is not a criterion.** A Leg whose `technique` names "twice"
 and whose waypoints number three is not refused on that ground. The verdict
@@ -1408,24 +1346,11 @@ verdict-shaped field by key. A specialization verdict recorded there would be
 **unattachable by construction**. The judgment is sited where a verdict is a
 legitimate output.
 
-**One Path Review item carries a verdict, and it is named rather than
-admitted by shape** (kogaki#1283, owner decision of 2026-10-06). `discharge`
-judges, per Obligation record and Leg closing any of its items (kogaki#1612),
-whether every item that Leg closes is explained by its Waypoints and claims
-(`holds` / `fails`).
-It compares two carriers rather than reading the writing, so a closed
-two-value verdict is its legitimate output. `src/review.mjs` exempts exactly
-that key from the verdict scan; every review-area entry stays prose and is
-still refused a verdict-shaped field by key. The verdict is carried to the
-human gate and refuses nothing. The specialization verdict is still not sited
-there: it judges one Leg against its own Move, which `discharge` does not.
-**`question_chain` was the second such item and is retired** (kogaki#1325): it
-judged whether Leg N's after-state question line and Leg N+1's before-state
-question line named the same question (kogaki#1283, narrowed to the Leg lines
-by kogaki#1324). With the before-state derived from the previous after-state
-the two lines are one line, so a record carrying it is refused by name; the
-Move's `after` question against the state is the fit judge's after-state
-comparison.
+**`discharge` is retired with the Obligations ledger** (kogaki#1699): it was
+the one Path Review item carrying a verdict (kogaki#1283), and a record
+carrying `discharges` is refused naming the key. Every review-area entry stays
+prose and is refused a verdict-shaped field by key. **`question_chain` is
+retired** (kogaki#1325) and refused by name.
 
 **The record is bound on both axes** — the **Candidate** it was composed
 against, and per verdict the **Move** the Leg binds. Without the first a
@@ -1450,23 +1375,10 @@ that every Leg carries waypoints that serve its claims, which is shape;
 re-deriving the verdict would be the runtime composing one, which clause 2
 forbids.
 
-**The first Leg's before-state IS Reader start** (kogaki#1325, owner decision
-2026-10-10), derived like every other Leg's before-state, so the question asked
-of Leg 1's Move is the one question above, against Reader start. Reader start
-is a cold read from the Persona and the Thesis (§5.1.1), never from a Move, so
-an opening Move whose `before` needs a claim the reader could only hold from
-the article is refused at the first Leg, naming the dimension. The judgment
-input carries each Leg's derived before-state and the question itself
-(`src/specialization-schema.json`, `before_state`); the vocabulary, the
-one-per-Leg rule, the path-order refusal and the unit's re-ask are unchanged.
-**What this replaces** is kogaki#1216's arrangement, under which Leg 1's
-composed before-state was judged a consistent specialization of Reader start —
-the arrangement that let the 2026-10-09 run move the Thesis into `knowledge`.
-kogaki#1216's own ground still holds: Reader start is never written backwards
-from the first Leg's Move, because the judgment now runs from the state to the
-Move's `before` rather than from a composed before-state back to Reader start,
-and the first Leg still binds a Move whose `before` merely does not contradict
-Reader start.
+**The first Leg's `takes` are met by the Persona's prior-knowledge line**
+(kogaki#1699), which `differentiation` carries; nothing else stands before the
+first Leg, and no Reader start is authored. This retires kogaki#1325's derived
+before-state and kogaki#1216's Reader start judgment.
 
 **The judged half runs per compose job unit, before Path Review** (kogaki#1307,
 owner decision 2026-10-08; this fills the deferred slot
@@ -1478,7 +1390,7 @@ review is positioned incorrectly. Each compose job unit is a headless session
 (a `claude -p` child that runs with no tools); once its record passes the
 schema, the supervisor runs one more headless session over that record alone,
 from the `reader_path_fit_unit` row of `src/brief-workflow.json`, with each
-Leg's Move contract and the Brief's Reader start. A `contradicts` or
+Leg's Move contract and the Persona's prior-knowledge line. A `contradicts` or
 `cannot-determine` on any Leg is a **schema refusal** of the unit. The record
 is written beside the unit's Candidate and adoption renders it as the one
 sentence kogaki#1108 made it. When every unit is refused, the Brief ends with no
@@ -1486,18 +1398,14 @@ question, its empty `theses/<slug>/` is removed, and the closing report names
 each Candidate's failing Legs and says the Brief was removed.
 
 **The fit pass asks one more question, at the marked Leg only** (kogaki#1330).
-Beside each Leg's Move-fit judgment, `reader_path_fit_unit` asks whether the
-Leg marked `reaches_target`'s `reader_state_after` holds the Thesis as a claim
-the reader can state in their own words — Thesis attainment is judged where
-the Reader target is reached (§5.1), never at the review of the finished
-Draft. The fit input carries the Thesis beside the Candidate, read from the
-Brief record (`readerPathFitInput`, `src/brief.mjs`). A marked Leg whose
-after-state does not hold the Thesis is `contradicts`, with a `why` naming the
-Thesis — the same schema refusal as above, re-asked with the refusal text
-until the unit's attempts are spent. Legs before the mark and closing Legs
-after it owe nothing on the Thesis, and this adds no rule about which Leg is
-last: the closing-Leg rules (`closing_leg_introduces_nothing`,
-`closing_leg_state_fixed`) and `readerTargetLegRefusal` are unchanged.
+`reader_path_fit_unit` asks whether the `reaches_target` Leg's `claims` and
+`waypoints` establish the Thesis as a claim the reader can state in their own
+words (kogaki#1699, in place of its `reader_state_after`). The fit input
+carries the Thesis, read from the Brief record (`readerPathFitInput`). A
+marked Leg that does not is `contradicts`, with a `why` naming the Thesis —
+the same schema refusal, re-asked until the unit's attempts are spent.
+`closing_leg_introduces_nothing` and `readerTargetLegRefusal` are unchanged;
+`closing_leg_state_fixed` leaves with the state fields.
 
 **A job unit is bounded per call and per attempt count** (kogaki#1355, owner
 decision 2026-10-13, replacing kogaki#1273's one retry that fits). Two
@@ -2023,28 +1931,28 @@ composition and validation sides to build against:**
 
 1. **The article's title is the Thesis, verbatim.** No field is composed for
    it: `src/draft.mjs` renders the Brief's own `## Thesis` section (the durable
-   home and the entry point) as the Draft's first line, a level-one heading,
+   home and the entry point) as the Draft's first line, a level-one heading
+   (the Brief's Reader target heading renders the same Thesis, kogaki#1699),
    read by the same parser the Brief side exports for it (`briefThesis`,
    `src/brief.mjs`) rather than a second reader that could disagree with it
    about what the Thesis says.
 2. **A Section heading states the Section's destination, in everyday words.**
    `opens_section`'s value is one plain sentence or phrase stating what the
-   reader holds at the Section's end, drawn from the after-state of the
-   Section's last Leg — not a restatement of the Leg's `purpose`, and not a
+   reader holds at the Section's end, drawn from the claims of the
+   Section's last Leg (kogaki#1699) — not a restatement of the Leg's `purpose`, and not a
    term coined for the occasion: "I want readers to be able to skip directly
    to any Section and still understand its heading."
 3. **No heading carries a term the article introduces anywhere in it** — not
    just a term introduced within that Section. `validateLegs`
    (`src/compose.mjs`) refuses a Candidate whose `opens_section` contains,
    whole-word and case-insensitive, the `term` of any Leg's `introduces` entry
-   anywhere on the path, naming the heading and the term — the same mechanical
-   test §4.13's reading of Reader start already runs (kogaki#1225,
-   `introducedTermInReaderStart`), because a reader may enter the article at
+   anywhere on the path, naming the heading and the term, because a reader
+   may enter the article at
    any Section and a term that Section's own Legs did not introduce is still
    one the reader does not yet hold.
 
 **Rule 3 is mechanical; rule 2's "states the destination" is judgment, read
-beside the after-state it is judged against** — one more item at the fit
+beside the claims of the Section's last Leg** — one more item at the fit
 judge, the Leg that opens the Section, the same site §4.12.2's specialization
 verdict already runs at.
 
@@ -2057,8 +1965,7 @@ build.
 **What this subsection does not decide.** Whether a given heading's wording
 states the destination well enough is the fit judge's judgment, not a second
 mechanical test; rule 3 is the one deterministic refusal rule 2's content
-admits, the same relationship §4.13 holds between Reader start's content and
-the one term-match it refuses on.
+admits.
 
 ### 4.16 The figure decision — `figure:` and `figure_roles` on a Leg
 
@@ -2164,7 +2071,7 @@ served, plus a block carrying
 - **the Leg's realized prose**, verbatim;
 - **the instruction** — every element is one of the bound claims worded for the
   reader; the caption says what the reader holds after looking, in the terms of
-  `reader_state_after`; no element the claims do not carry.
+  this Leg's claims; no element the claims do not carry.
 
 **The block lives in `src/packet-template.md` behind a marker the Packet render
 splits away.** One model-facing template file, two consumers: a second file
@@ -2528,18 +2435,19 @@ by a bench run or by the shared-text rule (kogaki#1452).
 
 | criterion | standing | Leg | Paragraph | reason | binds |
 |---|---|---|---|---|---|
-| Precondition fit | shared | `the before-state criterion` | `PRECONDITION` | the entry state is derived the same way at both levels, the Leg's from the Leg before it and the paragraph's from the paragraph before it | criterion |
-| Postcondition specialization | shared | `the after-state specialization` | `POSTCONDITION` | a paragraph's `reader_state_after` is its Move's `after` made particular, as a Leg's is | criterion |
+| Precondition fit | paragraph only | — | `PRECONDITION` | the paragraph still enters from a derived state, the paragraph before it's, until the ParagraphPlan's Issue moves it to `takes`; the Leg's reader states are retired (kogaki#1699) | criterion |
+| Postcondition specialization | paragraph only | — | `POSTCONDITION` | a paragraph's `reader_state_after` is its Move's `after` made particular until the ParagraphPlan's Issue; a Leg carries no state (kogaki#1699) | criterion |
+| Takes met | Leg only | `TAKEN` | — | a Leg's Move's `takes` are met by what an earlier Leg's Move leaves or by the Persona's prior knowledge (kogaki#1699); the paragraph judge reads `takes` from the ParagraphPlan's Issue on | criterion |
+| Leaves taken up | Leg only | `LEFT` | — | a Leg's Move's `leaves` are taken up by a later Leg's Move or left by the `reaches_target` Leg (kogaki#1699); the paragraph judge reads `leaves` from the ParagraphPlan's Issue on | criterion |
 | Segment order | shared | `the waypoints against the Move's order (its segments role)` | `OWN STEP` | tightened at the paragraph: a Paragraph Waypoint is one Segment, so it carries nothing a later Segment produces, where a Leg need not reproduce the Move element for element | wording |
 | Breaks | shared | `the waypoints against the tests role` | `BREAKS` | a test names a change to the points, and the points exist at both levels | criterion |
 | Operation performed | paragraph only | — | `operation_is_performed` | a Segment's operation is performed only where a Paragraph Waypoint is that Segment, and a Leg Waypoint is a point | wording |
 | Manner not content | paragraph only | — | `manner_is_not_content` | a manner realises one Segment, and only a Paragraph Waypoint realises one | wording |
-| Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their derived states | wording |
-| Promise kept | paragraph only | — | `PROMISE KEPT` | an Obligation is kept where its items are stated, which a paragraph does; the Leg opens the record, row Obligation slots | wording |
+| Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their Moves' `takes` and `leaves` (kogaki#1699) | wording |
+| Promise kept | paragraph only | — | `PROMISE KEPT` | an Obligation is kept where its items are stated, which a paragraph does; the Paragraph-scale record stays until the ParagraphPlan's Issue | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Paragraph Waypoint's field | wording |
-| Section heading | Leg only | `the heading against its Section's last after-state` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
-| Thesis attainment | Leg only | `the after-state against the Thesis` | — | the Thesis is attained at the Leg marked `reaches_target` (kogaki#1330), a Leg-level object | criterion |
-| Obligation slots | Leg only | `the rows against the slots` | — | a Move's deferred slot is filled by the records a Leg opens, a Leg-level object | criterion |
+| Section heading | Leg only | `the heading against its Section's last claims` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
+| Thesis attainment | Leg only | `the claims and waypoints against the Thesis` | — | the Thesis is attained at the Leg marked `reaches_target` (kogaki#1330), a Leg-level object | criterion |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
 Paragraph cell is an axis or a shared criterion the judge row names, every
@@ -2974,12 +2882,12 @@ one with id `h1`. The Leg's Claims are one per relation and then the
 higher-order relation, in order. **The proposition-word test**: a `context` or
 `holds` that carries a content word of the `proposition:` line is refused,
 naming the word and the field. The same test runs over every Leg Waypoint
-`point` and the Leg's `reader_state_after`. The WBS's words do not reach the
+`point` (a Leg carries no `reader_state_after` since kogaki#1699). The WBS's words do not reach the
 reader.
 
 **How the Brief is made.** The runner composes a one-Leg Brief from the
-structure. The Reader start comes from the Proof Sheet's
-`leg_reader_start_unit` row. The Leg comes from the `smp_leg_unit` row of
+structure. No Reader start is composed (kogaki#1699): the Leg call is handed
+the Persona's prior-knowledge line. The Leg comes from the `smp_leg_unit` row of
 `src/mapping-playground/playground-workflow.json`, which is derived from the
 production `reader_path_unit` row by `copy_of` and `substitutions`. The Leg's
 Claims are the structure's `holds` sentences, word for word. The Leg carries
@@ -3221,14 +3129,13 @@ folded. The runner writes the sheet once and never reads it.
 - `Bindings` is one two-column table per binding, in order, captioned
   `Binding N` with N its paragraph's number, one labelled row each
   (kogaki#1682): `Move`, the id; `Bound by`, the record's `bind.author`,
-  `owner` or the composed route's row `smp_bind_move`; `Before` and `After`,
-  the Move's `before` and `after` read through `loadMoveContracts` from the
-  record's `library`, one sub-row per key, or `none` where the Move carries
-  none; `Takes` and `Leaves`, the Move's `takes` and `leaves`, one sub-row per
-  entry as `<kind>: <what>`, or `none` where the list is empty (kogaki#1700);
-  and `Rationale`, `binding_rationale`, or `none` where it is null. A Move the
-  library no longer holds renders `not in the library` in `Before`, `After`,
-  `Takes` and `Leaves`.
+  `owner` or the composed route's row `smp_bind_move`; `Takes` and `Leaves`,
+  the Move's `takes` and `leaves` read through `loadMoveContracts` from the
+  record's `library`, one sub-row per entry as `<kind>: <what>`, or `none`
+  where the list is empty (kogaki#1700); and `Rationale`,
+  `binding_rationale`, or `none` where it is null. The Move's `before` and
+  `after` have no row (kogaki#1699). A Move the library no longer holds renders
+  `not in the library` in `Takes` and `Leaves`.
 - `Mapping` is one line `Base: <domain>`, or `Base: none` where the run
   stopped before a table was written, above one table of three fixed columns, `Abstract`, `Attribute` and
   `Correspondence` (kogaki#1693), one row per Role in the structure's order:
@@ -3339,19 +3246,11 @@ YAML." The record's native tree is that organization — waypoints and claims
 as lists of maps, each reader state as a five-key map, `introduces` as a list
 — and no line of it exceeds 120 characters.
 
-- **`reader_start`**, **`reader_target`** — the two reader keys, each naming
-  one reader state that appears once in the path (kogaki#1225):
-  `reader_start`, where the path begins, a five-key map authored once per
-  Brief at **Differentiation** from the Persona and the Thesis;
-  `reader_target`, where it ends, **names the Leg marked `reaches_target`**
-  (kogaki#1231), whose `reader_state_after` it is. Both land at **Candidate
-  selection**. No Opening question is written: `opening_question` and
-  `reader_target` are retired Candidate fields, refused by name. **This is
-  the Leg Thesis attainment is judged at** (kogaki#1330, §4.12.2): the fit
-  pass asks, at this Leg alone, whether its `reader_state_after` holds the
-  Thesis as a claim the reader can state in their own words, never at the
-  review of the finished Draft.
-  `reader_start` is a **stance**, not a knowledge state: §5.1.1 defines it.
+- **`reader_start`**, **`reader_target`** — **retired record keys**
+  (kogaki#1699): the Reader start heading renders the Persona's
+  prior-knowledge line and the Reader target heading renders the Thesis,
+  which the `reaches_target` Leg attains (kogaki#1330, §4.12.2); a Candidate
+  carrying either key is refused by name.
 - **`thesis`** — read from Terrain (§3), never invented here.
 - **`defined_terms`** — the article's **Defined Terms** (kogaki#1331, owner
   decision 2026-10-10): every noun of the Thesis and of each Strand's claim,
@@ -3372,15 +3271,14 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
   decision 2026-10-21): the source terms the article will not keep, each with
   the plain phrase it uses instead. Composed at Differentiation and written
   into the Brief at adoption; §5.1.4 states it.
-- **`reader_path`** — the ordered Legs of §4.1. **Each reader state is written
-  once per boundary**: a Leg carries its `reader_state_after` and no
-  before-state, which is the previous after-state (or `reader_start`) and is
-  derived on read (kogaki#1325).
+- **`reader_path`** — the ordered Legs of §4.1, carrying no reader state
+  (kogaki#1699).
 - **`strand_coverage`** — per selected Strand: `used_by_legs`,
   `role_in_thesis`; and **`journey_coverage`** — per Journey-bearing Strand,
   the Legs that place it or why it was omitted.
-- **`closure`** — the Leg-level rows of **Obligations**, §5.2. The Thesis row is
-  not written: it is derived from `strand_coverage` (§5.2).
+- **`obligations`** and **`closure`** — retired (kogaki#1699, §5.2): a record
+  carrying either is refused naming the key. The Thesis row is not written: it
+  is derived from `strand_coverage` (§5.2).
   `reasoning.thesis_closure` is a retired Candidate field, refused by name.
 - **`tradeoffs`** and **`bridged`** — the adoption record: what adopting this
   path gave up, and what the composer inserted to carry the reader across a
@@ -3393,43 +3291,15 @@ block authors which field, which the subsections below state one at a time.
 
 #### 5.1.1 The three reader fields, and the block that authors them
 
-**`reader_start` is a stance in the Move library's own dimensions (owner
-ruling, 2026-09-21, kogaki#1176), not the knowledge state it was written as
-before.** A knowledge-only Reader start forced the first Leg onto a Move whose
-`before` (§4.2) reads as an in-subject understanding — the only kind a bare
-knowledge sentence can specialize — which is a Reader start with no Move able
-to act on it, and inert data. `reader_start` is written in the same
-`dimension: value` lines §4.2's `before`/`after` already use, over the same
-dimension set: knowledge is one of the five, not the whole of the field. The
-dimension set itself is not restated here — it is read from whatever the Move
-library's own schema carries (`src/leg-schema.json`, §4.2), which kogaki#1175
-derived from the Corpus; the five named at §4.2 (knowledge, question,
-expectation, orientation, trust) are the hypothesis that derivation tested, not
-a second, independent declaration (owner amendment, 2026-09-23). No `Position`
-value is added to a Move or to `reader_start` — the five dimensions are the
-whole of a stance (owner ruling, 2026-09-23).
-
-**Reader start is a COLD READ, and its stimulus is pinned: the state of a
-reader with the declared Persona who has seen the Thesis, read as if it were
-the article's title, and nothing else** (owner decision 2026-09-28,
-kogaki#1216; stimulus pinned 2026-09-29, kogaki#1225). A Brief carries no Title
-at composition, so the Thesis stands in for it, and the substitution is stated
-where the composer reads it (`src/differentiation-schema.json`, the
-`differentiation` row of `src/brief-workflow.json`). It is authored from the
-Persona and that Thesis, never from the Move the first Leg binds, and never
-from a problem the reader is assumed to have lived. What stood here let it be written backwards: the
-verbatim binding at §5.2 forced the first Leg's `reader_state_before` to equal
-Reader start, and §4.12.2 forced that same field to specialize the Move's
-`before`, so Reader start became the bound Move's `before` with the article's
-nouns substituted — in `theses/set-automatic-rules-only-sees/brief.md` the
-Move said "the explanation will choose among familiar motives" and the Brief
-said "expects the explanation to pick among those familiar failings". The
-owner's reading of why: a model fills the schema it is given and is poor at
-deciding a field is absent, so a question was manufactured for passages that
-had none; the exemplar Extraction in `passages/FORMAT.md` records the question
-before the passage as `none, or "should I read this?"`, and the Move ingested
-from it recorded an unanswered question. No Move in the library held no
-question, so the `holds: none` opening below was legal and unreachable.
+**Retired at the record (kogaki#1699).** `reader_start` leaves the
+`differentiation` record and the Candidate, and `reader_target` stays refused
+by name. The Brief's Reader start heading renders the Persona's
+`prior_knowledge` line, which `differentiation` already carries, and its
+Reader target heading renders the Thesis. What stood here — a five-dimension
+stance authored as a cold read of the Thesis (kogaki#1176, kogaki#1216,
+kogaki#1225) and derived into the first Leg's before-state (kogaki#1325) — is
+superseded: the first Leg's `takes` are judged against the prior-knowledge
+line (§4.12.2).
 
 **The Persona is declared once, in one owner-authored Audience file the
 workflow table names** — `audiences/dev-to-zenn.md`, in an `audiences/`
@@ -3450,108 +3320,22 @@ sentences each, and stays far smaller than a Move:
 - **`prior_knowledge`** — what can be used without explanation, and what
   cannot. Grounding: prior knowledge as the determinant of how much a text must
   make explicit (Kintsch; McNamara & Kintsch 1996), and audience analysis in
-  technical communication. **Its one reader is Reader start**: it grants a
+  technical communication. **Its readers are the first Leg's TAKEN judgment
+  and the Reader start heading** (kogaki#1699): it grants a
   claim no word (kogaki#1331, owner decision 2026-10-10 — "Let us remove
   Persona's permission to use specialized terminology"), and neither
   composition nor path review reads it. Which words a Leg must introduce is
   the Brief's `defined_terms` (§5.1).
 
-Nothing about attitude, trust or the reader's question: those are Reader start
-dimensions, and holding them in the Persona would duplicate it. **The Persona
-constrains Reader start without duplicating it** (Ede & Lunsford 1984: the
-Persona is the audience *addressed*, stable across articles; Reader start is
-the audience *invoked* for this Thesis). Each Reader start line is derived
-from a named field plus the Thesis, and the Persona is never copied into the
-Brief: `knowledge` from `prior_knowledge` (a term the Persona lists as unknown
-may not appear, which the vocabulary guard §5.1.2 already reads); `question`
-is `holds: none`, or this reader's reaction to the wording they saw, in their
-own words — never a question in the article's terms, and never a problem they
-are assumed to have lived (kogaki#1225; `holds: none` is not a default rule —
-it is what a properly established cold read comes out as when the wording
-raises nothing for this reader); `expectation`, `orientation` and `trust` from
-`reader` plus the Thesis as a title. **What the reader saw at the title
-enters the `question` dimension only** (kogaki#1325): the Thesis may appear in
-`question`, as the reader's reaction to the wording, and never in `knowledge`,
-because no text has stated it yet — and Reader start is the first Leg's
-before-state verbatim (§4.1), so whatever it holds is what the opening Move's
-`before` is judged against. One part of that is mechanical and refused at the
-`differentiation` record: a `knowledge:` line containing the Thesis
-(`readerStartThesisRefusal`). The rest of the
-derivation is composition judgment stated to the composer, not linted (§4.6).
-Selecting a Persona per article is out of scope; the `compose_path` row of
-`src/brief-workflow.json` names the Audience file it reads, as it names its
-schema files, and there is no per-article selection.
+Nothing about attitude, trust or the reader's question. Selecting a Persona
+per article is out of scope; the `compose_path` row of
+`src/brief-workflow.json` names the Audience file it reads.
 
 **The first Leg binds a Move by EXCLUSION, not optimization** (owner
-amendment, 2026-09-28). A Move is excluded when its `before` contradicts
-Reader start on a dimension it declares; a Move that omits a dimension is not
-excluded on it. Survivors are not ranked and no score exists anywhere. Leg 1
-binds a survivor by the same composition order every Leg uses — Strand
-information, Leg reasoning, then the Move (§4.5) — and the grounds test
-applies. The check is the existing specialization verdict applied to Leg 1
-against Reader start (§4.12.2): `specializes` passes, `contradicts` refuses.
-Where Reader start's `question:` line reads `holds: none`, a Move whose
-`before` holds no question, or declares no `question` line at all, survives;
-the Move's `after` is what first hands the reader a question. **Convergence is
-made visible:** the Brief records how many Moves survived the exclusion for
-Leg 1, and a count of one names the library, not the rule, as the cause of a
-repeated opening — the fix is a Move extracted from an opening passage.
-
-**No Opening question is rendered** (owner decision 2026-09-29, kogaki#1225).
-kogaki#1216 read it off the first Leg's after-state `question:` line and
-rendered that line under an `Opening question` heading; the first Brief
-composed that way rendered it three times — the Leg's own line, the heading,
-and every Leg Packet's fixed-points block. The first Leg already carries a
-before-state and an after-state, so a heading repeating its after-state
-question was a second Question inside Leg 1. The heading, the Packet line and
-the first-Leg `question:` requirement are removed together; whatever question
-the opening leaves the reader holding lives in the first Leg's after-state, in
-the reader's own words, and nowhere else. `opening_question` stays a retired
-Candidate field, refused by name.
-
-**The block is DIFFERENTIATION for Reader start, and Reader target is
-DERIVED.** Reader start depends on the Persona and the Thesis and on no path,
-so it is authored once per Brief at the `differentiation` state (§6.1), which
-also lists the first-Leg survivors, and the Harness sets it on every
-Candidate; three units authoring it would author one fact three ways, and the
-exclusion could be checked against none of them. Reader target is where *this*
-path leaves the reader, which is exactly the last Leg's `reader_state_after`:
-the Brief renders that state, whole and line for line, under the existing
-`Reader target` heading (`lastLegAfterState`, `src/assemble.mjs`), per
-Candidate, since the last Leg is. A Candidate carrying a `reader_target` field
-is refused by name (kogaki#1225): authored apart from the Leg it was a second
-statement of one fact that the Harness compared with nothing — it checked only
-that the string was non-empty. Both land at adoption beside `closure`
-and `tradeoffs`.
-
-- **No new gate.** They ride the Candidate-selection gate §6 already carries,
-  as `journey_coverage` does.
-- **Two Candidates may differ on Reader target**, because their last Legs
-  do, and the difference is composition information rather than noise; they
-  no longer differ on Reader start, because a Reader start that varied with
-  the path was the defect.
-- **The mint is still not the site for Reader target:** a Thesis states a
-  claim, not where the reader is left. Reader start is derived from the
-  Thesis *and* the Persona, which is the material the mint lacked.
-
-**One deterministic refusal where judgment cannot be** (kogaki#1225). Whether
-a Reader start is a good cold read is judgment and is linted nowhere; but a
-Leg's `introduces:` entry is the composer's own declaration that the reader
-does not hold that term, and a declaration can be read. A Reader start line
-that contains a term any Leg of the path lists under `introduces:` is refused
-at adoption, naming the term and the Leg (`validateLegs`, `src/compose.mjs`;
-whole word, case-insensitive; the check carrier is
-`checks/check-brief-compose.sh`). A term the path introduces is by definition
-one the reader does not hold on arrival.
-
-**An absent value REFUSES at adoption**, naming what is missing: a Reader start
-absent from the differentiation record, or a last Leg stating no after-state
-for Reader target to be read from. It does not fill a default and does not
-render a typed absence and proceed. The contrast with §6.1 MUST 1 is the
-argument: a Journey's absence is a *fact about the served material*, which a
-composition sitting cannot conjure; Reader start is the differentiation
-state's to author, and a last Leg with no after-state is a composition fault
-named by Leg.
+amendment, 2026-09-28): a Move whose `takes` the prior-knowledge line does not
+meet is refused at the first Leg (§4.12.2, kogaki#1699). Survivors are not
+ranked and no score exists anywhere. No Opening question is rendered
+(kogaki#1225); `opening_question` stays a retired Candidate field.
 
 `necessity:` an authoring site and a refusal, both judgments about where a
 value comes from. A default would satisfy every mechanical property here.
@@ -3668,6 +3452,14 @@ Differentiation rather than at the Writer, and why a term the Thesis carries is
 kept.
 
 ### 5.2 Obligations
+
+**The Leg scale is retired (kogaki#1699).** The Brief carries no
+`obligations`: what one Leg leaves for a later Leg is its Move's `leaves`,
+taken up by a later Move's `takes` (§4.12.2), and a record carrying
+`obligations`, `closure` or `discharges` is refused naming the key. Rule 5,
+`obligationLedgerRefusal`, `discharge` and every Leg-scale clause below are
+retired with it; the **Thesis row** stays (below). The Paragraph scale stands
+until the ParagraphPlan's Issue retires it.
 
 **The term is Obligations** (kogaki#1528, owner decision 2026-10-23,
 superseding "Closure", which superseded "Landing" and the rendered heading
@@ -3805,13 +3597,10 @@ govern it:
 8. **The Thesis row** stays derived (kogaki#1328, below) and is outside the
    capacity rule, as it was.
 
-`src/leg-schema.json`'s `path_rules` states rules 1, 3, 4 and 5 to the
-composer as checked entries, and `obligationLedgerRefusal`
-(`src/compose.mjs`) refuses over them naming the record and the Leg; at the
-Paragraph scale `paragraphObligationsRefusal` refuses over the same rules.
-*Status: both scales are carried by the executables* (kogaki#1529,
-kogaki#1530, kogaki#1612, kogaki#1620): the Brief's `obligations` records and
-a Leg's `obligations` in the ParagraphPlan file carry `opened_by` and `items`,
+At the Paragraph scale `paragraphObligationsRefusal` refuses over rules 1, 3
+and 4; `src/leg-schema.json` states none of them since kogaki#1699.
+*Status: the Paragraph scale is carried by the executables* (kogaki#1530,
+kogaki#1612, kogaki#1620): a Leg's `obligations` in the ParagraphPlan file carry `opened_by` and `items`,
 each item's `subitems` held to rule 4, a Leg Waypoint's own `obligations` is
 refused by name, the retired `closure` key, `introduced_by` field and every field
 kogaki#1612 retired are refused by name, `introduces_item` carries no `kind`,
@@ -3819,69 +3608,16 @@ and a Move's deferred slot reaches the composer's input. An Issue that changes
 it reads its rule here, and an Issue that changes a rule changes it here
 first.
 
-**One ledger at two levels.** The **Thesis row** is the Thesis's own promise,
-and it is **derived, never written** (kogaki#1328): rendered from each placed
-Strand's `strand_coverage.role_in_thesis` and handed to the one Leg marked
-`reaches_target`, whose after-state is the Reader target, and to no other Leg.
-It was the Candidate's free-text `reasoning.thesis_closure`, copied into the
-Brief whole — one line of 1934 characters in the 2026-10-09 Brief, restating
-what the coverage already carried per Strand. The **Leg rows** are the
-obligations ledger — the owner's proposed name is *Legs closure* — the record's
-`obligations` list (the `closure` list until kogaki#1529), each record carrying
-`opened_by` and its `items`.
-
-**Every item is closed by a Leg, written by the composer** (kogaki#1612): its
-`closed_by` names the Leg that explains it. **"Unresolved" is not a state the
-finished ledger can hold** — `validateLegs` (`src/compose.mjs`) refuses a
-Brief carrying an item still open at the path's last Leg, naming the record
-and the item. No item is set aside: the conceded state is retired with its
-three fields.
-
-- **The Strand cover is counted in placements, after composition**, and an
-  unplaced selected Strand discloses.
+**The Thesis row** is the Thesis's own promise, and it is **derived, never
+written** (kogaki#1328): rendered from each placed Strand's
+`strand_coverage.role_in_thesis` and handed to the one Leg marked
+`reaches_target`, and to no other Leg. The Strand cover is counted in
+placements, after composition, and an unplaced selected Strand discloses.
 `consulted: product-lab@f918c5158c718394b3a0e4f10239d75bbb451b74 topics/articles.md:75`
 
-**The ledger is a key of the Brief record**, not a sidecar and not a
-projection assembled at gate time. The same record carries the obligations and
-the coverage the Thesis row is derived from, so the gate reads one artifact
-and a sidecar cannot drift from it. The entries are **authored judgments** —
-"this Leg opens this question" — not something a computation reveals from data
-already kept, so they need a record and the record belongs where its consumer
-reads it.
-
-**Reader start no longer binds the first Leg verbatim** (kogaki#1216, owner
-decision 2026-09-28). `validateLegs` used to refuse a path whose first Leg's
-`reader_state_before` was not the Brief's Reader start as an opaque string,
-and that match — beside §4.12.2's specialization rule — is what wrote Reader
-start backwards from the first Leg's Move. The verbatim check is retired from
-`src/compose.mjs` and from `src/leg-schema.json`'s `path_rules`
-(`reader_start_binds_first_leg`); what `validateLegs` still refuses is Reader
-start's own shape. The first Leg still opens from Reader start, and since
-kogaki#1325 its `reader_state_before` IS Reader start, derived rather than
-composed (§4.1): the verbatim equality returns by construction, without the
-backwards authoring, because what is judged is whether the opening Move's
-`before` requires anything Reader start does not hold (§4.12.2). The Move it
-binds is one the exclusion of §5.1.1 did not remove — stated to the composer
-as the judgment-class `first_leg_binds_a_survivor` path rule.
-
-**A row that needs a sentence of its own gets a waypoint** (kogaki#1496, owner
-decision 2026-10-21: Closure "should influence Move selection, Waypoint
-creation, and noun phrases within Waypoints rather than independently adding
-prose"). The records never reach the Packet (rule 6, kogaki#1584), so a
-record reaches the prose only through the plan. Where explaining an item needs
-a sentence the closing Leg's other points do not already make, the Brief's
-reader-path unit composes a waypoint of the closing Leg for it, and the item
-reaches the prose through that waypoint and its Paragraph Waypoints. The Path
-Review's `discharge` item (§4.12.2) already names each record's items beside
-the claims of the Leg closing them (kogaki#1612), which is where an item no
-point explains is read; it is unchanged by this paragraph.
-
-**There is no mechanical judge of the CONTENT of any of this.** Whether an
-obligation is worth entering, and whether a closing Leg explains its items, is
-judged at Path Review (§4.3); Kogaki guarantees citations and the substrate
-guarantees facts. What the runtime enforces is SHAPE alone: every item closed
-in order after its opening Leg, and Reader start in its line-per-dimension
-shape.
+**There is no mechanical judge of the CONTENT of any of this.** Whether a
+paragraph explains its items is judged by the ParagraphPlan judge (§4.19);
+what the runtime enforces is shape alone.
 
 `necessity:` the field is in the record shape and the fill is carried by
 `src/compose.mjs`; the siting argument is not. "Why not a sidecar" is the
@@ -4298,13 +4034,11 @@ assigning each unit the reader-state dimension it leads with, the opening Move
 its first Leg must bind, and (where the Brief carries Journey material) where
 that unit places it. Three units composing independently cannot make their
 Candidates differ by seeing each other; Differentiation is what makes them
-differ BY ASSIGNMENT instead. **Since kogaki#1216 the same state also authors
-the Brief's one Reader start** — from the Audience file's `persona` the `compose_path` row
-names and the adopted Thesis, never from a Move (§5.1.1) — **and lists the
-first-Leg survivors**, every Move whose `before` does not contradict it; each
-unit's assigned opening Move is drawn from that list, and the Harness sets
-Reader start and the survivor count on every Candidate at the reader-path
-job's boundary. **The record `src/differentiation-schema.json`
+differ BY ASSIGNMENT instead. **It authors no Reader start since kogaki#1699
+and lists the first-Leg survivors**, every Move whose `takes` the Persona's
+prior-knowledge line meets (§5.1.1); each unit's assigned opening Move is
+drawn from that list, and the Harness sets the survivor count on every
+Candidate at the reader-path job's boundary. **The record `src/differentiation-schema.json`
 declares today is this block's CURRENT OUTPUT, and not its definition**: a
 later mechanism that decides differentiation a different way keeps the name
 Differentiation and the same boundary — before the reader-path units start —
@@ -4358,16 +4092,12 @@ floor in particular is a judgment about register that no grammar decides.
 
 ## 6.9 Move INGESTION — how a Move enters the library
 
-**Where an Extraction records the question before the passage as none, the
-ingested Move reads `holds: none`, never a composed question** (kogaki#1216).
-The Passage-to-Move path reads the Extraction's `question` row (`passages/
-FORMAT.md` §"Reader before and after"): where its BEFORE cell reads `none`,
-alone or with a hedge, `tools/move_ingest.py` writes `holds: none` into the
-`question:` line of the proposal's `before` (the Move's own `question` field,
-which it also rewrote, retired at kogaki#1324) before the selection screen renders, and the screen names the rewrite. The
-Extraction is the owner-answered record; a model fills the schema it is given
-and manufactured a question where the record held none, which is how the
-library came to hold no Move able to open a reader who arrives indifferent.
+**No reader state enters a Move** (kogaki#1699): the Extraction's reader
+table and the state-bound call (`state_bound_unit`, `rejudge --state`) are
+retired, and `extract.mjs rejudge --constraints --write --retire-state`
+deletes `before`, `after` and `after_segment` from each record it writes, run
+once by the owner over `moves/` when the ParagraphPlan's Issue moves that stage
+off `before` and `after` (§4.2), not before.
 
 Input is a **free-form file the owner writes**, conventionally carrying a
 `.md` extension. **It is not markdown**, and §6.9.0's grammar refuses markdown
@@ -4377,7 +4107,7 @@ proposes each Move in exactly §4.2's five required fields, plus whichever of
 the three optional ones are present, stripping the excluded draft fields. An
 **agent review** applies the authoring discipline as **judgment**: one
 transition not an arc, separable from content, an id naming the operation in
-established terms, `after` differing from `before`, subject-independence
+established terms, subject-independence
 (§4.2) honoured everywhere but `evidence`, dedupe against existing ids (a
 near-duplicate proposes an amendment rather than a new entry), and an
 `evidence` line, where present, naming real passages with no fabricated
@@ -4395,8 +4125,7 @@ a second route that calls no model. `tools/move_ingest.py passage
 --from-extraction <pNN.md>... --out <dir>` takes one or more written
 paragraph Extractions (`passages/FORMAT.md` "The paragraph unit", `unit:
 paragraph <N> of <M> in <slug>`) and READS each record off its Extraction: the
-`id` from section 7, `before`/`after` from section 2's changed rows,
-`technique` from section 6, `breaks` from section 5, `segments` from
+`id` from section 7, `technique` from section 6, `breaks` from section 5, `segments` from
 section 3, and `takes` and `leaves` from the Extraction's own `takes` and
 `leaves`, which the constraints call (`constraints_unit`, in place of the
 retired `obligation_unit`, kogaki#1698) judged against the Segments at
@@ -4497,9 +4226,7 @@ reader proposes again.
 
 **The file body.** The five required fields in §4.2's order as a YAML
 mapping, written by the Brief's one YAML writer (`src/yaml.mjs`) and read back
-by its one reader (kogaki#1413) — `before` and `after` as maps keyed by
-dimension, one sentence per dimension, never one joined line, and `breaks` as
-a list of prose tests. No fence, no `---` delimiters: front-matter delimiters
+by its one reader (kogaki#1413) — `breaks` as a list of prose tests. No fence, no `---` delimiters: front-matter delimiters
 imply a document below the metadata, and here the block **is** the
 document.
 

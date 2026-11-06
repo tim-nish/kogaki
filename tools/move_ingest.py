@@ -30,9 +30,9 @@ from move_ingest_modules.passage import (
     render_passage_screen, spawn_model,
 )
 from move_ingest_modules.extraction import (
-    check_extraction_dimensions, check_extraction_split_note, check_segments,
+    check_extraction_split_note, check_segments,
     check_subject_nouns, derive_from_extraction, read_extraction,
-    run_from_extraction, write_none_question,
+    run_from_extraction,
 )
 
 
@@ -51,12 +51,9 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
     with open(contract_path, encoding="utf-8") as handle:
         contract_text = handle.read()
 
-    # BEFORE the model is called (kogaki#1319): both checks read the
+    # BEFORE the model is called (kogaki#1319): the check reads the
     # Extraction as given, and a defect in it is never the extraction step's
     # to catch.
-    dimension_refusal = check_extraction_dimensions(record)
-    if dimension_refusal is not None:
-        raise dimension_refusal
     split_refusal = check_extraction_split_note(record)
     if split_refusal is not None:
         raise split_refusal
@@ -119,18 +116,13 @@ def run_passage(passage_path, contract_path, moves_dir, command, model,
             proposal = Proposal(proposal.line_no, refusal=refusal)
 
     duplicates = []
-    rewritten = []
     if proposal.admitted:
-        # BEFORE the screen and before any near-duplicate read (kogaki#1216):
-        # the owner accepts the rewritten record, and the rewrite is named on
-        # the screen rather than applied in silence.
-        rewritten = write_none_question(proposal.mapping, record)
         duplicates = near_duplicates(proposal.mapping.get("segments"),
                                       read_saved_segments(moves_dir))
 
     screen_path = os.path.join(out_dir, "PassageScreen.md")
     with open(screen_path, "w", encoding="utf-8") as handle:
-        handle.write(render_passage_screen(proposal, duplicates, rewritten))
+        handle.write(render_passage_screen(proposal, duplicates))
 
     result = {
         "raw": raw_path, "screen": screen_path, "proposal": proposal,
@@ -270,8 +262,7 @@ def main_passage(argv):
         "--from-extraction", nargs="+", metavar="EXTRACTION",
         help="one or more written Extractions (one Passage's paragraph "
         "Extractions, passages/FORMAT.md \"The paragraph unit\"): each record "
-        "is read off its Extraction record -- id from `name`, before/after from "
-        "`reader`'s changed rows, after_segment from their `segment` cells, "
+        "is read off its Extraction record -- id from `name`, "
         "takes and leaves from `takes` and `leaves`, "
         "segments from `segments` -- and no model "
         "is called",

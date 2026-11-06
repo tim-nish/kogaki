@@ -55,14 +55,14 @@ const fails = [];
       fails.push("(ag) compose_path's unit input no longer takes `moves_you_may_bind` from loadMoveContracts");
     }
   }
-  const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276);
+  const j = readerPathFitInput(cand1276("c1"), fitMoves, "has used a CI system");
   if (j.error) fails.push(`(ag) readerPathFitInput refused: ${j.error}`);
   else {
     const own = j.input.candidate_you_must_judge;
     if (!own || own.candidate_id !== "c1") fails.push(`(ag) the per-unit fit input does not hold its one Candidate: ${JSON.stringify(own && own.candidate_id)}`);
     for (const c of (own && own.move_contracts) || []) {
       const f = FIT_MOVE[c.move];
-      if (!f || JSON.stringify(c.segments) !== JSON.stringify(f.segments) || "technique" in c || JSON.stringify(c.breaks) !== JSON.stringify(f.breaks) || typeof c.before !== "string" || typeof c.after !== "string") {
+      if (!f || JSON.stringify(c.segments) !== JSON.stringify(f.segments) || "technique" in c || JSON.stringify(c.breaks) !== JSON.stringify(f.breaks) || !Array.isArray(c.takes) || !Array.isArray(c.leaves) || "before" in c || "after" in c) {
         fails.push(`(ag) the per-unit fit input does not carry leg ${c.leg_id}'s Move contract verbatim: ${JSON.stringify(c)}`);
       }
     }
@@ -108,7 +108,7 @@ const fails = [];
     // newlines appears there with escaped `\n`, not a literal newline.
     if (!FIT_MOVE.m_turn.segments.every((s) => prompt.includes(s.operation))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
   }
-  const j = readerPathFitInput(cand1276("c1"), fitMoves, START_1276);
+  const j = readerPathFitInput(cand1276("c1"), fitMoves, "has used a CI system");
   if (j.error) fails.push(`(at) readerPathFitInput refused: ${j.error}`);
   else {
     for (const c of j.input.candidate_you_must_judge.move_contracts) {
@@ -119,71 +119,91 @@ const fails = [];
   }
 }
 
-// (au) kogaki#1325 — a Leg's before-state is the previous after-state by
-// construction. (au1) a Candidate whose Leg carries `reader_state_before` is
-// refused naming the field, at the pure validator and at the compose unit;
-// (au2) the per-unit fit input carries each Leg's DERIVED before-state, the one
-// question asked of the Move's `before`, and no specialization vocabulary for a
-// before-state; (au3) a fit record whose Leg 1 verdict is `contradicts` with a
-// `why` naming `knowledge` is read as a refusal of the unit carrying that
-// sentence, and the unit is re-asked once, as before. Whether a Move's `before`
-// does require what the state lacks is the model's judgment and is not
-// exercised here.
+// (au) kogaki#1699 — a Leg carries no reader state, and the Move-fit judge reads the Move's
+// `takes` and `leaves`. (au1) a Candidate whose Leg carries `reader_state_before` or
+// `reader_state_after` is refused naming the field, at the pure validator and at the compose
+// unit; (au2) the per-unit fit input carries each Move's `takes` and `leaves` in
+// `move_contracts` and no `before`, `after`, `deferred_slots` or `obligations_raised`, the
+// Persona's prior-knowledge line the first Leg's `takes` are met by, and the TAKEN and LEFT
+// questions; the fit row renders TAKEN and LEFT and the `taken` block; (au3) a fit record whose
+// Leg 1 verdict is `contradicts` is read as a refusal of the unit carrying that sentence, and the
+// unit is re-asked once, as before. Whether a `takes` entry is met is the model's judgment and
+// is not exercised here.
 {
   const legs = () => cand1276("c1").legs;
+  const PRIOR = "has used a CI system and read a failing check's log";
   // (au1)
-  const written = legs();
-  written[1].reader_state_before = "knowledge: holds the Thesis as a slogan\nquestion: holds: none";
-  const r1 = validateLegs(written, START_1276);
-  if (!r1.error || !/leg 2 \(s2\): carries `reader_state_before`/.test(r1.error) || !/kogaki#1325/.test(r1.error)) {
-    fails.push(`(au1) validateLegs did not refuse a Leg carrying reader_state_before by name: ${JSON.stringify(r1)}`);
+  for (const field of ["reader_state_before", "reader_state_after"]) {
+    const written = legs();
+    written[1][field] = "knowledge: holds the Thesis as a slogan\nquestion: holds: none";
+    const r1 = validateLegs(written);
+    if (!r1.error || !new RegExp(`leg 2 \\(s2\\): carries \`${field}\``).test(r1.error) || !/kogaki#1699/.test(r1.error)) {
+      fails.push(`(au1) validateLegs did not refuse a Leg carrying ${field} by name: ${JSON.stringify(r1)}`);
+    }
+    const unit = validateReaderPathUnit({ ...cand1276("c1"), legs: written }, { strandIds: ["L1"], movesDir: fitMoves });
+    if (!unit || !unit.error || !unit.error.includes(`carries \`${field}\``)) {
+      fails.push(`(au1) the compose unit did not refuse a Candidate whose Leg writes ${field}: ${JSON.stringify(unit)}`);
+    }
   }
-  const unit = validateReaderPathUnit({ ...cand1276("c1"), legs: written }, { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves });
-  if (!unit || !unit.error || !/carries `reader_state_before`/.test(unit.error)) {
-    fails.push(`(au1) the compose unit did not refuse a Candidate whose Leg writes reader_state_before: ${JSON.stringify(unit)}`);
-  }
-  const clean = validateLegs(legs(), START_1276);
-  if (clean.error) fails.push(`(au1) a Candidate writing no before-state was refused: ${clean.error}`);
-  else if (clean.legs[0].reader_state_before !== START_1276 || clean.legs[1].reader_state_before !== clean.legs[0].reader_state_after) {
-    fails.push(`(au1) validateLegs did not derive the before-states (Reader start, then the previous after-state): ${JSON.stringify(clean.legs.map((l) => l.reader_state_before))}`);
+  const clean = validateLegs(legs());
+  if (clean.error) fails.push(`(au1) a Candidate writing no reader state was refused: ${clean.error}`);
+  else if (clean.legs.some((l) => "reader_state_before" in l || "reader_state_after" in l)) {
+    fails.push(`(au1) validateLegs wrote a reader state onto a Leg: ${JSON.stringify(clean.legs)}`);
   }
   const schemaFields = JSON.parse(readFileSync("src/leg-schema.json", "utf8")).fields;
-  if ("reader_state_before" in schemaFields) fails.push("(au1) src/leg-schema.json still lists reader_state_before among the Leg's composed fields");
+  for (const f of ["reader_state_before", "reader_state_after"]) if (f in schemaFields) fails.push(`(au1) src/leg-schema.json still lists ${f} among the Leg's fields`);
 
   // (au2)
   const cand = cand1276("c1");
-  cand.legs[0].reader_state_after = "knowledge: after s1\nquestion: why does the guard pass";
-  const j = readerPathFitInput(cand, fitMoves, START_1276);
+  const j = readerPathFitInput(cand, fitMoves, PRIOR, "The fixture claim.");
   if (j.error) fails.push(`(au2) readerPathFitInput refused: ${j.error}`);
   else {
     const own = j.input.candidate_you_must_judge;
-    const befores = own.legs.map((l) => l.reader_state_before);
-    if (befores[0] !== START_1276 || befores[1] !== cand.legs[0].reader_state_after) {
-      fails.push(`(au2) the fit input's Legs do not carry their derived before-states: ${JSON.stringify(befores)}`);
+    const contracts = own.move_contracts || [];
+    if (!contracts.length || contracts.some((c) => !Array.isArray(c.takes) || !Array.isArray(c.leaves))) {
+      fails.push(`(au2) the fit input's move_contracts do not carry each Move's takes and leaves: ${JSON.stringify(contracts)}`);
     }
-    if ("reader_state_before" in cand.legs[0]) fails.push("(au2) building the fit input wrote reader_state_before onto the Candidate's own Leg");
+    for (const gone of ["before", "after", "deferred_slots", "obligations_raised"]) {
+      if (contracts.some((c) => gone in c) || gone in own) fails.push(`(au2) the fit input still carries \`${gone}\``);
+    }
+    if (own.legs.some((l) => "reader_state_before" in l)) fails.push("(au2) the fit input's Legs carry a derived before-state");
+    if (own.persona_prior_knowledge !== PRIOR) fails.push(`(au2) the fit input does not carry the Persona's prior-knowledge line: ${JSON.stringify(own.persona_prior_knowledge)}`);
     const spec = JSON.parse(readFileSync("src/specialization-schema.json", "utf8"));
-    if (!own.before_state || own.before_state.question !== spec.before_state.question
-        || !/require, on any dimension, something the derived before-state does not hold/.test(own.before_state.question)) {
-      fails.push(`(au2) the fit input does not carry the one question asked of the Move's before: ${JSON.stringify(own.before_state)}`);
+    if ("before_state" in spec) fails.push("(au2) src/specialization-schema.json still declares `before_state`");
+    if (!own.taken || own.taken.question !== spec.taken.question || own.taken.left_question !== spec.taken.left_question) {
+      fails.push(`(au2) the fit input does not carry the TAKEN and LEFT questions: ${JSON.stringify(own.taken)}`);
     }
     if ("first_leg" in own || "first_leg" in spec) fails.push("(au2) the fit input or the schema still carries the retired `first_leg` before-state comparison");
-    if (/speciali[sz]/i.test(JSON.stringify(own.before_state)) || /speciali[sz]/i.test(spec.before_state.question)) {
-      fails.push("(au2) the before-state question still speaks of a specialization");
-    }
     const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
     const fitRow = table.reader_path_fit_unit;
-    if (/reader_state_before and reader_state_after are consistent SPECIALIZATIONS/.test(fitRow.judgment_point)
-        || !fitRow.schema_blocks.includes("before_state")) {
-      fails.push("(au2) the reader_path_fit_unit row still judges a before-state as a specialization, or does not render `before_state`");
+    if (!/TAKEN:/.test(fitRow.judgment_point) || !/LEFT:/.test(fitRow.judgment_point)
+        || !fitRow.schema_blocks.includes("taken") || fitRow.schema_blocks.includes("before_state")) {
+      fails.push("(au2) the reader_path_fit_unit row does not judge TAKEN and LEFT, or does not render `taken`");
+    }
+    for (const gone of ["`before`", "`after`", "deferred_slots", "obligations_raised", "reader_state_after"]) {
+      if (fitRow.judgment_point.includes(gone)) fails.push(`(au2) the reader_path_fit_unit row still names ${gone}`);
+    }
+    // THE COMPOSE UNIT'S ROW (compose_path_unit, `reader_path_unit` in the table) states TAKE and
+    // LEAVE in place of its reader-state and obligation lines, and its prompt carries each Move's
+    // `takes` and `leaves` in `moves_you_may_bind`.
+    const unitRow = table.reader_path_unit;
+    if (!/TAKE: /.test(unitRow.judgment_point) || !/LEAVE: /.test(unitRow.judgment_point)) fails.push("(au2) the reader_path_unit row does not state TAKE and LEAVE");
+    for (const gone of ["reader_state_after", "obligations", "Reader start"]) {
+      if (unitRow.judgment_point.includes(gone)) fails.push(`(au2) the reader_path_unit row still names ${gone}`);
+    }
+    const lib = compose.loadMoveContracts(fitMoves);
+    const unitInput = { state: "compose_path", moves_you_may_bind: lib.moves, unit_number: 1 };
+    const unitPrompt = judgePrompt(unitRow, JSON.stringify(unitInput, null, 2), unitInput, null);
+    if (lib.error || !lib.moves.every((m) => Array.isArray(m.takes) && Array.isArray(m.leaves)) || !unitPrompt.includes('"takes"') || !unitPrompt.includes('"leaves"')) {
+      fails.push("(au2) the compose unit's prompt does not carry each Move's takes and leaves");
     }
   }
 
   // (au3)
   const verdict = (leg, v, why) => ({ leg_id: leg.leg_id, move: leg.move, verdict: v, why });
-  const WHY_K = "the Move's before needs a stated general claim in knowledge that no earlier text carries.";
+  const WHY_K = "the Move's takes entry apply (a stated general claim) is left by no earlier Leg and the Persona does not supply it.";
   const rec = { version: "1", candidate_id: "c1",
-    verdicts: [verdict(cand.legs[0], "contradicts", WHY_K), verdict(cand.legs[1], "consistent", "the after-state specializes the Move's after.")] };
+    verdicts: [verdict(cand.legs[0], "contradicts", WHY_K), verdict(cand.legs[1], "consistent", "every takes entry is met and every leaves entry taken up.")] };
   const v = readerPathFitVerdict(rec, cand);
   if (v.error) fails.push(`(au3) a contradicts record on Leg 1 was refused as malformed rather than read: ${v.error}`);
   else if (!v.refusal || !v.refusal.includes(`Leg s1 (m_open): contradicts — the judge wrote: "${WHY_K}"`)
@@ -197,13 +217,13 @@ const fails = [];
 // (ah) both or neither of move / no_move_fits is refused naming the Leg.
 {
   const both = cand1276("c1", { no_move_fits: "the claims describe one guard, and no Move works with one party." });
-  const rBoth = validateLegs(both.legs, START_1276);
+  const rBoth = validateLegs(both.legs);
   if (!rBoth.error || !/leg 2 \(s2\)/.test(rBoth.error) || !/both move and no_move_fits/.test(rBoth.error)) fails.push(`(ah) a Leg carrying both move and no_move_fits was not refused naming the Leg: ${rBoth.error}`);
   const neither = cand1276("c1");
   delete neither.legs[1].move;
-  const rNeither = validateLegs(neither.legs, START_1276);
+  const rNeither = validateLegs(neither.legs);
   if (!rNeither.error || !/leg 2 \(s2\)/.test(rNeither.error) || !/neither move nor no_move_fits/.test(rNeither.error)) fails.push(`(ah) a Leg carrying neither move nor no_move_fits was not refused naming the Leg: ${rNeither.error}`);
-  const ok = validateLegs(cand1276("c1").legs, START_1276);
+  const ok = validateLegs(cand1276("c1").legs);
   if (ok.error) fails.push(`(ah) the fixture path with a move on every Leg was refused: ${ok.error}`);
 }
 
@@ -213,7 +233,7 @@ const fails = [];
   const c = cand1276("c1");
   delete c.legs[1].move;
   c.legs[1].no_move_fits = SENTENCE;
-  const validate = (x) => { const r = validateReaderPathUnit(x, { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves }); return r && r.error ? r.error : null; };
+  const validate = (x) => { const r = validateReaderPathUnit(x, { strandIds: ["L1"], movesDir: fitMoves }); return r && r.error ? r.error : null; };
   // THE UNIT IS CLASSIFIED BY A REAL `job-supervise` RUN (kogaki#1257), under
   // the declared `validateReaderPathUnit` validator and a fake judge that
   // answers this Candidate on every attempt and records each prompt it is
@@ -229,7 +249,7 @@ const fails = [];
   chmodSync(judge, 0o755);
   writeFileSync(join(sup, "units.json"), JSON.stringify({ units: [{ id: "u", prompt: "compose one path\n----- INPUT -----\n{}" }],
     validator: { module: "src/brief.mjs", export: "validateReaderPathUnit",
-      inputs: { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves } } }));
+      inputs: { strandIds: ["L1"], movesDir: fitMoves } } }));
   spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", sup, "--units", join(sup, "units.json"),
     "--command", judge, "--model", "m", "--output-format", "json",
     "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
@@ -370,7 +390,7 @@ const fails = [];
 {
   const legs = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "Intro", ...s1Extra }),
     leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...s2Extra })];
-  const refusal = (ls) => { const r = compose.validateLegs(ls, START_1276, []); return r.error || null; };
+  const refusal = (ls) => { const r = compose.validateLegs(ls, []); return r.error || null; };
   const noField = legs();
   delete noField[0].waypoints;
   const twoClaims = { materials: ["L1", "L2"], claims: [{ type: "strand", strand: "L1", proposition: "claim one of s1" },
@@ -431,7 +451,7 @@ const fails = [];
   if (FIT_MOVE.m_turn.segments.length === W2.length) fails.push("(ao3) the fixture Move's Segment count no longer differs from the waypoint count");
   const e3 = refusal(legs({}, { waypoints: W2 }));
   if (e3) fails.push(`(ao3) a Candidate whose waypoint counts differ from its Move's named count was refused: ${e3}`);
-  const u3 = validateReaderPathUnit(cand1276("c1", { waypoints: W2 }), { strandIds: ["L1"], readerStart: START_1276, movesDir: fitMoves });
+  const u3 = validateReaderPathUnit(cand1276("c1", { waypoints: W2 }), { strandIds: ["L1"], movesDir: fitMoves });
   if (u3 && u3.error) fails.push(`(ao3) the compose unit refused the same Candidate: ${u3.error}`);
 }
 
@@ -440,7 +460,7 @@ const fails = [];
 {
   const legsFor = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "what the reader now holds", ...s1Extra }),
     leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...s2Extra })];
-  const refusal = (ls) => { const r = compose.validateLegs(ls, START_1276, []); return r.error || null; };
+  const refusal = (ls) => { const r = compose.validateLegs(ls, []); return r.error || null; };
 
   // a term introduced on a LATER Leg still refuses an EARLIER heading.
   const laterTerm = refusal(legsFor({ opens_section: "what a pipeline now does" }, { introduces: ["pipeline"] }));
@@ -457,18 +477,19 @@ const fails = [];
 }
 
 // (aq) kogaki#1327 — the `reader_path_fit_unit` input carries each Section's
-// heading beside its LAST Leg's after-state, not the opening Leg's own, so
-// the fit judge can answer whether the heading states that destination.
+// heading beside its LAST Leg's claims (its after-state until kogaki#1699), not
+// the opening Leg's own, so the fit judge can answer whether the heading states
+// that destination.
 {
-  const s2After = "knowledge: after s2\nquestion: holds: none";
-  const cand = cand1276("c-aq", { reader_state_after: s2After });
-  const j = readerPathFitInput(cand, fitMoves, START_1276);
+  const s2Claims = [{ type: "strand", strand: "L1", proposition: "the guard passes on an empty input" }];
+  const cand = cand1276("c-aq", { claims: s2Claims });
+  const j = readerPathFitInput(cand, fitMoves, "has used a CI system");
   if (j.error) fails.push(`(aq) readerPathFitInput refused: ${j.error}`);
   else {
     const sh = j.input.candidate_you_must_judge.section_headings;
     if (!Array.isArray(sh) || sh.length !== 1) fails.push(`(aq) section_headings does not carry one entry per Section: ${JSON.stringify(sh)}`);
-    else if (sh[0].leg_id !== "s1" || sh[0].heading !== "Intro" || sh[0].after_state !== s2After) {
-      fails.push(`(aq) section_headings did not carry the opening Leg's heading beside the Section's LAST Leg's after-state: ${JSON.stringify(sh)}`);
+    else if (sh[0].leg_id !== "s1" || sh[0].heading !== "Intro" || JSON.stringify(sh[0].last_leg_claims) !== JSON.stringify([s2Claims[0].proposition]) || "after_state" in sh[0]) {
+      fails.push(`(aq) section_headings did not carry the opening Leg's heading beside the Section's LAST Leg's claims: ${JSON.stringify(sh)}`);
     }
   }
   if (!/section_headings/.test(JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit.judgment_point)) {
@@ -481,5 +502,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose-job — kogaki#1276: the compose_path prompt and the per-unit Move-fit input carry each Move's segments and breaks verbatim and no technique (kogaki#1412), move/no_move_fits refused naming the Leg, a no_move_fits Leg refusing its unit, the no-tools sentence (kogaki#1307), one contradicts unit among three excluded and named, every Candidate failing ending the Brief with its directory removed; kogaki#1320's compose_path prompt and fit input; kogaki#1325's derived before-state; kogaki#1311's waypoint refusals; and kogaki#1327's Section heading rule and the fit input's Sections.");
+console.log("ok: check-brief-compose-job — kogaki#1276: the compose_path prompt and the per-unit Move-fit input carry each Move's segments and breaks verbatim and no technique (kogaki#1412), move/no_move_fits refused naming the Leg, a no_move_fits Leg refusing its unit, the no-tools sentence (kogaki#1307), one contradicts unit among three excluded and named, every Candidate failing ending the Brief with its directory removed; kogaki#1320's compose_path prompt and fit input; kogaki#1699's retired reader states and the TAKEN and LEFT fit input; kogaki#1311's waypoint refusals; and kogaki#1327's Section heading rule and the fit input's Sections.");
 JS

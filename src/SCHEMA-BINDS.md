@@ -20,25 +20,25 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## move -- the Move record
 
-| field | differentiation | reader_path_unit | reader_path_fit_unit | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit | leg_reader_start_unit |
-|---|---|---|---|---|---|---|---|
-| `id` | unread | unread | unread | unread | unread | unread | unread |
-| `takes` | unread | unread | unread | unread | unread | content | unread |
-| `leaves` | unread | unread | unread | unread | unread | content | unread |
-| `before` | excluded | excluded | excluded | structural | excluded | content | excluded |
-| `after` | excluded | excluded | excluded | structural | excluded | content | unread |
-| `breaks` | excluded | excluded | excluded | structural | excluded | content | unread |
-| `segments` | excluded | structural | excluded | structural | excluded | content | unread |
-| `figure` | unread | unread | unread | unread | unread | unread | unread |
-| `continues_from` | unread | unread | unread | unread | unread | unread | unread |
-| `obligation` | unread | unread | unread | unread | unread | unread | unread |
-| `obligation_triggers` | unread | unread | unread | unread | unread | unread | unread |
-| `after_segment` | unread | unread | unread | unread | unread | unread | unread |
-| `description` | unread | unread | unread | unread | unread | content | unread |
-| `evidence` | unread | unread | unread | unread | unread | unread | unread |
-| `segments.operation` | excluded | operation | unread | operation | excluded | content | unread |
-| `segments.relation` | excluded | structural | unread | structural | excluded | content | unread |
-| `segments.manner` | excluded | excluded | unread | excluded | excluded | content | unread |
+| field | differentiation | reader_path_unit | reader_path_fit_unit | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit |
+|---|---|---|---|---|---|---|
+| `id` | unread | unread | unread | unread | unread | unread |
+| `takes` | excluded | structural | excluded | unread | unread | content |
+| `leaves` | unread | structural | excluded | unread | unread | content |
+| `before` | unread | unread | unread | structural | excluded | unread |
+| `after` | unread | unread | unread | structural | excluded | unread |
+| `breaks` | excluded | excluded | excluded | structural | excluded | content |
+| `segments` | excluded | structural | excluded | structural | excluded | content |
+| `figure` | unread | unread | unread | unread | unread | unread |
+| `continues_from` | unread | unread | unread | unread | unread | unread |
+| `obligation` | unread | unread | unread | unread | unread | unread |
+| `obligation_triggers` | unread | unread | unread | unread | unread | unread |
+| `after_segment` | unread | unread | unread | unread | unread | unread |
+| `description` | unread | unread | unread | unread | unread | content |
+| `evidence` | unread | unread | unread | unread | unread | unread |
+| `segments.operation` | excluded | operation | unread | operation | excluded | content |
+| `segments.relation` | excluded | structural | unread | structural | excluded | content |
+| `segments.manner` | excluded | excluded | unread | excluded | excluded | content |
 
 - `differentiation` is src/brief-workflow.json `differentiation`.
 - `reader_path_unit` is src/brief-workflow.json `reader_path_unit`.
@@ -46,7 +46,6 @@ it does not read, and empty where the stage does not read the schema at all.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `extraction_unit` is src/proof-sheet/extraction-workflow.json `extraction_unit`.
-- `leg_reader_start_unit` is src/proof-sheet/extraction-workflow.json `leg_reader_start_unit`.
 
 ## leg -- the Brief's Leg
 
@@ -55,7 +54,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `leg_id` | unread | copied | content | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `materials` | unread | unread | content | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `purpose` | unread | unread | content | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `reader_state_after` | content | unread | content | unread | excluded | unread | unread | structural | excluded | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `reaches_target` | unread | unread | content | unread | excluded | unread | unread | unread | unread | unread |  |  |  |  | structural |  |  |  |  |  |  |  |  |
 | `names` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `depends_on` | unread | unread | content | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
@@ -74,7 +72,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `figure` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  | content |  |  |  |  |  |
 | `figure_roles` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `budget` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  | structural |  |  |  |  |  |  |
-| `reader_state_before` | unread | unread | structural | unread | excluded | unread | unread | structural | excluded | structural |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | `waypoints.point` | unread | unread | content | unread | unread | unread | unread | content | excluded | content | content |  |  |  |  |  |  |  |  | excluded |  |  | excluded |
 | `waypoints.serves` | unread | unread | copied | unread | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
