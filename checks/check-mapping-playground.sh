@@ -127,8 +127,23 @@ const snapshot = () => {
   return rows.sort().join("\n");
 };
 const before = snapshot();
+// THE LIBRARY THE TRIAL READS (kogaki#1698): `moves/` itself once the owner's
+// `rejudge --constraints --write` run has given its records `takes` and `leaves`; until then a
+// copy under the Trials directory in which each record carrying no `takes` carries both lists
+// empty, so the Trial reads every other field of the library as written.
+const library = (() => {
+  const names = readdirSync(join(repo, "moves"));
+  if (names.some((n) => n.endsWith(".yaml") && /^takes:/m.test(readFileSync(join(repo, "moves", n), "utf8")))) return "moves";
+  mkdirSync(trials, { recursive: true });
+  const dir = mkdtempSync(join(trials, "check-library-"));
+  for (const n of names.filter((x) => x.endsWith(".yaml") || x === "ROLES.json")) {
+    const text = readFileSync(join(repo, "moves", n), "utf8");
+    writeFileSync(join(dir, n), n.endsWith(".yaml") ? `${text.replace(/\s*$/, "\n")}takes: []\nleaves: []\n` : text);
+  }
+  return dir;
+})();
 const env = { ...process.env, KOGAKI_JUDGE_CLI: judge, SMP_FIXTURE_DIR: root };
-const trial = (args) => spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "run", ...args], { encoding: "utf8", env, timeout: 600000 });
+const trial = (args) => spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "run", "--library", library, ...args], { encoding: "utf8", env, timeout: 600000 });
 const outDir = mkdtempSync(join(trials, "check-"));
 const out = join(outDir, "trial");
 
@@ -191,7 +206,7 @@ const mapperTrial = (name, answer, extra = []) => {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "answer.json"), JSON.stringify(answer));
   const o = join(outDir, name);
-  const res = spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "run", "--strand", strand, "--mapper", "sme_map_roles", "--out", o, ...extra],
+  const res = spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "run", "--library", library, "--strand", strand, "--mapper", "sme_map_roles", "--out", o, ...extra],
     { encoding: "utf8", env: { ...env, SMP_FIXTURE_DIR: dir, SMP_MAPPER_ANSWER: join(dir, "answer.json") }, timeout: 600000 });
   const rec = existsSync(join(o, "trial.json")) ? JSON.parse(readFileSync(join(o, "trial.json"), "utf8")) : null;
   return { res, o, rec };
@@ -236,6 +251,7 @@ ok(snapshot() === before, "(e) the run changed the repository's moves/ or theses
 
 rmSync(root, { recursive: true, force: true });
 if (!fails.length) rmSync(outDir, { recursive: true, force: true });
+if (library !== "moves") rmSync(library, { recursive: true, force: true });
 if (fails.length) { for (const f of fails) console.log(`FAIL: ${f}`); console.log(`kept: ${outDir}`); process.exit(1); }
 console.log("check-mapping-playground: ok");
 JS

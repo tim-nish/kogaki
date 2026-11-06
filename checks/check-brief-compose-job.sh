@@ -95,7 +95,7 @@ const fails = [];
     if (!mOpen || JSON.stringify(mOpen.segments) !== JSON.stringify(FIT_MOVE.m_open.segments)) fails.push(`(at) loadMoveContracts does not carry m_open's segments verbatim: ${JSON.stringify(mOpen)}`);
     const bare = mkdtempSync(join(tmpdir(), "kogaki-1412-moves-"));
     writeFileSync(join(bare, "ROLES.json"), readFileSync("moves/ROLES.json"));
-    writeFileSync(join(bare, "m_bare.yaml"), stringifyYaml({ id: "m_bare", description: "the fixture Move m_bare.", before: { knowledge: "before." }, after: { knowledge: "after." },
+    writeFileSync(join(bare, "m_bare.yaml"), stringifyYaml({ id: "m_bare", description: "the fixture Move m_bare.", takes: [], leaves: [], before: { knowledge: "before." }, after: { knowledge: "after." },
       breaks: ["breaks if dropped."], technique: "restates an order in prose." }));
     const refused = compose.loadMoveContracts(bare);
     if (!refused.error || !refused.error.includes('move "m_bare" carries no segments') || !refused.error.includes("kogaki#1412")) {

@@ -260,7 +260,7 @@ const PSEG_OPERATION = "states the point once, plainly.";
 // a list of maps.
 // Every Move carries the `description` the Adapter requires (kogaki#1412, kogaki#1418).
 const writeMove = (dir, rec) => writeFileSync(join(dir, `${rec.id}.yaml`),
-  stringifyYaml({ id: rec.id, description: "a fixture Move.", ...rec }));
+  stringifyYaml({ id: rec.id, description: "a fixture Move.", takes: [], leaves: [], ...rec }));
 // THE INGEST ADMITS p1 (kogaki#1418): the Move every case below binds is
 // written by `tools/move_ingest.py`'s own write gate, `save_accepted`, which
 // validates it through the Adapter (src/move-validate.mjs) -- so the stage
@@ -273,7 +273,7 @@ const INGEST_SAVE = [
 ].join("\n");
 const ingestMove = (dir, rec) => {
   const r = spawnSync("python3", ["-c", INGEST_SAVE, dir],
-    { input: JSON.stringify({ description: "a fixture Move.", ...rec }), encoding: "utf8" });
+    { input: JSON.stringify({ description: "a fixture Move.", takes: [], leaves: [], ...rec }), encoding: "utf8" });
   if (r.status !== 0) fails.push(`(k) the ingest refused fixture Move ${rec.id}: ${(r.stderr || "").trim()}`);
   return r.status === 0;
 };

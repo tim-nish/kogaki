@@ -37,7 +37,7 @@ mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
 for (const id of ["p1", "p2"]) {
   writeFileSync(join(moves, `${id}.yaml`), stringifyYaml({ id, description: "a fixture Move.", before: { knowledge: "before." },
-    after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }] }));
+    after: { knowledge: "after." }, breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
 }
 
 // ---- the Brief: Leg s1 of three Leg Waypoints, Leg s2 of one ----

@@ -18,7 +18,11 @@
 # WHAT IT ASSERTS, over `moves/` and over fixture libraries on every run:
 #   (a) every `moves/*.yaml` parses as the Brief's YAML reader reads it and is
 #       admitted by the Adapter's validator against `moves/ROLES.json`, and its
-#       `id` is its file stem (the ingest derives the path from the id);
+#       `id` is its file stem (the ingest derives the path from the id). Until
+#       the owner's `rejudge --constraints --write` run has given the library
+#       its `takes` and `leaves` (kogaki#1698) -- no record carries `takes` --
+#       each record is validated with both lists set empty, so every other field
+#       is still held, and the fixtures (c9) hold the two lists themselves;
 #   (b) `moves/INDEX.md` is byte-for-byte what `tools/move_ingest.py`'s own
 #       `write_index` regenerates from the records on disk -- the ingest's
 #       writer, run over a copy, so the two cannot drift into disagreeing.
@@ -40,7 +44,10 @@
 # `kind`), an empty list and an item named twice are each refused. The Segment column (kogaki#1652):
 # a record carrying `after_segment` loads, so the library passes with the column as `moves/` passes
 # without it, and a column naming a dimension `after` does not, missing one, or naming a Segment the
-# Move lacks is refused.
+# Move lacks is refused. The constraints (kogaki#1698): a record carrying `takes: []` and one
+# `leaves` entry loads; a missing list, a non-list, an entry without `kind` or `what`, a `kind`
+# outside the four, an empty or multi-line `what`, a `leaves` entry without `segment` or naming no
+# Segment, a `takes` entry carrying `segment`, and two entries alike are each refused by name.
 #
 # WHAT IT DOES NOT VERIFY, stated rather than left to look covered: whether a
 # record's prose is any good is the owner's reading at the ingest's selection
@@ -73,7 +80,7 @@ const WRITE_INDEX = [
 
 // ONE PREDICATE FOR THE TREE AND THE FIXTURES. `dir` holds a `moves/`
 // library; the result is the list of failure lines, each prefixed `tag`.
-function libraryFailures(dir, tag) {
+function libraryFailures(dir, tag, unrejudged = false) {
   const out = [];
   const lib = join(dir, "moves");
   const records = readdirSync(lib).filter((n) => n.endsWith(".yaml")).sort();
@@ -91,7 +98,7 @@ function libraryFailures(dir, tag) {
       out.push(`${tag} ${name}: is not a map of fields`); continue;
     }
     if (record.id !== stem) out.push(`${tag} ${name}: carries id ${JSON.stringify(record.id)}, not its file stem`);
-    const r = validateMoveRecord(record, lib, name);
+    const r = validateMoveRecord(unrejudged ? { ...record, takes: [], leaves: [] } : record, lib, name);
     if (r.error) out.push(`${tag} ${name}: the Adapter refuses it: ${r.error}`);
   }
   // (b) the INDEX is the regeneration of the records on disk.
@@ -131,6 +138,7 @@ const WHOLE = {
   before: { knowledge: "before.", question: "holds: none." }, after: { knowledge: "after." },
   breaks: ["breaks if the point is dropped."],
   segments: [{ operation: "states the point once, plainly." }],
+  takes: [], leaves: [],
 };
 
 // (c1) the 21 Leg Moves' shape: `technique`, no `segments`, states as one joined line.
@@ -239,11 +247,48 @@ const WHOLE = {
   ok(/`after_segment.knowledge` names Segment "3", and the Move has Segments 1 to 2/.test(err({ knowledge: "1, 3" })), `(c8d) a column naming a Segment the Move lacks was not refused: ${err({ knowledge: "1, 3" })}`);
   ok(!err({ knowledge: "1, 2" }), `(c8e) a column naming two Segments was refused: ${err({ knowledge: "1, 2" })}`);
 }
+// (c9) THE CONSTRAINTS (kogaki#1698): `takes` and `leaves`, each a list of `{ kind, what }` over the
+// four kinds, a `leaves` entry naming its Segment; the Issue's own record loads, and each of the
+// refusals names its field, its entry and, for a kind, the kind.
+{
+  const d = fixture("constraints");
+  const two = { ...WHOLE, segments: [{ operation: "poses a question." }, { operation: "narrows it.", relation: "takes up the question before it" }] };
+  const posed = { ...two, takes: [], leaves: [{ kind: "answer", what: "the posed question", segment: 1 }] };
+  writeRecord(d, "p1.yaml", posed);
+  reindex(d);
+  const f = libraryFailures(d, "(c9)");
+  ok(f.length === 0, `(c9a) a record carrying \`takes: []\` and one \`leaves\` entry loads: ${f.join(" | ")}`);
+  const back = parseYaml(readFileSync(join(d, "moves", "p1.yaml"), "utf8"), "p1.yaml");
+  const c = validateMoveRecord(back, join(d, "moves"), "p1.yaml");
+  ok(!c.error && JSON.stringify(c.leaves) === JSON.stringify(posed.leaves) && JSON.stringify(c.takes) === "[]",
+    `(c9a) the contract does not carry the lists as written: ${c.error || JSON.stringify([c.takes, c.leaves])}`);
+  const err = (rec) => validateMoveRecord(rec, join(d, "moves"), "p1.yaml").error || "admitted";
+  const { leaves: _l, ...noLeaves } = posed;
+  const { takes: _t, leaves: _l2, ...neither } = posed;
+  const cases = [
+    ["missing list", noLeaves, /declares no leaves/],
+    ["neither list", neither, /declares no takes and no leaves/],
+    ["non-list", { ...posed, takes: "answer: a question" }, /`takes` is not a list/],
+    ["no kind", { ...posed, leaves: [{ what: "the posed question", segment: 1 }] }, /`leaves` entry 1 carries no `kind`/],
+    ["no what", { ...posed, takes: [{ kind: "answer" }] }, /`takes` entry 1 carries no `what`/],
+    ["kind outside the set", { ...posed, leaves: [{ kind: "instance", what: "the posed question", segment: 1 }] }, /`leaves` entry 1 names the kind `instance`, outside the closed set/],
+    ["empty what", { ...posed, takes: [{ kind: "explain", what: " " }] }, /`takes` entry 1: `what` is not one non-empty line/],
+    ["multi-line what", { ...posed, leaves: [{ kind: "answer", what: "the posed\nquestion", segment: 1 }] }, /`leaves` entry 1: `what` is not one non-empty line/],
+    ["leaves without segment", { ...posed, leaves: [{ kind: "answer", what: "the posed question" }] }, /`leaves` entry 1 carries no `segment`/],
+    ["segment naming no Segment", { ...posed, leaves: [{ kind: "answer", what: "the posed question", segment: 3 }] }, /`leaves` entry 1: `segment` names Segment "3", and the Move has Segments 1 to 2/],
+    ["takes carrying segment", { ...posed, takes: [{ kind: "answer", what: "a question raised before", segment: 1 }] }, /`takes` entry 1 carries `segment`/],
+    ["two entries alike", { ...posed, leaves: [posed.leaves[0], { ...posed.leaves[0], segment: 2 }] }, /`leaves` entry 2 repeats an earlier entry's `kind` and `what`/],
+  ];
+  for (const [label, rec, want] of cases) ok(want.test(err(rec)), `(c9b) ${label} was not refused by name: ${err(rec)}`);
+}
 rmSync(root, { recursive: true, force: true });
-console.log("fixture cases run: 19");
+console.log("fixture cases run: 33");
 
 // ---- the committed library ----
-const real = libraryFailures(repo, "(a/b)");
+const unrejudged = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml"))
+  .every((n) => !/^takes:/m.test(readFileSync(join(repo, "moves", n), "utf8")));
+if (unrejudged) console.log("moves/: no record carries `takes` yet -- each is validated with both lists empty until the owner's rejudge --constraints --write run (kogaki#1698)");
+const real = libraryFailures(repo, "(a/b)", unrejudged);
 fails.push(...real);
 const count = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml")).length;
 console.log(`moves/: ${count} record(s) read, INDEX.md compared`);
