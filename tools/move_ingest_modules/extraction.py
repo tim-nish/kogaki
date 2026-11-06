@@ -437,8 +437,7 @@ def derive_from_extraction(record, line_no=1):
         # `obligation_triggers` stays on the Extraction (kogaki#1590).
         if record.get("obligation") is not None:
             mapping["obligation"] = record.get("obligation")
-        # The Move's constraints, copied unchanged (kogaki#1698); the Adapter
-        # refuses an Extraction that carries neither list.
+        # `takes` and `leaves`, copied unchanged (kogaki#1698).
         for field in ("takes", "leaves"):
             if record.get(field) is not None:
                 mapping[field] = record.get(field)

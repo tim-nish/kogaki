@@ -16,9 +16,7 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { validateMoveRecord } from "./compose.mjs";
 
-// THE CONSTRAINT KINDS A MOVE'S `takes` AND `leaves` NAME (kogaki#1698, owner ruling
-// 2026-11-06): a closed set, each kind with its one-sentence definition, rendered into every
-// row that reads the two fields.
+// The constraint kinds of `takes` and `leaves` (kogaki#1698), defined in specs/spec-draft-pipeline/SPEC.md "`takes` and `leaves`".
 export const MOVE_CONSTRAINT_KINDS = Object.freeze({
   answer: "a question raised, to be answered",
   explain: "a term or item named, to be explained",
@@ -26,9 +24,7 @@ export const MOVE_CONSTRAINT_KINDS = Object.freeze({
   apply: "a principle, division or general statement given, to be put to work on a case or shown in an instance",
 });
 
-// `takes` and `leaves`, read back (kogaki#1698): each a list, possibly empty, of `{ kind, what }`,
-// a `leaves` entry also carrying `segment`, the Segment that leaves it, one of the Move's
-// `segmentCount`. Returns the first refusal, naming the field and the entry, or null.
+// `takes` and `leaves`, read back against their SPEC clause (kogaki#1698): the first refusal, or null.
 export function moveConstraintsRefusal(record, segmentCount, at) {
   const kinds = Object.keys(MOVE_CONSTRAINT_KINDS);
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s.trim());

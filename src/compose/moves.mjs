@@ -47,9 +47,7 @@ export function moveRoles(movesDir = "moves") {
 }
 
 // The required roles beside `identity`, mapped to the output key each emits
-// under (kogaki#1349). `takes` and `leaves` are the Move's constraints
-// (kogaki#1698); the two states are optional roles, emitted under the keys
-// they always had until the Brief's and the ParagraphPlan's Issues retire them.
+// under (kogaki#1349, kogaki#1698).
 const REQUIRED_ROLE_OUTPUT_KEYS = [["takes", "takes"], ["leaves", "leaves"]];
 const STATE_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "after"]];
 // The optional roles this reader has a use for. A role this library's
@@ -135,8 +133,8 @@ function moveRecordContract(record, moveId, path, movesDir) {
   }
   // A STATE IS A MAP KEYED BY DIMENSION (kogaki#1413), rendered here one
   // line per dimension: that is the text the binding contract and the judge
-  // read, so the map's shape is checked at the one place it is rendered. A
-  // record carrying none emits null (kogaki#1698).
+  // read, so the map's shape is checked at the one place it is rendered;
+  // optional since kogaki#1698.
   for (const [role, outKey] of STATE_ROLE_OUTPUT_KEYS) {
     const field = optional[role];
     const v = typeof field === "string" && field !== "" ? record[field] : undefined;
