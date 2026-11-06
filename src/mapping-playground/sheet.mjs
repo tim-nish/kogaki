@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
-import { moveContract, loadMoveContracts, MOVE_STATE_DIMENSIONS } from "../compose.mjs";
+import { moveContract, loadMoveContracts, MOVE_STATE_DIMENSIONS, CAST_KEYS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
@@ -111,7 +111,10 @@ function segmentsTable(record, entry, number) {
   const segments = c.error ? [] : c.segments;
   const points = entry.paragraph_waypoints || [];
   const n = Math.max(segments.length, points.length);
-  const pointCell = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>` : esc(p.point));
+  // kogaki#1695: a point's true cast keys ride beside it in a meta span, in CAST_KEYS order.
+  const castOf = (p) => Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
+  const pointCell = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>`
+    : esc(p.point) + (castOf(p).length ? ` <span class="meta">${esc(castOf(p).join(", "))}</span>` : ""));
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   return (c.error ? `<p class="stop">${esc(c.error)}</p>` : "")
     + `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>`

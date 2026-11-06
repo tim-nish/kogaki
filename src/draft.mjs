@@ -36,7 +36,7 @@ import { sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "./lint-ja.mjs";
 import { fail, argString, sha256, readBrief, REACHES_TARGET_LINE, CLOSING_LEG_LINE, readerTargetLine, foreignStrandRefusal } from "./draft/brief-reader.mjs";
 import { journeyIdentityKey, journeyTextFromSurvey, journeyResolutionRefusal, journeyProseFromShardLines } from "./draft/journeys.mjs";
 import { splitPacketTemplate, figureFormFor, renderFigureInput, figureRecordRefusal } from "./draft/packet.mjs";
-import { READER_OWN_WORLD_ABSENT, OPENS_FROM_LABEL, waypointLines, renderPacket, renderAndStorePacket } from "./draft/render-packet.mjs";
+import { READER_OWN_WORLD_ABSENT, OPENS_FROM_LABEL, CAST_LABEL, waypointLines, renderPacket, renderAndStorePacket } from "./draft/render-packet.mjs";
 import { workspaceFor, enterWorkspace, langOf, sectionsDir, packetsDir, packetsRecordKey, snapshotDraft, loadBrief, sectionsOf, sectionOfLeg, assembleBody } from "./draft/workspace.mjs";
 import { writerSettings, callWriter, writerRefusal, sectionProseRefusal, parseWriterRecord } from "./draft/writer.mjs";
 
@@ -47,7 +47,7 @@ export {
   sectionsOf, sectionOfLeg, writerRefusal,
   splitPacketTemplate, journeyIdentityKey, journeyTextFromSurvey,
   journeyResolutionRefusal, journeyProseFromShardLines, READER_OWN_WORLD_ABSENT,
-  OPENS_FROM_LABEL, waypointLines, renderPacket,
+  OPENS_FROM_LABEL, CAST_LABEL, waypointLines, renderPacket,
 };
 
 function parseArgs(argv) {

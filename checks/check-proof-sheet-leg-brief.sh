@@ -168,7 +168,7 @@ else {
   // (b) /paragraph-plan's own read, and /draft resolve with a plan written by the stage's writer
   const pp = readAdoptedBrief(briefPath);
   ok(!pp.error, `(b) /paragraph-plan refused the Brief: ${pp.error}`);
-  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints.map((w, i) => [{ point: `Paragraph ${i + 1}.`, serves: [...w.serves] }]),
+  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints.map((w, i) => [{ point: `Paragraph ${i + 1}.`, serves: [...w.serves], cast: {} }]),
     // every entry carries the paragraph's schema, the last one's after-state the Leg's (kogaki#1639).
     entries: l.waypoints.map((w, i) => ({ move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...w.serves],
       purpose: `brings the reader to the point of paragraph ${i + 1}.`,

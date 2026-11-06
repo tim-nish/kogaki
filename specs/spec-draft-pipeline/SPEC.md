@@ -2370,7 +2370,7 @@ Every block of the Leg Packet (§4.14), sorted under that rule:
 
 | Packet block | sorted as |
 |---|---|
-| the waypoints, with their Paragraph Waypoints, *Opens from* and italic lines | **structure** — the plan; the only lines that fix what a paragraph says and in what order |
+| the waypoints, with their Paragraph Waypoints, *Opens from*, *Cast* and italic lines | **structure** — the plan; the only lines that fix what a paragraph says and in what order |
 | the claims this Leg asserts | material — each claim as its proposition |
 | the Journey material | material — the served text, edited, never a claim to recover |
 | the Section, and the reader-target line | material — where the Leg sits and whether it may still introduce anything |
@@ -2656,7 +2656,7 @@ Brief, one YAML record: `version`; `brief`, the `path` and `sha256` of the
 Brief it was made from; and `legs`, one entry per Leg in order, each carrying
 one entry per Leg Waypoint in order. **Every entry carries the Leg schema at
 the paragraph scale**, beside its `waypoint`, its `join` and its
-`paragraph_waypoints` (`point`, `serves`):
+`paragraph_waypoints` (`point`, `serves`, `cast`, or `performs` alone):
 
 | field | the paragraph's |
 |---|---|
@@ -2760,6 +2760,40 @@ planner consumes it and it never reaches the Writer.
 > carries the SEVENTH; the judge judges only the axes
 > `src/paragraph-plan-axes.json` keeps (the Status block under the judge
 > clause above).
+
+**The cast is a closed map (kogaki#1695, owner decision 2026-11-06).** Every
+`point` Paragraph Waypoint carries `cast`, a map whose keys come from a closed
+set and whose values are booleans; `{}` is the form for no constraint, and a
+`performs` Paragraph Waypoint carries none. Operation and Strand together give
+a Paragraph Waypoint; Manner and Strand together give a constraint on it, which
+belongs to the Plan and is not the Move's `manner` even where its words
+coincide. The set, `CAST_KEYS` in `src/compose/record.mjs`:
+
+| key | the sentences of the point |
+|---|---|
+| `terse` | one short statement given at once, taking no elaboration after it |
+| `plain` | laid down without support, ground or qualification |
+| `hedged` | offered as a guess or forecast rather than asserted |
+| `chained` | a run of parallel items or alternatives inside one sentence |
+| `asked` | put as a question that takes no lead-in |
+| `voiced` | spoken in a named voice, the first person, an invitation, or words reported as another's |
+| `instanced` | one recognisable instance named and left without comment |
+| `dated` | each instance placed in time |
+| `figured` | asserted as a likeness or a figurative identification |
+
+The planner sets true each key its Segment's `manner` bears, and no key where
+the Segment carries no `manner`; the manner's words stay out of the point.
+The plan reader and the plan call's validator (`castRefusal`) refuse a `point`
+Paragraph Waypoint with no `cast`, a `cast` that is not a map, a key outside
+the set and a value that is not a boolean, each by name, and a `cast` on a
+`performs` Paragraph Waypoint. The Packet renders the true keys, in the set's
+order, as one indented `*Cast:* <keys>` line under the point, and no line where
+none is true; the Writer realises it in the form of that point's sentences,
+never as a sentence or clause of its own. **Why a closed set**: a model cannot
+be relied on to keep a constraint apart from content, which is why the join
+became one word (kogaki#1477). The key is `terse`, not `brief`, which collides
+with the Brief. No judge axis reads `cast`; the owner's reading is the
+judgment, as for the join since kogaki#1533.
 
 **Obligations at the Paragraph scale** (kogaki#1528, owner decision
 2026-10-23; kogaki#1620, owner decision 2026-10-27). A Leg's paragraphs carry

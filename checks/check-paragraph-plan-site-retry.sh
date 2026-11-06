@@ -88,7 +88,7 @@ export const entry = (w, legId, total, legAfter, { move = "p1", tag = "", after 
   reader_state_after: w === total ? legAfter : after || { knowledge: "STATE-" + legId + "-" + w + " after." },
   depends_on: w > 1 ? [w - 1] : [], rationale: rationale || "its before holds the state the paragraph before leaves.",
   introduces: [], "re-activate": [], ...(w > 1 ? { join: "consequence" } : {}),
-  paragraph_waypoints: move === null ? [] : [{ point: "PW-" + legId + "-" + w + tag + " the paragraph makes its point.", serves: ["L1"] }] });
+  paragraph_waypoints: move === null ? [] : [{ point: "PW-" + legId + "-" + w + tag + " the paragraph makes its point.", serves: ["L1"], cast: {} }] });
 export const plan = (input) => { const l = input.leg_you_must_plan;
   return { version: "1", leg_id: l.leg_id, waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, l.waypoints.length, l.reader_state_after)) }; };
 export const siteEntry = (input, opts = {}) => { const s = input.leg_waypoint_you_must_plan;

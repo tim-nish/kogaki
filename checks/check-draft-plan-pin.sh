@@ -61,7 +61,7 @@ const entry = (id) => ({ move: "answer_a_posed_question_then_win_two_easy_assent
   materials: ["L1"], purpose: `purpose of ${id}'s paragraph.`, reader_state_after: `knowledge: after ${id}.`,
   depends_on: [], rationale: `rationale for ${id}'s paragraph.`, introduces: [], "re-activate": [] });
 const planText = (mark) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText,
-  legs: legs.map((l) => ({ leg_id: l.leg_id, waypoints: [[{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, serves: ["L1"] }]],
+  legs: legs.map((l) => ({ leg_id: l.leg_id, waypoints: [[{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, serves: ["L1"], cast: {} }]],
     entries: [entry(l.leg_id)], joins: [null] })) }));
 
 const wsRoot = join(root, "ws");

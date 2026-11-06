@@ -111,7 +111,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       reader_state_after: w.waypoint === leg.waypoints.length ? leg.reader_state_after : { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: "consequence" } : {}),
-      paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves] })) })) }, "plan");
+      paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan");
   }
   return out(["WRITTEN-1 the crew and its list.", "WRITTEN-2 the room left off.", "WRITTEN-3 what stays dusty."].join("\\n\\n"), "writer");
 });

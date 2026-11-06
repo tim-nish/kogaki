@@ -48,7 +48,7 @@
         "waypoints.reader_state_after", "waypoints.depends_on", "waypoints.rationale", "waypoints.introduces",
         "waypoints.re-activate", "waypoints.journeys", "waypoints.join",
         "waypoints.paragraph_waypoints",
-        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs"
+        "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs", "paragraph_waypoints.cast"
       ]
     }
   }
