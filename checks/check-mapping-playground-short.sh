@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
 # check-mapping-playground-short -- the short Trial (kogaki#1669), driven through `node src/mapping-playground/short.mjs run` with ONE fake model binary:
 #   (a) the owner-authored route exits 0 with two calls recorded, and its files and trial.json fields are written; the placeholder's
-#       rbs.yaml is one pair per Role, `base: null`, `target` the Role's id, and `placeholder: true` (kogaki#1688); the one bind call's
+#       rbs.yaml is one correspondence per Role, `expression: null`, `role` the Role's id, `base: { domain: null }` with no `kind`,
+#       and `placeholder: true` (kogaki#1688, kogaki#1693); the one bind call's
 #       stdin carries two Leg Waypoints, the second's `point` the proposition, `bind.yaml`'s `paragraphs` has two entries, and the
 #       sheet carries two Segments tables and two Binding tables (kogaki#1689).
-#   (b) `--mapper sme_map_roles` records three calls and `structure.author: sme`, and its placeholder pairs the mapper's Roles by id.
+#   (b) `--mapper sme_map_roles` records three calls and `structure.author: sme`, and its placeholder's correspondences name the
+#       mapper's Roles by `role` (kogaki#1693).
 #   (c) a `--rbs` naming no `rbs_<variant>` row is refused naming the rows the table declares.
 #   (d) a binding answer of `move: null` on the second Leg Waypoint stops at `bind` naming Waypoint 2, and the record shows it (kogaki#1689).
 
 #   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet's first numbered line is each `holds` in order with
-#       every `{<Role id>}` replaced by its base text and no Role id (kogaki#1688).
+#       every `{<Role id>}` replaced by its correspondence's `expression` and no Role id (kogaki#1688, kogaki#1693).
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
-#       `Binding 1` and `Binding 2` of five labelled rows (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685).
-#   (g) a `base` text carrying a content word of the `proposition:` is refused naming the word and `pairs[i].base`, in a table and in
-#       the owner's file; a null `base` passes only on a placeholder table; a `target` naming no Role is refused naming the id, on a
-#       placeholder table too, and a Role paired other than once is refused naming the Role (kogaki#1688).
+#       `Binding 1` and `Binding 2` of five labelled rows (kogaki#1682, kogaki#1687), and no `WBS` text (kogaki#1685); the Mapping
+#       part carries `Base: <domain>` above a table headed `Abstract`, `Attribute`, `Correspondence`, the fixture's attribute word
+#       in its Role's `Attribute` cell, and no kind word (kogaki#1693).
+#   (g) an `expression` carrying a content word of the `proposition:` is refused naming the word and `correspondences[i].expression`,
+#       in a table and in the owner's file; a null `expression` passes only on a placeholder table; a `role` naming no Role is refused
+#       naming the id, on a placeholder table too, and a Role with other than one correspondence is refused naming the Role
+#       (kogaki#1688, kogaki#1693).
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
 
-#   (j) the `--rbs-file` route with `move`, `waypoints` and `projection`, pairing `the crew's list` with each Role id, exits 0 with
+#   (j) the `--rbs-file` route with `move`, `waypoints` and `projection`, giving each Role id the expression `the crew's list`, exits 0 with
 #       one call, `bind.state: supplied`, `rbs.variant: owner-authored` (kogaki#1671, kogaki#1688); a file without `projection` is
 #       refused naming `projection` (kogaki#1689).
 #   (k) `--rbs-file` with `--rbs` is refused naming both flags.
-#   (l) a bad `base.kind`, an unknown `move`, a wrong-length `waypoints` and a `point` carrying a claim word are each refused naming the field.
-#   (m) a structure carrying `attributes` is refused naming `attributes` (kogaki#1685).
+#   (l) a `base` carrying `kind` or without `domain`, a table carrying `pairs`, an unknown `move`, a wrong-length `waypoints` and a
+#       `point` carrying a claim word are each refused naming the field (kogaki#1693).
+#   (m) a Role without `attributes`, or with a non-list one, is refused naming the Role, and a root `attributes` is refused as an
+#       undeclared key (kogaki#1693).
 #   (n) `binding_rationale` in the rbs file reaches bind.yaml and the `Rationale` row of `Binding 1`, the model route's bind.yaml carries
 #       `binding_rationale: null`, a non-text one is refused naming the field, and `grounds` is refused naming
 #       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682, kogaki#1687).
@@ -44,10 +51,11 @@
 #       line, a second `proposition:` line is refused, a `claim:` line is refused naming
 #       `proposition`, `--strand` is refused naming `--proposition`, and the Mapper's recorded stdin carries no rendering (kogaki#1685).
 
-#   (u) `--rbs rbs_base` with a valid answer exits 0 with the base, bind and writer calls recorded, `rbs.yaml` carrying `base.domain`,
-#       `base.kind` and one pair per Role, and `rbs.variant: rbs_base`; a first answer carrying a proposition word in a base text is
-#       refused naming the word and `pairs[i].base`, the second attempt's stdin carries that refusal, each attempt's prompt and answer
-#       are kept, and a second refusal stops at `rbs` (kogaki#1688).
+#   (u) `--rbs rbs_base` with a valid answer exits 0 with the base, bind and writer calls recorded, `rbs.yaml` carrying `base.domain`
+#       with no `kind` and one correspondence per Role, and `rbs.variant: rbs_base`; the base call's stdin carries no kinds; a first
+#       answer carrying a proposition word in an expression is refused naming the word and `correspondences[i].expression`, the second
+#       attempt's stdin carries that refusal, each attempt's prompt and answer are kept, and a second refusal stops at `rbs`
+#       (kogaki#1688, kogaki#1693).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -78,9 +86,9 @@ const PROPOSITION = "A rule set applies automatically only to the files the walk
 const proposition = join(root, "proposition.md");
 writeFileSync(proposition, `cite: ${CITE}\nproposition: ${PROPOSITION}\n`);
 const mapped = { strand: CITE,
-  roles: [{ id: "crew", context: "A cleaning crew arrives at a house with a written list of rooms." },
-    { id: "list", context: "The written list names the rooms the crew was told about at the door." },
-    { id: "room", context: "A room nobody wrote down stays dusty, even when it is next door." }],
+  roles: [{ id: "crew", context: "A cleaning crew arrives at a house with a written list of rooms.", attributes: ["automatic"] },
+    { id: "list", context: "The written list names the rooms the crew was told about at the door.", attributes: [] },
+    { id: "room", context: "A room nobody wrote down stays dusty, even when it is next door.", attributes: [] }],
   relations: [{ id: "cleans", between: ["crew", "list"], holds: "{crew} cleans each place {list} names." },
     { id: "missed", between: ["list", "room"], holds: "{room} missing from {list} is never reached." }],
   higher_order: { relates: ["cleans", "missed"], holds: "Because {crew} follows {list}, what {list} leaves out stays dusty." } };
@@ -164,8 +172,10 @@ ok(rec.structure && rec.structure.author === "owner" && rec.structure.sha256 ===
   "(a) trial.json's structure and mapper are not the owner-authored ones");
 ok(rec.rbs && rec.rbs.variant === "rbs_placeholder" && rec.rbs.placeholder === true && fileOk(rec.rbs), `(a) trial.json's rbs is not the placeholder's file: ${JSON.stringify(rec.rbs)}`);
 const rbs = existsSync(join(a.o, "rbs.yaml")) ? parseYaml(readFileSync(join(a.o, "rbs.yaml"), "utf8"), "rbs") : {};
-ok(rbs.placeholder === true && Array.isArray(rbs.pairs) && rbs.pairs.length === ROLE_IDS.length && rbs.pairs.every((p, i) => p.base === null && p.target === ROLE_IDS[i]),
-  `(a) rbs.yaml is not one pair per Role, base null, target the Role's id, placeholder true: ${JSON.stringify(rbs)}`);
+ok(rbs.placeholder === true && Array.isArray(rbs.correspondences) && rbs.correspondences.length === ROLE_IDS.length
+  && rbs.correspondences.every((c, i) => c.expression === null && c.role === ROLE_IDS[i]) && JSON.stringify(rbs.base) === JSON.stringify({ domain: null })
+  && !Object.hasOwn(rbs, "pairs"),
+  `(a) rbs.yaml is not one correspondence per Role, expression null, role the Role's id, base { domain: null }, placeholder true: ${JSON.stringify(rbs)}`);
 ok(rec.bind && typeof rec.bind.move === "string" && fileOk(rec.bind), `(a) trial.json's bind does not carry the Move and its file: ${JSON.stringify(rec.bind)}`);
 ok(rec.paragraph && fileOk(rec.paragraph) && readFileSync(join(repo, rec.paragraph.path), "utf8").startsWith("WRITTEN"),
   "(a) trial.json's paragraph does not name paragraph.md with its sha256");
@@ -195,8 +205,8 @@ ok(b.res.status === 0 && stagesOf(b.rec) === "sme:done,rbs:done,bind:done,write:
   && b.rec.structure.author === "sme" && b.rec.mapper.variant === "sme_map_roles",
   `(b) the --mapper run did not record three calls with structure.author: sme: ${b.res.status} ${stagesOf(b.rec)} ${bCalls.length} ${b.res.stderr}`);
 const bRbs = existsSync(join(b.o, "rbs.yaml")) ? parseYaml(readFileSync(join(b.o, "rbs.yaml"), "utf8"), "rbs") : {};
-ok(JSON.stringify((bRbs.pairs || []).map((p) => [p.base, p.target])) === JSON.stringify(ROLE_IDS.map((id) => [null, id])),
-  `(b) the mapper route's placeholder does not pair the mapper's Roles by id: ${JSON.stringify(bRbs.pairs)}`);
+ok(JSON.stringify((bRbs.correspondences || []).map((c) => [c.role, c.expression])) === JSON.stringify(ROLE_IDS.map((id) => [id, null])),
+  `(b) the mapper route's placeholder does not name the mapper's Roles by role: ${JSON.stringify(bRbs.correspondences)}`);
 
 // (c) an unknown --rbs is refused naming the declared rows, before anything is written
 const c = run("unknown-rbs", ["--structure", structure, "--rbs", "rbs_nothing"]);
@@ -214,41 +224,44 @@ const dParagraph = (/<section class="card" id="proposition-paragraph">([\s\S]*?)
 ok(d.rec && dParagraph.includes(`stopped — ${d.rec.stopped}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")),
   `(d) the stopped Trial's Proposition and Paragraph part does not carry the stop reason: ${dParagraph}`);
 
-// (g) a base text carrying a claim word is refused naming it; the Role rules hold on every table
-const BASES = { base: { domain: "a garden", kind: "analogy" }, pairs: [{ base: "the gardener", target: "crew" }, { base: "the chart the walker keeps", target: "list" }, { base: "a bed", target: "room" }] };
+// (g) an expression carrying a claim word is refused naming it; the Role rules hold on every table
+const BASES = { base: { domain: "a garden" }, correspondences: [{ role: "crew", expression: "the gardener" }, { role: "list", expression: "the chart the walker keeps" }, { role: "room", expression: "a bed" }] };
 const gv = (t) => validateRbsTable(t, PROPOSITION, { structure: mapped });
 const g = gv(BASES);
-ok(g.error && g.error.includes('pairs[1].base carries "walker", a content word of the proposition'), `(g) a base text carrying "walker" was not refused naming it and pairs[1].base: ${JSON.stringify(g)}`);
-const gTarget = validateRbsTable({ placeholder: true, base: { domain: null, kind: null }, pairs: [{ base: null, target: "The walker sees a room." }] }, PROPOSITION);
-ok(gTarget.error && gTarget.error.includes('pairs[0].target carries "walker", a content word of the proposition'),
-  `(g) a target carrying "walker" was not refused naming it and the proposition: ${JSON.stringify(gTarget)}`);
-const gNull = gv({ ...BASES, pairs: BASES.pairs.map((p, i) => (i === 0 ? { ...p, base: null } : { ...p, base: "a bed" })) });
-ok(gNull.error && gNull.error.startsWith("pairs[0].base "), `(g) a null base on a table that is not a placeholder was not refused naming pairs[0].base: ${JSON.stringify(gNull)}`);
-const PLACE = { placeholder: true, base: { domain: null, kind: null }, pairs: ROLE_IDS.map((id) => ({ base: null, target: id })) };
-ok(!gv(PLACE).error, `(g) a placeholder table pairing every Role with null was refused: ${JSON.stringify(gv(PLACE))}`);
-const gStray = gv({ ...PLACE, pairs: [...PLACE.pairs.slice(0, 2), { base: null, target: "porch" }] });
-ok(gStray.error && gStray.error.startsWith('pairs[2].target "porch" names no Role'), `(g) a placeholder pair naming no Role was not refused naming the id: ${JSON.stringify(gStray)}`);
-const gTwice = gv({ ...PLACE, pairs: [...PLACE.pairs, { base: null, target: "crew" }] });
-ok(gTwice.error && gTwice.error.includes('the Role "crew" is paired 2 times'), `(g) a Role paired twice was not refused naming the Role: ${JSON.stringify(gTwice)}`);
-const gMissing = gv({ ...PLACE, pairs: PLACE.pairs.slice(1) });
-ok(gMissing.error && gMissing.error.includes('the Role "crew" is paired 0 times'), `(g) an unpaired Role was not refused naming the Role: ${JSON.stringify(gMissing)}`);
+ok(g.error && g.error.includes('correspondences[1].expression carries "walker", a content word of the proposition'),
+  `(g) an expression carrying "walker" was not refused naming it and correspondences[1].expression: ${JSON.stringify(g)}`);
+const gRole = validateRbsTable({ placeholder: true, base: { domain: null }, correspondences: [{ role: "The walker sees a room.", expression: null }] }, PROPOSITION);
+ok(gRole.error && gRole.error.includes('correspondences[0].role carries "walker", a content word of the proposition'),
+  `(g) a role carrying "walker" was not refused naming it and the proposition: ${JSON.stringify(gRole)}`);
+const gNull = gv({ ...BASES, correspondences: BASES.correspondences.map((c, i) => (i === 0 ? { ...c, expression: null } : { ...c, expression: "a bed" })) });
+ok(gNull.error && gNull.error.startsWith("correspondences[0].expression "),
+  `(g) a null expression on a table that is not a placeholder was not refused naming correspondences[0].expression: ${JSON.stringify(gNull)}`);
+const PLACE = { placeholder: true, base: { domain: null }, correspondences: ROLE_IDS.map((id) => ({ role: id, expression: null })) };
+ok(!gv(PLACE).error, `(g) a placeholder table giving every Role null was refused: ${JSON.stringify(gv(PLACE))}`);
+const gStray = gv({ ...PLACE, correspondences: [...PLACE.correspondences.slice(0, 2), { role: "porch", expression: null }] });
+ok(gStray.error && gStray.error.startsWith('correspondences[2].role "porch" names no Role'),
+  `(g) a placeholder correspondence naming no Role was not refused naming the id: ${JSON.stringify(gStray)}`);
+const gTwice = gv({ ...PLACE, correspondences: [...PLACE.correspondences, { role: "crew", expression: null }] });
+ok(gTwice.error && gTwice.error.includes('the Role "crew" has 2 correspondences'), `(g) a Role with two correspondences was not refused naming the Role: ${JSON.stringify(gTwice)}`);
+const gMissing = gv({ ...PLACE, correspondences: PLACE.correspondences.slice(1) });
+ok(gMissing.error && gMissing.error.includes('the Role "crew" has 0 correspondences'), `(g) a Role with no correspondence was not refused naming the Role: ${JSON.stringify(gMissing)}`);
 const gFile = join(root, "rbs-walker.yaml");
 writeFileSync(gFile, stringifyYaml(BASES));
 const gRun = run("owner-walker", ["--structure", structure, "--rbs-file", gFile]);
-ok(gRun.res.status !== 0 && gRun.res.stderr.includes('pairs[1].base carries "walker"') && !existsSync(gRun.o),
-  `(g) the owner's file with a base text carrying "walker" was not refused naming it: ${gRun.res.status} ${gRun.res.stderr}`);
+ok(gRun.res.status !== 0 && gRun.res.stderr.includes('correspondences[1].expression carries "walker"') && !existsSync(gRun.o),
+  `(g) the owner's file with an expression carrying "walker" was not refused naming it: ${gRun.res.status} ${gRun.res.stderr}`);
 const gClaimed = join(root, "rbs-claims-placeholder.yaml");
 writeFileSync(gClaimed, stringifyYaml(PLACE));
 const gcRun = run("owner-claims-placeholder", ["--structure", structure, "--rbs-file", gClaimed]);
-ok(gcRun.res.status !== 0 && gcRun.res.stderr.includes("pairs[0].base ") && !existsSync(gcRun.o),
-  `(g) an owner's file declaring itself a placeholder passed a null base: ${gcRun.res.status} ${gcRun.res.stderr}`);
+ok(gcRun.res.status !== 0 && gcRun.res.stderr.includes("correspondences[0].expression ") && !existsSync(gcRun.o),
+  `(g) an owner's file declaring itself a placeholder passed a null expression: ${gcRun.res.status} ${gcRun.res.stderr}`);
 
 // (j) the owner-authored table with a supplied binding: one writer call, no binding call
 const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
 const SEGMENTS = moveContract(MOVE, join(repo, "moves")).segments.length;
-const LONE = { id: "porch", context: "A porch light glows by the gate." };
-const owned = { base: { domain: "a cleaning crew working through a house", kind: "analogy" },
-  pairs: [...ROLE_IDS, LONE.id].map((id) => ({ base: "the crew's list", target: id })), move: MOVE,
+const LONE = { id: "porch", context: "A porch light glows by the gate.", attributes: [] };
+const owned = { base: { domain: "a cleaning crew working through a house" },
+  correspondences: [...ROLE_IDS, LONE.id].map((id) => ({ role: id, expression: "the crew's list" })), move: MOVE,
   binding_rationale: "RATIONALE the Move asks and answers, as the crew asks which room comes first.",
   waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1, point: `OWNED-${n + 1} the crew keeps to its list.` })) };
 const PROJ = { move: MOVE, binding_rationale: "RATIONALE2 the Move carries the crew's list over to the walker.",
@@ -281,10 +294,14 @@ ok(k.res.status !== 0 && k.res.stderr.includes("`--rbs`") && k.res.stderr.includ
 
 // (l) each bad field of the table is refused naming it
 const lv = (edit) => validateRbsTable({ ...owned, ...edit }, PROPOSITION, { movesDir: join(repo, "moves") });
-const l0 = validateRbsTable({ pairs: owned.pairs }, PROPOSITION);
+const l0 = validateRbsTable({ correspondences: owned.correspondences }, PROPOSITION);
 ok(l0.error && l0.error.includes("`base`"), `(l) a table with no base was not refused naming base: ${JSON.stringify(l0)}`);
-const l1 = lv({ base: { domain: "a house", kind: "metaphor" } });
-ok(l1.error && l1.error.includes("base.kind"), `(l) a kind outside the four was not refused naming base.kind: ${JSON.stringify(l1)}`);
+const l1 = lv({ base: { domain: "a house", kind: "analogy" } });
+ok(l1.error && l1.error.includes("`kind`"), `(l) a base carrying kind was not refused naming kind: ${JSON.stringify(l1)}`);
+const l1d = lv({ base: {} });
+ok(l1d.error && l1d.error.includes("`domain`"), `(l) a base without domain was not refused naming domain: ${JSON.stringify(l1d)}`);
+const l1p = lv({ pairs: owned.correspondences.map((c) => ({ base: c.expression, target: c.role })) });
+ok(l1p.error && l1p.error.includes("`pairs`"), `(l) a table carrying pairs was not refused naming pairs: ${JSON.stringify(l1p)}`);
 const l2 = lv({ move: "no_such_move" });
 ok(l2.error && l2.error.startsWith("move "), `(l) a move naming no Move was not refused naming move: ${JSON.stringify(l2)}`);
 const l3 = lv({ waypoints: owned.waypoints.slice(1) });
@@ -292,10 +309,16 @@ ok(l3.error && l3.error.startsWith("waypoints "), `(l) a waypoints list of the w
 const l4 = lv({ waypoints: owned.waypoints.map((w, n) => (n === 2 ? { ...w, point: "The walker sees a room." } : w)) });
 ok(l4.error && l4.error.includes('waypoints[2].point carries "walker"'), `(l) a point carrying a claim word was not refused naming the field: ${JSON.stringify(l4)}`);
 
-// (m) attributes is refused by name
+// (m) every Role carries its attributes; a root attributes is an undeclared key
 const propositionRec = { cite: CITE, proposition: PROPOSITION };
-const m1 = validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"] }] }, propositionRec);
-ok(m1.error && m1.error.includes("`attributes`"), `(m) a structure carrying attributes was not refused naming it: ${JSON.stringify(m1)}`);
+const withRole = (i, role) => ({ ...mapped, roles: mapped.roles.map((r, n) => (n === i ? role : r)) });
+const { attributes: _a, ...bare } = mapped.roles[1];
+const m1 = validateStructure(withRole(1, bare), propositionRec);
+ok(m1.error && m1.error.includes("`attributes`") && m1.error.includes('"list"'), `(m) a Role without attributes was not refused naming the Role: ${JSON.stringify(m1)}`);
+const m2 = validateStructure(withRole(1, { ...mapped.roles[1], attributes: "written" }), propositionRec);
+ok(m2.error && m2.error.includes("`attributes`") && m2.error.includes('"list"'), `(m) a non-list attributes was not refused naming the Role: ${JSON.stringify(m2)}`);
+const m3 = validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"] }] }, propositionRec);
+ok(m3.error && m3.error.includes("carries `attributes`, which it does not declare"), `(m) a root attributes was not refused as an undeclared key: ${JSON.stringify(m3)}`);
 
 // (f) the sheet: dark, its six sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
 const SECTIONS = ["Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Structure", "Model calls"];
@@ -340,14 +363,19 @@ ok(aBinding && rowOf(aBinding, "Bound by").includes("<td>smp_bind_unit</td>") &&
   `(f) the model route's Binding table does not carry its row name and a Rationale of none: ${aBinding}`);
 ok(![...section(jSheet, "segments").matchAll(/<caption>([\s\S]*?)<\/caption>/g)].some((x) => x[1].includes("—")),
   "(f) a — caption line still precedes a Segments table");
+const HEADS = ["Abstract", "Attribute", "Correspondence"];
 const ths = [...section(jSheet, "mapping").matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
-ok(JSON.stringify(ths) === JSON.stringify(["Role", "Abstraction", `Analogy: ${owned.base.domain}`]),
-  `(f) the Mapping headers are not Role, Abstraction and Analogy: <domain>: ${JSON.stringify(ths)}`);
+ok(JSON.stringify(ths) === JSON.stringify(HEADS) && section(jSheet, "mapping").startsWith(`<h2>Mapping</h2><p class="meta">Base: ${esc(owned.base.domain)}</p><table>`),
+  `(f) the Mapping part is not the Base line above a table headed Abstract, Attribute and Correspondence: ${JSON.stringify(ths)}`);
 const pHeads = [...section(sheet, "mapping").matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
-ok(pHeads[2] === "Base: null", `(f) the placeholder's base header is not \`Base: null\`: ${JSON.stringify(pHeads)}`);
+ok(JSON.stringify(pHeads) === JSON.stringify(HEADS) && section(sheet, "mapping").includes('<p class="meta">Base: none</p>'),
+  `(f) the placeholder's Mapping part is not \`Base: none\` above the three fixed headers: ${JSON.stringify(pHeads)}`);
+const KIND_WORDS = /\b(analogy|abstraction|literal-similarity|mere-appearance|kind)\b/i;
+ok(![sheet, jSheet].some((h) => KIND_WORDS.test(section(h, "mapping"))), "(f) a Mapping part carries a kind word");
 const mapRows = [...section(jSheet, "mapping").matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
-ok(mapped.roles.every((r) => mapRows.filter((x) => x[1] === r.id && x[2] === r.context && x[3] === "the crew's list").length === 1),
-  `(f) the mapping table is not one row per Role carrying its context and its base object: ${mapRows.map((x) => x.slice(1).join("|")).join(" / ")}`);
+ok(mapped.roles.every((r) => mapRows.filter((x) => x[1] === `<span class="meta">${r.id}</span> ${esc(r.context)}` && x[2] === r.attributes.join(", ")
+  && x[3] === esc("the crew's list")).length === 1) && mapRows.some((x) => x[1].startsWith('<span class="meta">crew</span>') && x[2] === "automatic"),
+  `(f) the mapping table is not one row per Role carrying its id and context, its attributes and its expression: ${mapRows.map((x) => x.slice(1).join("|")).join(" / ")}`);
 const struct = section(jSheet, "structure");
 const elRows = [...struct.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
 const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...[...mapped.relations, PASSED].map((r) => [r.id, "relation"]),
@@ -507,9 +535,9 @@ ok(smeStdin.includes(`"proposition": ${JSON.stringify(PROPOSITION)}`) && !smeStd
   `(t) the Mapper's recorded stdin does not carry the proposition alone: ${smeStdin.slice(0, 400)}`);
 
 // (u) the rbs_base row: one call chooses the base, validated as the owner's file is, under one retry
-const GARDEN = { base: { domain: "a gardener tending a plot", kind: "analogy" },
-  pairs: [{ base: "the gardener", target: "crew" }, { base: "the planting chart", target: "list" }, { base: "a flower bed", target: "room" }] };
-const WALKED = { ...GARDEN, pairs: GARDEN.pairs.map((p, i) => (i === 0 ? { ...p, base: "the walker" } : p)) };
+const GARDEN = { base: { domain: "a gardener tending a plot" },
+  correspondences: [{ role: "crew", expression: "the gardener" }, { role: "list", expression: "the planting chart" }, { role: "room", expression: "a flower bed" }] };
+const WALKED = { ...GARDEN, correspondences: GARDEN.correspondences.map((c, i) => (i === 0 ? { ...c, expression: "the walker" } : c)) };
 const answers = (name, list) => { const f = join(root, `${name}.json`); writeFileSync(f, JSON.stringify(list)); return { SMP_RBS_ANSWERS: f }; };
 const u = run("rbs-base", ["--structure", structure, "--rbs", "rbs_base"], answers("rbs-base", [GARDEN]));
 const uCalls = [u.calls("rbs"), u.calls("bind"), u.calls("write")];
@@ -517,30 +545,30 @@ const uRbs = existsSync(join(u.o, "rbs.yaml")) ? parseYaml(readFileSync(join(u.o
 ok(u.res.status === 0 && stagesOf(u.rec) === "rbs:done,bind:done,write:done" && uCalls.every((x) => x.length === 1) && u.seen.length === 3
   && u.rec.rbs.variant === "rbs_base" && u.rec.rbs.placeholder === false && fileOk(u.rec.rbs),
   `(u) --rbs rbs_base did not exit 0 with the base, bind and writer calls recorded: ${u.res.status} ${stagesOf(u.rec)} ${uCalls.map((x) => x.length)} ${u.res.stderr}`);
-ok(uRbs.variant === "rbs_base" && uRbs.base && uRbs.base.domain === GARDEN.base.domain && uRbs.base.kind === "analogy"
-  && JSON.stringify(uRbs.pairs) === JSON.stringify(GARDEN.pairs) && !validateRbsTable(uRbs, PROPOSITION, { structure: mapped }).error,
-  `(u) rbs.yaml does not carry the answer's base and one pair per Role: ${JSON.stringify(uRbs)}`);
+ok(uRbs.variant === "rbs_base" && JSON.stringify(uRbs.base) === JSON.stringify({ domain: GARDEN.base.domain })
+  && JSON.stringify(uRbs.correspondences) === JSON.stringify(GARDEN.correspondences) && !validateRbsTable(uRbs, PROPOSITION, { structure: mapped }).error,
+  `(u) rbs.yaml does not carry the answer's base.domain with no kind and one correspondence per Role: ${JSON.stringify(uRbs)}`);
 const uIn = uCalls[0].length ? uCalls[0][0].stdin : "";
-ok(uIn.includes('"prior_knowledge"') && uIn.includes('"structure"') && ["analogy", "abstraction", "literal-similarity", "mere-appearance"].every((k) => uIn.includes(`"kind": "${k}"`)),
-  "(u) the base call's stdin does not carry the structure, the prior-knowledge line and the four kinds");
+ok(uIn.includes('"prior_knowledge"') && uIn.includes('"structure"') && !uIn.includes('"kinds"') && !uIn.includes('"kind"'),
+  "(u) the base call's stdin does not carry the structure and the prior-knowledge line, or still carries kinds");
 // (e) the first numbered line is the structure in the base's objects, and no Role id
 const uPk = existsSync(join(u.o, "write", "packet.md")) ? readFileSync(join(u.o, "write", "packet.md"), "utf8") : "";
 const uTop = uPk.split("\n").find((l) => /^1\. .* \*Serves:\* /.test(l)) || "";
-const byBase = new Map(GARDEN.pairs.map((p) => [p.target, p.base]));
+const byBase = new Map(GARDEN.correspondences.map((c) => [c.role, c.expression]));
 const WANT = pointOf([...mapped.relations.map((x) => x.holds), mapped.higher_order.holds], (id) => byBase.get(id));
 ok(uTop === `1. ${WANT} *Serves:* ${PROPOSITION}` && !ROLE_IDS.some((id) => new RegExp(`\\b${id}\\b`, "i").test(uTop.split(" *Serves:* ")[0])),
   `(e) the Packet's first numbered line is not the holds with the base texts substituted and no Role id: ${JSON.stringify(uTop)}`);
 const u2 = run("rbs-base-retry", ["--structure", structure, "--rbs", "rbs_base"], answers("rbs-base-retry", [WALKED, GARDEN]));
 const u2Calls = u2.calls("rbs");
 ok(u2.res.status === 0 && u2Calls.length === 2
-  && u2Calls[1].stdin.includes('pairs[0].base carries "walker"') && !u2Calls[0].stdin.includes("pairs[0].base carries"),
+  && u2Calls[1].stdin.includes('correspondences[0].expression carries "walker"') && !u2Calls[0].stdin.includes("correspondences[0].expression carries"),
   `(u) a first answer carrying "walker" was not refused into the second attempt's stdin: ${u2.res.status} ${u2Calls.length} ${u2.res.stderr}`);
 ok([1, 2].every((n) => existsSync(join(u2.o, "rbs", `prompt-${n}.md`)) && existsSync(join(u2.o, "rbs", `answer-${n}.json`)))
-  && JSON.parse(readFileSync(join(u2.o, "rbs", "answer-1.json"), "utf8")).pairs[0].base === "the walker",
+  && JSON.parse(readFileSync(join(u2.o, "rbs", "answer-1.json"), "utf8")).correspondences[0].expression === "the walker",
   "(u) the retried rbs stage does not keep each attempt's prompt and answer");
 const u3 = run("rbs-base-stop", ["--structure", structure, "--rbs", "rbs_base"], answers("rbs-base-stop", [WALKED]));
 ok(u3.res.status !== 0 && stagesOf(u3.rec) === "rbs:stopped,bind:not run,write:not run" && u3.calls("rbs").length === 2
-  && /^rbs: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('pairs[0].base carries "walker"') && !existsSync(join(u3.o, "rbs.yaml")),
+  && /^rbs: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].expression carries "walker"') && !existsSync(join(u3.o, "rbs.yaml")),
   `(u) a second refusal did not stop the Trial at rbs: ${u3.res.status} ${stagesOf(u3.rec)} ${JSON.stringify(u3.rec && u3.rec.stopped)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed

@@ -26,7 +26,7 @@ import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
-import { validateRbsTable, suppliedEntry, projectionsOf, BASE_KIND_DEFINITIONS } from "./rbs.mjs";
+import { validateRbsTable, suppliedEntry, projectionsOf } from "./rbs.mjs";
 import { mapperRow, MAPPER_ATTEMPTS } from "./sme.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
@@ -74,26 +74,25 @@ export function rbsRow(table, variant) {
 }
 
 const RBS_FILLS = {
-  // One pair per Role, in the structure's order; the variant cannot say which base object plays it.
-  roles: (structure) => structure.roles.map((r) => ({ base: null, target: r.id })),
+  // One correspondence per Role, in the structure's order; the variant cannot say which base object plays it.
+  roles: (structure) => structure.roles.map((r) => ({ role: r.id, expression: null })),
 };
 
 export function fillRbs(row, structure) {
-  return { variant: row.id, placeholder: row.placeholder === true, base: { domain: null, kind: null }, pairs: RBS_FILLS[row.fill](structure) };
+  return { variant: row.id, placeholder: row.placeholder === true, base: { domain: null }, correspondences: RBS_FILLS[row.fill](structure) };
 }
 
 export function rbsBaseInput(structure, persona) {
   return {
     structure,
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
-    kinds: Object.entries(BASE_KIND_DEFINITIONS).map(([kind, definition]) => ({ kind, definition })),
   };
 }
 
 function rbsBaseRefusal(answer, proposition, structure, libraryDir) {
   const isMap = answer && typeof answer === "object" && !Array.isArray(answer);
-  const extra = isMap ? Object.keys(answer).find((k) => k !== "base" && k !== "pairs") : null;
-  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and pairs`;
+  const extra = isMap ? Object.keys(answer).find((k) => k !== "base" && k !== "correspondences") : null;
+  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences`;
   const v = validateRbsTable(isMap ? { ...answer, placeholder: false } : answer, proposition, { movesDir: libraryDir, structure });
   return v.error || null;
 }
@@ -114,7 +113,7 @@ function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryD
     const a = answerRecord(call.text);
     if (a.record !== undefined) writeFileSync(join(dir, `answer-${attempt}.json`), JSON.stringify(a.record, null, 2) + "\n");
     const refusal = a.stopped || rbsBaseRefusal(a.record, proposition, structure, libraryDir);
-    if (!refusal) return { table: { variant: row.id, placeholder: false, base: a.record.base, pairs: a.record.pairs } };
+    if (!refusal) return { table: { variant: row.id, placeholder: false, base: a.record.base, correspondences: a.record.correspondences } };
     history.push({ answer: a.record ?? null, refusal });
   }
   return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}` };
@@ -125,7 +124,7 @@ function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryD
 // the structure in the base's objects, and one Leg Waypoint whose point is the proposition follows per projecting binding, one in the model route.
 // The first Leg Waypoint's point (kogaki#1688).
 export function firstPoint(structure, rbs) {
-  const base = new Map(rbs.pairs.map((p) => [p.target, p.base === null ? p.target : String(p.base).trim()]));
+  const base = new Map(rbs.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
   return [...structure.relations, ...higherOrderOf(structure)]
     .map((e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (base.has(id) ? base.get(id) : all)))
     .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");

@@ -1,5 +1,5 @@
-// The short Trial's correspondence table, refused or `{}` (kogaki#1669, kogaki#1671): its pairs,
-// the base and its kind of match, an owner-supplied binding of one Move, and the projecting bindings (kogaki#1681).
+// The short Trial's correspondence table, refused or `{}` (kogaki#1669, kogaki#1671): its correspondences,
+// the base (kogaki#1693), an owner-supplied binding of one Move, and the projecting bindings (kogaki#1681).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -11,25 +11,8 @@
 import { moveContract } from "../compose.mjs";
 import { propositionForms, propositionWordIn } from "./structure.mjs";
 
-// The four kinds of match of Gentner 1983.
-export const BASE_KIND_DEFINITIONS = {
-  analogy: "relations are mapped from base to target, and few attributes of the objects are",
-  abstraction: "the base is an abstract relational structure whose objects carry few attributes, and its relations are mapped",
-  "literal-similarity": "both relations and many attributes of the objects are mapped",
-  "mere-appearance": "attributes of the objects are mapped, and few relations are",
-};
-export const BASE_KINDS = Object.keys(BASE_KIND_DEFINITIONS);
-
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
-
-// Every string a `target` carries: the prose itself, or each leaf of a mapping.
-function targetTexts(target) {
-  if (typeof target === "string") return [target];
-  if (Array.isArray(target)) return target.flatMap(targetTexts);
-  if (isMap(target)) return Object.values(target).flatMap(targetTexts);
-  return [];
-}
 
 function propositionWordRefusal(text, forms, field) {
   const w = propositionWordIn(text, forms);
@@ -37,13 +20,11 @@ function propositionWordRefusal(text, forms, field) {
 }
 
 function baseRefusal(base) {
-  if (!isMap(base) || !Object.hasOwn(base, "domain") || !Object.hasOwn(base, "kind")) {
-    return "the correspondence table's `base` is not a `{ domain, kind }` map";
-  }
+  if (!isMap(base)) return "the correspondence table's `base` is not a `{ domain }` map";
+  const extra = Object.keys(base).find((k) => k !== "domain");
+  if (extra) return `base carries \`${extra}\`, which it does not declare — a base is \`{ domain }\` and has no kind (kogaki#1693)`;
+  if (!Object.hasOwn(base, "domain")) return "base carries no `domain`";
   if (base.domain !== null && !isText(base.domain)) return "base.domain is neither one phrase nor null";
-  if (base.kind !== null && !BASE_KINDS.includes(base.kind)) {
-    return `base.kind ${JSON.stringify(base.kind)} is not one of ${BASE_KINDS.join(", ")} (Gentner 1983), or null`;
-  }
   return null;
 }
 
@@ -102,37 +83,37 @@ function projectionRefusal(record, movesDir) {
 }
 
 export function validateRbsTable(record, proposition, { movesDir = "moves", structure = null } = {}) {
-  if (!isMap(record) || !Array.isArray(record.pairs) || !record.pairs.length) {
-    return { error: "the correspondence table carries no non-empty `pairs` list" };
+  if (isMap(record) && Object.hasOwn(record, "pairs")) {
+    return { error: "the correspondence table carries `pairs`, which it does not declare — its rows are `correspondences: [{ role, expression }]` (kogaki#1693)" };
+  }
+  if (!isMap(record) || !Array.isArray(record.correspondences) || !record.correspondences.length) {
+    return { error: "the correspondence table carries no non-empty `correspondences` list" };
   }
   const b = baseRefusal(record.base);
   if (b) return { error: b };
   const forms = propositionForms(proposition);
   const placeholder = record.placeholder === true;
-  for (const [i, p] of record.pairs.entries()) {
-    if (!isMap(p) || !Object.hasOwn(p, "base") || !Object.hasOwn(p, "target")) {
-      return { error: `pairs[${i}] is not a \`{ base, target }\` pair` };
+  for (const [i, c] of record.correspondences.entries()) {
+    if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) {
+      return { error: `correspondences[${i}] is not a \`{ role, expression }\` correspondence` };
     }
-    if (!(placeholder && p.base === null)) {
-      if (!isText(p.base)) return { error: `pairs[${i}].base is not one base text — only a placeholder table pairs a Role with null` };
-      const r = propositionWordRefusal(p.base, forms, `pairs[${i}].base`);
+    if (!(placeholder && c.expression === null)) {
+      if (!isText(c.expression)) return { error: `correspondences[${i}].expression is not one base text — only a placeholder table gives a Role null` };
+      const r = propositionWordRefusal(c.expression, forms, `correspondences[${i}].expression`);
       if (r) return { error: r };
     }
-    const texts = targetTexts(p.target).filter((t) => t.trim() !== "");
-    if (!texts.length) return { error: `pairs[${i}].target is empty` };
-    for (const t of texts) {
-      const r = propositionWordRefusal(t, forms, `pairs[${i}].target`);
-      if (r) return { error: r };
-    }
+    if (!isText(c.role)) return { error: `correspondences[${i}].role is not one Role id` };
+    const r = propositionWordRefusal(c.role, forms, `correspondences[${i}].role`);
+    if (r) return { error: r };
   }
   if (structure) {
     const roles = structure.roles.map((r) => r.id);
-    for (const [i, p] of record.pairs.entries()) {
-      if (!roles.includes(p.target)) return { error: `pairs[${i}].target ${JSON.stringify(p.target)} names no Role of the structure — it names ${roles.join(", ")}` };
+    for (const [i, c] of record.correspondences.entries()) {
+      if (!roles.includes(c.role)) return { error: `correspondences[${i}].role ${JSON.stringify(c.role)} names no Role of the structure — it names ${roles.join(", ")}` };
     }
     for (const id of roles) {
-      const n = record.pairs.filter((p) => p.target === id).length;
-      if (n !== 1) return { error: `the Role ${JSON.stringify(id)} is paired ${n} times, and every Role is paired once` };
+      const n = record.correspondences.filter((c) => c.role === id).length;
+      if (n !== 1) return { error: `the Role ${JSON.stringify(id)} has ${n} correspondences, and every Role has one` };
     }
   }
   const m = bindingRefusal(record, forms, movesDir) || projectionRefusal(record, movesDir);

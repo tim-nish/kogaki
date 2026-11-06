@@ -2874,10 +2874,17 @@ The runner never fetches.
 **What a Trial varies**: the SME that produces the RelationalStructure. The
 first SME is the owner: the structure file is owner-authored, and the Trial
 record says so. The structure is the proposition's. It carries `strand` (the
-proposition file's `cite:`), `roles` (`{ id, context }`), `relations`
-(`{ id, between, holds }`) and `higher_order`, every id resolving, and no
-`attributes`, which is refused by name. A proposition has one higher-order
-relation (kogaki#1685): `higher_order` is a list of one `{ id, relates, holds }`
+proposition file's `cite:`), `roles` (`{ id, context, attributes }`),
+`relations` (`{ id, between, holds }`) and `higher_order`, every id resolving.
+A Role's `attributes` (kogaki#1693) is a list, possibly empty, of the
+one-place predicates the proposition states of that Role's object, each one
+short phrase in the proposition's own words. A Role without the key is refused
+naming the Role; a value that is not a list, or an entry that is empty, not
+text or repeated within the Role, is refused naming the Role and the index.
+The proposition-word test does not run over `attributes`: an attribute is a
+word of the proposition by definition, dropped from the abstraction. A root
+`attributes` is an undeclared key and is refused as one. A proposition has
+one higher-order relation (kogaki#1685): `higher_order` is a list of one `{ id, relates, holds }`
 (kogaki#1678), its id distinct from every Role and relation id, a refusal
 naming the entry's index and field, and a list of more than one is refused
 naming the count. The one-map form `{ relates, holds }` is read as a list of
@@ -2974,46 +2981,51 @@ two model calls and the `--mapper` route three, and `--rbs rbs_base` adds one
 call, or two where its first answer is refused.
 
 **The correspondence table.** The `rbs` stage writes `<out>/rbs.yaml`:
-`variant`, `placeholder`, and `pairs`, a list of `{ base, target }`. `target`
-is the id of the Role the pair maps (kogaki#1685, kogaki#1688). `base` is the
-base text: a noun phrase naming the base's object that plays the Role. The
-validator applies these rules to every table, the placeholder's included:
+`variant`, `placeholder`, `base`, and `correspondences`, a list of
+`{ role, expression }`, one per Role in the structure's order (kogaki#1693).
+`role` is the id of the Role the correspondence maps (kogaki#1685,
+kogaki#1688). `expression` is the base text: a noun phrase naming the base's
+object that plays the Role. A table carrying `pairs` is refused naming the
+key. The validator applies these rules to every table, the placeholder's
+included:
 
-- The proposition-word test of §4.20 runs over every `base` text, refused
-  naming the word and `pairs[<i>].base`.
-- A `base` that is not one non-empty text is refused naming `pairs[<i>].base`.
-  `base: null` passes only on a table whose `placeholder` is `true`, and an
-  owner's file is never one.
-- Given the structure, a `target` naming no Role of it is refused naming the
-  id, and a Role paired other than once is refused naming the Role. The `rbs`
-  stage always passes the structure, so an owner's file read before `--mapper`
-  has written one is checked against these two rules there.
+- The proposition-word test of §4.20 runs over every `expression`, refused
+  naming the word and `correspondences[<i>].expression`.
+- An `expression` that is not one non-empty text is refused naming
+  `correspondences[<i>].expression`. `expression: null` passes only on a table
+  whose `placeholder` is `true`, and an owner's file is never one.
+- Given the structure, a `role` naming no Role of it is refused naming the
+  id, and a Role with other than one correspondence is refused naming the
+  Role. The `rbs` stage always passes the structure, so an owner's file read
+  before `--mapper` has written one is checked against these two rules there.
 
-**The base and its kind of match** (kogaki#1671). The table carries `base`,
-`{ domain, kind }`. `domain` names the reader's situation in one phrase.
-`kind` is one of `analogy`, `abstraction`, `literal-similarity` and
-`mere-appearance`, the four kinds of match of Gentner 1983. The placeholder
-writes `{ domain: null, kind: null }`. In `pairs`, each `base` names the base's
-object and each `target` the structure element it stands for.
+**The base** (kogaki#1671, kogaki#1693). The table carries `base`,
+`{ domain }`. `domain` names the reader's situation in one phrase, or is null.
+A base has no kind: the distance between base and target is a gradient
+(Gentner and Toupin 1986), so a `base` carrying any key but `domain`, `kind`
+included, is refused naming the key, and one without `domain` is refused
+naming `domain`. The placeholder writes `{ domain: null }`. In
+`correspondences`, each `expression` names the base's object and each `role`
+the Role it stands for.
 `src/mapping-playground/rbs.mjs` is the one validator of the table.
 
 **The `rbs_<variant>` family.** A variant is a row `rbs_<variant>` of
 `src/mapping-playground/playground-workflow.json`. A `--rbs` naming no such
 row is refused, naming the rows the table declares. The first member is
-`rbs_placeholder`, and it is the default. It makes no model call: one pair per
-Role in the structure's order, `base` null, `target` the Role's id. **The
+`rbs_placeholder`, and it is the default. It makes no model call: one
+correspondence per Role in the structure's order, `role` the Role's id,
+`expression` null. **The
 placeholder is not an RBS**, and the record names it a placeholder. A second
 variant is a second row and a second Trial, never an edit of the first.
 
 **The `rbs_base` row** (kogaki#1688). The second member is one model call
 through the run's recorder, under the Mapper's bound of two attempts. Its
-input is the structure record, the Persona's prior-knowledge line, and the
-four kinds of match, each with its one-line definition. It chooses one domain
-the Persona already holds in which the Roles, the relations and the
-higher-order relation hold as stated. It names the domain's `kind` among the
-four, and one base text per Role. Its answer is `{ base: { domain, kind },
-pairs: [{ base, target }] }`, one pair per Role in the structure's order, and
-any other key is refused. The answer is validated by `validateRbsTable` as the
+input is the structure record and the Persona's prior-knowledge line. It
+chooses one domain the Persona already holds in which the Roles, the relations
+and the higher-order relation hold as stated, and names one base text per
+Role. Its answer is `{ base: { domain }, correspondences: [{ role, expression
+}] }`, one correspondence per Role in the structure's order, and any other key
+is refused. The answer is validated by `validateRbsTable` as the
 owner's file is. The first refusal is put back verbatim into the second
 attempt, and a second refusal stops the Trial at `rbs`. Each attempt's prompt
 and answer are kept as `<out>/rbs/prompt-<n>.md` and `answer-<n>.json`. The record carries
@@ -3092,13 +3104,14 @@ folded. The runner writes the sheet once and never reads it.
   record's `library`, one sub-row per key; and `Rationale`,
   `binding_rationale`, or `none` where it is null. A Move the library no
   longer holds renders `not in the library` in `Before` and `After`.
-- `Mapping` is one table with one row per Role and three columns: `Role`,
-  `Abstraction` (the Role's `context`) and the base column, headed `<Kind>:
-  <domain>` with the kind's word capitalised (`Analogy: smoke detectors in a
-  house`), or `Base: null` for the placeholder. Its cells are the `base` of
-  the pairs naming that Role, and its caption is the table's `variant`. A
-  pair naming a relation or a higher-order relation is a further row under
-  the Roles, keyed by that id.
+- `Mapping` is one line `Base: <domain>`, or `Base: none` where `domain` is
+  null, above one table of three fixed columns, `Abstract`, `Attribute` and
+  `Correspondence` (kogaki#1693), one row per Role in the structure's order:
+  `Abstract` is the Role's id followed by its `context`, `Attribute` its
+  `attributes` joined by `, ` (empty where the list is), and `Correspondence`
+  the `expression` of the correspondence naming that Role, or `null` for the
+  placeholder. The caption is the table's `variant`, and no kind word appears
+  on the sheet.
 - `Structure` is a table with one row per element, a higher-order relation
   keyed by its id: `id`, `category` (Role, relation or higher-order),
   `arguments` (a Role's `context`, a relation's `between`, a higher-order
@@ -3151,8 +3164,8 @@ from the Leg, calls the writer once and writes its whole answer to
 **The first point is the structure in the base's objects** (kogaki#1688). It
 is the structure's `holds` sentences in order, the relations and then the
 higher-order relation, each with its first letter raised. A `holds` may name a
-Role by a `{<Role id>}` placeholder, which is replaced by that Role's base
-text, or by the Role's id where the base is null. A `holds` without
+Role by a `{<Role id>}` placeholder, which is replaced by the `expression` of
+that Role's correspondence, or by the Role's id where the expression is null. A `holds` without
 placeholders is used verbatim. The Packet renders the point as its first
 numbered line, and the model binding route plans from it.
 

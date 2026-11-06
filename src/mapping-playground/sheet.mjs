@@ -53,29 +53,27 @@ function readCalls(outDir, stages) {
 
 function elementsOf(structure) {
   if (!structure) return [];
-  const roles = (structure.roles || []).map((r) => ({ id: r.id, what: r.context, role: true }));
+  const roles = (structure.roles || []).map((r) => ({ id: r.id, what: r.context, attributes: r.attributes || [], role: true }));
   const relations = (structure.relations || []).map((r) => ({ id: r.id, what: r.holds, role: false }));
   const higher = (higherOrderOf(structure) || []).map((h) => ({ id: h.id, what: h.holds, role: false }));
   return [...roles, ...relations, ...higher];
 }
 
+// The Mapping Table (kogaki#1693).
 function mappingTable(structure, table) {
-  const elements = elementsOf(structure);
-  const pairs = table ? table.pairs : [];
-  const named = (p, e) => p.target === e.id || p.target === e.what;
-  const rows = elements.filter((e) => e.role).map((e) => ({ key: e.id, what: e.what, pairs: pairs.filter((p) => named(p, e)) }));
-  for (const p of pairs.filter((q) => !rows.some((r) => r.pairs.includes(q)))) {
-    const e = elements.find((x) => named(p, x));
-    rows.push({ key: e ? e.id : null, what: e ? e.what : p.target, pairs: [p] });
+  const roles = elementsOf(structure).filter((e) => e.role);
+  const correspondences = table ? table.correspondences : [];
+  const rows = roles.map((e) => ({ id: e.id, what: e.what, attributes: e.attributes, correspondences: correspondences.filter((c) => c.role === e.id) }));
+  for (const c of correspondences.filter((x) => !roles.some((e) => e.id === x.role))) {
+    rows.push({ id: c.role, what: null, attributes: [], correspondences: [c] });
   }
-  const base = table && table.base ? table.base : { domain: null, kind: null };
-  const kind = base.kind ? base.kind[0].toUpperCase() + base.kind.slice(1) : "Base";
-  const cell = (v) => (v === undefined ? "" : targetHtml(v));
-  const baseCell = (ps) => ps.map((p) => (p.base === null ? '<span class="muted">null</span>' : targetHtml(p.base))).join("<br>");
+  const domain = table && table.base && table.base.domain !== null && table.base.domain !== undefined ? table.base.domain : "none";
+  const abstract = (r) => `<span class="meta">${esc(r.id)}</span>${r.what === null ? "" : ` ${targetHtml(r.what)}`}`;
+  const expression = (cs) => cs.map((c) => (c.expression === null ? '<span class="muted">null</span>' : targetHtml(c.expression))).join("<br>");
   const caption = table ? `${table.variant}${table.placeholder ? " — a placeholder, not an RBS" : ""}` : "no table";
-  return `<table><caption>${esc(caption)}</caption><thead><tr><th>Role</th><th>Abstraction</th>`
-    + `<th>${esc(kind)}: ${esc(base.domain === null || base.domain === undefined ? "null" : base.domain)}</th></tr></thead><tbody>`
-    + rows.map((r) => `<tr><td>${r.key === null ? "" : esc(r.key)}</td><td>${cell(r.what)}</td><td>${baseCell(r.pairs)}</td></tr>`).join("")
+  return `<p class="meta">Base: ${esc(domain)}</p>`
+    + `<table><caption>${esc(caption)}</caption><thead><tr><th>Abstract</th><th>Attribute</th><th>Correspondence</th></tr></thead><tbody>`
+    + rows.map((r) => `<tr><td>${abstract(r)}</td><td>${esc(r.attributes.join(", "))}</td><td>${expression(r.correspondences)}</td></tr>`).join("")
     + "</tbody></table>";
 }
 

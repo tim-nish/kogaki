@@ -41,10 +41,13 @@ const structureText = (crewContext) => [
   "roles:",
   `  - id: crew`,
   `    context: "${crewContext}"`,
+  "    attributes: []",
   "  - id: list",
   `    context: "The written list names the rooms the crew was told about at the door."`,
+  "    attributes: []",
   "  - id: room",
   `    context: "A room nobody wrote down stays dusty, even when it is next door."`,
+  "    attributes: []",
   "relations:",
   "  - id: cleans",
   "    between: [crew, list]",
@@ -177,9 +180,9 @@ else {
 
 // (h) the Mapper's valid answer becomes the Trial's structure, and the record names the variant
 const mapped = (crewContext) => ({ strand: CITE,
-  roles: [{ id: "crew", context: crewContext },
-    { id: "list", context: "The written list names the rooms the crew was told about at the door." },
-    { id: "room", context: "A room nobody wrote down stays dusty, even when it is next door." }],
+  roles: [{ id: "crew", context: crewContext, attributes: [] },
+    { id: "list", context: "The written list names the rooms the crew was told about at the door.", attributes: [] },
+    { id: "room", context: "A room nobody wrote down stays dusty, even when it is next door.", attributes: [] }],
   relations: [{ id: "cleans", between: ["crew", "list"], holds: "The crew cleans each room the list names." },
     { id: "missed", between: ["list", "room"], holds: "A room missing from the list is never reached." }],
   higher_order: { relates: ["cleans", "missed"], holds: "Because the crew follows the list, what the list leaves out stays dusty." } });
