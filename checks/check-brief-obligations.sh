@@ -70,7 +70,6 @@ const fails = [];
       "breaks:", "  - drop the definition — the name stays a label the reader cannot use",
       "segments:", "  - operation: names the consequence a cause leads to",
       "  - operation: gives the name just used its meaning", "    relation: defines the name the step before introduced",
-      "obligation:", "  - named kind",
       "takes:", "  - kind: answer", "    what: why a cause has the consequence it has",
       "leaves:", "  - kind: explain", "    what: the name given to the consequence", "    segment: 2", "",
     ].join("\n"));
