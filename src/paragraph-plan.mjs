@@ -14,11 +14,10 @@
 // and nowhere after it. THE PARAGRAPHPLAN IS THE PARAGRAPH-LEVEL READER PATH (kogaki#1639,
 // owner decision 2026-10-31): every Leg Waypoint entry of the file carries the Leg schema
 // -- the bound Move's id (`move`, an id and nothing else of the Move, as a Leg's `move` is
-// an id), `materials`, `purpose`, `reader_state_after`, `depends_on`, `rationale`,
-// `introduces`, `re-activate` -- beside its `join` (kogaki#1411, kogaki#1477) and its
-// Paragraph Waypoints, each `point` and `serves` or `performs` alone (kogaki#1448). No
-// Segment and no Move field reaches the file; the before-state is derived and never
-// written; and the plan file is the record of the binding, so the run directory keeps no
+// an id), `materials`, `purpose`, `depends_on`, `rationale`, `introduces`, `re-activate`
+// -- beside its `join` (kogaki#1411, kogaki#1477) and its Paragraph Waypoints, each `point`
+// and `serves` or `performs` alone (kogaki#1448). No Segment and no Move field reaches the
+// file, it carries no reader state and no Obligations ledger (kogaki#1701), and the plan file is the record of the binding, so the run directory keeps no
 // bindings record of its own. The stage never writes the Brief, and the Brief names
 // nothing downstream: the ParagraphPlan file names the Brief it was made from, by path
 // and content hash.
@@ -27,8 +26,7 @@
 // supervisor (src/workflow/detached-job.mjs). Each attempt is two headless calls:
 // `paragraph_plan_unit` binds a Move to each Leg Waypoint and generates its Paragraph
 // Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move's
-// `before`, `after`, order (`segments`) and `breaks` -- the same four
-// criteria the Leg judge judges (kogaki#1378, owner decision 2026-10-14). A refusal of either is put back into the next attempt's
+// `takes`, `leaves`, order (`segments`) and `breaks` (kogaki#1378, kogaki#1701). A refusal of either is put back into the next attempt's
 // prompt verbatim, until `brief.unit_attempts` is spent; a call is bounded by
 // `brief.call_limit_s`; there is no limit on the whole job. A Leg that spends its
 // attempts stops the stage naming the Leg and the Waypoint, the Brief untouched, and
@@ -55,9 +53,8 @@ import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveC
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
   paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
-  paragraphObligationsRefusal, RETIRED_WAYPOINT_OBLIGATIONS, dischargesShapeRefusal, briefRowsOwedBy, briefDischargeRefusal,
-  obligationItemsAt } from "./compose.mjs";
-import { paragraphSchemaRefusal, paragraphLegRefusal, paragraphReaderStateMap, DERIVED_PLAN_BEFORE_STATE, PLAN_SCHEMA_KEYS } from "./compose/record.mjs";
+  retiredPlanKeyRefusal } from "./compose.mjs";
+import { paragraphSchemaRefusal, paragraphLegRefusal, PLAN_SCHEMA_KEYS } from "./compose/record.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -72,16 +69,11 @@ import { enterRun, laneDir } from "./runs.mjs";
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
 export const PARAGRAPH_PLAN_AXES = join(REPO, "src", "paragraph-plan-axes.json");
 export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
-// THE ROLES A BOUND PARAGRAPH MOVE MUST FILL (kogaki#1378, owner decision 2026-10-14,
-// aligning this stage to the Leg judge's four criteria): `before` and `after` to bind
-// and judge against, `breaks` to judge the Paragraph Waypoints survive, and `segments`
-// to order them by -- the Move's whole structure, with no fallback: `technique` is
-// retired (kogaki#1412) and a Move without `segments` is refused at the Adapter. A
-// bound Move missing a required one is a fatal stop, never a default. `before` and
-// `after` LEFT THE REQUIRED SET at kogaki#1699: the extractor writes neither any more, so
-// a Move carries them only where it was admitted before that Issue, and they are read
-// where present and handed as null where absent, until the ParagraphPlan's Issue moves
-// this stage to `takes` and `leaves`.
+// THE ROLES A BOUND PARAGRAPH MOVE MUST FILL (kogaki#1378): `breaks` to judge the Paragraph
+// Waypoints survive, and `segments` to order them by -- the Move's whole structure, with no
+// fallback: `technique` is retired (kogaki#1412) and a Move without `segments` is refused at the
+// Adapter. A bound Move missing one is a fatal stop, never a default. Its `takes` and `leaves`,
+// required of every Move at the Adapter (kogaki#1698), are what it is bound and judged by (kogaki#1701).
 export const PARAGRAPH_MOVE_ROLES = ["segments", "breaks"];
 // The run directory's own files, beside the supervisor's. THE BINDINGS RECORD IS RETIRED
 // (kogaki#1639): the plan file carries each paragraph's bound Move id and `rationale`, so the
@@ -147,29 +139,71 @@ function legForUnit(inputs, unitId) {
   return leg;
 }
 
-// What a unit is handed about its Leg: the derived before-state, the after-state, each
-// Leg Waypoint's own point, serves and the next Leg Waypoint's point -- no Claim
-// proposition (kogaki#1382, owner decision 2026-10-14: the Leg Waypoint alone is
-// sufficient input; the served Claim justified the Leg Waypoint's selection, not its
-// generation) -- and the Leg's Journeys, `{strand, use}`, for a paragraph to place
-// (kogaki#1639). Kept small and plain so the validator and the judge read the same Leg
-// the prompt showed.
-export function planLeg(leg, obligations = []) {
+// What a unit is handed about its Leg: each Leg Waypoint's own point, serves and the next Leg
+// Waypoint's point -- no Claim proposition (kogaki#1382, owner decision 2026-10-14: the Leg
+// Waypoint alone is sufficient input; the served Claim justified the Leg Waypoint's selection,
+// not its generation) -- and the Leg's Journeys, `{strand, use}`, for a paragraph to place
+// (kogaki#1639). Kept small and plain so the validator and the judge read the same Leg the
+// prompt showed.
+// WHAT STANDS TO BE TAKEN UP (kogaki#1701): the first Leg Waypoint is handed `stands_to_be_taken_up`,
+// the `leaves` of the Move the Brief bound to the previous Leg, each with `left_by` naming that
+// Leg, and, on the Brief's first Leg, the Persona's prior-knowledge line; a later Leg Waypoint's is
+// what the paragraphs before it leave (`standsToBeTakenUp`). `leaves_for_next_leg` is the `leaves`
+// of the Move the Brief bound to this Leg: what this Leg's paragraphs leave for the next one.
+// `opts` is `{ previousLeaves, previousLegId, leaves, priorKnowledge }`, read by `start` off the library.
+export function planLeg(leg, opts = {}) {
   const ws = leg.waypoints || [];
+  const first = [
+    ...(opts.previousLeaves || []).map((x) => ({ kind: x.kind, what: x.what, left_by: `Leg ${opts.previousLegId}` })),
+    ...(typeof opts.priorKnowledge === "string" && opts.priorKnowledge.trim() ? [{ what: opts.priorKnowledge.trim(), left_by: PRIOR_KNOWLEDGE }] : []),
+  ];
   return {
     leg_id: leg.leg_id,
-    reader_state_before: leg.reader_state_before ?? null,
-    reader_state_after: leg.reader_state_after ?? null,
     waypoints: ws.map((w, i) => ({
       waypoint: i + 1,
       point: String(w.point),
       serves: [...w.serves],
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
+      ...(i === 0 ? { stands_to_be_taken_up: first } : {}),
     })),
+    leaves_for_next_leg: (opts.leaves || []).map((x) => ({ kind: x.kind, what: x.what })),
     journeys: (leg.journeys || []).filter((j) => j && typeof j === "object").map((j) => ({ strand: j.strand, use: j.use })),
     introduces: introducedTerms(leg.introduces),
-    owes: briefRowsOwedBy(obligations, leg.leg_id),
   };
+}
+export const PRIOR_KNOWLEDGE = "the reader's prior knowledge";
+
+// The planLeg options for every Leg of a Brief, read off the Move library: each Leg's own Move's
+// `leaves`, the previous Leg's, and the Persona's prior-knowledge line on the first Leg. A Leg
+// binding no Move (a Trial's Brief, kogaki#1664) leaves nothing; a Leg naming a Move the library
+// does not hold is refused by name.
+export function planLegOptions(legs, moves, priorKnowledge) {
+  const byId = new Map(moves.map((m) => [m.id, m]));
+  const leavesOf = (leg) => (typeof leg.move === "string" ? (byId.get(leg.move) || {}).leaves || [] : []);
+  return legs.map((leg, i) => {
+    if (typeof leg.move === "string" && !byId.has(leg.move)) {
+      return { error: `the Brief's Leg ${leg.leg_id} binds the Move ${JSON.stringify(leg.move)}, which the Move library does not hold — the ParagraphPlan reads what that Move leaves for the next Leg (kogaki#1701)` };
+    }
+    return { leaves: leavesOf(leg), previousLeaves: i > 0 ? leavesOf(legs[i - 1]) : [], previousLegId: i > 0 ? legs[i - 1].leg_id : null,
+      priorKnowledge: i === 0 ? priorKnowledge : null };
+  });
+}
+
+// WHAT STANDS TO BE TAKEN UP WHEN LEG WAYPOINT n BEGINS (kogaki#1701): the first Leg Waypoint's
+// list, then, for each paragraph before n in order, its bound Move's `leaves` added with `left_by`
+// naming that Leg Waypoint and every entry its `takes` names by `kind` and `what` alike removed.
+// `contractOf` reads a Move id to its contract. An entry taken up by sense rather than by the same
+// words stays on the list: whether it is met is the judge's.
+export function standsToBeTakenUp(leg, entries, n, contractOf) {
+  let out = [...((leg.waypoints[0] || {}).stands_to_be_taken_up || [])];
+  for (const [i, e] of entries.slice(0, n - 1).entries()) {
+    const c = e && typeof e.move === "string" ? contractOf(e.move) : null;
+    if (!c) continue;
+    const taken = new Set((c.takes || []).map((x) => `${x.kind}\u0000${x.what}`));
+    out = out.filter((x) => !taken.has(`${x.kind}\u0000${x.what}`));
+    out.push(...(c.leaves || []).map((x) => ({ kind: x.kind, what: x.what, left_by: `Leg Waypoint ${i + 1}` })));
+  }
+  return out;
 }
 
 // THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497): the reader-knowledge ledger,
@@ -205,18 +239,14 @@ export function segmentsForPlanCall(segments) {
 
 // The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
 // like the persona, they say what the reader does not yet hold, never what a point says.
-// THE OBLIGATIONS RIDE BESIDE THEM (kogaki#1530, kogaki#1612): every Brief record with an item
-// this Leg closes, numbered as in the Brief and carrying those items alone, as material for the
-// plan to lay into a Paragraph Waypoint, asking for no sentence; and a bound Move's
-// `deferred_slots`, carried on its contract exactly as the Brief's composer receives it.
+// Each bindable Move carries its `takes` and `leaves` on its contract (kogaki#1701).
 export function paragraphPlanUnitInput(leg, moves, persona) {
-  const { introduces, owes, ...planned } = leg;
+  const { introduces, ...planned } = leg;
   return {
     leg_you_must_plan: planned,
     paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
     terms_this_leg_introduces: introduces || [],
-    obligations_this_leg_owes: owes || [],
   };
 }
 
@@ -313,8 +343,8 @@ export function axisSentenceRefusal(sentence) {
 
 // A fixture record as the judge reads it: a judge input whole, or `from` another record
 // with its one `edit` applied -- a Paragraph Waypoint or a `join` replaced, a Leg Waypoint's
-// `discharges` replaced, with the Brief rows the Leg owes set beside it where `owes` is given,
-// an entry's `reader_state_after` replaced, or its bound Move's `before` (`move_before`).
+// `stands_to_be_taken_up` replaced, or its bound Move's `takes` (`move_takes`) or `leaves`
+// (`move_leaves`) (kogaki#1701).
 export function axisRecord(registry, name, seen = new Set()) {
   const r = (registry.records || {})[name];
   if (!r) throw new Error(`src/paragraph-plan-axes.json names the record "${name}", which \`records\` does not hold`);
@@ -326,18 +356,9 @@ export function axisRecord(registry, name, seen = new Set()) {
   const w = ws[Number(e.waypoint) - 1];
   if (!w) throw new Error(`record "${name}" edits Leg Waypoint ${e.waypoint}, which "${r.from}" does not carry`);
   if (Object.hasOwn(e, "join")) { w.join = e.join; return input; }
-  if (Object.hasOwn(e, "move_before")) { w.bound_move.before = e.move_before; return input; }
-  // A moved after-state is the next entry's before-state, as the planner derives it (kogaki#1647).
-  if (Object.hasOwn(e, "reader_state_after")) {
-    w.reader_state_after = e.reader_state_after;
-    if (ws[Number(e.waypoint)]) ws[Number(e.waypoint)].reader_state_before = e.reader_state_after;
-    return input;
-  }
-  if (Object.hasOwn(e, "discharges")) {
-    if (Object.hasOwn(e, "owes")) input.obligations_this_leg_owes = e.owes;
-    w.discharges = e.discharges;
-    return input;
-  }
+  if (Object.hasOwn(e, "stands_to_be_taken_up")) { w.stands_to_be_taken_up = e.stands_to_be_taken_up; return input; }
+  if (Object.hasOwn(e, "move_takes")) { w.bound_move.takes = e.move_takes; return input; }
+  if (Object.hasOwn(e, "move_leaves")) { w.bound_move.leaves = e.move_leaves; return input; }
   const at = Number(e.paragraph_waypoint) - 1;
   if (!w.paragraph_waypoints[at] || !e.to) throw new Error(`record "${name}" replaces no Paragraph Waypoint of "${r.from}"`);
   w.paragraph_waypoints[at] = e.to;
@@ -373,10 +394,10 @@ export function paragraphPlanUnitPrompt(row, input) {
   try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
 }
 
-const UNIT_KEYS = ["version", "leg_id", "obligations", "waypoints"];
+const UNIT_KEYS = ["version", "leg_id", "waypoints"];
 // THE ENTRY IS THE PARAGRAPH'S SCHEMA (kogaki#1639): the plan file's own key set, `rationale` in
-// place of the retired `why`; `reader_state_before` is handed to the call and never written back.
-const UNIT_WAYPOINT_KEYS = ["waypoint", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints", "discharges"];
+// place of the retired `why`.
+const UNIT_WAYPOINT_KEYS = ["waypoint", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints"];
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
 
 // THE BOUND MOVE'S ROLES, OR A FATAL STOP (kogaki#1378). THROWS: inside the job the
@@ -388,8 +409,7 @@ export function boundMoveContract(moveId, movesDir) {
     throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and cannot be read for the roles `
       + `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}) — ${c.error}`);
   }
-  // `before` and `after`, where carried, arrive rendered one line per dimension, `breaks` as a
-  // list of prose tests and `segments` as a list of Segments (kogaki#1413).
+  // `breaks` arrives as a list of prose tests and `segments` as a list of Segments (kogaki#1413).
   const filled = (v) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "");
   for (const role of PARAGRAPH_MOVE_ROLES) {
     if (!filled(c[role])) {
@@ -411,8 +431,10 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   const r = record || {};
   const at = `Leg ${leg.leg_id}`;
+  const retired = retiredPlanKeyRefusal(r, `${at}: the plan record`);
+  if (retired) return { error: retired };
   const extra = undeclaredKey(r, UNIT_KEYS);
-  if (extra) return { error: `${at}: the plan record carries \`${extra}\`, which it does not declare — it carries version, leg_id, waypoints and, where the Leg has any, obligations` };
+  if (extra) return { error: `${at}: the plan record carries \`${extra}\`, which it does not declare — it carries version, leg_id and waypoints` };
   if (String(r.version) !== "1") return { error: `${at}: the plan record's version is ${JSON.stringify(r.version)}, not "1"` };
   if (r.leg_id !== leg.leg_id) return { error: `${at}: the plan record names leg ${JSON.stringify(r.leg_id)}, not ${leg.leg_id}` };
   const ws = leg.waypoints;
@@ -435,18 +457,9 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit), sites: noFit.map((f) => f.waypoint) };
   // THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639), by the plan reader's own rule: each
-  // introduced term assigned to at most one paragraph, and the last paragraph's after-state the Leg's.
+  // introduced term assigned to at most one paragraph.
   const legRule = paragraphLegRefusal(r.waypoints, leg, at);
-  if (legRule) {
-    const last = new RegExp(`Waypoint ${ws.length}: the last paragraph's`).test(legRule);
-    return { error: legRule, ...(last ? { sites: [ws.length] } : {}) };
-  }
-  // THE BRIEF'S OBLIGATION RULES AT THIS SCALE, OVER THE LEG'S PARAGRAPHS (kogaki#1530, kogaki#1620),
-  // by the plan reader's own rule.
-  const rows = paragraphObligationsRefusal(r.obligations, ws.length, at);
-  if (rows) return { error: rows };
-  const undischarged = briefDischargeRefusal(leg.owes || [], r.waypoints.map((e) => e.discharges || []), at);
-  if (undischarged) return { error: undischarged };
+  if (legRule) return { error: legRule };
   return {};
 }
 
@@ -455,11 +468,11 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
 // whose `move` is null is refused here; the Leg call's validator collects those first.
 function entryRefusal(e, i, leg, prior, libraryIds, movesDir, atW) {
   if (!e || typeof e !== "object" || Array.isArray(e)) return `${atW}: the entry is not a map`;
-  if (Object.hasOwn(e, "obligations")) return `${atW}: the entry carries ${RETIRED_WAYPOINT_OBLIGATIONS}`;
-  if (Object.hasOwn(e, "reader_state_before")) return `${atW}: the entry carries ${DERIVED_PLAN_BEFORE_STATE}`;
+  const retired = retiredPlanKeyRefusal(e, `${atW}: the entry`);
+  if (retired) return retired;
   if (Object.hasOwn(e, "why")) return `${atW}: the entry carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\``;
   const k = undeclaredKey(e, UNIT_WAYPOINT_KEYS);
-  if (k) return `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every Leg Waypoint after the first), paragraph_waypoints, and discharges where it has any`;
+  if (k) return `${atW}: the entry carries \`${k}\`, which it does not declare — it carries waypoint, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every Leg Waypoint after the first) and paragraph_waypoints`;
   if (e.waypoint !== i + 1) return `${atW}: the entry is numbered ${JSON.stringify(e.waypoint)} — entries are one per Leg Waypoint, in order`;
   if (typeof e.rationale !== "string" || words(e.rationale) < 4) return `${atW}: \`rationale\` is under four words`;
   if (e.move === null) return noParagraphMoveFitsRefusal([{ leg_id: leg.leg_id, waypoint: i + 1, point: leg.waypoints[i].point, why: e.rationale.trim() }]);
@@ -480,62 +493,50 @@ function entryRefusal(e, i, leg, prior, libraryIds, movesDir, atW) {
   }
   // THE JOIN, BY THE PLAN READER'S OWN RULE (kogaki#1411): so the file this stage writes is
   // one /draft reads. Whether it takes up what the previous paragraph left is the judge's.
-  return joinRefusal(e, i, atW) || paragraphWaypointsRefusal(e.paragraph_waypoints, leg.waypoints[i].serves, atW)
-    || dischargesShapeRefusal(e.discharges, n, atW) || null;
+  return joinRefusal(e, i, atW) || paragraphWaypointsRefusal(e.paragraph_waypoints, leg.waypoints[i].serves, atW) || null;
 }
 
 export function noParagraphMoveFitsRefusal(failures) {
   return [`NO PARAGRAPH MOVE FITS THESE LEG WAYPOINTS (${NO_PARAGRAPH_MOVE_FITS}):`,
     ...failures.map((f) => `Leg ${f.leg_id}, Waypoint ${f.waypoint} ("${f.point}"): you wrote: "${f.why}"`),
-    "There is no fallback paragraph shape. Bind again: read each Move's before and after against this Leg Waypoint "
-    + "once more, with the next Leg Waypoint in view."].join("\n");
+    "There is no fallback paragraph shape. Bind again: read each Move's takes against what stands to be taken up at this "
+    + "Leg Waypoint once more, with the next Leg Waypoint in view."].join("\n");
 }
 
-// THE SECOND CALL — the judge. Its input carries each Leg Waypoint with the bound Move's
-// before, after, segments and breaks, and the Paragraph Waypoints generated
-// for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533); every Leg Waypoint
-// after the first also carries its `join` (kogaki#1411, kogaki#1477).
-// Each entry's discharges ride on it, and the Brief's rows the Leg owes beside the
-// Leg, so the judge reads whether a discharge keeps its promise (kogaki#1530). The Leg's own
-// Obligation records ride on the Leg, and each Leg Waypoint after the opening one carries the items
-// still open when it begins, as material (kogaki#1620, SPEC-draft-pipeline "Obligations" rule 6).
+// THE SECOND CALL — the judge. Its input carries each Leg Waypoint with what stands to be taken
+// up when it begins, the bound Move's takes, leaves, segments and breaks, and the Paragraph
+// Waypoints generated for it, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533,
+// kogaki#1701); every Leg Waypoint after the first also carries its `join` (kogaki#1411,
+// kogaki#1477), and the Leg carries what its paragraphs leave for the next Leg.
 //
 // A SCOPED JUDGMENT (kogaki#1642): after a site retry `scope` names the entries to judge, `judge`
 // whole and `join_only` for its join alone, and the judge is handed those entries with every
-// paragraph of the standing record beside them; its verdicts for the other entries are carried.
+// paragraph of the standing record beside them, each with its bound Move's `takes`; its verdicts
+// for the other entries are carried.
 export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
   const leg = legForUnit(inputs, unitId);
-  const rows = Array.isArray(record.obligations) ? record.obligations : [];
-  const pos = (n) => (Number.isInteger(n) && n >= 1 && n <= leg.waypoints.length ? n : undefined);
-  const openAt = (n) => rows.filter((o) => pos(o.opened_by) !== undefined && pos(o.opened_by) < n)
-    .map((o) => ({ opened_by: o.opened_by, items: obligationItemsAt(o, pos, n) })).filter((o) => o.items.length);
+  const contractOf = (id) => boundMoveContract(id, inputs.movesDir);
   const judged = judgedWaypoints(leg, scope);
   const joinOnly = new Set(scope ? scope.join_only || [] : []);
   return {
     leg_you_must_judge: {
       leg_id: leg.leg_id,
-      reader_state_before: leg.reader_state_before,
-      reader_state_after: leg.reader_state_after,
-      obligations: rows,
+      leaves_for_next_leg: leg.leaves_for_next_leg || [],
       waypoints: judged.map((n) => {
         const i = n - 1;
         const w = leg.waypoints[i];
         const e = record.waypoints[i];
-        const c = boundMoveContract(e.move, inputs.movesDir);
+        const c = contractOf(e.move);
         return { waypoint: n, point: w.point, next_point: w.next_point,
           ...(joinOnly.has(n) ? { judge_its_join_only: true } : {}),
-          reader_state_before: i === 0 ? leg.reader_state_before : record.waypoints[i - 1].reader_state_after,
-          reader_state_after: e.reader_state_after,
-          bound_move: { before: c.before, after: c.after, segments: c.segments, breaks: c.breaks },
+          stands_to_be_taken_up: standsToBeTakenUp(leg, record.waypoints, n, contractOf),
+          bound_move: { takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks },
           ...(i > 0 ? { join: e.join } : {}),
-          paragraph_waypoints: e.paragraph_waypoints,
-          ...(openAt(n).length ? { obligations_open_here: openAt(n) } : {}),
-          discharges: e.discharges || [] };
+          paragraph_waypoints: e.paragraph_waypoints };
       }),
     },
     ...(scope ? { standing_paragraphs: record.waypoints.map((e) => ({ waypoint: e.waypoint, move: e.move,
-      ...(e.waypoint > 1 ? { join: e.join } : {}), paragraph_waypoints: e.paragraph_waypoints })) } : {}),
-    obligations_this_leg_owes: leg.owes || [],
+      takes: contractOf(e.move).takes, ...(e.waypoint > 1 ? { join: e.join } : {}), paragraph_waypoints: e.paragraph_waypoints })) } : {}),
   };
 }
 
@@ -578,11 +579,12 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
   if (!failures.length) return {};
   return { failures, refusal: ["THE PARAGRAPH WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG WAYPOINT:",
     ...failures.map((f) => f.refusal),
-    "Generate the Paragraph Waypoints again so that they begin where the bound Move's before holds, end where its "
-    + "after leaves the reader, follow the Move's order (its segments), "
+    "Generate the Paragraph Waypoints again so that the bound Move's takes are each met by what stands to be "
+    + "taken up, its leaves are each taken up by a later paragraph or left for the next Leg, they follow the "
+    + "Move's order (its segments), "
     + "each perform its own Segment's operation and stand in that Segment's relation, "
     + "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the "
-    + "previous paragraph's bound Move's after leaves open, restates no Paragraph Waypoint, names no noun phrase "
+    + "previous paragraph's bound Move leaves, restates no Paragraph Waypoint, names no noun phrase "
     + "of either paragraph's Paragraph Waypoints, brings no case, example or term of its own and states no effect "
     + "on the reader."].join("\n") };
 }
@@ -595,16 +597,15 @@ export function judgeSiteRefusal(f) {
 // ---------------------------------------------------------------------------
 // THE SITE RETRY (kogaki#1642, owner decision 2026-10-31). A refusal that names a Leg Waypoint
 // is repaired at that Leg Waypoint alone: the site call is handed that one entry's endpoints
-// and its refusals and answers one entry; the first retry holds the bound Move and the
-// after-state; a later one that moves either reopens the entries after it, which the suffix
-// call composes again from the new state. The supervisor runs the loop
+// and its refusals and answers one entry; the first retry holds the bound Move; a later one that
+// moves it reopens the entries after it, which the suffix call composes again from what the new
+// Move leaves. The supervisor runs the loop
 // (src/workflow/site-retry.mjs); what follows builds the two calls' prompts and reads back
 // their answers.
 export const siteRepeatRefusal = (n) => `the answer repeats the refused entry at Leg Waypoint ${n}; the refusal asked for a change at that site`;
 
 const canonical = (v) => JSON.stringify(v ?? null, (k, x) => (x && typeof x === "object" && !Array.isArray(x)
   ? Object.fromEntries(Object.keys(x).sort().map((key) => [key, x[key]])) : x));
-const stateCanonical = (s) => canonical(paragraphReaderStateMap(s));
 const isMap = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
 const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -626,13 +627,12 @@ export function rejectedMoves(history, ids) {
 }
 
 // AN ANSWER THAT DOES NOT ACT ON ITS REFUSAL: after a judge's refusal, the same Move, Paragraph
-// Waypoints, after-state and join; after a validator's, the same entry whole, since the field it
+// Waypoints and join; after a validator's, the same entry whole, since the field it
 // named may be any of them.
 export function repeatsRefusedEntry(answer, refused, byJudge) {
   if (!isMap(answer) || !isMap(refused)) return false;
   if (!byJudge) return canonical(answer) === canonical(refused);
   return answer.move === refused.move && canonical(answer.paragraph_waypoints) === canonical(refused.paragraph_waypoints)
-    && stateCanonical(answer.reader_state_after) === stateCanonical(refused.reader_state_after)
     && canonical(answer.join) === canonical(refused.join);
 }
 
@@ -674,8 +674,8 @@ export function movesBoundBeside(entries, n) {
 const SITE_PROSE_FIELDS = ["purpose", "rationale"];
 const RECORD_FIELD_NAMES = new Set([...UNIT_KEYS, ...UNIT_WAYPOINT_KEYS, "point", "serves", "performs", "paragraph_waypoint",
   "leg_waypoint_you_must_plan", "fixed", "paragraph_moves_you_may_bind", "moves_rejected_here", "moves_bound_beside",
-  "refused_here", "reader_state_before", "after_state_is_the_legs", "terms_this_entry_introduces",
-  "re_activations_this_entry_carries", "discharges_this_entry_keeps", "before", "after", "segments", "operation"]);
+  "refused_here", "stands_to_be_taken_up", "leaves_for_next_leg", "terms_this_entry_introduces",
+  "re_activations_this_entry_carries", "takes", "leaves", "segments", "operation"]);
 export function repairProse(answer) {
   for (const field of SITE_PROSE_FIELDS) {
     const text = typeof answer[field] === "string" ? answer[field] : "";
@@ -687,16 +687,16 @@ export function repairProse(answer) {
   return null;
 }
 
-// THE ENDPOINTS THE FIRST RETRY HOLDS: the refused entry's bound Move and after-state, where it
-// bound one; `null` on a later retry, where the refused entry bound none, or where the judge
-// refused the binding itself, on an axis of `BINDING_AXES` (kogaki#1647).
-export const BINDING_AXES = ["PRECONDITION", "POSTCONDITION"];
+// THE ENDPOINT THE FIRST RETRY HOLDS: the refused entry's bound Move, where it bound one; `null`
+// on a later retry, where the refused entry bound none, or where the judge refused the binding
+// itself, on an axis of `BINDING_AXES` (kogaki#1647, kogaki#1701).
+export const BINDING_AXES = ["TAKEN", "LEFT"];
 const BINDING_REFUSAL = new RegExp(`\\b(?:${BINDING_AXES.join("|")})\\b`);
 export function siteFixed(ctx) {
   const last = (ctx.history || [])[ctx.history.length - 1];
   const e = last && isMap(last.entry) ? last.entry : null;
   if (last && last.by_judge && BINDING_REFUSAL.test(String(last.refusal))) return null;
-  return ctx.retry === 1 && e && typeof e.move === "string" ? { move: e.move, reader_state_after: e.reader_state_after } : null;
+  return ctx.retry === 1 && e && typeof e.move === "string" ? { move: e.move } : null;
 }
 
 function bindableMoves(movesDir) {
@@ -742,18 +742,14 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
   const entries = ctx.standing.waypoints;
   const entry = isMap(entries[n - 1]) ? entries[n - 1] : {};
   const w = leg.waypoints[n - 1];
-  const last = n === leg.waypoints.length;
   const moves = bindableMoves(inputs.movesDir);
   return {
     leg_waypoint_you_must_plan: {
       leg_id: leg.leg_id, waypoint: n, waypoints_in_leg: leg.waypoints.length,
       point: w.point, serves: [...w.serves], next_point: w.next_point,
-      reader_state_before: n === 1 ? leg.reader_state_before : entries[n - 2].reader_state_after,
-      // A LEG CARRIES NO STATE SINCE kogaki#1699: its last paragraph's after-state is the
-      // Leg's only where the Leg still carries one, and is otherwise the paragraph's own.
-      reader_state_after: last && leg.reader_state_after ? leg.reader_state_after : entry.reader_state_after ?? null,
-      after_state_is_the_legs: last && Boolean(leg.reader_state_after),
+      stands_to_be_taken_up: standsToBeTakenUp(leg, entries, n, (id) => boundMoveContract(id, inputs.movesDir)),
     },
+    leaves_for_next_leg: leg.leaves_for_next_leg || [],
     fixed: siteFixed(ctx),
     paragraph_moves_you_may_bind: moves,
     moves_rejected_here: [...rejectedMoves(ctx.history, new Set(moves.map((m) => m.id)))],
@@ -761,7 +757,6 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
     persona: inputs.persona,
     terms_this_entry_introduces: entry.introduces || [],
     re_activations_this_entry_carries: entry["re-activate"] || [],
-    discharges_this_entry_keeps: entry.discharges || [],
     refused_here: (ctx.history || []).map((h) => ({ entry: h.entry ?? null, refusal: h.refusal })),
   };
 }
@@ -800,17 +795,13 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
   if (fixed && answer.move !== fixed.move) {
     return { error: `${at}: the answer changes \`move\` from ${JSON.stringify(fixed.move)} to ${JSON.stringify(answer.move)} — the first retry at a Leg Waypoint keeps its bound Move and rewrites its Paragraph Waypoints` };
   }
-  if (fixed && stateCanonical(answer.reader_state_after) !== stateCanonical(fixed.reader_state_after)) {
-    return { error: `${at}: the answer changes \`reader_state_after\` — the first retry at a Leg Waypoint keeps the after-state it was refused with and rewrites its Paragraph Waypoints` };
-  }
   const standing = ctx.standing.waypoints;
   const beside = !fixed && movesBoundBeside(standing, n).find((b) => b.move === answer.move);
   if (beside) {
     return { error: `${at}: the answer binds ${JSON.stringify(answer.move)}, the Move Leg Waypoint ${beside.waypoint} beside it already binds — a rebound paragraph binds no Move of \`moves_bound_beside\`` };
   }
   const was = isMap(standing[n - 1]) ? standing[n - 1] : {};
-  const moved = n < total && (stateCanonical(answer.reader_state_after) !== stateCanonical(was.reader_state_after)
-    || (typeof was.move === "string" && answer.move !== was.move));
+  const moved = n < total && typeof was.move === "string" && answer.move !== was.move;
   if (moved) {
     const bad = entryRefusal(answer, n - 1, leg, standing.slice(0, n - 1), library.ids, inputs.movesDir, at);
     if (bad) return { error: bad };
@@ -825,23 +816,23 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
   return { error: r.error };
 }
 
-// THE SUFFIX CALL'S INPUT: the Leg call's own input over the Leg Waypoints from `ctx.from` on,
-// beginning in the state the entry before them now leaves, beside the entries that stand; the
-// terms and Brief rows those entries already carry are not asked for again.
+// THE SUFFIX CALL'S INPUT: the Leg call's own input over the Leg Waypoints from `ctx.from` on, the
+// first of them handed what stands to be taken up after the entries that stand, beside them; the
+// terms those entries already carry are not asked for again.
 export function paragraphPlanSuffixInput(ctx, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   const stand = ctx.standing.waypoints.slice(0, ctx.from - 1);
   const introduced = new Set(stand.flatMap((e) => (e.introduces || []).map((t) => String(t.term).trim())));
-  const discharged = new Set(stand.flatMap((e) => (e.discharges || []).map((d) => d.obligation)));
-  const { introduces, owes, ...planned } = leg;
+  const { introduces, ...planned } = leg;
+  const standing = standsToBeTakenUp(leg, ctx.standing.waypoints, ctx.from, (id) => boundMoveContract(id, inputs.movesDir));
   return {
-    leg_you_must_plan: { ...planned, reader_state_before: stand[stand.length - 1].reader_state_after,
-      waypoints: planned.waypoints.filter((w) => w.waypoint >= ctx.from) },
+    leg_you_must_plan: { ...planned,
+      waypoints: planned.waypoints.filter((w) => w.waypoint >= ctx.from)
+        .map((w) => (w.waypoint === ctx.from ? { ...w, stands_to_be_taken_up: standing } : (({ stands_to_be_taken_up, ...rest }) => rest)(w))) },
     paragraphs_that_stand: stand,
     paragraph_moves_you_may_bind: bindableMoves(inputs.movesDir),
     persona: inputs.persona,
     terms_this_leg_introduces: (introduces || []).filter((t) => !introduced.has(t.term)),
-    obligations_this_leg_owes: (owes || []).filter((o) => !discharged.has(o.obligation)),
   };
 }
 
@@ -855,7 +846,7 @@ export function paragraphPlanSuffixPrompt(ctx, inputs, unitId) {
 }
 
 // THE SUFFIX CALL'S ANSWER, READ BACK: the entries from `ctx.from` on, joined to the entries that
-// stand and read by the Leg call's own validator, the last after-state the Leg's line for line.
+// stand and read by the Leg call's own validator.
 // `{ error }` refuses the answer and asks the suffix call again; `{ record, changed }` takes it.
 export function validateParagraphPlanSuffix(answer, ctx, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
@@ -868,8 +859,7 @@ export function validateParagraphPlanSuffix(answer, ctx, inputs, unitId) {
   if (!Array.isArray(a.waypoints) || a.waypoints.length !== total - ctx.from + 1) {
     return { error: `${at}: the answer carries ${Array.isArray(a.waypoints) ? a.waypoints.length : "no"} entr(ies) — one per Leg Waypoint from ${ctx.from} to ${total}, in order` };
   }
-  const obligations = a.obligations ?? ctx.standing.obligations;
-  const merged = { version: "1", leg_id: leg.leg_id, ...(obligations ? { obligations } : {}),
+  const merged = { version: "1", leg_id: leg.leg_id,
     waypoints: [...ctx.standing.waypoints.slice(0, ctx.from - 1), ...a.waypoints] };
   const r = validateParagraphPlanUnit(merged, inputs, unitId);
   if (r.error) return { error: r.error };
@@ -884,12 +874,12 @@ export const PARAGRAPH_PLAN_INPUT_PREFIX = "paragraph-plan-input-";
 export const paragraphPlanInputPath = (dir, unitId) => join(dir, `${PARAGRAPH_PLAN_INPUT_PREFIX}${unitId}.json`);
 const moveIdsOf = (moves) => moves.map((m) => m.id);
 
-// The plan call's rows: `entry_state` is the Leg's on the first and null on every later one,
-// whose before-state the plan call itself writes.
+// The plan call's rows: `stands_to_be_taken_up` is the first Leg Waypoint's list on the first and
+// null on every later one, where it is what the paragraphs the plan call binds before it leave.
 export function planCallInputRows(input) {
   const leg = input.leg_you_must_plan;
   return leg.waypoints.map((w) => ({ waypoint: w.waypoint, point: w.point, serves: [...w.serves], next_point: w.next_point,
-    entry_state: w.waypoint === 1 ? leg.reader_state_before : null,
+    stands_to_be_taken_up: w.waypoint === 1 ? w.stands_to_be_taken_up : null,
     terms_this_leg_introduces: input.terms_this_leg_introduces,
     paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind) }));
 }
@@ -897,7 +887,7 @@ export function planCallInputRows(input) {
 export function siteCallInputRow(input, ctx, leg) {
   const w = input.leg_waypoint_you_must_plan;
   return { waypoint: w.waypoint, retry: ctx.retry, point: w.point, serves: [...w.serves], next_point: w.next_point,
-    entry_state: w.reader_state_before, terms_this_leg_introduces: leg.introduces || [],
+    stands_to_be_taken_up: w.stands_to_be_taken_up, terms_this_leg_introduces: leg.introduces || [],
     paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind),
     refused_here: input.refused_here, fixed: input.fixed, moves_rejected_here: input.moves_rejected_here };
 }
@@ -1012,7 +1002,10 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
   const binary = resolveJudgeBinary(String(declared), process.env.PATH);
   const model = String(settingValue(table.judge.model));
-  const legs = brief.legs.map((leg) => planLeg(leg, brief.record.obligations));
+  const legOptions = planLegOptions(brief.legs, library.moves, personaPriorKnowledgeLine(persona));
+  const unread = legOptions.find((o) => o.error);
+  if (unread) fail(`${unread.error}. Nothing was started.`);
+  const legs = brief.legs.map((leg, i) => planLeg(leg, legOptions[i]));
   const dir = runDir || enterRun("brief", `${runPrefix(slug)}${new Date().toISOString().replace(/[:.]/g, "-")}`);
   const briefSha = sha256(brief.text);
   const carried = carriedUnits(latest, dir, { briefSha, movesDir, legs });
@@ -1133,9 +1126,7 @@ export function finishParagraphPlan(dir) {
   const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id,
     waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
     entries: units[i].candidate.waypoints.map((e) => Object.fromEntries([...PLAN_SCHEMA_KEYS, "move_forced_by"].filter((k) => Object.hasOwn(e, k)).map((k) => [k, e[k]]))),
-    joins: units[i].candidate.waypoints.map((e) => e.join ?? null),
-    obligations: units[i].candidate.obligations || [],
-    discharges: units[i].candidate.waypoints.map((e) => e.discharges || []) }));
+    joins: units[i].candidate.waypoints.map((e) => e.join ?? null) }));
   const record = paragraphPlanRecord({ briefPath, briefText, legs });
   const planPath = paragraphPlanPathFor(briefPath);
   writeFileSync(planPath, paragraphPlanRecordText(record));
@@ -1145,12 +1136,12 @@ export function finishParagraphPlan(dir) {
 }
 
 // ---------------------------------------------------------------------------
-// THE VIEW (kogaki#1650): per Leg Waypoint, the Brief's point, the entry state, the bound Move's
-// before, Segments and after with each Paragraph Waypoint beside its Segment, and the plan's
-// after-state; with a run, the refusals the entry met and the axes they name. A rendering that
-// writes nothing; the plan is read through /draft's own reader, so a moved Brief is refused alike.
-const stateText = (v) => (v && typeof v === "object" && !Array.isArray(v)
-  ? Object.entries(v).map(([k, x]) => `${k}: ${oneLineText(x)}`).join("; ") : v == null ? "(none)" : oneLineText(v));
+// THE VIEW (kogaki#1650): per Leg Waypoint, the Brief's point, the bound Move's takes, Segments
+// and leaves with each Paragraph Waypoint beside its Segment (kogaki#1701); with a run, the
+// refusals the entry met and the axes they name. A rendering that writes nothing; the plan is read
+// through /draft's own reader, so a moved Brief is refused alike.
+const constraintsText = (list) => (Array.isArray(list) && list.length
+  ? list.map((x) => `${x.kind}: ${oneLineText(x.what)}`).join("; ") : "(none)");
 const oneLineText = (v) => String(v).replace(/\s*\n\s*/g, " ").trim();
 const cell = (v) => oneLineText(v ?? "").replace(/\|/g, "\\|");
 const paragraphWaypointText = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `performs: ${p.performs}`
@@ -1217,16 +1208,14 @@ export function paragraphPlanView(planPath, { runDir = null, movesDir = null } =
       const segments = (move && move.segments) || [];
       const pws = e.paragraph_waypoints || [];
       lines.push("", `### Leg Waypoint ${i + 1}`, "", `- **Point:** ${oneLineText(w.point)}`,
-        `- **Entry state:** ${stateText(i === 0 ? leg.reader_state_before : entries[i - 1].reader_state_after)}`,
         `- **Move:** \`${e.move}\`${move ? "" : ` — not in the Move library at ${dirOfMoves}`}`,
-        `- **Move before:** ${move ? stateText(move.before) : "(not read)"}`, "",
+        `- **Move takes:** ${move ? constraintsText(move.takes) : "(not read)"}`, "",
         "| Segment | Operation | Relation | Manner | Paragraph Waypoint |", "|---|---|---|---|---|");
       for (let k = 0; k < Math.max(segments.length, pws.length); k++) {
         const g = segments[k] || {};
         lines.push(`| ${k < segments.length ? k + 1 : "—"} | ${cell(g.operation)} | ${cell(g.relation)} | ${cell(g.manner)} | ${cell(paragraphWaypointText(pws[k]))} |`);
       }
-      lines.push("", `- **Move after:** ${move ? stateText(move.after) : "(not read)"}`,
-        `- **reader_state_after:** ${stateText(e.reader_state_after)}`);
+      lines.push("", `- **Move leaves:** ${move ? constraintsText(move.leaves) : "(not read)"}`);
       if (run) {
         const met = refusals.filter((r) => r.waypoints.includes(i + 1));
         lines.push(`- **Refusals in this run:** ${met.length ? "" : "none"}`, ...met.map(refusalLine));

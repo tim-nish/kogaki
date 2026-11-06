@@ -151,18 +151,17 @@ const C1 = "the installer copies the kit into the consumer's tree.";
 const JOIN = "consequence";
 // EVERY PLAN ENTRY CARRIES THE PARAGRAPH'S SCHEMA (kogaki#1639): the bound Move's id (any id
 // the library holds -- /draft opens no Move, kogaki#1311), its Leg Waypoint's serves, a purpose,
-// an after-state (the Leg's on the last paragraph), the paragraph before, a rationale, no term
-// and no re-activation. The texts are marked so (m) can read their absence from the Packet.
+// the paragraph before, a rationale, no term and no re-activation, and no reader state
+// (kogaki#1701). The texts are marked so (m) can read their absence from the Packet.
 const ENTRY = (n, total, legId = "s1", serves = ["L1"]) => ({
   move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...serves],
   purpose: `PURPOSE-${n} brings the reader to the point.`,
-  reader_state_after: n === total ? `knowledge: after ${legId}.` : { knowledge: `STATE-${n} after this paragraph.` },
   depends_on: n > 1 ? [n - 1] : [], rationale: `RATIONALE-${n} its before holds the state the paragraph before leaves.`,
   introduces: [], "re-activate": [],
 });
 const ENTRIES = (total, legId = "s1", serves = ["L1"]) => Array.from({ length: total }, (_, i) => ENTRY(i + 1, total, legId, serves));
 const leg = {
-  leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
+  leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1",
   materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
   waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"] },
     { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }],
@@ -381,10 +380,10 @@ const carriesCriteria = (packet) => {
 }
 
 // (m) THE PACKET CARRIES NOTHING OF THE PARAGRAPH'S SCHEMA (kogaki#1639): a plan whose every
-// entry carries the bound Move's id, `materials`, `purpose`, `reader_state_after`, `depends_on`,
-// `rationale`, `introduces` and `re-activate` renders a Packet with no `move`,
-// `reader_state_after`, `rationale` or `depends_on` text and none of their values; and a plan
-// missing a field, or writing `reader_state_before`, is refused by /draft naming the Leg and the
+// entry carries the bound Move's id, `materials`, `purpose`, `depends_on`, `rationale`,
+// `introduces` and `re-activate` renders a Packet with no `move`, `rationale` or `depends_on`
+// text and none of their values; and a plan missing a field, or writing `reader_state_before` or
+// `reader_state_after` (retired, kogaki#1701), is refused by /draft naming the Leg and the
 // Waypoint.
 {
   const root = mkdtempSync(join(tmpdir(), "draft-packet-schema-"));
@@ -400,7 +399,7 @@ const carriesCriteria = (packet) => {
     { encoding: "utf8", timeout: 120000 });
   const full = plan(ENTRIES(2));
   writeFileSync(planPath, full);
-  for (const k of ["move", "materials", "purpose", "reader_state_after", "depends_on", "rationale", "introduces", "re-activate"]) {
+  for (const k of ["move", "materials", "purpose", "depends_on", "rationale", "introduces", "re-activate"]) {
     if (!new RegExp(`^ +${k}:`, "m").test(full)) fails.push(`(m) the plan written carries no \`${k}\` on its entries`);
   }
   const ok = resolveIn("ws");
@@ -412,7 +411,7 @@ const carriesCriteria = (packet) => {
     for (const word of ["move", "reader_state_after", "rationale", "depends_on", "reader_state_before", "re-activate", "materials"]) {
       if (new RegExp(`(^|[^A-Za-z_])${word}([^A-Za-z_]|$)`).test(packet)) fails.push(`(m) the Packet carries the field name \`${word}\``);
     }
-    for (const value of ["PURPOSE-", "STATE-", "RATIONALE-", "answer_a_posed_question", "after s1."]) {
+    for (const value of ["PURPOSE-", "RATIONALE-", "answer_a_posed_question"]) {
       if (packet.includes(value)) fails.push(`(m) the Packet carries a plan entry's ${value} value`);
     }
   }
@@ -422,13 +421,14 @@ const carriesCriteria = (packet) => {
   if (missing.status === 0 || !(missing.stderr || "").includes("leg s1") || !(missing.stderr || "").includes("Waypoint 2") || !(missing.stderr || "").includes("carries no `rationale`")) {
     fails.push(`(m) resolve did not refuse a plan entry missing its rationale naming the Leg and the Waypoint: ${(missing.stderr || missing.stdout || "").slice(0, 400)}`);
   }
-  const before = ENTRIES(2).map((e, i) => (i === 0 ? { ...e, reader_state_before: { knowledge: "written." } } : e));
-  const injected = plan(before).replace(/^( +)move:/m, "$1reader_state_before:\n$1  knowledge: written.\n$1move:");
-  if (!injected.includes("reader_state_before:")) fails.push("(m) the fixture could not write reader_state_before onto the plan file");
-  writeFileSync(planPath, injected);
-  const derived = resolveIn("ws-before");
-  if (derived.status === 0 || !(derived.stderr || "").includes("Waypoint 1") || !(derived.stderr || "").includes("`reader_state_before`")) {
-    fails.push(`(m) resolve did not refuse a written reader_state_before naming the Waypoint: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
+  for (const key of ["reader_state_before", "reader_state_after"]) {
+    const injected = plan(ENTRIES(2)).replace(/^( +)move:/m, `$1${key}:\n$1  knowledge: written.\n$1move:`);
+    if (!injected.includes(`${key}:`)) fails.push(`(m) the fixture could not write ${key} onto the plan file`);
+    writeFileSync(planPath, injected);
+    const derived = resolveIn(`ws-${key}`);
+    if (derived.status === 0 || !(derived.stderr || "").includes("Waypoint 1") || !(derived.stderr || "").includes(`carries \`${key}\`, retired from the ParagraphPlan (kogaki#1701)`)) {
+      fails.push(`(m) resolve did not refuse a written ${key} by name naming the Waypoint: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
+    }
   }
 }
 

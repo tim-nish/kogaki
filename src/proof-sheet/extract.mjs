@@ -70,9 +70,10 @@ export const DESCRIPTION_MAX = 200;
 // Q4 Footing is retired (kogaki#1414): its one consumer went with kogaki#1280, and FORMAT
 // says why. Purpose, Question and Disposition are unchanged.
 const ANSWER_KEYS = ["q1", "q2", "q3"];
-// `obligation` and `obligation_triggers` are retired from the Extraction (kogaki#1698): `leaves`
-// names what a paragraph leaves for later, so an answer carrying either is refused by name.
-const OBLIGATION_KEYS = ["obligation", "obligation_triggers"];
+// `obligation` and `obligation_triggers` are retired from the Extraction (kogaki#1698) and from the
+// Move (kogaki#1701): `leaves` names what a paragraph leaves for later, so an answer carrying either
+// is refused by name, and `rejudge --retire-obligation` cuts both from a library record.
+export const RETIRED_OBLIGATION_KEYS = ["obligation", "obligation_triggers"];
 // `content_bound` is the content-bound call's verdict per Segment, written by the Harness too
 // (kogaki#1614).
 const OPTIONAL_RECORD_KEYS = ["content_bound"];
@@ -414,7 +415,7 @@ export function validateExtractionUnit(record, input) {
 export function validateExtractionAnswer(record, input) {
   const has = (x) => record && typeof record === "object" && Object.hasOwn(record, x);
   const at = `paragraph ${input.paragraph_you_must_extract.number}`;
-  const k = OBLIGATION_KEYS.find(has);
+  const k = RETIRED_OBLIGATION_KEYS.find(has);
   if (k) return { error: `${at}: the record carries \`${k}\`, which is retired — \`leaves\` names what the paragraph leaves for later (kogaki#1698)` };
   if (has("content_bound")) return { error: `${at}: the record carries \`content_bound\` — the Harness judges each \`content\` clause in a call of its own (kogaki#1614)` };
   return validateExtractionUnit(record, input);
@@ -879,19 +880,21 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
 // list given, so the answer is the derived `takes` and `leaves`. With `write`, the two keys'
 // top-level blocks are cut from the file's text and the new ones appended, so every other field
 // stays byte-identical; with `retireState` too, the retired `before`, `after` and `after_segment`
-// blocks are cut as well (kogaki#1699); without `write` no record is changed. The calls are
+// blocks are cut as well (kogaki#1699), and with `retireObligation` the retired `obligation` and
+// `obligation_triggers` blocks (kogaki#1701); without `write` no record is changed. The calls are
 // recorded in a run directory beside the library, one subdirectory per record, and
 // `constraints.json` lists the records. Returns `{ derived, written, skipped, runDir }`, or with `stopped`.
 const RECORD_BLOCK = (key) => new RegExp(`^${key}:[^\\n]*\\n(?:(?:[ \\t]+[^\\n]*|)\\n)*`, "m");
 export const RETIRED_STATE_KEYS = ["before", "after", "after_segment"];
-export function spliceConstraints(text, { takes, leaves }, { retireState = false } = {}) {
+export function spliceConstraints(text, { takes, leaves }, { retireState = false, retireObligation = false } = {}) {
   let out = text;
-  for (const key of ["takes", "leaves", ...(retireState ? RETIRED_STATE_KEYS : [])]) out = out.replace(RECORD_BLOCK(key), "");
+  const cut = ["takes", "leaves", ...(retireState ? RETIRED_STATE_KEYS : []), ...(retireObligation ? RETIRED_OBLIGATION_KEYS : [])];
+  for (const key of cut) out = out.replace(RECORD_BLOCK(key), "");
   out = out.replace(/\s*$/, "\n");
   return `${out}${stringifyYaml({ takes, leaves }, { width: 100 }).replace(/\s*$/, "\n")}`;
 }
 
-export function runConstraintsRejudge(library, { write = false, retireState = false } = {}) {
+export function runConstraintsRejudge(library, { write = false, retireState = false, retireObligation = false } = {}) {
   const dir = resolve(library);
   let names;
   try { names = readdirSync(dir).filter((f) => f.endsWith(".yaml")).sort(); } catch (e) { fail(`the library at ${dir} cannot be read (${e.message})`); }
@@ -905,7 +908,7 @@ export function runConstraintsRejudge(library, { write = false, retireState = fa
   const written = [];
   const skipped = [];
   const report = (extra = {}) => {
-    writeJson(join(runDir, "constraints.json"), { library: dir, write, retire_state: retireState, derived, written, skipped });
+    writeJson(join(runDir, "constraints.json"), { library: dir, write, retire_state: retireState, retire_obligation: retireObligation, derived, written, skipped });
     return { derived, written, skipped, runDir, ...extra };
   };
   for (const name of names) {
@@ -929,7 +932,7 @@ export function runConstraintsRejudge(library, { write = false, retireState = fa
     const lists = constraintLists(tb.u.candidate);
     writeJson(join(jobDir, "answer.json"), lists);
     derived.push(name);
-    if (write) { writeFileSync(file, spliceConstraints(text, lists, { retireState })); written.push(name); }
+    if (write) { writeFileSync(file, spliceConstraints(text, lists, { retireState, retireObligation })); written.push(name); }
   }
   return report();
 }
@@ -952,14 +955,16 @@ function parseArgs(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
   if (args._cmd === "rejudge") {
-    // `--state` is deleted (kogaki#1699); `--retire-state` rides `--write` alone.
-    if (typeof args.library !== "string" || args.constraints !== true || args.state !== undefined
-      || (args["retire-state"] === true && args.write !== true)) {
-      fail("usage: node src/proof-sheet/extract.mjs rejudge --constraints --library <directory of Move records> [--write [--retire-state]]");
-    }
+    // `--state` is deleted (kogaki#1699); `--retire-state` and `--retire-obligation` (kogaki#1701) ride `--write` alone.
     const retireState = args["retire-state"] === true;
-    const r = runConstraintsRejudge(args.library, { write: args.write === true, retireState });
-    for (const f of r.written) console.log(`Move rewritten with takes and leaves${retireState ? ", before, after and after_segment removed" : ""}: ${f}`);
+    const retireObligation = args["retire-obligation"] === true;
+    if (typeof args.library !== "string" || args.constraints !== true || args.state !== undefined
+      || ((retireState || retireObligation) && args.write !== true)) {
+      fail("usage: node src/proof-sheet/extract.mjs rejudge --constraints --library <directory of Move records> [--write [--retire-state] [--retire-obligation]]");
+    }
+    const r = runConstraintsRejudge(args.library, { write: args.write === true, retireState, retireObligation });
+    const removed = [...(retireState ? RETIRED_STATE_KEYS : []), ...(retireObligation ? RETIRED_OBLIGATION_KEYS : [])];
+    for (const f of r.written) console.log(`Move rewritten with takes and leaves${removed.length ? `, ${removed.join(", ")} removed` : ""}: ${f}`);
     for (const f of r.skipped) console.log(`Move left as it was (no segments): ${f}`);
     console.log(`Moves derived: ${r.derived.length}; ${args.write === true ? `written: ${r.written.length}` : "no record was changed (no --write)"}`);
     console.log(`run directory: ${r.runDir}`);

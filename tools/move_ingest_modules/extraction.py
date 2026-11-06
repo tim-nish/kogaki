@@ -308,11 +308,8 @@ def derive_from_extraction(record, line_no=1):
                 "`segments` carries no Segment",
             )
         mapping["segments"] = segments
-        # The Extraction's `obligation`, copied unchanged where it carries one
-        # and absent where it does not (kogaki#1557); the Adapter judges it.
-        # `obligation_triggers` stays on the Extraction (kogaki#1590).
-        if record.get("obligation") is not None:
-            mapping["obligation"] = record.get("obligation")
+        # `obligation` is retired from the Move (kogaki#1701): an Extraction
+        # carrying it is not copied from, and the Adapter refuses it by name.
         # `takes` and `leaves`, copied unchanged (kogaki#1698).
         for field in ("takes", "leaves"):
             if record.get(field) is not None:

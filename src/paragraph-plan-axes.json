@@ -2,7 +2,7 @@
   "version": 1,
   "note": [
     "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
-    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Paragraph Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`) a `join` replaced (`waypoint`, `join`), a Leg Waypoint's `discharges` replaced (`waypoint`, `discharges`), with `owes` setting the Brief rows the Leg owes beside it, an entry's `reader_state_after` replaced (`waypoint`, `reader_state_after`), which the next entry's `reader_state_before` follows, or the bound Move's `before` replaced (`waypoint`, `move_before`). `at_waypoint` names the Leg Waypoint a defect sits on.",
+    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Paragraph Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`), a `join` replaced (`waypoint`, `join`), a Leg Waypoint's `stands_to_be_taken_up` replaced (`waypoint`, `stands_to_be_taken_up`), or the bound Move's `takes` or `leaves` replaced (`waypoint`, `move_takes` or `move_leaves`) (kogaki#1701). `at_waypoint` names the Leg Waypoint a defect sits on.",
     "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/proof-sheet/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
     "Countable rules are not axes: the Paragraph Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
@@ -15,22 +15,36 @@
   },
   "records": {
     "leg3-run": {
-      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each entry's `reader_state_before` and `reader_state_after` written for kogaki#1647, the run predating them, the last entry's the Leg's own",
+      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "leg-1",
-          "reader_state_before": "knowledge: no specialized grasp of the subject, only loose impressions picked up from the news, and nothing at all of what this text is about to say\nquestion: will I actually be able to follow this, or is it for people who already know the topic?\nexpectation: expects a plain explanation pitched at someone with no expertise\norientation: no sense of where this text sits among other accounts of the subject\ntrust: neutral, prepared to be told what to think",
-          "reader_state_after": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome, and also holds that a fixed small number of named causes decides which condition holds\nquestion: wants to know what each named cause means and how it does its deciding\nexpectation: expects each named cause to be taken up and explained in turn\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
+          "leaves_for_next_leg": [
+            {
+              "kind": "explain",
+              "what": "what each of the named causes means and how it does its deciding"
+            }
+          ],
           "waypoints": [
             {
               "waypoint": 1,
               "point": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up.",
               "next_point": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
-              "reader_state_before": "knowledge: no specialized grasp of the subject, only loose impressions picked up from the news, and nothing at all of what this text is about to say\nquestion: will I actually be able to follow this, or is it for people who already know the topic?\nexpectation: expects a plain explanation pitched at someone with no expertise\norientation: no sense of where this text sits among other accounts of the subject\ntrust: neutral, prepared to be told what to think",
-              "reader_state_after": "knowledge: holds that a state acts to protect itself, so its claim to fight a war of defence is true of its motive, and holds the present relation between China and Japan as an instance where each side's protective build-up feeds the other's fear\nquestion: wants to know how two states that each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named",
+              "stands_to_be_taken_up": [
+                {
+                  "what": "no specialized grasp of the subject, only loose impressions picked up from the news",
+                  "left_by": "the reader's prior knowledge"
+                }
+              ],
               "bound_move": {
-                "before": "knowledge: no specialized grasp of the subject, only ordinary impressions picked up from the news\nquestion: none in particular beyond whether the text will be understandable\nexpectation: expects a plain explanation pitched at someone without expertise\norientation: no sense of where this text sits among other accounts of the subject\ntrust: neutral, prepared to be told what to think",
-                "after": "knowledge: holds one general principle about why such actors behave as they do, and one present instance said to exemplify it\nquestion: wants to know how two parties who each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named",
+                "takes": [],
+                "leaves": [
+                  {
+                    "kind": "answer",
+                    "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them",
+                    "segment": 5
+                  }
+                ],
                 "segments": [
                   {
                     "operation": "opens by asserting one general principle about the motive of a whole class of actors",
@@ -99,11 +113,31 @@
               "waypoint": 2,
               "point": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
               "next_point": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
-              "reader_state_before": "knowledge: holds that a state acts to protect itself, so its claim to fight a war of defence is true of its motive, and holds the present relation between China and Japan as an instance where each side's protective build-up feeds the other's fear\nquestion: wants to know how two states that each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named",
-              "reader_state_after": "knowledge: holds the security dilemma as conditional, the same build-up feared in one situation and not in another, with two large powers where it arises easily and the strongest power where it does not\nquestion: wants to know what puts one power where the dilemma arises easily and another where it does not\nexpectation: expects the next step to explain what places a power in each of the two contrasted conditions\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
+              "stands_to_be_taken_up": [
+                {
+                  "what": "no specialized grasp of the subject, only loose impressions picked up from the news",
+                  "left_by": "the reader's prior knowledge"
+                },
+                {
+                  "kind": "answer",
+                  "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them",
+                  "left_by": "Leg Waypoint 1"
+                }
+              ],
               "bound_move": {
-                "before": "knowledge: holds one general principle about why such actors behave as they do, and one present instance said to exemplify it\nquestion: wants to know how two parties who each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named",
-                "after": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome\nquestion: wants to know what puts one position where the effect arises readily and another where it does not\nexpectation: expects the next step to explain what places a position in each of the two contrasted conditions\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
+                "takes": [
+                  {
+                    "kind": "answer",
+                    "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them"
+                  }
+                ],
+                "leaves": [
+                  {
+                    "kind": "answer",
+                    "what": "what puts one position where the effect arises readily and another where it does not",
+                    "segment": 4
+                  }
+                ],
                 "segments": [
                   {
                     "operation": "divides a general principle's scope into conditions where it holds strongly and conditions where it does not"
@@ -161,11 +195,31 @@
               "waypoint": 3,
               "point": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
               "next_point": null,
-              "reader_state_before": "knowledge: holds the security dilemma as conditional, the same build-up feared in one situation and not in another, with two large powers where it arises easily and the strongest power where it does not\nquestion: wants to know what puts one power where the dilemma arises easily and another where it does not\nexpectation: expects the next step to explain what places a power in each of the two contrasted conditions\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
-              "reader_state_after": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome, and also holds that a fixed small number of named causes decides which condition holds\nquestion: wants to know what each named cause means and how it does its deciding\nexpectation: expects each named cause to be taken up and explained in turn\norientation: places the text as offering a motive-based reading in place of the blame-based one commonly heard\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it",
+              "stands_to_be_taken_up": [
+                {
+                  "what": "no specialized grasp of the subject, only loose impressions picked up from the news",
+                  "left_by": "the reader's prior knowledge"
+                },
+                {
+                  "kind": "answer",
+                  "what": "what puts one position where the effect arises readily and another where it does not",
+                  "left_by": "Leg Waypoint 2"
+                }
+              ],
               "bound_move": {
-                "before": "knowledge: holds the principle as conditional, with one contrasted pair showing the condition deciding the outcome\nquestion: wants to know what puts one position where the effect arises readily and another where it does not\nexpectation: expects the next step to explain what places a position in each of the two contrasted conditions",
-                "after": "knowledge: also holds that a fixed small number of named causes decides which condition holds\nquestion: wants to know what each named cause means and how it does its deciding\nexpectation: expects each named cause to be taken up and explained in turn",
+                "takes": [
+                  {
+                    "kind": "answer",
+                    "what": "what puts one position where the effect arises readily and another where it does not"
+                  }
+                ],
+                "leaves": [
+                  {
+                    "kind": "explain",
+                    "what": "what each of the named causes means and how it does its deciding",
+                    "segment": 3
+                  }
+                ],
                 "segments": [
                   {
                     "operation": "puts the open point to the reader as a direct question in the reader's own voice"
@@ -230,111 +284,22 @@
         }
       }
     },
-    "leg3-explains": {
-      "source": "constructed: the clean record with its last Paragraph Waypoint explaining each of the two factors instead of only naming them",
-      "from": "leg3-clean",
-      "edit": {
-        "waypoint": 3,
-        "paragraph_waypoint": 3,
-        "to": {
-          "point": "Offense-defense advantage is whether attacking or defending is easier with the weapons of the day, while offense-defense distinguishability is whether a defensive arm can be told apart from an offensive one.",
-          "serves": [
-            "L3"
-          ]
-        }
-      }
-    },
-    "owed-kept": {
-      "source": "constructed: a Brief record whose two factors this Leg closes, laid on the Paragraph Waypoint that explains each of them",
-      "from": "leg3-explains",
-      "edit": {
-        "waypoint": 3,
-        "owes": [
-          {
-            "obligation": 1,
-            "opened_by": "leg-0",
-            "items": [
-              {
-                "item": "offense-defense advantage",
-                "closed_by": "leg-1"
-              },
-              {
-                "item": "offense-defense distinguishability",
-                "closed_by": "leg-1"
-              }
-            ]
-          }
-        ],
-        "discharges": [
-          {
-            "obligation": 1,
-            "by": 3
-          }
-        ]
-      }
-    },
-    "owed-named-only": {
-      "source": "constructed: the same record laid on the run's Paragraph Waypoint that only names the two factors, the shape of the one-Leg run of 2026-10-26",
-      "from": "leg3-clean",
-      "at_waypoint": 3,
-      "edit": {
-        "waypoint": 3,
-        "owes": [
-          {
-            "obligation": 1,
-            "opened_by": "leg-0",
-            "items": [
-              {
-                "item": "offense-defense advantage",
-                "closed_by": "leg-1"
-              },
-              {
-                "item": "offense-defense distinguishability",
-                "closed_by": "leg-1"
-              }
-            ]
-          }
-        ],
-        "discharges": [
-          {
-            "obligation": 1,
-            "by": 3
-          }
-        ]
-      }
-    },
-    "owed-not-kept": {
-      "source": "constructed: the same discharge laid on the Paragraph Waypoint that only puts the question",
-      "from": "owed-kept",
-      "at_waypoint": 3,
-      "edit": {
-        "waypoint": 3,
-        "discharges": [
-          {
-            "obligation": 1,
-            "by": 1
-          }
-        ]
-      }
-    },
     "leg4-run": {
-      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Leg Waypoint 1's first Paragraph Waypoint already carries Segment 2's compression and the call answered fits; its Obligation row, set aside where it was raised, is removed with that state (kogaki#1612); each entry's `reader_state_before` and `reader_state_after` written for kogaki#1647, the run predating them, the last entry's the Leg's own",
+      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Leg Waypoint 1's first Paragraph Waypoint already carries Segment 2's compression and the call answered fits; each bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
       "at_waypoint": 1,
       "input": {
         "leg_you_must_judge": {
           "leg_id": "distinguishability-stated-then-worked-through-matched-societies",
-          "reader_state_before": "knowledge: also holds that the favourable condition yields further benign effects, ending in a practice the parties take up together and given its established name\nquestion: answered, in that the worsening holds only under one condition; now wants to know which of the two conditions actually obtains\nexpectation: having seen the favourable condition carried out to a named practice and that practice grounded, expects the text to leave the pair behind and say which one obtains\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
-          "reader_state_after": "knowledge: now also holds the same chain run through the matched case to the opposite outcome, and the stated correction that the shared visible element is not the cause while the named condition is\nquestion: has that answered by the matched case, and now wants what could alter the named condition\nexpectation: having had the general result stated as a correction, expects the next stretch to leave this pair and apply the measure elsewhere\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further still: the account concedes that the obvious element is shared by both cases and locates the difference elsewhere, against the easy explanation",
+          "leaves_for_next_leg": [],
           "waypoints": [
             {
               "waypoint": 1,
               "point": "Attack-defence distinguishability is how clearly the other side's action can be told to intend attack rather than defence, and the clearer the other side's intent, the less likely war becomes, the vaguer the likelier.",
               "next_point": "Two particular countries are alike in ordinary people's access to firearms while the spread of narcotics differs, and widespread addiction makes reading another's purpose hard in the one and easy in the other, and the difference makes the one place unsafe and the other safe.",
-              "reader_state_before": "knowledge: also holds that the favourable condition yields further benign effects, ending in a practice the parties take up together and given its established name\nquestion: answered, in that the worsening holds only under one condition; now wants to know which of the two conditions actually obtains\nexpectation: having seen the favourable condition carried out to a named practice and that practice grounded, expects the text to leave the pair behind and say which one obtains\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
-              "reader_state_after": "knowledge: also holds attack-defence distinguishability, how clearly the other side's intent can be read, with the regularity that the clearer that intent the less likely war, the vaguer the likelier\nquestion: still holds which of the two conditions obtains, and now wants to know what puts a case at the clear end of the new scale rather than the vague one\nexpectation: having been given a second measure and the regularity it governs, expects the text to work through what pushes a case toward either end of it\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
+              "stands_to_be_taken_up": [],
               "bound_move": {
-                "before": "knowledge: also holds that the favourable condition yields further benign effects, ending in a practice the parties take up together and given its established name\nquestion: answered, in that the worsening holds only under one condition; now wants to know which of the two conditions actually obtains\nexpectation: having seen the favourable condition carried out to a named practice and that practice grounded, expects the text to leave the pair behind and say which one obtains",
-                "after": "knowledge: also holds a second measure of the same kind, in a one-clause form, together with the stated regularity tying its degree to how likely the adverse outcome is\nquestion: still holds the unanswered one, and now wants to know what puts a case at one end of the new scale rather than the other\nexpectation: having been given a second measure and the regularity it governs, expects the text to work through what pushes a case toward either end of it",
+                "takes": [],
+                "leaves": [],
                 "segments": [
                   {
                     "operation": "defines a further measure of the same kind by naming what it grades and the two opposite cases it grades between"
@@ -375,18 +340,16 @@
                     "L15"
                   ]
                 }
-              ],
-              "discharges": []
+              ]
             },
             {
               "waypoint": 2,
               "point": "Two particular countries are alike in ordinary people's access to firearms while the spread of narcotics differs, and widespread addiction makes reading another's purpose hard in the one and easy in the other, and the difference makes the one place unsafe and the other safe.",
               "next_point": "Where many drug-dependent people in the one society make what others are thinking hard to read, a carried weapon cannot be read as attack or as defence, people are easily made anxious, anxiety drives still more people to arm themselves, so possession spreads in a chain, and the same anxiety makes police shoot suspects on the spot to make self-protection certain where aims cannot be read.",
-              "reader_state_before": "knowledge: also holds attack-defence distinguishability, how clearly the other side's intent can be read, with the regularity that the clearer that intent the less likely war, the vaguer the likelier\nquestion: still holds which of the two conditions obtains, and now wants to know what puts a case at the clear end of the new scale rather than the vague one\nexpectation: having been given a second measure and the regularity it governs, expects the text to work through what pushes a case toward either end of it\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
-              "reader_state_after": "knowledge: now also holds two countries alike in ordinary people's access to firearms and differing in the spread of narcotics, that difference alone making purposes hard to read and the place unsafe in the one, easy to read and the place safe in the other\nquestion: that want is met for one matched pair, and now wants whether the spread of narcotics alone decides the position generally\nexpectation: having seen one pair carried from its single difference through to opposed outcomes, expects the next stretch to widen the result past the pair\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
+              "stands_to_be_taken_up": [],
               "bound_move": {
-                "before": "knowledge: also holds a second measure of the same kind, in a one-clause form, together with the stated regularity tying its degree to how likely the adverse outcome is\nquestion: still holds the unanswered one, and now wants to know what puts a case at one end of the new scale rather than the other\nexpectation: having been given a second measure and the regularity it governs, expects the text to work through what pushes a case toward either end of it\norientation: places it also against accounts that credit joint restraint to the parties' goodwill rather than to their circumstances",
-                "after": "knowledge: now also holds a worked pair alike but for one factor, in which that factor alone fixes each case's position on the measure and each case's outcome\nquestion: that want is met for one matched pair, and now wants whether a single factor alone decides the position generally\nexpectation: having seen one pair carried from its single difference through to opposed outcomes, expects the next stretch to widen the result past the pair\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone",
+                "takes": [],
+                "leaves": [],
                 "segments": [
                   {
                     "operation": "announces a simplified treatment built on a pair of particular cases",
@@ -436,18 +399,16 @@
                     "L16"
                   ]
                 }
-              ],
-              "discharges": []
+              ]
             },
             {
               "waypoint": 3,
               "point": "Where many drug-dependent people in the one society make what others are thinking hard to read, a carried weapon cannot be read as attack or as defence, people are easily made anxious, anxiety drives still more people to arm themselves, so possession spreads in a chain, and the same anxiety makes police shoot suspects on the spot to make self-protection certain where aims cannot be read.",
               "next_point": "Gun ownership is constant across the two societies, and where addicts are few, rules strict, and vetting of judgment and criminal record thorough, a person's purpose in carrying one is comparatively easy to read, mass shootings are absent, and the fear of being shot by others does not arise, so the real reason for the frequency of gun crime in the worse case is not simply because guns are present but the social condition in which one cannot help fearing being shot.",
-              "reader_state_before": "knowledge: now also holds two countries alike in ordinary people's access to firearms and differing in the spread of narcotics, that difference alone making purposes hard to read and the place unsafe in the one, easy to read and the place safe in the other\nquestion: that want is met for one matched pair, and now wants whether the spread of narcotics alone decides the position generally\nexpectation: having seen one pair carried from its single difference through to opposed outcomes, expects the next stretch to widen the result past the pair\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
-              "reader_state_after": "knowledge: now also holds the chain by which widespread addiction makes the one country unsafe, each link resting on the one before, from unreadable purposes through anxiety and arming in a chain to police who shoot on the spot\nquestion: still wants that, and now also wants whether a self-feeding chain of this kind can be broken once it has started\nexpectation: having been taken down inside one case's mechanism instead, expects the next stretch to come back up and state the result in general terms\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further: the mechanism is carried on small habitual conduct and on a difference in rate across conditions that the reader can check against ordinary experience",
+              "stands_to_be_taken_up": [],
               "bound_move": {
-                "before": "knowledge: now also holds a worked pair alike but for one factor, in which that factor alone fixes each case's position on the measure and each case's outcome\nquestion: that want is met for one matched pair, and now wants whether a single factor alone decides the position generally\nexpectation: having seen one pair carried from its single difference through to opposed outcomes, expects the next stretch to widen the result past the pair\ntrust: raised further still: the general claim is brought down to a countable instance the reader can work through unaided",
-                "after": "knowledge: now also holds the chain by which that factor produces the worse case's outcome, each link resting on the one before, with the same chain reaching the conduct of an official role\nquestion: still wants that, and now also wants whether a self-feeding chain of this kind can be broken once it has started\nexpectation: having been taken down inside one case's mechanism instead, expects the next stretch to come back up and state the result in general terms\ntrust: raised further: the mechanism is carried on small habitual conduct and on a difference in rate across conditions that the reader can check against ordinary experience",
+                "takes": [],
+                "leaves": [],
                 "segments": [
                   {
                     "operation": "states a standing condition of one case together with the perceptual difficulty it creates"
@@ -529,18 +490,16 @@
                     "L17"
                   ]
                 }
-              ],
-              "discharges": []
+              ]
             },
             {
               "waypoint": 4,
               "point": "Gun ownership is constant across the two societies, and where addicts are few, rules strict, and vetting of judgment and criminal record thorough, a person's purpose in carrying one is comparatively easy to read, mass shootings are absent, and the fear of being shot by others does not arise, so the real reason for the frequency of gun crime in the worse case is not simply because guns are present but the social condition in which one cannot help fearing being shot.",
               "next_point": null,
-              "reader_state_before": "knowledge: now also holds the chain by which widespread addiction makes the one country unsafe, each link resting on the one before, from unreadable purposes through anxiety and arming in a chain to police who shoot on the spot\nquestion: still wants that, and now also wants whether a self-feeding chain of this kind can be broken once it has started\nexpectation: having been taken down inside one case's mechanism instead, expects the next stretch to come back up and state the result in general terms\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further: the mechanism is carried on small habitual conduct and on a difference in rate across conditions that the reader can check against ordinary experience",
-              "reader_state_after": "knowledge: now also holds the same chain run through the matched case to the opposite outcome, and the stated correction that the shared visible element is not the cause while the named condition is\nquestion: has that answered by the matched case, and now wants what could alter the named condition\nexpectation: having had the general result stated as a correction, expects the next stretch to leave this pair and apply the measure elsewhere\norientation: places it more firmly against those accounts, the whole difference between the matched cases being traced to circumstance alone\ntrust: raised further still: the account concedes that the obvious element is shared by both cases and locates the difference elsewhere, against the easy explanation",
+              "stands_to_be_taken_up": [],
               "bound_move": {
-                "before": "knowledge: now also holds the chain by which that factor produces the worse case's outcome, each link resting on the one before, with the same chain reaching the conduct of an official role\nquestion: still wants that, and now also wants whether a self-feeding chain of this kind can be broken once it has started\nexpectation: having been taken down inside one case's mechanism instead, expects the next stretch to come back up and state the result in general terms\ntrust: raised further: the mechanism is carried on small habitual conduct and on a difference in rate across conditions that the reader can check against ordinary experience",
-                "after": "knowledge: now also holds the same chain run through the matched case to the opposite outcome, and the stated correction that the shared visible element is not the cause while the named condition is\nquestion: has that answered by the matched case, and now wants what could alter the named condition\nexpectation: having had the general result stated as a correction, expects the next stretch to leave this pair and apply the measure elsewhere\ntrust: raised further still: the account concedes that the obvious element is shared by both cases and locates the difference elsewhere, against the easy explanation",
+                "takes": [],
+                "leaves": [],
                 "segments": [
                   {
                     "operation": "holds the shared element fixed across the counterpart case and names the conditions that differ there"
@@ -603,12 +562,10 @@
                     "L18"
                   ]
                 }
-              ],
-              "discharges": []
+              ]
             }
           ]
-        },
-        "obligations_this_leg_owes": []
+        }
       }
     },
     "leg4-own-step": {
@@ -626,22 +583,20 @@
       }
     },
     "g1-clean": {
-      "source": "Leg G1's first Leg Waypoint of run paragraph-plan-set-automatic-rules-only-sees-2026-10-31T14-52-10-146Z, the Leg cut to that one Leg Waypoint, its record's Paragraph Waypoint 3 verbatim, the first a bare claim, the second carrying both terms' meanings and the fourth extending the instance to a second matter; the entry state's expectation holds the Move's `before` and its `reader_state_after` is written as a specialization of the Move's `after`, the run's own record having failed PRECONDITION, POSTCONDITION and the break on the closing extension on the bench of 2026-11-02 (kogaki#1647)",
+      "source": "Leg G1's first Leg Waypoint of run paragraph-plan-set-automatic-rules-only-sees-2026-10-31T14-52-10-146Z, the Leg cut to that one Leg Waypoint, its record's Paragraph Waypoint 3 verbatim, the first a bare claim, the second carrying both terms' meanings and the fourth extending the instance to a second matter; the bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "G1",
-          "reader_state_before": "knowledge: everyday experience of machines and services that answer in fixed ways, and nothing about how such a thing is built or what bounds what it can take in\nquestion: holds no settled question about the subject, only a reaction to the wording just seen: \"only sees\" sounds like a caution, and they wonder what is being left out and whether it would ever matter to them\nexpectation: expects a short explanatory post that defines its terms before using them and makes the title's claim plain to a non-specialist, probably by way of one example\norientation: frames anything automatic as either working or broken, not as something with a boundary on what it notices\ntrust: neutral: a peer's post is given the benefit of the doubt, with no authority granted yet",
-          "reader_state_after": "knowledge: holds one worked instance of how the care taken in writing a set of automatic rules does not bound what it acts on, a set that runs on every write to a record and never on that record's deletion\nquestion: wants to know whether that one instance stands for every such set\nexpectation: expects further instances of the same kind or a return to the general claim\ntrust: raised: a general claim was backed by a case the reader can check unaided",
+          "leaves_for_next_leg": [],
           "waypoints": [
             {
               "waypoint": 1,
               "point": "A set of automatic rules can be written carefully and still never act on an entire kind of action, so what bounds the reach of such a set is not how well it was written.",
               "next_point": null,
-              "reader_state_before": "knowledge: everyday experience of machines and services that answer in fixed ways, and nothing about how such a thing is built or what bounds what it can take in\nquestion: holds no settled question about the subject, only a reaction to the wording just seen: \"only sees\" sounds like a caution, and they wonder what is being left out and whether it would ever matter to them\nexpectation: expects a short explanatory post that defines its terms before using them and makes the title's claim plain to a non-specialist, probably by way of one example\norientation: frames anything automatic as either working or broken, not as something with a boundary on what it notices\ntrust: neutral: a peer's post is given the benefit of the doubt, with no authority granted yet",
-              "reader_state_after": "knowledge: holds one worked instance of how the care taken in writing a set of automatic rules does not bound what it acts on, a set that runs on every write to a record and never on that record's deletion\nquestion: wants to know whether that one instance stands for every such set\nexpectation: expects further instances of the same kind or a return to the general claim\ntrust: raised: a general claim was backed by a case the reader can check unaided",
+              "stands_to_be_taken_up": [],
               "bound_move": {
-                "before": "knowledge: no specialised knowledge of the subject and no sense that it bears on anything the reader already finds confusing\nquestion: nothing settled beyond whether the subject is worth their attention\nexpectation: expects a plain introduction that defines its terms before using them\ntrust: neutral, with no reason yet to credit or doubt the author",
-                "after": "knowledge: holds one worked instance of how the subject bears on present circumstances\nquestion: wants to know whether a single such instance stands for the whole\nexpectation: expects further instances of the same kind or a return to the general claim\ntrust: raised: a general claim was backed by a case the reader can check unaided",
+                "takes": [],
+                "leaves": [],
                 "segments": [
                   {
                     "operation": "asserts that the subject yields substantial guidance for understanding present circumstances",
@@ -726,22 +681,36 @@
         }
       }
     },
-    "precondition-unheld": {
-      "source": "constructed: Leg Waypoint 2's bound Move requires in its `before` a knowledge the paragraph's entry state does not hold",
+    "taken-unmet": {
       "from": "leg3-clean",
       "at_waypoint": 2,
       "edit": {
         "waypoint": 2,
-        "move_before": "knowledge: already holds the two factors that decide how readily the security dilemma arises, offense-defense advantage and offense-defense distinguishability, and what each of them means\nquestion: wants to know how two parties who each act only protectively end up in a spiral, and where that leaves them\nexpectation: expects the next step to draw out the consequence of the paired instance just set out\ntrust: raised a little: the hardest-looking case was faced rather than avoided, and a live instance was named"
+        "move_takes": [
+          {
+            "kind": "explain",
+            "what": "what offense-defense advantage and offense-defense distinguishability each mean"
+          }
+        ]
       }
     },
-    "postcondition-moves-orientation": {
-      "source": "constructed: Leg Waypoint 2's `reader_state_after` moves the orientation, a dimension its bound Move's `after` does not move",
+    "left-not-taken": {
       "from": "leg3-clean",
       "at_waypoint": 2,
       "edit": {
         "waypoint": 2,
-        "reader_state_after": "knowledge: holds the security dilemma as conditional, the same build-up feared in one situation and not in another, with two large powers where it arises easily and the strongest power where it does not\nquestion: wants to know what puts one power where the dilemma arises easily and another where it does not\nexpectation: expects the next step to explain what places a power in each of the two contrasted conditions\norientation: now places the text as siding with the two large powers against the strongest one, whose position it treats as unearned\ntrust: raised further: a limit on the speaker's own principle is volunteered before the reader could press for it"
+        "move_leaves": [
+          {
+            "kind": "answer",
+            "what": "what puts one position where the effect arises readily and another where it does not",
+            "segment": 4
+          },
+          {
+            "kind": "carry",
+            "what": "the two-condition division, carried onto the alliances the strongest power keeps",
+            "segment": 3
+          }
+        ]
       }
     }
   },
@@ -760,30 +729,6 @@
       "justified_by": {
         "date": "2026-10-23",
         "run": "runs/judge-bench/2026-10-23-all-5",
-        "draws": 5,
-        "rates": {
-          "defect_refused_with": 1,
-          "defect_refused_without": 0,
-          "clean_passed_with": 1,
-          "clean_passed_without": 1
-        }
-      }
-    },
-    {
-      "id": "PROMISE KEPT",
-      "sentence": "A Paragraph Waypoint named by a `discharges` entry states what every item its record closes there means, never only its name.",
-      "fixtures": {
-        "defect": [
-          "owed-not-kept",
-          "owed-named-only"
-        ],
-        "clean": [
-          "owed-kept"
-        ]
-      },
-      "justified_by": {
-        "date": "2026-10-25",
-        "run": "runs/judge-bench/2026-10-26-promise-kept-meaning-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
@@ -817,19 +762,19 @@
       }
     },
     {
-      "id": "PRECONDITION",
-      "sentence": "The Move's `before` requires, on no dimension, something the paragraph's entry state does not hold.",
+      "id": "TAKEN",
+      "sentence": "Every `takes` entry of the bound Move is met by an entry of `stands_to_be_taken_up`, which a refusal names by its kind and `what`.",
       "fixtures": {
         "defect": [
-          "precondition-unheld"
+          "taken-unmet"
         ],
         "clean": [
           "leg3-clean"
         ]
       },
       "justified_by": {
-        "date": "2026-11-02",
-        "run": "runs/judge-bench/2026-11-02-precondition-5",
+        "date": "2026-11-06",
+        "run": "runs/judge-bench/2026-11-06-taken-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
@@ -840,19 +785,19 @@
       }
     },
     {
-      "id": "POSTCONDITION",
-      "sentence": "The paragraph's `reader_state_after` is a consistent specialization of the Move's `after`.",
+      "id": "LEFT",
+      "sentence": "Every `leaves` entry of the bound Move is taken up by a later paragraph of this Leg or is among the Leg's `leaves_for_next_leg`, which a refusal names by its kind and `what`.",
       "fixtures": {
         "defect": [
-          "postcondition-moves-orientation"
+          "left-not-taken"
         ],
         "clean": [
           "leg3-clean"
         ]
       },
       "justified_by": {
-        "date": "2026-11-02",
-        "run": "runs/judge-bench/2026-11-02-postcondition-5",
+        "date": "2026-11-06",
+        "run": "runs/judge-bench/2026-11-06-left-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,

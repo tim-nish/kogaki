@@ -65,12 +65,12 @@ const fails = [];
     const lib = join(dir, "moves");
     mkdirSync(lib);
     copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
+    // The Move carries no `obligation`, retired from the Move for its `leaves` (kogaki#1701).
     writeFileSync(join(lib, "open_the_claim.yaml"), [
       "id: open_the_claim", "description: >-", "  Names a consequence, then gives the name its meaning.",
       "breaks:", "  - drop the definition — the name stays a label the reader cannot use",
       "segments:", "  - operation: names the consequence a cause leads to",
       "  - operation: gives the name just used its meaning", "    relation: defines the name the step before introduced",
-      "obligation:", "  - named kind",
       "takes:", "  - kind: answer", "    what: why a cause has the consequence it has",
       "leaves:", "  - kind: explain", "    what: the name given to the consequence", "    segment: 2", "",
     ].join("\n"));

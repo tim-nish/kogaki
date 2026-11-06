@@ -27,6 +27,7 @@ const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const { parseYaml } = await import(pathToFileURL(join(repo, "src/yaml.mjs")).href);
+const { spliceConstraints } = await import(pathToFileURL(join(repo, "src/proof-sheet/extract.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "mapping-playground-"));
 const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
@@ -105,7 +106,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const m = bindable[0];
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: m.id,
       materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.",
-      reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: "consequence" } : {}),
       paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan");
@@ -127,7 +127,8 @@ const before = snapshot();
 // THE LIBRARY THE TRIAL READS (kogaki#1698): `moves/` itself once the owner's
 // `rejudge --constraints --write` run has given its records `takes` and `leaves`; until then a
 // copy under the Trials directory in which each record carrying no `takes` carries both lists
-// empty, so the Trial reads every other field of the library as written.
+// empty and no retired `obligation` (kogaki#1701), so the Trial reads every other field of the
+// library as written.
 const library = (() => {
   const names = readdirSync(join(repo, "moves"));
   if (names.some((n) => n.endsWith(".yaml") && /^takes:/m.test(readFileSync(join(repo, "moves", n), "utf8")))) return "moves";
@@ -135,7 +136,9 @@ const library = (() => {
   const dir = mkdtempSync(join(trials, "check-library-"));
   for (const n of names.filter((x) => x.endsWith(".yaml") || x === "ROLES.json")) {
     const text = readFileSync(join(repo, "moves", n), "utf8");
-    writeFileSync(join(dir, n), n.endsWith(".yaml") ? `${text.replace(/\s*$/, "\n")}takes: []\nleaves: []\n` : text);
+    // The owner's own write (`rejudge --constraints --write --retire-obligation`, kogaki#1701): both
+    // lists empty, and the retired `obligation` cut where a record still carries it.
+    writeFileSync(join(dir, n), n.endsWith(".yaml") ? spliceConstraints(text, { takes: [], leaves: [] }, { retireObligation: true }) : text);
   }
   return dir;
 })();

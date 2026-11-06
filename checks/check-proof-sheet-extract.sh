@@ -88,6 +88,11 @@
 #       lists, every other line byte-identical, an obligation's question becoming a `leaves` entry of
 #       kind `answer`; the records load; each run is recorded beside the library; a second run
 #       replaces the lists in place.
+#   (m2) the obligation retired from the library (kogaki#1701): `rejudge --constraints --write
+#       --retire-obligation` over a fixture library carrying `obligation` and `obligation_triggers`
+#       leaves no record carrying either, every record loading in the Adapter and the obligation's
+#       question carried as a `leaves` entry; `--retire-obligation` without `--write` is refused as
+#       usage. (l)'s record still carrying `obligation` after a plain `--write` is refused naming it.
 #   (j) the retired keys (kogaki#1583): a record carrying `discharges` or `obligation_content` is
 #       refused as an undeclared key, the extraction call's answer carrying `obligation` or
 #       `obligation_triggers` is refused as retired (kogaki#1698), and FORMAT carries rule 8 and the
@@ -306,8 +311,9 @@ except m.Refusal as e:
         bad.append("the over-long description was not refused in the Adapter's words: %s" % e)
 if [n for n in os.listdir(moves2) if n.endswith(".yaml")]:
     bad.append("a refused Extraction left a Move in the library")
-# THE OBLIGATION IS CARRIED THROUGH UNCHANGED (kogaki#1557): an Extraction carrying the field
-# yields a Move record carrying it, read back by the Adapter; one without it yields none.
+# THE OBLIGATION IS NOT CARRIED (kogaki#1701): the Move's obligation is retired for leaves,
+# so an Extraction written before kogaki#1698 carrying the field yields a Move record without it,
+# which the Adapter loads and reads no obligation from; one without it yields none either.
 obligation = ["leverage", "margin"]
 for w in r["written"] or []:
     if "obligation" in m.read_extraction(w)[1]:
@@ -321,16 +327,19 @@ moves3 = os.path.join(tmp, "moves3")
 os.makedirs(moves3)
 shutil.copy(os.path.join("moves", "ROLES.json"), moves3)
 r3 = m.run_from_extraction([obl_path], moves3, os.path.join(tmp, "out3"), select="accept")
+if not (r3["written"] or []):
+    bad.append("an Extraction carrying the retired obligation admitted no Move")
 for w in r3["written"] or []:
-    if m.read_extraction(w)[1].get("obligation") != obligation:
-        bad.append("the Move record does not carry the Extraction's obligation unchanged: %r" % m.read_extraction(w)[1].get("obligation"))
+    if "obligation" in m.read_extraction(w)[1]:
+        bad.append("the Move record carries the Extraction's retired obligation: %r" % m.read_extraction(w)[1].get("obligation"))
     read = subprocess.run(["node", "--input-type=module", "-e",
         "const { moveContract } = await import(process.argv[1]);"
         "process.stdout.write(JSON.stringify(moveContract(process.argv[2], process.argv[3])));",
         "file://" + os.path.abspath(os.path.join("src", "compose.mjs")), os.path.basename(w)[:-len(".yaml")], moves3],
         capture_output=True, text=True)
-    if json.loads(read.stdout or "{}").get("obligation") != obligation:
-        bad.append("the Adapter does not read the admitted Move's obligation: %s%s" % (read.stdout, read.stderr))
+    got = json.loads(read.stdout or "{}")
+    if got.get("error") or "obligation" in got:
+        bad.append("the Adapter does not load the admitted Move without an obligation: %s%s" % (read.stdout, read.stderr))
 if len(r3["written"] or []) != 1:
     bad.append("run_from_extraction wrote %r for the Extraction carrying an obligation" % r3["written"])
 # ONE VALIDATOR: the ingest carries no type check of its own, and every record the
@@ -757,8 +766,11 @@ const hjudge = join(hroot, "fake-judge.mjs");
     const now = readFileSync(join(lib, `${id}.yaml`), "utf8");
     ok(now.startsWith(t) && /^takes:/m.test(now.slice(t.length)) && /^leaves:/m.test(now.slice(t.length)),
       `(l) ${id}'s record was not left byte-identical with takes and leaves appended: ${now}`);
+    // `asks` keeps its `obligation` until `--retire-obligation` cuts it (m2), and the Adapter refuses
+    // it naming the field (kogaki#1701); `defines`, carrying none, loads.
     const c = validateMoveRecord(parseYaml(now, `${id}.yaml`), lib, `${id}.yaml`);
-    ok(!c.error, `(l) ${id}'s rewritten record does not load: ${c.error}`);
+    if (id === "asks") ok(/carries the retired `obligation`/.test(c.error || ""), `(l) asks's rewritten record, still carrying \`obligation\`, is not refused naming it: ${c.error || "loaded"}`);
+    else ok(!c.error, `(l) ${id}'s rewritten record does not load: ${c.error}`);
   }
   const asks = parseYaml(readFileSync(join(lib, "asks.yaml"), "utf8"), "asks.yaml");
   ok(JSON.stringify(asks.leaves) === JSON.stringify([{ kind: "answer", what: QUESTION, segment: 1 }]) && JSON.stringify(asks.takes) === "[]",
@@ -806,6 +818,42 @@ const hjudge = join(hroot, "fake-judge.mjs");
     const c = validateMoveRecord(now, lib, `${id}.yaml`);
     ok(!c.error, `(m) ${id}'s retired record does not load: ${c.error}`);
   }
+}
+
+// (m2) THE OBLIGATION RETIRED FROM THE LIBRARY (kogaki#1701): `rejudge --constraints --write
+// --retire-obligation` writes `takes` and `leaves` onto each record and deletes its `obligation`
+// and `obligation_triggers`, leaving no record carrying either and every record loading in the
+// Adapter, the obligation's question carried as a `leaves` entry; `--retire-obligation` without
+// `--write` is refused as usage.
+{
+  const lib = join(hroot, "retire-obligation");
+  mkdirSync(lib, { recursive: true });
+  copyFileSync(join(repo, "moves", "ROLES.json"), join(lib, "ROLES.json"));
+  const segs = [{ operation: H_OPS[1][0][0] }, { operation: H_OPS[1][1][0], relation: H_OPS[1][1][1] }];
+  const recs = {
+    owed: { id: "owed", description: "Poses a question and leaves it.", breaks: ["answer it at once — nothing is left to carry"], segments: segs,
+      obligation: [QUESTION], obligation_triggers: { question: { fired: true, why: "Segment 1 asks what no later one answers.", segment: 1 } } },
+    plain: { id: "plain", description: "Poses a question and leaves it.", breaks: ["drop it — nothing is left"], segments: segs },
+  };
+  for (const [id, r] of Object.entries(recs)) writeFileSync(join(lib, `${id}.yaml`), stringifyYaml(r));
+  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", "--constraints", "--library", lib, ...args],
+    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
+  const dry = rj(["--retire-obligation"]);
+  ok(dry.status !== 0 && /usage:/.test(dry.stderr) && /--retire-obligation/.test(dry.stderr), `(m2) --retire-obligation without --write was not refused as usage: ${dry.stdout}${dry.stderr}`);
+  const wet = rj(["--write", "--retire-obligation"]);
+  ok(wet.status === 0 && /written: 2/.test(wet.stdout), `(m2) the retiring re-judge did not write both Moves: ${wet.stdout}${wet.stderr}`);
+  for (const id of Object.keys(recs)) {
+    const text = readFileSync(join(lib, `${id}.yaml`), "utf8");
+    const now = parseYaml(text, `${id}.yaml`);
+    ok(!/^obligation(_triggers)?:/m.test(text) && !("obligation" in now) && !("obligation_triggers" in now) && Array.isArray(now.takes) && Array.isArray(now.leaves)
+      && now.description === recs[id].description && JSON.stringify(now.segments) === JSON.stringify(recs[id].segments),
+      `(m2) ${id} still carries an obligation key, lacks its lists, or lost another field: ${text}`);
+    const c = validateMoveRecord(now, lib, `${id}.yaml`);
+    ok(!c.error, `(m2) ${id}'s retired record does not load: ${c.error}`);
+  }
+  const owed = parseYaml(readFileSync(join(lib, "owed.yaml"), "utf8"), "owed.yaml");
+  ok(JSON.stringify(owed.leaves) === JSON.stringify([{ kind: "answer", what: QUESTION, segment: 1 }]),
+    `(m2) the retired obligation's question is not carried as a \`leaves\` entry of kind answer: ${JSON.stringify(owed.leaves)}`);
 }
 
 // (j) THE RETIRED KEYS (kogaki#1583): a record carrying `discharges` or `obligation_content` is

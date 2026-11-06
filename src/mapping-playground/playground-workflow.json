@@ -122,11 +122,11 @@
     },
     "substitutions": [
       {
-        "from": "plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input, from five inputs and nothing else (`leg_you_must_plan`, `paragraph_moves_you_may_bind`, `persona`, `terms_this_leg_introduces` and `obligations_this_leg_owes`),",
-        "to": "plan the paragraphs of a short Trial of the Structure-Mapping Playground (kogaki#1700), `leg_you_must_plan` in the input, a Leg whose first Leg Waypoint, the Base Paragraph, is the structure in the Correspondence expressions and whose second, present only where an Inference Paragraph is owed, is the proposition, from six inputs and nothing else (`leg_you_must_plan`, `paragraph_moves_you_may_bind`, `persona`, `terms_this_leg_introduces`, `obligations_this_leg_owes` and `correspondences`),"
+        "from": "plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input, from four inputs and nothing else (`leg_you_must_plan`, `paragraph_moves_you_may_bind`, `persona` and `terms_this_leg_introduces`),",
+        "to": "plan the paragraphs of a short Trial of the Structure-Mapping Playground (kogaki#1700), `leg_you_must_plan` in the input, a Leg whose first Leg Waypoint, the Base Paragraph, is the structure in the Correspondence expressions and whose second, present only where an Inference Paragraph is owed, is the proposition, from five inputs and nothing else (`leg_you_must_plan`, `paragraph_moves_you_may_bind`, `persona`, `terms_this_leg_introduces` and `correspondences`),"
       },
       {
-        "from": "- BIND: Bind one Move from `paragraph_moves_you_may_bind` whose `before` contradicts, on no dimension it declares, the reader's state when this Leg Waypoint begins (the Leg's `reader_state_before` for the first, the previous bound Move's `after` for later ones), a Move omitting a dimension not excluded on it (exclusion, never ranking), and whose Segments can carry this Leg Waypoint's `point`, or answer `move: null` with a `rationale` naming the dimension no Move could hold, never the nearest Move.",
+        "from": "- BIND: Bind one Move from `paragraph_moves_you_may_bind` whose `takes` entries are each met, the kind as a word and the `what` by sense, by what stands to be taken up when this Leg Waypoint begins (`stands_to_be_taken_up` on the first, what the Moves bound before it leave and none since takes up on a later one) and whose Segments can carry its `point`, or answer `move: null` with a `rationale` naming the entry no Move takes up.",
         "to": "- BIND: Each Leg Waypoint carries in `move` the Move already bound to it, which `paragraph_moves_you_may_bind` holds: answer that id as the entry's `move` and choose no other (kogaki#1700)."
       },
       {
@@ -134,8 +134,8 @@
         "to": "- EXPLAIN: The Base Paragraph's Paragraph Waypoints say the structure in the `expression`s of `correspondences`, every expression in at least one of them and no Role id in any, and the Inference Paragraph's are written in the proposition's own words (kogaki#1700)."
       },
       {
-        "from": "- OWE: Where a bound Move's `obligation` leaves items for later, open ONE record in your record's `obligations`, `items` the article's own, each closed in order by the later Leg Waypoint that explains it, never where it opens, its `subitems` first, one open at a time, and lay each owed record into the `discharges` of the entry whose Paragraph Waypoint explains it.",
-        "to": "- OWE: This Leg owes nothing and has no later Leg Waypoint to close a promise, so open no `obligations` record and write no `discharges` (kogaki#1669)."
+        "from": "- LEAVE: Every `leaves` entry of a bound Move is taken up by a later paragraph of this Leg or is in the Leg's `leaves_for_next_leg`, and a `carry` is taken up by the next paragraph.",
+        "to": "- LEAVE: A `carry` the Base Paragraph's Move leaves is taken up by the Inference Paragraph, whose Move the `bind` stage bound to take it up, and no other `leaves` entry is owed a later paragraph here (kogaki#1701)."
       }
     ],
     "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; src/paragraph-plan-workflow.json, the `paragraph_plan_unit` row; kogaki#1700"

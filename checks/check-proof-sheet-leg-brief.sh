@@ -53,10 +53,11 @@
 #       Leg's rendered prompt carries `leg_ids_already_carried` empty and the second Leg's carries
 #       the first Leg's id, and the rendered Leg call states that this Leg's `leg_id` is none of them.
 #   (l) THE BUILDER WRITES NO OBLIGATION ROW (kogaki#1582, kogaki#1699): a two-Leg run whose second
-#       paragraph's Extraction carries a Move's `obligation` items writes its Brief with no
+#       paragraph's Extraction leaves two items in `leaves` (the Move's `obligation` retired,
+#       kogaki#1701) writes its Brief with no
 #       `obligations` key, derives the Section heading from the last Leg's last Claim, and its
 #       `brief.json` carries no `deferrals` and no derived `obligations` row; given
-#       `--moves` and `--ingest` over Moves carrying `obligation` items, the run exits non-zero
+#       `--moves` and `--ingest`, the run exits non-zero
 #       with the retirement sentence and starts no run directory.
 #
 # NOT COVERED, stated rather than implied: the call-limit stop and the stall bound are the
@@ -391,7 +392,7 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
   for (const [i] of PARAS.entries()) {
     mkdirSync(join(lx, `p${i + 1}`), { recursive: true });
     const x = JSON.parse(readFileSync(join(xrun, `p${i + 1}`, "answer.json"), "utf8"));
-    writeFileSync(join(lx, `p${i + 1}`, "answer.json"), JSON.stringify(i === 1 ? { ...x, obligation: GENERAL, obligation_triggers: { counts: { fired: true, why: "The Segments count two named devices." } } } : x));
+    writeFileSync(join(lx, `p${i + 1}`, "answer.json"), JSON.stringify(i === 1 ? { ...x, leaves: GENERAL.map((what) => ({ kind: "explain", what, segment: 1 })) } : x));
   }
   writeFileSync(join(lx, "extractions.json"), JSON.stringify({ legs: [{ leg: join(lroot, "leg-a.txt") }, { leg: join(lroot, "leg-b.txt") }],
     passage: "copy-legs", written: ["move_1.md", "move_2.md", "move_3.md"] }));
@@ -401,7 +402,7 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
   const brief = existsSync(join(lroot, "out", "brief.yaml")) ? readFileSync(join(lroot, "out", "brief.yaml"), "utf8") : "";
   const lp = brief ? parseBriefRecord(brief, "l") : { error: "no Brief" };
   ok(lr.status === 0 && !lp.error && !/^obligations:/m.test(brief),
-    `(l) a two-Leg run over a paragraph carrying obligation items did not write a Brief with no \`obligations\` key: ${lr.status} ${lp.error || ""} ${lr.stdout}${lr.stderr}`);
+    `(l) a two-Leg run over a paragraph leaving two items did not write a Brief with no \`obligations\` key: ${lr.status} ${lp.error || ""} ${lr.stdout}${lr.stderr}`);
   const lLegs = (lp.record && lp.record.reader_path) || [];
   ok(lLegs.length === 2 && lLegs[0].opens_section === lLegs[1].claims.at(-1).proposition && lLegs[1].reaches_target === true,
     `(l) the two-Leg Brief's Section heading is not the last Leg's last Claim, or its last Leg does not reach the target: ${JSON.stringify(lLegs.map((l) => [l.opens_section, l.reaches_target]))}`);
@@ -413,7 +414,7 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
   const moveId = "apply_a_definition_to_one_everyday_instance";
   writeFileSync(join(mDir, "ROLES.json"), readFileSync(join("moves", "ROLES.json")));
   // The record is the check's own fixture copy (kogaki#1625).
-  writeFileSync(join(mDir, `${moveId}.yaml`), `${readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`), "utf8").trimEnd()}\nobligation:\n${GENERAL.map((x) => `  - ${x}\n`).join("")}`);
+  writeFileSync(join(mDir, `${moveId}.yaml`), readFileSync(join("checks", "fixtures", "moves", `${moveId}.yaml`), "utf8"));
   writeFileSync(join(mDir, "ingest.json"), JSON.stringify({ entries: [{}, { move: moveId }, {}] }));
   const rroot = join(lroot, "retired"); mkdirSync(rroot, { recursive: true });
   const rr = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "run", "--extractions", lx, "--out", join(rroot, "out"),

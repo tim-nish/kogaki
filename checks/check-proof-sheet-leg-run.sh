@@ -100,10 +100,10 @@
 #       `reuse.legs`, and a plain reuse records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan`
 #       are each refused naming `--legs`, with no run directory written.
 #   (v) the Proof Sheet writes no Obligation row, and an extracted Move carries what its paragraph leaves in `leaves` and no `obligation` (kogaki#1582, kogaki#1698), as the block comment above the case states. The span of (s), raising nothing, carries `obligations: []`.
-#   (w) the Paragraph Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments heading ends in one `copy table` button, and on the (o) copy whose third Move carries two obligation items they stand numbered after that Move's description and nowhere in the comparison table.
-#   (x) the obligation call's verdict under each Move description (kogaki#1593), as an Extraction written before kogaki#1698 carries it: its not fired, fired and not recorded forms, the first two naming the Segment the verdict rests on before the reason (kogaki#1613).
+#   (w) the Paragraph Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments heading ends in one `copy table` button.
+#   (x) the Move's `takes` and `leaves` under each Move description (kogaki#1701): on the (o) copy whose third Move carries one of each they stand after its description, `kind: what` each, takes first, a Move carrying none draws no line, and no sheet draws an obligation trigger, a Move obligation, a paragraph obligation block or a fired Segment's tint.
 #   (y) the Leg Move (kogaki#1597), in checks/proof-sheet-leg-move-cases.mjs, whose header states the case.
-#   (z) the left column and the fired Segment (kogaki#1621): no built sheet carries an "Original Leg" header and the comparison table is headed "Original Paragraph"; on the (o) copy, paragraph 3's two obligation items stand under its paragraph in the left column, the second's SubItems indented beneath it (kogaki#1620), and paragraph 1's, with none, carries no block; the Segment row the fired trigger names is the one row of the Segments part carrying the tint class, titled with the trigger's name.
+#   (z) the left column (kogaki#1621): no built sheet carries an "Original Leg" header and the comparison table is headed "Original Paragraph".
 #
 # NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
 # stage's and Writer's own refusals are held by their own members
@@ -126,7 +126,7 @@ process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
-const COPY = '<button type="button" class="copy-table">copy table</button>', NO_TRIGGERS = '<p class="trigger">obligation trigger: (not recorded)</p>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const COPY = '<button type="button" class="copy-table">copy table</button>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // (l) The ParagraphPlan card's Attempts part, cut into its per-attempt blocks.
 const attemptBlocks = (cardHtml) => {
   const a = cardHtml.indexOf('<details class="part attempts">');
@@ -136,7 +136,7 @@ const attemptBlocks = (cardHtml) => {
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const S = await imp("src/proof-sheet/leg-sheet.mjs");
-const { parseYaml } = await imp("src/yaml.mjs");
+const { parseYaml, stringifyYaml } = await imp("src/yaml.mjs");
 const root = mkdtempSync(join(tmpdir(), "proof-sheet-leg-run-"));
 
 const PARAS = [
@@ -201,7 +201,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
     const fromLibrary = (n) => (bindable || []).some((m) => m.id.startsWith("lib_")) && (process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1));
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + MV + w.waypoint,
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
@@ -648,7 +648,7 @@ else {
     const desc = typeof mv.description === "string" ? mv.description.trim() : "";
     const headEnd = head >= 0 ? segPart.indexOf("</h4>", head) + 5 : -1;
     const table = headEnd >= 0 ? segPart.indexOf("<table", headEnd) : -1;
-    ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>${NO_TRIGGERS}`, `(o)/(x) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph, then the obligation trigger line an Extraction with no obligation call carries (kogaki#1698), above its Segments table: ${segPart.slice(headEnd, table)}`);
+    ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>`, `(o)/(x) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph and nothing else -- its Move takes and leaves nothing, and no obligation trigger line is drawn (kogaki#1701) -- above its Segments table: ${segPart.slice(headEnd, table)}`);
     ok((mv.breaks || []).length === 3 && chunkAfterTable(segPart, i) === `<div class="move-breaks"><p class="caption">Breaks</p><ol>${mv.breaks.map((x) => `<li>${escHtml(String(x))}</li>`).join("")}</ol></div>`, `(o) paragraph ${i}'s Segments table in the review block is not followed by its Move's breaks as one ordered list in order: ${chunkAfterTable(segPart, i)}`);
   }
   // A paragraph with no Move bound shows its heading and its table with nothing between them.
@@ -658,9 +658,9 @@ else {
   const ingestRec = JSON.parse(readOr(ingestPath, '{"entries":[]}'));
   if (ingestRec.entries && ingestRec.entries[1]) delete ingestRec.entries[1].move;
   writeFileSync(ingestPath, JSON.stringify(ingestRec));
-  const mv3 = join(unbound, "moves", "name_an_act_then_its_cost_3.yaml"); // (w)'s obligation line
-  writeFileSync(mv3, `${readOr(mv3, "").replace(/^obligation:.*\n?/m, "").trimEnd()}\nobligation:\n  - first item\n  - item: second item\n    subitems:\n      - part one\n      - part two\n`);
-  const extractOf = (n) => join(unbound, "extract", readdirSync(join(unbound, "extract")).find((x) => x.startsWith(`name_an_act_then_its_cost_${n}`)) || "missing"), FIRED_WHY = "WHY-FIRED the first Segment asks what no later one answers."; for (const [n, edit] of [[3, (t) => `${t.trimEnd()}\nobligation_triggers:\n  question:\n    fired: true\n    why: ${FIRED_WHY}\n    segment: 1\n  term:\n    fired: false\n    why: No term is left unexplained.\n    segment: 1\n`], [1, (t) => t.replace(/^obligation_triggers:\n(?:  .*\n)*/m, "")]]) writeFileSync(extractOf(n), edit(readOr(extractOf(n), ""))); // (x)
+  const mv3 = join(unbound, "moves", "name_an_act_then_its_cost_3.yaml"); // (x)'s takes and leaves lines
+  const TAKES3 = [{ kind: "answer", what: "who pays for the act?" }], LEAVES3 = [{ kind: "explain", what: "the cost <named>.", segment: 1 }];
+  writeFileSync(mv3, stringifyYaml({ ...parseYaml(readOr(mv3, "{}"), "move"), takes: TAKES3, leaves: LEAVES3 }));
   const nBuilt = S.buildSheet({ runs: [unbound], provenance: map, out: join(root, "unbound.html") });
   const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
   const noMove = `<h4>paragraph 2 — (no Move)${COPY}</h4>`, nHead = nSeg.indexOf(noMove);
@@ -674,13 +674,16 @@ else {
     `(w) paragraph 2's middle cell does not list Leg Waypoint 2's Paragraph Waypoints in order, the performs entry in italics: ${legRows[1]}`);
   const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
   ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="trigger">obligation trigger question: fired — Segment 1: ${FIRED_WHY}</p><p class="trigger">obligation trigger term: not fired — Segment 1: No term is left unexplained.</p><p class="obligation">Move obligation: (1) first item; (2) second item</p><p class="obligation subitem">(2.1) part one</p><p class="obligation subitem">(2.2) part two</p><table`)
-    && !nSeg.slice(0, nSeg.indexOf('<section class="review"')).includes("Move obligation") && (nSeg.match(/Move obligation/g) || []).length === 1, "(w)/(x) paragraph 3's verdict line does not name its Segment before the reason (kogaki#1613), or its two obligation items do not stand numbered after its Move description alone, outside the comparison table, the second's SubItems indented under it (kogaki#1620)");
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><p class="trigger">obligation trigger: (not recorded)</p><table`), "(x) paragraph 1's record with no obligation_triggers does not render `obligation trigger: (not recorded)` after its Move description");
-  // (z) THE ORIGINAL PARAGRAPH, ITS OBLIGATION AND THE FIRED SEGMENT (kogaki#1621): each absence beside the presence it pairs with on the same sheet.
+  // (x) THE MOVE'S TAKES AND LEAVES (kogaki#1701): paragraph 3's Move's entries stand after its
+  // description, `kind: what` each, takes first; paragraph 1's, with none, carry no line.
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="takes">answer: who pays for the act?</p><p class="leaves">explain: ${escHtml("the cost <named>.")}</p><table`),
+    "(x) paragraph 3's Move's takes and leaves do not stand after its description, `kind: what` each, takes first (kogaki#1701)");
+  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><table`), "(x) paragraph 1's Move, taking and leaving nothing, renders a line after its description");
+  for (const gone of ["obligation trigger", "Move obligation", "para-obligation", 'class="fired"', 'class="obligation']) {
+    ok(!nSeg.includes(gone) && !html.includes(gone), `(x) a built sheet still draws ${JSON.stringify(gone)}, retired (kogaki#1701)`);
+  }
+  // (z) THE ORIGINAL PARAGRAPH (kogaki#1621); its obligation block and the fired Segment's tint are retired with the Move's obligation (kogaki#1701), read in (x).
   ok(!html.includes("Original Leg") && !nSeg.includes("Original Leg") && pairHead.includes('<th>Original Paragraph <span class="meta">'), "(z) a built sheet carries an Original Leg header, or its comparison table is not headed Original Paragraph");
-  const nPair = nSeg.indexOf('<table class="pair"'), nRows = nPair < 0 ? [] : nSeg.slice(nPair, nSeg.indexOf("</table>", nPair)).split("<tr><th>").slice(2); ok(nRows.length === 3 && nRows[2].split("</td>")[0].endsWith('<span class="para-obligation">obligation: <span>first item</span><span>second item</span><span class="subitem">part one</span><span class="subitem">part two</span></span>') && !nRows[0].includes("para-obligation"), `(z) paragraph 3's obligation items do not stand under its paragraph in the left column, or paragraph 1's carries a block: ${nRows[2]}`);
-  const nSegPart = nSeg.slice(nSeg.indexOf('<div class="rpart segments">'), nSeg.indexOf('<div class="rpart refused">')), p3Rows = ((nSegPart.split("<h4>")[3] || "").split("<tbody>")[1] || "").split("<tr").slice(1); ok(p3Rows.length >= 2 && p3Rows[0].startsWith(' class="fired" title="question">') && p3Rows.slice(1).every((x) => x.startsWith(">")) && (nSegPart.match(/class="fired"/g) || []).length === 1, `(z) paragraph 3's Segment 1 row is not the one tinted row, titled with the fired trigger: ${p3Rows.map((x) => x.slice(0, 40)).join(" | ")}`);
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
   ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")
@@ -814,7 +817,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
     const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === MV + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: MV + w.waypoint,
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." }, depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan-generator");
   }
@@ -997,8 +1000,9 @@ if (runDir) {
       `(q) the sheet does not badge the edited Segment row "edited by owner" in the Extraction card and the Segments table: ${rows.length} row(s)`);
   }
   // THE INGEST'S REFUSAL REACHES THE STOP LINE (kogaki#1576): an obligation naming one item twice.
-  const q4 = reuseRun(editCopy("ingest-refused", (t) => `${t.trimEnd()}\nobligation:\n  - leverage\n  - leverage\n`).dir, "brief", "ingest-refused"), q4stop = (q4.run && q4.run.stopped) || "";
-  ok(q4.rq.status !== 0 && q4stop.startsWith("ingest:") && q4stop.includes('move "name_an_act_then_its_cost_2"') && q4stop.includes('names "leverage" twice') && !q4stop.includes("(no output)"), `(q) the ingest's refusal does not reach the run's stop line naming the Move and the item: ${q4stop || q4.rq.stdout + q4.rq.stderr}`);
+  // A `leaves` entry repeated in kind and `what` (kogaki#1698), the obligation it replaced retired (kogaki#1701).
+  const q4 = reuseRun(editCopy("ingest-refused", (t) => t.replace(/^leaves: \[\]$/m, "leaves:\n  - kind: explain\n    what: leverage\n    segment: 1\n  - kind: explain\n    what: leverage\n    segment: 1")).dir, "brief", "ingest-refused"), q4stop = (q4.run && q4.run.stopped) || "";
+  ok(q4.rq.status !== 0 && q4stop.startsWith("ingest:") && q4stop.includes('move "name_an_act_then_its_cost_2"') && q4stop.includes("repeats an earlier entry's `kind` and `what`") && !q4stop.includes("(no output)"), `(q) the ingest's refusal does not reach the run's stop line naming the Move and the entry: ${q4stop || q4.rq.stdout + q4.rq.stderr}`);
 
   // (r) THE LIBRARY (kogaki#1521): a library of the main run's three Moves under `lib_` ids, and a
   // second one that also holds one of the run's own ids. Each run reuses the main run's Extraction,
@@ -1216,7 +1220,7 @@ if (kRunDir) {
   writeFileSync(sJudge, `#!/usr/bin/env node
 import { appendFileSync, writeSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("fake-model 1.0"); process.exit(0); }
-// (v) PSR_TERMS: each Leg's content terms and introduced terms, the paragraph whose Segments raise an obligation (keyed under \`obligations\`), and the general items its obligation call answers (\`general\`).
+// (v) PSR_TERMS: each Leg's content terms and introduced terms, the paragraph whose Segments leave items unexplained (keyed under \`obligations\`), and those items (\`general\`), which its Move carries in \`leaves\`.
 const T = process.env.PSR_TERMS ? JSON.parse(process.env.PSR_TERMS) : null;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
@@ -1234,14 +1238,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes('"leg_you_must_plan"')) {
     const plan = body("leg_you_must_plan");
     const leg = plan.leg_you_must_plan;
-    const owes = plan.obligations_this_leg_owes || [];
     const slug = leg.leg_id.replace("-", "_"), ids = plan.paragraph_moves_you_may_bind.map((m) => m.id), mv = (w) => (ids.includes("move_" + slug + "_" + w.waypoint) ? "move_" + slug + "_" + w.waypoint : ids[0]);
     // One Paragraph Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
     const segmentsOf = (id) => (plan.paragraph_moves_you_may_bind.find((m) => m.id === id) || { segments: [{}] }).segments;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: mv(w),
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", reader_state_after: { knowledge: "STATE-" + w.waypoint + " after this paragraph." },
+      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.",
       depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: w.waypoint === 1 ? (plan.terms_this_leg_introduces || []).map((t) => ({ term: t.term, meaning: t.meaning || "MEANING-" + t.term })) : [], "re-activate": [], rationale: "its before holds the state and its after reaches the point.", ...(w.waypoint > 1 ? { join: "consequence" } : {}), // the Leg's terms go to its first paragraph (kogaki#1639)
-      ...(w.waypoint === 1 && owes.length ? { discharges: owes.map((o) => ({ obligation: o.obligation, by: 1 })) } : {}),
       paragraph_waypoints: segmentsOf(mv(w)).map((_, n) => ({
         point: "PW-" + leg.leg_id + "-" + w.waypoint + (n ? "-" + (n + 1) : "") + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan-generator");
   }
@@ -1439,8 +1441,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ok(segs(two.sheet, 1).length === 2 && !two.sheet.includes("Move obligation") && !two.sheet.includes("raised here"), `(v) the sheet carries a Move obligation line, which no extracted Move carries now: ${segs(two.sheet, 1).join("")}`);
       const planB = readOr(join(two.dir, "paragraph-plan", "calls.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
         .map((c) => c.stdin).filter((s) => s.includes('"leg_you_must_plan"') && s.includes('"leg_id": "leg-b"'));
-      ok(planB.length >= 1 && planB.every((s) => !/"obligations_this_leg_owes": \[\s*\{/.test(s)),
-        "(v) the plan call for leg-b is handed a row to owe");
+      ok(planB.length >= 1 && planB.every((s) => !s.includes('"obligations_this_leg_owes"') && s.includes('"stands_to_be_taken_up"')),
+        "(v) the plan call for leg-b is handed a row to owe, or not what stands to be taken up at its first Leg Waypoint (kogaki#1701)");
     }
   }
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.

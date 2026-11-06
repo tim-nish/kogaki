@@ -38,10 +38,9 @@
 # `segments` (the 21 Leg Moves' shape), a `before` written as one joined line,
 # an `id` disagreeing with its file name, a stale INDEX, a `.md` record beside
 # an otherwise clean library -- and one admitted record with a fresh INDEX as
-# the control that stops the deny passing vacuously. The authored `obligation`
-# (kogaki#1557, kogaki#1568) is a list of items: it loads, and loads where an
-# item shares no word with any `after` line (kogaki#1576), and a map (the retired
-# `kind`), an empty list and an item named twice are each refused. The Segment column (kogaki#1652):
+# the control that stops the deny passing vacuously. A record carrying the Move's
+# `obligation` or `obligation_triggers` is refused naming it, retired for
+# `leaves` (kogaki#1701), and the same record without it loads. The Segment column (kogaki#1652):
 # a record carrying `after_segment` loads, so the library passes with the column as `moves/` passes
 # without it, and a column naming a dimension `after` does not, missing one, or naming a Segment the
 # Move lacks is refused. The constraints (kogaki#1698): a record carrying `takes: []` and one
@@ -98,7 +97,10 @@ function libraryFailures(dir, tag, unrejudged = false) {
       out.push(`${tag} ${name}: is not a map of fields`); continue;
     }
     if (record.id !== stem) out.push(`${tag} ${name}: carries id ${JSON.stringify(record.id)}, not its file stem`);
-    const r = validateMoveRecord(unrejudged ? { ...record, takes: [], leaves: [] } : record, lib, name);
+    // Until the owner's rejudge run, a record is read with both lists empty and without the
+    // retired `obligation` and `obligation_triggers`, which `--retire-obligation` cuts (kogaki#1701).
+    const { obligation, obligation_triggers, ...kept } = record;
+    const r = validateMoveRecord(unrejudged ? { ...kept, takes: [], leaves: [] } : record, lib, name);
     if (r.error) out.push(`${tag} ${name}: the Adapter refuses it: ${r.error}`);
   }
   // (b) the INDEX is the regeneration of the records on disk.
@@ -192,41 +194,24 @@ const WHOLE = {
   const f = libraryFailures(d, "(c5)");
   ok(f.length === 0, `(c5) an admitted record with a fresh INDEX passes: ${f.join(" | ")}`);
 }
-// (c7) the authored `obligation` (kogaki#1557, kogaki#1568): a list of one or more one-line items,
-// terms and questions alike, and each refused shape. Each record is written to a library and
-// read back, so the YAML round trip is part of what loads.
+// (c7) THE MOVE'S `obligation` AND `obligation_triggers` ARE RETIRED (kogaki#1701): what a Move
+// leaves for later is its `leaves`, so a record carrying either is refused naming the field, read
+// back through the YAML round trip, and the same record without it loads.
 {
-  const TERMS = ["leverage", "margin"];
-  const named = { knowledge: "the reader holds two named terms, leverage and margin, neither explained." };
-  const asked = { question: "the reader asks why the cost keeps rising." };
   const through = (name, rec) => {
     const d = fixture(`obligation-${name}`);
     writeRecord(d, "p1.yaml", rec);
     const back = parseYaml(readFileSync(join(d, "moves", "p1.yaml"), "utf8"), "p1.yaml");
     return validateMoveRecord(back, join(d, "moves"), "p1.yaml");
   };
-  const loaded = through("terms", { ...WHOLE, after: named, obligation: TERMS });
-  ok(!loaded.error && JSON.stringify(loaded.obligation) === JSON.stringify(TERMS)
-    && JSON.stringify(loaded.deferred_slots) === JSON.stringify([{ items: TERMS }]),
-    `(c7a) an obligation whose \`after.knowledge\` names both items loads, the contract carrying it and its one slot in order, with no count (kogaki#1603): ${loaded.error || JSON.stringify([loaded.obligation, loaded.deferred_slots])}`);
-  const unled = through("unled", { ...WHOLE, after: { knowledge: "the reader holds leverage, unexplained." }, obligation: TERMS });
-  ok(!unled.error && JSON.stringify(unled.obligation) === JSON.stringify(TERMS),
-    `(c7b) an obligation one of whose items shares no word with any \`after\` line loads (kogaki#1576): ${unled.error || JSON.stringify(unled.obligation)}`);
-  const map = through("map", { ...WHOLE, after: named, obligation: { kind: "term", item: ["leverage"] } });
-  ok(/`obligation` is a map/.test(map.error || "") && /`kind` is retired/.test(map.error || ""),
-    `(c7c) a map carrying \`kind\` is refused naming \`kind\` retired: ${map.error || "admitted"}`);
+  const list = through("list", { ...WHOLE, obligation: ["leverage", "margin"] });
+  ok(/carries the retired `obligation`/.test(list.error || "") && /its `leaves` \(kogaki#1701\)/.test(list.error || ""),
+    `(c7a) a record carrying \`obligation\` is not refused naming it retired for \`leaves\`: ${list.error || "admitted"}`);
+  const triggers = through("triggers", { ...WHOLE, obligation_triggers: { question: { fired: false, why: "Nothing is asked.", segment: 1 } } });
+  ok(/carries the retired `obligation_triggers`/.test(triggers.error || ""),
+    `(c7b) a record carrying \`obligation_triggers\` is not refused naming it: ${triggers.error || "admitted"}`);
   const none = through("none", WHOLE);
-  ok(!none.error && !("obligation" in none) && !("deferred_slots" in none), `(c7d) a record without the field loads with no \`obligation\` on the contract: ${none.error || JSON.stringify(none.obligation)}`);
-  const question = ["why does the cost keep rising?"];
-  const q = through("question", { ...WHOLE, after: asked, obligation: question });
-  ok(!q.error && JSON.stringify(q.obligation) === JSON.stringify(question),
-    `(c7e) a one-item obligation, a question the \`after.question\` anticipates, loads: ${q.error || JSON.stringify(q.obligation)}`);
-  const empty = through("empty", { ...WHOLE, after: asked, obligation: [] });
-  ok(/`obligation` is an empty list/.test(empty.error || ""),
-    `(c7f) an empty list is refused: ${empty.error || "admitted"}`);
-  const twice = through("twice", { ...WHOLE, after: named, obligation: ["leverage", "leverage"] });
-  ok(/`obligation` names "leverage" twice/.test(twice.error || ""),
-    `(c7g) an item named twice is refused: ${twice.error || "admitted"}`);
+  ok(!none.error && !("obligation" in none) && !("deferred_slots" in none), `(c7c) a record without the field does not load, or its contract carries an \`obligation\` or a slot: ${none.error || JSON.stringify(none)}`);
 }
 // (c8) THE SEGMENT COLUMN (kogaki#1652): a record carrying `after_segment` beside `after` loads in a
 // library whose INDEX is fresh, so the library passes with the column as the committed one passes
@@ -282,12 +267,14 @@ const WHOLE = {
   for (const [label, rec, want] of cases) ok(want.test(err(rec)), `(c9b) ${label} was not refused by name: ${err(rec)}`);
 }
 rmSync(root, { recursive: true, force: true });
-console.log("fixture cases run: 33");
+console.log("fixture cases run: 29");
 
 // ---- the committed library ----
 const unrejudged = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml"))
   .every((n) => !/^takes:/m.test(readFileSync(join(repo, "moves", n), "utf8")));
 if (unrejudged) console.log("moves/: no record carries `takes` yet -- each is validated with both lists empty until the owner's rejudge --constraints --write run (kogaki#1698)");
+const carrying = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml") && /^obligation(_triggers)?:/m.test(readFileSync(join(repo, "moves", n), "utf8")));
+if (unrejudged && carrying.length) console.log(`moves/: ${carrying.join(", ")} still carr${carrying.length === 1 ? "ies" : "y"} the retired \`obligation\`, read without it until the owner's rejudge --constraints --write --retire-obligation run (kogaki#1701)`);
 const real = libraryFailures(repo, "(a/b)", unrejudged);
 fails.push(...real);
 const count = readdirSync(join(repo, "moves")).filter((n) => n.endsWith(".yaml")).length;

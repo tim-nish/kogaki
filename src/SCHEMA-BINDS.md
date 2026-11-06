@@ -23,16 +23,14 @@ it does not read, and empty where the stage does not read the schema at all.
 | field | differentiation | reader_path_unit | reader_path_fit_unit | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit |
 |---|---|---|---|---|---|---|
 | `id` | unread | unread | unread | unread | unread | unread |
-| `takes` | excluded | structural | excluded | unread | unread | content |
-| `leaves` | unread | structural | excluded | unread | unread | content |
-| `before` | unread | unread | unread | structural | excluded | unread |
-| `after` | unread | unread | unread | structural | excluded | unread |
+| `takes` | excluded | structural | excluded | structural | excluded | content |
+| `leaves` | unread | structural | excluded | structural | excluded | content |
+| `before` | unread | unread | unread | unread | unread | unread |
+| `after` | unread | unread | unread | unread | unread | unread |
 | `breaks` | excluded | excluded | excluded | structural | excluded | content |
 | `segments` | excluded | structural | excluded | structural | excluded | content |
 | `figure` | unread | unread | unread | unread | unread | unread |
 | `continues_from` | unread | unread | unread | unread | unread | unread |
-| `obligation` | unread | unread | unread | unread | unread | unread |
-| `obligation_triggers` | unread | unread | unread | unread | unread | unread |
 | `after_segment` | unread | unread | unread | unread | unread | unread |
 | `description` | unread | unread | unread | unread | unread | content |
 | `evidence` | unread | unread | unread | unread | unread | unread |
@@ -110,7 +108,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `waypoints.move` | copied | unread |  |  |  |
 | `waypoints.materials` | copied | unread |  |  |  |
 | `waypoints.purpose` | content | unread |  |  |  |
-| `waypoints.reader_state_after` | content | excluded |  |  |  |
 | `waypoints.depends_on` | content | unread |  |  |  |
 | `waypoints.rationale` | content | unread |  |  |  |
 | `waypoints.introduces` | content | unread |  |  |  |

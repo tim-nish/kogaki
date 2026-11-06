@@ -35,13 +35,12 @@
 #   (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM
 #       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
 #       per Leg, one `waypoints` row per Leg Waypoint carrying `point`,
-#       `serves`, `next_point`, `entry_state`, `terms_this_leg_introduces` and
-#       the Move ids, each value also in that unit's prompt string; a site call
+#       `serves`, `next_point`, `stands_to_be_taken_up` (kogaki#1701),
+#       `terms_this_leg_introduces` and the Move ids, each in the prompt; a site call
 #       appends a `site_calls` row carrying `refused_here`, `fixed` and
 #       `moves_rejected_here`; (c) carries the kept Legs' records; `view --plan`
-#       over the plan (c) wrote prints each Leg Waypoint's point, entry state,
-#       Move `before`, Segments table with the Paragraph Waypoint beside its
-#       Segment, Move `after` and `reader_state_after`; `--run` adds the
+#       over the plan (c) wrote prints each Leg Waypoint's point, Move `takes`,
+#       Segments table with each Paragraph Waypoint and Move `leaves`; `--run` adds the
 #       refusals of (b) with the axis they name, each under the Leg Waypoint
 #       it names as its site; and an edited Brief is refused.
 
@@ -81,6 +80,10 @@ mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
 writeFileSync(join(moves, "p1.yaml"), stringifyYaml({ id: "p1", description: "a fixture Move.",
   before: { knowledge: "MOVE-BEFORE the reader holds the claim." }, after: { knowledge: "MOVE-AFTER the reader holds the point." },
+  breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }],
+  takes: [{ kind: "explain", what: "MOVE-TAKES what the copy is." }], leaves: [{ kind: "answer", what: "MOVE-LEAVES whose copy it is?", segment: 1 }] }));
+// The Leg Move every Leg binds (kogaki#1701): the library holds it, so `start` reads what it leaves.
+writeFileSync(join(moves, "a_leg_move.yaml"), stringifyYaml({ id: "a_leg_move", description: "a fixture Leg Move.",
   breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
 
 // ---- the Brief: three Legs, one Leg Waypoint each ----
@@ -135,7 +138,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (modes[leg.leg_id] === "die") { process.stderr.write("DIED-SENTENCE the planner binary is gone\\n"); process.exit(3); }
   out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "p1",
     materials: [...w.serves], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
-    reader_state_after: { knowledge: "after " + leg.leg_id + "." }, depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
+    depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
     introduces: [], "re-activate": [],
     paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: [...w.serves], cast: {} }] })) });
 });
@@ -271,9 +274,15 @@ if (refusedRun) {
     const row = rec && rec.waypoints && rec.waypoints[0];
     if (!rec || rec.leg_id !== l.leg_id || rec.waypoints.length !== 1 || !row) { fails.push(`(e) ${id} has no input record of one Leg Waypoint row: ${JSON.stringify(rec)}`); continue; }
     if (row.point !== l.waypoints[0].point || JSON.stringify(row.serves) !== '["L1"]' || row.next_point !== null) fails.push(`(e) ${id}'s row does not carry the Leg Waypoint's point, serves and next_point: ${JSON.stringify(row)}`);
-    // A Leg's first Waypoint enters from no state since kogaki#1699: the key is carried, null.
-    if (!Object.hasOwn(row, "entry_state") || row.entry_state !== null || !Array.isArray(row.terms_this_leg_introduces)) fails.push(`(e) ${id}'s row lacks entry_state or terms_this_leg_introduces: ${JSON.stringify(row)}`);
-    if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
+    // What stands to be taken up at a Leg's first Waypoint (kogaki#1701): the Persona's prior
+    // knowledge on the first Leg, and on a later one what the previous Leg's Move leaves -- none here.
+    const stands = row.stands_to_be_taken_up;
+    const wantLeftBy = i === 0 ? ["the reader's prior knowledge"] : [];
+    if (!Array.isArray(stands) || JSON.stringify(stands.map((x) => x.left_by)) !== JSON.stringify(wantLeftBy) || !Array.isArray(row.terms_this_leg_introduces)) {
+      fails.push(`(e) ${id}'s row lacks stands_to_be_taken_up (${JSON.stringify(wantLeftBy)}) or terms_this_leg_introduces: ${JSON.stringify(row)}`);
+    }
+    if (Object.hasOwn(row, "entry_state")) fails.push(`(e) ${id}'s row still carries the retired entry_state (kogaki#1701)`);
+    if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["a_leg_move","p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
     for (const v of [row.point, ...row.serves, ...row.paragraph_moves_you_may_bind]) {
       if (!prompt.includes(JSON.stringify(v))) fails.push(`(e) ${id}'s prompt string does not carry ${JSON.stringify(v)}`);
     }
@@ -282,7 +291,7 @@ if (refusedRun) {
   const first = sites[0] || {};
   if (!sites.length) fails.push("(e) the refused Leg's site calls appended no site_calls row");
   else if (first.waypoint !== 1 || first.retry !== 1 || !first.refused_here || !first.refused_here.length || !Object.hasOwn(first, "fixed")
-    || !Array.isArray(first.moves_rejected_here) || first.entry_state !== null) fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
+    || !Array.isArray(first.moves_rejected_here) || !Array.isArray(first.stands_to_be_taken_up) || Object.hasOwn(first, "entry_state")) fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
   if (JSON.stringify((inputRecord(refusedRun.runDir, "leg-1") || {}).site_calls) !== "[]") fails.push("(e) a Leg with no site call does not carry an empty site_calls");
 }
 if (resumedRun && existsSync(resumedRun.planPath)) {
@@ -296,11 +305,12 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   if (v.status !== 0) fails.push(`(e) view failed: ${(v.stderr || "").slice(0, 400)}`);
   for (const l of legs) if (!out.includes(`## Leg ${l.leg_id}`) || !out.includes(l.waypoints[0].point)) fails.push(`(e) the view does not print Leg ${l.leg_id} with its point`);
   const s2 = out.slice(out.indexOf("## Leg s2"), out.indexOf("## Leg s3"));
-  const want = ["- **Entry state:** (none)", "- **Move:** `p1`", "- **Move before:** knowledge: MOVE-BEFORE the reader holds the claim.",
+  const want = ["- **Move:** `p1`", "- **Move takes:** explain: MOVE-TAKES what the copy is.",
     "| 1 | states the point once, plainly. |  |  | PW-s2 the paragraph establishes its point. (serves L1) |",
-    "- **Move after:** knowledge: MOVE-AFTER the reader holds the point.", "- **reader_state_after:** knowledge: after s2."];
+    "- **Move leaves:** answer: MOVE-LEAVES whose copy it is?"];
   for (const w of want) if (!s2.includes(w)) fails.push(`(e) the view's Leg s2 lacks ${JSON.stringify(w)}: ${s2.slice(0, 900)}`);
-  if (s2.indexOf("Entry state") > s2.indexOf("Move before") || s2.indexOf("| 1 |") > s2.indexOf("Move after")) fails.push("(e) the view's lines are not in the stated order");
+  if (s2.indexOf("Move takes") > s2.indexOf("| 1 |") || s2.indexOf("| 1 |") > s2.indexOf("Move leaves")) fails.push("(e) the view's lines are not in the stated order");
+  for (const gone of ["Entry state", "Move before", "Move after", "reader_state_after"]) if (out.includes(gone)) fails.push(`(e) the view still prints ${JSON.stringify(gone)}, retired (kogaki#1701)`);
   if (out.includes("Refusals in this run")) fails.push("(e) the view without --run printed refusals");
   const r = view("--run", refusedRun.runDir);
   const s2r = (r.stdout || "").slice((r.stdout || "").indexOf("## Leg s2"), (r.stdout || "").indexOf("## Leg s3"));

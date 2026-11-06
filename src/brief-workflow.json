@@ -123,7 +123,7 @@
         "move": { "takes": "excluded", "breaks": "excluded", "segments": "excluded", "segments.operation": "excluded", "segments.relation": "excluded", "segments.manner": "excluded" }
       },
       "binds_unread": {
-        "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "leaves", "before", "after", "after_segment"]
+        "move": ["id", "figure", "continues_from", "description", "evidence", "leaves", "before", "after", "after_segment"]
       },
       "kind": "judgment",
       "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every term, proposition and line you compose in it, and keep in English only the keys, dimension names and ids the record's shape fixes. FIRST list `leg1_survivors` (kogaki#1216; kogaki#1699): every Move in `moves_you_may_bind` whose `takes` entries are each met by what the Persona's prior-knowledge line (`reader.prior_knowledge` in the input) supplies -- the kinds matching as words and the `what` lines by sense, never verbatim; a Move whose `takes` is empty is never excluded; exclusion, never ranking, and no score exists anywhere. THEN decide, before any reader-path unit composes, how this Brief's Candidates will differ -- assigning each of the reader-path job's units the reader-state dimension its path leads with, the opening Move its first Leg must bind (drawn from `leg1_survivors`), and (where the Brief carries Journey material) where that unit places it, plus one sentence of the unit's intended reader experience (kogaki#1206). A Move's `takes`, `breaks` and `segments`, with each Segment's `operation`, `relation` and `manner`, are never stated in any entry. Candidates differ BY ASSIGNMENT, decided here, and never by chance among units that cannot see each other.",
@@ -246,7 +246,7 @@
       "leg": { "leg_id": "content", "materials": "content", "purpose": "content", "reaches_target": "content", "names": "content", "depends_on": "content", "rationale": "content", "move": "copied", "no_move_fits": "content", "claims": "content", "waypoints": "content", "journeys": "content", "entailed": "content", "entailment_reasoning": "content", "bridges": "content", "introduces": "content", "re-activate": "content", "opens_section": "content", "figure": "content", "figure_roles": "content", "budget": "content", "waypoints.point": "content", "waypoints.serves": "copied" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "before", "after", "after_segment"]
+      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"]
     },
     "id": "compose_path_unit",
     "note": "NOT A STATE OF THIS FLOW (kogaki#1203): the reader-path Detached Job's three units run inside compose_path's own in-process code, never as a separately-executed flow state, so this row sits outside `states` rather than inside it -- unreached by loadWorkflowTable's validation, the terrain-workflow-only counted_baseline self-test, and check-entry-point-accounting.sh's dispatcher-case totality, all three of which iterate `states` or a dispatcher switch that this row is neither. `src/brief.mjs`'s compose_path handler reads this row and renders each unit's prompt through the SAME `judgePrompt` renderer compose_path itself uses, so the one-renderer property holds across both the assembled-set judgment and its three units.",
@@ -278,7 +278,7 @@
       "leg": { "leg_id": "copied", "reaches_target": "excluded", "waypoints": "excluded", "introduces": "excluded", "opens_section": "excluded" }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "obligation", "obligation_triggers", "segments.operation", "segments.relation", "segments.manner", "before", "after", "after_segment"],
+      "move": ["id", "figure", "continues_from", "description", "evidence", "segments.operation", "segments.relation", "segments.manner", "before", "after", "after_segment"],
       "leg": ["materials", "purpose", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "journeys", "entailed", "entailment_reasoning", "bridges", "re-activate", "figure", "figure_roles", "budget", "waypoints.point", "waypoints.serves"]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1307), on the ground `reader_path_unit` above states for itself: the Move fit of each Candidate is judged INSIDE the compose job, by the job unit that composed it, as a second headless session once the unit's record passes `validateReaderPathUnit`. `compose_path` renders this row through the SAME `judgePrompt` renderer every judgment state uses, up to the input marker, and the supervisor appends the unit's own Candidate below it. It replaces the `judge_specialization` state, which judged every Candidate in one call after Path Review had finished -- a content judgment sited after a verdict-free review, and one whose exclusion nothing could repair. A `contradicts` or `cannot-determine` on any Leg is a SCHEMA REFUSAL of the unit: the unit is re-asked once with this judge's sentence verbatim, and a second failure ends it `refused`.",
