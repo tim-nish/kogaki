@@ -3129,14 +3129,13 @@ folded. The runner writes the sheet once and never reads it.
 - `Bindings` is one two-column table per binding, in order, captioned
   `Binding N` with N its paragraph's number, one labelled row each
   (kogaki#1682): `Move`, the id; `Bound by`, the record's `bind.author`,
-  `owner` or the composed route's row `smp_bind_move`; `Before` and `After`,
-  the Move's `before` and `after` read through `loadMoveContracts` from the
-  record's `library`, one sub-row per key, or `none` where the Move carries
-  none; `Takes` and `Leaves`, the Move's `takes` and `leaves`, one sub-row per
-  entry as `<kind>: <what>`, or `none` where the list is empty (kogaki#1700);
-  and `Rationale`, `binding_rationale`, or `none` where it is null. A Move the
-  library no longer holds renders `not in the library` in `Before`, `After`,
-  `Takes` and `Leaves`.
+  `owner` or the composed route's row `smp_bind_move`; `Takes` and `Leaves`,
+  the Move's `takes` and `leaves` read through `loadMoveContracts` from the
+  record's `library`, one sub-row per entry as `<kind>: <what>`, or `none`
+  where the list is empty (kogaki#1700); and `Rationale`,
+  `binding_rationale`, or `none` where it is null. The Move's `before` and
+  `after` have no row (kogaki#1699). A Move the library no longer holds renders
+  `not in the library` in `Takes` and `Leaves`.
 - `Mapping` is one line `Base: <domain>`, or `Base: none` where the run
   stopped before a table was written, above one table of three fixed columns, `Abstract`, `Attribute` and
   `Correspondence` (kogaki#1693), one row per Role in the structure's order:

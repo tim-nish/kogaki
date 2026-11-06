@@ -20,8 +20,8 @@
 #       on the line beneath it and no other `*Cast:*` line (kogaki#1695).
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
-#       `Binding 1` and `Binding 2` of seven labelled rows, `Takes` and `Leaves` one sub-row per entry as `<kind>: <what>`
-#       (kogaki#1682, kogaki#1687, kogaki#1700), and no `WBS` text (kogaki#1685); the Mapping part carries `Base: <domain>`
+#       `Binding 1` and `Binding 2` of five labelled rows, `Takes` and `Leaves` one sub-row per entry as `<kind>: <what>`
+#       (kogaki#1682, kogaki#1687, kogaki#1700, kogaki#1699), and no `WBS` text (kogaki#1685); the Mapping part carries `Base: <domain>`
 #       above a table headed `Abstract`, `Attribute`, `Correspondence`, the fixture's attribute word in its Role's `Attribute`
 #       cell, and no kind word (kogaki#1693); and the Segments table's point cell carries its true cast keys in a `meta` span,
 #       on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
