@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import { fillBrief, fillSlot, briefStrandIds, placements,
   validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
   figureClause, figureLegs,
-  ownerGateDigest, validateOwnerAnswer, targetLegIndex,
+  ownerGateDigest, validateOwnerAnswer,
   briefJourneyStrands, journeyPlacements, snapshotBrief, readBriefRecord, briefRecordText } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
@@ -657,20 +657,6 @@ export function selectionOptionIds(reviewed, record) {
 
 // The adopted Candidate's Reader Path lands in the Brief (the settled structure section): sequence
 // through the Leg's shape fill, and tradeoffs from its reasoning; the Thesis row of Closure is derived (kogaki#1328).
-// THE LEG THE THESIS CLOSURE ROW NAMES (kogaki#1229, moved from the last Leg
-// to the marked one by kogaki#1231, owner decision 2026-09-30): the Leg
-// marked `reaches_target` alone -- the one that attains the Thesis. The
-// derived Thesis row reaches that Leg alone (kogaki#1328): naming every Leg leaked the whole path's closure narrative
-// into every earlier Packet, and naming the last Leg under the reversed rule
-// would name a plain closing Leg instead of the one that actually reaches
-// the target. Exported so the fixture in checks/check-brief-compose.sh
-// asserts the list without a Brief to adopt.
-export function targetLegIds(legs) {
-  if (!Array.isArray(legs)) return [];
-  const idx = targetLegIndex(legs);
-  return idx >= 0 ? [legs[idx].leg_id] : [];
-}
-
 export function adoptCandidate(record, reviewed, candidateId, instantiation = {}) {
   const cands = reviewed?.candidates || [];
   const c = cands.find((x) => x.candidate_id === candidateId);
