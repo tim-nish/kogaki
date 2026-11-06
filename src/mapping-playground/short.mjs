@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, one Move, one paragraph,
-// read on a sheet that compares the proposition with the RBS slot; a second Leg Waypoint states the proposition (kogaki#1681, kogaki#1689).
+// The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, a Base Paragraph and, where its Move leaves a
+// `carry`, an Inference Paragraph, read on a sheet; the model route binds the Moves first, then fills the Correspondence column
+// under the base Move's Segments, then writes the Paragraph Waypoints from those expressions (kogaki#1700).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -14,39 +15,41 @@ import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts } from "../compose.mjs";
+import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts, readMoveRecord } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { derivedRow } from "../proof-sheet/leg-brief.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
-import { planLeg, paragraphPlanUnitInput, validateParagraphPlanUnit, PARAGRAPH_PLAN_TABLE } from "../paragraph-plan.mjs";
+import { planLeg, paragraphPlanUnitInput, validateParagraphPlanUnit, segmentsForPlanCall, PARAGRAPH_PLAN_TABLE } from "../paragraph-plan.mjs";
 import { renderPacket } from "../draft/render-packet.mjs";
 import { splitPacketTemplate } from "../draft/packet.mjs";
 import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
-import { validateRbsTable, suppliedEntry, projectionsOf } from "./rbs.mjs";
+import { validateRbsTable, suppliedEntry, projectionsOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
 import { mapperRow, MAPPER_ATTEMPTS } from "./sme.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
 
-export const RBS_ROW_PREFIX = "rbs_";
-export const RBS_DEFAULT = "rbs_placeholder";
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
+export const RBS_COMPOSED = "composed";
 export const BIND_FILE = "bind.yaml";
 export const PACKET_FILE = "packet.md";
 export const PARAGRAPH_FILE = "paragraph.md";
 export const SHEET_FILE = "sheet.html";
-export const SHORT_STAGES = ["sme", "rbs", "bind", "write"];
+export const SHORT_STAGES = ["sme", "bind", "correspondence", "waypoints", "write"];
 const LEG_ID = "smp";
-const BIND_ROW = "smp_bind_unit";
+const BIND_ROW = "smp_bind_move";
+const CORRESPONDENCE_ROW = "smp_correspondence";
+const WAYPOINTS_ROW = "smp_waypoints_unit";
+const CARRY = "carry";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE = "usage: node src/mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) "
-  + "--out <dir under runs/mapping-playground/> [--rbs <rbs_<variant>> | --rbs-file <file>] [--audience <audiences/<name>.md>] [--library <dir>]";
+  + "--out <dir under runs/mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
   process.stderr.write(`short: ${msg}\n`);
@@ -58,70 +61,9 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
 
 // ---------------------------------------------------------------------------
-// THE CORRESPONDENCE TABLE: a row `rbs_<variant>` fills it; `fill` names the code that does.
-
-export function rbsRow(table, variant) {
-  const rows = Object.keys(table).filter((k) => k.startsWith(RBS_ROW_PREFIX));
-  if (!String(variant).startsWith(RBS_ROW_PREFIX) || !table[variant]) {
-    return { error: `--rbs ${JSON.stringify(variant)} names no \`${RBS_ROW_PREFIX}<variant>\` row of the Playground's table — it declares ${rows.join(", ") || "none"}` };
-  }
-  const row = { id: variant, ...table[variant] };
-  if (row.judgment_point) return { row };
-  if (!Object.hasOwn(RBS_FILLS, row.fill)) {
-    return { error: `the \`${variant}\` row's \`fill\` ${JSON.stringify(row.fill)} names no fill this runner carries — it carries ${Object.keys(RBS_FILLS).join(", ")}` };
-  }
-  return { row };
-}
-
-const RBS_FILLS = {
-  // One correspondence per Role, in the structure's order; the variant cannot say which base object plays it.
-  roles: (structure) => structure.roles.map((r) => ({ role: r.id, expression: null })),
-};
-
-export function fillRbs(row, structure) {
-  return { variant: row.id, placeholder: row.placeholder === true, base: { domain: null }, correspondences: RBS_FILLS[row.fill](structure) };
-}
-
-export function rbsBaseInput(structure, persona) {
-  return {
-    structure,
-    persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
-  };
-}
-
-function rbsBaseRefusal(answer, proposition, structure, libraryDir) {
-  const isMap = answer && typeof answer === "object" && !Array.isArray(answer);
-  const extra = isMap ? Object.keys(answer).find((k) => k !== "base" && k !== "correspondences") : null;
-  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences`;
-  const v = validateRbsTable(isMap ? { ...answer, placeholder: false } : answer, proposition, { movesDir: libraryDir, structure });
-  return v.error || null;
-}
-
-// The `rbs_base` row (kogaki#1688).
-function rbsBaseStage({ dir, env, row, structure, persona, proposition, libraryDir }) {
-  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
-  const input = rbsBaseInput(structure, persona);
-  const history = [];
-  for (let attempt = 1; attempt <= MAPPER_ATTEMPTS; attempt++) {
-    const held = bindFlow(FLOW);
-    let prompt;
-    try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
-    writeFileSync(join(dir, `prompt-${attempt}.md`), prompt);
-    const call = oneCall({ env, model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
-      timeoutS: Number(settingValue(extraction.job.call_limit_s)), input: prompt });
-    if (call.stopped) return { stopped: call.stopped };
-    const a = answerRecord(call.text);
-    if (a.record !== undefined) writeFileSync(join(dir, `answer-${attempt}.json`), JSON.stringify(a.record, null, 2) + "\n");
-    const refusal = a.stopped || rbsBaseRefusal(a.record, proposition, structure, libraryDir);
-    if (!refusal) return { table: { variant: row.id, placeholder: false, base: a.record.base, correspondences: a.record.correspondences } };
-    history.push({ answer: a.record ?? null, refusal });
-  }
-  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}` };
-}
-
-// ---------------------------------------------------------------------------
-// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1689): its one claim is the proposition, in the Brief's form; its first Leg Waypoint is
-// the structure in the base's objects, and one Leg Waypoint whose point is the proposition follows per projecting binding, one in the model route.
+// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700): its one claim is the proposition, in the Brief's form; its first Leg Waypoint is
+// the structure in the Correspondence expressions, and one Leg Waypoint whose point is the proposition follows per further binding:
+// one per projecting binding of the owner's file, and in the model route one where an Inference Move is bound, else none.
 // The first Leg Waypoint's point (kogaki#1688).
 export function firstPoint(structure, rbs) {
   const base = new Map(rbs.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
@@ -130,14 +72,14 @@ export function firstPoint(structure, rbs) {
     .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
 }
 
-export function shortLeg(proposition, rbs, persona, structure) {
+export function shortLeg(proposition, rbs, persona, structure, followers) {
   const first = { point: firstPoint(structure, rbs), serves: ["L1"] };
   return {
     leg_id: LEG_ID,
     reader_state_before: personaPriorKnowledgeLine(persona),
     reader_state_after: null,
     claims: [{ strand: "L1", proposition }],
-    waypoints: [first, ...Array.from({ length: Math.max(1, projectionsOf(rbs).length) }, () => ({ point: proposition, serves: ["L1"] }))],
+    waypoints: [first, ...Array.from({ length: followers }, () => ({ point: proposition, serves: ["L1"] }))],
     introduces: [],
     journeys: [],
   };
@@ -165,15 +107,92 @@ function answerRecord(text) {
   catch (e) { return { stopped: `the binding answer is not one JSON record (${e.message})` }; }
 }
 
-function bindStage({ dir, env, leg, persona, libraryDir, table }) {
+// ONE JUDGMENT ROW UNDER THE MAPPER'S BOUND (kogaki#1700): each attempt's prompt and answer are kept, and a refusal is put
+// back verbatim into the next attempt; the answer, or the stop naming the last refusal.
+function retriedCall({ dir, env, row, input, refusalOf }) {
+  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const history = [];
+  for (let attempt = 1; attempt <= MAPPER_ATTEMPTS; attempt++) {
+    const held = bindFlow(FLOW);
+    let prompt;
+    try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
+    writeFileSync(join(dir, `prompt-${attempt}.md`), prompt);
+    const call = oneCall({ env, model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
+      timeoutS: Number(settingValue(extraction.job.call_limit_s)), input: prompt });
+    if (call.stopped) return { stopped: call.stopped };
+    const a = answerRecord(call.text);
+    if (a.record !== undefined) writeFileSync(join(dir, `answer-${attempt}.json`), JSON.stringify(a.record, null, 2) + "\n");
+    const refusal = a.stopped || refusalOf(a.record);
+    if (!refusal) return { answer: a.record };
+    history.push({ answer: a.record ?? null, refusal });
+  }
+  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}` };
+}
+
+const playgroundRow = (table, id) => ({ id, ...table[id] });
+const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
+const undeclared = (answer, keys) => (isMap(answer) ? Object.keys(answer).find((k) => !keys.includes(k)) : null);
+const carryOf = (list) => (list || []).find((x) => x.kind === CARRY) || null;
+
+// THE `bind` ROW (kogaki#1700): the structure, the Persona's line and every Move of the library as `{ id, description, segments,
+// takes, leaves }`.
+export function bindMoveInput(structure, persona, moves, libraryDir) {
+  return {
+    structure,
+    persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    moves: moves.map((m) => {
+      const r = readMoveRecord(m.id, libraryDir);
+      return { id: m.id, description: r.error ? null : (r.record.description ?? null), segments: segmentsForPlanCall(m.segments),
+        takes: m.takes, leaves: m.leaves };
+    }),
+  };
+}
+
+export function bindMoveRefusal(answer, contracts) {
+  if (!isMap(answer)) return "the answer is not one `{ base_move, inference_move, rationale }` record";
+  const extra = undeclared(answer, ["base_move", "inference_move", "rationale"]);
+  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base_move, inference_move and rationale`;
+  for (const k of ["base_move", "inference_move", "rationale"]) if (!Object.hasOwn(answer, k)) return `the answer carries no \`${k}\``;
+  const base = contracts.get(answer.base_move);
+  if (!base) return `base_move ${JSON.stringify(answer.base_move)} names no Move of the library`;
+  if (typeof answer.rationale !== "string" || answer.rationale.trim() === "") return "rationale is not one non-empty text";
+  const carry = carryOf(base.leaves);
+  if (answer.inference_move === null) {
+    return carry ? `inference_move is null, and the base Move "${base.id}" leaves \`${CARRY}: ${carry.what}\` — an Inference Paragraph is owed` : null;
+  }
+  if (!carry) return `inference_move is given, and the base Move "${base.id}" leaves no \`${CARRY}\` — no Inference Paragraph is owed`;
+  const inference = contracts.get(answer.inference_move);
+  if (!inference) return `inference_move ${JSON.stringify(answer.inference_move)} names no Move of the library`;
+  if (!carryOf(inference.takes)) return `the inference Move "${inference.id}" takes no \`${CARRY}\` — an Inference Paragraph takes up what the Base Paragraph carries`;
+  return null;
+}
+
+// THE `correspondence` ROW (kogaki#1700): the structure, the Persona's line and the bound base Move's Segments.
+export function correspondenceInput(structure, persona, baseMove) {
+  return {
+    structure,
+    persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    segments: segmentsForPlanCall(baseMove.segments),
+  };
+}
+
+function correspondenceRefusal(answer, proposition, structure, libraryDir) {
+  const extra = undeclared(answer, ["base", "correspondences"]);
+  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences`;
+  return validateRbsTable(answer, proposition, { movesDir: libraryDir, structure }).error || null;
+}
+
+// THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
+// refused naming the Waypoint, the record is a ParagraphPlan unit's, and the Base Paragraph's points keep to the Correspondence column.
+function waypointsStage({ dir, env, leg, persona, libraryDir, playground, rbs, moves, contracts }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
-  const d = derivedRow(table, BIND_ROW, PLAYGROUND_TABLE);
+  const d = derivedRow(playground, WAYPOINTS_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
   const row = { ...plan.paragraph_plan_unit, ...d.row, shared_text_file: plan.paragraph_plan_unit.shared_text_file };
-  const library = loadMoveContracts(libraryDir);
-  if (library.error) return { stopped: library.error };
   const planned = planLeg(leg);
-  const input = paragraphPlanUnitInput(planned, library.moves, persona);
+  const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i] })) };
+  const bound = [...new Set(moves)].map((id) => contracts.get(id));
+  const input = { ...paragraphPlanUnitInput(fixed, bound, persona), correspondences: rbs.correspondences };
   const held = bindFlow(FLOW);
   let prompt;
   try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
@@ -184,10 +203,17 @@ function bindStage({ dir, env, leg, persona, libraryDir, table }) {
   const a = answerRecord(call.text);
   if (a.stopped) return { stopped: a.stopped };
   writeFileSync(join(dir, "answer.json"), JSON.stringify(a.record, null, 2) + "\n");
+  const entries = isMap(a.record) && Array.isArray(a.record.waypoints) ? a.record.waypoints : [];
+  for (const [i, e] of entries.slice(0, moves.length).entries()) {
+    const got = isMap(e) ? e.move : e;
+    if (got !== moves[i]) return { stopped: `Waypoint ${i + 1}: the answer binds ${JSON.stringify(got)}, and the Move bound to it at \`bind\` is "${moves[i]}"` };
+  }
   let v;
   try { v = validateParagraphPlanUnit(a.record, { legs: [planned], movesDir: libraryDir }, "leg-1"); }
   catch (e) { v = { error: String(e && e.message || e) }; }
   if (v.error) return { stopped: v.error.split("\n").join(" ") };
+  const vocabulary = correspondenceVocabularyRefusal(a.record.waypoints[0].paragraph_waypoints, rbs);
+  if (vocabulary) return { stopped: vocabulary };
   return { entries: a.record.waypoints };
 }
 
@@ -230,14 +256,14 @@ function readProposition(file) {
 function readRbsFile(file, proposition, libraryDir, structure) {
   let record;
   try { record = parseYaml(readFileSync(file, "utf8"), file); } catch (e) { return { error: `the correspondence table cannot be read (${e.message})` }; }
-  const v = validateRbsTable(record && typeof record === "object" ? { ...record, placeholder: false } : record, proposition.proposition,
+  const v = validateRbsTable(record, proposition.proposition,
     { movesDir: libraryDir, structure });
   if (v.error) return v;
   if (!Object.hasOwn(record, "projection")) {
     return { error: "the correspondence table carries no `projection`: the owner's table binds the paragraph whose point is the proposition, "
       + "and a Trial that never states the proposition has no reading (kogaki#1689)" };
   }
-  return { record: { ...record, variant: RBS_OWNER, placeholder: false } };
+  return { record: { ...record, variant: RBS_OWNER } };
 }
 
 function readStructure(file, proposition) {
@@ -247,15 +273,14 @@ function readStructure(file, proposition) {
   return v.error ? v : { structure };
 }
 
-export function runShortTrial({ proposition: propositionFile, structure: givenStructure = null, mapper = null, out, rbs = RBS_DEFAULT,
+export function runShortTrial({ proposition: propositionFile, structure: givenStructure = null, mapper = null, out, compose = false,
   rbsFile = null, audience = null, library = null }) {
   const outDir = resolve(out);
   const rel = relative(resolve(REPO, TRIALS_DIR), outDir);
   if (rel === "" || rel.startsWith("..") || rel.startsWith(sep)) fail(`--out ${out} is not a directory under ${TRIALS_DIR}/. Nothing was started.`);
   if (existsSync(join(outDir, TRIAL_FILE))) fail(`a Trial already exists at ${outDir}, and nothing was written over it. Nothing was started.`);
+  if (Boolean(compose) === Boolean(rbsFile)) fail(`a Trial's route is \`--compose\` or \`--rbs-file\`, exactly one of the two (kogaki#1700). Nothing was started. ${USAGE}`);
   const table = readTable();
-  const rr = rbsFile ? { row: { id: RBS_OWNER, placeholder: false } } : rbsRow(table, rbs);
-  if (rr.error) fail(`${rr.error}. Nothing was started.`);
   const proposition = readProposition(propositionFile);
   let given = null;
   if (mapper) {
@@ -291,7 +316,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "sme" }
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
-    rbs: { variant: rr.row.id, placeholder: rr.row.placeholder === true, path: null, sha256: null },
+    rbs: { variant: rbsFile ? RBS_OWNER : RBS_COMPOSED, path: null, sha256: null },
     bind: { move: null, binding_rationale: null, path: null, sha256: null },
     paragraph: { path: null, sha256: null },
     sheet: relFromRepo(sheetPath),
@@ -334,46 +359,64 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     });
   }
   let structure = null;
-  const table1 = stage("rbs", (d, env) => {
+  let contracts = null;
+  const writeRbs = (t) => {
+    writeFileSync(rbsPath, stringifyYaml(t));
+    record.rbs = { variant: t.variant, ...fileRecord(rbsPath), ...(owned ? { source: fileRecord(resolve(rbsFile)) } : {}) };
+  };
+  // THE MOVES (kogaki#1700): the owner's file names them, or one `smp_bind_move` call binds them before any base is named.
+  const moves = stage("bind", (d, env) => {
     const s = readStructure(structureFile, proposition);
     if (s.error) return { stopped: s.error };
     structure = s.structure;
     if (owned) {
       const v = readRbsFile(rbsFile, proposition, libraryDir, structure);
       if (v.error) return { stopped: v.error };
-      copyFileSync(rbsFile, rbsPath);
-      record.rbs = { variant: RBS_OWNER, placeholder: false, ...fileRecord(rbsPath) };
-      return { value: owned.record };
+      const ids = [owned.record.move, ...projectionsOf(owned.record).map((p) => p.move)];
+      record.bind = { state: "supplied", author: "owner", move: ids[0], base_move: ids[0], inference_moves: ids.slice(1),
+        binding_rationale: Object.hasOwn(owned.record, "binding_rationale") ? String(owned.record.binding_rationale).trim() : null };
+      return { value: ids };
     }
-    let filled;
-    if (rr.row.judgment_point) {
-      const r = rbsBaseStage({ dir: d, env, row: rr.row, structure, persona, proposition: proposition.proposition, libraryDir });
-      if (r.stopped) return { stopped: r.stopped };
-      filled = r.table;
-    } else filled = fillRbs(rr.row, structure);
-    const v = validateRbsTable(filled, proposition.proposition, { movesDir: libraryDir, structure });
-    if (v.error) return { stopped: v.error };
-    writeFileSync(rbsPath, stringifyYaml(filled));
-    record.rbs = { variant: filled.variant, placeholder: filled.placeholder, ...fileRecord(rbsPath) };
-    return { value: filled };
-  });
-  const leg = table1 ? shortLeg(proposition.proposition, table1, persona, structure) : null;
-  const paragraphs = stage("bind", (d, env) => {
-    const supplied = suppliedEntry(table1, leg.waypoints[0].serves);
-    if (supplied) {
-      const all = [supplied, ...projectionsOf(table1).map((p) => suppliedEntry(p, leg.waypoints[0].serves))];
-      const listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
-      writeFileSync(bindPath, stringifyYaml({ ...supplied, paragraphs: listed }));
-      record.bind = { state: "supplied", author: "owner", move: supplied.move, binding_rationale: supplied.binding_rationale,
-        paragraphs: listed, ...fileRecord(bindPath) };
-      return { value: listed };
-    }
-    const r = bindStage({ dir: d, env, leg, persona, libraryDir, table });
+    const library = loadMoveContracts(libraryDir);
+    if (library.error) return { stopped: library.error };
+    contracts = new Map(library.moves.map((m) => [m.id, m]));
+    const r = retriedCall({ dir: d, env, row: playgroundRow(table, BIND_ROW), input: bindMoveInput(structure, persona, library.moves, libraryDir),
+      refusalOf: (answer) => bindMoveRefusal(answer, contracts) });
     if (r.stopped) return r;
-    const bound = { ...r.entries[0], binding_rationale: null };
-    const listed = r.entries.map((e) => ({ move: e.move, binding_rationale: null, paragraph_waypoints: e.paragraph_waypoints }));
-    writeFileSync(bindPath, stringifyYaml({ ...bound, paragraphs: listed }));
-    record.bind = { author: BIND_ROW, move: bound.move, binding_rationale: null, paragraphs: listed, ...fileRecord(bindPath) };
+    const { base_move: base, inference_move: inference, rationale } = r.answer;
+    record.bind = { author: BIND_ROW, move: base, base_move: base, inference_move: inference, binding_rationale: rationale.trim() };
+    return { value: inference === null ? [base] : [base, inference] };
+  });
+  // THE CORRESPONDENCE COLUMN (kogaki#1700): the owner's, or one `smp_correspondence` call under the base Move's Segments.
+  const table1 = stage("correspondence", (d, env) => {
+    if (owned) {
+      const t = { variant: RBS_OWNER, base: owned.record.base, correspondences: owned.record.correspondences };
+      writeRbs(t);
+      return { value: t };
+    }
+    const r = retriedCall({ dir: d, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(moves[0])),
+      refusalOf: (answer) => correspondenceRefusal(answer, proposition.proposition, structure, libraryDir) });
+    if (r.stopped) return r;
+    const t = { variant: RBS_COMPOSED, base: r.answer.base, correspondences: r.answer.correspondences };
+    writeRbs(t);
+    return { value: t };
+  });
+  const leg = table1 ? shortLeg(proposition.proposition, table1, persona, structure, moves.length - 1) : null;
+  // THE PARAGRAPH WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
+  const paragraphs = stage("waypoints", (d, env) => {
+    let listed;
+    if (owned) {
+      const serves = leg.waypoints[0].serves;
+      const all = [suppliedEntry(owned.record, serves), ...projectionsOf(owned.record).map((p) => suppliedEntry(p, serves))];
+      listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
+    } else {
+      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, rbs: table1, moves, contracts });
+      if (r.stopped) return r;
+      listed = r.entries.map((e) => ({ move: e.move, binding_rationale: record.bind.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
+    }
+    writeFileSync(bindPath, stringifyYaml({ move: listed[0].move, binding_rationale: listed[0].binding_rationale, paragraphs: listed }));
+    record.bind = { ...record.bind, paragraphs: listed, ...fileRecord(bindPath) };
+    writeRbs({ ...table1, bindings: listed });
     return { value: listed };
   });
   stage("write", (d, env) => {
@@ -405,12 +448,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   if (args._cmd !== "run") fail(USAGE);
-  if (str("rbs") && str("rbs-file")) fail(`\`--rbs\` and \`--rbs-file\` are given together: a Trial's correspondence table is a variant row's or the owner's file, never both. Nothing was started. ${USAGE}`);
+  if (Object.hasOwn(args, "rbs")) fail(`\`--rbs\` is retired with the \`rbs_<variant>\` family: the model route is \`--compose\` and the owner's table is \`--rbs-file\` (kogaki#1700). Nothing was started. ${USAGE}`);
+  if (Object.hasOwn(args, "compose") && args.compose !== true) fail(`\`--compose\` takes no value. Nothing was started. ${USAGE}`);
+  if (args.compose === true && str("rbs-file")) fail(`\`--compose\` and \`--rbs-file\` are given together: a Trial's Moves, Correspondence column and Paragraph Waypoints are composed or the owner's file, never both. Nothing was started. ${USAGE}`);
+  if (args.compose !== true && !str("rbs-file")) fail(`neither \`--compose\` nor \`--rbs-file\` is given: a Trial composes its Moves, Correspondence column and Paragraph Waypoints, or reads them from the owner's file (kogaki#1700). Nothing was started. ${USAGE}`);
   if (str("structure") && str("mapper")) fail(`\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`);
   if (Object.hasOwn(args, "strand")) fail(`\`--strand\` is no flag of the short Trial: its input is \`--proposition <file>\` (kogaki#1685). Nothing was started. ${USAGE}`);
   for (const k of ["proposition", ...(str("mapper") ? [] : ["structure"]), "out"]) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
   const r = runShortTrial({ proposition: str("proposition"), structure: str("structure"), mapper: str("mapper"), out: str("out"),
-    rbs: str("rbs") || RBS_DEFAULT, rbsFile: str("rbs-file"), audience: str("audience"), library: str("library") });
+    compose: args.compose === true, rbsFile: str("rbs-file"), audience: str("audience"), library: str("library") });
   console.log(`trial directory: ${r.outDir}`);
   if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
 }

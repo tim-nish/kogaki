@@ -1,5 +1,5 @@
-// The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681) and the proposition
-// in place of the Strand's rendering (kogaki#1685).
+// The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681), the proposition
+// in place of the Strand's rendering (kogaki#1685), and each binding's `takes` and `leaves` (kogaki#1700).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -69,8 +69,8 @@ function mappingTable(structure, table) {
   }
   const domain = table && table.base && table.base.domain !== null && table.base.domain !== undefined ? table.base.domain : "none";
   const abstract = (r) => `<span class="meta">${esc(r.id)}</span>${r.what === null ? "" : ` ${targetHtml(r.what)}`}`;
-  const expression = (cs) => cs.map((c) => (c.expression === null ? '<span class="muted">null</span>' : targetHtml(c.expression))).join("<br>");
-  const caption = table ? `${table.variant}${table.placeholder ? " — a placeholder, not an RBS" : ""}` : "no table";
+  const expression = (cs) => cs.map((c) => targetHtml(c.expression)).join("<br>");
+  const caption = table ? table.variant : "no table";
   return `<p class="meta">Base: ${esc(domain)}</p>`
     + `<table><caption>${esc(caption)}</caption><thead><tr><th>Abstract</th><th>Attribute</th><th>Correspondence</th></tr></thead><tbody>`
     + rows.map((r) => `<tr><td>${abstract(r)}</td><td>${esc(r.attributes.join(", "))}</td><td>${expression(r.correspondences)}</td></tr>`).join("")
@@ -93,6 +93,10 @@ function stateRows(state) {
   return rows.map(esc);
 }
 
+// One sub-row per constraint entry, `<kind>: <what>` (kogaki#1700); `none` where the list is empty.
+const constraintRows = (list) => (list && list.length ? list.map((x) => esc(`${x.kind}: ${x.what}`)) : [esc("none")]);
+const stateOrNone = (state) => (state === null || state === undefined ? [esc("none")] : stateRows(state));
+
 function bindingTable(record, entry, contracts, n) {
   const c = contracts.get(entry.move);
   const absent = [esc("not in the library")];
@@ -100,8 +104,10 @@ function bindingTable(record, entry, contracts, n) {
   return `<table><caption>Binding ${n}</caption><tbody>`
     + labelledRow("Move", [esc(entry.move)])
     + labelledRow("Bound by", [esc(record.bind.author)])
-    + labelledRow("Before", c ? stateRows(c.before) : absent)
-    + labelledRow("After", c ? stateRows(c.after) : absent)
+    + labelledRow("Before", c ? stateOrNone(c.before) : absent)
+    + labelledRow("After", c ? stateOrNone(c.after) : absent)
+    + labelledRow("Takes", c ? constraintRows(c.takes) : absent)
+    + labelledRow("Leaves", c ? constraintRows(c.leaves) : absent)
     + labelledRow("Rationale", [esc(rationale)])
     + "</tbody></table>";
 }

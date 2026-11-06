@@ -1,5 +1,6 @@
 // The short Trial's correspondence table, refused or `{}` (kogaki#1669, kogaki#1671): its correspondences,
-// the base (kogaki#1693), an owner-supplied binding of one Move, and the projecting bindings (kogaki#1681).
+// the base (kogaki#1693), an owner-supplied binding of one Move, and the projecting bindings (kogaki#1681);
+// and the Correspondence vocabulary of the Base Paragraph's points (kogaki#1700).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -24,7 +25,7 @@ function baseRefusal(base) {
   const extra = Object.keys(base).find((k) => k !== "domain");
   if (extra) return `base carries \`${extra}\`, which it does not declare — a base is \`{ domain }\` and has no kind (kogaki#1693)`;
   if (!Object.hasOwn(base, "domain")) return "base carries no `domain`";
-  if (base.domain !== null && !isText(base.domain)) return "base.domain is neither one phrase nor null";
+  if (!isText(base.domain)) return "base.domain is not one phrase";
   return null;
 }
 
@@ -92,16 +93,13 @@ export function validateRbsTable(record, proposition, { movesDir = "moves", stru
   const b = baseRefusal(record.base);
   if (b) return { error: b };
   const forms = propositionForms(proposition);
-  const placeholder = record.placeholder === true;
   for (const [i, c] of record.correspondences.entries()) {
     if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) {
       return { error: `correspondences[${i}] is not a \`{ role, expression }\` correspondence` };
     }
-    if (!(placeholder && c.expression === null)) {
-      if (!isText(c.expression)) return { error: `correspondences[${i}].expression is not one base text — only a placeholder table gives a Role null` };
-      const r = propositionWordRefusal(c.expression, forms, `correspondences[${i}].expression`);
-      if (r) return { error: r };
-    }
+    if (!isText(c.expression)) return { error: `correspondences[${i}].expression is not one base text` };
+    const x = propositionWordRefusal(c.expression, forms, `correspondences[${i}].expression`);
+    if (x) return { error: x };
     if (!isText(c.role)) return { error: `correspondences[${i}].role is not one Role id` };
     const r = propositionWordRefusal(c.role, forms, `correspondences[${i}].role`);
     if (r) return { error: r };
@@ -125,4 +123,25 @@ export function suppliedEntry(record, serves) {
   if (!record || !Object.hasOwn(record, "move")) return null;
   return { waypoint: 1, move: record.move, binding_rationale: Object.hasOwn(record, "binding_rationale") ? String(record.binding_rationale).trim() : null,
     paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim(), serves: [...serves] })) };
+}
+
+// THE CORRESPONDENCE VOCABULARY (kogaki#1700): the Base Paragraph's points say the structure in the table's
+// expressions, so every expression appears in one of them, and a Role id appears in none outside an expression.
+const lower = (t) => String(t).toLowerCase();
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export function correspondenceVocabularyRefusal(points, table) {
+  const texts = (points || []).map((p) => (p && typeof p.point === "string" ? p.point : ""));
+  for (const c of table.correspondences) {
+    if (!texts.some((t) => lower(t).includes(lower(String(c.expression).trim())))) {
+      return `the Base Paragraph's points carry the Correspondence expression of the Role "${c.role}", "${c.expression}", in none of them`;
+    }
+  }
+  const expressions = table.correspondences.map((c) => lower(String(c.expression).trim())).sort((a, b) => b.length - a.length);
+  for (const [i, t] of texts.entries()) {
+    let rest = lower(t);
+    for (const e of expressions) rest = rest.split(e).join(" ");
+    const id = table.correspondences.map((c) => String(c.role)).find((r) => new RegExp(`(^|[^a-z0-9_])${escapeRe(lower(r))}($|[^a-z0-9_])`).test(rest));
+    if (id) return `the Base Paragraph's point ${i + 1} carries the Role id "${id}" — a point says the structure in the Correspondence expressions`;
+  }
+  return null;
 }
