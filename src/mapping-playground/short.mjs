@@ -76,8 +76,6 @@ export function shortLeg(proposition, rbs, persona, structure, followers) {
   const first = { point: firstPoint(structure, rbs), serves: ["L1"] };
   return {
     leg_id: LEG_ID,
-    reader_state_before: personaPriorKnowledgeLine(persona),
-    reader_state_after: null,
     claims: [{ strand: "L1", proposition }],
     waypoints: [first, ...Array.from({ length: followers }, () => ({ point: proposition, serves: ["L1"] }))],
     introduces: [],
@@ -189,7 +187,7 @@ function waypointsStage({ dir, env, leg, persona, libraryDir, playground, rbs, m
   const d = derivedRow(playground, WAYPOINTS_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
   const row = { ...plan.paragraph_plan_unit, ...d.row, shared_text_file: plan.paragraph_plan_unit.shared_text_file };
-  const planned = planLeg(leg);
+  const planned = planLeg(leg, { priorKnowledge: personaPriorKnowledgeLine(persona) });
   const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i] })) };
   const bound = [...new Set(moves)].map((id) => contracts.get(id));
   const input = { ...paragraphPlanUnitInput(fixed, bound, persona), correspondences: rbs.correspondences };

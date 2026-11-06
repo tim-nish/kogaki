@@ -108,11 +108,11 @@ def read_proposals(text):
 # Rendering (§6.9.1a)
 # --------------------------------------------------------------------------
 
-# §4.2's optional fields, plus `segments` (kogaki#1320) and `obligation`
-# (kogaki#1557), rendered after the five required ones and before `figure`
-# (which renders LAST, per §6.9.1a) — in this fixed order, so two records
-# differ only where their content differs.
-OPTIONAL_RENDER_FIELDS = ("continues_from", "evidence", "segments", "obligation")
+# §4.2's optional fields, plus `segments` (kogaki#1320), rendered after the
+# five required ones and before `figure` (which renders LAST, per §6.9.1a) —
+# in this fixed order, so two records differ only where their content differs.
+# `obligation` is retired from the Move (kogaki#1701).
+OPTIONAL_RENDER_FIELDS = ("continues_from", "evidence", "segments")
 
 
 def ordered_record(mapping):

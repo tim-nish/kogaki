@@ -117,8 +117,7 @@ export function loadBrief(args) {
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
   // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Leg Waypoint after the first carries the
-  // plan's `join`, which `waypointLines` renders as its Opens-from line. The plan's Obligation
-  // rows and discharges stay in the plan and reach no Packet (kogaki#1584).
+  // plan's `join`, which `waypointLines` renders as its Opens-from line.
   const legs = brief.legs.map((leg) => ({ ...leg,
     waypoints: leg.waypoints.map((w, i) => {
       const join = plan.joins.get(leg.leg_id)[i];

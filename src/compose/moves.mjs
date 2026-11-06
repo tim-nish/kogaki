@@ -55,9 +55,7 @@ const STATE_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "aft
 // `segments` already was before this adapter existed (kogaki#1320).
 // `technique` is not among them (kogaki#1412): `segments` is the Move's whole
 // structure, so the Adapter exposes it and never a prose restatement of it.
-// `obligation` is absent by default (kogaki#1557): a record without it carries
-// no key at all on the contract, rather than a null.
-const OPTIONAL_ROLE_OUTPUT_KEYS = [["tests", "breaks"], ["segments", "segments"], ["obligation", "obligation"]];
+const OPTIONAL_ROLE_OUTPUT_KEYS = [["tests", "breaks"], ["segments", "segments"]];
 
 export function moveContract(moveId, movesDir = "moves") {
   const read = readMoveRecord(moveId, movesDir);
@@ -92,6 +90,8 @@ export const RETIRED_MOVE_FIELDS = {
   presupposes: "no reader reads what a Move presupposes (kogaki#1247)",
   draws_on: "no composer, judge or Packet reads it (kogaki#1280)",
   question: "the Move's `after` carries its question (kogaki#1324)",
+  obligation: "what a Move leaves for later is its `leaves` (kogaki#1701)",
+  obligation_triggers: "it was the retired `obligation` call's verdict, and what a Move leaves for later is its `leaves` (kogaki#1701)",
 };
 
 // THE FIELDS A MOVE MAY CARRY BESIDE THE ONES `moves/ROLES.json` MAPS
@@ -169,10 +169,7 @@ function moveRecordContract(record, moveId, path, movesDir) {
         + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
         + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
     }
-    // An empty `obligation` list is not absence: it is refused by name (kogaki#1568).
-    if (absent && role === "obligation" && !Array.isArray(v)) continue;
-    const bad = role === "obligation" ? obligationRefusal(v, field, at)
-      : optionalRoleRefusal(role, field, v, at);
+    const bad = optionalRoleRefusal(role, field, v, at);
     if (bad) return { error: bad };
     out[outKey] = v;
   }
@@ -199,47 +196,7 @@ function moveRecordContract(record, moveId, path, movesDir) {
   if (description) return { error: description };
   const figure = figureBlockRefusal(record.figure, at);
   if (figure) return { error: figure };
-  if (out.obligation) out.deferred_slots = [obligationSlot(out.obligation)];
   return out;
-}
-
-// THE DEFERRED SLOT A MOVE RAISES (kogaki#1558, kogaki#1568, SPEC-draft-pipeline "Obligations"
-// rule 2): one slot, read from the authored `obligation` field and nothing else, for the composer
-// to fill as one Obligation row and the Move-fit judge to hold the Leg's rows against. A Move
-// carrying no `obligation` raises none and its contract carries no key. The slot carries no
-// count: how many items the row names is the article's, decided by the composer (kogaki#1603).
-// An item naming SubItems keeps them under it, in the Move's order (kogaki#1620).
-function obligationSlot(items) {
-  return { items: items.map((x) => (typeof x === "string" ? x.trim()
-    : { item: x.item.trim(), subitems: x.subitems.map((y) => y.trim()) })) };
-}
-
-// THE OBLIGATION A MOVE RAISES BY ITS STRUCTURE (kogaki#1557, kogaki#1568, owner decision
-// 2026-10-24): authored, absent by default, naming no scale. A list of one or more items, in the
-// order the Move names them, each one line, or `{item, subitems}` where the item names the parts
-// its answer turns on, `subitems` one or more one-line parts in the order named (kogaki#1620). Its
-// words are not compared with the `after` state's: whether the two contradict each other is a
-// judgment (owner ruling 2026-10-24, kogaki#1576).
-function obligationRefusal(v, field, at) {
-  const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
-  if (isPlainMap(v)) {
-    return `${at}: \`${field}\` is a map — it is a list of one or more one-line items, and \`kind\` is retired (kogaki#1568)`;
-  }
-  if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of one or more one-line items (kogaki#1568)`;
-  if (!v.length) return `${at}: \`${field}\` is an empty list — a Move that leaves nothing unexplained leaves the key out (kogaki#1568)`;
-  const names = [];
-  for (const [i, x] of v.entries()) {
-    if (oneLine(x)) { names.push(x.trim()); continue; }
-    if (!isPlainMap(x)) return `${at}: \`${field}\` item ${i + 1} is not one non-empty line (kogaki#1568)`;
-    const extra = Object.keys(x).find((k) => k !== "item" && k !== "subitems");
-    if (extra || !oneLine(x.item) || !Array.isArray(x.subitems) || !x.subitems.length || !x.subitems.every(oneLine)) {
-      return `${at}: \`${field}\` item ${i + 1} is a map that is not \`{item, subitems}\` — one line, and one or more one-line SubItems (kogaki#1620)`;
-    }
-    names.push(x.item.trim(), ...x.subitems.map((y) => y.trim()));
-  }
-  const dup = names.findIndex((x, i) => names.indexOf(x) !== i);
-  if (dup >= 0) return `${at}: \`${field}\` names ${JSON.stringify(names[dup])} twice (kogaki#1568)`;
-  return null;
 }
 
 // THE SEGMENT COLUMN (kogaki#1652, moves/ROLES.json `shapes.after_segment`): absent on a record
