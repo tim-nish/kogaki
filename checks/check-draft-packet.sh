@@ -105,6 +105,14 @@
 #       Paragraph Waypoint is refused at resolve, naming that Paragraph
 #       Waypoint, so the absence is not the reader passing over the key.
 #
+#   (n) EACH INDENTED LINE IS RENDERED AS THE SENTENCES IT IS (kogaki#1694,
+#       owner decision 2026-11-06): the waypoints header of the Packet (a)
+#       renders -- from "## The waypoints" to the first italic rule -- carries
+#       the three sentences of the rule as word sequences and neither retired
+#       sentence; the same render from the template with the pre-kogaki#1694
+#       sentences restored is refused by the same predicate, so (n) is not
+#       passing vacuously.
+#
 # NOT COVERED, stated rather than implied: whether a Writer obeys the
 # paragraph is the written prose's, and the review item `opens-from-copied`
 # (checks/check-review-draft.sh) is what reads that. The rest of the Packet's
@@ -609,9 +617,44 @@ if (!r.error) {
   }
 }
 
+// (n) each indented line is rendered as the sentences it is, and the paragraph adds none (kogaki#1694).
+{
+  const NEW_RULE = [
+    "Each indented line is rendered as the sentences it is, in their order, and the paragraph is those sentences joined: the register may change a connective or a reference between them, and changes nothing else.",
+    "The paragraph adds no sentence that no indented line carries.",
+    "No line is announced to the reader."];
+  const RETIRED = ["as many sentences as it needs", "its wording is yours"];
+  const waypointsHeader = (packet) => {
+    const i = packet.indexOf("## The waypoints");
+    const end = packet.indexOf("- ITALIC IS AN OPERATION", i);
+    return i === -1 || end === -1 ? null : flat(packet.slice(i, end));
+  };
+  const rendersAsTheSentences = (packet) => {
+    const h = waypointsHeader(packet);
+    if (h === null) return "the Packet carries no waypoints header ending at the first italic rule";
+    for (const want of NEW_RULE) if (!h.includes(want)) return `the waypoints header does not carry "${want}": ${h}`;
+    for (const gone of RETIRED) if (h.includes(gone)) return `the waypoints header still carries "${gone}": ${h}`;
+    return null;
+  };
+  if (r.error) fails.push("(n) the fixture Packet did not render, so the header reads nothing");
+  else {
+    const why = rendersAsTheSentences(r.packet);
+    if (why) fails.push(`(n) ${why}`);
+  }
+  const before = template.replace(/claim it serves\. Each indented line[\s\S]*?announced to the reader\.\n/,
+    "claim it serves: they are not one sentence each, and the paragraph expresses\nthem in as many sentences as it needs.\n"
+    + "The point is not quoted: its wording is yours, and no line here is copied or\nannounced to the reader.\n");
+  if (before === template) fails.push("(n) the fixture could not rebuild the pre-kogaki#1694 waypoints header from the template");
+  else {
+    const old = render(before);
+    if (old.error) fails.push(`(n) the pre-kogaki#1694 Packet did not render: ${old.error}`);
+    else if (rendersAsTheSentences(old.packet) === null) fails.push("(n) the pre-kogaki#1694 template passed the predicate (n) applies");
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the Waypoint (kogaki#1639); a judge-forced Paragraph Waypoint carries its mark on a line of its own beneath it, the unforced one none, and the template says nothing of it (kogaki#1649).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Leg Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Paragraph Waypoint renders as an italic operation line with no Serves under its Leg Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Leg Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Paragraph Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Paragraph Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the Waypoint (kogaki#1639); a judge-forced Paragraph Waypoint carries its mark on a line of its own beneath it, the unforced one none, and the template says nothing of it (kogaki#1649); the waypoints header renders each indented line as the sentences it is and adds none, and the pre-kogaki#1694 header is refused (kogaki#1694).");
 JS
