@@ -98,24 +98,25 @@
     "refusal": "a key the record, a Role, a relation or `higher_order` does not declare, or a declared key missing; an id that is empty, repeated, or names nothing; a `strand` that is not the input's; a `context` or `holds` carrying a content word of `proposition`, refused naming the word and the field; and a Role without `attributes`, refused naming the Role, an `attributes` that is not a list, refused naming the Role, or an entry that is empty, not text or repeated within the Role, refused naming the Role and the index. The first refusal is put back into your next attempt verbatim with your answer; a second ends the Trial.",
     "governing": "specs/spec-draft-pipeline/SPEC.md, The first SME; kogaki#1665"
   },
-  "rbs_placeholder": {
-    "id": "rbs_placeholder",
-    "note": "The first member of the `rbs_<variant>` family of the short Trial (kogaki#1669), and NOT a ReaderBasedStrand: what the RBS is stays an open owner discussion (ruling 2026-11-04), so this row only fills the table's slot. It makes no model call: one correspondence per Role in the structure's order, `role` the Role's id, `expression` null (kogaki#1688, kogaki#1693). A second variant is a second row and a second Trial, never an edit of this one.",
-    "placeholder": true,
-    "fill": "roles",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1669"
+  "smp_bind_move": {
+    "id": "smp_bind_move",
+    "note": "The short Trial's `bind` stage (kogaki#1700): one model call binds the Move of the Base Paragraph to the structure, and the Move of the Inference Paragraph where the base Move leaves a `carry`, before any base is named. Under the Mapper's one-retry bound.",
+    "judgment_point": "choose ONE Move of `moves` in the input for the Base Paragraph: a Move whose `segments`, in order, can carry the relations and then the higher-order relation of `structure`, and every entry of whose `takes` the reader in `persona` meets from `persona.prior_knowledge`. Answer its id as `base_move`. Then read that Move's `leaves`: where it holds an entry of kind `carry`, choose ONE Move of `moves` for the Inference Paragraph whose `takes` holds an entry of kind `carry`, and answer its id as `inference_move`; where it holds none, answer `inference_move` null, for no Inference Paragraph is owed. Name in `rationale`, in one or two sentences, why the Segments of the base Move carry the structure. Choose no base domain and no wording: they are named after this call, under the Move you bind.",
+    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `base_move` -- one Move id of `moves`; `inference_move` -- one Move id of `moves`, or null; and `rationale` -- one or two sentences.",
+    "refusal": "a key the record does not declare, or a declared key missing; a `base_move` or `inference_move` naming no Move of `moves`, refused naming the id; an `inference_move` null where the base Move leaves a `carry`, refused naming the entry; an `inference_move` given where the base Move leaves no `carry`; an `inference_move` whose `takes` holds no `carry`, refused naming the Move; and a `rationale` that is not one non-empty text. The first refusal is put back into your next attempt verbatim with your answer; a second ends the Trial at `bind`.",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1700"
   },
-  "rbs_base": {
-    "id": "rbs_base",
-    "note": "The second member of the `rbs_<variant>` family (kogaki#1688): one model call chooses the base the owner chose by hand in Trials guard-reach-owner-07 and -08, under the Mapper's one-retry bound. Its answer is validated by `validateRbsTable` as the owner's file is. `rbs_placeholder` stays the default.",
-    "judgment_point": "choose ONE domain the reader in `persona` already holds, from `persona.prior_knowledge`, in which the Roles, the relations and the higher-order relation of `structure` hold as stated. In a `holds` sentence, `{<id>}` stands for the Role of that id. Name the domain in one phrase as `base.domain`. Then name, for EVERY Role of `structure`, in the structure's order, one base text as its `expression`: a noun phrase of that domain naming the object that plays the Role, written so that it reads in place of `{<id>}` in each `holds` sentence. No base text uses a content word of the proposition: the reader does not hold the Strand's words.",
+  "smp_correspondence": {
+    "id": "smp_correspondence",
+    "note": "The short Trial's `correspondence` stage (kogaki#1700): one model call fills the Correspondence column under the bound base Move's Segments. Its answer is validated by `validateRbsTable` as the owner's file is (kogaki#1693). Under the Mapper's one-retry bound.",
+    "judgment_point": "name ONE domain the reader in `persona` already holds, from `persona.prior_knowledge`, in which the Roles, the relations and the higher-order relation of `structure` hold as stated and in which the `segments` in the input, the Segments of the Move bound to the Base Paragraph, can be performed in order. A Segment asking for an everyday case yields a domain apart from the proposition's; a Segment asking for a plain restatement yields the proposition's own. Name the domain in one phrase as `base.domain`. Then name, for EVERY Role of `structure`, in the structure's order, one Correspondence expression as its `expression`: a noun phrase of that domain naming the object that plays the Role, written so that it reads in place of `{<id>}` in each `holds` sentence, where `{<id>}` stands for the Role of that id. No expression uses a content word of the proposition: the reader does not hold the Strand's words.",
     "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `base` -- `{ \"domain\": <one phrase> }`; and `correspondences` -- one `{ \"role\": <the Role's id>, \"expression\": <one noun phrase> }` per Role of `structure`, in the structure's order.",
-    "refusal": "a key the record does not declare; a `base` that is not `{ domain }`, refused naming the key; an `expression` that is not one non-empty text, or that carries a content word of the proposition, refused naming the word and `correspondences[<i>].expression`; a `role` naming no Role of `structure`, refused naming the id; and a Role with other than one correspondence, refused naming the Role. The first refusal is put back into your next attempt verbatim with your answer; a second ends the Trial at `rbs`.",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1688"
+    "refusal": "a key the record does not declare; a `base` that is not `{ domain }`, refused naming the key; an `expression` that is not one non-empty text, or that carries a content word of the proposition, refused naming the word and `correspondences[<i>].expression`; a `role` naming no Role of `structure`, refused naming the id; and a Role with other than one correspondence, refused naming the Role. The first refusal is put back into your next attempt verbatim with your answer; a second ends the Trial at `correspondence`.",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1700"
   },
-  "smp_bind_unit": {
-    "id": "smp_bind_unit",
-    "note": "The short Trial's one binding call, over its Leg of two Leg Waypoints (kogaki#1669, kogaki#1689). Derived from the production `paragraph_plan_unit` row by `copy_of` and `substitutions`, as `smp_leg_unit` is derived from `reader_path_unit`; its `input_shape`, `refusal` and shared text are the production row's, read at run time, and its answer is validated by `validateParagraphPlanUnit`. No judge call follows it: the owner's reading is the judgment.",
+  "smp_waypoints_unit": {
+    "id": "smp_waypoints_unit",
+    "note": "The short Trial's `waypoints` stage (kogaki#1700): one call writes the Paragraph Waypoints of the Base Paragraph and, where one is owed, the Inference Paragraph, with each Move already bound by `bind`. Derived from the production `paragraph_plan_unit` row by `copy_of` and `substitutions`; its `input_shape`, `refusal` and shared text are the production row's, read at run time, and its answer is validated by `validateParagraphPlanUnit` and by `correspondenceVocabularyRefusal`. No judge call follows it: the owner's reading is the judgment.",
     "copy_of": {
       "file": "src/paragraph-plan-workflow.json",
       "row": "paragraph_plan_unit",
@@ -123,14 +124,22 @@
     },
     "substitutions": [
       {
-        "from": "plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input,",
-        "to": "plan the TWO paragraphs of a short Trial of the Structure-Mapping Playground (kogaki#1669, kogaki#1689), `leg_you_must_plan` in the input, a Leg of two Leg Waypoints, the first the structure in the base's objects and the second the proposition, each bound to one Move of the library with its Paragraph Waypoints, the second's written in the proposition's own words, its entries in order,"
+        "from": "plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input, from five inputs and nothing else (`leg_you_must_plan`, `paragraph_moves_you_may_bind`, `persona`, `terms_this_leg_introduces` and `obligations_this_leg_owes`),",
+        "to": "plan the paragraphs of a short Trial of the Structure-Mapping Playground (kogaki#1700), `leg_you_must_plan` in the input, a Leg whose first Leg Waypoint, the Base Paragraph, is the structure in the Correspondence expressions and whose second, present only where an Inference Paragraph is owed, is the proposition, from six inputs and nothing else (`leg_you_must_plan`, `paragraph_moves_you_may_bind`, `persona`, `terms_this_leg_introduces`, `obligations_this_leg_owes` and `correspondences`),"
+      },
+      {
+        "from": "- BIND: Bind one Move from `paragraph_moves_you_may_bind` whose `before` contradicts, on no dimension it declares, the reader's state when this Leg Waypoint begins (the Leg's `reader_state_before` for the first, the previous bound Move's `after` for later ones), a Move omitting a dimension not excluded on it (exclusion, never ranking), and whose Segments can carry this Leg Waypoint's `point`, or answer `move: null` with a `rationale` naming the dimension no Move could hold, never the nearest Move.",
+        "to": "- BIND: Each Leg Waypoint carries in `move` the Move already bound to it, which `paragraph_moves_you_may_bind` holds: answer that id as the entry's `move` and choose no other (kogaki#1700)."
+      },
+      {
+        "from": "- EXPLAIN: A Paragraph Waypoint may explain or illustrate its Leg Waypoint's `point` in words and examples of your own.",
+        "to": "- EXPLAIN: The Base Paragraph's Paragraph Waypoints say the structure in the `expression`s of `correspondences`, every expression in at least one of them and no Role id in any, and the Inference Paragraph's are written in the proposition's own words (kogaki#1700)."
       },
       {
         "from": "- OWE: Where a bound Move's `obligation` leaves items for later, open ONE record in your record's `obligations`, `items` the article's own, each closed in order by the later Leg Waypoint that explains it, never where it opens, its `subitems` first, one open at a time, and lay each owed record into the `discharges` of the entry whose Paragraph Waypoint explains it.",
         "to": "- OWE: This Leg owes nothing and has no later Leg Waypoint to close a promise, so open no `obligations` record and write no `discharges` (kogaki#1669)."
       }
     ],
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; src/paragraph-plan-workflow.json, the `paragraph_plan_unit` row; kogaki#1669"
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; src/paragraph-plan-workflow.json, the `paragraph_plan_unit` row; kogaki#1700"
   }
 }
