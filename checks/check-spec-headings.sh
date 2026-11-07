@@ -7,10 +7,10 @@
 # Over every `*.md` file `git ls-files specs/` reports, read outside fenced
 # blocks: `## N.`, `### N.M`, `#### N.M.K`, a trailing letter (`6.9.1a`) being
 # a number of its own. ORDER IS NOT ASSERTED: `specs/SPEC.md` sites §3.1 and
-# §3.2 after §6 on purpose. The fixture pass runs on every invocation, so a
-# predicate that stopped discriminating cannot report a clean tree.
-# Not verified: heading order, nesting, whether a `§N.M` citation resolves,
-# or a heading's text.
+# §3.2 after §6 on purpose. The fixture pass runs on every invocation.
+# Not verified: heading order, nesting, whether a `§N.M` citation resolves, a
+# heading's text, or a number glued to its text (`## 3.Shape`) or carrying an
+# upper-case or two-letter suffix -- neither is read as a heading.
 set -euo pipefail
 cd "$(dirname "${0}")/.."
 
