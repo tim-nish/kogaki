@@ -13,6 +13,11 @@ import { validateLegPathUnit } from "../proof-sheet/leg-brief.mjs";
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const CITE = /^\S+::\S+\/\S+@[0-9a-f]{12,}$/;
+// The words a Role's `context` may not carry: a definition names no reader, writer or Persona (kogaki#1720).
+const CONTEXT_WORDS = ["reader", "you", "must hold", "must come to", "Persona", "writer"];
+const contextWord = (text) => CONTEXT_WORDS.find((w) => new RegExp(`\\b${w.replace(/ /g, "\\s+")}\\b`, "i").test(text));
+// Whether a `holds` sentence carries the placeholder `{<id>}` (kogaki#1720).
+const carries = (holds, id) => holds.includes(`{${id}}`);
 
 // The proposition file (kogaki#1685): a `cite:` line and a `proposition:` line, and nothing else.
 export function parseProposition(text) {
@@ -54,7 +59,7 @@ export function higherOrderOf(record) {
 }
 
 // The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer.
-// Each refusal carries its group (kogaki#1708): `shape`, `strand` or `attributes`.
+// Each refusal carries its group (kogaki#1708): `shape`, `strand`, `attributes` or `context` (kogaki#1720).
 export function validateStructure(record, proposition) {
   const bad = keysRefusal(record, ["strand", "roles", "relations", "higher_order"], "the structure");
   if (bad) return { group: "shape", error: bad };
@@ -71,6 +76,8 @@ export function validateStructure(record, proposition) {
     if (b) return { group: "shape", error: isMap(r) && isText(r.id) ? `${b} (the Role ${JSON.stringify(r.id)})` : b };
     if (!isText(r.id) || ids.has(r.id)) return { group: "shape", error: `${at}'s \`id\` is empty or not unique` };
     if (!isText(r.context)) return { group: "shape", error: `${at}'s \`context\` is empty` };
+    const word = contextWord(r.context);
+    if (word) return { group: "context", error: `the Role ${JSON.stringify(r.id)}'s \`context\` carries ${JSON.stringify(word)} — a \`context\` defines the Role in the third person and names no reader, writer or Persona` };
     if (!Array.isArray(r.attributes)) return { group: "attributes", error: `the Role ${JSON.stringify(r.id)}'s \`attributes\` is not a list` };
     for (const [n, a] of r.attributes.entries()) {
       if (!isText(a)) return { group: "attributes", error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` is empty or not text` };
@@ -91,6 +98,8 @@ export function validateStructure(record, proposition) {
     const stray = r.between.find((x) => !roleIds.has(x));
     if (stray !== undefined) return { group: "shape", error: `${at}'s \`between\` names ${JSON.stringify(stray)}, which is no Role's id` };
     if (!isText(r.holds)) return { group: "shape", error: `${at}'s \`holds\` is empty` };
+    const absent = r.between.find((x) => !carries(r.holds, x));
+    if (absent !== undefined) return { group: "shape", error: `the relation ${JSON.stringify(r.id)}'s \`holds\` does not carry {${absent}}, a Role its \`between\` names` };
     ids.add(r.id);
     relationIds.add(r.id);
   }
@@ -108,6 +117,10 @@ export function validateStructure(record, proposition) {
     const stray = h.relates.find((x) => !relationIds.has(x));
     if (stray !== undefined) return { group: "shape", error: `${at}'s \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };
     if (!isText(h.holds)) return { group: "shape", error: `${at}'s \`holds\` is empty` };
+    const related = [...new Set(h.relates.flatMap((x) => relations.find((r) => r.id === x).between))];
+    if (!related.some((x) => carries(h.holds, x))) {
+      return { group: "shape", error: `${at}'s \`holds\` carries none of ${related.map((x) => `{${x}}`).join(", ")}, the Roles its relations relate` };
+    }
     ids.add(h.id);
   }
   return {};

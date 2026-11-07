@@ -2901,9 +2901,20 @@ one higher-order relation (kogaki#1685): `higher_order` is a list of one `{ id, 
 naming the entry's index and field, and a list of more than one is refused
 naming the count. The one-map form `{ relates, holds }` is read as a list of
 one with id `h1`. The Leg's Claims are one per relation and then the
-higher-order relation, in order. No validator reads which words a `context`,
-a `holds` or a Leg Waypoint `point` uses (kogaki#1707): what each names is
-stated at its judgment point, and the owner reads it.
+higher-order relation, in order.
+
+**A `context` is a definition and a `holds` carries placeholders**
+(kogaki#1720). A Role's `context` defines the Role, in one or two sentences, as
+a kind of thing in the Persona's world, an abstraction the proposition's object
+is one instance of, in the third person. A `context` carrying `reader`, `you`,
+`must hold`, `must come to`, `Persona` or `writer` as a word is refused naming
+the Role and the word. A relation's `holds` writes each Role its `between` names
+as `{<id>}` at least once, and one missing is refused naming the relation and
+the Role. The higher-order `holds` carries `{<id>}` for at least one Role its
+relations relate. The owner-authored file is read by the same validator. Beyond
+these, no validator reads which words a `context`, a `holds` or a Leg Waypoint
+`point` uses (kogaki#1707): what each names is stated at its judgment point,
+and the owner reads it.
 
 **How the Brief is made.** The runner composes a one-Leg Brief from the
 structure. No Reader start is composed (kogaki#1699): the Leg call is handed
@@ -2937,21 +2948,25 @@ stages above run over it unchanged.
 
 **The judgment point.** The `sme_map_roles` row reads the proposition file's
 `proposition:` and the Persona's prior-knowledge line, and no rendering. It
-reads the proposition as a relation among Roles. For each Role it names, in
-one or two sentences, what a reader with this Persona must come to hold of
-that Role in the reader's own world: an abstraction the proposition's object
-is one instance of, never that object itself. It names each relation among Roles as the proposition states
-it, and the one relation among relations the proposition turns on. It answers the RelationalStructure record and
-nothing else.
+reads the proposition as a relation among Roles. For each Role it gives, in
+one or two sentences, a definition of the Role as a kind of thing in the
+Persona's world: an abstraction the proposition's object is one instance of,
+never that object itself, in the third person and naming no reader, writer or
+Persona (kogaki#1720). It names each relation among Roles as the proposition
+states it, writing each Role it relates as `{<id>}`, and the one relation among
+relations the proposition turns on, over the same Roles. It answers the
+RelationalStructure record and nothing else.
 
 **The one-retry bound.** The Playground's structure validator runs over the
 answer. A first refusal is put back verbatim with the answer for one retry. A
 second refusal stops the Trial at the `reading` stage, and `trial.json` carries
 the refusal. The row's refusal groups (kogaki#1708) are `shape` (a key, a list
 or an id the record owes), `strand` (a `strand` other than the proposition
-file's `cite:`) and `attributes` (a Role's `attributes` not a list of distinct
-texts), each of reach `part`. Any other refusal belongs to no group the row
-declares and stops the Trial at `reading` on the first attempt.
+file's `cite:`), `attributes` (a Role's `attributes` not a list of distinct
+texts) and `context` (a `context` naming the reader, kogaki#1720), each of
+reach `part`. A `holds` missing a placeholder is in `shape`. Any other refusal
+belongs to no group the row declares and stops the Trial at `reading` on the
+first attempt.
 
 **What the record says.** `trial.json` carries `mapper: { variant,
 prompt_sha256 }`, the hash of the rendered prompt, and `structure.author:
