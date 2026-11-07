@@ -15,6 +15,7 @@
 #   (l) a `context` carrying a listed word as a word ("The reader must hold...", "you", ...) is refused naming the Role and the word, in group `context` (kogaki#1720).
 #   (m) a relation's `holds` missing `{<id>}` for a Role its `between` names is refused naming the relation and the Role, and a `higher_order` `holds` carrying none of its Roles is refused (kogaki#1720).
 #   (n) a `context` carrying a listed word only inside a longer word ("youths", "readers'", "typewriter") is accepted (kogaki#1720).
+#   (o) a Mapping Record `table.yaml`, `{ move, case, base, correspondences }`, is accepted by `validateCorrespondenceTable`, and an empty `case` is refused (kogaki#1733).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -33,6 +34,7 @@ const repo = resolve(".");
 const { parseYaml } = await import(pathToFileURL(join(repo, "src/yaml.mjs")).href);
 const { spliceConstraints } = await import(pathToFileURL(join(repo, "src/proof-sheet/extract.mjs")).href);
 const { validateStructure, parseProposition } = await import(pathToFileURL(join(repo, "src/mapping-playground/structure.mjs")).href);
+const { validateCorrespondenceTable } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "mapping-playground-"));
 const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
@@ -279,6 +281,13 @@ ok(m1.group === "shape" && /the relation "cleans"/.test(m1.error || "") && /\{li
 const m2 = validateStructure({ ...base, higher_order: { ...base.higher_order, holds: "What is left out stays dusty." } }, propRec);
 ok(m2.group === "shape" && /higher_order/.test(m2.error || "") && /\{crew\}/.test(m2.error || ""),
   `(m) a higher_order holds carrying no Role was not refused: ${JSON.stringify(m2)}`);
+
+// (o) a Mapping Record table carries its move and case beside the correspondence table (kogaki#1733)
+const recTable = { move: "a_move", case: "apart", base: { domain: "a crew" }, correspondences: [{ role: "crew", expression: "the crew" }] };
+const o1 = validateCorrespondenceTable(recTable);
+ok(!o1.error, `(o) a table.yaml carrying case was refused: ${JSON.stringify(o1)}`);
+const o2 = validateCorrespondenceTable({ ...recTable, case: "" });
+ok(o2.group === "shape" && /`case`/.test(o2.error || ""), `(o) a table.yaml carrying an empty case was not refused naming it: ${JSON.stringify(o2)}`);
 
 // (g) a run without --structure refuses naming the flag
 const gOut = join(outDir, "no-structure");

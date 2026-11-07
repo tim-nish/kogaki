@@ -529,6 +529,12 @@ let okPrompts = [];
     if (JSON.stringify(casts) !== JSON.stringify([[{ terse: true }, { terse: true }], [{}]])) {
       fails.push(`(a) the ParagraphPlan file does not carry the planner's cast on every point Paragraph Waypoint (kogaki#1695): ${JSON.stringify(casts)}`);
     }
+    // THE MAPPING RECORD (kogaki#1733): written beside the plan, empty until a stage fills it, named by path and digest.
+    const empty = (await import("node:crypto")).createHash("sha256").update("").digest("hex");
+    const m = rec.mapping || {};
+    if (!existsSync(join(r.planPath, "..", "mapping")) || !String(m.path).endsWith("theses/plan-brief/mapping") || m.sha256 !== empty || JSON.stringify(m.files) !== "[]") {
+      fails.push(`(a) the stage did not write mapping/ beside the plan and name it by path and the digest of nothing (kogaki#1733): ${JSON.stringify(rec.mapping)}`);
+    }
   }
   const castPlans = r.prompts.filter((p) => p.includes('"leg_you_must_plan"'));
   if (!castPlans.length || !castPlans.every((p) => critOf(p, "CAST").includes("a `cast` setting true each key its Segment's `manner` bears"))) {

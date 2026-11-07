@@ -126,7 +126,8 @@ export function loadBrief(args) {
   // A PACKET IS A RENDERING OF THE PLAN AT A HASH (kogaki#1645): the hash of the plan file's
   // text as read, which the run record, each Packet entry and the Draft carry.
   const planSha = sha256(readFileSync(plan.path, "utf8"));
-  return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha } };
+  // ...AND OF THE MAPPING RECORD AT ITS DIGEST (kogaki#1733), null where the plan names none.
+  return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha } };
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing

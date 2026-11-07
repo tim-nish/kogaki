@@ -9,14 +9,16 @@
 //   The short Trial
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
-import { REPO } from "../workflow/run-record.mjs";
-import { stringifyYaml } from "../yaml.mjs";
+import { pathToFileURL } from "node:url";
+import { REPO, relFromRepo } from "../workflow/run-record.mjs";
+import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { moveContract, loadMoveContracts, CAST_KEYS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
-import { attemptRows } from "../workflow/attempt-record.mjs";
+import { attemptRows, attemptsRoot } from "../workflow/attempt-record.mjs";
+import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
 // The Proof Sheet's stylesheet is its renderer's `CSS` constant, read from the source rather than copied.
@@ -219,4 +221,92 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
     + part("attempts", "Attempts", attemptsSection(outDir, record))
     + part("calls", "Model calls", callsHtml)
     + "</body></html>\n";
+}
+
+// ONE LEG'S MAPPING RECORD (kogaki#1733), in the short Trial sheet's layout: per Leg Waypoint its structure (an `apart`
+// successor shows its predecessor's), Mapping Table, binding with `case`, Paragraph Waypoints with their Cast, and, with a
+// run, the Attempt Records of the Leg's job unit. Reads the plan and the record beside it; writes nothing but `out`.
+const readYamlAt = (path) => (existsSync(path) ? parseYaml(readFileSync(path, "utf8"), relFromRepo(path)) : null);
+
+function legBindingTable(entry, table, number, contracts) {
+  const c = contracts.get(entry.move);
+  const absent = [esc("not in the library")];
+  const told = table && table.case !== null && table.case !== undefined ? table.case : "none";
+  return `<table><caption>Binding ${number}</caption><tbody>`
+    + labelledRow("Move", [esc(entry.move)])
+    + labelledRow("Case", [esc(told)])
+    + labelledRow("Takes", c ? constraintRows(c.takes) : absent)
+    + labelledRow("Leaves", c ? constraintRows(c.leaves) : absent)
+    + labelledRow("Rationale", [esc(entry.rationale ?? "none")])
+    + "</tbody></table>";
+}
+
+function legAttempts(runDir, unit, outDir) {
+  if (!runDir) return none("No run was named: pass --run <the ParagraphPlan job's run directory> to list its Attempt Records.");
+  const rows = attemptRows(attemptsRoot(runDir)).filter((r) => r.unit === unit);
+  if (!rows.length) return none(`No Attempt Record of the unit ${unit} is under ${relFromRepo(runDir)}.`);
+  const link = (path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
+  return `<table><caption>${esc(unit)}</caption><thead><tr><th>attempt</th><th>group</th><th>reach</th><th>refusal</th><th>files</th></tr></thead><tbody>`
+    + rows.map((r) => `<tr><td>${r.n}</td><td>${esc(r.group ?? "")}</td><td>${esc(r.reach ?? "")}</td>`
+      + `<td>${r.refusal === null ? "passed" : esc(r.refusal)}</td><td>${r.files.map((f) => link(join(r.dir, f), f)).join(" ")}</td></tr>`).join("")
+    + "</tbody></table>";
+}
+
+export function renderLegSheet({ planPath, legId, runDir = null, movesDir = "moves", outDir = process.cwd() }) {
+  let plan;
+  try { plan = parseYaml(readFileSync(planPath, "utf8"), relFromRepo(planPath)); }
+  catch (e) { return { error: `the ParagraphPlan file at ${planPath} cannot be read (${e.message})` }; }
+  const legs = Array.isArray(plan && plan.legs) ? plan.legs : [];
+  const i = legs.findIndex((l) => l && l.leg_id === legId);
+  if (i === -1) return { error: `the ParagraphPlan file ${relFromRepo(planPath)} carries no Leg ${legId} — it carries ${legs.map((l) => l && l.leg_id).join(", ")}` };
+  const dir = join(mappingDirFor(planPath), String(legId));
+  const library = loadMoveContracts(resolve(REPO, movesDir));
+  const contracts = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
+  let shared = null;
+  const waypoints = legs[i].waypoints.map((w) => {
+    const at = join(dir, String(w.waypoint));
+    const own = readYamlAt(join(at, STRUCTURE_FILE));
+    if (own) shared = { structure: own, from: w.waypoint };
+    return { w, structure: own || (shared && shared.structure), sharedFrom: own ? null : shared && shared.from, table: readYamlAt(join(at, TABLE_FILE)) };
+  });
+  const body = waypoints.map(({ w, structure, sharedFrom, table }) => {
+    const n = w.waypoint;
+    const structureHtml = structure ? (sharedFrom ? `<p class="meta">shared with Leg Waypoint ${sharedFrom}</p>` : "") + structureSection(structure)
+      : none("No structure was recorded for this Leg Waypoint.");
+    const mapping = table ? mappingTable(structure, table, n) : none("No Mapping Table was recorded for this Leg Waypoint.");
+    return part(`waypoint-${n}`, `Leg Waypoint ${n}`, "")
+      + part(`segments-${n}`, "Segments", segmentsTable({ library: movesDir }, w, n))
+      + part(`bindings-${n}`, "Bindings", legBindingTable(w, table, n, contracts))
+      + part(`mapping-${n}`, "Mapping", mapping)
+      + part(`structure-${n}`, "Structure", structureHtml);
+  }).join("");
+  const html = `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+    + `<title>Mapping Record ${esc(legId)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>`
+    + `<h1>Mapping Record — Leg ${esc(legId)}</h1><p class="meta">plan: ${esc(relFromRepo(planPath))} · record: ${esc(relFromRepo(dir))}</p>`
+    + (library.error ? `<p class="stop">${esc(library.error)}</p>` : "")
+    + body
+    + part("attempts", "Attempts", legAttempts(runDir, `leg-${i + 1}`, outDir))
+    + "</body></html>\n";
+  return { html };
+}
+
+function argsOf(argv) {
+  const args = { _: [] };
+  for (let k = 0; k < argv.length; k++) {
+    if (argv[k].startsWith("--") && argv[k + 1] !== undefined && !argv[k + 1].startsWith("--")) args[argv[k].slice(2)] = argv[++k];
+    else args._.push(argv[k]);
+  }
+  return args;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = argsOf(process.argv.slice(2));
+  const usage = "usage: node src/mapping-playground/sheet.mjs leg --plan theses/<slug>/paragraph-plan.yaml --leg <leg_id> [--run <dir>] [--moves-dir <dir>] [--out <file>]";
+  if (args._[0] !== "leg" || !args.plan || !args.leg) { process.stderr.write(`${usage}\n`); process.exit(2); }
+  const out = args.out ? resolve(args.out) : null;
+  const r = renderLegSheet({ planPath: resolve(args.plan), legId: args.leg, runDir: args.run ? resolve(args.run) : null,
+    movesDir: args["moves-dir"] || "moves", outDir: out ? resolve(out, "..") : process.cwd() });
+  if (r.error) { process.stderr.write(`sheet: ${r.error}\n`); process.exit(1); }
+  if (out) { writeFileSync(out, r.html); process.stderr.write(`sheet: ${relFromRepo(out)}\n`); }
+  else process.stdout.write(r.html);
 }

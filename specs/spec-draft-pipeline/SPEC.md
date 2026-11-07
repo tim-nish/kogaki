@@ -2910,6 +2910,46 @@ and a run made from a different Brief.
 The View is a rendering. No stage reads its output, and nothing it prints is
 written to any record.
 
+#### 4.19.2 The Mapping Record (kogaki#1733)
+
+The owner asked on 2026-11-07 that the structure and the Mapping Table each
+paragraph was planned from be kept for later debugging: "There is an RBS for
+each Paragraph, correct? Where is that information retained? I think we need
+to preserve it for later debugging."
+
+**The record.** `/paragraph-plan` writes `theses/<slug>/mapping/` beside the
+plan, in the same act that writes the plan. Under it,
+`<leg_id>/<waypoint>/structure.yaml` holds a Leg Waypoint's
+RelationalStructure, and `<leg_id>/<waypoint>/table.yaml` holds the Mapping
+Table of the Move bound there, as `{ move, case, base, correspondences }`. A
+Leg Waypoint whose `case` is `apart` shares its predecessor's structure and
+writes none. The shapes are the Trial's (§4.20). The record is the settled
+result; the Attempt Records (kogaki#1717) are how it was reached and stay in
+the run directory. The stage replaces the record whole on every write. Until
+a stage reads structures and grounds tables, the record holds no file.
+
+**The plan names it.** `paragraph-plan.yaml` carries `mapping: { path,
+sha256, files }`. `files` holds one `{ path, sha256 }` per record file in path
+order, and `sha256` is the digest of one `<sha256>  <path>` line per file. An
+empty record has the digest of the empty text. A missing `mapping/` directory
+reads as the empty record, since git keeps no empty directory.
+
+**`/draft` refuses a changed record.** `resolve` and every later act read the
+record beside the plan and refuse a file whose hash differs, a file the plan
+does not name, and a named file that is gone. Each refusal names the file. The
+run record's `plan` and each Packet entry carry `mapping_sha256`, and a Packet
+is not current when its `plan_sha256` or its `mapping_sha256` differs. A plan
+written before this record existed names none, and `/draft` reads it as
+before.
+
+**The sheet.** `node src/mapping-playground/sheet.mjs leg --plan
+theses/<slug>/paragraph-plan.yaml --leg <leg_id> [--run <dir>] [--moves-dir
+<dir>] [--out <file>]` renders one Leg's record in the Trial sheet's layout.
+For each Leg Waypoint it shows the Segments with the Paragraph Waypoints and
+their Cast, the binding with its `case`, the Mapping Table and the structure.
+With `--run` it lists the Attempt Records of the Leg's job unit. It prints
+HTML to stdout, or writes `--out`, and writes nothing else.
+
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 
 **What it is.** The owner ruled on 2026-11-03 that an article's work is to
@@ -3009,6 +3049,12 @@ there, and the record shows the stop.
 **No Judge exists at this stage.** The owner's reading of the Draft is the
 result. A criterion of correctness is derived from those readings later, and
 no score is kept until then.
+
+**The shared shapes (kogaki#1733).** A Trial's `structure.yaml` and each
+table of its `rbs.yaml` are the shapes the Mapping Record of §4.19.2 keeps.
+`validateStructure` reads a structure and `validateCorrespondenceTable` reads
+a table in both places, and a record `table.yaml` carries its `move` and
+`case` beside the table.
 
 #### 4.20.1 The Mapper's structure reading (kogaki#1665)
 

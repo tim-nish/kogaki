@@ -109,8 +109,12 @@ function tableRefusal(t, structure, at = "") {
   return null;
 }
 
+// The Mapping Record's `table.yaml` is this table with its `move` and `case` beside it (kogaki#1733).
 export function validateCorrespondenceTable(table, { structure = null } = {}) {
   if (!isMap(table)) return { group: "shape", error: "the correspondence table is not a `{ base, correspondences }` record" };
+  for (const k of ["move", "case"]) {
+    if (Object.hasOwn(table, k) && !isText(table[k])) return { group: "shape", error: `the correspondence table's \`${k}\` is not one text` };
+  }
   const r = tableRefusal(table, structure);
   return r || {};
 }
