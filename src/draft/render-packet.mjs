@@ -15,6 +15,8 @@ import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TER
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
 import { resolveLegJourneys, packetPersonaPath, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
+import { firstPoint } from "../mapping-playground/short.mjs";
+import { higherOrderOf } from "../mapping-playground/structure.mjs";
 import { REALIZATION_LANGUAGES, langOf, sectionsDir, packetsDir, packetsRecordKey, sectionsOf, sectionOfLeg } from "./workspace.mjs";
 
 // THE STATED ABSENCE (kogaki#1285 acceptance): rendered in place of
@@ -38,11 +40,15 @@ export const READER_OWN_WORLD_ABSENT =
 // realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
 export const CAST_LABEL = "*Cast:*";
+// A LEG WAYPOINT CARRYING `mapping` (kogaki#1735) renders its line as its structure's `holds` sentences
+// in its table's expressions, by the Trial's own function; its `point` is not rendered.
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
   if (!ws.length) return null;
   const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
-  const line = (w, n) => `${n}. ${String(w.point).trim()} *Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
+  const serves = (w) => `*Serves:* ${w.serves.map((x) => byStrand.get(x) ?? x).join("; ")}`;
+  const line = (w, n) => `${n}. ${String(w.point).trim()} ${serves(w)}`;
+  const legLine = (w, n) => (w.mapping ? `${n}. ${firstPoint(w.mapping.structure, w.mapping.table)} ${serves(w)}` : line(w, n));
   const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
   const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : line(p, n));
   const castOf = (p) => {
@@ -50,8 +56,28 @@ export function waypointLines(leg) {
     return keys.length ? [`      ${CAST_LABEL} ${keys.join(", ")}`] : [];
   };
   const markOf = (p) => (Array.isArray(p.forced_by) && p.forced_by.length ? [`      ${forcedMarkLine(p.forced_by)}`] : []);
-  return ws.map((w, i) => [line(w, i + 1), ...joinOf(w),
+  return ws.map((w, i) => [legLine(w, i + 1), ...joinOf(w),
     ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...castOf(p), ...markOf(p)])].join("\n")).join("\n");
+}
+
+// THE MAPPED LINE'S REFUSAL (kogaki#1735): a Leg Waypoint of a plan with a Mapping Record whose record
+// carries no table, or a `holds` placeholder naming a Role its table gives no expression; null when none.
+const PLACEHOLDER = /\{([^{}\s]+)\}/g;
+export function mappedLineRefusal(leg) {
+  for (const [i, w] of (leg.waypoints || []).entries()) {
+    if (!w.mapping) continue;
+    const at = `Leg ${leg.leg_id}, Leg Waypoint ${i + 1}`;
+    const { structure, table } = w.mapping;
+    if (!structure) return `${at}: the Mapping Record carries no structure for this Waypoint — run /paragraph-plan on this Brief again (kogaki#1735)`;
+    if (!table) return `${at}: the Mapping Record carries no table for this Waypoint — run /paragraph-plan on this Brief again (kogaki#1735)`;
+    const expressed = new Set((table.correspondences || []).filter((c) => typeof c.expression === "string" && c.expression.trim() !== "").map((c) => c.role));
+    for (const e of [...(structure.relations || []), ...(higherOrderOf(structure) || [])]) {
+      for (const [, id] of String(e.holds).matchAll(PLACEHOLDER)) {
+        if (!expressed.has(id)) return `${at}: the \`holds\` placeholder {${id}} names a Role its table gives no expression for (kogaki#1735)`;
+      }
+    }
+  }
+  return null;
 }
 
 // kogaki#1649: a judge-forced Paragraph Waypoint's mark, an HTML comment on a line of its own beneath it.
@@ -175,6 +201,8 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     : typeof personaPath === "string" ? audienceLanguage(personaPath) : personaPath;
   if (language.error) missing.push(`the Audience's language (${language.error})`);
 
+  const unmapped = mappedLineRefusal(leg);
+  if (unmapped) return { error: unmapped };
   const fields = {
     // THE ROUTE (kogaki#1311, kogaki#1326): one numbered line per waypoint, in
     // the Leg's order, each the point and then the claim or claims it serves, quoted as this Leg's

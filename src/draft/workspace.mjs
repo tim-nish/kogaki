@@ -11,6 +11,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { waypointsRefusal, readParagraphPlanBeside } from "../compose.mjs";
+import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
+import { parseYaml } from "../yaml.mjs";
 import { renderFigure } from "../render-figure.mjs";
 import { enterRun, laneDir } from "../runs.mjs";
 import { fail, argString, readBrief, sha256 } from "./brief-reader.mjs";
@@ -118,16 +120,35 @@ export function loadBrief(args) {
   if (plan.error) fail(plan.error);
   // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Leg Waypoint after the first carries the
   // plan's `join`, which `waypointLines` renders as its Opens-from line.
+  // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH LEG WAYPOINT'S STRUCTURE AND TABLE (kogaki#1735),
+  // which `waypointLines` renders in place of the `point`; one following an `apart` Waypoint reads its
+  // predecessor's structure. A plan naming none, or a record holding no file, renders the `point` as before.
+  const mapped = plan.mappingSha !== null && plan.record.mapping.files.length ? mappingDirFor(plan.path) : null;
   const legs = brief.legs.map((leg) => ({ ...leg,
     waypoints: leg.waypoints.map((w, i) => {
       const join = plan.joins.get(leg.leg_id)[i];
-      return { ...w, ...(join ? { join } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] };
+      const mapping = mapped ? waypointMapping(mapped, leg, i) : null;
+      return { ...w, ...(join ? { join } : {}), ...(mapping ? { mapping } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] };
     }) }));
   // A PACKET IS A RENDERING OF THE PLAN AT A HASH (kogaki#1645): the hash of the plan file's
   // text as read, which the run record, each Packet entry and the Draft carry.
   const planSha = sha256(readFileSync(plan.path, "utf8"));
   // ...AND OF THE MAPPING RECORD AT ITS DIGEST (kogaki#1733), null where the plan names none.
   return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha } };
+}
+
+// One Leg Waypoint's `{ structure, table }` from the Mapping Record, either null where its file is absent.
+function waypointMapping(dir, leg, i) {
+  const read = (n, file) => {
+    const p = join(dir, String(leg.leg_id), String(n), file);
+    return existsSync(p) ? parseYaml(readFileSync(p, "utf8"), p) : null;
+  };
+  let structure = null;
+  for (let k = i; k >= 0 && !structure; k -= 1) {
+    structure = read(k + 1, STRUCTURE_FILE);
+    if (k > 0 && leg.waypoints[k - 1].case !== "apart") break;
+  }
+  return { structure, table: read(i + 1, TABLE_FILE) };
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing

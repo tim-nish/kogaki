@@ -148,9 +148,12 @@ const B = sha(beta);
 
 // (f) the plan names a Mapping Record; its digest rides into run.json and each Packet entry, and an edited file is refused.
 const mappingDir = join(dir, "mapping");
-const mapping = writeMappingRecord(mappingDir, [{ leg_id: "G1", waypoint: 1,
-  structure: { roles: [{ id: "gate", context: "A fixed check that admits some things.", attributes: [] }], relations: [] },
-  table: { move: entry("G1").move, case: "apart", base: { domain: "a turnstile" }, correspondences: [{ role: "gate", expression: "the turnstile" }] } }]);
+const FIXTURE_STRUCTURE = { roles: [{ id: "gate", context: "A fixed check that admits some things.", attributes: [] }],
+  relations: [{ id: "admits", between: ["gate"], holds: "{gate} admits what it was set for." }],
+  higher_order: { relates: ["admits"], holds: "{gate} admits nothing else." } };
+const fixtureRecord = (id) => ({ leg_id: id, waypoint: 1, structure: FIXTURE_STRUCTURE,
+  table: { move: entry(id).move, case: id === "G1" ? "apart" : "own", base: { domain: "a turnstile" }, correspondences: [{ role: "gate", expression: "the turnstile" }] } });
+const mapping = writeMappingRecord(mappingDir, legs.map((l) => fixtureRecord(l.leg_id)));
 const tablePath = join(mappingDir, "G1", "1", "table.yaml");
 writeFileSync(planPath, planText("gamma", mapping));
 {
@@ -168,12 +171,12 @@ writeFileSync(planPath, planText("gamma", mapping));
   }
   writeFileSync(tablePath, table);
   // The whole family the refusal promises, not only the edit that prompted it: an added file and a gone one.
-  const stray = join(mappingDir, "G2", "1", "table.yaml");
+  const stray = join(mappingDir, "G3", "1", "table.yaml");
   mkdirSync(join(stray, ".."), { recursive: true });
   writeFileSync(stray, table);
   const a = draft("resolve");
-  if (a.status === 0 || !a.stderr.includes("mapping/G2/1/table.yaml is not one the ParagraphPlan file")) fails.push(`(f) resolve over an added record file was not refused naming it: ${said(a)}`);
-  rmSync(join(mappingDir, "G2"), { recursive: true });
+  if (a.status === 0 || !a.stderr.includes("mapping/G3/1/table.yaml is not one the ParagraphPlan file")) fails.push(`(f) resolve over an added record file was not refused naming it: ${said(a)}`);
+  rmSync(join(mappingDir, "G3"), { recursive: true });
   const structurePath = join(mappingDir, "G1", "1", "structure.yaml");
   const structure = readFileSync(structurePath, "utf8");
   rmSync(structurePath);
