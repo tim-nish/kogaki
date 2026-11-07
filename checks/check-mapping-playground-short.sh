@@ -80,7 +80,8 @@
 #       attempt's Attempt Record is kept, the first's refusal.json naming the refusal and the second's prompt.md the second call's
 #       stdin byte for byte (kogaki#1717), and a second refusal stops at `grounding` (kogaki#1693, kogaki#1700). A fixture
 #       refusal whose group the row does not declare stops at once naming the row and the group, and one of reach `stop` makes no
-#       second call (kogaki#1708).
+#       second call (kogaki#1708). The sheet's Attempts section lists the refused attempt with its group, reach and refusal,
+#       linking its refusal.json, and the passed attempt as `passed` (kogaki#1718).
 
 #   (v) the case the `bind` stage declares (kogaki#1719): an answer with `case: apart` and `inference_move` null is refused in
 #       group `case`, one with `case: own` and an `inference_move` in group `case`, and a missing or unknown `case` or a
@@ -524,15 +525,15 @@ ok(m3.error && m3.error.includes("carries `attributes`, which it does not declar
 const m4 = validateStructure(withRole(1, { ...mapped.roles[1], context: "The rules a household keeps about which doors stay locked." }), propositionRec);
 ok(!m4.error, `(m) a context carrying "rules" was refused: ${JSON.stringify(m4)}`);
 
-// (f) the sheet: dark, its six sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
-const SECTIONS = ["Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Structure", "Model calls"];
-const PART_IDS = ["proposition-paragraph", "segments", "bindings", "mapping", "structure", "calls"];
+// (f) the sheet: dark, its seven sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
+const SECTIONS = ["Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Structure", "Attempts", "Model calls"];
+const PART_IDS = ["proposition-paragraph", "segments", "bindings", "mapping", "structure", "attempts", "calls"];
 const partIds = (html) => [...html.matchAll(/<section class="card" id="([^"]+)">/g)].map((x) => x[1]);
 const sheet = rec.sheet && existsSync(join(repo, rec.sheet)) ? readFileSync(join(repo, rec.sheet), "utf8") : "";
 ok(/^<!doctype html><html data-theme="dark">/.test(sheet), "(f) sheet.html does not carry data-theme=\"dark\" on its root");
 const jSheet = existsSync(join(j.o, "sheet.html")) ? readFileSync(join(j.o, "sheet.html"), "utf8") : "";
 const h2s = [...jSheet.matchAll(/<h2>([\s\S]*?)<\/h2>/g)].map((x) => x[1]);
-ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the six sections in order: ${JSON.stringify(h2s)}`);
+ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the seven sections in order: ${JSON.stringify(h2s)}`);
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const section = (html, id) => (new RegExp(`<section class="card" id="${id}">([\\s\\S]*?)<\\/section>`).exec(html) || [])[1] || "";
 ok(JSON.stringify(partIds(jSheet)) === JSON.stringify(PART_IDS) && !jSheet.includes("Writer input"),
@@ -813,6 +814,12 @@ ok(u2A1.cli && u2A1.cli.path === judge && u2A1.cli.sha256 === sha(judge) && type
   `(u) attempt 1's cli, argv, row or input file is not the call's own: ${JSON.stringify([u2A1.cli, u2A1.argv, u2A1.row && u2A1.row.tables])}`);
 ok(JSON.stringify(u2Stage.attempt_records) === JSON.stringify([MOVE, INFER].sort().map((m) => relFromRepo(join(u2.o, "grounding", m, "attempts")))),
   `(u) trial.json's grounding entry does not name each Move's attempts directory: ${JSON.stringify(u2Stage.attempt_records)}`);
+// THE ATTEMPTS SECTION (kogaki#1718): the grounding stage lists the refused attempt with its group and reach, and its files.
+const u2Attempts = section(existsSync(join(u2.o, "sheet.html")) ? readFileSync(join(u2.o, "sheet.html"), "utf8") : "", "attempts");
+const u2Grounding = (/<table><caption>grounding<\/caption>([\s\S]*?)<\/table>/.exec(u2Attempts) || [])[1] || "";
+ok(u2Grounding.includes(`<tr><td>smp_correspondence</td><td>1</td><td>role</td><td>part</td><td>${esc(u2A1.refusal.text.split("\n")[0])}</td>`)
+  && u2Grounding.includes('refusal.json</a>') && u2Grounding.includes("<td>2</td><td></td><td></td><td>passed</td>"),
+  `(u) the sheet's Attempts section does not list the refused grounding attempt with its group and reach: ${u2Grounding.slice(0, 600)}`);
 const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [ROLED]) });
 ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,grounding:stopped,waypoints:not run,write:not run" && u3.calls("grounding").length === 2
   && /^grounding: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].role "nobody" names no Role') && !existsSync(join(u3.o, "rbs.yaml")),

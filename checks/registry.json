@@ -680,6 +680,22 @@
       }
     },
     {
+      "id": "attempt-replay",
+      "file": "checks/check-attempt-replay.sh",
+      "covers": ["src/workflow/replay.mjs", "src/workflow/job-report.mjs", "src/workflow/attempt-record.mjs"],
+      "admission": {
+        "contract": "`node src/workflow/replay.mjs` re-runs one part of one Attempt Record and writes the result beside it (kogaki#1718), over records the short Trial's `retriedCall` writes under a stub binary: (a) a judge replay of a recorded refusal reports `same`; (b) a render replay of attempt 1 reports `same` against attempt 2's prompt, and a detached job's record re-renders through `readerPathUnitRetryPrompt`; (c) a model replay with an edited prompt sends it, writes answer.raw, answer.json and refusal.json, and leaves the record's files unchanged; (d) a binary whose sha256 changed is refused naming both hashes; (e) the job report lists each attempt with its group, reach and replays.",
+        "license": "kogaki#1718",
+        "tier": "pre-push",
+        "runtime_ms": 900,
+        "runtime_ms_note": "Measured 2026-11-07 at 58398f6 in the kogaki#1718 worktree: 709, 666 and 670 ms over three runs.",
+        "efficacy": "case: checks/check-attempt-replay.sh::(b) the render replay of attempt 1 did not report same against attempt 2's prompt",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-07 at 58398f6). Rendering the next prompt with no refusal history in `renderedNext` FAILED (b) with `render: drift`; restoring it restored PASS.",
+        "removal_signal": "the Attempt Record is retired, so there is no record for a replay to read",
+        "removal_instrument": "probe: ! test -f src/workflow/attempt-record.mjs"
+      }
+    },
+    {
       "id": "move-library",
       "file": "checks/check-move-library.sh",
       "covers": ["moves/"],
