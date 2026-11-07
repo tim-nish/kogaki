@@ -2990,9 +2990,10 @@ them, never targets.
 
 **The stages** (kogaki#1700, kogaki#1721), in order: `reading` (with
 `--mapper` only: the Mapper's structure reading of §4.20.1 under its one-retry
-bound), `bind`, `grounding`, `waypoints` and `write`. The order is the owner's of 2026-11-06: a Move is
-bound to the structure, the Correspondence column is filled under that Move's
-Segments, and the Paragraph Waypoints are written from those expressions.
+bound), `bind`, `grounding`, `waypoints` and `write`. The order is the
+owner's of 2026-11-06: a Move is bound to the structure, the Correspondence
+column is filled under that Move's Segments, and the Paragraph Waypoints are
+written from those expressions.
 Choosing a base and judging its distance from the target are abstractions of
 the discussion, never steps. `--compose` runs the three middle stages as three
 model calls. `--rbs-file <file>` supplies their results and makes none of
