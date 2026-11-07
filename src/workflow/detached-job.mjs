@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import { JUDGE_INPUT_MARKER, judgeRefusalBlock, refusalReach } from "./judge.mjs";
 import { REPO, fail, readJson } from "./run-record.mjs";
 import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
+import { writeAttemptRecord, cliRecord, tableRecord } from "./attempt-record.mjs";
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
 // `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
@@ -592,6 +593,30 @@ export async function cmdJobSupervise(args) {
       "--setting-sources", "", "--no-session-persistence"];
     const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
+    // EVERY CALL WRITES ITS ATTEMPT RECORD (kogaki#1717); `n` counts all of a unit's calls, whatever their phase.
+    const cli = cliRecord(command, args["command-version"] ? String(args["command-version"]) : null);
+    const callArgv = { argv, model, output_format: "stream-json", timeout_s: callLimitS };
+    const rowOf = (phase) => {
+      const r = (declared.rows || {})[phase];
+      if (!r || !r.table) return { phase, row: null, tables: [] };
+      const t = readJson(resolve(REPO, String(r.table)));
+      return { phase, row: { id: r.id, ...(t[r.id] || {}) }, tables: [tableRecord(r.table)] };
+    };
+    const validatorName = (phase) => (phase === "fit" ? declared.fit_judge.verdict_export
+      : phase === "compose" ? declared.validator.export : declared.site_retry[`${phase}_validator_export`]);
+    const recordCall = (u, sp, cls) => {
+      const st = S.get(u.id);
+      st.calls += 1;
+      const f = cls.failure || {};
+      const refusal = cls.status === "done" ? null : {
+        group: f.group ?? null, reach: f.reach ?? null, text: f.stderr_tail ?? f.class ?? cls.status,
+        validator: cls.status === "refused" && f.class === SCHEMA_REFUSAL ? validatorName(sp.phase) : null,
+        sites: f.sites || (f.move_fit && f.move_fit.length ? f.move_fit : null) };
+      const answer = sp.phase === "fit" ? (cls.specialization ?? undefined) : (cls.candidate ?? undefined);
+      const dirOf = writeAttemptRecord(dir, u.id, st.calls, { prompt: sp.prompt, argv: callArgv, cli, input: u.input ?? null,
+        row: rowOf(sp.phase), raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), answer, refusal });
+      st.attemptRecords = resolve(dirOf, "..");
+    };
     // THE PER-UNIT STATE (kogaki#1355). `attempts` is the attempt now running: it starts
     // at 1 and reaches `unitAttempts` at most. A schema refusal or a call killed at
     // `callLimitS` spends one; `refusals` holds every attempt's refusal and `timedOut`
@@ -605,15 +630,15 @@ export async function cmdJobSupervise(args) {
     const S = new Map(units.map((u) => [u.id, {
       attempts: 1, malformed: 0, malformedThisAttempt: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
       composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined, loop: null, callPrompt: null, scope: null,
-      attemptStartedAt: startedAt, callStartedAt: startedAt, final: null,
+      attemptStartedAt: startedAt, callStartedAt: startedAt, final: null, calls: 0, attemptRecords: null,
     }]));
-    const spawnCompose = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).prompt, () => {}, childEnv,
-      { path: readerPathUnitStdoutPath(dir, u.id), flag });
-    const spawnFit = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).fitPrompt, () => {}, childEnv,
-      { path: readerPathUnitFitStdoutPath(dir, u.id), flag });
+    // A spawned call keeps the prompt it was sent and its phase, for its Attempt Record (kogaki#1717).
+    const spawnCall = (u, prompt, phase, stdoutPath, flag) => ({ ...spawnDetachedJobUnit(command, argv, prompt, () => {}, childEnv,
+      { path: stdoutPath, flag }), prompt, phase });
+    const spawnCompose = (u, flag) => spawnCall(u, S.get(u.id).prompt, "compose", readerPathUnitStdoutPath(dir, u.id), flag);
+    const spawnFit = (u, flag) => spawnCall(u, S.get(u.id).fitPrompt, "fit", readerPathUnitFitStdoutPath(dir, u.id), flag);
     // A SITE OR SUFFIX CALL (kogaki#1642) writes beside the unit's own call, in its stdout file.
-    const spawnSite = (u, flag) => spawnDetachedJobUnit(command, argv, S.get(u.id).callPrompt, () => {}, childEnv,
-      { path: readerPathUnitStdoutPath(dir, u.id), flag });
+    const spawnSite = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     unitsRunning = new Map(units.map((u) => [u.id, spawnCompose(u, "w")]));
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
@@ -637,6 +662,7 @@ export async function cmdJobSupervise(args) {
       const st = S.get(u.id);
       return { id: u.id, status: "running", bytes, attempts: st.attempts, phase: st.phase,
         attempt_started_at: new Date(st.attemptStartedAt).toISOString(),
+        ...(st.attemptRecords ? { attempt_records: st.attemptRecords } : {}),
         ...(st.attempt1S !== undefined ? { attempt_1_s: st.attempt1S } : {}) };
     };
 
@@ -660,6 +686,7 @@ export async function cmdJobSupervise(args) {
         // Each refusal's group and reach, where the row declares them (kogaki#1708).
         ...(st.refusals.some((h) => h.reach) ? { refusal_reach: st.refusals.map((h) => ({ group: h.group ?? null, reach: h.reach ?? null })) } : {}),
         ...(st.timedOut.length ? { timed_out: st.timedOut.slice() } : {}),
+        ...(st.attemptRecords ? { attempt_records: st.attemptRecords } : {}),
       };
       // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
       // fit call refused, died or ran out of time still carries the Candidate it composed,
@@ -704,6 +731,7 @@ export async function cmdJobSupervise(args) {
       try { if (sp.child) sp.child.kill("SIGKILL"); } catch { /* already gone */ }
       const callS = secondsSince(st.callStartedAt);
       st.timedOut.push({ attempt: st.attempts, phase: st.phase, call_s: callS });
+      recordCall(u, sp, { status: "refused", failure: { stderr_tail: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` } });
       const stdoutPath = callStdoutPath(u);
       // INSIDE A SITE LOOP the killed call is that site's refusal, or a judgment asked again.
       if (st.loop) {
@@ -764,6 +792,7 @@ export async function cmdJobSupervise(args) {
       const cls = st.phase === "compose" ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
         : st.phase === "fit" ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id, st.scope)
         : classifyDetachedJobUnit(sp.out, null, st.phase === "suffix" ? recordArray : false, u.id);
+      recordCall(u, sp, cls);
       const stdoutPath = callStdoutPath(u);
       const endedAt = Date.parse(sp.out.endedAt) || Date.now();
       // MALFORMED OUTPUT IS RETRIED MECHANICALLY (kogaki#1307): the same prompt again,
@@ -956,6 +985,7 @@ export function startDetachedJobSupervisor(dir, opts) {
     ...(opts.siteRetry ? { site_retry: opts.siteRetry } : {}),
     ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
     ...(unitIsolation ? { unit_isolation: true } : {}),
+    ...(opts.rows ? { rows: opts.rows } : {}),
     ...(carried.length ? { carried } : {}) }, null, 2)}\n`);
   const scriptPath = join(REPO, "src", "terrain.mjs");
   const child = spawn(process.execPath, [
@@ -964,6 +994,7 @@ export function startDetachedJobSupervisor(dir, opts) {
     "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
     "--call-limit-s", String(callLimitS), "--unit-attempts", String(unitAttempts),
     "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
+    ...(opts.commandVersion ? ["--command-version", String(opts.commandVersion)] : []),
   ], { detached: true, stdio: "ignore", cwd: REPO });
   child.unref();
   const now = new Date().toISOString();

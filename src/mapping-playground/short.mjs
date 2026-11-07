@@ -10,7 +10,7 @@
 //   The short Trial
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
 import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -29,6 +29,7 @@ import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
 import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
 import { mapperRow, MAPPER_ATTEMPTS } from "./sme.mjs";
+import { writeAttemptRecord, attemptsRoot, cliRecord, tableRecord } from "../workflow/attempt-record.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
@@ -45,6 +46,8 @@ const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
 const WAYPOINTS_ROW = "smp_waypoints_unit";
+const WRITER_UNIT = "writer";
+const DRAFT_TABLE = "src/draft-workflow.json";
 const CARRY = "carry";
 // The Base Paragraph's case (kogaki#1719): the proposition's own, or a case apart from its domain.
 const OWN = "own";
@@ -86,20 +89,41 @@ export function shortLeg(proposition, tables, persona, structure) {
   };
 }
 
-// ONE MODEL CALL through the run's recorder, bounded by `timeoutS`; the answer's text, or the stop.
+// ONE MODEL CALL through the run's recorder, bounded by `timeoutS`; the answer's text, or the stop, with the call's own
+// argv and stdout for its Attempt Record (kogaki#1717).
 function oneCall({ env, model, outputFormat, timeoutS, input }) {
   const argv = ["-p", "--model", model, "--output-format", outputFormat, "--tools", "", "--disable-slash-commands",
     "--strict-mcp-config", "--setting-sources", "", "--no-session-persistence"];
+  const call = { argv: { argv, model, output_format: outputFormat, timeout_s: timeoutS } };
   const r = spawnSync(env.KOGAKI_JUDGE_CLI, argv, { input, env, encoding: "utf8", timeout: 1000 * timeoutS, maxBuffer: 64 * 1024 * 1024 });
-  if (r.error) return { stopped: `the call could not finish (${r.error.code || "spawn failed"}: ${r.error.message})` };
-  if (r.status !== 0) return { stopped: `the call exited ${r.status === null ? `on ${r.signal}` : r.status}: ${String(r.stderr || "").trim().split("\n")[0] || "(no stderr)"}` };
-  if (outputFormat !== "json") return { text: String(r.stdout) };
+  call.raw = String(r.stdout ?? "");
+  if (r.error) return { ...call, stopped: `the call could not finish (${r.error.code || "spawn failed"}: ${r.error.message})` };
+  if (r.status !== 0) return { ...call, stopped: `the call exited ${r.status === null ? `on ${r.signal}` : r.status}: ${String(r.stderr || "").trim().split("\n")[0] || "(no stderr)"}` };
+  if (outputFormat !== "json") return { ...call, text: String(r.stdout) };
   try {
     const envl = JSON.parse(r.stdout);
-    if (typeof envl === "string") return { text: envl };
-    if (envl && typeof envl.result === "string") return { text: envl.result };
-  } catch (e) { return { stopped: `the call's json answer does not parse (${e.message})` }; }
-  return { stopped: "the call's json answer carries no string `result`" };
+    if (typeof envl === "string") return { ...call, text: envl };
+    if (envl && typeof envl.result === "string") return { ...call, text: envl.result };
+  } catch (e) { return { ...call, stopped: `the call's json answer does not parse (${e.message})` }; }
+  return { ...call, stopped: "the call's json answer carries no string `result`" };
+}
+
+// The binary that answered: the recorder hands the call to KOGAKI_PROOF_SHEET_REAL_CLI.
+const cliOfEnv = (env) => cliRecord(env.KOGAKI_PROOF_SHEET_REAL_CLI || env.KOGAKI_JUDGE_CLI);
+
+// The writer's row as its table declares it, without the binary the settings resolved.
+const writerRowOf = ({ binary, stubbed, ...row }) => row;
+
+// Every `attempts/` directory a stage wrote, its own and each per-Move call's, in name order (kogaki#1717).
+function attemptRootsUnder(d) {
+  const dirs = [d, ...readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort().map((n) => join(d, n))];
+  return dirs.map(attemptsRoot).filter((p) => existsSync(p)).map((p) => relFromRepo(p));
+}
+
+// ONE CALL'S ATTEMPT RECORD (kogaki#1717), under the stage's own directory.
+function recordAttempt(dir, unit, n, { env, cli, call, prompt, input, row, tables, answer, refusal }) {
+  writeAttemptRecord(dir, unit, n, { prompt, argv: call.argv, cli: cli || cliOfEnv(env), input,
+    row: { row, tables: tables.map(tableRecord) }, raw: call.raw, answer, refusal });
 }
 
 function answerRecord(text) {
@@ -110,22 +134,23 @@ function answerRecord(text) {
 
 // ONE JUDGMENT ROW UNDER THE MAPPER'S BOUND (kogaki#1700): each attempt's prompt and answer are kept, and a refusal is put
 // back verbatim into the next attempt under its reach (kogaki#1708); the answer, or the stop naming the last refusal.
-export function retriedCall({ dir, env, row, input, refusalOf }) {
+export function retriedCall({ dir, env, row, input, refusalOf, validator = null, cli = null, tables = [PLAYGROUND_TABLE] }) {
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const history = [];
   for (let attempt = 1; attempt <= MAPPER_ATTEMPTS; attempt++) {
     const held = bindFlow(FLOW);
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
-    writeFileSync(join(dir, `prompt-${attempt}.md`), prompt);
     const call = oneCall({ env, model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
       timeoutS: Number(settingValue(extraction.job.call_limit_s)), input: prompt });
-    if (call.stopped) return { stopped: call.stopped };
+    const record = (answer, refusal) => recordAttempt(dir, row.id, attempt, { env, cli, call, prompt, input, row, tables, answer, refusal });
+    if (call.stopped) { record(undefined, { text: call.stopped, validator: "oneCall" }); return { stopped: call.stopped }; }
     const a = answerRecord(call.text);
-    if (a.record !== undefined) writeFileSync(join(dir, `answer-${attempt}.json`), JSON.stringify(a.record, null, 2) + "\n");
     const raw = a.stopped ? { group: "shape", text: a.stopped } : refusalOf(a.record);
+    const r = raw ? refusalReach(row, raw) : null;
+    record(a.record, r && { group: r.group, reach: r.reach, text: r.text, validator: a.stopped ? "answerRecord" : validator,
+      sites: raw && raw.sites });
     if (!raw) return { answer: a.record, refusals: refusalsRecord(history) };
-    const r = refusalReach(row, raw);
     history.push({ answer: a.record ?? null, refusal: r.text, group: r.group, reach: r.reach });
     if (r.undeclared) {
       return { stopped: `the \`${row.id}\` refusal names the group ${JSON.stringify(r.group)}, which the row does not declare; the refusal: ${r.text}`,
@@ -216,7 +241,7 @@ function correspondenceRefusal(answer, structure) {
 
 // THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
 // refused naming the Waypoint, the record is a ParagraphPlan unit's, and each paragraph's points keep to its own table (kogaki#1709).
-function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables, moves, contracts, leaves }) {
+function waypointsStage({ dir, env, cli, leg, persona, libraryDir, playground, tables, moves, contracts, leaves }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
   const d = derivedRow(playground, WAYPOINTS_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
@@ -230,26 +255,28 @@ function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables
   const held = bindFlow(FLOW);
   let prompt;
   try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
-  writeFileSync(join(dir, "prompt.md"), prompt);
   const call = oneCall({ env, model: String(settingValue(plan.judge.model)), outputFormat: String(plan.judge.output_format || "json"),
     timeoutS: Number(settingValue(plan.job.call_limit_s)), input: prompt });
-  if (call.stopped) return { stopped: call.stopped };
+  const record = (answer, text, validator) => recordAttempt(dir, WAYPOINTS_ROW, 1, { env, cli, call, prompt, input, row,
+    tables: [PLAYGROUND_TABLE, PARAGRAPH_PLAN_TABLE], answer, refusal: text ? { text, validator } : null });
+  const stop = (answer, text, validator) => { record(answer, text, validator); return { stopped: text }; };
+  if (call.stopped) return stop(undefined, call.stopped, "oneCall");
   const a = answerRecord(call.text);
-  if (a.stopped) return { stopped: a.stopped };
-  writeFileSync(join(dir, "answer.json"), JSON.stringify(a.record, null, 2) + "\n");
+  if (a.stopped) return stop(undefined, a.stopped, "answerRecord");
   const entries = isMap(a.record) && Array.isArray(a.record.waypoints) ? a.record.waypoints : [];
   for (const [i, e] of entries.slice(0, moves.length).entries()) {
     const got = isMap(e) ? e.move : e;
-    if (got !== moves[i]) return { stopped: `Waypoint ${i + 1}: the answer binds ${JSON.stringify(got)}, and the Move bound to it at \`bind\` is "${moves[i]}"` };
+    if (got !== moves[i]) return stop(a.record, `Waypoint ${i + 1}: the answer binds ${JSON.stringify(got)}, and the Move bound to it at \`bind\` is "${moves[i]}"`, "waypointsStage");
   }
   let v;
   try { v = validateParagraphPlanUnit(a.record, { legs: [planned], movesDir: libraryDir }, "leg-1"); }
   catch (e) { v = { error: String(e && e.message || e) }; }
-  if (v.error) return { stopped: v.error.split("\n").join(" ") };
+  if (v.error) return stop(a.record, v.error.split("\n").join(" "), "validateParagraphPlanUnit");
   for (const [i, t] of tables.entries()) {
     const vocabulary = correspondenceVocabularyRefusal(a.record.waypoints[i].paragraph_waypoints, t, tables.slice(0, i), i + 1);
-    if (vocabulary) return { stopped: vocabulary };
+    if (vocabulary) return stop(a.record, vocabulary, "correspondenceVocabularyRefusal");
   }
+  record(a.record, null);
   return { entries: a.record.waypoints };
 }
 
@@ -263,17 +290,21 @@ export function shortPacket({ leg, paragraphs, audiencePath }) {
     section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
 }
 
-function writeStage({ dir, env, leg, paragraphs, audiencePath, paragraphPath }) {
+function writeStage({ dir, env, cli, leg, paragraphs, audiencePath, paragraphPath }) {
   const p = shortPacket({ leg, paragraphs, audiencePath });
   if (p.error) return { stopped: p.error };
   const packetPath = join(dir, PACKET_FILE);
   writeFileSync(packetPath, p.packet);
   const w = writerSettings();
   const call = oneCall({ env, model: w.model, outputFormat: w.output_format, timeoutS: w.timeout_s, input: p.packet });
-  if (call.stopped) return { stopped: call.stopped, packet: relFromRepo(packetPath) };
-  const refused = writerRefusal(call.text);
-  if (refused) return { stopped: `the writer refused: ${refused}`, packet: relFromRepo(packetPath) };
-  if (String(call.text).trim() === "") return { stopped: "the writer returned no prose", packet: relFromRepo(packetPath) };
+  const refused = call.stopped ? null : writerRefusal(call.text);
+  const empty = !call.stopped && !refused && String(call.text).trim() === "";
+  const why = call.stopped ? [call.stopped, "oneCall"] : refused ? [`the writer refused: ${refused}`, "writerRefusal"]
+    : empty ? ["the writer returned no prose", "writeStage"] : null;
+  recordAttempt(dir, WRITER_UNIT, 1, { env, cli, call, prompt: p.packet, input: { leg, paragraphs, audience: relFromRepo(audiencePath) },
+    row: { id: WRITER_UNIT, ...writerRowOf(w) }, tables: [DRAFT_TABLE], answer: call.stopped ? undefined : String(call.text),
+    refusal: why && { text: why[0], validator: why[1] } });
+  if (why) return { stopped: why[0], packet: relFromRepo(packetPath) };
   writeFileSync(paragraphPath, String(call.text).trim() + "\n");
   return { packet: relFromRepo(packetPath) };
 }
@@ -335,7 +366,9 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
   if (!existsSync(libraryDir)) fail(`the library ${libraryDir} does not exist. Nothing was started.`);
   const owned = rbsFile ? readRbsFile(rbsFile, proposition, libraryDir, given) : null;
   if (owned && owned.error) fail(`${owned.error}. Nothing was started.`);
-  const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
+  const judge = resolveJudgeBinary(String(declaredCommand()), process.env.PATH);
+  const realPath = judge.path;
+  const cli = cliRecord(judge.path, judge.version);
   const slug = basename(outDir).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "trial";
   mkdirSync(outDir, { recursive: true });
   installRecorder(outDir);
@@ -373,7 +406,8 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     catch (e) { r = { stopped: `the stage threw: ${String(e && e.message || e).split("\n")[0]}` }; }
     const calls = join(d, CALLS_FILE);
     const { value, ...shown } = r;
-    record.stages.push({ stage: name, state: r.stopped ? "stopped" : "done", calls: existsSync(calls) ? relFromRepo(calls) : null, ...shown });
+    record.stages.push({ stage: name, state: r.stopped ? "stopped" : "done", calls: existsSync(calls) ? relFromRepo(calls) : null,
+      attempt_records: attemptRootsUnder(d), ...shown });
     if (r.stopped) record.stopped = `${name}: ${r.stopped}`;
     save();
     return r.stopped ? null : (value ?? {});
@@ -416,8 +450,8 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     const library = loadMoveContracts(libraryDir);
     if (library.error) return { stopped: library.error };
     contracts = new Map(library.moves.map((m) => [m.id, m]));
-    const r = retriedCall({ dir: d, env, row: playgroundRow(table, BIND_ROW), input: bindMoveInput(structure, persona, library.moves, libraryDir),
-      refusalOf: (answer) => bindMoveRefusal(answer, contracts) });
+    const r = retriedCall({ dir: d, env, cli, row: playgroundRow(table, BIND_ROW), input: bindMoveInput(structure, persona, library.moves, libraryDir),
+      refusalOf: (answer) => bindMoveRefusal(answer, contracts), validator: "bindMoveRefusal" });
     if (r.stopped) return r;
     const { base_move: base, case: told, inference_move: inference } = r.answer;
     record.bind = { author: BIND_ROW, move: base, base_move: base, case: told, inference_move: inference, binding_rationale: bindingRationale(r.answer) };
@@ -439,8 +473,8 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
       const md = join(d, move);
       mkdirSync(md, { recursive: true });
       const told = i === 0 ? record.bind.case : OWN;
-      const r = retriedCall({ dir: md, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(move), told, tables),
-        refusalOf: (answer) => correspondenceRefusal(answer, structure) });
+      const r = retriedCall({ dir: md, env, cli, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(move), told, tables),
+        refusalOf: (answer) => correspondenceRefusal(answer, structure), validator: "correspondenceRefusal" });
       refusals.push(...(r.refusals || []));
       if (r.stopped) return { stopped: `${move}: ${r.stopped}`, refusals };
       tables.push({ move, base: r.answer.base, correspondences: r.answer.correspondences });
@@ -462,7 +496,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
         paragraph_waypoints: e.paragraph_waypoints }));
     } else {
       const leaves = moves.map((m, i) => bindingLeaves(contracts.get(m), i === 0 ? record.bind.case : OWN, rbsTables.tables[i]));
-      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts, leaves });
+      const r = waypointsStage({ dir: d, env, cli, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts, leaves });
       if (r.stopped) return r;
       listed = r.entries.map((e, i) => ({ move: e.move, binding_rationale: record.bind.binding_rationale, leaves: leaves[i],
         paragraph_waypoints: e.paragraph_waypoints }));
@@ -473,7 +507,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     return { value: listed };
   });
   stage("write", (d, env) => {
-    const r = writeStage({ dir: d, env, leg, paragraphs, audiencePath, paragraphPath });
+    const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
     return r;
   });

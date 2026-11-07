@@ -1459,6 +1459,47 @@ beside its text. The bound on attempts is unchanged. A row without
 and the `part` sentence closes its block. The Brief's and the ParagraphPlan's
 rows are in that state until an Issue names their groups.
 
+**The Attempt Record** (kogaki#1717). Every judged model call writes one
+directory, `attempts/<unit>/<n>/`, where `<n>` counts the unit's calls from 1.
+It holds:
+
+- `prompt.md` — the exact stdin, so a retry's is the retry prompt as sent;
+- `argv.json` — the argument list, the model, the output format and the
+  per-call bound in seconds;
+- `cli.json` — the binary's path, its sha256 and its `--version` text, `null`
+  where the caller resolved none;
+- `input.json` — the structured input before rendering;
+- `row.json` — the workflow row as read, with the path and sha256 of each
+  table file it was read from;
+- `answer.raw` — stdout, verbatim;
+- `answer.json` — the parsed record, absent where parsing failed;
+- `refusal.json` — `{ group, reach, text, validator, sites }`, or `null` where
+  the answer passed; `validator` names the function that raised it.
+
+One writer, `writeAttemptRecord` in `src/workflow/attempt-record.mjs`, is
+called from three places, and `readAttemptRecord` reads a directory back:
+
+- **The short Trial** (§4.20.2). The `bind` and `grounding` calls
+  (`retriedCall`), the `waypoints` call and the writer call each write under
+  the call's own directory, so each bound Move's `smp_correspondence` call
+  keeps its own. The record replaces `prompt-<n>.md` and `answer-<n>.json`. Each
+  stage entry of `trial.json` carries `attempt_records`, the list of
+  `attempts/` directories the stage wrote.
+- **The detached job supervisor**, under the job directory. Every call of a
+  unit — compose, fit, site or suffix — is the next `<n>` under
+  `attempts/<unit>/`, and its `row.json` also names the call's phase. A
+  malformed output asked again is a call of its own, and a call stopped at the
+  per-call limit writes the stdout it had. Each unit row carries
+  `attempt_records`, the unit's directory; its stdout file and the rest of the
+  job record are unchanged. A starter may hand over the binary's version, the
+  table and row id of each phase, and each unit's input. The ParagraphPlan's
+  starter (§4.19) hands over all three; anything not handed over is written
+  `null`.
+- **The synchronous judge**, under the run's directory. The unit is the
+  state's id, or `<state>-<group>` for a per-group ask.
+
+`attempt_records` is a new key: `attempts` stays the count.
+
 **The status line shows the attempt and an estimate.** `job status`, and
 `job await` each time it returns at its 30-second bound, print a header
 naming both settings — `each unit gets up to <N> attempts of at most <s>s per
@@ -3068,8 +3109,8 @@ refusals:
 An undeclared or missing key is group `shape`. `shape` is of reach `part`;
 `library`, `case` and `carry` are of reach `record` (kogaki#1708). The first
 refusal is put back verbatim into the second attempt under its reach, and a
-second refusal stops the Trial at `bind`. Each attempt's prompt and answer are
-kept as `<out>/bind/prompt-<n>.md` and `answer-<n>.json`. The answer carries
+second refusal stops the Trial at `bind`. Each attempt is kept as its Attempt
+Record, `<out>/bind/attempts/smp_bind_move/<n>/` (§4.12.2). The answer carries
 no `rationale`: the record's `binding_rationale` is written by the Harness
 from the answer's `case` and Moves (kogaki#1719).
 
@@ -3104,8 +3145,8 @@ other than one correspondence) and `base` (a `base` that is not
 `{ domain }`); any other refusal belongs to none of them and stops the Trial
 at `grounding` on the first attempt. The first refusal is put back
 verbatim into the second attempt, and a second refusal stops the Trial at
-`grounding`, naming the Move. Each attempt's prompt and answer are kept
-as `<out>/grounding/<move>/prompt-<n>.md` and `answer-<n>.json`. The
+`grounding`, naming the Move. Each attempt is kept as its Attempt Record,
+`<out>/grounding/<move>/attempts/smp_correspondence/<n>/` (§4.12.2). The
 record carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
 the structure's in every table and independent of the Move; the
 Correspondence column depends on it.
