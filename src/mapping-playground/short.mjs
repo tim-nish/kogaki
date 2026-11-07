@@ -110,9 +110,9 @@ const cliOfEnv = (env) => cliRecord(env.KOGAKI_PROOF_SHEET_REAL_CLI || env.KOGAK
 // The writer's row as its table declares it, without the binary the settings resolved.
 const writerRowOf = ({ binary, stubbed, ...row }) => row;
 
-// Every `attempts/` directory a stage wrote, its own and each per-Move call's (kogaki#1717).
+// Every `attempts/` directory a stage wrote, its own and each per-Move call's, in name order (kogaki#1717).
 function attemptRootsUnder(d) {
-  const dirs = [d, ...readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => join(d, e.name))];
+  const dirs = [d, ...readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort().map((n) => join(d, n))];
   return dirs.map(attemptsRoot).filter((p) => existsSync(p)).map((p) => relFromRepo(p));
 }
 

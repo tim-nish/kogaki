@@ -3092,8 +3092,8 @@ Inference Paragraph is owed, and any other key is refused. The refusals:
 An undeclared or missing key, or an empty `rationale`, is group `shape`.
 `shape` is of reach `part`; `library` and `carry` are of reach `record`
 (kogaki#1708). The first refusal is put back verbatim into the second attempt
-under its reach, and a second refusal stops the Trial at `bind`. Each attempt's prompt and answer are kept as
-`<out>/bind/prompt-<n>.md` and `answer-<n>.json`. Whether an Inference
+under its reach, and a second refusal stops the Trial at `bind`. Each attempt is kept as its Attempt Record,
+`<out>/bind/attempts/smp_bind_move/<n>/` (§4.12.2). Whether an Inference
 Paragraph follows is the Move's information, read from its `leaves` (§4.2),
 and no Harness step decides it apart from the Move.
 
@@ -3127,8 +3127,8 @@ other than one correspondence) and `base` (a `base` that is not
 `{ domain }`); any other refusal belongs to none of them and stops the Trial
 at `correspondence` on the first attempt. The first refusal is put back
 verbatim into the second attempt, and a second refusal stops the Trial at
-`correspondence`, naming the Move. Each attempt's prompt and answer are kept
-as `<out>/correspondence/<move>/prompt-<n>.md` and `answer-<n>.json`. The
+`correspondence`, naming the Move. Each attempt is kept as its Attempt Record,
+`<out>/correspondence/<move>/attempts/smp_correspondence/<n>/` (§4.12.2). The
 record carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
 the structure's in every table and independent of the Move; the
 Correspondence column depends on it.

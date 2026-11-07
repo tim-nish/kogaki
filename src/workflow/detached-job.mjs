@@ -593,8 +593,7 @@ export async function cmdJobSupervise(args) {
       "--setting-sources", "", "--no-session-persistence"];
     const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
-    // EVERY CALL WRITES ITS ATTEMPT RECORD (kogaki#1717): `attempts/<unit>/<n>/`, `n` counting all of that unit's
-    // calls from 1, whatever their phase; row.json names the phase and the row the starter declared for it.
+    // EVERY CALL WRITES ITS ATTEMPT RECORD (kogaki#1717); `n` counts all of a unit's calls, whatever their phase.
     const cli = cliRecord(command, args["command-version"] ? String(args["command-version"]) : null);
     const callArgv = { argv, model, output_format: "stream-json", timeout_s: callLimitS };
     const rowOf = (phase) => {

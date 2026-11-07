@@ -796,7 +796,7 @@ ok(u2A1.cli && u2A1.cli.path === judge && u2A1.cli.sha256 === sha(judge) && type
   && u2A1.row && u2A1.row.row.id === "smp_correspondence" && u2A1.row.tables[0].path === "src/mapping-playground/playground-workflow.json"
   && u2A1.row.tables[0].sha256 === sha(join(repo, "src/mapping-playground/playground-workflow.json")) && u2A1.input && u2A1.input.structure,
   `(u) attempt 1's cli, argv, row or input file is not the call's own: ${JSON.stringify([u2A1.cli, u2A1.argv, u2A1.row && u2A1.row.tables])}`);
-ok(JSON.stringify(u2Stage.attempt_records) === JSON.stringify([MOVE, INFER].map((m) => relFromRepo(join(u2.o, "correspondence", m, "attempts")))),
+ok(JSON.stringify(u2Stage.attempt_records) === JSON.stringify([MOVE, INFER].sort().map((m) => relFromRepo(join(u2.o, "correspondence", m, "attempts")))),
   `(u) trial.json's correspondence entry does not name each Move's attempts directory: ${JSON.stringify(u2Stage.attempt_records)}`);
 const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [ROLED]) });
 ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,correspondence:stopped,waypoints:not run,write:not run" && u3.calls("correspondence").length === 2

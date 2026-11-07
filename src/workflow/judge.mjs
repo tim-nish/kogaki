@@ -690,6 +690,8 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
     const prompt = judgePrompt(st, inputText, input, history);
     let answer;
     let stdout = "";
+    // The function whose refusal ends this attempt, for its record (kogaki#1717).
+    let raisedBy = null;
     try {
       // ALL RESPONSE HANDLING IS INSIDE THE RETRY WINDOW (PR #1044; #1030 item 1).
       // `res.error` STAYS OUTSIDE IT: a command that could not be spawned is not re-asked.
@@ -723,6 +725,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
         return { ok: false, out, attempts, refusals, lastRefusal: msg,
           timeout: { bound_s: cfg.timeoutMs / 1000, measured_s: measuredS, label: at } };
       }
+      raisedBy = null;
       const res = softRefusals(() => {
         const r = raw;
         // ETIMEDOUT IS HANDLED ABOVE, before this window opens (kogaki#1172):
@@ -738,6 +741,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
         }
         return r;
       });
+      raisedBy = "judgeRecordFrom";
       const record = softRefusals(() => judgeRecordFrom(res.stdout, st));
       answer = record;
       // WRITTEN UNDER A TEMPORARY NAME AND RENAMED AFTER IT VALIDATES
@@ -752,6 +756,7 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       writeFileSync(partial, JSON.stringify(record, null, 2) + "\n");
       // THE STATE'S OWN REFUSALS, run against the judge's record exactly as they
       // run against an owner-supplied one.
+      raisedBy = validate.name || null;
       softRefusals(() => validate(partial));
       renameSync(partial, out);
       recordAttempt(attempts, prompt, stdout, record, null);
@@ -772,16 +777,14 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       lastRefusal = e.message;
       refusals.push(e.message);
       history.push({ answer, refusal: e.message });
-      recordAttempt(attempts, prompt, stdout, answer, { text: e.message, validator: recordAt && recordAt.validator });
+      recordAttempt(attempts, prompt, stdout, answer, { text: e.message, validator: raisedBy });
     }
   }
   return { ok: false, out, attempts, refusals, lastRefusal };
 }
 
 // Where a judge call's Attempt Record goes (kogaki#1717): the run's directory, the state or its group as the unit.
-const attemptRecordAt = (dir, unit, validate, rec) => (dir ? {
-  dir, unit, validator: (validate && validate.name) || null, table: rec && rec.workflow ? rec.workflow.path : null,
-} : null);
+const attemptRecordAt = (dir, unit, rec) => (dir ? { dir, unit, table: rec && rec.workflow ? rec.workflow.path : null } : null);
 
 // THE WHOLE COMPOSED INPUT, ONE ASK. The default shape, and the one every
 // judgment state but `J2_subdivision` still spends.
@@ -820,7 +823,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   }
   const out = join(dir, `${flow().lane}-judge-${st.id}.json`);
   const r = await judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "",
-    recordAt: attemptRecordAt(dir, st.id, validate, rec) });
+    recordAt: attemptRecordAt(dir, st.id, rec) });
   if (r.ok) {
     recordJudgeInvocation(st.id, {
       state: st.id,
@@ -1018,7 +1021,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     const r = await judgeAttempts(cfg, st, retries, {
       inputText: a.scopedText, input: a.scoped, out: a.out, validate: a.validateOne,
       label: ` (group ${JSON.stringify(a.name)})`,
-      recordAt: attemptRecordAt(dir, `${st.id}-${a.slug}`, validate, rec),
+      recordAt: attemptRecordAt(dir, `${st.id}-${a.slug}`, rec),
     });
     // ---- THE RUN RECORD IS WRITTEN AFTER EVERY COMPLETED PER-GROUP RECORD
     // (kogaki#1073 item 3). The advance's own record used to be written only when
