@@ -87,10 +87,14 @@ function runRow({ dir, unitId, row, input, recordArray, validator, bounds }) {
   const job = awaitJob(dir, bounds.heartbeatMs);
   const u = (job.units || [])[0] || {};
   writeJson(join(dir, "attempts.json"), { row: row.id, state: job.state, status: u.status || null,
-    attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+    attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.refusal_reach ? { refusal_reach: u.refusal_reach } : {}),
+    ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
   if (job.state !== "done" || u.status !== "done" || !u.candidate) {
+    // A refusal of reach `stop` names its group, and whether the row declares it (kogaki#1708).
+    const f = u.failure || {};
+    const reach = f.reach === "stop" ? `the refusal of group ${JSON.stringify(f.group)} ${f.undeclared ? "names a group the row does not declare" : "has reach stop"}: ` : "";
     return { stopped: `the Trial's Brief stopped at \`${row.id}\`: the job ended ${job.state} after ${u.attempts || 1} attempt(s) — `
-      + String(lastRefusal(job)).split("\n").join(" ") };
+      + reach + String(lastRefusal(job)).split("\n").join(" ") };
   }
   writeJson(join(dir, "answer.json"), u.candidate);
   return { record: u.candidate };
@@ -143,7 +147,8 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const dir = resolve(out);
   const r = runRow({ dir, unitId: "map", row: m.row, recordArray: "roles", input: mapperInput(strand, persona),
-    validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, proposition: strand.proposition } },
+    validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, proposition: strand.proposition },
+      ...(m.row.refusal_reach ? { refusal_reach: m.row.refusal_reach } : {}) },
     bounds: { ...judgeBounds(extraction), unitAttempts: MAPPER_ATTEMPTS } });
   if (r.stopped) return { stopped: r.stopped.replace("the Trial's Brief stopped", "the Mapper stopped") };
   writeFileSync(resolve(structureOut), stringifyYaml(r.record));
