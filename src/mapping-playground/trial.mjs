@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's Trial (kogaki#1664): a Strand and a RelationalStructure, owner-authored
-// or mapped by an SME variant (kogaki#1665), through a one-Leg Brief, `/paragraph-plan` and `/draft`, to a Trial record.
+// or read by the Mapper (kogaki#1665), through a one-Leg Brief, `/paragraph-plan` and `/draft`, to a Trial record.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -8,7 +8,7 @@
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   The Structure-Mapping Playground
 //       specs/spec-draft-pipeline/SPEC.md
-//   The first SME
+//   The Mapper's structure reading
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -230,7 +230,7 @@ export function runTrial({ strand: strandFile, structure: givenStructure = null,
   const record = {
     trial: slug,
     strand: { cite: strand.cite, path: relFromRepo(resolve(strandFile)), sha256: sha256(strandFile) },
-    structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "sme" }
+    structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "mapper" }
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     audience: audiencePath,
@@ -257,7 +257,7 @@ export function runTrial({ strand: strandFile, structure: givenStructure = null,
   };
   save();
   if (mapper) {
-    stage("sme", (d, env, log) => {
+    stage("reading", (d, env, log) => {
       const job = join(d, "job");
       const c = runCommand(d, "map", [process.execPath, "src/mapping-playground/trial.mjs", "map", "--strand", resolve(strandFile),
         "--mapper", mapper, "--out", job, "--structure-out", structureFile, "--audience", audiencePath], env, log);

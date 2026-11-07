@@ -40,7 +40,7 @@ export const BIND_FILE = "bind.yaml";
 export const PACKET_FILE = "packet.md";
 export const PARAGRAPH_FILE = "paragraph.md";
 export const SHEET_FILE = "sheet.html";
-export const SHORT_STAGES = ["sme", "bind", "correspondence", "waypoints", "write"];
+export const SHORT_STAGES = ["reading", "bind", "grounding", "waypoints", "write"];
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
@@ -349,7 +349,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     trial: slug,
     kind: "short",
     proposition: { cite: proposition.cite, proposition: proposition.proposition, path: relFromRepo(resolve(propositionFile)), sha256: sha256(propositionFile) },
-    structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "sme" }
+    structure: mapper ? { path: relFromRepo(structureFile), sha256: null, author: "mapper" }
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     rbs: { variant: rbsFile ? RBS_OWNER : RBS_COMPOSED, path: null, sha256: null },
@@ -380,7 +380,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
   };
   save();
   if (mapper) {
-    stage("sme", (d, env) => {
+    stage("reading", (d, env) => {
       const job = join(d, "job");
       const c = spawnSync(process.execPath, ["src/mapping-playground/trial.mjs", "map", "--strand", resolve(propositionFile), "--mapper", mapper,
         "--out", job, "--structure-out", structureFile, "--audience", audiencePath], { cwd: REPO, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -425,7 +425,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
   });
   // THE MAPPING TABLES (kogaki#1700, kogaki#1709): the owner's, or one `smp_correspondence` call per bound Move, the base Move's
   // first, each under its Move's Segments and each later one given the tables before it.
-  const rbsTables = stage("correspondence", (d, env) => {
+  const rbsTables = stage("grounding", (d, env) => {
     if (owned) {
       const t = { variant: RBS_OWNER, tables: owned.record.tables };
       writeRbs(t);

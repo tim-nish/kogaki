@@ -84,7 +84,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
   const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
   if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) {
-    return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "sme");
+    return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "reading");
   }
   if (prompt.includes("\\\`smp_leg_unit\\\` judgment point")) {
     const x = input();
@@ -226,19 +226,19 @@ const h = mapperTrial("mapped", mapped("A cleaning crew arrives at a house with 
 ok(h.res.status === 0, `(h) the --mapper run exited ${h.res.status}: ${h.res.stdout}${h.res.stderr}`);
 ok(existsSync(join(h.o, "structure.yaml")), "(h) the --mapper run wrote no structure.yaml");
 ok(h.rec && h.rec.mapper && h.rec.mapper.variant === "sme_map_roles" && /^[0-9a-f]{64}$/.test(String(h.rec.mapper.prompt_sha256))
-  && existsSync(join(h.o, "sme", "job", "prompt.md")) && h.rec.mapper.prompt_sha256 === sha(join(h.o, "sme", "job", "prompt.md")),
+  && existsSync(join(h.o, "reading", "job", "prompt.md")) && h.rec.mapper.prompt_sha256 === sha(join(h.o, "reading", "job", "prompt.md")),
   `(h) trial.json's mapper does not carry the variant and its prompt's sha256: ${JSON.stringify(h.rec && h.rec.mapper)}`);
-ok(h.rec && h.rec.structure && h.rec.structure.author === "sme" && existsSync(join(h.o, "structure.yaml")) && h.rec.structure.sha256 === sha(join(h.o, "structure.yaml")),
-  `(h) trial.json's structure is not the mapped file with author: sme: ${JSON.stringify(h.rec && h.rec.structure)}`);
-ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:done,brief:done,paragraph-plan:done,draft:done",
+ok(h.rec && h.rec.structure && h.rec.structure.author === "mapper" && existsSync(join(h.o, "structure.yaml")) && h.rec.structure.sha256 === sha(join(h.o, "structure.yaml")),
+  `(h) trial.json's structure is not the mapped file with author: mapper: ${JSON.stringify(h.rec && h.rec.structure)}`);
+ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "reading:done,brief:done,paragraph-plan:done,draft:done",
   `(h) the --mapper run's stages are not all done: ${JSON.stringify(h.rec && h.rec.stages.map((x) => [x.stage, x.state, x.stopped]))}`);
 
-// (i) an answer whose context shares a word with the proposition is accepted at the SME stage, and the Trial runs on
+// (i) an answer whose context shares a word with the proposition is accepted at the reading stage, and the Trial runs on
 const i = mapperTrial("mapped-rule", mapped("A cleaning crew arrives with a rule about which rooms to clean."));
-const iAtt = existsSync(join(i.o, "sme", "job", "attempts.json")) ? JSON.parse(readFileSync(join(i.o, "sme", "job", "attempts.json"), "utf8")) : {};
-ok(i.res.status === 0 && i.rec && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:done,brief:done,paragraph-plan:done,draft:done"
+const iAtt = existsSync(join(i.o, "reading", "job", "attempts.json")) ? JSON.parse(readFileSync(join(i.o, "reading", "job", "attempts.json"), "utf8")) : {};
+ok(i.res.status === 0 && i.rec && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "reading:done,brief:done,paragraph-plan:done,draft:done"
   && iAtt.attempts === 1 && existsSync(join(i.o, "structure.yaml")),
-  `(i) the Mapper answering "rule" was not accepted at the SME stage: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
+  `(i) the Mapper answering "rule" was not accepted at the reading stage: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
 
 // (j) --structure with --mapper is refused naming both
 const jOut = join(outDir, "both");
