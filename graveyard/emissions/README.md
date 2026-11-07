@@ -1,0 +1,1 @@
+Emission files written under the kit's emission duty (specs/spec-client-kit/SPEC.md §4), which the hub retired on 2026-08-21 (knowledge-architecture D4); moved here whole by kogaki#1631, kept as history, read by no check.

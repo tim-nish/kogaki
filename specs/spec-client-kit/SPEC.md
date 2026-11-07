@@ -324,273 +324,32 @@ violated `specs/SPEC.md` §4, not satisfied it.
 with its delta. It withholds nothing — the enhancer-never-dependency property
 inherited at §1 forbids a kit artifact becoming a precondition for work.
 
-### 3.6 Legibility is a VIEW defect, and the return channel is §4
+### 3.6 Legibility is a VIEW defect, and the return channel was §4
 
 A headline that cannot ground a consumer conversation in plain register is a
-defect **of the served view**, not of the reader. The emission duty of §4 is
-its return channel: a sitting that finds an illegible headline emits that
-finding like any other durable learning. This is the one place the two clauses
-of this spec are designed to compose rather than merely coexist.
+defect **of the served view**, not of the reader. Its return channel was the
+emission duty of §4, retired by the hub on 2026-08-21; a sitting that finds an
+illegible headline carries that finding to the hub by the hub's own route, like
+any other durable learning. This is the one place the two clauses of this spec
+were designed to compose rather than merely coexist.
 
-## 4. The emission duty (kogaki#326)
+## 4. The emission duty, retired (kogaki#326, kogaki#498, kogaki#1631)
 
-### 4.1 The clause
+The hub removed the kit's emission duty on 2026-08-21 (knowledge-architecture
+D4, with the retirement of `/qa-mine`): the duty fed the miner, the miner was
+retired, the emission pile had no arriving consumer, and re-pointing emissions
+at `/ask` was declined. The removal was delivered to kogaki#498 on 2026-08-23
+and discharged here by kogaki#1631. A durable learning — an investigation
+finding, a reversal, a correction, a design decision — is staged in the hub's
+own staging directory by the hub's own route, never by a file in this
+repository. The 933 emission files written under the duty are kept as history
+in `graveyard/emissions/` and are read by no check.
 
-**Any kit-installed sitting that produces a durable learning — an investigation
-finding, a reversal, a correction, a design decision — writes ONE
-staging-candidate emission in the same sitting, unasked.**
-
-The hub has held the symmetric duty since 2026-07-23, and the consumer half had
-no owner until now:
-
-> "the **ambient experience-shaped trigger** carries the push, self-routing a
-> sitting that PRODUCES a durable experience (investigation finding, reversal,
-> correction, design decision) to staging route (c) unasked, with the same
-> precision-first bias as the policy-shaped trigger."
-
-`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:173`
-  request_id: a9615696-cdbd-4ccc-95a5-d53815fc769a
-  outcome: discriminating
-  query: Consumer-side emission duty: should a sitting that produces a durable learning stage a candidate in the same sitting, unasked?
-
-### 4.2 EMISSION is the duty; PROMOTION is untouched
-
-The boundary is ratified and is quoted rather than re-derived:
-
-> "in a cross-boundary proposal loop the consumer's gate completes by EMITTING
-> the proposal (a durable artifact in its own tree, no clerical residue) and
-> the hub's gate completes by PROMOTING it into the recall surface; 'one
-> command closes the loop' is a correct requirement *within* a side and a
-> contract violation *across* one."
-
-`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:204`
-
-So: nothing auto-promotes, nothing writes the recall surface, and `/qa-mine`'s
-selection listing, its ledger dedupe and the hub's sweep gate are all untouched.
-A kit that closed the loop would breach the seam it exists to serve.
-
-### 4.3 The emission location is a directory the CONSUMER owns, and it IS committed
-
-The served line rules out one location outright:
-
-> "Consumer contribute-back emits into a directory the CONSUMER owns (its run
-> workspace or its own working tree), never the hub's `q_a/staging/`".
-
-`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 topics/archive/knowledge-architecture.md:202`
-
-Between the two it permits, §2.5.1's discriminator decides: **lifetime**. An
-emission awaits a hub sweep that may be days away, so its lifetime is the
-owner's and not the run's. It lives in the working tree, at
-`policy/emissions/<YYYY-MM-DD>-<slug>.md`.
-
-**And it is committed** — which is the opposite of §3.3's answer, on the same
-axis, for a stated reason. §3.3's digest derives from **hub** material and
-committing it would declassify. An emission is authored **consumer-side**,
-about consumer-side experience, in plain register; its sources are already at
-the repository's own sensitivity, so committing declassifies nothing. It also
-buys two things a workspace cannot: survival of workspace cleanup, and
-visibility in the PR that carried the work.
-
-**Reading the two clauses together is the point.** They look like one decision
-and are two, and only a spec that states both makes the discriminator —
-source sensitivity, not file kind — visible to the next carrier that faces it.
-
-### 4.4 The format is fixed and minimal, and it is plain-register by contract
-
-Five fields: **date**, **repo**, **trigger** (what happened), **the learning**,
-**proposed grain** (lesson / topic line / glossary delta).
-
-Plain register is part of the format rather than advice. The consumer does not
-hold hub vocabulary, and hub policy drifting into internal terminology is a
-live defect this channel exists to counteract rather than import — the same
-finding §3.6 routes here.
-
-### 4.5 The absence is made VISIBLE; it is never gated
-
-The duty is an **obligation**, and the governing distinction is served:
-
-> "a **prohibition** is violated at the tool boundary and wants a mechanical
-> gate there … an **obligation** is violated by an absence, which produces no
-> event to hook, so it stays behavioral and its carrier is a signal that makes
-> the absence visible".
-
-`consulted: product-lab@4cc496b39be1d7641aaaaf678668fb64eda35f17 LESSONS.md:103, topics/archive/knowledge-architecture.md:172`
-
-So the carrier is three-part, mirroring the ratified shape at §2: the managed
-`CLAUDE.md` block states the duty; the kit provides the writer that makes it
-cheap to obey; and a **lane read** reports the absence — a sitting that
-produced a durable learning and emitted nothing is *reported*, never blocked.
-
-**THE THIRD PART IS DEFERRED, AND THE DEFERRAL IS NAMED HERE RATHER THAN LEFT
-TO BE DISCOVERED.** Parts one and two ship with story 1.49. The lane read does
-**not**, because its shape is the open question at §7 q2 — one read or per-lane —
-and settling that inside an implementation would be the unnamed-deferral defect
-running backwards: code deciding a fork no gate saw. Filling q2 is therefore its
-own decision act, owed on its own licensing issue with choice, alternatives and
-receipt **before** any reader is written.
-
-**What that costs, stated plainly rather than minimised.** Until q2 is filled,
-this clause is an obligation with a writer and no observer — which is closer to
-the "purely norm-carried" fork this section explicitly corrected the filing away
-from than the finished design is. The correction is real but not yet complete,
-and a reader is entitled to know which. Found by PR #331's round-1 review, whose
-finding was that the acceptance criterion asserting the read's behaviour tested
-an instrument nothing built; that criterion is narrowed to the two parts that
-exist rather than left describing a third that does not.
-
-**No gate, and this forecloses the obvious next proposal.** A pre-commit or
-pre-merge check demanding an emission would be a gate on a judgment ("was this
-sitting's output a durable learning?") that no mechanism can make, and it would
-convert a channel into a tax — which is how a return channel stops being used
-honestly and starts being satisfied.
-
-### 4.6 Cadence coupling is DECLINED as out of scope
-
-Whether `/qa-mine`'s sweep is nudged by emission count is a **hub-side**
-question about a hub-side command. Kogaki declares it here so the fork is
-recorded as answered-by-scope rather than forgotten: this spec binds emission
-and says nothing about when the hub reads.
-
-### 4.7 The post-disposition lifecycle — NEITHER served arm is available here, and that is the finding (kogaki#498)
-
-**§§4.1–4.4 define the duty, the emission/promotion boundary, the location and
-the format, and say nothing about what a file owes once the hub's gate has
-ruled on it.** Under a keep-by-default reading that silence is invisible; under
-the inverted default it is the gap kogaki#498 reports.
-
-**The ground for that default is an OWNER RULING, named rather than pinned.**
-The position — an artifact owes an explicit need, and "better to have it than
-not" is not one — was ruled by the owner on 2026-08-17. Its hub-side carrier is
-`q_a/staging/2026-08-17-existence-needs-an-explicit-need.md`, **which is not
-committed at this head**, so no receipt on this axis is available and none is
-manufactured. Recorded in the named-never-state-asserted form: a later reader
-can tell an unpinned owner ruling from a served position, which is exactly what
-a bare citation here would have hidden. (kogaki#498's own thread records the
-same: the pin it carries "is defective as written … the receipt binds at that
-file's first commit".)
-
-**The served rule is a binary, and it binds at introduction:**
-
-> "**A report-only row CLASS needs an executable home or an expiry, decided
-> when the CLASS is introduced.** … The author introducing the class is the
-> only person ever positioned to name the home cheaply."
-
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/archive/claude-code-ops.md:25`
-  request_id: 50376547-9fef-4314-8a41-1233a3dd43a9
-  outcome: discriminating
-  query: defining a lifecycle for artifact states that have never occurred; a growing directory of candidates whose disposal act is unnamed; expiry or executable home decided when the class is introduced
-
-**NEITHER ARM IS AVAILABLE AT THIS CONSUMER. That is this section's answer, and
-it is a finding rather than a gap in it.**
-
-- **The executable home** for this class is the hub's own sweep. §4.6 above
-  declares hub sweep cadence out of scope and kogaki#498 scopes hub-side
-  registration out by name, so the home is **not this spec's to take** —
-  unavailable here, never rejected. A later reader who *can* reach the hub
-  should read it that way.
-- **The expiry** requires an authority to dispose, and §4.2 denies the consumer
-  exactly that: emission is the duty, promotion is the hub's, and a candidate
-  may be ruled on only by the hub's gate. An emission deleted here would be
-  material **no gate ever saw** — destroyed rather than judged. So nothing
-  consumer-side can expire this class either.
-
-**The consequence, stated plainly rather than dressed as a third arm.** An
-earlier draft of this section called the instrument below "the expiry arm". It
-is not one: **nothing leaves this class, the population is monotonic by
-construction, and a rendered count is itself a new report-only row** — which by
-the same served line would owe its own home or expiry and could be given
-neither. Presenting it as an arm would have discharged the binary in appearance
-while leaving it unsatisfied in fact.
-
-**What this section installs instead is a DISCLOSURE, and it is owed rather
-than built.** The unsatisfiability above is invisible from the directory: a
-reader sees files accumulating and cannot tell a healthy backlog from one no
-gate will ever reach. So `policy/kit/bin/emit.mjs` **is to render**, at each
-emission, the count of undispositioned emissions and the age of the oldest.
-
-**IT DOES NOT DO SO AT THIS HEAD. The renderer is DEFERRED and its carrier is
-kogaki#505** — named here rather than left to be discovered, in the shape §4.5
-already uses one section above for its own deferred third part. Until #505
-lands, this paragraph is a specification of an instrument, never a claim that
-one exists; a reader meeting the clause must not read the disclosure as being
-in force.
-
-**Its siting, decided now so #505 implements rather than designs.** The
-observer is the **growth event itself** — the emission act — per the served
-rule:
-
-> "**site a check at a trigger that is its own subject, or give it its own
-> trigger.** … for each check, ask which run raises it and whether that run's
-> trigger can be false while the check's subject is true."
-
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/archive/claude-code-ops.md:24`
-  request_id: 50376547-9fef-4314-8a41-1233a3dd43a9
-  outcome: discriminating
-  query: defining a lifecycle for artifact states that have never occurred; a growing directory of candidates whose disposal act is unnamed; expiry or executable home decided when the class is introduced
-
-Emitting **is** the act that grows the directory, so the report cannot be
-absent while the subject grows — the anti-correlation that line warns about,
-avoided by construction rather than by care.
-
-**The blind spot, stated rather than minimised.** A repository that stops
-emitting stops reporting, so the disclosure is silent in exactly one state: the
-directory stagnant and ageing with no new sittings. That state is real and
-uncovered. **No second instrument is invented for it** — a second reader would
-be the check-suite growth this repository refuses elsewhere — and naming it is
-what lets a later reader tell a complete signal from a partial one.
-
-**The population, named rather than counted bare.** At the sitting that wrote
-this section (2026-08-18) the working tree held **125** emission files dated
-2026-08-09 onward, of which **114 were committed** at the head carrying this
-text; the remaining eleven were uncommitted, which is itself a departure from
-§4.3 and is carried separately. **Zero had ever been dispositioned** — the
-hub's mine ledger carried no kogaki rows. The figures are stated as a
-measurement on a dated population, never as a property of the directory, so a
-later reader re-counting and disagreeing has learned something rather than
-found an error.
-
-**"Apply it to the N", the licence's second half.** kogaki#498 asks that the
-lifecycle then be applied to the existing files. Under the finding above there
-is nothing to apply *to* them — neither arm exists, so no file changes state,
-and no file is touched by this amendment. What the population receives is the
-disclosure, and it covers every member by construction because it counts the
-directory rather than a subset. That coverage begins when **kogaki#505** lands,
-not here.
-
-**Distinct from §4.5 and from §7 q2, which cover a different absence.** §4.5's
-absence is *a sitting produced a durable learning and emitted nothing*; this
-one is *emissions exist and nothing has ruled on them*. Different absences,
-different observers, and §7 q2's deferred lane read is untouched — a reader who
-conflates them will think q2 was filled here, and it was not.
-
-**Not a cadence nudge; §4.6 stands.** Rendering a consumer-side backlog age
-reports a fact about this repository. It does not ask the hub to sweep, does
-not couple to the hub's cadence, and reaches no hub surface.
-
-**NAMED SLOT: the accepted and declined arms.** kogaki#498 also asks what an
-**accepted** emission's file owes and what a **declined** one's owes. Both are
-left undefined **deliberately**, because **zero emissions have ever reached
-either state** — designing them here would embed a shape against no instances,
-which the decide-or-name rule prices rather than permits:
-
-> "a sitting that leaves a design choice to the implementation either DECIDES
-> the fork there, consulting the substrate on it, or emits a NAMED SLOT whose
-> filling is itself a decision act … An UNNAMED deferral is the defect."
-
-`consulted: product-lab@8906f20752e27d1935c62f24c8ba41ea1d55dba0 topics/knowledge-architecture.md:60`
-  request_id: 50376547-9fef-4314-8a41-1233a3dd43a9
-  outcome: discriminating
-  query: defining a lifecycle for artifact states that have never occurred; a growing directory of candidates whose disposal act is unnamed; expiry or executable home decided when the class is introduced
-
-- **slot:** `emission-accepted-and-declined-lifecycle`
-- **trigger:** the first kogaki emission that the hub's gate disposes of, in
-  either direction.
-- **owed at fill:** choice, alternatives and receipt on its own licensing
-  issue, before any code or convention embeds a reading of it.
-
-**What this section does not do.** It deletes nothing, registers no check, adds
-no gate, mints no ledger, writes nothing to the hub, and — until kogaki#505 —
-puts no instrument in force.
+Later sections cite three clauses of the retired duty as precedent: §4.3
+(source sensitivity decides what a consumer may commit), §4.5 (an absence is
+reported, never gated) and §4.6 (cadence coupling declined). Those citations
+read against this note; the discipline each names stands in the citing
+section on its own ground.
 
 ## 5. What binds a consumer, and what binds the kit
 
@@ -600,10 +359,9 @@ puts no instrument in force.
 | §3.3 repo-visible, not committed (default) | the **kit's default**; a consumer may decide otherwise explicitly, in its own tree |
 | §3.4 refresh at sitting start | the **kit command**, and the sitting that runs it |
 | §3.5 awareness-never-substitution | every **sitting** |
-| §4.1–4.4 the emission duty and its format | every **sitting** in a kit-installed repo |
-| §4.5 visible absence | the **kit** (writer) and the **lane** (read) |
+| §4 the emission duty, retired | nobody since 2026-08-21; a durable learning goes to the hub by the hub's own route |
 | §8.1 Question/Answer/Conclusion, pins off the owner surface | every **sitting** |
-| §8.2 the emission itself | the **kit** (`consult.mjs`); the skill relays, and is never the sole carrier |
+| §8.2 the owner-register rendering the kit emits | the **kit** (`consult.mjs`); the skill relays, and is never the sole carrier |
 | §8.3 the pin-token deny | the **kit**, as a declared fast path only |
 | §9.1 the conduct-axis facet in the map template | the **kit** (seed); the consumer's own map thereafter |
 | §9.2 the `axis:` key's SHAPE | the consuming repo's `specs/SPEC.md` §4; the **hub** owns its values |
@@ -616,7 +374,8 @@ puts no instrument in force.
 
 - **A gateway `shape` endpoint** — §3.2, with its reopen trigger.
 - **Hub sweep cadence** — §4.6.
-- **Promotion of any emission** — §4.2; the hub's gate is the sole path.
+- **Promotion of any emission** — the duty is retired (§4); a durable learning
+  reaches the hub's gate by the hub's own route, never from a file here.
 - **A gate on either clause** — §3.5 and §4.5; both are obligations, and this
   spec's carriers are reports.
 - **A positive admission test at the owner-surface seam** — §7 q4, named and
@@ -646,9 +405,9 @@ puts no instrument in force.
    the unscoped tier-1 index — is undecided. Implementations render the empty
    case explicitly rather than choosing silently, per this repository's
    standing zero-rendering discipline.
-2. **Whether the lane read of §4.5 is one read or per-lane.** Stated as a
-   question because a per-lane answer is the enumeration shape this repository
-   refuses elsewhere, and a single read has no obvious home yet.
+2. ~~**Whether the lane read of §4.5 is one read or per-lane.**~~ **CLOSED
+   2026-11-07 (kogaki#1631):** the duty and its lane read were retired with §4;
+   the question has no subject. Struck rather than deleted, as item 3 is.
 3. ~~**Where the §3.4 spec-sitting pre-step lives.**~~ **FILLED 2026-08-10
    (kogaki#334):** a kit-provided step, `shape.mjs --delta`, invoked by
    `commands/spec-sitting.md` — decided at §3.4 with its grounds, alternatives and
@@ -662,16 +421,10 @@ puts no instrument in force.
    its own consult and receipt. **This is a NAMED SLOT, not an omission** — the
    distinction §3.4 above now turns on.
 
-5. **What an ACCEPTED and a DECLINED emission's file owes** (§4.7). The
-   post-disposition lifecycle's other two states. (§4.7's own finding is that
-   **neither served arm — executable home nor expiry — is available at this
-   consumer**; this slot is about the two states, not about those arms.) **This is a NAMED SLOT, not an
-   omission**, and it is named on evidence rather than on caution: at the head
-   that added §4.7, **zero** kogaki emissions had ever been dispositioned in
-   either direction, so both arms would have been designed against no
-   instances. Slot `emission-accepted-and-declined-lifecycle`; **trigger:** the
-   first kogaki emission the hub's gate disposes of. Filling it is its own
-   decision act with its own consult and receipt, per §4.7.
+5. ~~**What an ACCEPTED and a DECLINED emission's file owes** (§4.7).~~ **CLOSED
+   2026-11-07 (kogaki#1631):** the hub retired the duty on 2026-08-21 (§4) and no
+   emission will be dispositioned, so the slot
+   `emission-accepted-and-declined-lifecycle` is withdrawn rather than filled.
 
 ## 8. The owner-register rendering of a consultation (kogaki#320)
 
@@ -1022,10 +775,10 @@ point currency is the distributor's property and this check has no subject.
 **No consumer is kit-installed at its committed state.** Read live 2026-09-03:
 `tim-nish/claude-toolkit` on `main` tracks nothing of the kit — `git ls-files
 policy .claude/skills/consult-first checks` returns empty and `CLAUDE.md`
-carries no `tsurezure-client-kit:begin` marker; the `policy/emissions/` and
-`policy/shape.md` present in that working copy are untracked kit *outputs*, not
-the kit. So §0's "claude-toolkit is its first staleness consumer" describes an
-intent, not an instantiation.
+carries no `tsurezure-client-kit:begin` marker; the `policy/emissions/` (written
+under the duty §4 has since retired) and `policy/shape.md` present in that
+working copy are untracked kit *outputs*, not the kit. So §0's "claude-toolkit
+is its first staleness consumer" describes an intent, not an instantiation.
 
 The consequence is stated rather than discovered: **the reporting direction is
 exercised against a deliberately-stale FIXTURE**, never against a live second
