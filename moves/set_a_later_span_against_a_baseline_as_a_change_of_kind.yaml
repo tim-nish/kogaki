@@ -3,22 +3,6 @@ description: >-
   Sets a later span against a fixed earlier one as a change of kind, makes it
   picturable with instances, restates it plainly, then draws the consequence
   that follows.
-before:
-  knowledge: >-
-    holds a characterization of a past span on both what its cases turned on and
-    who took part in them
-  question: wants to know whether what held in that span still holds
-  expectation: >-
-    expects the next stretch to set a later state against the one just fixed
-after:
-  knowledge: >-
-    holds a contrast between two spans on both of those counts, and a
-    consequence drawn from it
-  question: wants to know what the way of looking just named actually shows
-  expectation: >-
-    expects the next stretch to take up the way of looking the consequence named
-  orientation: >-
-    places this as an account that explains why a way of looking came to matter
 breaks:
   - >-
     drop the instances and keep only the abstract difference — the reader has
@@ -58,3 +42,8 @@ segments:
       way of looking came to attract attention
     relation: >-
       takes the features just named as a cause and states what they produced
+takes: []
+leaves:
+  - kind: explain
+    what: a way of looking named as having drawn attention
+    segment: 4

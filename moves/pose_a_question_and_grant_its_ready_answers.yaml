@@ -2,25 +2,6 @@ id: pose_a_question_and_grant_its_ready_answers
 description: >-
   Puts a plain question to the reader, concedes that many answers are already
   available, then runs through them to the most abstract, settling on none.
-before:
-  knowledge: everyday impressions only, with no specialist footing on the matter
-  question: none held about this text's matter
-  expectation: no expectation of what the text will do first
-  trust: >-
-    neutral, with no sense yet of how the author will treat the reader's own
-    opinions
-after:
-  knowledge: >-
-    holds that the matter raised already has several commonly offered
-    explanations
-  question: >-
-    wants to know which of the offered explanations, if any, actually holds
-  expectation: >-
-    expects the next step to sort among the explanations just granted or to set
-    them aside
-  trust: >-
-    slightly raised, since the opening allows that explanations other than the
-    text's own are reasonable
 breaks:
   - >-
     cut the opening question and begin from the answers — the reader is handed
@@ -52,3 +33,11 @@ segments:
     relation: >-
       fills the general admission of the step before it with instances, widening
       as it goes
+takes: []
+leaves:
+  - kind: answer
+    what: a question about why a condition persists, left standing
+    segment: 1
+  - kind: apply
+    what: a most abstract general statement reached at a series' end
+    segment: 3

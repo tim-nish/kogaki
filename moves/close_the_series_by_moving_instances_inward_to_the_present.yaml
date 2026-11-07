@@ -3,23 +3,6 @@ description: >-
   Closes a series of recurrences by overturning the calm before it, then setting
   down instances that step from a remote one to the nearest, ending on how
   people there came to feel.
-before:
-  knowledge: >-
-    holds that attention fell away as the driving conditions eased, and that the
-    calm produced a widely held claim that the old pattern was finished
-  question: >-
-    holds what overturned a widely held claim that the old pattern had ended for
-    good
-  expectation: >-
-    expects the remaining episode to arrive as a reversal of the settled calm
-    just laid out
-after:
-  knowledge: >-
-    holds that the calm ended and that the pattern's last recurrence runs up to
-    the reader's own time and place
-  question: >-
-    holds whether the present moment is itself one of the pattern's recurrences
-  expectation: expects the completed series to be put to use in what follows
 breaks:
   - >-
     drop the opening turn and begin with the first instance — the instances read
@@ -52,3 +35,8 @@ segments:
     relation: >-
       completes the inward movement the previous step began by arriving at the
       nearest setting of all
+takes: []
+leaves:
+  - kind: explain
+    what: a resulting state of feeling named at the close, not yet explained
+    segment: 4

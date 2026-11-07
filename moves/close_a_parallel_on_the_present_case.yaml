@@ -3,32 +3,6 @@ description: >-
   Closes a parallel by naming the present counterparts of an already walked
   earlier case, then stating in one mirrored line that what arose for the first
   is reviving for the second.
-before:
-  knowledge: >-
-    holds that a like configuration arose in the earlier case, how it was held
-    steady, and what began to break it
-  question: >-
-    wants to know whether the course the earlier case ran is the one now being
-    run again
-  expectation: >-
-    having had the earlier case walked, expects the account to turn it onto the
-    case at hand
-  orientation: >-
-    places this as a text that reads the present through a parallel with a case
-    already run
-after:
-  knowledge: >-
-    holds the present case matched to the earlier one party for party, and the
-    present purpose of what arose stated
-  question: >-
-    has that answered in principle and now wants to know what the revived
-    guidance actually prescribes
-  expectation: >-
-    having had the comparison completed and the present purpose named, expects
-    what follows to work that purpose out in detail
-  orientation: >-
-    places this as a text that treats the earlier case as its working instrument
-    for the present rather than as illustration
 breaks:
   - >-
     assert the match and never spell out the present side — the reader keeps a
@@ -67,3 +41,16 @@ segments:
     manner: >-
       a mirrored construction setting the earlier case against the present inside
       one statement, given without elaboration
+takes:
+  - kind: carry
+    what: a structure drawn from an earlier case, available for a present subject
+leaves:
+  - kind: answer
+    what: whether the surrounding arrangement holds once the standing position is rivalled
+    segment: 2
+  - kind: explain
+    what: an instrument that arose from the earlier case to serve it
+    segment: 3
+  - kind: carry
+    what: the earlier case's remedy, to be carried onto the present subject
+    segment: 3

@@ -3,28 +3,6 @@ description: >-
   Sets out a domain's governing condition, reruns it where the reader already
   lives until the resulting condition can be named, then carries the name back
   and defines its remaining term.
-before:
-  knowledge: no specialized knowledge of the field, only everyday experience
-  question: >-
-    none formed beyond whether an unfamiliar subject can be followed at all
-  expectation: >-
-    expects an unfamiliar subject to open with definitions to be memorised
-  orientation: no placing of this text among others on the same subject
-  trust: neutral toward an unfamiliar author
-after:
-  knowledge: >-
-    holds a governing condition, the name of the evened-out condition it
-    produces, and a rough sense of how that is measured
-  question: >-
-    wants to know how the evened-out condition is judged in particular cases
-  expectation: >-
-    expects the next stretch to apply the named condition to particular cases
-  orientation: >-
-    places this as a text that builds from ordinary experience rather than from
-    definitions
-  trust: >-
-    raised, as the speaker admits a limit in the measure and gives a case that
-    runs against its obvious reading
 breaks:
   - >-
     cut the transposition into familiar surroundings and argue the principle
@@ -81,3 +59,11 @@ segments:
     relation: >-
       supplies the one term the preceding account used without ever explaining
       it
+takes: []
+leaves:
+  - kind: apply
+    what: a general condition now established of the wider domain, awaiting use on cases
+    segment: 5
+  - kind: answer
+    what: how to tell the defined condition where its outward marks mislead
+    segment: 6

@@ -3,23 +3,6 @@ description: >-
   Runs a just-defined ordering on one case from the reader's own experience:
   each part is assigned its place, then the places are shown to depend on one
   another.
-before:
-  knowledge: >-
-    holds every position of the ordering in a compact form recallable without
-    its defining lines
-  expectation: >-
-    expects the ordering, now in its most compact form, to be turned on the
-    material at once
-after:
-  knowledge: >-
-    has seen the ordering carried out once on an ordinary case needing no
-    expertise
-  expectation: >-
-    expects the ordering, now rehearsed on an ordinary case, to be turned on the
-    material next
-  trust: >-
-    raised: an abstract ordering is shown to hold on a case checkable without
-    expertise
 breaks:
   - >-
     replace the ordinary case with one drawn from the work's own material — the
@@ -49,3 +32,10 @@ segments:
     relation: >-
       takes the same assignment and runs it in the opposite direction, from the
       top downward.
+takes:
+  - kind: apply
+    what: an ordering given earlier, to be shown in one case
+leaves:
+  - kind: apply
+    what: a descending sequence of requirements, to be put to work
+    segment: 3

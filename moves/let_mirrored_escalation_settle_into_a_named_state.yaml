@@ -3,32 +3,6 @@ description: >-
   Carries a small imagined case through a mirrored escalation to the point where
   both sides are matched, then names that settled end with the subject's own
   term.
-before:
-  knowledge: >-
-    also holds that the same remedy taken up by another party leaves one unable
-    to withstand it
-  question: >-
-    holds the sharpened question of what anyone can do once the remedy is
-    equally open to others
-  expectation: >-
-    having seen a difficulty raised inside the small-scale case, expects the
-    next step to follow out where that difficulty leads
-  trust: >-
-    raised somewhat, the writer having carried an argument through a case the
-    reader can test from ordinary life
-after:
-  knowledge: >-
-    holds that mutual escalation can settle into a matched condition where
-    neither side gains by striking, and holds a term for that condition
-  question: >-
-    holds that question answered, and now wants to know whether the settled
-    condition carries over from the small-scale case to the larger one
-  expectation: >-
-    the case having been carried through to a settled end, expects the next step
-    to transfer that result to the larger subject
-  trust: >-
-    raised further, a technical term having been earned by a chain the reader
-    could check step by step
 breaks:
   - >-
     give the term at the opening and then explain it — the label arrives before
@@ -77,3 +51,10 @@ segments:
   - operation: draws out what the named condition rules out.
     relation: >-
       restates the named condition as the consequence it has for either side.
+takes:
+  - kind: apply
+    what: a general claim about what a party is driven to do, to be put to work on a case
+leaves:
+  - kind: apply
+    what: a settled condition and what it rules out, to be put to work on cases
+    segment: 7

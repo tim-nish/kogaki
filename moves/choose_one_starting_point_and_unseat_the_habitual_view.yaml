@@ -3,31 +3,6 @@ description: >-
   Leaves the starting point open, grants the alternatives, names the one chosen,
   then surfaces the reader's habitual view and corrects it by saying the chosen
   one acts unnoticed.
-before:
-  knowledge: >-
-    nothing of the subject beyond ordinary impressions, and no sense that a
-    starting point has to be chosen
-  question: none settled, at most whether this text is worth entering
-  expectation: >-
-    expects an opening that defines its subject or lists what it covers
-  orientation: >-
-    places the text among undifferentiated general accounts of its subject
-  trust: neutral, with no reason yet to credit or doubt the speaker
-after:
-  knowledge: >-
-    holds one named starting point as the work's primary one and knows it is
-    claimed to act unnoticed
-  question: >-
-    wants to know how something that acts unnoticed can be shown to act at all
-  expectation: >-
-    expects the following text to show the chosen starting point at work where
-    it goes unseen
-  orientation: >-
-    places the text as one that selects a single starting point among several it
-    has granted
-  trust: >-
-    raised: the alternatives are granted their standing and the reader's own
-    customary view is named before being corrected
 breaks:
   - >-
     name the chosen starting point at once without granting the alternatives —
@@ -74,3 +49,8 @@ segments:
       accounts for the underestimation by stating that the influence operates
       without being noticed.
     relation: gives the ground for the counter-claim made in the step before it.
+takes: []
+leaves:
+  - kind: apply
+    what: a general claim of wider reach, to be shown in cases
+    segment: 6

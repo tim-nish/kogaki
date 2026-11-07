@@ -3,25 +3,6 @@ description: >-
   Credits the instances already given without reserve, then names a residual
   lack in them, and grounds that lack in one distinction between two kinds of
   account.
-before:
-  knowledge: >-
-    holds a second instance of the same kind and the structure it depicts
-  question: wants to know what these recurring instances do and fail to do
-  expectation: >-
-    expects what the instances so far have in common to be turned to account
-  trust: >-
-    raised: a general claim was backed by a case the reader can check unaided
-after:
-  knowledge: >-
-    holds a distinction between what the instances supply and what they omit
-  question: wants the omitted kind of explanation supplied
-  expectation: expects the stated gap to be filled by what follows
-  orientation: >-
-    places this as a work that departs from the standard treatments it has been
-    surveying
-  trust: >-
-    raised further: credit is given to the familiar accounts before any
-    objection is made
 breaks:
   - >-
     drop the opening concession and open on the reservation — the reader hears a
@@ -55,3 +36,13 @@ segments:
       side
     relation: >-
       supplies the reason the reservation was withheld from in the step before
+takes:
+  - kind: explain
+    what: items already set out, taken up and credited before assessment
+leaves:
+  - kind: apply
+    what: a two-sided distinction stated, left to be put to work
+    segment: 3
+  - kind: explain
+    what: an element declared unexplained, left for explanation
+    segment: 3

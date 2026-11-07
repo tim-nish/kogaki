@@ -3,29 +3,6 @@ description: >-
   Sets aside the explanations just granted by announcing a change of angle, puts
   one narrower question in their place, then names the single contrast its
   answer will turn on.
-before:
-  knowledge: >-
-    holds that the matter raised already has several commonly offered
-    explanations
-  question: >-
-    wants to know which of the offered explanations, if any, actually holds
-  expectation: >-
-    expects the next step to sort among the explanations just granted or to set
-    them aside
-  orientation: >-
-    places this among ordinary writing on the matter, with no sense of its
-    stance
-after:
-  knowledge: >-
-    also holds that the answer turns on a difference between a contrasting pair
-    of settings
-  question: >-
-    holds the narrower question put in place of the earlier ones and wants it
-    answered
-  expectation: expects the next step to work out the contrast just named
-  orientation: >-
-    places this as writing that redirects the matter onto one structural
-    contrast rather than canvassing views
 breaks:
   - >-
     drop the announcement of the change of angle and ask the new question
@@ -53,8 +30,11 @@ segments:
     relation: >-
       it withholds an answer to the question just posed and instead names where
       that answer will be found
-obligation:
-  - item: the single question posed from the shifted vantage point
-    subitems:
-      - the first of the two contrasted settings
-      - the second of the two contrasted settings
+takes: []
+leaves:
+  - kind: answer
+    what: a narrowly drawn question posed and left standing unanswered
+    segment: 2
+  - kind: explain
+    what: a contrasted pair of settings named as where the answer turns
+    segment: 3

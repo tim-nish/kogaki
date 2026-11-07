@@ -3,32 +3,6 @@ description: >-
   Defines a term by the capacity it stands for, admits it cannot be measured
   exactly, shows the obvious indicator misleading, then restores the rough
   distinction with undisputed extremes.
-before:
-  knowledge: >-
-    holds that the matched condition and its name apply at the wider scale,
-    reached there by the same steps
-  question: >-
-    holds the transfer question answered, and now wants to know what the named
-    general condition accounts for
-  expectation: >-
-    expects the next step to put the named general condition to work on the
-    wider subject
-  trust: >-
-    raised further, a technical term having been earned by a chain the reader
-    could check step by step
-after:
-  knowledge: >-
-    holds a working definition of the named condition's central quantity, known
-    to be only approximate
-  question: >-
-    holds the definitional question settled and still wants what the named
-    condition accounts for
-  expectation: >-
-    expects the next step to return to the wider subject now that the central
-    quantity is pinned down
-  trust: >-
-    raised again, a limit on the term's precision having been admitted before
-    any use is made of it
 breaks:
   - >-
     drop the admission that the quantity cannot be measured exactly — the
@@ -80,3 +54,10 @@ segments:
     relation: >-
       settles the definition that the preceding qualification and affirmation
       have bracketed from both sides
+takes:
+  - kind: explain
+    what: a term named, to be explained by naming the capacity it stands for
+leaves:
+  - kind: apply
+    what: a term's sense fixed at rough magnitude, to be put to work
+    segment: 8

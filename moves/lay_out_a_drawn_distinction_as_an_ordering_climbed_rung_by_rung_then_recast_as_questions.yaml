@@ -3,19 +3,6 @@ description: >-
   Sorts a distinction just drawn into a graded series: announces it, defines
   each position by what the one above requires, closes at the top, then recasts
   every position as parallel plain questions.
-before:
-  knowledge: >-
-    holds a two-sided distinction between what the instances supply and what
-    they omit
-  expectation: expects the stated gap to be filled by what follows
-after:
-  knowledge: >-
-    holds the distinction as an ordered series of positions, each defined
-    against the one above it, and holds every position in a compact form
-    recallable without its defining lines
-  expectation: >-
-    expects the ordering, now in its most compact form, to be turned on the
-    material at once
 breaks:
   - >-
     begin the positions without announcing that a series is coming — the reader
@@ -64,3 +51,10 @@ segments:
     manner: >-
       a shift of form, each position voiced as a bare question rather than as a
       description
+takes:
+  - kind: apply
+    what: a distinction already drawn, to be set out as ordered positions
+leaves:
+  - kind: apply
+    what: a completed ordering of positions, to be put to work on cases
+    segment: 4

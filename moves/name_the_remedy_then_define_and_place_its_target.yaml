@@ -3,21 +3,6 @@ description: >-
   Asks the reader's own 'how' question, answers it with one named measure,
   defines the single new category that measure targets, then fixes the category
   on a case the reader already holds.
-before:
-  knowledge: >-
-    holds a named extreme case and a rule against its arising treated as
-    universal, and still holds the worked case with its assigned quantities
-  question: wants to know how such a rule is acted on in practice
-  expectation: >-
-    expects what follows to turn a general principle into means of acting on it
-after:
-  knowledge: >-
-    also holds a named measure for meeting the rule and a defined category of
-    cases it targets
-  question: wants to know what the named measure consists of when it is applied
-  expectation: >-
-    expects what follows to show the named measure in action now that its target
-    is defined and illustrated
 breaks:
   - >-
     use the new term immediately without defining it — the reader meets a label
@@ -65,3 +50,10 @@ segments:
     manner: >-
       spoken as a continuation of the preceding sentence rather than as a
       self-standing one
+takes:
+  - kind: apply
+    what: a general rule already stated, standing to be put into practice
+leaves:
+  - kind: answer
+    what: what follows should the case cross the limit it approaches
+    segment: 5

@@ -3,26 +3,6 @@ description: >-
   Opens on an everyday instance whose decisive cause goes unremarked, likens the
   subject's governing factor to it on one shared property, shows it outlasts its
   rivals, then draws the governing claim.
-before:
-  knowledge: no specialized knowledge of the subject beyond everyday experience
-  question: none, or whether this text is worth entering
-  expectation: a definition of the subject or a survey of its topics
-  orientation: treats this as one more introductory text on a subject with many
-  trust: neutral
-after:
-  knowledge: >-
-    holds one named factor as the most basic and most stable determinant in the
-    subject
-  question: wants to know how the named factor decides particular cases
-  expectation: >-
-    expects the work to derive its explanations from the single factor it has
-    named
-  orientation: >-
-    places this text beneath the other introductory texts, as the account of
-    what they take for granted
-  trust: >-
-    raised: the central claim rests on a fact the reader can check for
-    themselves
 breaks:
   - >-
     replace the everyday instance with a technical example from the subject —
@@ -65,3 +45,8 @@ segments:
     relation: >-
       draws the conclusion the stability just established was there to license
     manner: stated flatly in one short sentence and left without elaboration
+takes: []
+leaves:
+  - kind: apply
+    what: a governing claim with its reason, to be put to work on cases
+    segment: 4

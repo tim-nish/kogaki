@@ -3,32 +3,6 @@ description: >-
   Spells out how the arrangement just named would do the missing work, then
   names a figure of standing who proposed the same thing, so the idea reads as
   serious rather than invented.
-before:
-  knowledge: >-
-    now holds what would have to be brought into being for the missing capacity
-    to exist at all
-  question: >-
-    has the remedy named and now wants whether a remedy of that size could ever
-    be brought about
-  expectation: >-
-    the remedy having been named, expects the text to weigh whether it could be
-    reached
-  trust: >-
-    further raised, since the point that tells against the argument is granted
-    before the argument presses on
-after:
-  knowledge: >-
-    now holds what the arrangement would be able to do once in place, and that
-    it has been put forward before by someone other than the writer
-  question: >-
-    having seen the remedy work on paper and once advanced in earnest, now wants
-    why it has not come about
-  expectation: >-
-    the workings and a real precedent now given, expects the text to account for
-    why it has not been reached
-  trust: >-
-    raised again, since the position is shown to rest on more than the writer's
-    own say-so
 breaks:
   - >-
     cut the outside attribution — the arrangement reads as the writer's own
@@ -57,3 +31,13 @@ segments:
       backs the step just made by showing the position was advanced in earnest
       by someone other than the writer
     manner: a single bare attribution, offered with no elaboration
+takes:
+  - kind: explain
+    what: an arrangement named but not yet shown in its working
+leaves:
+  - kind: apply
+    what: a conditional general claim about an arrangement, awaiting a case
+    segment: 1
+  - kind: explain
+    what: an earlier authority invoked but not yet accounted for
+    segment: 2

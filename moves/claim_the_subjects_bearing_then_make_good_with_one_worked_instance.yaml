@@ -3,19 +3,6 @@ description: >-
   Opens with one unhedged claim that the subject bears on the present, then
   makes good with one concrete instance: names it, works it to the point it
   makes plain, extends it to a second matter.
-before:
-  knowledge: no specialised knowledge of the subject
-  question: nothing settled beyond whether the subject is worth their attention
-  expectation: no settled expectation of what the text will do first
-  trust: neutral, with no reason yet to credit or doubt the author
-after:
-  knowledge: >-
-    holds one worked instance of how the subject bears on present circumstances
-  question: wants to know whether a single such instance stands for the whole
-  expectation: >-
-    expects further instances of the same kind or a return to the general claim
-  trust: >-
-    raised: a general claim was backed by a case the reader can check unaided
 breaks:
   - >-
     hedge the opening claim with a qualifier — nothing is claimed that what
@@ -57,3 +44,11 @@ segments:
     relation: >-
       adds a further yield of the same instance beyond the one just drawn from it
     manner: a short addition set down and left without elaboration
+takes: []
+leaves:
+  - kind: apply
+    what: a general point one worked instance makes plain, awaiting wider use
+    segment: 3
+  - kind: explain
+    what: a second matter the same instance is extended to account for
+    segment: 4

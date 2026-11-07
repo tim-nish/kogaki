@@ -3,29 +3,6 @@ description: >-
   Asserts a pattern holds anywhere, then runs cases from distant eras and an
   everyday sphere, one worked out role by role, and closes by raising them to a
   rule that holds everywhere.
-before:
-  knowledge: >-
-    holds a stated pattern shown so far only in the sphere where it was first
-    stated
-  question: wants to know whether the pattern holds beyond that sphere
-  expectation: >-
-    expects the pattern either bounded to its sphere or shown beyond it
-  orientation: >-
-    places this text as relaying a long-standing doctrine rather than an
-    author's own proposal
-after:
-  knowledge: >-
-    holds the pattern as recurring across settings of every kind, not only in
-    the one where it was first stated
-  question: >-
-    wants to know what a rule said to hold everywhere implies for the case at
-    hand
-  expectation: >-
-    expects the next stretch to turn to new matter, the pattern having been
-    closed as a rule holding everywhere
-  orientation: >-
-    places the text as relaying a rule that reaches past its own sphere into
-    ordinary affairs
 breaks:
   - >-
     cut the case drawn from a sphere far from the original one — the claim to
@@ -79,3 +56,10 @@ segments:
     relation: >-
       closes the series by raising the accumulated cases back to the claim the
       opening step made
+takes:
+  - kind: apply
+    what: a general claim given earlier, to be shown at work in instances
+leaves:
+  - kind: apply
+    what: a rule stated as holding everywhere, to be put to work on cases
+    segment: 7

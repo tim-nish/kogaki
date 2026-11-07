@@ -3,29 +3,6 @@ description: >-
   Works out the near side of a contrast from an everyday instance: what happens
   on a breach, the rule behind it, its enforcement, then the principle that one
   body holds the decisive capacity.
-before:
-  knowledge: >-
-    also holds that the answer turns on a difference between a contrasting pair
-    of settings
-  question: >-
-    holds the narrower question put in place of the earlier ones and wants it
-    answered
-  expectation: expects the next step to work out the contrast just named
-  trust: >-
-    slightly raised, since the opening allows that explanations other than the
-    text's own are reasonable
-after:
-  knowledge: >-
-    now holds a worked account of the near setting, in which one body holds the
-    decisive capacity and so forestalls its use by anyone else
-  question: >-
-    holds the question half answered and wants the far side of the pair treated
-    the same way
-  expectation: >-
-    expects the other side of the pair to be worked through on the same terms
-  trust: >-
-    further raised, since the account starts from an everyday instance the
-    reader can check unaided
 breaks:
   - >-
     state the general principle at the head and drop the everyday instance — the
@@ -66,3 +43,16 @@ segments:
       decisive capacity in a single body, and names what that securing achieves
     relation: >-
       gathers the preceding steps into the conclusion they jointly support
+takes:
+  - kind: apply
+    what: a division of cases given before, one part of it taken up here
+leaves:
+  - kind: apply
+    what: the remaining parts of a division, left to be taken up later
+    segment: 1
+  - kind: apply
+    what: a general principle concluded at the close, to be put to work on cases
+    segment: 5
+  - kind: explain
+    what: the achievement named for that securing, left to be explained
+    segment: 5

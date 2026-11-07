@@ -3,27 +3,6 @@ description: >-
   Asserts a likeness between the present case and one whose course has already
   run, fills the earlier case in with checkable particulars and what it gave
   rise to, then maps it onto the present.
-before:
-  knowledge: no specialized knowledge of the subject beyond everyday awareness
-  question: none in particular, beyond whether the subject is worth attention
-  expectation: expects a general explanation pitched at a newcomer
-  orientation: >-
-    treats this as one more general account among many on the same subject
-  trust: neutral, with no reason yet to credit or doubt the author
-after:
-  knowledge: >-
-    holds an earlier case already run and what it gave rise to as settled
-    background
-  question: >-
-    wants to know whether the earlier case's outcome will repeat in the present
-  expectation: >-
-    expects what follows to work the present situation out through the earlier
-    case
-  orientation: >-
-    places this text as one that reads the present through a worked-out
-    precedent
-  trust: >-
-    raised, because a broad claim is carried by checkable particulars
 breaks:
   - >-
     name the parties of the earlier case without placing it in time — the earlier
@@ -63,3 +42,10 @@ segments:
     relation: >-
       completes the comparison by returning to the present named at the start,
       now backed by the intervening particulars
+takes:
+  - kind: explain
+    what: a case already named, its character still to be set out
+leaves:
+  - kind: apply
+    what: a purpose carried from the earlier case onto the present one
+    segment: 4

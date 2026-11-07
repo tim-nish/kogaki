@@ -3,22 +3,6 @@ description: >-
   Turns a general requirement into a small invented case with explicit
   quantities, adds them up to show the shortfall, then names the outcome that
   shortfall forces.
-before:
-  knowledge: holds a single requirement and the outcome its absence would permit
-  question: wants to know how the named requirement can be kept in practice
-  expectation: expects what follows to show how the requirement is upheld
-  trust: neutral toward the author
-after:
-  knowledge: >-
-    holds a worked case in which combined lesser quantities still fall short of
-    a single larger one
-  question: wants to know what can be done once combination alone falls short
-  expectation: >-
-    expects the next step to carry the worked case back to the general
-    requirement
-  trust: >-
-    raised slightly: the claim is laid out in figures the reader can check
-    unaided
 breaks:
   - >-
     Enlarge the imagined case to many more parts — the reader can no longer
@@ -53,3 +37,13 @@ segments:
       unavoidable
     relation: >-
       takes the mismatch just established and states what it forces in practice
+takes:
+  - kind: apply
+    what: a general claim given earlier, to be shown at work in a constructed case
+leaves:
+  - kind: carry
+    what: a fully worked small case whose structure can be carried onto the wider subject
+    segment: 4
+  - kind: apply
+    what: an outcome stated as unavoidable, to be put to work on further cases
+    segment: 4

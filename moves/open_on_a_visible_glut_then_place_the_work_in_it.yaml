@@ -3,26 +3,6 @@ description: >-
   Opens on a plainly visible state of the subject's field that anyone can check,
   surveys the crowded variants, sets them against the wider trend, and seats the
   present work among them.
-before:
-  knowledge: >-
-    no specialised knowledge of the subject and nothing about its standing
-  question: nothing settled, at most whether this is worth reading
-  expectation: >-
-    expects an opening that defines the subject or lays out what is to come
-  orientation: no sense of how this text sits among others on its subject
-  trust: neutral, with no basis for judging the speaker
-after:
-  knowledge: >-
-    holds that the subject sustains a distinct and growing body of work within a
-    market otherwise flat
-  question: holds why this subject alone should be in such demand
-  expectation: >-
-    expects the demand just described to be accounted for, the survey of the
-    field being complete
-  orientation: places the text as one entry among many in an established field
-  trust: >-
-    raised, the speaker having opened on a fact the reader can confirm for
-    themselves rather than on a claim
 breaks:
   - >-
     state the exception without the spread of variants before it — the exception
@@ -55,3 +35,8 @@ segments:
       locates the work at hand within the category the step before brought into
       being.
     manner: a hedged forecast rather than a flat assertion.
+takes: []
+leaves:
+  - kind: explain
+    what: a standing just assigned to the work at hand, awaiting its substance
+    segment: 4

@@ -3,29 +3,6 @@ description: >-
   Grants that a prohibition exists, withdraws the body that would impose it, and
   turns the resulting gap into why some parties expect no penalty and act on
   that.
-before:
-  knowledge: >-
-    now holds that the second setting has no such body, so nothing forestalls
-    the decisive capacity being used
-  question: >-
-    holds both sides of the pair treated and wants what follows from the absence
-  expectation: expects the consequence of the absence to be drawn out next
-  trust: >-
-    further raised, since the account starts from an everyday instance the
-    reader can check unaided
-after:
-  knowledge: >-
-    now holds that a standing prohibition with nothing to compel it leaves
-    conduct unchecked
-  question: >-
-    has what follows from the absence and now wants whether the missing capacity
-    could ever be supplied
-  expectation: >-
-    the consequence having been drawn, expects the text to turn to whether
-    anything could fill what is missing
-  trust: >-
-    further raised, since the point that tells against the argument is granted
-    before the argument presses on
 breaks:
   - >-
     drop the opening concession and state only the absence — the reader's
@@ -58,3 +35,10 @@ segments:
     manner: >-
       the reckoning is voiced as the parties' own words rather than described
       from outside
+takes:
+  - kind: apply
+    what: a stated rule granted as formally in force, to be put to work
+leaves:
+  - kind: apply
+    what: a general tendency of conduct inferred, to be shown in instances
+    segment: 3

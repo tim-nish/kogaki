@@ -3,26 +3,6 @@ description: >-
   Turns the remedy just granted against the reader: a one-line signal of
   trouble, a hypothetical put as a question, a short answer, then the reason for
   it.
-before:
-  knowledge: >-
-    also holds what providing for oneself consists of concretely at the scale of
-    a single person
-  question: >-
-    has the first half answered at the small scale and still wants to know what
-    follows when all parties do the same at once
-  expectation: >-
-    having seen the reasoning carried through one small-scale case, expects the
-    next step to carry the same reasoning back to the larger scale
-after:
-  knowledge: >-
-    also holds that the same remedy taken up by another party leaves one unable
-    to withstand it
-  question: >-
-    holds the sharpened question of what anyone can do once the remedy is
-    equally open to others
-  expectation: >-
-    having seen a difficulty raised inside the small-scale case, expects the
-    next step to follow out where that difficulty leads
 breaks:
   - >-
     state the difficulty as a general proposition instead of asking it as a
@@ -56,3 +36,7 @@ segments:
       gives the ground for the stated reaction by naming what the weaker party
       could not do against a stronger one
     relation: supplies the reason for the answer just given
+takes:
+  - kind: apply
+    what: a general claim standing, to be tested against a troubling case
+leaves: []

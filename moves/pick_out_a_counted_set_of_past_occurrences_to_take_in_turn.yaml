@@ -3,25 +3,6 @@ description: >-
   Turns a recurrence already claimed in general terms into a counted set of
   past occurrences, named in their places, giving the reader a frame for the
   account that takes them one at a time.
-before:
-  knowledge: >-
-    holds a named cause for the present demand, and that such demand has
-    recurred whenever conditions worsened
-  expectation: >-
-    expects the named cause to be unfolded, the account of the demand being
-    complete
-  trust: >-
-    raised, the speaker having opened on a fact the reader can confirm for
-    themselves rather than on a claim
-after:
-  knowledge: >-
-    holds that the recurrence has a counted set of occurrences, each with its
-    place in the past
-  expectation: >-
-    expects the occurrences to be taken in turn, their set being now fixed
-  trust: >-
-    raised further, the general tendency now resting on something the reader
-    could check
 breaks:
   - >-
     assert the occurrences without showing what they were read off — the reader
@@ -48,3 +29,10 @@ segments:
     manner: >-
       the set is read off one checkable quantity rather than asserted, and each
       occurrence is placed in time
+takes:
+  - kind: apply
+    what: a stated general recurrence, to be shown in its own instances
+leaves:
+  - kind: explain
+    what: a counted set of named occurrences, each to be explained in turn
+    segment: 1

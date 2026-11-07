@@ -3,14 +3,6 @@ description: >-
   Names the single requirement a large stated aim depends on, then gives the
   consequence that would follow without it, so one claim arrives with its ground
   attached.
-before:
-  knowledge: holds a stated large-scale aim and nothing of what it depends on
-  question: none yet about how the aim is secured
-  expectation: no belief about what the text will do next
-after:
-  knowledge: holds a single requirement and the outcome its absence would permit
-  question: wants to know how the named requirement can be kept in practice
-  expectation: expects what follows to show how the requirement is upheld
 breaks:
   - >-
     drop the consequence and leave the requirement alone — the claim stands as a
@@ -33,3 +25,10 @@ segments:
     relation: >-
       supplies the ground for the requirement just named by stating what its
       absence would permit
+takes:
+  - kind: apply
+    what: a broad aim stated earlier, to be worked out in what it requires
+leaves:
+  - kind: apply
+    what: a stated consequence of the requirement's failure, to be shown in a case
+    segment: 2

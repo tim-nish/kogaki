@@ -3,26 +3,6 @@ description: >-
   Asks which single element of a domain matters most, answers at once, wins two
   assents to plain facts, spends them on ranking that distinction first, then
   names each kind by its defining trait.
-before:
-  knowledge: no specialized knowledge of the subject
-  question: none settled, beyond whether the text is worth reading
-  expectation: unsure what the text will do next
-  orientation: no sense of where this text sits among others on its subject
-  trust: neutral
-after:
-  knowledge: >-
-    holds one division of the domain, the kinds of member it yields, and the
-    trait that defines each
-  question: >-
-    the posed question answered, and now asks what follows from belonging to one
-    kind rather than another
-  expectation: expects the division to be put to work on the domain's events
-  orientation: >-
-    places the text as one that takes a single declared vantage point inside an
-    established subject
-  trust: >-
-    raised: the position is staked plainly, built on facts the reader has
-    already granted, and attached to instances the reader can check
 breaks:
   - >-
     cut the opening question and begin from the answer — the reader receives a
@@ -65,3 +45,8 @@ segments:
       instances of it.
     relation: >-
       fills the kinds just named with instances the reader can place.
+takes: []
+leaves:
+  - kind: apply
+    what: a division into kinds, given with instances, to be put to work on cases
+    segment: 6

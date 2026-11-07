@@ -3,31 +3,6 @@ description: >-
   Narrows a sprawling question to one, answers it by mirroring a familiar
   everyday arrangement against its missing counterpart at a larger scale, and
   closes on the remedy the absence implies.
-before:
-  knowledge: >-
-    holds scattered impressions of the subject and no account of why the
-    condition persists
-  question: wonders loosely why the condition never ends
-  expectation: expects a survey of causes, one after another
-  orientation: >-
-    places this among general commentary of the kind heard anywhere on the
-    subject
-  trust: neutral, with no sense of the speaker
-after:
-  knowledge: >-
-    holds one structural account of the persistence and the remedy that account
-    implies
-  question: >-
-    no longer asks why it persists and instead asks whether the implied remedy
-    could ever be brought about
-  expectation: >-
-    expects what follows to take up whether the remedy just named is achievable
-  orientation: >-
-    places this as an account working from a comparison of arrangements rather
-    than from motives or morals
-  trust: >-
-    raised: the speaker sets the easy answers aside, grants a point that cuts
-    against the account, and rests it on an instance the reader can recognise
 breaks:
   - >-
     Cut the opening spread of candidate answers and begin at the narrowed
@@ -91,3 +66,8 @@ segments:
     relation: fills out the remedy the previous step named in outline
     manner: >-
       a recognisable instance of the remedy already tried, named at the close
+takes: []
+leaves:
+  - kind: apply
+    what: a remedy stated in general terms, to be put to work on a case
+    segment: 7

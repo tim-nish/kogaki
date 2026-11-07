@@ -3,22 +3,6 @@ description: >-
   Names the interaction among the listed elements as the axis of the domain's
   events, says in one sentence how they act on one another, then fixes that
   working as the prevailing rule over a long span.
-before:
-  knowledge: >-
-    holds one division of the domain, the kinds of member it yields, and the
-    trait that defines each
-  question: >-
-    the posed question answered, and now asks what follows from belonging to one
-    kind rather than another
-  expectation: expects the division to be put to work on the domain's events
-after:
-  knowledge: >-
-    holds that the interaction among the kinds drives the domain's events and
-    has done so over a long span
-  question: >-
-    that answered, and now asks why the interaction runs the way it does and
-    what has kept it in place so long
-  expectation: expects the asserted rule to be traced through particular cases
 breaks:
   - >-
     name the axis and leave out how the elements act on one another — the reader
@@ -49,3 +33,10 @@ segments:
       general principle over a long span
     relation: lifts the account from a description to a standing rule
     manner: a brief closing assertion carried without any supporting case
+takes:
+  - kind: apply
+    what: a set of elements listed earlier, to be put to work
+leaves:
+  - kind: apply
+    what: a standing general rule, left to be put to work on cases
+    segment: 3

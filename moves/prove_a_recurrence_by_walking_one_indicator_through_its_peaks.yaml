@@ -3,27 +3,6 @@ description: >-
   Opens on a condition anyone can see, names one cause and raises it to a
   recurrence, then earns the recurrence by walking one indicator period by
   period through its peaks into the reader's own time.
-before:
-  knowledge: nothing beyond a vague awareness that such a subject exists
-  question: none, or whether this is worth reading at all
-  expectation: an opening definition or a plan of the work
-  orientation: this is one more item on a crowded shelf
-  trust: neutral
-after:
-  knowledge: >-
-    holds one stated cause and a recurrence backed by one indicator tracked to
-    the present
-  question: >-
-    why attention is rising now is settled, and what in the present state will
-    be explained is left open
-  expectation: >-
-    expects the present state to be explained through the frame just justified
-  orientation: >-
-    places the subject as one whose rise and fall tracks outside conditions
-    rather than fashion
-  trust: >-
-    raised: the case stands on an indicator the reader could check and hedges
-    where the ground is thin
 breaks:
   - >-
     drop the indicator and keep only the generalization — the claim rests on
@@ -89,3 +68,8 @@ segments:
     manner: >-
       a shift into the present tense, so the closing stretch reads as the
       reader's own time
+takes: []
+leaves:
+  - kind: answer
+    what: a concern forced back open at the present, left unanswered
+    segment: 7

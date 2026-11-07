@@ -3,34 +3,6 @@ description: >-
   Sorts a drawn distinction into a graded ordering, rehearses it on an everyday
   case, turns it on the standard accounts to show they stop short, then presses
   the regress until the ready answers fail.
-before:
-  knowledge: >-
-    holds two standard accounts of the subject and that both show the means a
-    party uses while leaving its purpose unexplained
-  question: wants the omitted level made exact and then supplied
-  expectation: >-
-    expects the gap just named to be sorted out before it is filled
-  orientation: >-
-    places this against the standard treatments as one that marks what they
-    leave out
-  trust: >-
-    raised: the standard accounts are credited before being faulted
-after:
-  knowledge: >-
-    holds a graded ordering of levels of explanation, knows the standard accounts
-    reach only its lower levels, and knows that the topmost level is what leaves
-    ordinary observation unsettled and resists prediction
-  question: >-
-    holds the want as a chain of why-questions that the ready answers have failed
-    to close
-  expectation: >-
-    expects the work to supply the topmost level for the matter at hand despite
-    the difficulty just accounted for
-  orientation: >-
-    places this as a text that treats the omitted level as its own ground
-  trust: >-
-    raised further: the ordering was tried on a case the reader could check
-    before it was used, and the difficulty is conceded rather than hidden
 breaks:
   - >-
     set out the ordering without rehearsing it on an everyday case — the levels
@@ -79,3 +51,13 @@ segments:
     relation: >-
       draws out the cost of the gap just marked and admits why it is hard to
       close
+takes:
+  - kind: apply
+    what: a distinction drawn just before, to be put to work as a graded ordering
+leaves:
+  - kind: answer
+    what: a question about the one position in the series no account supplies
+    segment: 3
+  - kind: explain
+    what: a named reason a domain resists prediction
+    segment: 4

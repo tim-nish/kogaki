@@ -3,25 +3,6 @@ description: >-
   Answers an abstract promise with an everyday case: gives its conventional
   account, marks that account as ordinary, then names the obvious thing it omits
   and ranks that first.
-before:
-  knowledge: >-
-    holds the usual accounts of the subject and nothing of what they rest on
-  question: none settled about what underlies the usual accounts
-  expectation: expects the subject explained on its own terms
-  trust: neutral, willing to be led
-after:
-  knowledge: >-
-    holds a concrete model in which variable surface factors sit above one
-    universal determinant
-  question: >-
-    wants to know what plays the part of the underlying determinant in the
-    actual subject
-  expectation: >-
-    expects the next stretch to carry the illustrative case back onto the actual
-    subject
-  trust: >-
-    raised: an abstract claim is made good on ground the reader can check
-    without expertise
 breaks:
   - >-
     drop the flat line that marks the conventional account as ordinary — the
@@ -72,3 +53,11 @@ segments:
     relation: >-
       grounds the aspect the step before named, and ranks it above the factors
       listed earlier
+takes: []
+leaves:
+  - kind: carry
+    what: a likeness proposed in a familiar base, not yet brought onto the subject
+    segment: 1
+  - kind: apply
+    what: a universal condition ranked first among determinants, awaiting work on cases
+    segment: 5

@@ -3,28 +3,6 @@ description: >-
   Turns the anomaly just granted into the reader's own question, answers it at
   once with one named cause, then widens that cause into a recurring historical
   pattern.
-before:
-  knowledge: >-
-    holds that the subject sustains a distinct and growing body of work within a
-    market otherwise flat
-  question: holds why this subject alone should be in such demand
-  expectation: >-
-    expects the demand just described to be accounted for, the survey of the
-    field being complete
-  orientation: places the text as one entry among many in an established field
-after:
-  knowledge: >-
-    holds a named cause for the present demand, and that such demand has
-    recurred whenever conditions worsened
-  question: >-
-    holds what the named instability consists of now, the earlier question
-    having been settled
-  expectation: >-
-    expects the named cause to be unfolded, the account of the demand being
-    complete
-  orientation: >-
-    places the field as a recurrent kind of writing rather than a present
-    fashion
 breaks:
   - >-
     leave the question unvoiced and open on the cause — the reader is handed an
@@ -56,3 +34,8 @@ segments:
     relation: >-
       widens the answer just given from the present case into a repeated one, so
       the cause holds beyond the moment
+takes: []
+leaves:
+  - kind: apply
+    what: a cause generalised into a recurring pattern, awaiting work on cases
+    segment: 3

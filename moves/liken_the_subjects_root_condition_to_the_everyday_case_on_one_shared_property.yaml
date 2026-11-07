@@ -3,26 +3,6 @@ description: >-
   Likens the subject's root determinant to the condition just worked in an
   everyday case, on one shared property, then climbs through each case's own
   particulars to the claim that they govern conduct.
-before:
-  knowledge: >-
-    holds a concrete model in which variable surface factors sit above one
-    universal determinant
-  question: >-
-    wants to know what plays the part of the underlying determinant in the
-    actual subject
-  expectation: >-
-    expects the next stretch to carry the illustrative case back onto the actual
-    subject
-after:
-  knowledge: >-
-    holds the named counterpart of that universal determinant and the claim that
-    it steers what the actors do
-  question: >-
-    satisfied on the determinant's identity, now wants to know how it works out
-    in particular cases
-  expectation: >-
-    expects the next stretch to trace the determinant's effects in particular
-    cases
 breaks:
   - >-
     drop the opening likeness and begin from the plain fact — the reader has no
@@ -64,3 +44,10 @@ segments:
     relation: >-
       turns the catalogued variation into its effect, closing the chain begun at
       the likeness
+takes:
+  - kind: carry
+    what: a universal condition worked in an everyday base, to be carried onto the subject
+leaves:
+  - kind: apply
+    what: a general statement reached at a chain's close, to be shown in instances
+    segment: 5

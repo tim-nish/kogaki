@@ -3,31 +3,6 @@ description: >-
   Works a general condition through an invented quantified case, names the
   outcome and the response that meets it, then shows the same pattern
   repeating across unlike settings.
-before:
-  knowledge: >-
-    holds a stated general outcome as the aim at issue and nothing of what it
-    depends on
-  question: none in particular, beyond whether this concerns them at all
-  expectation: no settled expectation of how the aim is explained
-  orientation: >-
-    places this among introductory accounts written for non-specialists
-  trust: neutral, with no reason to credit or doubt the author
-after:
-  knowledge: >-
-    holds one stated mechanism, the names of its stages, and that it recurs
-    across settings
-  question: >-
-    satisfied on what keeps the arrangement from collapsing, and now asks how
-    the pattern bears on nearer cases
-  expectation: >-
-    expects what follows to carry the now-complete general pattern onto one
-    particular case
-  orientation: >-
-    reads it as setting out a law that holds everywhere rather than reporting
-    one sphere's affairs
-  trust: >-
-    raised: the claim was worked out in front of them, then shown repeating in
-    unlike settings
 breaks:
   - >-
     drop the invented quantified case — the opening condition stays an assertion
@@ -84,3 +59,13 @@ segments:
     manner: >-
       a rapid sequence of bare instances, each named and left without
       elaboration.
+takes:
+  - kind: explain
+    what: a general outcome stated earlier, its governing condition still to be set out
+leaves:
+  - kind: explain
+    what: a response named with its timing, its workings not yet set out
+    segment: 5
+  - kind: apply
+    what: a general principle stated at the close, not yet put to work
+    segment: 6

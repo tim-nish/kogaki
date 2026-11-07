@@ -3,27 +3,6 @@ description: >-
   Claims the present case mirrors one whose course has already run, narrows the
   resemblance to its strongest point, then grounds that point in a long-held
   position the reader already assumes.
-before:
-  knowledge: >-
-    no specialized knowledge of the subject, and no sense that the present case
-    resembles any other
-  question: >-
-    nothing in particular beyond whether this subject is worth their attention
-  expectation: expects a plain introduction to an unfamiliar subject
-  orientation: >-
-    places this as one more introduction to a subject they have only heard named
-after:
-  knowledge: >-
-    holds that the present case resembles one already run, that the resemblance
-    rests on one point, and that the party concerned has long held an unrivalled
-    position
-  question: wants to know how a position held that long came to change
-  expectation: >-
-    expects the next paragraph to show how the long-held position eroded, the
-    baseline for it now set out
-  orientation: >-
-    places this as a text that reads the present through a parallel with a case
-    already run
 breaks:
   - >-
     name several points of resemblance instead of narrowing to the strongest one
@@ -63,3 +42,11 @@ segments:
     manner: >-
       it closes on a short epithet reported as what others called it rather than
       asserted by the speaker
+takes: []
+leaves:
+  - kind: carry
+    what: a prior case whose course has run, given as a base to carry onto the present one
+    segment: 1
+  - kind: explain
+    what: a named point of change, picked out but not yet set out
+    segment: 2

@@ -3,25 +3,6 @@ description: >-
   Shows that a missing level of explanation is what leaves everyday observation
   unsatisfying, drives the readiest answer back through further questions, then
   grants why such questions are hard.
-before:
-  knowledge: >-
-    knows the examined cases supply only the lower levels of the ordering and
-    leave the topmost one unsupplied
-  question: >-
-    still wants the omitted level supplied and now sees that supplying it is
-    hard
-  expectation: expects the work to take on the difficulty it has just conceded
-after:
-  knowledge: >-
-    also knows that the unsupplied level is what leaves ordinary observation
-    unsettled, and that the domain resists prediction for lacking fixed
-    regularities
-  question: >-
-    holds the want as a chain of why-questions that a readily available answer
-    has failed to close
-  expectation: >-
-    expects the work to supply what the open questions demand despite the
-    difficulty just accounted for
 breaks:
   - >-
     drop the opening statement of cost and begin from the case — the regress
@@ -61,3 +42,10 @@ segments:
       so its deepest why resists prediction
     relation: >-
       grounds the cost the opening stated, saying why that gap is hard to close
+takes:
+  - kind: apply
+    what: a part of an earlier division, taken up to cost its omission
+leaves:
+  - kind: apply
+    what: a general claim that a domain's deepest causes resist prediction
+    segment: 6

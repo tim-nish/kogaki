@@ -3,28 +3,6 @@ description: >-
   Two everyday instances of a fixed condition limiting action, then one figure
   that unifies them, then a demand that the limit be mapped before anything
   about conduct is claimed.
-before:
-  knowledge: >-
-    no organizing idea about the subject, only scattered everyday impressions
-  question: none in particular, at most whether the subject concerns them
-  expectation: expects general explanation with no settled shape
-  orientation: >-
-    places the text among ordinary explanatory writing with no distinct angle
-  trust: neutral
-after:
-  knowledge: >-
-    holds concrete instances and one general claim that unifies them as a fixed
-    limit on what an actor can do
-  question: wants to know the particular shape of the limit in a given case
-  expectation: >-
-    expects the next stretch to set out the shape of the limit before any
-    account of what the constrained thing does
-  orientation: >-
-    places the text as one that treats a single fixed factor as prior to
-    everything else it will discuss
-  trust: >-
-    slightly raised by instances the reader can confirm from ordinary experience
-    before any abstraction is asked of them
 breaks:
   - >-
     state the unifying claim before the instances — the reader meets an
@@ -67,3 +45,8 @@ segments:
     relation: >-
       draws the working consequence of the claim just made, turning it into a
       requirement about where to begin
+takes: []
+leaves:
+  - kind: apply
+    what: a required order of inquiry, to be put to work on a case
+    segment: 4

@@ -2,26 +2,6 @@ id: carry_a_worked_case_onto_the_wider_scale
 description: >-
   Carries a chain already walked at a small scale onto the larger subject in a
   few clauses, then fixes the result with its technical name.
-before:
-  knowledge: >-
-    holds that mutual escalation can settle into a matched condition where
-    neither side gains by striking, and holds a term for that condition
-  question: >-
-    holds that question answered, and now wants to know whether the settled
-    condition carries over from the small-scale case to the larger one
-  expectation: >-
-    the case having been carried through to a settled end, expects the next step
-    to transfer that result to the larger subject
-after:
-  knowledge: >-
-    holds that the matched condition and its name apply at the wider scale,
-    reached there by the same steps
-  question: >-
-    holds the transfer question answered, and now wants to know what the named
-    general condition accounts for
-  expectation: >-
-    expects the next step to put the named general condition to work on the
-    wider subject
 breaks:
   - >-
     name the condition before the countervailing response is stated — the term
@@ -56,3 +36,13 @@ segments:
   - operation: attaches a name to the condition just described
     relation: >-
       closes the sequence by labelling the condition the response arrives at
+takes:
+  - kind: carry
+    what: a relation established at a narrower scale, to be carried onto a wider one
+leaves:
+  - kind: apply
+    what: a general claim about a relation at wide scale, awaiting a case
+    segment: 1
+  - kind: explain
+    what: a name attached to the condition reached, left to be explained
+    segment: 5

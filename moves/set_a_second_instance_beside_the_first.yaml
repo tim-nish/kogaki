@@ -2,18 +2,6 @@ id: set_a_second_instance_beside_the_first
 description: >-
   Sets a second, equally common instance beside the first, then states in one
   sentence the arrangement it depicts, turning one case into a pattern.
-before:
-  knowledge: >-
-    holds one worked instance of how the subject bears on present circumstances
-  question: wants to know whether a single such instance stands for the whole
-  expectation: >-
-    expects further instances of the same kind or a return to the general claim
-after:
-  knowledge: >-
-    holds a second instance of the same kind and the structure it depicts
-  question: wants to know what these recurring instances do and fail to do
-  expectation: >-
-    expects what the instances so far have in common to be turned to account
 breaks:
   - >-
     Drop the phrase marking the new case as equally common — the reader cannot
@@ -34,3 +22,10 @@ segments:
   - operation: >-
       states in a single sentence the arrangement the newly named case sets out
     relation: supplies the content of the case the previous step only named
+takes:
+  - kind: apply
+    what: a general statement given, awaiting a further instance of its kind
+leaves:
+  - kind: carry
+    what: an arrangement set out in a case, available as a base
+    segment: 2

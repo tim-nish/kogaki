@@ -3,37 +3,6 @@ description: >-
   Takes the earliest item of a fixed series, grounds it in the conditions of its
   period, then names the reversal that ended it, so the series reads as caused
   rather than coincidental.
-before:
-  knowledge: >-
-    holds that the recurrence has a counted set of dated episodes, read off a
-    measurable quantity
-  question: >-
-    holds what the named instability consists of now, the earlier question
-    having been settled
-  expectation: >-
-    expects the dated episodes to be taken in turn, their set being now fixed
-  orientation: >-
-    places the field as a recurrent kind of writing rather than a present
-    fashion
-  trust: >-
-    raised further, the general tendency now resting on a quantity the reader
-    could check
-after:
-  knowledge: >-
-    holds that the earliest episode rose with the conditions of its period and
-    ended in the subject's proscription
-  question: >-
-    holds whether each remaining episode has a cause of its own, the earliest
-    one having been accounted for
-  expectation: >-
-    expects the next episode to be handled the same way, with its own cause and
-    its own end
-  orientation: >-
-    places the subject as one whose standing has risen and fallen with
-    conditions outside it
-  trust: >-
-    raised further, the offered cause being marked as the speaker's inference
-    rather than as fact
 breaks:
   - >-
     drop the hedge on the causal step — the inference reads as a settled
@@ -68,3 +37,13 @@ segments:
     manner: >-
       the ground of the rejection is given in a borrowed phrase rather than in
       the speaker's own words
+takes:
+  - kind: apply
+    what: a general trend given earlier, to be shown in one dated episode
+leaves:
+  - kind: answer
+    what: whether the proposed cause holds, offered as inference and not as fact
+    segment: 2
+  - kind: explain
+    what: the ground on which the subject was rejected, named but not unfolded
+    segment: 3

@@ -3,19 +3,6 @@ description: >-
   Fixes a past span as a baseline on two axes, what its cases turned on and how
   small the parties were, so that a later reversal has something definite to
   work against.
-before:
-  knowledge: no specialized grasp of the subject beyond everyday impressions
-  question: none settled, at most whether this is worth reading
-  expectation: expects a general account to go on in the same vein
-  trust: neutral, willing to be led but not yet committed
-after:
-  knowledge: >-
-    holds a characterization of a past span on both what its cases turned on and
-    who took part in them
-  question: wants to know whether what held in that span still holds
-  expectation: >-
-    expects the next stretch to set a later state against the one just fixed
-  trust: slightly raised by instances the reader can place for themselves
 breaks:
   - >-
     drop the named instances and keep only the abstract classes — the reader has
@@ -46,3 +33,11 @@ segments:
     relation: >-
       adds a further axis to the characterization the step before set out,
       moving from what was at stake to who was involved
+takes: []
+leaves:
+  - kind: apply
+    what: a classification of past cases by what they turned on, awaiting use
+    segment: 1
+  - kind: apply
+    what: a general denial about the largest participants, to be shown in instances
+    segment: 2

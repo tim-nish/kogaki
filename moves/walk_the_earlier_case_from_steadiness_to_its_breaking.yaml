@@ -3,28 +3,6 @@ description: >-
   Opens the earlier half of a claimed parallel: asserts the earlier case, bounds
   it in time with the arrangement that held it steady, then names the pressure
   that broke that steadiness.
-before:
-  knowledge: >-
-    holds that the present case resembles one already run, that the resemblance
-    rests on one point, and that the party concerned has long held an unrivalled
-    position
-  question: wants to know how a position held that long came to change
-  expectation: >-
-    expects the next paragraph to show how the long-held position eroded, the
-    baseline for it now set out
-  trust: neutral, with no reason yet to credit or doubt the author
-after:
-  knowledge: >-
-    holds that a like configuration arose in the earlier case, how it was held
-    steady, and what began to break it
-  question: >-
-    wants to know whether the course the earlier case ran is the one now being
-    run again
-  expectation: >-
-    expects the account to come back to the present case and carry the earlier
-    course onto it, that earlier course now run through to its turn
-  trust: >-
-    slightly raised by bounded, checkable specifics offered for the earlier case
 breaks:
   - >-
     leave the earlier stretch unbounded — the reader cannot tell how long the
@@ -61,3 +39,13 @@ segments:
     relation: >-
       turns against the steadiness just described, showing the arrangement
       giving way under a new pressure
+takes:
+  - kind: carry
+    what: an arrangement already set out, to be carried onto an earlier case
+leaves:
+  - kind: explain
+    what: a newly named rival force, to be explained
+    segment: 3
+  - kind: carry
+    what: a course from rising pressure to collapsed stability, to be carried onto the present case
+    segment: 3
