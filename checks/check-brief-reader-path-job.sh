@@ -2,8 +2,9 @@
 # check-brief-reader-path-job — the Detached Job that replaced the reader-path
 # step's synchronous judge call (kogaki#1193): the structural unit
 # classification (b), the job-level reduction (c), (d1)-(d11) as a real
-# `job-supervise` child records it against a FAKE judge, the six terminal
-# states (a), and the Stop arm's own bound (i).
+# `job-supervise` child records it against a FAKE judge, a refused unit's
+# Attempt Records (d12, kogaki#1717), the six terminal states (a), and the
+# Stop arm's own bound (i).
 # The screen, retry, resume and path-review cases are their own members
 # since kogaki#1464; the registry row says which.
 set -u
@@ -412,6 +413,48 @@ process.stdin.on("end", () => {
     }
   }
   rmSync(movesScratchDir, { recursive: true, force: true });
+}
+
+// (d12) kogaki#1717: A UNIT REFUSED ONCE LEAVES ONE ATTEMPT RECORD PER CALL. Attempt 1's
+// refusal.json carries the refusal the job record carries, and attempt 2's prompt.md is
+// the retry prompt the supervisor rendered, byte for byte, which is what the fake judge
+// received; cli.json names the binary by its sha256 and the version it was handed.
+{
+  const { createHash } = await import("node:crypto");
+  const { judgePrompt } = await import("./src/workflow/judge.mjs");
+  const { readAttemptRecord } = await import("./src/workflow/attempt-record.mjs");
+  const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_unit;
+  const input = { state: "compose_path", unit_number: 1, fixture: "RECORD_ONCE" };
+  const inputText = JSON.stringify(input, null, 2);
+  const first = judgePrompt(unitRow, inputText, input, null);
+  const dir = mkNewRun();
+  const promptsFile = join(dir, "prompts.jsonl");
+  const unitsPath = join(dir, "units.json");
+  writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: first, input }])));
+  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
+    "--command", fakeJudge, "--model", "m", "--output-format", "json", "--call-limit-s", "100", "--unit-attempts", "2",
+    "--stall-s", "100", "--heartbeat-ms", "50", "--command-version", "9.9.9 (fixture)"], { cwd: root, timeout: 15000, encoding: "utf8",
+    env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), KOGAKI_FAKE_JUDGE_PROMPTS: promptsFile } });
+  const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const row = unitRowOf(readRecord(dir), "c1");
+  const a1 = readAttemptRecord(join(dir, "attempts", "c1", "1"));
+  const a2 = readAttemptRecord(join(dir, "attempts", "c1", "2"));
+  const refusal = row && row.refusals && row.refusals[0];
+  const retry = `${JOB_UNIT_NO_TOOLS_SENTENCE}\n\n${judgePrompt(unitRow, inputText, input,
+    [{ answer: { legs: [{ id: "refused" }], refuse: refusal }, refusal }])}`;
+  if (!row || row.status !== "done" || row.attempts !== 2 || a1.error || a2.error || !a1.refusal || a1.refusal.text !== refusal
+    || a1.refusal.validator !== "passthrough" || a2.refusal !== null) {
+    fails.push(`(d12) a unit refused once did not leave attempt 1's refusal.json carrying the job record's refusal: ${JSON.stringify([row, a1.refusal, a2.refusal])}`);
+  }
+  if (a2.error || a2.prompt !== retry || a2.prompt.trim() !== sent[1]) {
+    fails.push("(d12) attempt 2's prompt.md is not the rendered retry prompt the second call received, byte for byte");
+  }
+  const sha = createHash("sha256").update(readFileSync(fakeJudge)).digest("hex");
+  if (a1.error || !a1.cli || a1.cli.path !== fakeJudge || a1.cli.sha256 !== sha || a1.cli.version !== "9.9.9 (fixture)"
+    || a1.argv.timeout_s !== 100 || a1.row.phase !== "compose" || JSON.stringify(a1.input) !== JSON.stringify(input) || !String(a1.raw).includes("the fixture's first refusal")
+    || row.attempt_records !== join(dir, "attempts", "c1")) {
+    fails.push(`(d12) attempt 1's cli, argv, input or answer.raw, or the row's attempt_records, is not the call's own: ${JSON.stringify([a1.cli, a1.argv, row && row.attempt_records])}`);
+  }
 }
 
 // (a) THE TERMINAL STATES ARE EXACTLY THESE SIX (kogaki#1193, narrowed by

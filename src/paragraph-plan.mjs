@@ -1022,11 +1022,13 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     if (prior && existsSync(prior)) copyFileSync(prior, paragraphPlanInputPath(dir, id));
     else writeJson(paragraphPlanInputPath(dir, id), { leg_id: leg.leg_id, unit: id, waypoints: planCallInputRows(unitInputs[i]), site_calls: [] });
   }
-  const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, unitInputs[i]) }))
+  const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, unitInputs[i]), input: unitInputs[i] }))
     .filter((u) => !carriedIds.has(u.id));
   const planned = { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) };
   startDetachedJobSupervisor(dir, {
-    units, carried, command: binary.path, model, outputFormat: String(table.judge.output_format || "json"),
+    units, carried, command: binary.path, commandVersion: binary.version, model, outputFormat: String(table.judge.output_format || "json"),
+    rows: Object.fromEntries([["compose", "paragraph_plan_unit"], ["fit", "paragraph_plan_judge_unit"], ["site", "paragraph_plan_site_unit"],
+      ["suffix", "paragraph_plan_unit"]].map(([phase, id]) => [phase, { id, table: relFromRepo(PARAGRAPH_PLAN_TABLE) }])),
     callLimitS, unitAttempts,
     unitIsolation: table.job.unit_isolation === true,
     stallS: jobStallS(table.job.stall_s),
