@@ -126,7 +126,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const record = { legs: [{ leg_id: ps[0].claim_strand === "L1" ? "copy-leg" : "copy-leg-" + ps[0].claim_strand, purpose: "Move the reader from owning the copy to seeing who owns it.",
     rationale: "It is the only Leg.", ...(retried ? {} : { reader_state_after: "knowledge: holds that the installer owns the copy" }),
     claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
-    waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " CLAIM-" + p.paragraph, serves: [p.claim_strand] })) }] };
+    waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " CLAIM-" + p.paragraph, serves: [p.claim_strand], case: "own" })) }] };
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
   process.exit(0);
 });
@@ -267,7 +267,7 @@ ok(argvs.length === 2 && argvs.every((a) => { const i = a.indexOf("--tools"); re
 const inputs = { paragraph_count: 2, segments: [["one first"], ["two second"]] };
 const good = () => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r",
   claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
-  waypoints: [{ point: "first", serves: ["L1"] }, { point: "two second", serves: ["L2"] }] }] });
+  waypoints: [{ point: "first", serves: ["L1"], case: "own" }, { point: "two second", serves: ["L2"], case: "own" }] }] });
 ok(!LB.validateLegPathUnit(good(), inputs).error, `(f) a good Leg was refused: ${LB.validateLegPathUnit(good(), inputs).error}`);
 const m1 = good(); m1.legs[0].move = "some_move";
 ok(/carries `move`, which it does not declare/.test(LB.validateLegPathUnit(m1, inputs).error || ""), "(f) a Leg carrying `move` was not refused by name");
@@ -290,7 +290,7 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
   const leg = (point2, proposition1 = "The installer copies the kit") => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r",
     introduces: ["copy — the kit as it stands in the consumer's tree"],
     claims: [{ type: "strand", strand: "L1", proposition: proposition1 }, { type: "strand", strand: "L2", proposition: "The next run copies it" }],
-    waypoints: [{ point: "The installer copies the kit into the consumer's tree", serves: ["L1"] }, { point: point2, serves: ["L2"] }] }] });
+    waypoints: [{ point: "The installer copies the kit into the consumer's tree", serves: ["L1"], case: "own" }, { point: point2, serves: ["L2"], case: "own" }] }] });
   const iIn = { paragraph_count: 2, segments: segs };
   const pass = LB.validateLegPathUnit(leg("The next run copies the copy again"), iIn);
   ok(!pass.error, `(i) a point built from its Segment's own words, an introduced term and function words was refused: ${pass.error}`);
@@ -346,7 +346,7 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
 
   const leg = (entry) => ({ legs: [{ leg_id: "g", purpose: "p", rationale: "r", introduces: [entry],
     claims: [{ type: "strand", strand: "L1", proposition: "one" }, { type: "strand", strand: "L2", proposition: "two" }],
-    waypoints: [{ point: "first", serves: ["L1"] }, { point: "second", serves: ["L2"] }] }] });
+    waypoints: [{ point: "first", serves: ["L1"], case: "own" }, { point: "second", serves: ["L2"], case: "own" }] }] });
   const refused = LB.validateLegPathUnit(leg({ term: "ownership boundary", kind: "established", meaning: "where it ends" }), inputs).error || "";
   ok(/"ownership boundary" carries `kind`/.test(refused), `(j) the validator did not refuse an entry carrying the retired kind naming the term: ${refused}`);
   ok(!("readTermsFile" in LB), "(j) leg-brief still exports readTermsFile");

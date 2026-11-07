@@ -9,7 +9,7 @@
 #   (az) a Waypoint point is read alone (kogaki#1449); (bb) has no method verb (kogaki#1554).
 #   (ba) recoverability under the renderings record; adoption refusing an
 #        introduces entry the record renders (kogaki#1494).
-#   (bc) the Leg schema declares no Obligation path rule (kogaki#1699).
+#   (bc) no Obligation path rule (kogaki#1699); (bd) a Leg Waypoint's `case` (kogaki#1732).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -39,7 +39,7 @@ const fails = [];
 {
   const leg = {
     leg_id: "s1", move: "open_the_claim", materials: ["L1"], purpose: "purpose of s1",
-    depends_on: [], rationale: "why s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }], waypoints: [{ point: "the paragraph establishes what s1 claims", serves: ["L1"] }],
+    depends_on: [], rationale: "why s1", claims: [{ type: "strand", strand: "L1", proposition: "claim of s1" }], waypoints: [{ point: "the paragraph establishes what s1 claims", serves: ["L1"], case: "own" }],
     journeys: [{ strand: "L1", use: "contrast" }],
   };
   const written = legRecord(leg);
@@ -80,7 +80,7 @@ const fails = [];
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
     depends_on: [], rationale: `why ${leg_id}`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] }), legOf("s3", { depends_on: ["s2"] })];
@@ -234,7 +234,7 @@ const fails = [];
 // paragraph-Move row, and compose_path declares no paragraph-Move judge: the paragraph Move
 // is bound by /paragraph-plan, after the Brief.
 {
-  const legsWith = (w) => [leg1276("s1", { opens_section: "Intro", waypoints: [{ point: "the term is defined", serves: ["L1"], ...w }] }),
+  const legsWith = (w) => [leg1276("s1", { opens_section: "Intro", waypoints: [{ point: "the term is defined", serves: ["L1"], case: "own", ...w }] }),
     leg1276("s2", { depends_on: ["s1"], reaches_target: true })];
   for (const f of compose.RETIRED_WAYPOINT_MOVE_FIELDS) {
     const r = compose.validateLegs(legsWith({ [f]: "p_define" }), []);
@@ -242,14 +242,14 @@ const fails = [];
     else if (!new RegExp(`leg 1 \\(s1\\): waypoint 1 carries \`${f}\`, which is retired`).test(r.error) || !r.error.includes("kogaki#1375")) {
       fails.push(`(ax) a waypoint carrying \`${f}\` was refused without naming the field, the Leg and the waypoint: ${r.error}`);
     }
-    const unit = validateReaderPathUnit(cand1276("c-ax", { waypoints: [{ point: "a point", serves: ["L1"], [f]: "x" }] }),
+    const unit = validateReaderPathUnit(cand1276("c-ax", { waypoints: [{ point: "a point", serves: ["L1"], case: "own", [f]: "x" }] }),
       { strandIds: ["L1"] });
     if (!unit.error || !unit.error.includes(`carries \`${f}\`, which is retired`)) fails.push(`(ax) the compose unit's validator did not refuse a waypoint carrying \`${f}\`: ${unit.error}`);
   }
   const plain = compose.validateLegs(legsWith({}), []);
-  if (plain.error) fails.push(`(ax) a waypoint carrying point and serves alone was refused: ${plain.error}`);
-  const rec = compose.legRecord({ ...leg1276("s1"), waypoints: [{ point: "a point", serves: ["L1"], move: "p", segments: "1. x" }] });
-  if (rec.waypoints.some((w) => Object.keys(w).sort().join() !== "point,serves")) fails.push(`(ax) legRecord wrote a waypoint field other than point and serves: ${JSON.stringify(rec.waypoints)}`);
+  if (plain.error) fails.push(`(ax) a waypoint carrying point, serves and case alone was refused: ${plain.error}`);
+  const rec = compose.legRecord({ ...leg1276("s1"), waypoints: [{ point: "a point", serves: ["L1"], case: "own", move: "p", segments: "1. x" }] });
+  if (rec.waypoints.some((w) => Object.keys(w).sort().join() !== "case,point,serves")) fails.push(`(ax) legRecord wrote a waypoint field other than point, serves and case: ${JSON.stringify(rec.waypoints)}`);
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
   for (const f of ["move", "segments"]) {
     if (schema.waypoint.fields[f]) fails.push(`(ax) src/leg-schema.json's waypoint still declares \`${f}\``);
@@ -312,7 +312,7 @@ const fails = [];
 {
   const legsWith = (second, claim = "claim of s1") => [leg1276("s1", { opens_section: "Intro",
     claims: [{ type: "strand", strand: "L1", proposition: claim }],
-    waypoints: [{ point: "A measure of defence takes one of two cases.", serves: ["L1"] }, { point: second, serves: ["L1"] }] }),
+    waypoints: [{ point: "A measure of defence takes one of two cases.", serves: ["L1"], case: "own" }, { point: second, serves: ["L1"], case: "own" }] }),
   leg1276("s2", { depends_on: ["s1"], reaches_target: true })];
   const opens = compose.validateLegs(legsWith("This value decides which case a society is in."), []);
   if (!opens.error) fails.push("(az) a waypoint 2 point opening with \"This\" was not refused");
@@ -327,7 +327,7 @@ const fails = [];
   }
   const grounded = compose.validateLegs(legsWith("A society holds these values apart.", "a measure of defence takes two values"), []);
   if (grounded.error) fails.push(`(az) "these <noun>" whose noun is in the waypoint's Claim was refused: ${grounded.error}`);
-  const bare = compose.waypointsRefusal([{ point: "This case follows.", serves: ["L1"] }], ["L1"], "a Paragraph Waypoint list");
+  const bare = compose.waypointsRefusal([{ point: "This case follows.", serves: ["L1"] }], ["L1"], "a Paragraph Waypoint list", null, null, { paragraph: true });
   if (bare) fails.push(`(az) waypointsRefusal without Claim text applied the read-alone rule: ${bare}`);
   const row = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_unit;
   if (!row.judgment_point.includes("A WAYPOINT'S POINT IS READ ALONE (kogaki#1449)") || !row.refusal.includes("(kogaki#1449)")) {
@@ -343,7 +343,7 @@ const fails = [];
 // `METHOD_VERBS` is the one list: the Extractor imports it and declares none of its own.
 {
   const legsWith = (second) => [leg1276("s1", { opens_section: "Intro",
-    waypoints: [{ point: "A measure of defence takes one of two cases.", serves: ["L1"] }, { point: second, serves: ["L1"] }] }),
+    waypoints: [{ point: "A measure of defence takes one of two cases.", serves: ["L1"], case: "own" }, { point: second, serves: ["L1"], case: "own" }] }),
   leg1276("s2", { depends_on: ["s1"], reaches_target: true })];
   const method = compose.validateLegs(legsWith("A country starting a war declares it acts in defence, so that the stock declaration can be explained at face value."), []);
   if (!method.error) fails.push("(bb) a waypoint 2 point carrying \"explained\" was not refused");
@@ -356,7 +356,7 @@ const fails = [];
   if (!other.error || !/waypoint 2's point carries "justifies", a form of the method verb "justify"/.test(other.error)) {
     fails.push(`(bb) a point carrying "justifies" was not refused naming the word: ${other.error}`);
   }
-  const bare = compose.waypointsRefusal([{ point: "The defence is explained.", serves: ["L1"] }], ["L1"], "a Paragraph Waypoint list");
+  const bare = compose.waypointsRefusal([{ point: "The defence is explained.", serves: ["L1"] }], ["L1"], "a Paragraph Waypoint list", null, null, { paragraph: true });
   if (bare) fails.push(`(bb) waypointsRefusal without Claim text applied the method-verb rule: ${bare}`);
   if (!Array.isArray(METHOD_VERBS) || !METHOD_VERBS.includes("explain")) fails.push("(bb) src/compose/leg-schema.mjs exports no METHOD_VERBS list");
   const extractText = readFileSync("src/proof-sheet/extract.mjs", "utf8");
@@ -380,9 +380,9 @@ const fails = [];
   const material = "Each defense records whether attack is the more effective means.";
   const point = "Each defense registers whether attack is the more effective means.";
   const legs = [leg1276("s1", { opens_section: "Intro", claims: [{ type: "strand", strand: "L1", proposition: material }],
-    waypoints: [{ point, serves: ["L1"] }] }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true,
+    waypoints: [{ point, serves: ["L1"], case: "own" }] }), leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true,
     claims: [{ type: "strand", strand: "L1", proposition: "attack is the more effective means" }],
-    waypoints: [{ point: "attack is the more effective means", serves: ["L1"] }] })];
+    waypoints: [{ point: "attack is the more effective means", serves: ["L1"], case: "own" }] })];
   const reviewPath = (renderings) => {
     const dir = mkdtempSync(join(tmpdir(), "kogaki-1494-review-"));
     const strands = [{ display_id: "L1", slug: "defense", cite: "fixture" }];
@@ -431,10 +431,42 @@ const fails = [];
   }
 }
 
+// (bd) A LEG WAYPOINT RECORDS ITS CASE (kogaki#1732): `validateLegs` refuses a Leg Waypoint carrying
+// no `case`, a `case` other than `own` and `apart`, and a Leg whose last Waypoint is `apart`, each
+// naming the Leg and the Waypoint; an `apart` Waypoint followed by an `own` one passes, `legRecord`
+// writes the value, and a Paragraph Waypoint list owes no `case`.
+{
+  const two = (a, b) => [leg1276("s1", { opens_section: "Intro", waypoints: [
+    { point: "the paragraph establishes what s1 claims", serves: ["L1"], ...a },
+    { point: "the paragraph carries what s1 claims onto the subject", serves: ["L1"], ...b }] }),
+  leg1276("s2", { depends_on: ["s1"], reaches_target: true })];
+  for (const [what, a, b, want] of [
+    ["a Leg Waypoint carrying no case", {}, { case: "own" }, /leg 1 \(s1\): waypoint 1 carries no `case`/],
+    ["a case outside own and apart", { case: "own" }, { case: "elsewhere" }, /leg 1 \(s1\): waypoint 2 carries case "elsewhere"/],
+    ["a Leg ending on apart", { case: "own" }, { case: "apart" }, /leg 1 \(s1\): waypoint 2 is `apart` and ends the Leg/],
+  ]) {
+    const r = compose.validateLegs(two(a, b), []);
+    if (!r.error) fails.push(`(bd) ${what} was not refused`);
+    else if (!want.test(r.error) || !r.error.includes("kogaki#1732")) fails.push(`(bd) ${what} was refused without naming the Leg and the Waypoint: ${r.error}`);
+  }
+  const ok = compose.validateLegs(two({ case: "apart" }, { case: "own" }), []);
+  if (ok.error) fails.push(`(bd) an apart Leg Waypoint followed by an own one was refused: ${ok.error}`);
+  const rec = compose.legRecord(two({ case: "apart" }, { case: "own" })[0]);
+  if (rec.waypoints.map((w) => w.case).join() !== "apart,own") fails.push(`(bd) legRecord did not write each Leg Waypoint's case: ${JSON.stringify(rec.waypoints)}`);
+  const pws = compose.waypointsRefusal([{ point: "A Paragraph Waypoint states its point.", serves: ["L1"] }], ["L1"], "a Paragraph Waypoint list",
+    null, null, { paragraph: true });
+  if (pws) fails.push(`(bd) a Paragraph Waypoint list was refused for carrying no case: ${pws}`);
+  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
+  const c = schema.waypoint.fields.case;
+  if (!c || c.required !== true || JSON.stringify(c.values) !== JSON.stringify(["own", "apart"])) {
+    fails.push(`(bd) src/leg-schema.json's waypoint does not declare a required \`case\` whose values are the validator's: ${JSON.stringify(c)}`);
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-path-rules");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); the retired Discharge item and question chain each refused by name (kogaki#1283, kogaki#1325, kogaki#1699); adoption writing brief.yaml in list or map form with no line over 120 characters and no Leg reader state (kogaki#1328, kogaki#1699); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); no Leg Waypoint point carrying a method verb (kogaki#1554); recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494); and no Obligation path rule left in the Leg schema (kogaki#1699).");
+console.log("ok: check-brief-path-rules — the Journey use boundary (kogaki#1286); the retired Discharge item and question chain each refused by name (kogaki#1283, kogaki#1325, kogaki#1699); adoption writing brief.yaml in list or map form with no line over 120 characters and no Leg reader state (kogaki#1328, kogaki#1699); the Brief's Defined Terms (kogaki#1331); no Move information reaching the Brief (kogaki#1375); Thesis attainment verified at composition (kogaki#1330); a Leg Waypoint's point read alone (kogaki#1449); no Leg Waypoint point carrying a method verb (kogaki#1554); recoverability under the renderings record failing a word in no served material and passing it once declared, with adoption refusing an introduces entry the record renders (kogaki#1494); no Obligation path rule left in the Leg schema (kogaki#1699); and every Leg Waypoint carrying `case`, own or apart, with no Leg ending on apart (kogaki#1732).");
 JS

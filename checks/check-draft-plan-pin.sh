@@ -43,7 +43,7 @@ const leg = (id, deps) => ({
   leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
   materials: ["L1"], depends_on: deps, rationale: `rationale for ${id}.`,
   claims: [{ strand: "L1", proposition: `the claim ${id} carries.` }],
-  waypoints: [{ point: `The waypoint ${id} reaches.`, serves: ["L1"] }],
+  waypoints: [{ point: `The waypoint ${id} reaches.`, serves: ["L1"], case: "own" }],
 });
 const legs = [leg("G1", []), leg("G2", ["G1"])];
 const briefText = briefRecordText({

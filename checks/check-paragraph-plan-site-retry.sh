@@ -48,7 +48,7 @@ const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
 const leg = (id, n) => ({
   leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
   materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`, claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
-  waypoints: Array.from({ length: n }, (_, i) => ({ point: `Point ${i + 1} of ${id} is made.`, serves: ["L1"] })),
+  waypoints: Array.from({ length: n }, (_, i) => ({ point: `Point ${i + 1} of ${id} is made.`, serves: ["L1"], case: "own" })),
 });
 const briefText = briefRecordText({
   slug: "site-brief", compose_path: "audiences/dev-to-zenn.md",

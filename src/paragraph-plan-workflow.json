@@ -55,7 +55,7 @@
     },
     "binds_unread": {
       "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
-      "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget"]
+      "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget", "waypoints.case"]
     },
     "shared_text_file": "src/paragraph-plan-workflow.json",
     "note": "The first call of every attempt (kogaki#1375). It carries the second-pass judgment kogaki#1359 put inside the compose job, moved out of it: the Move binding is judged here, after the Brief is adopted, and its result never reaches the Brief. `src/paragraph-plan.mjs` renders this row through the shared `judgePrompt` renderer up to the input marker and appends one Leg's own input below it; `validateParagraphPlanUnit` reads the answer.",
@@ -73,7 +73,7 @@
     },
     "binds_unread": {
       "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
-      "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "waypoints", "journeys", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget", "waypoints.serves"],
+      "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "waypoints", "journeys", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget", "waypoints.serves", "waypoints.case"],
       "paragraph_plan": ["version", "leg_id", "waypoints", "waypoints.waypoint", "waypoints.move", "waypoints.materials", "waypoints.purpose", "waypoints.depends_on", "waypoints.rationale", "waypoints.introduces", "waypoints.re-activate", "waypoints.journeys", "waypoints.paragraph_waypoints", "paragraph_waypoints.serves", "paragraph_waypoints.cast"]
     },
     "shared_text_file": "src/paragraph-plan-workflow.json",

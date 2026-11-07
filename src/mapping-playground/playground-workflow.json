@@ -15,7 +15,7 @@
         "introduces": "content",
         "depends_on": "copied",
         "waypoints.point": "content",
-        "waypoints.serves": "copied"
+        "waypoints.serves": "copied", "waypoints.case": "content"
       }
     },
     "binds_unread": {
@@ -83,7 +83,7 @@
         "to": "THE WORDS ARE THE STRUCTURE'S (kogaki#1664): this Brief composes no renderings record; Claim N's `proposition` and Leg Waypoint N's `point` are written in the words of entry N's `material` -- a word that is in none of it and is not a function word is refused naming the word."
       }
     ],
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying `legs`, an array of EXACTLY ONE Leg, and nothing else. The Leg carries exactly these keys: `leg_id`; `purpose`; `rationale`; `claims` -- one `{ \"type\": \"strand\", \"strand\": \"L<N>\", \"proposition\": <entry N's holds, word for word> }` per entry of `claims` in the input, in order; and `waypoints` -- one `{ \"point\": <one sentence>, \"serves\": [\"L<N>\"] }` per entry, in order. It carries no `introduces`. Every field means what src/leg-schema.json, rendered below, says it means. The Harness writes `materials` and `depends_on`.",
+    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying `legs`, an array of EXACTLY ONE Leg, and nothing else. The Leg carries exactly these keys: `leg_id`; `purpose`; `rationale`; `claims` -- one `{ \"type\": \"strand\", \"strand\": \"L<N>\", \"proposition\": <entry N's holds, word for word> }` per entry of `claims` in the input, in order; and `waypoints` -- one `{ \"point\": <one sentence>, \"serves\": [\"L<N>\"], \"case\": \"own\" | \"apart\" }` per entry, in order. It carries no `introduces`. Every field means what src/leg-schema.json, rendered below, says it means. The Harness writes `materials` and `depends_on`.",
     "refusal": "a key the record or the Leg does not declare, or a declared key missing; an `introduces`; not exactly one Leg; a Claim whose `proposition` is not its entry's `holds`; and the Proof Sheet's `validateLegPathUnit` over the Leg, imported, with each entry's `material` as the text its Claim and point are recovered from. Each refusal is put back into your next attempt verbatim.",
     "schema_file": "src/leg-schema.json",
     "governing": "src/brief-workflow.json, the `reader_path_unit` row; the Proof Sheet's `leg_path_unit` row; kogaki#1664"

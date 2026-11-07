@@ -145,7 +145,7 @@ const fails = [];
 {
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const marked = legRecord(legOf("s2", { reaches_target: true }));

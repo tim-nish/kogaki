@@ -72,6 +72,7 @@ it does not read, and empty where the stage does not read the schema at all.
 | `budget` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  | structural |  |  |  |  |  |  |
 | `waypoints.point` | unread | unread | content | unread | unread | unread | unread | content | excluded | content | content |  |  |  |  |  |  |  |  | excluded |  |  | excluded |
 | `waypoints.serves` | unread | unread | copied | unread | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| `waypoints.case` | unread | unread | content | unread | excluded | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
 - `review_path` is src/brief-workflow.json `review_path`.

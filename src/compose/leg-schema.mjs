@@ -228,9 +228,9 @@ export function budgetRefusal(budget, at) {
 // name. `ordinals` numbers a filtered list as its reader does (kogaki#1448);
 // `claimText` maps Strand ids to propositions and turns on the read-alone
 // rule and the method-verb rule, for Leg Waypoints at composition only
-// (kogaki#1449, kogaki#1554). PURE, re-run by
-// `src/draft.mjs` over a parsed Brief.
-export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, claimText = null) {
+// (kogaki#1449, kogaki#1554). `paragraph` marks a Paragraph Waypoint list, which
+// carries no `case` (kogaki#1732). PURE, re-run by `src/draft.mjs` over a parsed Brief.
+export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, claimText = null, { paragraph = false } = {}) {
   const def = "a waypoint is a point its paragraph makes, carrying a `point` "
     + "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on "
     + "the reader) and `serves` (the claims it serves, by the Strand id each names) — src/leg-schema.json, "
@@ -279,6 +279,10 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
     if (typeof w.point !== "string" || w.point.trim() === "") {
       return `${at}: ${nth} has an empty point — ${def}`;
     }
+    // A LEG WAYPOINT RECORDS WHOSE CASE ITS PARAGRAPH TELLS (kogaki#1732, owner ruling 2026-11-07).
+    if (!paragraph && !WAYPOINT_CASES.includes(w.case)) {
+      return `${at}: ${nth} carries ${Object.hasOwn(w, "case") ? `case ${JSON.stringify(w.case)}` : "no `case`"} — ${CASE_DEF}`;
+    }
     if (!Array.isArray(w.serves) || w.serves.length === 0
       || w.serves.some((x) => typeof x !== "string" || x.trim() === "")) {
       return `${at}: ${nth} has an empty serves — every waypoint serves at least one claim of this Leg, `
@@ -298,6 +302,11 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
       const method = methodWordRefusal(w.point, `${at}: ${nth}'s point carries`);
       if (method) return method;
     }
+  }
+  if (!paragraph && waypoints[waypoints.length - 1].case === "apart") {
+    return `${at}: waypoint ${ordinals ? ordinals[waypoints.length - 1] : waypoints.length} is \`apart\` and ends the Leg — `
+      + `the Leg Waypoint after an \`apart\` one carries its structure onto the subject, so a case apart is never `
+      + `the last of its Leg (kogaki#1732)`;
   }
   const unserved = [...strands].filter((x) => !served.has(x));
   if (unserved.length) {
@@ -350,6 +359,13 @@ export function methodWordRefusal(text, at) {
   }
   return null;
 }
+
+// THE TWO VALUES OF A LEG WAYPOINT'S `case` (kogaki#1732), and the sentence a refusal names
+// them in; the meaning is src/leg-schema.json's, `waypoint.fields.case`.
+export const WAYPOINT_CASES = ["own", "apart"];
+const CASE_DEF = "every Leg Waypoint carries `case`, `own` (its paragraph tells the proposition's own case, in the "
+  + "subject's domain) or `apart` (its paragraph tells a case apart from the proposition's domain, in material the "
+  + "reader already holds) — src/leg-schema.json, `waypoint` (kogaki#1732)";
 
 // THE TWO WAYPOINT FIELDS #1359 ADDED AND #1375 RETIRED, refused by name in
 // `waypointsRefusal` above. Exported for the checks that build the refused case.

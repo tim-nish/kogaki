@@ -242,7 +242,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       // (t) PSR_LEG_DROP=first: the first Leg answer's point 2 drops its Claim's language word (kogaki#1547).
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph
-        + (process.env.PSR_LEG_DROP === "first" && !retried && p.paragraph === 2 ? "" : " in " + input.language), serves: [p.claim_strand] })) }] }, "brief-leg-path");
+        + (process.env.PSR_LEG_DROP === "first" && !retried && p.paragraph === 2 ? "" : " in " + input.language), serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
   // read from what the Writer was told rather than from anything the fixture assumes.
@@ -853,7 +853,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
       rationale: "It is the only Leg.",
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
-      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand] })) }] }, "brief-leg-path");
+      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
   // read from what the Writer was told rather than from anything the fixture assumes.
@@ -1273,7 +1273,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const intro = T ? (T.introduces[id] || []) : id === "leg-a" ? ["frobnicator"] : [];
     return out({ legs: [{ leg_id: id, purpose: "Move the reader one step on.", rationale: "It is one Leg of three.",
       claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + "." })),
-      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand] })),
+      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand], case: "own" })),
       ...(intro.length ? { introduces: intro.map((t) => ({ term: t, meaning: t === "frobnicator" ? "the part that copies the kit" : "the part called " + t })) } : {}) }] }, "brief-leg-path");
   }
   return out("WRITTEN-1 the first paragraph.\\n\\nWRITTEN-2 the second.", "writer");

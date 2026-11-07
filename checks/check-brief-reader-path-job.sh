@@ -333,7 +333,7 @@ const fails = [];
     leg_id: legId, move: "m1", materials: ["L1"],
     purpose: `what ${legId} is for`,
     depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const candidateOf = (leg2Extra) => ({

@@ -90,6 +90,8 @@
 #       `apart`, and the waypoints call hands it to the Inference Paragraph's Leg Waypoint as `stands_to_be_taken_up`;
 #       Binding 1 shows the `Case` row; and a Trial whose last Move leaves an `apply` shows it under `Left unmet` on
 #       the last Binding table, `none` where no entry is left.
+#   (w) the short Trial's Leg Waypoints carry `case` (kogaki#1732): the first takes the declared case and every later one
+#       `own`, and `shortLeg` with no case declared, the owner's route, writes `own` on the first.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -109,7 +111,7 @@ const { parseYaml, stringifyYaml } = await import(pathToFileURL(join(repo, "src/
 const { validateRbsTable, validateCorrespondenceTable } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
 const { validateStructure } = await import(pathToFileURL(join(repo, "src/mapping-playground/structure.mjs")).href);
 const { moveContract } = await import(pathToFileURL(join(repo, "src/compose.mjs")).href);
-const { bindMoveRefusal, retriedCall } = await import(pathToFileURL(join(repo, "src/mapping-playground/short.mjs")).href);
+const { bindMoveRefusal, retriedCall, shortLeg } = await import(pathToFileURL(join(repo, "src/mapping-playground/short.mjs")).href);
 const { correspondenceVocabularyRefusal } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
 const { readAttemptRecord } = await import(pathToFileURL(join(repo, "src/workflow/attempt-record.mjs")).href);
 const { relFromRepo } = await import(pathToFileURL(join(repo, "src/workflow/run-record.mjs")).href);
@@ -876,6 +878,16 @@ const [a1Binding] = tableOf(section(a1Sheet, "bindings"), "Binding 1");
 ok(a1Binding && JSON.stringify(labelsOf(a1Binding)) === JSON.stringify(["Move", "Bound by", "Case", "Takes", "Leaves", "Rationale", "Left unmet"])
   && rowOf(a1Binding, "Case") === "<td>own</td></tr>" && rowOf(a1Binding, "Left unmet") === `<td>${esc(`apply: ${PLAIN_LEAVES}`)}</td></tr>`,
   `(v) a Trial whose last Move leaves an apply does not show it under Left unmet: ${a1Binding}`);
+
+// (w) the short Trial's Leg Waypoints carry `case` (kogaki#1732).
+{
+  const tbl = { correspondences: [] };
+  const st = { relations: [{ holds: "a holds" }], higher_order: [{ holds: "b holds" }] };
+  const apart = shortLeg("P.", [tbl, tbl], null, st, "apart");
+  ok(apart.waypoints.map((w) => w.case).join() === "apart,own", `(w) the short Leg under apart does not carry apart then own: ${JSON.stringify(apart.waypoints)}`);
+  const owned = shortLeg("P.", [tbl], null, st);
+  ok(owned.waypoints.map((w) => w.case).join() === "own", `(w) the short Leg with no case declared does not carry own: ${JSON.stringify(owned.waypoints)}`);
+}
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");

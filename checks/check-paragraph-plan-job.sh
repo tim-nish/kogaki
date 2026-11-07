@@ -92,7 +92,7 @@ const leg = (id, point) => ({
   leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
   materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`,
   claims: [{ strand: "L1", proposition: "the installer copies the kit into the consumer's tree." }],
-  waypoints: [{ point, serves: ["L1"] }],
+  waypoints: [{ point, serves: ["L1"], case: "own" }],
 });
 const legs = [
   leg("s1", "The installer writes into a tree the consumer thought was theirs alone."),

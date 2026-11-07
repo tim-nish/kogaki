@@ -163,8 +163,8 @@ const ENTRIES = (total, legId = "s1", serves = ["L1"]) => Array.from({ length: t
 const leg = {
   leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1",
   materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
-  waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"] },
-    { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }],
+  waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"], case: "own" },
+    { point: "The next run overwrites any edit to the copy.", serves: ["L1"], case: "own" }],
 };
 const text = briefRecordText({
   slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
