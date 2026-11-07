@@ -35,7 +35,8 @@ export function cliRecord(path, version = null) {
 
 export function tableRecord(path) {
   const abs = resolve(REPO, String(path));
-  return { path: relFromRepo(abs), sha256: existsSync(abs) ? fileSha256(abs) : null };
+  if (!existsSync(abs)) throw new Error(`attempt record: the table ${relFromRepo(abs)} does not exist, so row.json would name a file nobody read`);
+  return { path: relFromRepo(abs), sha256: fileSha256(abs) };
 }
 
 export function refusalRecord({ group = null, reach = null, text, validator = null, sites = null }) {
