@@ -293,8 +293,7 @@ async function loadReaderPathUnitValidator(declared) {
   // supplied it. The unit's own id rides as the third argument (kogaki#1301),
   // so a job whose units each judge a different subject can resolve which one.
   // A refusal naming its sites rides as `{ text, sites }` for a job's site loop (kogaki#1642).
-  // A validator declared with the row's `refusal_reach` returns `{ group, text }`, which rides
-  // with its group and reach (kogaki#1708).
+  // A refusal's group and reach: kogaki#1708.
   const reaches = declared.refusal_reach;
   return (candidate, unitId) => {
     const r = fn(candidate, inputs, unitId);

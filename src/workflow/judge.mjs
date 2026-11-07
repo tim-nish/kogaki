@@ -368,19 +368,14 @@ const JUDGE_REFUSAL_REPAIR_SENTENCE = "Those are your previous answers and the r
   + "with the whole record. Keep every part the refusal did not name, and change the parts it\n"
   + "did. The input below is unchanged.";
 
-// THE REACH OF A REFUSAL (kogaki#1708): how far the next attempt may change its answer. A row's
-// `refusal_reach` maps each refusal group it declares to one of these; `stop` has no sentence,
-// because a refusal of that reach is never put back.
+// The reach of a refusal: kogaki#1708.
 export const REFUSAL_REACHES = ["part", "record", "stop"];
 const JUDGE_REFUSAL_RECORD_SENTENCE = "Those are your previous answers and the refusal each one raised, verbatim. Answer again\n"
   + "with a whole new record. Keep nothing of the previous one: the refusal names what the new\n"
   + "record cannot contain. The input below is unchanged.";
 const REACH_SENTENCE = { part: JUDGE_REFUSAL_REPAIR_SENTENCE, record: JUDGE_REFUSAL_RECORD_SENTENCE };
 
-// A refusal's group and reach under a row (kogaki#1708). `refusal` is a validator's bare text, read as the
-// state not yet moved, or its `{ group, text }`. Answers `{ group, reach, text }`; for a row with no
-// `refusal_reach` group and reach are null and the `part` sentence renders. A group the row does not
-// declare answers reach `stop` and `undeclared: true`.
+// A refusal's group and reach under its row: kogaki#1708.
 export function refusalReach(row, refusal) {
   const grouped = refusal && typeof refusal === "object";
   const text = grouped ? String(refusal.text) : String(refusal);
