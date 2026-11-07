@@ -2859,8 +2859,18 @@ is a **Trial**: `node src/mapping-playground/trial.mjs run --strand <file>
   them, as read from the WBS (after Gentner, 1983). A **HigherOrderRelation**
   is a relation whose arguments are relations.
 - **Structure-Mapping**: the internal process of DocumentPlanning that
-  transforms a WBS into an RBS. The **Structure-Mapping Engine (SME)** is the
-  Actor that produces a RelationalStructure.
+  transforms a WBS into an RBS.
+- **The Mapper** (kogaki#1721): the one component that carries a proposition
+  sentence to a completed structure mapping. It has two processes, and each is
+  named for what it does, never for the artifact it produces.
+- **Structure reading**: the Mapper's process that reads one sentence into
+  the RelationalStructure (the WBS: Roles with Attributes, relations, one
+  higher-order relation). It is the `sme_map_roles` row, and its artifact is
+  the `structure`.
+- **Grounding**: the Mapper's process that grounds the WBS in the Persona's
+  prior knowledge under one bound Move, as that Move's Mapping Table (the
+  RBS). It is the `smp_correspondence` row, and its artifact is the
+  `correspondence` table.
 
 **What a Trial holds fixed**: the Move library (`moves/`, or `--library`),
 `/paragraph-plan`, `/draft section`, and the Strand at its pin. The input is a
@@ -2874,9 +2884,9 @@ beside the two and with `a Strand's rendering is not an input of the
 Playground` where it stands below them, so no stage can read a rendering.
 The runner never fetches.
 
-**What a Trial varies**: the SME that produces the RelationalStructure. The
-first SME is the owner: the structure file is owner-authored, and the Trial
-record says so. The structure is the proposition's. It carries `strand` (the
+**What a Trial varies**: who performs structure reading. The first reader is
+the owner: the structure file is owner-authored, and the Trial record says
+so. The structure is the proposition's. It carries `strand` (the
 proposition file's `cite:`), `roles` (`{ id, context, attributes }`),
 `relations` (`{ id, between, holds }`) and `higher_order`, every id resolving.
 A Role's `attributes` (kogaki#1693) is a list, possibly empty, of the
@@ -2916,10 +2926,10 @@ there, and the record shows the stop.
 result. A criterion of correctness is derived from those readings later, and
 no score is kept until then.
 
-#### 4.20.1 The first SME (kogaki#1665)
+#### 4.20.1 The Mapper's structure reading (kogaki#1665)
 
-**What it is.** The first Structure-Mapping Engine that is not the owner is
-one model call. A Trial runs it with `--mapper <variant>` in place of
+**What it is.** Structure reading by the Mapper rather than the owner is one
+model call. A Trial runs it with `--mapper <variant>` in place of
 `--structure`: `node src/mapping-playground/trial.mjs run --strand <file>
 --mapper sme_map_roles --out <dir>`. Giving both flags is refused, naming
 both. The Mapper's answer is written as `<out>/structure.yaml`, and the
@@ -2936,16 +2946,16 @@ nothing else.
 
 **The one-retry bound.** The Playground's structure validator runs over the
 answer. A first refusal is put back verbatim with the answer for one retry. A
-second refusal stops the Trial at the `sme` stage, and `trial.json` carries
+second refusal stops the Trial at the `reading` stage, and `trial.json` carries
 the refusal. The row's refusal groups (kogaki#1708) are `shape` (a key, a list
 or an id the record owes), `strand` (a `strand` other than the proposition
 file's `cite:`) and `attributes` (a Role's `attributes` not a list of distinct
 texts), each of reach `part`. Any other refusal belongs to no group the row
-declares and stops the Trial at `sme` on the first attempt.
+declares and stops the Trial at `reading` on the first attempt.
 
 **What the record says.** `trial.json` carries `mapper: { variant,
 prompt_sha256 }`, the hash of the rendered prompt, and `structure.author:
-sme`. The owner-authored route keeps `mapper: owner-authored`.
+mapper`. The owner-authored route keeps `mapper: owner-authored`.
 
 **A variant is a workflow row.** A variant is a row `sme_map_<variant>` of
 `src/mapping-playground/playground-workflow.json`. A second variant is a
@@ -2955,7 +2965,7 @@ variants is the owner's reading of two Trials.
 #### 4.20.2 The short Trial (kogaki#1669)
 
 **Why it is short.** The owner ruled on 2026-11-04 that the Trial of §4.20 is
-the wrong shape for a rig with no correctness criterion. Every SME output is
+the wrong shape for a rig with no correctness criterion. Every Mapper output is
 found by trial and error, and the Draft is read rather than judged, so a cycle
 that costs an hour to reach a reading fails before it finds anything. The
 shortest cycle is one WriterBasedStrand, one Move and one Paragraph, read on a
@@ -2978,9 +2988,9 @@ of a RelationalStructure's `roles` (R, G, K, K_absent and A in the first
 owner-authored Trial) are *Roles* wherever the sheet and this section name
 them, never targets.
 
-**The stages** (kogaki#1700), in order: `sme` (with `--mapper` only: the
-Mapper of §4.20.1 under its one-retry bound), `bind`, `correspondence`,
-`waypoints` and `write`. The order is the owner's of 2026-11-06: a Move is
+**The stages** (kogaki#1700, kogaki#1721), in order: `reading` (with
+`--mapper` only: the Mapper's structure reading of §4.20.1 under its one-retry
+bound), `bind`, `grounding`, `waypoints` and `write`. The order is the owner's of 2026-11-06: a Move is
 bound to the structure, the Correspondence column is filled under that Move's
 Segments, and the Paragraph Waypoints are written from those expressions.
 Choosing a base and judging its distance from the target are abstractions of
@@ -2995,7 +3005,7 @@ structure is told by several Moves, and each Move's paragraph needs its own
 vocabulary: an Analogy paragraph carries the relations in a base apart from the
 subject and none of its Attributes, while the Inference Paragraph, under
 Literal Similarity, needs the subject's own expressions with the Attributes
-carried. So the `correspondence` stage writes `<out>/rbs.yaml`: `variant`,
+carried. So the `grounding` stage writes `<out>/rbs.yaml`: `variant`,
 `composed` or `owner-authored`, and `tables`, a list in the bindings' order,
 each `{ move, base: { domain }, correspondences: [{ role, expression }] }`,
 one per Move bound at `bind`, its `correspondences` one per Role in the
@@ -3062,7 +3072,7 @@ kept as `<out>/bind/prompt-<n>.md` and `answer-<n>.json`. The answer carries
 no `rationale`: the record's `binding_rationale` is written by the Harness
 from the answer's `case` and Moves (kogaki#1719).
 
-**The `correspondence` row** (kogaki#1700, kogaki#1709). The `correspondence`
+**The `smp_correspondence` row** (kogaki#1700, kogaki#1709). The `grounding`
 stage is one model call of the row `smp_correspondence` per bound Move, the
 base Move first and then the inference Move where one is bound, each under the
 same bound. Its input is the structure record, the Persona's prior-knowledge
@@ -3091,15 +3101,15 @@ are `shape` (an undeclared key, or a `correspondences` list that is not one
 of `{ role, expression }`), `role` (a `role` naming no Role, or a Role with
 other than one correspondence) and `base` (a `base` that is not
 `{ domain }`); any other refusal belongs to none of them and stops the Trial
-at `correspondence` on the first attempt. The first refusal is put back
+at `grounding` on the first attempt. The first refusal is put back
 verbatim into the second attempt, and a second refusal stops the Trial at
-`correspondence`, naming the Move. Each attempt's prompt and answer are kept
-as `<out>/correspondence/<move>/prompt-<n>.md` and `answer-<n>.json`. The
+`grounding`, naming the Move. Each attempt's prompt and answer are kept
+as `<out>/grounding/<move>/prompt-<n>.md` and `answer-<n>.json`. The
 record carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
 the structure's in every table and independent of the Move; the
 Correspondence column depends on it.
 
-**The owner-authored table is the first SME of the short Trial** (kogaki#1671,
+**The owner-authored table is the owner's grounding** (kogaki#1671,
 owner discussion 2026-11-04). `--rbs-file <file>` supplies `rbs.yaml` by file,
 the way `--structure` supplies the structure, in the same `tables` shape, one
 table per binding of the file (kogaki#1709), and is refused together with
@@ -3155,7 +3165,7 @@ of the library, and `waypoints`, one `{ segment, point }` per segment of that
 Move in order, each `point` the segment expressed in the base's objects. With both present, the `bind` stage
 makes no model call: it records `bind: { state: supplied, author: owner, move,
 binding_rationale, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
-segment order. The `bind`, `correspondence` and `waypoints` stages make no
+segment order. The `bind`, `grounding` and `waypoints` stages make no
 model call, and the Trial is then one writer call. An owner's file must also
 carry `projection`, below, and one without it is refused naming `projection`:
 a Trial that never states the proposition has no reading (kogaki#1689).

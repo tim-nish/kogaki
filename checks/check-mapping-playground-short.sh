@@ -4,11 +4,11 @@
 #       two correspondence calls, the waypoints and the writer calls recorded, and its files and trial.json fields are written;
 #       `rbs.yaml` carries `variant: composed`, two `tables` whose `move`s match the two bindings, each with its `base.domain` and one
 #       correspondence per Role, no root `base` or `correspondences`, and the two bindings; each Move's attempts are kept under
-#       `correspondence/<move>/` (kogaki#1709); the waypoints call's stdin carries two Leg Waypoints, each with the Move `bind`
+#       `grounding/<move>/` (kogaki#1709); the waypoints call's stdin carries two Leg Waypoints, each with the Move `bind`
 #       bound, the second's `point` the structure in the inference table's expressions, and the `tables`; `bind.yaml`'s
 #       `paragraphs` has two entries, and the sheet carries two Segments tables and two Binding tables. A base Move leaving no
 #       `carry` writes one correspondence call, one table, one paragraph, one Leg Waypoint, one binding and one `Base:` line.
-#   (b) `--mapper sme_map_roles --compose` records six calls and `structure.author: sme`.
+#   (b) `--mapper sme_map_roles --compose` records six calls and `structure.author: mapper`.
 #   (c) `--rbs` is refused naming `--compose` and `--rbs-file`, and a run with neither is refused naming both, with nothing written.
 
 #   (d) the `smp_bind_move` row's refusals by name: an id not in the library, an `inference_move` null under `case: apart`, one
@@ -77,7 +77,7 @@
 #       `segments`, and no kinds; the inference Move's call carries its own `segments` and `prior_tables`, the base Move's table
 #       (kogaki#1709); a first answer whose Role names no Role is refused, group `role`, and the second attempt's stdin
 #       carries that refusal under the `part` sentence and not the `record` one, the stage record naming the group and reach; each
-#       attempt's prompt and answer are kept, and a second refusal stops at `correspondence` (kogaki#1693, kogaki#1700). A fixture
+#       attempt's prompt and answer are kept, and a second refusal stops at `grounding` (kogaki#1693, kogaki#1700). A fixture
 #       refusal whose group the row does not declare stops at once naming the row and the group, and one of reach `stop` makes no
 #       second call (kogaki#1708).
 
@@ -146,14 +146,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     writeSync(1, answer); process.exit(0);
   };
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
-  if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "sme");
+  if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "reading");
   const nth = (stage, file) => {
     const answers = JSON.parse(readFileSync(file, "utf8"));
     let n = 0; try { n = readFileSync(dir + "/seen.jsonl", "utf8").split("\\n").filter(Boolean).filter((l) => JSON.parse(l).stage === stage).length; } catch {}
     return answers[Math.min(n, answers.length - 1)];
   };
   if (prompt.includes("\\\`smp_bind_move\\\` judgment point")) return out(nth("bind", process.env.SMP_BIND_ANSWERS), "bind");
-  if (prompt.includes("\\\`smp_correspondence\\\` judgment point")) return out(nth("correspondence", process.env.SMP_CORR_ANSWERS), "correspondence");
+  if (prompt.includes("\\\`smp_correspondence\\\` judgment point")) return out(nth("grounding", process.env.SMP_CORR_ANSWERS), "grounding");
   if (prompt.includes("\\\`smp_waypoints_unit\\\` judgment point")) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable, tables } = body("leg_you_must_plan");
     const drop = [process.env.SMP_DROP_ROLE, process.env.SMP_DROP_ROLE_2];
@@ -237,15 +237,15 @@ const run = (name, args, extraEnv = {}) => {
 const stagesOf = (rec) => (rec ? rec.stages.map((s) => `${s.stage}:${s.state}`).join(",") : "no record");
 const fileOk = (f) => f && typeof f.path === "string" && existsSync(join(repo, f.path)) && f.sha256 === sha(join(repo, f.path));
 
-// (a) the composed route: bind, correspondence, waypoints and write
-const STAGES = "bind:done,correspondence:done,waypoints:done,write:done";
+// (a) the composed route: bind, grounding, waypoints and write
+const STAGES = "bind:done,grounding:done,waypoints:done,write:done";
 const a = run("composed", ["--structure", structure, "--compose"]);
 ok(a.res.status === 0, `(a) the run exited ${a.res.status}: ${a.res.stdout}${a.res.stderr}`);
 const rec = a.rec || {};
 ok(stagesOf(a.rec) === STAGES, `(a) the stages are not all done: ${JSON.stringify(rec.stages)}`);
-const recorded = ["bind", "correspondence", "waypoints", "write"].flatMap((st) => a.calls(st));
+const recorded = ["bind", "grounding", "waypoints", "write"].flatMap((st) => a.calls(st));
 ok(recorded.length === 5 && a.seen.length === 5 && recorded.every((c, i) => c.stdin === a.seen[i].prompt && c.stdout === a.seen[i].answer)
-  && JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["bind", "correspondence", "correspondence", "waypoints", "writer"]),
+  && JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["bind", "grounding", "grounding", "waypoints", "writer"]),
   `(a) the run did not record the bind, two correspondence, waypoints and writer calls the binary saw: ${recorded.length} recorded, ${a.seen.map((x) => x.stage)}`);
 ok(rec.proposition && rec.proposition.cite === CITE && rec.proposition.proposition === PROPOSITION && rec.proposition.sha256 === sha(proposition)
   && !Object.hasOwn(rec, "strand"), `(a) trial.json's proposition is not the file's cite, sentence and sha256, or a strand key remains: ${JSON.stringify(rec.proposition)}`);
@@ -258,8 +258,8 @@ ok(rbs.variant === "composed" && JSON.stringify(rbs.tables) === JSON.stringify(T
   && Array.isArray(rbs.bindings) && rbs.bindings.length === 2 && rbs.bindings[0].move === MOVE && rbs.bindings[1].move === INFER
   && rbs.bindings.every((x) => x.paragraph_waypoints.length > 0) && !Object.hasOwn(rbs, "pairs") && !Object.hasOwn(rbs, "placeholder"),
   `(a) rbs.yaml is not variant composed with two tables whose moves match the two bindings: ${JSON.stringify(rbs)}`);
-ok([MOVE, INFER].every((m) => existsSync(join(a.o, "correspondence", m, "prompt-1.md")) && existsSync(join(a.o, "correspondence", m, "answer-1.json"))),
-  "(a) the correspondence stage does not keep each Move's attempt under correspondence/<move>/");
+ok([MOVE, INFER].every((m) => existsSync(join(a.o, "grounding", m, "prompt-1.md")) && existsSync(join(a.o, "grounding", m, "answer-1.json"))),
+  "(a) the grounding stage does not keep each Move's attempt under grounding/<move>/");
 ok(rec.bind && rec.bind.author === "smp_bind_move" && rec.bind.base_move === MOVE && rec.bind.case === "apart" && rec.bind.inference_move === INFER && rec.bind.move === MOVE && fileOk(rec.bind),
   `(a) trial.json's bind does not carry the bound Moves and its file: ${JSON.stringify(rec.bind)}`);
 ok(rec.paragraph && fileOk(rec.paragraph) && readFileSync(join(repo, rec.paragraph.path), "utf8").startsWith("WRITTEN"),
@@ -294,7 +294,7 @@ const a1Rbs = existsSync(join(a1.o, "rbs.yaml")) ? parseYaml(readFileSync(join(a
 const a1Sheet = existsSync(join(a1.o, "sheet.html")) ? readFileSync(join(a1.o, "sheet.html"), "utf8") : "";
 ok(a1.res.status === 0 && stagesOf(a1.rec) === STAGES && a1Leg && a1Leg.waypoints.length === 1 && a1Leg.waypoints[0].move === PLAIN
   && a1.rec.bind.inference_move === null && a1.rec.bind.paragraphs.length === 1 && (a1Rbs.bindings || []).length === 1
-  && a1.calls("correspondence").length === 1 && (a1Rbs.tables || []).length === 1 && a1Rbs.tables[0].move === PLAIN
+  && a1.calls("grounding").length === 1 && (a1Rbs.tables || []).length === 1 && a1Rbs.tables[0].move === PLAIN
   && (a1Sheet.match(/<p class="meta">Base: /g) || []).length === 1
   && (a1Sheet.match(/<caption>Paragraph \d+ <span class="meta">[^<]*<\/span><\/caption><thead><tr><th>#/g) || []).length === 1 && (a1Sheet.match(/<caption>Binding \d+<\/caption>/g) || []).length === 1,
   `(a) a base Move leaving no carry did not write one paragraph, one Leg Waypoint and one binding: ${a1.res.status} ${stagesOf(a1.rec)} ${JSON.stringify(a1Leg && a1Leg.waypoints)} ${a1.res.stderr}`);
@@ -316,10 +316,10 @@ ok(aTop === `1. ${WANT} *Serves:* ${PROPOSITION}` && !ROLE_IDS.some((id) => new 
 // (b) the Mapper route
 writeFileSync(join(root, "answer.json"), JSON.stringify(mapped));
 const b = run("mapped", ["--mapper", "sme_map_roles", "--compose"], { SMP_MAPPER_ANSWER: join(root, "answer.json") });
-const bCalls = ["sme", "bind", "correspondence", "waypoints", "write"].flatMap((st) => b.calls(st));
-ok(b.res.status === 0 && stagesOf(b.rec) === `sme:done,${STAGES}` && bCalls.length === 6
-  && b.rec.structure.author === "sme" && b.rec.mapper.variant === "sme_map_roles",
-  `(b) the --mapper run did not record six calls with structure.author: sme: ${b.res.status} ${stagesOf(b.rec)} ${bCalls.length} ${b.res.stderr}`);
+const bCalls = ["reading", "bind", "grounding", "waypoints", "write"].flatMap((st) => b.calls(st));
+ok(b.res.status === 0 && stagesOf(b.rec) === `reading:done,${STAGES}` && bCalls.length === 6
+  && b.rec.structure.author === "mapper" && b.rec.mapper.variant === "sme_map_roles",
+  `(b) the --mapper run did not record six calls with structure.author: mapper: ${b.res.status} ${stagesOf(b.rec)} ${bCalls.length} ${b.res.stderr}`);
 
 // (c) `--rbs` is retired, and a Trial's route is exactly one of `--compose` and `--rbs-file`
 const c = run("retired-rbs", ["--structure", structure, "--rbs", "rbs_base"]);
@@ -359,7 +359,7 @@ ok(dr.res.status === 0 && drCalls.length === 2 && drCalls[1].stdin.includes('bas
   && drStage && JSON.stringify(drStage.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["library", "record"]]),
   `(d) a library refusal did not render the record sentence on attempt 2, or the second answer was not taken whole: ${dr.res.status} ${drCalls.length} ${dr.res.stderr}`);
 const dStop = run("bind-stop", ["--structure", structure, "--compose"], { SMP_BIND_ANSWERS: answers("bind-stop", [{ ...CARRYING, base_move: "no_such_move" }]) });
-ok(dStop.res.status !== 0 && stagesOf(dStop.rec) === "bind:stopped,correspondence:not run,waypoints:not run,write:not run" && dStop.calls("bind").length === 2
+ok(dStop.res.status !== 0 && stagesOf(dStop.rec) === "bind:stopped,grounding:not run,waypoints:not run,write:not run" && dStop.calls("bind").length === 2
   && /^bind: /.test(String(dStop.rec.stopped)) && String(dStop.rec.stopped).includes('base_move "no_such_move"')
   && !existsSync(join(dStop.o, "rbs.yaml")) && existsSync(join(dStop.o, "sheet.html")),
   `(d) a second refused bind answer did not stop the Trial at bind: ${dStop.res.status} ${stagesOf(dStop.rec)} ${JSON.stringify(dStop.rec && dStop.rec.stopped)}`);
@@ -368,15 +368,15 @@ const dParagraph = (/<section class="card" id="proposition-paragraph">([\s\S]*?)
 ok(dStop.rec && dParagraph.includes(`stopped — ${dStop.rec.stopped}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")),
   `(d) the stopped Trial's Proposition and Paragraph part does not carry the stop reason: ${dParagraph}`);
 const dWrong = run("waypoints-wrong-move", ["--structure", structure, "--compose"], { SMP_WRONG_MOVE: PLAIN });
-ok(dWrong.res.status !== 0 && stagesOf(dWrong.rec) === "bind:done,correspondence:done,waypoints:stopped,write:not run"
+ok(dWrong.res.status !== 0 && stagesOf(dWrong.rec) === "bind:done,grounding:done,waypoints:stopped,write:not run"
   && String(dWrong.rec.stopped).startsWith(`waypoints: Waypoint 1: the answer binds "${PLAIN}", and the Move bound to it at \`bind\` is "${MOVE}"`),
   `(d) a waypoints answer binding another Move was not refused naming the Waypoint: ${dWrong.res.status} ${stagesOf(dWrong.rec)} ${JSON.stringify(dWrong.rec && dWrong.rec.stopped)}`);
 const dDrop = run("waypoints-drop-role", ["--structure", structure, "--compose"], { SMP_DROP_ROLE: "list" });
-ok(dDrop.res.status !== 0 && stagesOf(dDrop.rec) === "bind:done,correspondence:done,waypoints:stopped,write:not run"
+ok(dDrop.res.status !== 0 && stagesOf(dDrop.rec) === "bind:done,grounding:done,waypoints:stopped,write:not run"
   && String(dDrop.rec.stopped).includes('the Correspondence expression of the Role "list"') && !existsSync(join(dDrop.o, "paragraph.md")),
   `(d) a Base Paragraph whose points carry no expression of one Role was not refused naming the Role: ${dDrop.res.status} ${stagesOf(dDrop.rec)} ${JSON.stringify(dDrop.rec && dDrop.rec.stopped)}`);
 const dDrop2 = run("waypoints-drop-role-inference", ["--structure", structure, "--compose"], { SMP_DROP_ROLE_2: "list" });
-ok(dDrop2.res.status !== 0 && stagesOf(dDrop2.rec) === "bind:done,correspondence:done,waypoints:stopped,write:not run"
+ok(dDrop2.res.status !== 0 && stagesOf(dDrop2.rec) === "bind:done,grounding:done,waypoints:stopped,write:not run"
   && String(dDrop2.rec.stopped).includes(`Paragraph 2's points carry the Correspondence expression of the Role "list", "${OWN.correspondences[1].expression}"`),
   `(d) an Inference Paragraph whose points carry no expression of one Role of its own table was not refused naming the paragraph and the Role: ${dDrop2.res.status} ${stagesOf(dDrop2.rec)} ${JSON.stringify(dDrop2.rec && dDrop2.rec.stopped)}`);
 const dId = correspondenceVocabularyRefusal([{ point: "The gardener and a flower bed follow the planting chart." }, { point: "The crew goes on." }], GARDEN);
@@ -454,7 +454,7 @@ const PASSED = { id: "passed", between: ["crew", "room"], holds: "The crew goes 
 const HIGHER = [{ id: "h1", relates: ["cleans", "missed", "passed"], holds: "Because the crew follows the list, it goes past what the list leaves out." }];
 writeFileSync(wide, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], relations: [...mapped.relations, PASSED], higher_order: HIGHER }));
 const j = run("owned", ["--structure", wide, "--rbs-file", ownedFile]);
-const jCalls = ["bind", "correspondence", "waypoints", "write"].flatMap((st) => j.calls(st));
+const jCalls = ["bind", "grounding", "waypoints", "write"].flatMap((st) => j.calls(st));
 ok(j.res.status === 0 && stagesOf(j.rec) === STAGES && jCalls.length === 1 && j.seen.length === 1
   && j.rec.bind.state === "supplied" && j.rec.bind.author === "owner" && j.rec.bind.move === MOVE
   && j.rec.rbs.variant === "owner-authored" && fileOk(j.rec.rbs) && j.rec.rbs.source && j.rec.rbs.source.sha256 === sha(ownedFile),
@@ -650,7 +650,7 @@ const PROJ_POINT = pointOf([...mapped.relations, PASSED, ...HIGHER].map((x) => x
 const SO_FAR = "## The article so far, up to this Leg:";
 for (const [name, file] of [["projected", projFile], ["projected-list", listFile]]) {
   const o = run(name, ["--structure", wide, "--rbs-file", file]);
-  const oCalls = ["bind", "correspondence", "waypoints", "write"].flatMap((st) => o.calls(st));
+  const oCalls = ["bind", "grounding", "waypoints", "write"].flatMap((st) => o.calls(st));
   ok(o.res.status === 0 && stagesOf(o.rec) === STAGES && oCalls.length === 1 && o.seen.length === 1,
     `(o) ${name}: the projecting run did not exit 0 with one writer call: ${o.res.status} ${stagesOf(o.rec)} ${oCalls.length} ${o.res.stderr}`);
   const oBind = existsSync(join(o.o, "bind.yaml")) ? parseYaml(readFileSync(join(o.o, "bind.yaml"), "utf8"), "bind") : {};
@@ -716,7 +716,7 @@ ok(q3.error && q3.error.includes("`projection`") && q3.error.includes("`move`") 
 
 // (r) a writer stop leaves no paragraph.md
 const r = run("write-refused", ["--structure", wide, "--rbs-file", projFile], { SMP_WRITE_REFUSE: "1" });
-ok(r.res.status !== 0 && stagesOf(r.rec) === "bind:done,correspondence:done,waypoints:done,write:stopped" && /^write: /.test(String(r.rec.stopped))
+ok(r.res.status !== 0 && stagesOf(r.rec) === "bind:done,grounding:done,waypoints:done,write:stopped" && /^write: /.test(String(r.rec.stopped))
   && !existsSync(join(r.o, "paragraph.md")) && existsSync(join(r.o, "sheet.html")),
   `(r) a writer refusal did not stop at write with no paragraph.md: ${r.res.status} ${stagesOf(r.rec)} ${JSON.stringify(r.rec && r.rec.stopped)}`);
 
@@ -758,16 +758,16 @@ ok(t5.res.status !== 0 && t5.res.stderr.includes("more than one `proposition:` l
 const t3 = run("strand-flag", ["--strand", proposition, "--structure", structure, "--compose"]);
 ok(t3.res.status !== 0 && t3.res.stderr.includes("`--strand`") && t3.res.stderr.includes("`--proposition <file>`") && !existsSync(t3.o),
   `(t) --strand was not refused naming --proposition: ${t3.res.status} ${t3.res.stderr}`);
-const smeStdin = b.calls("sme").map((x) => x.stdin).join("\n");
+const smeStdin = b.calls("reading").map((x) => x.stdin).join("\n");
 ok(smeStdin.includes(`"proposition": ${JSON.stringify(PROPOSITION)}`) && !smeStdin.includes('"rendering"') && !smeStdin.includes("`rendering`"),
   `(t) the Mapper's recorded stdin does not carry the proposition alone: ${smeStdin.slice(0, 400)}`);
 
 // (u) the smp_correspondence row: under the bound base Move's Segments, validated as the owner's file is, under one retry
-const uIn = a.calls("correspondence").length ? inputOf(a.calls("correspondence")[0].stdin, "structure") : null;
+const uIn = a.calls("grounding").length ? inputOf(a.calls("grounding")[0].stdin, "structure") : null;
 ok(uIn && uIn.persona && uIn.persona.prior_knowledge && uIn.structure && JSON.stringify(uIn.segments.map((x) => x.operation)) === JSON.stringify(segs.map((x) => String(x.operation).trim()))
-  && JSON.stringify(Object.keys(uIn)) === JSON.stringify(["structure", "persona", "case", "segments"]) && !a.calls("correspondence")[0].stdin.includes('"kinds"'),
+  && JSON.stringify(Object.keys(uIn)) === JSON.stringify(["structure", "persona", "case", "segments"]) && !a.calls("grounding")[0].stdin.includes('"kinds"'),
   "(u) the correspondence call's stdin does not carry the structure, the prior-knowledge line, the case and the base Move's segments, or carries kinds");
-const uIn2 = a.calls("correspondence").length === 2 ? inputOf(a.calls("correspondence")[1].stdin, "structure") : null;
+const uIn2 = a.calls("grounding").length === 2 ? inputOf(a.calls("grounding")[1].stdin, "structure") : null;
 const inferSegs = moveContract(INFER, resolve(repo, library)).segments;
 ok(uIn2 && JSON.stringify(Object.keys(uIn2)) === JSON.stringify(["structure", "persona", "case", "segments", "prior_tables"])
   && JSON.stringify(uIn2.segments.map((x) => x.operation)) === JSON.stringify(inferSegs.map((x) => String(x.operation).trim()))
@@ -779,21 +779,21 @@ const PART_SENTENCE = "Keep every part the refusal did not name";
 const RECORD_SENTENCE = "Keep nothing of the previous one";
 const ROLED = { ...GARDEN, correspondences: GARDEN.correspondences.map((x, i) => (i === 0 ? { ...x, role: "nobody" } : x)) };
 const u2 = run("corr-retry", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-retry", [ROLED, GARDEN]) });
-const u2Calls = u2.calls("correspondence");
-const u2Stage = u2.rec && u2.rec.stages.find((x) => x.stage === "correspondence");
+const u2Calls = u2.calls("grounding");
+const u2Stage = u2.rec && u2.rec.stages.find((x) => x.stage === "grounding");
 ok(u2.res.status === 0 && u2Calls.length === 3
   && u2Calls[1].stdin.includes('correspondences[0].role "nobody" names no Role') && !u2Calls[0].stdin.includes("names no Role")
   && u2Calls[1].stdin.includes(PART_SENTENCE) && !u2Calls[1].stdin.includes(RECORD_SENTENCE),
   `(u) a first answer of group role was not refused into the second attempt's stdin under the part sentence: ${u2.res.status} ${u2Calls.length} ${u2.res.stderr}`);
 ok(u2Stage && JSON.stringify(u2Stage.refusals && u2Stage.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["role", "part"]]),
   `(u) the run record does not carry the refusal's group and reach: ${JSON.stringify(u2Stage)}`);
-ok([1, 2].every((n) => existsSync(join(u2.o, "correspondence", MOVE, `prompt-${n}.md`)) && existsSync(join(u2.o, "correspondence", MOVE, `answer-${n}.json`)))
-  && JSON.parse(readFileSync(join(u2.o, "correspondence", MOVE, "answer-1.json"), "utf8")).correspondences[0].role === "nobody",
-  "(u) the retried correspondence stage does not keep each attempt's prompt and answer");
+ok([1, 2].every((n) => existsSync(join(u2.o, "grounding", MOVE, `prompt-${n}.md`)) && existsSync(join(u2.o, "grounding", MOVE, `answer-${n}.json`)))
+  && JSON.parse(readFileSync(join(u2.o, "grounding", MOVE, "answer-1.json"), "utf8")).correspondences[0].role === "nobody",
+  "(u) the retried grounding stage does not keep each attempt's prompt and answer");
 const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [ROLED]) });
-ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,correspondence:stopped,waypoints:not run,write:not run" && u3.calls("correspondence").length === 2
-  && /^correspondence: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].role "nobody" names no Role') && !existsSync(join(u3.o, "rbs.yaml")),
-  `(u) a second refusal did not stop the Trial at correspondence: ${u3.res.status} ${stagesOf(u3.rec)} ${JSON.stringify(u3.rec && u3.rec.stopped)}`);
+ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,grounding:stopped,waypoints:not run,write:not run" && u3.calls("grounding").length === 2
+  && /^grounding: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].role "nobody" names no Role') && !existsSync(join(u3.o, "rbs.yaml")),
+  `(u) a second refusal did not stop the Trial at grounding: ${u3.res.status} ${stagesOf(u3.rec)} ${JSON.stringify(u3.rec && u3.rec.stopped)}`);
 const CORR_ROW = { ...JSON.parse(readFileSync(join(repo, "src/mapping-playground/playground-workflow.json"), "utf8")).smp_correspondence, id: "smp_correspondence" };
 const seenCount = (dir) => (existsSync(join(dir, "seen.jsonl")) ? readFileSync(join(dir, "seen.jsonl"), "utf8").trim().split("\n").length : 0);
 // a refusal of a group the row does not declare stops at once, naming the row and the group: the Trial's own validator returns
@@ -823,7 +823,7 @@ const v2 = bindMoveRefusal({ ...CARRYING, case: "near" }, byMove);
 ok(v2 && v2.group === "shape" && v2.text.includes('"near"'), `(v) an unknown case was not refused naming it, group shape: ${JSON.stringify(v2)}`);
 const v3 = bindMoveRefusal({ ...CARRYING, rationale: "the retired field" }, byMove);
 ok(v3 && v3.group === "shape" && v3.text.includes("`rationale`"), `(v) a rationale was not refused as an undeclared key, group shape: ${JSON.stringify(v3)}`);
-const caseOf = (run, n) => { const cs = run.calls("correspondence"); return cs.length > n ? (inputOf(cs[n].stdin, "structure") || {}).case : null; };
+const caseOf = (run, n) => { const cs = run.calls("grounding"); return cs.length > n ? (inputOf(cs[n].stdin, "structure") || {}).case : null; };
 ok(caseOf(a, 0) === "apart" && caseOf(a, 1) === "own" && caseOf(a1, 0) === "own",
   `(v) the correspondence stdin the runs recorded does not carry the declared case on the base Move and own on the inference Move: ${caseOf(a, 0)} ${caseOf(a, 1)} ${caseOf(a1, 0)}`);
 const vLast = moveContract(MOVE, resolve(repo, library)).segments.length;

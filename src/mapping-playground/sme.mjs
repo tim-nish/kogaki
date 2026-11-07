@@ -1,11 +1,11 @@
-// The Structure-Mapping Playground's Mapper (kogaki#1665): an SME variant, one row of
+// The Structure-Mapping Playground's Mapper (kogaki#1665): a structure reading variant, one row of
 // `playground-workflow.json`, reads the proposition file and the Persona into a RelationalStructure.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
-//   The first SME
+//   The Mapper's structure reading
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { personaPriorKnowledgeLine } from "../compose.mjs";
