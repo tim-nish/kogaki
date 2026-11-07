@@ -16,8 +16,7 @@ import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, legRecord, briefRecordText,
-  wordsOf, FUNCTION_WORDS } from "../compose.mjs";
+import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, legRecord, briefRecordText } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
@@ -168,12 +167,11 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
   const { roles, relations, higher_order } = structure;
   const priorKnowledge = personaPriorKnowledgeLine(persona);
   const claims = structureClaims(structure);
-  const forbidden = [...new Set(wordsOf(strand.proposition).filter((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)))];
   const r2 = runRow({ dir: join(outDir, "leg"), unitId: "leg", row: lr.row, recordArray: "legs",
-    input: { persona_prior_knowledge: priorKnowledge, language: lang.language, leg_ids_already_carried: [], forbidden_words: forbidden,
+    input: { persona_prior_knowledge: priorKnowledge, language: lang.language, leg_ids_already_carried: [],
       structure: { roles, relations, higher_order }, claims },
     validator: { module: "src/mapping-playground/structure.mjs", export: "validateSmpLegUnit",
-      inputs: { holds: claims.map((c) => c.holds), proposition: strand.proposition, segments: claims.map((c) => c.material) } },
+      inputs: { holds: claims.map((c) => c.holds), segments: claims.map((c) => c.material) } },
     bounds });
   if (r2.stopped) return { stopped: r2.stopped };
   writeFileSync(briefPath, trialBriefText({ slug, composePath: relFromRepo(audiencePath), claims,
