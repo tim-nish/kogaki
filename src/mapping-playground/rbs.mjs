@@ -10,15 +10,9 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { moveContract } from "../compose.mjs";
-import { propositionForms, propositionWordIn } from "./structure.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
-
-function propositionWordRefusal(text, forms, field) {
-  const w = propositionWordIn(text, forms);
-  return w ? `${field} carries "${w}", a content word of the proposition — the reader does not hold the Strand's words (kogaki#1669)` : null;
-}
 
 function baseRefusal(base) {
   if (!isMap(base)) return "the correspondence table's `base` is not a `{ domain }` map";
@@ -30,8 +24,8 @@ function baseRefusal(base) {
 }
 
 // A binding: `move` resolving in the library, and one `{ segment, point }` per segment, in order.
-// `at` prefixes every field it names; `forms` null skips the proposition-word test (a projecting binding).
-function bindingRefusal(record, forms, movesDir, at = "") {
+// `at` prefixes every field it names.
+function bindingRefusal(record, movesDir, at = "") {
   if (Object.hasOwn(record, "grounds")) return `${at}grounds is no field of a binding: why the Move was chosen is \`${at}binding_rationale\` (kogaki#1678)`;
   if (Object.hasOwn(record, "binding_rationale") && !isText(record.binding_rationale)) {
     return `${at}binding_rationale is not one text — why the Move was chosen (kogaki#1675)`;
@@ -51,8 +45,6 @@ function bindingRefusal(record, forms, movesDir, at = "") {
     const field = `${at}waypoints[${i}]`;
     if (!isMap(w) || w.segment !== i + 1) return `${field} is not \`{ segment: ${i + 1}, point }\``;
     if (!isText(w.point)) return `${field}.point is empty`;
-    const r = forms ? propositionWordRefusal(w.point, forms, `${field}.point`) : null;
-    if (r) return r;
   }
   return null;
 }
@@ -63,7 +55,7 @@ export function projectionsOf(record) {
   return Array.isArray(record.projection) ? record.projection : [record.projection];
 }
 
-// Each projecting binding has the first binding's shape, with no proposition-word test, and only beside a first binding.
+// Each projecting binding has the first binding's shape, and only beside a first binding.
 function projectionRefusal(record, movesDir) {
   if (!Object.hasOwn(record, "projection")) return null;
   const list = projectionsOf(record);
@@ -77,13 +69,14 @@ function projectionRefusal(record, movesDir) {
     if (!Object.hasOwn(p, "move") || !Object.hasOwn(p, "waypoints")) {
       return `the correspondence table carries \`projection[${i}]\` without \`${at}${Object.hasOwn(p, "move") ? "waypoints" : "move"}\``;
     }
-    const r = bindingRefusal(p, null, movesDir, at);
+    const r = bindingRefusal(p, movesDir, at);
     if (r) return r;
   }
   return null;
 }
 
-export function validateRbsTable(record, proposition, { movesDir = "moves", structure = null } = {}) {
+// `_proposition` is no longer read: what an expression names is the owner's reading (kogaki#1707).
+export function validateRbsTable(record, _proposition, { movesDir = "moves", structure = null } = {}) {
   if (isMap(record) && Object.hasOwn(record, "pairs")) {
     return { error: "the correspondence table carries `pairs`, which it does not declare — its rows are `correspondences: [{ role, expression }]` (kogaki#1693)" };
   }
@@ -92,17 +85,12 @@ export function validateRbsTable(record, proposition, { movesDir = "moves", stru
   }
   const b = baseRefusal(record.base);
   if (b) return { error: b };
-  const forms = propositionForms(proposition);
   for (const [i, c] of record.correspondences.entries()) {
     if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) {
       return { error: `correspondences[${i}] is not a \`{ role, expression }\` correspondence` };
     }
     if (!isText(c.expression)) return { error: `correspondences[${i}].expression is not one base text` };
-    const x = propositionWordRefusal(c.expression, forms, `correspondences[${i}].expression`);
-    if (x) return { error: x };
     if (!isText(c.role)) return { error: `correspondences[${i}].role is not one Role id` };
-    const r = propositionWordRefusal(c.role, forms, `correspondences[${i}].role`);
-    if (r) return { error: r };
   }
   if (structure) {
     const roles = structure.roles.map((r) => r.id);
@@ -114,7 +102,7 @@ export function validateRbsTable(record, proposition, { movesDir = "moves", stru
       if (n !== 1) return { error: `the Role ${JSON.stringify(id)} has ${n} correspondences, and every Role has one` };
     }
   }
-  const m = bindingRefusal(record, forms, movesDir) || projectionRefusal(record, movesDir);
+  const m = bindingRefusal(record, movesDir) || projectionRefusal(record, movesDir);
   return m ? { error: m } : {};
 }
 

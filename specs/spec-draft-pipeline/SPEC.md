@@ -2865,19 +2865,16 @@ one-place predicates the proposition states of that Role's object, each one
 short phrase in the proposition's own words. A Role without the key is refused
 naming the Role; a value that is not a list, or an entry that is empty, not
 text or repeated within the Role, is refused naming the Role and the index.
-The proposition-word test does not run over `attributes`: an attribute is a
-word of the proposition by definition, dropped from the abstraction. A root
+A root
 `attributes` is an undeclared key and is refused as one. A proposition has
 one higher-order relation (kogaki#1685): `higher_order` is a list of one `{ id, relates, holds }`
 (kogaki#1678), its id distinct from every Role and relation id, a refusal
 naming the entry's index and field, and a list of more than one is refused
 naming the count. The one-map form `{ relates, holds }` is read as a list of
 one with id `h1`. The Leg's Claims are one per relation and then the
-higher-order relation, in order. **The proposition-word test**: a `context` or
-`holds` that carries a content word of the `proposition:` line is refused,
-naming the word and the field. The same test runs over every Leg Waypoint
-`point` (a Leg carries no `reader_state_after` since kogaki#1699). The WBS's words do not reach the
-reader.
+higher-order relation, in order. No validator reads which words a `context`,
+a `holds` or a Leg Waypoint `point` uses (kogaki#1707): what each names is
+stated at its judgment point, and the owner reads it.
 
 **How the Brief is made.** The runner composes a one-Leg Brief from the
 structure. No Reader start is composed (kogaki#1699): the Leg call is handed
@@ -2912,9 +2909,9 @@ stages above run over it unchanged.
 **The judgment point.** The `sme_map_roles` row reads the proposition file's
 `proposition:` and the Persona's prior-knowledge line, and no rendering. It
 reads the proposition as a relation among Roles. For each Role it names, in
-one or two sentences, what a reader with this Persona must come to hold, in
-the reader's own world, using no word of the proposition that is not a
-function word. It names each relation among Roles as the proposition states
+one or two sentences, what a reader with this Persona must come to hold of
+that Role in the reader's own world: an abstraction the proposition's object
+is one instance of, never that object itself. It names each relation among Roles as the proposition states
 it, and the one relation among relations the proposition turns on. It answers the RelationalStructure record and
 nothing else.
 
@@ -2981,8 +2978,6 @@ kogaki#1688). `expression` is the base text: a noun phrase naming the base's
 object that plays the Role. A table carrying `pairs` is refused naming the
 key. The validator applies these rules to every table:
 
-- The proposition-word test of §4.20 runs over every `expression`, refused
-  naming the word and `correspondences[<i>].expression`.
 - An `expression` that is not one non-empty text is refused naming
   `correspondences[<i>].expression`.
 - Given the structure, a `role` naming no Role of it is refused naming the
@@ -3034,8 +3029,15 @@ the structure's order. A Segment asking for an everyday case yields a domain
 apart from the proposition's, and a Segment asking for a plain restatement
 yields the proposition's own. Its answer is `{ base: { domain },
 correspondences: [{ role, expression }] }`, any other key refused, and is
-validated by `validateRbsTable` as the owner's file is, the proposition-word
-rule included. The first refusal is put back verbatim into the second
+validated by `validateRbsTable` as the owner's file is. What each expression
+names is stated at the judgment point (kogaki#1707): each `expression` names
+the object of `base.domain` that plays the Role; where a Segment asks for an
+everyday case, `base.domain` is apart from the proposition's and no expression
+names the proposition's object or an entry of a Role's `attributes`; where a
+Segment asks for the subject's own case, `base.domain` is the proposition's
+and the expressions are its own noun phrases, `attributes` included. No
+validator reads this: the owner's reading of the sheet is the judgment. The
+first refusal is put back verbatim into the second
 attempt, and a second refusal stops the Trial at `correspondence`. Each
 attempt's prompt and answer are kept under `<out>/correspondence/`. The record
 carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
@@ -3073,13 +3075,12 @@ Correspondence column are the vocabulary of the Base Paragraph's Waypoints.
 `src/mapping-playground/rbs.mjs` refuses the Base Paragraph's points where a
 Correspondence expression appears in none of them, naming the Role, and where
 a point carries a Role id outside an expression, naming the point. The
-Inference Paragraph's points are written in the proposition's own words, and
-the proposition-word test does not run over them (kogaki#1689).
+Inference Paragraph's points are written in the proposition's own words
+(kogaki#1689).
 
 **The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
 of the library, and `waypoints`, one `{ segment, point }` per segment of that
-Move in order, each `point` the segment expressed in the base's objects. The
-proposition-word test runs over every `point`. With both present, the `bind` stage
+Move in order, each `point` the segment expressed in the base's objects. With both present, the `bind` stage
 makes no model call: it records `bind: { state: supplied, author: owner, move,
 binding_rationale, path, sha256 }`, and the Paragraph Waypoints are the `point`s in
 segment order. The `bind`, `correspondence` and `waypoints` stages make no
@@ -3171,9 +3172,8 @@ it.
 **The `projection` field** (kogaki#1681). The table may carry `projection`, a
 list of `{ move, waypoints, binding_rationale }`, one per paragraph after the
 first, each validated as the first binding is, with each field named under
-`projection[<i>].`. A map is read as a list of one. The proposition-word test
-does not run over its points, because a projecting paragraph uses the target's
-words. `projection` without the first binding's `move` and `waypoints` is
+`projection[<i>].`. A map is read as a list of one. A projecting paragraph
+uses the target's words. `projection` without the first binding's `move` and `waypoints` is
 refused naming both.
 
 **One Leg, one Packet, one writer call** (kogaki#1681). A Trial is one Leg.

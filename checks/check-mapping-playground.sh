@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground, end to end through `node src/mapping-playground/trial.mjs run` with ONE fake model binary (`KOGAKI_JUDGE_CLI`) answering every stage (kogaki#1664, kogaki#1665):
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
-#   (b) a structure whose `context` carries a content word of the `proposition:` is refused naming the word and the field.
-#   (c) a `point` carrying such a word refuses the Leg attempt naming the word.
+#   (b) a structure whose `context` shares a word with the `proposition:` ("rule") is accepted, and the main run is over it (kogaki#1707).
+#   (c) a Leg `point` sharing such a word ("rule") is accepted on the first attempt (kogaki#1707).
 #   (d) the Writer's recorded stdin equals the Packet file byte for byte.
 #   (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
 #   (g) a run without `--structure` refuses naming the flag.
 #   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant.
-#   (i) a Mapper answering a claim word twice stops the Trial at the SME stage, naming the word.
+#   (i) a Mapper answering a `context` that shares a word with the proposition is accepted, and the Trial runs on (kogaki#1707).
 #   (j) `--structure` with `--mapper` is refused naming both.
 #   (k) the composed `brief.yaml` carries one Leg with no `introduces`, an empty `defined_terms`, no `reader_start`, `reader_target`, `obligations` or Leg reader state; the Leg call is handed `persona_prior_knowledge`, and no Reader start call is made (kogaki#1699).
 set -u
@@ -28,6 +28,7 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const { parseYaml } = await import(pathToFileURL(join(repo, "src/yaml.mjs")).href);
 const { spliceConstraints } = await import(pathToFileURL(join(repo, "src/proof-sheet/extract.mjs")).href);
+const { validateStructure, parseProposition } = await import(pathToFileURL(join(repo, "src/mapping-playground/structure.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "mapping-playground-"));
 const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
@@ -63,8 +64,8 @@ const structureText = (crewContext) => [
 ].join("\n");
 const structure = join(root, "structure.yaml");
 writeFileSync(structure, structureText("A cleaning crew arrives at a house with a written list of rooms."));
-const badStructure = join(root, "structure-bad.yaml");
-writeFileSync(badStructure, structureText("A cleaning crew arrives with a rule about which rooms to clean."));
+const ruleStructure = join(root, "structure-rule.yaml");
+writeFileSync(ruleStructure, structureText("A cleaning crew arrives with a rule about which rooms to clean."));
 
 // ---- the one fake model binary, answering every stage ----
 const judge = join(root, "fake-model.mjs");
@@ -87,11 +88,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (prompt.includes("\\\`smp_leg_unit\\\` judgment point")) {
     const x = input();
-    // (c) the first Leg answer's point 1 carries "walker", a content word of the claim.
+    // (c) the first Leg answer's point 1 carries "rule", a word of the proposition and of the crew's context.
     return out({ legs: [{ leg_id: "crew-leg", purpose: "Bring the reader to the list as the bound of the crew's work.",
       rationale: "It is the only Leg.",
       claims: x.claims.map((g) => ({ type: "strand", strand: g.claim_strand, proposition: g.holds })),
-      waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The walker." : ""), serves: [g.claim_strand] })) }] }, "brief");
+      waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), serves: [g.claim_strand] })) }] }, "brief");
   }
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
@@ -147,7 +148,7 @@ const trial = (args) => spawnSync(process.execPath, ["src/mapping-playground/tri
 const outDir = mkdtempSync(join(trials, "check-"));
 const out = join(outDir, "trial");
 
-const r = trial(["--strand", strand, "--structure", structure, "--out", out]);
+const r = trial(["--strand", strand, "--structure", ruleStructure, "--out", out]);
 ok(r.status === 0, `(a) the run exited ${r.status}: ${r.stdout}${r.stderr}`);
 const record = existsSync(join(out, "trial.json")) ? JSON.parse(readFileSync(join(out, "trial.json"), "utf8")) : null;
 const seen = existsSync(join(root, "seen.jsonl")) ? readFileSync(join(root, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
@@ -157,17 +158,17 @@ else {
   // (a) every stage done, every call through the recorder
   ok(record.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "brief:done,paragraph-plan:done,draft:done",
     `(a) the stages are not all done: ${JSON.stringify(record.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  for (const [stage, kind, n] of [["brief", "brief", 2], ["paragraph-plan", "plan", null], ["draft", "writer", 1]]) {
+  for (const [stage, kind, n] of [["brief", "brief", 1], ["paragraph-plan", "plan", null], ["draft", "writer", 1]]) {
     const cs = calls(stage);
     const fake = seen.filter((s) => s.stage === kind);
     ok(n === null ? cs.length >= 2 : cs.length === n, `(a) ${stage}/calls.jsonl records ${cs.length} call(s)`);
     ok(cs.length === fake.length && cs.every((c, i) => c.stdin === fake[i].prompt && c.stdout === fake[i].answer),
       `(a) ${stage}'s recorded calls are not the calls the model binary saw`);
   }
-  // (c) the Leg attempt carrying a claim word was refused naming it, and the next attempt passed
+  // (c) the Leg attempt carrying a word of the proposition passed on the first attempt
   const att = existsSync(join(out, "brief", "leg", "attempts.json")) ? JSON.parse(readFileSync(join(out, "brief", "leg", "attempts.json"), "utf8")) : {};
-  ok(att.attempts === 2 && (att.refusals || []).length === 1 && /waypoints\[0\]\.point carries "walker"/.test(att.refusals[0]),
-    `(c) the Leg attempt carrying "walker" was not refused naming it: ${JSON.stringify(att)}`);
+  ok(att.attempts === 1 && !(att.refusals || []).length && calls("brief").some((c) => c.stdout.includes("The crew arrives with a rule.")),
+    `(c) the Leg attempt carrying "rule" was not accepted on the first attempt: ${JSON.stringify(att)}`);
   // (d) the Writer's prompt is the Packet
   const draftStage = record.stages.find((s) => s.stage === "draft") || {};
   const packet = draftStage.packet && existsSync(join(repo, draftStage.packet)) ? readFileSync(join(repo, draftStage.packet), "utf8") : null;
@@ -175,7 +176,7 @@ else {
   ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(d) the Writer's recorded stdin is not the Packet byte for byte");
   // (f) the Trial record and the owner's reading file
   ok(record.strand && record.strand.cite === CITE && record.strand.sha256 === sha(strand), "(f) trial.json's strand is not the strand file's cite and sha256");
-  ok(record.structure && record.structure.sha256 === sha(structure) && record.structure.author === "owner" && typeof record.structure.path === "string",
+  ok(record.structure && record.structure.sha256 === sha(ruleStructure) && record.structure.author === "owner" && typeof record.structure.path === "string",
     "(f) trial.json's structure does not carry its path, sha256 and author: owner");
   ok(record.mapper === "owner-authored", "(f) trial.json's mapper is not owner-authored");
   for (const k of ["brief", "plan", "draft"]) {
@@ -232,24 +233,21 @@ ok(h.rec && h.rec.structure && h.rec.structure.author === "sme" && existsSync(jo
 ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:done,brief:done,paragraph-plan:done,draft:done",
   `(h) the --mapper run's stages are not all done: ${JSON.stringify(h.rec && h.rec.stages.map((x) => [x.stage, x.state, x.stopped]))}`);
 
-// (i) an answer carrying a claim word, twice, stops the Trial at the SME stage naming the word
-const i = mapperTrial("mapped-bad", mapped("A cleaning crew arrives with a rule about which rooms to clean."));
+// (i) an answer whose context shares a word with the proposition is accepted at the SME stage, and the Trial runs on
+const i = mapperTrial("mapped-rule", mapped("A cleaning crew arrives with a rule about which rooms to clean."));
 const iAtt = existsSync(join(i.o, "sme", "job", "attempts.json")) ? JSON.parse(readFileSync(join(i.o, "sme", "job", "attempts.json"), "utf8")) : {};
-ok(i.res.status !== 0 && i.rec && /^sme: /.test(String(i.rec.stopped)) && String(i.rec.stopped).includes('roles[0].context carries "rule"')
-  && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:stopped,brief:not run,paragraph-plan:not run,draft:not run"
-  && iAtt.attempts === 2 && !existsSync(join(i.o, "structure.yaml")),
-  `(i) the Mapper answering "rule" twice did not stop the Trial at the SME stage naming the word: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
+ok(i.res.status === 0 && i.rec && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "sme:done,brief:done,paragraph-plan:done,draft:done"
+  && iAtt.attempts === 1 && existsSync(join(i.o, "structure.yaml")),
+  `(i) the Mapper answering "rule" was not accepted at the SME stage: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
 
 // (j) --structure with --mapper is refused naming both
 const jOut = join(outDir, "both");
 const j = trial(["--strand", strand, "--structure", structure, "--mapper", "sme_map_roles", "--out", jOut]);
 ok(j.status !== 0 && j.stderr.includes("`--structure` and `--mapper`") && !existsSync(jOut), `(j) --structure with --mapper was not refused naming both: ${j.status} ${j.stderr}`);
 
-// (b) a structure carrying a claim word is refused naming it and the field, before anything is written
-const bOut = join(outDir, "bad");
-const b = trial(["--strand", strand, "--structure", badStructure, "--out", bOut]);
-ok(b.status !== 0 && b.stderr.includes('roles[0].context carries "rule"') && !existsSync(join(bOut, "trial.json")),
-  `(b) the structure carrying "rule" was not refused naming the word and the field: ${b.status} ${b.stderr}`);
+// (b) a structure whose context carries "rule", a word of the proposition, is accepted
+const b = validateStructure(parseYaml(readFileSync(ruleStructure, "utf8")), parseProposition(readFileSync(strand, "utf8")));
+ok(!b.error, `(b) the structure carrying "rule" was refused: ${JSON.stringify(b)}`);
 
 // (g) a run without --structure refuses naming the flag
 const gOut = join(outDir, "no-structure");

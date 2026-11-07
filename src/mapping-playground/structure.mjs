@@ -8,7 +8,6 @@
 //   The Structure-Mapping Playground
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { FUNCTION_WORDS, wordsOf, wordForms } from "../compose.mjs";
 import { validateLegPathUnit } from "../proof-sheet/leg-brief.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -38,31 +37,6 @@ export function parseProposition(text) {
   return { cite, proposition };
 }
 
-// The content words of the proposition, as the forms `wordForms` folds them to: the word test
-// `recoverabilityOf` runs, inverted.
-export function propositionForms(proposition) {
-  const forms = new Set();
-  for (const w of wordsOf(proposition)) {
-    if (FUNCTION_WORDS.has(w) || /^[\p{N}]+$/u.test(w)) continue;
-    for (const f of wordForms(w)) forms.add(f);
-  }
-  return forms;
-}
-
-// The first word of `text` that is a content word of the proposition, or null.
-export function propositionWordIn(text, forms) {
-  for (const w of wordsOf(text)) {
-    if (FUNCTION_WORDS.has(w) || /^[\p{N}]+$/u.test(w)) continue;
-    if ([...wordForms(w)].some((f) => forms.has(f))) return w;
-  }
-  return null;
-}
-
-function propositionWordRefusal(text, forms, field) {
-  const w = propositionWordIn(text, forms);
-  return w ? `${field} carries "${w}", a content word of the proposition — the reader does not hold the Strand's words (kogaki#1664)` : null;
-}
-
 function keysRefusal(obj, keys, at) {
   if (!isMap(obj)) return `${at} is not a map`;
   const extra = Object.keys(obj).find((k) => !keys.includes(k));
@@ -86,7 +60,6 @@ export function validateStructure(record, proposition) {
   if (record.strand !== proposition.cite) {
     return { error: `the structure's \`strand\` ${JSON.stringify(record.strand)} is not the proposition file's \`cite:\` ${JSON.stringify(proposition.cite)}` };
   }
-  const forms = propositionForms(proposition.proposition);
   const ids = new Set();
   const listOf = (key) => (Array.isArray(record[key]) && record[key].length ? record[key] : null);
   const roles = listOf("roles");
@@ -136,15 +109,6 @@ export function validateStructure(record, proposition) {
     if (!isText(h.holds)) return { error: `${at}'s \`holds\` is empty` };
     ids.add(h.id);
   }
-  const texts = [
-    ...roles.map((r, i) => [r.context, `roles[${i}].context`]),
-    ...relations.map((r, i) => [r.holds, `relations[${i}].holds`]),
-    ...higher.map((h, i) => [h.holds, listed ? `higher_order[${i}].holds` : "higher_order.holds"]),
-  ];
-  for (const [text, field] of texts) {
-    const r = propositionWordRefusal(text, forms, field);
-    if (r) return { error: r };
-  }
   return {};
 }
 
@@ -162,17 +126,12 @@ export function structureClaims(record) {
   return rows.map((r, i) => ({ claim_strand: `L${i + 1}`, ...r }));
 }
 
-// The Trial's Leg, refused or `{}`: the proposition-word test first, then the Proof Sheet's own
-// validator over the Leg. `inputs` carries `holds`, `proposition` and `segments`.
+// The Trial's Leg, refused or `{}`: the Trial's own conditions first, then the Proof Sheet's own
+// validator over the Leg. `inputs` carries `holds` and `segments`.
 export function validateSmpLegUnit(record, inputs) {
   const leg = isMap(record) && Array.isArray(record.legs) && record.legs.length === 1 ? record.legs[0] : null;
   if (isMap(leg)) {
     if ("introduces" in leg) return { error: "leg 1 carries `introduces` — a Trial's Leg introduces no term (kogaki#1664)" };
-    const forms = propositionForms(inputs.proposition);
-    for (const [i, w] of (Array.isArray(leg.waypoints) ? leg.waypoints : []).entries()) {
-      const r = isMap(w) && typeof w.point === "string" ? propositionWordRefusal(w.point, forms, `leg 1: waypoints[${i}].point`) : null;
-      if (r) return { error: r };
-    }
     for (const [i, g] of (Array.isArray(leg.claims) ? leg.claims : []).entries()) {
       if (isMap(g) && inputs.holds[i] !== undefined && g.proposition !== inputs.holds[i]) {
         return { error: `leg 1: Claim ${i + 1}'s \`proposition\` is not entry ${i + 1}'s \`holds\` word for word: ${JSON.stringify(inputs.holds[i])}` };

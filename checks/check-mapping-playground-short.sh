@@ -26,8 +26,10 @@
 #       cell, and no kind word (kogaki#1693); and the Segments table's point cell carries its true cast keys in a `meta` span,
 #       on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
 
-#   (g) an `expression` carrying a content word of the `proposition:` is refused naming the word and `correspondences[i].expression`,
-#       in a table and in the owner's file; a null `expression` is refused on every table; a `role` naming no Role is refused
+#   (g) an `expression` or a `role` sharing a word with the `proposition:` is accepted, in a table and in the owner's file, and
+#       against the guard-reach proposition "the openings the panel has been set to sound on" is accepted while Base Paragraph
+#       points carrying no expression of one Role are still refused naming the Role (kogaki#1707); a null `expression` is
+#       refused on every table; a `role` naming no Role is refused
 #       naming the id, and a Role with other than one correspondence is refused naming the Role (kogaki#1688, kogaki#1693).
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-mapping-playground.sh still passes.
@@ -36,10 +38,10 @@
 #       one call, `bind.state: supplied`, `rbs.variant: owner-authored` and `rbs.source` the file (kogaki#1671, kogaki#1700); a file
 #       without `projection` is refused naming `projection` (kogaki#1689).
 #   (k) `--rbs-file` with `--compose` is refused naming both flags.
-#   (l) a `base` carrying `kind` or without `domain`, a table carrying `pairs`, an unknown `move`, a wrong-length `waypoints` and a
-#       `point` carrying a claim word are each refused naming the field (kogaki#1693).
+#   (l) a `base` carrying `kind` or without `domain`, a table carrying `pairs`, an unknown `move` and a wrong-length `waypoints`
+#       are each refused naming the field (kogaki#1693), and a supplied `point` carrying a claim word is accepted (kogaki#1707).
 #   (m) a Role without `attributes`, or with a non-list one, is refused naming the Role, and a root `attributes` is refused as an
-#       undeclared key (kogaki#1693).
+#       undeclared key (kogaki#1693); a `context` carrying "rules" is accepted (kogaki#1707).
 #   (n) `binding_rationale` in the rbs file reaches bind.yaml and the `Rationale` row of `Binding 1`, the composed route's bind.yaml
 #       carries the `bind` call's `rationale`, a non-text one is refused naming the field, and `grounds` is refused naming
 #       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682, kogaki#1687, kogaki#1700).
@@ -60,7 +62,7 @@
 #       `proposition`, `--strand` is refused naming `--proposition`, and the Mapper's recorded stdin carries no rendering (kogaki#1685).
 
 #   (u) the `smp_correspondence` row: its stdin carries the structure, the prior-knowledge line and the bound base Move's
-#       `segments`, and no kinds; a first answer carrying a proposition word in an expression is refused naming the word and
+#       `segments`, and no kinds; a first answer with a null expression is refused naming
 #       `correspondences[i].expression`, the second attempt's stdin carries that refusal, each attempt's prompt and answer are kept,
 #       and a second refusal stops at `correspondence` (kogaki#1693, kogaki#1700).
 set -u
@@ -330,15 +332,22 @@ ok(dId && dId.includes('point 2 carries the Role id "crew"'), `(d) a Base Paragr
 ok(correspondenceVocabularyRefusal([{ performs: "asks the reader" }, { point: "The gardener tends a flower bed by the planting chart." }], GARDEN) === null,
   "(d) Base Paragraph points carrying every expression and no Role id were refused");
 
-// (g) an expression carrying a claim word is refused naming it; the Role rules hold on every table
+// (g) an expression sharing a word with the proposition is accepted (kogaki#1707); the Role rules hold on every table
 const BASES = { base: { domain: "a garden" }, correspondences: [{ role: "crew", expression: "the gardener" }, { role: "list", expression: "the chart the walker keeps" }, { role: "room", expression: "a bed" }] };
 const gv = (t) => validateRbsTable(t, PROPOSITION, { structure: mapped });
 const g = gv(BASES);
-ok(g.error && g.error.includes('correspondences[1].expression carries "walker", a content word of the proposition'),
-  `(g) an expression carrying "walker" was not refused naming it and correspondences[1].expression: ${JSON.stringify(g)}`);
+ok(!g.error, `(g) an expression carrying "walker" was refused: ${JSON.stringify(g)}`);
 const gRole = validateRbsTable({ base: { domain: "a garden" }, correspondences: [{ role: "The walker sees a room.", expression: "a bed" }] }, PROPOSITION);
-ok(gRole.error && gRole.error.includes('correspondences[0].role carries "walker", a content word of the proposition'),
-  `(g) a target carrying "walker" was not refused naming it and correspondences[0].role: ${JSON.stringify(gRole)}`);
+ok(!gRole.error, `(g) a role carrying "walker" was refused with no structure given: ${JSON.stringify(gRole)}`);
+const GUARD = "A set of automatic rules only sees the kinds of action it was registered against.";
+const GUARD_TABLE = { base: { domain: "a household alarm panel and the door and window openings it has been set to sound on" },
+  correspondences: [{ role: "watcher", expression: "the sensors wired to the household alarm panel" },
+    { role: "list", expression: "the openings the panel has been set to sound on" }, { role: "happening", expression: "a back door being opened" }] };
+const gGuard = validateRbsTable(GUARD_TABLE, GUARD);
+ok(!gGuard.error, `(g) "the openings the panel has been set to sound on" was refused against the guard-reach proposition: ${JSON.stringify(gGuard)}`);
+const gVocab = correspondenceVocabularyRefusal([{ point: "The sensors wired to the household alarm panel cover the openings the panel has been set to sound on." }], GUARD_TABLE);
+ok(gVocab && gVocab.includes('the Correspondence expression of the Role "happening"'),
+  `(g) Base Paragraph points carrying no expression of the Role "happening" were not refused naming it: ${gVocab}`);
 const gNull = gv({ ...BASES, correspondences: BASES.correspondences.map((c, i) => (i === 0 ? { ...c, expression: null } : { ...c, expression: "a bed" })) });
 ok(gNull.error && gNull.error.startsWith("correspondences[0].expression "),
   `(g) a null expression was not refused naming correspondences[0].expression: ${JSON.stringify(gNull)}`);
@@ -356,8 +365,8 @@ ok(gMissing.error && gMissing.error.includes('the Role "crew" has 0 corresponden
 const gFile = join(root, "rbs-walker.yaml");
 writeFileSync(gFile, stringifyYaml(BASES));
 const gRun = run("owner-walker", ["--structure", structure, "--rbs-file", gFile]);
-ok(gRun.res.status !== 0 && gRun.res.stderr.includes('correspondences[1].expression carries "walker"') && !existsSync(gRun.o),
-  `(g) the owner's file with an expression carrying "walker" was not refused naming it: ${gRun.res.status} ${gRun.res.stderr}`);
+ok(gRun.res.status !== 0 && gRun.res.stderr.includes("`projection`") && !gRun.res.stderr.includes("walker") && !existsSync(gRun.o),
+  `(g) the owner's file with an expression carrying "walker" was refused on the word rather than for its missing projection: ${gRun.res.status} ${gRun.res.stderr}`);
 const gClaimed = join(root, "rbs-null-expression.yaml");
 writeFileSync(gClaimed, stringifyYaml({ ...PLACE, placeholder: true, correspondences: PLACE.correspondences.map((x) => ({ ...x, expression: null })) }));
 const gcRun = run("owner-null-expression", ["--structure", structure, "--rbs-file", gClaimed]);
@@ -414,7 +423,7 @@ ok(l2.error && l2.error.startsWith("move "), `(l) a move naming no Move was not 
 const l3 = lv({ waypoints: owned.waypoints.slice(1) });
 ok(l3.error && l3.error.startsWith("waypoints "), `(l) a waypoints list of the wrong length was not refused naming waypoints: ${JSON.stringify(l3)}`);
 const l4 = lv({ waypoints: owned.waypoints.map((w, n) => (n === 2 ? { ...w, point: "The walker sees a room." } : w)) });
-ok(l4.error && l4.error.includes('waypoints[2].point carries "walker"'), `(l) a point carrying a claim word was not refused naming the field: ${JSON.stringify(l4)}`);
+ok(!l4.error, `(l) a supplied point carrying a claim word was refused: ${JSON.stringify(l4)}`);
 
 // (m) every Role carries its attributes; a root attributes is an undeclared key
 const propositionRec = { cite: CITE, proposition: PROPOSITION };
@@ -426,6 +435,8 @@ const m2 = validateStructure(withRole(1, { ...mapped.roles[1], attributes: "writ
 ok(m2.error && m2.error.includes("`attributes`") && m2.error.includes('"list"'), `(m) a non-list attributes was not refused naming the Role: ${JSON.stringify(m2)}`);
 const m3 = validateStructure({ ...mapped, attributes: [{ role: "room", words: ["dusty"] }] }, propositionRec);
 ok(m3.error && m3.error.includes("carries `attributes`, which it does not declare"), `(m) a root attributes was not refused as an undeclared key: ${JSON.stringify(m3)}`);
+const m4 = validateStructure(withRole(1, { ...mapped.roles[1], context: "The rules a household keeps about which doors stay locked." }), propositionRec);
+ok(!m4.error, `(m) a context carrying "rules" was refused: ${JSON.stringify(m4)}`);
 
 // (f) the sheet: dark, its six sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
 const SECTIONS = ["Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Structure", "Model calls"];
@@ -657,22 +668,22 @@ ok(smeStdin.includes(`"proposition": ${JSON.stringify(PROPOSITION)}`) && !smeStd
   `(t) the Mapper's recorded stdin does not carry the proposition alone: ${smeStdin.slice(0, 400)}`);
 
 // (u) the smp_correspondence row: under the bound base Move's Segments, validated as the owner's file is, under one retry
-const WALKED = { ...GARDEN, correspondences: GARDEN.correspondences.map((x, i) => (i === 0 ? { ...x, expression: "the walker" } : x)) };
+const NULLED = { ...GARDEN, correspondences: GARDEN.correspondences.map((x, i) => (i === 0 ? { ...x, expression: null } : x)) };
 const uIn = a.calls("correspondence").length ? inputOf(a.calls("correspondence")[0].stdin, "structure") : null;
 ok(uIn && uIn.persona && uIn.persona.prior_knowledge && uIn.structure && JSON.stringify(uIn.segments.map((x) => x.operation)) === JSON.stringify(segs.map((x) => String(x.operation).trim()))
   && JSON.stringify(Object.keys(uIn)) === JSON.stringify(["structure", "persona", "segments"]) && !a.calls("correspondence")[0].stdin.includes('"kinds"'),
   "(u) the correspondence call's stdin does not carry the structure, the prior-knowledge line and the base Move's segments, or carries kinds");
-const u2 = run("corr-retry", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-retry", [WALKED, GARDEN]) });
+const u2 = run("corr-retry", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-retry", [NULLED, GARDEN]) });
 const u2Calls = u2.calls("correspondence");
 ok(u2.res.status === 0 && u2Calls.length === 2
-  && u2Calls[1].stdin.includes('correspondences[0].expression carries "walker"') && !u2Calls[0].stdin.includes("correspondences[0].expression carries"),
-  `(u) a first answer carrying "walker" was not refused into the second attempt's stdin: ${u2.res.status} ${u2Calls.length} ${u2.res.stderr}`);
+  && u2Calls[1].stdin.includes("correspondences[0].expression is not one base text") && !u2Calls[0].stdin.includes("correspondences[0].expression is not"),
+  `(u) a first answer with a null expression was not refused into the second attempt's stdin: ${u2.res.status} ${u2Calls.length} ${u2.res.stderr}`);
 ok([1, 2].every((n) => existsSync(join(u2.o, "correspondence", `prompt-${n}.md`)) && existsSync(join(u2.o, "correspondence", `answer-${n}.json`)))
-  && JSON.parse(readFileSync(join(u2.o, "correspondence", "answer-1.json"), "utf8")).correspondences[0].expression === "the walker",
+  && JSON.parse(readFileSync(join(u2.o, "correspondence", "answer-1.json"), "utf8")).correspondences[0].expression === null,
   "(u) the retried correspondence stage does not keep each attempt's prompt and answer");
-const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [WALKED]) });
+const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [NULLED]) });
 ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,correspondence:stopped,waypoints:not run,write:not run" && u3.calls("correspondence").length === 2
-  && /^correspondence: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].expression carries "walker"') && !existsSync(join(u3.o, "rbs.yaml")),
+  && /^correspondence: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes("correspondences[0].expression is not one base text") && !existsSync(join(u3.o, "rbs.yaml")),
   `(u) a second refusal did not stop the Trial at correspondence: ${u3.res.status} ${stagesOf(u3.rec)} ${JSON.stringify(u3.rec && u3.rec.stopped)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
