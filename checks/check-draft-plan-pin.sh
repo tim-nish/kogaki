@@ -8,10 +8,8 @@
 # `resolve` is refused naming both hashes; (d) `resolve` then says the plan moved, drops the
 # carried entries and renders G1's Packet, `section` renders the next Leg's, and the emitted
 # Draft is written from the new plan alone; (e) an entry without plan_sha256 is refused as
-# unrecorded; (f) a plan naming a Mapping Record (kogaki#1733) records its digest in run.json
-# and each Packet entry, and an edited, an added and a removed record file are each refused
-# at resolve naming the file;
-# (g) the sheet's `leg` mode renders that Leg's record.
+# unrecorded; (f) a plan's Mapping Record digest rides into run.json and each Packet entry, and
+# an edited, added or removed record file is refused naming it; (g) `sheet.mjs leg` renders it.
 set -u
 cd "$(dirname "$0")/.."
 
