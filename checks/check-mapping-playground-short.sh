@@ -77,7 +77,8 @@
 #       `segments`, and no kinds; the inference Move's call carries its own `segments` and `prior_tables`, the base Move's table
 #       (kogaki#1709); a first answer whose Role names no Role is refused, group `role`, and the second attempt's stdin
 #       carries that refusal under the `part` sentence and not the `record` one, the stage record naming the group and reach; each
-#       attempt's prompt and answer are kept, and a second refusal stops at `correspondence` (kogaki#1693, kogaki#1700). A fixture
+#       attempt's Attempt Record is kept, the first's refusal.json naming the refusal and the second's prompt.md the second call's
+#       stdin byte for byte (kogaki#1717), and a second refusal stops at `correspondence` (kogaki#1693, kogaki#1700). A fixture
 #       refusal whose group the row does not declare stops at once naming the row and the group, and one of reach `stop` makes no
 #       second call (kogaki#1708).
 set -u
@@ -101,6 +102,8 @@ const { validateStructure } = await import(pathToFileURL(join(repo, "src/mapping
 const { moveContract } = await import(pathToFileURL(join(repo, "src/compose.mjs")).href);
 const { bindMoveRefusal, retriedCall } = await import(pathToFileURL(join(repo, "src/mapping-playground/short.mjs")).href);
 const { correspondenceVocabularyRefusal } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
+const { readAttemptRecord } = await import(pathToFileURL(join(repo, "src/workflow/attempt-record.mjs")).href);
+const { relFromRepo } = await import(pathToFileURL(join(repo, "src/workflow/run-record.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "mapping-playground-short-"));
 const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
@@ -246,7 +249,10 @@ ok(rbs.variant === "composed" && JSON.stringify(rbs.tables) === JSON.stringify(T
   && Array.isArray(rbs.bindings) && rbs.bindings.length === 2 && rbs.bindings[0].move === MOVE && rbs.bindings[1].move === INFER
   && rbs.bindings.every((x) => x.paragraph_waypoints.length > 0) && !Object.hasOwn(rbs, "pairs") && !Object.hasOwn(rbs, "placeholder"),
   `(a) rbs.yaml is not variant composed with two tables whose moves match the two bindings: ${JSON.stringify(rbs)}`);
-ok([MOVE, INFER].every((m) => existsSync(join(a.o, "correspondence", m, "prompt-1.md")) && existsSync(join(a.o, "correspondence", m, "answer-1.json"))),
+// Attempt n of a row's call, under the call's own directory (kogaki#1717).
+const attemptAt = (dir, row, n, file) => join(dir, "attempts", row, String(n), file);
+ok([MOVE, INFER].every((m) => existsSync(attemptAt(join(a.o, "correspondence", m), "smp_correspondence", 1, "prompt.md"))
+  && existsSync(attemptAt(join(a.o, "correspondence", m), "smp_correspondence", 1, "answer.json"))),
   "(a) the correspondence stage does not keep each Move's attempt under correspondence/<move>/");
 ok(rec.bind && rec.bind.author === "smp_bind_move" && rec.bind.base_move === MOVE && rec.bind.inference_move === INFER && rec.bind.move === MOVE && fileOk(rec.bind),
   `(a) trial.json's bind does not carry the bound Moves and its file: ${JSON.stringify(rec.bind)}`);
@@ -334,7 +340,7 @@ ok(bindMoveRefusal(CARRYING, byMove) === null && bindMoveRefusal(ALONE, byMove) 
 const d = run("bind-retry", ["--structure", structure, "--compose"], { SMP_BIND_ANSWERS: answers("bind-retry", [{ ...CARRYING, inference_move: null }, CARRYING]) });
 const dCalls = d.calls("bind");
 ok(d.res.status === 0 && dCalls.length === 2 && dCalls[1].stdin.includes("inference_move is null") && !dCalls[0].stdin.includes("inference_move is null")
-  && [1, 2].every((n) => existsSync(join(d.o, "bind", `prompt-${n}.md`)) && existsSync(join(d.o, "bind", `answer-${n}.json`))),
+  && [1, 2].every((n) => existsSync(attemptAt(join(d.o, "bind"), "smp_bind_move", n, "prompt.md")) && existsSync(attemptAt(join(d.o, "bind"), "smp_bind_move", n, "answer.json"))),
   `(d) a first refused bind answer did not reach the second attempt's stdin: ${d.res.status} ${dCalls.length} ${d.res.stderr}`);
 // a `library` refusal is `record` (kogaki#1708): the second prompt carries the `record` sentence and not the `part` one, and
 // the second answer is validated as a whole record
@@ -772,9 +778,26 @@ ok(u2.res.status === 0 && u2Calls.length === 3
   `(u) a first answer of group role was not refused into the second attempt's stdin under the part sentence: ${u2.res.status} ${u2Calls.length} ${u2.res.stderr}`);
 ok(u2Stage && JSON.stringify(u2Stage.refusals && u2Stage.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["role", "part"]]),
   `(u) the run record does not carry the refusal's group and reach: ${JSON.stringify(u2Stage)}`);
-ok([1, 2].every((n) => existsSync(join(u2.o, "correspondence", MOVE, `prompt-${n}.md`)) && existsSync(join(u2.o, "correspondence", MOVE, `answer-${n}.json`)))
-  && JSON.parse(readFileSync(join(u2.o, "correspondence", MOVE, "answer-1.json"), "utf8")).correspondences[0].role === "nobody",
+const u2At = (n, file) => attemptAt(join(u2.o, "correspondence", MOVE), "smp_correspondence", n, file);
+ok([1, 2].every((n) => existsSync(u2At(n, "prompt.md")) && existsSync(u2At(n, "answer.json")))
+  && JSON.parse(readFileSync(u2At(1, "answer.json"), "utf8")).correspondences[0].role === "nobody",
   "(u) the retried correspondence stage does not keep each attempt's prompt and answer");
+// THE ATTEMPT RECORD (kogaki#1717): the refusal with its group, reach and validator, the second call's stdin byte for byte,
+// the binary that answered by its sha256, and the stage entry naming every Move's attempts directory.
+const u2Read = (n) => readAttemptRecord(join(u2.o, "correspondence", MOVE, "attempts", "smp_correspondence", String(n)));
+const [u2A1, u2A2] = [u2Read(1), u2Read(2)];
+ok(u2A1.refusal && u2A1.refusal.group === "role" && u2A1.refusal.reach === "part" && u2A1.refusal.validator === "correspondenceRefusal"
+  && u2A1.refusal.text === u2Stage.refusals[0].refusal && u2A2.refusal === null,
+  `(u) attempt 1's refusal.json does not carry the refusal the stage recorded, or attempt 2's is not null: ${JSON.stringify([u2A1.refusal, u2A2.refusal])}`);
+ok(u2A2.prompt === u2Calls[1].stdin && u2A1.prompt === u2Calls[0].stdin && u2A1.raw === u2Calls[0].stdout,
+  "(u) an attempt's prompt.md or answer.raw is not what its call received or printed");
+ok(u2A1.cli && u2A1.cli.path === judge && u2A1.cli.sha256 === sha(judge) && typeof u2A1.cli.version === "string"
+  && u2A1.argv && u2A1.argv.argv.includes("--model") && u2A1.argv.timeout_s > 0
+  && u2A1.row && u2A1.row.row.id === "smp_correspondence" && u2A1.row.tables[0].path === "src/mapping-playground/playground-workflow.json"
+  && u2A1.row.tables[0].sha256 === sha(join(repo, "src/mapping-playground/playground-workflow.json")) && u2A1.input && u2A1.input.structure,
+  `(u) attempt 1's cli, argv, row or input file is not the call's own: ${JSON.stringify([u2A1.cli, u2A1.argv, u2A1.row && u2A1.row.tables])}`);
+ok(JSON.stringify(u2Stage.attempt_records) === JSON.stringify([MOVE, INFER].map((m) => relFromRepo(join(u2.o, "correspondence", m, "attempts")))),
+  `(u) trial.json's correspondence entry does not name each Move's attempts directory: ${JSON.stringify(u2Stage.attempt_records)}`);
 const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [ROLED]) });
 ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,correspondence:stopped,waypoints:not run,write:not run" && u3.calls("correspondence").length === 2
   && /^correspondence: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].role "nobody" names no Role') && !existsSync(join(u3.o, "rbs.yaml")),
@@ -789,7 +812,7 @@ const u4 = retriedCall({ dir: u4Dir, row: CORR_ROW, input: { structure: mapped }
   env: { ...process.env, KOGAKI_JUDGE_CLI: judge, SMP_FIXTURE_DIR: u4Dir, SMP_CORR_ANSWERS: answers("corr-undeclared", [ROLED, GARDEN]) },
   refusalOf: (answer) => (answer.correspondences[0].role === "nobody" ? { group: "proposition-word", text: "UNDECLARED the expression carries a word of the proposition" } : null) });
 ok(u4.stopped && u4.stopped.includes('the `smp_correspondence` refusal names the group "proposition-word", which the row does not declare')
-  && u4.stopped.includes("UNDECLARED") && seenCount(u4Dir) === 1 && !existsSync(join(u4Dir, "prompt-2.md"))
+  && u4.stopped.includes("UNDECLARED") && seenCount(u4Dir) === 1 && !existsSync(attemptAt(u4Dir, "smp_correspondence", 2, "prompt.md"))
   && JSON.stringify(u4.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["proposition-word", "stop"]]),
   `(u) a refusal of an undeclared group did not stop at once naming the row and the group: ${seenCount(u4Dir)} ${JSON.stringify(u4)}`);
 const u5Dir = join(root, "corr-reach-stop");
@@ -798,7 +821,7 @@ const u5 = retriedCall({ dir: u5Dir, row: { ...CORR_ROW, refusal_reach: { ...COR
   env: { ...process.env, KOGAKI_JUDGE_CLI: judge, SMP_FIXTURE_DIR: u5Dir, SMP_CORR_ANSWERS: answers("corr-reach-stop", [ROLED, GARDEN]) },
   refusalOf: (answer) => (answer.correspondences[0].role === "nobody" ? { group: "role", text: "ROLE-STOP the Role names nobody" } : null) });
 ok(u5.stopped && u5.stopped.includes('refusal of group "role" has reach stop') && u5.stopped.includes("ROLE-STOP") && seenCount(u5Dir) === 1
-  && !existsSync(join(u5Dir, "prompt-2.md")) && JSON.stringify(u5.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["role", "stop"]]),
+  && !existsSync(attemptAt(u5Dir, "smp_correspondence", 2, "prompt.md")) && JSON.stringify(u5.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["role", "stop"]]),
   `(u) a stop refusal made a second call, or its stop does not name the group: ${seenCount(u5Dir)} ${JSON.stringify(u5)}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
