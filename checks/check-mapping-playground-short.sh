@@ -456,8 +456,8 @@ writeFileSync(ownedFile, stringifyYaml({ ...owned, tables: tablesFor(1), project
 const unprojectedFile = join(root, "rbs-unprojected.yaml");
 writeFileSync(unprojectedFile, stringifyYaml(owned));
 const wide = join(root, "structure-wide.yaml");
-const PASSED = { id: "passed", between: ["crew", "room"], holds: "The crew goes past a room nobody wrote down." };
-const HIGHER = [{ id: "h1", relates: ["cleans", "missed", "passed"], holds: "Because the crew follows the list, it goes past what the list leaves out." }];
+const PASSED = { id: "passed", between: ["crew", "room"], holds: "{crew} goes past {room} nobody wrote down." };
+const HIGHER = [{ id: "h1", relates: ["cleans", "missed", "passed"], holds: "Because {crew} follows {list}, it goes past what {list} leaves out." }];
 writeFileSync(wide, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], relations: [...mapped.relations, PASSED], higher_order: HIGHER }));
 const j = run("owned", ["--structure", wide, "--rbs-file", ownedFile]);
 const jCalls = ["bind", "grounding", "waypoints", "write"].flatMap((st) => j.calls(st));
@@ -732,7 +732,7 @@ const aRows = [...section(sheet, "structure").matchAll(/<tr><td>([\s\S]*?)<\/td>
 ok(aRows.length === 1 && aRows[0][1] === "h1", `(s) the one-map higher_order does not render as the one row h1: ${aRows.map((x) => x[1]).join(", ")}`);
 const listed = (higher) => validateStructure({ ...mapped, relations: [...mapped.relations, PASSED], higher_order: higher }, propositionRec);
 ok(!listed(HIGHER).error, `(s) the higher_order list of one was refused: ${JSON.stringify(listed(HIGHER))}`);
-const TWO = [HIGHER[0], { id: "h2", relates: ["missed", "passed"], holds: "Because nobody wrote that room down, the crew goes past it as if it were not there." }];
+const TWO = [HIGHER[0], { id: "h2", relates: ["missed", "passed"], holds: "Because nobody wrote {room} down, {crew} goes past it as if it were not there." }];
 const s0 = listed(TWO);
 ok(s0.error && s0.error.includes("carries 2 entries") && s0.error.includes("a proposition has one higher-order relation"),
   `(s) a two-entry higher_order was not refused naming the count: ${JSON.stringify(s0)}`);

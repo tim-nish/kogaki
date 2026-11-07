@@ -3,14 +3,14 @@
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
 #   (b) a structure whose `context` shares a word with the `proposition:` ("rule") is accepted, and the main run is over it (kogaki#1707).
 #   (c) a Leg `point` sharing such a word ("rule") is accepted on the first attempt (kogaki#1707).
-#   (d) the Writer's recorded stdin equals the Packet file byte for byte.
-#   (e) the repository's `moves/` and `theses/` are unchanged.
+#   (d) the Writer's recorded stdin equals the Packet file byte for byte; (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
 #   (g) a run without `--structure` refuses naming the flag.
 #   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant.
 #   (i) a Mapper answering a `context` that shares a word with the proposition is accepted, and the Trial runs on (kogaki#1707).
 #   (j) `--structure` with `--mapper` is refused naming both.
 #   (k) the composed `brief.yaml` carries one Leg with no `introduces`, an empty `defined_terms`, no `reader_start`, `reader_target`, `obligations` or Leg reader state; the Leg call is handed `persona_prior_knowledge`, and no Reader start call is made (kogaki#1699).
+#   (l) a `context` carrying a listed word as a word ("The reader must hold...", "you", ...) is refused naming the Role and the word, in group `context`, and inside a longer word is accepted; (m) a `holds` missing `{<id>}` for a Role its `between` names is refused naming the relation and the Role, and a `higher_order` `holds` carrying none of its Roles is refused (kogaki#1720).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -53,13 +53,13 @@ const structureText = (crewContext) => [
   "relations:",
   "  - id: cleans",
   "    between: [crew, list]",
-  `    holds: "The crew cleans each room the list names."`,
+  `    holds: "{crew} cleans each room {list} names."`,
   "  - id: missed",
   "    between: [list, room]",
-  `    holds: "A room missing from the list is never reached."`,
+  `    holds: "{room} missing from {list} is never reached."`,
   "higher_order:",
   "  relates: [cleans, missed]",
-  `  holds: "Because the crew follows the list, what the list leaves out stays dusty."`,
+  `  holds: "Because {crew} follows {list}, what {list} leaves out stays dusty."`,
   "",
 ].join("\n");
 const structure = join(root, "structure.yaml");
@@ -209,9 +209,9 @@ const mapped = (crewContext) => ({ strand: CITE,
   roles: [{ id: "crew", context: crewContext, attributes: [] },
     { id: "list", context: "The written list names the rooms the crew was told about at the door.", attributes: [] },
     { id: "room", context: "A room nobody wrote down stays dusty, even when it is next door.", attributes: [] }],
-  relations: [{ id: "cleans", between: ["crew", "list"], holds: "The crew cleans each room the list names." },
-    { id: "missed", between: ["list", "room"], holds: "A room missing from the list is never reached." }],
-  higher_order: { relates: ["cleans", "missed"], holds: "Because the crew follows the list, what the list leaves out stays dusty." } });
+  relations: [{ id: "cleans", between: ["crew", "list"], holds: "{crew} cleans each room {list} names." },
+    { id: "missed", between: ["list", "room"], holds: "{room} missing from {list} is never reached." }],
+  higher_order: { relates: ["cleans", "missed"], holds: "Because {crew} follows {list}, what {list} leaves out stays dusty." } });
 const mapperTrial = (name, answer, extra = []) => {
   const dir = join(root, name);
   mkdirSync(dir, { recursive: true });
@@ -248,6 +248,31 @@ ok(j.status !== 0 && j.stderr.includes("`--structure` and `--mapper`") && !exist
 // (b) a structure whose context carries "rule", a word of the proposition, is accepted
 const b = validateStructure(parseYaml(readFileSync(ruleStructure, "utf8")), parseProposition(readFileSync(strand, "utf8")));
 ok(!b.error, `(b) the structure carrying "rule" was refused: ${JSON.stringify(b)}`);
+
+// (l) a context addressed to the reader is refused naming the Role and the word
+const propRec = parseProposition(readFileSync(strand, "utf8"));
+const base = mapped("A cleaning crew arrives at a house with a written list of rooms.");
+const l = validateStructure({ ...base, roles: [{ ...base.roles[0], context: "The reader must hold that a crew works from a list." }, ...base.roles.slice(1)] }, propRec);
+ok(l.group === "context" && /the Role "crew"/.test(l.error || "") && /"reader"/.test(l.error || ""),
+  `(l) a context reading "The reader must hold" was not refused naming the Role and the word: ${JSON.stringify(l)}`);
+// every word of the refused family, not only the one the Trial met; a word that merely contains one is accepted
+const withContext = (context) => validateStructure({ ...base, roles: [{ ...base.roles[0], context }, ...base.roles.slice(1)] }, propRec);
+for (const [word, context] of [["you", "A crew you hire to clean a house."], ["must hold", "A crew that must hold to a list."],
+  ["must come to", "A crew one must come to see as bound by a list."], ["Persona", "A crew the persona knows from home."],
+  ["writer", "A crew the writer names first."]]) {
+  const v = withContext(context);
+  ok(v.group === "context" && v.error.includes(JSON.stringify(word)), `(l) a context carrying "${word}" was not refused naming the word: ${JSON.stringify(v)}`);
+}
+const lw = withContext("A crew of youths and readers' helpers with a typewriter.");
+ok(!lw.error, `(l) a context carrying no listed word as a word was refused: ${JSON.stringify(lw)}`);
+
+// (m) a holds missing a related Role's placeholder is refused naming the relation and the Role
+const m1 = validateStructure({ ...base, relations: [{ ...base.relations[0], holds: "{crew} cleans each room the list names." }, base.relations[1]] }, propRec);
+ok(m1.group === "shape" && /the relation "cleans"/.test(m1.error || "") && /\{list\}/.test(m1.error || ""),
+  `(m) a holds missing {list} was not refused naming the relation and the Role: ${JSON.stringify(m1)}`);
+const m2 = validateStructure({ ...base, higher_order: { ...base.higher_order, holds: "What is left out stays dusty." } }, propRec);
+ok(m2.group === "shape" && /higher_order/.test(m2.error || "") && /\{crew\}/.test(m2.error || ""),
+  `(m) a higher_order holds carrying no Role was not refused: ${JSON.stringify(m2)}`);
 
 // (g) a run without --structure refuses naming the flag
 const gOut = join(outDir, "no-structure");
