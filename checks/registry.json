@@ -778,6 +778,24 @@
         "removal_signal": "/draft no longer reads a ParagraphPlan file beside the Brief -- `src/draft/workspace.mjs` stops calling `readParagraphPlanBeside`, so there is no plan for a Packet to be a rendering of.",
         "removal_instrument": "probe: ! grep -q 'readParagraphPlanBeside' src/draft/workspace.mjs"
       }
+    },
+    {
+      "id": "spec-headings",
+      "file": "checks/check-spec-headings.sh",
+      "covers": [
+        "specs/"
+      ],
+      "admission": {
+        "contract": "No numbered heading in a committed spec under `specs/` carries a number another heading in the same file already carries, read outside fenced code blocks; a number is `## N.`, `### N.M`, `#### N.M.K`, with an optional trailing letter on the last component (`6.9.1a`) that is a number of its own. THE NAMED DEFECT: nothing under `checks/` read `specs/` at all. kogaki#1423 deleted `anchor-resolve`, the one member whose `covers` reached the whole tree, so from 2026-10-18 a cell changing a spec was refused at admission as uncovered (kogaki#1631, 2026-11-07, naming `specs/spec-client-kit/SPEC.md`), and a section number duplicated by a hand edit was found by review alone. ORDER IS NOT ASSERTED, by the spec's own record: `specs/SPEC.md` sites its §3.1 and §3.2 after §6 on purpose and says a section's physical position is dead weight, so a predicate over order would be red against a decision the document states; uniqueness is the invariant a citation by number rests on. The fixture pass runs on every invocation, never behind a flag: (c1) a duplicated number fails naming the second line; (c2) a section sited out of order passes, the siting `specs/SPEC.md` records; (c3) a numbered heading inside a fenced block is not read; (c4) a clean numbered document passes, the control that stops the deny passing vacuously; (c5) a lettered suffix beside its bare base is a second number, not a duplicate; (c6) an unnumbered heading between numbered ones is not read. Declared limits, stated in the file: the order of the headings, whether a sub-heading sits under its parent, whether a `§N.M` citation names a heading that exists, and a heading's text are not verified.",
+        "license": "kogaki#1713 (after kogaki#1631's admission refusal of 2026-11-07: a covering member over `specs/` rather than a change to admission, the correction kogaki#1434 took for `moves/`)",
+        "tier": "pre-push",
+        "runtime_ms": 100,
+        "runtime_ms_note": "Measured 2026-11-07 at 3e8a3c3 in the kogaki tree: 99, 101 and 101 ms over three runs reading 10 spec files; the cost is one Python process over six fixture documents and the tracked specs, no subprocess but `git ls-files`.",
+        "removal_signal": "the specs leave the tree -- `specs/` is deleted, so there is no numbered heading for a citation to rest on.",
+        "removal_instrument": "probe: ! test -d specs",
+        "efficacy": "case: checks/check-spec-headings.sh::(c1) a duplicated section number fails naming the second line",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-07 at 3e8a3c3). Renumbering `### 4.4` of `specs/spec-client-kit/SPEC.md` to `### 4.3` FAILED naming the line (`specs/spec-client-kit/SPEC.md:398 section 4.3 is numbered twice (first at line 372)`); restoring it restored PASS. Striking every `### 4.N` heading of that spec, the edit kogaki#1631 makes, PASSED. The unmutated tree PASSED over all 10 spec files."
+      }
     }
   ]
 }
