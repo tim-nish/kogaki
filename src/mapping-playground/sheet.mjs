@@ -69,12 +69,12 @@ function mappingTable(structure, table, number) {
     rows.push({ id: c.role, what: null, attributes: [], correspondences: [c] });
   }
   const domain = table && table.base && table.base.domain !== null && table.base.domain !== undefined ? table.base.domain : "none";
-  const abstract = (r) => `<span class="meta">${esc(r.id)}</span>${r.what === null ? "" : ` ${targetHtml(r.what)}`}`;
+  const abstract = (r) => (r.what === null ? "" : targetHtml(r.what));
   const expression = (cs) => cs.map((c) => targetHtml(c.expression)).join("<br>");
   const caption = table ? `Paragraph ${number} <span class="meta">${esc(table.move)}</span>` : "no table";
   return `<p class="meta">Base: ${esc(domain)}</p>`
-    + `<table><caption>${caption}</caption><thead><tr><th>Abstract</th><th>Attribute</th><th>Correspondence</th></tr></thead><tbody>`
-    + rows.map((r) => `<tr><td>${abstract(r)}</td><td>${esc(r.attributes.join(", "))}</td><td>${expression(r.correspondences)}</td></tr>`).join("")
+    + `<table><caption>${caption}</caption><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th><th>Correspondence</th></tr></thead><tbody>`
+    + rows.map((r) => `<tr><td>${esc(r.id)}</td><td>${abstract(r)}</td><td>${esc(r.attributes.join(", "))}</td><td>${expression(r.correspondences)}</td></tr>`).join("")
     + "</tbody></table>";
 }
 

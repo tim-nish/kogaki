@@ -29,9 +29,9 @@
 #       `Binding 1` and `Binding 2` of five labelled rows, `Takes` and `Leaves` one sub-row per entry as `<kind>: <what>`
 #       (kogaki#1682, kogaki#1687, kogaki#1700, kogaki#1699), and no `WBS` text (kogaki#1685); the Mapping part carries one Mapping
 #       Table per paragraph, each under its own `Base: <domain>` line and captioned `Paragraph <n>` with its Move (kogaki#1709),
-#       headed `Abstract`, `Attribute`, `Correspondence`, the fixture's attribute word in its Role's `Attribute`
-#       cell, and no kind word (kogaki#1693); and the Segments table's point cell carries its true cast keys in a `meta` span,
-#       on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
+#       headed `Role`, `Abstract`, `Attribute`, `Correspondence` with no `Abstract` cell opening on a Role id (kogaki#1716), the
+#       fixture's attribute word in its Role's `Attribute` cell, and no kind word (kogaki#1693); and the Segments table's point
+#       cell carries its true cast keys in a `meta` span, on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
 
 #   (g) an `expression` or a `role` sharing a word with the `proposition:` is accepted, in a table and in the owner's file, and
 #       against the guard-reach proposition "the openings the panel has been set to sound on" is accepted while Base Paragraph
@@ -563,10 +563,10 @@ ok(aBinding && JSON.stringify(labelsOf(aBinding)) === JSON.stringify(LABELS) && 
   `(f) the Binding tables do not carry Takes and Leaves, one sub-row per entry as <kind>: <what>: ${rowOf(aBinding || "", "Takes")} / ${rowOf(aBinding || "", "Leaves")}`);
 ok(![...section(jSheet, "segments").matchAll(/<caption>([\s\S]*?)<\/caption>/g)].some((x) => x[1].includes("—")),
   "(f) a — caption line still precedes a Segments table");
-const HEADS = ["Abstract", "Attribute", "Correspondence"];
+const HEADS = ["Role", "Abstract", "Attribute", "Correspondence"];
 const ths = [...section(jSheet, "mapping").matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
 ok(JSON.stringify(ths) === JSON.stringify([...HEADS, ...HEADS]) && section(jSheet, "mapping").startsWith(`<h2>Mapping</h2><p class="meta">Base: ${esc(OWNED_TABLE.base.domain)}</p><table>`),
-  `(f) the Mapping part is not the Base line above a table headed Abstract, Attribute and Correspondence: ${JSON.stringify(ths)}`);
+  `(f) the Mapping part is not the Base line above a table headed Role, Abstract, Attribute and Correspondence: ${JSON.stringify(ths)}`);
 const pHeads = [...section(sheet, "mapping").matchAll(/<th>([\s\S]*?)<\/th>/g)].map((x) => x[1]);
 const aMap = section(sheet, "mapping");
 ok(JSON.stringify(pHeads) === JSON.stringify([...HEADS, ...HEADS]) && (aMap.match(/<p class="meta">Base: /g) || []).length === 2
@@ -580,10 +580,14 @@ const jMaps = section(jSheet, "mapping").split('<p class="meta">Base: ').slice(1
 ok(jMaps.length === 2 && jMaps[0].startsWith(`${esc(OWNED_TABLE.base.domain)}</p><table><caption>Paragraph 1 <span class="meta">${MOVE}</span></caption>`)
   && jMaps[1].startsWith(`${esc(PROJ_TABLE.base.domain)}</p><table><caption>Paragraph 2 <span class="meta">${MOVE}</span></caption>`),
   `(f) the owner's sheet does not carry one Mapping Table per paragraph, each under its own Base line and captioned with its paragraph and Move: ${jMaps.length}`);
-const mapRows = [...(jMaps[0] || "").matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
-ok(mapped.roles.every((r) => mapRows.filter((x) => x[1] === `<span class="meta">${r.id}</span> ${esc(r.context)}` && x[2] === r.attributes.join(", ")
-  && x[3] === esc("the crew's list")).length === 1) && mapRows.some((x) => x[1].startsWith('<span class="meta">crew</span>') && x[2] === "automatic"),
-  `(f) the mapping table is not one row per Role carrying its id and context, its attributes and its expression: ${mapRows.map((x) => x.slice(1).join("|")).join(" / ")}`);
+const ROW4 = /<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g;
+const mapRows = [...(jMaps[0] || "").matchAll(ROW4)];
+ok(mapped.roles.every((r) => mapRows.filter((x) => x[1] === esc(r.id) && x[2] === esc(r.context) && x[3] === r.attributes.join(", ")
+  && x[4] === esc("the crew's list")).length === 1) && mapRows.some((x) => x[1] === "crew" && x[3] === "automatic"),
+  `(f) the mapping table is not one row per Role carrying its id, its context, its attributes and its expression: ${mapRows.map((x) => x.slice(1).join("|")).join(" / ")}`);
+const allMapRows = [sheet, jSheet].flatMap((h) => [...section(h, "mapping").matchAll(ROW4)]);
+ok(allMapRows.length > 0 && allMapRows.every((x) => !mapped.roles.some((r) => x[2].startsWith(r.id)) && !x[2].includes('class="meta"')),
+  `(f) an Abstract cell of a Mapping Table opens on a Role id (kogaki#1716): ${allMapRows.map((x) => x[2]).join(" / ")}`);
 const struct = section(jSheet, "structure");
 const elRows = [...struct.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
 const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...[...mapped.relations, PASSED].map((r) => [r.id, "relation"]),

@@ -3188,12 +3188,14 @@ folded. The runner writes the sheet once and never reads it.
   under its own line `Base: <domain>` and captioned `Paragraph N` with its
   Move's id in the caption's `meta` span, as the Segments tables are. Where
   the run stopped before a table was written, it is one line `Base: none`
-  above one table captioned `no table`. Each table has three fixed columns,
-  `Abstract`, `Attribute` and `Correspondence` (kogaki#1693), one row per Role
-  in the structure's order: `Abstract` is the Role's id followed by its
-  `context`, `Attribute` its `attributes` joined by `, ` (empty where the list
-  is), and `Correspondence` the `expression` of that table's correspondence
-  naming that Role. No kind word appears on the sheet.
+  above one table captioned `no table`. Each table has four fixed columns,
+  `Role`, `Abstract`, `Attribute` and `Correspondence` (kogaki#1693,
+  kogaki#1716), one row per Role in the structure's order: `Role` is the
+  Role's id alone, `Abstract` its `context` alone, `Attribute` its
+  `attributes` joined by `, ` (empty where the list is), and `Correspondence`
+  the `expression` of that table's correspondence naming that Role. A
+  correspondence whose `role` names no Role of the structure has its own row,
+  its `role` in `Role` and `Abstract` empty. No kind word appears on the sheet.
 - `Structure` is a table with one row per element, a higher-order relation
   keyed by its id: `id`, `category` (Role, relation or higher-order),
   `arguments` (a Role's `context`, a relation's `between`, a higher-order
