@@ -3,14 +3,17 @@
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
 #   (b) a structure whose `context` shares a word with the `proposition:` ("rule") is accepted, and the main run is over it (kogaki#1707).
 #   (c) a Leg `point` sharing such a word ("rule") is accepted on the first attempt (kogaki#1707).
-#   (d) the Writer's recorded stdin equals the Packet file byte for byte; (e) the repository's `moves/` and `theses/` are unchanged.
+#   (d) the Writer's recorded stdin equals the Packet file byte for byte.
+#   (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
 #   (g) a run without `--structure` refuses naming the flag.
 #   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant.
 #   (i) a Mapper answering a `context` that shares a word with the proposition is accepted, and the Trial runs on (kogaki#1707).
 #   (j) `--structure` with `--mapper` is refused naming both.
 #   (k) the composed `brief.yaml` carries one Leg with no `introduces`, an empty `defined_terms`, no `reader_start`, `reader_target`, `obligations` or Leg reader state; the Leg call is handed `persona_prior_knowledge`, and no Reader start call is made (kogaki#1699).
-#   (l) a `context` carrying a listed word as a word ("The reader must hold...", "you", ...) is refused naming the Role and the word, in group `context`, and inside a longer word is accepted; (m) a `holds` missing `{<id>}` for a Role its `between` names is refused naming the relation and the Role, and a `higher_order` `holds` carrying none of its Roles is refused (kogaki#1720).
+
+#   (l) a `context` carrying a listed word as a word ("The reader must hold...", "you", ...) is refused naming the Role and the word, in group `context`, and one carrying it inside a longer word is accepted (kogaki#1720).
+#   (m) a relation's `holds` missing `{<id>}` for a Role its `between` names is refused naming the relation and the Role, and a `higher_order` `holds` carrying none of its Roles is refused (kogaki#1720).
 set -u
 cd "$(dirname "$0")/.."
 
