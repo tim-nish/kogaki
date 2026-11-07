@@ -163,6 +163,8 @@ export function planLeg(leg, opts = {}) {
     waypoints: ws.map((w, i) => ({
       waypoint: i + 1,
       point: String(w.point),
+      // Carried beside the point and read by no row yet (kogaki#1732).
+      case: w.case,
       serves: [...w.serves],
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
       ...(i === 0 ? { stands_to_be_taken_up: first } : {}),
@@ -747,7 +749,7 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
   return {
     leg_waypoint_you_must_plan: {
       leg_id: leg.leg_id, waypoint: n, waypoints_in_leg: leg.waypoints.length,
-      point: w.point, serves: [...w.serves], next_point: w.next_point,
+      point: w.point, case: w.case, serves: [...w.serves], next_point: w.next_point,
       stands_to_be_taken_up: standsToBeTakenUp(leg, entries, n, (id) => boundMoveContract(id, inputs.movesDir)),
     },
     leaves_for_next_leg: leg.leaves_for_next_leg || [],
@@ -879,7 +881,7 @@ const moveIdsOf = (moves) => moves.map((m) => m.id);
 // null on every later one, where it is what the paragraphs the plan call binds before it leave.
 export function planCallInputRows(input) {
   const leg = input.leg_you_must_plan;
-  return leg.waypoints.map((w) => ({ waypoint: w.waypoint, point: w.point, serves: [...w.serves], next_point: w.next_point,
+  return leg.waypoints.map((w) => ({ waypoint: w.waypoint, point: w.point, case: w.case, serves: [...w.serves], next_point: w.next_point,
     stands_to_be_taken_up: w.waypoint === 1 ? w.stands_to_be_taken_up : null,
     terms_this_leg_introduces: input.terms_this_leg_introduces,
     paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind) }));
@@ -887,7 +889,7 @@ export function planCallInputRows(input) {
 
 export function siteCallInputRow(input, ctx, leg) {
   const w = input.leg_waypoint_you_must_plan;
-  return { waypoint: w.waypoint, retry: ctx.retry, point: w.point, serves: [...w.serves], next_point: w.next_point,
+  return { waypoint: w.waypoint, retry: ctx.retry, point: w.point, case: w.case, serves: [...w.serves], next_point: w.next_point,
     stands_to_be_taken_up: w.stands_to_be_taken_up, terms_this_leg_introduces: leg.introduces || [],
     paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind),
     refused_here: input.refused_here, fixed: input.fixed, moves_rejected_here: input.moves_rejected_here };

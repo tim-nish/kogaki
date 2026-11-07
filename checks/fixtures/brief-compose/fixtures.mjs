@@ -33,7 +33,7 @@ export const READER_START = "knowledge: can read code and has used a CI system\n
 export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1", "L2"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"], ...s1extra }),
@@ -74,7 +74,7 @@ export const START_1276 = "knowledge: before\nquestion: holds: none";
 export const leg1276 = (legId, extra) => ({
   leg_id: legId, move: "m_open", materials: ["L1"], purpose: `what ${legId} is for`,
   depends_on: [], rationale: `why ${legId} sits here`,
-  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"] }],
+  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }],
   ...extra,
 });
 export const cand1276 = (id, leg2Extra = {}) => ({

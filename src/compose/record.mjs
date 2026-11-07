@@ -79,9 +79,10 @@ export function legRecord(s) {
   out.depends_on = [...(s.depends_on || [])];
   out.rationale = s.rationale;
   out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
-  // A LEG WAYPOINT IS `point` AND `serves`, AND NOTHING ELSE (kogaki#1375): no Move
-  // information reaches the Brief; the paragraph Move is the ParagraphPlan stage's.
-  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], point: String(w.point).replace(/\s*\n\s*/g, " ").trim() }));
+  // A LEG WAYPOINT IS `point`, `serves` AND `case`, AND NOTHING ELSE (kogaki#1375, kogaki#1732): no
+  // Move information reaches the Brief; the paragraph Move is the ParagraphPlan stage's.
+  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], point: String(w.point).replace(/\s*\n\s*/g, " ").trim(),
+    case: w.case }));
   if ((s.journeys || []).length) {
     out.journeys = s.journeys.map((j) => {
       const gloss = journeyUses().get(j.use);
@@ -582,9 +583,9 @@ export function paragraphWaypointsRefusal(pws, parentServes, at) {
       return `${at}: none of its Paragraph Waypoints carries a \`point\` — a \`performs\` Paragraph Waypoint carries no part `
         + "of the Leg Waypoint's point, so every Claim the parent serves is served by at least one `point` Paragraph Waypoint (kogaki#1448)";
     }
-    return waypointsRefusal(points, parentServes, `${at}'s Paragraph Waypoints`, ordinals);
+    return waypointsRefusal(points, parentServes, `${at}'s Paragraph Waypoints`, ordinals, null, { paragraph: true });
   }
-  return waypointsRefusal(pws, parentServes, `${at}'s Paragraph Waypoints`);
+  return waypointsRefusal(pws, parentServes, `${at}'s Paragraph Waypoints`, null, null, { paragraph: true });
 }
 
 // The Strand ids of the closed set, in the order the mint wrote them; and the

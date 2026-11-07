@@ -398,17 +398,17 @@ const fails = [];
   const cases = [
     ["a Leg with no waypoints field", noField, /leg 1 \(s1\): carries no waypoints/],
     ["a Leg with an empty waypoints list", legs({ waypoints: [] }), /leg 1 \(s1\): carries no waypoints/],
-    ["a waypoint with an empty point", legs({}, { waypoints: [{ point: "s2's claim holds", serves: ["L1"] }, { point: " ", serves: ["L1"] }] }),
+    ["a waypoint with an empty point", legs({}, { waypoints: [{ point: "s2's claim holds", serves: ["L1"], case: "own" }, { point: " ", serves: ["L1"], case: "own" }] }),
       /leg 2 \(s2\): waypoint 2 has an empty point/],
     // THE EFFECT FORM IS REFUSED BY NAME (kogaki#1326): a waypoint still
     // carrying `effect` is not read as one with no point.
-    ["a waypoint carrying the retired effect", legs({}, { waypoints: [{ effect: "the reader is handed one dated run", point: "s2's claim holds", serves: ["L1"] }] }),
+    ["a waypoint carrying the retired effect", legs({}, { waypoints: [{ effect: "the reader is handed one dated run", point: "s2's claim holds", serves: ["L1"], case: "own" }] }),
       /leg 2 \(s2\): waypoint 1 carries `effect`, which is retired/],
-    ["a waypoint with an empty serves", legs({ waypoints: [{ point: "s1's claim holds", serves: [] }] }),
+    ["a waypoint with an empty serves", legs({ waypoints: [{ point: "s1's claim holds", serves: [], case: "own" }] }),
       /leg 1 \(s1\): waypoint 1 has an empty serves/],
-    ["a serves naming a Strand the Leg has no claim for", legs({ waypoints: [{ point: "s1's claim holds", serves: ["L1", "L9"] }] }),
+    ["a serves naming a Strand the Leg has no claim for", legs({ waypoints: [{ point: "s1's claim holds", serves: ["L1", "L9"], case: "own" }] }),
       /leg 1 \(s1\): waypoint 1 serves "L9", and this Leg carries no claim for that Strand/],
-    ["a claim no waypoint serves", legs({ ...twoClaims, waypoints: [{ point: "claim one holds", serves: ["L1"] }] }),
+    ["a claim no waypoint serves", legs({ ...twoClaims, waypoints: [{ point: "claim one holds", serves: ["L1"], case: "own" }] }),
       /leg 1 \(s1\): its claim for "L2" is served by no waypoint/],
   ];
   for (const [what, ls, want] of cases) {
@@ -428,9 +428,9 @@ const fails = [];
   if (!schema.waypoint || !prompt.includes(schema.waypoint.fields.point.description)) {
     fails.push("(ao2) the compose_path unit prompt does not render the schema's `waypoint` block");
   }
-  const W2 = [{ point: "the first party acts", serves: ["L1"] },
-    { point: "the second party answers", serves: ["L1"] },
-    { point: "the answer is answered, and the balance holds", serves: ["L1"] }];
+  const W2 = [{ point: "the first party acts", serves: ["L1"], case: "own" },
+    { point: "the second party answers", serves: ["L1"], case: "own" },
+    { point: "the answer is answered, and the balance holds", serves: ["L1"], case: "own" }];
   const c = cand1276("c1", { waypoints: W2 });
   const j = readerPathFitInput(c, fitMoves, START_1276);
   if (j.error) fails.push(`(ao2) readerPathFitInput refused: ${j.error}`);

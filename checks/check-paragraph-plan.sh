@@ -316,9 +316,9 @@ const leg = (id, claims, waypoints) => ({
 });
 const legs = [
   leg("s1", [{ strand: "L1", proposition: C1 }, { strand: "L2", proposition: C2 }], [
-    { point: "The installer writes into a tree the consumer thought was theirs alone.", serves: ["L1"] },
-    { point: "The next run overwrites any edit made to the copy.", serves: ["L1", "L2"] }]),
-  leg("s2", [{ strand: "L2", proposition: C2 }], [{ point: "The copy is the installer's, not the consumer's.", serves: ["L2"] }]),
+    { point: "The installer writes into a tree the consumer thought was theirs alone.", serves: ["L1"], case: "own" },
+    { point: "The next run overwrites any edit made to the copy.", serves: ["L1", "L2"], case: "own" }]),
+  leg("s2", [{ strand: "L2", proposition: C2 }], [{ point: "The copy is the installer's, not the consumer's.", serves: ["L2"], case: "own" }]),
 ];
 // (r)'s Legs: s1 introduces three terms, and its first Leg Waypoint's point first uses TERM.
 const TERM = { term: "kit stamp", meaning: "the hash the installer writes beside the copy" };
@@ -326,7 +326,7 @@ const TERM = { term: "kit stamp", meaning: "the hash the installer writes beside
 const DEFINED = [{ term: TERM.term, class: "defined" }];
 const REFERENTS = [{ term: "installer", meaning: "the program that copies the kit" }, { term: "next run", meaning: "the installer's following run" }];
 const termLegs = [{ ...legs[0], introduces: [TERM, ...REFERENTS], waypoints: [
-  { point: "The installer writes the kit stamp into a tree the consumer thought was theirs alone.", serves: ["L1"] },
+  { point: "The installer writes the kit stamp into a tree the consumer thought was theirs alone.", serves: ["L1"], case: "own" },
   legs[0].waypoints[1]] }, legs[1]];
 const briefText = (ls, obligations = [], defined = []) => briefRecordText({
   slug: "plan-brief", compose_path: "audiences/dev-to-zenn.md",
@@ -1119,7 +1119,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   // before leaves, less what a paragraph before takes up by the same kind and `what`.
   const contracts = { opens: { takes: [], leaves: [{ kind: "answer", what: "which edit survives?", segment: 1 }, { kind: "explain", what: "the kit stamp.", segment: 1 }] },
     answers: { takes: [{ kind: "answer", what: "which edit survives?" }], leaves: [] } };
-  const pl = planLeg({ leg_id: "s2", waypoints: [1, 2, 3].map((n) => ({ point: `point ${n}.`, serves: ["L1"] })) },
+  const pl = planLeg({ leg_id: "s2", waypoints: [1, 2, 3].map((n) => ({ point: `point ${n}.`, serves: ["L1"], case: "own" })) },
     { previousLeaves: [{ kind: "carry", what: "the copy as a lease.", segment: 1 }], previousLegId: "s1", leaves: [] });
   const entries = [{ move: "opens" }, { move: "answers" }];
   const at2 = standsToBeTakenUp(pl, entries, 2, (id) => contracts[id]);

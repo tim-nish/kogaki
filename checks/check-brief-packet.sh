@@ -37,7 +37,7 @@ const fails = [];
   if (typeof reactivateRefusal !== "function" || typeof reactivateSemanticRefusal !== "function") fails.push("(n) src/compose.mjs exports no re-activate refusals");
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const path = (s2extra) => {
@@ -103,7 +103,7 @@ const fails = [];
 {
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const legs = [legOf("s1")];
@@ -150,7 +150,7 @@ const fails = [];
 {
   const leg = {
     leg_id: "s1", move: "open_the_claim", body: "claim (strand L1): claim of s1",
-    waypoints: [{ point: "the paragraph establishes what s1 claims", serves: ["L1"] }],
+    waypoints: [{ point: "the paragraph establishes what s1 claims", serves: ["L1"], case: "own" }],
     journeys: [{ strand: "L1", use: "an example to retell", resolvedText: "The served Journey's own prose, verbatim." }],
   };
   const brief = {
@@ -174,7 +174,7 @@ const fails = [];
   // resolution) refuses the SAME WAY an absent block does anywhere else in
   // the Packet — never a hole the model fills by invention.
   const legUnresolved = { leg_id: "s2", move: "open_the_claim", body: "claim (strand L1): claim of s2",
-    waypoints: [{ point: "the paragraph establishes what s2 claims", serves: ["L1"] }],
+    waypoints: [{ point: "the paragraph establishes what s2 claims", serves: ["L1"], case: "own" }],
     journeys: [{ strand: "L1", use: "an example to retell" }] };
   const sections2 = sectionsOf([legUnresolved]);
   const r2 = renderPacket({ template: split.packet, brief: { ...brief, legs: [legUnresolved] }, leg: legUnresolved,
@@ -415,7 +415,7 @@ const fails = [];
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
   const legOf = (leg_id, extra = {}) => ({
     leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"] }],
+    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const briefOf = (legs, keys = {}) => briefOfRecord(recordOf(legs, {

@@ -31,7 +31,7 @@
             { "type": "strand", "proposition": "the fixture Strand's claim, stated plainly", "strand": "L1" }
           ],
           "waypoints": [
-            { "point": "the fixture Strand's claim holds, stated for the first time", "serves": ["L1"] }
+            { "point": "the fixture Strand's claim holds, stated for the first time", "serves": ["L1"], "case": "own" }
           ],
           "opens_section": "The fixture Strand's claim"
         },
@@ -46,7 +46,7 @@
             { "type": "strand", "proposition": "the fixture Strand's claim, now settled", "strand": "L1" }
           ],
           "waypoints": [
-            { "point": "the fixture Strand's claim is settled", "serves": ["L1"] }
+            { "point": "the fixture Strand's claim is settled", "serves": ["L1"], "case": "own" }
           ],
           "reaches_target": true
         }

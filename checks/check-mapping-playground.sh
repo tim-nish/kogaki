@@ -98,7 +98,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ legs: [{ leg_id: "crew-leg", purpose: "Bring the reader to the list as the bound of the crew's work.",
       rationale: "It is the only Leg.",
       claims: x.claims.map((g) => ({ type: "strand", strand: g.claim_strand, proposition: g.holds })),
-      waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), serves: [g.claim_strand] })) }] }, "brief");
+      waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), serves: [g.claim_strand], case: "own" })) }] }, "brief");
   }
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;

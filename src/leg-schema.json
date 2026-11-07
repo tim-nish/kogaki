@@ -388,7 +388,7 @@
       "",
       "THE LEG'S MOVE ENDS HERE, AND NO MOVE INFORMATION REACHES THE BRIEF.",
       "The Leg's Move is read when the Leg is composed and judged, and never",
-      "again. A waypoint carries `point` and `serves` and nothing else: the",
+      "again. A waypoint carries `point`, `serves` and `case` and nothing else: the",
       "paragraph Move each waypoint is planned with is bound AFTER the Brief,",
       "by the ParagraphPlan stage (`/paragraph-plan`, kogaki#1375), which",
       "generates this waypoint's Paragraph Waypoints -- the same shape, one",
@@ -396,8 +396,18 @@
       "directory. Move information is used up to Paragraph Waypoint generation",
       "and nowhere after it.",
       "",
+      "IT RECORDS WHOSE CASE ITS PARAGRAPH TELLS (kogaki#1732, owner ruling",
+      "2026-11-07). `case` records a decision the composer took when it wrote",
+      "the waypoint: whether its paragraph tells the proposition's own case or a",
+      "case apart, in material the reader already holds. It instructs no stage",
+      "to add a paragraph, and one waypoint still binds one Move. The waypoint",
+      "after an `apart` one carries that structure onto the subject; no second",
+      "field says so.",
+      "",
       "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses",
       "an empty list, a waypoint with an empty `point` or an empty `serves`,",
+      "a waypoint with no `case` or a `case` other than `own` and `apart`, a",
+      "Leg whose last waypoint is `apart`,",
       "a waypoint carrying the retired `effect`, or the retired `move` or",
       "`segments` (kogaki#1375), a `serves` entry naming a Strand this Leg",
       "carries no claim for, and a claim of this Leg that no waypoint serves",
@@ -416,6 +426,12 @@
         "type": "array of string",
         "min_length": 1,
         "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
+      },
+      "case": {
+        "required": true,
+        "type": "string",
+        "values": ["own", "apart"],
+        "description": "Whose case this paragraph tells. `own`: the proposition's own case, in the subject's domain. `apart`: a case apart from the proposition's domain, in material the reader already holds -- chosen from the Persona's prior knowledge and this Leg's claims, never from the Move's `leaves`. The waypoint after an `apart` one carries that case's structure onto the subject, so a Leg never ends on `apart`. It records what you decided when you wrote the waypoint; it adds no paragraph."
       }
     }
   },

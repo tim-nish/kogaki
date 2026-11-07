@@ -509,7 +509,7 @@ those paths into.
   information of the Leg's Move is copied onto the Leg**: `breaks` is part of
   the Move and its responsibility ends when the Candidate is produced, and no
   paragraph Move reaches the waypoint at all.
-  - **A Leg Waypoint carries `point` and `serves`, and nothing else**
+  - **A Leg Waypoint carries `point`, `serves` and `case`, and nothing else**
     (kogaki#1375, owner decision 2026-10-14: "Move information may be used up
     to Paragraph Waypoint generation and nowhere after it"). The paragraph
     Move is bound after the Brief, by the ParagraphPlan stage (§4.19), and
@@ -521,6 +521,22 @@ those paths into.
     own validation, by `/paragraph-plan` and by `draft.mjs resolve`, and is
     recomposed by a new `/brief` run, never patched. `src/leg-schema.json`
     declares neither field.
+  - **`case` records whose case the paragraph tells** (kogaki#1732, owner
+    ruling 2026-11-07: "`case` simply a flag indicating whether the Structure
+    is shared, rather than a flag instructing the system to add an Inference
+    Paragraph"). It is required, and is `own` (the paragraph tells the
+    proposition's own case, in the subject's domain) or `apart` (it tells a
+    case apart from the proposition's domain, in material the reader already
+    holds). The composer chooses it from the Persona's prior knowledge and the
+    Leg Move's Segments, never from the Move's `leaves`, when it writes the
+    Waypoint; it instructs no stage to add a paragraph, and one Waypoint still
+    binds one Move. The Leg Waypoint after an `apart` one carries that
+    structure onto the subject, and no second field says so.
+    `waypointsRefusal` refuses a Leg Waypoint with no `case` or another value,
+    and a Leg whose last Waypoint is `apart`, each naming the Leg and the
+    Waypoint; `reader_path_fit_unit` judges that each `apart` Waypoint is so
+    followed. A Brief composed before this field is refused at every read
+    and recomposed, never given `case` by a script.
 - **`depends_on`** — the earlier Legs whose conclusions this Leg stands on.
 - **`rationale`** — why *this article's* materials make this the next Leg.
 - **`introduces`** — optional; §4.13.
@@ -2424,6 +2440,10 @@ A Packet line added later is sorted into this table in the act that adds it,
 and a line sorted as anything but structure that asks the Writer to add a
 sentence is the defect this paragraph names.
 
+**`case` rides beside the point** (kogaki#1732). The plan call's input carries
+each Leg Waypoint's `case` (§4.1) beside its `point`. No row reads it until the
+Mapper's Issue lands, and the Packet never renders it to the Writer.
+
 **The loop.** One Detached Job unit per Leg, in Reader Path order, on the shared
 supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
 `judgePrompt`. Each attempt makes two calls:
@@ -2542,6 +2562,7 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their Moves' `takes` and `leaves` (kogaki#1699) | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Paragraph Waypoint's field | wording |
 | Section heading | Leg only | `the heading against its Section's last claims` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
+| Case carried onto the subject | Leg only | `each apart waypoint followed by the one that carries it onto the subject` | — | `case` is a Leg Waypoint's field, and a Paragraph Waypoint carries none (kogaki#1732) | criterion |
 | Thesis attainment | Leg only | `the claims and waypoints against the Thesis` | — | the Thesis is attained at the Leg marked `reaches_target` (kogaki#1330), a Leg-level object | criterion |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every

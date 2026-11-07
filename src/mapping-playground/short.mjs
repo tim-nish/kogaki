@@ -71,7 +71,8 @@ const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "u
 // THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700, kogaki#1709): its one claim is the proposition, in the Brief's form; one Leg
 // Waypoint per bound Move, each `point` the structure in the expressions of that Move's table: one per projecting binding of the
 // owner's file after the first, and in the model route one where an Inference Move is bound, else none.
-// A Leg Waypoint's point (kogaki#1688).
+// A Leg Waypoint's point (kogaki#1688). Only the first Waypoint takes the declared case; the owner's file declares none,
+// so `legCase` reads it from the bindings (kogaki#1732).
 export function firstPoint(structure, table) {
   const base = new Map(table.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
   return [...structure.relations, ...higherOrderOf(structure)]
@@ -79,11 +80,19 @@ export function firstPoint(structure, table) {
     .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
 }
 
-export function shortLeg(proposition, tables, persona, structure) {
+// The case the Leg's first Waypoint takes: the `bind` stage's answer, or on the owner's route, where no case is declared,
+// `apart` when the owner's file binds a Move after the first and `own` when it binds one alone, as `bindMoveRefusal`
+// pairs an Inference Move with `apart` (kogaki#1732).
+export function legCase(bind) {
+  if (bind && CASES.includes(bind.case)) return bind.case;
+  return bind && Array.isArray(bind.inference_moves) && bind.inference_moves.length ? APART : OWN;
+}
+
+export function shortLeg(proposition, tables, persona, structure, told = OWN) {
   return {
     leg_id: LEG_ID,
     claims: [{ strand: "L1", proposition }],
-    waypoints: tables.map((t) => ({ point: firstPoint(structure, t), serves: ["L1"] })),
+    waypoints: tables.map((t, i) => ({ point: firstPoint(structure, t), serves: ["L1"], case: i === 0 ? told : OWN })),
     introduces: [],
     journeys: [],
   };
@@ -483,7 +492,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     writeRbs(t);
     return { value: t, refusals };
   });
-  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure) : null;
+  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure, legCase(record.bind)) : null;
   // THE PARAGRAPH WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
   const paragraphs = stage("waypoints", (d, env) => {
     let listed;
