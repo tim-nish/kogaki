@@ -11,9 +11,9 @@
 #   (b) `--mapper sme_map_roles --compose` records six calls and `structure.author: sme`.
 #   (c) `--rbs` is refused naming `--compose` and `--rbs-file`, and a run with neither is refused naming both, with nothing written.
 
-#   (d) the `smp_bind_move` row's refusals by name: an id not in the library, an `inference_move` null where the base Move leaves a
-#       `carry` (naming the entry), one given where it leaves none, and an inference Move whose `takes` holds no `carry`, each with
-#       its group, `library` or `carry`; a first refusal reaches the second attempt's stdin, and a second stops at `bind`. A
+#   (d) the `smp_bind_move` row's refusals by name: an id not in the library, an `inference_move` null under `case: apart`, one
+#       given under `case: own` (kogaki#1719), and an inference Move whose `takes` holds no `carry`, each with its group,
+#       `library`, `case` or `carry`; a first refusal reaches the second attempt's stdin, and a second stops at `bind`. A
 #       `library` refusal is `record`: the second attempt's stdin carries the `record` sentence and not the `part` one, and its
 #       answer is taken whole (kogaki#1708). A waypoints answer binding another Move stops at
 #       `waypoints` naming the Waypoint, and one whose Base Paragraph points carry no expression of a Role stops naming the Role;
@@ -54,7 +54,7 @@
 #   (m) a Role without `attributes`, or with a non-list one, is refused naming the Role, and a root `attributes` is refused as an
 #       undeclared key (kogaki#1693); a `context` carrying "rules" is accepted (kogaki#1707).
 #   (n) `binding_rationale` in the rbs file reaches bind.yaml and the `Rationale` row of `Binding 1`, the composed route's bind.yaml
-#       carries the `bind` call's `rationale`, a non-text one is refused naming the field, and `grounds` is refused naming
+#       carries the rationale the Harness writes from the answer's case and Moves (kogaki#1719), a non-text one is refused naming the field, and `grounds` is refused naming
 #       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682, kogaki#1687, kogaki#1700).
 
 #   (o) a `projection` map and a list of one each exit 0 with one writer call, `bind.yaml`'s `paragraphs` has two entries, and
@@ -80,6 +80,13 @@
 #       attempt's prompt and answer are kept, and a second refusal stops at `correspondence` (kogaki#1693, kogaki#1700). A fixture
 #       refusal whose group the row does not declare stops at once naming the row and the group, and one of reach `stop` makes no
 #       second call (kogaki#1708).
+
+#   (v) the case the `bind` stage declares (kogaki#1719): an answer with `case: apart` and `inference_move` null is refused in
+#       group `case`, one with `case: own` and an `inference_move` in group `case`, and a missing or unknown `case` or a
+#       `rationale` in group `shape`; the base Move's correspondence stdin carries the declared `case` and the inference Move's
+#       carries `own`; `bind.yaml`'s Base Paragraph entry carries the added `carry` naming its table's `base.domain` under
+#       `apart`; Binding 1 shows the `Case` row; and a Trial whose last Move leaves an `apply` shows it under `Left unmet` on
+#       the last Binding table, `none` where no entry is left.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -177,7 +184,7 @@ const snapshot = () => {
 };
 const before = snapshot();
 // THE LIBRARY THE TRIAL READS (kogaki#1698, kogaki#1700): a copy of `moves/` under the Trials directory in which every record
-// carries the `takes` and `leaves` this check sets: MOVE leaves a `carry`, INFER takes one, PLAIN leaves none, and every other
+// carries the `takes` and `leaves` this check sets: MOVE leaves a `carry`, INFER takes one, PLAIN leaves an `apply`, and every other
 // record carries both lists empty, and no record the retired `obligation` (kogaki#1701), so the Trial reads every
 // other field of the library as written.
 const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
@@ -185,6 +192,7 @@ const INFER = "build_the_familiar_side_of_a_contrast_up_to_its_principle";
 const PLAIN = "build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts";
 const CARRY_WHAT = "the structure the paragraph gave in a base of the reader's";
 const INFER_TAKES = "a structure given in a base, carried onto the subject";
+const PLAIN_LEAVES = "an ordering, given with its levels, to be put to work on cases";
 const library = (() => {
   const dir = mkdtempSync(join(trials, "check-library-"));
   for (const n of readdirSync(join(repo, "moves")).filter((x) => x.endsWith(".yaml") || x === "ROLES.json")) {
@@ -193,7 +201,8 @@ const library = (() => {
     const r = parseYaml(text, n);
     const id = n.replace(/\.yaml$/, "");
     r.takes = id === INFER ? [{ kind: "carry", what: INFER_TAKES }] : [];
-    r.leaves = id === MOVE ? [{ kind: "carry", what: CARRY_WHAT, segment: r.segments.length }] : [];
+    r.leaves = id === MOVE ? [{ kind: "carry", what: CARRY_WHAT, segment: r.segments.length }]
+      : id === PLAIN ? [{ kind: "apply", what: PLAIN_LEAVES, segment: r.segments.length }] : [];
     // The retired `obligation` (kogaki#1701) is cut, as the owner's `--retire-obligation` run cuts it.
     delete r.obligation; delete r.obligation_triggers;
     writeFileSync(join(dir, n), stringifyYaml(r));
@@ -205,10 +214,12 @@ const GARDEN = { base: { domain: "a gardener tending a plot" },
 // The inference Move's table: the subject's own case, the Attribute carried (kogaki#1709).
 const OWN = { base: { domain: "a rule set applied across a repository's files" },
   correspondences: [{ role: "crew", expression: "the automatic rule set" }, { role: "list", expression: "the files the walker sees" }, { role: "room", expression: "a file left off the walk" }] };
-const RATIONALE = "RATIONALE-M the Segments carry the cleaning and the missing in order.";
+// The rationale the Harness writes from the answer's case and Moves (kogaki#1719), spelled out here rather than imported.
+const RATIONALE = `case apart: the Base Paragraph tells a case apart from the proposition's domain under "${MOVE}", and the Inference Paragraph carries it onto the subject under "${INFER}".`;
+const OWN_RATIONALE = `case own: the Base Paragraph tells the proposition's own case under "${PLAIN}", and no Inference Paragraph is owed.`;
 const answers = (name, list) => { const f = join(root, `${name}.json`); writeFileSync(f, JSON.stringify(list)); return f; };
-const CARRYING = { base_move: MOVE, inference_move: INFER, rationale: RATIONALE };
-const ALONE = { base_move: PLAIN, inference_move: null, rationale: RATIONALE };
+const CARRYING = { base_move: MOVE, case: "apart", inference_move: INFER };
+const ALONE = { base_move: PLAIN, case: "own", inference_move: null };
 const DEFAULT_ENV = { SMP_BIND_ANSWERS: answers("bind-default", [CARRYING]), SMP_CORR_ANSWERS: answers("corr-default", [GARDEN, OWN]) };
 const outDir = mkdtempSync(join(trials, "check-short-"));
 const run = (name, args, extraEnv = {}) => {
@@ -248,7 +259,7 @@ ok(rbs.variant === "composed" && JSON.stringify(rbs.tables) === JSON.stringify(T
   `(a) rbs.yaml is not variant composed with two tables whose moves match the two bindings: ${JSON.stringify(rbs)}`);
 ok([MOVE, INFER].every((m) => existsSync(join(a.o, "correspondence", m, "prompt-1.md")) && existsSync(join(a.o, "correspondence", m, "answer-1.json"))),
   "(a) the correspondence stage does not keep each Move's attempt under correspondence/<move>/");
-ok(rec.bind && rec.bind.author === "smp_bind_move" && rec.bind.base_move === MOVE && rec.bind.inference_move === INFER && rec.bind.move === MOVE && fileOk(rec.bind),
+ok(rec.bind && rec.bind.author === "smp_bind_move" && rec.bind.base_move === MOVE && rec.bind.case === "apart" && rec.bind.inference_move === INFER && rec.bind.move === MOVE && fileOk(rec.bind),
   `(a) trial.json's bind does not carry the bound Moves and its file: ${JSON.stringify(rec.bind)}`);
 ok(rec.paragraph && fileOk(rec.paragraph) && readFileSync(join(repo, rec.paragraph.path), "utf8").startsWith("WRITTEN"),
   "(a) trial.json's paragraph does not name paragraph.md with its sha256");
@@ -274,7 +285,7 @@ ok(aBindIn && aBindIn.persona && aBindIn.persona.prior_knowledge && aMoveIn && t
 const aBindYaml = existsSync(join(a.o, "bind.yaml")) ? parseYaml(readFileSync(join(a.o, "bind.yaml"), "utf8"), "bind") : {};
 ok(Array.isArray(aBindYaml.paragraphs) && aBindYaml.paragraphs.length === 2 && JSON.stringify(rec.bind.paragraphs) === JSON.stringify(aBindYaml.paragraphs)
   && aBindYaml.paragraphs.every((e) => typeof e.move === "string" && e.binding_rationale === RATIONALE && e.paragraph_waypoints.length > 0),
-  `(a) bind.yaml's paragraphs is not two entries of { move, binding_rationale, paragraph_waypoints }: ${JSON.stringify(aBindYaml.paragraphs)}`);
+  `(a) bind.yaml's paragraphs is not two entries of { move, binding_rationale, leaves, paragraph_waypoints }: ${JSON.stringify(aBindYaml.paragraphs)}`);
 // a base Move leaving no carry: one paragraph, one Leg Waypoint, one binding
 const a1 = run("composed-alone", ["--structure", structure, "--compose"], { SMP_BIND_ANSWERS: answers("bind-alone", [ALONE]) });
 const a1Leg = a1.calls("waypoints").length ? (inputOf(a1.calls("waypoints")[0].stdin, "leg_you_must_plan") || {}).leg_you_must_plan : null;
@@ -323,9 +334,9 @@ const byMove = new Map(CONTRACTS.map((m) => [m.id, m]));
 const d1 = bindMoveRefusal({ ...CARRYING, base_move: "no_such_move" }, byMove);
 ok(d1 && d1.group === "library" && d1.text.startsWith('base_move "no_such_move" names no Move'), `(d) an unknown base_move was not refused naming it, group library: ${JSON.stringify(d1)}`);
 const d2 = bindMoveRefusal({ ...CARRYING, inference_move: null }, byMove);
-ok(d2 && d2.group === "carry" && d2.text.startsWith("inference_move is null") && d2.text.includes(`carry: ${CARRY_WHAT}`), `(d) a null inference_move under a carry was not refused naming the entry, group carry: ${JSON.stringify(d2)}`);
+ok(d2 && d2.group === "case" && d2.text.startsWith("inference_move is null") && d2.text.includes("`apart`"), `(d) a null inference_move under case apart was not refused naming the case, group case: ${JSON.stringify(d2)}`);
 const d3 = bindMoveRefusal({ ...ALONE, inference_move: INFER }, byMove);
-ok(d3 && d3.group === "carry" && d3.text.startsWith("inference_move is given") && d3.text.includes(PLAIN), `(d) an inference_move under no carry was not refused, group carry: ${JSON.stringify(d3)}`);
+ok(d3 && d3.group === "case" && d3.text.startsWith("inference_move is given") && d3.text.includes("`own`"), `(d) an inference_move under case own was not refused naming the case, group case: ${JSON.stringify(d3)}`);
 const d4 = bindMoveRefusal({ ...CARRYING, inference_move: PLAIN }, byMove);
 ok(d4 && d4.group === "carry" && d4.text.includes(`the inference Move "${PLAIN}" takes no \`carry\``), `(d) an inference Move taking no carry was not refused naming it, group carry: ${JSON.stringify(d4)}`);
 const d5 = bindMoveRefusal({ ...CARRYING, inference_move: "no_such_move" }, byMove);
@@ -544,12 +555,14 @@ const TAKES = listCells(MC.takes), LEAVES = listCells(MC.leaves);
 ok(section(jSheet, "segments").includes(`<caption>Paragraph 1 <span class="meta">${MOVE}</span></caption>`) && !section(jSheet, "segments").includes("<caption>Binding"),
   "(f) the Segments table is not captioned `Paragraph 1` with its Move, or a Binding table remains inside Segments");
 const [jBinding] = tableOf(section(jSheet, "bindings"), "Binding 1");
-const LABELS = ["Move", "Bound by", "Takes", "Leaves", "Rationale"];
+// Binding 1 carries `Case` and the last binding `Left unmet` (kogaki#1719); the owner's file declares no case.
+const LABELS = ["Move", "Bound by", "Case", "Takes", "Leaves", "Rationale"];
+const LAST_LABELS = ["Move", "Bound by", "Takes", "Leaves", "Rationale", "Left unmet"];
 ok(jBinding && JSON.stringify(labelsOf(jBinding)) === JSON.stringify(LABELS)
-  && rowOf(jBinding, "Move").includes(`<td>${MOVE}</td>`) && rowOf(jBinding, "Bound by").includes("<td>owner</td>")
+  && rowOf(jBinding, "Move").includes(`<td>${MOVE}</td>`) && rowOf(jBinding, "Bound by").includes("<td>owner</td>") && rowOf(jBinding, "Case") === "<td>none</td></tr>"
   && TAKES.every((c) => rowOf(jBinding, "Takes").includes(c)) && LEAVES.every((c) => rowOf(jBinding, "Leaves").includes(c))
   && !/<th rowspan="\d+">(Before|After)<\/th>/.test(jBinding),
-  `(f) the Binding table is not the five labelled rows with the Move's takes and leaves (kogaki#1699): ${jBinding}`);
+  `(f) the Binding table is not the six labelled rows with the Move's takes and leaves (kogaki#1699, kogaki#1719): ${jBinding}`);
 const [aBinding] = tableOf(section(sheet, "bindings"), "Binding 1");
 const segCaps = (html) => [...section(html, "segments").matchAll(/<caption>(Paragraph \d+) /g)].map((x) => x[1]);
 ok(JSON.stringify(segCaps(sheet)) === JSON.stringify(["Paragraph 1", "Paragraph 2"]) && tableOf(section(sheet, "bindings"), "Binding \\d+").length === 2,
@@ -557,7 +570,8 @@ ok(JSON.stringify(segCaps(sheet)) === JSON.stringify(["Paragraph 1", "Paragraph 
 const aBinding2 = tableOf(section(sheet, "bindings"), "Binding 2")[0] || "";
 ok(aBinding && rowOf(aBinding, "Bound by").includes("<td>smp_bind_move</td>") && rowOf(aBinding, "Rationale").includes(`<td>${esc(RATIONALE)}</td>`),
   `(f) the composed route's Binding table does not carry its row name and the bind call's rationale: ${aBinding}`);
-ok(aBinding && JSON.stringify(labelsOf(aBinding)) === JSON.stringify(LABELS) && rowOf(aBinding, "Takes") === "<td>none</td></tr>"
+ok(aBinding && JSON.stringify(labelsOf(aBinding)) === JSON.stringify(LABELS) && JSON.stringify(labelsOf(aBinding2)) === JSON.stringify(LAST_LABELS)
+  && rowOf(aBinding, "Takes") === "<td>none</td></tr>"
   && rowOf(aBinding, "Leaves") === `<td>${esc(`carry: ${CARRY_WHAT}`)}</td></tr>` && rowOf(aBinding2, "Takes") === `<td>${esc(`carry: ${INFER_TAKES}`)}</td></tr>`
   && rowOf(aBinding2, "Leaves") === "<td>none</td></tr>",
   `(f) the Binding tables do not carry Takes and Leaves, one sub-row per entry as <kind>: <what>: ${rowOf(aBinding || "", "Takes")} / ${rowOf(aBinding || "", "Leaves")}`);
@@ -663,7 +677,7 @@ for (const [name, file] of [["projected", projFile], ["projected-list", listFile
     `(f) ${name}: the bindings part does not follow segments carrying Binding 1 and Binding 2, or a Writer input remains: ${JSON.stringify(partIds(oSheet))} ${JSON.stringify(oCaps)}`);
   ok(oBindings.length === 2 && rowOf(oBindings[0], "Rationale").includes(esc(owned.binding_rationale))
     && rowOf(oBindings[1], "Rationale").includes(esc(PROJ.binding_rationale))
-    && oBindings.every((t) => JSON.stringify(labelsOf(t)) === JSON.stringify(LABELS))
+    && JSON.stringify(labelsOf(oBindings[0])) === JSON.stringify(LABELS) && JSON.stringify(labelsOf(oBindings[1])) === JSON.stringify(LAST_LABELS)
     && !oSheet.includes("Reader state:"), `(o) ${name}: the sheet does not carry two Binding tables and no reader state: ${oBindings.length}`);
   // (p) no attribute test anywhere in the run
   const files = [];
@@ -746,11 +760,11 @@ ok(smeStdin.includes(`"proposition": ${JSON.stringify(PROPOSITION)}`) && !smeStd
 // (u) the smp_correspondence row: under the bound base Move's Segments, validated as the owner's file is, under one retry
 const uIn = a.calls("correspondence").length ? inputOf(a.calls("correspondence")[0].stdin, "structure") : null;
 ok(uIn && uIn.persona && uIn.persona.prior_knowledge && uIn.structure && JSON.stringify(uIn.segments.map((x) => x.operation)) === JSON.stringify(segs.map((x) => String(x.operation).trim()))
-  && JSON.stringify(Object.keys(uIn)) === JSON.stringify(["structure", "persona", "segments"]) && !a.calls("correspondence")[0].stdin.includes('"kinds"'),
-  "(u) the correspondence call's stdin does not carry the structure, the prior-knowledge line and the base Move's segments, or carries kinds");
+  && JSON.stringify(Object.keys(uIn)) === JSON.stringify(["structure", "persona", "case", "segments"]) && !a.calls("correspondence")[0].stdin.includes('"kinds"'),
+  "(u) the correspondence call's stdin does not carry the structure, the prior-knowledge line, the case and the base Move's segments, or carries kinds");
 const uIn2 = a.calls("correspondence").length === 2 ? inputOf(a.calls("correspondence")[1].stdin, "structure") : null;
 const inferSegs = moveContract(INFER, resolve(repo, library)).segments;
-ok(uIn2 && JSON.stringify(Object.keys(uIn2)) === JSON.stringify(["structure", "persona", "segments", "prior_tables"])
+ok(uIn2 && JSON.stringify(Object.keys(uIn2)) === JSON.stringify(["structure", "persona", "case", "segments", "prior_tables"])
   && JSON.stringify(uIn2.segments.map((x) => x.operation)) === JSON.stringify(inferSegs.map((x) => String(x.operation).trim()))
   && JSON.stringify(uIn2.prior_tables) === JSON.stringify([TABLES[0]]),
   "(u) the inference Move's correspondence call does not carry its own Move's segments and `prior_tables`, the base Move's table (kogaki#1709)");
@@ -796,6 +810,34 @@ const u5 = retriedCall({ dir: u5Dir, row: { ...CORR_ROW, refusal_reach: { ...COR
 ok(u5.stopped && u5.stopped.includes('refusal of group "role" has reach stop') && u5.stopped.includes("ROLE-STOP") && seenCount(u5Dir) === 1
   && !existsSync(join(u5Dir, "prompt-2.md")) && JSON.stringify(u5.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["role", "stop"]]),
   `(u) a stop refusal made a second call, or its stop does not name the group: ${seenCount(u5Dir)} ${JSON.stringify(u5)}`);
+
+// (v) the case the bind stage declares (kogaki#1719)
+const v1 = bindMoveRefusal({ base_move: MOVE, inference_move: INFER }, byMove);
+ok(v1 && v1.group === "shape" && v1.text.includes("no `case`"), `(v) an answer without case was not refused, group shape: ${JSON.stringify(v1)}`);
+const v2 = bindMoveRefusal({ ...CARRYING, case: "near" }, byMove);
+ok(v2 && v2.group === "shape" && v2.text.includes('"near"'), `(v) an unknown case was not refused naming it, group shape: ${JSON.stringify(v2)}`);
+const v3 = bindMoveRefusal({ ...CARRYING, rationale: "the retired field" }, byMove);
+ok(v3 && v3.group === "shape" && v3.text.includes("`rationale`"), `(v) a rationale was not refused as an undeclared key, group shape: ${JSON.stringify(v3)}`);
+const caseOf = (run, n) => { const cs = run.calls("correspondence"); return cs.length > n ? (inputOf(cs[n].stdin, "structure") || {}).case : null; };
+ok(caseOf(a, 0) === "apart" && caseOf(a, 1) === "own" && caseOf(a1, 0) === "own",
+  `(v) the correspondence stdin the runs recorded does not carry the declared case on the base Move and own on the inference Move: ${caseOf(a, 0)} ${caseOf(a, 1)} ${caseOf(a1, 0)}`);
+const vLast = moveContract(MOVE, resolve(repo, library)).segments.length;
+const ADDED = { kind: "carry", what: `the structure as told in ${GARDEN.base.domain}, to be brought onto the subject`, segment: vLast };
+const vBase = (aBindYaml.paragraphs || [])[0] || {};
+ok(JSON.stringify(vBase.leaves) === JSON.stringify([{ kind: "carry", what: CARRY_WHAT, segment: vLast }, ADDED])
+  && JSON.stringify(((aBindYaml.paragraphs || [])[1] || {}).leaves) === "[]",
+  `(v) bind.yaml's Base Paragraph entry does not carry the Move's leaves and the added carry under apart: ${JSON.stringify(vBase.leaves)}`);
+const a1Bind = existsSync(join(a1.o, "bind.yaml")) ? parseYaml(readFileSync(join(a1.o, "bind.yaml"), "utf8"), "bind") : {};
+const plainLast = moveContract(PLAIN, resolve(repo, library)).segments.length;
+ok(JSON.stringify(((a1Bind.paragraphs || [])[0] || {}).leaves) === JSON.stringify([{ kind: "apply", what: PLAIN_LEAVES, segment: plainLast }])
+  && a1Bind.binding_rationale === OWN_RATIONALE && a1.rec.bind.case === "own",
+  `(v) bind.yaml under case own does not carry the Move's leaves alone and the Harness's rationale: ${JSON.stringify(a1Bind)}`);
+ok(rowOf(aBinding || "", "Case") === "<td>apart</td></tr>" && rowOf(aBinding2, "Left unmet") === "<td>none</td></tr>",
+  `(v) the composed sheet does not show Case apart on Binding 1 and Left unmet none on the last: ${rowOf(aBinding || "", "Case")} / ${rowOf(aBinding2, "Left unmet")}`);
+const [a1Binding] = tableOf(section(a1Sheet, "bindings"), "Binding 1");
+ok(a1Binding && JSON.stringify(labelsOf(a1Binding)) === JSON.stringify(["Move", "Bound by", "Case", "Takes", "Leaves", "Rationale", "Left unmet"])
+  && rowOf(a1Binding, "Case") === "<td>own</td></tr>" && rowOf(a1Binding, "Left unmet") === `<td>${esc(`apply: ${PLAIN_LEAVES}`)}</td></tr>`,
+  `(v) a Trial whose last Move leaves an apply does not show it under Left unmet: ${a1Binding}`);
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
