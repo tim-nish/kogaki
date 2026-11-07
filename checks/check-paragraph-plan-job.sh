@@ -43,6 +43,7 @@
 #       Segments table with each Paragraph Waypoint and Move `leaves`; `--run` adds the
 #       refusals of (b) with the axis they name, each under the Leg Waypoint
 #       it names as its site; and an edited Brief is refused.
+
 #   (f) THE MAPPER'S ATTEMPT RECORDS ARE LISTED (kogaki#1734): a job directory
 #       holding a Leg's plan call and, nested under it, its reading and grounding
 #       calls' records lists each in `src/workflow/job-report.mjs`, under

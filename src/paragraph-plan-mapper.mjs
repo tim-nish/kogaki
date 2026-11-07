@@ -10,7 +10,6 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //   The Attempt Record
 //       specs/spec-draft-pipeline/SPEC.md
-//
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { judgePrompt, refusalReach } from "./workflow/judge.mjs";
