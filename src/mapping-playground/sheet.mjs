@@ -10,12 +10,13 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, relative } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { moveContract, loadMoveContracts, CAST_KEYS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
+import { attemptRows } from "../workflow/attempt-record.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
 // The Proof Sheet's stylesheet is its renderer's `CSS` constant, read from the source rather than copied.
@@ -180,6 +181,20 @@ function structureSection(structure) {
 const paragraphHtml = (path, record) => (existsSync(path) ? `<div class="prose">${esc(readFileSync(path, "utf8"))}</div>`
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none("No paragraph was written."));
 
+// THE ATTEMPTS (kogaki#1718): per stage, one row per Attempt Record, linking its files and each replay's result.
+function attemptsSection(outDir, record) {
+  const link = (path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
+  const stages = record.stages.map((s) => ({ stage: s.stage, rows: (s.attempt_records || []).flatMap((p) => attemptRows(resolve(REPO, p))) }))
+    .filter((s) => s.rows.length);
+  if (!stages.length) return none("No Attempt Record was written.");
+  return stages.map(({ stage, rows }) => `<table><caption>${esc(stage)}</caption><thead><tr><th>unit</th><th>attempt</th><th>group</th>`
+    + "<th>reach</th><th>refusal</th><th>files</th><th>replays</th></tr></thead><tbody>"
+    + rows.map((r) => `<tr><td>${esc(r.unit)}</td><td>${r.n}</td><td>${esc(r.group ?? "")}</td><td>${esc(r.reach ?? "")}</td>`
+      + `<td>${r.refusal === null ? "passed" : esc(r.refusal)}</td><td>${r.files.map((f) => link(join(r.dir, f), f)).join(" ")}</td>`
+      + `<td>${r.replays.map((x) => link(join(x.dir, "result.json"), `${x.mode}: ${x.verdict}`)).join(" ")}</td></tr>`).join("")
+    + "</tbody></table>").join("");
+}
+
 export function renderShortSheet({ outDir, record, proposition, structure, tables, paragraphs, paragraphPath }) {
   const propositionParagraph = `<p>${esc(proposition.proposition)}</p><p class="meta">cite: ${esc(proposition.cite)}</p>`
     + paragraphHtml(paragraphPath, record);
@@ -201,6 +216,7 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
     + part("bindings", "Bindings", bindingsSection(record, paragraphs))
     + part("mapping", "Mapping", mapping)
     + part("structure", "Structure", structureHtml)
+    + part("attempts", "Attempts", attemptsSection(outDir, record))
     + part("calls", "Model calls", callsHtml)
     + "</body></html>\n";
 }

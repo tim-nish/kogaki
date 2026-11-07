@@ -1500,6 +1500,38 @@ called from three places, and `readAttemptRecord` reads a directory back:
 
 `attempt_records` is a new key: `attempts` stays the count.
 
+**Replaying an Attempt** (kogaki#1718). `node src/workflow/replay.mjs <attempt
+dir> --mode judge|render|model [--prompt <file>]` re-runs one part of one
+record and writes its result under `<attempt dir>/replays/<timestamp>/`, with
+`result.json` naming the mode and the verdict. The record's own files are
+never written.
+
+- `judge` runs the validator `refusal.json` names over the recorded answer,
+  writes `refusal.json`, and reports `same`, or `drift` with both texts.
+  The validators it can run are the short Trial's `bindMoveRefusal`,
+  `correspondenceRefusal`, `answerRecord` and `writerRefusal`, and a
+  detached job's compose validator, read from the job's units file. Any
+  other name is refused by name.
+- `render` re-renders attempt `<n+1>`'s prompt from attempts 1 to `<n>`,
+  writes `prompt.md`, and reports `same` or `drift` against attempt
+  `<n+1>`'s recorded `prompt.md`. A detached job's record goes through
+  `readerPathUnitRetryPrompt`; every other record goes through
+  `judgePrompt`. A job unit whose earlier calls include a site or suffix
+  call is refused.
+- `model` sends the recorded `prompt.md`, or the `--prompt` file, to the
+  binary `cli.json` names, with the recorded argv. It writes `answer.raw`,
+  `answer.json` and the refusal the row's validator raises, and reports
+  `refused` or `passed`. The CLI takes no seed, so a replay repeats what the
+  model received, not what it answered. A binary whose sha256 no longer
+  matches `cli.json` is refused, naming both hashes.
+
+**The Attempts section** (kogaki#1718). The short Trial's sheet has an
+`Attempts` part before `Model calls`: per stage, one row per attempt, with the
+unit, the attempt number, the group, the reach, the refusal's first line
+(`passed` where there was none), links to the record's files, and each
+replay's verdict linked to its `result.json`. `node src/workflow/job-report.mjs
+<job dir>` prints the same rows per unit for a Brief or ParagraphPlan job.
+
 **The status line shows the attempt and an estimate.** `job status`, and
 `job await` each time it returns at its 30-second bound, print a header
 naming both settings — `each unit gets up to <N> attempts of at most <s>s per

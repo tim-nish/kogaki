@@ -115,7 +115,7 @@ export function readerPathUnitCandidatePath(dir, unitId) {
 // no `st`, so it splices into the prompt `startDetachedJobSupervisor` wrote rather than
 // re-rendering; splicing the SAME renderer's text is what keeps the two byte-identical
 // (`checks/check-brief-reader-path-job.sh` assertion (k)).
-function readerPathUnitRetryPrompt(firstPrompt, history) {
+export function readerPathUnitRetryPrompt(firstPrompt, history) {
   const block = judgeRefusalBlock(history);
   const at = firstPrompt.indexOf(`\n${JUDGE_INPUT_MARKER}\n`);
   if (at < 0) return firstPrompt + "\n" + block;
@@ -277,7 +277,7 @@ function readerPathDeadUnitResult(stdout) {
 // declaration or the named export is missing -- never `fail()`, which exits
 // the process directly and would skip that catch entirely, leaving no job
 // record behind for a refusal this function itself can fully describe.
-async function loadReaderPathUnitValidator(declared) {
+export async function loadReaderPathUnitValidator(declared) {
   if (!declared || typeof declared !== "object") throw new Error("the units file carries no declared validator (kogaki#1240).");
   if (!declared.module) throw new Error("the declared validator names no `module`.");
   if (!declared.export) throw new Error("the declared validator names no `export`.");

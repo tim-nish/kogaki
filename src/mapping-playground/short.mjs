@@ -126,7 +126,7 @@ function recordAttempt(dir, unit, n, { env, cli, call, prompt, input, row, table
     row: { row, tables: tables.map(tableRecord) }, raw: call.raw, answer, refusal });
 }
 
-function answerRecord(text) {
+export function answerRecord(text) {
   const stripped = String(text).trim().replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
   try { return { record: JSON.parse(stripped) }; }
   catch (e) { return { stopped: `the binding answer is not one JSON record (${e.message})` }; }
@@ -232,7 +232,7 @@ export function correspondenceInput(structure, persona, move, told, priorTables 
   };
 }
 
-function correspondenceRefusal(answer, structure) {
+export function correspondenceRefusal(answer, structure) {
   const extra = undeclared(answer, ["base", "correspondences"]);
   if (extra) return { group: "shape", text: `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences` };
   const v = validateCorrespondenceTable(answer, { structure });

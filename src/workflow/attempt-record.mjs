@@ -2,7 +2,7 @@
 // model received and what it returned. Its files are named in specs/spec-draft-pipeline/SPEC.md.
 // `writeAttemptRecord` is the one writer, called by the short Trial, the detached job
 // supervisor and the synchronous judge; `readAttemptRecord` reads one back.
-import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { REPO, relFromRepo } from "./run-record.mjs";
@@ -69,4 +69,32 @@ export function readAttemptRecord(dir) {
     row: parsed("row"), raw: existsSync(at("raw")) ? readFileSync(at("raw"), "utf8") : null,
     answer: parsed("answer"), refusal: parsed("refusal") ?? null,
   };
+}
+
+// A replay's results sit under the record it re-ran (kogaki#1718, src/workflow/replay.mjs).
+export const REPLAYS_DIR = "replays";
+export const REPLAY_RESULT = "result.json";
+
+// The replays a record holds, oldest first: each one's directory and result.
+export function replaysOf(dir) {
+  const root = join(dir, REPLAYS_DIR);
+  if (!existsSync(root)) return [];
+  return readdirSync(root).sort().map((n) => join(root, n)).filter((d) => existsSync(join(d, REPLAY_RESULT)))
+    .map((d) => ({ dir: d, ...JSON.parse(readFileSync(join(d, REPLAY_RESULT), "utf8")) }));
+}
+
+// THE ATTEMPTS UNDER ONE `attempts/` DIRECTORY (kogaki#1718), unit by unit and attempt by attempt: the number, the
+// refusal's group, reach and first line, the record's files and each replay. The sheet and the job report render these.
+export function attemptRows(root) {
+  if (!existsSync(root)) return [];
+  const numbered = (d) => readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
+    .map((e) => Number(e.name)).sort((a, b) => a - b);
+  return readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort().flatMap((unit) =>
+    numbered(join(root, unit)).map((n) => {
+      const dir = join(root, unit, String(n));
+      const refusal = existsSync(join(dir, ATTEMPT_FILES.refusal)) ? JSON.parse(readFileSync(join(dir, ATTEMPT_FILES.refusal), "utf8")) : null;
+      return { unit, n, dir, group: refusal ? refusal.group ?? null : null, reach: refusal ? refusal.reach ?? null : null,
+        refusal: refusal ? String(refusal.text).split("\n")[0] : null,
+        files: Object.values(ATTEMPT_FILES).filter((f) => existsSync(join(dir, f))), replays: replaysOf(dir) };
+    }));
 }
