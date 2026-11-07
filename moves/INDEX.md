@@ -5,6 +5,7 @@ Regenerated whole from `moves/` at each ingestion run (SPEC-draft-pipeline §6.9
 | id | description |
 | --- | --- |
 | answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first | Asks which single element of a domain matters most, answers at once, wins two assents to plain facts, spends them on ranking that distinction first, then names each kind by its defining trait. |
+| answer_a_posed_question_win_two_easy_assents_and_close_on_ranking_the_distinction_first | Asks which single element of a domain matters most, answers at once, wins two assents to plain facts, and closes on ranking that distinction first, leaving nothing for a later paragraph. |
 | build_the_familiar_side_of_a_contrast_up_to_its_principle | Works out the near side of a contrast from an everyday instance: what happens on a breach, the rule behind it, its enforcement, then the principle that one body holds the decisive capacity. |
 | build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts | Sorts a drawn distinction into a graded ordering, rehearses it on an everyday case, turns it on the standard accounts to show they stop short, then presses the regress until the ready answers fail. |
 | carry_a_worked_case_onto_the_wider_scale | Carries a chain already walked at a small scale onto the larger subject in a few clauses, then fixes the result with its technical name. |

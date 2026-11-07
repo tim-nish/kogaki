@@ -40,11 +40,15 @@ segments:
       asserts, on the two facts just granted, that the distinction they
       establish holds the highest importance in the subject.
     relation: spends the two assents on the claim they were gathered for.
+    manner: one flat sentence ranking the distinction, with neither fact restated as its ground.
   - operation: >-
       names each kind by the one trait that defines it and gives recognisable
       instances of it.
     relation: >-
       fills the kinds just named with instances the reader can place.
+    manner: >-
+      the instances set down and left without comment here: they are for
+      paragraphs still to come, and this one says nothing more of them.
 takes: []
 leaves:
   - kind: apply

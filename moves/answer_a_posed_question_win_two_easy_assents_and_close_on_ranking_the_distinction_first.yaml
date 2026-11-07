@@ -1,0 +1,44 @@
+id: answer_a_posed_question_win_two_easy_assents_and_close_on_ranking_the_distinction_first
+description: >-
+  Asks which single element of a domain matters most, answers at once, wins two
+  assents to plain facts, and closes on ranking that distinction first, leaving
+  nothing for a later paragraph.
+breaks:
+  - >-
+    cut the opening question and begin from the answer — the reader receives a
+    division with no sense of what it resolves, and reads it as a bare assertion
+  - >-
+    delay the answer behind a paragraph of background — the pull of the question
+    dissipates, and the eventual answer arrives as one option among several
+  - >-
+    make the main claim before the two plain facts — the reader meets it with
+    nothing yet granted, and weighs it instead of accepting it
+  - >-
+    argue either plain fact instead of laying it down — the assent it was there
+    to win is turned into a dispute, and the stack never forms
+  - >-
+    drop the sentence ranking the distinction — the reader has a division but
+    no reason to treat it as the one that organizes the rest
+  - >-
+    append instances of the kinds after the ranking — the argument is already
+    closed, and the reader takes the instances as a promise nothing keeps
+segments:
+  - operation: >-
+      poses a direct question asking which single element of a domain matters
+      most.
+  - operation: answers the question with the position taken here.
+    relation: gives directly the answer the step before asked for.
+    manner: a brief direct statement, given at once and taking no elaboration.
+  - operation: lays down a fact about the domain too plain to dispute.
+    relation: widens the answer into a footing the reader cannot refuse.
+  - operation: >-
+      draws from it a second fact the reader must equally grant, carrying the
+      first onto the members of the domain.
+    relation: stacks a second assent on the first.
+  - operation: >-
+      asserts, on the two facts just granted, that the distinction they
+      establish holds the highest importance in the subject.
+    relation: spends the two assents on the claim they were gathered for.
+    manner: one flat sentence ranking the distinction, with neither fact restated as its ground.
+takes: []
+leaves: []
