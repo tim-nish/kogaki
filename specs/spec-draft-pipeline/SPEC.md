@@ -2967,16 +2967,26 @@ them. A run with neither flag, or with both, is refused naming the two, and
 `--rbs` is refused naming them as well. A stage that stops ends the run there,
 and the record shows the stop.
 
-**The correspondence table.** The `correspondence` stage writes
-`<out>/rbs.yaml`: `variant`, `composed` or `owner-authored`, `base`, and
-`correspondences`, a list of `{ role, expression }`, one per Role in the
-structure's order (kogaki#1693). The `waypoints` stage adds `bindings`, each
-binding as `{ move, binding_rationale, paragraph_waypoints }` in order
-(kogaki#1700).
+**The correspondence table is one per bound Move** (kogaki#1709). One
+structure is told by several Moves, and each Move's paragraph needs its own
+vocabulary: an Analogy paragraph carries the relations in a base apart from the
+subject and none of its Attributes, while the Inference Paragraph, under
+Literal Similarity, needs the subject's own expressions with the Attributes
+carried. So the `correspondence` stage writes `<out>/rbs.yaml`: `variant`,
+`composed` or `owner-authored`, and `tables`, a list in the bindings' order,
+each `{ move, base: { domain }, correspondences: [{ role, expression }] }`,
+one per Move bound at `bind`, its `correspondences` one per Role in the
+structure's order (kogaki#1693). The root `base` and `correspondences` keys are
+retired: a table carrying either is refused naming `tables`. A `tables` entry
+whose `move` matches no binding is refused naming it, and a list that is not
+one table per binding in the bindings' order is refused. The `waypoints` stage
+adds `bindings`, each binding as `{ move, binding_rationale,
+paragraph_waypoints }` in order (kogaki#1700).
 `role` is the id of the Role the correspondence maps (kogaki#1685,
 kogaki#1688). `expression` is the base text: a noun phrase naming the base's
 object that plays the Role. A table carrying `pairs` is refused naming the
-key. The validator applies these rules to every table:
+key. The validator applies these rules to every table, each field named under
+`tables[<i>].` in the owner's file:
 
 - An `expression` that is not one non-empty text is refused naming
   `correspondences[<i>].expression`.
@@ -3019,34 +3029,41 @@ refusal stops the Trial at `bind`. Each attempt's prompt and answer are kept as
 Paragraph follows is the Move's information, read from its `leaves` (§4.2),
 and no Harness step decides it apart from the Move.
 
-**The `correspondence` row** (kogaki#1700). The `correspondence` stage is one
-model call of the row `smp_correspondence`, under the same bound. Its input is
-the structure record, the Persona's prior-knowledge line, and the bound base
-Move's `segments`. It names one domain the reader holds in which the
+**The `correspondence` row** (kogaki#1700, kogaki#1709). The `correspondence`
+stage is one model call of the row `smp_correspondence` per bound Move, the
+base Move first and then the inference Move where one is bound, each under the
+same bound. Its input is the structure record, the Persona's prior-knowledge
+line, and that Move's `segments`; the inference call adds `prior_tables`, the
+base Move's table. It names one domain the reader holds in which the
 structure's relations hold as stated and in which the Segments can be
 performed, as `base.domain`, and one Correspondence expression per Role in
 the structure's order. A Segment asking for an everyday case yields a domain
 apart from the proposition's, and a Segment asking for a plain restatement
 yields the proposition's own. Its answer is `{ base: { domain },
 correspondences: [{ role, expression }] }`, any other key refused, and is
-validated by `validateRbsTable` as the owner's file is. What each expression
+validated by `validateCorrespondenceTable` as each table of the owner's file
+is; the stage adds the Move's id as the table's `move`. What each expression
 names is stated at the judgment point (kogaki#1707): each `expression` names
 the object of `base.domain` that plays the Role; where a Segment asks for an
 everyday case, `base.domain` is apart from the proposition's and no expression
 names the proposition's object or an entry of a Role's `attributes`; where a
 Segment asks for the subject's own case, `base.domain` is the proposition's
-and the expressions are its own noun phrases, `attributes` included. No
-validator reads this: the owner's reading of the sheet is the judgment. The
+and each `expression` is the proposition's own noun phrase for the Role, its
+`attributes` included; where a Segment likens the subject to a case already
+told, that case is `prior_tables` and its expressions may be named
+(kogaki#1709). No validator reads this: the owner's reading of the sheet is the judgment. The
 first refusal is put back verbatim into the second
-attempt, and a second refusal stops the Trial at `correspondence`. Each
-attempt's prompt and answer are kept under `<out>/correspondence/`. The record
+attempt, and a second refusal stops the Trial at `correspondence`, naming the
+Move. Each attempt's prompt and answer are kept as
+`<out>/correspondence/<move>/prompt-<n>.md` and `answer-<n>.json`. The record
 carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
-the structure's and independent of the Move; the Correspondence column depends
-on it.
+the structure's in every table and independent of the Move; the
+Correspondence column depends on it.
 
 **The owner-authored table is the first SME of the short Trial** (kogaki#1671,
 owner discussion 2026-11-04). `--rbs-file <file>` supplies `rbs.yaml` by file,
-the way `--structure` supplies the structure, and is refused together with
+the way `--structure` supplies the structure, in the same `tables` shape, one
+table per binding of the file (kogaki#1709), and is refused together with
 `--compose`, naming both flags. The record carries `rbs: { variant:
 owner-authored, path, sha256, source }`, `source` the owner's file with its
 sha256.
@@ -3055,12 +3072,12 @@ sha256.
 the row `smp_waypoints_unit`, derived from `paragraph_plan_unit` by `copy_of`
 and `substitutions`, with the Moves fixed. Its Leg carries one Leg Waypoint
 where no Inference Paragraph is owed and two where one is, each serving `L1`
-and each carrying in `move` the Move `bind` bound to it. The first's `point`
-is the structure in the Correspondence expressions, as the Leg paragraph below
-states, and the second's is the proposition. The call receives the Leg as a
-ParagraphPlan unit does, `next_point` set on the first where a second
-follows, with the bound Moves alone as the Moves it may bind and the table's
-`correspondences` beside them. It writes each entry's Paragraph Waypoints and
+and each carrying in `move` the Move `bind` bound to it. Each one's `point`
+is the structure in the expressions of its Move's table, as the Leg paragraph
+below states (kogaki#1709). The call receives the Leg as a ParagraphPlan unit
+does, `next_point` set on the first where a second follows, with the bound
+Moves alone as the Moves it may bind and `tables` beside them, in place of
+`correspondences` (kogaki#1709). It writes each entry's Paragraph Waypoints and
 `cast` and nothing of a Move choice: an answer whose `move` differs from the
 input's is refused naming the Waypoint. The answer is then validated as a
 ParagraphPlan unit by `validateParagraphPlanUnit`. The Leg's
@@ -3069,14 +3086,18 @@ first Leg Waypoint stands to take up the Persona's prior-knowledge line
 `bind.yaml` and the record's `bind.paragraphs` list every entry in order. No
 Brief is composed, and no Judge runs: the owner's reading is the judgment.
 
-**The Correspondence vocabulary** (kogaki#1700). Only the expressions of the
-Correspondence column are the vocabulary of the Base Paragraph's Waypoints.
-`correspondenceVocabularyRefusal(points, table)` in
-`src/mapping-playground/rbs.mjs` refuses the Base Paragraph's points where a
-Correspondence expression appears in none of them, naming the Role, and where
-a point carries a Role id outside an expression, naming the point. The
-Inference Paragraph's points are written in the proposition's own words
-(kogaki#1689).
+**The Correspondence vocabulary** (kogaki#1700, kogaki#1709). Each
+paragraph's Paragraph Waypoints are confined to its own table: they say the
+structure in the expressions of the table of its Move, every expression of
+that table in at least one of them and no Role id in any. The Inference
+Paragraph may also name the expressions of the base table where its Segment
+likens the subject to the case already told.
+`correspondenceVocabularyRefusal(points, table, priorTables)` in
+`src/mapping-playground/rbs.mjs` runs over every paragraph, `priorTables` the
+tables before its own. It refuses where an expression of the paragraph's table
+appears in none of its points, naming the paragraph and the Role, and where a
+point carries a Role id outside an expression of those tables, naming the
+paragraph and the point.
 
 **The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
 of the library, and `waypoints`, one `{ segment, point }` per segment of that
@@ -3131,13 +3152,16 @@ folded. The runner writes the sheet once and never reads it.
   `binding_rationale`, or `none` where it is null. The Move's `before` and
   `after` have no row (kogaki#1699). A Move the library no longer holds renders
   `not in the library` in `Takes` and `Leaves`.
-- `Mapping` is one line `Base: <domain>`, or `Base: none` where the run
-  stopped before a table was written, above one table of three fixed columns, `Abstract`, `Attribute` and
-  `Correspondence` (kogaki#1693), one row per Role in the structure's order:
-  `Abstract` is the Role's id followed by its `context`, `Attribute` its
-  `attributes` joined by `, ` (empty where the list is), and `Correspondence`
-  the `expression` of the correspondence naming that Role. The caption is the table's `variant`, and no kind word appears
-  on the sheet.
+- `Mapping` is one Mapping Table per paragraph (kogaki#1709), in order, each
+  under its own line `Base: <domain>` and captioned `Paragraph N` with its
+  Move's id in the caption's `meta` span, as the Segments tables are. Where
+  the run stopped before a table was written, it is one line `Base: none`
+  above one table captioned `no table`. Each table has three fixed columns,
+  `Abstract`, `Attribute` and `Correspondence` (kogaki#1693), one row per Role
+  in the structure's order: `Abstract` is the Role's id followed by its
+  `context`, `Attribute` its `attributes` joined by `, ` (empty where the list
+  is), and `Correspondence` the `expression` of that table's correspondence
+  naming that Role. No kind word appears on the sheet.
 - `Structure` is a table with one row per element, a higher-order relation
   keyed by its id: `id`, `category` (Role, relation or higher-order),
   `arguments` (a Role's `context`, a relation's `between`, a higher-order
@@ -3179,8 +3203,8 @@ refused naming both.
 **One Leg, one Packet, one writer call** (kogaki#1681). A Trial is one Leg.
 Its one claim is the proposition, in the Brief's form `claims: [{ strand: L1,
 proposition }]` (kogaki#1685). Each paragraph binding is one Leg Waypoint, in
-order, serving `L1`: the first one's `point` is the structure in the base's
-objects, and each projecting one's `point` is the proposition. In the composed route
+order, serving `L1`: each one's `point` is the structure in the objects of its
+Move's table (kogaki#1709). In the composed route
 one Leg Waypoint follows the first where an Inference Move is bound, and none where none is (kogaki#1700).
 No reader state is composed. `bind` writes `<out>/bind.yaml`
 with the first binding's fields and `paragraphs`, every binding in order as
@@ -3192,7 +3216,10 @@ from the Leg, calls the writer once and writes its whole answer to
 is the structure's `holds` sentences in order, the relations and then the
 higher-order relation, each with its first letter raised. A `holds` may name a
 Role by a `{<Role id>}` placeholder, which is replaced by the `expression` of
-that Role's correspondence. A `holds` without
+that Role's correspondence. Every later Leg Waypoint's `point` is built the
+same way from its own Move's table, so the second is the structure in the
+inference table's expressions; the Leg's one claim stays the proposition
+(kogaki#1709). A `holds` without
 placeholders is used verbatim. The Packet renders the point as its first
 numbered line, and the `waypoints` call plans from it.
 

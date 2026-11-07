@@ -1,6 +1,6 @@
-// The short Trial's correspondence table, refused or `{}` (kogaki#1669, kogaki#1671): its correspondences,
-// the base (kogaki#1693), an owner-supplied binding of one Move, and the projecting bindings (kogaki#1681);
-// and the Correspondence vocabulary of the Base Paragraph's points (kogaki#1700).
+// The short Trial's correspondence table, refused or `{}` (kogaki#1669, kogaki#1671): one table per bound Move (kogaki#1709),
+// each its base (kogaki#1693) and correspondences, an owner-supplied binding of one Move, and the projecting bindings
+// (kogaki#1681); and the Correspondence vocabulary of each paragraph's points (kogaki#1700, kogaki#1709).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -14,12 +14,12 @@ import { moveContract } from "../compose.mjs";
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 
-function baseRefusal(base) {
-  if (!isMap(base)) return "the correspondence table's `base` is not a `{ domain }` map";
+function baseRefusal(base, at = "") {
+  if (!isMap(base)) return `${at}base is not a \`{ domain }\` map`;
   const extra = Object.keys(base).find((k) => k !== "domain");
-  if (extra) return `base carries \`${extra}\`, which it does not declare — a base is \`{ domain }\` and has no kind (kogaki#1693)`;
-  if (!Object.hasOwn(base, "domain")) return "base carries no `domain`";
-  if (!isText(base.domain)) return "base.domain is not one phrase";
+  if (extra) return `${at}base carries \`${extra}\`, which it does not declare — a base is \`{ domain }\` and has no kind (kogaki#1693)`;
+  if (!Object.hasOwn(base, "domain")) return `${at}base carries no \`domain\``;
+  if (!isText(base.domain)) return `${at}base.domain is not one phrase`;
   return null;
 }
 
@@ -75,35 +75,70 @@ function projectionRefusal(record, movesDir) {
   return null;
 }
 
+// ONE TABLE (kogaki#1693, kogaki#1709): `{ base, correspondences }`, its fields named under `at`. The `correspondence` row's
+// answer is one table; the owner's file carries one per bound Move under `tables`.
+function tableRefusal(t, structure, at = "") {
+  if (!Array.isArray(t.correspondences) || !t.correspondences.length) return `the correspondence table carries no non-empty \`${at}correspondences\` list`;
+  const b = baseRefusal(t.base, at);
+  if (b) return b;
+  for (const [i, c] of t.correspondences.entries()) {
+    const f = `${at}correspondences[${i}]`;
+    if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) return `${f} is not a \`{ role, expression }\` correspondence`;
+    if (!isText(c.expression)) return `${f}.expression is not one base text`;
+    if (!isText(c.role)) return `${f}.role is not one Role id`;
+  }
+  if (structure) {
+    const roles = structure.roles.map((r) => r.id);
+    for (const [i, c] of t.correspondences.entries()) {
+      if (!roles.includes(c.role)) return `${at}correspondences[${i}].role ${JSON.stringify(c.role)} names no Role of the structure — it names ${roles.join(", ")}`;
+    }
+    for (const id of roles) {
+      const n = t.correspondences.filter((c) => c.role === id).length;
+      if (n !== 1) return `${at ? `${at.slice(0, -1)}: ` : ""}the Role ${JSON.stringify(id)} has ${n} correspondences, and every Role has one`;
+    }
+  }
+  return null;
+}
+
+export function validateCorrespondenceTable(table, { structure = null } = {}) {
+  if (!isMap(table)) return { error: "the correspondence table is not a `{ base, correspondences }` record" };
+  const r = tableRefusal(table, structure);
+  return r ? { error: r } : {};
+}
+
+// The Moves the owner's file binds, in order: the first binding's, then each projecting binding's.
+export const boundMovesOf = (record) => (Object.hasOwn(record, "move") ? [record.move, ...projectionsOf(record).map((p) => p.move)] : []);
+
 // `_proposition` is no longer read: what an expression names is the owner's reading (kogaki#1707).
 export function validateRbsTable(record, _proposition, { movesDir = "moves", structure = null } = {}) {
   if (isMap(record) && Object.hasOwn(record, "pairs")) {
     return { error: "the correspondence table carries `pairs`, which it does not declare — its rows are `correspondences: [{ role, expression }]` (kogaki#1693)" };
   }
-  if (!isMap(record) || !Array.isArray(record.correspondences) || !record.correspondences.length) {
-    return { error: "the correspondence table carries no non-empty `correspondences` list" };
+  const root = isMap(record) && ["base", "correspondences"].find((k) => Object.hasOwn(record, k));
+  if (root) return { error: `the correspondence table carries a root \`${root}\`, which is retired — its tables are \`tables: [{ move, base, correspondences }]\`, one per bound Move (kogaki#1709)` };
+  if (!isMap(record) || !Array.isArray(record.tables) || !record.tables.length) {
+    return { error: "the correspondence table carries no non-empty `tables` list of `{ move, base, correspondences }`, one per bound Move (kogaki#1709)" };
   }
-  const b = baseRefusal(record.base);
-  if (b) return { error: b };
-  for (const [i, c] of record.correspondences.entries()) {
-    if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) {
-      return { error: `correspondences[${i}] is not a \`{ role, expression }\` correspondence` };
-    }
-    if (!isText(c.expression)) return { error: `correspondences[${i}].expression is not one base text` };
-    if (!isText(c.role)) return { error: `correspondences[${i}].role is not one Role id` };
-  }
-  if (structure) {
-    const roles = structure.roles.map((r) => r.id);
-    for (const [i, c] of record.correspondences.entries()) {
-      if (!roles.includes(c.role)) return { error: `correspondences[${i}].role ${JSON.stringify(c.role)} names no Role of the structure — it names ${roles.join(", ")}` };
-    }
-    for (const id of roles) {
-      const n = record.correspondences.filter((c) => c.role === id).length;
-      if (n !== 1) return { error: `the Role ${JSON.stringify(id)} has ${n} correspondences, and every Role has one` };
-    }
+  for (const [i, t] of record.tables.entries()) {
+    const at = `tables[${i}].`;
+    if (!isMap(t)) return { error: `tables[${i}] is not a \`{ move, base, correspondences }\` map` };
+    const extra = Object.keys(t).find((k) => !["move", "base", "correspondences"].includes(k));
+    if (extra) return { error: `tables[${i}] carries \`${extra}\`, which it does not declare — a table is \`{ move, base, correspondences }\`` };
+    if (!isText(t.move)) return { error: `${at}move is not one Move id` };
+    const r = tableRefusal(t, structure, at);
+    if (r) return { error: r };
   }
   const m = bindingRefusal(record, movesDir) || projectionRefusal(record, movesDir);
-  return m ? { error: m } : {};
+  if (m) return { error: m };
+  const bound = boundMovesOf(record);
+  if (bound.length) {
+    const stray = record.tables.findIndex((t) => !bound.includes(t.move));
+    if (stray !== -1) return { error: `tables[${stray}].move ${JSON.stringify(record.tables[stray].move)} matches no binding — the bindings bind ${bound.join(", ")}` };
+    if (record.tables.length !== bound.length || record.tables.some((t, i) => t.move !== bound[i])) {
+      return { error: `tables carries ${record.tables.map((t) => t.move).join(", ")}, and it carries one table per binding in the bindings' order: ${bound.join(", ")}` };
+    }
+  }
+  return {};
 }
 
 // The binding the owner supplied, as the `bind` stage's entry, or null where the table carries none.
@@ -113,23 +148,24 @@ export function suppliedEntry(record, serves) {
     paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim(), serves: [...serves] })) };
 }
 
-// THE CORRESPONDENCE VOCABULARY (kogaki#1700): the Base Paragraph's points say the structure in the table's
-// expressions, so every expression appears in one of them, and a Role id appears in none outside an expression.
+// THE CORRESPONDENCE VOCABULARY (kogaki#1700, kogaki#1709): each paragraph's points say the structure in its own table's
+// expressions, so every expression of that table appears in one of them, and a Role id appears in none outside an expression
+// of that table or of `priorTables`, the tables of the cases already told.
 const lower = (t) => String(t).toLowerCase();
 const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-export function correspondenceVocabularyRefusal(points, table) {
+export function correspondenceVocabularyRefusal(points, table, priorTables = [], paragraph = 1) {
   const texts = (points || []).map((p) => (p && typeof p.point === "string" ? p.point : ""));
   for (const c of table.correspondences) {
     if (!texts.some((t) => lower(t).includes(lower(String(c.expression).trim())))) {
-      return `the Base Paragraph's points carry the Correspondence expression of the Role "${c.role}", "${c.expression}", in none of them`;
+      return `Paragraph ${paragraph}'s points carry the Correspondence expression of the Role "${c.role}", "${c.expression}", in none of them`;
     }
   }
-  const expressions = table.correspondences.map((c) => lower(String(c.expression).trim())).sort((a, b) => b.length - a.length);
+  const expressions = [table, ...priorTables].flatMap((t) => t.correspondences).map((c) => lower(String(c.expression).trim())).sort((a, b) => b.length - a.length);
   for (const [i, t] of texts.entries()) {
     let rest = lower(t);
     for (const e of expressions) rest = rest.split(e).join(" ");
     const id = table.correspondences.map((c) => String(c.role)).find((r) => new RegExp(`(^|[^a-z0-9_])${escapeRe(lower(r))}($|[^a-z0-9_])`).test(rest));
-    if (id) return `the Base Paragraph's point ${i + 1} carries the Role id "${id}" — a point says the structure in the Correspondence expressions`;
+    if (id) return `Paragraph ${paragraph}'s point ${i + 1} carries the Role id "${id}" — a point says the structure in the Correspondence expressions`;
   }
   return null;
 }

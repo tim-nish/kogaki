@@ -1,5 +1,6 @@
 // The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681), the proposition
-// in place of the Strand's rendering (kogaki#1685), and each binding's `takes` and `leaves` (kogaki#1700).
+// in place of the Strand's rendering (kogaki#1685), each binding's `takes` and `leaves` (kogaki#1700), and one Mapping Table per
+// paragraph (kogaki#1709).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -59,8 +60,8 @@ function elementsOf(structure) {
   return [...roles, ...relations, ...higher];
 }
 
-// The Mapping Table (kogaki#1693).
-function mappingTable(structure, table) {
+// A Mapping Table (kogaki#1693), captioned with its paragraph and Move (kogaki#1709), or `no table`.
+function mappingTable(structure, table, number) {
   const roles = elementsOf(structure).filter((e) => e.role);
   const correspondences = table ? table.correspondences : [];
   const rows = roles.map((e) => ({ id: e.id, what: e.what, attributes: e.attributes, correspondences: correspondences.filter((c) => c.role === e.id) }));
@@ -70,9 +71,9 @@ function mappingTable(structure, table) {
   const domain = table && table.base && table.base.domain !== null && table.base.domain !== undefined ? table.base.domain : "none";
   const abstract = (r) => `<span class="meta">${esc(r.id)}</span>${r.what === null ? "" : ` ${targetHtml(r.what)}`}`;
   const expression = (cs) => cs.map((c) => targetHtml(c.expression)).join("<br>");
-  const caption = table ? table.variant : "no table";
+  const caption = table ? `Paragraph ${number} <span class="meta">${esc(table.move)}</span>` : "no table";
   return `<p class="meta">Base: ${esc(domain)}</p>`
-    + `<table><caption>${esc(caption)}</caption><thead><tr><th>Abstract</th><th>Attribute</th><th>Correspondence</th></tr></thead><tbody>`
+    + `<table><caption>${caption}</caption><thead><tr><th>Abstract</th><th>Attribute</th><th>Correspondence</th></tr></thead><tbody>`
     + rows.map((r) => `<tr><td>${abstract(r)}</td><td>${esc(r.attributes.join(", "))}</td><td>${expression(r.correspondences)}</td></tr>`).join("")
     + "</tbody></table>";
 }
@@ -169,10 +170,11 @@ function structureSection(structure) {
 const paragraphHtml = (path, record) => (existsSync(path) ? `<div class="prose">${esc(readFileSync(path, "utf8"))}</div>`
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none("No paragraph was written."));
 
-export function renderShortSheet({ outDir, record, proposition, structure, table, paragraphs, paragraphPath }) {
+export function renderShortSheet({ outDir, record, proposition, structure, tables, paragraphs, paragraphPath }) {
   const propositionParagraph = `<p>${esc(proposition.proposition)}</p><p class="meta">cite: ${esc(proposition.cite)}</p>`
     + paragraphHtml(paragraphPath, record);
-  const mapping = structure || table ? mappingTable(structure, table) : none("Neither a structure nor a table was read.");
+  const mapping = tables && tables.length ? tables.map((t, i) => mappingTable(structure, t, i + 1)).join("")
+    : structure ? mappingTable(structure, null) : none("Neither a structure nor a table was read.");
   const structureHtml = structure ? structureSection(structure) : none("No structure was read.");
   const calls = readCalls(outDir, record.stages);
   const callsHtml = calls.length
