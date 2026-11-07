@@ -48,6 +48,7 @@
 #       are each refused naming the field (kogaki#1693), and a supplied `point` carrying a claim word is accepted (kogaki#1707);
 #       a root `base` or `correspondences` is refused naming `tables`, in the validator and on `--rbs-file`, a `tables` entry
 #       whose `move` matches no binding is refused naming it, and a table count other than the bindings' is refused (kogaki#1709).
+
 #   (m) a Role without `attributes`, or with a non-list one, is refused naming the Role, and a root `attributes` is refused as an
 #       undeclared key (kogaki#1693); a `context` carrying "rules" is accepted (kogaki#1707).
 #   (n) `binding_rationale` in the rbs file reaches bind.yaml and the `Rationale` row of `Binding 1`, the composed route's bind.yaml
