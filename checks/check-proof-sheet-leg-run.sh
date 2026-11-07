@@ -138,6 +138,12 @@ const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const S = await imp("src/proof-sheet/leg-sheet.mjs");
 const { parseYaml, stringifyYaml } = await imp("src/yaml.mjs");
 const root = mkdtempSync(join(tmpdir(), "proof-sheet-leg-run-"));
+// THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;
+// checks/check-paragraph-plan.sh case (z) runs the Mapper.
+const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+noMapper.paragraph_plan.mapper = false;
+process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
+writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 
 const PARAS = [
   "The installer copies the kit into the consumer's tree. Nobody asked the consumer first.",

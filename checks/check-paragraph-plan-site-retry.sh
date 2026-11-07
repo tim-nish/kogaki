@@ -32,6 +32,12 @@ const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-site-"));
+// THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;
+// checks/check-paragraph-plan.sh case (z) runs the Mapper.
+const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+noMapper.paragraph_plan.mapper = false;
+process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
+writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 const moves = join(root, "moves");
 mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
@@ -112,7 +118,7 @@ function run(name, scenario, { settings = null } = {}) {
   writeFileSync(briefPath, briefText);
   const env = { ...process.env, KOGAKI_JUDGE_CLI: judge, PP_FIXTURE_DIR: dir, PP_SCENARIO: scenarioPath };
   if (settings) {
-    const doc = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+    const doc = JSON.parse(readFileSync(process.env.KOGAKI_SETTINGS, "utf8"));
     doc.paragraph_plan = { ...doc.paragraph_plan, ...settings };
     writeFileSync(join(dir, "settings.json"), JSON.stringify(doc));
     env.KOGAKI_SETTINGS = join(dir, "settings.json");

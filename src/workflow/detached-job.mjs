@@ -332,6 +332,21 @@ async function loadReaderPathFitJudge(declared) {
   };
 }
 
+// THE DECLARED MAPPER (kogaki#1734), on the validator's own terms: the units file names the module, the
+// class it exports and its inputs, and this file stays ignorant of structures and tables. The class answers
+// `begin`, `bound`, `answered` and `grounded` with an act: `{ call }`, `{ compose }`, `{ proceed }` or `{ stopped }`.
+async function loadMapper(declared, ctx) {
+  if (declared === undefined || declared === null) return null;
+  if (typeof declared !== "object" || !declared.module || !declared.export) {
+    throw new Error("the units file's `mapper` names no `module` and `export` (kogaki#1734).");
+  }
+  const mod = await import(pathToFileURL(resolve(REPO, String(declared.module))).href);
+  const Mapper = mod[String(declared.export)];
+  if (typeof Mapper !== "function") throw new Error(`${declared.module} exports no class named ${JSON.stringify(declared.export)}.`);
+  return new Mapper(declared.inputs || {}, ctx);
+}
+const MAPPER_PHASES = ["reading", "grounding"];
+
 // `validate`, when given, is the DECLARED validator (kogaki#1240) loaded by
 // the caller from the units file -- this function stays ignorant of what it
 // checks or why, taking only a `(candidate) => string|null` function and
@@ -596,6 +611,7 @@ export async function cmdJobSupervise(args) {
     // EVERY CALL WRITES ITS ATTEMPT RECORD (kogaki#1717); `n` counts all of a unit's calls, whatever their phase.
     const cli = cliRecord(command, args["command-version"] ? String(args["command-version"]) : null);
     const callArgv = { argv, model, output_format: "stream-json", timeout_s: callLimitS };
+    const mapper = await loadMapper(declared.mapper, { runDir: dir, cli, callArgv });
     const rowOf = (phase) => {
       const r = (declared.rows || {})[phase];
       if (!r || !r.table) return { phase, row: null, tables: [] };
@@ -631,6 +647,7 @@ export async function cmdJobSupervise(args) {
       attempts: 1, malformed: 0, malformedThisAttempt: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
       composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined, loop: null, callPrompt: null, scope: null,
       attemptStartedAt: startedAt, callStartedAt: startedAt, final: null, calls: 0, attemptRecords: null,
+      attemptBase: 0, refusalBase: 0,
     }]));
     // A spawned call keeps the prompt it was sent and its phase, for its Attempt Record (kogaki#1717).
     const spawnCall = (u, prompt, phase, stdoutPath, flag) => ({ ...spawnDetachedJobUnit(command, argv, prompt, () => {}, childEnv,
@@ -639,7 +656,41 @@ export async function cmdJobSupervise(args) {
     const spawnFit = (u, flag) => spawnCall(u, S.get(u.id).fitPrompt, "fit", readerPathUnitFitStdoutPath(dir, u.id), flag);
     // A SITE OR SUFFIX CALL (kogaki#1642) writes beside the unit's own call, in its stdout file.
     const spawnSite = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
-    unitsRunning = new Map(units.map((u) => [u.id, spawnCompose(u, "w")]));
+    // A MAPPER'S CALL (kogaki#1734) writes beside the unit's own call; its Attempt Record is the Mapper's.
+    const spawnMapperCall = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
+    unitsRunning = new Map();
+    // THE MAPPER'S ACT, CARRIED OUT: a reading or grounding call spawned, the plan call spawned over the
+    // input the Mapper composed, or the unit ended naming the Leg, the Leg Waypoint and the stage.
+    const mapperAct = (u, act, flag, bytes = 0, stdoutPath = readerPathUnitStdoutPath(dir, u.id)) => {
+      const st = S.get(u.id);
+      if (act.stopped) {
+        st.refusals.push({ refusal: act.stopped });
+        return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.stopped, bytes_written: bytes } }, bytes, stdoutPath), progressed: false };
+      }
+      st.callStartedAt = Date.now();
+      st.malformedThisAttempt = 0;
+      if (act.call) {
+        st.phase = act.call.phase;
+        st.callPrompt = act.call.prompt;
+        if (flag === "a") { try { appendFileSync(stdoutPath, `\n----- ${act.call.label} -----\n`); } catch { /* best-effort */ } }
+        unitsRunning.set(u.id, spawnMapperCall(u, flag));
+        return { row: runningRow(u, 0), progressed: true };
+      }
+      // THE PLAN CALL OVER THE MAPPER'S INPUT: its refusals and attempts are counted from here.
+      if (st.phase === "grounding") beginNextAttempt(st, Date.now());
+      st.attemptBase = st.attempts - 1;
+      st.refusalBase = st.refusals.length;
+      u.prompt = act.compose.prompt;
+      u.input = act.compose.input;
+      st.prompt = withNoToolsSentence(u.prompt);
+      st.phase = "compose";
+      st.composed = null;
+      if (flag === "a") { try { appendFileSync(stdoutPath, "\n----- the plan call over the Mapper's input -----\n"); } catch { /* best-effort */ } }
+      unitsRunning.set(u.id, spawnCompose(u, flag));
+      return { row: runningRow(u, 0), progressed: true };
+    };
+    const mapperAnswer = (u, sp, out) => mapperAct(u, mapper.answered(u.id, { raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), ...out }), "a", sp.out.bytes);
+
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
 
@@ -729,6 +780,7 @@ export async function cmdJobSupervise(args) {
     const timeOut = (u, sp) => {
       const st = S.get(u.id);
       try { if (sp.child) sp.child.kill("SIGKILL"); } catch { /* already gone */ }
+      if (MAPPER_PHASES.includes(st.phase)) return mapperAnswer(u, sp, { unread: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` });
       const callS = secondsSince(st.callStartedAt);
       st.timedOut.push({ attempt: st.attempts, phase: st.phase, call_s: callS });
       recordCall(u, sp, { status: "refused", failure: { stderr_tail: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` } });
@@ -789,6 +841,14 @@ export async function cmdJobSupervise(args) {
     // once it has ended.
     const answer = (u, sp) => {
       const st = S.get(u.id);
+      if (MAPPER_PHASES.includes(st.phase)) {
+        const m = classifyDetachedJobUnit(sp.out, null, false, u.id);
+        if (m.status === "died") {
+          mapper.answered(u.id, { raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), died: String(m.failure.stderr_tail || m.failure.result || "exit") });
+          return { row: endUnit(u, m, sp.out.bytes, readerPathUnitStdoutPath(dir, u.id)), progressed: false };
+        }
+        return mapperAnswer(u, sp, m.status === "malformed" ? { unread: m.failure.stderr_tail } : { record: m.candidate });
+      }
       const cls = st.phase === "compose" ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
         : st.phase === "fit" ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id, st.scope)
         : classifyDetachedJobUnit(sp.out, null, st.phase === "suffix" ? recordArray : false, u.id);
@@ -818,7 +878,7 @@ export async function cmdJobSupervise(args) {
       }
       // A REFUSAL NAMING ITS SITES OPENS THE LOOP, where the job declares one (kogaki#1642): the
       // refused record stands, and only the Leg Waypoints it names are asked again.
-      if (siteRetry && cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL) {
+      if (siteRetry && cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL && (!mapper || mapper.grounded(u.id))) {
         const sites = st.phase === "compose" ? (cls.failure.sites || []).map((n) => ({ waypoint: n, refusal: cls.failure.stderr_tail }))
           : (cls.failure.move_fit || []).map((f) => ({ waypoint: f.waypoint, refusal: f.refusal || f.why }));
         if (sites.length) {
@@ -827,6 +887,11 @@ export async function cmdJobSupervise(args) {
           st.refusals.push({ answer: standing, refusal: cls.failure.stderr_tail });
           return siteAct(u, st.loop.open(standing, sites, { byJudge: st.phase === "fit" }), sp, stdoutPath);
         }
+      }
+      // THE BIND CALL'S RECORD IS GROUNDED FIRST, where the job declares a Mapper (kogaki#1734).
+      if (cls.status === "done" && st.phase === "compose" && mapper) {
+        const act = mapper.bound(u.id, cls.candidate);
+        if (!act.proceed) return mapperAct(u, act, "a", sp.out.bytes, stdoutPath);
       }
       // A FINISHED, VALID RECORD WITH A DECLARED MOVE-FIT JUDGE IS JUDGED NEXT, inside
       // the same unit and the same attempt (kogaki#1307).
@@ -850,11 +915,11 @@ export async function cmdJobSupervise(args) {
         const { group, reach } = cls.failure;
         st.refusals.push({ answer: st.phase === "fit" ? st.composed : cls.candidate, refusal, ...(reach ? { group, reach } : {}) });
         // A `stop` refusal, or one whose group the row does not declare, is never put back (kogaki#1708).
-        if (st.attempts < unitAttempts && reach !== "stop") {
+        if (st.attempts - st.attemptBase < unitAttempts && reach !== "stop") {
           beginNextAttempt(st, endedAt);
           const composePath = readerPathUnitStdoutPath(dir, u.id);
           try { appendFileSync(composePath, `\n----- attempt ${st.attempts} -----\n`); } catch { /* best-effort */ }
-          st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), st.refusals);
+          st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), st.refusals.slice(st.refusalBase));
           st.phase = "compose";
           st.composed = null;
           unitsRunning.set(u.id, spawnCompose(u, "a"));
@@ -863,6 +928,14 @@ export async function cmdJobSupervise(args) {
       }
       return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
     };
+
+    for (const u of units) {
+      if (mapper) {
+        const act = mapper.begin(u.id, u.input);
+        if (act.stopped) throw new Error(act.stopped);
+        mapperAct(u, act, "w");
+      } else unitsRunning.set(u.id, spawnCompose(u, "w"));
+    }
 
     for (;;) {
       // eslint-disable-next-line no-await-in-loop -- one supervisor, one loop,
@@ -983,6 +1056,7 @@ export function startDetachedJobSupervisor(dir, opts) {
   writeFileSync(unitsPath, `${JSON.stringify({ units, validator,
     ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
     ...(opts.siteRetry ? { site_retry: opts.siteRetry } : {}),
+    ...(opts.mapper ? { mapper: opts.mapper } : {}),
     ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
     ...(unitIsolation ? { unit_isolation: true } : {}),
     ...(opts.rows ? { rows: opts.rows } : {}),
@@ -1006,7 +1080,7 @@ export function startDetachedJobSupervisor(dir, opts) {
     supervisor_pid: child.pid,
     ...(unitIsolation ? { unit_isolation: true } : {}),
     state: "running",
-    units: [...carried, ...opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, attempts: 1, phase: "compose", attempt_started_at: now }))],
+    units: [...carried, ...opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, attempts: 1, phase: opts.mapper ? "reading" : "compose", attempt_started_at: now }))],
   });
   return { unitsPath, supervisorPid: child.pid };
 }

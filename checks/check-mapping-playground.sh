@@ -36,6 +36,12 @@ const { spliceConstraints } = await import(pathToFileURL(join(repo, "src/proof-s
 const { validateStructure, parseProposition } = await import(pathToFileURL(join(repo, "src/mapping-playground/structure.mjs")).href);
 const { validateCorrespondenceTable } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "mapping-playground-"));
+// THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;
+// checks/check-paragraph-plan.sh case (z) runs the Mapper.
+const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+noMapper.paragraph_plan.mapper = false;
+process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
+writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 const trials = join(repo, "runs", "mapping-playground");
 mkdirSync(trials, { recursive: true });
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
