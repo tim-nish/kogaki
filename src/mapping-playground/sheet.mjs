@@ -1,6 +1,6 @@
 // The short Trial's sheet (kogaki#1673), with one Segments table per paragraph binding (kogaki#1681), the proposition
 // in place of the Strand's rendering (kogaki#1685), each binding's `takes` and `leaves` (kogaki#1700), and one Mapping Table per
-// paragraph (kogaki#1709).
+// paragraph (kogaki#1709), the Base Paragraph's case and the leaves the last binding leaves unmet (kogaki#1719).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -91,16 +91,26 @@ function constraintRows(entries) {
   return list.length ? list.map((e) => esc(`${e.kind}: ${e.what}`)) : [esc("none")];
 }
 
-function bindingTable(record, entry, contracts, n) {
+// kogaki#1719: an entry is taken up only where `kind` and `what` both match, as in standsToBeTakenUp (kogaki#1701).
+export function leftUnmet(paragraphs, i, contracts) {
+  const taken = new Set(paragraphs.slice(i + 1).flatMap((p) => ((contracts.get(p.move) || {}).takes || []).map((x) => `${x.kind}\u0000${x.what}`)));
+  return (paragraphs[i].leaves || []).filter((x) => !taken.has(`${x.kind}\u0000${x.what}`));
+}
+
+function bindingTable(record, paragraphs, i, contracts) {
+  const entry = paragraphs[i];
   const c = contracts.get(entry.move);
   const absent = [esc("not in the library")];
   const rationale = entry.binding_rationale === null || entry.binding_rationale === undefined ? "none" : entry.binding_rationale;
-  return `<table><caption>Binding ${n}</caption><tbody>`
+  const told = record.bind.case === null || record.bind.case === undefined ? "none" : record.bind.case;
+  return `<table><caption>Binding ${i + 1}</caption><tbody>`
     + labelledRow("Move", [esc(entry.move)])
     + labelledRow("Bound by", [esc(record.bind.author)])
+    + (i === 0 ? labelledRow("Case", [esc(told)]) : "")
     + labelledRow("Takes", c ? constraintRows(c.takes) : absent)
     + labelledRow("Leaves", c ? constraintRows(c.leaves) : absent)
     + labelledRow("Rationale", [esc(rationale)])
+    + (i === paragraphs.length - 1 ? labelledRow("Left unmet", constraintRows(leftUnmet(paragraphs, i, contracts))) : "")
     + "</tbody></table>";
 }
 
@@ -131,7 +141,7 @@ function bindingsSection(record, paragraphs) {
   const library = loadMoveContracts(join(REPO, record.library));
   const contracts = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
   return (library.error ? `<p class="stop">${esc(library.error)}</p>` : "")
-    + paragraphs.map((p, i) => bindingTable(record, p, contracts, i + 1)).join("");
+    + paragraphs.map((p, i) => bindingTable(record, paragraphs, i, contracts)).join("");
 }
 
 // A Mermaid node id: the element's own id, else `n<i>`; an authored `n<digits>` takes the fallback, so none collide.

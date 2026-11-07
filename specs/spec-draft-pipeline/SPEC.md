@@ -3003,8 +3003,8 @@ structure's order (kogaki#1693). The root `base` and `correspondences` keys are
 retired: a table carrying either is refused naming `tables`. A `tables` entry
 whose `move` matches no binding is refused naming it, and a list that is not
 one table per binding in the bindings' order is refused. The `waypoints` stage
-adds `bindings`, each binding as `{ move, binding_rationale,
-paragraph_waypoints }` in order (kogaki#1700).
+adds `bindings`, each binding as `{ move, binding_rationale, leaves,
+paragraph_waypoints }` in order (kogaki#1700, kogaki#1719).
 `role` is the id of the Role the correspondence maps (kogaki#1685,
 kogaki#1688). `expression` is the base text: a noun phrase naming the base's
 object that plays the Role. A table carrying `pairs` is refused naming the
@@ -3028,55 +3028,62 @@ naming `domain`. In
 the Role it stands for.
 `src/mapping-playground/rbs.mjs` is the one validator of the table.
 
-**The `bind` row** (kogaki#1700). The `bind` stage is one model call of the
-row `smp_bind_move` through the run's recorder, under the Mapper's bound of two
-attempts. Its input is the structure record, the Persona's prior-knowledge
-line, and every Move of the library as `{ id, description, segments, takes,
-leaves }`. It chooses one Move for the Base Paragraph whose Segments can carry
-the structure's relations and then its higher-order relation, in order, and
-whose `takes` entries the Persona's line meets. Where that Move's `leaves`
-holds an entry of kind `carry`, it chooses one Move for the Inference
-Paragraph whose `takes` holds a `carry`, and otherwise none. Its answer is
-`{ base_move, inference_move, rationale }`, `inference_move` null where no
-Inference Paragraph is owed, and any other key is refused. The refusals:
+**The `bind` row** (kogaki#1700, kogaki#1719). The `bind` stage is one model
+call of the row `smp_bind_move` through the run's recorder, under the Mapper's
+bound of two attempts. Its input is the structure record, the Persona's
+prior-knowledge line, and every Move of the library as `{ id, description,
+segments, takes, leaves }`. It chooses one Move for the Base Paragraph whose
+Segments can carry the structure's relations and then its higher-order
+relation, in order, and whose `takes` entries the Persona's line meets. It
+declares the Base Paragraph's `case`: `own`, where the paragraph tells the
+proposition's own case, or `apart`, where it tells a case apart from the
+proposition's domain. A Move is neutral to the case (owner ruling,
+2026-11-07): the case is the one the Persona's prior knowledge and the Move's
+Segments make tellable, declared by the stage that composes the Waypoints and
+never read from the Move's `leaves`. Where the case is `apart`, it chooses one
+Move for the Inference Paragraph whose `takes` holds a `carry`; where it is
+`own`, none. Its answer is `{ base_move, case, inference_move }`,
+`inference_move` null under `own`, and any other key is refused. The
+refusals:
 
 - an id naming no Move of the library, refused naming the id, group
   `library`;
-- an `inference_move` null where the base Move leaves a `carry`, refused
-  naming the entry, group `carry`;
-- an `inference_move` given where the base Move leaves none, group `carry`;
+- a `case` missing, or other than `own` or `apart`, group `shape`;
+- an `inference_move` null under `apart`, or given under `own`, refused
+  naming the case, group `case`;
 - an inference Move whose `takes` holds no `carry`, refused naming the Move,
   group `carry`.
 
-An undeclared or missing key, or an empty `rationale`, is group `shape`.
-`shape` is of reach `part`; `library` and `carry` are of reach `record`
-(kogaki#1708). The first refusal is put back verbatim into the second attempt
-under its reach, and a second refusal stops the Trial at `bind`. Each attempt's prompt and answer are kept as
-`<out>/bind/prompt-<n>.md` and `answer-<n>.json`. Whether an Inference
-Paragraph follows is the Move's information, read from its `leaves` (§4.2),
-and no Harness step decides it apart from the Move.
+An undeclared or missing key is group `shape`. `shape` is of reach `part`;
+`library`, `case` and `carry` are of reach `record` (kogaki#1708). The first
+refusal is put back verbatim into the second attempt under its reach, and a
+second refusal stops the Trial at `bind`. Each attempt's prompt and answer are
+kept as `<out>/bind/prompt-<n>.md` and `answer-<n>.json`. The answer carries
+no `rationale`: the record's `binding_rationale` is written by the Harness
+from the answer's `case` and Moves (kogaki#1719).
 
 **The `correspondence` row** (kogaki#1700, kogaki#1709). The `correspondence`
 stage is one model call of the row `smp_correspondence` per bound Move, the
 base Move first and then the inference Move where one is bound, each under the
 same bound. Its input is the structure record, the Persona's prior-knowledge
-line, and that Move's `segments`; the inference call adds `prior_tables`, the
-base Move's table. It names one domain the reader holds in which the
+line, the paragraph's `case` and that Move's `segments`; the inference call
+adds `prior_tables`, the base Move's table. The base Move's call carries the
+`case` `bind` declared, and the inference Move's call carries `own`: the
+inference table is always grounded in the proposition's own domain
+(kogaki#1719). It names one domain the reader holds in which the
 structure's relations hold as stated and in which the Segments can be
 performed, as `base.domain`, and one Correspondence expression per Role in
-the structure's order. A Segment asking for an everyday case yields a domain
-apart from the proposition's, and a Segment asking for a plain restatement
-yields the proposition's own. Its answer is `{ base: { domain },
+the structure's order. Its answer is `{ base: { domain },
 correspondences: [{ role, expression }] }`, any other key refused, and is
 validated by `validateCorrespondenceTable` as each table of the owner's file
 is; the stage adds the Move's id as the table's `move`. What each expression
 names is stated at the judgment point (kogaki#1707): each `expression` names
-the object of `base.domain` that plays the Role; where a Segment asks for an
-everyday case, `base.domain` is apart from the proposition's and no expression
-names the proposition's object or an entry of a Role's `attributes`; where a
-Segment asks for the subject's own case, `base.domain` is the proposition's
-and each `expression` is the proposition's own noun phrase for the Role, its
-`attributes` included; where a Segment likens the subject to a case already
+the object of `base.domain` that plays the Role; where `case` is `apart`,
+`base.domain` is a domain apart from the proposition's and no expression
+names the proposition's object or an entry of a Role's `attributes`; where
+`case` is `own`, `base.domain` is the proposition's and each `expression` is
+the proposition's own noun phrase for the Role, its `attributes` included
+(kogaki#1719); where a Segment likens the subject to a case already
 told, that case is `prior_tables` and its expressions may be named
 (kogaki#1709). No validator reads this: the owner's reading of the sheet is
 the judgment. The row's refusal groups (kogaki#1708), each of reach `part`,
@@ -3118,6 +3125,18 @@ first Leg Waypoint stands to take up the Persona's prior-knowledge line
 `bind.yaml` and the record's `bind.paragraphs` list every entry in order. No
 Brief is composed, and no Judge runs: the owner's reading is the judgment.
 
+**What each binding leaves** (kogaki#1719). Each entry of `bind.yaml`'s
+`paragraphs`, and of the record's `bind.paragraphs`, carries `leaves`: its
+Move's `leaves`, and, on the Base Paragraph where the declared `case` is
+`apart`, one entry more, `{ kind: carry, what: "the structure as told in
+<base.domain>, to be brought onto the subject", segment: <the Move's last
+Segment> }`, `<base.domain>` that paragraph's table's. The obligation is the
+binding's and never the Move's: the library is unchanged. A later binding's
+`takes` is read against it as a ParagraphPlan reads what stands to be taken
+up (kogaki#1701): the `waypoints` call hands each Leg Waypoint after the
+first the `leaves` of the binding before it as its `stands_to_be_taken_up`,
+each entry's `left_by` naming that Leg Waypoint.
+
 **The Correspondence vocabulary** (kogaki#1700, kogaki#1709). Each
 paragraph's Paragraph Waypoints are confined to its own table: they say the
 structure in the expressions of the table of its Move, every expression of
@@ -3147,8 +3166,9 @@ not text is refused naming the field. It is an inspection field of the
 Playground, read by nothing of §4.5: the grounds test is the opposite act, a
 Leg's `rationale` standing with the Move's name deleted. A table carrying
 `grounds` is refused naming `binding_rationale`. `<out>/bind.yaml` and the
-record's `bind` carry `binding_rationale` in both routes: the owner's text in the supplied route, and the
-`bind` call's `rationale` on every binding in the composed route (kogaki#1700). `bind.yaml` keeps
+record's `bind` carry `binding_rationale` in both routes: the owner's text in the supplied route, and in the
+composed route the sentence the Harness writes from the `bind` answer's `case` and Moves, on every binding
+(kogaki#1700, kogaki#1719). `bind.yaml` keeps
 `serves` because the ParagraphPlan unit shape requires it, and the sheet
 renders it nowhere.
 
@@ -3177,11 +3197,15 @@ folded. The runner writes the sheet once and never reads it.
 - `Bindings` is one two-column table per binding, in order, captioned
   `Binding N` with N its paragraph's number, one labelled row each
   (kogaki#1682): `Move`, the id; `Bound by`, the record's `bind.author`,
-  `owner` or the composed route's row `smp_bind_move`; `Takes` and `Leaves`,
-  the Move's `takes` and `leaves` read through `loadMoveContracts` from the
-  record's `library`, one sub-row per entry as `<kind>: <what>`, or `none`
-  where the list is empty (kogaki#1700); and `Rationale`,
-  `binding_rationale`, or `none` where it is null. The Move's `before` and
+  `owner` or the composed route's row `smp_bind_move`; on `Binding 1` alone,
+  `Case`, the `case` `bind` declared, or `none` where the owner's file
+  supplied the binding (kogaki#1719); `Takes` and `Leaves`, the Move's
+  `takes` and `leaves` read through `loadMoveContracts` from the record's
+  `library`, one sub-row per entry as `<kind>: <what>`, or `none` where the
+  list is empty (kogaki#1700); `Rationale`, `binding_rationale`, or `none`
+  where it is null; and, on the last binding alone, `Left unmet`, each entry
+  of that binding's `leaves` that no later binding's `takes` names by `kind`
+  and `what` alike, as `<kind>: <what>`, or `none` (kogaki#1719). The Move's `before` and
   `after` have no row (kogaki#1699). A Move the library no longer holds renders
   `not in the library` in `Takes` and `Leaves`.
 - `Mapping` is one Mapping Table per paragraph (kogaki#1709), in order, each
@@ -3242,7 +3266,7 @@ Move's table (kogaki#1709). In the composed route
 one Leg Waypoint follows the first where an Inference Move is bound, and none where none is (kogaki#1700).
 No reader state is composed. `bind` writes `<out>/bind.yaml`
 with the first binding's fields and `paragraphs`, every binding in order as
-`{ move, binding_rationale, paragraph_waypoints }`. `write` renders one Packet
+`{ move, binding_rationale, leaves, paragraph_waypoints }`. `write` renders one Packet
 from the Leg, calls the writer once and writes its whole answer to
 `<out>/paragraph.md`.
 
@@ -3266,8 +3290,8 @@ and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),
 `structure` and `mapper` as §4.20.1 writes them, `rbs: { variant, path, sha256 }`,
 `bind: { move, binding_rationale, path, sha256 }`, `paragraph: { path, sha256 }`, `sheet`,
 `reading` and `stages`, one entry per stage with its calls. Its `bind` also carries
-`paragraphs`, as `bind.yaml` does, and in the composed route `base_move` and
-`inference_move` (kogaki#1700).
+`paragraphs`, as `bind.yaml` does, and in the composed route `base_move`,
+`case` and `inference_move` (kogaki#1700, kogaki#1719).
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.

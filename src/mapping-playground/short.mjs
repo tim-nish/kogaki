@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, a Base Paragraph and, where its Move leaves a
-// `carry`, an Inference Paragraph, read on a sheet; the model route binds the Moves first, then fills one Mapping Table per bound
+// The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, a Base Paragraph and, where `bind` declares
+// its case apart, an Inference Paragraph, read on a sheet (kogaki#1719); the model route binds the Moves first, then fills one Mapping Table per bound
 // Move under its Segments, then writes each paragraph's Paragraph Waypoints from its own table (kogaki#1700, kogaki#1709).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
@@ -46,6 +46,10 @@ const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
 const WAYPOINTS_ROW = "smp_waypoints_unit";
 const CARRY = "carry";
+// The Base Paragraph's case (kogaki#1719): the proposition's own, or a case apart from its domain.
+const OWN = "own";
+const APART = "apart";
+export const CASES = [OWN, APART];
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE = "usage: node src/mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) "
@@ -158,30 +162,46 @@ export function bindMoveInput(structure, persona, moves, libraryDir) {
 }
 
 export function bindMoveRefusal(answer, contracts) {
-  if (!isMap(answer)) return { group: "shape", text: "the answer is not one `{ base_move, inference_move, rationale }` record" };
-  const extra = undeclared(answer, ["base_move", "inference_move", "rationale"]);
-  if (extra) return { group: "shape", text: `the answer carries \`${extra}\`, which the row does not declare — it carries base_move, inference_move and rationale` };
-  for (const k of ["base_move", "inference_move", "rationale"]) if (!Object.hasOwn(answer, k)) return { group: "shape", text: `the answer carries no \`${k}\`` };
+  const KEYS = ["base_move", "case", "inference_move"];
+  if (!isMap(answer)) return { group: "shape", text: "the answer is not one `{ base_move, case, inference_move }` record" };
+  const extra = undeclared(answer, KEYS);
+  if (extra) return { group: "shape", text: `the answer carries \`${extra}\`, which the row does not declare — it carries base_move, case and inference_move` };
+  for (const k of KEYS) if (!Object.hasOwn(answer, k)) return { group: "shape", text: `the answer carries no \`${k}\`` };
+  if (!CASES.includes(answer.case)) return { group: "shape", text: `case ${JSON.stringify(answer.case)} is neither \`${OWN}\` nor \`${APART}\`` };
   const base = contracts.get(answer.base_move);
   if (!base) return { group: "library", text: `base_move ${JSON.stringify(answer.base_move)} names no Move of the library` };
-  if (typeof answer.rationale !== "string" || answer.rationale.trim() === "") return { group: "shape", text: "rationale is not one non-empty text" };
-  const carry = carryOf(base.leaves);
   if (answer.inference_move === null) {
-    return carry ? { group: "carry", text: `inference_move is null, and the base Move "${base.id}" leaves \`${CARRY}: ${carry.what}\` — an Inference Paragraph is owed` } : null;
+    return answer.case === APART ? { group: "case", text: `inference_move is null, and case is \`${APART}\` — the case told apart is owed an Inference Paragraph carrying it onto the subject` } : null;
   }
-  if (!carry) return { group: "carry", text: `inference_move is given, and the base Move "${base.id}" leaves no \`${CARRY}\` — no Inference Paragraph is owed` };
+  if (answer.case === OWN) return { group: "case", text: `inference_move is given, and case is \`${OWN}\` — the proposition's own case is owed no Inference Paragraph` };
   const inference = contracts.get(answer.inference_move);
   if (!inference) return { group: "library", text: `inference_move ${JSON.stringify(answer.inference_move)} names no Move of the library` };
   if (!carryOf(inference.takes)) return { group: "carry", text: `the inference Move "${inference.id}" takes no \`${CARRY}\` — an Inference Paragraph takes up what the Base Paragraph carries` };
   return null;
 }
 
-// THE `correspondence` ROW (kogaki#1700, kogaki#1709): the structure, the Persona's line and the bound Move's Segments; the
-// inference call adds `prior_tables`, the tables of the Moves bound before it.
-export function correspondenceInput(structure, persona, move, priorTables = []) {
+// kogaki#1719: the model writes no rationale.
+export function bindingRationale({ base_move: base, case: told, inference_move: inference }) {
+  return told === APART
+    ? `case ${APART}: the Base Paragraph tells a case apart from the proposition's domain under "${base}", and the Inference Paragraph carries it onto the subject under "${inference}".`
+    : `case ${OWN}: the Base Paragraph tells the proposition's own case under "${base}", and no Inference Paragraph is owed.`;
+}
+
+// What a binding leaves: specs/spec-draft-pipeline/SPEC.md §"What each binding leaves", kogaki#1719.
+export function bindingLeaves(contract, told, table) {
+  const own = ((contract && contract.leaves) || []).map((x) => ({ kind: x.kind, what: x.what, ...(x.segment !== undefined ? { segment: x.segment } : {}) }));
+  if (told !== APART) return own;
+  const last = ((contract && contract.segments) || []).length;
+  return [...own, { kind: CARRY, what: `the structure as told in ${table.base.domain}, to be brought onto the subject`, segment: last }];
+}
+
+// THE `correspondence` ROW (kogaki#1700, kogaki#1709, kogaki#1719): the structure, the Persona's line, the paragraph's case and
+// the bound Move's Segments; the inference call adds `prior_tables`, the tables of the Moves bound before it.
+export function correspondenceInput(structure, persona, move, told, priorTables = []) {
   return {
     structure,
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    case: told,
     segments: segmentsForPlanCall(move.segments),
     ...(priorTables.length ? { prior_tables: priorTables } : {}),
   };
@@ -196,13 +216,15 @@ function correspondenceRefusal(answer, structure) {
 
 // THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
 // refused naming the Waypoint, the record is a ParagraphPlan unit's, and each paragraph's points keep to its own table (kogaki#1709).
-function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables, moves, contracts }) {
+function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables, moves, contracts, leaves }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
   const d = derivedRow(playground, WAYPOINTS_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
   const row = { ...plan.paragraph_plan_unit, ...d.row, shared_text_file: plan.paragraph_plan_unit.shared_text_file };
   const planned = planLeg(leg, { priorKnowledge: personaPriorKnowledgeLine(persona) });
-  const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i] })) };
+  // kogaki#1719: a later Leg Waypoint stands to take up what the binding before it leaves (kogaki#1701).
+  const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i],
+    ...(i > 0 ? { stands_to_be_taken_up: leaves[i - 1].map((x) => ({ kind: x.kind, what: x.what, left_by: `Leg Waypoint ${i}` })) } : {}) })) };
   const bound = [...new Set(moves)].map((id) => contracts.get(id));
   const input = { ...paragraphPlanUnitInput(fixed, bound, persona), tables };
   const held = bindFlow(FLOW);
@@ -331,7 +353,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     rbs: { variant: rbsFile ? RBS_OWNER : RBS_COMPOSED, path: null, sha256: null },
-    bind: { move: null, binding_rationale: null, path: null, sha256: null },
+    bind: { move: null, case: null, binding_rationale: null, path: null, sha256: null },
     paragraph: { path: null, sha256: null },
     sheet: relFromRepo(sheetPath),
     audience: relFromRepo(audiencePath),
@@ -397,8 +419,8 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     const r = retriedCall({ dir: d, env, row: playgroundRow(table, BIND_ROW), input: bindMoveInput(structure, persona, library.moves, libraryDir),
       refusalOf: (answer) => bindMoveRefusal(answer, contracts) });
     if (r.stopped) return r;
-    const { base_move: base, inference_move: inference, rationale } = r.answer;
-    record.bind = { author: BIND_ROW, move: base, base_move: base, inference_move: inference, binding_rationale: rationale.trim() };
+    const { base_move: base, case: told, inference_move: inference } = r.answer;
+    record.bind = { author: BIND_ROW, move: base, base_move: base, case: told, inference_move: inference, binding_rationale: bindingRationale(r.answer) };
     return { value: inference === null ? [base] : [base, inference], refusals: r.refusals };
   });
   // THE MAPPING TABLES (kogaki#1700, kogaki#1709): the owner's, or one `smp_correspondence` call per bound Move, the base Move's
@@ -412,10 +434,12 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     const tables = [];
     // Each Move's call keeps its own refusals; the stage records them in the order the Moves were called (kogaki#1708).
     const refusals = [];
-    for (const move of moves) {
+    // kogaki#1719: only the base Move's table takes the declared case.
+    for (const [i, move] of moves.entries()) {
       const md = join(d, move);
       mkdirSync(md, { recursive: true });
-      const r = retriedCall({ dir: md, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(move), tables),
+      const told = i === 0 ? record.bind.case : OWN;
+      const r = retriedCall({ dir: md, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(move), told, tables),
         refusalOf: (answer) => correspondenceRefusal(answer, structure) });
       refusals.push(...(r.refusals || []));
       if (r.stopped) return { stopped: `${move}: ${r.stopped}`, refusals };
@@ -432,11 +456,16 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     if (owned) {
       const serves = leg.waypoints[0].serves;
       const all = [suppliedEntry(owned.record, serves), ...projectionsOf(owned.record).map((p) => suppliedEntry(p, serves))];
-      listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
+      const library = loadMoveContracts(libraryDir);
+      const owner = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
+      listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, leaves: bindingLeaves(owner.get(e.move), null, null),
+        paragraph_waypoints: e.paragraph_waypoints }));
     } else {
-      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts });
+      const leaves = moves.map((m, i) => bindingLeaves(contracts.get(m), i === 0 ? record.bind.case : OWN, rbsTables.tables[i]));
+      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts, leaves });
       if (r.stopped) return r;
-      listed = r.entries.map((e) => ({ move: e.move, binding_rationale: record.bind.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
+      listed = r.entries.map((e, i) => ({ move: e.move, binding_rationale: record.bind.binding_rationale, leaves: leaves[i],
+        paragraph_waypoints: e.paragraph_waypoints }));
     }
     writeFileSync(bindPath, stringifyYaml({ move: listed[0].move, binding_rationale: listed[0].binding_rationale, paragraphs: listed }));
     record.bind = { ...record.bind, paragraphs: listed, ...fileRecord(bindPath) };
