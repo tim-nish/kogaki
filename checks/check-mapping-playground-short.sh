@@ -85,7 +85,8 @@
 #       group `case`, one with `case: own` and an `inference_move` in group `case`, and a missing or unknown `case` or a
 #       `rationale` in group `shape`; the base Move's correspondence stdin carries the declared `case` and the inference Move's
 #       carries `own`; `bind.yaml`'s Base Paragraph entry carries the added `carry` naming its table's `base.domain` under
-#       `apart`; Binding 1 shows the `Case` row; and a Trial whose last Move leaves an `apply` shows it under `Left unmet` on
+#       `apart`, and the waypoints call hands it to the Inference Paragraph's Leg Waypoint as `stands_to_be_taken_up`;
+#       Binding 1 shows the `Case` row; and a Trial whose last Move leaves an `apply` shows it under `Left unmet` on
 #       the last Binding table, `none` where no entry is left.
 set -u
 cd "$(dirname "$0")/.."
@@ -827,6 +828,9 @@ const vBase = (aBindYaml.paragraphs || [])[0] || {};
 ok(JSON.stringify(vBase.leaves) === JSON.stringify([{ kind: "carry", what: CARRY_WHAT, segment: vLast }, ADDED])
   && JSON.stringify(((aBindYaml.paragraphs || [])[1] || {}).leaves) === "[]",
   `(v) bind.yaml's Base Paragraph entry does not carry the Move's leaves and the added carry under apart: ${JSON.stringify(vBase.leaves)}`);
+const vStands = ((aLeg && aLeg.waypoints[1]) || {}).stands_to_be_taken_up || [];
+ok(vStands.some((x) => x.kind === "carry" && x.what === ADDED.what && x.left_by === "Leg Waypoint 1"),
+  `(v) the waypoints call does not hand the Inference Paragraph's Leg Waypoint the Base Paragraph's added carry: ${JSON.stringify(vStands)}`);
 const a1Bind = existsSync(join(a1.o, "bind.yaml")) ? parseYaml(readFileSync(join(a1.o, "bind.yaml"), "utf8"), "bind") : {};
 const plainLast = moveContract(PLAIN, resolve(repo, library)).segments.length;
 ok(JSON.stringify(((a1Bind.paragraphs || [])[0] || {}).leaves) === JSON.stringify([{ kind: "apply", what: PLAIN_LEAVES, segment: plainLast }])

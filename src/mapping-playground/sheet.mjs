@@ -91,8 +91,7 @@ function constraintRows(entries) {
   return list.length ? list.map((e) => esc(`${e.kind}: ${e.what}`)) : [esc("none")];
 }
 
-// WHAT NO LATER BINDING TAKES UP (kogaki#1719): each entry of binding i's `leaves` that no later binding's Move's `takes` names
-// by `kind` and `what` alike, as a ParagraphPlan reads what stands to be taken up (kogaki#1701).
+// kogaki#1719: an entry is taken up only where `kind` and `what` both match, as in standsToBeTakenUp (kogaki#1701).
 export function leftUnmet(paragraphs, i, contracts) {
   const taken = new Set(paragraphs.slice(i + 1).flatMap((p) => ((contracts.get(p.move) || {}).takes || []).map((x) => `${x.kind}\u0000${x.what}`)));
   return (paragraphs[i].leaves || []).filter((x) => !taken.has(`${x.kind}\u0000${x.what}`));

@@ -180,15 +180,14 @@ export function bindMoveRefusal(answer, contracts) {
   return null;
 }
 
-// The binding's rationale (kogaki#1719): written by the Harness from the answer's case and Moves, never by the model.
+// kogaki#1719: the model writes no rationale.
 export function bindingRationale({ base_move: base, case: told, inference_move: inference }) {
   return told === APART
     ? `case ${APART}: the Base Paragraph tells a case apart from the proposition's domain under "${base}", and the Inference Paragraph carries it onto the subject under "${inference}".`
     : `case ${OWN}: the Base Paragraph tells the proposition's own case under "${base}", and no Inference Paragraph is owed.`;
 }
 
-// WHAT A BINDING LEAVES (kogaki#1719): its Move's `leaves`, and on a paragraph told apart one `carry` more, naming its table's
-// domain; the obligation is the binding's, never the Move's.
+// What a binding leaves: specs/spec-draft-pipeline/SPEC.md §"What each binding leaves", kogaki#1719.
 export function bindingLeaves(contract, told, table) {
   const own = ((contract && contract.leaves) || []).map((x) => ({ kind: x.kind, what: x.what, ...(x.segment !== undefined ? { segment: x.segment } : {}) }));
   if (told !== APART) return own;
@@ -217,13 +216,15 @@ function correspondenceRefusal(answer, structure) {
 
 // THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
 // refused naming the Waypoint, the record is a ParagraphPlan unit's, and each paragraph's points keep to its own table (kogaki#1709).
-function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables, moves, contracts }) {
+function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables, moves, contracts, leaves }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
   const d = derivedRow(playground, WAYPOINTS_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
   const row = { ...plan.paragraph_plan_unit, ...d.row, shared_text_file: plan.paragraph_plan_unit.shared_text_file };
   const planned = planLeg(leg, { priorKnowledge: personaPriorKnowledgeLine(persona) });
-  const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i] })) };
+  // kogaki#1719: a later Leg Waypoint stands to take up what the binding before it leaves (kogaki#1701).
+  const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i],
+    ...(i > 0 ? { stands_to_be_taken_up: leaves[i - 1].map((x) => ({ kind: x.kind, what: x.what, left_by: `Leg Waypoint ${i}` })) } : {}) })) };
   const bound = [...new Set(moves)].map((id) => contracts.get(id));
   const input = { ...paragraphPlanUnitInput(fixed, bound, persona), tables };
   const held = bindFlow(FLOW);
@@ -433,7 +434,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     const tables = [];
     // Each Move's call keeps its own refusals; the stage records them in the order the Moves were called (kogaki#1708).
     const refusals = [];
-    // The base Move's table is grounded under the declared case, and the inference Move's always under the proposition's own.
+    // kogaki#1719: only the base Move's table takes the declared case.
     for (const [i, move] of moves.entries()) {
       const md = join(d, move);
       mkdirSync(md, { recursive: true });
@@ -460,10 +461,11 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
       listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, leaves: bindingLeaves(owner.get(e.move), null, null),
         paragraph_waypoints: e.paragraph_waypoints }));
     } else {
-      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts });
+      const leaves = moves.map((m, i) => bindingLeaves(contracts.get(m), i === 0 ? record.bind.case : OWN, rbsTables.tables[i]));
+      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts, leaves });
       if (r.stopped) return r;
-      listed = r.entries.map((e, i) => ({ move: e.move, binding_rationale: record.bind.binding_rationale,
-        leaves: bindingLeaves(contracts.get(e.move), i === 0 ? record.bind.case : OWN, rbsTables.tables[i]), paragraph_waypoints: e.paragraph_waypoints }));
+      listed = r.entries.map((e, i) => ({ move: e.move, binding_rationale: record.bind.binding_rationale, leaves: leaves[i],
+        paragraph_waypoints: e.paragraph_waypoints }));
     }
     writeFileSync(bindPath, stringifyYaml({ move: listed[0].move, binding_rationale: listed[0].binding_rationale, paragraphs: listed }));
     record.bind = { ...record.bind, paragraphs: listed, ...fileRecord(bindPath) };

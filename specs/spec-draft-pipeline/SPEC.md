@@ -3133,7 +3133,9 @@ Move's `leaves`, and, on the Base Paragraph where the declared `case` is
 Segment> }`, `<base.domain>` that paragraph's table's. The obligation is the
 binding's and never the Move's: the library is unchanged. A later binding's
 `takes` is read against it as a ParagraphPlan reads what stands to be taken
-up (kogaki#1701).
+up (kogaki#1701): the `waypoints` call hands each Leg Waypoint after the
+first the `leaves` of the binding before it as its `stands_to_be_taken_up`,
+each entry's `left_by` naming that Leg Waypoint.
 
 **The Correspondence vocabulary** (kogaki#1700, kogaki#1709). Each
 paragraph's Paragraph Waypoints are confined to its own table: they say the
