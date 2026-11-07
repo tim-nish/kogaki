@@ -12,8 +12,9 @@
 #   (j) `--structure` with `--mapper` is refused naming both.
 #   (k) the composed `brief.yaml` carries one Leg with no `introduces`, an empty `defined_terms`, no `reader_start`, `reader_target`, `obligations` or Leg reader state; the Leg call is handed `persona_prior_knowledge`, and no Reader start call is made (kogaki#1699).
 
-#   (l) a `context` carrying a listed word as a word ("The reader must hold...", "you", ...) is refused naming the Role and the word, in group `context`, and one carrying it inside a longer word is accepted (kogaki#1720).
+#   (l) a `context` carrying a listed word as a word ("The reader must hold...", "you", ...) is refused naming the Role and the word, in group `context` (kogaki#1720).
 #   (m) a relation's `holds` missing `{<id>}` for a Role its `between` names is refused naming the relation and the Role, and a `higher_order` `holds` carrying none of its Roles is refused (kogaki#1720).
+#   (n) a `context` carrying a listed word only inside a longer word ("youths", "readers'", "typewriter") is accepted (kogaki#1720).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -258,7 +259,7 @@ const base = mapped("A cleaning crew arrives at a house with a written list of r
 const l = validateStructure({ ...base, roles: [{ ...base.roles[0], context: "The reader must hold that a crew works from a list." }, ...base.roles.slice(1)] }, propRec);
 ok(l.group === "context" && /the Role "crew"/.test(l.error || "") && /"reader"/.test(l.error || ""),
   `(l) a context reading "The reader must hold" was not refused naming the Role and the word: ${JSON.stringify(l)}`);
-// every word of the refused family, not only the one the Trial met; a word that merely contains one is accepted
+// every word of the refused family, not only the one the Trial met
 const withContext = (context) => validateStructure({ ...base, roles: [{ ...base.roles[0], context }, ...base.roles.slice(1)] }, propRec);
 for (const [word, context] of [["you", "A crew you hire to clean a house."], ["must hold", "A crew that must hold to a list."],
   ["must come to", "A crew one must come to see as bound by a list."], ["Persona", "A crew the persona knows from home."],
@@ -266,8 +267,10 @@ for (const [word, context] of [["you", "A crew you hire to clean a house."], ["m
   const v = withContext(context);
   ok(v.group === "context" && v.error.includes(JSON.stringify(word)), `(l) a context carrying "${word}" was not refused naming the word: ${JSON.stringify(v)}`);
 }
+
+// (n) a listed word inside a longer word is no listed word
 const lw = withContext("A crew of youths and readers' helpers with a typewriter.");
-ok(!lw.error, `(l) a context carrying no listed word as a word was refused: ${JSON.stringify(lw)}`);
+ok(!lw.error, `(n) a context carrying a listed word only inside a longer word was refused: ${JSON.stringify(lw)}`);
 
 // (m) a holds missing a related Role's placeholder is refused naming the relation and the Role
 const m1 = validateStructure({ ...base, relations: [{ ...base.relations[0], holds: "{crew} cleans each room the list names." }, base.relations[1]] }, propRec);
