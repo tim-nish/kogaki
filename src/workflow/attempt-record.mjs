@@ -13,8 +13,9 @@ export const ATTEMPT_FILES = {
   raw: "answer.raw", answer: "answer.json", refusal: "refusal.json",
 };
 
-// A unit id is one path segment under `attempts/`.
-const unitSegment = (unit) => String(unit).replace(/[\\/]+/g, "-");
+// A unit id is a path under `attempts/`: one segment, or, for a call inside a unit, `<unit>/<stage>/<n>`
+// (kogaki#1734). No segment is empty or a dot.
+const unitSegment = (unit) => String(unit).split(/[\\/]+/).filter((p) => p && p !== "." && p !== "..").join("/") || "-";
 
 export function attemptsRoot(runDir) { return join(runDir, ATTEMPTS_DIR); }
 export function attemptDir(runDir, unit, n) { return join(attemptsRoot(runDir), unitSegment(unit), String(n)); }
@@ -89,7 +90,11 @@ export function attemptRows(root) {
   if (!existsSync(root)) return [];
   const numbered = (d) => readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
     .map((e) => Number(e.name)).sort((a, b) => a - b);
-  return readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort().flatMap((unit) =>
+  // A unit's directory holds its numbered attempts and, nested, the units of the calls inside it (kogaki#1734).
+  const units = (rel) => readdirSync(join(root, rel), { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !/^\d+$/.test(e.name)).map((e) => (rel ? `${rel}/${e.name}` : e.name)).sort()
+    .flatMap((u) => [u, ...units(u)]);
+  return units("").flatMap((unit) =>
     numbered(join(root, unit)).map((n) => {
       const dir = join(root, unit, String(n));
       const refusal = existsSync(join(dir, ATTEMPT_FILES.refusal)) ? JSON.parse(readFileSync(join(dir, ATTEMPT_FILES.refusal), "utf8")) : null;

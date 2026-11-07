@@ -21,6 +21,7 @@ import { bindFlow } from "./run-record.mjs";
 import { readerPathUnitRetryPrompt, loadReaderPathUnitValidator } from "./detached-job.mjs";
 import { answerRecord, bindMoveRefusal, correspondenceRefusal } from "../mapping-playground/short.mjs";
 import { writerRefusal } from "../draft/writer.mjs";
+import { validateMapperAnswer } from "../mapping-playground/sme.mjs";
 
 export const REPLAY_MODES = ["judge", "render", "model"];
 const UNITS_FILE = "reader-path-job-units.json";
@@ -65,6 +66,11 @@ export function answerText(raw, outputFormat) {
 const VALIDATORS = {
   bindMoveRefusal: (rec) => bindMoveRefusal(rec.answer, new Map(((rec.input && rec.input.moves) || []).map((m) => [m.id, m]))),
   correspondenceRefusal: (rec) => correspondenceRefusal(rec.answer, rec.input && rec.input.structure),
+  // The Mapper's structure reading, in the short Trial's map job and inside a ParagraphPlan unit (kogaki#1734).
+  validateMapperAnswer: (rec) => {
+    const v = validateMapperAnswer(rec.answer, { cite: rec.input && rec.input.strand, proposition: rec.input && rec.input.proposition });
+    return v.text ? v : null;
+  },
   answerRecord: (rec) => {
     const a = answerRecord(answerText(rec.raw, rec.argv && rec.argv.output_format) ?? "");
     return a.stopped ? { group: "shape", text: a.stopped } : null;
@@ -75,7 +81,8 @@ const VALIDATORS = {
   },
 };
 // The validator a row's answer is judged by where the record names none (a passed attempt), by row id.
-const ROW_VALIDATORS = { smp_bind_move: "bindMoveRefusal", smp_correspondence: "correspondenceRefusal", writer: "writerRefusal" };
+const ROW_VALIDATORS = { smp_bind_move: "bindMoveRefusal", smp_correspondence: "correspondenceRefusal", sme_map_roles: "validateMapperAnswer",
+  writer: "writerRefusal" };
 
 // The validator for one record: its own name, else its row's, else a job's declared compose validator.
 async function validatorFor(rec, name) {

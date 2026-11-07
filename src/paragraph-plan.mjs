@@ -44,7 +44,7 @@
 //   the ParagraphPlan stage
 //       SPEC-draft-pipeline
 //
-import { readFileSync, writeFileSync, existsSync, readdirSync, renameSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, renameSync, copyFileSync, mkdirSync } from "node:fs";
 import { join, resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -56,6 +56,7 @@ import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveC
   retiredPlanKeyRefusal } from "./compose.mjs";
 import { paragraphSchemaRefusal, paragraphLegRefusal, PLAN_SCHEMA_KEYS } from "./compose/record.mjs";
 import { mappingDirFor, writeMappingRecord } from "./compose/mapping-record.mjs";
+import { correspondenceVocabularyRefusal } from "./mapping-playground/rbs.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -459,11 +460,52 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
     if (bad) return { error: bad, sites: [i + 1] };
   }
   if (noFit.length) return { error: noParagraphMoveFitsRefusal(noFit), sites: noFit.map((f) => f.waypoint) };
+  const mapped = mappingVocabularyRefusal(r.waypoints, inputs, unitId, at);
+  if (mapped) return mapped;
   // THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639), by the plan reader's own rule: each
   // introduced term assigned to at most one paragraph.
   const legRule = paragraphLegRefusal(r.waypoints, leg, at);
   if (legRule) return { error: legRule };
   return {};
+}
+
+// THE LEG'S CLAIMS AS THE MAPPER'S STRAND (kogaki#1734): the cites of the Strands its Claims serve, in
+// order, as one text, which the structure read from each of its Leg Waypoints carries verbatim.
+export function legStrand(leg, strands = []) {
+  const cite = new Map((Array.isArray(strands) ? strands : []).map((x) => [x.id, x.cite]));
+  return (leg.claims || []).map((g) => cite.get(g.strand) || g.strand).join(", ") || String(leg.leg_id);
+}
+
+// THE MAPPING STATE OF ONE UNIT (kogaki#1734): the structures read and the tables grounded so far, written
+// by the Mapper (src/paragraph-plan-mapper.mjs) in the run directory and read here by the validators.
+export const mappingStatePath = (runDir, unitId) => join(runDir, "mapping", `${unitId}.json`);
+export function readMappingState(runDir, unitId) {
+  const path = runDir ? mappingStatePath(runDir, unitId) : null;
+  return path && existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
+}
+
+// ONCE GROUNDED, each entry keeps the Move its table was grounded for, and its Paragraph Waypoints carry that
+// table's expressions and no Role id outside one of it or of the Leg's earlier tables (kogaki#1734).
+function mappingVocabularyRefusal(entries, inputs, unitId, at) {
+  const tables = inputs.mapping ? (readMappingState(inputs.runDir, unitId) || {}).tables : null;
+  if (!tables || !Object.keys(tables).length) return null;
+  const prior = [];
+  for (const [i, e] of entries.entries()) {
+    const t = tables[String(i + 1)];
+    if (!t) continue;
+    const atW = `${at}, Waypoint ${i + 1}`;
+    if (e.move !== t.move) {
+      return { error: `${atW}: the entry binds ${JSON.stringify(e.move)}, and the Mapping Table of this Leg Waypoint was grounded for "${t.move}" — the Move is bound before grounding and kept after it`, sites: [i + 1] };
+    }
+    const v = correspondenceVocabularyRefusal(e.paragraph_waypoints, t, prior, i + 1);
+    if (v) {
+      const id = (/carries the Role id "([^"]+)"/.exec(v) || [])[1];
+      const c = id && t.correspondences.find((x) => x.role === id);
+      return { error: `${atW}: ${v}${c ? `; the Role "${id}" reads "${c.expression}" in this Leg Waypoint's Mapping Table` : ""}`, sites: [i + 1] };
+    }
+    prior.push(t);
+  }
+  return null;
 }
 
 // ONE ENTRY'S RULES, against the entries before it: the Leg call's validator and the site
@@ -751,6 +793,7 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
       leg_id: leg.leg_id, waypoint: n, waypoints_in_leg: leg.waypoints.length,
       point: w.point, case: w.case, serves: [...w.serves], next_point: w.next_point,
       stands_to_be_taken_up: standsToBeTakenUp(leg, entries, n, (id) => boundMoveContract(id, inputs.movesDir)),
+      ...siteMapping(inputs, unitId, n),
     },
     leaves_for_next_leg: leg.leaves_for_next_leg || [],
     fixed: siteFixed(ctx),
@@ -762,6 +805,15 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
     re_activations_this_entry_carries: entry["re-activate"] || [],
     refused_here: (ctx.history || []).map((h) => ({ entry: h.entry ?? null, refusal: h.refusal })),
   };
+}
+
+// The site's structure and Mapping Table, once the unit is grounded (kogaki#1734).
+function siteMapping(inputs, unitId, n) {
+  const state = inputs.mapping ? readMappingState(inputs.runDir, unitId) : null;
+  const s = state && state.structures && state.structures[String(n)];
+  const t = state && state.tables && state.tables[String(n)];
+  return { ...(s ? { structure: { roles: s.roles, relations: s.relations, higher_order: s.higher_order } } : {}),
+    ...(t ? { table: { base: t.base, correspondences: t.correspondences } } : {}) };
 }
 
 export function paragraphPlanSitePrompt(ctx, inputs, unitId) {
@@ -960,6 +1012,10 @@ function carriedUnits(source, dir, { briefSha, movesDir, legs }) {
   return job.units.filter((u) => u.status === "done" && u.candidate && ids.has(u.id)).map((u) => {
     const candidateFile = copy(u.candidate_file, readerPathUnitCandidatePath(dir, u.id));
     const specializationFile = copy(u.specialization_file, readerPathUnitSpecializationPath(dir, u.id));
+    if (existsSync(mappingStatePath(source, u.id))) {
+      mkdirSync(dirname(mappingStatePath(dir, u.id)), { recursive: true });
+      copy(mappingStatePath(source, u.id), mappingStatePath(dir, u.id));
+    }
     return { id: u.id, status: "done", bytes: u.bytes || 0, attempts: u.attempts || 1, phase: u.phase || "fit",
       candidate: u.candidate, ...(candidateFile ? { candidate_file: candidateFile } : {}),
       ...(u.specialization ? { specialization: u.specialization } : {}),
@@ -1002,6 +1058,8 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const unitAttempts = positiveSetting(table.job, "unit_attempts");
   const siteRetry = table.job.site_retry || fail("src/paragraph-plan-workflow.json's `job` declares no `site_retry` (kogaki#1642). Nothing was started.");
   const legAttempts = positiveSetting(siteRetry, "leg_attempts");
+  // THE MAPPER (kogaki#1734): reading, bind, grounding and the Paragraph Waypoints call, in that order, per Leg.
+  const mapping = settingValue(table.job.mapper) === true;
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
   const binary = resolveJudgeBinary(String(declared), process.env.PATH);
   const model = String(settingValue(table.judge.model));
@@ -1028,6 +1086,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const units = legs.map((leg, i) => ({ id: unitIdFor(i), prompt: paragraphPlanUnitPrompt(row, unitInputs[i]), input: unitInputs[i] }))
     .filter((u) => !carriedIds.has(u.id));
   const planned = { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) };
+  const planHead = renderRowHead({ id: "paragraph_plan_unit", ...row });
   startDetachedJobSupervisor(dir, {
     units, carried, command: binary.path, commandVersion: binary.version, model, outputFormat: String(table.judge.output_format || "json"),
     rows: Object.fromEntries([["compose", "paragraph_plan_unit"], ["fit", "paragraph_plan_judge_unit"], ["site", "paragraph_plan_site_unit"],
@@ -1037,15 +1096,17 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     stallS: jobStallS(table.job.stall_s),
     heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
     recordArray: "waypoints",
-    validator: { module: "src/paragraph-plan.mjs", export: "validateParagraphPlanUnit", inputs: { legs, movesDir } },
+    validator: { module: "src/paragraph-plan.mjs", export: "validateParagraphPlanUnit", inputs: { legs, movesDir, runDir: dir, mapping } },
+    ...(mapping ? { mapper: { module: "src/paragraph-plan-mapper.mjs", export: "ParagraphPlanMapper",
+      inputs: { legs, strands: brief.legs.map((leg) => legStrand(leg, brief.record.strands)), movesDir, persona: planned, planHead } } } : {}),
     fitJudge: { module: "src/paragraph-plan.mjs", prompt_export: "paragraphPlanJudgePrompt", verdict_export: "paragraphPlanJudgeVerdict",
       inputs: { legs, movesDir, promptHead: renderRowHead(judgeRow) } },
     // THE SITE LOOP (kogaki#1642): a refusal naming a Leg Waypoint is retried there alone.
     siteRetry: { module: siteRetry.module, site_prompt_export: siteRetry.site_prompt_export,
       site_validator_export: siteRetry.site_validator_export, suffix_prompt_export: siteRetry.suffix_prompt_export,
       suffix_validator_export: siteRetry.suffix_validator_export, mark_export: siteRetry.mark_export, leg_attempts: legAttempts,
-      inputs: { legs, movesDir, runDir: dir, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
-        planHead: renderRowHead({ id: "paragraph_plan_unit", ...row }) } },
+      inputs: { legs, movesDir, runDir: dir, mapping, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
+        planHead } },
   });
   return dir;
 }
@@ -1062,7 +1123,8 @@ export function jobStatusLines(dir, job, now = Date.now()) {
   const lines = [`ParagraphPlan job at ${relFromRepo(readerPathJobPath(dir))} — ${job.state}, elapsed ${Math.floor((now - startedAt) / 1000)}s; `
     + `each Leg gets up to ${bounds ? bounds.unitAttempts : "?"} attempts of at most ${bounds ? `${bounds.callLimitS}s` : "?"} per call:`];
   for (const u of job.units || []) {
-    lines.push(`  unit ${u.id}: attempt ${u.attempts || 1}, ${u.phase === "fit" ? "judge" : u.phase === "site" ? "site retry" : "plan"}, ${u.status}, ${u.bytes || 0} byte(s)`);
+    const phase = u.phase === "fit" ? "judge" : u.phase === "site" ? "site retry" : ["reading", "grounding"].includes(u.phase) ? u.phase : "plan";
+    lines.push(`  unit ${u.id}: attempt ${u.attempts || 1}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s)`);
   }
   return lines;
 }
@@ -1110,6 +1172,20 @@ export function stopLines(start, job) {
   return lines;
 }
 
+// The Mapping Record's entries from each unit's mapping state (kogaki#1734).
+export function mappingEntries(dir, legs) {
+  return legs.flatMap((leg, i) => {
+    const state = readMappingState(dir, unitIdFor(i));
+    if (!state) return [];
+    return leg.waypoints.map((w) => {
+      const k = String(w.waypoint);
+      const structure = state.structures && state.structures[k] && !(state.read_from && state.read_from[k]) ? state.structures[k] : undefined;
+      const table = state.tables && state.tables[k];
+      return { leg_id: leg.leg_id, waypoint: w.waypoint, ...(structure ? { structure } : {}), ...(table ? { table } : {}) };
+    });
+  });
+}
+
 // Finish a terminal job. Returns `{ written }` or `{ stopped: lines }`.
 export function finishParagraphPlan(dir) {
   const start = JSON.parse(readFileSync(join(dir, START_FILE), "utf8"));
@@ -1133,9 +1209,10 @@ export function finishParagraphPlan(dir) {
     entries: units[i].candidate.waypoints.map((e) => Object.fromEntries([...PLAN_SCHEMA_KEYS, "move_forced_by"].filter((k) => Object.hasOwn(e, k)).map((k) => [k, e[k]]))),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null) }));
   // THE MAPPING RECORD IS WRITTEN WITH THE PLAN (kogaki#1733), and the plan names it by path and
-  // digest. No stage reads a structure or grounds a table yet, so the record holds no file.
+  // digest: each Leg's structures read and tables grounded (kogaki#1734); a structure a Leg Waypoint
+  // took from its predecessor is not written again.
   const planPath = paragraphPlanPathFor(briefPath);
-  const mapping = writeMappingRecord(mappingDirFor(planPath), []);
+  const mapping = writeMappingRecord(mappingDirFor(planPath), mappingEntries(dir, start.legs));
   const record = paragraphPlanRecord({ briefPath, briefText, legs, mapping });
   writeFileSync(planPath, paragraphPlanRecordText(record));
   writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString(),

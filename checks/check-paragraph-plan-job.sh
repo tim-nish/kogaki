@@ -43,6 +43,10 @@
 #       Segments table with each Paragraph Waypoint and Move `leaves`; `--run` adds the
 #       refusals of (b) with the axis they name, each under the Leg Waypoint
 #       it names as its site; and an edited Brief is refused.
+#   (f) THE MAPPER'S ATTEMPT RECORDS ARE LISTED (kogaki#1734): a job directory
+#       holding a Leg's plan call and, nested under it, its reading and grounding
+#       calls' records lists each in `src/workflow/job-report.mjs`, under
+#       `leg-1/reading/waypoint-<n>` and `leg-1/grounding/waypoint-<n>`.
 
 # NOT COVERED, stated rather than implied: the retry inside a Leg -- which Leg
 # Waypoint is re-planned, and the refusal of an identical attempt -- is its own
@@ -73,6 +77,12 @@ const settings = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "ut
 const UNIT_ATTEMPTS = settings.brief.unit_attempts;
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-job-"));
+// THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;
+// checks/check-paragraph-plan.sh case (z) runs the Mapper.
+const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+noMapper.paragraph_plan.mapper = false;
+process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
+writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 
 // ---- the Move library: one whole paragraph Move ----
 const moves = join(root, "moves");
@@ -324,6 +334,21 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   const moved = view("--moves-dir", moves);
   if (moved.status === 0 || !/was made from a different Brief/.test(moved.stderr || "")) fails.push(`(e) view did not refuse a plan whose Brief moved: ${(moved.stderr || "") + (moved.stdout || "").slice(0, 300)}`);
 } else fails.push("(e) the view was not run: (c) wrote no plan");
+
+// (f) the reading and grounding Attempt Records sit under the Leg's unit, and the job report lists them.
+{
+  const { writeAttemptRecord } = await import(pathToFileURL(join(repo, "src", "workflow", "attempt-record.mjs")).href);
+  const jobDir = join(root, "mapper-report");
+  const rec = (refusal) => ({ prompt: "p", argv: {}, cli: {}, input: {}, row: { row: null, tables: [] }, raw: "", answer: {}, refusal });
+  writeAttemptRecord(jobDir, "leg-1", 1, rec(null));
+  writeAttemptRecord(jobDir, "leg-1/reading/waypoint-1", 1, rec({ group: "context", reach: "part", text: "READING-REFUSED", validator: "validateMapperAnswer" }));
+  writeAttemptRecord(jobDir, "leg-1/reading/waypoint-1", 2, rec(null));
+  writeAttemptRecord(jobDir, "leg-1/grounding/waypoint-2", 1, rec(null));
+  const out = spawnSync(process.execPath, ["src/workflow/job-report.mjs", jobDir], { cwd: repo, encoding: "utf8" }).stdout || "";
+  const want = ["unit leg-1:", "unit leg-1/reading/waypoint-1:", "context, part: READING-REFUSED", "unit leg-1/grounding/waypoint-2:"];
+  const missing = want.filter((w) => !out.includes(w));
+  if (missing.length || (out.match(/attempt \d+ —/g) || []).length !== 4) fails.push(`(f) the job report does not list the Leg's reading and grounding Attempt Records (missing ${missing.join(", ")}): ${out}`);
+}
 
 if (fails.length) { for (const f of fails) console.error(`FAIL ${f}`); process.exit(1); }
 console.log("check-paragraph-plan-job: ok");

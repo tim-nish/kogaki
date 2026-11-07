@@ -2943,11 +2943,11 @@ plan, in the same act that writes the plan. Under it,
 `<leg_id>/<waypoint>/structure.yaml` holds a Leg Waypoint's
 RelationalStructure, and `<leg_id>/<waypoint>/table.yaml` holds the Mapping
 Table of the Move bound there, as `{ move, case, base, correspondences }`. A
-Leg Waypoint whose `case` is `apart` shares its predecessor's structure and
-writes none. The shapes are the Trial's (§4.20). The record is the settled
-result; the Attempt Records (kogaki#1717) are how it was reached and stay in
-the run directory. The stage replaces the record whole on every write. Until
-a stage reads structures and grounds tables, the record holds no file.
+Leg Waypoint following an `apart` one shares its predecessor's structure and
+writes none (kogaki#1734). The shapes are the Trial's (§4.20). The record is
+the settled result; the Attempt Records (kogaki#1717) are how it was reached
+and stay in the run directory. The stage replaces the record whole on every
+write. With the Mapper off (§4.19.3), the record holds no file.
 
 **The plan names it.** `paragraph-plan.yaml` carries `mapping: { path,
 sha256, files }`. `files` holds one `{ path, sha256 }` per record file in path
@@ -2970,6 +2970,55 @@ For each Leg Waypoint it shows the Segments with the Paragraph Waypoints and
 their Cast, the binding with its `case`, the Mapping Table and the structure.
 With `--run` it lists the Attempt Records of the Leg's job unit. It prints
 HTML to stdout, or writes `--out`, and writes nothing else.
+
+#### 4.19.3 The Mapper in ParagraphPlan (kogaki#1734)
+
+**What it is.** The Mapper is one component with two processes, structure
+reading and grounding (kogaki#1721). Inside each Leg's job unit,
+`/paragraph-plan` runs them in this order: reading, bind, grounding, then the
+Paragraph Waypoints. The Brief still composes the Leg Waypoints and decides
+each one's `case` (kogaki#1732), and ParagraphPlan still binds the Moves and
+writes the Paragraph Waypoints. The setting `paragraph_plan.mapper` in
+`kogaki.settings.json` turns the Mapper on; it is `true`.
+
+**Reading.** Before the bind call, the unit runs the `sme_map_roles` row on
+each Leg Waypoint. The Waypoint's `point` is the proposition, and the cites of
+the Strands the Leg's Claims serve are its strand. A Leg Waypoint following an
+`apart` one reads none and takes its predecessor's structure.
+
+**Bind.** The `paragraph_plan_unit` call binds one Move per Leg Waypoint, as
+before. Each Leg Waypoint in its input carries its `case` and its structure:
+the Roles with their `context` and `attributes`, the relations and the
+higher-order relation. The row's MAP criterion says the Move's Segments carry
+the structure's relations and then its higher-order relation. The call
+declares no case. Its Paragraph Waypoints are not kept.
+
+**Grounding.** The unit then runs the `smp_correspondence` row once per bound
+Move, in Leg Waypoint order. Its input is the structure, the Move's Segments,
+the Persona, the Leg Waypoint's `case`, and the tables already grounded in
+this Leg as `prior_tables`. Under `apart` the base is a domain the Persona
+holds, apart from the proposition's. Under `own` it is the proposition's own,
+with the Attributes carried.
+
+**The Paragraph Waypoints.** A second `paragraph_plan_unit` call writes the
+Paragraph Waypoints. Each Leg Waypoint in its input carries its bound Move,
+its table and its structure, and the MAP criterion says to keep that Move and
+write in the table's expressions. `validateParagraphPlanUnit` then refuses an
+entry whose Move is not the one its table was grounded for, and runs
+`correspondenceVocabularyRefusal` over each Leg Waypoint's points against its
+table and the Leg's earlier tables. Each refusal names the Leg Waypoint, the
+Role and the Role's expression, and the site retry and the judge run as
+before, over the tables. The judge row gains no criterion: the vocabulary is
+a validator's reading.
+
+**Bounds and records.** Reading and grounding keep the Trial's retry bound,
+`MAPPER_ATTEMPTS`, and its refusal groups and reaches (kogaki#1708). Each call
+writes its Attempt Record under the Leg's unit, in
+`attempts/<unit>/reading/waypoint-<n>/` or
+`attempts/<unit>/grounding/waypoint-<n>/`. The job report lists them, and
+`replay` re-runs one. A refusal past the bound stops the unit, naming the Leg,
+the Leg Waypoint and the stage. The structures and tables settled are written
+to the Mapping Record (§4.19.2) with the plan.
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 
@@ -3111,6 +3160,12 @@ first attempt.
 **What the record says.** `trial.json` carries `mapper: { variant,
 prompt_sha256 }`, the hash of the rendered prompt, and `structure.author:
 mapper`. The owner-authored route keeps `mapper: owner-authored`.
+
+**Shared with ParagraphPlan (kogaki#1734).** The Trial and ParagraphPlan
+share the `sme_map_roles` and `smp_correspondence` rows and their validators,
+`validateStructure`, `correspondenceRefusal` and
+`correspondenceVocabularyRefusal`. ParagraphPlan imports them and copies
+none.
 
 **A variant is a workflow row.** A variant is a row `sme_map_<variant>` of
 `src/mapping-playground/playground-workflow.json`. A second variant is a

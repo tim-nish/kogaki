@@ -14,6 +14,8 @@
   },
   "paragraph_plan": {
     "leg_attempts": 6,
-    "leg_attempts_means": "How many site retries one Leg of a /paragraph-plan job gets in total, across all of its Leg Waypoints. A refusal that names one Leg Waypoint is retried at that Leg Waypoint alone, and each Leg Waypoint gets brief.unit_attempts attempts counting the Leg's first; this number ends a Leg whose retries keep reopening the paragraphs after the one being repaired."
+    "leg_attempts_means": "How many site retries one Leg of a /paragraph-plan job gets in total, across all of its Leg Waypoints. A refusal that names one Leg Waypoint is retried at that Leg Waypoint alone, and each Leg Waypoint gets brief.unit_attempts attempts counting the Leg's first; this number ends a Leg whose retries keep reopening the paragraphs after the one being repaired.",
+    "mapper": true,
+    "mapper_means": "Whether /paragraph-plan runs the Mapper inside each Leg's job unit: it reads each Leg Waypoint's point into a structure before the Moves are bound, grounds one Mapping Table per bound Move after, and writes the Paragraph Waypoints from those tables. With false, the stage binds and writes the Paragraph Waypoints in one call and the Mapping Record holds no file."
   }
 }
