@@ -91,7 +91,7 @@
 #       Binding 1 shows the `Case` row; and a Trial whose last Move leaves an `apply` shows it under `Left unmet` on
 #       the last Binding table, `none` where no entry is left.
 #   (w) the short Trial's Leg Waypoints carry `case` (kogaki#1732): the first takes the declared case and every later one
-#       `own`, and `shortLeg` with no case declared, the owner's route, writes `own` on the first.
+#       `own`; on the owner's route `legCase` reads `apart` where the file binds a Move after the first, else `own`.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -111,7 +111,7 @@ const { parseYaml, stringifyYaml } = await import(pathToFileURL(join(repo, "src/
 const { validateRbsTable, validateCorrespondenceTable } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
 const { validateStructure } = await import(pathToFileURL(join(repo, "src/mapping-playground/structure.mjs")).href);
 const { moveContract } = await import(pathToFileURL(join(repo, "src/compose.mjs")).href);
-const { bindMoveRefusal, retriedCall, shortLeg } = await import(pathToFileURL(join(repo, "src/mapping-playground/short.mjs")).href);
+const { bindMoveRefusal, retriedCall, shortLeg, legCase } = await import(pathToFileURL(join(repo, "src/mapping-playground/short.mjs")).href);
 const { correspondenceVocabularyRefusal } = await import(pathToFileURL(join(repo, "src/mapping-playground/rbs.mjs")).href);
 const { readAttemptRecord } = await import(pathToFileURL(join(repo, "src/workflow/attempt-record.mjs")).href);
 const { relFromRepo } = await import(pathToFileURL(join(repo, "src/workflow/run-record.mjs")).href);
@@ -887,6 +887,9 @@ ok(a1Binding && JSON.stringify(labelsOf(a1Binding)) === JSON.stringify(["Move", 
   ok(apart.waypoints.map((w) => w.case).join() === "apart,own", `(w) the short Leg under apart does not carry apart then own: ${JSON.stringify(apart.waypoints)}`);
   const owned = shortLeg("P.", [tbl], null, st);
   ok(owned.waypoints.map((w) => w.case).join() === "own", `(w) the short Leg with no case declared does not carry own: ${JSON.stringify(owned.waypoints)}`);
+  const cases = [legCase({ case: "apart" }), legCase({ case: "own", inference_moves: ["m2"] }),
+    legCase({ author: "owner", inference_moves: ["m2"] }), legCase({ author: "owner", inference_moves: [] })];
+  ok(cases.join() === "apart,own,apart,own", `(w) legCase does not read the declared case, or on the owner's route apart beside an Inference Move and own alone: ${cases}`);
 }
 
 // (h) nothing under the repository's moves/ or theses/ changed

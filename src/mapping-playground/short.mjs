@@ -72,12 +72,20 @@ const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "u
 // Waypoint per bound Move, each `point` the structure in the expressions of that Move's table: one per projecting binding of the
 // owner's file after the first, and in the model route one where an Inference Move is bound, else none.
 // A Leg Waypoint's point (kogaki#1688). Only the first Waypoint takes the declared case; the owner's file declares none,
-// so its first is `own` (kogaki#1732).
+// so `legCase` reads it from the bindings (kogaki#1732).
 export function firstPoint(structure, table) {
   const base = new Map(table.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
   return [...structure.relations, ...higherOrderOf(structure)]
     .map((e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (base.has(id) ? base.get(id) : all)))
     .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
+}
+
+// The case the Leg's first Waypoint takes: the `bind` stage's answer, or on the owner's route, where no case is declared,
+// `apart` when the owner's file binds a Move after the first and `own` when it binds one alone, as `bindMoveRefusal`
+// pairs an Inference Move with `apart` (kogaki#1732).
+export function legCase(bind) {
+  if (bind && CASES.includes(bind.case)) return bind.case;
+  return bind && Array.isArray(bind.inference_moves) && bind.inference_moves.length ? APART : OWN;
 }
 
 export function shortLeg(proposition, tables, persona, structure, told = OWN) {
@@ -484,7 +492,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     writeRbs(t);
     return { value: t, refusals };
   });
-  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure, record.bind.case || OWN) : null;
+  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure, legCase(record.bind)) : null;
   // THE PARAGRAPH WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
   const paragraphs = stage("waypoints", (d, env) => {
     let listed;

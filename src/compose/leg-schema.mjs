@@ -233,8 +233,9 @@ export function budgetRefusal(budget, at) {
 export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, claimText = null, { paragraph = false } = {}) {
   const def = "a waypoint is a point its paragraph makes, carrying a `point` "
     + "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on "
-    + "the reader) and `serves` (the claims it serves, by the Strand id each names) — src/leg-schema.json, "
-    + "`waypoint` (kogaki#1326)";
+    + "the reader)" + (paragraph ? " and " : ", ") + "`serves` (the claims it serves, by the Strand id each names)"
+    + (paragraph ? "" : " and `case` (`own` or `apart`: whose case the paragraph tells, kogaki#1732)")
+    + " — src/leg-schema.json, `waypoint` (kogaki#1326)";
   if (!Array.isArray(waypoints) || waypoints.length === 0) {
     return `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, its `
       + `specialization of its Move's segments, written at composition because no stage after the Candidate `
@@ -257,14 +258,14 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
     }
     // THE BOUND PARAGRAPH MOVE IS RETIRED FROM THE WAYPOINT BY NAME (kogaki#1375, owner
     // decision 2026-10-14): Move information is used up to Paragraph Waypoint generation
-    // and nowhere after it, so a Leg Waypoint carries `point` and `serves` only. The
+    // and nowhere after it, so a Leg Waypoint carries `point`, `serves` and `case` only. The
     // ParagraphPlan stage binds a paragraph Move per Leg Waypoint and keeps which one in
     // its own run directory; a Brief whose waypoint still carries either field is refused
     // here, at every read, the way `effect` is.
     for (const k of RETIRED_WAYPOINT_MOVE_FIELDS) {
       if (Object.hasOwn(w, k)) {
-        return `${at}: ${nth} carries \`${k}\`, which is retired — a Leg Waypoint carries \`point\` and \`serves\` `
-          + `only, and no Move information reaches the Brief: the paragraph Move is bound by /paragraph-plan, `
+        return `${at}: ${nth} carries \`${k}\`, which is retired — a Leg Waypoint carries \`point\`, \`serves\` `
+          + `and \`case\` only, and no Move information reaches the Brief: the paragraph Move is bound by /paragraph-plan, `
           + `after the Brief, and stays in that stage's run directory (kogaki#1375). ${def}`;
       }
     }
