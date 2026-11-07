@@ -53,8 +53,8 @@ export function higherOrderOf(record) {
   return isMap(h) ? [{ id: "h1", ...h }] : null;
 }
 
-// The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer. Each refusal carries its
-// group (kogaki#1708): `shape`, `strand` or `attributes`.
+// The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer.
+// Each refusal carries its group (kogaki#1708): `shape`, `strand` or `attributes`.
 export function validateStructure(record, proposition) {
   const bad = keysRefusal(record, ["strand", "roles", "relations", "higher_order"], "the structure");
   if (bad) return { group: "shape", error: bad };
