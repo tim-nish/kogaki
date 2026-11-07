@@ -370,7 +370,8 @@ export function renderAndStorePacket(brief, id, args, ws) {
     if (existsSync(runFile)) rec = JSON.parse(readFileSync(runFile, "utf8"));
     const key = packetsRecordKey(lang);
     // The plan the Packet was rendered from rides beside its own hash (kogaki#1645).
-    rec[key] = { ...(rec[key] || {}), [id]: { path: out, sha256: sha, plan_sha256: brief.paragraphPlan?.sha256 ?? null } };
+    rec[key] = { ...(rec[key] || {}), [id]: { path: out, sha256: sha, plan_sha256: brief.paragraphPlan?.sha256 ?? null,
+      mapping_sha256: brief.paragraphPlan?.mapping_sha256 ?? null } };
     writeFileSync(runFile, JSON.stringify(rec, null, 2) + "\n");
   } catch (e) {
     process.stderr.write(`draft: the packet's path and sha were not recorded in ${runFile} (${e.message}) — the Packet itself is written and printed; the record is the trace, and the trace never gates the write it traces\n`);

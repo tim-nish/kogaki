@@ -55,6 +55,7 @@ import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveC
   paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
   retiredPlanKeyRefusal } from "./compose.mjs";
 import { paragraphSchemaRefusal, paragraphLegRefusal, PLAN_SCHEMA_KEYS } from "./compose/record.mjs";
+import { mappingDirFor, writeMappingRecord } from "./compose/mapping-record.mjs";
 // THE FILE'S WRITER AND READER LIVE IN src/compose.mjs, shared code, because /draft reads the
 // file too and a command module never imports another command's (kogaki#1302); this stage
 // re-exports them so its checks reach the whole stage through one module.
@@ -1129,8 +1130,11 @@ export function finishParagraphPlan(dir) {
     waypoints: units[i].candidate.waypoints.map((e) => e.paragraph_waypoints),
     entries: units[i].candidate.waypoints.map((e) => Object.fromEntries([...PLAN_SCHEMA_KEYS, "move_forced_by"].filter((k) => Object.hasOwn(e, k)).map((k) => [k, e[k]]))),
     joins: units[i].candidate.waypoints.map((e) => e.join ?? null) }));
-  const record = paragraphPlanRecord({ briefPath, briefText, legs });
+  // THE MAPPING RECORD IS WRITTEN WITH THE PLAN (kogaki#1733), and the plan names it by path and
+  // digest. No stage reads a structure or grounds a table yet, so the record holds no file.
   const planPath = paragraphPlanPathFor(briefPath);
+  const mapping = writeMappingRecord(mappingDirFor(planPath), []);
+  const record = paragraphPlanRecord({ briefPath, briefText, legs, mapping });
   writeFileSync(planPath, paragraphPlanRecordText(record));
   writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString(),
     collisions: paragraphPlanCollisions(record.legs, readAxes().axes.map((a) => String(a.id))) });

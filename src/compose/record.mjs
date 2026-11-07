@@ -19,6 +19,7 @@ import {
   readerStateDimensionLine, waypointsRefusal,
 } from "./leg-schema.mjs";
 import { parseIntroducesEntry, parseReactivateEntry } from "./sections.mjs";
+import { mappingShapeRefusal, mappingRecordRefusal } from "./mapping-record.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
 //
@@ -180,11 +181,13 @@ function forcedMarkRefusal(v, at, key) {
 const unmarked = (o) => (o && typeof o === "object" && !Array.isArray(o)
   ? Object.fromEntries(Object.entries(o).filter(([k]) => !FORCED_MARK_KEYS.includes(k))) : o);
 
-export function paragraphPlanRecord({ briefPath, briefText, legs }) {
+// `mapping`, where given, is the Mapping Record the plan names by path and digest (kogaki#1733).
+export function paragraphPlanRecord({ briefPath, briefText, legs, mapping = null }) {
   const strings = (v) => (Array.isArray(v) ? v.map((x) => oneLine(x)) : []);
   return {
     version: "1",
     brief: { path: relFromRepo(resolve(briefPath)), sha256: sha256(briefText) },
+    ...(mapping ? { mapping } : {}),
     legs: legs.map((l) => ({
       leg_id: l.leg_id,
       waypoints: l.waypoints.map((pws, i) => {
@@ -224,7 +227,7 @@ export function paragraphPlanRecordText(record) {
   return stringifyYaml(record, { width: 120, header: PLAN_HEADER });
 }
 
-const PLAN_KEYS = ["version", "brief", "legs"];
+const PLAN_KEYS = ["version", "brief", "mapping", "legs"];
 const PLAN_BRIEF_KEYS = ["path", "sha256"];
 const PLAN_LEG_KEYS = ["leg_id", "waypoints"];
 // THE PARAGRAPH'S SCHEMA (kogaki#1639): the Leg schema minus `opens_section`, `reaches_target`,
@@ -281,9 +284,17 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
       + `sha256 ${record.brief.sha256}, and the Brief at ${briefRel} is sha256 ${want} — the Brief has changed since `
       + `the plan was made, so run /paragraph-plan on this Brief again (kogaki#1375)` };
   }
+  // THE MAPPING RECORD (kogaki#1733): a plan naming one is read only while the record on disk
+  // is the one it names; a plan written before the record existed names none.
+  let mappingSha = null;
+  if (record.mapping) {
+    const m = mappingRecordRefusal(record.mapping, path, rel);
+    if (m.error) return { error: m.error };
+    mappingSha = m.sha256;
+  }
   const waypoints = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.paragraph_waypoints)]));
   const joins = new Map(record.legs.map((l) => [l.leg_id, l.waypoints.map((w) => w.join ?? null)]));
-  return { path, record, waypoints, joins };
+  return { path, record, waypoints, joins, mappingSha };
 }
 
 // The terms a Leg's `introduces` carries, by `term`, from either form the Brief's record
@@ -412,6 +423,10 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null } 
   }
   const kb = undeclaredKey(b, PLAN_BRIEF_KEYS);
   if (kb) return `the ParagraphPlan file ${rel} carries \`brief.${kb}\`, which a ParagraphPlan record does not declare`;
+  if (Object.hasOwn(record, "mapping")) {
+    const m = mappingShapeRefusal(record.mapping, rel);
+    if (m) return m;
+  }
   if (!Array.isArray(record.legs) || record.legs.length !== legs.length
     || record.legs.some((l, i) => !l || l.leg_id !== legs[i].leg_id)) {
     return `the ParagraphPlan file ${rel} carries the Legs ${JSON.stringify((record.legs || []).map((l) => l && l.leg_id))}, `

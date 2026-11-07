@@ -87,6 +87,9 @@ export {
   thesisClosureRow, thesisClosureLeg,
   placements, journeyPlacements,
 } from "./compose/record.mjs";
+export {
+  MAPPING_DIR, STRUCTURE_FILE, TABLE_FILE, mappingDirFor, mappingRecordOf, writeMappingRecord, mappingDigest,
+} from "./compose/mapping-record.mjs";
 export { fillBrief } from "./compose/fill.mjs";
 
 function argString(args, key, usage) {

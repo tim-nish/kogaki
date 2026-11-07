@@ -100,7 +100,7 @@ function cmdResolve(args) {
     ...(carried ? { packets: carried } : {}),
     brief: brief.path,
     brief_sha: sha256(brief.text),
-    plan: { path: brief.paragraphPlan.path, sha256: planSha },
+    plan: { path: brief.paragraphPlan.path, sha256: planSha, mapping_sha256: brief.paragraphPlan.mapping_sha256 },
     survey_pin: brief.surveyPin,
     strands: brief.strands.map((s) => s.id),
     legs: brief.legs.map((s) => s.leg_id),
@@ -176,7 +176,8 @@ function driveNextPacket(brief, args, ws) {
   let recorded = {};
   try { recorded = JSON.parse(readFileSync(join(ws, "run.json"), "utf8"))[packetsRecordKey(lang)] || {}; }
   catch { /* no run record — every Leg owes its Packet */ }
-  const current = (id) => recorded[id]?.plan_sha256 === brief.paragraphPlan.sha256;
+  const current = (id) => recorded[id]?.plan_sha256 === brief.paragraphPlan.sha256
+    && (recorded[id]?.mapping_sha256 ?? null) === brief.paragraphPlan.mapping_sha256;
   const next = brief.legs.find((s) => !existsSync(join(sectionsDir(ws, lang), `${s.leg_id}.md`)) || !current(s.leg_id));
   if (!next) return null;
   const r = renderAndStorePacket(brief, next.leg_id, args, ws);
@@ -239,6 +240,12 @@ function cmdSection(args) {
   // THE PLAN EDGE (kogaki#1645): the file can match its own record while the record is stale.
   if (recordedPlan !== brief.paragraphPlan.sha256) {
     fail(`leg ${id}'s Packet was rendered from a ParagraphPlan that has since changed — recorded ${recordedPlan.slice(0, 12)}, now ${brief.paragraphPlan.sha256.slice(0, 12)}. `
+      + `Re-render with \`packet --leg ${id}\` and realize again`);
+  }
+  // THE MAPPING EDGE (kogaki#1733): a Packet is not current when the Mapping Record moved either.
+  if ((entry.mapping_sha256 ?? null) !== brief.paragraphPlan.mapping_sha256) {
+    fail(`leg ${id}'s Packet was rendered from a Mapping Record that has since changed — recorded `
+      + `${String(entry.mapping_sha256 ?? "none").slice(0, 12)}, now ${String(brief.paragraphPlan.mapping_sha256 ?? "none").slice(0, 12)}. `
       + `Re-render with \`packet --leg ${id}\` and realize again`);
   }
   if (recordedSha !== onDiskSha) {
