@@ -36,6 +36,8 @@ export function mapperInput(proposition, persona) {
 
 // The Mapper's answer, refused or `{}`: the Playground's own structure validator. `inputs` carries
 // the proposition file's `cite` and `proposition`.
+// A refusal is `{ group, text }` (kogaki#1708).
 export function validateMapperAnswer(record, inputs) {
-  return validateStructure(record, { cite: inputs.cite, proposition: inputs.proposition });
+  const v = validateStructure(record, { cite: inputs.cite, proposition: inputs.proposition });
+  return v.error ? { group: v.group, text: v.error } : {};
 }

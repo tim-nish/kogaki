@@ -1440,6 +1440,25 @@ compose unit's 3 × (2 + 3) × 900 seconds — and the owner sets both numbers
 without an Issue. A settings file or a `job` row still carrying either retired
 time setting of kogaki#1307 is refused naming it, as a missing setting is.
 
+**The reach of a refusal** (kogaki#1708). A judgment row may carry
+`refusal_reach`, a map from each refusal group it declares to a reach, one of
+three. `part`: the next attempt keeps every part the refusal did not name and
+changes the part it did. `record`: the next attempt answers a whole new record,
+keeping nothing of the previous one, and the refusal names what the new one
+cannot contain. `stop`: there is no next attempt, and the run stops naming the
+refusal and its reach. A validator of such a row returns a refusal as
+`{ group, text }`. A refusal whose group the row does not declare stops the run
+at once, naming the row and the group: a refusal nobody has classified is not
+one the Harness knows how to repair. The refusal block of the next prompt
+closes on the sentence of the latest refusal's reach, one fixed sentence for
+`part` and one for `record`, both in `src/workflow/judge.mjs`, so a unit's
+retry and a synchronous re-ask stay byte-identical over the same history. Each
+retry's history and each run record carry the refusal's `group` and `reach`
+beside its text. The bound on attempts is unchanged. A row without
+`refusal_reach` is the state not yet moved: its validator returns bare text,
+and the `part` sentence closes its block. The Brief's and the ParagraphPlan's
+rows are in that state until an Issue names their groups.
+
 **The status line shows the attempt and an estimate.** `job status`, and
 `job await` each time it returns at its 30-second bound, print a header
 naming both settings — `each unit gets up to <N> attempts of at most <s>s per
@@ -2918,7 +2937,11 @@ nothing else.
 **The one-retry bound.** The Playground's structure validator runs over the
 answer. A first refusal is put back verbatim with the answer for one retry. A
 second refusal stops the Trial at the `sme` stage, and `trial.json` carries
-the refusal.
+the refusal. The row's refusal groups (kogaki#1708) are `shape` (a key, a list
+or an id the record owes), `strand` (a `strand` other than the proposition
+file's `cite:`) and `attributes` (a Role's `attributes` not a list of distinct
+texts), each of reach `part`. Any other refusal belongs to no group the row
+declares and stops the Trial at `sme` on the first attempt.
 
 **What the record says.** `trial.json` carries `mapper: { variant,
 prompt_sha256 }`, the hash of the rendered prompt, and `structure.author:
@@ -3017,14 +3040,18 @@ Paragraph whose `takes` holds a `carry`, and otherwise none. Its answer is
 `{ base_move, inference_move, rationale }`, `inference_move` null where no
 Inference Paragraph is owed, and any other key is refused. The refusals:
 
-- an id naming no Move of the library, refused naming the id;
+- an id naming no Move of the library, refused naming the id, group
+  `library`;
 - an `inference_move` null where the base Move leaves a `carry`, refused
-  naming the entry;
-- an `inference_move` given where the base Move leaves none;
-- an inference Move whose `takes` holds no `carry`, refused naming the Move.
+  naming the entry, group `carry`;
+- an `inference_move` given where the base Move leaves none, group `carry`;
+- an inference Move whose `takes` holds no `carry`, refused naming the Move,
+  group `carry`.
 
-The first refusal is put back verbatim into the second attempt, and a second
-refusal stops the Trial at `bind`. Each attempt's prompt and answer are kept as
+An undeclared or missing key, or an empty `rationale`, is group `shape`.
+`shape` is of reach `part`; `library` and `carry` are of reach `record`
+(kogaki#1708). The first refusal is put back verbatim into the second attempt
+under its reach, and a second refusal stops the Trial at `bind`. Each attempt's prompt and answer are kept as
 `<out>/bind/prompt-<n>.md` and `answer-<n>.json`. Whether an Inference
 Paragraph follows is the Move's information, read from its `leaves` (§4.2),
 and no Harness step decides it apart from the Move.
@@ -3051,12 +3078,17 @@ Segment asks for the subject's own case, `base.domain` is the proposition's
 and each `expression` is the proposition's own noun phrase for the Role, its
 `attributes` included; where a Segment likens the subject to a case already
 told, that case is `prior_tables` and its expressions may be named
-(kogaki#1709). No validator reads this: the owner's reading of the sheet is the judgment. The
-first refusal is put back verbatim into the second
-attempt, and a second refusal stops the Trial at `correspondence`, naming the
-Move. Each attempt's prompt and answer are kept as
-`<out>/correspondence/<move>/prompt-<n>.md` and `answer-<n>.json`. The record
-carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
+(kogaki#1709). No validator reads this: the owner's reading of the sheet is
+the judgment. The row's refusal groups (kogaki#1708), each of reach `part`,
+are `shape` (an undeclared key, or a `correspondences` list that is not one
+of `{ role, expression }`), `role` (a `role` naming no Role, or a Role with
+other than one correspondence) and `base` (a `base` that is not
+`{ domain }`); any other refusal belongs to none of them and stops the Trial
+at `correspondence` on the first attempt. The first refusal is put back
+verbatim into the second attempt, and a second refusal stops the Trial at
+`correspondence`, naming the Move. Each attempt's prompt and answer are kept
+as `<out>/correspondence/<move>/prompt-<n>.md` and `answer-<n>.json`. The
+record carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
 the structure's in every table and independent of the Move; the
 Correspondence column depends on it.
 

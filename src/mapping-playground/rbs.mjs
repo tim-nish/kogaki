@@ -77,65 +77,79 @@ function projectionRefusal(record, movesDir) {
 
 // ONE TABLE (kogaki#1693, kogaki#1709): `{ base, correspondences }`, its fields named under `at`. The `correspondence` row's
 // answer is one table; the owner's file carries one per bound Move under `tables`.
+// Each refusal carries its group (kogaki#1708): `shape`, `base` or `role`.
 function tableRefusal(t, structure, at = "") {
-  if (!Array.isArray(t.correspondences) || !t.correspondences.length) return `the correspondence table carries no non-empty \`${at}correspondences\` list`;
+  if (!Array.isArray(t.correspondences) || !t.correspondences.length) {
+    return { group: "shape", error: `the correspondence table carries no non-empty \`${at}correspondences\` list` };
+  }
   const b = baseRefusal(t.base, at);
-  if (b) return b;
+  if (b) return { group: "base", error: b };
   for (const [i, c] of t.correspondences.entries()) {
     const f = `${at}correspondences[${i}]`;
-    if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) return `${f} is not a \`{ role, expression }\` correspondence`;
-    if (!isText(c.expression)) return `${f}.expression is not one base text`;
-    if (!isText(c.role)) return `${f}.role is not one Role id`;
+    if (!isMap(c) || !Object.hasOwn(c, "role") || !Object.hasOwn(c, "expression")) {
+      return { group: "shape", error: `${f} is not a \`{ role, expression }\` correspondence` };
+    }
+    if (!isText(c.expression)) return { group: "shape", error: `${f}.expression is not one base text` };
+    if (!isText(c.role)) return { group: "role", error: `${f}.role is not one Role id` };
   }
   if (structure) {
     const roles = structure.roles.map((r) => r.id);
     for (const [i, c] of t.correspondences.entries()) {
-      if (!roles.includes(c.role)) return `${at}correspondences[${i}].role ${JSON.stringify(c.role)} names no Role of the structure — it names ${roles.join(", ")}`;
+      if (!roles.includes(c.role)) {
+        return { group: "role", error: `${at}correspondences[${i}].role ${JSON.stringify(c.role)} names no Role of the structure — it names ${roles.join(", ")}` };
+      }
     }
     for (const id of roles) {
       const n = t.correspondences.filter((c) => c.role === id).length;
-      if (n !== 1) return `${at ? `${at.slice(0, -1)}: ` : ""}the Role ${JSON.stringify(id)} has ${n} correspondences, and every Role has one`;
+      if (n !== 1) {
+        return { group: "role", error: `${at ? `${at.slice(0, -1)}: ` : ""}the Role ${JSON.stringify(id)} has ${n} correspondences, and every Role has one` };
+      }
     }
   }
   return null;
 }
 
 export function validateCorrespondenceTable(table, { structure = null } = {}) {
-  if (!isMap(table)) return { error: "the correspondence table is not a `{ base, correspondences }` record" };
+  if (!isMap(table)) return { group: "shape", error: "the correspondence table is not a `{ base, correspondences }` record" };
   const r = tableRefusal(table, structure);
-  return r ? { error: r } : {};
+  return r || {};
 }
 
 // The Moves the owner's file binds, in order: the first binding's, then each projecting binding's.
 export const boundMovesOf = (record) => (Object.hasOwn(record, "move") ? [record.move, ...projectionsOf(record).map((p) => p.move)] : []);
 
 // `_proposition` is no longer read: what an expression names is the owner's reading (kogaki#1707).
+// Each refusal carries its group (kogaki#1708): `shape`, `base` or `role`.
 export function validateRbsTable(record, _proposition, { movesDir = "moves", structure = null } = {}) {
   if (isMap(record) && Object.hasOwn(record, "pairs")) {
-    return { error: "the correspondence table carries `pairs`, which it does not declare — its rows are `correspondences: [{ role, expression }]` (kogaki#1693)" };
+    return { group: "shape", error: "the correspondence table carries `pairs`, which it does not declare — its rows are `correspondences: [{ role, expression }]` (kogaki#1693)" };
   }
   const root = isMap(record) && ["base", "correspondences"].find((k) => Object.hasOwn(record, k));
-  if (root) return { error: `the correspondence table carries a root \`${root}\`, which is retired — its tables are \`tables: [{ move, base, correspondences }]\`, one per bound Move (kogaki#1709)` };
+  if (root) {
+    return { group: "shape", error: `the correspondence table carries a root \`${root}\`, which is retired — its tables are \`tables: [{ move, base, correspondences }]\`, one per bound Move (kogaki#1709)` };
+  }
   if (!isMap(record) || !Array.isArray(record.tables) || !record.tables.length) {
-    return { error: "the correspondence table carries no non-empty `tables` list of `{ move, base, correspondences }`, one per bound Move (kogaki#1709)" };
+    return { group: "shape", error: "the correspondence table carries no non-empty `tables` list of `{ move, base, correspondences }`, one per bound Move (kogaki#1709)" };
   }
   for (const [i, t] of record.tables.entries()) {
     const at = `tables[${i}].`;
-    if (!isMap(t)) return { error: `tables[${i}] is not a \`{ move, base, correspondences }\` map` };
+    if (!isMap(t)) return { group: "shape", error: `tables[${i}] is not a \`{ move, base, correspondences }\` map` };
     const extra = Object.keys(t).find((k) => !["move", "base", "correspondences"].includes(k));
-    if (extra) return { error: `tables[${i}] carries \`${extra}\`, which it does not declare — a table is \`{ move, base, correspondences }\`` };
-    if (!isText(t.move)) return { error: `${at}move is not one Move id` };
+    if (extra) return { group: "shape", error: `tables[${i}] carries \`${extra}\`, which it does not declare — a table is \`{ move, base, correspondences }\`` };
+    if (!isText(t.move)) return { group: "shape", error: `${at}move is not one Move id` };
     const r = tableRefusal(t, structure, at);
-    if (r) return { error: r };
+    if (r) return r;
   }
   const m = bindingRefusal(record, movesDir) || projectionRefusal(record, movesDir);
-  if (m) return { error: m };
+  if (m) return { group: "shape", error: m };
   const bound = boundMovesOf(record);
   if (bound.length) {
     const stray = record.tables.findIndex((t) => !bound.includes(t.move));
-    if (stray !== -1) return { error: `tables[${stray}].move ${JSON.stringify(record.tables[stray].move)} matches no binding — the bindings bind ${bound.join(", ")}` };
+    if (stray !== -1) {
+      return { group: "shape", error: `tables[${stray}].move ${JSON.stringify(record.tables[stray].move)} matches no binding — the bindings bind ${bound.join(", ")}` };
+    }
     if (record.tables.length !== bound.length || record.tables.some((t, i) => t.move !== bound[i])) {
-      return { error: `tables carries ${record.tables.map((t) => t.move).join(", ")}, and it carries one table per binding in the bindings' order: ${bound.join(", ")}` };
+      return { group: "shape", error: `tables carries ${record.tables.map((t) => t.move).join(", ")}, and it carries one table per binding in the bindings' order: ${bound.join(", ")}` };
     }
   }
   return {};

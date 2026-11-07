@@ -54,59 +54,60 @@ export function higherOrderOf(record) {
 }
 
 // The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer.
+// Each refusal carries its group (kogaki#1708): `shape`, `strand` or `attributes`.
 export function validateStructure(record, proposition) {
   const bad = keysRefusal(record, ["strand", "roles", "relations", "higher_order"], "the structure");
-  if (bad) return { error: bad };
+  if (bad) return { group: "shape", error: bad };
   if (record.strand !== proposition.cite) {
-    return { error: `the structure's \`strand\` ${JSON.stringify(record.strand)} is not the proposition file's \`cite:\` ${JSON.stringify(proposition.cite)}` };
+    return { group: "strand", error: `the structure's \`strand\` ${JSON.stringify(record.strand)} is not the proposition file's \`cite:\` ${JSON.stringify(proposition.cite)}` };
   }
   const ids = new Set();
   const listOf = (key) => (Array.isArray(record[key]) && record[key].length ? record[key] : null);
   const roles = listOf("roles");
-  if (!roles) return { error: "the structure's `roles` is not a non-empty list" };
+  if (!roles) return { group: "shape", error: "the structure's `roles` is not a non-empty list" };
   for (const [i, r] of roles.entries()) {
     const at = `roles[${i}]`;
     const b = keysRefusal(r, ["id", "context", "attributes"], at);
-    if (b) return { error: isMap(r) && isText(r.id) ? `${b} (the Role ${JSON.stringify(r.id)})` : b };
-    if (!isText(r.id) || ids.has(r.id)) return { error: `${at}'s \`id\` is empty or not unique` };
-    if (!isText(r.context)) return { error: `${at}'s \`context\` is empty` };
-    if (!Array.isArray(r.attributes)) return { error: `the Role ${JSON.stringify(r.id)}'s \`attributes\` is not a list` };
+    if (b) return { group: "shape", error: isMap(r) && isText(r.id) ? `${b} (the Role ${JSON.stringify(r.id)})` : b };
+    if (!isText(r.id) || ids.has(r.id)) return { group: "shape", error: `${at}'s \`id\` is empty or not unique` };
+    if (!isText(r.context)) return { group: "shape", error: `${at}'s \`context\` is empty` };
+    if (!Array.isArray(r.attributes)) return { group: "attributes", error: `the Role ${JSON.stringify(r.id)}'s \`attributes\` is not a list` };
     for (const [n, a] of r.attributes.entries()) {
-      if (!isText(a)) return { error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` is empty or not text` };
-      if (r.attributes.indexOf(a) !== n) return { error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` repeats ${JSON.stringify(a)}` };
+      if (!isText(a)) return { group: "attributes", error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` is empty or not text` };
+      if (r.attributes.indexOf(a) !== n) return { group: "attributes", error: `the Role ${JSON.stringify(r.id)}'s \`attributes[${n}]\` repeats ${JSON.stringify(a)}` };
     }
     ids.add(r.id);
   }
   const relations = listOf("relations");
-  if (!relations) return { error: "the structure's `relations` is not a non-empty list" };
+  if (!relations) return { group: "shape", error: "the structure's `relations` is not a non-empty list" };
   const roleIds = new Set(ids);
   const relationIds = new Set();
   for (const [i, r] of relations.entries()) {
     const at = `relations[${i}]`;
     const b = keysRefusal(r, ["id", "between", "holds"], at);
-    if (b) return { error: b };
-    if (!isText(r.id) || ids.has(r.id)) return { error: `${at}'s \`id\` is empty or not unique` };
-    if (!Array.isArray(r.between) || r.between.length < 2) return { error: `${at}'s \`between\` names fewer than two Roles` };
+    if (b) return { group: "shape", error: b };
+    if (!isText(r.id) || ids.has(r.id)) return { group: "shape", error: `${at}'s \`id\` is empty or not unique` };
+    if (!Array.isArray(r.between) || r.between.length < 2) return { group: "shape", error: `${at}'s \`between\` names fewer than two Roles` };
     const stray = r.between.find((x) => !roleIds.has(x));
-    if (stray !== undefined) return { error: `${at}'s \`between\` names ${JSON.stringify(stray)}, which is no Role's id` };
-    if (!isText(r.holds)) return { error: `${at}'s \`holds\` is empty` };
+    if (stray !== undefined) return { group: "shape", error: `${at}'s \`between\` names ${JSON.stringify(stray)}, which is no Role's id` };
+    if (!isText(r.holds)) return { group: "shape", error: `${at}'s \`holds\` is empty` };
     ids.add(r.id);
     relationIds.add(r.id);
   }
   const higher = higherOrderOf(record);
-  if (!higher) return { error: "the structure's `higher_order` is neither a `{ relates, holds }` map nor a non-empty list of `{ id, relates, holds }`" };
-  if (higher.length > 1) return { error: `the structure's \`higher_order\` carries ${higher.length} entries, and a proposition has one higher-order relation` };
+  if (!higher) return { group: "shape", error: "the structure's `higher_order` is neither a `{ relates, holds }` map nor a non-empty list of `{ id, relates, holds }`" };
+  if (higher.length > 1) return { group: "shape", error: `the structure's \`higher_order\` carries ${higher.length} entries, and a proposition has one higher-order relation` };
   const listed = Array.isArray(record.higher_order);
   for (const [i, h] of higher.entries()) {
     const at = listed ? `higher_order[${i}]` : "higher_order";
     const b = keysRefusal(listed ? h : record.higher_order, listed ? ["id", "relates", "holds"] : ["relates", "holds"], at);
-    if (b) return { error: b };
-    if (!listed && ids.has(h.id)) return { error: "higher_order is read as `h1`, which a Role or relation already names: rename that element or write higher_order as a list" };
-    if (!isText(h.id) || ids.has(h.id)) return { error: `${at}'s \`id\` is empty or not unique` };
-    if (!Array.isArray(h.relates) || h.relates.length < 2) return { error: `${at}'s \`relates\` names fewer than two relations` };
+    if (b) return { group: "shape", error: b };
+    if (!listed && ids.has(h.id)) return { group: "shape", error: "higher_order is read as `h1`, which a Role or relation already names: rename that element or write higher_order as a list" };
+    if (!isText(h.id) || ids.has(h.id)) return { group: "shape", error: `${at}'s \`id\` is empty or not unique` };
+    if (!Array.isArray(h.relates) || h.relates.length < 2) return { group: "shape", error: `${at}'s \`relates\` names fewer than two relations` };
     const stray = h.relates.find((x) => !relationIds.has(x));
-    if (stray !== undefined) return { error: `${at}'s \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };
-    if (!isText(h.holds)) return { error: `${at}'s \`holds\` is empty` };
+    if (stray !== undefined) return { group: "shape", error: `${at}'s \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };
+    if (!isText(h.holds)) return { group: "shape", error: `${at}'s \`holds\` is empty` };
     ids.add(h.id);
   }
   return {};

@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts, readMoveRecord } from "../compose.mjs";
-import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
+import { judgePrompt, refusalReach, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { derivedRow } from "../proof-sheet/leg-brief.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
@@ -105,8 +105,8 @@ function answerRecord(text) {
 }
 
 // ONE JUDGMENT ROW UNDER THE MAPPER'S BOUND (kogaki#1700): each attempt's prompt and answer are kept, and a refusal is put
-// back verbatim into the next attempt; the answer, or the stop naming the last refusal.
-function retriedCall({ dir, env, row, input, refusalOf }) {
+// back verbatim into the next attempt under its reach (kogaki#1708); the answer, or the stop naming the last refusal.
+export function retriedCall({ dir, env, row, input, refusalOf }) {
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const history = [];
   for (let attempt = 1; attempt <= MAPPER_ATTEMPTS; attempt++) {
@@ -119,12 +119,24 @@ function retriedCall({ dir, env, row, input, refusalOf }) {
     if (call.stopped) return { stopped: call.stopped };
     const a = answerRecord(call.text);
     if (a.record !== undefined) writeFileSync(join(dir, `answer-${attempt}.json`), JSON.stringify(a.record, null, 2) + "\n");
-    const refusal = a.stopped || refusalOf(a.record);
-    if (!refusal) return { answer: a.record };
-    history.push({ answer: a.record ?? null, refusal });
+    const raw = a.stopped ? { group: "shape", text: a.stopped } : refusalOf(a.record);
+    if (!raw) return { answer: a.record, refusals: refusalsRecord(history) };
+    const r = refusalReach(row, raw);
+    history.push({ answer: a.record ?? null, refusal: r.text, group: r.group, reach: r.reach });
+    if (r.undeclared) {
+      return { stopped: `the \`${row.id}\` refusal names the group ${JSON.stringify(r.group)}, which the row does not declare; the refusal: ${r.text}`,
+        refusals: refusalsRecord(history) };
+    }
+    if (r.reach === "stop") {
+      return { stopped: `the \`${row.id}\` refusal of group "${r.group}" has reach stop; the refusal: ${r.text}`, refusals: refusalsRecord(history) };
+    }
   }
-  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}` };
+  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}`,
+    refusals: refusalsRecord(history) };
 }
+
+// The run record's view of a row's refusals (kogaki#1708): each refusal's group, reach and text, without the answer.
+const refusalsRecord = (history) => history.map((h) => ({ group: h.group, reach: h.reach, refusal: h.refusal }));
 
 const playgroundRow = (table, id) => ({ id, ...table[id] });
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -146,21 +158,21 @@ export function bindMoveInput(structure, persona, moves, libraryDir) {
 }
 
 export function bindMoveRefusal(answer, contracts) {
-  if (!isMap(answer)) return "the answer is not one `{ base_move, inference_move, rationale }` record";
+  if (!isMap(answer)) return { group: "shape", text: "the answer is not one `{ base_move, inference_move, rationale }` record" };
   const extra = undeclared(answer, ["base_move", "inference_move", "rationale"]);
-  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base_move, inference_move and rationale`;
-  for (const k of ["base_move", "inference_move", "rationale"]) if (!Object.hasOwn(answer, k)) return `the answer carries no \`${k}\``;
+  if (extra) return { group: "shape", text: `the answer carries \`${extra}\`, which the row does not declare — it carries base_move, inference_move and rationale` };
+  for (const k of ["base_move", "inference_move", "rationale"]) if (!Object.hasOwn(answer, k)) return { group: "shape", text: `the answer carries no \`${k}\`` };
   const base = contracts.get(answer.base_move);
-  if (!base) return `base_move ${JSON.stringify(answer.base_move)} names no Move of the library`;
-  if (typeof answer.rationale !== "string" || answer.rationale.trim() === "") return "rationale is not one non-empty text";
+  if (!base) return { group: "library", text: `base_move ${JSON.stringify(answer.base_move)} names no Move of the library` };
+  if (typeof answer.rationale !== "string" || answer.rationale.trim() === "") return { group: "shape", text: "rationale is not one non-empty text" };
   const carry = carryOf(base.leaves);
   if (answer.inference_move === null) {
-    return carry ? `inference_move is null, and the base Move "${base.id}" leaves \`${CARRY}: ${carry.what}\` — an Inference Paragraph is owed` : null;
+    return carry ? { group: "carry", text: `inference_move is null, and the base Move "${base.id}" leaves \`${CARRY}: ${carry.what}\` — an Inference Paragraph is owed` } : null;
   }
-  if (!carry) return `inference_move is given, and the base Move "${base.id}" leaves no \`${CARRY}\` — no Inference Paragraph is owed`;
+  if (!carry) return { group: "carry", text: `inference_move is given, and the base Move "${base.id}" leaves no \`${CARRY}\` — no Inference Paragraph is owed` };
   const inference = contracts.get(answer.inference_move);
-  if (!inference) return `inference_move ${JSON.stringify(answer.inference_move)} names no Move of the library`;
-  if (!carryOf(inference.takes)) return `the inference Move "${inference.id}" takes no \`${CARRY}\` — an Inference Paragraph takes up what the Base Paragraph carries`;
+  if (!inference) return { group: "library", text: `inference_move ${JSON.stringify(answer.inference_move)} names no Move of the library` };
+  if (!carryOf(inference.takes)) return { group: "carry", text: `the inference Move "${inference.id}" takes no \`${CARRY}\` — an Inference Paragraph takes up what the Base Paragraph carries` };
   return null;
 }
 
@@ -177,8 +189,9 @@ export function correspondenceInput(structure, persona, move, priorTables = []) 
 
 function correspondenceRefusal(answer, structure) {
   const extra = undeclared(answer, ["base", "correspondences"]);
-  if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences`;
-  return validateCorrespondenceTable(answer, { structure }).error || null;
+  if (extra) return { group: "shape", text: `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences` };
+  const v = validateCorrespondenceTable(answer, { structure });
+  return v.error ? { group: v.group, text: v.error } : null;
 }
 
 // THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
@@ -386,7 +399,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     if (r.stopped) return r;
     const { base_move: base, inference_move: inference, rationale } = r.answer;
     record.bind = { author: BIND_ROW, move: base, base_move: base, inference_move: inference, binding_rationale: rationale.trim() };
-    return { value: inference === null ? [base] : [base, inference] };
+    return { value: inference === null ? [base] : [base, inference], refusals: r.refusals };
   });
   // THE MAPPING TABLES (kogaki#1700, kogaki#1709): the owner's, or one `smp_correspondence` call per bound Move, the base Move's
   // first, each under its Move's Segments and each later one given the tables before it.
@@ -397,17 +410,20 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
       return { value: t };
     }
     const tables = [];
+    // Each Move's call keeps its own refusals; the stage records them in the order the Moves were called (kogaki#1708).
+    const refusals = [];
     for (const move of moves) {
       const md = join(d, move);
       mkdirSync(md, { recursive: true });
       const r = retriedCall({ dir: md, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(move), tables),
         refusalOf: (answer) => correspondenceRefusal(answer, structure) });
-      if (r.stopped) return { stopped: `${move}: ${r.stopped}` };
+      refusals.push(...(r.refusals || []));
+      if (r.stopped) return { stopped: `${move}: ${r.stopped}`, refusals };
       tables.push({ move, base: r.answer.base, correspondences: r.answer.correspondences });
     }
     const t = { variant: RBS_COMPOSED, tables };
     writeRbs(t);
-    return { value: t };
+    return { value: t, refusals };
   });
   const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure) : null;
   // THE PARAGRAPH WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.

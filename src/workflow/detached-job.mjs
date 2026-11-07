@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync, appendFileSync, existsSync, openSync, closeSync, writeSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { JUDGE_INPUT_MARKER, judgeRefusalBlock } from "./judge.mjs";
+import { JUDGE_INPUT_MARKER, judgeRefusalBlock, refusalReach } from "./judge.mjs";
 import { REPO, fail, readJson } from "./run-record.mjs";
 import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
 
@@ -293,8 +293,15 @@ async function loadReaderPathUnitValidator(declared) {
   // supplied it. The unit's own id rides as the third argument (kogaki#1301),
   // so a job whose units each judge a different subject can resolve which one.
   // A refusal naming its sites rides as `{ text, sites }` for a job's site loop (kogaki#1642).
+  // A refusal's group and reach: kogaki#1708.
+  const reaches = declared.refusal_reach;
   return (candidate, unitId) => {
     const r = fn(candidate, inputs, unitId);
+    if (reaches) {
+      if (!r || !(r.text || r.error)) return null;
+      const g = refusalReach({ refusal_reach: reaches }, { group: r.group, text: r.text ?? r.error });
+      return { text: g.text, group: g.group, reach: g.reach, ...(g.undeclared ? { undeclared: true } : {}) };
+    }
     if (!r || !r.error) return null;
     return Array.isArray(r.sites) && r.sites.length ? { text: r.error, sites: r.sites } : r.error;
   };
@@ -357,7 +364,8 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
       // (kogaki#1438); `endUnit` keeps it off the row, where `candidate` means schema-valid.
       const text = typeof refusal === "string" ? refusal : refusal.text;
       return { status: "refused", candidate: r.candidate, failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(text), 4000), bytes_written: out.bytes, ended_at: out.endedAt,
-        ...(typeof refusal === "object" ? { sites: refusal.sites } : {}) } };
+        ...(typeof refusal === "object" ? { sites: refusal.sites } : {}),
+        ...(typeof refusal === "object" && refusal.reach ? { group: refusal.group, reach: refusal.reach, ...(refusal.undeclared ? { undeclared: true } : {}) } : {}) } };
     }
   }
   return { status: "done", candidate: r.candidate };
@@ -649,6 +657,8 @@ export async function cmdJobSupervise(args) {
         // THE RECORD'S `refusals` STAYS AN ARRAY OF STRINGS (kogaki#1438): the Proof Sheet
         // reads it, and the refused answers live in the unit's own state and its prompts.
         ...(st.refusals.length ? { refusals: st.refusals.map((h) => h.refusal) } : {}),
+        // Each refusal's group and reach, where the row declares them (kogaki#1708).
+        ...(st.refusals.some((h) => h.reach) ? { refusal_reach: st.refusals.map((h) => ({ group: h.group ?? null, reach: h.reach ?? null })) } : {}),
         ...(st.timedOut.length ? { timed_out: st.timedOut.slice() } : {}),
       };
       // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
@@ -808,8 +818,10 @@ export async function cmdJobSupervise(args) {
         // Candidate for a fit refusal, the validator's candidate for a schema one, so the
         // next attempt's fresh session sees what it is asked to repair.
         const refusal = cls.failure.stderr_tail;
-        st.refusals.push({ answer: st.phase === "fit" ? st.composed : cls.candidate, refusal });
-        if (st.attempts < unitAttempts) {
+        const { group, reach } = cls.failure;
+        st.refusals.push({ answer: st.phase === "fit" ? st.composed : cls.candidate, refusal, ...(reach ? { group, reach } : {}) });
+        // A `stop` refusal, or one whose group the row does not declare, is never put back (kogaki#1708).
+        if (st.attempts < unitAttempts && reach !== "stop") {
           beginNextAttempt(st, endedAt);
           const composePath = readerPathUnitStdoutPath(dir, u.id);
           try { appendFileSync(composePath, `\n----- attempt ${st.attempts} -----\n`); } catch { /* best-effort */ }

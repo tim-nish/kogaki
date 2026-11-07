@@ -368,6 +368,27 @@ const JUDGE_REFUSAL_REPAIR_SENTENCE = "Those are your previous answers and the r
   + "with the whole record. Keep every part the refusal did not name, and change the parts it\n"
   + "did. The input below is unchanged.";
 
+// The reach of a refusal: kogaki#1708.
+export const REFUSAL_REACHES = ["part", "record", "stop"];
+const JUDGE_REFUSAL_RECORD_SENTENCE = "Those are your previous answers and the refusal each one raised, verbatim. Answer again\n"
+  + "with a whole new record. Keep nothing of the previous one: the refusal names what the new\n"
+  + "record cannot contain. The input below is unchanged.";
+const REACH_SENTENCE = { part: JUDGE_REFUSAL_REPAIR_SENTENCE, record: JUDGE_REFUSAL_RECORD_SENTENCE };
+
+// A refusal's group and reach under its row: kogaki#1708.
+export function refusalReach(row, refusal) {
+  const grouped = refusal && typeof refusal === "object";
+  const text = grouped ? String(refusal.text) : String(refusal);
+  const group = grouped ? refusal.group ?? null : null;
+  const declared = row && row.refusal_reach;
+  if (!declared) return { group, reach: null, text };
+  if (!Object.hasOwn(declared, group)) return { group, reach: "stop", text, undeclared: true };
+  if (!REFUSAL_REACHES.includes(declared[group])) {
+    throw new Error(`the row's refusal_reach maps ${JSON.stringify(group)} to ${JSON.stringify(declared[group])}; a reach is one of ${REFUSAL_REACHES.join(", ")} (kogaki#1708).`);
+  }
+  return { group, reach: declared[group], text };
+}
+
 // EVERY ATTEMPT, OLDEST FIRST, AS ITS ANSWER AND ITS REFUSAL (kogaki#1395, the answer since
 // kogaki#1438): `history` is an array of `{ answer, refusal }`, and a bare string -- the
 // shape before kogaki#1438 -- is REFUSED BY NAME, so no caller silently renders a refusal
@@ -384,10 +405,16 @@ export function judgeRefusalBlock(history) {
       + "`{ answer, refusal }` pair. A retry carries the refused answer beside its refusal (kogaki#1438); "
       + "a bare refusal string is the retired shape and is refused rather than rendered without its answer.");
   }
+  // The sentence follows the latest refusal's reach (kogaki#1708); an entry with no reach is `part`.
+  const reach = list[list.length - 1].reach ?? "part";
+  if (!Object.hasOwn(REACH_SENTENCE, reach)) {
+    throw new Error(`judgeRefusalBlock: the latest refusal's reach is ${JSON.stringify(reach)}; a retry renders only `
+      + "`part` or `record`, and a `stop` refusal is never put back (kogaki#1708).");
+  }
   return ["", ...list.flatMap((h, i) => [JUDGE_ANSWER_MARKER(i + 1),
     h.answer === undefined || h.answer === null ? JUDGE_NO_ANSWER : JSON.stringify(h.answer, null, 2),
     JUDGE_REFUSAL_MARKER, h.refusal, ""]),
-  JUDGE_REFUSAL_REPAIR_SENTENCE].join("\n");
+  REACH_SENTENCE[reach]].join("\n");
 }
 
 // THE FILLED RECORD EXAMPLE (kogaki#1059): built from the run's own composed input
