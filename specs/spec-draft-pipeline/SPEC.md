@@ -2562,6 +2562,7 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their Moves' `takes` and `leaves` (kogaki#1699) | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Paragraph Waypoint's field | wording |
 | Section heading | Leg only | `the heading against its Section's last claims` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
+| Case carried onto the subject | Leg only | `each apart waypoint followed by the one that carries it onto the subject` | — | `case` is a Leg Waypoint's field, and a Paragraph Waypoint carries none (kogaki#1732) | criterion |
 | Thesis attainment | Leg only | `the claims and waypoints against the Thesis` | — | the Thesis is attained at the Leg marked `reaches_target` (kogaki#1330), a Leg-level object | criterion |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
