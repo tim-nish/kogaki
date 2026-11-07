@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, a Base Paragraph and, where its Move leaves a
-// `carry`, an Inference Paragraph, read on a sheet; the model route binds the Moves first, then fills the Correspondence column
-// under the base Move's Segments, then writes the Paragraph Waypoints from those expressions (kogaki#1700).
+// `carry`, an Inference Paragraph, read on a sheet; the model route binds the Moves first, then fills one Mapping Table per bound
+// Move under its Segments, then writes each paragraph's Paragraph Waypoints from its own table (kogaki#1700, kogaki#1709).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -27,7 +27,7 @@ import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
-import { validateRbsTable, suppliedEntry, projectionsOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
+import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
 import { mapperRow, MAPPER_ATTEMPTS } from "./sme.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
@@ -61,23 +61,22 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
 
 // ---------------------------------------------------------------------------
-// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700): its one claim is the proposition, in the Brief's form; its first Leg Waypoint is
-// the structure in the Correspondence expressions, and one Leg Waypoint whose point is the proposition follows per further binding:
-// one per projecting binding of the owner's file, and in the model route one where an Inference Move is bound, else none.
-// The first Leg Waypoint's point (kogaki#1688).
-export function firstPoint(structure, rbs) {
-  const base = new Map(rbs.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
+// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700, kogaki#1709): its one claim is the proposition, in the Brief's form; one Leg
+// Waypoint per bound Move, each `point` the structure in the expressions of that Move's table: one per projecting binding of the
+// owner's file after the first, and in the model route one where an Inference Move is bound, else none.
+// A Leg Waypoint's point (kogaki#1688).
+export function firstPoint(structure, table) {
+  const base = new Map(table.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
   return [...structure.relations, ...higherOrderOf(structure)]
     .map((e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (base.has(id) ? base.get(id) : all)))
     .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
 }
 
-export function shortLeg(proposition, rbs, persona, structure, followers) {
-  const first = { point: firstPoint(structure, rbs), serves: ["L1"] };
+export function shortLeg(proposition, tables, persona, structure) {
   return {
     leg_id: LEG_ID,
     claims: [{ strand: "L1", proposition }],
-    waypoints: [first, ...Array.from({ length: followers }, () => ({ point: proposition, serves: ["L1"] }))],
+    waypoints: tables.map((t) => ({ point: firstPoint(structure, t), serves: ["L1"] })),
     introduces: [],
     journeys: [],
   };
@@ -165,24 +164,26 @@ export function bindMoveRefusal(answer, contracts) {
   return null;
 }
 
-// THE `correspondence` ROW (kogaki#1700): the structure, the Persona's line and the bound base Move's Segments.
-export function correspondenceInput(structure, persona, baseMove) {
+// THE `correspondence` ROW (kogaki#1700, kogaki#1709): the structure, the Persona's line and the bound Move's Segments; the
+// inference call adds `prior_tables`, the tables of the Moves bound before it.
+export function correspondenceInput(structure, persona, move, priorTables = []) {
   return {
     structure,
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
-    segments: segmentsForPlanCall(baseMove.segments),
+    segments: segmentsForPlanCall(move.segments),
+    ...(priorTables.length ? { prior_tables: priorTables } : {}),
   };
 }
 
-function correspondenceRefusal(answer, proposition, structure, libraryDir) {
+function correspondenceRefusal(answer, structure) {
   const extra = undeclared(answer, ["base", "correspondences"]);
   if (extra) return `the answer carries \`${extra}\`, which the row does not declare — it carries base and correspondences`;
-  return validateRbsTable(answer, proposition, { movesDir: libraryDir, structure }).error || null;
+  return validateCorrespondenceTable(answer, { structure }).error || null;
 }
 
 // THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
-// refused naming the Waypoint, the record is a ParagraphPlan unit's, and the Base Paragraph's points keep to the Correspondence column.
-function waypointsStage({ dir, env, leg, persona, libraryDir, playground, rbs, moves, contracts }) {
+// refused naming the Waypoint, the record is a ParagraphPlan unit's, and each paragraph's points keep to its own table (kogaki#1709).
+function waypointsStage({ dir, env, leg, persona, libraryDir, playground, tables, moves, contracts }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
   const d = derivedRow(playground, WAYPOINTS_ROW, PLAYGROUND_TABLE);
   if (d.error) return { stopped: d.error };
@@ -190,7 +191,7 @@ function waypointsStage({ dir, env, leg, persona, libraryDir, playground, rbs, m
   const planned = planLeg(leg, { priorKnowledge: personaPriorKnowledgeLine(persona) });
   const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i] })) };
   const bound = [...new Set(moves)].map((id) => contracts.get(id));
-  const input = { ...paragraphPlanUnitInput(fixed, bound, persona), correspondences: rbs.correspondences };
+  const input = { ...paragraphPlanUnitInput(fixed, bound, persona), tables };
   const held = bindFlow(FLOW);
   let prompt;
   try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
@@ -210,8 +211,10 @@ function waypointsStage({ dir, env, leg, persona, libraryDir, playground, rbs, m
   try { v = validateParagraphPlanUnit(a.record, { legs: [planned], movesDir: libraryDir }, "leg-1"); }
   catch (e) { v = { error: String(e && e.message || e) }; }
   if (v.error) return { stopped: v.error.split("\n").join(" ") };
-  const vocabulary = correspondenceVocabularyRefusal(a.record.waypoints[0].paragraph_waypoints, rbs);
-  if (vocabulary) return { stopped: vocabulary };
+  for (const [i, t] of tables.entries()) {
+    const vocabulary = correspondenceVocabularyRefusal(a.record.waypoints[i].paragraph_waypoints, t, tables.slice(0, i), i + 1);
+    if (vocabulary) return { stopped: vocabulary };
+  }
   return { entries: a.record.waypoints };
 }
 
@@ -370,7 +373,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     if (owned) {
       const v = readRbsFile(rbsFile, proposition, libraryDir, structure);
       if (v.error) return { stopped: v.error };
-      const ids = [owned.record.move, ...projectionsOf(owned.record).map((p) => p.move)];
+      const ids = boundMovesOf(owned.record);
       record.bind = { state: "supplied", author: "owner", move: ids[0], base_move: ids[0], inference_moves: ids.slice(1),
         binding_rationale: Object.hasOwn(owned.record, "binding_rationale") ? String(owned.record.binding_rationale).trim() : null };
       return { value: ids };
@@ -385,21 +388,28 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     record.bind = { author: BIND_ROW, move: base, base_move: base, inference_move: inference, binding_rationale: rationale.trim() };
     return { value: inference === null ? [base] : [base, inference] };
   });
-  // THE CORRESPONDENCE COLUMN (kogaki#1700): the owner's, or one `smp_correspondence` call under the base Move's Segments.
-  const table1 = stage("correspondence", (d, env) => {
+  // THE MAPPING TABLES (kogaki#1700, kogaki#1709): the owner's, or one `smp_correspondence` call per bound Move, the base Move's
+  // first, each under its Move's Segments and each later one given the tables before it.
+  const rbsTables = stage("correspondence", (d, env) => {
     if (owned) {
-      const t = { variant: RBS_OWNER, base: owned.record.base, correspondences: owned.record.correspondences };
+      const t = { variant: RBS_OWNER, tables: owned.record.tables };
       writeRbs(t);
       return { value: t };
     }
-    const r = retriedCall({ dir: d, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(moves[0])),
-      refusalOf: (answer) => correspondenceRefusal(answer, proposition.proposition, structure, libraryDir) });
-    if (r.stopped) return r;
-    const t = { variant: RBS_COMPOSED, base: r.answer.base, correspondences: r.answer.correspondences };
+    const tables = [];
+    for (const move of moves) {
+      const md = join(d, move);
+      mkdirSync(md, { recursive: true });
+      const r = retriedCall({ dir: md, env, row: playgroundRow(table, CORRESPONDENCE_ROW), input: correspondenceInput(structure, persona, contracts.get(move), tables),
+        refusalOf: (answer) => correspondenceRefusal(answer, structure) });
+      if (r.stopped) return { stopped: `${move}: ${r.stopped}` };
+      tables.push({ move, base: r.answer.base, correspondences: r.answer.correspondences });
+    }
+    const t = { variant: RBS_COMPOSED, tables };
     writeRbs(t);
     return { value: t };
   });
-  const leg = table1 ? shortLeg(proposition.proposition, table1, persona, structure, moves.length - 1) : null;
+  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure) : null;
   // THE PARAGRAPH WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
   const paragraphs = stage("waypoints", (d, env) => {
     let listed;
@@ -408,13 +418,13 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
       const all = [suppliedEntry(owned.record, serves), ...projectionsOf(owned.record).map((p) => suppliedEntry(p, serves))];
       listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
     } else {
-      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, rbs: table1, moves, contracts });
+      const r = waypointsStage({ dir: d, env, leg, persona, libraryDir, playground: table, tables: rbsTables.tables, moves, contracts });
       if (r.stopped) return r;
       listed = r.entries.map((e) => ({ move: e.move, binding_rationale: record.bind.binding_rationale, paragraph_waypoints: e.paragraph_waypoints }));
     }
     writeFileSync(bindPath, stringifyYaml({ move: listed[0].move, binding_rationale: listed[0].binding_rationale, paragraphs: listed }));
     record.bind = { ...record.bind, paragraphs: listed, ...fileRecord(bindPath) };
-    writeRbs({ ...table1, bindings: listed });
+    writeRbs({ ...rbsTables, bindings: listed });
     return { value: listed };
   });
   stage("write", (d, env) => {
@@ -424,7 +434,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
   });
   record.finished_at = new Date().toISOString();
   save();
-  const sheet = renderShortSheet({ outDir, record, proposition, structure, table: table1, leg, paragraphs, paragraphPath });
+  const sheet = renderShortSheet({ outDir, record, proposition, structure, tables: rbsTables ? rbsTables.tables : null, leg, paragraphs, paragraphPath });
   writeFileSync(sheetPath, sheet);
   return { outDir, stopped: record.stopped || null };
 }
