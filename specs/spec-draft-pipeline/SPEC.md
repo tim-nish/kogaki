@@ -691,7 +691,11 @@ Segment it names, and refuses the Extraction for an unsupported entry or a
 question, term, base or principle a Segment leaves that no entry names;
 `src/proof-sheet/extract.mjs rejudge --constraints --library moves --write`
 derives both lists for an admitted library from each record's `segments`,
-`before` and `after`. The Brief and the ParagraphPlan read `takes` and `leaves`
+`before` and `after`. Each re-judge records its calls in `rejudge-<timestamp>`
+under the `proof-sheet` runs lane (`runs/proof-sheet/`, or the `--runs-root
+<dir>` it is given), which is pruned to its three newest runs like every other
+lane (`src/runs.json`, kogaki#1754); nothing is written beside the library.
+The Brief and the ParagraphPlan read `takes` and `leaves`
 (kogaki#1699, kogaki#1701). The Move's `obligation` and `obligation_triggers`
 are retired, and §5.2 is where their retirement is stated.
 

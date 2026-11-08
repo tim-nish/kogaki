@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "spec_references": [
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
     "The rule these entries are written under -- what a copy is, what the two",
@@ -13,12 +13,14 @@
     "      specs/SPEC.md"
   ],
   "governing_text": "Run intermediates are machine state, never owner material: machine-readable intermediates, caches, journals and resumable run state live in machine-state directories. [implemented-against: specs/SPEC.md \"Human-facing files live where the human works\", copied 2026-09-06]",
-  "licensed_by": "kogaki#750 — this carrier holds the CURRENT run-retention bound only. It is not a ledger of past bounds: those live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision, landed here, and recorded by bumping `version` and replacing this line. Ratification is a human act: nothing denies an edit no issue licensed.",
+  "licensed_by": "kogaki#1754 — this carrier holds the CURRENT run-retention bound only. It is not a ledger of past bounds: those live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision, landed here, and recorded by bumping `version` and replacing this line. The owner decision of 2026-11-08 moved the Move re-judge's run records into the `proof-sheet` lane. Ratification is a human act: nothing denies an edit no issue licensed.",
+
   "lanes": {
     "terrain": { "keep_last": 10 },
     "brief": { "keep_last": 10 },
     "draft": { "keep_last": 10 },
     "review": { "keep_last": 10 },
-    "project": { "keep_last": 10 }
+    "project": { "keep_last": 10 },
+    "proof-sheet": { "keep_last": 3 }
   }
 }

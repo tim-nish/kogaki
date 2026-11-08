@@ -45,7 +45,7 @@
 //       passages/FORMAT.md
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, readdirSync } from "node:fs";
-import { join, resolve, basename, extname, dirname } from "node:path";
+import { join, resolve, basename, extname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine } from "../compose.mjs";
 import { stringifyYaml, parseYaml } from "../yaml.mjs";
@@ -53,6 +53,7 @@ import { methodWordRefusal } from "../compose/leg-schema.mjs";
 import { MOVE_CONSTRAINT_KINDS, moveConstraintsRefusal } from "../move-validate.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { enterRun, RUNS_ROOT } from "../runs.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
   jobHeartbeatMs } from "../workflow/detached-job.mjs";
 
@@ -882,8 +883,8 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
 // stays byte-identical; with `retireState` too, the retired `before`, `after` and `after_segment`
 // blocks are cut as well (kogaki#1699), and with `retireObligation` the retired `obligation` and
 // `obligation_triggers` blocks (kogaki#1701); without `write` no record is changed. The calls are
-// recorded in a run directory beside the library, one subdirectory per record, and
-// `constraints.json` lists the records. Returns `{ derived, written, skipped, runDir }`, or with `stopped`.
+// recorded in `rejudge-<timestamp>` under the `proof-sheet` runs lane of `runsRoot` (kogaki#1754),
+// one subdirectory per record, and `constraints.json` lists the records. Returns `{ derived, written, skipped, runDir }`, or with `stopped`.
 const RECORD_BLOCK = (key) => new RegExp(`^${key}:[^\\n]*\\n(?:(?:[ \\t]+[^\\n]*|)\\n)*`, "m");
 export const RETIRED_STATE_KEYS = ["before", "after", "after_segment"];
 export function spliceConstraints(text, { takes, leaves }, { retireState = false, retireObligation = false } = {}) {
@@ -894,7 +895,7 @@ export function spliceConstraints(text, { takes, leaves }, { retireState = false
   return `${out}${stringifyYaml({ takes, leaves }, { width: 100 }).replace(/\s*$/, "\n")}`;
 }
 
-export function runConstraintsRejudge(library, { write = false, retireState = false, retireObligation = false } = {}) {
+export function runConstraintsRejudge(library, { write = false, retireState = false, retireObligation = false, runsRoot = RUNS_ROOT } = {}) {
   const dir = resolve(library);
   let names;
   try { names = readdirSync(dir).filter((f) => f.endsWith(".yaml")).sort(); } catch (e) { fail(`the library at ${dir} cannot be read (${e.message})`); }
@@ -902,8 +903,7 @@ export function runConstraintsRejudge(library, { write = false, retireState = fa
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const row = table.constraints_unit || fail("src/proof-sheet/extraction-workflow.json declares no constraints_unit row. Nothing was started.");
   const setup = judgeSetup(table);
-  const runDir = join(dirname(dir), `rejudge-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
-  mkdirSync(runDir, { recursive: true });
+  const runDir = enterRun("proof-sheet", `rejudge-${new Date().toISOString().replace(/[:.]/g, "-")}`, { root: resolve(runsRoot) });
   const derived = [];
   const written = [];
   const skipped = [];
@@ -959,10 +959,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const retireState = args["retire-state"] === true;
     const retireObligation = args["retire-obligation"] === true;
     if (typeof args.library !== "string" || args.constraints !== true || args.state !== undefined
+      || (args["runs-root"] !== undefined && typeof args["runs-root"] !== "string")
       || ((retireState || retireObligation) && args.write !== true)) {
-      fail("usage: node src/proof-sheet/extract.mjs rejudge --constraints --library <directory of Move records> [--write [--retire-state] [--retire-obligation]]");
+      fail("usage: node src/proof-sheet/extract.mjs rejudge --constraints --library <directory of Move records> [--runs-root <dir>] [--write [--retire-state] [--retire-obligation]]");
     }
-    const r = runConstraintsRejudge(args.library, { write: args.write === true, retireState, retireObligation });
+    const r = runConstraintsRejudge(args.library, { write: args.write === true, retireState, retireObligation,
+      runsRoot: typeof args["runs-root"] === "string" ? args["runs-root"] : RUNS_ROOT });
     const removed = [...(retireState ? RETIRED_STATE_KEYS : []), ...(retireObligation ? RETIRED_OBLIGATION_KEYS : [])];
     for (const f of r.written) console.log(`Move rewritten with takes and leaves${removed.length ? `, ${removed.join(", ")} removed` : ""}: ${f}`);
     for (const f of r.skipped) console.log(`Move left as it was (no segments): ${f}`);
