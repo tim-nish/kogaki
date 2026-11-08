@@ -64,7 +64,7 @@ function elementsOf(structure) {
 }
 
 // A Mapping Table (kogaki#1693), captioned with its paragraph and Move (kogaki#1709), or `no table`.
-function mappingTable(structure, table, number) {
+export function mappingTable(structure, table, number) {
   const roles = elementsOf(structure).filter((e) => e.role);
   const correspondences = table ? table.correspondences : [];
   const rows = roles.map((e) => ({ id: e.id, what: e.what, attributes: e.attributes, correspondences: correspondences.filter((c) => c.role === e.id) }));
@@ -117,8 +117,9 @@ function bindingTable(record, paragraphs, i, contracts) {
     + "</tbody></table>";
 }
 
-function segmentsTable(record, entry, number) {
-  const c = moveContract(entry.move, join(REPO, record.library));
+// `marked` holds the point numbers a refusal named, highlighted for the Attempt Sheet (kogaki#1752).
+export function segmentsTable(record, entry, number, marked = new Set()) {
+  const c = moveContract(entry.move, resolve(REPO, record.library));
   const segments = c.error ? [] : c.segments;
   const points = entry.paragraph_waypoints || [];
   const n = Math.max(segments.length, points.length);
@@ -129,7 +130,7 @@ function segmentsTable(record, entry, number) {
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   return (c.error ? `<p class="stop">${esc(c.error)}</p>` : "")
     + `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>`
-    + Array.from({ length: n }, (_, i) => `<tr><td>${i + 1}</td><td>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td>`
+    + Array.from({ length: n }, (_, i) => `<tr${marked.has(i + 1) ? ' class="named"' : ""}><td>${i + 1}</td><td>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td>`
       + `<td>${field(segments[i], "manner")}</td><td>${pointCell(points[i])}</td></tr>`).join("")
     + "</tbody></table>";
 }

@@ -698,6 +698,24 @@
       }
     },
     {
+      "id": "attempt-sheet",
+      "file": "checks/check-attempt-sheet.sh",
+      "covers": [
+        "src/attempt-sheet/sheet.mjs"
+      ],
+      "admission": {
+        "contract": "The Attempt Sheet renders one Leg of a ParagraphPlan run from the run directory alone (kogaki#1752, owner requirement 2026-11-08). Over a fixture run holding one passed and one refused Leg, two attempts each, written by `writeAttemptRecord`: (a) the refused Leg renders with no `paragraph-plan.yaml`, each Leg Waypoint carrying a status tag, the Brief's point, its final Points as a Segments table and its Mapping Table; (b) the passed Leg carries `passed` on every Leg Waypoint; (c) the Waypoint the last refusal named carries `refused here`, its refusal table holds the full refusal text and names the point, whose row is highlighted, and the other carries `stood`; (d) the revision table shows the revised point before and after and the unrevised point and Move as unchanged; (e) a refusal naming no Leg Waypoint appears in full in the Leg band; (f) the call list holds the unit's nested reading and grounding records; (g) the CLI refuses a directory with no start record or no job record, naming the file, and a `--leg` the start record does not carry, naming the Legs it does; (h) a `running` unit whose supervisor is gone reads `stopped`.",
+        "license": "kogaki#1752",
+        "tier": "pre-push",
+        "runtime_ms": 600,
+        "runtime_ms_note": "MEASURED AT AUTHORING (kogaki#1752, 2026-11-08): one plain run of the file took 329 ms; the fixture is written in a temporary directory and no model is called.",
+        "efficacy": "case: checks/check-attempt-sheet.sh::(f) the call list lacks the nested reading and grounding records",
+        "efficacy_note": "mutation-verified at authoring: restoring the Leg sheet's exact unit-name filter (`r.unit === unitId`) in the call list failed (f), the named defect of kogaki#1752.",
+        "removal_signal": "a ruling retires the Attempt Sheet or folds it into the Structure-Mapping Playground's sheet -- either way src/attempt-sheet/sheet.mjs is gone",
+        "removal_instrument": "probe: ! test -f src/attempt-sheet/sheet.mjs"
+      }
+    },
+    {
       "id": "attempt-replay",
       "file": "checks/check-attempt-replay.sh",
       "covers": ["src/workflow/replay.mjs", "src/workflow/job-report.mjs", "src/workflow/attempt-record.mjs"],

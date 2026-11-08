@@ -3038,6 +3038,52 @@ writes its Attempt Record under the Leg's unit, in
 the Leg Waypoint and the stage. The structures and tables settled are written
 to the Mapping Record (§4.19.2) with the plan.
 
+#### 4.19.4 The Attempt Sheet (kogaki#1752)
+
+The owner asked on 2026-11-08 that the final Points of every attempt stay
+visible whether the attempt passed or was refused, with the refusal and the
+revision it led to readable without a click, so that an incomplete plan can be
+discussed and corrected.
+
+**What it reads.** `node src/attempt-sheet/sheet.mjs leg --run <ParagraphPlan
+run directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]` reads the
+run's start record, its job record, the Leg unit's mapping state and its
+Attempt Records. It needs no `paragraph-plan.yaml`, and reads nothing under
+`theses/`. It refuses a directory with no start record or no job record,
+naming the file, and a `--leg` the start record does not carry, naming the
+Legs it does. It prints HTML to stdout, or writes `--out`, and writes nothing
+else. It is a playground: it may import production files and the Trial
+sheet's helpers, and nothing imports it.
+
+**The Leg band.** One status line: the unit's status (`done`, `refused`,
+`died`, or `running`, read as `stopped` when its supervisor is gone), the
+attempt count and the first attempt's seconds. Every refusal that names no
+Leg Waypoint follows it in full.
+
+**Each Leg Waypoint, in four parts.**
+
+1. A status tag. `passed` when the unit is done. `refused here` when the
+   unit's last refusal names this Leg Waypoint, by its `sites` or by the
+   `Leg <id>, Waypoint <n>` form. `stood` when the unit was refused
+   elsewhere. `not reached` when no attempt produced an entry for it.
+2. The final Points: the entry in the unit's standing `candidate`, or, with
+   none, the entry standing after the last attempt. They render as the Trial
+   sheet's Segments table, with the bound Move, the `join` and the `case`,
+   beside the Brief's point and the Mapping Table.
+3. The refusal table, one row per refusal that named this Leg Waypoint, in
+   attempt order: the attempt, the row it came from, the full text, its
+   `group` and `reach`, and the point it names. A named point is highlighted
+   in the Segments table. A refusal only the job record carries, as the site
+   loop's are, is placed by order and marked so.
+4. The revision table, one per refusal row: the next attempt's entry for this
+   Leg Waypoint against the refused one, as `field | before | after` rows over
+   `move`, `join` and each point by number. An unchanged field reads
+   `unchanged`, so a retry that repeated the refused record reads as one.
+
+**The call list.** Every Attempt Record under the unit, the nested reading
+and grounding calls included, with its kind, its refusal's first line and
+links to its files.
+
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 
 **What it is.** The owner ruled on 2026-11-03 that an article's work is to
