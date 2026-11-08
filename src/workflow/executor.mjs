@@ -31,6 +31,48 @@ export let WRITING_STATE = null;
 // The longest refusal text the state-retry gate's reading carries (kogaki#1740).
 const STATE_REFUSAL_READING_MAX = 2000;
 
+// Records the refusal and raises the flow's state-retry gate at `stateId` (kogaki#1740).
+function raiseStateRetryGate(rec, dir, stateId, message) {
+  const gateId = flow().stateRetryGateId;
+  rec.state_refusals = rec.state_refusals || {};
+  rec.state_refusals[stateId] = { refusal: message, at: new Date().toISOString() };
+  // BOUNDED so the call stays under the channel's byte bound; the record keeps the whole text.
+  const reading = message.length > STATE_REFUSAL_READING_MAX
+    ? `${message.slice(0, STATE_REFUSAL_READING_MAX)}… (the whole message is on the run record, \`state_refusals.${stateId}\`)`
+    : message;
+  const declPath = emitGateDeclaration(dir, gateId, [], {
+    refused_state: stateId,
+    state_refusal: `The Brief step \`${stateId}\` stopped:\n\n${reading}`,
+  });
+  rec.awaiting = stateId;
+  rec.gate_declarations_owed.push({ state: stateId, gate_id: gateId, declaration: relFromRepo(resolve(declPath)) });
+}
+
+// The open run a start must re-offer: not done, not at a wait, resumable against
+// this table, with a state still to run. Null otherwise.
+function unfinishedOpenRun(args) {
+  const dir = readOpenRunPointer();
+  const rec = dir ? readRunRecord(dir) : null;
+  if (!rec || rec.done || rec.awaiting || rec.judgment_abandoned || rec.state_abandoned) return null;
+  const table = loadWorkflowTable(args.workflow ? String(args.workflow) : flow().tablePath);
+  if ((rec.workflow || {}).version !== (table.version ?? null)) return null;
+  const st = table.states.find((s) => !s.conditional && !rec.completed.includes(s.id));
+  return st ? { dir, rec, st } : null;
+}
+
+function reofferUnfinishedRun({ dir, rec, st }) {
+  raiseStateRetryGate(rec, dir, st.id,
+    `This Brief run stopped inside \`${st.id}\` without finishing it: an advance ended before the step did, `
+    + `for instance at the hook's time bound. Starting again re-offers this run rather than a new one, so `
+    + `every earlier answer is kept. The run: ${dir}`);
+  const recPath = writeRunRecord(dir, rec);
+  console.log(`Executor STOPPED at ${st.id} — the open run ${dir} is unfinished, so this start re-offers it at the ${flow().stateRetryGateId} gate and opens no new run (kogaki#1740).`);
+  printWrittenGateCall(dir, flow().stateRetryGateId,
+    `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
+  console.log(`Run record: ${recPath}`);
+  return recPath;
+}
+
 // THE ONE ENTRY A SECOND RUNTIME USES. `src/brief.mjs` composes its own
 // binding and calls this; it never reimplements the loop, which is what makes
 // "the executor advances from hook payloads" one implementation rather than
@@ -99,6 +141,13 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
   // holding this run alongside whatever it did not prune. Read here, while the
   // lane still holds only what the LAST run left behind.
   const mintingFresh = stopAtFirstWait && !args["run-dir"] && !pinned;
+  // A START OVER AN UNFINISHED RUN RE-OFFERS THAT RUN (kogaki#1740 amendment):
+  // where the open run is neither done nor at a wait, an advance ended inside a
+  // state, so the start raises the retry gate there and mints no run directory.
+  if (mintingFresh && flow().stateRetryGateId) {
+    const unfinished = unfinishedOpenRun(args);
+    if (unfinished) return reofferUnfinishedRun(unfinished);
+  }
   const priorDoneRun = mintingFresh ? mostRecentDoneRun(flow().lane) : null;
   if (stopAtFirstWait || args["run-dir"] || pinned) {
     dir = runDir(args);
@@ -457,7 +506,8 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     // A REFUSAL INSIDE AN ADVANCE IS A WAIT, NEVER AN EXIT (kogaki#1740), for
     // the compute and write states of a flow binding a retry gate. The start
     // act is outside it: a refused start opens no gate and leaves nothing open.
-    const windowed = Boolean(flow().stateRetryGateId) && !stopAtFirstWait
+    const isStartAct = stopAtFirstWait;
+    const windowed = Boolean(flow().stateRetryGateId) && !isStartAct
       && (st.kind === "compute" || st.kind === "write");
     if (work) {
       const held = WRITING_STATE;
@@ -482,6 +532,8 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
         // owed to the owner yet.
         else if (e instanceof DetachedJobStarted) { detachedJobStarted = e; }
         else if (e instanceof StateRefusal) { stateRefusal = e; }
+        // ANY OTHER THROW IN A WINDOWED STATE IS A REFUSAL TOO (kogaki#1740 amendment item 1).
+        else if (windowed) { stateRefusal = new StateRefusal(e instanceof Error ? `${e.name}: ${e.message}` : String(e)); }
         else { throw e; }
       }
       finally { WRITING_STATE = held; }
@@ -502,20 +554,7 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
       break;
     }
     if (stateRefusal) {
-      const gateId = flow().stateRetryGateId;
-      rec.state_refusals = rec.state_refusals || {};
-      rec.state_refusals[st.id] = { refusal: stateRefusal.message, at: new Date().toISOString() };
-      // THE READING IS BOUNDED so the call stays under the channel's byte bound;
-      // the whole refusal stays on the record above.
-      const reading = stateRefusal.message.length > STATE_REFUSAL_READING_MAX
-        ? `${stateRefusal.message.slice(0, STATE_REFUSAL_READING_MAX)}… (the whole message is on the run record, \`state_refusals.${st.id}\`)`
-        : stateRefusal.message;
-      const declPath = emitGateDeclaration(dir, gateId, [], {
-        refused_state: st.id,
-        state_refusal: `The Brief step \`${st.id}\` stopped:\n\n${reading}`,
-      });
-      rec.awaiting = st.id;
-      rec.gate_declarations_owed.push({ state: st.id, gate_id: gateId, declaration: relFromRepo(resolve(declPath)) });
+      raiseStateRetryGate(rec, dir, st.id, stateRefusal.message);
       stopped = st;
       stoppedForStateRefusal = true;
       checkpointRun(rec);

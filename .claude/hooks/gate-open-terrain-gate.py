@@ -347,15 +347,36 @@ def answering_row(run_dir, gate_id):
     return None
 
 
+def live_pointers_any_session():
+    """Every readable, unexpired pointer, whatever session it names."""
+    d = pointer_dir()
+    out = []
+    try:
+        paths = sorted(d.glob("*.json")) if d.is_dir() else []
+    except OSError:
+        return out
+    for p in paths:
+        try:
+            with open(p, encoding="utf-8") as f:
+                doc = json.load(f)
+        except Exception:                                         # noqa: BLE001
+            continue
+        if isinstance(doc, dict) and not expired(doc):
+            out.append(doc)
+    return out
+
+
 def answered_reask(payload, pointers):
     """Deny a question byte-equal to a gate call whose raising is already answered.
 
     The capture hook writes no row for it and no advance reads it, so the
-    owner's second answer would go nowhere. An open raising whose call is this
-    payload is admitted by `pre_tool_use`, so it is never denied here.
+    owner's second answer would go nowhere. A live unanswered raising whose call
+    is this payload, in any session, is never denied here.
     """
     got = canonical(payload.get("tool_input") or {})
-    for p in pointers:
+    # ANY SESSION'S LIVE RAISING WITH THESE BYTES IS ADMITTED: two runs refusing
+    # alike compose byte-equal calls, and a gate may be clicked in another session.
+    for p in list(pointers) + live_pointers_any_session():
         want = expected_call(p)
         if want is not None and not has_capture(p) and canonical(want) == got:
             return False

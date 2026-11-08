@@ -3978,7 +3978,8 @@ no open-gate pointer. `mint` keeps its own check for a free-form Thesis's name.
 **Every stop of a Brief advance is a gate or a terminal, and no refusal exits
 the run.** A refusal raised by a compute or write state's renderer during a
 hook-driven advance is caught in the state loop, in the frame that catches a
-spent judgment bound. The record gains `state_refusals[<state>]`, `awaiting`
+spent judgment bound. Anything such a renderer throws is a refusal with the
+error's message, so nothing a state does during an advance exits the process. The record gains `state_refusals[<state>]`, `awaiting`
 names the refused state, and the `brief-state-retry` gate is declared and its
 call written. It has two options and no free text:
 
@@ -3989,7 +3990,14 @@ call written. It has two options and no free text:
 
 **A Brief run has two exits, `done` and `abandon`.** The start act is outside
 this rule: a refused start opens no gate, which is why the collision is caught
-at `enter`. The gate is the flow's own, named on its binding, so the Terrain
+at `enter`. That refusal is interim; a follow-up Issue replaces it with a gate.
+
+**A start over an unfinished run re-offers that run.** Where the open-run
+pointer names a run that is not done, not abandoned and not at a wait (one
+killed mid-advance, for instance at the hook's time bound), `start` mints no
+run directory. It raises `brief-state-retry` for that run's first incomplete
+state and stops there, so a Thesis answer a run already holds is never asked
+for again by any route. The gate is the flow's own, named on its binding, so the Terrain
 lane is unchanged until it declares one.
 
 **A gate already answered is never re-asked by hand.** The open-gate hook denies

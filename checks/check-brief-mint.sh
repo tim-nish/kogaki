@@ -252,6 +252,39 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
       fails.push(`(de) \`abandon\` did not end the run and clear the open-run pointer: status=${r.status} stderr=${r.stderr} record=${JSON.stringify(rec).slice(0, 400)}`);
     }
   }
+  // (df) the amendment's item 1: a renderer that THROWS, rather than calling a
+  // runtime's `fail`, is a refusal too. `strands: null` makes the mint's composer
+  // throw a TypeError.
+  {
+    const f = setup();
+    rmSync(join(f.thesesDir, "guard-claim"), { recursive: true });
+    const runState = join(f.dir, "run.json");
+    writeFileSync(runState, JSON.stringify({ ...JSON.parse(readFileSync(runState, "utf8")), strands: null }) + "\n");
+    const r = advance(f, "toolu_df_1");
+    const rec = record(f);
+    if (r.status !== 0 || rec.awaiting !== "mint" || !existsSync(join(f.dir, `${STATE_RETRY_GATE_ID}.gate-call.json`))
+      || !/TypeError/.test(String((rec.state_refusals || {}).mint?.refusal || ""))) {
+      fails.push(`(df) a renderer that threw did not leave awaiting: mint with a ${STATE_RETRY_GATE_ID} call: status=${r.status} stderr=${r.stderr.slice(0, 400)} record=${JSON.stringify(rec).slice(0, 400)}`);
+    }
+  }
+  // (dg) the amendment's item 2: \`start\` over an unfinished open run raises the
+  // gate for its first incomplete state and creates no run directory.
+  {
+    const f = setup();
+    const lane = join(process.cwd(), "runs", "brief");
+    const before = existsSync(lane) ? readdirSync(lane).sort() : [];
+    const env = { ...process.env, KOGAKI_BRIEF_OPEN_RUN: f.pointer, KOGAKI_OPEN_GATES: f.gates, KOGAKI_JUDGE_CLI: stub };
+    delete env.CLAUDE_CODE_SESSION_ID;
+    delete env.KOGAKI_BRIEF_RUN_DIR;
+    const r = spawnSync(process.execPath, ["src/brief.mjs", "start"], { encoding: "utf8", timeout: 60000, env });
+    const after = existsSync(lane) ? readdirSync(lane).sort() : [];
+    const rec = record(f);
+    if (r.status !== 0 || rec.awaiting !== "mint" || !existsSync(join(f.dir, `${STATE_RETRY_GATE_ID}.gate-call.json`))
+      || readFileSync(f.pointer, "utf8").trim() !== f.dir) {
+      fails.push(`(dg) start over an unfinished run did not raise ${STATE_RETRY_GATE_ID} for it: status=${r.status} stderr=${r.stderr.slice(0, 400)} record=${JSON.stringify(rec).slice(0, 300)}`);
+    }
+    if (JSON.stringify(before) !== JSON.stringify(after)) fails.push(`(dg) start over an unfinished run created a run directory: ${JSON.stringify(after.filter((d) => !before.includes(d)))}`);
+  }
 }
 
 if (fails.length > 0) {
@@ -259,5 +292,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); and a colliding home refused at enter, a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer (kogaki#1740).");
+console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); and a colliding home refused at enter, a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
 JS
