@@ -1180,11 +1180,48 @@ if ! printf '%s' "$fixture_route_out" | grep -q 'reads no arguments from the ses
   bad "the start act's argument guard refused \`--run-dir\`/\`--workflow\`, which it reads and which every fixture that opens a run passes: $fixture_route_out"
 fi
 
+# AN ANSWERED RAISING RE-ASKED BY HAND IS DENIED (kogaki#1740). The capture
+# hook writes no row for a second answer and no advance reads one, so the open-
+# gate hook denies a question byte-equal to a gate call whose raising already has
+# a row, naming that row's tool_use_id; a fresh raising of the same call is not.
+answered_dir="$hooktmp/answered-run"
+mkdir -p "$answered_dir" "$hooktmp/answered-gates"
+answered_case() {
+  local row_instance=$1 sent=$2
+  "$PY" - "$answered_dir" "$row_instance" <<'PYCASE'
+import json, sys
+from pathlib import Path
+d, row_instance = Path(sys.argv[1]), sys.argv[2]
+call = {"questions": [{"question": "A Brief step stopped.", "header": "retry", "multiSelect": False,
+        "options": [{"label": "Retry the step", "description": "r"}, {"label": "End this Brief", "description": "a"}]}]}
+(d / "brief-state-retry.gate-call.json").write_text(json.dumps(call, indent=2) + "\n")
+(d / "brief-state-retry.run-declaration.json").write_text(json.dumps({"id": "brief-state-retry", "gate_instance_id": "inst-answered"}) + "\n")
+(d / "brief.gate-capture.json").write_text(json.dumps({"rows": [{"gate_instance_id": row_instance,
+    "evidence": {"tool": "AskUserQuestion", "tool_use_id": "toolu_earlier_answer"}}]}) + "\n")
+PYCASE
+  "$PY" -c 'import json,sys; c=json.load(open(sys.argv[1])); c["questions"][0]["question"] += sys.argv[2]; print(json.dumps({"hook_event_name": "PreToolUse", "session_id": "s-answered", "tool_name": "AskUserQuestion", "tool_input": c}))' \
+    "$answered_dir/brief-state-retry.gate-call.json" "$sent" \
+    | KOGAKI_BRIEF_RUN_DIR="$answered_dir" KOGAKI_OPEN_GATES="$hooktmp/answered-gates" \
+      "$PY" "$REPO/.claude/hooks/gate-open-terrain-gate.py" PreToolUse 2>/dev/null
+}
+answered_out=$(answered_case inst-answered "")
+if printf '%s' "$answered_out" | grep -q '"permissionDecision": "deny"' && printf '%s' "$answered_out" | grep -q 'toolu_earlier_answer'; then pass; else
+  bad "a question byte-equal to an answered gate call was not denied naming the earlier tool_use_id (kogaki#1740): ${answered_out:-(silent)}"
+fi
+fresh_out=$(answered_case inst-older "")
+if [ -z "$fresh_out" ]; then pass; else
+  bad "a gate call whose current raising has no capture row was denied as answered (kogaki#1740): $fresh_out"
+fi
+other_out=$(answered_case inst-answered " (a different question)")
+if [ -z "$other_out" ]; then pass; else
+  bad "a question differing from the answered gate call was denied as a re-ask (kogaki#1740): $other_out"
+fi
+
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
   note "also asserted (kogaki#1163): that an advance whose run record carries \`done: true\` reaches the session on the same additionalContext channel the gate payloads use, carrying the run directory and the artifacts the record itself lists — and that the cases asserting SILENCE are silent because no record claims a terminal, not because the hook has nothing to say about one; and that the start act refuses a positional token, a run-dir-shaped resumption and an unread flag, while still reading the \`--run-dir\`/\`--workflow\` route every fixture here opens a run through."
   note "NOT asserted here (kogaki#1163 acceptance 3): the print naming the lane's most recent \`done\` run beside the new one. It fires only where the start act MINTS into the default lane — \`--run-dir\` and the env pin both take the other arm — and a mint runs the survey, which reads the policy seam, and resolves the judge binary. This file's members are seam-free and judge-free by construction, so covering it here would make every case in the file conditional on a machine. The behaviour is a print and never a refusal, which is what keeps the gap reportable rather than blocking."
-  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085); and that a pointer past POINTER_TTL is delivered on no channel, which is the one arm these cases had come to depend on without asserting (kogaki#1092)."
+  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085); and that a pointer past POINTER_TTL is delivered on no channel, which is the one arm these cases had come to depend on without asserting (kogaki#1092); and that a question byte-equal to an answered gate call is denied naming the earlier tool_use_id, while a fresh raising of it and a different question are not (kogaki#1740)."
   note "also asserted: that no line this file executes or stages carries an absolute instant. Every staged opened_at is computed from this run's clock at an offset derived from POINTER_TTL, read from .claude/hooks/advance-terrain.py — so the cases above assert the hook's expiry arm rather than the date the fixture was written on, and a reintroduced literal reddens here instead of twelve hours later in CI (kogaki#1092)."
   note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
 fi

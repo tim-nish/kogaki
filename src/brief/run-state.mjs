@@ -18,7 +18,7 @@ import { BRIEF_ENTRIES, enterSubRun } from "../runs.mjs";
 import { RETIRED_JOB_LIMIT_KEYS } from "../workflow/detached-job.mjs";
 import { judgedRecordPath, settingValue } from "../workflow/judge.mjs";
 import {
-  JudgmentRefusal, TerminalJudgmentRefusal, persistPendingRun, readRunRecord,
+  JudgmentRefusal, TerminalJudgmentRefusal, persistPendingRun, readRunRecord, throwIfStateWindow,
 } from "../workflow/run-record.mjs";
 
 export function fail(msg) {
@@ -29,6 +29,7 @@ export function fail(msg) {
   // transitions that act had already completed would sit on disk unnamed by the
   // record — the exact loss #808 closed one runtime over. It is a no-op outside
   // an advance, which is every standalone invocation.
+  throwIfStateWindow(msg);
   persistPendingRun();
   process.stderr.write(`brief: ${msg}\n`);
   process.exit(1);

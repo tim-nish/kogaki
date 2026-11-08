@@ -65,11 +65,32 @@ export function softRefusals(fn) {
   finally { SOFT_REFUSAL_DEPTH -= 1; }
 }
 
+// ---- THE STATE WINDOW: A REFUSAL INSIDE AN ADVANCE IS A WAIT (kogaki#1740). ----
+// Open while the executor runs one compute or write state's renderer inside a
+// hook-driven advance of a flow that binds `stateRetryGateId`. Inside it a
+// refusal throws `StateRefusal` rather than exiting, and the state loop raises
+// that flow's retry gate. The judge re-ask window above is inner and wins.
+let STATE_REFUSAL_DEPTH = 0;
+
+export class StateRefusal extends Error {}
+
+export async function stateRefusals(fn) {
+  STATE_REFUSAL_DEPTH += 1;
+  try { return await fn(); }
+  finally { STATE_REFUSAL_DEPTH -= 1; }
+}
+
+// Every runtime's own `fail` calls this first, so one window serves all of them.
+export function throwIfStateWindow(msg) {
+  if (STATE_REFUSAL_DEPTH > 0) throw new StateRefusal(msg);
+}
+
 export function fail(msg) {
   // The window is the judge re-ask's and nothing else's; `JudgmentRefusal` is
   // the existing carrier for "a refusal that has not exited yet", declared with
   // `orFail` further down and reused here rather than a second class.
   if (SOFT_REFUSAL_DEPTH > 0) throw new JudgmentRefusal(msg);
+  throwIfStateWindow(msg);
   persistPendingRun();
   process.stderr.write(`terrain: ${msg}\n`);
   process.exit(1);

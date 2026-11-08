@@ -15,9 +15,14 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, mkdtempSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join } from "node:path";
-import { composeBrief } from "./src/brief.mjs";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { composeBrief, composeThesisCandidates } from "./src/brief.mjs";
+import { collidingHomes } from "./src/brief/candidates.mjs";
+import { STATE_RETRY_GATE_ID } from "./src/workflow/gate.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS } from "./src/review.mjs";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord } from "./checks/fixtures/brief-compose/fixtures.mjs";
@@ -148,10 +153,111 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   else if (!carried.error.includes(`\`${RETIRED_KEY}\``)) fails.push(`(cc) the record refusal did not name the key: ${carried.error}`);
 }
 
+// (dd) kogaki#1740: the home collision is caught at `enter`. Every candidate's
+// name is known before the gate, so a name whose home exists is named, and
+// cmdEnter refuses before it writes the run state the gate is composed from.
+{
+  const thesesDir = mkdtempSync(join(tmpdir(), "kogaki-dd-theses-"));
+  const strands = [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }];
+  const candidates = composeThesisCandidates(strands, new Map([["a-strand", { headline: "guards fail open when nobody feeds them", cite: "c" }]]));
+  if (collidingHomes(candidates, thesesDir).length) fails.push("(dd) a theses dir holding no home reported a collision");
+  mkdirSync(join(thesesDir, candidates[1].slug));
+  const taken = collidingHomes(candidates, thesesDir);
+  if (JSON.stringify(taken) !== JSON.stringify([join(thesesDir, candidates[1].slug)])) fails.push(`(dd) the existing home was not the one collision named: ${JSON.stringify(taken)}`);
+  const enter = readFileSync("src/brief/candidates.mjs", "utf8");
+  const body = enter.slice(enter.indexOf("export function cmdEnter"), enter.indexOf("const state = {", enter.indexOf("export function cmdEnter")));
+  const at = body.indexOf("collidingHomes(candidates");
+  if (at < 0 || at > body.indexOf("mkdirSync(dirname(runPath)")) fails.push("(dd) cmdEnter does not refuse a colliding home before it writes the run state");
+}
+
+// (de) kogaki#1740: a refusal inside an advance is a wait. A fixture record
+// stands after `adopt_thesis`, with the adopted name's home already present.
+{
+  const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const stub = join(mkdtempSync(join(tmpdir(), "kogaki-de-judge-")), "judge.mjs");
+  writeFileSync(stub, "#!/usr/bin/env node\nprocess.stdout.write(\"de-judge fixture\\n\");\n");
+  chmodSync(stub, 0o755);
+  const setup = () => {
+    const dir = mkdtempSync(join(tmpdir(), "kogaki-de-run-"));
+    const thesesDir = join(dir, "theses");
+    mkdirSync(join(thesesDir, "guard-claim"), { recursive: true });
+    const runState = join(dir, "run.json");
+    writeFileSync(runState, JSON.stringify({
+      stage: "adopted", adopted_thesis: "Guards fail open when nobody feeds them.", adopted_slug: "guard-claim",
+      strands: [{ display_id: "L1", slug: "a-strand", cite: "coding::lesson/a-strand@abc123" }], strand_renderings: {},
+    }, null, 2) + "\n");
+    writeFileSync(join(dir, "run-record.json"), JSON.stringify({
+      workflow: { path: "src/brief-workflow.json", version: briefTable.version }, judge_binary: null, survey_record: null,
+      completed: ["enter", "THESIS_ADOPTION", "adopt_thesis"], waits_reached: ["THESIS_ADOPTION"],
+      conditional_entered: [], conditional_skipped: [], awaiting: null, owner_input: {}, artifacts_written: [],
+      judgments: {}, gate_declarations_owed: [], transitions: [], done: false, brief_run_state: runState,
+    }, null, 2) + "\n");
+    const terms = join(dir, "defined-terms.json");
+    writeFileSync(terms, JSON.stringify({ version: "1", defined_terms: [] }) + "\n");
+    const pointer = join(dir, "open-run-pointer.json");
+    writeFileSync(pointer, `${dir}\n`);
+    const gates = join(dir, "open-gates");
+    mkdirSync(gates);
+    return { dir, thesesDir, terms, pointer, gates };
+  };
+  const advance = (f, toolUseId) => {
+    const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: f.dir, KOGAKI_BRIEF_OPEN_RUN: f.pointer,
+      KOGAKI_OPEN_GATES: f.gates, KOGAKI_JUDGE_CLI: stub };
+    delete env.CLAUDE_CODE_SESSION_ID;
+    return spawnSync(process.execPath, ["src/brief.mjs", "run", "--defined-terms", f.terms, "--theses-dir", f.thesesDir], {
+      encoding: "utf8", timeout: 60000, env,
+      input: JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s-de", tool_use_id: toolUseId }),
+    });
+  };
+  const record = (f) => JSON.parse(readFileSync(join(f.dir, "run-record.json"), "utf8"));
+  const answer = (f, option, toolUseId) => {
+    const decl = JSON.parse(readFileSync(join(f.dir, `${STATE_RETRY_GATE_ID}.run-declaration.json`), "utf8"));
+    const digest = createHash("sha256").update(JSON.stringify([STATE_RETRY_GATE_ID, decl.options.map((o) => o.id)])).digest("hex");
+    writeFileSync(join(f.dir, "brief.gate-capture.json"), JSON.stringify({ rows: [{
+      gate_instance_id: decl.gate_instance_id, evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
+      answers_over: { option_set_digest: digest }, payload: { answer: { option } } }] }) + "\n");
+  };
+  const refusedOnce = () => {
+    const f = setup();
+    const r = advance(f, "toolu_de_1");
+    const rec = record(f);
+    const owed = (rec.gate_declarations_owed || []).find((g) => g.state === "mint" && g.gate_id === STATE_RETRY_GATE_ID);
+    if (r.status !== 0 || rec.awaiting !== "mint" || rec.completed.includes("mint") || !owed
+      || !existsSync(join(f.dir, `${STATE_RETRY_GATE_ID}.gate-call.json`))
+      || !String((rec.state_refusals || {}).mint?.refusal || "").includes("already exists")) {
+      fails.push(`(de) a mint refusal inside an advance did not leave awaiting: mint with a ${STATE_RETRY_GATE_ID} declaration and call: status=${r.status} stderr=${r.stderr} record=${JSON.stringify(rec).slice(0, 600)}`);
+    }
+    const call = existsSync(join(f.dir, `${STATE_RETRY_GATE_ID}.gate-call.json`)) ? readFileSync(join(f.dir, `${STATE_RETRY_GATE_ID}.gate-call.json`), "utf8") : "";
+    if (/adopt --thesis|--slug/.test(`${call}${r.stdout}`)) fails.push("(de) the mint refusal still names `adopt --thesis` or `--slug`");
+    return f;
+  };
+  {
+    const f = refusedOnce();
+    rmSync(join(f.thesesDir, "guard-claim"), { recursive: true });
+    answer(f, "retry", "toolu_de_2");
+    const r = advance(f, "toolu_de_2");
+    const rec = record(f);
+    const brief = join(f.thesesDir, "guard-claim", "brief.yaml");
+    if (!rec.completed.includes("mint") || !existsSync(brief)
+      || !readFileSync(brief, "utf8").includes("Guards fail open when nobody feeds them.")) {
+      fails.push(`(de) \`retry\` after the repair did not complete mint with the adopted Thesis: stdout=${r.stdout.slice(0, 400)} stderr=${r.stderr.slice(0, 400)}`);
+    }
+  }
+  {
+    const f = refusedOnce();
+    answer(f, "abandon", "toolu_de_3");
+    const r = advance(f, "toolu_de_3");
+    const rec = record(f);
+    if (r.status !== 0 || rec.done !== true || !rec.state_abandoned || existsSync(f.pointer) || rec.completed.includes("mint")) {
+      fails.push(`(de) \`abandon\` did not end the run and clear the open-run pointer: status=${r.status} stderr=${r.stderr} record=${JSON.stringify(rec).slice(0, 400)}`);
+    }
+  }
+}
+
 if (fails.length > 0) {
   console.log("FAIL check-brief-mint");
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), and the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571).");
+console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); and a colliding home refused at enter, a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer (kogaki#1740).");
 JS

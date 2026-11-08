@@ -392,8 +392,9 @@ a later sitting widens by convenience if nothing states it.
 | structure composed from the Brief's own state | **bound** — §4, §5, §6 |
 | plain register with round-trip concessions | **bound** — `src/packet-template.md` carries the operational instruction the model reads at generation; `specs/spec-brief-draft-design/DESIGN.md` §4 carries its ground. The surface-shape half is §5.1.3. |
 
-The Brief's **durable home** is decided at §5.3. Checkpoints and resume remain
-manifest item 5's owed future.
+The Brief's **durable home** is decided at §5.3, and so is resume: a refusal
+inside an advance is a wait at a gate, and a Brief run has two exits, `done` and
+`abandon` (kogaki#1740).
 
 `necessity:` a per-gate statement of what is bound and by which section. No
 carrier holds the mapping from an admission record's promises to the sections
@@ -3966,6 +3967,36 @@ exactly when the first piece of substantive owner judgment — the Thesis —
 exists. The home is a directory per Brief, `theses/<slug>/`, idempotent by slug
 with a collision refusing, and the runtime is **creator, never editor**.
 
+**The collision is caught at `enter`, before the gate** (kogaki#1740). Every
+candidate's name is derived before the owner is asked, so `enter` tests
+`theses/<slug>` for each one and refuses the start naming every directory that
+exists. Nothing is asked and nothing is written: no declaration, no gate call,
+no open-gate pointer. `mint` keeps its own check for a free-form Thesis's name.
+
+#### A refusal inside an advance is a wait (kogaki#1740)
+
+**Every stop of a Brief advance is a gate or a terminal, and no refusal exits
+the run.** A refusal raised by a compute or write state's renderer during a
+hook-driven advance is caught in the state loop, in the frame that catches a
+spent judgment bound. The record gains `state_refusals[<state>]`, `awaiting`
+names the refused state, and the `brief-state-retry` gate is declared and its
+call written. It has two options and no free text:
+
+- **`retry`** — the owner has repaired what the refusal names. The advance the
+  click fires re-enters the refused state; every completed state and every
+  earlier answer is kept, so the adopted Thesis is not asked again.
+- **`abandon`** — the run is marked done and the open-run pointer is cleared.
+
+**A Brief run has two exits, `done` and `abandon`.** The start act is outside
+this rule: a refused start opens no gate, which is why the collision is caught
+at `enter`. The gate is the flow's own, named on its binding, so the Terrain
+lane is unchanged until it declares one.
+
+**A gate already answered is never re-asked by hand.** The open-gate hook denies
+a question byte-equal to a gate call whose raising already has a capture row,
+naming that row's `tool_use_id`: no hook reads a second answer to it, so the
+owner's click would go nowhere.
+
 `necessity:` the gate's payload shape is in `src/gate-registry.json` and the flow
 is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
 may not shed, and why declining a slug may not cost the Thesis.
@@ -4000,6 +4031,26 @@ default stop.
 is in `src/brief.mjs`. What no carrier holds: the two conditions a merged gate
 may not shed, why declining a slug may not cost the Thesis, and why a
 mid-workflow stop needs an inspection-need — all conduct at an owner surface.
+
+#### The Removal Test for the Brief flow (kogaki#1740)
+
+**The test.** With `.claude/skills/brief/SKILL.md` reduced to its start line and
+this spec moved out of the tree, a Brief run driven by hook payloads alone
+reaches the same stops and writes the same artifacts as one with both present.
+It mirrors SPEC-terrain's Removal Test, and what passing it establishes is the
+same: every Act of the flow has an executing component reachable without the
+prose.
+
+**The Model relays two things, and the test accepts exactly these.** The
+byte-fixed gate call the Model sends while a gate is open, which the open-gate
+hook compares byte for byte; and the `job await` call the skill licenses, which
+the executor's command hook admits as the whole command. Any other Act a run
+needs the Model to perform fails the test. The 2026-11-08 run failed it: after
+`mint` refused, the only route left was the Model re-asking the Thesis question
+by hand.
+
+`necessity:` the test is a statement about the whole tree with this file
+removed from it, which no carrier inside the tree can hold.
 
 ## 6. Candidates ride the existing gate — no new carrier, no new check
 
