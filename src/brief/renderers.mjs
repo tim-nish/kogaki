@@ -794,7 +794,12 @@ export const ANSWER_WORK = {
   // TYPED TEXT IS NOT A THESIS (kogaki#1749): the wait stays open and the gate
   // is raised again, so `adopt` never sees the answer.
   THESIS_ADOPTION: (rec, answer) => {
-    const gate = readJson(rec.brief_run_state).gate;
+    const gate = readJson(rec.brief_run_state
+      || fail("THESIS_ADOPTION has no run state to read the answer against — `enter` writes it and precedes this wait.")).gate;
+    if (!gate || !Array.isArray(gate.options) || gate.options.length === 0) {
+      fail("the run state carries no thesis-determination gate declaration — `enter` composes it, and an "
+        + "answer is admitted only at the wait that declared it.");
+    }
     if (gate.options.some((o) => o.id === answer)) return undefined;
     console.error(`refused: ${thesisFreeTextRefusal(gate.gate_id)}`);
     return "again";
