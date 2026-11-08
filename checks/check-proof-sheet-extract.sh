@@ -86,8 +86,9 @@
 #       over two fixture records hands the call each record's Segments and `obligation` with no
 #       list and no `before` or `after`, changes no record without `--write`, and with it appends both
 #       lists, every other line byte-identical, an obligation's question becoming a `leaves` entry of
-#       kind `answer`; the records load; each run is recorded beside the library; a second run
-#       replaces the lists in place.
+#       kind `answer`; the records load; each run is recorded as `rejudge-<timestamp>` under the
+#       `proof-sheet` lane of the `--runs-root` it passed and never beside the library (kogaki#1754);
+#       a second run replaces the lists in place; a fourth run prunes the oldest, leaving three.
 #   (m2) the obligation retired from the library (kogaki#1701): `rejudge --constraints --write
 #       --retire-obligation` over a fixture library carrying `obligation` and `obligation_triggers`
 #       leaves no record carrying either, every record loading in the Adapter and the obligation's
@@ -755,7 +756,8 @@ const hjudge = join(hroot, "fake-judge.mjs");
   };
   const texts = {};
   for (const [id, r] of Object.entries(recs)) { texts[id] = stringifyYaml(r); writeFileSync(join(lib, `${id}.yaml`), texts[id]); }
-  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", "--constraints", "--library", lib, ...args],
+  const runsRoot = join(hroot, "runs");
+  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", "--constraints", "--library", lib, "--runs-root", runsRoot, ...args],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
   const dry = rj([]);
   ok(dry.status === 0 && /Moves derived: 2; no record was changed/.test(dry.stdout), `(l) the dry re-judge did not derive both Moves: ${dry.stdout}${dry.stderr}`);
@@ -779,12 +781,20 @@ const hjudge = join(hroot, "fake-judge.mjs");
   ok(inputs.length === 4 && inputs.some((x) => JSON.stringify(x.obligation) === JSON.stringify([QUESTION]))
     && inputs.every((x) => !("before" in x) && !("after" in x)),
     `(l) the re-judge did not hand the call each record's obligation, with no list and no state: ${JSON.stringify(inputs)}`);
-  const runs = readdirSync(hroot).filter((d) => d.startsWith("rejudge-run-"));
-  ok(runs.length === 2 && runs.every((d) => existsSync(join(hroot, d, "constraints.json"))), "(l) each re-judge did not record its calls in a run directory beside the library");
+  const lane = join(runsRoot, "proof-sheet");
+  const runs = readdirSync(lane).filter((d) => /^rejudge-\d/.test(d)).sort();
+  ok(runs.length === 2 && runs.every((d) => existsSync(join(lane, d, "constraints.json"))),
+    `(l) each re-judge did not record its calls in a rejudge-<timestamp> directory under the proof-sheet lane: ${runs}`);
+  ok(new RegExp(`^run directory: ${lane}/rejudge-\\d`, "m").test(wet.stdout), `(l) the re-judge did not name its run directory under the lane: ${wet.stdout}`);
   const twice = rj(["--write"]);
   const again = parseYaml(readFileSync(join(lib, "asks.yaml"), "utf8"), "asks.yaml");
   ok(twice.status === 0 && JSON.stringify(again.leaves) === JSON.stringify(asks.leaves) && (readFileSync(join(lib, "asks.yaml"), "utf8").match(/^leaves:/gm) || []).length === 1,
     "(l) a second --write run did not replace the two lists in place");
+  const fourth = rj([]);
+  const kept = readdirSync(lane).filter((d) => /^rejudge-\d/.test(d)).sort();
+  ok(fourth.status === 0 && kept.length === 3 && !kept.includes(runs[0]),
+    `(l) a fourth re-judge did not prune the lane to its three newest runs: ${kept}`);
+  ok(![lib, hroot].some((d) => readdirSync(d).some((f) => f.startsWith("rejudge-run-"))), "(l) a re-judge wrote a rejudge-run-* directory beside the library");
 }
 
 // (m) THE STATE RETIRED FROM THE LIBRARY (kogaki#1699): `rejudge --constraints --write --retire-state`
@@ -802,7 +812,7 @@ const hjudge = join(hroot, "fake-judge.mjs");
     bare: { id: "bare", description: "Poses a question and leaves it.", after: { knowledge: "holds a question." }, breaks: ["drop it — nothing is left"], segments: segs },
   };
   for (const [id, r] of Object.entries(recs)) writeFileSync(join(lib, `${id}.yaml`), stringifyYaml(r));
-  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", ...args],
+  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", ...args, "--runs-root", join(hroot, "runs")],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
   const dry = rj(["--constraints", "--library", lib, "--retire-state"]);
   ok(dry.status !== 0 && /usage:/.test(dry.stderr), `(m) --retire-state without --write was not refused as usage: ${dry.stdout}${dry.stderr}`);
@@ -836,7 +846,7 @@ const hjudge = join(hroot, "fake-judge.mjs");
     plain: { id: "plain", description: "Poses a question and leaves it.", breaks: ["drop it — nothing is left"], segments: segs },
   };
   for (const [id, r] of Object.entries(recs)) writeFileSync(join(lib, `${id}.yaml`), stringifyYaml(r));
-  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", "--constraints", "--library", lib, ...args],
+  const rj = (args) => spawnSync(process.execPath, ["src/proof-sheet/extract.mjs", "rejudge", "--constraints", "--library", lib, "--runs-root", join(hroot, "runs"), ...args],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: hjudge, PSX_FIXTURE_DIR: hroot }, timeout: 300000 });
   const dry = rj(["--retire-obligation"]);
   ok(dry.status !== 0 && /usage:/.test(dry.stderr) && /--retire-obligation/.test(dry.stderr), `(m2) --retire-obligation without --write was not refused as usage: ${dry.stdout}${dry.stderr}`);
