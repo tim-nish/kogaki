@@ -9,8 +9,7 @@
 #   (as) the claim register, one judged entry per Leg (kogaki#1281); (bb)
 #        `composeBrief` records `compose_path`, refusing one missing (kogaki#1262, #1328).
 #   (cc) the external-authority switch is retired and refused by name (kogaki#1571).
-#   (dd)/(dh) an existing home classified, then resolved at its gate (kogaki#1742).
-#   (fx) the Thesis gate offers no free text, and refuses a typed answer (kogaki#1749).
+#   (dd)/(dh) a home resolved at its gate (kogaki#1742); (fx) no Thesis free text (kogaki#1749).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
