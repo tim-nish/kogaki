@@ -375,14 +375,17 @@ const fails = [];
   const report = String(r.stderr || "");
   const after = JSON.parse(readFileSync(runRecordPath(run), "utf8"));
   if (existsSync(thesisDir)) fails.push(`(al) every Candidate failed and theses/<slug>/ is still there: ${thesisDir} stderr=${report}`);
-  if (!/was removed, so its name is free again/.test(report)) fails.push(`(al) the closing report does not say the Brief was removed: ${report}`);
+  // ARCHIVED, NEVER DELETED (kogaki#1742): the folder is under theses/.archive/.
+  const archived = existsSync(join(base, "theses", ".archive")) ? readdirSync(join(base, "theses", ".archive")) : [];
+  if (!archived.some((n) => n.startsWith("fixture-1307@") && existsSync(join(base, "theses", ".archive", n, "brief.yaml")))) fails.push(`(al) the empty Brief was not moved to theses/.archive/: ${JSON.stringify(archived)}`);
+  if (!/was moved to \S*\.archive\/fixture-1307@\S*, so its name is free again/.test(report)) fails.push(`(al) the closing report does not say where the Brief was moved: ${report}`);
   if (/under a different name/.test(report)) fails.push(`(al) the report still offers the different-name route though the name is free: ${report}`);
   for (const c of cands) if (!report.includes(`"path ${c.candidate_id}"`)) fails.push(`(al) the report does not name candidate ${c.candidate_id}`);
   if (!report.includes(`Leg s2 (m_turn): contradicts — ${WHY}`) || !report.includes("cannot-determine — the Move's Segments cannot be read")) fails.push(`(al) the report does not name each failing Leg with the judge's sentence: ${report}`);
   if (after.done !== true || (after.gate_declarations_owed || []).length || after.awaiting) fails.push(`(al) ending with every Candidate failed raised a question or left the run open: ${JSON.stringify(after)}`);
   if (existsSync(join(run, "brief-reader-path-job.gate-call.json"))) fails.push("(al) ending with every Candidate failed wrote a gate call");
   const kept = noCandidateFitsReport(composeJobExcluded(allRows), "theses/fixture/brief.yaml", { removed: false });
-  if (!/could not be removed/.test(kept)) fails.push(`(al) a Brief that could not be removed is not reported as kept: ${kept}`);
+  if (!/could not be moved/.test(kept)) fails.push(`(al) a Brief that could not be moved is not reported as kept: ${kept}`);
 }
 
 // (ao) kogaki#1311 — a Leg carries waypoints that serve its claims, and the

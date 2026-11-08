@@ -370,7 +370,21 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
         // strand selection are all this one act (the claim re-offer wait: adoption is applying the
         // captured answer), which is why no second command remains to apply it.
         rec.owner_input[rec.awaiting] = capOption !== null ? capOption : capFree;
-        completeState(rec, rec.awaiting, advancedBy);
+        // A WAIT'S ANSWER WORK (kogaki#1742), from the flow binding: `again`
+        // leaves the wait incomplete and retires its declaration so the loop
+        // composes the next raising; `end` ends the run with nothing written.
+        const answerWork = flow().answerWork && flow().answerWork[rec.awaiting];
+        const afterAnswer = answerWork ? answerWork(rec, rec.owner_input[rec.awaiting]) : undefined;
+        if (afterAnswer === "again") {
+          rec.gate_declarations_owed = rec.gate_declarations_owed.filter((g) => g !== owed);
+        } else if (afterAnswer === "end") {
+          rec.done = true;
+          rec.premise_negated = { state: rec.awaiting, at: new Date().toISOString() };
+          clearOpenRunPointer();
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the run ENDS at ${rec.awaiting}; the open-run pointer is cleared and nothing was written.`);
+        } else {
+          completeState(rec, rec.awaiting, advancedBy);
+        }
         rec.awaiting = null;
         // THE POINTER IS RETIRED AT THE ADVANCE, not only by the hook. The hook
         // removes it after writing, and this is the second remover rather than a
@@ -387,10 +401,11 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
 
   // ---- The advance. Order, kind, conditionality and stopping all come from
   // the table; nothing below names a state.
-  // Every conditional state is SKIPPED and recorded so (kogaki#1027 item 5). TRIM_RATIFICATION
-  // is unreachable until a child of kogaki#1025 makes its condition computable;
-  // CLAIM_REOFFER was deleted by kogaki#1030.
-  const entered = new Set();
+  // A conditional state is ENTERED where the flow binding's `conditions` entry
+  // for it holds over the record (kogaki#1742), and SKIPPED and recorded so
+  // otherwise (kogaki#1027 item 5). Terrain's TRIM_RATIFICATION has no entry, so
+  // it stays unreachable until a child of kogaki#1025 makes its condition computable.
+  const holds = (st) => Boolean(flow().conditions && flow().conditions[st.id] && flow().conditions[st.id](rec));
   let stopped = null;
   // SURVIVES THE LOOP, UNLIKE `detachedJobStarted` ITSELF (kogaki#1193 PR
   // #1195 review round 1, finding 3). The generic `rec.awaiting === stopped.id`
@@ -412,9 +427,9 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     delete rec.failure;
   }
   let stoppedForStateRefusal = false;
-  for (const st of (rec.judgment_abandoned || rec.state_abandoned ? [] : table.states)) {
+  for (const st of (rec.judgment_abandoned || rec.state_abandoned || rec.premise_negated ? [] : table.states)) {
     if (rec.completed.includes(st.id)) continue;
-    if (st.conditional && !entered.has(st.id)) {
+    if (st.conditional && !holds(st)) {
       if (!rec.conditional_skipped.includes(st.id)) rec.conditional_skipped.push(st.id);
       continue;
     }

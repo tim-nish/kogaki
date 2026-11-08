@@ -6,7 +6,6 @@
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES: none.
 //
-import { existsSync, rmSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
   candidateLedgerRefusal, characteristicMaxLength, retiredReaderFieldRefusal,
@@ -18,6 +17,7 @@ import {
   specializationSchema, validateLegs, validateSpecialization,
 } from "../compose.mjs";
 import { checkpointRun, clearOpenRunPointer, relFromRepo } from "../workflow/run-record.mjs";
+import { archiveHome } from "./candidates.mjs";
 import { fail, needBrief } from "./run-state.mjs";
 
 // THE DECLARED PER-UNIT VALIDATOR (kogaki#1240): every rule a single Candidate
@@ -224,8 +224,8 @@ export function excludedCandidateLines(excluded) {
 
 // EVERY CANDIDATE FAILED (kogaki#1276, kogaki#1307): the Brief ends with no question.
 // The report names, per Candidate, each Leg that did not fit and the judge's sentence,
-// or the refusal its composition ended on. The empty Brief is removed, and the report
-// says so; the run directory keeps every unit's record.
+// or the refusal its composition ended on. The empty Brief is archived, and the report
+// names where (`removed` is that path, or false); the run directory keeps every unit's record.
 export function noCandidateFitsReport(excluded, briefPath, { removed = false } = {}) {
   const lines = ["No Candidate fits, so no question is asked and the Brief ends here."];
   for (const x of excluded) {
@@ -238,25 +238,26 @@ export function noCandidateFitsReport(excluded, briefPath, { removed = false } =
     }
   }
   lines.push(removed
-    ? `The Brief at ${briefPath} had no Reader Path in it and was removed, so its name is free again. `
+    ? `The Brief at ${briefPath} had no Reader Path in it and was moved to ${removed}, so its name is free again. `
       + "The run directory keeps every unit's record. The way forward is to add a Move through the Move-ingest "
       + "command, or to start the Brief again."
-    : `The Brief at ${briefPath} could not be removed and stays as minted, with no Reader Path in it.`);
+    : `The Brief at ${briefPath} could not be moved and stays as minted, with no Reader Path in it.`);
   return lines.join("\n");
 }
 
 export function endBriefNoCandidateFits(rec, st, excluded) {
   const briefPath = needBrief(rec, st);
-  // THE EMPTY BRIEF IS REMOVED (kogaki#1307, owner decision 2026-10-08): its
-  // `theses/<slug>/` holds only what `mint` wrote, and keeping it takes the name.
+  // THE EMPTY BRIEF IS MOVED OUT OF ITS NAME (kogaki#1307, owner decision
+  // 2026-10-08): keeping its `theses/<slug>/` takes the name. It is archived
+  // and never deleted (kogaki#1742).
   let removed = false;
   if (basename(briefPath) === BRIEF_RECORD_FILE) {
-    try { rmSync(dirname(briefPath), { recursive: true, force: true }); removed = !existsSync(dirname(briefPath)); }
+    try { removed = relFromRepo(archiveHome(dirname(briefPath))); }
     catch { removed = false; }
   }
   const report = noCandidateFitsReport(excluded, relFromRepo(briefPath), { removed });
   rec.brief_no_fit = excluded;
-  if (removed) rec.brief_removed = relFromRepo(dirname(briefPath));
+  if (removed) rec.brief_removed = removed;
   rec.awaiting = null;
   rec.done = true;
   checkpointRun(rec);
