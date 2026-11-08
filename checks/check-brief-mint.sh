@@ -9,7 +9,7 @@
 #   (as) the claim register, one judged entry per Leg (kogaki#1281); (bb)
 #        `composeBrief` records `compose_path`, refusing one missing (kogaki#1262, #1328).
 #   (cc) the external-authority switch is retired and refused by name (kogaki#1571).
-#   (dd)/(dh) an existing home classified, then resolved at its gate (kogaki#1742).
+#   (dd)/(dh) a home resolved at its gate (kogaki#1742); (fx) no Thesis free text (kogaki#1749).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -249,11 +249,11 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     });
   };
   const record = (f) => JSON.parse(readFileSync(join(f.dir, "run-record.json"), "utf8"));
-  const answer = (f, gateId, option, toolUseId) => {
+  const answer = (f, gateId, option, toolUseId, given = { option }) => {
     const decl = JSON.parse(readFileSync(join(f.dir, `${gateId}.run-declaration.json`), "utf8"));
     const digest = createHash("sha256").update(JSON.stringify([gateId, decl.options.map((o) => o.id)])).digest("hex");
     f.rows.push({ gate_id: gateId, gate_instance_id: decl.gate_instance_id, evidence: { tool: "AskUserQuestion", tool_use_id: toolUseId },
-      answers_over: { option_set_digest: digest }, payload: { answer: { option } } });
+      answers_over: { option_set_digest: digest }, payload: { answer: given } });
     writeFileSync(join(f.dir, "brief.gate-capture.json"), JSON.stringify({ rows: f.rows }) + "\n");
   };
   const callText = (f, gateId) => existsSync(join(f.dir, `${gateId}.gate-call.json`)) ? readFileSync(join(f.dir, `${gateId}.gate-call.json`), "utf8") : "";
@@ -307,6 +307,38 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     const rec = record(f);
     if (rec.done !== true || !rec.premise_negated || existsSync(f.pointer) || existsSync(join(f.dir, "brief-thesis-adoption.run-declaration.json"))) {
       fails.push(`(dh) back-to-terrain did not end the run with nothing further asked: ${JSON.stringify(rec).slice(0, 400)}`);
+    }
+  }
+  // (fx) kogaki#1749: the Thesis gate offers no free text. The registry row
+  // declares none and the composed call carries no free-text prompt; a capture
+  // with free text and no option is refused naming the gate, inside an advance
+  // (the run stays at THESIS_ADOPTION) and by `adopt`, and nothing is written.
+  {
+    const reg = JSON.parse(readFileSync("src/gate-registry.json", "utf8"));
+    const row = reg.gates.find((g) => g.id === "brief-thesis-adoption");
+    if (!row || row.free_text_offered !== false) fails.push(`(fx) brief-thesis-adoption declares free_text_offered ${JSON.stringify(row && row.free_text_offered)}, not false`);
+    const f = stoppedAtCollision();
+    answer(f, "brief-home-collision", "replace", "toolu_fx_1");
+    advance(f, "toolu_fx_1");
+    const decl = JSON.parse(readFileSync(join(f.dir, "brief-thesis-adoption.run-declaration.json"), "utf8"));
+    const ids = decl.options.map((o) => o.id);
+    if (decl.free_text_offered !== false || /own words/i.test(callText(f, "brief-thesis-adoption"))
+      || !ids.includes("back-to-terrain") || !ids.includes("thesis-1")) {
+      fails.push(`(fx) the Thesis gate call offers free text or lacks its options: ${JSON.stringify(ids)} free_text_offered=${decl.free_text_offered}`);
+    }
+    const before = readdirSync(f.thesesDir).sort().join(",");
+    answer(f, "brief-thesis-adoption", undefined, "toolu_fx_2", { free_text: "I've already answered it" });
+    const r = advance(f, "toolu_fx_2");
+    const rec = record(f);
+    if (rec.awaiting !== "THESIS_ADOPTION" || rec.completed.includes("adopt_thesis")
+      || !`${r.stdout}${r.stderr}`.includes("brief-thesis-adoption") || readdirSync(f.thesesDir).sort().join(",") !== before) {
+      fails.push(`(fx) a free-text answer at the Thesis gate was not refused at the wait: awaiting=${rec.awaiting} stderr=${r.stderr.slice(0, 400)}`);
+    }
+    const runState = join(f.dir, "run.json");
+    const a = spawnSync(process.execPath, ["src/brief.mjs", "adopt", "--run-state", runState, "--capture", join(f.dir, "brief.gate-capture.json")], { encoding: "utf8" });
+    const st = JSON.parse(readFileSync(runState, "utf8"));
+    if (a.status === 0 || !a.stderr.includes("brief-thesis-adoption") || st.stage === "adopted" || readdirSync(f.thesesDir).sort().join(",") !== before) {
+      fails.push(`(fx) adopt did not refuse a free-text capture naming the gate: status=${a.status} stage=${st.stage} stderr=${a.stderr.slice(0, 300)}`);
     }
   }
 }
@@ -433,5 +465,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes, a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
+console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes, a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
 JS

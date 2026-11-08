@@ -21,7 +21,7 @@ import {
 } from "../workflow/detached-job.mjs";
 import { JUDGE_INPUT_MARKER, judgePrompt, judgeSettings } from "../workflow/judge.mjs";
 import { JudgmentRefusal, relFromRepo } from "../workflow/run-record.mjs";
-import { cmdAdopt, cmdEnter, cmdMint, pendingHomeCollision } from "./candidates.mjs";
+import { cmdAdopt, cmdEnter, cmdMint, pendingHomeCollision, thesisFreeTextRefusal } from "./candidates.mjs";
 import { candidateSelectionExtra, selectedCandidateId } from "./reader-path-unit.mjs";
 import {
   BRIEF_REPO, REVIEW_PATH_JOB_DIR, briefAudienceFile, briefJobBounds, briefJobSetting,
@@ -667,8 +667,8 @@ export const STATE_WORK = {
 // both digests are taken over.
 export const GATE_WORK = {
   // THE OPTIONS ARE `enter`'S, CARRIED OVER AND NOT RECOMPOSED. `enter` writes
-  // `state.gate` — the 2-3 (Thesis, name) pairs, the premise negation, the
-  // free-text prompt — and `adopt` digests over that same list. Recomposing here
+  // `state.gate` — the 2-3 (Thesis, name) pairs and the premise negation —
+  // and `adopt` digests over that same list. Recomposing here
   // would be a second answer to what the owner was shown.
   THESIS_ADOPTION: (rec) => {
     const state = readJson(rec.brief_run_state
@@ -790,5 +790,18 @@ export const ANSWER_WORK = {
     if (answer === "keep") state.gate.options = state.gate.options.filter((o) => o.id !== c.id);
     writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
     return pendingHomeCollision(state) ? "again" : undefined;
+  },
+  // TYPED TEXT IS NOT A THESIS (kogaki#1749): the wait stays open and the gate
+  // is raised again, so `adopt` never sees the answer.
+  THESIS_ADOPTION: (rec, answer) => {
+    const gate = readJson(rec.brief_run_state
+      || fail("THESIS_ADOPTION has no run state to read the answer against — `enter` writes it and precedes this wait.")).gate;
+    if (!gate || !Array.isArray(gate.options) || gate.options.length === 0) {
+      fail("the run state carries no thesis-determination gate declaration — `enter` composes it, and an "
+        + "answer is admitted only at the wait that declared it.");
+    }
+    if (gate.options.some((o) => o.id === answer)) return undefined;
+    console.error(`refused: ${thesisFreeTextRefusal(gate.gate_id)}`);
+    return "again";
   },
 };
