@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 # check-attempt-sheet -- the Attempt Sheet (kogaki#1752) renders one Leg of a ParagraphPlan run from the run directory
-# alone, over a fixture run holding one passed Leg (leg1) and one refused Leg (leg2), two attempts each, written by the
-# Attempt Record's own writer:
-#   (a) leg2 renders with no paragraph-plan.yaml: each Leg Waypoint carries a status tag, the Brief's point, its final
-#       Points as a Segments table and its Mapping Table.
+# alone, over a fixture run with one passed Leg (leg1) and one refused Leg (leg2), two attempts each, written by `writeAttemptRecord`:
+#   (a) leg2 renders with no paragraph-plan.yaml: each Leg Waypoint has a status tag, the Brief's point, its Segments and Mapping Table.
 #   (b) leg1, done, carries `passed` on every Leg Waypoint.
-#   (c) the Waypoint the last refusal named carries `refused here`, its refusal table holds the full text and names
-#       the point, and that point's row is highlighted; the other carries `stood`.
+#   (c) the Waypoint the last refusal named is `refused here`, with the full refusal text and the named point highlighted; the other `stood`.
 #   (d) the revision table shows the revised point before and after, and the unrevised point and Move as unchanged.
 #   (e) a refusal naming no Leg Waypoint appears in full in the Leg band.
 #   (f) the call list holds the unit's nested reading and grounding records.
-#   (g) the CLI refuses a directory with no start record or no job record, naming the file, and a --leg the start
-#       record does not carry, naming the Legs it does.
+#   (g) the CLI refuses a run with no start or no job record, naming the file, and an unknown --leg, naming the Legs.
 #   (h) a `running` unit whose supervisor is gone reads `stopped`.
 set -u
 cd "$(dirname "$0")/.."
