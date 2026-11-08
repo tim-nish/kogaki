@@ -68,8 +68,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     case "mint": cmdMint(args); break;
     // ---- THE CONTROL PLANE'S ONE ADVANCE (kogaki#1108), entered once per act.
     //
-    // THE PAYLOAD GATE, BEFORE ANY WRITE, is `src/terrain.mjs`'s own and is
-    // reproduced here rather than shared for the reason it sits in that
+    // THE PAYLOAD GATE, BEFORE ANY WRITE, is every lane's entry point's own and
+    // is reproduced here rather than shared for the reason it sits in a
     // dispatcher rather than inside `cmdRun`: it must refuse BEFORE a run
     // directory is opened, and the dispatcher is the only place before it.
     // `--status` is read-only and is exempt.

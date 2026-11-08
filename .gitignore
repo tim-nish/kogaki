@@ -229,6 +229,7 @@ policy/shape.md
 # named reader of both files, so they are repository material and not private
 # ones. The REGISTRATION stays machine-local exactly as write-gate-capture.py's
 # does, which is why that check asserts the files and not their wiring.
+!.claude/hooks/gate-executor-invocation.py
 !.claude/hooks/gate-terrain-executor.py
 !.claude/hooks/advance-terrain.py
 # THE OPEN-GATE INTERVAL (kogaki#1028), re-included on the same criterion:
@@ -238,12 +239,13 @@ policy/shape.md
 # only one whose absence is UNOBSERVABLE from inside a session -- a gate that
 # nothing enforces looks exactly like a gate nobody reached -- so it is
 # registered in the committed `.claude/settings.json` and asserted there.
+!.claude/hooks/gate-open-gate.py
 !.claude/hooks/gate-open-terrain-gate.py
 # THE BRIEF LANE'S ADVANCE HOOK (kogaki#1108), re-included on the same
 # criterion: `checks/check-brief-compose.sh` case (n) copies the whole hooks
 # directory into a reduced tree and drives the Brief span through this file, so
 # it has a named reader and is repository material. Its REGISTRATION follows
-# `advance-terrain.py`'s split rather than `gate-open-terrain-gate.py`'s -- the
+# `advance-terrain.py`'s split rather than `gate-open-gate.py`'s -- the
 # absence of an advance IS observable from inside a session, since the run
 # simply does not move -- except that the committed `.claude/settings.json`
 # already carries the PostToolUse chain this hook is appended to, and
@@ -253,7 +255,7 @@ policy/shape.md
 # THE SELF-GATING DISPATCH DENY (kogaki#1154), re-included on the same
 # criterion: `checks/check-skill-dispatch-under-run.sh` is its named reader,
 # so it is repository material. Its REGISTRATION follows
-# `gate-open-terrain-gate.py`'s split rather than `advance-terrain.py`'s -- a
+# `gate-open-gate.py`'s split rather than `advance-terrain.py`'s -- a
 # session it fails to guard does not stall visibly, it deadlocks at the next
 # self-gating dispatch with no admissible act at all, which is the same
 # unobservable-from-inside-a-session absence that hook's own re-include names.

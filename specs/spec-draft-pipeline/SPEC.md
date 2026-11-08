@@ -4060,6 +4060,33 @@ by hand.
 `necessity:` the test is a statement about the whole tree with this file
 removed from it, which no carrier inside the tree can hold.
 
+#### The Brief flow names no other command's file (kogaki#1741)
+
+**The Brief flow depends on no file, hook, process or gate id named for another
+command** (owner rule, 2026-11-08: shared functionality never resides in a
+Terrain file). Shared machinery has a neutral home:
+
+- **code** lives under `src/workflow/`: the executor (`executor.mjs`), the run
+  record (`run-record.mjs`) and the Detached Job supervisor
+  (`job-supervise.mjs`), which every lane's job spawns;
+- **hooks** live in `.claude/hooks/` under a neutral name: `gate-open-gate.py`
+  holds any lane's open gate, and `gate-executor-invocation.py` denies every
+  executor its lane table lists;
+- **gate ids** name the act: a spent judge bound raises `judgment-retry`;
+- **checks** live under their own lane's name: the Brief's hook cases are
+  `checks/check-brief-hook-invocation.sh`.
+
+The run record has no default lane. Each entry point binds its own flow.
+
+**Citing a SPEC-terrain name is not a dependency.** The control plane was first
+specified in SPEC-terrain, so the shared files and the Brief table cite its
+names. A name records where a contract was written (`src/SPEC-REFERENCES.md`),
+not which command owns a file.
+
+`necessity:` the file names carry each instance. What no carrier holds is the
+rule that the next shared piece goes to a neutral home, not to the first lane
+that needed it.
+
 ## 6. Candidates ride the existing gate — no new carrier, no new check
 
 Two to three **Candidates** per article, differing in **reader experience**,

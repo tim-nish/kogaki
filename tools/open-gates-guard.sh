@@ -23,7 +23,7 @@
 # runs: they were the check suite, which starts the executor to drive its cases
 # and inherits the executor's default pointer directory when nothing redirects
 # it. Each raising minted a pointer in the owner's live directory. That
-# directory is now load-bearing — `.claude/hooks/gate-open-terrain-gate.py`
+# directory is now load-bearing — `.claude/hooks/gate-open-gate.py`
 # denies every tool call while a pointer for the session is open — so a suite
 # writing into it is a suite that can freeze the session that ran it.
 #
@@ -44,7 +44,7 @@ kogaki_open_gates_guard() {
   if [[ -z "${KOGAKI_OPEN_GATES:-}" ]]; then
     echo "REFUSED: KOGAKI_OPEN_GATES is not set, and this check starts the Terrain executor (kogaki#1028)." >&2
     echo "  Without it the executor mints open-gate pointers in ${live}, the directory" >&2
-    echo "  .claude/hooks/gate-open-terrain-gate.py gates a live session on — 858 of them were" >&2
+    echo "  .claude/hooks/gate-open-gate.py gates a live session on — 858 of them were" >&2
     echo "  minted this way before this guard existed." >&2
     echo "  Recovery: run the suite through tools/run-registered-checks.sh, which supplies a" >&2
     echo "  per-run directory, or export KOGAKI_OPEN_GATES=\"\$(mktemp -d)\" before this check." >&2

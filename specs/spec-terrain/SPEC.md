@@ -1329,7 +1329,7 @@ a fact a re-ask cannot repair. The run record's attempt count is `1` on a
 timeout, never the licensed bound.
 
 **A judgment state that exhausts its bound — by timeout or by repeated
-refusal — raises `terrain-judgment-retry` (`src/gate-registry.json`) rather than
+refusal — raises `judgment-retry` (`src/gate-registry.json`) rather than
 failing the run.** The gate offers exactly two options: `retry`, which
 re-fires the advance into the SAME state (it is not marked complete, so the
 ordinary table loop re-enters it — any per-group record already validated on

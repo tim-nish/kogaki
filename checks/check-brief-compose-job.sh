@@ -25,6 +25,10 @@ import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFit
 import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
+import { bindFlow } from "./src/workflow/run-record.mjs";
+import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
+// The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
+bindFlow(BRIEF_FLOW);
 import { recordOf, FIT_MOVE, segmentText, START_1276, leg1276, cand1276, fitMoveLibrary } from "./checks/fixtures/brief-compose/fixtures.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
@@ -250,7 +254,7 @@ const fails = [];
   writeFileSync(join(sup, "units.json"), JSON.stringify({ units: [{ id: "u", prompt: "compose one path\n----- INPUT -----\n{}" }],
     validator: { module: "src/brief.mjs", export: "validateReaderPathUnit",
       inputs: { strandIds: ["L1"], movesDir: fitMoves } } }));
-  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", sup, "--units", join(sup, "units.json"),
+  spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", sup, "--units", join(sup, "units.json"),
     "--command", judge, "--model", "m", "--output-format", "json",
     "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
   const jobFile = join(sup, "reader-path-job.json");

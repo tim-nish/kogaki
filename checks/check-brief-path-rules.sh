@@ -21,6 +21,10 @@ import { join, resolve } from "node:path";
 import { STATE_WORK } from "./src/brief/renderers.mjs";
 import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict } from "./src/brief.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
+import { bindFlow } from "./src/workflow/run-record.mjs";
+import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
+// The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
+bindFlow(BRIEF_FLOW);
 import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
 import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } from "./src/draft.mjs";

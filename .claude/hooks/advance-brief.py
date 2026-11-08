@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """PostToolUse: the Brief executor's advance, executed by the harness.
 
-Design and licence: kogaki#1108, acceptance item 2. THE SIBLING IS
-`.claude/hooks/advance-terrain.py` AND THIS IS ITS SECOND LANE, not a variant of
-it: same structure, same two narrowings, same delivery point, same constants,
-with the lane, the capture prefix, the run-directory variables and the executor
+Design and licence: kogaki#1108, acceptance item 2. THE SIBLING IS THE OTHER
+LANE'S ADVANCE HOOK AND THIS IS ITS SECOND LANE, not a variant of it: same
+structure, same two narrowings, same delivery point, same constants, with the
+lane, the capture prefix, the run-directory variables and the executor
 path changed and nothing else.
 
 WHY A SECOND FILE RATHER THAN ONE HOOK TAKING A LANE ARGUMENT. A hook is one file
@@ -114,9 +114,9 @@ RUN_DIR_ENV = "KOGAKI_BRIEF_RUN_DIR"
 
 # The capture file's suffix, `src/gate-schema.json`'s `capture.suffix`, copied
 # here on the same ground `write-gate-capture.py` copies `POINTER_TTL`: a hook
-# is one file with no module to import. `checks/check-terrain-hook-invocation.sh`
+# is one file with no module to import. `checks/check-brief-hook-invocation.sh`
 # compares this constant against the schema rather than trusting the two to
-# agree by reading, and it reads THIS file's copy too (kogaki#1108).
+# agree by reading (kogaki#1108, kogaki#1741).
 CAPTURE_SUFFIX = ".gate-capture.json"
 
 # The open-gate pointer directory, the executor's own `openGateDir()`, copied
@@ -135,7 +135,7 @@ OPEN_GATES_ENV = "KOGAKI_OPEN_GATES"
 # THE THIRD COPY OF ONE CONSTANT, and it is copied for the reason the second
 # was: a hook is one file the harness runs by path, with no module to import
 # from. `write-gate-capture.py` reaps a pointer older than this and
-# `gate-open-terrain-gate.py` gates nothing on one -- so a reader here that
+# `gate-open-gate.py` gates nothing on one -- so a reader here that
 # read no expiry would deliver a payload for a raising both siblings have
 # already written off. Change it in all three or in none.
 POINTER_TTL = timedelta(hours=12)
@@ -247,7 +247,7 @@ def pointer_expired(pointer):
 def pointer_answered(pointer):
     """Has the harness already written this raising's row?
 
-    `gate-open-terrain-gate.py`'s `has_capture` -- that hook is lane-agnostic
+    `gate-open-gate.py`'s `has_capture` -- that hook is lane-agnostic
     and gates both flows' gates -- copied here because a hook has
     no module to share one from. The pointer is normally REMOVED by
     `write-gate-capture.py` the moment it writes the row -- but that hook has a

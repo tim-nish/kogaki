@@ -10,11 +10,15 @@ import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { loadGrammar, validateSurface } from "../src/format-guard.mjs";
 import { GATE_CALL_SUFFIX, emitGateDeclaration } from "../src/workflow/gate.mjs";
+import { bindFlow } from "../src/workflow/run-record.mjs";
+import { TERRAIN_FLOW } from "../src/terrain.mjs";
 import {
   REPO, readJson, GATE_SCHEMA, GATES_REGISTRY, REPORT_FORMAT, RUN_RECORD_FILE,
   FIXTURE_PAYLOAD, SHAPE_CMD_FROM_ENV, terrain, moduleUrl, drive, SCRATCH, ok,
   tagStopFixture, finish,
 } from "./fixtures/terrain-cases/helpers.mjs";
+// The run record binds no default lane (kogaki#1741): these cases declare Terrain gates.
+bindFlow(TERRAIN_FLOW);
 const { surveyPath, gs, rd, execSidecar, tagRun } = tagStopFixture();
 
 // ---- THE FIRST-TAG GATE CARRIES ITS LISTING (kogaki#856). At
@@ -442,6 +446,10 @@ const surveyRec = readJson(surveyPath);
     const driver = join(shapeDir, "driver.mjs");
     writeFileSync(driver,
       `import { emitGateDeclaration } from ${JSON.stringify(moduleUrl("workflow/gate"))};\n`
+      // A Brief gate is declared under the Brief's flow; the run record binds no default (kogaki#1741).
+      + `import { bindFlow } from ${JSON.stringify(moduleUrl("workflow/run-record"))};\n`
+      + `import { BRIEF_FLOW } from ${JSON.stringify(moduleUrl("brief/job-verbs"))};\n`
+      + `bindFlow(BRIEF_FLOW);\n`
       + `emitGateDeclaration(${JSON.stringify(emitDir)}, "brief-thesis-adoption",\n`
       + `  [{ id: "adopt", label: "Adopt the Thesis as named above (a note)" }], {});\n`);
     const run = spawnSync(process.execPath, [driver], {

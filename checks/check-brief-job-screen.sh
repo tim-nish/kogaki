@@ -32,6 +32,10 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { READER_PATH_JOB_GATE_ID, emitGateDeclaration, GATE_CALL_SUFFIX } from "./src/workflow/gate.mjs";
+import { bindFlow } from "./src/workflow/run-record.mjs";
+import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
+// The run record binds no default lane (kogaki#1741): a Brief gate is declared under the Brief's flow.
+bindFlow(BRIEF_FLOW);
 import { findInternalVocabulary } from "./src/assemble.mjs";
 import {
   root, WAIT_SCALE, scratch, mkNewRun, superviseSync, readRecord, runRecordPath,

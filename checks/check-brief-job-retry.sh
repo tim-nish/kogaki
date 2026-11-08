@@ -31,6 +31,10 @@ import { spawnSync } from "node:child_process";
 import { readerPathAwaitStep, READER_PATH_JOB_SYSTEM_FAILURE_STATES } from "./src/workflow/detached-job.mjs";
 import { READER_PATH_JOB_GATE_ID, GATE_CALL_SUFFIX } from "./src/workflow/gate.mjs";
 import { judgePrompt, judgeRefusalBlock, JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
+import { bindFlow } from "./src/workflow/run-record.mjs";
+import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
+// The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
+bindFlow(BRIEF_FLOW);
 import { assembleSelection } from "./src/assemble.mjs";
 import {
   root, JOB_UNIT_NO_TOOLS_SENTENCE, scratch, fakeJudge, mkNewScratch, mkNewRun, declareUnits, superviseSync, readRecord, runRecordPath, unitRowOf, unitStdoutFile,
@@ -496,13 +500,13 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   // rather than defaulted.
   const unitsPath = join(sdir, "units.json");
   writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: "OK" }])));
-  const noLimit = spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", sdir, "--units", unitsPath,
+  const noLimit = spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", sdir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"],
     { cwd: root, timeout: 15000, encoding: "utf8" });
   const noLimitRec = readRecord(sdir);
   if (noLimitRec && noLimitRec.state === "done") fails.push(`(y3) the supervisor ran a job with no --call-limit-s: ${JSON.stringify(noLimitRec)} ${noLimit.stderr}`);
   const odir = mkNewScratch();
-  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", odir, "--units", unitsPath,
+  spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", odir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json", "--absolute-limit-s", "100",
     "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"],
     { cwd: root, timeout: 15000, encoding: "utf8" });
@@ -579,7 +583,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     fit_judge: { module: "src/brief.mjs", prompt_export: "readerPathFitPrompt", verdict_export: "readerPathFitVerdict",
       inputs: { movesDir: moves, priorKnowledge: "has used a CI system", promptHead: "FIT_JUDGE_HEAD\n" } },
   }, null, 2));
-  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", base, "--units", unitsPath,
+  spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", base, "--units", unitsPath,
     "--command", judgeFile, "--model", "m", "--output-format", "json",
     "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
   const rec = readRecord(base);
@@ -615,7 +619,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 });
 `);
   chmodSync(dieJudge, 0o755);
-  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", dieDir, "--units", unitsPath,
+  spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", dieDir, "--units", unitsPath,
     "--command", dieJudge, "--model", "m", "--output-format", "json",
     "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
   const dieRow = unitRowOf(readRecord(dieDir), "c1");
