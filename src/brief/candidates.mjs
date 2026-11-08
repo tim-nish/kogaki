@@ -292,6 +292,18 @@ const STOP = new Set(["the", "article", "articles", "makes", "one", "claim",
 // (the slug names a directory the owner enumerates).
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
+// The directory Briefs are minted into: `--theses-dir` when given, else `theses`.
+function thesesDirOf(args) {
+  return resolve(typeof args["theses-dir"] === "string" && args["theses-dir"] !== "" ? args["theses-dir"] : "theses");
+}
+
+// The homes, among the candidates' derived names, that already exist (kogaki#1740).
+export function collidingHomes(candidates, thesesDir) {
+  return [...new Set(candidates.map((c) => c.slug))]
+    .map((slug) => join(thesesDir, slug))
+    .filter((home) => existsSync(home));
+}
+
 // ---- enter: resolve the set, compose candidates, write run state. ----
 // WRITES NOTHING under theses/ or any tracked path (story 1.72 AC1) — the
 // run state is machine-local by default and the command has no theses-dir
@@ -321,6 +333,15 @@ export function cmdEnter(args) {
   const { headlines, seam, namespaces, unaddressable } = resolveHeadlines(r.strands);
   const candidates = composeThesisCandidates(r.strands, headlines,
     { seam, namespaces, unaddressable });
+  // THE HOME COLLISION IS CAUGHT HERE, BEFORE THE GATE (kogaki#1740): every
+  // candidate's name is known now, so a name whose home exists refuses the start
+  // before any declaration, gate call or open-gate pointer is written.
+  const taken = collidingHomes(candidates, thesesDirOf(args));
+  if (taken.length) {
+    fail(`${taken.map((h) => `${h}/`).join(", ")} already exist${taken.length === 1 ? "s" : ""}, and `
+      + `${taken.length === 1 ? "that is the home" : "those are the homes"} a Thesis offered here would be minted into. `
+      + "Move or remove the directory, then start the Brief again. Nothing was asked and nothing was written.");
+  }
   const runPath = typeof args["run-state"] === "string" && args["run-state"] !== ""
     ? args["run-state"] : defaultRunState();
   mkdirSync(dirname(runPath), { recursive: true });
@@ -529,8 +550,7 @@ export function cmdMint(args) {
       + "slug ask to answer).");
   }
 
-  const thesesDir = resolve(typeof args["theses-dir"] === "string" && args["theses-dir"] !== "" ? args["theses-dir"] : "theses");
-  const home = join(thesesDir, slug);
+  const home = join(thesesDirOf(args), slug);
   // IDEMPOTENCE IS BY SLUG, AND A COLLISION REFUSES (the durable home and the entry point): a Brief is owner
   // state from the moment it exists, and this runtime is a creator, never an
   // editor.
@@ -542,9 +562,9 @@ export function cmdMint(args) {
     // refused over. Pre-existing shape, carried in at the rename and repaired
     // here rather than renamed forward.
     fail(`${home}/ already exists. The entry point creates and never `
-      + "overwrites — resume that Brief by opening its document, or re-answer "
-      + "the thesis-determination gate naming a different name (`adopt "
-      + "--thesis <id|text> --slug <name>`).");
+      + "overwrites. Move or remove that directory, then answer \"Retry the step\" "
+      + "at the brief-state-retry gate this stop raises; the adopted Thesis is kept "
+      + "(kogaki#1740).");
   }
   // THE PERSONA'S PATH (kogaki#1262). `--reader-file` survives as the same
   // class of caller override `--slug` already is: a harness minting a fixture

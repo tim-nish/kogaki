@@ -307,6 +307,108 @@ def pre_tool_use(payload, pointers):
 
 
 # --------------------------------------------------------------------------
+# An answered raising, re-asked by hand (kogaki#1740)
+
+GATE_CALL_SUFFIX = ".gate-call.json"
+RUN_DECLARATION_SUFFIX = ".run-declaration.json"
+CAPTURE_SUFFIX = ".gate-capture.json"
+RUN_DIR_ENVS = ("KOGAKI_RUN_DIR", "KOGAKI_BRIEF_RUN_DIR")
+
+
+def run_dirs():
+    """Every run directory a gate call can sit in: the pinned ones, then the lanes'."""
+    dirs = [Path(os.environ[e]) for e in RUN_DIR_ENVS if os.environ.get(e)]
+    runs = Path(__file__).resolve().parents[2] / "runs"
+    try:
+        dirs += sorted(p for p in runs.glob("*/*") if p.is_dir())
+    except OSError:
+        pass
+    return dirs
+
+
+def answering_row(run_dir, gate_id):
+    """The capture row that already answers this run's current raising of `gate_id`, or None."""
+    try:
+        with open(run_dir / f"{gate_id}{RUN_DECLARATION_SUFFIX}", encoding="utf-8") as f:
+            instance = json.load(f).get("gate_instance_id")
+    except Exception:                                             # noqa: BLE001
+        return None
+    if not instance:
+        return None
+    for cap in sorted(run_dir.glob(f"*{CAPTURE_SUFFIX}")):
+        try:
+            with open(cap, encoding="utf-8") as f:
+                rows = json.load(f).get("rows") or []
+        except Exception:                                         # noqa: BLE001
+            continue
+        for row in rows:
+            if isinstance(row, dict) and str(row.get("gate_instance_id")) == str(instance):
+                return row
+    return None
+
+
+def live_pointers_any_session():
+    """Every readable, unexpired pointer, whatever session it names."""
+    d = pointer_dir()
+    out = []
+    try:
+        paths = sorted(d.glob("*.json")) if d.is_dir() else []
+    except OSError:
+        return out
+    for p in paths:
+        try:
+            with open(p, encoding="utf-8") as f:
+                doc = json.load(f)
+        except Exception:                                         # noqa: BLE001
+            continue
+        if isinstance(doc, dict) and not expired(doc):
+            out.append(doc)
+    return out
+
+
+def answered_reask(payload, pointers):
+    """Deny a question byte-equal to a gate call whose raising is already answered.
+
+    The capture hook writes no row for it and no advance reads it, so the
+    owner's second answer would go nowhere. A live unanswered raising whose call
+    is this payload, in any session, is never denied here.
+    """
+    got = canonical(payload.get("tool_input") or {})
+    # ANY SESSION'S LIVE RAISING WITH THESE BYTES IS ADMITTED: two runs refusing
+    # alike compose byte-equal calls, and a gate may be clicked in another session.
+    for p in list(pointers) + live_pointers_any_session():
+        want = expected_call(p)
+        if want is not None and not has_capture(p) and canonical(want) == got:
+            return False
+    for run_dir in run_dirs():
+        try:
+            calls = sorted(run_dir.glob(f"*{GATE_CALL_SUFFIX}"))
+        except OSError:
+            continue
+        for call in calls:
+            try:
+                with open(call, encoding="utf-8") as f:
+                    if canonical(json.load(f)) != got:
+                        continue
+            except Exception:                                     # noqa: BLE001
+                continue
+            row = answering_row(run_dir, call.name[: -len(GATE_CALL_SUFFIX)])
+            if row is None:
+                continue
+            earlier = (row.get("evidence") or {}).get("tool_use_id")
+            deny(
+                f"This {GATE_TOOL} call is the gate call at {call}, and that "
+                f"raising was already answered by {GATE_TOOL} {earlier} "
+                f"(kogaki#1740). No hook reads a second answer to it, so the "
+                f"owner's click would go nowhere. The run's next stop is "
+                f"printed by the advance that answer drove; re-ask nothing "
+                f"by hand."
+            )
+            return True
+    return False
+
+
+# --------------------------------------------------------------------------
 # Stop
 
 def record_unrendered(pointer, abandoned_path):
@@ -442,6 +544,12 @@ def main():
     if handler is None:
         return 0
     pointers = open_pointers(payload.get("session_id"))
+    if event == "PreToolUse" and payload.get("tool_name") == GATE_TOOL:
+        try:
+            if answered_reask(payload, pointers):
+                return 0
+        except Exception as exc:                                  # noqa: BLE001
+            note(f"the answered-raising read failed ({exc}); nothing was enforced by it")
     if not pointers:
         return 0
     try:

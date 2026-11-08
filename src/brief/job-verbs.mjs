@@ -15,7 +15,7 @@ import {
   readerPathJobBounds, readerPathJobPath, readerPathJobStopFlagPath,
 } from "../workflow/detached-job.mjs";
 import { printWrittenGateCall, runWorkflow } from "../workflow/executor.mjs";
-import { READER_PATH_JOB_GATE_ID, emitGateDeclaration } from "../workflow/gate.mjs";
+import { READER_PATH_JOB_GATE_ID, STATE_RETRY_GATE_ID, emitGateDeclaration } from "../workflow/gate.mjs";
 import {
   checkpointRun, clearOpenRunPointer, detachedJobExecutor, readRunRecord, relFromRepo,
 } from "../workflow/run-record.mjs";
@@ -475,6 +475,8 @@ export const BRIEF_FLOW = {
   newRunDir: () => enterRun("brief", briefRunEntry()),
   stateWork: STATE_WORK,
   gateWork: GATE_WORK,
+  // A refusal inside an advance raises this gate rather than ending the run (kogaki#1740).
+  stateRetryGateId: STATE_RETRY_GATE_ID,
   // PER FLOW, so a fixture pinning one lane's workspace does not redirect the
   // other's. `KOGAKI_RUN_DIR` and `KOGAKI_OPEN_RUN` stay Terrain's.
   runDirEnv: "KOGAKI_BRIEF_RUN_DIR",

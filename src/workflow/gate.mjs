@@ -105,6 +105,10 @@ export const JUDGMENT_RETRY_GATE_ID = "terrain-judgment-retry";
 // inside this loop, since nothing here ever finds this job in a non-`done`
 // terminal state without a `job await` having classified it first.
 export const READER_PATH_JOB_GATE_ID = "brief-reader-path-job";
+// THE STATE-RETRY GATE (kogaki#1740), raised from the state loop at any compute
+// or write state that refused inside an advance. A flow opts in by naming it as
+// `stateRetryGateId` on its binding; the Brief's does, Terrain's does not.
+export const STATE_RETRY_GATE_ID = "brief-state-retry";
 
 // The harness's own bound on an AskUserQuestion payload. Read from its schema,
 // restated here because there is no module to import it from across the seam --
@@ -117,8 +121,8 @@ const ASK_MAX_OPTIONS = 4;
 // `free_text_label` in `src/gate-registry.json`.
 // THE READING KEYS, one enumeration the composer reads (kogaki#1087): the first key found
 // on a declaration is rendered above the question line. Add a key here, never a branch.
-// Members added at PR #1109 and kogaki#1172 (`judgment_refusal`, spread from `extra`).
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "reader_path_unit_refusal", "excluded_candidates"];
+// Members added at PR #1109, kogaki#1172 (`judgment_refusal`) and kogaki#1740 (`state_refusal`), spread from `extra`.
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "state_refusal", "reader_path_unit_refusal", "excluded_candidates"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is

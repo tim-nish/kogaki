@@ -18,7 +18,7 @@ import {
   completeState, derivedBaseline, endRunOnJudgeTimeout, fail, flow, loadWorkflowTable,
   mostRecentDoneRun, newRunRecord, openRunPointerPath, readJson, readOpenRunPointer, readRunRecord,
   relFromRepo, runCounts, runDir, runRecordPath, setRunPersist, writeOpenRunPointer,
-  writeRunRecord,
+  writeRunRecord, StateRefusal, stateRefusals,
 } from "./run-record.mjs";
 
 // WRITE AUTHORITY, CARRIED AT THE WRITE (SPEC-terrain, write authority v28,
@@ -27,6 +27,51 @@ import {
 // cannot land an owner artifact out of order. The discriminator is the RESOLVED destination —
 // never a flag or env var. The composition itself remains callable out of order.
 export let WRITING_STATE = null;
+
+// The longest refusal text the state-retry gate's reading carries (kogaki#1740).
+const STATE_REFUSAL_READING_MAX = 2000;
+
+// Records the refusal and raises the flow's state-retry gate at `stateId` (kogaki#1740).
+function raiseStateRetryGate(rec, dir, stateId, message) {
+  const gateId = flow().stateRetryGateId;
+  rec.state_refusals = rec.state_refusals || {};
+  rec.state_refusals[stateId] = { refusal: message, at: new Date().toISOString() };
+  // BOUNDED so the call stays under the channel's byte bound; the record keeps the whole text.
+  const reading = message.length > STATE_REFUSAL_READING_MAX
+    ? `${message.slice(0, STATE_REFUSAL_READING_MAX)}… (the whole message is on the run record, \`state_refusals.${stateId}\`)`
+    : message;
+  const declPath = emitGateDeclaration(dir, gateId, [], {
+    refused_state: stateId,
+    state_refusal: `The Brief step \`${stateId}\` stopped:\n\n${reading}`,
+  });
+  rec.awaiting = stateId;
+  rec.gate_declarations_owed.push({ state: stateId, gate_id: gateId, declaration: relFromRepo(resolve(declPath)) });
+}
+
+// The open run a start must re-offer: not done, not at a wait, resumable against
+// this table, with a state still to run. Null otherwise.
+function unfinishedOpenRun(args) {
+  const dir = readOpenRunPointer();
+  const rec = dir ? readRunRecord(dir) : null;
+  if (!rec || rec.done || rec.awaiting || rec.judgment_abandoned || rec.state_abandoned) return null;
+  const table = loadWorkflowTable(args.workflow ? String(args.workflow) : flow().tablePath);
+  if ((rec.workflow || {}).version !== (table.version ?? null)) return null;
+  const st = table.states.find((s) => !s.conditional && !rec.completed.includes(s.id));
+  return st ? { dir, rec, st } : null;
+}
+
+function reofferUnfinishedRun({ dir, rec, st }) {
+  raiseStateRetryGate(rec, dir, st.id,
+    `This Brief run stopped inside \`${st.id}\` without finishing it: an advance ended before the step did, `
+    + `for instance at the hook's time bound. Starting again re-offers this run rather than a new one, so `
+    + `every earlier answer is kept. The run: ${dir}`);
+  const recPath = writeRunRecord(dir, rec);
+  console.log(`Executor STOPPED at ${st.id} — the open run ${dir} is unfinished, so this start re-offers it at the ${flow().stateRetryGateId} gate and opens no new run (kogaki#1740).`);
+  printWrittenGateCall(dir, flow().stateRetryGateId,
+    `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
+  console.log(`Run record: ${recPath}`);
+  return recPath;
+}
 
 // THE ONE ENTRY A SECOND RUNTIME USES. `src/brief.mjs` composes its own
 // binding and calls this; it never reimplements the loop, which is what makes
@@ -96,6 +141,13 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
   // holding this run alongside whatever it did not prune. Read here, while the
   // lane still holds only what the LAST run left behind.
   const mintingFresh = stopAtFirstWait && !args["run-dir"] && !pinned;
+  // A START OVER AN UNFINISHED RUN RE-OFFERS THAT RUN (kogaki#1740 amendment):
+  // where the open run is neither done nor at a wait, an advance ended inside a
+  // state, so the start raises the retry gate there and mints no run directory.
+  if (mintingFresh && flow().stateRetryGateId) {
+    const unfinished = unfinishedOpenRun(args);
+    if (unfinished) return reofferUnfinishedRun(unfinished);
+  }
   const priorDoneRun = mintingFresh ? mostRecentDoneRun(flow().lane) : null;
   if (stopAtFirstWait || args["run-dir"] || pinned) {
     dir = runDir(args);
@@ -254,6 +306,23 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
           // rather than left to a wording guess over free text.
           console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the judgment at ${retryState} is RE-ASKED; the state was never marked complete, so the advance below re-enters it (kogaki#1172).`);
         }
+      } else if (flow().stateRetryGateId && owed.gate_id === flow().stateRetryGateId) {
+        // THE STATE-RETRY GATE ANSWERS ITSELF (kogaki#1740), on the judgment-retry
+        // gate's ground one branch up: the refused state is never completed here,
+        // so `retry` lets the loop below re-enter it, and `abandon` ends the run.
+        const refusedState = rec.awaiting;
+        rec.awaiting = null;
+        try { rmSync(join(openGateDir(), `${decl.gate_instance_id}.json`), { force: true }); } catch { /* a stale pointer costs a re-render, never an answer */ }
+        const entry = (rec.state_refusals || {})[refusedState];
+        if (entry) entry.answered = { option: capOption, tool_use_id: captured.toolUseId, at: new Date().toISOString() };
+        if (capOption === "abandon") {
+          rec.done = true;
+          rec.state_abandoned = { state: refusedState, at: new Date().toISOString() };
+          clearOpenRunPointer();
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — the run is ABANDONED at ${refusedState}; the open-run pointer is cleared and nothing further is asked.`);
+        } else {
+          console.log(`Answer read from ${capPath} (gate ${owed.gate_id}, instance ${decl.gate_instance_id}, AskUserQuestion ${captured.toolUseId}) — ${refusedState} is RE-ENTERED; it was never marked complete, and every completed state and earlier answer is kept (kogaki#1740).`);
+        }
       } else if (owed.gate_id === READER_PATH_JOB_GATE_ID) {
         // THE ARM ANSWERS ITSELF, ON THE SAME GROUND `JUDGMENT_RETRY_GATE_ID`
         // DOES ONE ROW UP (kogaki#1193). `stop` ends the RUN, and "stop" always
@@ -342,7 +411,8 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     rec.prior_failures = [...(Array.isArray(rec.prior_failures) ? rec.prior_failures : []), rec.failure];
     delete rec.failure;
   }
-  for (const st of (rec.judgment_abandoned ? [] : table.states)) {
+  let stoppedForStateRefusal = false;
+  for (const st of (rec.judgment_abandoned || rec.state_abandoned ? [] : table.states)) {
     if (rec.completed.includes(st.id)) continue;
     if (st.conditional && !entered.has(st.id)) {
       if (!rec.conditional_skipped.includes(st.id)) rec.conditional_skipped.push(st.id);
@@ -432,10 +502,21 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     let judgmentExhausted = null;
     let judgeTimeout = null;
     let detachedJobStarted = null;
+    let stateRefusal = null;
+    // A REFUSAL INSIDE AN ADVANCE IS A WAIT, NEVER AN EXIT (kogaki#1740), for
+    // the compute and write states of a flow binding a retry gate. The start
+    // act is outside it: a refused start opens no gate and leaves nothing open.
+    const isStartAct = stopAtFirstWait;
+    const windowed = Boolean(flow().stateRetryGateId) && !isStartAct
+      && (st.kind === "compute" || st.kind === "write");
     if (work) {
       const held = WRITING_STATE;
       if (st.kind === "write") WRITING_STATE = st.id;
-      try { outcome = await work(rec, st, args, table); }
+      try {
+        outcome = windowed
+          ? await stateRefusals(() => work(rec, st, args, table))
+          : await work(rec, st, args, table);
+      }
       catch (e) {
         // A JUDGMENT STATE'S SPENT BOUND STOPS HERE, NOT THE PROCESS (kogaki#1172
         // item 3). Caught in this same frame rather than at `invokeJudge`'s own
@@ -450,6 +531,9 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
         // together, and the stop below is deliberately gate-less — nothing is
         // owed to the owner yet.
         else if (e instanceof DetachedJobStarted) { detachedJobStarted = e; }
+        else if (e instanceof StateRefusal) { stateRefusal = e; }
+        // ANY OTHER THROW IN A WINDOWED STATE IS A REFUSAL TOO (kogaki#1740 amendment item 1).
+        else if (windowed) { stateRefusal = new StateRefusal(e instanceof Error ? `${e.name}: ${e.message}` : String(e)); }
         else { throw e; }
       }
       finally { WRITING_STATE = held; }
@@ -466,6 +550,13 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
       rec.awaiting = st.id;
       stopped = st;
       stoppedForDetachedJob = true;
+      checkpointRun(rec);
+      break;
+    }
+    if (stateRefusal) {
+      raiseStateRetryGate(rec, dir, st.id, stateRefusal.message);
+      stopped = st;
+      stoppedForStateRefusal = true;
       checkpointRun(rec);
       break;
     }
@@ -578,6 +669,14 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     }
   } else if (stopped && stopped.kind === "terminal") {
     console.log(`Executor reached ${stopped.id} — terminal (the workflow table). The run is over.`);
+  } else if (stoppedForStateRefusal) {
+    console.log(`Executor STOPPED at ${stopped.id} — the step refused inside this advance, and the run waits at the ${flow().stateRetryGateId} gate rather than ending (kogaki#1740). The step is NOT complete; "retry" re-enters it.`);
+    const owedHere = rec.gate_declarations_owed.findLast((g) => g.state === stopped.id && g.gate_id === flow().stateRetryGateId);
+    if (owedHere && owedHere.declaration) {
+      console.log(`This stop declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
+      printWrittenGateCall(dir, flow().stateRetryGateId,
+        `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
+    }
   } else if (stoppedForDetachedJob) {
     // THE DETACHED-JOB STOP (kogaki#1193 PR #1195 review round 1, finding 3).
     // `stopped` is a `judgment` state that opened a Detached Job and raised
@@ -601,6 +700,8 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
         `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
       console.log(`Then re-enter with a bare  run --run-dir ${dir}  — the answer is read from the harness's own capture, exactly as at any other gate wait (kogaki#890).`);
     }
+  } else if (rec.state_abandoned) {
+    console.log(`Run ABANDONED at ${rec.state_abandoned.state}, on the owner's answer to ${flow().stateRetryGateId} (kogaki#1740). The open-run pointer is cleared; nothing further is asked.`);
   } else if (rec.judgment_abandoned) {
     // THE ABANDON STOP (kogaki#1172 item 3, acceptance 4). The loop above ran
     // zero iterations -- `stopped` is null -- because the owner's "abandon"
