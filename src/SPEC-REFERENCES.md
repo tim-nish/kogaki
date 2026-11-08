@@ -280,3 +280,13 @@ enforcement is a reader gains nothing from a purge.
 pointer block and no table because it states at the site that no owner-facing
 string in it names a spec at all. The check reads its zero rows as a vacuous
 pass and prints the zero.
+
+## A shared home cites the spec its contract was written in (kogaki#1741)
+
+The files under `src/workflow/` — the executor, the run record, the gate
+composer and the Detached Job supervisor — run every lane's flow, and their
+tables carry SPEC-terrain names because the control plane was first specified
+there. **A name records where a contract was written, not which command owns
+the file.** A Brief file citing a SPEC-terrain name cites that contract; it
+does not depend on a Terrain file, and the rule that it may not is
+SPEC-draft-pipeline's "The Brief flow names no other command's file".

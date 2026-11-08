@@ -1,116 +1,13 @@
 #!/usr/bin/env python3
-"""While a Terrain gate is open, the only admissible act is the question the
-Harness wrote (kogaki#1028).
+"""While any lane's gate is open, the only admissible act is the question the
+Harness wrote (kogaki#1028). Named for no lane: it holds every flow's gate (kogaki#1741).
 
-Design and licence: kogaki#1028. Contract: specs/spec-gate-carrier/SPEC.md.
-Read them there -- this file restates neither.
-
-THE EVENT THIS EXISTS FOR. On 2026-09-09, with the tag gate open, the session
-called two MCP tools, wrote an emission file, declined to render the gate, and
-answered the typed tag "agents" by calling `ListAgents`. Nothing refused any of
-it. The gate was a declaration on disk and an instruction in prose, and a
-session that simply did something else was indistinguishable, at every carrier,
-from one that had not reached the gate yet.
-
-SO THE GATE IS AN INTERVAL, NOT A MESSAGE. Between the executor writing the
-open-gate pointer and the harness writing the capture row, exactly one act is
-admissible: sending the `AskUserQuestion` payload the executor already composed
-into `gate-call.json`. This file makes that interval real at two events:
-
-  PreToolUse        deny every tool call that is not that exact payload
-  Stop              block once to give the turn a chance to render the gate,
-                     then release it if the gate is still unrendered
-
-WHY BOTH, AND WHY NEITHER ALONE. PreToolUse alone leaves the session free to
-say something and stop, which is the same outcome by another route -- the gate
-unrendered and the run silently abandoned. Stop alone leaves it free to do
-twenty other things first. A typed prompt is admitted: kogaki#1629.
-
-AND THE INTERVAL ONCE CLOSED OVER ITS OWN OPENING (kogaki#1051). On 2026-09-09
-at 13:01 UTC the owner typed `/terrain` in two sessions. The skill's `!` line
-ran first and opened the gate at 13:01:50.331; the harness judged that same
-prompt 133ms later; the prompt arm refused it as typed text at an
-open gate; and the session ended the turn with no model call at all -- one
-system line, zero usage, and no Stop hook, because no turn ran. Every later
-prompt was refused the same way. THE RECOVERY WAS FROM OUTSIDE THE SESSION: the
-pointers were moved out of `~/.claude/kogaki-open-gates/` by hand, which is not
-a recovery this file offers and not one a session can perform. A gate whose
-only admissible act is unreachable is a wedged run. The arm and its mark are
-gone: kogaki#1629.
-
-AND ONCE OVER THE PAYLOAD ITSELF (kogaki#1057). On 2026-09-09 at 15:48 UTC the
-tag gate opened cleanly and the prompt was admitted -- kogaki#1051's mark
-held, and a model turn ran. The turn then could not render the question. The
-start act's stdout named `gate-call.json` and printed none of its bytes; the
-session called `Read` on that file and the PreToolUse arm refused it, correctly,
-because no tool is exempt; it then composed an `AskUserQuestion` without the
-bytes and the equality check refused that too, also correctly. The one
-admissible act needed bytes that no admissible act could obtain. The Stop arm
-blocked repeatedly and the run recorded `gate-unrendered`. THE RECOVERY WAS
-AGAIN FROM OUTSIDE THE SESSION: the pointer was moved out of the live directory
-by hand. The fix is not a wider exemption here -- admitting a `Read` of exactly
-`gate_call_path` would make a second act admissible inside an interval whose
-whole property is that exactly one is. It is that the start act now PRINTS the
-payload on the stdout the skill expansion already delivers, before any tool
-exists to deny, and this file is unchanged: the written file stays the
-reference and a paraphrased payload is still refused.
-
-AND ONCE MORE, AT THE GATE THE START ACT DOES NOT OPEN (kogaki#1081). On
-2026-09-10 at 12:45:43Z the ID-selection gate opened with its `gate-call.json`
-written, and kogaki#1057's repair did not reach it: that repair prints on the
-START act's stdout, and every later gate is opened by an advance that
-`.claude/hooks/advance-terrain.py` runs as a subprocess with `capture_output`,
-whose stdout goes nowhere. So the second gate's payload had no route into the
-session at all. The arms below each held and each was correct -- `Read`, `Bash`,
-`Agent` and `Skill` denied, a composed substitute refused at the equality check,
-Stop blocking repeatedly -- and the run recorded `gate-unrendered`. THE RECOVERY
-WAS AGAIN FROM OUTSIDE THE SESSION: the pointer was moved into
-`~/.claude/kogaki-open-gates/abandoned/` by hand. The channel is the fix and it
-is not here either: a PostToolUse hook reaches the model through
-`hookSpecificOutput.additionalContext` and through nothing else, so the advance
-hook now emits the written call's bytes on that field. This file is unchanged
-for the third time, and for the third time that is the point -- the interval
-still admits exactly one act, and the file on disk is still what it is compared
-against.
-
-AND ONCE MORE, AT THE Stop ARM'S OWN BOUND (kogaki#1199). On 2026-09-25 between
-11:29:10 and 11:30:10 UTC, session `440fa07f-5d2a-486e-96f2-2d8a32891eef` could
-not render the open `brief-reader-path-job` gate -- the payload had no route
-into the session, its own separate Issue. The Stop arm blocked fourteen times
-in a row, each time citing a per-run block-count ceiling this file did not own:
-a removed comment claimed Claude Code stops honouring a Stop-hook block after
-eight consecutive blocks, and on the harness build actually running, that
-override does not exist. `stop_hook_active` was true from the second block on
-and the run record was written at 11:29:21, but the harness kept honouring
-every block after it -- there was no eighth block at which anything released.
-The owner's two typed prompts ("stop it", "stop the stopping hook loop") were
-dropped by the prompt arm this file then had, because the gate was still open by
-this file's own reading. The loop ended only when the owner pressed Esc, from
-outside the session, a fourth time this shape had to be recovered by hand
-(kogaki#1051, #1057, #1081). THE FIX IS TO STOP ASSUMING A BOUND THIS HOOK
-DOES NOT OWN: on a Stop with `stop_hook_active` true and the gate still
-unrendered, this file now performs the recovery itself -- writes the
-`gate-unrendered` failure, moves the pointer to `abandoned/`, and releases the
-turn -- rather than blocking again on the strength of a harness behaviour it
-cannot observe and, on this build, does not get. The removed constant is gone;
-the bound is one continuation, counted by the harness's own `stop_hook_active`
-flag rather than by a count this file kept and a comment asserted a ceiling
-for.
-
-SCOPED TO THIS SESSION, ALWAYS. A pointer names the session that opened it. A
-machine runs several sessions, and a deny keyed on "some pointer exists" would
-freeze every session on the machine because one of them is at a gate -- which is
-the fail-closed refusal that relocates the choice rather than preventing
-anything. A pointer with no `session_id` is a pre-kogaki#1028 pointer or a run
-started outside a session: it is matched to NO session rather than to every one.
-
-FAILS OPEN ON AN UNREADABLE PAYLOAD, AND THAT IS THE OPPOSITE OF
-`gate-terrain-executor.py`. That hook closes a route to an act that must never
-happen, so an unreadable payload leaves the prohibition standing. This one holds
-a session inside an interval, and a bug here with the other polarity denies
-every tool call in every session on the machine with no way to type the fix. The
-cost of failing open is that one gate goes unenforced and its run refuses at
-re-entry, which is the recoverable direction.
+PreToolUse denies every tool call that is not that exact payload, byte for byte.
+Stop blocks once; on a second Stop the gate is recorded `gate-unrendered` and its
+pointer abandoned (kogaki#1199). A pointer gates only the session that opened it.
+Fails OPEN on an unreadable payload, unlike gate-executor-invocation.py: a wrong
+deny here would freeze every session on the machine. History: kogaki#1051,
+#1057, #1081, #1199, #1629, #1740. Contract: specs/spec-gate-carrier/SPEC.md.
 """
 
 import json
@@ -156,7 +53,7 @@ def pointer_dir():
 
 
 def note(msg):
-    print(f"gate-open-terrain-gate: {msg}", file=sys.stderr)
+    print(f"gate-open-gate: {msg}", file=sys.stderr)
 
 
 def canonical(obj):
@@ -274,7 +171,7 @@ def pre_tool_use(payload, pointers):
     where = gate_line(pointer)
     if tool != GATE_TOOL:
         deny(
-            f"A Terrain gate is OPEN for this session — {where} — and while it is "
+            f"A gate is OPEN for this session — {where} — and while it is "
             f"open the only admissible act is the one question the Harness wrote "
             f"(kogaki#1028).\n\n"
             f"`{tool}` is not that act, and no tool is exempt: MCP tools, "
@@ -453,19 +350,11 @@ def record_unrendered(pointer, abandoned_path):
 
 
 def abandon_pointer(pointer):
-    """Move the pointer out of the live directory, and return where it went.
+    """Move the pointer to `abandoned/` and return where it went (kogaki#1199).
 
-    THE RECOVERY THIS HOOK NOW PERFORMS ITSELF (kogaki#1199), on the same
-    destination a human did by hand three times before (kogaki#1051, #1057,
-    #1081): `~/.claude/kogaki-open-gates/abandoned/`. Once moved, the pointer
-    no longer matches anything `open_pointers` returns for this session, so
-    PreToolUse and Stop gate nothing further for it.
-
-    A failure to move is reported and returns None rather than raising: the
-    run record is still written by `record_unrendered` either way, and a
-    pointer that could not be moved keeps gating this session's tools, which
-    is the open direction this file holds throughout -- a session left gated
-    is recoverable by re-entry; one silently ungated is not.
+    The destination is the one a human used by hand (kogaki#1051, #1057, #1081).
+    A failed move returns None rather than raising: the run record is written
+    either way, and a pointer left in place keeps gating, the recoverable side.
     """
     path = pointer.get("_pointer_path")
     if path is None:
@@ -500,7 +389,7 @@ def stop(payload, pointers):
         rec = str(Path(decl).parent / "run-record.json") if decl else "(no declaration_path on this pointer)"
         print(json.dumps({
             "systemMessage": (
-                f"The Terrain gate {gate_line(pointer)} could not be rendered in "
+                f"The gate {gate_line(pointer)} could not be rendered in "
                 f"the one continuation the Stop hook grants (kogaki#1199). The run "
                 f"record at {rec} now carries failure.cause = gate-unrendered, and "
                 f"the pointer was moved to "
@@ -512,7 +401,7 @@ def stop(payload, pointers):
     print(json.dumps({
         "decision": "block",
         "reason": (
-            f"A Terrain gate is OPEN for this session — {gate_line(pointer)} — and "
+            f"A gate is OPEN for this session — {gate_line(pointer)} — and "
             f"the owner has not answered it (kogaki#1028).\n\n"
             f"The turn does not end here. Send the payload at "
             f"{pointer.get('gate_call_path') or '(none composed — see the pointer)'} "
@@ -536,7 +425,7 @@ def main():
         payload = json.load(sys.stdin)
     except Exception:                                             # noqa: BLE001
         # FAILS OPEN, per the docstring. See there for why this polarity is the
-        # opposite of `gate-terrain-executor.py`'s and why that is deliberate.
+        # opposite of `gate-executor-invocation.py`'s and why that is deliberate.
         note("the payload could not be read; no gate was enforced for it")
         return 0
     event = payload.get("hook_event_name") or (sys.argv[1] if len(sys.argv) > 1 else None)

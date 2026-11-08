@@ -9,7 +9,7 @@ the owner's answer from this same payload; this hook then RUNS the executor,
 which reads that answer and advances to the next wait or to `done`. The model
 performs neither act and has no route to either: a Bash command naming
 `terrain.mjs` with any verb but `--status` is denied by
-`gate-terrain-executor.py`.
+`gate-executor-invocation.py`.
 
 ORDER MATTERS, and it is the family table's rather than this file's.
 `write-gate-capture.py` is registered before this hook, so the row exists by
@@ -55,7 +55,7 @@ recorded `gate-unrendered` and was recovered from outside the session, by hand.
 SO THE PAYLOAD RIDES OUT ON THAT ONE CHANNEL, AND THE FILE STAYS THE REFERENCE.
 Where the advance leaves a gate outstanding for this run, `main` emits the
 written call's bytes verbatim inside `additionalContext`, fenced, with the gate
-id and the instance id beside them. `gate-open-terrain-gate.py` is UNCHANGED:
+id and the instance id beside them. `gate-open-gate.py` is UNCHANGED:
 its PreToolUse equality check still compares the sent payload against the file
 on disk, so a payload that arrives paraphrased is refused exactly as before, and
 nothing here admits a second act into the interval.
@@ -171,7 +171,7 @@ OPEN_GATES_ENV = "KOGAKI_OPEN_GATES"
 # THE THIRD COPY OF ONE CONSTANT, and it is copied for the reason the second
 # was: a hook is one file the harness runs by path, with no module to import
 # from. `write-gate-capture.py` reaps a pointer older than this and
-# `gate-open-terrain-gate.py` gates nothing on one -- so a reader here that
+# `gate-open-gate.py` gates nothing on one -- so a reader here that
 # read no expiry would deliver a payload for a raising both siblings have
 # already written off. Change it in all three or in none.
 POINTER_TTL = timedelta(hours=12)
@@ -281,7 +281,7 @@ def pointer_expired(pointer):
 def pointer_answered(pointer):
     """Has the harness already written this raising's row?
 
-    `gate-open-terrain-gate.py`'s `has_capture`, in this file because a hook has
+    `gate-open-gate.py`'s `has_capture`, in this file because a hook has
     no module to share one from. The pointer is normally REMOVED by
     `write-gate-capture.py` the moment it writes the row -- but that hook has a
     named arm where the write succeeds and the unlink FAILS, and after such a

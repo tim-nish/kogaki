@@ -1,97 +1,33 @@
 #!/usr/bin/env python3
 """PreToolUse deny: a lane executor is not reachable from a Bash command.
 
-Design and licence: kogaki#1027, item 2; widened to the Brief runtime by
-kogaki#1116, acceptance item 5. Contract: specs/spec-terrain/SPEC.md §16. Read
-them there -- this file restates neither.
-
-WHAT THIS REFUSES. Any `Bash` command naming `terrain.mjs` OR `brief.mjs` with
-any verb other than `--status` -- and, since kogaki#1314, any command in which
-that `--status` invocation is not the WHOLE command (see `admitted`). That is the whole rule, and the allowance is
-deliberately a FLAG rather than a subcommand list: `run --status` is read-only,
-it is the one route by which a person can inspect a stuck run, and an inspection
-route that was denied would leave the run unreadable by the one party able to
-unstick it.
-
-WHY THE SECOND EXECUTOR JOINS THIS ONE RATHER THAN GETTING ITS OWN HOOK. The
-rule is identical in every part -- the same command-position anchor, the same
-one admitted verb, the same fail-closed posture -- and the two runtimes now
-share the executor itself: `src/brief.mjs` runs `src/terrain.mjs`'s own advance
-loop under a flow binding. Two files carrying one rule drift; what is per-lane
-is the skill file and the advance hook the reason names, and those are read off
-the matched executor rather than written twice.
-
-WHY IT IS A DENY AND NOT A LINT. Every Terrain run since kogaki#17 started when
-the model typed `node src/terrain.mjs run` into Bash and advanced when the model
-chose to re-enter; the run record recorded which states completed and never who
-executed the transition, so a run the model drove and a run the Harness drove
-left identical records. kogaki#1027 makes the executor name its executor -- and
-that field is only worth reading because THIS deny exists. The start act
-attributes its own transitions to the skill expansion, with no hook payload
-behind them, so a model able to type `terrain.mjs start` in Bash could mint a
-start-attributed record at will. The self-declared executor kind and this
-prohibition are one instrument, not a guard beside a convention.
-
-FAILS CLOSED, and it is registered that way in `hook-dispatch.py`'s family
-table. It reads the command string handed to it and nothing else, so there is
-no environment that could be unreadable, and the act being unreachable is the
-whole of what the guard buys.
-
-WHAT IT DOES NOT CLAIM. The match is over TEXT, and it is anchored on the
-INVOCATION SHAPE rather than on the bare filename (kogaki#1063). A segment is
-refused when the executor's path stands in COMMAND POSITION -- first in the
-segment, or behind an interpreter token -- and not when the name merely appears
-as data. This is a NARROWING, and the distinction is the whole of the repair:
-the first cut matched `\\bterrain.mjs\\b` anywhere in a segment, which refused
-the one act that MUST name the file and has no route around it. An Issue's
-footprint declaration (`admit-issue verdict --plan-cell '...;files=src/
-terrain.mjs,...'`) spells the path as data, with one spelling and no substitute,
-so under the bare-literal match no Issue whose work is in this executor could be
-truthfully admitted at all -- kogaki#1062 was the live case.
-
-The over-refusal the first cut accepted was measured against a comment and a
-grep pattern, and its message told the reader to route around both by reading
-the file instead. Neither must name the file; the footprint cell must. So the
-anchor moves, and what it moves to still catches every reachable invocation
-spelling: `src/terrain.mjs`, `./src/terrain.mjs`, an absolute path, a worktree
-path, a direct `./…` execution with no interpreter, and an interpreter reached
-through `sudo`, `env`, `exec` or a `sh -c` string. The over-refusal direction is
-kept where it is cheap -- a quoted `-c` payload and a leading env assignment are
-both read as command position.
-
-THE BOUNDARY IS DECLARED, and it is not a completeness claim. This reads TOKENS,
-not a shell grammar: it splits on whitespace, resolves quoting by stripping
-rather than parsing, and walks back over options and runners by shape. A command
-constructed at runtime, reached through a variable, or assembled inside a
-`$(...)` it never splits is outside it. That is a fact about this code, stated
-here because a gate whose reach is unstated is read as total; what the
-prohibition rests on is that the ordinary Bash route is closed, and the ordinary
-route is what these tokens cover.
+Refuses a Bash command whose executor path, from the `EXECUTORS` lane table,
+stands in COMMAND POSITION, except `run --status` as the whole command
+(kogaki#1027, #1063, #1116, #1314). Named for the act, not a lane (kogaki#1741).
+The start act's self-declared executor kind is only worth reading because this
+route is closed. Fails CLOSED (`hook-dispatch.py`'s family table). It reads
+TOKENS, not a shell grammar: a command built at runtime or inside a `$(...)` it
+never splits is outside it, and where it errs it errs toward refusing.
+Contract: specs/spec-terrain/SPEC.md §16.
 """
 
 import json
 import re
 import sys
 
-# The executors this hook covers, and the one verb admitted from a Bash command.
-# Keyed by filename so the reason can name the LANE the matched file belongs to:
-# the skill that starts it and the PostToolUse hook that advances it are per-lane
-# facts, and a reason naming the wrong one sends the reader to the wrong file.
+# THE LANE TABLE (kogaki#1741): the one carrier of which paths this hook denies.
+# One row per executor, keyed by filename -- the lane, the skill that starts it,
+# the PostToolUse hook that advances it, and the exact spellings a retry copies
+# (kogaki#1314). `PATH_TOKEN` below is built from these keys, so a lane joins
+# the deny by adding its row and by nothing else.
 EXECUTORS = {
-    "terrain.mjs": ("Terrain", "terrain", ".claude/hooks/advance-terrain.py"),
-    "brief.mjs": ("Brief", "brief", ".claude/hooks/advance-brief.py"),
+    "terrain.mjs": ("Terrain", "terrain", ".claude/hooks/advance-terrain.py",
+                    ("node src/terrain.mjs run --status --run-dir <dir>",)),
+    "brief.mjs": ("Brief", "brief", ".claude/hooks/advance-brief.py",
+                  ("node src/brief.mjs run --status --job await --run-dir <dir>",
+                   "node src/brief.mjs run --status --job status --run-dir <dir>")),
 }
 ADMITTED = "--status"
-
-# THE EXACT SPELLING A RETRY COPIES (kogaki#1314). Per executor, because the
-# Brief runtime's inspection route carries the `job` verbs and Terrain's does
-# not; the reason prints these verbatim so the retry is a copy of a whole
-# command rather than a composition around one.
-SPELLINGS = {
-    "terrain.mjs": ("node src/terrain.mjs run --status --run-dir <dir>",),
-    "brief.mjs": ("node src/brief.mjs run --status --job await --run-dir <dir>",
-                  "node src/brief.mjs run --status --job status --run-dir <dir>"),
-}
 
 REASON = (
     "`{cmd}` RUNS {executor} -- the path stands in command position -- and the "
@@ -129,21 +65,10 @@ def deny(reason):
     }))
 
 
-# WHERE ONE COMMAND STOPS AND THE NEXT BEGINS (PR #1034 round 1, finding 2).
-#
-# The first cut read the WHOLE command string for `--status`, so
-# `node src/terrain.mjs run --status; node src/terrain.mjs start` rode through
-# on the first segment's flag and minted a start-act-attributed record
-# from a model-typed Bash command -- the one route the executor's self-declared
-# kind is only trustworthy because it is closed. The declared trade in the
-# docstring above is OVER-refusal, never under-refusal, and this was the
-# opposite.
-#
-# SPLIT, NOT PARSED. The separators are the shell's own statement and pipeline
-# operators; this is not a shell parser and does not claim to be one. A
-# separator inside a quoted string splits a segment that should not have been
-# split, which refuses MORE -- the direction this hook already declares it errs
-# in.
+# WHERE ONE COMMAND STOPS AND THE NEXT BEGINS (PR #1034 round 1, finding 2):
+# admission is per segment, so a status read chained to a start is refused.
+# Split on the shell's statement and pipeline operators, not parsed; a separator
+# inside quotes over-splits, which refuses more.
 SEGMENT_SPLIT = re.compile(r"(?:\|\||&&|;|\||\n|&)")
 
 
@@ -160,7 +85,8 @@ def segments(command):
 # `--plan-cell` value are not, because a token carrying `=` or `,` is a data
 # cell rather than a command. That exclusion is what makes an Issue whose work
 # is in the executor admissible at all.
-PATH_TOKEN = re.compile(r"^[^\s=,]*(?:^|/)(?:terrain|brief)\.mjs$")
+PATH_TOKEN = re.compile(r"^[^\s=,]*(?:^|/)(?:"
+                        + "|".join(re.escape(name) for name in EXECUTORS) + r")$")
 
 # INTERPRETERS. The tokens after which a path is being RUN. Node's own spellings
 # plus the runners that reach it; the version-suffixed forms (`node20`) are
@@ -216,22 +142,10 @@ def _tokens(segment):
 def command_index(tokens):
     """Index of the path token standing in COMMAND POSITION, or None.
 
-    Command position is: first in the segment after any transparent prefix, or
-    immediately behind an interpreter token. Anchored on the path's TAIL rather
-    than one spelling, because the executor is reachable as `src/terrain.mjs`,
-    `./src/terrain.mjs`, an absolute path or through a worktree -- and a matcher
-    keyed to one spelling is a matcher a second spelling walks past.
-
-    THE WALK BACK SKIPS AN OPTION AND THE ARGUMENT IT TAKES (PR #1064 round 1,
-    blocking). Reading only a fixed prefix set stopped on `--no-warnings`, so
-    `node --no-warnings src/terrain.mjs start` read as data and rode through --
-    UNDER-refusal on the ordinary Bash route, which is the one direction this
-    hook declares it never errs in. An option belongs to whatever precedes it,
-    and so does the token after an option (`node -r foo <path>`), so both are
-    walked past rather than treated as the command's neighbour.
-
-    EVERY PATH TOKEN IS TRIED, not just the first: a data mention earlier in the
-    same segment must not hide an invocation later in it.
+    First after any transparent prefix, or right behind an interpreter, on any
+    spelling of the path (kogaki#1063). The walk back skips an option and the
+    argument it takes (PR #1064 round 1). Every path token is tried, so a data
+    mention earlier in the segment cannot hide a later invocation.
     """
     for i, token in enumerate(tokens):
         if PATH_TOKEN.match(token) is None:
@@ -304,24 +218,10 @@ def _args_ok(args):
 def admitted(command, segment, tokens, index):
     """Only `run --status` as THE WHOLE COMMAND rides through (kogaki#1314).
 
-    THE WHOLE STRING, NOT THE SEGMENT. Admission read one segment's arguments,
-    so `for i in ...; do out=$(node src/brief.mjs run --status --job await
-    ...); echo "$out" | grep ... ; done` rode through on the loop body, and the
-    filter around it dropped a gate's bytes on the one channel they had. A
-    command is admitted only when it has exactly one segment, that segment
-    carries no substitution, grouping or redirection, and its tokens are an
-    optional transparent prefix, an interpreter, the executor path and the
-    inspection grammar `_args_ok` reads -- in any order after `run`.
-
-    READ FROM THE SAME TOKEN THE DENY ANCHORS ON (PR #1064 round 1): a data
-    mention earlier in the segment cannot supply the verb for a later
-    invocation, because everything before the path must be prefix and
-    interpreter.
-
-    `--status` is matched as a WHOLE TOKEN so `--status-key` does not admit; a
-    bare `run` carries no verb and is denied; and the verb is `run` (PR #1040
-    round 1): `start` opens a workspace and repoints the open run BEFORE it
-    looks at `--status`.
+    One segment, no substitution, grouping or redirection, and tokens that are
+    a transparent prefix, an interpreter, the executor path and the grammar
+    `_args_ok` reads. Read from the token the deny anchors on (PR #1064 round
+    1); `--status` is a whole token, and the verb is `run` (PR #1040 round 1).
     """
     if len(segments(command)) != 1 or COMPOSED.search(segment):
         return False
@@ -352,8 +252,8 @@ def main():
     except Exception:                                             # noqa: BLE001
         # FAILS CLOSED on an unreadable payload, per the family table. A
         # payload this hook cannot parse is a command it cannot rule out.
-        deny("gate-terrain-executor could not read its payload, and this hook "
-             "fails CLOSED: the Terrain executor's prohibition is not suspended "
+        deny("gate-executor-invocation could not read its payload, and this hook "
+             "fails CLOSED: the lane executors' prohibition is not suspended "
              "by the hook's own failure (kogaki#1027).")
         return 0
     if payload.get("tool_name") != "Bash":
@@ -363,9 +263,8 @@ def main():
     if hit is None:
         return 0
     seg, executor = hit
-    lane, skill, advance = EXECUTORS.get(executor, EXECUTORS["terrain.mjs"])
-    spellings = "\n".join("    " + line for line in
-                          SPELLINGS.get(executor, SPELLINGS["terrain.mjs"]))
+    lane, skill, advance, spelled = EXECUTORS[executor]
+    spellings = "\n".join("    " + line for line in spelled)
     deny(REASON.format(cmd=seg[:200], executor=executor, lane=lane, skill=skill,
                        advance=advance, admitted=ADMITTED, spellings=spellings))
     return 0

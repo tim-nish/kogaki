@@ -116,9 +116,11 @@ export const STAGE_URLS = ["workflow", "terrain"].flatMap((d) => readdirSync(joi
   .filter((f) => f.endsWith(".mjs")).map((f) => moduleUrl(`${d}/${f.slice(0, -4)}`)));
 export const STAGE_IMPORTS = STAGE_URLS.map((u, i) => `import * as rt${i} from ${JSON.stringify(u)};`).join("\n")
   + `\nconst rt = Object.assign({}, ${STAGE_URLS.map((_, i) => `rt${i}`).join(", ")});`;
+// The run record binds no default lane (kogaki#1741): a driven stage runs as a Terrain act.
+const BIND_TERRAIN = `import { TERRAIN_FLOW as __tf } from ${JSON.stringify(moduleUrl("terrain"))};\nimport { bindFlow as __bf } from ${JSON.stringify(moduleUrl("workflow/run-record"))};\n__bf(__tf);`;
 export function drive(body, env = {}) {
   const r = spawnSync(process.execPath, ["--input-type=module", "-e",
-    `${STAGE_IMPORTS}\n${body}`], {
+    `${STAGE_IMPORTS}\n${BIND_TERRAIN}\n${body}`], {
     encoding: "utf8", cwd: REPO, env: { ...process.env, ...NO_SHAPE_CMD, ...env },
   });
   const last = (r.stdout || "").trim().split("\n").pop();

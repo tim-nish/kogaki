@@ -453,8 +453,8 @@ export const STATE_WORK = {
           promptHead: judgePrompt(fitRow, "", null, null) },
       },
       // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit. The
-      // detached `job-supervise` process is a fresh `node src/terrain.mjs`
-      // entrypoint and never statically imports Brief-specific code; it
+      // detached supervisor is a fresh `node src/workflow/job-supervise.mjs`
+      // process and never statically imports Brief-specific code; it
       // dynamically imports exactly this module and export, and the Candidate
       // ids every unit's materials must resolve against are handed over here
       // rather than re-derived inside the subprocess.

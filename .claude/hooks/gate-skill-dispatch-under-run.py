@@ -2,14 +2,14 @@
 """PreToolUse deny: a self-gating skill is not dispatchable under a run.
 
 Design and licence: kogaki#1154. Contract: specs/spec-gate-carrier/SPEC.md,
-`.claude/hooks/gate-open-terrain-gate.py`'s own docstring (kogaki#1028).
+`.claude/hooks/gate-open-gate.py`'s own docstring (kogaki#1028).
 
 THE DEADLOCK THIS REFUSES BEFORE IT OPENS. Session 54a9804a, `/ship-cycle
 1066`, 2026-09-19: the run dispatched `/terrain` inside itself. The start act
 opened the tag gate and sent it as an `AskUserQuestion`; the toolkit's own
 gate-set membership check refused it, because Terrain's gates are declared by
 the Terrain workflow and no ship-cycle command declares them; and
-`gate-open-terrain-gate.py` admits nothing else while that gate is open. There
+`gate-open-gate.py` admits nothing else while that gate is open. There
 was no act both hooks admitted, and the only way out was moving the pointer to
 `~/.claude/kogaki-open-gates/abandoned/` by hand, from outside the session.
 
@@ -25,11 +25,11 @@ that the skill about to run opens a gate interval no run declares -- so it is
 the one place a refusal costs nothing already built.
 
 THE SELF-GATING SET IS DATA HERE, NOT IMPORTED, for the reason
-`gate-open-terrain-gate.py`'s own `POINTER_TTL` comment gives: a hook is one
+`gate-open-gate.py`'s own `POINTER_TTL` comment gives: a hook is one
 file the harness runs by path, so the sibling's enumeration
-(`gate-terrain-executor.py`'s `EXECUTORS`) is copied rather than reached for.
+(`gate-executor-invocation.py`'s `EXECUTORS`) is copied rather than reached for.
 Both name the same two lanes -- Terrain and Brief -- because both open a gate
-interval through the identical `gate-open-terrain-gate.py` pointer mechanism;
+interval through the identical `gate-open-gate.py` pointer mechanism;
 a third lane joins this table when it starts opening one, exactly as it would
 join `EXECUTORS`.
 
@@ -50,7 +50,7 @@ here means the skill is never expanded and the `!` line never runs -- there is
 no pointer to abandon because there is no run that opened one.
 
 FAILS CLOSED on an unreadable payload, and that is the same polarity as
-`gate-terrain-executor.py` and for the same reason: the failure mode this
+`gate-executor-invocation.py` and for the same reason: the failure mode this
 guards is a session wedged past the point a session can recover from itself,
 and reproducing that by failing open on a read error is the more expensive
 direction here. A payload this hook cannot parse is a dispatch it cannot rule
@@ -63,8 +63,8 @@ import re
 import sys
 from pathlib import Path
 
-# THE SAME TWO LANES `gate-terrain-executor.py` NAMES, because both open a gate
-# interval through `gate-open-terrain-gate.py`'s pointer mechanism. Keyed by
+# THE SAME TWO LANES `gate-executor-invocation.py` NAMES, because both open a gate
+# interval through `gate-open-gate.py`'s pointer mechanism. Keyed by
 # skill name (the `Skill` tool's own `tool_input.skill`), not by executor
 # filename -- this hook fires before any executor is reached.
 SELF_GATING_SKILLS = {
@@ -90,7 +90,7 @@ REASON = (
     "(kogaki#1028) that no ship-cycle command declares in the run's gate "
     "set.\n\n"
     "Sending that gate's question would be refused by the run's own gate-set "
-    "membership check, and once open, `gate-open-terrain-gate.py` admits no "
+    "membership check, and once open, `gate-open-gate.py` admits no "
     "other act -- there is no act both hooks admit, which is the deadlock "
     "kogaki#1154 is filed against.\n\n"
     "Run `/{skill}` in its own session instead: outside a ship-cycle run it "

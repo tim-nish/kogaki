@@ -1061,9 +1061,10 @@ export function startDetachedJobSupervisor(dir, opts) {
     ...(unitIsolation ? { unit_isolation: true } : {}),
     ...(opts.rows ? { rows: opts.rows } : {}),
     ...(carried.length ? { carried } : {}) }, null, 2)}\n`);
-  const scriptPath = join(REPO, "src", "terrain.mjs");
+  // THE SHARED SUPERVISOR ENTRY POINT (kogaki#1741): named for no lane.
+  const scriptPath = join(REPO, "src", "workflow", "job-supervise.mjs");
   const child = spawn(process.execPath, [
-    scriptPath, "job-supervise",
+    scriptPath,
     "--run", dir, "--units", unitsPath,
     "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
     "--call-limit-s", String(callLimitS), "--unit-attempts", String(unitAttempts),

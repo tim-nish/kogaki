@@ -86,7 +86,7 @@ export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
 
 // ---- THE GATE CALL (kogaki#1028 item 1). ----------------------------------
 // The exact `AskUserQuestion` `tool_input` the session must send, written beside the
-// declaration; `.claude/hooks/gate-open-terrain-gate.py` admits only a byte-equal call.
+// declaration; `.claude/hooks/gate-open-gate.py` admits only a byte-equal call.
 // Any reading (`GATE_CALL_READING_KEYS`) goes in the question text above the question line
 // (kogaki#856). The free-text second option is transcribed from `free_text_offered`.
 // consulted: product-lab@0f31c3bebdd65a126dd5c2928b86c2a212bba5c2 LESSONS.md:42
@@ -100,7 +100,7 @@ export const GATE_CALL_SUFFIX = ".gate-call.json";
 // a `wait` state's own option composer, because it can be raised at ANY
 // judgment state, naming itself in `extra.judgment_state`, so there is no one
 // table row to bind an option composer to.
-export const JUDGMENT_RETRY_GATE_ID = "terrain-judgment-retry";
+export const JUDGMENT_RETRY_GATE_ID = "judgment-retry";
 // THE READER-PATH JOB'S ARM (kogaki#1193), raised by `job await` -- never from
 // inside this loop, since nothing here ever finds this job in a non-`done`
 // terminal state without a `job await` having classified it first.
@@ -413,7 +413,7 @@ function writeGateDeclarationSidecar(sessionId) {
 
 // THE POINTER NAMES ITS SESSION (kogaki#1028 item 5; PR #1043).
 // A missing session id is a case, not an error: `write-gate-capture.py` falls back to
-// question-text matching; `gate-open-terrain-gate.py` gates nothing on a null-session pointer.
+// question-text matching; `gate-open-gate.py` gates nothing on a null-session pointer.
 // Both fail toward the recoverable side; neither treats absence as a wildcard.
 function sessionId() {
   // `CLAUDE_CODE_SESSION_ID` is what Claude Code exports into a Bash tool call

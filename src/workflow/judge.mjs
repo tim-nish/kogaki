@@ -890,7 +890,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   if (r.timeout) throw new JudgeTimeout(st.id, r.timeout, r.lastRefusal);
   // A SPENT BOUND STOPS THE STATE, NOT THE RUN (kogaki#1172 item 3). This used
   // to be `fail()`, which exits the process; the state loop now catches this
-  // instead and raises `terrain-judgment-retry` in its place, leaving the run
+  // instead and raises `judgment-retry` in its place, leaving the run
   // open rather than dead.
   throw new JudgmentExhausted(st.id,
     `${st.id}: the judge's record was refused on all ${r.attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
@@ -1243,7 +1243,7 @@ export function composeInput(record, tag, groups, fetchShard) {
 }
 
 // A JUDGMENT STATE'S BOUND, SPENT (kogaki#1172, item 3).
-// The state loop catches this, writes the `terrain-judgment-retry` gate declaration and
+// The state loop catches this, writes the `judgment-retry` gate declaration and
 // stops as a `wait` does; the state is NOT marked complete, so "retry" re-enters it and
 // "abandon" clears the open-run pointer.
 // THROWN, never returned: the throw site is many frames below the loop that catches it.

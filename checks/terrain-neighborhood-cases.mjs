@@ -516,7 +516,7 @@ const { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE } = fixFi
       return { ...r, rec: readJson(join(rd, RUN_RECORD_FILE)) };
     };
     const noGate = (rec) => rec.gate_declarations_owed.length === 0
-      && !readdirSync(rd).some((f) => f.startsWith("terrain-judgment-retry"))
+      && !readdirSync(rd).some((f) => f.startsWith("judgment-retry"))
       && (!existsSync(gates) || readdirSync(gates).length === 0);
     const timedOut = advance(3000);
     const f = timedOut.rec.failure || {};
@@ -575,7 +575,7 @@ const { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE } = fixFi
   // declaration, and no tool could fetch the call while the gate was open. The
   // judge here answers a record no validator admits on every attempt, so the
   // state spends its declared `retries` and the stop raises
-  // `terrain-judgment-retry`; the case asserts the fenced block on stdout is the
+  // `judgment-retry`; the case asserts the fenced block on stdout is the
   // written call file byte-for-byte. The gate pointer, the open-run pointer and
   // the gate-declaration sidecar all point into the scratch root.
   {
@@ -611,7 +611,7 @@ const { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE } = fixFi
         GATE_DECLARATION_SIDECAR_DIR: join(d, "gate-declarations"),
         CLAUDE_CODE_SESSION_ID: "terrain-selftest-retry-stop-session" },
     });
-    const callPath = join(rd, `terrain-judgment-retry${GATE_CALL_SUFFIX}`);
+    const callPath = join(rd, `judgment-retry${GATE_CALL_SUFFIX}`);
     const fenced = r.stdout.match(/```json\n([\s\S]*?)\n```/);
     ok("a judgment state that exhausts its declared retries prints the gate-call file's bytes in a json fence, and the printed bytes equal the file",
       r.status === 0 && /exhausted its declared retries/.test(r.stdout)

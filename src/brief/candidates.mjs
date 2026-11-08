@@ -613,7 +613,7 @@ export function cmdMint(args) {
   // THE PATH IS RETURNED, NOT ASSERTED BY THE CALLER (kogaki#1108). The `mint`
   // state is kind `write`, and the executor's write guard reads the artifact the
   // renderer NAMES — a state that wrote and did not say where is the one case
-  // that guard exists for. Every sibling renderer in `src/terrain.mjs` returns
-  // its path for the same reason.
+  // that guard exists for. Every write renderer of every flow returns its path
+  // for the same reason.
   return out;
 }

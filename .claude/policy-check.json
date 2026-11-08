@@ -5,9 +5,7 @@
   "comment_block_exempt": [
     ".claude/hooks/advance-brief.py",
     ".claude/hooks/advance-terrain.py",
-    ".claude/hooks/gate-open-terrain-gate.py",
     ".claude/hooks/gate-skill-dispatch-under-run.py",
-    ".claude/hooks/gate-terrain-executor.py",
     ".claude/hooks/write-gate-capture.py",
     "checks/check-draft-packet.sh",
     "checks/check-move-library.sh",

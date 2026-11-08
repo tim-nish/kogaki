@@ -219,7 +219,7 @@ export function declareUnits(units) {
 export function superviseSync(dir, units, opts = {}) {
   const unitsPath = join(dir, "units.json");
   writeFileSync(unitsPath, JSON.stringify(declareUnits(units), null, 2));
-  const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
+  const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json",
     "--call-limit-s", String(opts.callLimitS ?? 100), "--unit-attempts", String(opts.unitAttempts ?? 2),
     "--stall-s", String(opts.stallS ?? 100), "--heartbeat-ms", String(opts.heartbeatMs ?? 50)];

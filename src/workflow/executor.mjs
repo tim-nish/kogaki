@@ -162,7 +162,7 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
   const table = loadWorkflowTable(tablePath);
 
   // THE DETACHED-JOB VERBS RIDE `run --status` (kogaki#1193), because that is
-  // the one shape `.claude/hooks/gate-terrain-executor.py` admits from a Bash
+  // the one shape `.claude/hooks/gate-executor-invocation.py` admits from a Bash
   // command — the hook's own `admitted()` reads `args[0] === "run"` and
   // `"--status"` present and nothing about `--job`. `status` and `await` are
   // the two verbs a session can reach this way; `start` and `stop` are refused
@@ -397,7 +397,7 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
   // read after the loop cannot otherwise tell a spent judgment bound from a
   // detached job that merely started or is still running — both set
   // `rec.awaiting = st.id` and `stopped = st` — and printed the judgment-retry
-  // sentence on a `compose_path` start, naming a gate ("terrain-judgment-retry")
+  // sentence on a `compose_path` start, naming a gate ("judgment-retry")
   // this state never raises.
   let stoppedForDetachedJob = false;
   // AN ABANDONED RUN ENTERS NO FURTHER STATE (kogaki#1172 item 3). The
@@ -689,10 +689,10 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     console.log(`Poll it with  ${READER_PATH_JOB_STATUS_COMMAND}  (one-shot) or  ${READER_PATH_JOB_AWAIT_COMMAND}  (waits at most 30 seconds, then says whether the job is still running).`);
   } else if (stopped && rec.awaiting === stopped.id) {
     // THE JUDGMENT-RETRY STOP (kogaki#1172 item 3). `stopped` is a `judgment`
-    // state that exhausted its retries and raised `terrain-judgment-retry`
+    // state that exhausted its retries and raised `judgment-retry`
     // rather than completing — the same shape a `wait` leaves, minus the
     // owner_supplies line, because a judgment state declares none.
-    console.log(`Executor STOPPED at ${stopped.id} — a judgment exhausted its declared retries (kogaki#1172). It raised the terrain-judgment-retry gate rather than failing the run; the state is NOT complete, so answering "retry" re-enters it.`);
+    console.log(`Executor STOPPED at ${stopped.id} — a judgment exhausted its declared retries (kogaki#1172). It raised the judgment-retry gate rather than failing the run; the state is NOT complete, so answering "retry" re-enters it.`);
     const owedHere = rec.gate_declarations_owed.find((g) => g.state === stopped.id && g.gate_id === JUDGMENT_RETRY_GATE_ID);
     if (owedHere && owedHere.declaration) {
       console.log(`This stop declares a gate. Its run declaration is WRITTEN: ${owedHere.declaration}`);
@@ -706,7 +706,7 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
     // THE ABANDON STOP (kogaki#1172 item 3, acceptance 4). The loop above ran
     // zero iterations -- `stopped` is null -- because the owner's "abandon"
     // answer was applied in the pre-loop block before the loop even started.
-    console.log(`Run ABANDONED at ${rec.judgment_abandoned.state}, on the owner's answer to terrain-judgment-retry (kogaki#1172). The open-run pointer is cleared; nothing further is asked.`);
+    console.log(`Run ABANDONED at ${rec.judgment_abandoned.state}, on the owner's answer to judgment-retry (kogaki#1172). The open-run pointer is cleared; nothing further is asked.`);
   } else {
     console.log("Executor advanced to the end of the table without reaching a stop, which a conformant table cannot do.");
   }

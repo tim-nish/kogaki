@@ -194,7 +194,7 @@ function printReaderPathJobStatus(j, job) {
 // THE BLOCKING POLL (kogaki#1193). Sleeps synchronously between reads with no
 // child process of its own — `Atomics.wait` on a throwaway buffer — because
 // `await` is a plain Bash tool call the session is waiting on, and spawning a
-// subprocess to sleep would be one more thing `gate-terrain-executor.py` has
+// subprocess to sleep would be one more thing `gate-executor-invocation.py` has
 // an opinion about. Stops the moment the job's own classification leaves
 // "running", or once `READER_PATH_JOB_AWAIT_S` of its own waiting has passed.
 function sleepSync(ms) {
@@ -410,8 +410,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
     // `args.status` before any run record, so a spread leaving it `true` would
     // report the position instead of advancing past it. AWAITED, NOT
     // FIRED-AND-FORGOTTEN: `runWorkflow` restores the module-level `FLOW` in a
-    // `finally`, so an unawaited call here resumed reading `TERRAIN_FLOW` for
-    // every later state (CANDIDATE_SELECTION composed no option set).
+    // `finally`, so an unawaited call here resumed reading another flow's
+    // binding for every later state (CANDIDATE_SELECTION composed no option set).
     await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, candidates: resultPath, "run-dir": dir },
       detachedJobExecutor(jobRel));
     return;
@@ -464,8 +464,8 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
     `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
 }
 
-// THE FLOW BINDING. Everything a second flow differs in, and nothing else —
-// the shape `src/terrain.mjs` declares at `TERRAIN_FLOW` beside its own.
+// THE FLOW BINDING. Everything one flow differs from another in, and nothing
+// else — the shape `flow()` in `src/workflow/run-record.mjs` returns.
 export const BRIEF_FLOW = {
   lane: "brief",
   label: "Brief",

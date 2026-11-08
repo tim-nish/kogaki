@@ -47,7 +47,7 @@ note() { printf '%s\n' "$*"; }
 bad() { printf 'FAIL — %s\n' "$*"; fail=1; }
 pass() { cases=$((cases + 1)); }
 
-DENY=.claude/hooks/gate-terrain-executor.py
+DENY=.claude/hooks/gate-executor-invocation.py
 ADVANCE=.claude/hooks/advance-terrain.py
 SKILL=.claude/skills/terrain/SKILL.md
 
@@ -97,61 +97,7 @@ fi
 # Driven over synthesized PreToolUse payloads, which is the shape the dispatcher
 # hands it in a real call.
 #
-# ONE PYTHON PROCESS DRIVES EVERY VERDICT (kogaki#1425). It loads the hook once
-# and hands its `main` one payload per command, read NUL-terminated from this
-# shell, writing back what the hook printed as one line: the deny's JSON, or an
-# empty line where it admits. A hook that RAISES writes a line naming the
-# exception, so a crash is never read as an admission.
-DENY_DRIVER_SRC=$(cat <<'DRIVER'
-import contextlib, importlib.util, io, json, sys
-spec = importlib.util.spec_from_file_location("gate_terrain_executor", sys.argv[1])
-hook = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(hook)
-source, pending = sys.stdin.buffer, b""
-def verdict(command):
-    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
-    out, stdin = io.StringIO(), sys.stdin
-    sys.stdin = io.StringIO(payload)
-    try:
-        with contextlib.redirect_stdout(out):
-            hook.main()
-        line = out.getvalue()
-    except BaseException as e:  # noqa: BLE001
-        line = f"the hook raised {e!r}"
-    finally:
-        sys.stdin = stdin
-    sys.stdout.write(line.strip().replace("\n", " ") + "\n")
-    sys.stdout.flush()
-while chunk := source.read1(65536):
-    pending += chunk
-    while b"\0" in pending:
-        raw, pending = pending.split(b"\0", 1)
-        verdict(raw.decode("utf-8"))
-DRIVER
-)
-coproc DENY_DRIVER { "$PY" -c "$DENY_DRIVER_SRC" "$DENY" 2>/dev/null; }
-# `read_verdict` leaves the line in VERDICT, so the asserts below fork nothing;
-# `deny_verdict` prints it, for the cases that read it as `out=$(...)`.
-read_verdict() {
-  printf '%s\0' "$1" >&"${DENY_DRIVER[1]}"
-  IFS= read -r VERDICT <&"${DENY_DRIVER[0]}" || VERDICT="the deny driver exited"
-}
-deny_verdict() { read_verdict "$1"; printf '%s' "$VERDICT"; }
-assert_denied() {
-  local label=$1 cmd=$2
-  read_verdict "$cmd"
-  if [[ $VERDICT == *'"permissionDecision": "deny"'* ]]; then pass; else
-    bad "the deny does not fire on $label: \`$cmd\` — a model-typed route into the executor makes the start attribution unfalsifiable"
-  fi
-}
-assert_admitted() {
-  local label=$1 cmd=$2
-  read_verdict "$cmd"
-  if [ -z "$VERDICT" ]; then pass; else
-    bad "the deny fires on $label: \`$cmd\` — $ADMITTED_NOTE"
-  fi
-}
-ADMITTED_NOTE="--status is read-only and is the one route by which a stuck run can be inspected"
+. checks/fixtures/executor-deny/driver.sh
 
 assert_denied "the run verb"          "node src/terrain.mjs run --run-dir /tmp/x"
 assert_denied "the start verb"        "node src/terrain.mjs start"
@@ -180,41 +126,6 @@ assert_denied "a start piped from a status read"   "node src/terrain.mjs run --s
 # segment of any kind -- even another status read -- is denied.
 assert_denied "two chained status reads" "node src/terrain.mjs run --status; node src/terrain.mjs run --run-dir /tmp/y --status"
 
-# ---- kogaki#1314. THE STATUS AND AWAIT VERBS ARE ADMITTED ONLY AS THE WHOLE
-# COMMAND, SPELLED EXACTLY. Once a gate is open the executor's stdout is the
-# only channel its bytes have, and a loop polling `job await` through
-# `grep -q "still running"` and `tail -1` was admitted on its body segment and
-# dropped a Candidate question's bytes. Acceptance 1: each spelling is admitted
-# when it is the whole command.
-AWAIT="node src/brief.mjs run --status --job await --run-dir /x"
-assert_admitted "the Brief await verb, whole"  "$AWAIT"
-assert_admitted "the Brief job-status verb, whole" "node src/brief.mjs run --status --job status"
-assert_admitted "the bare Brief status verb, whole" "node src/brief.mjs run --status"
-# Acceptance 2: the await invocation is denied wherever it is not the whole
-# command, and every deny reason carries the exact admitted spelling, so the
-# retry is a copy and not a composition.
-SPELLING="node src/brief.mjs run --status --job await --run-dir <dir>"
-for probe in "inside a command substitution|out=\$($AWAIT)" \
-             "inside an echoed substitution|echo \$($AWAIT)" \
-             "after a loop keyword|for i in 1 2; do $AWAIT; done" \
-             "before a pipe|$AWAIT | tail -1" \
-             "followed by a second command|$AWAIT; echo done" \
-             "with a trailing 2>&1|$AWAIT 2>&1"; do
-  label=${probe%%|*}; cmd=${probe#*|}
-  assert_denied "the await verb $label" "$cmd"
-  out=$(deny_verdict "$cmd")
-  if printf '%s' "$out" | grep -qF -- "$SPELLING"; then pass; else
-    bad "the deny on the await verb $label does not carry the exact admitted spelling \`$SPELLING\` — a retry would have to be composed rather than copied (kogaki#1314)"
-  fi
-done
-# The issue's own specimen, verbatim in shape.
-assert_denied "the polling loop the Issue records" \
-  'for i in $(seq 1 18); do out=$(node src/brief.mjs run --status --job await --run-dir /x 2>&1); echo "$out" | grep -q "still running" || { echo "$out" | tail -250; break; }; echo "$out" | tail -1; done'
-# The grammar is closed: an unknown `--job` verb, a stray word and a repeated
-# flag are each not that one invocation.
-assert_denied "an unknown job verb"      "node src/brief.mjs run --status --job start"
-assert_denied "a stray trailing word"    "node src/brief.mjs run --status extra"
-assert_denied "a repeated run-dir"       "node src/brief.mjs run --status --run-dir /a --run-dir /b"
 
 # THE ANCHOR IS THE INVOCATION SHAPE, NOT THE BARE FILENAME (kogaki#1063).
 #
@@ -279,31 +190,6 @@ assert_denied "an xargs-wrapped direct run"  "xargs ./src/terrain.mjs start"
 assert_denied "a setsid-wrapped direct run"  "setsid ./src/terrain.mjs run"
 assert_denied "a stdbuf-wrapped direct run"  "stdbuf -o0 ./src/terrain.mjs start"
 
-# THE SECOND EXECUTOR (kogaki#1116, acceptance item 5). `src/brief.mjs` is a
-# lane executor on the same terms: a Brief run is STARTED by the brief skill's
-# own `!` line and ADVANCED inside `advance-brief.py`, and it runs Terrain's own
-# advance loop under a flow binding. A model-typed `node src/brief.mjs start`
-# mints a start-act-attributed record from Bash, which is exactly the
-# route the self-declared executor kind is only trustworthy because it is
-# closed — so the prohibition reaches it, through the same hook rather than a
-# second copy of the rule.
-assert_denied "the Brief start verb"      "node src/brief.mjs start coding::lesson/alpha"
-assert_denied "the Brief run verb"        "node src/brief.mjs run"
-assert_denied "a bare Brief invocation"   "node src/brief.mjs"
-assert_denied "a Brief enter"             "node src/brief.mjs enter coding::lesson/alpha"
-assert_denied "a Brief start behind sudo" "sudo node src/brief.mjs start"
-assert_denied "a direct Brief execution"  "./src/brief.mjs start"
-# The admitted verb is the same one, and it is the same narrowing: an inspection
-# route that was denied would leave a stuck Brief run unreadable by the one
-# party able to unstick it.
-assert_admitted "the Brief status verb"   "node src/brief.mjs run --status"
-assert_denied "a status flag on the Brief start verb" "node src/brief.mjs start --status"
-# NAMING IS STILL NOT RUNNING, asserted for the second executor rather than
-# inherited: the command-position anchor is what lets an Issue whose work is in
-# this runtime declare its own footprint, and that property is per-path.
-assert_admitted "a Brief footprint cell" \
-  "issue-sync admit-issue verdict 1116 --plan-cell 'act=implement-issue;files=src/brief.mjs'"
-assert_admitted "a grep over the Brief runtime" 'grep -n "entryInputs" src/brief.mjs'
 # ...and a third runtime that is NOT an executor still rides through, so the
 # widening above is a widening to a NAMED second file and not to `*.mjs`.
 assert_admitted "a non-executor runtime" "node src/draft.mjs run"
@@ -314,8 +200,7 @@ assert_admitted "a second non-executor runtime" "node src/review-draft.mjs attac
 # reader to: which skill starts the run and which PostToolUse hook advances it.
 # A reason that named Terrain for a Brief command would point at the wrong file
 # in the one message a reader gets, which is worse than no message.
-for probe in "terrain:advance-terrain.py:node src/terrain.mjs start" \
-             "brief:advance-brief.py:node src/brief.mjs start"; do
+for probe in "terrain:advance-terrain.py:node src/terrain.mjs start"; do
   lane=${probe%%:*}; rest=${probe#*:}; hookname=${rest%%:*}; cmd=${rest#*:}
   out=$(deny_verdict "$cmd")
   if printf '%s' "$out" | grep -q "$hookname"; then pass; else
@@ -343,7 +228,7 @@ assert_denied "an invocation after a data mention" \
 # reachable is only reachable below it. Since kogaki#1300 the bound is each
 # workflow table's `judge.advance_timeout_s`, read by its hook, and no
 # `ADVANCE_TIMEOUT_S` constant may come back into `.claude/hooks/`.
-if "$PY" -c 'import json,sys; v=[json.load(open(f,encoding="utf-8"))["judge"].get("advance_timeout_s") for f in ("src/terrain-workflow.json","src/brief-workflow.json")]; sys.exit(0 if all(isinstance(x,(int,float)) and 0 < x < 600 for x in v) else 1)'; then
+if "$PY" -c 'import json,sys; v=[json.load(open(f,encoding="utf-8"))["judge"].get("advance_timeout_s") for f in ("src/terrain-workflow.json",)]; sys.exit(0 if all(isinstance(x,(int,float)) and 0 < x < 600 for x in v) else 1)'; then
   pass
 else
   bad "a workflow table's judge.advance_timeout_s is absent or not below the harness's 600s hook default — a child bound at or above it cannot fire first, so the timeout relay it exists for is unreachable"
@@ -354,7 +239,7 @@ else
   pass
 fi
 if "$PY" -c 'import importlib.util,sys
-for lane in ("terrain","brief"):
+for lane in ("terrain",):
     spec=importlib.util.spec_from_file_location("h_"+lane,".claude/hooks/advance-%s.py"%lane); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     import json; want=json.load(open("src/%s-workflow.json"%lane,encoding="utf-8"))["judge"]["advance_timeout_s"]
     if m.advance_timeout_s(".") != want: sys.exit(1)
@@ -678,7 +563,7 @@ JS
 
   # (d) THE PAYLOAD ARRIVES, AND IT IS THE FILE'S. Parsed out of the fenced
   # block and compared against the written call after canonicalisation, which is
-  # the same comparison `gate-open-terrain-gate.py` makes against a sent payload.
+  # the same comparison `gate-open-gate.py` makes against a sent payload.
   # Equality is asserted on the CONTENT, not on the bytes of the fence, so a
   # trailing newline the block strips is not a failure and a reordered key is.
   # THE VERDICT IS A FILE, NOT A SECOND HEREDOC. Two stdin redirections on one
@@ -773,7 +658,7 @@ PY
   # fails. After such a miss an advance that opens nothing leaves the ANSWERED
   # pointer as the only match, and a reader with no `has_capture` filter would
   # announce a gate for a question already answered -- while
-  # `gate-open-terrain-gate.py`, which applies that filter, denies nothing and
+  # `gate-open-gate.py`, which applies that filter, denies nothing and
   # lets the re-ask through. Three readers, one rule.
   cat > "$stub_repo/src/terrain.mjs" <<'JS'
 // An advance that opens nothing. The only pointer left is the one the capture
@@ -834,7 +719,7 @@ with open(out, "w") as f:
 PY
   f2_out=$(fire_stub)
   if [ -z "$f2_out" ] || ! printf '%s' "$f2_out" | grep -q 'additionalContext'; then pass; else
-    bad "the advance hook announced a gate whose pointer is past POINTER_TTL — write-gate-capture.py reaps at that bound and gate-open-terrain-gate.py filters on it, so delivering one hands the session a payload no sibling reader still holds a gate for: $f2_out"
+    bad "the advance hook announced a gate whose pointer is past POINTER_TTL — write-gate-capture.py reaps at that bound and gate-open-gate.py filters on it, so delivering one hands the session a payload no sibling reader still holds a gate for: $f2_out"
   fi
 
   # (g) WHERE TWO POINTERS NAME ONE RUN, THE ONE DELIVERED IS THE ONE THE
@@ -872,7 +757,7 @@ PY
   g_out=$(fire_stub)
   if printf '%s' "$g_out" | grep -q '0000-first' \
      && ! printf '%s' "$g_out" | grep -q 'zzzz-second'; then pass; else
-    bad "with two pointers naming one run the hook did not deliver the one \`gate-open-terrain-gate.py\` compares against (filename-first, \`0000-first\`) — a session sending these bytes byte-for-byte would be denied for sending the wrong question, which is this file's own wedge arriving through its repair: ${g_out:-(silent)}"
+    bad "with two pointers naming one run the hook did not deliver the one \`gate-open-gate.py\` compares against (filename-first, \`0000-first\`) — a session sending these bytes byte-for-byte would be denied for sending the wrong question, which is this file's own wedge arriving through its repair: ${g_out:-(silent)}"
   fi
 
   # (h) AND THE DELIVERY SURVIVES AN EXECUTOR THAT COULD NOT BE SPAWNED AT ALL
@@ -1095,7 +980,7 @@ $(head -30 "$tmp/diff")"
   # self-declared start attribution is only trustworthy because the Bash route
   # is denied, so a reduced tree in which the deny no longer fires has not
   # reproduced the golden run's guarantees however equal its artifacts are.
-  redout=$("$PY" "$tmp/red/.claude/hooks/gate-terrain-executor.py" <<'PY' 2>/dev/null
+  redout=$("$PY" "$tmp/red/.claude/hooks/gate-executor-invocation.py" <<'PY' 2>/dev/null
 {"tool_name": "Bash", "tool_input": {"command": "node src/terrain.mjs start"}}
 PY
 )
@@ -1180,70 +1065,12 @@ if ! printf '%s' "$fixture_route_out" | grep -q 'reads no arguments from the ses
   bad "the start act's argument guard refused \`--run-dir\`/\`--workflow\`, which it reads and which every fixture that opens a run passes: $fixture_route_out"
 fi
 
-# AN ANSWERED RAISING RE-ASKED BY HAND IS DENIED (kogaki#1740). The capture
-# hook writes no row for a second answer and no advance reads one, so the open-
-# gate hook denies a question byte-equal to a gate call whose raising already has
-# a row, naming that row's tool_use_id; a fresh raising of the same call is not.
-answered_dir="$hooktmp/answered-run"
-mkdir -p "$answered_dir" "$hooktmp/answered-gates"
-answered_case() {
-  local row_instance=$1 sent=$2
-  "$PY" - "$answered_dir" "$row_instance" <<'PYCASE'
-import json, sys
-from pathlib import Path
-d, row_instance = Path(sys.argv[1]), sys.argv[2]
-call = {"questions": [{"question": "A Brief step stopped.", "header": "retry", "multiSelect": False,
-        "options": [{"label": "Retry the step", "description": "r"}, {"label": "End this Brief", "description": "a"}]}]}
-(d / "brief-state-retry.gate-call.json").write_text(json.dumps(call, indent=2) + "\n")
-(d / "brief-state-retry.run-declaration.json").write_text(json.dumps({"id": "brief-state-retry", "gate_instance_id": "inst-answered"}) + "\n")
-(d / "brief.gate-capture.json").write_text(json.dumps({"rows": [{"gate_instance_id": row_instance,
-    "evidence": {"tool": "AskUserQuestion", "tool_use_id": "toolu_earlier_answer"}}]}) + "\n")
-PYCASE
-  "$PY" -c 'import json,sys; c=json.load(open(sys.argv[1])); c["questions"][0]["question"] += sys.argv[2]; print(json.dumps({"hook_event_name": "PreToolUse", "session_id": "s-answered", "tool_name": "AskUserQuestion", "tool_input": c}))' \
-    "$answered_dir/brief-state-retry.gate-call.json" "$sent" \
-    | KOGAKI_BRIEF_RUN_DIR="$answered_dir" KOGAKI_OPEN_GATES="$hooktmp/answered-gates" \
-      "$PY" "$REPO/.claude/hooks/gate-open-terrain-gate.py" PreToolUse 2>/dev/null
-}
-answered_out=$(answered_case inst-answered "")
-if printf '%s' "$answered_out" | grep -q '"permissionDecision": "deny"' && printf '%s' "$answered_out" | grep -q 'toolu_earlier_answer'; then pass; else
-  bad "a question byte-equal to an answered gate call was not denied naming the earlier tool_use_id (kogaki#1740): ${answered_out:-(silent)}"
-fi
-fresh_out=$(answered_case inst-older "")
-if [ -z "$fresh_out" ]; then pass; else
-  bad "a gate call whose current raising has no capture row was denied as answered (kogaki#1740): $fresh_out"
-fi
-other_out=$(answered_case inst-answered " (a different question)")
-if [ -z "$other_out" ]; then pass; else
-  bad "a question differing from the answered gate call was denied as a re-ask (kogaki#1740): $other_out"
-fi
-# A second run whose raising of the same bytes is live, opened in another
-# session, is admitted: the answered run elsewhere denies nothing (PR #1743 round 1).
-live_dir="$hooktmp/answered-live-run"
-mkdir -p "$live_dir"
-answered_case inst-answered "" >/dev/null
-cp "$answered_dir/brief-state-retry.gate-call.json" "$live_dir/"
-"$PY" - "$live_dir" "$hooktmp/answered-gates" <<'PYLIVE'
-import json, sys
-from datetime import datetime, timezone
-from pathlib import Path
-d, gates = Path(sys.argv[1]), Path(sys.argv[2])
-(gates / "inst-live.json").write_text(json.dumps({"gate_instance_id": "inst-live", "gate_id": "brief-state-retry",
-    "gate_call_path": str(d / "brief-state-retry.gate-call.json"), "capture_path": str(d / "brief.gate-capture.json"),
-    "session_id": "s-other", "opened_at": datetime.now(timezone.utc).isoformat()}) + "\n")
-PYLIVE
-live_out=$("$PY" -c 'import json,sys; print(json.dumps({"hook_event_name": "PreToolUse", "session_id": "s-answered", "tool_name": "AskUserQuestion", "tool_input": json.load(open(sys.argv[1]))}))' "$live_dir/brief-state-retry.gate-call.json" \
-  | KOGAKI_BRIEF_RUN_DIR="$answered_dir" KOGAKI_OPEN_GATES="$hooktmp/answered-gates" \
-    "$PY" "$REPO/.claude/hooks/gate-open-terrain-gate.py" PreToolUse 2>/dev/null)
-rm -f "$hooktmp/answered-gates/inst-live.json"
-if [ -z "$live_out" ]; then pass; else
-  bad "a live raising in another session was denied because another run's identical call was answered (kogaki#1740, PR #1743 round 1): $live_out"
-fi
 
 if [ "$fail" -eq 0 ]; then
   note "ok: $cases case(s) pass — the executor's Bash route denied with --status admitted, the skill file's single start line, and the removal test's byte-equal artifacts with the spec absent and the deny still firing (kogaki#1027)"
   note "also asserted (kogaki#1163): that an advance whose run record carries \`done: true\` reaches the session on the same additionalContext channel the gate payloads use, carrying the run directory and the artifacts the record itself lists — and that the cases asserting SILENCE are silent because no record claims a terminal, not because the hook has nothing to say about one; and that the start act refuses a positional token, a run-dir-shaped resumption and an unread flag, while still reading the \`--run-dir\`/\`--workflow\` route every fixture here opens a run through."
   note "NOT asserted here (kogaki#1163 acceptance 3): the print naming the lane's most recent \`done\` run beside the new one. It fires only where the start act MINTS into the default lane — \`--run-dir\` and the env pin both take the other arm — and a mint runs the survey, which reads the policy seam, and resolves the judge binary. This file's members are seam-free and judge-free by construction, so covering it here would make every case in the file conditional on a machine. The behaviour is a print and never a refusal, which is what keeps the gap reportable rather than blocking."
-  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085); and that a pointer past POINTER_TTL is delivered on no channel, which is the one arm these cases had come to depend on without asserting (kogaki#1092); and that a question byte-equal to an answered gate call is denied naming the earlier tool_use_id, while a fresh raising of it, a different question and another session's live raising of the same bytes are not (kogaki#1740)."
+  note "also asserted: the advance is keyed to the open run's OWN capture row — a question that wrote none leaves the record untouched and says nothing, the question that wrote one advances it, and an identical answer from another session's question does not (kogaki#1075); and .claude/settings.json registers write-gate-capture.py before advance-terrain.py, which that keying depends on; and that a gate the advance OPENS reaches the session on the one channel a PostToolUse hook has — its stdout's additionalContext, carrying the written call byte-for-byte with the gate and instance ids beside it, and carrying nothing where the advance opened no gate (kogaki#1081); and that an executor REFUSAL rides that same channel, alone where no gate is open and beside the gate payload where one is, so an advance that ends a run no longer ends it silently (kogaki#1085); and that a pointer past POINTER_TTL is delivered on no channel, which is the one arm these cases had come to depend on without asserting (kogaki#1092). The Brief executor's cases and the Brief gate's answered-call cases are checks/check-brief-hook-invocation.sh's (kogaki#1741)."
   note "also asserted: that no line this file executes or stages carries an absolute instant. Every staged opened_at is computed from this run's clock at an offset derived from POINTER_TTL, read from .claude/hooks/advance-terrain.py — so the cases above assert the hook's expiry arm rather than the date the fixture was written on, and a reintroduced literal reddens here instead of twelve hours later in CI (kogaki#1092)."
   note "not asserted here: that either hook is LOADED on this machine. That wiring is machine-local and never committed, so asserting it would fail on every fresh clone and would be a claim about a machine rather than about this repository — which is why the order above is read from the tracked file rather than from a live registration."
 fi

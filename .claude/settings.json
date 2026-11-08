@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" PreToolUse",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-gate.py\" PreToolUse",
             "timeout": 30
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-terrain-executor.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-executor-invocation.py\"",
             "timeout": 30
           }
         ]
@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-terrain-gate.py\" Stop",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-open-gate.py\" Stop",
             "timeout": 30
           }
         ]

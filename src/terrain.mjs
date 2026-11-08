@@ -9,16 +9,16 @@
 // against (SPEC-gate-carrier) and "Human-facing files live where the human works" (specs/SPEC.md).
 // THE ENTRY POINT ONLY (kogaki#1259): each stage lives in `src/terrain/` when only Terrain reads it,
 // and in `src/workflow/` when another command runs on it; a command imports the stage it needs.
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { enterRun, terrainRunEntry } from "./runs.mjs";
 import { cmdComposeInput, cmdReport } from "./terrain/compose-input.mjs";
 import { cmdCotags } from "./terrain/cotags.mjs";
 import { GATE_WORK, STATE_WORK } from "./terrain/flows.mjs";
 import { cmdSurvey, parseArgs, validateSurvey } from "./terrain/survey.mjs";
-import { cmdJobSupervise } from "./workflow/detached-job.mjs";
 import { cmdRun } from "./workflow/executor.mjs";
 import {
-  START_ACT_EXECUTOR, TERRAIN_LANE, advancedByFromPayload, fail, readHookPayload, readJson,
+  REPO, START_ACT_EXECUTOR, advancedByFromPayload, fail, readHookPayload, readJson,
   setDefaultFlow,
 } from "./workflow/run-record.mjs";
 
@@ -35,8 +35,19 @@ import {
 // A flow is a table plus two maps plus a lane; everything below `runWorkflow` is shared.
 //   lane: `runs/` lane (workspace, open-run pointer, capture prefix); label; startLine;
 //   tablePath; newRunDir; stateWork; gateWork; runDirEnv/openRunEnv (per flow).
-// `flow()` falls back to Terrain's binding for every caller outside `runWorkflow`.
-const TERRAIN_FLOW = { ...TERRAIN_LANE, stateWork: STATE_WORK, gateWork: GATE_WORK };
+// Terrain's binding lives with Terrain's entry point, and the shared run record has no
+// default lane of its own (kogaki#1741): this file registers it for its own process.
+export const TERRAIN_FLOW = {
+  lane: "terrain",
+  label: "Terrain",
+  startLine: "the terrain skill's own `!` line (`node src/terrain.mjs start`)",
+  tablePath: join(REPO, "src/terrain-workflow.json"),
+  newRunDir: () => enterRun("terrain", terrainRunEntry()),
+  runDirEnv: "KOGAKI_RUN_DIR",
+  openRunEnv: "KOGAKI_OPEN_RUN",
+  stateWork: STATE_WORK,
+  gateWork: GATE_WORK,
+};
 setDefaultFlow(TERRAIN_FLOW);
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
@@ -83,13 +94,6 @@ switch (cmd) {
   // fields, because no hook event produced them and inventing one would be the
   // fabricated attribution this issue removes.
   case "start": cmdRun(args, START_ACT_EXECUTOR, { stopAtFirstWait: true }); break;
-  // ---- THE DETACHED JOB'S SUPERVISOR ENTRYPOINT (kogaki#1193). Reached only
-  // by `startDetachedJobSupervisor`'s own `spawn(process.execPath, [scriptPath,
-  // "job-supervise", ...])` -- never by a Bash command a session could type:
-  // `.claude/hooks/gate-terrain-executor.py`'s admitted shape is `run --status`,
-  // and `job-supervise` is a different `cmd` entirely, not a `--job` value under
-  // it.
-  case "job-supervise": cmdJobSupervise(args); break;
   case "validate": {
     const record = readJson(String(args.survey || fail("validate needs --survey <file>")));
     const v = validateSurvey(record);

@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, closeSync
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { enterRun, laneDir, terrainRunEntry } from "../runs.mjs";
+import { laneDir } from "../runs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, "../..");
@@ -92,7 +92,8 @@ export function fail(msg) {
   if (SOFT_REFUSAL_DEPTH > 0) throw new JudgmentRefusal(msg);
   throwIfStateWindow(msg);
   persistPendingRun();
-  process.stderr.write(`terrain: ${msg}\n`);
+  // The prefix names the lane of the act that failed, and no lane where none is bound (kogaki#1741).
+  process.stderr.write(`${(FLOW || DEFAULT_FLOW)?.lane ?? "kogaki"}: ${msg}\n`);
   process.exit(1);
 }
 
@@ -102,11 +103,15 @@ export function fail(msg) {
 // ---- WHICH FLOW THIS ACT IS AN ACT OF (kogaki#1108) -----------------------
 // The executor names no state (kogaki#625); `FLOW` binds table, lane directory, capture prefix,
 // renderers and option composers. Process-wide, like `WRITING_STATE`: one
-// invocation is one act of one flow, set by `runWorkflow`. Default is Terrain's.
+// invocation is one act of one flow, set by `runWorkflow`. THERE IS NO DEFAULT LANE
+// (kogaki#1741): a caller binds its own flow, or an entry point registers one.
 let FLOW = null;
-// The default binding is Terrain's lane until `src/terrain.mjs` registers its whole flow (kogaki#1259).
 let DEFAULT_FLOW = null;
-export function flow() { return FLOW || DEFAULT_FLOW || TERRAIN_LANE; }
+export function flow() {
+  const bound = FLOW || DEFAULT_FLOW;
+  if (!bound) throw new Error("no flow is bound: the caller binds its own with `bindFlow` or `runWorkflow` (kogaki#1741).");
+  return bound;
+}
 export function setDefaultFlow(binding) { DEFAULT_FLOW = binding; }
 export function bindFlow(binding) { const held = FLOW; FLOW = binding; return held; }
 
@@ -286,24 +291,13 @@ export const KIND_SEMANTICS = {
   terminal: { stops: true, needsRenderer: false },
 };
 
-const TERRAIN_WORKFLOW_TABLE = join(REPO, "src/terrain-workflow.json");
-// Terrain's lane without its state work: what `flow()` reads outside `runWorkflow` (kogaki#1259).
-export const TERRAIN_LANE = {
-  lane: "terrain",
-  label: "Terrain",
-  startLine: "the terrain skill's own `!` line (`node src/terrain.mjs start`)",
-  tablePath: TERRAIN_WORKFLOW_TABLE,
-  newRunDir: () => enterRun("terrain", terrainRunEntry()),
-  runDirEnv: "KOGAKI_RUN_DIR",
-  openRunEnv: "KOGAKI_OPEN_RUN",
-};
 const RUN_RECORD_FILE = "run-record.json";
 
 // ---- WHO EXECUTED THIS TRANSITION (kogaki#1027) ------------------------------
 // `advanced_by` is COPIED from the harness's own payload, never composed here.
 // The kinds are a closed set: `hook` carries the three payload fields verbatim;
 // `start-act` carries no hook fields. A third kind is a decision, not an addition.
-// The self-declared kind is trustworthy only because `.claude/hooks/gate-terrain-executor.py`
+// The self-declared kind is trustworthy only because `.claude/hooks/gate-executor-invocation.py`
 // denies the Bash route; the Removal Test fixture exercises that deny.
 const EXECUTOR_KINDS = ["hook", "start-act", "detached-job"];
 
@@ -323,7 +317,7 @@ export const START_ACT_EXECUTOR = { executor: "start-act" };
 // by the session -- and it is trustworthy for the same reason `start` is: it
 // is one FIXED, narrow act (poll a job record this same run already opened,
 // and resume the one waiting state that opened it), never a route to an
-// arbitrary transition, and `gate-terrain-executor.py`'s admitted `run
+// arbitrary transition, and `gate-executor-invocation.py`'s admitted `run
 // --status` shape is the only Bash spelling that reaches it (see `cmdJob`
 // below). Carries the job record's own relative path, so a reader of the run
 // record can find the job that produced this transition without guessing.

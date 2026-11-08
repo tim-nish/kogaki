@@ -63,6 +63,8 @@ import { pathToFileURL } from "node:url";
 const REPO = resolve(".");
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { withSharedText, SHARED_TEXT_FIELDS, SHARED_TEXT_TOKEN, judgePrompt } = await imp("src/workflow/judge.mjs");
+// The run record binds no default lane (kogaki#1741); this check reads row text, not a lane.
+(await imp("src/workflow/run-record.mjs")).bindFlow({ lane: "schema-binds", label: "schema-binds check" });
 const { derivedRow } = await imp("src/proof-sheet/leg-brief.mjs");
 const { MOVE_CARRIED_FIELDS } = await imp("src/compose.mjs");
 

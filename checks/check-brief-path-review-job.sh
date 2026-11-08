@@ -29,6 +29,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { judgePrompt, JUDGE_INPUT_MARKER } from "./src/workflow/judge.mjs";
+import { bindFlow } from "./src/workflow/run-record.mjs";
+import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
+// The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
+bindFlow(BRIEF_FLOW);
 import { findInternalVocabulary } from "./src/assemble.mjs";
 import {
   root, JOB_UNIT_NO_TOOLS_SENTENCE, scratch, runRecordPath,

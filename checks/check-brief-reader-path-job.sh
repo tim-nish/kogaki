@@ -241,7 +241,7 @@ const fails = [];
 {
   const dir = mkNewRun();
   writeFileSync(join(dir, "units.json"), "not json");
-  const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", join(dir, "units.json"),
+  const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", join(dir, "units.json"),
     "--command", fakeJudge, "--model", "m", "--output-format", "json"];
   spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
   const rec = readRecord(dir);
@@ -256,7 +256,7 @@ const fails = [];
 {
   const dir = mkNewRun();
   writeFileSync(join(dir, "units.json"), JSON.stringify({ units: [{ id: "c1", prompt: "SLOW" }] }, null, 2));
-  const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", join(dir, "units.json"),
+  const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", join(dir, "units.json"),
     "--command", fakeJudge, "--model", "m", "--output-format", "json"];
   spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
   const rec = readRecord(dir);
@@ -276,7 +276,7 @@ const fails = [];
   const dir = mkNewRun();
   const unitsPath = join(dir, "units.json");
   writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: "SLOW" }, { id: "c2", prompt: "FAIL_TWICE" }]), null, 2));
-  const child = spawn(process.execPath, ["src/terrain.mjs", "job-supervise",
+  const child = spawn(process.execPath, ["src/workflow/job-supervise.mjs",
     "--run", dir, "--units", unitsPath, "--command", fakeJudge, "--model", "m",
     "--output-format", "json", "--call-limit-s", "30", "--unit-attempts", "2",
     "--stall-s", "30", "--heartbeat-ms", "150"], { cwd: root });
@@ -377,7 +377,7 @@ process.stdin.on("end", () => {
   function superviseLegSync(dir, unitId, prompt) {
     const unitsPath = join(dir, "units.json");
     writeFileSync(unitsPath, JSON.stringify({ units: [{ id: unitId, prompt }], validator: legValidator }, null, 2));
-    const args = ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
+    const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
       "--command", fakeJudgeLeg, "--model", "m", "--output-format", "json",
       "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"];
     return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
@@ -422,6 +422,8 @@ process.stdin.on("end", () => {
 {
   const { createHash } = await import("node:crypto");
   const { judgePrompt } = await import("./src/workflow/judge.mjs");
+  // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
+  (await import("./src/workflow/run-record.mjs")).bindFlow((await import("./src/brief/job-verbs.mjs")).BRIEF_FLOW);
   const { readAttemptRecord } = await import("./src/workflow/attempt-record.mjs");
   const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_unit;
   const input = { state: "compose_path", unit_number: 1, fixture: "RECORD_ONCE" };
@@ -431,7 +433,7 @@ process.stdin.on("end", () => {
   const promptsFile = join(dir, "prompts.jsonl");
   const unitsPath = join(dir, "units.json");
   writeFileSync(unitsPath, JSON.stringify(declareUnits([{ id: "c1", prompt: first, input }])));
-  spawnSync(process.execPath, ["src/terrain.mjs", "job-supervise", "--run", dir, "--units", unitsPath,
+  spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json", "--call-limit-s", "100", "--unit-attempts", "2",
     "--stall-s", "100", "--heartbeat-ms", "50", "--command-version", "9.9.9 (fixture)"], { cwd: root, timeout: 15000, encoding: "utf8",
     env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), KOGAKI_FAKE_JUDGE_PROMPTS: promptsFile } });
@@ -487,8 +489,8 @@ status=$?
 
 
 # (i) THE Stop ARM'S OWN BOUND (kogaki#1199 acceptance 1). The Stop hook
-# `.claude/hooks/gate-open-terrain-gate.py` (authored at
-# `hook-sources/gate-open-terrain-gate.py`, installed by the supervisor) is
+# `.claude/hooks/gate-open-gate.py` (authored at
+# `hook-sources/gate-open-gate.py`, installed by the supervisor) is
 # run twice against a fixture pointer, standing in for the harness's own two
 # Stop events at one gate: the first call (`stop_hook_active: false`) blocks
 # and grants the turn its one continuation; the second (`stop_hook_active:
@@ -523,7 +525,7 @@ with open(pointer_path, "w") as f:
     json.dump(pointer, f)
 PYEOF
 
-stop_first="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": false}')"
+stop_first="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": false}')"
 if ! printf '%s' "$stop_first" | grep -q '"decision": *"block"'; then
   echo "FAIL check-brief-reader-path-job"
   echo "  - (i) the first Stop call (stop_hook_active=false) did not return decision:block: $stop_first"
@@ -535,7 +537,7 @@ if [ ! -f "$stop_pointer" ]; then
   stop_status=1
 fi
 
-stop_second="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-terrain-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": true}')"
+stop_second="$(KOGAKI_OPEN_GATES="$stop_gates" python3 .claude/hooks/gate-open-gate.py Stop <<< '{"hook_event_name": "Stop", "session_id": "sess1", "stop_hook_active": true}')"
 if printf '%s' "$stop_second" | grep -q '"decision"'; then
   echo "FAIL check-brief-reader-path-job"
   echo "  - (i) the second Stop call (stop_hook_active=true) still returned a decision: $stop_second"
