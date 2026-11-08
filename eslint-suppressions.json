@@ -1,0 +1,201 @@
+{
+  "checks/fixtures/brief-compose/fixtures.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "checks/terrain-control-cases.mjs": {
+    "no-regex-spaces": {
+      "count": 1
+    }
+  },
+  "checks/terrain-gate-cases.mjs": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "checks/terrain-neighborhood-cases.mjs": {
+    "no-regex-spaces": {
+      "count": 4
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "checks/terrain-survey-cases.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/assemble.mjs": {
+    "no-unused-vars": {
+      "count": 6
+    }
+  },
+  "src/brief/candidates.mjs": {
+    "no-useless-assignment": {
+      "count": 1
+    },
+    "no-useless-escape": {
+      "count": 2
+    }
+  },
+  "src/brief/job-verbs.mjs": {
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "src/brief/reader-path-unit.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/brief/run-state.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "src/cite-check.mjs": {
+    "no-regex-spaces": {
+      "count": 2
+    }
+  },
+  "src/compose.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/compose/leg-schema.mjs": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/compose/moves.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/disclosure.mjs": {
+    "preserve-caught-error": {
+      "count": 1
+    }
+  },
+  "src/draft/workspace.mjs": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/draft/writer.mjs": {
+    "no-irregular-whitespace": {
+      "count": 1
+    }
+  },
+  "src/lint-ja.mjs": {
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/mapping-playground/short.mjs": {
+    "no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/mapping-playground/trial.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/paragraph-plan.mjs": {
+    "no-unused-vars": {
+      "count": 3
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/project.mjs": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/proof-sheet/extract.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/proof-sheet/leg-run.mjs": {
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "src/proof-sheet/leg-sheet.mjs": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "src/review-draft/join.mjs": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/runs.mjs": {
+    "no-unused-vars": {
+      "count": 3
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/terrain/compose-input.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/terrain/cotags.mjs": {
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/terrain/report.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/terrain/subdivide.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/workflow/executor.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/workflow/judge.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/workflow/strands.mjs": {
+    "no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/yaml.mjs": {
+    "no-control-regex": {
+      "count": 2
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  }
+}

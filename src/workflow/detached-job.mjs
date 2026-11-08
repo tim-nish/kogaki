@@ -938,7 +938,7 @@ export async function cmdJobSupervise(args) {
     }
 
     for (;;) {
-      // eslint-disable-next-line no-await-in-loop -- one supervisor, one loop,
+      // one supervisor, one loop,
       // ordinary sequential polling; `spawnDetachedJobUnit`'s children still
       // service their own stdout/stderr/close events on this event loop
       // between ticks, which is why this is `setTimeout` and never the
