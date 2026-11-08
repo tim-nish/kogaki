@@ -266,8 +266,8 @@ export function composeThesisCandidates(strands, headlines = new Map(), resolved
 // Derive ONE slug from a Thesis (story 1.72 AC4; paired into the gate at
 // v11, kogaki#518): the slug is thesis-derived and owner-decided, never
 // machine identity — location and naming's no-machine-identity repair kept by this route
-// exactly as v9 kept it by its own. THIS IS THE ONE DERIVATION: the paired
-// candidate slugs and a free-form Thesis's slug both come from here.
+// exactly as v9 kept it by its own. THIS IS THE ONE DERIVATION: every
+// candidate's paired slug comes from here.
 // Exported for the check's thesis-derived-slug case.
 export function deriveSlugCandidate(thesis) {
   const words = thesis.toLowerCase().replace(/[^a-z0-9\s-]/g, "")
@@ -454,7 +454,6 @@ export function cmdEnter(args) {
         negates_premise: true,
       },
     ],
-    free_text: { accepted: true, prompt: "Or state your own Thesis in your own words — it becomes the adopted Thesis verbatim, and its name is derived from it. Keeping an option's Thesis but naming the Brief differently is the same one answer: say which option, and say the name you want." },
   };
 
   const state = {
@@ -486,6 +485,14 @@ export function cmdEnter(args) {
 // option set survives where it always was: `enter` writes `state.gate`, the
 // GATE_WORK composer reads it, and `adopt` digests over the same option ids.
 
+// THE ONE REFUSAL OF A FREE-TEXT ANSWER AT THE THESIS GATE (kogaki#1749), read
+// by `adopt` and by the THESIS_ADOPTION wait so the two cannot drift.
+export function thesisFreeTextRefusal(gateId) {
+  return `the answer at the ${gateId} gate is typed text, not one of its options. The Thesis is chosen among the `
+    + "composed candidates, or the settled set is changed through Terrain (back-to-terrain). Nothing was written; "
+    + "the gate is offered again.";
+}
+
 // ---- adopt: CONSUME the owner's captured answer at THE ONE GATE. ----
 //
 // THE ANSWER IS READ, NEVER RECEIVED AS AN ARGUMENT (kogaki#891): it arrives
@@ -511,7 +518,7 @@ export function cmdAdopt(args) {
       + "is READ from the captured question-UI answer, never passed as an argument. Under the Brief workflow "
       + "table the executor composes the declaration at its `THESIS_ADOPTION` wait and stops, the harness "
       + "renders the question, `.claude/hooks/write-gate-capture.py` records the click, and this act reads "
-      + "the row (kogaki#1108). A free-form Thesis is the owner's own words in that row, verbatim.");
+      + "the row (kogaki#1108).");
   }
   const capPath = argString(args, "capture",
     "adopt needs --capture <path to the gate capture> — the owner's recorded answer at the thesis-determination gate, "
@@ -530,46 +537,35 @@ export function cmdAdopt(args) {
     fail("the owner ruled the settled set is what should change — route back "
       + "through Terrain. No Brief is started (the durable home and the entry point: never a Brief fetch).");
   }
+  // THE GATE OFFERS NO FREE TEXT (kogaki#1749).
+  if (verdict.option === undefined) fail(thesisFreeTextRefusal(gateId));
   const hit = (state.thesis_candidates || []).find((c) => c.id === verdict.option);
-  if (verdict.option !== undefined && !hit) {
+  if (!hit) {
     fail(`the captured answer names option ${JSON.stringify(verdict.option)}, which is offered by the gate but is not a Thesis candidate — `
       + "an option routed nowhere is not adopted (the durable home and the entry point). Nothing was written.");
   }
   // THE MINT RECORDS THE CLAIM, NEVER THE FRAME (the prose-at-the-surface rule
-  // v20, kogaki#566). A free-form answer is the owner's own words and is taken
-  // verbatim. No fallback to `thesis`: every candidate carries a `claim` by
-  // construction, so an absent claim refuses (PR #571 round 1) rather than
+  // v20, kogaki#566). No fallback to `thesis`: every candidate carries a `claim`
+  // by construction, so an absent claim refuses (PR #571 round 1) rather than
   // silently recording the framed sentence.
-  if (hit && (typeof hit.claim !== "string" || hit.claim === "")) {
+  if (typeof hit.claim !== "string" || hit.claim === "") {
     fail(`candidate ${hit.id} carries no claim — the mint records the adopted claim `
       + "(the prose-at-the-surface rule), and a run state whose candidates predate that field cannot be "
       + "adopted from. Re-run `enter` to recompose the gate.");
   }
-  const thesis = hit ? hit.claim : verdict.free_text;
-  if (typeof thesis !== "string" || thesis.trim() === "") {
-    fail("the captured answer carries neither an adopted candidate nor free-form Thesis text — nothing was written.");
-  }
+  const thesis = hit.claim;
   // The slug half. An override is the owner's, taken as given AT THE GATE;
   // with none, the adopted candidate's OWN paired slug stands — the one the
-  // owner read on the option they chose. A free-form Thesis has no paired slug
-  // to stand, so its slug derives from the owner's own words (v9 behaviour,
-  // unchanged).
+  // owner read on the option they chose.
   let slug, via;
   if (verdict.slug !== undefined) {
     slug = verdict.slug;
     via = "owner-override";
-  } else if (hit && typeof hit.slug === "string" && hit.slug) {
+  } else if (typeof hit.slug === "string" && hit.slug) {
     slug = hit.slug;
     via = "paired-with-adopted-candidate";
   } else {
-    slug = deriveSlugCandidate(thesis);
-    via = "derived-from-free-form-thesis";
-    // A FREE-FORM THESIS FOLLOWS THE ENTER RULE (kogaki#1742): a home holding a
-    // different Thesis gives it the first free name; the same Thesis is the
-    // mint's to refuse.
-    const thesesDir = thesesDirOf(args);
-    const home = classifyHome(join(thesesDir, slug), { thesis, strands: state.strands || [] });
-    if (home.exists && !home.same_thesis) slug = freeSlug(thesesDir, slug);
+    fail(`candidate ${hit.id} carries no paired name — \`enter\` derives one for every candidate it offers. Re-run \`enter\` to recompose the gate. Nothing was written.`);
   }
   if (!SLUG_RE.test(slug)) {
     fail(`slug ${JSON.stringify(slug)} — use lowercase words joined by hyphens; `
@@ -577,7 +573,7 @@ export function cmdAdopt(args) {
   }
   state.stage = "adopted";
   state.adopted_thesis = thesis;
-  state.adopted_via = hit ? hit.id : "free-form";
+  state.adopted_via = hit.id;
   // The adopted PAIR — what the mint consumes. There is no slug_candidate
   // awaiting approval and no slug_gate, because there is no second ask.
   state.adopted_slug = slug;

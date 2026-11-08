@@ -3874,8 +3874,18 @@ option would be a second judgment ratified with only the first actually asked.
 - **Separately declinable.** An owner who adopts a listed Thesis but wants a
   different slug says so **in the same one answer**; the adopt act takes the
   adopted Thesis and an optional slug override. **Declining the slug must never
-  cost the owner the Thesis.** The free-form channel is the owner's own Thesis,
-  taken verbatim, and its slug derives from it.
+  cost the owner the Thesis.**
+
+**The Thesis is one of the candidates composed from the settled set
+(kogaki#1749).** The gate offers no free text. An owner-authored Thesis is
+reached by changing the settled set through Terrain, never typed at this gate.
+A captured answer carrying free text and no option is refused, naming the
+gate; the wait stays outstanding and the gate is re-offered. The owner's
+ruling, 2026-11-08: "We still do not know what negative effects choosing a
+Thesis other than the presented options might have on the content. Besides,
+if I wanted to design a Thesis of my own, I would handle that during the
+earlier process of selecting Strands. Therefore, I think we can remove the
+free-form option."
 
 **THE ANSWER IS READ FROM A CAPTURE, NEVER RECEIVED AS AN ARGUMENT (v32,
 kogaki#891).** Both halves above — the adopted Thesis and the optional name —
@@ -3896,11 +3906,10 @@ consequences, and they are the whole of the amendment:
    same state, so neither entry point can mint a declaration out of band —
    `specs/spec-gate-carrier/SPEC.md` §4.1's *an answer is admitted at the wait
    that declared it*, which §4.12.3 already applies one gate over.
-3. **Free-form Thesis text reaches the run state through the captured answer
-   and through nothing else.** This is the sharpest of the three: the owner's
-   own words are exactly the value that must not arrive as a model-composed
-   argument, since nothing downstream can tell the owner's sentence from the
-   session's.
+3. **No Thesis text reaches the run state from the answer (kogaki#1749).** The
+   captured answer names a candidate, and the adopted Thesis is that
+   candidate's claim. Free text at this gate is refused rather than adopted,
+   since nothing downstream can tell the owner's sentence from the session's.
 
 **WHAT "DECLARATION" NAMES IN ITEM 2, AND WHY THE FILE IS NOT THE BARRIER
 (v36, kogaki#915).** The declaration for a run **is the run state's `gate`
@@ -3994,10 +4003,6 @@ removed, and which other files the folder holds.
   gates has moved nothing. **`keep`** drops the candidate from the Thesis gate,
   where one line above the question names it, and leaves the folder untouched.
   **`back-to-terrain`** ends the run with nothing written.
-- **A free-form Thesis follows the same rule at `adopt`.** A home holding a
-  different Thesis gives it the first free name; a home holding the same Thesis
-  is refused by `mint` into the `brief-state-retry` gate below, naming the
-  archive route, since the collision gate has already passed.
 
 #### A refusal inside an advance is a wait (kogaki#1740)
 
@@ -4210,12 +4215,10 @@ v32 removed from this seam. §4.12.3's ratification gate reaches the same
 disposition on the same ground, one section over: a write unlocked by
 arbitrary prose is unlocked by anything.
 
-**The thesis-determination gate is NOT the counter-precedent it looks like.**
-It admits free text as `adopted_via: free-form`, and correctly: there the
-answer **is** the value, since a Thesis is prose and a free-form one is the
-owner's own words reaching the run state verbatim. Here the answer is a
-selection among machine-composed structures. The two gates differ in what an
-answer *is*, not in how much the owner is trusted.
+**The thesis-determination gate refuses free text on the same reading
+(kogaki#1749).** Its answer is a selection among composed candidates too, and
+an owner-authored Thesis is reached by changing the settled set through
+Terrain.
 
 **An answer carrying both an option and free text is a selection with a
 comment beside it** and adopts normally — the refusal reads the option's

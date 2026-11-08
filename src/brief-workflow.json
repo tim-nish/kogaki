@@ -102,7 +102,7 @@
     {
       "id": "THESIS_ADOPTION",
       "kind": "wait",
-      "owner_supplies": "which Thesis the Brief adopts, and the name it gives the Brief -- one answer with two halves, or the owner's own words, or the premise's negation",
+      "owner_supplies": "which Thesis the Brief adopts, and the name it gives the Brief -- one answer with two halves, or the premise's negation",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": true,
