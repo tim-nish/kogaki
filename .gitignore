@@ -230,6 +230,7 @@ policy/shape.md
 # ones. The REGISTRATION stays machine-local exactly as write-gate-capture.py's
 # does, which is why that check asserts the files and not their wiring.
 !.claude/hooks/gate-executor-invocation.py
+!.claude/hooks/gate-terrain-executor.py
 !.claude/hooks/advance-terrain.py
 # THE OPEN-GATE INTERVAL (kogaki#1028), re-included on the same criterion:
 # `checks/check-open-gate-exclusivity.sh` is its named reader, so it is
@@ -239,6 +240,7 @@ policy/shape.md
 # nothing enforces looks exactly like a gate nobody reached -- so it is
 # registered in the committed `.claude/settings.json` and asserted there.
 !.claude/hooks/gate-open-gate.py
+!.claude/hooks/gate-open-terrain-gate.py
 # THE BRIEF LANE'S ADVANCE HOOK (kogaki#1108), re-included on the same
 # criterion: `checks/check-brief-compose.sh` case (n) copies the whole hooks
 # directory into a reduced tree and drives the Brief span through this file, so

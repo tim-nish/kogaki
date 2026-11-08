@@ -2,8 +2,9 @@
 """PostToolUse: the Brief executor's advance, executed by the harness.
 
 Design and licence: kogaki#1108, acceptance item 2. THE SIBLING IS THE OTHER
-LANE'S ADVANCE HOOK AND THIS IS ITS SECOND LANE, not a variant of it: same structure, same two narrowings, same delivery point, same constants,
-with the lane, the capture prefix, the run-directory variables and the executor
+LANE'S ADVANCE HOOK AND THIS IS ITS SECOND LANE, not a variant of it: same
+structure, same two narrowings, same delivery point, same constants, with the
+lane, the capture prefix, the run-directory variables and the executor
 path changed and nothing else.
 
 WHY A SECOND FILE RATHER THAN ONE HOOK TAKING A LANE ARGUMENT. A hook is one file

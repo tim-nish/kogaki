@@ -40,10 +40,10 @@ done
 
 # ---- THE REGISTRATIONS NAME THE LANE-NEUTRAL HOOKS (kogaki#1741). The open-gate
 # hook at PreToolUse `*` and at Stop, the deny at PreToolUse `Bash`, read from
-# the tracked settings file.
-if "$PY" - <<'PYREG'
+# HEAD: the review lane strips the working copy's settings file (PR #1744 round 1).
+if git show HEAD:.claude/settings.json 2>/dev/null | "$PY" -c '
 import json, sys
-hooks = json.load(open(".claude/settings.json", encoding="utf-8"))["hooks"]
+hooks = json.load(sys.stdin)["hooks"]
 def named(event, matcher, name):
     return any(m.get("matcher") == matcher and any(name in h.get("command", "") for h in m.get("hooks", []))
                for m in hooks.get(event, []))
@@ -51,9 +51,23 @@ ok = (named("PreToolUse", "*", "/.claude/hooks/gate-open-gate.py")
       and named("Stop", "*", "/.claude/hooks/gate-open-gate.py")
       and named("PreToolUse", "Bash", "/.claude/hooks/gate-executor-invocation.py"))
 sys.exit(0 if ok else 1)
-PYREG
+'
 then pass; else
   bad ".claude/settings.json does not register gate-open-gate.py at PreToolUse * and Stop and gate-executor-invocation.py at PreToolUse Bash — a Brief gate's interval or its executor's deny has no registration (kogaki#1741)"
+fi
+
+# ---- THE OLD PATHS DELEGATE (PR #1744 round 1). A session started before the
+# rename runs the hook paths it loaded, so each old path must reach the new hook
+# and return its verdict, or every tool call in that session is refused.
+shim_out=$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"node src/brief.mjs start"}}' \
+  | "$PY" .claude/hooks/gate-terrain-executor.py 2>&1)
+if printf '%s' "$shim_out" | grep -q '"permissionDecision": "deny"'; then pass; else
+  bad "the old path .claude/hooks/gate-terrain-executor.py does not return the new hook's deny: ${shim_out:-(silent)}"
+fi
+shim_out=$(printf '%s' '{"hook_event_name":"PreToolUse","session_id":"s-shim","tool_name":"Read","tool_input":{}}' \
+  | KOGAKI_OPEN_GATES="$(mktemp -d)" "$PY" .claude/hooks/gate-open-terrain-gate.py PreToolUse 2>&1; echo "exit=$?")
+if [ "$shim_out" = "exit=0" ]; then pass; else
+  bad "the old path .claude/hooks/gate-open-terrain-gate.py does not run the new hook cleanly with no gate open: $shim_out"
 fi
 
 # ---- THE DENY FIRES ON THE BRIEF EXECUTOR, AND ADMITS ITS STATUS VERBS.

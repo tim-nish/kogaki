@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """While any lane's gate is open, the only admissible act is the question the
-Harness wrote (kogaki#1028). Named for no lane: it holds every flow's gate (kogaki#1741).
+Harness wrote (kogaki#1028). Named for no lane: it holds every flow's gate
+(kogaki#1741).
 
 PreToolUse denies every tool call that is not that exact payload, byte for byte.
 Stop blocks once; on a second Stop the gate is recorded `gate-unrendered` and its
