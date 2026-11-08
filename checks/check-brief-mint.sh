@@ -8,10 +8,8 @@
 #        compose_path hands it to TAKE alone (kogaki#1699).
 #   (as) the claim register, one judged entry per Leg (kogaki#1281); (bb)
 #        `composeBrief` records `compose_path`, refusing one missing (kogaki#1262, #1328).
-#   (cc) the external-authority switch is retired: the mint writes no such
-#        header key, and the key or its input is refused by name (kogaki#1571).
-#   (dd) an existing home classified by Thesis and Strand hashes; (dh) the
-#        home-collision gate end to end: replace, keep, back-to-terrain (kogaki#1742).
+#   (cc) the external-authority switch is retired and refused by name (kogaki#1571).
+#   (dd)/(dh) an existing home classified, then resolved at its gate (kogaki#1742).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
