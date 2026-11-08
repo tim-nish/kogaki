@@ -322,3 +322,6 @@ corpus/
 # (`policy/kit/.kit-version`) is ignored with it, so provenance is per
 # install rather than per clone.
 policy/kit/
+
+# The /mondo skill's installed copy (gukan-client#45), derived like consult-first.
+.claude/skills/mondo/SKILL.md

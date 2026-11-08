@@ -40,6 +40,33 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/policy/kit/bin/require-term-receipt.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__tsurezure__mondo_.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/policy/kit/bin/gate-mondo-session.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/policy/kit/bin/gate-mondo-shell.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/policy/kit/bin/gate-mondo-question.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -71,6 +98,24 @@
             "timeout": 60
           }
         ]
+      },
+      {
+        "matcher": "mcp__tsurezure__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/policy/kit/bin/log-consult.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/policy/kit/bin/write-verdict-click.py\""
+          }
+        ]
       }
     ],
     "Stop": [
@@ -91,6 +136,14 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/policy/kit/bin/consult-on-prompt.mjs\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/policy/kit/bin/write-verdict-word.py\""
           }
         ]
       }

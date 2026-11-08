@@ -2,9 +2,10 @@
 # Policy system capabilities served to this repository
 
 Served by the tsurezure gateway under the operator's grant (consumer
-identity declared per request, logged server-side). All tools are
-**read-only**; every response carries `pin: <source>@<commit>` and
-line-level cites in `file:line@commit` grammar.
+identity declared per request, logged server-side). Every tool is
+**read-only** except `stage_item` and the Mondo act tools; every response
+cites what it serves as a UnitID at its content hash,
+`<package>::<kind>/<local-name>@<content-hash>`.
 
 | tool | what it answers |
 |---|---|
@@ -15,6 +16,24 @@ line-level cites in `file:line@commit` grammar.
 | `gloss_index` | plain-register overview index (tier-1; tag-scoped tier-2 hop) |
 | `surface_names` | bounded enumeration of served surfaces |
 | `element_survey` | structured element manifest selection |
+| `rules_lookup` | the Rule read: `rules_lookup(situation)` → every Rule in scope for a situation over four axes (`artifact`, `act`, `actor`, `where`); with no situation it returns the axis vocabulary |
+| `boundary_values` | the hub's declared value sets, to compare a local copy against |
+| `terms` | every term headword a Package serves |
+| `packages` | every mounted Package the caller may see |
+| `stage_item` | stages one item in the hub's intake |
+| `mondo_start` | a Mondo act: opens one Batch and answers it |
+| `mondo_prepare` | a Mondo act: reports or creates Batches |
+| `mondo_answer` | a Mondo act: enters the answer text, and the checklist, into a Batch |
+| `mondo_unassemble` | a Mondo act: returns a Batch's staged items |
+| `mondo_graph` | a Mondo act: validates a Batch's graph, or with `build` builds it |
+| `mondo_stages` | a Mondo act: prints the Mondo stage machine |
+| `mondo_questions` | a Mondo act: renders the Verdict questions and answers the rendering |
+| `mondo_verdicts` | a Mondo act: applies the owner's recorded clicks |
+| `mondo_execute` | a Mondo act: executes a ratified Batch |
+| `mondo_shell_gate` | a Mondo act: the sitting's shell check for one Bash command |
+
+Every Mondo act takes `session`, the calling session's id; the kit's hooks
+refuse a call carrying any other, and `/mondo` drives one sitting through them.
 
 Routing rules: a `coverage: partial|low` marker routes to the miss path —
 surface the miss with the question, never widen the read. A served miss is
