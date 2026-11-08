@@ -1,11 +1,10 @@
 // yaml — the one writer and the one reader of the Brief record (kogaki#1328).
 //
-// WHY A MODULE OF OUR OWN, AND NOT A PACKAGE. The suite runs in CI with no
-// `npm install` (`.github/workflows/checks.yml`), and `package.json` states
-// that nothing outside the Japanese Lint carries an npm dependency. A Brief
-// reader that imported a package would load in this checkout and fail in CI,
-// and every command that reads the Brief — the Draft, the review, the Packet —
-// would fail with it.
+// WHY A MODULE OF OUR OWN, AND NOT A PACKAGE. `package.json` states which
+// tools carry an npm dependency, and the self-test fixtures run a copy of
+// `src/` with no `node_modules` beside it. A Brief reader that imported a
+// package would load in this checkout and fail there, and every command that
+// reads the Brief — the Draft, the review, the Packet — would fail with it.
 //
 // WHAT IT COVERS. The writer emits a fixed, small subset: block maps and
 // sequences, plain scalars, double-quoted scalars, folded block scalars, flow

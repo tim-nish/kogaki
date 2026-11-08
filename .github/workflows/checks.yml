@@ -51,6 +51,11 @@ jobs:
             git clone -q --depth 1 "$CLIENT_REPO_URL" "$RUNNER_TEMP/client"
           rm -f "$key"
           bash "$RUNNER_TEMP/client/install.sh" --repo "$GITHUB_WORKSPACE" --consumer kogaki
+      # THE npm devDependencies, FROM THE LOCKFILE (kogaki#1746).
+      # `checks/check-dependency-rules.sh` runs dependency-cruiser from
+      # `node_modules`, and `npm ci` is what `.gitignore` names as its source.
+      - name: Install npm devDependencies
+        run: npm ci
       - name: Run registered checks
         env:
           # Supplied for checks that read the branch's own git-resident text

@@ -831,6 +831,22 @@
         "efficacy": "case: checks/check-spec-headings.sh::(c1) a duplicated section number fails naming the second line",
         "efficacy_note": "MUTATION EVIDENCE (run 2026-11-07 at 3e8a3c3). Renumbering `### 4.4` of `specs/spec-client-kit/SPEC.md` to `### 4.3` FAILED naming the line (`specs/spec-client-kit/SPEC.md:398 section 4.3 is numbered twice (first at line 372)`); restoring it restored PASS. Striking every `### 4.N` heading of that spec, the edit kogaki#1631 makes, PASSED. The unmutated tree PASSED over all 10 spec files."
       }
+    },
+    {
+      "id": "dependency-rules",
+      "file": "checks/check-dependency-rules.sh",
+      "covers": ["src/", ".dependency-cruiser.cjs", ".dependency-cruiser-known-violations.json", ".claude/hooks/lint-on-edit.py", ".claude/rules/src-lanes.md"],
+      "admission": {
+        "contract": "No `src/` import crosses a lane boundary, reaches a playground or closes a cycle beyond the known-violations baseline, and the baseline names no edge that is gone. The rule is `.dependency-cruiser.cjs`; the member runs one cruise of `src/` with `.dependency-cruiser-known-violations.json` as known violations, fails on a violation not in the baseline and on a baseline row matching no violation, naming the edge either way. THE NAMED DEFECT: no check read the import graph, and two lane crossings reached `master` under a green suite (the Brief flow depending on Terrain-named files, kogaki#1741, and the production/playground cycles audited 2026-11-08). The fixture pass runs on every invocation: (c1) a new `src/brief/` import of `src/terrain/survey.mjs` fails naming the edge; (c2) a baseline row removed for an edge that still exists fails naming it; (c3) a baseline row naming no current edge fails naming it; (c4) the edit hook `.claude/hooks/lint-on-edit.py` returns the new edge for an edited `src/` file; (c5) the edit hook runs nothing for a path outside `src/**/*.mjs`; (c6) `.claude/rules/src-lanes.md` names this member. Declared limits, stated in the file: an import built at run time and a file read with `readFileSync` are not seen.",
+        "license": "kogaki#1746",
+        "tier": "pre-push",
+        "runtime_ms": 1750,
+        "runtime_ms_note": "Measured 2026-11-08 at c498853 plus this change in the kogaki tree: 1670, 1740 and 1760 ms over three runs; the cost is two cruises of 85 modules (the tree and a mutated copy) and two hook runs.",
+        "removal_signal": "the src/ tree leaves the repository, so there is no import graph to hold a lane rule.",
+        "removal_instrument": "probe: ! test -d src",
+        "efficacy": "case: checks/check-dependency-rules.sh::(c1) a new import from src/brief/ into src/terrain/ fails naming the edge",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-08 at c498853 plus this change). Prepending `import {} from \"../terrain/survey.mjs\";` to `src/brief/run-state.mjs` FAILED naming `new edge lane-reaches-another-lane: src/brief/run-state.mjs → src/terrain/survey.mjs`; restoring the file restored PASS with 33 known violations in the baseline."
+      }
     }
   ]
 }

@@ -61,6 +61,16 @@
             "command": "python3 \"$HOME/.claude/hooks/log-consult.py\""
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-on-edit.py\"",
+            "timeout": 60
+          }
+        ]
       }
     ],
     "Stop": [
