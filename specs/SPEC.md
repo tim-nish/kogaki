@@ -779,6 +779,14 @@ declared measurement input for that class — never the policy system's
   dependency N+1 escapes any enumeration and only its escaping *silently* is
   avoidable. Contract at `specs/spec-external-deps/SPEC.md`, machine-readable
   shape at `specs/spec-external-deps/deps-schema.json` (kogaki#55).
+- **The `src/` lane rule** (kogaki#1746): a file or directory named after a
+  workflow holds that workflow's processes and imports no other workflow's
+  files, shared code lives in a shared home, and only a playground may import
+  production files. Its enforcement is `.dependency-cruiser.cjs`, run by
+  `checks/check-dependency-rules.sh`, by an edit hook and in CI, and nothing in
+  prose restates the predicate. `.dependency-cruiser-known-violations.json` is
+  the list of crossings that predate the rule, each a debt owed its own Issue,
+  and it only shrinks.
 - **PR gate, split by property type:** the mechanical half (change licensed
   by a named issue; new checks carry admission records; registry
   conformance; **a touched consultation-map boundary has a receipt**) runs

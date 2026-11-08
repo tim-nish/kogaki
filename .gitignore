@@ -263,6 +263,16 @@ policy/shape.md
 # there, not left to a machine-local wiring nothing here checks.
 !.claude/hooks/gate-skill-dispatch-under-run.py
 
+# THE LANE RULE'S EDIT HOOK AND ITS RULE FILE (kogaki#1746), re-included on the
+# same criterion: `checks/check-dependency-rules.sh` drives the hook over a
+# copied tree and reads the rule file, so both are repository material. The
+# hook's REGISTRATION is in the committed `.claude/settings.json`, because the
+# Issue makes the edit the first of the rule's three firings.
+!.claude/hooks/lint-on-edit.py
+!.claude/rules/
+.claude/rules/*
+!.claude/rules/src-lanes.md
+
 # check-terrain-workflow.sh mints ONE run workspace at the repository root, on
 # purpose: it is the only place an in-repo `--run-dir` can be driven from a
 # subdirectory, which is the sole combination where the gate declaration's

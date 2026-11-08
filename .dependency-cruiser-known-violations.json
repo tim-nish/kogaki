@@ -1,0 +1,735 @@
+[
+  {
+    "type": "dependency",
+    "from": "src/draft/render-packet.mjs",
+    "to": "src/mapping-playground/short.mjs",
+    "unresolvedTo": "../mapping-playground/short.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/draft/render-packet.mjs",
+    "to": "src/mapping-playground/structure.mjs",
+    "unresolvedTo": "../mapping-playground/structure.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/sheet.mjs",
+    "to": "src/proof-sheet/leg-run.mjs",
+    "unresolvedTo": "../proof-sheet/leg-run.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/short.mjs",
+    "to": "src/proof-sheet/extract.mjs",
+    "unresolvedTo": "../proof-sheet/extract.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/short.mjs",
+    "to": "src/proof-sheet/leg-brief.mjs",
+    "unresolvedTo": "../proof-sheet/leg-brief.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/short.mjs",
+    "to": "src/proof-sheet/leg-run.mjs",
+    "unresolvedTo": "../proof-sheet/leg-run.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/structure.mjs",
+    "to": "src/proof-sheet/leg-brief.mjs",
+    "unresolvedTo": "../proof-sheet/leg-brief.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/trial.mjs",
+    "to": "src/proof-sheet/extract.mjs",
+    "unresolvedTo": "../proof-sheet/extract.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/trial.mjs",
+    "to": "src/proof-sheet/leg-brief.mjs",
+    "unresolvedTo": "../proof-sheet/leg-brief.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/mapping-playground/trial.mjs",
+    "to": "src/proof-sheet/leg-run.mjs",
+    "unresolvedTo": "../proof-sheet/leg-run.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/paragraph-plan-mapper.mjs",
+    "to": "src/mapping-playground/short.mjs",
+    "unresolvedTo": "./mapping-playground/short.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/paragraph-plan-mapper.mjs",
+    "to": "src/mapping-playground/sme.mjs",
+    "unresolvedTo": "./mapping-playground/sme.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/paragraph-plan-mapper.mjs",
+    "to": "src/mapping-playground/trial.mjs",
+    "unresolvedTo": "./mapping-playground/trial.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/paragraph-plan.mjs",
+    "to": "src/mapping-playground/rbs.mjs",
+    "unresolvedTo": "./mapping-playground/rbs.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/workflow/replay.mjs",
+    "to": "src/mapping-playground/short.mjs",
+    "unresolvedTo": "../mapping-playground/short.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/workflow/replay.mjs",
+    "to": "src/mapping-playground/sme.mjs",
+    "unresolvedTo": "../mapping-playground/sme.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/review-draft/close.mjs",
+    "to": "src/draft/render-packet.mjs",
+    "unresolvedTo": "../draft/render-packet.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "lane-reaches-another-lane"
+    }
+  },
+  {
+    "type": "cycle",
+    "from": "src/compose.mjs",
+    "to": "src/compose/audience.mjs",
+    "unresolvedTo": "./compose/audience.mjs",
+    "dependencyTypes": [
+      "local",
+      "export"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/compose/audience.mjs",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
+        "name": "src/compose/moves.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/move-validate.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/compose.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/compose.mjs",
+    "to": "src/compose/moves.mjs",
+    "unresolvedTo": "./compose/moves.mjs",
+    "dependencyTypes": [
+      "local",
+      "export"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/compose/moves.mjs",
+        "dependencyTypes": [
+          "local",
+          "export"
+        ]
+      },
+      {
+        "name": "src/move-validate.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/compose.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/compose/defined-terms.mjs",
+    "to": "src/compose/sections.mjs",
+    "unresolvedTo": "./sections.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/compose/sections.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/compose/leg-schema.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/compose/defined-terms.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/compose/leg-schema.mjs",
+    "to": "src/compose/sections.mjs",
+    "unresolvedTo": "./sections.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/compose/sections.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/compose/leg-schema.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/draft/render-packet.mjs",
+    "to": "src/mapping-playground/short.mjs",
+    "unresolvedTo": "../mapping-playground/short.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/mapping-playground/short.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/draft/render-packet.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/compose-input.mjs",
+    "to": "src/terrain/cotags.mjs",
+    "unresolvedTo": "./cotags.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/compose-input.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/compose-input.mjs",
+    "to": "src/terrain/neighborhood.mjs",
+    "unresolvedTo": "./neighborhood.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/neighborhood.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/compose-input.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/compose-input.mjs",
+    "to": "src/terrain/subdivide.mjs",
+    "unresolvedTo": "./subdivide.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/subdivide.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/compose-input.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/cotags.mjs",
+    "to": "src/terrain/flows.mjs",
+    "unresolvedTo": "./flows.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/flows.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/cotags.mjs",
+    "to": "src/terrain/subdivide.mjs",
+    "unresolvedTo": "./subdivide.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/subdivide.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/flows.mjs",
+    "to": "src/terrain/compose-input.mjs",
+    "unresolvedTo": "./compose-input.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/compose-input.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/flows.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/flows.mjs",
+    "to": "src/terrain/neighborhood.mjs",
+    "unresolvedTo": "./neighborhood.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/neighborhood.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/flows.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "cycle",
+    "from": "src/terrain/flows.mjs",
+    "to": "src/terrain/subdivide.mjs",
+    "unresolvedTo": "./subdivide.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-circular"
+    },
+    "cycle": [
+      {
+        "name": "src/terrain/subdivide.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/compose-input.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/cotags.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      },
+      {
+        "name": "src/terrain/flows.mjs",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "dependency",
+    "from": "src/workflow/replay.mjs",
+    "to": "src/draft/writer.mjs",
+    "unresolvedTo": "../draft/writer.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "shared-home-reaches-a-lane"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/workflow/replay.mjs",
+    "to": "src/mapping-playground/short.mjs",
+    "unresolvedTo": "../mapping-playground/short.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "shared-home-reaches-a-lane"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/workflow/replay.mjs",
+    "to": "src/mapping-playground/sme.mjs",
+    "unresolvedTo": "../mapping-playground/sme.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "shared-home-reaches-a-lane"
+    }
+  }
+]
