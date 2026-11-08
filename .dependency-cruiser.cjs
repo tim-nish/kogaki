@@ -5,7 +5,7 @@
 // carrier; checks/check-dependency-rules.sh runs it.
 const lane = (names) => `^src/(${names})(/|\\.mjs$|-[^/]*$)`;
 const PRODUCTION = "terrain|brief|paragraph-plan|draft|review-draft";
-const BENCHES = "proof-sheet|mapping-playground";
+const BENCHES = "proof-sheet|mapping-playground|attempt-sheet";
 const ALL = `${PRODUCTION}|${BENCHES}`;
 
 module.exports = {
@@ -35,8 +35,15 @@ module.exports = {
       name: "bench-reached-from-outside",
       comment: "A playground may use production files, and nothing outside it uses the playground (kogaki#1746).",
       severity: "error",
-      from: { path: "^src/", pathNot: lane("mapping-playground") },
+      from: { path: "^src/", pathNot: lane("mapping-playground|attempt-sheet") },
       to: { path: lane("mapping-playground") },
+    },
+    {
+      name: "bench-reached-from-outside",
+      comment: "The Attempt Sheet is a playground: it may use production files and the Trial sheet's helpers, and nothing outside it uses it (kogaki#1752).",
+      severity: "error",
+      from: { path: "^src/", pathNot: lane("attempt-sheet") },
+      to: { path: lane("attempt-sheet") },
     },
     {
       name: "no-circular",
