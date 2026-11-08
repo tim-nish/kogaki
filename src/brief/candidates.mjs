@@ -22,9 +22,10 @@
 //   SPEC-terrain: the Full Report; location and naming; the display-ID rule;
 //       the served-renderings input rule; the rendering rule
 //
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { findInternalVocabulary } from "../assemble.mjs";
+import { parseYaml } from "../yaml.mjs";
 import {
   BRIEF_RECORD_FILE, briefRecordDeclaration, briefRecordText, briefSlotKeys,
   definedTermsRefusal, ownerGateDigest, snapshotBrief, validateOwnerAnswer,
@@ -297,11 +298,89 @@ function thesesDirOf(args) {
   return resolve(typeof args["theses-dir"] === "string" && args["theses-dir"] !== "" ? args["theses-dir"] : "theses");
 }
 
-// The homes, among the candidates' derived names, that already exist (kogaki#1740).
-export function collidingHomes(candidates, thesesDir) {
-  return [...new Set(candidates.map((c) => c.slug))]
-    .map((slug) => join(thesesDir, slug))
-    .filter((home) => existsSync(home));
+// The address half of a cite, which is `<address>@<content hash>`.
+function citeAddress(cite) {
+  const s = String(cite ?? "");
+  const at = s.lastIndexOf("@");
+  return at > 0 ? s.slice(0, at) : s;
+}
+
+// THE HOME'S CLASSIFICATION (kogaki#1742): an existing `theses/<slug>` read
+// against one candidate, by the Thesis it carries and by each Strand's cite at
+// its content hash. A home whose Brief cannot be read carries no Thesis, so it
+// is never the same Thesis and is never replaced.
+export function classifyHome(home, { thesis, strands }) {
+  if (!existsSync(home)) return { exists: false };
+  let record = null;
+  try { record = parseYaml(readFileSync(join(home, BRIEF_RECORD_FILE), "utf8"), home); }
+  catch { record = null; }
+  const theirThesis = record && typeof record.thesis === "string" ? record.thesis.trim() : null;
+  const theirs = new Map((record && Array.isArray(record.strands) ? record.strands : [])
+    .map((e) => [citeAddress(e && e.cite), String((e && e.cite) ?? "")]));
+  const ours = new Map(strands.map((s) => [s.address || citeAddress(s.cite), String(s.cite ?? "")]));
+  const moved = [...ours].filter(([a, c]) => theirs.has(a) && theirs.get(a) !== c).map(([a]) => a);
+  const added = [...ours.keys()].filter((a) => !theirs.has(a));
+  const removed = [...theirs.keys()].filter((a) => !ours.has(a));
+  return {
+    exists: true,
+    same_thesis: theirThesis !== null && theirThesis === String(thesis ?? "").trim(),
+    same_pins: moved.length === 0 && added.length === 0 && removed.length === 0,
+    moved, added, removed,
+    downstream: readdirSync(home).filter((f) => f !== BRIEF_RECORD_FILE).sort(),
+  };
+}
+
+// The first of `<slug>-2`, `<slug>-3`, ... with no home and not already taken
+// by this run (kogaki#1742).
+export function freeSlug(thesesDir, slug, taken = new Set()) {
+  for (let n = 2; ; n++) {
+    const next = `${slug}-${n}`;
+    if (!existsSync(join(thesesDir, next)) && !taken.has(next)) return next;
+  }
+}
+
+// THE ARCHIVE MOVE (kogaki#1742): a home is moved whole to
+// `<theses>/.archive/<slug>@<UTC>/` and never deleted. Returns the new path.
+export function archiveHome(home) {
+  const stamp = new Date().toISOString().replace(/\.\d+Z$/, "Z").replace(/:/g, "-");
+  const archive = join(dirname(home), ".archive");
+  mkdirSync(archive, { recursive: true });
+  const name = `${basename(home)}@${stamp}`;
+  let to = join(archive, name);
+  for (let n = 2; existsSync(to); n++) to = join(archive, `${name}-${n}`);
+  renameSync(home, to);
+  return to;
+}
+
+// Each candidate's home, classified in place (kogaki#1742): a home holding a
+// different Thesis gives the candidate the first free name, and a home holding
+// the same Thesis is recorded for the `HOME_COLLISION` wait.
+export function classifyHomes(candidates, strands, thesesDir) {
+  const named = new Set();
+  for (const c of candidates) {
+    let home = classifyHome(join(thesesDir, c.slug), { thesis: c.claim, strands });
+    if ((home.exists && !home.same_thesis) || named.has(c.slug)) {
+      c.slug = freeSlug(thesesDir, c.slug, named);
+      home = { exists: false };
+    }
+    named.add(c.slug);
+    c.home = home.exists ? { ...home, path: join(thesesDir, c.slug) } : home;
+  }
+  return candidates;
+}
+
+// THE NAME RIDES THE LABEL (kogaki#567): one Thesis-gate option per candidate,
+// its name set off as its own element after the Thesis and its concession.
+export function thesisGateOptions(candidates) {
+  return candidates.map((c) => ({ id: c.id, label: `${c.thesis} ${c.concession} — Brief: ${c.slug}` }));
+}
+
+// The first candidate whose home holds the same Thesis and whose answer at the
+// home-collision gate is not yet recorded, in candidate order (kogaki#1742).
+export function pendingHomeCollision(state) {
+  const answered = state.home_answers || {};
+  return (state.thesis_candidates || [])
+    .find((c) => c.home && c.home.exists && c.home.same_thesis && !(c.id in answered)) || null;
 }
 
 // ---- enter: resolve the set, compose candidates, write run state. ----
@@ -333,15 +412,8 @@ export function cmdEnter(args) {
   const { headlines, seam, namespaces, unaddressable } = resolveHeadlines(r.strands);
   const candidates = composeThesisCandidates(r.strands, headlines,
     { seam, namespaces, unaddressable });
-  // THE HOME COLLISION IS CAUGHT HERE, BEFORE THE GATE (kogaki#1740): every
-  // candidate's name is known now, so a name whose home exists refuses the start
-  // before any declaration, gate call or open-gate pointer is written.
-  const taken = collidingHomes(candidates, thesesDirOf(args));
-  if (taken.length) {
-    fail(`${taken.map((h) => `${h}/`).join(", ")} already exist${taken.length === 1 ? "s" : ""}, and `
-      + `${taken.length === 1 ? "that is the home" : "those are the homes"} a Thesis offered here would be minted into. `
-      + "Move or remove the directory, then start the Brief again. Nothing was asked and nothing was written.");
-  }
+  // EVERY HOME IS CLASSIFIED HERE, BEFORE THE GATE (kogaki#1742).
+  classifyHomes(candidates, r.strands, thesesDirOf(args));
   const runPath = typeof args["run-state"] === "string" && args["run-state"] !== ""
     ? args["run-state"] : defaultRunState();
   mkdirSync(dirname(runPath), { recursive: true });
@@ -375,10 +447,7 @@ export function cmdEnter(args) {
       // dogfood, and this is the move it pre-authorized. The name is still
       // separately rendered (its own dash-set element, the bare name) and
       // separately declinable.
-      ...candidates.map((c) => ({
-        id: c.id,
-        label: `${c.thesis} ${c.concession} — Brief: ${c.slug}`,
-      })),
+      ...thesisGateOptions(candidates),
       {
         id: "back-to-terrain",
         label: "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
@@ -495,6 +564,12 @@ export function cmdAdopt(args) {
   } else {
     slug = deriveSlugCandidate(thesis);
     via = "derived-from-free-form-thesis";
+    // A FREE-FORM THESIS FOLLOWS THE ENTER RULE (kogaki#1742): a home holding a
+    // different Thesis gives it the first free name; the same Thesis is the
+    // mint's to refuse.
+    const thesesDir = thesesDirOf(args);
+    const home = classifyHome(join(thesesDir, slug), { thesis, strands: state.strands || [] });
+    if (home.exists && !home.same_thesis) slug = freeSlug(thesesDir, slug);
   }
   if (!SLUG_RE.test(slug)) {
     fail(`slug ${JSON.stringify(slug)} — use lowercase words joined by hyphens; `
@@ -551,20 +626,18 @@ export function cmdMint(args) {
   }
 
   const home = join(thesesDirOf(args), slug);
-  // IDEMPOTENCE IS BY SLUG, AND A COLLISION REFUSES (the durable home and the entry point): a Brief is owner
-  // state from the moment it exists, and this runtime is a creator, never an
-  // editor.
-  if (existsSync(home)) {
-    // THE REFUSAL NAMES THE PATH THAT ACTUALLY COLLIDED, not the default root
-    // (PR #771 round 1). `home` honours `--theses-dir`, so under a check that
-    // points the mint at a tmpdir the old message named a path that did not
-    // collide — a refusal whose text is about a different file than the one it
-    // refused over. Pre-existing shape, carried in at the rename and repaired
-    // here rather than renamed forward.
-    fail(`${home}/ already exists. The entry point creates and never `
-      + "overwrites. Move or remove that directory, then answer \"Retry the step\" "
+  // A HOME IS REPLACED ONLY ON THE OWNER'S `replace` (kogaki#1742), and only
+  // here: the gate recorded the answer and this act moves the whole directory to
+  // the archive in the same act that creates the new home. Any other existing
+  // home refuses, naming the path that collided (PR #771 round 1).
+  const replace = (state.thesis_candidates || [])
+    .some((c) => c.slug === slug && (state.home_answers || {})[c.id] === "replace");
+  if (existsSync(home) && !replace) {
+    const same = classifyHome(home, { thesis: state.adopted_thesis, strands: state.strands || [] }).same_thesis;
+    fail(`${home}/ already exists${same ? " and holds a Brief with this same Thesis" : ""}. The entry point creates and never `
+      + `overwrites. Move that directory to ${join(dirname(home), ".archive")}/${slug}@<UTC time>/, then answer \"Retry the step\" `
       + "at the brief-state-retry gate this stop raises; the adopted Thesis is kept "
-      + "(kogaki#1740).");
+      + "(kogaki#1740, kogaki#1742).");
   }
   // THE PERSONA'S PATH (kogaki#1262). `--reader-file` survives as the same
   // class of caller override `--slug` already is: a harness minting a fixture
@@ -593,6 +666,10 @@ export function cmdMint(args) {
     fail("the mint writes the Brief's Defined Terms once and never again (kogaki#1331), and none were handed to it — "
       + "the `mint` state asks the `defined_terms_unit` judgment for them; a standalone mint names the record with "
       + "`--defined-terms <file>`. Nothing was written.");
+  }
+  if (existsSync(home)) {
+    const archived = archiveHome(home);
+    console.log(`The existing Brief at ${home}/ was moved to ${archived}/ (kogaki#1742).`);
   }
   mkdirSync(home, { recursive: true });
   const out = join(home, BRIEF_RECORD_FILE);

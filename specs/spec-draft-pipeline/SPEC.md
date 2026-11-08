@@ -3964,14 +3964,40 @@ distinguishable.
 
 **Pre-Thesis state is machine-local run state.** The owner artifact begins
 exactly when the first piece of substantive owner judgment — the Thesis —
-exists. The home is a directory per Brief, `theses/<slug>/`, idempotent by slug
-with a collision refusing, and the runtime is **creator, never editor**.
+exists. The home is a directory per Brief, `theses/<slug>/`, and the runtime is
+**creator, never editor**: nothing under `theses/` is ever deleted.
 
-**The collision is caught at `enter`, before the gate** (kogaki#1740). Every
-candidate's name is derived before the owner is asked, so `enter` tests
-`theses/<slug>` for each one and refuses the start naming every directory that
-exists. Nothing is asked and nothing is written: no declaration, no gate call,
-no open-gate pointer. `mint` keeps its own check for a free-form Thesis's name.
+**An existing home is classified at `enter`, before the Thesis gate**
+(kogaki#1742). Every candidate's name is derived before the owner is asked, so
+`enter` reads `theses/<slug>/brief.yaml` for each name whose home exists and
+compares it with the candidate by **identity the Brief already carries**: its
+`thesis` against the candidate's Thesis, and each `strands[].cite` — the served
+address at its content hash — against the run's own. The run state records, per
+candidate, whether the home exists, whether its Thesis is the same, whether
+every Strand is at the same hash, which addresses moved, were added or were
+removed, and which other files the folder holds.
+
+- **A different Thesis under a colliding name is not a collision.** The
+  candidate takes the first free `<slug>-2`, `<slug>-3`, named in its option
+  label as every name is, and no question is asked.
+- **The same Thesis waits at `brief-home-collision`**, a conditional wait before
+  the Thesis gate, raised once per such candidate in candidate order. The reading
+  above the question names the existing Brief and its folder, says every Strand
+  is at the same hash or names those that are not, and names the later work the
+  folder holds. It has three options and no free text: `replace`, `keep` and
+  `back-to-terrain`. It is its own wait because the Thesis gate already offers
+  the most options a question can carry, and a second decision class rides a
+  gate only when separately rendered and separately declinable.
+- **`replace` is recorded at the click and performed at `mint`**, in the act
+  that creates the new home: the whole existing folder moves to
+  `theses/.archive/<slug>@<UTC time>/`, so a run abandoned between the two
+  gates has moved nothing. **`keep`** drops the candidate from the Thesis gate,
+  where one line above the question names it, and leaves the folder untouched.
+  **`back-to-terrain`** ends the run with nothing written.
+- **A free-form Thesis follows the same rule at `adopt`.** A home holding a
+  different Thesis gives it the first free name; a home holding the same Thesis
+  is refused by `mint` into the `brief-state-retry` gate below, naming the
+  archive route, since the collision gate has already passed.
 
 #### A refusal inside an advance is a wait (kogaki#1740)
 
@@ -3989,8 +4015,8 @@ call written. It has two options and no free text:
 - **`abandon`** — the run is marked done and the open-run pointer is cleared.
 
 **A Brief run has two exits, `done` and `abandon`.** The start act is outside
-this rule: a refused start opens no gate, which is why the collision is caught
-at `enter`. That refusal is interim; a follow-up Issue replaces it with a gate.
+this rule: a refused start opens no gate, which is why an existing home is
+classified at `enter` and resolved at its own gate (kogaki#1742).
 
 **A start over an unfinished run re-offers that run.** Where the open-run
 pointer names a run that is not done, not abandoned and not at a wait (one

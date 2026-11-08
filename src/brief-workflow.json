@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "spec_references": [
     "SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).",
     "The rule these entries are written under -- what a copy is, what the two",
@@ -40,7 +40,7 @@
     "      SPEC-terrain"
   ],
   "governing_text": "SPEC-draft-pipeline, the durable home and the entry point; the control plane is the pattern this table is an instance of",
-  "licensed_by": "kogaki#1276 -- owner decision 2026-10-05: the composer and the specialization judge are given each Move's `technique` and `breaks`, a Leg may report that no Move fits, and `judge_specialization` runs over every Candidate before the owner chooses; kogaki#1307 -- owner decisions 2026-10-08: the compose job's limits and the judge model live in `kogaki.settings.json`, Move fit is judged inside each compose job unit, and the revise pass and `effort` are gone. This carrier holds the CURRENT Brief control plane only. It is not a version ledger: superseded states and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
+  "licensed_by": "kogaki#1742 -- owner requirement 2026-11-08: an existing `theses/<slug>` is classified at `enter` by its Thesis and its Strands' hashes; the same Thesis waits at the conditional `HOME_COLLISION` gate (replace archives at `mint`, keep drops the candidate), and a different Thesis takes the first free name. This carrier holds the CURRENT Brief control plane only. It is not a version ledger: superseded states and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
   "shared_text_note": "ONE CRITERION, WRITTEN ONCE (kogaki#1452): where the `review_path` state and its `review_path_unit` carry one criterion it is written here, both `judgment_point` strings name it as `{{shared:<name>}}`, and `judgePrompt` (src/workflow/judge.mjs) substitutes it. checks/check-schema-binds.sh refuses a sentence one row carries with words changed from another's.",
   "shared_text": {
     "review_areas": "the six review areas `src/review.mjs` declares in REVIEW_AREAS, as JUDGMENT and never as a verdict -- rationale_stands, entailment, prohibitions, semantic_economy, arc_integrity and evaluation_levels",
@@ -56,7 +56,7 @@
   },
   "field_semantics": {
     "renders_gate_declaration": "Required on every state. `true` only where the state declares a gate, and `true` is what SCHEDULES the executor's composition of that state's declaration. It NAMES THE HOOK CHAIN THAT EXECUTES THE GATE and places no obligation on a session: the executor composes the declaration and stops, the harness renders the question the declaration carries, `.claude/hooks/write-gate-capture.py` records the answer at the moment the owner gives it, and `.claude/hooks/advance-brief.py` invokes the executor again.",
-    "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states. EVERY STATE OF THIS TABLE IS UNCONDITIONAL, and that is a property of the flow rather than an omission: a Brief that entered is minted, composed, reviewed, assembled and adopted, or it refuses at a named state.",
+    "conditional": "Required on every state. `false` where the state is always entered; otherwise a string naming the condition. Counted by counted_baseline.conditional_states. ONE STATE OF THIS TABLE IS CONDITIONAL, `HOME_COLLISION` (kogaki#1742), and the executor enters it where the flow binding's `conditions` entry for it holds over the run state; every other state is unconditional: a Brief that entered is minted, composed, reviewed, assembled and adopted, or it refuses at a named state.",
     "writes": "Required on every state. `null` where the state writes no owner artifact; otherwise the owner_artifacts key it writes.",
     "gate_id": "Required on every state whose `renders_gate_declaration` is true, and absent otherwise. Names the src/gate-registry.json gate the state declares. The two conditions are one biconditional over the states array and NOT a count.",
     "retries": "Required on every state whose `kind` is `judgment`, and absent otherwise. The number of times the executor RE-ASKS the judge after a response its own refusals rejected; 0 means the first refusal is final. Declared PER STATE because the states differ in how much a re-ask can plausibly repair.",
@@ -82,11 +82,22 @@
     {
       "id": "enter",
       "kind": "compute",
-      "does": "Resolves the settled Strand set against the survey record that assigned its ids, composes the Thesis candidates from that set and from nothing else, and writes the machine-local run state carrying the thesis-determination gate's option set. Binds `src/brief.mjs`'s `enter` case. NOTHING IS WRITTEN UNDER `theses/` HERE: the owner artifact begins exactly when the first piece of substantive owner judgment -- the Thesis -- exists (the durable home and the entry point).",
+      "does": "Resolves the settled Strand set against the survey record that assigned its ids, composes the Thesis candidates from that set and from nothing else, classifies each candidate's existing `theses/<slug>` by its Thesis and its Strands' hashes, giving a candidate whose home holds a different Thesis the first free name (kogaki#1742), and writes the machine-local run state carrying the thesis-determination gate's option set. Binds `src/brief.mjs`'s `enter` case. NOTHING IS WRITTEN UNDER `theses/` HERE: the owner artifact begins exactly when the first piece of substantive owner judgment -- the Thesis -- exists (the durable home and the entry point).",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
       "governing": "SPEC-draft-pipeline, the durable home and the entry point"
+    },
+    {
+      "id": "HOME_COLLISION",
+      "kind": "wait",
+      "owner_supplies": "for each offered Thesis whose name is already the home of a Brief with the same Thesis, in candidate order: replace that Brief (its folder is archived at the mint), keep it (the Thesis is not offered), or go back through Terrain",
+      "writes": null,
+      "conditional": "entered only when an offered Thesis's name is already the home of a Brief with the same Thesis",
+      "renders_gate_declaration": true,
+      "gate_id": "brief-home-collision",
+      "governing": "SPEC-draft-pipeline, the durable home and the entry point; the wait rule",
+      "renders_above_question": "home_collision"
     },
     {
       "id": "THESIS_ADOPTION",
@@ -111,7 +122,7 @@
     {
       "id": "mint",
       "kind": "write",
-      "does": "Consumes the adopted pair and creates the Brief's durable home -- `theses/<slug>/brief.yaml`, the one YAML record the owner and every later command read (kogaki#1328), thesis filled by construction, every downstream composition field a typed unfilled slot (`null`), and `defined_terms` written ONCE from the `defined_terms_unit` judgment this renderer asks before the file exists (kogaki#1331). Binds `src/brief.mjs`'s `mint` case. Idempotence is by slug and a collision REFUSES: a Brief is owner state from the moment it exists, and this runtime is a creator, never an editor.",
+      "does": "Consumes the adopted pair and creates the Brief's durable home -- `theses/<slug>/brief.yaml`, the one YAML record the owner and every later command read (kogaki#1328), thesis filled by construction, every downstream composition field a typed unfilled slot (`null`), and `defined_terms` written ONCE from the `defined_terms_unit` judgment this renderer asks before the file exists (kogaki#1331). Binds `src/brief.mjs`'s `mint` case. An existing home is moved whole to `theses/.archive/<slug>@<UTC>/` here, in this act, only on the owner's `replace` at `HOME_COLLISION`; any other existing home REFUSES (kogaki#1742). Nothing under `theses/` is deleted, and this runtime is a creator, never an editor.",
       "writes": "brief",
       "conditional": false,
       "renders_gate_declaration": false,
@@ -353,8 +364,8 @@
     "governing": "SPEC-draft-pipeline, the renderings record and recoverability; kogaki#1494"
   },
   "counted_baseline": {
-    "waits": 2,
-    "conditional_states": 0,
+    "waits": 3,
+    "conditional_states": 1,
     "owner_artifact_writes": 2,
     "judgment_points": 3,
     "grammared_writing_states": 0
@@ -363,7 +374,7 @@
     "brief": {
       "path": "theses/<slug>/brief.yaml",
       "writer": "two private writers, each called by the writing state the table binds it to -- `composeBrief` at `mint`, `fillBrief` and `fillSlot` at `adopt_candidate`, both writing the record's text through `briefRecordText` (src/compose.mjs)",
-      "rule": "CREATED at `mint` and never overwritten there -- a slug collision refuses; FILLED at `adopt_candidate`, which is the one surviving write that lands blocks in an existing Brief. The path is per run and is resolved from the adopted name, which is why this entry carries a shape rather than a literal."
+      "rule": "CREATED at `mint` and never overwritten there -- an existing home is archived on the owner's `replace` and refuses otherwise (kogaki#1742); FILLED at `adopt_candidate`, which is the one surviving write that lands blocks in an existing Brief. The path is per run and is resolved from the adopted name, which is why this entry carries a shape rather than a literal."
     }
   },
   "owner_surface_coverage": {

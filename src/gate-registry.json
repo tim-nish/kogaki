@@ -168,6 +168,36 @@
       "option_descriptions_scope": "CHECKED AGAINST kogaki#1126's RULE AND OUT OF SCOPE FOR IT, with the reason stated here rather than left as an omission (kogaki#1126 acceptance item 5). THE RULE THIS GATE MEETS: its options are composed by `enter` from the settled Strand set and rendered by the Harness, and the Model supplies the Thesis and its concession -- the format is not a habit inside a free-prose field. THE HALF IT DOES NOT TAKE: the label/description split, because there is no characteristic-and-explanation seam to split at. A Candidate is named by a character its Legs produce, which is why a short name plus an explanation is two things; a Thesis IS the proposition, so a short name for one would be a second composition of the same content and the description would restate the label. WHAT REMAINS OPEN, named so it is a decision and not an oversight: this gate's options still carry no description, so `composeGateCall` renders each option's id there -- the same id-as-content defect one gate over. Closing it means deciding what the description carries, and the candidate is the `-- Brief: <slug>` half that rides the label today. That is the SITE OF THE NAME, which the durable home and the entry point v11 bound by two conditions and kogaki#567 already moved once under a declared release condition; moving it again is that ruling's to make, on its own issue, and not a rider on the Candidate gate's rendering."
     },
     {
+      "id": "brief-home-collision",
+      "raised_by": "src/workflow/executor.mjs -- at the Brief's `HOME_COLLISION` wait, once per offered Thesis whose name is already the home of a Brief with the same Thesis, in candidate order, from the classification `enter` recorded on the run state (kogaki#1742). `src/brief/renderers.mjs` composes the reading; the executor re-raises the wait while a candidate is unanswered.",
+      "host": "claude-code",
+      "medium": "selector",
+      "question": "A Brief with this name and this Thesis already exists. Replace it, keep it, or go back?",
+      "options": [
+        {
+          "id": "replace",
+          "label": "Replace it",
+          "description": "Its whole folder moves to theses/.archive/ when the new Brief is created. Nothing is deleted."
+        },
+        {
+          "id": "keep",
+          "label": "Keep it",
+          "description": "The existing Brief stays as it is, and this Thesis is not offered."
+        },
+        {
+          "id": "back-to-terrain",
+          "label": "Go back through Terrain",
+          "description": "No Brief is started and nothing is written.",
+          "negates_premise": true
+        }
+      ],
+      "free_text_offered": false,
+      "fork": false,
+      "requires_gate_instance_id": true,
+      "dynamic_options": "NONE (kogaki#1742). The three options are fixed; what varies per raising is the reading above the question -- the existing Brief's name and folder, its Thesis, whether every Strand is at the same hash or which are not, and the later work the folder holds. `replace` and `keep` are recorded on the run state against the candidate; `replace` moves the folder at `mint`, in the act that creates the new home, so a run abandoned between the two gates has moved nothing, and `keep` drops the candidate from the Thesis gate, where one line names it. `back-to-terrain` ends the run with nothing written. A Thesis that differs from the existing Brief's never reaches this gate: `enter` gives it the first free name.",
+      "unrouted_options": {}
+    },
+    {
       "id": "brief-candidate-selection",
       "raised_by": "src/brief.mjs -- the executor composes this declaration and its byte-fixed gate call at its `CANDIDATE_SELECTION` wait, from the option set `selectionOptionIds` composes; the harness UI renders that call (SPEC-draft-pipeline, the Candidate gate; kogaki#891, kogaki#1108). The `assemble.mjs gate-candidate` subcommand that used to raise it is DELETED and leaves no stub, on the same ground as its sibling one gate up; `selectionOptionIds` survives and is still the ONE composer the gate and adoption both call.",
       "host": "claude-code",

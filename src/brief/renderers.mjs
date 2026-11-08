@@ -6,7 +6,7 @@
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES: none.
 //
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { cmdAdoptCandidate, cmdAssemble, selectionOptionIds } from "../assemble.mjs";
 import {
@@ -21,7 +21,7 @@ import {
 } from "../workflow/detached-job.mjs";
 import { JUDGE_INPUT_MARKER, judgePrompt, judgeSettings } from "../workflow/judge.mjs";
 import { JudgmentRefusal, relFromRepo } from "../workflow/run-record.mjs";
-import { cmdAdopt, cmdEnter, cmdMint } from "./candidates.mjs";
+import { cmdAdopt, cmdEnter, cmdMint, pendingHomeCollision } from "./candidates.mjs";
 import { candidateSelectionExtra, selectedCandidateId } from "./reader-path-unit.mjs";
 import {
   BRIEF_REPO, REVIEW_PATH_JOB_DIR, briefAudienceFile, briefJobBounds, briefJobSetting,
@@ -686,21 +686,35 @@ export const GATE_WORK = {
     // where it came from is the one fact the owner cannot recover from the
     // options.
     const set = rec.settled_set;
+    // A THESIS KEPT AT THE HOME-COLLISION GATE IS NAMED, NOT OFFERED (kogaki#1742):
+    // its option is already gone from `state.gate`, so this line is the one
+    // place the owner sees why.
+    const kept = (state.thesis_candidates || []).filter((c) => (state.home_answers || {})[c.id] === "keep")
+      .map((c) => `Not offered: "${c.claim}" — you kept the existing Brief ${c.slug}.`);
+    // NO SURVEY IS NAMED (kogaki#1121). Since #1116 the set is entered on the
+    // command line and there is no survey behind it, so what is rendered is the
+    // addresses and how they were entered, and nothing else.
+    const provenance = [
+      ...(set ? [`Composed over the settled Strand set ${(set.addresses || []).join(", ")}, entered ${set.via}.`] : []),
+      ...kept,
+    ];
     return {
       options: gate.options
         .filter((o) => o.id !== "back-to-terrain")
         .map((o) => ({ id: o.id, label: o.label })),
-      extra: set
-        // NO SURVEY IS NAMED (kogaki#1121). This read `set.ids` and
-        // `set.survey`, the two fields of the Terrain-run form that #1116
-        // removed when the set became `{ addresses, via }` — so the sentence
-        // named the set as `undefined` in the very bytes the open-gate hook
-        // compares. Since #1116 the set is entered on the command line and
-        // there is no survey behind it, so what is rendered is the addresses
-        // and how they were entered, and nothing else.
-        ? { settled_set_provenance: `Composed over the settled Strand set ${(set.addresses || []).join(", ")}, entered ${set.via}.` }
-        : {},
+      extra: provenance.length ? { settled_set_provenance: provenance.join("\n") } : {},
     };
+  },
+
+  // THE HOME-COLLISION GATE (kogaki#1742): one raising per candidate whose home
+  // holds the same Thesis, in candidate order. The three options are the
+  // registry's own; the reading is the classification `enter` recorded.
+  HOME_COLLISION: (rec) => {
+    const state = readJson(rec.brief_run_state
+      || fail("HOME_COLLISION has no run state to raise a gate from — `enter` writes it and precedes this wait."));
+    const c = pendingHomeCollision(state)
+      || fail("HOME_COLLISION was entered with no candidate whose home holds the same Thesis left to answer.");
+    return { options: [], extra: { home_collision: homeCollisionReading(c) } };
   },
 
   // ONE COMPOSER FOR THE OPTION SET, CALLED BY THE GATE AND BY ADOPTION.
@@ -729,5 +743,52 @@ export const GATE_WORK = {
         .map((o) => ({ id: o.id, label: o.label, description: o.description })),
       extra: candidateSelectionExtra(rec.brief_excluded || []),
     };
+  },
+};
+
+// The reading above the home-collision question (kogaki#1742): the existing
+// Brief, whether every Strand is at the same hash or which are not, and what
+// else its folder holds.
+export function homeCollisionReading(c) {
+  const h = c.home;
+  const lines = [`A Brief named ${c.slug} already exists at ${relFromRepo(h.path)}/, with the same Thesis as this option:`,
+    `"${c.claim}"`];
+  if (h.same_pins) lines.push("Every Strand is at the same hash as in this run.");
+  if (h.moved.length) lines.push(`These Strands are at a different hash now: ${h.moved.join(", ")}.`);
+  if (h.added.length) lines.push(`This run adds Strands it did not use: ${h.added.join(", ")}.`);
+  if (h.removed.length) lines.push(`It used Strands this run does not: ${h.removed.join(", ")}.`);
+  lines.push(h.downstream.length
+    ? `Its folder also holds later work: ${h.downstream.join(", ")}.`
+    : "Its folder holds the Brief and nothing else.");
+  return lines.join("\n");
+}
+
+// ---- WHEN A CONDITIONAL STATE IS ENTERED (kogaki#1742), read from the run
+// state rather than decided by the executor.
+export const CONDITIONS = {
+  HOME_COLLISION: (rec) => {
+    if (!rec.brief_run_state || !existsSync(rec.brief_run_state)) return false;
+    return (readJson(rec.brief_run_state).thesis_candidates || [])
+      .some((c) => c.home && c.home.exists && c.home.same_thesis);
+  },
+};
+
+// ---- WHAT AN ANSWER AT A WAIT DOES BEYOND COMPLETING IT (kogaki#1742).
+// `again` keeps the wait open for its next raising; `end` ends the run with
+// nothing written.
+export const ANSWER_WORK = {
+  HOME_COLLISION: (rec, answer) => {
+    const runPath = rec.brief_run_state;
+    const state = readJson(runPath);
+    const c = pendingHomeCollision(state);
+    if (!c) return undefined;
+    if (answer === "back-to-terrain") return "end";
+    if (answer !== "replace" && answer !== "keep") {
+      fail(`the answer at the home-collision gate is ${JSON.stringify(answer)}, and the gate offers replace, keep and back-to-terrain alone.`);
+    }
+    state.home_answers = { ...(state.home_answers || {}), [c.id]: answer };
+    if (answer === "keep") state.gate.options = state.gate.options.filter((o) => o.id !== c.id);
+    writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
+    return pendingHomeCollision(state) ? "again" : undefined;
   },
 };

@@ -22,7 +22,7 @@ import {
 import {
   composeJobExcluded, composeJobFinished, endBriefNoCandidateFits,
 } from "./reader-path-unit.mjs";
-import { GATE_WORK, STATE_WORK } from "./renderers.mjs";
+import { ANSWER_WORK, CONDITIONS, GATE_WORK, STATE_WORK } from "./renderers.mjs";
 import {
   BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail, readJson,
 } from "./run-state.mjs";
@@ -475,6 +475,9 @@ export const BRIEF_FLOW = {
   newRunDir: () => enterRun("brief", briefRunEntry()),
   stateWork: STATE_WORK,
   gateWork: GATE_WORK,
+  // A conditional state's entry test and a wait's answer work (kogaki#1742).
+  conditions: CONDITIONS,
+  answerWork: ANSWER_WORK,
   // A refusal inside an advance raises this gate rather than ending the run (kogaki#1740).
   stateRetryGateId: STATE_RETRY_GATE_ID,
   // PER FLOW, so a fixture pinning one lane's workspace does not redirect the
