@@ -847,6 +847,29 @@
         "efficacy": "case: checks/check-dependency-rules.sh::(c1) a new import from src/brief/ into src/terrain/ fails naming the edge",
         "efficacy_note": "MUTATION EVIDENCE (run 2026-11-08 at c498853 plus this change). Prepending `import {} from \"../terrain/survey.mjs\";` to `src/brief/run-state.mjs` FAILED naming `new edge lane-reaches-another-lane: src/brief/run-state.mjs → src/terrain/survey.mjs`; restoring the file restored PASS with 33 known violations in the baseline."
       }
+    },
+    {
+      "id": "eslint",
+      "file": "checks/check-eslint.sh",
+      "covers": [
+        "src/",
+        "checks/",
+        "eslint.config.mjs",
+        "eslint-suppressions.json",
+        ".claude/hooks/lint-on-edit.py",
+        ".claude/rules/src-lanes.md"
+      ],
+      "admission": {
+        "contract": "No JavaScript finding under `src/` or `checks/` falls outside the suppressions baseline, and the baseline holds no row whose finding is gone. The rule set is `eslint.config.mjs` (ESLint recommended, import-x `no-unresolved` and `no-duplicates`); the member runs `eslint --max-warnings 0 src checks` with `eslint-suppressions.json`, which names file, line and rule for a new finding and refuses a suppression whose finding is gone, and itself refuses a suppression row naming a file it does not lint. THE NAMED DEFECT: no JavaScript linter ran anywhere in the tree, and two `ReferenceError`s shipped on PR #1467 after a scripted module cut. The fixture pass runs on every invocation: (c1) a reference to an undeclared identifier under `src/` fails naming file, line and rule; (c2) the edit hook `.claude/hooks/lint-on-edit.py` returns that finding; (c3) a suppression removed for a finding that still exists fails naming it; (c4) a suppression whose finding is gone fails; (c5) a suppression row naming no linted file fails naming it; (c6) `.claude/rules/src-lanes.md` names this member.",
+        "license": "kogaki#1747",
+        "tier": "pre-push",
+        "runtime_ms": 4200,
+        "runtime_ms_note": "Measured 2026-11-08 at 239f66a plus this change: 4200, 3940 and 4270 ms over three runs; the cost is one lint of src/ and checks/ and five single-file lints over a copied tree.",
+        "removal_signal": "no `.mjs` file is left under src/ or checks/, so there is no JavaScript to lint.",
+        "removal_instrument": "probe: ! git ls-files -- 'src/*.mjs' 'checks/*.mjs' | grep -q .",
+        "efficacy": "case: checks/check-eslint.sh::(c1) a reference to an undeclared identifier under src/ fails naming file, line and rule",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-08 at 239f66a plus this change). Appending `export const probe = undeclaredProbe;` to `src/yaml.mjs` FAILED naming `src/yaml.mjs 647:22 'undeclaredProbe' is not defined no-undef`; restoring the file restored PASS with 35 files in the suppressions baseline."
+      }
     }
   ]
 }
