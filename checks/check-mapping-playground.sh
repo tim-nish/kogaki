@@ -2,7 +2,7 @@
 # check-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground, end to end through `node src/mapping-playground/trial.mjs run` with ONE fake model binary (`KOGAKI_JUDGE_CLI`) answering every stage (kogaki#1664, kogaki#1665):
 #   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
 #   (b) a structure whose `context` shares a word with the `proposition:` ("rule") is accepted, and the main run is over it (kogaki#1707).
-#   (c) a Leg `point` sharing such a word ("rule") is accepted on the first attempt (kogaki#1707).
+#   (c) a Leg `point` sharing such a word ("rule") is accepted on the first Round (kogaki#1707).
 #   (d) the Writer's recorded stdin equals the Packet file byte for byte.
 #   (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
@@ -94,7 +94,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   };
   const input = () => JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
-  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (call ");
   if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) {
     return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "reading");
   }
@@ -177,10 +177,10 @@ else {
     ok(cs.length === fake.length && cs.every((c, i) => c.stdin === fake[i].prompt && c.stdout === fake[i].answer),
       `(a) ${stage}'s recorded calls are not the calls the model binary saw`);
   }
-  // (c) the Leg attempt carrying a word of the proposition passed on the first attempt
-  const att = existsSync(join(out, "brief", "leg", "attempts.json")) ? JSON.parse(readFileSync(join(out, "brief", "leg", "attempts.json"), "utf8")) : {};
-  ok(att.attempts === 1 && !(att.refusals || []).length && calls("brief").some((c) => c.stdout.includes("The crew arrives with a rule.")),
-    `(c) the Leg attempt carrying "rule" was not accepted on the first attempt: ${JSON.stringify(att)}`);
+  // (c) the Leg Round carrying a word of the proposition passed on the first Round
+  const att = existsSync(join(out, "brief", "leg", "rounds.json")) ? JSON.parse(readFileSync(join(out, "brief", "leg", "rounds.json"), "utf8")) : {};
+  ok(att.rounds === 1 && !(att.refusals || []).length && calls("brief").some((c) => c.stdout.includes("The crew arrives with a rule.")),
+    `(c) the Leg round carrying "rule" was not accepted on the first round: ${JSON.stringify(att)}`);
   // (d) the Writer's prompt is the Packet
   const draftStage = record.stages.find((s) => s.stage === "draft") || {};
   const packet = draftStage.packet && existsSync(join(repo, draftStage.packet)) ? readFileSync(join(repo, draftStage.packet), "utf8") : null;
@@ -247,9 +247,9 @@ ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "read
 
 // (i) an answer whose context shares a word with the proposition is accepted at the reading stage, and the Trial runs on
 const i = mapperTrial("mapped-rule", mapped("A cleaning crew arrives with a rule about which rooms to clean."));
-const iAtt = existsSync(join(i.o, "reading", "job", "attempts.json")) ? JSON.parse(readFileSync(join(i.o, "reading", "job", "attempts.json"), "utf8")) : {};
+const iAtt = existsSync(join(i.o, "reading", "job", "rounds.json")) ? JSON.parse(readFileSync(join(i.o, "reading", "job", "rounds.json"), "utf8")) : {};
 ok(i.res.status === 0 && i.rec && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "reading:done,brief:done,paragraph-plan:done,draft:done"
-  && iAtt.attempts === 1 && existsSync(join(i.o, "structure.yaml")),
+  && iAtt.rounds === 1 && existsSync(join(i.o, "structure.yaml")),
   `(i) the Mapper answering "rule" was not accepted at the reading stage: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
 
 // (j) --structure with --mapper is refused naming both

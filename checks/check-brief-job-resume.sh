@@ -55,7 +55,7 @@ chmodSync(resumeJudge, 0o755);
   const dir = mkNewRun();
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
     units: [{ id: "candidate-1", status: "done", bytes: 50,
       candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
   }, null, 2) + "\n");
@@ -110,7 +110,7 @@ chmodSync(resumeJudge, 0o755);
   const dir = mkNewRun();
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
     units: [{ id: "candidate-1", status: "done", bytes: 50,
       candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
   }, null, 2) + "\n");
@@ -147,7 +147,7 @@ chmodSync(resumeJudge, 0o755);
     const dir = mkNewRun();
     const now = new Date().toISOString();
     writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-      started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+      started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
       units: [{ id: "candidate-1", status: "done", bytes: 50,
         candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
     }, null, 2) + "\n");
@@ -197,7 +197,7 @@ chmodSync(resumeJudge, 0o755);
   const dir = mkNewRun();
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "refused",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "refused",
     units: [{ id: "candidate-1", status: "refused", failure: { first_refusal: "fixture refusal" } }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({

@@ -18,7 +18,7 @@
 #       kept candidates, and no plan file; the stop lines name the kept Legs
 #       and the Leg the next run plans.
 
-#   (b) a job in which one Leg is refused on every attempt ends with that unit
+#   (b) a job in which one Leg is refused on every Round ends with that unit
 #       `refused` after `brief.unit_rounds`, the others `done`, and each
 #       `done` unit's candidate and verdict files in the run directory.
 
@@ -44,13 +44,13 @@
 #       refusals of (b) with the axis they name, each under the Leg Waypoint
 #       it names as its site; and an edited Brief is refused.
 
-#   (f) THE MAPPER'S ATTEMPT RECORDS ARE LISTED (kogaki#1734): a job directory
+#   (f) THE MAPPER'S CALL RECORDS ARE LISTED (kogaki#1734): a job directory
 #       holding a Leg's plan call and, nested under it, its reading and grounding
 #       calls' records lists each in `src/workflow/job-report.mjs`, under
 #       `leg-1/reading/waypoint-<n>` and `leg-1/grounding/waypoint-<n>`.
 
 # NOT COVERED, stated rather than implied: the retry inside a Leg -- which Leg
-# Waypoint is re-planned, and the refusal of an identical attempt -- is its own
+# Waypoint is re-planned, and the refusal of an identical Round -- is its own
 # Issue. The Brief's compose job keeps kogaki#1273's sibling kill, asserted by
 # checks/check-brief-job-retry.sh (v4). The plan file's shape is
 # checks/check-paragraph-plan.sh's.
@@ -75,7 +75,7 @@ const { readReaderPathJob } = await import(pathToFileURL(join(repo, "src", "work
 const table = JSON.parse(readFileSync(join(repo, "src", "paragraph-plan-workflow.json"), "utf8"));
 if (table.job.unit_isolation !== true) fails.push("the ParagraphPlan job table does not set `unit_isolation: true`");
 const settings = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "utf8"));
-const UNIT_ATTEMPTS = settings.brief.unit_rounds;
+const UNIT_ROUNDS = settings.brief.unit_rounds;
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-job-"));
 // THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;
@@ -209,11 +209,11 @@ const stopped = (tag, r) => {
   const kept = ((j.failure || {}).kept_candidates || []).map((k) => k.id).sort();
   if (JSON.stringify(kept) !== JSON.stringify(["leg-1", "leg-3"])) fails.push(`(a) the failure block does not name the two kept candidates: ${JSON.stringify(kept)}`);
   if (!/Kept: Leg s1, s3 finished and are kept in the run directory/.test(r.out)) fails.push(`(a) the stop lines do not name the kept Legs: ${r.out.slice(0, 600)}`);
-  if (!/Leg s2, Waypoint 1: died after 1 attempt\(s\)/.test(r.out)) fails.push(`(a) the stop lines do not name the died Leg: ${r.out.slice(0, 600)}`);
+  if (!/Leg s2, Waypoint 1: died after 1 round\(s\)/.test(r.out)) fails.push(`(a) the stop lines do not name the died Leg: ${r.out.slice(0, 600)}`);
   if (!/Next: run \/paragraph-plan on the same Brief again; it plans Leg s2 only and carries the kept Legs/.test(r.out)) fails.push(`(a) the stop lines do not say the next run plans s2 only: ${r.out.slice(0, 600)}`);
 }
 
-// (b) ONE LEG IS REFUSED ON EVERY ATTEMPT; THE OTHERS' FILES ARE KEPT.
+// (b) ONE LEG IS REFUSED ON EVERY ROUND; THE OTHERS' FILES ARE KEPT.
 let refusedRun = null;
 {
   const r = runStage("refuse", { s1: "ok", s2: "refuse", s3: "ok" });
@@ -222,7 +222,7 @@ let refusedRun = null;
   const j = r.job || {};
   if (j.state !== "refused") fails.push(`(b) the job did not end refused: ${j.state}`);
   const u2 = unit(j, "leg-2");
-  if (!u2 || u2.status !== "refused" || u2.attempts !== UNIT_ATTEMPTS) fails.push(`(b) the refused Leg's unit is not refused after ${UNIT_ATTEMPTS} attempts: ${JSON.stringify(u2 && [u2.status, u2.attempts])}`);
+  if (!u2 || u2.status !== "refused" || u2.rounds !== UNIT_ROUNDS) fails.push(`(b) the refused Leg's unit is not refused after ${UNIT_ROUNDS} rounds: ${JSON.stringify(u2 && [u2.status, u2.rounds])}`);
   for (const id of ["leg-1", "leg-3"]) {
     const u = unit(j, id);
     if (!u || u.status !== "done") { fails.push(`(b) ${id} is not done: ${JSON.stringify(u && u.status)}`); continue; }
@@ -329,27 +329,40 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a Leg Waypoint met no refusal");
   const { legRefusals } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
   const cited = legRefusals({ units: [{ id: "leg-1", refusals: [
-    "Waypoint 3: its 2 attempts are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Leg Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
+    "Waypoint 3: its 2 rounds are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Leg Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
   if (JSON.stringify(cited.map((r) => r.waypoints)) !== "[[3]]") fails.push(`(e) a refusal citing its neighbour is attributed to it: ${JSON.stringify(cited)}`);
   writeFileSync(resumedRun.briefPath, briefText("The fixture claim, edited after the plan."));
   const moved = view("--moves-dir", moves);
   if (moved.status === 0 || !/was made from a different Brief/.test(moved.stderr || "")) fails.push(`(e) view did not refuse a plan whose Brief moved: ${(moved.stderr || "") + (moved.stdout || "").slice(0, 300)}`);
 } else fails.push("(e) the view was not run: (c) wrote no plan");
 
-// (f) the reading and grounding Attempt Records sit under the Leg's unit, and the job report lists them.
+// (f) the reading and grounding Call Records sit under the Leg's unit, and the job report lists them.
 {
-  const { writeAttemptRecord } = await import(pathToFileURL(join(repo, "src", "workflow", "attempt-record.mjs")).href);
+  const { writeCallRecord } = await import(pathToFileURL(join(repo, "src", "workflow", "call-record.mjs")).href);
   const jobDir = join(root, "mapper-report");
   const rec = (refusal) => ({ prompt: "p", argv: {}, cli: {}, input: {}, row: { row: null, tables: [] }, raw: "", answer: {}, refusal });
-  writeAttemptRecord(jobDir, "leg-1", 1, rec(null));
-  writeAttemptRecord(jobDir, "leg-1/reading/waypoint-1", 1, rec({ group: "context", reach: "part", text: "READING-REFUSED", validator: "validateMapperAnswer" }));
-  writeAttemptRecord(jobDir, "leg-1/reading/waypoint-1", 2, rec(null));
-  writeAttemptRecord(jobDir, "leg-1/grounding/waypoint-2", 1, rec(null));
+  writeCallRecord(jobDir, "leg-1", 1, rec(null));
+  writeCallRecord(jobDir, "leg-1/reading/waypoint-1", 1, rec({ group: "context", reach: "part", text: "READING-REFUSED", validator: "validateMapperAnswer" }));
+  writeCallRecord(jobDir, "leg-1/reading/waypoint-1", 2, rec(null));
+  writeCallRecord(jobDir, "leg-1/grounding/waypoint-2", 1, rec(null));
   const out = spawnSync(process.execPath, ["src/workflow/job-report.mjs", jobDir], { cwd: repo, encoding: "utf8" }).stdout || "";
   const want = ["unit leg-1:", "unit leg-1/reading/waypoint-1:", "context, part: READING-REFUSED", "unit leg-1/grounding/waypoint-2:"];
   const missing = want.filter((w) => !out.includes(w));
-  if (missing.length || (out.match(/attempt \d+ —/g) || []).length !== 4) fails.push(`(f) the job report does not list the Leg's reading and grounding Attempt Records (missing ${missing.join(", ")}): ${out}`);
+  if (missing.length || (out.match(/call \d+ —/g) || []).length !== 4) fails.push(`(f) the job report does not list the Leg's reading and grounding Call Records (missing ${missing.join(", ")}): ${out}`);
 }
+
+// (g) A FRESH PARAGRAPHPLAN JOB WRITES THE NEW NAMES ONLY (kogaki#1760): `calls/<unit>/<n>/`, `unit_rounds`, and per unit
+// `rounds` and `call_records`, with `call_1_s` on a unit that reached Round 2; no retired name anywhere on the record.
+if (refusedRun) {
+  const { RETIRED_NAMES } = await import(pathToFileURL(join(repo, "src", "workflow", "call-record.mjs")).href);
+  const j = refusedRun.job || {}, retired = Object.values(RETIRED_NAMES), u2 = unit(j, "leg-2") || {};
+  if (existsSync(join(refusedRun.runDir, RETIRED_NAMES.dir)) || !existsSync(join(refusedRun.runDir, "calls", "leg-2", "1"))
+    || !Number.isInteger(j.unit_rounds) || typeof u2.call_1_s !== "number"
+    || (j.units || []).some((u) => !Number.isInteger(u.rounds) || !String(u.call_records || "").includes(join("calls", u.id)))
+    || [j, ...(j.units || [])].some((o) => Object.keys(o).some((k) => retired.includes(k)))) {
+    fails.push(`(g) a fresh ParagraphPlan job wrote a retired name, or not calls/, unit_rounds, rounds, call_records and call_1_s: ${JSON.stringify(j).slice(0, 800)}`);
+  }
+} else fails.push("(g) the fresh-job names were not checked: (b) ran no job");
 
 if (fails.length) { for (const f of fails) console.error(`FAIL ${f}`); process.exit(1); }
 console.log("check-paragraph-plan-job: ok");

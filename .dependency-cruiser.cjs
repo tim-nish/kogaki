@@ -40,7 +40,7 @@ module.exports = {
     },
     {
       name: "bench-reached-from-outside",
-      comment: "The Attempt Sheet is a playground: it may use production files and the Trial sheet's helpers, and nothing outside it uses it (kogaki#1752).",
+      comment: "The FLP is a playground: it may use production files and the Trial sheet's helpers, and nothing outside it uses it (kogaki#1752).",
       severity: "error",
       from: { path: "^src/", pathNot: lane("flp") },
       to: { path: lane("flp") },

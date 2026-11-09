@@ -17,7 +17,7 @@ import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { moveContract, loadMoveContracts, CAST_KEYS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
-import { attemptRows, attemptsRoot } from "../workflow/attempt-record.mjs";
+import { callRows, callsRoot, callRecordsOf } from "../workflow/call-record.mjs";
 import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
@@ -117,7 +117,7 @@ function bindingTable(record, paragraphs, i, contracts) {
     + "</tbody></table>";
 }
 
-// `marked` holds the point numbers a refusal named, highlighted for the Attempt Sheet (kogaki#1752).
+// `marked` holds the point numbers a refusal named, highlighted for the FLP (kogaki#1752).
 export function segmentsTable(record, entry, number, marked = new Set()) {
   const c = moveContract(entry.move, resolve(REPO, record.library));
   const segments = c.error ? [] : c.segments;
@@ -184,13 +184,13 @@ function structureSection(structure) {
 const paragraphHtml = (path, record) => (existsSync(path) ? `<div class="prose">${esc(readFileSync(path, "utf8"))}</div>`
   : record.stopped ? `<p class="stop">stopped — ${esc(record.stopped)}</p>` : none("No paragraph was written."));
 
-// THE ATTEMPTS (kogaki#1718): per stage, one row per Attempt Record, linking its files and each replay's result.
-function attemptsSection(outDir, record) {
+// THE CALL RECORDS (kogaki#1718): per stage, one row per Call Record, linking its files and each replay's result.
+function callRecordsSection(outDir, record) {
   const link = (path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
-  const stages = record.stages.map((s) => ({ stage: s.stage, rows: (s.attempt_records || []).flatMap((p) => attemptRows(resolve(REPO, p))) }))
+  const stages = record.stages.map((s) => ({ stage: s.stage, rows: (callRecordsOf(s) || []).flatMap((p) => callRows(resolve(REPO, p))) }))
     .filter((s) => s.rows.length);
-  if (!stages.length) return none("No Attempt Record was written.");
-  return stages.map(({ stage, rows }) => `<table><caption>${esc(stage)}</caption><thead><tr><th>unit</th><th>attempt</th><th>group</th>`
+  if (!stages.length) return none("No Call Record was written.");
+  return stages.map(({ stage, rows }) => `<table><caption>${esc(stage)}</caption><thead><tr><th>unit</th><th>call</th><th>group</th>`
     + "<th>reach</th><th>refusal</th><th>files</th><th>replays</th></tr></thead><tbody>"
     + rows.map((r) => `<tr><td>${esc(r.unit)}</td><td>${r.n}</td><td>${esc(r.group ?? "")}</td><td>${esc(r.reach ?? "")}</td>`
       + `<td>${r.refusal === null ? "passed" : esc(r.refusal)}</td><td>${r.files.map((f) => link(join(r.dir, f), f)).join(" ")}</td>`
@@ -219,14 +219,14 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
     + part("bindings", "Bindings", bindingsSection(record, paragraphs))
     + part("mapping", "Mapping", mapping)
     + part("structure", "Structure", structureHtml)
-    + part("attempts", "Attempts", attemptsSection(outDir, record))
+    + part("call-records", "Call Records", callRecordsSection(outDir, record))
     + part("calls", "Model calls", callsHtml)
     + "</body></html>\n";
 }
 
 // ONE LEG'S MAPPING RECORD (kogaki#1733), in the short Trial sheet's layout: per Leg Waypoint its structure (an `apart`
 // successor shows its predecessor's), Mapping Table, binding with `case`, Paragraph Waypoints with their Cast, and, with a
-// run, the Attempt Records of the Leg's job unit. Reads the plan and the record beside it; writes nothing but `out`.
+// run, the Call Records of the Leg's job unit. Reads the plan and the record beside it; writes nothing but `out`.
 const readYamlAt = (path) => (existsSync(path) ? parseYaml(readFileSync(path, "utf8"), relFromRepo(path)) : null);
 
 function legBindingTable(entry, table, number, contracts) {
@@ -242,12 +242,12 @@ function legBindingTable(entry, table, number, contracts) {
     + "</tbody></table>";
 }
 
-function legAttempts(runDir, unit, outDir) {
-  if (!runDir) return none("No run was named: pass --run <the ParagraphPlan job's run directory> to list its Attempt Records.");
-  const rows = attemptRows(attemptsRoot(runDir)).filter((r) => r.unit === unit);
-  if (!rows.length) return none(`No Attempt Record of the unit ${unit} is under ${relFromRepo(runDir)}.`);
+function legCallRecords(runDir, unit, outDir) {
+  if (!runDir) return none("No run was named: pass --run <the ParagraphPlan job's run directory> to list its Call Records.");
+  const rows = callRows(callsRoot(runDir)).filter((r) => r.unit === unit);
+  if (!rows.length) return none(`No Call Record of the unit ${unit} is under ${relFromRepo(runDir)}.`);
   const link = (path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
-  return `<table><caption>${esc(unit)}</caption><thead><tr><th>attempt</th><th>group</th><th>reach</th><th>refusal</th><th>files</th></tr></thead><tbody>`
+  return `<table><caption>${esc(unit)}</caption><thead><tr><th>call</th><th>group</th><th>reach</th><th>refusal</th><th>files</th></tr></thead><tbody>`
     + rows.map((r) => `<tr><td>${r.n}</td><td>${esc(r.group ?? "")}</td><td>${esc(r.reach ?? "")}</td>`
       + `<td>${r.refusal === null ? "passed" : esc(r.refusal)}</td><td>${r.files.map((f) => link(join(r.dir, f), f)).join(" ")}</td></tr>`).join("")
     + "</tbody></table>";
@@ -286,7 +286,7 @@ export function renderLegSheet({ planPath, legId, runDir = null, movesDir = "mov
     + `<h1>Mapping Record — Leg ${esc(legId)}</h1><p class="meta">plan: ${esc(relFromRepo(planPath))} · record: ${esc(relFromRepo(dir))}</p>`
     + (library.error ? `<p class="stop">${esc(library.error)}</p>` : "")
     + body
-    + part("attempts", "Attempts", legAttempts(runDir, `leg-${i + 1}`, outDir))
+    + part("call-records", "Call Records", legCallRecords(runDir, `leg-${i + 1}`, outDir))
     + "</body></html>\n";
   return { html };
 }

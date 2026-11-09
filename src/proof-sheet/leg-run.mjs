@@ -38,7 +38,7 @@
 // Moves are re-ingested from the copied Extractions -- the ingest makes no model call, so an
 // unedited Extraction gives the same Moves byte for byte -- and `<stage>` and every stage after
 // it run as usual; `reuse.moves` holds the sha256 of the source's Move files and of the new
-// run's, equal where no Extraction was edited. A copied stage keeps its own record, attempts and refusals and is never
+// run's, equal where no Extraction was edited. A copied stage keeps its own record, Rounds and refusals and is never
 // re-judged. `run.json`'s `reuse` names the source run, the stage, the sha256 of each copied
 // stage directory, and every Segment field of a copied Extraction record that differs from the
 // answer its Extractor wrote (`p<N>/answer.json`) -- the owner's edits, which the sheet badges.
@@ -273,7 +273,7 @@ function recordedLanguage(audiencePath) {
 // THE STAGE ENGINE, shared by a fresh run and a resumed one. `priorStages`, a `Map` of stage
 // name to its previous `run.json` entry, is `null` for a fresh run (and the copied stages for a reused one). A stage already `done`
 // is kept as its own record and never re-entered; a stage short of that re-enters with its
-// stage directory's existing `command.json` as the log it appends to, so a resumed attempt
+// stage directory's existing `command.json` as the log it appends to, so a resumed Round
 // keeps the stopped one rather than replacing it. A nested run (the Leg Move's) runs the five
 // stages before `leg-move` and not that one.
 function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, nested = false }) {
@@ -720,7 +720,7 @@ export function resumeLeg(runDir, { provenance }) {
   delete record.terms;
   delete record.stopped;
   delete record.finished_at;
-  // THE JUDGE BINARY IS RE-RESOLVED, NOT FROZEN FROM THE STOPPED ATTEMPT: a resume is a fresh
+  // THE JUDGE BINARY IS RE-RESOLVED, NOT FROZEN FROM THE STOPPED ROUND: a resume is a fresh
   // process, and the point of resuming after a stop is that whatever stopped it can have been
   // fixed in the environment since. `record.model_command` is overwritten with the newly
   // resolved path, so the record keeps naming the binary the resumed run actually used.

@@ -12,10 +12,10 @@
 // table of one row per paragraph for a per-paragraph artifact), Inputs (folded, a list of links to the cards this stage read, no
 // content repeated), Prompt (folded, the recorded stdin as its instruction half and its input
 // half — a stage with two calls shows one prompt per call, titled by what it produced) and
-// Calls (folded, attempts and refusals, then every recorded call's stdin and stdout). The
-// ParagraphPlan card has a fifth part, Attempts, between Output and Inputs (kogaki#1437). Nothing
+// Calls (folded, Rounds and refusals, then every recorded call's stdin and stdout). The
+// ParagraphPlan card has a fifth part, Rounds, between Output and Inputs (kogaki#1437). Nothing
 // is rendered twice: a card that needs another's content links to it instead -- except the
-// paragraph tables, which repeat the Segments tables, the refused attempts and the bindings
+// paragraph tables, which repeat the Segments tables, the refused Rounds and the bindings
 // because they are the review surface and the cards are the trace (kogaki#1487).
 //
 // A REUSED RUN (kogaki#1512): a stage copied from an earlier run carries a second badge naming
@@ -76,6 +76,7 @@ import { pathToFileURL } from "node:url";
 import { parseYaml } from "../yaml.mjs";
 import { settingValue, JUDGE_INPUT_MARKER } from "../workflow/judge.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
+import { roundsFileIn, roundsOf } from "../workflow/call-record.mjs";
 import { legParagraphs, EXTRACTION_TABLE, extractionMarkdown } from "./extract.mjs";
 import { MOVE_RECORD_EXT } from "../compose.mjs";
 
@@ -263,7 +264,7 @@ function badgeSpan(key, anchored = false) {
 }
 
 // A STAGE COPIED FROM AN EARLIER RUN (kogaki#1512) carries a second badge naming that run, read
-// from the stage's own record; its attempts and refusals are the earlier run's, never re-judged.
+// from the stage's own record; its Rounds and refusals are the earlier run's, never re-judged.
 export const COPIED_BADGE = "copied from";
 function copiedBadge(source) {
   return source ? ` <span class="badge copied">${COPIED_BADGE} ${esc(source)}</span>` : "";
@@ -278,15 +279,15 @@ function inputsList(entries, idx = 0) {
 }
 
 // One card: Output (folded, kogaki#1559 -- the anchor script below opens it on its link), Inputs,
-// Prompt, Calls, in that order -- and Attempts between Output and Inputs where the card has one (the
+// Prompt, Calls, in that order -- and Rounds between Output and Inputs where the card has one (the
 // ParagraphPlan card, kogaki#1437).
-function cardWrap(key, { output, attempts, inputs, prompt, calls, anchored = false, copiedFrom = null }, idx = 0) {
+function cardWrap(key, { output, rounds, inputs, prompt, calls, anchored = false, copiedFrom = null }, idx = 0) {
   const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
   return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}${copiedBadge(copiedFrom)}</h3>`
     + `<details class="part out"><summary>Output</summary>${output}</details>`
-    + (attempts !== undefined ? `<details class="part attempts"><summary>Attempts</summary>${attempts}</details>` : "")
+    + (rounds !== undefined ? `<details class="part rounds"><summary>Rounds</summary>${rounds}</details>` : "")
     + `<details class="part in"><summary>Inputs</summary>${inputs}</details>`
     + `<details class="part prompt"><summary>Prompt</summary>${prompt}</details>`
     + `<details class="part calls"><summary>Calls</summary>${calls}</details>`
@@ -323,7 +324,7 @@ function promptPart(named) {
       + subOpen("instruction", pre(halves[0].instruction))
       + halves.map((h) => sub(`${h.title} — input`, pre(h.input))).join("");
   }
-  // Prompts that share an instruction (the judge's attempts, a site's retries, kogaki#1642) show
+  // Prompts that share an instruction (the judge's Rounds, a site's retries, kogaki#1642) show
   // it once, each input under its own title, so no instruction appears twice on the page.
   const groups = [];
   for (const h of halves) {
@@ -485,7 +486,7 @@ function runConditionsLine(r) {
   const settingsPath = resolve(REPO, "kogaki.settings.json");
   const table = readJson(EXTRACTION_TABLE);
   const settingsText = [
-    `Round bound (brief.unit_rounds): ${table ? settingValue(table.job.unit_attempts) : "(unreadable)"}`,
+    `Round bound (brief.unit_rounds): ${table ? settingValue(table.job.unit_rounds) : "(unreadable)"}`,
     `call limit, seconds (brief.call_limit_s): ${table ? settingValue(table.job.call_limit_s) : "(unreadable)"}`,
     `audience file (brief.audience_file): ${settingValue({ setting: "brief.audience_file" })}`,
   ].join("\n");
@@ -553,7 +554,7 @@ function planBindings(r) {
 // rendering and the record file folded beneath them (kogaki#1479, owner 2026-10-20). Inputs:
 // none drawn as a card (the original paragraph is in the comparison table above, the Audience
 // is in the run-conditions line). Prompt: one per paragraph. Calls: one group per paragraph,
-// with its attempt count.
+// with its Round count.
 function extractionParagraphs(r) {
   const n = r.paragraphs.length;
   const per = [];
@@ -564,7 +565,7 @@ function extractionParagraphs(r) {
     const pdir = r.extractorRun ? join(r.extractorRun, `p${(r.offset || 0) + i + 1}`) : null;
     const promptText = pdir ? read(join(pdir, "prompt.md")) : null;
     const answer = pdir ? readJson(join(pdir, "answer.json")) : null;
-    const attempts = pdir ? readJson(join(pdir, "attempts.json")) : null;
+    const rounds = pdir ? readJson(roundsFileIn(pdir)) : null;
     const inputAt = promptText ? promptText.indexOf(JUDGE_INPUT_MARKER) : -1;
     const key = inputAt >= 0 ? promptText.slice(inputAt) : null;
     const calls = key ? r.extractCalls.filter((c) => String(c.stdin).includes(key)) : [];
@@ -576,7 +577,7 @@ function extractionParagraphs(r) {
     let rec = null;
     if (text) { try { rec = parseYaml(text, file); rendered = extractionMarkdown(rec); } catch { rendered = null; } }
     const segs = rec && Array.isArray(rec.segments) ? rec.segments : answer && Array.isArray(answer.segments) ? answer.segments : [];
-    per.push({ i, file, text, rendered, promptText, calls, attempts, segs, rec });
+    per.push({ i, file, text, rendered, promptText, calls, rounds, segs, rec });
   }
   return per;
 }
@@ -625,7 +626,7 @@ function extractionCard(r, idx) {
   // `prompt.md`: the recorder's stdin carries the CLI preamble the model actually read.
   const promptEntries = per.filter((p) => p.calls.length).map((p) => [`paragraph ${p.i + 1}`, p.calls[0].stdin]);
   const callsHtml = per.some((p) => p.calls.length)
-    ? per.map((p) => sub(`paragraph ${p.i + 1} — attempts ${p.attempts ? p.attempts.attempts : "?"}`, callsBlock(p.calls, `paragraph ${p.i + 1} calls`, promptEntries.map(([t, x]) => [`Prompt, ${t}`, x])))).join("")
+    ? per.map((p) => sub(`paragraph ${p.i + 1} — rounds ${p.rounds ? roundsOf(p.rounds) : "?"}`, callsBlock(p.calls, `paragraph ${p.i + 1} calls`, promptEntries.map(([t, x]) => [`Prompt, ${t}`, x])))).join("")
     : `<p class="muted">No recorded model calls.</p>`;
 
   return cardWrap("extraction", { output, copiedFrom: r.stage("extract").copied_from || null, inputs: inputsList([], idx), prompt: promptPart(promptEntries), calls: callsHtml }, idx);
@@ -690,11 +691,11 @@ function briefCard(r, idx) {
   for (const [sub_, markers, title] of rowsFor) {
     const d = r.legBriefRun ? join(r.legBriefRun, sub_) : null;
     const answer = d ? readJson(join(d, "answer.json")) : null;
-    const attempts = d ? readJson(join(d, "attempts.json")) : null;
+    const rounds = d ? readJson(roundsFileIn(d)) : null;
     const calls = r.briefCalls.filter((c) => markers.every((m) => String(c.stdin).includes(m)));
     if (calls.length) named.push([title, calls[0].stdin]);
-    callsHtml += sub(`${title} — attempts ${attempts ? attempts.attempts : "?"}`,
-      sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)")) + pre(attempts ? json(attempts) : "(no attempts record)")
+    callsHtml += sub(`${title} — rounds ${rounds ? roundsOf(rounds) : "?"}`,
+      sub(`answer — sha ${contentHash(answer && json(answer))}`, pre(answer ? json(answer) : "(none)")) + pre(rounds ? json(rounds) : "(no rounds record)")
       + callsBlock(calls, `${title} calls`, named.map(([t, x]) => [`Prompt, ${t}`, x])));
   }
   return cardWrap("brief", {
@@ -733,44 +734,44 @@ function planKind(text) {
 }
 const planTitle = (a) => (a.kind === "site" ? `ParagraphPlan, the site call at Leg Waypoint ${a.at}`
   : a.kind === "suffix" ? `ParagraphPlan, the entries from Leg Waypoint ${a.at} composed again` : "ParagraphPlan, the plan call");
-const attemptLabel = (a) => (a.kind === "site" ? ` — site retry at Leg Waypoint ${a.at}` : a.kind === "suffix" ? ` — the entries from Leg Waypoint ${a.at} composed again` : "");
+const roundLabel = (a) => (a.kind === "site" ? ` — site retry at Leg Waypoint ${a.at}` : a.kind === "suffix" ? ` — the entries from Leg Waypoint ${a.at} composed again` : "");
 
-// The ParagraphPlan's attempts, paired from its recorded calls by order of `at` (kogaki#1437):
-// each planning call opens an attempt, and the judge call after it (before the next planning
-// call) is that attempt's judge -- the last one, where an unreadable answer was asked again.
-function planAttempts(calls) {
+// The ParagraphPlan's Rounds, paired from its recorded calls by order of `at` (kogaki#1437):
+// each planning call opens a Round, and the judge call after it (before the next planning
+// call) is that Round's judge -- the last one, where an unreadable answer was asked again.
+function planRounds(calls) {
   const sorted = calls.map((c, i) => [c, i]).sort((a, b) => String(a[0].at).localeCompare(String(b[0].at)) || a[1] - b[1]).map(([c]) => c);
-  const attempts = [];
+  const rounds = [];
   for (const c of sorted) {
     const text = String(c.stdin);
     const k = planKind(text);
-    if (k) attempts.push({ ...k, plan: c, judge: null });
-    else if (text.includes('"leg_you_must_judge"') && attempts.length) attempts[attempts.length - 1].judge = c;
+    if (k) rounds.push({ ...k, plan: c, judge: null });
+    else if (text.includes('"leg_you_must_judge"') && rounds.length) rounds[rounds.length - 1].judge = c;
   }
-  return attempts;
+  return rounds;
 }
 
 // A Paragraph Waypoint as a list item: a `point` entry as its text, a `performs` entry as its
 // text in italics, as the Packet renders it (kogaki#1448), so no item is empty (kogaki#1479).
 const pwItem = (p) => (p && Object.hasOwn(p, "performs") ? `<li><i>${esc(p.performs)}</i></li>` : `<li>${esc((p && p.point) || "")}</li>`);
 
-// An attempt block's anchor id, inside its details as `prowBlock`'s is, so the review block's
-// refused-attempts table can link to it (kogaki#1487).
-const attemptId = (n, idx) => `attempt-${idx}-${n}`;
+// A Round block's anchor id, inside its details as `prowBlock`'s is, so the review block's
+// refused-rounds table can link to it (kogaki#1487).
+const roundId = (n, idx) => `round-${idx}-${n}`;
 
 const waypointsNamed = (text) => [...new Set([...String(text || "").matchAll(/Waypoint (\d+)/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
 
-// THE ATTEMPTS PART (kogaki#1437): one folded block per attempt, in order, each holding the
+// THE ROUNDS PART (kogaki#1437): one folded block per Round, in order, each holding the
 // planner's record per Leg Waypoint (a site retry's, its one entry, kogaki#1642), the judge's
 // verdict per Leg Waypoint it judged with its `why` in full, and the refusal block the next
-// attempt received. No prompt is repeated: each block names where its prompts are shown, under
-// Prompt or under Calls. The job record's refusal for an attempt is cross-checked against the
+// Round received. No prompt is repeated: each block names where its prompts are shown, under
+// Prompt or under Calls. The job record's refusal for a Round is cross-checked against the
 // judge's `does-not-fit` verdicts, and a mismatch is shown, never resolved.
-function attemptsPart(attempts, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
-  if (!attempts.length) return `<p class="muted">No plan call was recorded.</p>`;
+function roundsPart(rounds, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
+  if (!rounds.length) return `<p class="muted">No plan call was recorded.</p>`;
   const unit = ((job && job.units) || [])[unitIndex] || null;
   const refusals = (unit && Array.isArray(unit.refusals)) ? unit.refusals : [];
-  return attempts.map((a, i) => {
+  return rounds.map((a, i) => {
     const n = i + 1;
     const plan = callAnswer(a.plan);
     const planRecord = plan.record && Array.isArray(plan.record.waypoints) ? plan.record
@@ -804,33 +805,33 @@ function attemptsPart(attempts, job, shown, judgeTitle, idx = 0, unitIndex = 0) 
     if (notFit !== null) {
       const named = refusals[i] !== undefined ? waypointsNamed(refusals[i]) : [];
       if (notFit.length && refusals[i] === undefined) {
-        mismatch = `The judge answered does-not-fit at Leg Waypoint ${notFit.join(", ")}, and the job record holds no refusal for attempt ${n}.`;
+        mismatch = `The judge answered does-not-fit at Leg Waypoint ${notFit.join(", ")}, and the job record holds no refusal for round ${n}.`;
       } else if (!notFit.length && refusals[i] !== undefined) {
-        mismatch = `The judge answered fits at every Leg Waypoint, and the job record holds a refusal for attempt ${n}: ${refusals[i]}`;
+        mismatch = `The judge answered fits at every Leg Waypoint, and the job record holds a refusal for round ${n}: ${refusals[i]}`;
       } else if (notFit.length && JSON.stringify(named) !== JSON.stringify(notFit)) {
-        mismatch = `The judge answered does-not-fit at Leg Waypoint ${notFit.join(", ")}; the job record's refusal for attempt ${n} names Waypoint ${named.join(", ") || "none"}.`;
+        mismatch = `The judge answered does-not-fit at Leg Waypoint ${notFit.join(", ")}; the job record's refusal for round ${n} names Waypoint ${named.join(", ") || "none"}.`;
       }
     }
 
     let next;
-    if (i + 1 < attempts.length) {
-      const m = againstShown(attempts[i + 1].plan.stdin, shown);
-      next = !m ? `<p class="stop">The next attempt's prompt matches no prompt shown on this card; it is shown under Calls.</p>`
-        : m.inserted === null ? `<p class="muted">The next attempt's prompt is the one shown under ${esc(m.where)}, byte for byte.</p>`
-          : `<p class="muted">The next attempt received the prompt shown under ${esc(m.where)}, with this block inserted before its input:</p>${pre(m.inserted)}`;
+    if (i + 1 < rounds.length) {
+      const m = againstShown(rounds[i + 1].plan.stdin, shown);
+      next = !m ? `<p class="stop">The next round's prompt matches no prompt shown on this card; it is shown under Calls.</p>`
+        : m.inserted === null ? `<p class="muted">The next round's prompt is the one shown under ${esc(m.where)}, byte for byte.</p>`
+          : `<p class="muted">The next round received the prompt shown under ${esc(m.where)}, with this block inserted before its input:</p>${pre(m.inserted)}`;
     } else {
-      next = `<p>no further attempt: the job ended \`${esc(job ? job.state : "(no job record)")}\`</p>`;
+      next = `<p>no further round: the job ended \`${esc(job ? job.state : "(no job record)")}\`</p>`;
     }
 
     const verdicts = notFit === null ? "" : notFit.length ? ` — does-not-fit at Leg Waypoint ${notFit.join(", ")}` : ` — fits at every Leg Waypoint${a.kind === "leg" ? "" : " judged"}`;
     const own = againstShown(a.plan.stdin, shown);
-    const where = !own ? "Calls" : own.inserted === null ? own.where : `${own.where}, with the block shown under attempt ${i}'s "what the next attempt received" inserted`;
-    return sub(`attempt ${n} of ${attempts.length}${attemptLabel(a)}${verdicts}`, `<div id="${attemptId(n, idx)}">`
+    const where = !own ? "Calls" : own.inserted === null ? own.where : `${own.where}, with the block shown under round ${i}'s "what the next round received" inserted`;
+    return sub(`round ${n} of ${rounds.length}${roundLabel(a)}${verdicts}`, `<div id="${roundId(n, idx)}">`
       + `<p class="muted">The planner's prompt is shown under ${esc(where)}.</p>`
       + subOpen("the planner's record", planner)
       + subOpen("the judge's verdicts", judge)
       + (mismatch ? `<p class="stop">${esc(mismatch)}</p>` : "")
-      + subOpen("what the next attempt received", next) + `</div>`);
+      + subOpen("what the next round received", next) + `</div>`);
   }).join("");
 }
 
@@ -838,7 +839,7 @@ function attemptsPart(attempts, job, shown, judgeTitle, idx = 0, unitIndex = 0) 
 // and Leg Waypoint -> Paragraph Waypoints counts against the bound Move's Segments, each row
 // opening on the Leg Waypoint's point from the Brief (kogaki#1487) and carrying the plan
 // file's join for a Leg Waypoint after the first (kogaki#1445).
-// Attempts: every attempt's record, verdicts and the refusal block the next one received
+// Rounds: every Round's record, verdicts and the refusal block the next one received
 // (kogaki#1437). Inputs: Brief, Move. Prompt/Calls: the plan call and the judge call, each
 // titled by what it produced.
 function paragraphPlanCard(r, idx) {
@@ -880,19 +881,19 @@ function paragraphPlanCard(r, idx) {
 
   // Every distinct planning prompt is shown once under Prompt -- the Leg call's, and each site
   // or suffix call's that is not a retry of one already shown (kogaki#1642) -- and every distinct
-  // judge prompt, each attempt's judge reading that attempt's own record; prompts sharing one
+  // judge prompt, each Round's judge reading that Round's own record; prompts sharing one
   // instruction show it once.
-  const attempts = planAttempts(r.planCalls);
+  const rounds = planRounds(r.planCalls);
   const planNamed = [];
-  for (const a of attempts) {
+  for (const a of rounds) {
     if (againstShown(a.plan.stdin, planNamed)) continue;
     const kin = planNamed.filter(([t]) => t === planTitle(a) || t.startsWith(`${planTitle(a)}, call `)).length;
     planNamed.push([kin ? `${planTitle(a)}, call ${kin + 1}` : planTitle(a), a.plan.stdin]);
   }
   const judgeNamed = [];
-  for (const a of attempts) {
+  for (const a of rounds) {
     if (a.judge && !judgeNamed.some(([, x]) => x === a.judge.stdin)) {
-      judgeNamed.push([`ParagraphPlan, the judge call${attempts.length > 1 ? `, attempt ${attempts.indexOf(a) + 1}` : ""}`, a.judge.stdin]);
+      judgeNamed.push([`ParagraphPlan, the judge call${rounds.length > 1 ? `, round ${rounds.indexOf(a) + 1}` : ""}`, a.judge.stdin]);
     }
   }
   for (const c of judgeCalls) if (!judgeNamed.some(([, x]) => x === c.stdin)) judgeNamed.push([`ParagraphPlan, the judge call ${judgeNamed.length + 1}`, c.stdin]);
@@ -901,14 +902,14 @@ function paragraphPlanCard(r, idx) {
   const judgeTitle = (c) => (judgeNamed.find(([, x]) => x === c.stdin) || ["ParagraphPlan, the judge call"])[0];
   const prompt = promptPart(named);
 
-  const callsHtml = sub("the plan call — attempts and refusals",
-      pre(job ? json({ state: job.state, units: (job.units || []).map((u) => ({ id: u.id, status: u.status, attempts: u.attempts, refusals: u.refusals || [] })) }) : "(none)")
+  const callsHtml = sub("the plan call — rounds and refusals",
+      pre(job ? json({ state: job.state, units: (job.units || []).map((u) => ({ id: u.id, status: u.status, rounds: roundsOf(u), refusals: u.refusals || [] })) }) : "(none)")
       + callsBlock(genCalls, "plan calls", shown))
     + sub("the judge call", callsBlock(judgeCalls, "judge calls", shown));
 
   return cardWrap("paragraphPlan", {
     output,
-    attempts: attemptsPart(attempts, job, shown, judgeTitle, idx, r.unitIndex || 0),
+    rounds: roundsPart(rounds, job, shown, judgeTitle, idx, r.unitIndex || 0),
     inputs: inputsList([["brief", rel(r.briefPath)], ["move", relFromRepo(join(r.runDir, "moves"), REPO)]], idx),
     prompt,
     calls: callsHtml,
@@ -1084,7 +1085,7 @@ function sourceBadge(run, move) {
 // 2026-10-22): between the comparison table and the first card, three tables under their own
 // headings, with no heading above them and nothing folded -- every paragraph's Segments table
 // (by the Extraction card's own renderer), every `does-not-fit` verdict across the plan's
-// attempts with the judge's `why` in full, and the bindings -- read from the plan file's own
+// Rounds with the judge's `why` in full, and the bindings -- read from the plan file's own
 // entries (kogaki#1639) -- with each bound Move's takes and leaves in its row -- so a reader
 // completes a review without opening a card. The takes and leaves fold closed under
 // `takes / leaves`, one row per Leg Waypoint (kogaki#1516). Each paragraph's heading is followed
@@ -1101,18 +1102,18 @@ function reviewBlock(r, idx) {
     + moveDescription(r, entries[p.i] && entries[p.i].move) + moveConstraintLines(r, entries[p.i] && entries[p.i].move)
     + (p.file ? segmentsTable(p.segs, editedSegments(r, p.i + 1), p.rec && p.rec.content_bound) + moveBreaks(r, entries[p.i] && entries[p.i].move) : `<p class="muted">(not written)</p>`)).join("");
 
-  // An attempt with no readable judge verdict, or one the job record refused where the judge
-  // named no does-not-fit, is a row too, carrying the job record's refusal: only an attempt
-  // both readers agree passed leaves no row, so "no attempt was refused" is never a silence.
-  const attempts = planAttempts(r.planCalls);
+  // A Round with no readable judge verdict, or one the job record refused where the judge
+  // named no does-not-fit, is a row too, carrying the job record's refusal: only a Round
+  // both readers agree passed leaves no row, so "no Round was refused" is never a silence.
+  const rounds = planRounds(r.planCalls);
   const job = readJson(join(r.jobDir, "reader-path-job.json"));
   const unit = ((job && job.units) || [])[r.unitIndex || 0] || null;
   const jobRefusals = (unit && Array.isArray(unit.refusals)) ? unit.refusals : [];
   const refused = [];
-  attempts.forEach((a, i) => {
+  rounds.forEach((a, i) => {
     const v = a.judge ? callAnswer(a.judge) : null;
     const verdicts = v && v.record && Array.isArray(v.record.verdicts) ? v.record.verdicts : null;
-    const jobSays = jobRefusals[i] !== undefined ? `the job record's refusal: ${jobRefusals[i]}` : "the job record holds no refusal for this attempt";
+    const jobSays = jobRefusals[i] !== undefined ? `the job record's refusal: ${jobRefusals[i]}` : "the job record holds no refusal for this round";
     if (verdicts === null) {
       refused.push({ n: i + 1, waypoint: "—", why: `${a.judge ? "the judge's answer carried no readable verdicts" : "no judge call was recorded"}; ${jobSays}` });
       return;
@@ -1121,10 +1122,10 @@ function reviewBlock(r, idx) {
     for (const x of notFit) refused.push({ n: i + 1, waypoint: x.waypoint, why: x.why || "" });
     if (!notFit.length && jobRefusals[i] !== undefined) refused.push({ n: i + 1, waypoint: "—", why: `the judge answered fits at every Leg Waypoint; ${jobSays}` });
   });
-  const refusedHtml = !attempts.length ? `<p class="muted">No plan call was recorded.</p>`
-    : !refused.length ? `<p>no attempt was refused</p>`
-      : `<table class="refused"><thead><tr><th>attempt</th><th>Leg Waypoint</th><th>the judge's why</th></tr></thead><tbody>`
-        + refused.map((x) => `<tr><td><a href="#${attemptId(x.n, idx)}">attempt ${x.n}</a></td><td>${esc(x.waypoint)}</td><td>${esc(x.why)}</td></tr>`).join("")
+  const refusedHtml = !rounds.length ? `<p class="muted">No plan call was recorded.</p>`
+    : !refused.length ? `<p>no round was refused</p>`
+      : `<table class="refused"><thead><tr><th>round</th><th>Leg Waypoint</th><th>the judge's why</th></tr></thead><tbody>`
+        + refused.map((x) => `<tr><td><a href="#${roundId(x.n, idx)}">round ${x.n}</a></td><td>${esc(x.waypoint)}</td><td>${esc(x.why)}</td></tr>`).join("")
         + `</tbody></table>`;
 
   const bindingsHtml = rows.length
@@ -1136,7 +1137,7 @@ function reviewBlock(r, idx) {
 
   return `<section class="review" id="review-${idx}">`
     + `<h3>Segments</h3><div class="rpart segments">${segments}</div>`
-    + `<h3>Refused attempts</h3><div class="rpart refused">${refusedHtml}</div>`
+    + `<h3>Refused rounds</h3><div class="rpart refused">${refusedHtml}</div>`
     + `<h3>Bindings</h3><div class="rpart bindings">${bindingsHtml}</div>`
     + `</section>`;
 }

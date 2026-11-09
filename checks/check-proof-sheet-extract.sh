@@ -37,10 +37,10 @@
 #   (c) the run directory holds, per paragraph, the prompt as rendered (the
 #       `extraction_unit` row through `judgePrompt`, FORMAT verbatim above the input
 #       marker, and a JSON skeleton of the record with the paragraph number filled as a
-#       number and `answers` holding exactly q1 to q3), the answer, and the attempt count
+#       number and `answers` holding exactly q1 to q3), the answer, and the Round count
 #       with every refusal: paragraph 1's first answer omits an `operation` clause and its
 #       second names its paragraph as a string, each refused naming the field, and the
-#       third attempt's prompt carries BOTH refusals, oldest first; paragraph 2's first
+#       third Round's prompt carries BOTH refusals, oldest first; paragraph 2's first
 #       answer writes a `subject_nouns` entry into a `breaks` test and is refused
 #       naming the test (rule 7, kogaki#1440); the prompt carries rule 7's
 #       sentences; and it carries rule 9's read-aloud test, which excludes the page's
@@ -73,7 +73,7 @@
 #       Segment 1 and a `leaves` entry against the Segment it names; a question left standing that no
 #       entry names, a `takes` entry Segment 1 does not take up and a `leaves` entry a later Segment
 #       explains are each refused naming the Segment or the entry, the refusal reaching the
-#       Extractor's next attempt; the call's input is the four kinds with their definitions, the
+#       Extractor's next Round; the call's input is the four kinds with their definitions, the
 #       Segments' `operation` and `relation` and the two lists, and its prompt carries no `passage`,
 #       `earlier_paragraphs`, `reader_state_before` or `subject_nouns` key.
 #   (i) the constraints on the record and in the call's answer (kogaki#1698): the record refuses a
@@ -101,10 +101,10 @@
 #   (k) the content clause, judged source-bound (kogaki#1614), over the discriminating pair of the
 #       2026-10-26 run: the clause "two of the countries sit where the dilemma arises readily, while
 #       the strongest one sits where it does not" is refused naming "the strongest one", the refusal
-#       reaches the Extractor's next attempt verbatim beside the refused answer, and the clause naming
+#       reaches the Extractor's next Round verbatim beside the refused answer, and the clause naming
 #       Russia, China and the United States passes and is written with `content_bound`, one verdict
-#       per Segment; `p1/attempts.json` names both calls' attempts; the verdict call's input is each
-#       sentence beside its clause with `subject_nouns`; a clause refused on every attempt stops the run
+#       per Segment; `p1/rounds.json` names both calls' Rounds; the verdict call's input is each
+#       sentence beside its clause with `subject_nouns`; a clause refused on every Round stops the run
 #       at the Extractor's own budget, writing nothing; and the verdict answer's shape -- one per
 #       Segment, a `why` of at most twelve words, an unbound verdict quoting a phrase of its clause --
 #       is refused by name, as is the extraction call's answer carrying `content_bound`; and the sheet's
@@ -168,9 +168,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify(prompt) + "\\n");
   const p = input.paragraph_you_must_extract;
   const first = p.number === 1;
-  const counterPath = dir + "/attempt-" + p.number;
-  const attempt = (existsSync(counterPath) ? Number(readFileSync(counterPath, "utf8")) : 0) + 1;
-  writeFileSync(counterPath, String(attempt));
+  const counterPath = dir + "/round-" + p.number;
+  const round = (existsSync(counterPath) ? Number(readFileSync(counterPath, "utf8")) : 0) + 1;
+  writeFileSync(counterPath, String(round));
   if ("reader_state_before" in input) appendFileSync(dir + "/carried.jsonl", JSON.stringify(input.reader_state_before) + "\\n");
   const record = {
     version: "1", paragraph: p.number, source: "not given", prior_text: first ? "not assumed — opens on a fact" : "assumed — \\"So\\" takes up the previous paragraph",
@@ -188,9 +188,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     breaks: ["drop the fact — the cost floats", "put the cost first — no ground", "add a second example — the point blurs"],
     description: "Names an act, then names who pays for it.", name: "name_an_act_then_its_cost_" + p.number, notes: "",
   };
-  if (first && attempt === 1) delete record.segments[0].operation;
-  if (first && attempt === 2) record.paragraph = String(p.number);
-  if (!first && attempt === 1) record.breaks[0] = "drop the installer — the cost floats";
+  if (first && round === 1) delete record.segments[0].operation;
+  if (first && round === 2) record.paragraph = String(p.number);
+  if (!first && round === 1) record.breaks[0] = "drop the installer — the cost floats";
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(record) }) + "\\n");
   process.exit(0);
 });
@@ -448,23 +448,23 @@ else {
   ok(["q1", "q2", "q3"].every((k) => beforeInput.includes(`"${k}":`)) && !beforeInput.includes('"q4":'), "(c) p1/prompt.md's skeleton does not carry exactly the three answers keys");
   ok(existsSync(join(p1, "answer.json")), "(c) p1/answer.json was not written");
   ok(existsSync(join(p1, "reader-path-unit-p1.stdout")), "(c) the supervisor's raw answers for p1 are not in the run directory");
-  const a1 = existsSync(join(p1, "attempts.json")) ? JSON.parse(readFileSync(join(p1, "attempts.json"), "utf8")) : {};
-  ok(a1.attempts === 3, `(c) p1/attempts.json records ${a1.attempts} attempt(s), not 3`);
+  const a1 = existsSync(join(p1, "rounds.json")) ? JSON.parse(readFileSync(join(p1, "rounds.json"), "utf8")) : {};
+  ok(a1.rounds === 3, `(c) p1/rounds.json records ${a1.rounds} round(s), not 3`);
   ok(Array.isArray(a1.refusals) && a1.refusals.length === 2 && /Segment 1 carries no `operation`/.test(a1.refusals[0])
     && /names paragraph "1", not 1/.test(a1.refusals[1]),
-    `(c) p1/attempts.json does not record both refusals in order: ${JSON.stringify(a1.refusals)}`);
+    `(c) p1/rounds.json does not record both refusals in order: ${JSON.stringify(a1.refusals)}`);
   const prompts = readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   ok(prompts.length === 5, `(c) the fake judge was called ${prompts.length} time(s), not 5`);
   ok(prompts[1] && prompts[1].includes(a1.refusals[0]) && !prompts[1].includes(a1.refusals[1]),
-    "(c) the second attempt's prompt does not carry only the first attempt's refusal");
+    "(c) the second round's prompt does not carry only the first round's refusal");
   ok(prompts[2] && prompts[2].includes(a1.refusals[0]) && prompts[2].includes(a1.refusals[1])
     && prompts[2].indexOf(a1.refusals[0]) < prompts[2].indexOf(a1.refusals[1]),
-    "(c) the third attempt's prompt does not carry BOTH prior refusals, oldest first");
-  const o1 = existsSync(join(p1, "constraints", "attempts.json")) ? JSON.parse(readFileSync(join(p1, "constraints", "attempts.json"), "utf8")) : {};
-  ok(o1.attempts === 2 && /the answer carries no `unnamed`/.test((o1.refusals || [])[0] || ""),
-    `(c) p1/constraints/attempts.json does not record the refused answer and the second attempt: ${JSON.stringify(o1)}`);
-  const a2 = existsSync(join(runDir, "p2", "attempts.json")) ? JSON.parse(readFileSync(join(runDir, "p2", "attempts.json"), "utf8")) : {};
-  ok(a2.attempts === 2, `(c) p2/attempts.json records ${a2.attempts} attempt(s), not 2`);
+    "(c) the third round's prompt does not carry BOTH prior refusals, oldest first");
+  const o1 = existsSync(join(p1, "constraints", "rounds.json")) ? JSON.parse(readFileSync(join(p1, "constraints", "rounds.json"), "utf8")) : {};
+  ok(o1.rounds === 2 && /the answer carries no `unnamed`/.test((o1.refusals || [])[0] || ""),
+    `(c) p1/constraints/rounds.json does not record the refused answer and the second round: ${JSON.stringify(o1)}`);
+  const a2 = existsSync(join(runDir, "p2", "rounds.json")) ? JSON.parse(readFileSync(join(runDir, "p2", "rounds.json"), "utf8")) : {};
+  ok(a2.rounds === 2, `(c) p2/rounds.json records ${a2.rounds} round(s), not 2`);
   // rule 7's mechanical half (kogaki#1440): a subject noun in a `breaks` test is refused naming the test
   ok(Array.isArray(a2.refusals) && a2.refusals.length === 1 && /`breaks` test 1 names "installer", one of your subject_nouns/.test(a2.refusals[0]),
     `(c) a subject noun in a \`breaks\` test was not refused naming the test: ${JSON.stringify(a2.refusals)}`);
@@ -593,7 +593,7 @@ ok(/answers/.test(e5) && /one Segment per sentence/.test(e5), `(f) a record brok
 // lists in `unnamed` a question or term left standing that no entry names. Paragraph 1's first
 // answer names nothing in `leaves`, paragraph 3's carries a `takes` entry Segment 1 does not take
 // up, and paragraph 6's a `leaves` entry a later Segment explains: each is refused naming the entry
-// or the Segment, the refusal reaches the Extractor's next attempt verbatim, and the second answer
+// or the Segment, the refusal reaches the Extractor's next Round verbatim, and the second answer
 // is written. The call's rendered prompt carries no `passage`, `earlier_paragraphs`,
 // `reader_state_before` or `subject_nouns` key.
 const H_OPS = {
@@ -638,12 +638,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       unnamed: owed.filter((x) => !named(x)).map((x) => ({ ...x, why: "Segment " + x.segment + " leaves it and no entry names it." })) });
   }
   const p = input.paragraph_you_must_extract;
-  const counter = dir + "/attempt-" + p.number;
-  const attempt = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
-  writeFileSync(counter, String(attempt));
+  const counter = dir + "/round-" + p.number;
+  const round = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
+  writeFileSync(counter, String(round));
   const ops = OPS[p.number];
-  const leaves = p.number === 1 && attempt === 1 ? [] : p.number === 6 && attempt === 1 ? [{ kind: "explain", what: ${JSON.stringify(TERM)}, segment: 1 }] : left(ops.map((o) => o[0]));
-  const takes = p.number === 3 && attempt === 1 ? [{ kind: "explain", what: "a term an earlier step named" }] : p.number === 4 ? [{ kind: "explain", what: "the quantity just named" }] : [];
+  const leaves = p.number === 1 && round === 1 ? [] : p.number === 6 && round === 1 ? [{ kind: "explain", what: ${JSON.stringify(TERM)}, segment: 1 }] : left(ops.map((o) => o[0]));
+  const takes = p.number === 3 && round === 1 ? [{ kind: "explain", what: "a term an earlier step named" }] : p.number === 4 ? [{ kind: "explain", what: "the quantity just named" }] : [];
   answer({ version: "1", paragraph: p.number, source: "not given", prior_text: "not assumed", language: "English", subject_nouns: ["installer"],
     answers: { q1: "Hands the reader one claim.", q2: "Raises why it holds.", q3: "Attention from a plain claim." },
     what_it_does: "Hands the reader one claim.",
@@ -678,9 +678,9 @@ const hjudge = join(hroot, "fake-judge.mjs");
     ok(x && !("obligation" in x) && !("obligation_triggers" in x), `(h) paragraph ${n}'s record carries an obligation key`);
   }
   const run = readdirSync(hout).find((d) => d.startsWith("extractor-run-"));
-  const att = (n) => { const f = run ? join(hout, run, `p${n}`, "attempts.json") : ""; return f && existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : {}; };
+  const att = (n) => { const f = run ? join(hout, run, `p${n}`, "rounds.json") : ""; return f && existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : {}; };
   const refusal = (n) => (att(n).refusals || []).join("\n");
-  ok(/paragraph 1, Segment 1: leaves a question no `leaves` entry names \(answer: "what decides the pattern\?"\)/.test(refusal(1)) && att(1).constraints_attempts === 2,
+  ok(/paragraph 1, Segment 1: leaves a question no `leaves` entry names \(answer: "what decides the pattern\?"\)/.test(refusal(1)) && att(1).constraints_rounds === 2,
     `(h) paragraph 1's unnamed question was not refused naming the Segment: ${JSON.stringify(att(1))}`);
   ok(/paragraph 3: the `takes` entry 1 \(explain: "a term an earlier step named"\) is not supported by Segment 1/.test(refusal(3)),
     `(h) paragraph 3's takes entry was not refused against Segment 1: ${refusal(3)}`);
@@ -688,7 +688,7 @@ const hjudge = join(hroot, "fake-judge.mjs");
     `(h) paragraph 6's leaves entry was not refused against the Segment it names: ${refusal(6)}`);
   const p1Retry = run ? join(hout, run, "p1", "extract-2", "reader-path-job-units.json") : "";
   const p1Prompt = p1Retry && existsSync(p1Retry) ? JSON.stringify(JSON.parse(readFileSync(p1Retry, "utf8"))) : "";
-  ok(p1Prompt.includes("leaves a question no `leaves` entry names"), "(h) paragraph 1's constraints refusal does not reach the Extractor's next attempt");
+  ok(p1Prompt.includes("leaves a question no `leaves` entry names"), "(h) paragraph 1's constraints refusal does not reach the Extractor's next round");
   const inputs = existsSync(join(hroot, "constraints-inputs.jsonl")) ? readFileSync(join(hroot, "constraints-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
   ok(inputs.length === 9 && inputs.every((x) => JSON.stringify(Object.keys(x)) === '["kinds","segments","takes","leaves","obligation"]'
     && x.segments.every((s) => JSON.stringify(Object.keys(s)) === '["operation","relation"]') && x.obligation === null),
@@ -913,8 +913,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (input.kinds) return answer({ takes: input.takes.map((x) => ({ ...x, supported: true, why: "Segment 1 takes it up." })), leaves: input.leaves.map((x) => ({ ...x, supported: true, why: "The Segment leaves it." })), unnamed: [] });
   appendFileSync(dir + "/extract-prompts.jsonl", JSON.stringify(prompt) + "\\n");
-  const n = (existsSync(dir + "/attempt") ? Number(readFileSync(dir + "/attempt", "utf8")) : 0) + 1;
-  writeFileSync(dir + "/attempt", String(n));
+  const n = (existsSync(dir + "/round") ? Number(readFileSync(dir + "/round", "utf8")) : 0) + 1;
+  writeFileSync(dir + "/round", String(n));
   const p = input.paragraph_you_must_extract;
   answer({ version: "1", paragraph: p.number, source: "not given", prior_text: "not assumed", language: "English",
     subject_nouns: ["Russia", "China", "United States", "dilemma"],
@@ -942,27 +942,27 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const kw = existsSync(kf) ? recordOf(kf) : {};
   ok(((kw.segments || [])[1] || {}).content === GOOD, `(k) the written Segment 2 is not the clause naming Russia, China and the United States: ${JSON.stringify(kw.segments)}`);
   ok(JSON.stringify((kw.content_bound || []).map((v) => v.bound)) === "[true,true]", `(k) the record does not carry \`content_bound\`, one bound verdict per Segment: ${JSON.stringify(kw.content_bound)}`);
-  const ka = existsSync(join(pass.runDir, "p1", "attempts.json")) ? JSON.parse(readFileSync(join(pass.runDir, "p1", "attempts.json"), "utf8")) : {};
+  const ka = existsSync(join(pass.runDir, "p1", "rounds.json")) ? JSON.parse(readFileSync(join(pass.runDir, "p1", "rounds.json"), "utf8")) : {};
   const refusal = (ka.refusals || [])[0] || "";
-  ok(ka.attempts === 2 && ka.content_bound_attempts === 2 && /paragraph 1, Segment 2: the `content` clause leaves "the strongest one" unresolved/.test(refusal),
-    `(k) p1/attempts.json does not name the refusal of "the strongest one" and both calls' attempts: ${JSON.stringify(ka)}`);
-  ok(existsSync(join(pass.runDir, "p1", "content-bound", "attempts.json")) && existsSync(join(pass.runDir, "p1", "content-bound-2", "attempts.json")),
-    "(k) each round's content-bound call has no attempts record of its own");
+  ok(ka.rounds === 2 && ka.content_bound_rounds === 2 && /paragraph 1, Segment 2: the `content` clause leaves "the strongest one" unresolved/.test(refusal),
+    `(k) p1/rounds.json does not name the refusal of "the strongest one" and both calls' rounds: ${JSON.stringify(ka)}`);
+  ok(existsSync(join(pass.runDir, "p1", "content-bound", "rounds.json")) && existsSync(join(pass.runDir, "p1", "content-bound-2", "rounds.json")),
+    "(k) each round's content-bound call has no rounds record of its own");
   const kp = existsSync(join(pass.d, "extract-prompts.jsonl")) ? readFileSync(join(pass.d, "extract-prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
   ok(kp.length === 2 && !kp[0].includes(refusal) && refusal && kp[1].includes(refusal) && kp[1].includes(BAD),
-    `(k) the Extractor's second attempt does not carry the refusal verbatim beside the refused answer (${kp.length} prompt(s))`);
+    `(k) the Extractor's second round does not carry the refusal verbatim beside the refused answer (${kp.length} prompt(s))`);
   const kb = existsSync(join(pass.d, "bound-inputs.jsonl")) ? readFileSync(join(pass.d, "bound-inputs.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
   ok(kb.length === 2 && kb.every((x) => JSON.stringify(Object.keys(x)) === '["subject_nouns","segments"]'
     && x.segments.every((s) => JSON.stringify(Object.keys(s)) === '["sentence","content"]')) && kb[0].segments[1].sentence === S2,
     `(k) the content-bound call's input is not each sentence beside its content clause, with subject_nouns: ${JSON.stringify(kb[0])}`);
   const kcp = existsSync(join(pass.runDir, "p1", "content-bound", "prompt.md")) ? readFileSync(join(pass.runDir, "p1", "content-bound", "prompt.md"), "utf8") : "";
   ok(kcp.includes("You are the judge at the Extractor workflow's `content_bound_unit` judgment point."), "(k) p1/content-bound/prompt.md is not the content_bound_unit row rendered by judgePrompt");
-  // within the Extractor's own attempt budget: a clause refused on every attempt stops the run
+  // within the Extractor's own Round budget: a clause refused on every Round stops the run
   const stop = kRun("stop", { PSX_ALWAYS: "1" });
   const budget = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "utf8")).brief.unit_rounds;
-  ok(stop.res.status === 1 && new RegExp(`the content-bound call refused the Extraction after ${budget} attempt\\(s\\) — paragraph 1, Segment 2: the \`content\` clause leaves "the strongest one" unresolved`).test(stop.res.stdout)
+  ok(stop.res.status === 1 && new RegExp(`the content-bound call refused the Extraction after ${budget} round\\(s\\) — paragraph 1, Segment 2: the \`content\` clause leaves "the strongest one" unresolved`).test(stop.res.stdout)
     && !existsSync(join(stop.d, "out", "sort_cases_by_a_claim.yaml")),
-    `(k) a clause refused on every attempt did not stop the run at the Extractor's budget of ${budget}: ${stop.res.stdout}${stop.res.stderr}`);
+    `(k) a clause refused on every round did not stop the run at the Extractor's budget of ${budget}: ${stop.res.stdout}${stop.res.stderr}`);
   // the verdict call's own answer, read back
   const kin = { paragraph_you_must_extract: { number: 1, sentences: ["A.", S2] } };
   const krec = { segments: [{ content: "Some powers meet the dilemma" }, { content: BAD }] };

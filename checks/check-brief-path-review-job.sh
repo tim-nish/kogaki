@@ -42,7 +42,7 @@ const fails = [];
 // (x) kogaki#1301: PATH REVIEW IS A DETACHED JOB, ONE UNIT PER CANDIDATE. A
 // run directory just past `differentiation`, beside a `done` reader-path job
 // of three Candidates, is driven by `job await` alone against a fake judge
-// that answers every unit (refusing every attempt for `c2`) and logs each call.
+// that answers every unit (refusing every Round for `c2`) and logs each call.
 // (x1) each unit's prompt holds exactly one Candidate; (x2) three `done` units
 // assemble to the record keyed by `candidate_id`; (x3) the refused unit leaves
 // the other two at CANDIDATE_SELECTION with `c2` named above the question;
@@ -137,7 +137,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 
   const dir = mkRun("live");
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
     units: ["c1", "c2", "c3"].map((id, i) => ({ id: `candidate-${i + 1}`, status: "done", bytes: 50, candidate: cand(id) })),
   }, null, 2) + "\n");
   const outputs = [awaitIn(dir)];
@@ -193,7 +193,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   writeFileSync(runRecordPath(dir2), JSON.stringify({ ...rec2, brief_candidates: candsPath }, null, 2) + "\n");
   mkdirSync(join(dir2, "review-path"));
   writeFileSync(join(dir2, "review-path", "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
     units: cands.map((c, i) => ({ id: `review-${i + 1}`, status: "done", bytes: 50, candidate: entryFor(c) })),
   }, null, 2) + "\n");
   const r2 = awaitIn(dir2);
@@ -218,10 +218,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const dir6 = mkRun("fit-refused");
     const refusal = "THE MOVE FIT WAS JUDGED, AND THESE LEGS DO NOT FIT THE MOVE EACH BINDS:\nLeg s2 (m_turn): contradicts — fixture why.";
     writeFileSync(join(dir6, "reader-path-job.json"), JSON.stringify({
-      started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "done",
+      started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
       units: [
         { id: "candidate-1", status: "done", bytes: 50, candidate: cand("c1"), specialization: { version: "1", candidate_id: "c1", verdicts: [] } },
-        { id: "candidate-2", status: "refused", bytes: 50, candidate: cand("c2"), attempts: 3,
+        { id: "candidate-2", status: "refused", bytes: 50, candidate: cand("c2"), rounds: 3,
           failure: { class: "schema refusal", exit_code: 0, stderr_tail: refusal,
             move_fit: [{ leg_id: "s2", move: "m_turn", verdict: "contradicts", why: "fixture why." }] } },
         { id: "candidate-3", status: "done", bytes: 50, candidate: cand("c3"), specialization: { version: "1", candidate_id: "c3", verdicts: [] } },
@@ -259,7 +259,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   for (const k of ["stall_s", "heartbeat_ms"]) {
     if (job[k] === undefined || job[k] !== composeJob[k]) fails.push(`(x5) review_path's job block does not declare ${k} as the bound the supervisor enforces (${job[k]} vs ${composeJob[k]})`);
   }
-  if ((job.call_limit_s || {}).setting !== "brief.call_limit_s" || (job.unit_attempts || {}).setting !== "brief.unit_rounds"
+  if ((job.call_limit_s || {}).setting !== "brief.call_limit_s" || (job.unit_rounds || {}).setting !== "brief.unit_rounds"
     || job.absolute_limit_s !== undefined) {
     fails.push(`(x5) review_path's job does not name the settings brief.call_limit_s and brief.unit_rounds alone: ${JSON.stringify(job)}`);
   }

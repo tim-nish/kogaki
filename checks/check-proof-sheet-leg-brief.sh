@@ -14,9 +14,9 @@
 #       and `node src/draft.mjs resolve` accepts it with a plan written beside it by the
 #       ParagraphPlan stage's own writer — neither file edited.
 #   (c) the run directory holds the Leg call's prompt as rendered, the answer, and the
-#       attempt count with every refusal: the Leg's first answer carries the retired
+#       Round count with every refusal: the Leg's first answer carries the retired
 #       `reader_state_after`, is refused by the production `validateLegs` naming it
-#       (kogaki#1699), and the refusal is put verbatim into the second attempt's prompt; no
+#       (kogaki#1699), and the refusal is put verbatim into the second Round's prompt; no
 #       Reader start call is made, and the Leg call is handed the Persona's prior knowledge.
 #   (d) the rendered prompt carries the row's judgment point DERIVED from the production
 #       row — production text outside the substitutions present, the substituted spans
@@ -119,10 +119,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const prompt = Buffer.concat(c).toString("utf8");
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify(prompt) + "\\n");
   const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
-  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (call ");
   const ps = input.paragraphs;
   // a later Leg's id is its own, so the two-Leg run of (k) composes (kogaki#1560); the first
-  // attempt carries the retired \`reader_state_after\` and is refused naming it (kogaki#1699)
+  // Round carries the retired \`reader_state_after\` and is refused naming it (kogaki#1699)
   const record = { legs: [{ leg_id: ps[0].claim_strand === "L1" ? "copy-leg" : "copy-leg-" + ps[0].claim_strand, purpose: "Move the reader from owning the copy to seeing who owns it.",
     rationale: "It is the only Leg.", ...(retried ? {} : { reader_state_after: "knowledge: holds that the installer owns the copy" }),
     claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " from " + p.extraction.what_it_does })),
@@ -185,25 +185,25 @@ if (!runDir) fails.push("(c) the run printed no run directory");
 else {
   const table = JSON.parse(readFileSync(join(repo, "src", "proof-sheet", "extraction-workflow.json"), "utf8"));
   ok(!existsSync(join(runDir, "reader-start")), "(c) the run made a Reader start call, which is retired (kogaki#1699)");
-  for (const [sub, key, attempts] of [["leg-path", "leg_path_unit", 2]]) {
+  for (const [sub, key, rounds] of [["leg-path", "leg_path_unit", 2]]) {
     const d = join(runDir, sub);
     const prompt = existsSync(join(d, "prompt.md")) ? readFileSync(join(d, "prompt.md"), "utf8") : "";
     ok(prompt.includes(`You are the judge at the Leg Brief composer workflow's \`${key}\` judgment point.`), `(c) ${sub}/prompt.md is not the ${key} row rendered by judgePrompt`);
     ok(existsSync(join(d, "answer.json")), `(c) ${sub}/answer.json was not written`);
-    const a = existsSync(join(d, "attempts.json")) ? JSON.parse(readFileSync(join(d, "attempts.json"), "utf8")) : {};
-    ok(a.attempts === attempts, `(c) ${sub}/attempts.json records ${a.attempts} attempt(s), not ${attempts}`);
+    const a = existsSync(join(d, "rounds.json")) ? JSON.parse(readFileSync(join(d, "rounds.json"), "utf8")) : {};
+    ok(a.rounds === rounds, `(c) ${sub}/rounds.json records ${a.rounds} round(s), not ${rounds}`);
     const derived = LB.derivedRow(table, key);
     ok(!derived.error && prompt.includes(`JUDGMENT POINT: ${derived.row.judgment_point}`), `(d) ${sub}/prompt.md does not carry the derived judgment point: ${derived.error || ""}`);
     for (const s of table[key].substitutions) {
       if (s.from) ok(!prompt.includes(s.from), `(d) ${sub}/prompt.md still carries the substituted production span ${JSON.stringify(s.from.slice(0, 60))}`);
     }
   }
-  const lp = existsSync(join(runDir, "leg-path", "attempts.json")) ? JSON.parse(readFileSync(join(runDir, "leg-path", "attempts.json"), "utf8")) : {};
+  const lp = existsSync(join(runDir, "leg-path", "rounds.json")) ? JSON.parse(readFileSync(join(runDir, "leg-path", "rounds.json"), "utf8")) : {};
   ok(Array.isArray(lp.refusals) && lp.refusals.length === 1 && /carries `reader_state_after` — the Leg's reader states are retired \(kogaki#1699\)/.test(lp.refusals[0]),
-    `(c) leg-path/attempts.json does not record the production retired-field refusal: ${JSON.stringify(lp.refusals)}`);
+    `(c) leg-path/rounds.json does not record the production retired-field refusal: ${JSON.stringify(lp.refusals)}`);
   const prompts = readFileSync(join(root, "prompts.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   ok(prompts.length === 2, `(c) the fake judge was called ${prompts.length} time(s), not 2`);
-  ok(prompts[1] && lp.refusals && prompts[1].includes(lp.refusals[0]), "(c) the second Leg attempt's prompt does not carry the refusal verbatim");
+  ok(prompts[1] && lp.refusals && prompts[1].includes(lp.refusals[0]), "(c) the second Leg round's prompt does not carry the refusal verbatim");
   const marker = "----- INPUT (JSON) -----";
   let in0 = {};
   try { in0 = JSON.parse(prompts[0].slice(prompts[0].indexOf(marker) + marker.length)); } catch { /* reported below */ }

@@ -24,7 +24,7 @@
 #       pipeline order, stacked with no `.cols` row (kogaki#1487); every card has Output, Inputs, Prompt and Calls in
 #       that order, Output open -- folded on the Move and Brief cards (kogaki#1487) -- and the other three folded, and
 #       every Inputs entry links to another card's id on the page; the Extraction card shows paragraph 1's prompt and
-#       two attempts; the Draft card states its prompt equals the Packet rather than repeating it; every recorded
+#       two Rounds; the Draft card states its prompt equals the Packet rather than repeating it; every recorded
 #       call's prompt but the judging calls' (kogaki#1614, kogaki#1652, kogaki#1698), cut into its instruction and its input, has each piece
 #       appear exactly once on the whole page (a retry shows only the refusal block it inserted); the Audience and the settings appear only in the run-conditions line.
 #   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
@@ -35,27 +35,27 @@
 #   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each record its language,
 #       hand it to the Leg Brief composer and the Packet, and the Brief and the Draft carry it; another Audience's
 #       language replaces it throughout; an Audience declaring none is refused by name at the Brief stage.
-#   (l) the ParagraphPlan card's Attempts part (kogaki#1437, kogaki#1642): the main run's fake judge answers
+#   (l) the ParagraphPlan card's Rounds part (kogaki#1437, kogaki#1642): the main run's fake judge answers
 #       `does-not-fit` at Leg Waypoint 2 on the Leg call and `fits` on the site retry there, and the part carries two
 #       blocks -- the Leg call's, with its Paragraph Waypoints, the verdict and its `why`, naming where the site call's
 #       prompt is shown; and the site retry's, titled by its Leg Waypoint, `fits` at Leg Waypoints 2 and 3 alone, and "no further
-#       attempt". A run refused on every attempt shows the Leg call and every site retry, as many blocks as the job's attempts, and an Output of "(not written)". The Calls part names "the judge call" and never "the check call".
+#       Round". A run refused on every Round shows the Leg call and every site retry, as many blocks as the job's Rounds, and an Output of "(not written)". The Calls part names "the judge call" and never "the check call".
 #   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
 #       for each Leg Waypoint after the first carries its `join` type word (kogaki#1477), read from the row block
-#       alone since the Attempts part shows it too, and the row for Leg Waypoint 1 carries none.
+#       alone since the Rounds part shows it too, and the row for Leg Waypoint 1 carries none.
 #   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Leg Waypoint 2 a `performs` Paragraph
-#       Waypoint, and the ParagraphPlan card's Output row and Attempts part carry its text in italics with no list
+#       Waypoint, and the ParagraphPlan card's Output row and Rounds part carry its text in italics with no list
 #       item empty; each Extraction paragraph block opens on its Segments table, with the folded "rendering" and
 #       "record file" blocks after it. Between the two sits an open `takes / leaves / breaks` table (kogaki#1534, kogaki#1699):
 #       one row each for the paragraph's Move file's `takes` and `leaves`, then one row listing that file's `breaks` in
 #       order; the Move file carries no `before` or `after` (kogaki#1699).
 #   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
-#       block carrying one Segments table per paragraph, a refused-attempts table with exactly one row -- attempt 1,
-#       Leg Waypoint 2, the judge's `why` -- linking to that attempt's block, and a Bindings table with one row per
+#       block carrying one Segments table per paragraph, a refused-rounds table with exactly one row -- Round 1,
+#       Leg Waypoint 2, the judge's `why` -- linking to that Round's block, and a Bindings table with one row per
 #       Leg Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "takes
 #       / leaves" `<details>` closed on load holding the Move file's takes and leaves, and no other row in the table
-#       (kogaki#1516); an attempt whose judge answer is unreadable is a row carrying the job record's refusal; the
-#       resumed run (h), refused nowhere, renders "no attempt was refused". Each ParagraphPlan Output row opens on
+#       (kogaki#1516); a Round whose judge answer is unreadable is a row carrying the job record's refusal; the
+#       resumed run (h), refused nowhere, renders "no Round was refused". Each ParagraphPlan Output row opens on
 #       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
 #       followed by its bound Move's `description` as one plain paragraph and then its table, and a paragraph with no
 #       Move bound has nothing between the two (kogaki#1517); each table there is followed by its Move file's `breaks` as one ordered list in order, the unbound paragraph's by nothing (kogaki#1637).
@@ -92,7 +92,7 @@
 #       Brief card marking five fields `derived`; and the one-file run's record keeps its shape apart from the `legs`
 #       list.
 #   (t) the Claim's words in its points (kogaki#1547): a run whose fake Leg answer first drops one content word of
-#       Claim 2 from point 2, then gives the full point, records one refusal in the Leg row's `attempts.json` naming
+#       Claim 2 from point 2, then gives the full point, records one refusal in the Leg row's `rounds.json` naming
 #       the Claim and the word, carries the second answer in the Brief, and runs every later stage.
 #   (u) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief --legs 2` makes no
 #       Extractor call, keeps four Extraction records, composes a two-Leg Brief whose second Leg `depends_on` the
@@ -113,7 +113,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync, statSync, cpSync, rmSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync, statSync, cpSync, rmSync, copyFileSync, renameSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -127,11 +127,11 @@ const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const readOr = (p, dflt) => (existsSync(p) ? readFileSync(p, "utf8") : dflt);
 const COPY = '<button type="button" class="copy-table">copy table</button>', escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-// (l) The ParagraphPlan card's Attempts part, cut into its per-attempt blocks.
-const attemptBlocks = (cardHtml) => {
-  const a = cardHtml.indexOf('<details class="part attempts">');
+// (l) The ParagraphPlan card's Rounds part, cut into its per-Round blocks.
+const roundBlocks = (cardHtml) => {
+  const a = cardHtml.indexOf('<details class="part rounds">');
   if (a < 0) return [];
-  return cardHtml.slice(a, cardHtml.indexOf('<details class="part in"', a)).split("<summary>attempt ").slice(1);
+  return cardHtml.slice(a, cardHtml.indexOf('<details class="part in"', a)).split("<summary>round ").slice(1);
 };
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
@@ -184,7 +184,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     writeSync(1, stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   };
   const body = (key) => { const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at); return JSON.parse(prompt.slice(open)); };
-  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (call ");
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
     // (l) PSR_PLAN_REFUSE: "first" refuses Leg Waypoint 2 on the first judge call only, "all" on every one.
@@ -367,7 +367,7 @@ else {
     ok(/<details class="part prompt"(?! open)><summary>Prompt<\/summary>/.test(c), `(e) the ${name} card's Prompt is missing, or opens by default`);
     ok(/<details class="part calls"(?! open)><summary>Calls<\/summary>/.test(c), `(e) the ${name} card's Calls is missing, or opens by default`);
     const partOrder = [...c.matchAll(/<details class="part (\w+)"/g)].map((m) => m[1]);
-    const wantOrder = key === "paragraphPlan" ? ["out", "attempts", "in", "prompt", "calls"] : ["out", "in", "prompt", "calls"];
+    const wantOrder = key === "paragraphPlan" ? ["out", "rounds", "in", "prompt", "calls"] : ["out", "in", "prompt", "calls"];
     ok(JSON.stringify(partOrder) === JSON.stringify(wantOrder), `(e) the ${name} card's parts are out of order: ${partOrder.join(",")}`);
     for (const href of [...c.matchAll(/<a href="#([^"]+)">/g)].map((m) => m[1])) {
       ok(ORDER.some((k) => href === `card-0-${k}`), `(e) the ${name} card's Inputs links to "${href}", which is not a card`);
@@ -399,7 +399,7 @@ else {
   ok(cards.extraction.includes("<th>operation</th><th>relation</th><th>manner</th>") && cards.extraction.includes(`<td>${MANNER}</td>`)
     && !cards.extraction.includes("<th>does</th>"), "(e) the Extraction card's Segment table does not carry the manner column (kogaki#1510)");
   const ex1 = cards.extraction.slice(cards.extraction.indexOf("paragraph 1"));
-  ok(ex1.includes("attempts 2") && ex1.includes("call 2 of 2"), "(e) the Extraction card does not show paragraph 1's two attempts");
+  ok(ex1.includes("rounds 2") && ex1.includes("call 2 of 2"), "(e) the Extraction card does not show paragraph 1's two rounds");
 
   ok(/id="run-conditions"[\s\S]*?Round bound \(brief\.unit_rounds\)/.test(html), "(e) the run-conditions line does not show the settings the stages read");
   for (const key of ORDER) {
@@ -413,7 +413,7 @@ else {
   // retry shows only the refusal block it inserted.
   const occurrences = (needle) => mainHtml.split(needle).length - 1;
   const INPUT = "----- INPUT (JSON) -----";
-  const REFUSED = "----- YOUR PREVIOUS ANSWER (attempt ";
+  const REFUSED = "----- YOUR PREVIOUS ANSWER (call ";
   let pieces = 0;
   for (const st of ["extract", "brief", "paragraph-plan", "draft"]) {
     const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -553,7 +553,7 @@ else {
 
   // (m) THE JOIN IN THE PARAGRAPHPLAN OUTPUT (kogaki#1445): each Leg Waypoint row of the card's
   // Output carries the plan file's join for a Leg Waypoint after the first and none for the
-  // first. The join also appears in the Attempts part, so this reads the row block alone --
+  // first. The join also appears in the Rounds part, so this reads the row block alone --
   // a match over the card or the page would pass with the row's line deleted (the consult
   // receipt on the Issue).
   const planWps = (plan.legs && plan.legs[0] && plan.legs[0].waypoints) || [];
@@ -598,31 +598,31 @@ else {
       `(n) the Extraction block for paragraph ${i} carries no open takes / leaves / breaks table of its Move between its Segments table and the folded rendering`);
   }
 
-  // (l) THE ATTEMPTS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Leg Waypoint 2
+  // (l) THE ROUNDS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Leg Waypoint 2
   // and the site retry there passed, so the part holds two blocks, the second titled by its site
   // and judged at Leg Waypoint 2 and the join of Leg Waypoint 3 alone.
   const planCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_you_must_plan"'));
   const siteCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_waypoint_you_must_plan"'));
   ok(planCalls.length === 1 && siteCalls.length === 1, `(l) the ParagraphPlan made ${planCalls.length} Leg call(s) and ${siteCalls.length} site call(s), not one each (refused at Leg Waypoint 2, then repaired there)`);
-  const blocks = attemptBlocks(cards.paragraphPlan);
-  ok(blocks.length === 2, `(l) the Attempts part holds ${blocks.length} block(s), not 2`);
+  const blocks = roundBlocks(cards.paragraphPlan);
+  ok(blocks.length === 2, `(l) the Rounds part holds ${blocks.length} block(s), not 2`);
   if (blocks.length === 2 && siteCalls.length === 1) {
     const [b1, b2] = blocks;
-    ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) attempt 1's block does not show its Paragraph Waypoints");
-    ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) attempt 1's block does not show the performs Paragraph Waypoint in italics");
+    ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) round 1's block does not show its Paragraph Waypoints");
+    ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) round 1's block does not show the performs Paragraph Waypoint in italics");
     ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
-      "(l) attempt 1's block does not show the does-not-fit verdict with its why");
-    ok(b1.includes("The next attempt's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2, byte for byte."), "(l) attempt 1's block does not name where the site call's prompt is shown");
+      "(l) round 1's block does not show the does-not-fit verdict with its why");
+    ok(b1.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2, byte for byte."), "(l) round 1's block does not name where the site call's prompt is shown");
     ok(b2.startsWith("2 of 2 — site retry at Leg Waypoint 2") && b2.includes("PW-2-1 the paragraph makes its point. Rewritten 1."),
-      "(l) attempt 2's block is not titled as the site retry at Leg Waypoint 2, or does not show its rewritten Paragraph Waypoints");
-    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 2 && b2.includes("Leg Waypoint 3: <b>fits</b>"), "(l) attempt 2's block does not show fits at Leg Waypoint 2 and the join of Leg Waypoint 3 alone");
-    ok(b2.includes("no further attempt: the job ended `done`"), "(l) attempt 2's block does not say no further attempt");
-    ok(!/class="stop">The judge answered/.test(b1 + b2), "(l) the Attempts part shows a mismatch between the judge and the job record on a run where they agree");
+      "(l) round 2's block is not titled as the site retry at Leg Waypoint 2, or does not show its rewritten Paragraph Waypoints");
+    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 2 && b2.includes("Leg Waypoint 3: <b>fits</b>"), "(l) round 2's block does not show fits at Leg Waypoint 2 and the join of Leg Waypoint 3 alone");
+    ok(b2.includes("no further round: the job ended `done`"), "(l) round 2's block does not say no further round");
+    ok(!/class="stop">The judge answered/.test(b1 + b2), "(l) the Rounds part shows a mismatch between the judge and the job record on a run where they agree");
   }
   ok(cards.paragraphPlan.includes("the judge call") && !cards.paragraphPlan.includes("the check call"), "(l) the Calls part does not name the judge call, or still names the check call");
 
   // (o) THE REVIEW BLOCK AND THE POINT LINE (kogaki#1487). Every property is read inside the
-  // part it belongs to, and the refused-attempts table is held to one row naming attempt 1,
+  // part it belongs to, and the refused-rounds table is held to one row naming Round 1,
   // Leg Waypoint 2 and the judge's why -- a silent table cannot pass, since the run that
   // refused nothing must render its own line (below, on the resumed run).
   const reviewAt = html.indexOf('<section class="review" id="review-0">');
@@ -640,7 +640,7 @@ else {
   // no details element anywhere between the comparison table and the first card but each
   // binding's closed takes / leaves fold (kogaki#1516, kogaki#1699).
   ok(!review.replace(/<details class="states"><summary>takes \/ leaves<\/summary>/g, "").includes("<details") && !review.includes("<h3>Review</h3>")
-    && ["Segments", "Refused attempts", "Bindings"].every((h) => review.includes(`<h3>${h}</h3>`)),
+    && ["Segments", "Refused rounds", "Bindings"].every((h) => review.includes(`<h3>${h}</h3>`)),
     "(o) the paragraph tables carry a details element or a Review heading, or lack their own three headings");
   const segPart = rpart("segments");
   ok((segPart.match(/<th>content clause<\/th>/g) || []).length === 3 && [1, 2, 3].every((i) => segPart.includes(`CONTENT-${i}-1`) && segPart.includes(`paragraph ${i} — name_an_act_then_its_cost_${i}`)),
@@ -692,11 +692,11 @@ else {
   ok(!html.includes("Original Leg") && !nSeg.includes("Original Leg") && pairHead.includes('<th>Original Paragraph <span class="meta">'), "(z) a built sheet carries an Original Leg header, or its comparison table is not headed Original Paragraph");
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
-  ok(refRows.length === 1 && refRows[0].includes(`href="#attempt-0-1"`) && refRows[0].includes("<td>2</td>")
+  ok(refRows.length === 1 && refRows[0].includes(`href="#round-0-1"`) && refRows[0].includes("<td>2</td>")
     && refRows[0].includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
-    `(o) the refused-attempts table does not carry exactly one row naming attempt 1, Leg Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
-  const att1 = cards.paragraphPlan.indexOf('id="attempt-0-1"');
-  ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part attempts">', att1) >= 0, "(o) the refused row's link names no attempt block on the ParagraphPlan card");
+    `(o) the refused-rounds table does not carry exactly one row naming round 1, Leg Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
+  const att1 = cards.paragraphPlan.indexOf('id="round-0-1"');
+  ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part rounds">', att1) >= 0, "(o) the refused row's link names no round block on the ParagraphPlan card");
   if (existsSync(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"))) fails.push("(o) the run directory still carries a paragraph-plan-bindings.json, retired (kogaki#1639)"); const bindRec = (parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan").legs || []).flatMap((l) => (l.waypoints || []).map((w) => ({ waypoint: w.waypoint, move: w.move, rationale: w.rationale })));
   const bindPart = rpart("bindings");
   // A binding row runs to the next binding row: the Move's takes / leaves table nests inside it.
@@ -718,8 +718,8 @@ else {
   const bodyRows = (bindBody.replace(/<details class="states">[\s\S]*?<\/details>/g, "").match(/<tr[\s>]/g) || []).length;
   ok(bodyRows === bindRec.length && !/<details class="states"[^>]*\sopen/.test(bindPart) && !bindPart.includes('<tr class="states">'),
     `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Leg Waypoint(s), or a takes / leaves fold is open on load`);
-  // An attempt whose judge answer is unreadable is a row carrying the job record's refusal,
-  // never a silence read as "no attempt was refused".
+  // A Round whose judge answer is unreadable is a row carrying the job record's refusal,
+  // never a silence read as "no Round was refused".
   const unreadable = join(root, "unreadable-judge-run");
   cpSync(runDir, unreadable, { recursive: true });
   const ppCalls = readFileSync(join(unreadable, "paragraph-plan", "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
@@ -731,8 +731,8 @@ else {
   const uRef = uHtml.slice(uHtml.indexOf('<div class="rpart refused">'), uHtml.indexOf('<div class="rpart bindings"'));
   const uJob = JSON.parse(readOr(join(unreadable, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
   const uRefusal = (((uJob.units || [])[0] || {}).refusals || [])[0];
-  ok(firstJudge >= 0 && !uRef.includes("no attempt was refused") && uRef.includes(`href="#attempt-0-1"`) && uRef.includes("no readable verdicts")
-    && !!uRefusal && uRef.includes(escHtml(uRefusal)), "(o) an attempt with an unreadable judge answer does not render a row carrying the job record's refusal");
+  ok(firstJudge >= 0 && !uRef.includes("no round was refused") && uRef.includes(`href="#round-0-1"`) && uRef.includes("no readable verdicts")
+    && !!uRefusal && uRef.includes(escHtml(uRefusal)), "(o) a round with an unreadable judge answer does not render a row carrying the job record's refusal");
 
   for (let i = 1; i <= 3; i++) {
     const at = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0">`);
@@ -755,34 +755,40 @@ else {
   const built = S.buildSheet({ runs: [stoppedRun], provenance: map, out: join(root, "stopped.html") });
   const sh = built.written ? readFileSync(built.written, "utf8") : "";
   ok(sh.includes("STOP-LINE the writer refused section") && sh.includes("<b>Packet"), "(f) a stopped Draft stage does not draw the card with the stop");
+
+  // (retired) kogaki#1760: a run whose Rounds files carry the retired name draws the same Round counts.
+  const { RETIRED_NAMES } = await imp("src/workflow/call-record.mjs"), retiredRun = join(root, "retired-run"), renamed = []; cpSync(runDir, retiredRun, { recursive: true });
+  const renameRounds = (d) => readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? renameRounds(join(d, e.name)) : e.name === "rounds.json" && renamed.push(renameSync(join(d, e.name), join(d, RETIRED_NAMES.roundsFile))))); renameRounds(retiredRun);
+  const countsOf = (dir, out) => { const b = S.buildSheet({ runs: [dir], provenance: map, out: join(root, out) }); return (b.written ? readFileSync(b.written, "utf8") : "").match(/— rounds [^<]*/g) || []; }; const nowCounts = countsOf(runDir, "now.html"), wasCounts = countsOf(retiredRun, "retired.html");
+  ok(renamed.length > 0 && nowCounts.length > 0 && !nowCounts.some((c) => c.includes("?")) && JSON.stringify(wasCounts) === JSON.stringify(nowCounts), `(retired) a run whose Rounds files carry the retired name did not draw the same Round counts: ${renamed.length} ${JSON.stringify(nowCounts)} ${JSON.stringify(wasCounts)}`);
 }
 
-// (l) A PARAGRAPHPLAN REFUSED ON EVERY ATTEMPT: the run stops at paragraph-plan, and the sheet
-// shows every attempt, each refused at Leg Waypoint 2, and an Output of "(not written)".
-const lRoot = join(root, "refused-every-attempt");
+// (l) A PARAGRAPHPLAN REFUSED ON EVERY ROUND: the run stops at paragraph-plan, and the sheet
+// shows every Round, each refused at Leg Waypoint 2, and an Output of "(not written)".
+const lRoot = join(root, "refused-every-round");
 mkdirSync(lRoot, { recursive: true });
 writeFileSync(join(lRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
 const r6 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(lRoot, "leg-fixture.md"), "--out", join(lRoot, "out"), "--provenance", map],
   { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: lRoot, PSR_PLAN_REFUSE: "all" }, timeout: 600000 });
 const lRunDir = (r6.stdout.match(/^run directory: (.+)$/m) || [])[1];
-ok(!!lRunDir, `(l) the run refused on every ParagraphPlan attempt printed no run directory: ${r6.stdout}${r6.stderr}`);
+ok(!!lRunDir, `(l) the run refused on every ParagraphPlan round printed no run directory: ${r6.stdout}${r6.stderr}`);
 if (lRunDir) {
   const lRun = JSON.parse(readFileSync(join(lRunDir, "run.json"), "utf8"));
   const pp = lRun.stages.find((st) => st.stage === "paragraph-plan") || {};
-  ok(pp.state && pp.state !== "done", `(l) the ParagraphPlan stage ended ${pp.state} on a run refused at every attempt`);
+  ok(pp.state && pp.state !== "done", `(l) the ParagraphPlan stage ended ${pp.state} on a run refused at every round`);
   const built = S.buildSheet({ runs: [lRunDir], provenance: map, out: join(lRoot, "sheet.html") });
   const lHtml = built.written ? readFileSync(built.written, "utf8") : "";
   const ppAt = lHtml.indexOf('id="card-0-paragraphPlan"');
   const ppCard = ppAt >= 0 ? lHtml.slice(ppAt, lHtml.indexOf('id="card-0-packet"')) : "";
   const lJob = JSON.parse(readOr(join(lRunDir, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
-  const spent = ((lJob.units || [])[0] || {}).attempts;
-  const blocks = attemptBlocks(ppCard);
-  ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Attempts part holds ${blocks.length} block(s) against the ${spent} attempt(s) the job spent`);
-  ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused attempt's block does not show its does-not-fit verdict and why");
-  ok(blocks.slice(1).every((b) => b.includes("site retry at Leg Waypoint 2")), "(l) a refused attempt after the Leg call is not titled as the site retry at Leg Waypoint 2");
-  ok(blocks.slice(0, -1).every((b) => b.includes("The next attempt's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2")), "(l) a refused attempt's block does not name where the next site call's prompt is shown");
-  ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further attempt: the job ended \`${lJob.state}\``), "(l) the last refused attempt does not say no further attempt and the job's state");
-  const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part attempts"'));
+  const spent = ((lJob.units || [])[0] || {}).rounds;
+  const blocks = roundBlocks(ppCard);
+  ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Rounds part holds ${blocks.length} block(s) against the ${spent} round(s) the job spent`);
+  ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused round's block does not show its does-not-fit verdict and why");
+  ok(blocks.slice(1).every((b) => b.includes("site retry at Leg Waypoint 2")), "(l) a refused round after the Leg call is not titled as the site retry at Leg Waypoint 2");
+  ok(blocks.slice(0, -1).every((b) => b.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2")), "(l) a refused round's block does not name where the next site call's prompt is shown");
+  ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further round: the job ended \`${lJob.state}\``), "(l) the last refused round does not say no further round and the job's state");
+  const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part rounds"'));
   ok(output.includes("(not written)"), "(l) the refused run's ParagraphPlan Output does not read (not written)");
 }
 
@@ -908,7 +914,7 @@ if (hRunDir) {
   ok(existsSync(join(hRunDir, "sheet.html")), "(h) the resumed run did not write a sheet");
   const hSheet = readOr(join(hRunDir, "sheet.html"), "");
   const hRef = hSheet.slice(hSheet.indexOf('<div class="rpart refused">'), hSheet.indexOf('<div class="rpart bindings"'));
-  ok(hRef.includes("<p>no attempt was refused</p>") && !hRef.includes("<table"), "(o) the resumed run, refused nowhere, does not render \"no attempt was refused\"");
+  ok(hRef.includes("<p>no round was refused</p>") && !hRef.includes("<table"), "(o) the resumed run, refused nowhere, does not render \"no round was refused\"");
   const extractCmd = JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8"));
   ok(extractCmd.length > extractDoneBefore.length, "(h) the resumed extract stage replaced command.json instead of appending to it");
 
@@ -1464,7 +1470,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 
 // (t) THE CLAIM'S WORDS IN ITS POINTS (kogaki#1547): the main fake binary's first Leg answer
 // writes point 2 without its Claim's language word and its second the full point. The Leg
-// row's attempts.json records one refusal naming Claim 2 and the word, the Brief carries the
+// row's rounds.json records one refusal naming Claim 2 and the word, the Brief carries the
 // second answer, and every later stage runs.
 {
   const tRoot = join(root, "claim-coverage");
@@ -1479,11 +1485,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
       `(t) the stages after the refused Leg answer did not all run: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
     const lb = existsSync(join(tRunDir, "brief")) ? readdirSync(join(tRunDir, "brief")).filter((f) => f.startsWith("leg-brief-run-")) : [];
-    const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "attempts.json") : "";
+    const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "rounds.json") : "";
     const a = ap && existsSync(ap) ? JSON.parse(readFileSync(ap, "utf8")) : {};
-    ok(a.attempts === 2 && Array.isArray(a.refusals) && a.refusals.length === 1
+    ok(a.rounds === 2 && Array.isArray(a.refusals) && a.refusals.length === 1
       && /Claim 2 \(L2\) carries "english" in its `proposition`, which is in no `point` of the Leg Waypoints serving L2 \(read: waypoint 2\)/.test(a.refusals[0]),
-      `(t) leg-path/attempts.json does not record one refusal naming Claim 2 and the word: ${JSON.stringify(a)}`);
+      `(t) leg-path/rounds.json does not record one refusal naming Claim 2 and the word: ${JSON.stringify(a)}`);
     const brief = readOr(join(tRunDir, "brief", "brief.yaml"), "");
     ok(brief.includes("POINT-2 names CLAIM-2 in English"), "(t) the Brief does not carry the second Leg answer's full point");
   }

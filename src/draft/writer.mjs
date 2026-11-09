@@ -90,16 +90,16 @@ function writerText(stdout, outputFormat) {
 // between asks -- the Packet is the whole input, and re-reading the material is
 // not what is wanted.
 export function callWriter({ settings, act, legId, input, refuse }) {
-  const attempts = 1 + settings.retries[act];
+  const calls = 1 + settings.retries[act];
   const refused = [];
-  for (let n = 1; n <= attempts; n++) {
+  for (let n = 1; n <= calls; n++) {
     const r = spawnSync(settings.binary.path,
       ["-p", "--model", settings.model, "--output-format", settings.output_format,
         "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
         "--setting-sources", "", "--no-session-persistence"],
       { input, encoding: "utf8", timeout: 1000 * settings.timeout_s, maxBuffer: 64 * 1024 * 1024 });
     if (r.error) {
-      fail(`leg ${legId}: the writer (${settings.binary.path}) could not be run for \`${act}\` (${r.error.code || "spawn failed"}: ${r.error.message}) — attempt ${n} of ${attempts}`);
+      fail(`leg ${legId}: the writer (${settings.binary.path}) could not be run for \`${act}\` (${r.error.code || "spawn failed"}: ${r.error.message}) — call ${n} of ${calls}`);
     }
     if (r.status !== 0) {
       const said = String(r.stderr || "").trim().split("\n")[0] || "(no stderr)";
@@ -120,10 +120,10 @@ export function callWriter({ settings, act, legId, input, refuse }) {
       fail(`leg ${legId}: the writer refused \`${act}\` — ${declaredRefusal} — no ${act} is recorded, and this is not re-asked`);
     }
     const bad = (text && typeof text === "object" && text.error) ? text.error : refuse(text);
-    if (!bad) return { text, attempts: n, refused };
+    if (!bad) return { text, calls: n, refused };
     refused.push(bad);
   }
-  fail(`leg ${legId}: the writer's \`${act}\` response was refused ${attempts} time(s) and the declared retries.${act}=${settings.retries[act]} are spent — the Leg is not recorded. Last refusal: ${refused[refused.length - 1]}`);
+  fail(`leg ${legId}: the writer's \`${act}\` response was refused ${calls} time(s) and the declared retries.${act}=${settings.retries[act]} are spent — the Leg is not recorded. Last refusal: ${refused[refused.length - 1]}`);
 }
 
 // THE DECLARED FORM, pure: a response whose FIRST LINE is `refusal: <reason>`

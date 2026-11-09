@@ -86,14 +86,14 @@ function runRow({ dir, unitId, row, input, recordArray, validator, bounds }) {
   startDetachedJobSupervisor(dir, { units: [{ id: unitId, prompt }], ...bounds, recordArray, validator });
   const job = awaitJob(dir, bounds.heartbeatMs);
   const u = (job.units || [])[0] || {};
-  writeJson(join(dir, "attempts.json"), { row: row.id, state: job.state, status: u.status || null,
-    attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.refusal_reach ? { refusal_reach: u.refusal_reach } : {}),
+  writeJson(join(dir, "rounds.json"), { row: row.id, state: job.state, status: u.status || null,
+    rounds: u.rounds || 1, refusals: u.refusals || [], ...(u.refusal_reach ? { refusal_reach: u.refusal_reach } : {}),
     ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
   if (job.state !== "done" || u.status !== "done" || !u.candidate) {
     // A refusal of reach `stop` names its group, and whether the row declares it (kogaki#1708).
     const f = u.failure || {};
     const reach = f.reach === "stop" ? `the refusal of group ${JSON.stringify(f.group)} ${f.undeclared ? "names a group the row does not declare" : "has reach stop"}: ` : "";
-    return { stopped: `the Trial's Brief stopped at \`${row.id}\`: the job ended ${job.state} after ${u.attempts || 1} attempt(s) — `
+    return { stopped: `the Trial's Brief stopped at \`${row.id}\`: the job ended ${job.state} after ${u.rounds || 1} round(s) — `
       + reach + String(lastRefusal(job)).split("\n").join(" ") };
   }
   writeJson(join(dir, "answer.json"), u.candidate);
@@ -124,7 +124,7 @@ function judgeBounds(extraction) {
   return {
     command: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || extraction.judge.command), process.env.PATH).path,
     model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
-    callLimitS: positiveSetting(extraction.job, "call_limit_s"), unitAttempts: positiveSetting(extraction.job, "unit_attempts"),
+    callLimitS: positiveSetting(extraction.job, "call_limit_s"), unitRounds: positiveSetting(extraction.job, "unit_rounds"),
     stallS: Number(extraction.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: jobHeartbeatMs(extraction.job.heartbeat_ms),
   };
 }
@@ -149,7 +149,7 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
   const r = runRow({ dir, unitId: "map", row: m.row, recordArray: "roles", input: mapperInput(strand, persona),
     validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, proposition: strand.proposition },
       ...(m.row.refusal_reach ? { refusal_reach: m.row.refusal_reach } : {}) },
-    bounds: { ...judgeBounds(extraction), unitAttempts: MAPPER_CALLS } });
+    bounds: { ...judgeBounds(extraction), unitRounds: MAPPER_CALLS } });
   if (r.stopped) return { stopped: r.stopped.replace("the Trial's Brief stopped", "the Mapper stopped") };
   writeFileSync(resolve(structureOut), stringifyYaml(r.record));
   return { structure: resolve(structureOut), prompt: join(dir, "prompt.md") };

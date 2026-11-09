@@ -12,7 +12,7 @@ import {
   softRefusals,
 } from "./run-record.mjs";
 import { NO_GLOSS_BODY } from "./strands.mjs";
-import { writeAttemptRecord, cliRecord, tableRecord } from "./attempt-record.mjs";
+import { writeCallRecord, cliRecord, tableRecord } from "./call-record.mjs";
 
 // THE COHERENCE LABEL: three affinity labels plus the residual `other`, ordered by
 // decreasing coherence (kogaki#683 disposition 5; kogaki#738).
@@ -90,7 +90,7 @@ function judgeLimits(st) {
 }
 
 // THE `observed` PRODUCER (kogaki#1030): the executor's OWN record of each judge call —
-// pinned model, command, state, attempt count, response sha from disk.
+// pinned model, command, state, Call count, response sha from disk.
 // Nothing in it comes from the response's content (kogaki#892).
 // Set by `invokeJudge` alone; an argv-supplied record sets none and stays `declared`.
 export const JUDGE_INVOCATIONS = new Map();
@@ -201,7 +201,7 @@ export function ensureJudgeBinary(rec, table) {
 // `KOGAKI_SETTINGS` points at another file FOR FIXTURES ONLY.
 const SETTINGS_FILE = "kogaki.settings.json";
 // A settings file still carrying a renamed key is refused naming both names, as a missing key is.
-const RENAMED_SETTINGS = { "brief.unit_attempts": "brief.unit_rounds", "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions" };
+export const RENAMED_SETTINGS = { "brief.unit_attempts": "brief.unit_rounds", "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions" };
 
 function settingsPath() {
   return process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(REPO, SETTINGS_FILE);
@@ -355,12 +355,12 @@ async function runPool(items, cap, fn) {
 // Everything after this line in a judge prompt is the input file, verbatim.
 export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 
-// AND EVERYTHING BETWEEN THESE LINES IS A PRIOR ATTEMPT'S ANSWER AND ITS REFUSAL,
+// AND EVERYTHING BETWEEN THESE LINES IS A PRIOR CALL'S ANSWER AND ITS REFUSAL,
 // verbatim (kogaki#1059, the answer since kogaki#1438). They appear only on a re-ask, and
 // BEFORE the input marker, because the input marker's own contract is that everything
 // after it is the input file — a refusal appended past it would be read as input by any
 // reader keying on position, which is the one thing that marker promises.
-const JUDGE_ANSWER_MARKER = (i) => `----- YOUR PREVIOUS ANSWER (attempt ${i}) -----`;
+const JUDGE_ANSWER_MARKER = (i) => `----- YOUR PREVIOUS ANSWER (call ${i}) -----`;
 const JUDGE_REFUSAL_MARKER = "----- IT WAS REFUSED -----";
 // A refusal raised before any record was read (kogaki#1438): the present classification
 // cannot produce one, and the renderer does not assume it.
@@ -398,7 +398,7 @@ export function refusalReach(row, refusal) {
   return { group, reach: declared[group], text };
 }
 
-// EVERY ATTEMPT, OLDEST FIRST, AS ITS ANSWER AND ITS REFUSAL (kogaki#1395, the answer since
+// EVERY CALL, OLDEST FIRST, AS ITS ANSWER AND ITS REFUSAL (kogaki#1395, the answer since
 // kogaki#1438): `history` is an array of `{ answer, refusal }`, and a bare string -- the
 // shape before kogaki#1438 -- is REFUSED BY NAME, so no caller silently renders a refusal
 // about a record the model cannot see. `judgePrompt` below is this block's only renderer,
@@ -437,7 +437,7 @@ export function readJudgePrompt(prompt) {
   const jp = /^JUDGMENT POINT: ([\s\S]*?)\nREQUIRED RECORD SHAPE: /m.exec(head);
   const parts = head.split(`\n${JUDGE_REFUSAL_MARKER}\n`);
   const instruction = Object.values(REACH_SENTENCE).find((s) => head.includes(`\n\n${s}`)) ?? null;
-  const ends = [/\n\n----- YOUR PREVIOUS ANSWER \(attempt \d+\) -----\n/, ...(instruction ? [`\n\n${instruction}`] : [])];
+  const ends = [/\n\n----- YOUR PREVIOUS ANSWER \(call \d+\) -----\n/, ...(instruction ? [`\n\n${instruction}`] : [])];
   const refusals = parts.length < 2 ? [] : parts.slice(1).map((seg) => {
     const cuts = ends.map((e) => (typeof e === "string" ? seg.indexOf(e) : seg.search(e))).filter((i) => i >= 0);
     return cuts.length ? seg.slice(0, Math.min(...cuts)) : seg;
@@ -581,7 +581,7 @@ export function withSharedText(row) {
 }
 
 // The prompt is composed FROM THE TABLE (judgment point, input shape, refusal text).
-// COMPOSED PER ATTEMPT (kogaki#1059): `lastRefusal` -- the attempt history, as
+// COMPOSED PER CALL (kogaki#1059): `lastRefusal` -- the Call history, as
 // `judgeRefusalBlock` takes it -- makes each re-ask a different ask.
 // EXPORTED FOR THE DETACHED JOB (kogaki#1193): unit prompts use this one renderer.
 export function judgePrompt(row, inputText, input, lastRefusal) {
@@ -684,11 +684,11 @@ function judgeRecordFrom(stdout, st) {
 // a failure carries the last refusal text.
 // ONE ASK-AND-VALIDATE LOOP for both invocation shapes (kogaki#1062): never copy it.
 // It RETURNS on an exhausted bound; only the caller can name the groups in the failure.
-async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label, recordAt }) {
+async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, label, recordAt }) {
   const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
   const at = label || "";
-  // EVERY CALL WRITES ITS ATTEMPT RECORD under the run's directory (kogaki#1717).
-  const recordAttempt = (n, prompt, raw, answer, refusal) => recordAt && writeAttemptRecord(recordAt.dir, recordAt.unit, n, {
+  // EVERY CALL WRITES ITS CALL RECORD under the run's directory (kogaki#1717).
+  const recordCall = (n, prompt, raw, answer, refusal) => recordAt && writeCallRecord(recordAt.dir, recordAt.unit, n, {
     prompt, argv: { argv, model: cfg.model, output_format: cfg.outputFormat, timeout_s: cfg.timeoutMs / 1000 },
     cli: cliRecord(cfg.command, cfg.binaryVersion), input: input ?? inputText,
     row: { row: st, tables: recordAt.table ? [tableRecord(recordAt.table)] : [] }, raw, answer, refusal });
@@ -702,22 +702,22 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
   // renders: `refusals` stays the record's list of strings.
   const history = [];
   // COUNTED AS IT HAPPENS, never derived from the bound. A message composed from
-  // `retries + 1` reports the number of attempts the table LICENSED rather than
+  // `retries + 1` reports the number of Calls the table LICENSED rather than
   // the number this call made -- so a loop that stopped early would still say it
   // had spent them all, and an operator reading the refusal would be told a
   // count nothing performed. Found by mutating the loop bound and watching the
   // case stay green.
-  let attempts = 0;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    attempts += 1;
+  let calls = 0;
+  for (let call = 0; call <= retries; call++) {
+    calls += 1;
     // THE ASK CARRIES EVERY PRIOR ANSWER AND ITS REFUSAL, OLDEST FIRST (kogaki#1059,
-    // widened by kogaki#1395 and kogaki#1438). Composed HERE, inside the loop, so attempt
-    // N+1 is a different ask from attempt N and carries every refusal attempt N met, not
+    // widened by kogaki#1395 and kogaki#1438). Composed HERE, inside the loop, so Call
+    // N+1 is a different ask from Call N and carries every refusal Call N met, not
     // only the last, beside the record each one refused.
     const prompt = judgePrompt(st, inputText, input, history);
     let answer;
     let stdout = "";
-    // The function whose refusal ends this attempt, for its record (kogaki#1717).
+    // The function whose refusal ends this Call, for its record (kogaki#1717).
     let raisedBy = null;
     try {
       // ALL RESPONSE HANDLING IS INSIDE THE RETRY WINDOW (PR #1044; #1030 item 1).
@@ -748,8 +748,8 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
         const msg = `${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
           + `\`judge\` block declares (measured ${measuredS}s). Not re-asked (kogaki#1172) and not retried (kogaki#1300).`;
         refusals.push(msg);
-        recordAttempt(attempts, prompt, stdout, undefined, { text: msg, validator: null });
-        return { ok: false, out, attempts, refusals, lastRefusal: msg,
+        recordCall(calls, prompt, stdout, undefined, { text: msg, validator: null });
+        return { ok: false, out, calls, refusals, lastRefusal: msg,
           timeout: { bound_s: cfg.timeoutMs / 1000, measured_s: measuredS, label: at } };
       }
       raisedBy = null;
@@ -774,10 +774,10 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       // WRITTEN UNDER A TEMPORARY NAME AND RENAMED AFTER IT VALIDATES
       // (kogaki#1073). The per-group records are now READ BACK on a later
       // advance, so what sits at `out` is evidence rather than a by-product: a
-      // record cut off mid-write, or one this attempt is about to refuse, would
+      // record cut off mid-write, or one this Call is about to refuse, would
       // be taken by the next run as a group already judged. The rename is the
       // one act that makes "the file exists" and "the file validated" the same
-      // fact. A refused attempt therefore leaves the temporary beside the run
+      // fact. A refused Call therefore leaves the temporary beside the run
       // for a reader, and never at the name the reuse check reads.
       const partial = `${out}.partial`;
       writeFileSync(partial, JSON.stringify(record, null, 2) + "\n");
@@ -786,15 +786,15 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       raisedBy = validate.name || null;
       softRefusals(() => validate(partial));
       renameSync(partial, out);
-      recordAttempt(attempts, prompt, stdout, record, null);
-      return { ok: true, out, record, attempts, refusals, lastRefusal, prompt };
+      recordCall(calls, prompt, stdout, record, null);
+      return { ok: true, out, record, calls, refusals, lastRefusal, prompt };
     } catch (e) {
       if (!(e instanceof JudgmentRefusal)) {
         // The spawn failure the window deliberately re-throws, given its own
         // refusal here rather than at the throw site so the two arms of "the
         // judge did not answer" read alike to an operator.
         if (e && e.syscall) {
-          recordAttempt(attempts, prompt, stdout, undefined, { text: e.message, validator: null });
+          recordCall(calls, prompt, stdout, undefined, { text: e.message, validator: null });
           fail(`${st.id}${at}: the judge could not be run (${cfg.command}: ${e.message}). The command and the `
             + "model are pinned in the workflow table's `judge` block; nothing here falls back to another "
             + "model, and a binary that is not there will not be there on a re-ask, so the bound is not spent on it.");
@@ -804,14 +804,14 @@ async function judgeAttempts(cfg, st, retries, { inputText, input, out, validate
       lastRefusal = e.message;
       refusals.push(e.message);
       history.push({ answer, refusal: e.message });
-      recordAttempt(attempts, prompt, stdout, answer, { text: e.message, validator: raisedBy });
+      recordCall(calls, prompt, stdout, answer, { text: e.message, validator: raisedBy });
     }
   }
-  return { ok: false, out, attempts, refusals, lastRefusal };
+  return { ok: false, out, calls, refusals, lastRefusal };
 }
 
-// Where a judge call's Attempt Record goes (kogaki#1717): the run's directory, the state or its group as the unit.
-const attemptRecordAt = (dir, unit, rec) => (dir ? { dir, unit, table: rec && rec.workflow ? rec.workflow.path : null } : null);
+// Where a judge call's Call Record goes (kogaki#1717): the run's directory, the state or its group as the unit.
+const callRecordAt = (dir, unit, rec) => (dir ? { dir, unit, table: rec && rec.workflow ? rec.workflow.path : null } : null);
 
 // THE WHOLE COMPOSED INPUT, ONE ASK. The default shape, and the one every
 // judgment state but `J2_subdivision` still spends.
@@ -821,8 +821,8 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
     + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
     + `the table, never in this file (kogaki#1030).`);
-  // READ AND PARSED ONCE, and the PROMPT is what is composed per attempt
-  // (kogaki#1059). The input does not change between attempts -- the whole of
+  // READ AND PARSED ONCE, and the PROMPT is what is composed per Call
+  // (kogaki#1059). The input does not change between Calls -- the whole of
   // what a re-ask repairs is the judge's record -- so re-reading the file each
   // time would spend a read to make the two asks look different.
   const inputText = readFileSync(inputPath, "utf8");
@@ -849,8 +849,8 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     return await invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
   }
   const out = join(dir, `${flow().lane}-judge-${st.id}.json`);
-  const r = await judgeAttempts(cfg, st, retries, { inputText, input, out, validate, label: "",
-    recordAt: attemptRecordAt(dir, st.id, rec) });
+  const r = await judgeCalls(cfg, st, retries, { inputText, input, out, validate, label: "",
+    recordAt: callRecordAt(dir, st.id, rec) });
   if (r.ok) {
     recordJudgeInvocation(st.id, {
       state: st.id,
@@ -862,7 +862,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
       model: cfg.model,
       stubbed: cfg.stubbed,
       calls: 1,
-      attempts: r.attempts,
+      calls_total: r.calls,
       retries_declared: retries,
       refusals_repaired: r.refusals.length,
       // TAKEN FROM THE BYTES ON DISK BY THIS LAYER, like every other sha in
@@ -876,7 +876,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     if (rec) {
       rec.judge_calls = rec.judge_calls || {};
       rec.judge_calls[st.id] = {
-        per_group: false, calls: 1, attempts: r.attempts,
+        per_group: false, calls: 1, calls_total: r.calls,
         retries_declared: retries, refusals_repaired: r.refusals.length,
         // WHAT MADE THESE CALLS (kogaki#1076). `harnessJudgeInvocation`'s record
         // holds it too and lives in this process alone, so before this the run
@@ -894,7 +894,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     if (rec && r.refusals.length) {
       rec.judgment_refusals = rec.judgment_refusals || {};
       rec.judgment_refusals[st.id] = {
-        attempts: r.attempts, retries_declared: retries, refusal: r.lastRefusal,
+        calls_total: r.calls, retries_declared: retries, refusal: r.lastRefusal,
         refusals: r.refusals, repaired: true,
       };
     }
@@ -910,7 +910,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   if (rec) {
     rec.judgment_refusals = rec.judgment_refusals || {};
     rec.judgment_refusals[st.id] = {
-      attempts: r.attempts, retries_declared: retries, refusal: r.lastRefusal,
+      calls_total: r.calls, retries_declared: retries, refusal: r.lastRefusal,
       refusals: r.refusals, repaired: false,
     };
   }
@@ -920,7 +920,7 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   // instead and raises `judgment-retry` in its place, leaving the run
   // open rather than dead.
   throw new JudgmentExhausted(st.id,
-    `${st.id}: the judge's record was refused on all ${r.attempts} attempt(s) (${retries} re-ask(s) licensed, the count `
+    `${st.id}: the judge's record was refused on all ${r.calls} call(s) (${retries} re-ask(s) licensed, the count `
     + `the workflow table declares for this state). The last refusal, verbatim: ${r.lastRefusal}`);
 }
 
@@ -969,7 +969,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   const assembled = {};
   const perGroup = {};
   const judged = [];
-  let attemptsTotal = 0;
+  let callsTotal = 0;
   let refusalsTotal = 0;
   let callsMade = 0;
   let lastRefusal = null;
@@ -1012,11 +1012,11 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   // ---- THE RECORD ALREADY ON DISK IS TAKEN, AND IT IS VALIDATED FIRST
   // (kogaki#1073). On 2026-09-10 an advance was killed at its bound with eight of
   // eleven per-group records written, and re-answering the gate asked for all
-  // eleven again -- so the retry died where the first attempt died, because the
+  // eleven again -- so the retry died where the first Call died, because the
   // remaining work was the same work plus everything already done. What makes the
   // reuse safe rather than a second trust surface is that the record goes through
   // THE SAME VALIDATOR a fresh response gets: a record that fails it is redone,
-  // and `judgeAttempts` renames into this name only after validating, so a group
+  // and `judgeCalls` renames into this name only after validating, so a group
   // cut off mid-write has no file here to be trusted.
   const reused = new Set();
   for (const a of asks) {
@@ -1032,23 +1032,23 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   }
 
   // ---- THE CALLS RUN CONCURRENTLY UNDER THE TABLE'S CAP (kogaki#1073). One
-  // `judgeAttempts` per group, unchanged -- its bound, its per-attempt feedback
+  // `judgeCalls` per group, unchanged -- its bound, its per-Call feedback
   // and its refusals are a property of AN ASK and are untouched by how many asks
   // are in flight. The pool returns results in the composed input's own order, so
   // every reading below is the order the sequential loop read.
   const results = await runPool(asks, cfg.concurrency, async (a) => {
     if (reused.has(a.name)) {
-      // NOT A CALL, AND COUNTED AS ONE NOWHERE. `attempts: 0` is the honest
+      // NOT A CALL, AND COUNTED AS ONE NOWHERE. `calls: 0` is the honest
       // figure: this group's record was judged by an earlier advance, and a run
-      // reporting it as an attempt of its own would say a call happened that
+      // reporting it as a Call of its own would say a call happened that
       // did not.
-      return { ok: true, out: a.out, attempts: 0, refusals: [], lastRefusal: null, reused: true };
+      return { ok: true, out: a.out, calls: 0, refusals: [], lastRefusal: null, reused: true };
     }
     callsMade += 1;
-    const r = await judgeAttempts(cfg, st, retries, {
+    const r = await judgeCalls(cfg, st, retries, {
       inputText: a.scopedText, input: a.scoped, out: a.out, validate: a.validateOne,
       label: ` (group ${JSON.stringify(a.name)})`,
-      recordAt: attemptRecordAt(dir, `${st.id}-${a.slug}`, rec),
+      recordAt: callRecordAt(dir, `${st.id}-${a.slug}`, rec),
     });
     // ---- THE RUN RECORD IS WRITTEN AFTER EVERY COMPLETED PER-GROUP RECORD
     // (kogaki#1073 item 3). The advance's own record used to be written only when
@@ -1071,7 +1071,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   for (let i = 0; i < asks.length; i++) {
     const { name } = asks[i];
     const r = results[i];
-    attemptsTotal += r.attempts;
+    callsTotal += r.calls;
     refusalsTotal += r.refusals.length;
     // PREFIXED BY GROUP, because the run record's `refusals` is one flat list and
     // an operator reading eleven groups' refusals needs to know which group each
@@ -1084,7 +1084,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     // repaired* -- and a per-group row saying `repaired: true` of a group nothing
     // ever refused makes the flag whose stated job is keeping those two arms
     // apart stop doing it across the two carriers.
-    perGroup[name] = { attempts: r.attempts, retries_declared: retries, refusals: r.refusals };
+    perGroup[name] = { calls_total: r.calls, retries_declared: retries, refusals: r.refusals };
     if (r.reused) perGroup[name].reused = true;
     if (r.refusals.length) perGroup[name].repaired = r.ok;
     if (!r.ok) {
@@ -1095,7 +1095,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
       if (rec) {
         rec.judgment_refusals = rec.judgment_refusals || {};
         rec.judgment_refusals[st.id] = {
-          attempts: attemptsTotal, retries_declared: retries, refusal: lastRefusal,
+          calls_total: callsTotal, retries_declared: retries, refusal: lastRefusal,
           refusals: allRefusals, repaired: false, groups: perGroup, judged_before: [...judged],
         };
       }
@@ -1106,8 +1106,8 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
       // function picks them back up on the retry the owner's click re-fires,
       // so the state re-enters costing only the groups that had not judged yet.
       throw new JudgmentExhausted(st.id,
-        `${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.attempts} `
-        + `attempt(s) (${retries} re-ask(s) licensed, the count the workflow table declares for this state). `
+        `${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.calls} `
+        + `call(s) (${retries} re-ask(s) licensed, the count the workflow table declares for this state). `
         + `${judged.length} of ${groups.length} group(s) were judged before it`
         + `${judged.length ? `: ${judged.join(", ")}` : ""}. The last refusal, verbatim: ${r.lastRefusal}`);
     }
@@ -1140,7 +1140,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     reused_records: reused.size,
     concurrency: cfg.concurrency,
     per_group: true,
-    attempts: attemptsTotal,
+    calls_total: callsTotal,
     retries_declared: retries,
     refusals_repaired: refusalsTotal,
     response_sha: createHash("sha256").update(readFileSync(out)).digest("hex").slice(0, 16),
@@ -1163,7 +1163,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
       reused_records: reused.size,
       concurrency: cfg.concurrency,
       groups: [...judged],
-      attempts: attemptsTotal,
+      calls_total: callsTotal,
       retries_declared: retries,
       refusals_repaired: refusalsTotal,
     };
@@ -1171,7 +1171,7 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   if (rec && refusalsTotal) {
     rec.judgment_refusals = rec.judgment_refusals || {};
     rec.judgment_refusals[st.id] = {
-      attempts: attemptsTotal, retries_declared: retries, refusal: lastRefusal,
+      calls_total: callsTotal, retries_declared: retries, refusal: lastRefusal,
       refusals: allRefusals, repaired: true, groups: perGroup,
     };
   }
