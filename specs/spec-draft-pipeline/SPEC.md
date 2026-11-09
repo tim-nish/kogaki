@@ -3058,7 +3058,7 @@ writes its Call Record (§4.12.2) under the Leg's unit, in
 the Leg Waypoint and the stage. The structures and tables settled are written
 to the Mapping Record (§4.19.2) with the plan.
 
-#### 4.19.4 The Feedback-Loop Playground (FLP) (kogaki#1752, kogaki#1756)
+#### 4.19.4 The Feedback-Loop Playground (FLP) (kogaki#1752, kogaki#1756, kogaki#1762)
 
 The owner asked on 2026-11-08 that every Submission's Points stay visible
 whether the Judge passed or refused them, and on 2026-11-09 that the loop be
@@ -3074,8 +3074,8 @@ spec, the FLP and `kogaki.settings.json` uses it in this sense.
 | **Round** | one Submission at one Leg Waypoint, the Verdict on it and, where the Verdict refuses it, the Comment. Numbered 1, 2, 3 at the Leg Waypoint. |
 | **Submission** | the Paragraph Waypoints written for one Leg Waypoint under one Binding, with their `join` and `case`, as handed to the Judge or refused before it. |
 | **Revision** | the Submission of Round n+1: a Submission that answers a Comment. |
-| **Verdict** | the Judge's result on a Submission, per axis (TAKEN, LEFT, OWN STEP, BREAKS); or `refused before the Judge` where a validator refused the Submission; or `not judged` with the reason, where the unit stopped before the Judge ran. |
-| **Comment** | the text a refused Submission drew, verbatim, with its source named (the Judge, or the validator by name), and the Points it names. The next Round's Call is handed it. |
+| **Verdict** | the Judge's result on a Submission: `fits` or `does-not-fit` with the Judge's `why`; or `refused before the Judge` where a validator refused the Submission; or `not judged` with the reason, where the unit stopped before the Judge ran. It is rendered inside the Comment block, never as a block of its own. |
+| **Comment** | one block per Round: the Verdict; the Judge's or the validator's text verbatim (`why`); its source; and the Paragraph Waypoints and Segments the text names (`Paragraph Waypoint n`, `point n`, `Segment n`), highlighted in the Submission above. The next Round's Call is handed the text. |
 | **Binding** | the Move a Submission is written under, with the Mapping Table grounded for it. A Round that rebinds carries a new Binding, and a Binding with no Mapping Table grounded for its Move says so. |
 | **Call** | one model call under a unit: bind, write, judge, site retry, suffix, reading, grounding. Its record is the Call Record, under `calls/` in the run directory (§4.12.2). |
 
@@ -3106,8 +3106,8 @@ Binding → Submission (Round 1) → Judge → Verdict
   grounded for this Move`, inside that Round and nowhere else.
 - The bind, suffix, reading and grounding Calls, and a Call stopped at the
   per-Call limit, are Calls and never numbered Rounds. They appear in the
-  Calls list and, for the bind and grounding Calls, inside the Binding they
-  produced.
+  Calls list and, for the bind and grounding Calls, in the Calls block of the
+  Round whose Binding they produced.
 - Every Round renders the same blocks in the same order, each filled or
   carrying the reason it is empty.
 
@@ -3137,32 +3137,60 @@ made before kogaki#1756.
 **Each Leg Waypoint**, in this order, each field on its own line and no field
 joined to another on one line:
 
-1. The status line: `passed in Round n`; `refused through Round n`;
-   `stopped after Round n`, followed by the unit's stop text; or `not
-   reached`. A sheet read while the unit still runs shows `Round n awaits
-   the Judge` where its last Submission has no Verdict yet.
-2. `Brief's point`.
-3. `Structure`: the reading Call's Roles, Abstract and Attribute, once.
+1. The status line, one line: `passed in Round n`; `refused through Round n`;
+   `stopped after Round n`; or `not reached`. The unit's stop text stands in
+   the Leg band only. A sheet read while the unit still runs shows `Round n
+   awaits the Judge` where its last Submission has no Verdict yet.
+2. `Brief's point`, then `case: <apart|own>` on its own line.
+3. `Structure`: the reading Call's Role, Abstract and Attribute, once.
 4. `Round n`, for n = 1 …, the heading being the two words and the number and
    nothing else, each Round holding exactly these blocks under these
    headings:
-   - `Binding`: the Move; `join`; `case`; the Call that bound it; the Mapping
-     Table grounded for this Move (base, and one expression per Role), or `no
-     Mapping Table was grounded for this Move`. Rendered in full in the Round
-     that bound it, and as `Binding of Round m holds` in a later Round that
+   - `Binding`: `Move: <id>`, the id linking to `moves/<id>.yaml` and, where
+     an extraction record names the Move, to its Corpus passage at
+     `<path>:<line>` with the span `lines a–b` (else `no extraction record on
+     this machine names this Move`); `join: <word>`; then one `Structure`
+     table headed `Role`, `Abstract`, `Attribute`, `Expression` under a
+     `Base: <domain>` line, the last column and the line read from the Mapping
+     Table grounded for this Move, or empty under `no Mapping Table was
+     grounded for this Move`. `Binding of Round m holds` in a later Round that
      keeps it.
    - `Submission`: the Segments table (operation, relation, manner, point,
-     cast). The Move's name appears in the Binding block only; the table's
-     caption is `Round n`.
-   - `Verdict`: per axis with the Judge's `why`; or `refused before the
-     Judge`; or `not judged` and the reason.
-   - `Comment`: the text verbatim; `source`: the Judge, or the validator by
-     name; the Points it names, highlighted in the Submission above. On a
-     `fits` Verdict, and where no Verdict was given, the block reads `none`.
-     It is shown once, here, and never again under Round n+1 as what that
-     Round answered.
-   - `Calls`: the Calls this Round is read from (the write or site retry
-     Call; the judge Call; the grounding Call).
+     cast), with no caption. The Move's name appears in the Binding block
+     only.
+   - `Comment`: `verdict: fits|does-not-fit`, `not judged: <reason>` or
+     `refused before the Judge`; `why`; `source`; `names`. It is shown once,
+     here, and never again under Round n+1 as what that Round answered.
+   - `Calls`: the write or site retry Call, the judge Call, the bind Call and
+     the grounding Call this Round is read from.
+
+**The Move's Corpus passage** is read by `src/flp/provenance.mjs` from the
+extraction records on this machine — every `extractions.json` under
+`corpus/**/extract/*/` and `corpus/**/extractor-run-*/`, whose `written`
+names the Move files in paragraph order — and written nowhere. The passage
+file is `corpus/batch/legs/<passage>.md`, else the record's `leg` copy; its
+paragraphs are the blank-line-separated blocks under `## Passage`, or the
+whole file where it has no such heading. It never reads a Move file, and the
+sheet renders without it where `corpus/` is absent.
+
+**The Candidate sheet.** `node src/flp/sheet.mjs candidate --run <Brief run
+directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]` renders
+one compose unit of a Brief run from its job record and Call Records,
+refusing a directory with no job record and a unit the record does not carry,
+naming the units it does. One section, `Candidate <id>`, with the band
+(status, Call count by `compose`, `judge` and `stopped`, the first Call's
+seconds, the stop in full) and one `Round n` per compose Call, each holding
+exactly these blocks:
+   - `Submission`: the Reader Path as a table headed `Leg`, `Move`,
+     `Purpose`, `Leg Waypoints`, `Case`, the Move linked as above, or `no
+     Submission: <the Call's refusal>`.
+   - `Comment`: one row per Leg with its verdict (`consistent`,
+     `contradicts`, `cannot-determine`), `why` and `source`, a Leg the Judge
+     refused highlighted in the Submission above; or `not judged: <reason>`.
+   - `Calls`: the compose and fit Calls this Round is read from.
+
+The Leg sheet and the Candidate sheet share the Round heading, the band and
+`TABLE_HEADINGS`.
 
 **The Calls list.** `Calls`, at the end: every Call Record under the unit, the
 nested reading and grounding Calls included, with its kind, its refusal's
@@ -3170,7 +3198,8 @@ first line and links to its files.
 
 **Headings.** Every table stands under one heading from this list, and no
 other: `Brief's point`, `Structure`, `Round n`, `Binding`, `Submission`,
-`Verdict`, `Comment`, `Calls`. The list is `TABLE_HEADINGS` in the sheet, and
+`Comment`, `Calls`, `Candidate <id>`, `Leg`, `Move`, `Purpose`,
+`Leg Waypoints`, `Case`. The list is `TABLE_HEADINGS` in the sheet, and
 `checks/check-flp.sh` reads it.
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
