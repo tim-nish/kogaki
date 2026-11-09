@@ -424,7 +424,7 @@ process.stdin.on("end", () => {
   const { judgePrompt } = await import("./src/workflow/judge.mjs");
   // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
   (await import("./src/workflow/run-record.mjs")).bindFlow((await import("./src/brief/job-verbs.mjs")).BRIEF_FLOW);
-  const { readCallRecord } = await import("./src/workflow/call-record.mjs");
+  const { readCallRecord, RETIRED_NAMES } = await import("./src/workflow/call-record.mjs");
   const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_unit;
   const input = { state: "compose_path", unit_number: 1, fixture: "RECORD_ONCE" };
   const inputText = JSON.stringify(input, null, 2);
@@ -446,16 +446,22 @@ process.stdin.on("end", () => {
     [{ answer: { legs: [{ id: "refused" }], refuse: refusal }, refusal }])}`;
   if (!row || row.status !== "done" || row.rounds !== 2 || a1.error || a2.error || !a1.refusal || a1.refusal.text !== refusal
     || a1.refusal.validator !== "passthrough" || a2.refusal !== null) {
-    fails.push(`(d12) a unit refused once did not leave round 1's refusal.json carrying the job record's refusal: ${JSON.stringify([row, a1.refusal, a2.refusal])}`);
+    fails.push(`(d12) a unit refused once did not leave call 1's refusal.json carrying the job record's refusal: ${JSON.stringify([row, a1.refusal, a2.refusal])}`);
   }
   if (a2.error || a2.prompt !== retry || a2.prompt.trim() !== sent[1]) {
-    fails.push("(d12) round 2's prompt.md is not the rendered retry prompt the second call received, byte for byte");
+    fails.push("(d12) call 2's prompt.md is not the rendered retry prompt the second call received, byte for byte");
   }
   const sha = createHash("sha256").update(readFileSync(fakeJudge)).digest("hex");
   if (a1.error || !a1.cli || a1.cli.path !== fakeJudge || a1.cli.sha256 !== sha || a1.cli.version !== "9.9.9 (fixture)"
     || a1.argv.timeout_s !== 100 || a1.row.phase !== "compose" || JSON.stringify(a1.input) !== JSON.stringify(input) || !String(a1.raw).includes("the fixture's first refusal")
     || row.call_records !== join(dir, "calls", "c1")) {
-    fails.push(`(d12) round 1's cli, argv, input or answer.raw, or the row's call_records, is not the call's own: ${JSON.stringify([a1.cli, a1.argv, row && row.call_records])}`);
+    fails.push(`(d12) call 1's cli, argv, input or answer.raw, or the row's call_records, is not the call's own: ${JSON.stringify([a1.cli, a1.argv, row && row.call_records])}`);
+  }
+  // A FRESH JOB WRITES THE NEW NAMES ONLY (kogaki#1760): `calls/`, `unit_rounds`, and per unit `rounds`, `call_records` and `call_1_s`.
+  const job = readRecord(dir), retired = Object.values(RETIRED_NAMES);
+  if (existsSync(join(dir, RETIRED_NAMES.dir)) || !job || job.unit_rounds !== 2 || !row || typeof row.call_1_s !== "number"
+    || [job, ...(job.units || [])].some((o) => Object.keys(o).some((k) => retired.includes(k)))) {
+    fails.push(`(d12) a fresh job wrote a retired name, or not unit_rounds and call_1_s: ${JSON.stringify(job)}`);
   }
 }
 

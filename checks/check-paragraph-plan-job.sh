@@ -351,6 +351,19 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   if (missing.length || (out.match(/call \d+ —/g) || []).length !== 4) fails.push(`(f) the job report does not list the Leg's reading and grounding Call Records (missing ${missing.join(", ")}): ${out}`);
 }
 
+// (g) A FRESH PARAGRAPHPLAN JOB WRITES THE NEW NAMES ONLY (kogaki#1760): `calls/<unit>/<n>/`, `unit_rounds`, and per unit
+// `rounds` and `call_records`, with `call_1_s` on a unit that reached Round 2; no retired name anywhere on the record.
+if (refusedRun) {
+  const { RETIRED_NAMES } = await import(pathToFileURL(join(repo, "src", "workflow", "call-record.mjs")).href);
+  const j = refusedRun.job || {}, retired = Object.values(RETIRED_NAMES), u2 = unit(j, "leg-2") || {};
+  if (existsSync(join(refusedRun.runDir, RETIRED_NAMES.dir)) || !existsSync(join(refusedRun.runDir, "calls", "leg-2", "1"))
+    || !Number.isInteger(j.unit_rounds) || typeof u2.call_1_s !== "number"
+    || (j.units || []).some((u) => !Number.isInteger(u.rounds) || !String(u.call_records || "").includes(join("calls", u.id)))
+    || [j, ...(j.units || [])].some((o) => Object.keys(o).some((k) => retired.includes(k)))) {
+    fails.push(`(g) a fresh ParagraphPlan job wrote a retired name, or not calls/, unit_rounds, rounds, call_records and call_1_s: ${JSON.stringify(j).slice(0, 800)}`);
+  }
+} else fails.push("(g) the fresh-job names were not checked: (b) ran no job");
+
 if (fails.length) { for (const f of fails) console.error(`FAIL ${f}`); process.exit(1); }
 console.log("check-paragraph-plan-job: ok");
 JS

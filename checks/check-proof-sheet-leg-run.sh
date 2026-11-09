@@ -756,22 +756,11 @@ else {
   const sh = built.written ? readFileSync(built.written, "utf8") : "";
   ok(sh.includes("STOP-LINE the writer refused section") && sh.includes("<b>Packet"), "(f) a stopped Draft stage does not draw the card with the stop");
 
-  // (retired) A RUN WRITTEN UNDER THE RETIRED NAMES (kogaki#1760): every stage's Rounds file renamed to the retired name
-  // draws the same Round counts on the card as the run under the new name.
-  const { RETIRED_NAMES } = await imp("src/workflow/call-record.mjs");
-  const retiredRun = join(root, "retired-run");
-  cpSync(runDir, retiredRun, { recursive: true });
-  const renamed = [];
-  const renameRounds = (d) => readdirSync(d, { withFileTypes: true }).forEach((e) => {
-    if (e.isDirectory()) renameRounds(join(d, e.name));
-    else if (e.name === "rounds.json") { renameSync(join(d, e.name), join(d, RETIRED_NAMES.roundsFile)); renamed.push(join(d, e.name)); }
-  });
-  renameRounds(retiredRun);
-  const countsOf = (built) => (built.written ? readFileSync(built.written, "utf8") : "").match(/— rounds [^<]*/g) || [];
-  const nowCounts = countsOf(S.buildSheet({ runs: [runDir], provenance: map, out: join(root, "now.html") }));
-  const wasCounts = countsOf(S.buildSheet({ runs: [retiredRun], provenance: map, out: join(root, "retired.html") }));
-  ok(renamed.length > 0 && nowCounts.length > 0 && !nowCounts.some((c) => c.includes("?")) && JSON.stringify(wasCounts) === JSON.stringify(nowCounts),
-    `(retired) a run whose Rounds files carry the retired name did not draw the same Round counts: ${renamed.length} ${JSON.stringify(nowCounts)} ${JSON.stringify(wasCounts)}`);
+  // (retired) kogaki#1760: a run whose Rounds files carry the retired name draws the same Round counts.
+  const { RETIRED_NAMES } = await imp("src/workflow/call-record.mjs"), retiredRun = join(root, "retired-run"), renamed = []; cpSync(runDir, retiredRun, { recursive: true });
+  const renameRounds = (d) => readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? renameRounds(join(d, e.name)) : e.name === "rounds.json" && renamed.push(renameSync(join(d, e.name), join(d, RETIRED_NAMES.roundsFile))))); renameRounds(retiredRun);
+  const countsOf = (dir, out) => { const b = S.buildSheet({ runs: [dir], provenance: map, out: join(root, out) }); return (b.written ? readFileSync(b.written, "utf8") : "").match(/— rounds [^<]*/g) || []; }; const nowCounts = countsOf(runDir, "now.html"), wasCounts = countsOf(retiredRun, "retired.html");
+  ok(renamed.length > 0 && nowCounts.length > 0 && !nowCounts.some((c) => c.includes("?")) && JSON.stringify(wasCounts) === JSON.stringify(nowCounts), `(retired) a run whose Rounds files carry the retired name did not draw the same Round counts: ${renamed.length} ${JSON.stringify(nowCounts)} ${JSON.stringify(wasCounts)}`);
 }
 
 // (l) A PARAGRAPHPLAN REFUSED ON EVERY ROUND: the run stops at paragraph-plan, and the sheet
