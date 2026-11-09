@@ -15,7 +15,7 @@ import { join, dirname } from "node:path";
 import { judgePrompt, refusalReach } from "./workflow/judge.mjs";
 import { REPO, bindFlow } from "./workflow/run-record.mjs";
 import { writeAttemptRecord, tableRecord } from "./workflow/attempt-record.mjs";
-import { mapperInput, validateMapperAnswer, MAPPER_ATTEMPTS } from "./mapping-playground/sme.mjs";
+import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./mapping-playground/sme.mjs";
 import { correspondenceInput, correspondenceRefusal } from "./mapping-playground/short.mjs";
 import { PLAYGROUND_TABLE } from "./mapping-playground/trial.mjs";
 import { boundMoveContract, mappingStatePath } from "./paragraph-plan.mjs";
@@ -171,7 +171,7 @@ export class ParagraphPlanMapper {
       return this.next(unitId);
     }
     u.history.push({ answer: out.record ?? null, refusal: r.text, group: r.group, reach: r.reach });
-    if (r.undeclared || r.reach === "stop" || u.attempt >= MAPPER_ATTEMPTS) {
+    if (r.undeclared || r.reach === "stop" || u.attempt >= MAPPER_CALLS) {
       const why = r.undeclared ? `its refusal names the group ${JSON.stringify(r.group)}, which the \`${row.id}\` row does not declare`
         : r.reach === "stop" ? `its refusal of group ${JSON.stringify(r.group)} has reach stop` : `the \`${row.id}\` answer was refused ${u.attempt} times`;
       return { stopped: `${at}: ${u.stage} stopped — ${why}; the last refusal: ${r.text}` };

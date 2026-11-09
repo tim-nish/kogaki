@@ -14,8 +14,8 @@ import { validateStructure } from "./structure.mjs";
 // A variant is a row whose id carries this prefix.
 export const MAPPER_ROW_PREFIX = "sme_map_";
 
-// One retry: the first refusal is put back verbatim with the answer, and a second ends the stage.
-export const MAPPER_ATTEMPTS = 2;
+// The call bound of reading and grounding: the first refusal is put back verbatim with the answer, and a second ends the stage.
+export const MAPPER_CALLS = 2;
 
 // The variant's row, or a refusal naming the rows the table declares.
 export function mapperRow(table, variant) {

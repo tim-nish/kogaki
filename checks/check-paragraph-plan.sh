@@ -22,7 +22,7 @@
 #       (kogaki#1412).
 #   (b) a Leg Waypoint no Move fits (`move: null`) refuses the unit
 #       `no_paragraph_move_fits` and is asked again at that Leg Waypoint until
-#       `brief.unit_attempts` is spent there (kogaki#1642); the stage then stops
+#       `brief.unit_rounds` is spent there (kogaki#1642); the stage then stops
 #       naming the Leg and the Waypoint, writes
 #       no ParagraphPlan file, and leaves the Brief unchanged.
 #   (c) a library holding a Move with no `segments` stops the stage naming the
@@ -650,7 +650,7 @@ let okPrompts = [];
   }
   // The site's attempts (kogaki#1642): the Leg call, then two site calls at Waypoint 2.
   const s1Plans = retriesOf(r.prompts, "s1");
-  if (s1Plans.length !== 3) fails.push(`(b) Leg s1 was not asked brief.unit_attempts (3) times: ${s1Plans.length}`);
+  if (s1Plans.length !== 3) fails.push(`(b) Leg s1 was not asked brief.unit_rounds (3) times: ${s1Plans.length}`);
   if (s1Plans.length > 1 && !retryText(s1Plans[1]).includes("NOFIT-SENTENCE-1")) fails.push("(b) the no_paragraph_move_fits refusal was not put into the next attempt's prompt");
   // the site prompt carries every refusal at the site so far, not only the last one (kogaki#1395)
   if (s1Plans.length > 2 && !(retryText(s1Plans[2]).includes("NOFIT-SENTENCE-1") && retryText(s1Plans[2]).includes("NOFIT-SENTENCE-2")

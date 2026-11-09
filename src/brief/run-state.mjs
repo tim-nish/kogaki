@@ -151,7 +151,7 @@ export function briefJobBounds(table, stateId) {
   for (const k of RETIRED_JOB_LIMIT_KEYS) {
     if (Object.prototype.hasOwnProperty.call(brief, k)) {
       fail(`${settingsPath} carries the setting \`brief.${k}\`, a whole-job limit retired by kogaki#1355 -- remove it; `
-        + "`brief.call_limit_s` and `brief.unit_attempts` bound a job unit. Nothing was started.");
+        + "`brief.call_limit_s` and `brief.unit_rounds` bound a job unit. Nothing was started.");
     }
   }
   return {

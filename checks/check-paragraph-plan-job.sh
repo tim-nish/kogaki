@@ -19,7 +19,7 @@
 #       and the Leg the next run plans.
 
 #   (b) a job in which one Leg is refused on every attempt ends with that unit
-#       `refused` after `brief.unit_attempts`, the others `done`, and each
+#       `refused` after `brief.unit_rounds`, the others `done`, and each
 #       `done` unit's candidate and verdict files in the run directory.
 
 #   (c) `start` on the same Brief after (b), the earlier run handed in as
@@ -75,7 +75,7 @@ const { readReaderPathJob } = await import(pathToFileURL(join(repo, "src", "work
 const table = JSON.parse(readFileSync(join(repo, "src", "paragraph-plan-workflow.json"), "utf8"));
 if (table.job.unit_isolation !== true) fails.push("the ParagraphPlan job table does not set `unit_isolation: true`");
 const settings = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "utf8"));
-const UNIT_ATTEMPTS = settings.brief.unit_attempts;
+const UNIT_ATTEMPTS = settings.brief.unit_rounds;
 
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-job-"));
 // THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;

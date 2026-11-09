@@ -28,7 +28,7 @@ import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
 import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
-import { mapperRow, MAPPER_ATTEMPTS } from "./sme.mjs";
+import { mapperRow, MAPPER_CALLS } from "./sme.mjs";
 import { writeAttemptRecord, attemptsRoot, cliRecord, tableRecord } from "../workflow/attempt-record.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
@@ -146,7 +146,7 @@ export function answerRecord(text) {
 export function retriedCall({ dir, env, row, input, refusalOf, validator = null, cli = null, tables = [PLAYGROUND_TABLE] }) {
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const history = [];
-  for (let attempt = 1; attempt <= MAPPER_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= MAPPER_CALLS; attempt++) {
     const held = bindFlow(FLOW);
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
@@ -169,7 +169,7 @@ export function retriedCall({ dir, env, row, input, refusalOf, validator = null,
       return { stopped: `the \`${row.id}\` refusal of group "${r.group}" has reach stop; the refusal: ${r.text}`, refusals: refusalsRecord(history) };
     }
   }
-  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_ATTEMPTS} times; the last refusal: ${history[history.length - 1].refusal}`,
+  return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_CALLS} times; the last refusal: ${history[history.length - 1].refusal}`,
     refusals: refusalsRecord(history) };
 }
 

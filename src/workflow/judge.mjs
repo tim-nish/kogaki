@@ -200,6 +200,8 @@ export function ensureJudgeBinary(rec, table) {
 // refusal naming the key: a value a run needs is never defaulted.
 // `KOGAKI_SETTINGS` points at another file FOR FIXTURES ONLY.
 const SETTINGS_FILE = "kogaki.settings.json";
+// A settings file still carrying a renamed key is refused naming both names, as a missing key is.
+const RENAMED_SETTINGS = { "brief.unit_attempts": "brief.unit_rounds", "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions" };
 
 function settingsPath() {
   return process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(REPO, SETTINGS_FILE);
@@ -211,6 +213,12 @@ function kogakiSetting(key) {
   let doc;
   try { doc = JSON.parse(readFileSync(p, "utf8")); }
   catch (e) { fail(`the setting \`${key}\` is needed and ${p} is not JSON (${e.message}).`); }
+  for (const [old, now] of Object.entries(RENAMED_SETTINGS)) {
+    const [group, name] = old.split(".");
+    if (doc && doc[group] && typeof doc[group] === "object" && Object.prototype.hasOwnProperty.call(doc[group], name)) {
+      fail(`${p} carries the setting \`${old}\`, renamed \`${now}\` (kogaki#1758) — rename it there; nothing reads the old name.`);
+    }
+  }
   let v = doc;
   for (const part of String(key).split(".")) {
     v = v && typeof v === "object" && !Array.isArray(v) && Object.prototype.hasOwnProperty.call(v, part) ? v[part] : undefined;

@@ -485,7 +485,7 @@ function runConditionsLine(r) {
   const settingsPath = resolve(REPO, "kogaki.settings.json");
   const table = readJson(EXTRACTION_TABLE);
   const settingsText = [
-    `attempt bound (brief.unit_attempts): ${table ? settingValue(table.job.unit_attempts) : "(unreadable)"}`,
+    `Round bound (brief.unit_rounds): ${table ? settingValue(table.job.unit_attempts) : "(unreadable)"}`,
     `call limit, seconds (brief.call_limit_s): ${table ? settingValue(table.job.call_limit_s) : "(unreadable)"}`,
     `audience file (brief.audience_file): ${settingValue({ setting: "brief.audience_file" })}`,
   ].join("\n");

@@ -27,7 +27,7 @@
 // `paragraph_plan_unit` binds a Move to each Leg Waypoint and generates its Paragraph
 // Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move's
 // `takes`, `leaves`, order (`segments`) and `breaks` (kogaki#1378, kogaki#1701). A refusal of either is put back into the next attempt's
-// prompt verbatim, until `brief.unit_attempts` is spent; a call is bounded by
+// prompt verbatim, until `brief.unit_rounds` is spent; a call is bounded by
 // `brief.call_limit_s`; there is no limit on the whole job. A Leg that spends its
 // attempts stops the stage naming the Leg and the Waypoint, the Brief untouched, and
 // the work resumes from the same Brief by running this stage again — the Reader

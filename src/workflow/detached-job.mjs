@@ -11,6 +11,9 @@ import { REPO, fail, readJson } from "./run-record.mjs";
 import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
 import { writeAttemptRecord, pinAttemptRefusal, cliRecord, tableRecord } from "./attempt-record.mjs";
 
+// The unit row's field holding its first call's seconds; the FLP reads it by this name (kogaki#1758).
+export const FIRST_CALL_SECONDS_FIELD = "attempt_1_s";
+
 // ============ THE DETACHED JOB (kogaki#1193) ============
 // `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
 // and no gate is raised. `job await` resumes a FINISHED job (`detached-job` attribution).
@@ -714,7 +717,7 @@ export async function cmdJobSupervise(args) {
       return { id: u.id, status: "running", bytes, attempts: st.attempts, phase: st.phase,
         attempt_started_at: new Date(st.attemptStartedAt).toISOString(),
         ...(st.attemptRecords ? { attempt_records: st.attemptRecords } : {}),
-        ...(st.attempt1S !== undefined ? { attempt_1_s: st.attempt1S } : {}) };
+        ...(st.attempt1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.attempt1S } : {}) };
     };
 
     // THE UNIT HAS ENDED. Its row keeps every count a reader needs to see a unit that
@@ -728,7 +731,7 @@ export async function cmdJobSupervise(args) {
       }
       const row = {
         id: u.id, bytes, ...cls, attempts: st.attempts, phase: st.phase,
-        ...(st.attempt1S !== undefined ? { attempt_1_s: st.attempt1S } : {}),
+        ...(st.attempt1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.attempt1S } : {}),
         ...(st.malformed > 0 ? { malformed_output: st.malformed } : {}),
         ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
         // THE RECORD'S `refusals` STAYS AN ARRAY OF STRINGS (kogaki#1438): the Proof Sheet

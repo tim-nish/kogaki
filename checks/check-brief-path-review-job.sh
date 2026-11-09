@@ -259,9 +259,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   for (const k of ["stall_s", "heartbeat_ms"]) {
     if (job[k] === undefined || job[k] !== composeJob[k]) fails.push(`(x5) review_path's job block does not declare ${k} as the bound the supervisor enforces (${job[k]} vs ${composeJob[k]})`);
   }
-  if ((job.call_limit_s || {}).setting !== "brief.call_limit_s" || (job.unit_attempts || {}).setting !== "brief.unit_attempts"
+  if ((job.call_limit_s || {}).setting !== "brief.call_limit_s" || (job.unit_attempts || {}).setting !== "brief.unit_rounds"
     || job.absolute_limit_s !== undefined) {
-    fails.push(`(x5) review_path's job does not name the settings brief.call_limit_s and brief.unit_attempts alone: ${JSON.stringify(job)}`);
+    fails.push(`(x5) review_path's job does not name the settings brief.call_limit_s and brief.unit_rounds alone: ${JSON.stringify(job)}`);
   }
   if (!briefTable.review_path_unit || !/ONE CANDIDATE|ONE composed Candidate/.test(briefTable.review_path_unit.judgment_point || "")) fails.push("(x5) src/brief-workflow.json declares no review_path_unit row for one Candidate");
   if (!/no synchronous judgment state follows the jobs/.test(briefTable.judge.note || "")) fails.push("(x5) the judge note does not state that no synchronous judgment follows the jobs");
