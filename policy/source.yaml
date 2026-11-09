@@ -10,3 +10,7 @@ packages: [coding]
 common_words: []
 consult_text_max: 600
 receipt_exempt: [policy/kit/, .claude/]
+threads:
+  articles: writing, drafts, articles, publishing, Dev.to, Zenn, translation, projection
+  claude-code-ops: hooks, checks, workers, Issues, review, sessions
+  knowledge-architecture: the record, glossary, terms, staging, Mondo, consultation
