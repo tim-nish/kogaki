@@ -122,7 +122,7 @@ for (const [n, w] of [[1, w1], [2, w2], ...[1, 2].map((k) => [`leg1 ${k}`, waypo
     ok(JSON.stringify(blocks) === JSON.stringify(ROUND_BLOCKS), `(d) ${r.split("</h3>")[0]} at Leg Waypoint ${n} holds the blocks ${JSON.stringify(blocks)}`);
   }
 }
-ok(!html.includes(">bind<") || !roundsOf(w2).some((r) => /Call 2: bind/.test(block(r, "Calls"))), "(d) the bind Call is listed as a Round's Call");
+ok(![...roundsOf(w1), ...roundsOf(w2)].some((r) => /Call \d+: (bind|stopped|suffix)</.test(block(r, "Calls"))), "(d) a bind, stopped or suffix Call is listed as a Round's Call");
 // (e) the Binding
 ok(block(round(w2, 1), "Binding").includes("the price list") && !block(round(w2, 1), "Binding").includes(NO_TABLE), "(e) Round 1's Binding lacks the Mapping Table grounded for its Move");
 ok(block(round(w2, 1), "Binding").includes("bound in Call 2"), "(e) Round 1's Binding does not name the bind Call");
@@ -175,6 +175,10 @@ ok(c.status === 1 && /reader-path-job\.json/.test(c.stderr), `(m) no job record:
 c = cli(["--run", run, "--leg", "leg9"]);
 ok(c.status === 1 && /leg1, leg2/.test(c.stderr), `(m) an unknown Leg: exit ${c.status}, ${c.stderr.trim()}`);
 ok(unitStatus({ supervisor_pid: 2 ** 30 }, { status: "running" }) === "stopped", "(m) a running unit with no supervisor does not read stopped");
+const { waypointStatus } = await imp("src/flp/sheet.mjs");
+const unjudged = [{ number: 2, verdict: { kind: "not judged", reason: "The Judge has not read this Submission yet." } }];
+ok(JSON.stringify(waypointStatus("running", 2, [], unjudged)) === JSON.stringify({ tag: "not reached", text: "Round 2 awaits the Judge" }), "(m) a running unit's unjudged Round does not read `Round n awaits the Judge`");
+ok(waypointStatus("refused", 2, [2], unjudged).text === "stopped after Round 2", "(m) a stopped unit's unjudged Round does not read `stopped after Round n`");
 // (n) every table stands under a fixed heading
 for (const t of html.split("<table>").slice(0, -1)) {
   const h = (t.match(/<h4 class="th">([^<]*)<\/h4>(?:<p[^>]*>(?:(?!<\/?p).)*<\/p>)*$/) || [])[1];

@@ -3128,7 +3128,8 @@ joined to another on one line:
 
 1. The status line: `passed in Round n`; `refused through Round n`;
    `stopped after Round n`, followed by the unit's stop text; or `not
-   reached`.
+   reached`. A sheet read while the unit still runs shows `Round n awaits
+   the Judge` where its last Submission has no Verdict yet.
 2. `Brief's point`.
 3. `Structure`: the reading Call's Roles, Abstract and Attribute, once.
 4. `Round n`, for n = 1 …, the heading being the two words and the number and
