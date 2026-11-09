@@ -60,6 +60,7 @@ export class SiteLoop {
     this.history = new Map();
     this.retries = 0;
     this.log = [];
+    this.raised = [];
     this.call = null;
   }
 
@@ -91,6 +92,14 @@ export class SiteLoop {
   drain() {
     const out = this.log;
     this.log = [];
+    return out;
+  }
+
+  // The refusals this loop raised against the last answered call since the last drain, each with its Leg Waypoint,
+  // for that call's Attempt Record (kogaki#1756). A call that returned no answer carries its own refusal already.
+  drainRaised() {
+    const out = this.raised;
+    this.raised = [];
     return out;
   }
 
@@ -137,6 +146,7 @@ export class SiteLoop {
     const r = failText ? { error: failText } : this.h.siteAccept(answer, c.ctx, this.unitId);
     if (r.error) {
       this.log.push(r.error);
+      if (!failText) this.raised.push({ text: r.error, sites: [c.site] });
       this.at(c.site).push({ entry: answer ?? null, refusal: r.error, by_judge: false });
       this.pending.set(c.site, r.error);
       return this.next();
@@ -158,6 +168,7 @@ export class SiteLoop {
     const r = failText ? { error: failText } : this.h.suffixAccept(answer, c.ctx, this.unitId);
     if (r.error) {
       this.log.push(r.error);
+      if (!failText) this.raised.push({ text: r.error, sites: [c.ctx.from] });
       if (this.retries >= this.h.legAttempts) {
         return this.spentRefusal(c.ctx.from, `the Leg's ${this.h.legAttempts} site retries are spent while the entries from it were composed again`, r.error);
       }
