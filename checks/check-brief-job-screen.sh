@@ -161,7 +161,7 @@ const fails = [];
   // record `job status`'s own dispatch still reads before it reaches the print.
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
     started_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    call_limit_s: 900, unit_attempts: 3, state: "done", units: [],
+    call_limit_s: 900, unit_rounds: 3, state: "done", units: [],
   }, null, 2) + "\n");
   const declPath = emitGateDeclaration(dir, "brief-candidate-selection",
     [{ id: "c1", label: "Candidate 1", description: "The first composed Reader Path." },
@@ -224,8 +224,8 @@ const fails = [];
 // RAISES NOTHING (kogaki#1271): it prints the status lines and the
 // still-running line, writes no gate declaration and exits 0, driven through
 // the same read-only CLI door as (h) against a record that reads `running`.
-// Each unit's line reads `attempt <n> of <N>`, and one on attempt 2 or later
-// `about <m>s to go`, from the row's `attempt_1_s` (kogaki#1355). The bound is
+// Each unit's line reads `Round <n> of <N>`, and one on Round 2 or later
+// `about <m>s to go`, from the row's `call_1_s` (kogaki#1355). The bound is
 // handed in at 2 s (`KOGAKI_JOB_AWAIT_S`, kogaki#1424); the production 30 s is
 // asserted as `jobAwaitS()` with the variable unset, and the heartbeat's
 // unset value the same way (PR #1429 round 1).
@@ -245,12 +245,12 @@ const fails = [];
   const dir = mkNewRun();
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3,
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3,
     supervisor_pid: null, state: "running",
-    units: [{ id: "c1", status: "running", bytes: 10, attempts: 2, phase: "fit", attempt_1_s: 600,
-      attempt_started_at: new Date(Date.now() - 100000).toISOString() },
-    { id: "c2", status: "running", bytes: 10, attempts: 1, phase: "compose", attempt_started_at: now },
-    { id: "c3", status: "done", bytes: 10, attempts: 1, phase: "fit" }],
+    units: [{ id: "c1", status: "running", bytes: 10, rounds: 2, phase: "fit", call_1_s: 600,
+      round_started_at: new Date(Date.now() - 100000).toISOString() },
+    { id: "c2", status: "running", bytes: 10, rounds: 1, phase: "compose", round_started_at: now },
+    { id: "c3", status: "done", bytes: 10, rounds: 1, phase: "fit" }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null },
@@ -277,17 +277,17 @@ const fails = [];
     fails.push(`(v) \`job await\` over a running job did not print the still-running line: ${awaitRun.stdout}`);
   }
   const out = awaitRun.stdout || "";
-  if (!out.includes("each unit gets up to 3 attempts of at most 900s per call")) {
+  if (!out.includes("each unit gets up to 3 rounds of at most 900s per call")) {
     fails.push(`(v) \`job await\`'s status header does not name both bounds: ${out}`);
   }
   for (const id of ["c1", "c2", "c3"]) {
-    if (!new RegExp(`unit ${id}: attempt \\d of 3, `).test(out)) fails.push(`(v) \`job await\`'s status line for ${id} does not carry \`attempt <n> of <N>\`: ${out}`);
+    if (!new RegExp(`unit ${id}: round \\d of 3, `).test(out)) fails.push(`(v) \`job await\`'s status line for ${id} does not carry \`round <n> of <N>\`: ${out}`);
   }
-  const est = out.match(/unit c1: attempt 2 of 3, fit, running, 10 byte\(s\) so far, about (\d+)s to go/);
+  const est = out.match(/unit c1: round 2 of 3, fit, running, 10 byte\(s\) so far, about (\d+)s to go/);
   if (!est || Number(est[1]) > 500 || Number(est[1]) < 400) {
-    fails.push(`(v) \`job await\`'s line for a unit on attempt 2 does not read about <m>s to go with <m> from the row's attempt_1_s: ${out}`);
+    fails.push(`(v) \`job await\`'s line for a unit on round 2 does not read about <m>s to go with <m> from the row's call_1_s: ${out}`);
   }
-  if (/unit c2:[^\n]*to go/.test(out)) fails.push(`(v) a unit on attempt 1 carries an estimate it has nothing to read from: ${out}`);
+  if (/unit c2:[^\n]*to go/.test(out)) fails.push(`(v) a unit on round 1 carries an estimate it has nothing to read from: ${out}`);
   const callPath = join(dir, `${READER_PATH_JOB_GATE_ID}${GATE_CALL_SUFFIX}`);
   if (existsSync(callPath)) {
     fails.push(`(v) \`job await\` over a running job raised a question (a gate-call file exists at ${callPath})`);
@@ -306,7 +306,7 @@ const fails = [];
   const gone = spawnSync(process.execPath, ["-e", ""], { encoding: "utf8" });
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: gone.pid, state: "running",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: gone.pid, state: "running",
     units: [{ id: "c1", status: "running", bytes: 0 }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({

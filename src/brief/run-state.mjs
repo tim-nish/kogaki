@@ -129,8 +129,8 @@ export function briefJobSetting(table, stateId, key) {
       + "kogaki.settings.json (kogaki#1307). Nothing was started.");
 }
 
-// A JOB UNIT IS BOUNDED PER CALL AND PER ATTEMPT COUNT, NEVER BY A WHOLE-JOB LIMIT
-// (kogaki#1355): `call_limit_s` and `unit_attempts`, each naming a setting, read before
+// A JOB UNIT IS BOUNDED PER CALL AND PER ROUND COUNT, NEVER BY A WHOLE-JOB LIMIT
+// (kogaki#1355): `call_limit_s` and `unit_rounds`, each naming a setting, read before
 // anything starts. A `job` row or a settings file still carrying a retired whole-job
 // limit is refused naming the key, as a missing key is refused -- a limit that silently
 // stopped binding would read as one still in force. The settings file is found as
@@ -141,7 +141,7 @@ export function briefJobBounds(table, stateId) {
   for (const k of RETIRED_JOB_LIMIT_KEYS) {
     if (Object.prototype.hasOwnProperty.call(row, k)) {
       fail(`src/brief-workflow.json's \`${stateId}\` job carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- `
-        + "a unit is bounded by `call_limit_s` and `unit_attempts`. Nothing was started.");
+        + "a unit is bounded by `call_limit_s` and `unit_rounds`. Nothing was started.");
     }
   }
   const settingsPath = process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(BRIEF_REPO, "kogaki.settings.json");
@@ -156,7 +156,7 @@ export function briefJobBounds(table, stateId) {
   }
   return {
     callLimitS: briefJobSetting(table, stateId, "call_limit_s"),
-    unitAttempts: briefJobSetting(table, stateId, "unit_attempts"),
+    unitRounds: briefJobSetting(table, stateId, "unit_rounds"),
   };
 }
 
@@ -205,7 +205,7 @@ export async function judged(rec, st, table, args, flag, composeInput, validate)
     return await judgedRecordPath(rec, st, table, args, flag, composeInput, validate);
   } catch (e) {
     // TERMINAL FIRST. Both arms end at the same `fail()` — the difference is
-    // upstream, where `judgeAttempts` catches one class and re-throws the
+    // upstream, where `judgeCalls` catches one class and re-throws the
     // other, so only the re-askable one is ever pushed onto `refusals_repaired`.
     if (e instanceof TerminalJudgmentRefusal) fail(`${st.id}: ${e.message}`);
     if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);

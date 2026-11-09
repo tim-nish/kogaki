@@ -13,8 +13,8 @@ import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { relFromRepo, REPO } from "../workflow/run-record.mjs";
-import { attemptRows as callRows, attemptsRoot as callsRoot, readAttemptRecord as readCallRecord } from "../workflow/attempt-record.mjs";
-import { readReaderPathJob, readerPathJobPath, FIRST_CALL_SECONDS_FIELD } from "../workflow/detached-job.mjs";
+import { callRows, callsRoot, readCallRecord, firstCallSecondsOf } from "../workflow/call-record.mjs";
+import { readReaderPathJob, readerPathJobPath } from "../workflow/detached-job.mjs";
 import { readJudgePrompt } from "../workflow/judge.mjs";
 import { readMappingState, unitIdFor } from "../paragraph-plan.mjs";
 import { moveContract, CAST_KEYS } from "../compose.mjs";
@@ -267,7 +267,7 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
   const unplaced = ((unit && unit.refusals) || []).map(String).filter((t) => !onRecords.has(t) && t !== stop);
   const legWide = calls.filter((c) => c.refusal && !leg.waypoints.some((w) => refusalAt(c.refusal, Number(w.waypoint)) !== null));
   const kinds = [...new Set(calls.map((c) => c.kind))].map((k) => `${k} ${calls.filter((c) => c.kind === k).length}`);
-  const firstS = unit ? unit[FIRST_CALL_SECONDS_FIELD] : undefined;
+  const firstS = firstCallSecondsOf(unit);
   const chip = status === "done" ? "passed" : status === "refused" || status === "died" ? "refused" : "stopped";
   const band = `<p class="line">unit ${esc(unitId)}</p><p class="line">status ${tag(chip, status)}</p>`
     + line(`${calls.length} Call(s)${kinds.length ? `: ${kinds.join(", ")}` : ""}`)

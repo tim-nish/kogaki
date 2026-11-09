@@ -29,7 +29,7 @@ import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
 import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
 import { mapperRow, MAPPER_CALLS } from "./sme.mjs";
-import { writeAttemptRecord, attemptsRoot, cliRecord, tableRecord } from "../workflow/attempt-record.mjs";
+import { writeCallRecord, callsRoot, cliRecord, tableRecord } from "../workflow/call-record.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
@@ -99,7 +99,7 @@ export function shortLeg(proposition, tables, persona, structure, told = OWN) {
 }
 
 // ONE MODEL CALL through the run's recorder, bounded by `timeoutS`; the answer's text, or the stop, with the call's own
-// argv and stdout for its Attempt Record (kogaki#1717).
+// argv and stdout for its Call Record (kogaki#1717).
 function oneCall({ env, model, outputFormat, timeoutS, input }) {
   const argv = ["-p", "--model", model, "--output-format", outputFormat, "--tools", "", "--disable-slash-commands",
     "--strict-mcp-config", "--setting-sources", "", "--no-session-persistence"];
@@ -123,15 +123,15 @@ const cliOfEnv = (env) => cliRecord(env.KOGAKI_PROOF_SHEET_REAL_CLI || env.KOGAK
 // The writer's row as its table declares it, without the binary the settings resolved.
 const writerRowOf = ({ binary, stubbed, ...row }) => row;
 
-// Every `attempts/` directory a stage wrote, its own and each per-Move call's, in name order (kogaki#1717).
-function attemptRootsUnder(d) {
+// Every `calls/` directory a stage wrote, its own and each per-Move call's, in name order (kogaki#1717).
+function callRootsUnder(d) {
   const dirs = [d, ...readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort().map((n) => join(d, n))];
-  return dirs.map(attemptsRoot).filter((p) => existsSync(p)).map((p) => relFromRepo(p));
+  return dirs.map(callsRoot).filter((p) => existsSync(p)).map((p) => relFromRepo(p));
 }
 
-// ONE CALL'S ATTEMPT RECORD (kogaki#1717), under the stage's own directory.
-function recordAttempt(dir, unit, n, { env, cli, call, prompt, input, row, tables, answer, refusal }) {
-  writeAttemptRecord(dir, unit, n, { prompt, argv: call.argv, cli: cli || cliOfEnv(env), input,
+// ONE CALL'S CALL RECORD (kogaki#1717), under the stage's own directory.
+function recordCall(dir, unit, n, { env, cli, call, prompt, input, row, tables, answer, refusal }) {
+  writeCallRecord(dir, unit, n, { prompt, argv: call.argv, cli: cli || cliOfEnv(env), input,
     row: { row, tables: tables.map(tableRecord) }, raw: call.raw, answer, refusal });
 }
 
@@ -141,18 +141,18 @@ export function answerRecord(text) {
   catch (e) { return { stopped: `the binding answer is not one JSON record (${e.message})` }; }
 }
 
-// ONE JUDGMENT ROW UNDER THE MAPPER'S BOUND (kogaki#1700): each attempt's prompt and answer are kept, and a refusal is put
-// back verbatim into the next attempt under its reach (kogaki#1708); the answer, or the stop naming the last refusal.
+// ONE JUDGMENT ROW UNDER THE MAPPER'S BOUND (kogaki#1700): each Call's prompt and answer are kept, and a refusal is put
+// back verbatim into the next Call under its reach (kogaki#1708); the answer, or the stop naming the last refusal.
 export function retriedCall({ dir, env, row, input, refusalOf, validator = null, cli = null, tables = [PLAYGROUND_TABLE] }) {
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const history = [];
-  for (let attempt = 1; attempt <= MAPPER_CALLS; attempt++) {
+  for (let n = 1; n <= MAPPER_CALLS; n++) {
     const held = bindFlow(FLOW);
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, history.length ? history : null); } finally { bindFlow(held); }
     const call = oneCall({ env, model: String(settingValue(extraction.judge.model)), outputFormat: String(extraction.judge.output_format || "json"),
       timeoutS: Number(settingValue(extraction.job.call_limit_s)), input: prompt });
-    const record = (answer, refusal) => recordAttempt(dir, row.id, attempt, { env, cli, call, prompt, input, row, tables, answer, refusal });
+    const record = (answer, refusal) => recordCall(dir, row.id, n, { env, cli, call, prompt, input, row, tables, answer, refusal });
     if (call.stopped) { record(undefined, { text: call.stopped, validator: "oneCall" }); return { stopped: call.stopped }; }
     const a = answerRecord(call.text);
     const raw = a.stopped ? { group: "shape", text: a.stopped } : refusalOf(a.record);
@@ -266,7 +266,7 @@ function waypointsStage({ dir, env, cli, leg, persona, libraryDir, playground, t
   try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
   const call = oneCall({ env, model: String(settingValue(plan.judge.model)), outputFormat: String(plan.judge.output_format || "json"),
     timeoutS: Number(settingValue(plan.job.call_limit_s)), input: prompt });
-  const record = (answer, text, validator) => recordAttempt(dir, WAYPOINTS_ROW, 1, { env, cli, call, prompt, input, row,
+  const record = (answer, text, validator) => recordCall(dir, WAYPOINTS_ROW, 1, { env, cli, call, prompt, input, row,
     tables: [PLAYGROUND_TABLE, PARAGRAPH_PLAN_TABLE], answer, refusal: text ? { text, validator } : null });
   const stop = (answer, text, validator) => { record(answer, text, validator); return { stopped: text }; };
   if (call.stopped) return stop(undefined, call.stopped, "oneCall");
@@ -310,7 +310,7 @@ function writeStage({ dir, env, cli, leg, paragraphs, audiencePath, paragraphPat
   const empty = !call.stopped && !refused && String(call.text).trim() === "";
   const why = call.stopped ? [call.stopped, "oneCall"] : refused ? [`the writer refused: ${refused}`, "writerRefusal"]
     : empty ? ["the writer returned no prose", "writeStage"] : null;
-  recordAttempt(dir, WRITER_UNIT, 1, { env, cli, call, prompt: p.packet, input: { leg, paragraphs, audience: relFromRepo(audiencePath) },
+  recordCall(dir, WRITER_UNIT, 1, { env, cli, call, prompt: p.packet, input: { leg, paragraphs, audience: relFromRepo(audiencePath) },
     row: { id: WRITER_UNIT, ...writerRowOf(w) }, tables: [DRAFT_TABLE], answer: call.stopped ? undefined : String(call.text),
     refusal: why && { text: why[0], validator: why[1] } });
   if (why) return { stopped: why[0], packet: relFromRepo(packetPath) };
@@ -416,7 +416,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     const calls = join(d, CALLS_FILE);
     const { value, ...shown } = r;
     record.stages.push({ stage: name, state: r.stopped ? "stopped" : "done", calls: existsSync(calls) ? relFromRepo(calls) : null,
-      attempt_records: attemptRootsUnder(d), ...shown });
+      call_records: callRootsUnder(d), ...shown });
     if (r.stopped) record.stopped = `${name}: ${r.stopped}`;
     save();
     return r.stopped ? null : (value ?? {});

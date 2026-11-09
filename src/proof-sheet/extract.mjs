@@ -27,9 +27,9 @@
 // record the validator passes is a file the ingest takes without edits.
 //
 // THE RUN DIRECTORY. `<out>/extractor-run-<instant>/`, one subdirectory per paragraph: the
-// supervisor's own files (the prompt in `reader-path-job-units.json`, every attempt's raw
+// supervisor's own files (the prompt in `reader-path-job-units.json`, every Round's raw
 // answer in `reader-path-unit-<id>.stdout`, the job record), plus `prompt.md` (the prompt as
-// rendered), `answer.json` (the record that passed) and `attempts.json` (the attempt count
+// rendered), `answer.json` (the record that passed) and `rounds.json` (the Round count
 // and every refusal).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
@@ -249,7 +249,7 @@ export function constraintsUnitPrompt(row, input) {
 
 // ---------------------------------------------------------------------------
 // THE ANSWER, READ BACK AGAINST FORMAT (the declared validator). Returns `{ error }` — a
-// refusal of the attempt, put verbatim into the next — or `{}`.
+// refusal of the Round, put verbatim into the next — or `{}`.
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 function keysRefusal(obj, keys, at, optional = []) {
@@ -304,7 +304,7 @@ function generalRefusal(nouns, text, at) {
 
 // EVERY FAILING FIELD, NOT ONLY THE FIRST (kogaki#1395). A record read back against FORMAT
 // used to return on its first bad field, so an answer with two slips reported one and spent
-// its attempt on a refusal naming only one of them. `errors` collects one line per field, in
+// its Round on a refusal naming only one of them. `errors` collects one line per field, in
 // (approximately) the record shape's own order, and each later check guards on the shape it
 // reads so one bad field never throws reading another. Only the record's own top-level key
 // set returns at once -- a record missing or inventing a top-level key is a different class
@@ -452,7 +452,7 @@ function unresolvedReference(why, segment) {
 }
 
 // THE CONTENT-BOUND CALL'S ANSWER, READ BACK (kogaki#1614): `{ verdicts: [...] }`. Only the
-// answer's shape is refused here, spending this call's own attempts; a Segment judged unbound
+// answer's shape is refused here, spending this call's own Rounds; a Segment judged unbound
 // is the Extractor's refusal (`contentBoundRefusal`), not this call's.
 export function validateContentBoundUnit(answer, { record, input }) {
   const at = `paragraph ${input.paragraph_you_must_extract.number}, the content-bound verdicts`;
@@ -483,7 +483,7 @@ export function withContentBound(record, verdicts) {
 // `unnamed` lists each question, term, base or principle a Segment leaves that no entry names;
 // where the input's lists are null, `takes` and `leaves` are the lists derived, every entry
 // supported, and `unnamed` is empty. Only the shape is refused here, spending this call's own
-// attempts; an unsupported entry or an unnamed one is the Extractor's refusal (`constraintsRefusal`).
+// Rounds; an unsupported entry or an unnamed one is the Extractor's refusal (`constraintsRefusal`).
 const VERDICT_KEYS = ["supported", "why"];
 export function constraintsAnswerRefusal(answer, input) {
   if (!isMap(answer)) return "the answer is not a map";
@@ -697,7 +697,7 @@ export function lastRefusal(job) {
 function judgeSetup(table) {
   return {
     callLimitS: positiveSetting(table.job, "call_limit_s"),
-    unitAttempts: positiveSetting(table.job, "unit_attempts"),
+    unitRounds: positiveSetting(table.job, "unit_rounds"),
     binary: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH),
     model: String(settingValue(table.judge.model)),
     outputFormat: String(table.judge.output_format || "json"),
@@ -707,17 +707,17 @@ function judgeSetup(table) {
 }
 
 // ONE UNIT, ONE JOB: starts the detached supervisor over one unit in `jobDir`, awaits it, writes
-// its `attempts.json` beside the job's own files (`label` names the unit for a reader), and
+// its `rounds.json` beside the job's own files (`label` names the unit for a reader), and
 // returns `{ job, u }`, with `failed: true` where the job or the unit did not end `done`.
-function runUnit(jobDir, setup, { id, prompt, recordArray, validator, attempts = setup.unitAttempts, label = {} }) {
+function runUnit(jobDir, setup, { id, prompt, recordArray, validator, rounds = setup.unitRounds, label = {} }) {
   startDetachedJobSupervisor(jobDir, {
     units: [{ id, prompt }], command: setup.binary.path, model: setup.model, outputFormat: setup.outputFormat,
-    callLimitS: setup.callLimitS, unitAttempts: attempts, stallS: setup.stallS, heartbeatMs: setup.heartbeatMs, recordArray, validator,
+    callLimitS: setup.callLimitS, unitRounds: rounds, stallS: setup.stallS, heartbeatMs: setup.heartbeatMs, recordArray, validator,
   });
   const job = awaitJob(jobDir, setup.heartbeatMs);
   const u = (job.units || [])[0] || {};
-  writeJson(join(jobDir, "attempts.json"), { ...label, state: job.state, status: u.status || null,
-    attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+  writeJson(join(jobDir, "rounds.json"), { ...label, state: job.state, status: u.status || null,
+    rounds: u.rounds || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
   return job.state !== "done" || u.status !== "done" || !u.candidate ? { job, u, failed: true } : { job, u };
 }
 
@@ -753,7 +753,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const persona = readerPersona(resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" }))));
   if (persona.error) fail(persona.error);
   const setup = judgeSetup(table);
-  const { unitAttempts } = setup;
+  const { unitRounds } = setup;
   const outDir = resolve(out);
   const runDir = resume ? resolve(resume) : join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
@@ -781,18 +781,18 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
-    const unitJob = (jobDir, id, unitPrompt, recordArray, validator, attempts = unitAttempts) =>
-      runUnit(jobDir, setup, { id, prompt: unitPrompt, recordArray, validator, attempts, label: { paragraph: i + 1 } });
+    const unitJob = (jobDir, id, unitPrompt, recordArray, validator, rounds = unitRounds) =>
+      runUnit(jobDir, setup, { id, prompt: unitPrompt, recordArray, validator, rounds, label: { paragraph: i + 1 } });
     // THE CONTENT CLAUSE, JUDGED SOURCE-BOUND (kogaki#1614): after the record passes, a call over
     // each Segment's `content` beside its sentence; a Segment judged unbound refuses the
-    // Extraction, and the Extractor is asked again with that refusal, within its own attempt
+    // Extraction, and the Extractor is asked again with that refusal, within its own Round
     // budget. Round 1 runs in the paragraph's directory, a later round in `extract-<k>/`, and
     // each round's verdict call in `content-bound/` (`content-bound-<k>/` from round 2).
     let ex;
     let verdicts;
     let spent = 0;
-    let boundAttempts = 0;
-    let constraintsAttempts = 0;
+    let boundRounds = 0;
+    let constraintsRounds = 0;
     const history = [];
     const refusals = [];
     for (let k = 1; ; k++) {
@@ -800,12 +800,12 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       mkdirSync(xdir, { recursive: true });
       const xPrompt = k === 1 ? prompt : extractionUnitPrompt(row, input, history);
       ex = unitJob(xdir, `p${i + 1}`, xPrompt, "segments",
-        { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input }, unitAttempts - spent);
-      spent += ex.u.attempts || 1;
+        { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input }, unitRounds - spent);
+      spent += ex.u.rounds || 1;
       refusals.push(...(ex.u.refusals || []));
       if (ex.failed) {
         return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${ex.job.state}`
-          + ` after ${spent} attempt(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}` };
+          + ` after ${spent} round(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}` };
       }
       const cdir = join(dir, k === 1 ? "content-bound" : `content-bound-${k}`);
       mkdirSync(cdir, { recursive: true });
@@ -814,10 +814,10 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       writeFileSync(join(cdir, "prompt.md"), cPrompt);
       const cb = unitJob(cdir, `p${i + 1}-content-bound`, cPrompt, "verdicts",
         { module: "src/proof-sheet/extract.mjs", export: "validateContentBoundUnit", inputs: { record: ex.u.candidate, input } });
-      boundAttempts += cb.u.attempts || 1;
+      boundRounds += cb.u.rounds || 1;
       if (cb.failed) {
         return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the content-bound job ended ${cb.job.state}`
-          + ` after ${cb.u.attempts || 1} attempt(s) — ${String(lastRefusal(cb.job)).split("\n").join(" ")}` };
+          + ` after ${cb.u.rounds || 1} round(s) — ${String(lastRefusal(cb.job)).split("\n").join(" ")}` };
       }
       verdicts = cb.u.candidate.verdicts;
       let refusal = contentBoundRefusal(verdicts, ex.u.candidate, input);
@@ -834,10 +834,10 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
         writeFileSync(join(tdir, "prompt.md"), tPrompt);
         const tb = unitJob(tdir, `p${i + 1}-constraints`, tPrompt, false,
           { module: "src/proof-sheet/extract.mjs", export: "validateConstraintsUnit", inputs: { input: tInput, at: `paragraph ${i + 1}` } });
-        constraintsAttempts += tb.u.attempts || 1;
+        constraintsRounds += tb.u.rounds || 1;
         if (tb.failed) {
           return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the constraints job ended ${tb.job.state}`
-            + ` after ${tb.u.attempts || 1} attempt(s) — ${String(lastRefusal(tb.job)).split("\n").join(" ")}` };
+            + ` after ${tb.u.rounds || 1} round(s) — ${String(lastRefusal(tb.job)).split("\n").join(" ")}` };
         }
         refusal = constraintsRefusal(tb.u.candidate, `paragraph ${i + 1}`);
         refusedBy = "constraints";
@@ -845,16 +845,16 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       if (!refusal) break;
       refusals.push(refusal);
       history.push({ answer: ex.u.candidate, refusal });
-      if (spent >= unitAttempts) {
+      if (spent >= unitRounds) {
         return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the ${refusedBy} call refused`
-          + ` the Extraction after ${spent} attempt(s) — ${refusal.split("\n").join(" ")}` };
+          + ` the Extraction after ${spent} round(s) — ${refusal.split("\n").join(" ")}` };
       }
     }
-    // THE RUN RECORD NAMES EVERY CALL'S ATTEMPTS (kogaki#1614, kogaki#1698): the
+    // THE RUN RECORD NAMES EVERY CALL'S ROUNDS (kogaki#1614, kogaki#1698): the
     // Extractor's across every round, with every refusal in order, beside the judging calls'.
-    writeJson(join(dir, "attempts.json"), { paragraph: i + 1, state: ex.job.state, status: ex.u.status || null,
-      attempts: spent, refusals, content_bound_attempts: boundAttempts,
-      constraints_attempts: constraintsAttempts });
+    writeJson(join(dir, "rounds.json"), { paragraph: i + 1, state: ex.job.state, status: ex.u.status || null,
+      rounds: spent, refusals, content_bound_rounds: boundRounds,
+      constraints_rounds: constraintsRounds });
     ex = { ...ex, u: { ...ex.u, candidate: withContentBound(ex.u.candidate, verdicts) } };
     const u = { candidate: ex.u.candidate };
     writeJson(join(dir, "answer.json"), u.candidate);
@@ -926,7 +926,7 @@ export function runConstraintsRejudge(library, { write = false, retireState = fa
     const tb = runUnit(jobDir, setup, { id: `${id}-constraints`, prompt, recordArray: false,
       validator: { module: "src/proof-sheet/extract.mjs", export: "validateConstraintsUnit", inputs: { input, at: `move ${id}` } }, label: { move: id } });
     if (tb.failed) {
-      return report({ stopped: `the re-judge stopped at ${name}: the constraints job ended ${tb.job.state} after ${tb.u.attempts || 1} attempt(s) — `
+      return report({ stopped: `the re-judge stopped at ${name}: the constraints job ended ${tb.job.state} after ${tb.u.rounds || 1} round(s) — `
         + `${String(lastRefusal(tb.job)).split("\n").join(" ")}` });
     }
     const lists = constraintLists(tb.u.candidate);

@@ -117,7 +117,7 @@
     "no_move_fits": {
       "required": false,
       "type": "string",
-      "description": "Present ONLY where no Move in `moves_you_may_bind` fits this Leg: one sentence naming what this Leg's claims need that no Move's `segments` provide. Never name the nearest Move instead. A Leg carries exactly one of `move` and `no_move_fits`, and a Candidate with any `no_move_fits` Leg is refused with that sentence, so the next attempt can revise the path: omit the Leg, change the path, or leave a Strand unused (kogaki#1276)."
+      "description": "Present ONLY where no Move in `moves_you_may_bind` fits this Leg: one sentence naming what this Leg's claims need that no Move's `segments` provide. Never name the nearest Move instead. A Leg carries exactly one of `move` and `no_move_fits`, and a Candidate with any `no_move_fits` Leg is refused with that sentence, so the next round can revise the path: omit the Leg, change the path, or leave a Strand unused (kogaki#1276)."
     },
     "claims": {
       "required": true,

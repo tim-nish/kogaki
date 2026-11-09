@@ -8,13 +8,13 @@
 // THE NAMES THIS FILE USES, and the spec each one names:
 //   The Mapper in ParagraphPlan
 //       specs/spec-draft-pipeline/SPEC.md
-//   The Attempt Record
+//   The Call Record
 //       specs/spec-draft-pipeline/SPEC.md
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { judgePrompt, refusalReach } from "./workflow/judge.mjs";
 import { REPO, bindFlow } from "./workflow/run-record.mjs";
-import { writeAttemptRecord, tableRecord } from "./workflow/attempt-record.mjs";
+import { writeCallRecord, tableRecord } from "./workflow/call-record.mjs";
 import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./mapping-playground/sme.mjs";
 import { correspondenceInput, correspondenceRefusal } from "./mapping-playground/short.mjs";
 import { PLAYGROUND_TABLE } from "./mapping-playground/trial.mjs";
@@ -34,7 +34,7 @@ const structureForPlan = (s) => ({ roles: s.roles, relations: s.relations, highe
 // ONE UNIT'S MAPPER, held by the supervisor (src/workflow/detached-job.mjs) for the job's life.
 // `inputs` is the units file's `mapper.inputs`: `{ legs, strands, movesDir, persona, planHead }`, `legs`
 // the planned Legs in unit order and `strands` one strand text per Leg. `ctx` is the supervisor's
-// `{ runDir, cli, callArgv }`, written onto every Attempt Record. An act is `{ call }`, `{ compose }`,
+// `{ runDir, cli, callArgv }`, written onto every Call Record. An act is `{ call }`, `{ compose }`,
 // `{ proceed }` or `{ stopped }`.
 export class ParagraphPlanMapper {
   constructor(inputs, ctx) {
@@ -69,7 +69,7 @@ export class ParagraphPlanMapper {
     const { leg, strand } = this.legOf(unitId);
     const ws = leg.waypoints;
     const queue = ws.map((w) => w.waypoint).filter((n) => !(n > 1 && ws[n - 2].case === APART));
-    this.units.set(unitId, { leg, strand, input, stage: READING, queue, history: [], attempt: 0,
+    this.units.set(unitId, { leg, strand, input, stage: READING, queue, history: [], calls: 0,
       structures: {}, readFrom: {}, tables: {}, candidate: null });
     return this.next(unitId);
   }
@@ -85,7 +85,7 @@ export class ParagraphPlanMapper {
     u.candidate = candidate;
     u.queue = u.leg.waypoints.map((w) => w.waypoint);
     u.history = [];
-    u.attempt = 0;
+    u.calls = 0;
     return this.next(unitId);
   }
 
@@ -138,13 +138,13 @@ export class ParagraphPlanMapper {
   call(unitId) {
     const u = this.units.get(unitId);
     const n = u.queue[0];
-    u.attempt += 1;
+    u.calls += 1;
     const { row, input } = this.callInput(u, n);
     const held = bindFlow(FLOW);
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, u.history.length ? u.history : null); } finally { bindFlow(held); }
     u.pending = { n, row, input, prompt };
-    return { call: { phase: u.stage, prompt, label: `${u.stage} at Leg Waypoint ${n}, attempt ${u.attempt}` } };
+    return { call: { phase: u.stage, prompt, label: `${u.stage} at Leg Waypoint ${n}, call ${u.calls}` } };
   }
 
   // ONE READING OR GROUNDING CALL, ANSWERED: `out` is `{ raw, record }`, or `{ raw, unread }` for an answer
@@ -156,7 +156,7 @@ export class ParagraphPlanMapper {
     const raw = out.died ? { group: null, text: out.died } : out.unread ? { group: "shape", text: out.unread }
       : u.stage === READING ? this.readingRefusal(out.record, u, n) : correspondenceRefusal(out.record, u.structures[n]);
     const r = raw && raw.text ? (raw.group ? refusalReach(row, raw) : { ...raw, reach: null }) : null;
-    writeAttemptRecord(this.ctx.runDir, `${unitId}/${u.stage}/waypoint-${n}`, u.attempt, { prompt, argv: this.ctx.callArgv, cli: this.ctx.cli, input,
+    writeCallRecord(this.ctx.runDir, `${unitId}/${u.stage}/waypoint-${n}`, u.calls, { prompt, argv: this.ctx.callArgv, cli: this.ctx.cli, input,
       row: { row, tables: [tableRecord(PLAYGROUND_TABLE)] }, raw: out.raw, answer: out.record ?? undefined,
       refusal: r && { group: r.group, reach: r.reach, text: r.text, validator: out.died || out.unread ? null : validator } });
     const at = `Leg ${u.leg.leg_id}, Waypoint ${n}`;
@@ -166,14 +166,14 @@ export class ParagraphPlanMapper {
       else u.tables[n] = { move: u.candidate.waypoints[n - 1].move, case: u.leg.waypoints[n - 1].case, base: out.record.base, correspondences: out.record.correspondences };
       u.queue.shift();
       u.history = [];
-      u.attempt = 0;
+      u.calls = 0;
       this.save(unitId);
       return this.next(unitId);
     }
     u.history.push({ answer: out.record ?? null, refusal: r.text, group: r.group, reach: r.reach });
-    if (r.undeclared || r.reach === "stop" || u.attempt >= MAPPER_CALLS) {
+    if (r.undeclared || r.reach === "stop" || u.calls >= MAPPER_CALLS) {
       const why = r.undeclared ? `its refusal names the group ${JSON.stringify(r.group)}, which the \`${row.id}\` row does not declare`
-        : r.reach === "stop" ? `its refusal of group ${JSON.stringify(r.group)} has reach stop` : `the \`${row.id}\` answer was refused ${u.attempt} times`;
+        : r.reach === "stop" ? `its refusal of group ${JSON.stringify(r.group)} has reach stop` : `the \`${row.id}\` answer was refused ${u.calls} times`;
       return { stopped: `${at}: ${u.stage} stopped — ${why}; the last refusal: ${r.text}` };
     }
     return this.call(unitId);

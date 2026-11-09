@@ -240,7 +240,7 @@ const fails = [];
   const validate = (x) => { const r = validateReaderPathUnit(x, { strandIds: ["L1"], movesDir: fitMoves }); return r && r.error ? r.error : null; };
   // THE UNIT IS CLASSIFIED BY A REAL `job-supervise` RUN (kogaki#1257), under
   // the declared `validateReaderPathUnit` validator and a fake judge that
-  // answers this Candidate on every attempt and records each prompt it is
+  // answers this Candidate on every Round and records each prompt it is
   // sent -- so the refusal is read off the unit row and the retry prompt is
   // the second one the supervisor actually sent.
   const sup = mkdtempSync(join(tmpdir(), "kogaki-ai-"));
@@ -256,7 +256,7 @@ const fails = [];
       inputs: { strandIds: ["L1"], movesDir: fitMoves } } }));
   spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", sup, "--units", join(sup, "units.json"),
     "--command", judge, "--model", "m", "--output-format", "json",
-    "--call-limit-s", "100", "--unit-attempts", "2", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
+    "--call-limit-s", "100", "--unit-rounds", "2", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
   const jobFile = join(sup, "reader-path-job.json");
   const unit = existsSync(jobFile) ? (JSON.parse(readFileSync(jobFile, "utf8")).units || []).find((u) => u.id === "u") : null;
   if (!unit || unit.status !== "refused") fails.push(`(ai) a Candidate with a no_move_fits Leg classified ${unit && unit.status}, want refused`);
@@ -266,7 +266,7 @@ const fails = [];
     const promptsFile = join(sup, "prompts.jsonl");
     const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
     const retry = sent[1] || "";
-    if (!retry.includes("----- YOUR PREVIOUS ANSWER (attempt 1) -----") || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
+    if (!retry.includes("----- YOUR PREVIOUS ANSWER (call 1) -----") || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
   }
   const good = validate(cand1276("c1"));
   if (good) fails.push(`(ai) the same Candidate with a move on every Leg was refused: ${good}`);
@@ -280,7 +280,7 @@ const fails = [];
   const run = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
   const started = startDetachedJobSupervisor(run, {
     units: [{ id: "candidate-1", prompt: "first unit prompt" }, { id: "candidate-2", prompt: "second unit prompt" }],
-    command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitAttempts: 2, stallS: 5, heartbeatMs: 100,
+    command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitRounds: 2, stallS: 5, heartbeatMs: 100,
     validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
   });
   try { process.kill(started.supervisorPid); } catch { /* already gone */ }
@@ -358,7 +358,7 @@ const fails = [];
   mkdirSync(run);
   const now = new Date().toISOString();
   writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_attempts: 3, supervisor_pid: null, state: "refused",
+    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "refused",
     units: allRows.map((u) => ({ ...u, bytes: 50 })),
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(run), JSON.stringify({

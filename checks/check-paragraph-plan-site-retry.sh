@@ -27,7 +27,7 @@ const fails = [];
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { legRecord, briefRecordText, readerStateMap } = await imp("src/compose.mjs");
-const { attemptRows, attemptsRoot, readAttemptRecord } = await imp("src/workflow/attempt-record.mjs");
+const { callRows, callsRoot, readCallRecord } = await imp("src/workflow/call-record.mjs");
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, siteRepeatRefusal, siteRestatementRefusal } = await imp("src/paragraph-plan.mjs");
 const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
@@ -239,21 +239,21 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
   const s1 = units.find((u) => u.id === "leg-1");
   const s2 = units.find((u) => u.id === "leg-2");
   const last = s1 && s1.refusals ? s1.refusals[s1.refusals.length - 1] : "";
-  if (!s1 || s1.status !== "refused" || !last.includes("Waypoint 1: its 3 attempts are spent") || !last.includes(siteRepeatRefusal(1))) {
-    fails.push(`(s4) Leg s1 does not end refused naming Waypoint 1 and its spent attempts: ${JSON.stringify(s1 && { status: s1.status, last })}`);
+  if (!s1 || s1.status !== "refused" || !last.includes("Waypoint 1: its 3 rounds are spent") || !last.includes(siteRepeatRefusal(1))) {
+    fails.push(`(s4) Leg s1 does not end refused naming Waypoint 1 and its spent rounds: ${JSON.stringify(s1 && { status: s1.status, last })}`);
   }
   if (!s2 || s2.status !== "done" || !s2.candidate) fails.push(`(s4) Leg s2 did not finish beside the refused Leg: ${JSON.stringify(s2 && s2.status)}`);
-  // THE SITE LOOP'S REFUSAL IS PINNED TO THE CALL IT REFUSED (kogaki#1756): the second site call's Attempt Record.
-  const siteRecords = attemptRows(attemptsRoot(r.runDir)).filter((x) => x.unit === "leg-1")
-    .map((x) => readAttemptRecord(x.dir)).filter((x) => x.row && x.row.phase === "site");
+  // THE SITE LOOP'S REFUSAL IS PINNED TO THE CALL IT REFUSED (kogaki#1756): the second site call's Call Record.
+  const siteRecords = callRows(callsRoot(r.runDir)).filter((x) => x.unit === "leg-1")
+    .map((x) => readCallRecord(x.dir)).filter((x) => x.row && x.row.phase === "site");
   const pinned = siteRecords[1] && siteRecords[1].refusal;
   if (!pinned || !String(pinned.text).includes(siteRepeatRefusal(1)) || JSON.stringify(pinned.sites) !== "[1]") {
-    fails.push(`(s4) the second site call's Attempt Record does not hold the site loop's refusal at Waypoint 1: ${JSON.stringify(pinned)}`);
+    fails.push(`(s4) the second site call's Call Record does not hold the site loop's refusal at Waypoint 1: ${JSON.stringify(pinned)}`);
   }
   if (!/Leg s1, Waypoint 1\b/.test(r.out) || r.plan) fails.push(`(s4) the stop does not name Leg s1, Waypoint 1, or a plan file was written: ${r.out.slice(0, 600)}`);
 }
 
-// (s5) THE LEG CEILING ENDS A LEG WHOSE SITES STILL HAVE ATTEMPTS.
+// (s5) THE LEG CEILING ENDS A LEG WHOSE SITES STILL HAVE ROUNDS.
 {
   const r = run("s5", `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { settings: { leg_revisions: 2 } });
@@ -270,7 +270,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { 
     .map((p) => readFileSync(p, "utf8")).join("\n");
   if (/siteRetry|site_retry/.test(briefSrc)) fails.push("(s6) the Brief's runtime declares a site loop");
   const table = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8"));
-  if (!table.job.site_retry || JSON.stringify(table.job.site_retry.leg_attempts) !== JSON.stringify({ setting: "paragraph_plan.leg_revisions" })) {
+  if (!table.job.site_retry || JSON.stringify(table.job.site_retry.leg_revisions) !== JSON.stringify({ setting: "paragraph_plan.leg_revisions" })) {
     fails.push("(s6) src/paragraph-plan-workflow.json's job does not declare `site_retry` reading `paragraph_plan.leg_revisions`");
   }
 }
@@ -349,7 +349,7 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
       fails.push(`(s11) the rewritten Paragraph Waypoint at Leg s1, Waypoint 1 does not carry forced_by [PERFORMS IS BARE]: ${JSON.stringify(marks("s1", 1))}`);
     }
     for (const [l, w] of [["s1", 2], ["s1", 3], ["s2", 1]]) {
-      if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, Waypoint ${w} passed on its first attempt and carries forced_by: ${JSON.stringify(marks(l, w))}`);
+      if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, Waypoint ${w} passed on its first round and carries forced_by: ${JSON.stringify(marks(l, w))}`);
     }
     if (Object.hasOwn(pwOf(r.plan, "s1", 1), "move_forced_by")) fails.push("(s11) a site call that held the Move marks the entry's move");
   }
@@ -378,5 +378,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move first and handed what stands to be taken up (kogaki#1701); a repeat is refused before the judge; a rebound Move recomposes only the entries after it, the suffix call handed what it leaves (kogaki#1701); a null naming only rejected Moves is a repeat; a site's attempts or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated attempt are each refused by name before the judge (kogaki#1651); a TAKEN or LEFT refusal holds no endpoint on the first retry (kogaki#1647, kogaki#1701); a Paragraph Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
+console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Leg Waypoint is retried there alone, holding its Move first and handed what stands to be taken up (kogaki#1701); a repeat is refused before the judge; a rebound Move recomposes only the entries after it, the suffix call handed what it leaves (kogaki#1701); a null naming only rejected Moves is a repeat; a site's rounds or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated round are each refused by name before the judge (kogaki#1651); a TAKEN or LEFT refusal holds no endpoint on the first retry (kogaki#1647, kogaki#1701); a Paragraph Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
 JS

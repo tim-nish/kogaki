@@ -316,7 +316,7 @@ export const STATE_WORK = {
     // closed Strand set -- can only be checked with every unit in hand, so
     // they run here, once, over the assembled set; and a failure here is
     // TERMINAL rather than re-asked, on the owner's 2026-09-25 "no automatic
-    // retries" ruling -- a detached job has already spent its one attempt per
+    // retries" ruling -- a detached job has already spent its one Round per
     // unit, and there is no round left to spend repairing the whole set.
     if (args.candidates) {
       try {
@@ -355,7 +355,7 @@ export const STATE_WORK = {
     // THE UNIT COUNT AND THE TWO BOUNDS ARE SETTINGS (kogaki#1307, kogaki#1355), read
     // before anything starts.
     const unitCount = briefJobSetting(table, "compose_path", "units");
-    const { callLimitS, unitAttempts } = briefJobBounds(table, "compose_path");
+    const { callLimitS, unitRounds } = briefJobBounds(table, "compose_path");
     // THE MOVE-FIT ROW (kogaki#1307): judged per unit inside this job, so it is read here
     // and its prompt head rendered here, where the Brief's own table and flow are in hand;
     // the supervisor appends each unit's own input below the marker.
@@ -438,7 +438,7 @@ export const STATE_WORK = {
       model: cfg.model,
       outputFormat: cfg.outputFormat,
       callLimitS,
-      unitAttempts,
+      unitRounds,
       stallS: READER_PATH_JOB_STALL_S,
       heartbeatMs: jobHeartbeatMs(),
       // THE DECLARED MOVE-FIT JUDGE (kogaki#1307): once a unit's record passes the

@@ -9,10 +9,10 @@ import { pathToFileURL } from "node:url";
 import { JUDGE_INPUT_MARKER, judgeRefusalBlock, refusalReach } from "./judge.mjs";
 import { REPO, fail, readJson } from "./run-record.mjs";
 import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
-import { writeAttemptRecord, pinAttemptRefusal, cliRecord, tableRecord } from "./attempt-record.mjs";
+import { writeCallRecord, pinCallRefusal, cliRecord, tableRecord, RETIRED_NAMES } from "./call-record.mjs";
 
 // The unit row's field holding its first call's seconds; the FLP reads it by this name (kogaki#1758).
-export const FIRST_CALL_SECONDS_FIELD = "attempt_1_s";
+export const FIRST_CALL_SECONDS_FIELD = "call_1_s";
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
 // `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
@@ -21,9 +21,9 @@ export const FIRST_CALL_SECONDS_FIELD = "attempt_1_s";
 // flow binding; never import `validateLegs` or anything Brief-specific here.
 // Each job unit is a HEADLESS SESSION (a `claude -p` child that runs with no tools), and
 // its answer fails in one of two classes (kogaki#1307): MALFORMED OUTPUT -- not JSON, or no
-// record in it -- respawns the unit with the same prompt and counts no attempt; a SCHEMA
+// record in it -- respawns the unit with the same prompt and counts no Round; a SCHEMA
 // REFUSAL -- a record the declared validator, or the declared Move-fit judge, refuses --
-// spends one of the unit's attempts and is re-asked (kogaki#1203, counted by kogaki#1355).
+// spends one of the unit's Rounds and is re-asked (kogaki#1203, counted by kogaki#1355).
 export class DetachedJobStarted extends Error {
   constructor(stateId, jobRecordPath, message) {
     super(message);
@@ -33,12 +33,12 @@ export class DetachedJobStarted extends Error {
 }
 
 const READER_PATH_JOB_FILE = "reader-path-job.json";
-// A UNIT IS BOUNDED PER CALL AND PER ATTEMPT COUNT, NEVER BY A WHOLE-JOB LIMIT
+// A UNIT IS BOUNDED PER CALL AND PER ROUND COUNT, NEVER BY A WHOLE-JOB LIMIT
 // (kogaki#1355, superseding kogaki#1273's one retry that fits). `call_limit_s` and
-// `unit_attempts` are read by the job's starter from `kogaki.settings.json` and written
+// `unit_rounds` are read by the job's starter from `kogaki.settings.json` and written
 // onto the job record, which the supervisor enforces and `job await` reads back. A job's
-// longest run is `unit_attempts` x (calls per attempt + `unit_attempts` malformed
-// respawns, each a full call spending no attempt) x `call_limit_s`.
+// longest run is `unit_rounds` x (calls per Round + `unit_rounds` malformed
+// respawns, each a full call spending no Round) x `call_limit_s`.
 // NO BYTE GROWTH ON ANY STILL-RUNNING UNIT FOR THIS LONG is read as a stall — a declared
 // heuristic, kept narrower than the per-call limit.
 // Per kogaki#1193 comment 3, this one output-byte bound stands in for both of the Issue's
@@ -90,10 +90,10 @@ export const READER_PATH_JOB_AWAIT_COMMAND = "node src/brief.mjs run --status --
 // records its fixtures end in.
 
 // ONE FILE PER UNIT, NAMED BY ITS ID (kogaki#1203 acceptance 2). Every
-// attempt of a retried unit lands in this same path -- the first attempt's
+// Round of a retried unit lands in this same path -- the first Round's
 // bytes, a divider line, then the next's -- so a unit that dies or is
 // refused is inspectable from one path rather than a reader having to guess
-// which attempt's file survived.
+// which Round's file survived.
 function readerPathUnitStdoutPath(dir, unitId) {
   return join(dir, `reader-path-unit-${unitId}.stdout`);
 }
@@ -178,7 +178,7 @@ function readerPathBytes(str, n) {
 //
 // `stdoutFile`, WHEN GIVEN, IS WRITTEN AS THE CHILD STREAMS (kogaki#1203):
 // `{ path, flag }`, `flag` defaulting to `"w"` -- a fresh file for a unit's
-// first attempt, `"a"` for a retried attempt that appends past a divider its
+// first Round, `"a"` for a retried Round that appends past a divider its
 // caller already wrote. This is what puts a unit's raw output on disk BEFORE
 // the job ends, including a call the per-call limit or the stall bound kills mid-run:
 // the write happens as each chunk arrives rather than at `close`, where a
@@ -360,7 +360,7 @@ const MAPPER_PHASES = ["reading", "grounding"];
 // `schema refusal`).
 const MALFORMED_OUTPUT = "malformed output";
 const SCHEMA_REFUSAL = "schema refusal";
-// A UNIT WHOSE LAST ATTEMPT'S CALL RAN PAST `call_limit_s` (kogaki#1355) ends `refused`
+// A UNIT WHOSE LAST ROUND'S CALL RAN PAST `call_limit_s` (kogaki#1355) ends `refused`
 // with this class: a time bound, never a system failure.
 const CALL_TIME_LIMIT = "call time limit";
 
@@ -379,7 +379,7 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
   if (validate) {
     const refusal = validate(r.candidate, unitId);
     if (refusal) {
-      // The refused record rides the classification so the next attempt can be shown it
+      // The refused record rides the classification so the next Round can be shown it
       // (kogaki#1438); `endUnit` keeps it off the row, where `candidate` means schema-valid.
       const text = typeof refusal === "string" ? refusal : refusal.text;
       return { status: "refused", candidate: r.candidate, failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(text), 4000), bytes_written: out.bytes, ended_at: out.endedAt,
@@ -395,7 +395,7 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
 // compose call; a judge answer with no record, or one whose own shape the declared
 // verdict function refuses, is `malformed` and is respawned; a `contradicts` or
 // `cannot-determine` on any Leg is a SCHEMA REFUSAL of the unit's Candidate, carrying
-// the judge's sentences verbatim, which the unit's next attempt answers.
+// the judge's sentences verbatim, which the unit's next Round answers.
 function classifyFitJudgeCall(out, fit, candidate, unitId, scope = null) {
   const base = classifyDetachedJobUnit(out, null, "verdicts", unitId);
   if (base.status !== "done") return base;
@@ -443,7 +443,7 @@ function reduceFinishedReaderPathUnits(units, { unitIsolation = false } = {}) {
 // seen rather than after its siblings finish. `stop_requested` is read first,
 // because the owner's stop click is answered whatever a unit is doing; the stall
 // bound is read only while a unit is still running. There is no whole-job time
-// bound (kogaki#1355): a call past `call_limit_s` is the unit's own attempt to
+// bound (kogaki#1355): a call past `call_limit_s` is the unit's own Round to
 // spend, answered by the supervisor, never a state of the job.
 
 // UNDER UNIT ISOLATION (kogaki#1641, owner decision 2026-10-31) a died unit ends
@@ -468,23 +468,26 @@ function classifyDetachedJobState(units, {
 export const RETIRED_JOB_LIMIT_KEYS = ["compose_job_limit_s", "review_job_limit_s", "absolute_limit_s"];
 
 // THE JOB'S OWN TWO BOUNDS, READ OFF ITS RECORD (kogaki#1355): `call_limit_s` and
-// `unit_attempts` as its starter wrote them from `kogaki.settings.json`, never a
+// `unit_rounds` as its starter wrote them from `kogaki.settings.json`, never a
 // constant of this file and never defaulted.
 export function readerPathJobBounds(job) {
   for (const k of RETIRED_JOB_LIMIT_KEYS) {
     if (job && Object.prototype.hasOwnProperty.call(job, k)) {
-      throw new Error(`the job record carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- a unit is bounded by \`call_limit_s\` and \`unit_attempts\` alone.`);
+      throw new Error(`the job record carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- a unit is bounded by \`call_limit_s\` and \`unit_rounds\` alone.`);
     }
+  }
+  if (job && Object.prototype.hasOwnProperty.call(job, RETIRED_NAMES.unitBound)) {
+    throw new Error(`the job record carries \`${RETIRED_NAMES.unitBound}\`, renamed \`unit_rounds\` (kogaki#1760) -- a job written under the old name is not resumed.`);
   }
   const callLimitS = job && Number(job.call_limit_s);
   if (!Number.isFinite(callLimitS) || callLimitS <= 0) {
     throw new Error("the job record carries no positive `call_limit_s` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
   }
-  const unitAttempts = job && Number(job.unit_attempts);
-  if (!Number.isInteger(unitAttempts) || unitAttempts <= 0) {
-    throw new Error("the job record carries no positive integer `unit_attempts` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
+  const unitRounds = job && Number(job.unit_rounds);
+  if (!Number.isInteger(unitRounds) || unitRounds <= 0) {
+    throw new Error("the job record carries no positive integer `unit_rounds` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
   }
-  return { callLimitS, unitAttempts };
+  return { callLimitS, unitRounds };
 }
 
 // THE READER-PATH AWAIT'S OWN PER-POLL DECISION (kogaki#1213), pulled out of
@@ -502,7 +505,7 @@ export function readerPathAwaitStep(job, { stopRequested, stalledS } = {}) {
 
 function readerPathRefusedUnits(unitRows) {
   return unitRows.filter((x) => x.status === "refused").map((x) => ({
-    id: x.id, attempts: x.attempts || 1,
+    id: x.id, rounds: x.rounds || 1,
     ...(x.failure && x.failure.file ? { file: x.failure.file } : {}),
   }));
 }
@@ -573,11 +576,11 @@ export async function cmdJobSupervise(args) {
     // THE TWO BOUNDS ARE HANDED OVER, NEVER DEFAULTED (kogaki#1307, kogaki#1355): the
     // starter read them from `kogaki.settings.json`, and a supervisor told either one
     // not refuses to start. The retired whole-job limit is refused by name.
-    if (args["absolute-limit-s"] !== undefined) throw new Error("job-supervise was handed --absolute-limit-s, a whole-job limit retired by kogaki#1355; it takes --call-limit-s and --unit-attempts.");
+    if (args["absolute-limit-s"] !== undefined) throw new Error("job-supervise was handed --absolute-limit-s, a whole-job limit retired by kogaki#1355; it takes --call-limit-s and --unit-rounds.");
     const callLimitS = Number(args["call-limit-s"]);
     if (!Number.isFinite(callLimitS) || callLimitS <= 0) throw new Error("job-supervise needs a positive --call-limit-s (kogaki#1355).");
-    const unitAttempts = Number(args["unit-attempts"]);
-    if (!Number.isInteger(unitAttempts) || unitAttempts <= 0) throw new Error("job-supervise needs a positive integer --unit-attempts (kogaki#1355).");
+    const unitRounds = Number(args["unit-rounds"]);
+    if (!Number.isInteger(unitRounds) || unitRounds <= 0) throw new Error("job-supervise needs a positive integer --unit-rounds (kogaki#1355).");
     const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
     // THE DECLARED VALIDATOR, REQUIRED (kogaki#1240): a units file with no
@@ -611,7 +614,7 @@ export async function cmdJobSupervise(args) {
       "--setting-sources", "", "--no-session-persistence"];
     const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
-    // EVERY CALL WRITES ITS ATTEMPT RECORD (kogaki#1717); `n` counts all of a unit's calls, whatever their phase.
+    // EVERY CALL WRITES ITS CALL RECORD (kogaki#1717); `n` counts all of a unit's calls, whatever their phase.
     const cli = cliRecord(command, args["command-version"] ? String(args["command-version"]) : null);
     const callArgv = { argv, model, output_format: "stream-json", timeout_s: callLimitS };
     const mapper = await loadMapper(declared.mapper, { runDir: dir, cli, callArgv });
@@ -632,34 +635,34 @@ export async function cmdJobSupervise(args) {
         validator: cls.status === "refused" && f.class === SCHEMA_REFUSAL ? validatorName(sp.phase) : null,
         sites: f.sites || (f.move_fit && f.move_fit.length ? f.move_fit : null) };
       const answer = sp.phase === "fit" ? (cls.specialization ?? undefined) : (cls.candidate ?? undefined);
-      const dirOf = writeAttemptRecord(dir, u.id, st.calls, { prompt: sp.prompt, argv: callArgv, cli, input: u.input ?? null,
+      const dirOf = writeCallRecord(dir, u.id, st.calls, { prompt: sp.prompt, argv: callArgv, cli, input: u.input ?? null,
         row: rowOf(sp.phase), raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), answer, refusal });
-      st.attemptRecords = resolve(dirOf, "..");
+      st.callRecords = resolve(dirOf, "..");
     };
-    // THE PER-UNIT STATE (kogaki#1355). `attempts` is the attempt now running: it starts
-    // at 1 and reaches `unitAttempts` at most. A schema refusal or a call killed at
-    // `callLimitS` spends one; `refusals` holds every attempt's refusal and `timedOut`
+    // THE PER-UNIT STATE (kogaki#1355). `rounds` is the Round now running: it starts
+    // at 1 and reaches `unitRounds` at most. A schema refusal or a call killed at
+    // `callLimitS` spends one; `refusals` holds every Round's refusal and `timedOut`
     // every killed call, so a unit that spent them all reports each. `malformed` counts
-    // MALFORMED OUTPUT respawns (kogaki#1307), which spend no attempt, and
-    // `malformedThisAttempt` bounds them at `unitAttempts` per attempt.
-    // `attempt1S` is attempt 1's own duration, written onto the row from attempt 2 on as
+    // MALFORMED OUTPUT respawns (kogaki#1307), which spend no Round, and
+    // `malformedThisRound` bounds them at `unitRounds` per Round.
+    // `round1S` is Round 1's own duration, written onto the row from Round 2 on as
     // the status line's estimate. `phase` is `compose` while the unit's own record is
     // being written and `fit` while its Move fit is judged; `composed` holds the record
     // the fit call judges.
     const S = new Map(units.map((u) => [u.id, {
-      attempts: 1, malformed: 0, malformedThisAttempt: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
-      composed: null, fitPrompt: null, refusals: [], timedOut: [], attempt1S: undefined, loop: null, callPrompt: null, scope: null,
-      attemptStartedAt: startedAt, callStartedAt: startedAt, final: null, calls: 0, attemptRecords: null,
-      attemptBase: 0, refusalBase: 0,
+      rounds: 1, malformed: 0, malformedThisRound: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
+      composed: null, fitPrompt: null, refusals: [], timedOut: [], round1S: undefined, loop: null, callPrompt: null, scope: null,
+      roundStartedAt: startedAt, callStartedAt: startedAt, final: null, calls: 0, callRecords: null,
+      roundBase: 0, refusalBase: 0,
     }]));
-    // A spawned call keeps the prompt it was sent and its phase, for its Attempt Record (kogaki#1717).
+    // A spawned call keeps the prompt it was sent and its phase, for its Call Record (kogaki#1717).
     const spawnCall = (u, prompt, phase, stdoutPath, flag) => ({ ...spawnDetachedJobUnit(command, argv, prompt, () => {}, childEnv,
       { path: stdoutPath, flag }), prompt, phase });
     const spawnCompose = (u, flag) => spawnCall(u, S.get(u.id).prompt, "compose", readerPathUnitStdoutPath(dir, u.id), flag);
     const spawnFit = (u, flag) => spawnCall(u, S.get(u.id).fitPrompt, "fit", readerPathUnitFitStdoutPath(dir, u.id), flag);
     // A SITE OR SUFFIX CALL (kogaki#1642) writes beside the unit's own call, in its stdout file.
     const spawnSite = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
-    // A MAPPER'S CALL (kogaki#1734) writes beside the unit's own call; its Attempt Record is the Mapper's.
+    // A MAPPER'S CALL (kogaki#1734) writes beside the unit's own call; its Call Record is the Mapper's.
     const spawnMapperCall = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     unitsRunning = new Map();
     // THE MAPPER'S ACT, CARRIED OUT: a reading or grounding call spawned, the plan call spawned over the
@@ -671,7 +674,7 @@ export async function cmdJobSupervise(args) {
         return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.stopped, bytes_written: bytes } }, bytes, stdoutPath), progressed: false };
       }
       st.callStartedAt = Date.now();
-      st.malformedThisAttempt = 0;
+      st.malformedThisRound = 0;
       if (act.call) {
         st.phase = act.call.phase;
         st.callPrompt = act.call.prompt;
@@ -679,9 +682,9 @@ export async function cmdJobSupervise(args) {
         unitsRunning.set(u.id, spawnMapperCall(u, flag));
         return { row: runningRow(u, 0), progressed: true };
       }
-      // THE PLAN CALL OVER THE MAPPER'S INPUT: its refusals and attempts are counted from here.
-      if (st.phase === "grounding") beginNextAttempt(st, Date.now());
-      st.attemptBase = st.attempts - 1;
+      // THE PLAN CALL OVER THE MAPPER'S INPUT: its refusals and Rounds are counted from here.
+      if (st.phase === "grounding") beginNextRound(st, Date.now());
+      st.roundBase = st.rounds - 1;
       st.refusalBase = st.refusals.length;
       u.prompt = act.compose.prompt;
       u.input = act.compose.input;
@@ -699,39 +702,39 @@ export async function cmdJobSupervise(args) {
 
     const secondsSince = (t, end = Date.now()) => Math.round((end - t) / 100) / 10;
 
-    // A NEW ATTEMPT BEGINS (kogaki#1355): attempt 1's duration is kept for the estimate,
+    // A NEW ROUND BEGINS (kogaki#1355): Round 1's duration is kept for the estimate,
     // the malformed bound resets, and the count moves on.
-    const beginNextAttempt = (st, endedAt) => {
-      if (st.attempts === 1) st.attempt1S = secondsSince(st.attemptStartedAt, endedAt);
-      st.attempts += 1;
-      st.malformedThisAttempt = 0;
-      st.attemptStartedAt = Date.now();
-      st.callStartedAt = st.attemptStartedAt;
+    const beginNextRound = (st, endedAt) => {
+      if (st.rounds === 1) st.round1S = secondsSince(st.roundStartedAt, endedAt);
+      st.rounds += 1;
+      st.malformedThisRound = 0;
+      st.roundStartedAt = Date.now();
+      st.callStartedAt = st.roundStartedAt;
     };
 
-    // THE ROW OF A UNIT STILL WORKING (kogaki#1355): the attempt it is on, the call it is
-    // in and when that attempt began, and from attempt 2 on attempt 1's own duration --
+    // THE ROW OF A UNIT STILL WORKING (kogaki#1355): the Round it is on, the call it is
+    // in and when that Round began, and from Round 2 on Round 1's own duration --
     // what `job await`'s status line reads, never recomputes.
     const runningRow = (u, bytes) => {
       const st = S.get(u.id);
-      return { id: u.id, status: "running", bytes, attempts: st.attempts, phase: st.phase,
-        attempt_started_at: new Date(st.attemptStartedAt).toISOString(),
-        ...(st.attemptRecords ? { attempt_records: st.attemptRecords } : {}),
-        ...(st.attempt1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.attempt1S } : {}) };
+      return { id: u.id, status: "running", bytes, rounds: st.rounds, phase: st.phase,
+        round_started_at: new Date(st.roundStartedAt).toISOString(),
+        ...(st.callRecords ? { call_records: st.callRecords } : {}),
+        ...(st.round1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.round1S } : {}) };
     };
 
     // THE UNIT HAS ENDED. Its row keeps every count a reader needs to see a unit that
-    // drifted toward a bound: attempts, malformed outputs, every refusal, every killed call.
+    // drifted toward a bound: Rounds, malformed outputs, every refusal, every killed call.
     const endUnit = (u, cls, bytes, stdoutPath) => {
       const st = S.get(u.id);
-      const firstRefusal = st.attempts > 1 && st.refusals.length ? st.refusals[0].refusal : undefined;
+      const firstRefusal = st.rounds > 1 && st.refusals.length ? st.refusals[0].refusal : undefined;
       if (cls.status === "died" || cls.status === "refused") {
         cls.failure = { ...cls.failure, file: stdoutPath,
           ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}) };
       }
       const row = {
-        id: u.id, bytes, ...cls, attempts: st.attempts, phase: st.phase,
-        ...(st.attempt1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.attempt1S } : {}),
+        id: u.id, bytes, ...cls, rounds: st.rounds, phase: st.phase,
+        ...(st.round1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.round1S } : {}),
         ...(st.malformed > 0 ? { malformed_output: st.malformed } : {}),
         ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
         // THE RECORD'S `refusals` STAYS AN ARRAY OF STRINGS (kogaki#1438): the Proof Sheet
@@ -740,7 +743,7 @@ export async function cmdJobSupervise(args) {
         // Each refusal's group and reach, where the row declares them (kogaki#1708).
         ...(st.refusals.some((h) => h.reach) ? { refusal_reach: st.refusals.map((h) => ({ group: h.group ?? null, reach: h.reach ?? null })) } : {}),
         ...(st.timedOut.length ? { timed_out: st.timedOut.slice() } : {}),
-        ...(st.attemptRecords ? { attempt_records: st.attemptRecords } : {}),
+        ...(st.callRecords ? { call_records: st.callRecords } : {}),
       };
       // A SCHEMA-VALID CANDIDATE IS KEPT ON EVERY ENDING (PR #1308 round 1): a unit whose
       // fit call refused, died or ran out of time still carries the Candidate it composed,
@@ -776,16 +779,16 @@ export async function cmdJobSupervise(args) {
       return sp;
     };
 
-    // A CALL PAST `call_limit_s` IS KILLED AND SPENDS ONE ATTEMPT (kogaki#1355). It is a
+    // A CALL PAST `call_limit_s` IS KILLED AND SPENDS ONE ROUND (kogaki#1355). It is a
     // time bound, not a defect, so the Brief does not end: the same call is asked again
-    // with the same prompt while an attempt is left, and the unit ends `refused` naming
+    // with the same prompt while a Round is left, and the unit ends `refused` naming
     // the limit once none is.
     const timeOut = (u, sp) => {
       const st = S.get(u.id);
       try { if (sp.child) sp.child.kill("SIGKILL"); } catch { /* already gone */ }
       if (MAPPER_PHASES.includes(st.phase)) return mapperAnswer(u, sp, { unread: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` });
       const callS = secondsSince(st.callStartedAt);
-      st.timedOut.push({ attempt: st.attempts, phase: st.phase, call_s: callS });
+      st.timedOut.push({ round: st.rounds, phase: st.phase, call_s: callS });
       recordCall(u, sp, { status: "refused", failure: { stderr_tail: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` } });
       const stdoutPath = callStdoutPath(u);
       // INSIDE A SITE LOOP the killed call is that site's refusal, or a judgment asked again.
@@ -793,13 +796,13 @@ export async function cmdJobSupervise(args) {
         const text = `the ${st.phase} call ran past the ${callLimitS}s per-call limit`;
         return siteAct(u, st.phase === "fit" ? st.loop.judged([], text) : st.loop.answered(null, text), sp, stdoutPath);
       }
-      if (st.attempts < unitAttempts) {
-        beginNextAttempt(st, Date.now());
-        try { appendFileSync(stdoutPath, `\n----- the ${st.phase} call ran past the ${callLimitS}s per-call limit; attempt ${st.attempts} asks it again with the same prompt -----\n`); } catch { /* best-effort */ }
+      if (st.rounds < unitRounds) {
+        beginNextRound(st, Date.now());
+        try { appendFileSync(stdoutPath, `\n----- the ${st.phase} call ran past the ${callLimitS}s per-call limit; round ${st.rounds} asks it again with the same prompt -----\n`); } catch { /* best-effort */ }
         respawnCall(u);
         return { row: runningRow(u, 0), progressed: true };
       }
-      const refusal = `the ${st.phase} call ran past the ${callLimitS}s per-call limit on attempt ${st.attempts} of ${unitAttempts}, the last one`;
+      const refusal = `the ${st.phase} call ran past the ${callLimitS}s per-call limit on round ${st.rounds} of ${unitRounds}, the last one`;
       st.refusals.push({ refusal });
       return { row: endUnit(u, { status: "refused", failure: { class: CALL_TIME_LIMIT, stderr_tail: refusal, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
     };
@@ -809,7 +812,7 @@ export async function cmdJobSupervise(args) {
     const siteAct = (u, act, sp, stdoutPath, specialization = null) => {
       const st = S.get(u.id);
       for (const refusal of st.loop.drain()) st.refusals.push({ refusal });
-      for (const r of st.loop.drainRaised()) pinAttemptRefusal(dir, u.id, st.calls, r);
+      for (const r of st.loop.drainRaised()) pinCallRefusal(dir, u.id, st.calls, r);
       if (act.done) {
         st.composed = act.done;
         return { row: endUnit(u, { status: "done", candidate: act.done, ...(specialization ? { specialization } : {}) }, sp.out.bytes, stdoutPath), progressed: false };
@@ -820,7 +823,7 @@ export async function cmdJobSupervise(args) {
         return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.refused, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
       }
       if (act.kind === "judge") {
-        st.malformedThisAttempt = 0;
+        st.malformedThisRound = 0;
         st.callStartedAt = Date.now();
         st.phase = "fit";
         st.composed = st.loop.standing;
@@ -829,9 +832,9 @@ export async function cmdJobSupervise(args) {
         unitsRunning.set(u.id, spawnFit(u, "a"));
         return { row: runningRow(u, 0), progressed: true };
       }
-      // EVERY PLANNING CALL IS AN ATTEMPT ON THE ROW: a site or suffix call counts as the whole
-      // call did, so `attempts` is the number of records asked for and the Proof Sheet's blocks.
-      beginNextAttempt(st, Date.now());
+      // EVERY PLANNING CALL IS A ROUND ON THE ROW: a site or suffix call counts as the whole
+      // call did, so `rounds` is the number of records asked for and the Proof Sheet's blocks.
+      beginNextRound(st, Date.now());
       st.phase = act.kind;
       st.callPrompt = withNoToolsSentence(act.prompt);
       const label = act.kind === "site" ? `site retry at Waypoint ${act.site}` : `the entries from Waypoint ${act.ctx.from} composed again`;
@@ -840,7 +843,7 @@ export async function cmdJobSupervise(args) {
       return { row: runningRow(u, 0), progressed: true };
     };
 
-    // ONE FINISHED CALL OF ONE UNIT, ANSWERED (kogaki#1307, attempts counted by
+    // ONE FINISHED CALL OF ONE UNIT, ANSWERED (kogaki#1307, Rounds counted by
     // kogaki#1355). Returns the row while the unit is still working, and sets `st.final`
     // once it has ended.
     const answer = (u, sp) => {
@@ -860,18 +863,18 @@ export async function cmdJobSupervise(args) {
       const stdoutPath = callStdoutPath(u);
       const endedAt = Date.parse(sp.out.endedAt) || Date.now();
       // MALFORMED OUTPUT IS RETRIED MECHANICALLY (kogaki#1307): the same prompt again,
-      // no attempt spent, and at most `unit_attempts` respawns per attempt (kogaki#1355),
+      // no Round spent, and at most `unit_rounds` respawns per Round (kogaki#1355),
       // so a unit cannot loop. A unit past that bound ends `refused` naming the count.
       if (cls.status === "malformed") {
         st.malformed += 1;
-        st.malformedThisAttempt += 1;
-        if (st.malformedThisAttempt <= unitAttempts) {
+        st.malformedThisRound += 1;
+        if (st.malformedThisRound <= unitRounds) {
           try { appendFileSync(stdoutPath, `\n----- malformed output ${st.malformed}; respawned with the same prompt -----\n`); } catch { /* best-effort */ }
           respawnCall(u);
           return { row: runningRow(u, 0), progressed: true };
         }
         cls.status = "refused";
-        cls.failure = { ...cls.failure, stderr_tail: `malformed output ${st.malformedThisAttempt} times on attempt ${st.attempts}, past the bound of ${unitAttempts} respawns per attempt; the last: ${cls.failure.stderr_tail}` };
+        cls.failure = { ...cls.failure, stderr_tail: `malformed output ${st.malformedThisRound} times on round ${st.rounds}, past the bound of ${unitRounds} respawns per round; the last: ${cls.failure.stderr_tail}` };
         st.refusals.push({ refusal: cls.failure.stderr_tail });
         return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
       }
@@ -886,7 +889,7 @@ export async function cmdJobSupervise(args) {
         const sites = st.phase === "compose" ? (cls.failure.sites || []).map((n) => ({ waypoint: n, refusal: cls.failure.stderr_tail }))
           : (cls.failure.move_fit || []).map((f) => ({ waypoint: f.waypoint, refusal: f.refusal || f.why }));
         if (sites.length) {
-          st.loop = new SiteLoop(siteRetry, u.id, unitAttempts);
+          st.loop = new SiteLoop(siteRetry, u.id, unitRounds);
           const standing = st.phase === "compose" ? cls.candidate : st.composed;
           st.refusals.push({ answer: standing, refusal: cls.failure.stderr_tail });
           return siteAct(u, st.loop.open(standing, sites, { byJudge: st.phase === "fit" }), sp, stdoutPath);
@@ -898,7 +901,7 @@ export async function cmdJobSupervise(args) {
         if (!act.proceed) return mapperAct(u, act, "a", sp.out.bytes, stdoutPath);
       }
       // A FINISHED, VALID RECORD WITH A DECLARED MOVE-FIT JUDGE IS JUDGED NEXT, inside
-      // the same unit and the same attempt (kogaki#1307).
+      // the same unit and the same Round (kogaki#1307).
       if (cls.status === "done" && st.phase === "compose" && fit) {
         st.phase = "fit";
         st.composed = cls.candidate;
@@ -907,22 +910,22 @@ export async function cmdJobSupervise(args) {
         st.callStartedAt = Date.now();
         return { row: runningRow(u, 0), progressed: true };
       }
-      // A SCHEMA REFUSAL SPENDS ONE ATTEMPT (kogaki#1203, counted by kogaki#1355): the
+      // A SCHEMA REFUSAL SPENDS ONE ROUND (kogaki#1203, counted by kogaki#1355): the
       // validator's, or the Move-fit judge's sentence, re-asks the compose call with the
-      // refusal spliced in verbatim while an attempt is left. The retry decision reads the
-      // attempt count only. `died` is never retried: it is a system failure.
+      // refusal spliced in verbatim while a Round is left. The retry decision reads the
+      // Round count only. `died` is never retried: it is a system failure.
       if (cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL) {
         // THE REFUSED ANSWER IS KEPT BESIDE ITS REFUSAL (kogaki#1438): the composed
         // Candidate for a fit refusal, the validator's candidate for a schema one, so the
-        // next attempt's fresh session sees what it is asked to repair.
+        // next Round's fresh session sees what it is asked to repair.
         const refusal = cls.failure.stderr_tail;
         const { group, reach } = cls.failure;
         st.refusals.push({ answer: st.phase === "fit" ? st.composed : cls.candidate, refusal, ...(reach ? { group, reach } : {}) });
         // A `stop` refusal, or one whose group the row does not declare, is never put back (kogaki#1708).
-        if (st.attempts - st.attemptBase < unitAttempts && reach !== "stop") {
-          beginNextAttempt(st, endedAt);
+        if (st.rounds - st.roundBase < unitRounds && reach !== "stop") {
+          beginNextRound(st, endedAt);
           const composePath = readerPathUnitStdoutPath(dir, u.id);
-          try { appendFileSync(composePath, `\n----- attempt ${st.attempts} -----\n`); } catch { /* best-effort */ }
+          try { appendFileSync(composePath, `\n----- round ${st.rounds} -----\n`); } catch { /* best-effort */ }
           st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), st.refusals.slice(st.refusalBase));
           st.phase = "compose";
           st.composed = null;
@@ -980,7 +983,7 @@ export async function cmdJobSupervise(args) {
         // units still running are killed below, with no retry, and their rows
         // say so rather than reading `running` on a job that has ended.
         rows = unitRows.map((r) => (r.status === "running"
-          ? { id: r.id, status: "killed", bytes: r.bytes || 0, attempts: r.attempts, phase: r.phase, note: `killed on the tick the job ended ${state}` } : r));
+          ? { id: r.id, status: "killed", bytes: r.bytes || 0, rounds: r.rounds, phase: r.phase, note: `killed on the tick the job ended ${state}` } : r));
       }
       // A UNIT ENDED MID-FIT KEEPS ITS COMPOSED CANDIDATE (PR #1308 round 1), on the
       // ground the ended-unit row above states: on the record, never offered.
@@ -994,7 +997,7 @@ export async function cmdJobSupervise(args) {
       writeReaderPathJob(dir, {
         started_at: new Date(startedAt).toISOString(),
         call_limit_s: callLimitS,
-        unit_attempts: unitAttempts,
+        unit_rounds: unitRounds,
         last_progress_at: new Date(lastProgressAt).toISOString(),
         supervisor_pid: process.pid,
         ...(unitIsolation ? { unit_isolation: true } : {}),
@@ -1044,9 +1047,9 @@ export function startDetachedJobSupervisor(dir, opts) {
   if (!Number.isFinite(callLimitS) || callLimitS <= 0) {
     fail("startDetachedJobSupervisor needs a positive `callLimitS`, read from kogaki.settings.json (kogaki#1355).");
   }
-  const unitAttempts = Number(opts.unitAttempts);
-  if (!Number.isInteger(unitAttempts) || unitAttempts <= 0) {
-    fail("startDetachedJobSupervisor needs a positive integer `unitAttempts`, read from kogaki.settings.json (kogaki#1355).");
+  const unitRounds = Number(opts.unitRounds);
+  if (!Number.isInteger(unitRounds) || unitRounds <= 0) {
+    fail("startDetachedJobSupervisor needs a positive integer `unitRounds`, read from kogaki.settings.json (kogaki#1355).");
   }
   const unitsPath = join(dir, "reader-path-job-units.json");
   // EVERY UNIT PROMPT BEGINS WITH THE NO-TOOLS SENTENCE (kogaki#1307), written here so the
@@ -1071,7 +1074,7 @@ export function startDetachedJobSupervisor(dir, opts) {
     scriptPath,
     "--run", dir, "--units", unitsPath,
     "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
-    "--call-limit-s", String(callLimitS), "--unit-attempts", String(unitAttempts),
+    "--call-limit-s", String(callLimitS), "--unit-rounds", String(unitRounds),
     "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
     ...(opts.commandVersion ? ["--command-version", String(opts.commandVersion)] : []),
   ], { detached: true, stdio: "ignore", cwd: REPO });
@@ -1080,12 +1083,12 @@ export function startDetachedJobSupervisor(dir, opts) {
   writeReaderPathJob(dir, {
     started_at: now,
     call_limit_s: callLimitS,
-    unit_attempts: unitAttempts,
+    unit_rounds: unitRounds,
     last_progress_at: now,
     supervisor_pid: child.pid,
     ...(unitIsolation ? { unit_isolation: true } : {}),
     state: "running",
-    units: [...carried, ...opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, attempts: 1, phase: opts.mapper ? "reading" : "compose", attempt_started_at: now }))],
+    units: [...carried, ...opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, rounds: 1, phase: opts.mapper ? "reading" : "compose", round_started_at: now }))],
   });
   return { unitsPath, supervisorPid: child.pid };
 }

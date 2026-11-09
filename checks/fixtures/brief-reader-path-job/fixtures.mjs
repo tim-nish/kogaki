@@ -30,7 +30,7 @@ export const WAIT_SCALE = Number(process.env.KOGAKI_CHECK_WAIT_SCALE || "1");
 export function noToolsSentenceAsWritten(units) {
   const d = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
   const started = startDetachedJobSupervisor(d, {
-    units, command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitAttempts: 2, stallS: 5, heartbeatMs: 100,
+    units, command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitRounds: 2, stallS: 5, heartbeatMs: 100,
     validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
   });
   try { process.kill(started.supervisorPid); } catch { /* already gone */ }
@@ -49,7 +49,7 @@ export const JOB_UNIT_NO_TOOLS_SENTENCE = (() => {
 // is MALFORMED OUTPUT on every call, respawned with the same prompt
 // (kogaki#1307, kogaki#1355); "FAIL_TWICE", "FAIL_ONCE", "RECORD_ONCE" and
 // "SLOW_FAIL_TWICE_THEN_OK" answer a record the pass-through validator
-// refuses, a SCHEMA REFUSAL, which spends an attempt; "SLEEP_ONCE" never
+// refuses, a SCHEMA REFUSAL, which spends a Round; "SLEEP_ONCE" never
 // answers its first call (kogaki#1355); "SLEEP_FOREVER" never exits; "SLOW"
 // streams eight small lines 300ms apart, then its result (kogaki#1193 PR #1195).
 export const scratch = mkdtempSync(join(tmpdir(), "kogaki-rpjob-fakejudge-"));
@@ -74,7 +74,7 @@ process.stdin.on("data", (d) => chunks.push(d));
 process.stdin.on("end", () => {
   const sent = Buffer.concat(chunks).toString("utf8").trim();
   const prompt = sent.startsWith(NO_TOOLS) ? sent.slice(NO_TOOLS.length).trim() : sent;
-  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (attempt ");
+  const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (call ");
   // EVERY PROMPT THE SUPERVISOR SENDS IS RECORDED when the fixture names a
   // file (kogaki#1257), so a retried unit's second prompt is read as sent.
   if (process.env.KOGAKI_FAKE_JUDGE_PROMPTS) appendFileSync(process.env.KOGAKI_FAKE_JUDGE_PROMPTS, JSON.stringify(sent) + "\\n");
@@ -92,7 +92,7 @@ process.stdin.on("end", () => {
     process.stdout.write(refusedRecord("the fixture's schema refusal after a malformed answer"));
     process.exit(0);
   }
-  // "RECORD_ONCE" anywhere in the prompt refuses the first attempt and answers
+  // "RECORD_ONCE" anywhere in the prompt refuses the first Round and answers
   // the retry -- found by inclusion, because a real unit prompt carries the
   // token inside its input rather than at its head.
   if (prompt.includes("RECORD_ONCE")) {
@@ -134,7 +134,7 @@ process.stdin.on("end", () => {
   if (prompt === "FAIL_EXIT") { process.stderr.write("fake judge refused on purpose\\n"); process.exit(3); }
   // startsWith, not ===: a retried unit's prompt is this token plus the
   // refusal block appended (kogaki#1203), so the SAME structural refusal
-  // must keep firing across both attempts.
+  // must keep firing across both Rounds.
   if (prompt.startsWith("FAIL_JSON")) { process.stdout.write("not json at all"); process.exit(0); }
   if (prompt.startsWith("FAIL_TWICE")) { process.stdout.write(refusedRecord("the fixture refuses this record every time")); process.exit(0); }
   if (prompt.startsWith("FAIL_ONCE")) {
@@ -160,7 +160,7 @@ process.stdin.on("end", () => {
     process.exit(0);
   }
   // kogaki#1355: every call takes ~1s; calls 1 and 2 are refused and call 3
-  // answers -- an attempt longer than half of a job figure the old rule would
+  // answers -- a Round longer than half of a job figure the old rule would
   // have read, so under kogaki#1273 no retry would ever have started.
   if (prompt.startsWith("SLOW_FAIL_TWICE_THEN_OK")) {
     const n = nthCall("SLOW_FAIL_TWICE_THEN_OK");
@@ -221,7 +221,7 @@ export function superviseSync(dir, units, opts = {}) {
   writeFileSync(unitsPath, JSON.stringify(declareUnits(units), null, 2));
   const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
     "--command", fakeJudge, "--model", "m", "--output-format", "json",
-    "--call-limit-s", String(opts.callLimitS ?? 100), "--unit-attempts", String(opts.unitAttempts ?? 2),
+    "--call-limit-s", String(opts.callLimitS ?? 100), "--unit-rounds", String(opts.unitRounds ?? 2),
     "--stall-s", String(opts.stallS ?? 100), "--heartbeat-ms", String(opts.heartbeatMs ?? 50)];
   return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8",
     env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), ...(opts.env || {}) } });

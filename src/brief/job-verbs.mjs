@@ -120,29 +120,29 @@ function supervisorAlive(pid) {
 // gate-call file existing with no capture row answering it.
 
 // THE STATUS LINES (kogaki#1355): a header naming the job's two bounds, then one
-// line per unit naming its attempt, its call and its status, and from attempt 2
-// an estimate read from the row's `attempt_1_s`, never derived here. `job
+// line per unit naming its Round, its call and its status, and from Round 2
+// an estimate read from the row's `call_1_s`, never derived here. `job
 // status` and `job await`'s heartbeat both print these lines.
 export function readerPathJobStatusLines(label, jobPath, job, now = Date.now()) {
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
   const elapsedS = Math.floor((now - startedAt) / 1000);
   let bounds = null;
   try { bounds = readerPathJobBounds(job); } catch { bounds = null; }
-  const n = bounds ? bounds.unitAttempts : "an unrecorded number of";
+  const n = bounds ? bounds.unitRounds : "an unrecorded number of";
   const limit = bounds ? `${bounds.callLimitS}s` : "an unrecorded time";
-  const lines = [`${label} at ${jobPath} — elapsed ${elapsedS}s; each unit gets up to ${n} attempts of at most ${limit} per call:`];
+  const lines = [`${label} at ${jobPath} — elapsed ${elapsedS}s; each unit gets up to ${n} rounds of at most ${limit} per call:`];
   for (const u of job.units || []) {
-    const attempt = Number.isInteger(u.attempts) ? u.attempts : 1;
+    const round = Number.isInteger(u.rounds) ? u.rounds : 1;
     const phase = u.phase === "fit" ? "fit" : "compose";
     // kogaki#1197: a dead unit's own `is_error` result text says why it died.
     const why = u.failure && typeof u.failure.result === "string" ? ` — ${u.failure.result}` : "";
     let estimate = "";
-    if (u.status === "running" && attempt >= 2 && typeof u.attempt_1_s === "number") {
-      const began = Date.parse(u.attempt_started_at || "");
+    if (u.status === "running" && round >= 2 && typeof u.call_1_s === "number") {
+      const began = Date.parse(u.round_started_at || "");
       const ranS = Number.isFinite(began) ? (now - began) / 1000 : 0;
-      estimate = `, about ${Math.max(0, Math.round(u.attempt_1_s - ranS))}s to go`;
+      estimate = `, about ${Math.max(0, Math.round(u.call_1_s - ranS))}s to go`;
     }
-    lines.push(`  unit ${u.id}: attempt ${attempt} of ${bounds ? bounds.unitAttempts : "?"}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s) so far${estimate}${why}`);
+    lines.push(`  unit ${u.id}: round ${round} of ${bounds ? bounds.unitRounds : "?"}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s) so far${estimate}${why}`);
   }
   return lines;
 }
@@ -202,7 +202,7 @@ function sleepSync(ms) {
 }
 
 // THE AWAIT'S OWN BOUND (kogaki#1271, the owner's 30-second poll, 2026-10-05).
-// A job runs for as many attempts of as long a call as its two bounds allow
+// A job runs for as many Rounds of as long a call as its two bounds allow
 // (kogaki#1355), far longer than one Bash tool call may last, so `job await`
 // returns after at most this long with the status lines and
 // `READER_PATH_JOB_STILL_RUNNING_LINE`, raises no question and exits 0; the
@@ -254,8 +254,8 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
     if (state !== "running") { await finishReaderPathJobAwait(j, { ...job, units }, state, table, tablePath, args); return; }
     const remainingMs = jobAwaitS() * 1000 - (Date.now() - awaitStartedAt);
     if (remainingMs <= 0) {
-      // THE HEARTBEAT CARRIES THE ATTEMPTS AND THE ESTIMATE (kogaki#1355), so the owner
-      // waiting on a long job sees which attempt each unit is on and how long is left.
+      // THE HEARTBEAT CARRIES THE ROUNDS AND THE ESTIMATE (kogaki#1355), so the owner
+      // waiting on a long job sees which Round each unit is on and how long is left.
       for (const line of readerPathJobStatusLines(j.label, readerPathJobPath(j.jobDir), job)) console.log(line);
       console.log(`${j.stateId === "review_path" ? REVIEW_PATH_JOB_STILL_RUNNING_LINE : READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
       return;
@@ -302,7 +302,7 @@ function claimReaderPathJobResume(j, state) {
   const claimPath = readerPathJobResumeClaimPath(j);
   const position = readerPathRunPosition(j.runDir);
   const body = `${JSON.stringify({ claimed_at: new Date().toISOString(), pid: process.pid, state, position }, null, 2)}\n`;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let claimTry = 0; claimTry < 2; claimTry++) {
     try {
       writeFileSync(claimPath, body, { flag: "wx" });
       return true;
@@ -312,7 +312,7 @@ function claimReaderPathJobResume(j, state) {
     let held = null;
     try { held = JSON.parse(readFileSync(claimPath, "utf8")); } catch { held = null; }
     const pid = held && Number.isInteger(held.pid) ? held.pid : null;
-    if (attempt > 0 || pid === null || supervisorAlive(pid) || held.position !== position) return false;
+    if (claimTry > 0 || pid === null || supervisorAlive(pid) || held.position !== position) return false;
     try { unlinkSync(claimPath); } catch (e) { if (!e || e.code !== "ENOENT") throw e; }
   }
   return false;
@@ -423,7 +423,7 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
   // EVERY UNIT REFUSED (kogaki#1273): the job ends `refused` only when no
   // unit finished, and its arm is Stop alone -- "Re-run the failed step" is
   // removed by the owner's 2026-10-05 ruling, since each unit already spent
-  // every attempt it had (kogaki#1355). The reading names every refused unit and
+  // every Round it had (kogaki#1355). The reading names every refused unit and
   // its refusal rather than the bare state token, so the owner sees which
   // steps failed and why without spec-internal vocabulary
   // (`findInternalVocabulary`, checked at raising by

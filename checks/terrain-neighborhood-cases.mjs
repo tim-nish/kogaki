@@ -573,7 +573,7 @@ const { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE } = fixFi
   // A JUDGMENT THAT EXHAUSTS ITS RETRIES PRINTS THE GATE CALL'S BYTES (kogaki#1299).
   // The 2026-10-07 Brief run stopped at the judgment-retry gate naming only its
   // declaration, and no tool could fetch the call while the gate was open. The
-  // judge here answers a record no validator admits on every attempt, so the
+  // judge here answers a record no validator admits on every Call, so the
   // state spends its declared `retries` and the stop raises
   // `judgment-retry`; the case asserts the fenced block on stdout is the
   // written call file byte-for-byte. The gate pointer, the open-run pointer and

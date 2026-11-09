@@ -36,7 +36,7 @@
 // validator also runs the production recoverability criterion (`recoverabilityOf`,
 // kogaki#1494): a Claim's `proposition` and a Leg Waypoint's `point` are recoverable from the
 // Segment `content` clauses of the paragraph they serve, and the first word that is in none of
-// them, in no `introduces` entry and is not a function word refuses the attempt, naming the
+// them, in no `introduces` entry and is not a function word refuses the Round, naming the
 // word and the Segments. It runs with an EMPTY renderings record: the Extraction's `content`
 // is already the article's own rendering of the source, so there is nothing to map. The run's
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
@@ -44,7 +44,7 @@
 // THE CLAIM REACHES ITS POINTS (kogaki#1547). After the recoverability criterion, every content
 // word of a Claim's `proposition` — `recoverabilityOf`'s own word test — is in a `point` of a Leg
 // Waypoint serving that Claim's strand or in an `introduces` entry; the first that is in neither
-// refuses the attempt (`claimCoverageRefusal`). The plan judge reads the point, never the Claim.
+// refuses the Round (`claimCoverageRefusal`). The plan judge reads the point, never the Claim.
 //
 // THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it). It mapped a term to `coined`
 // or `established`, and every introduced term is coined (kogaki#1531): an `introduces` entry
@@ -56,7 +56,7 @@
 //
 // THE RUN DIRECTORY. `<out>/leg-brief-run-<instant>/`, one subdirectory per Leg call
 // (`leg-path/`, or `leg-path-<k>/` over several Legs): the supervisor's own files, plus `prompt.md` (the prompt
-// as rendered), `answer.json` (the record that passed) and `attempts.json` (the attempt
+// as rendered), `answer.json` (the record that passed) and `rounds.json` (the Round
 // count and every refusal).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
@@ -195,7 +195,7 @@ function unitPrompt(row, input) {
 
 // ---------------------------------------------------------------------------
 // THE ANSWERS, READ BACK (the declared validators). Each returns `{ error }` — a refusal of
-// the attempt, put verbatim into the next — or `{}`.
+// the Round, put verbatim into the next — or `{}`.
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 function keysRefusal(obj, keys, at, required = keys) {
@@ -453,7 +453,7 @@ export function readExtractorRun(runDir, legOverride = null) {
   return { paragraphs, extractions, passage: doc.passage || basename(legPath), ...(Array.isArray(doc.legs) ? { legs } : {}) };
 }
 
-// One row as one job: render, run on the supervisor, wait, record the attempts.
+// One row as one job: render, run on the supervisor, wait, record the Rounds.
 function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs, bounds }) {
   mkdirSync(dir, { recursive: true });
   const prompt = unitPrompt(row, input);
@@ -464,10 +464,10 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
   });
   const job = awaitJob(dir, bounds.heartbeatMs);
   const u = (job.units || [])[0] || {};
-  writeJson(join(dir, "attempts.json"), { row: row.id, state: job.state, status: u.status || null,
-    attempts: u.attempts || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+  writeJson(join(dir, "rounds.json"), { row: row.id, state: job.state, status: u.status || null,
+    rounds: u.rounds || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
   if (job.state !== "done" || u.status !== "done" || !u.candidate) {
-    return { stopped: `the Leg Brief composer stopped at \`${row.id}\`: the job ended ${job.state} after ${u.attempts || 1} attempt(s) — `
+    return { stopped: `the Leg Brief composer stopped at \`${row.id}\`: the job ended ${job.state} after ${u.rounds || 1} round(s) — `
       + String(lastRefusal(job)).split("\n").join(" ") };
   }
   writeJson(join(dir, "answer.json"), u.candidate);
@@ -504,7 +504,7 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   const bounds = {
     command: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH).path,
     model: String(settingValue(table.judge.model)), outputFormat: String(table.judge.output_format || "json"),
-    callLimitS: positiveSetting(table.job, "call_limit_s"), unitAttempts: positiveSetting(table.job, "unit_attempts"),
+    callLimitS: positiveSetting(table.job, "call_limit_s"), unitRounds: positiveSetting(table.job, "unit_rounds"),
     stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
   };
   const runDir = join(outDir, `leg-brief-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);

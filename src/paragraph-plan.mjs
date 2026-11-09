@@ -23,13 +23,13 @@
 // and content hash.
 //
 // THE LOOP. One Detached Job unit per Leg, in Reader Path order, on the shared
-// supervisor (src/workflow/detached-job.mjs). Each attempt is two headless calls:
+// supervisor (src/workflow/detached-job.mjs). Each Round is two headless calls:
 // `paragraph_plan_unit` binds a Move to each Leg Waypoint and generates its Paragraph
 // Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move's
-// `takes`, `leaves`, order (`segments`) and `breaks` (kogaki#1378, kogaki#1701). A refusal of either is put back into the next attempt's
+// `takes`, `leaves`, order (`segments`) and `breaks` (kogaki#1378, kogaki#1701). A refusal of either is put back into the next Round's
 // prompt verbatim, until `brief.unit_rounds` is spent; a call is bounded by
 // `brief.call_limit_s`; there is no limit on the whole job. A Leg that spends its
-// attempts stops the stage naming the Leg and the Waypoint, the Brief untouched, and
+// Rounds stops the stage naming the Leg and the Waypoint, the Brief untouched, and
 // the work resumes from the same Brief by running this stage again — the Reader
 // Path is not composed again.
 //
@@ -427,7 +427,7 @@ export function boundMoveContract(moveId, movesDir) {
 }
 
 // THE FIRST CALL'S ANSWER, READ BACK (the declared validator). Returns `{ error }` — a
-// refusal of the attempt, put verbatim into the next — or `{}`. A Leg Waypoint no Move
+// refusal of the Round, put verbatim into the next — or `{}`. A Leg Waypoint no Move
 // fits is the refusal `no_paragraph_move_fits`, naming the Leg and the Waypoint. A refusal
 // that names its Leg Waypoints carries them as `sites`, the place the retry is scoped to
 // (kogaki#1642); a refusal of the whole Leg carries none.
@@ -598,7 +598,7 @@ export function paragraphPlanJudgePrompt(record, inputs, unitId, scope = null) {
 export const PARAGRAPH_PLAN_VERDICTS = ["fits", "does-not-fit"];
 
 // The judge's answer, read back: `{ error }` is its own malformed output, asked again
-// with the same prompt; `{ refusal, failures }` refuses the attempt; `{}` passes it. Under a
+// with the same prompt; `{ refusal, failures }` refuses the Round; `{}` passes it. Under a
 // `scope` the verdicts are the scope's Leg Waypoints, in order (kogaki#1642).
 export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope = null) {
   const leg = legForUnit(inputs, unitId);
@@ -693,7 +693,7 @@ export function paragraphPointsText(entry) {
   });
 }
 
-// AN ANSWER THAT RESTATES A REFUSED ATTEMPT (kogaki#1651): its Paragraph Waypoints' text equals a
+// AN ANSWER THAT RESTATES A REFUSED ROUND (kogaki#1651): its Paragraph Waypoints' text equals a
 // refused entry's, in order, whatever else the record changed. Returns the unchanged points.
 export function restatedPoints(answer, history) {
   const mine = paragraphPointsText(answer);
@@ -704,7 +704,7 @@ export function restatedPoints(answer, history) {
   }
   return null;
 }
-export const siteRestatementRefusal = (n, points) => `the answer restates the refused attempt's Paragraph Waypoints at Leg Waypoint ${n} unchanged — `
+export const siteRestatementRefusal = (n, points) => `the answer restates the refused round's Paragraph Waypoints at Leg Waypoint ${n} unchanged — `
   + `${points.map((t) => JSON.stringify(t)).join(", ")}; the refusal asked for a change to what they say`;
 
 // THE MOVES BOUND BESIDE A SITE (kogaki#1651): the previous and next entries' Moves, each with the
@@ -715,7 +715,7 @@ export function movesBoundBeside(entries, n) {
 }
 
 // PROSE THAT DESCRIBES THE REPAIR RATHER THAN THE PARAGRAPH (kogaki#1651): a word of the refusal or
-// the attempt, an Issue reference, or a field of the record named in backticks.
+// the Round, an Issue reference, or a field of the record named in backticks.
 const SITE_PROSE_FIELDS = ["purpose", "rationale"];
 const RECORD_FIELD_NAMES = new Set([...UNIT_KEYS, ...UNIT_WAYPOINT_KEYS, "point", "serves", "performs", "paragraph_waypoint",
   "leg_waypoint_you_must_plan", "fixed", "paragraph_moves_you_may_bind", "moves_rejected_here", "moves_bound_beside",
@@ -750,7 +750,7 @@ function bindableMoves(movesDir) {
   return library.moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) }));
 }
 
-// kogaki#1649: the passing record, each Paragraph Waypoint and rebind that differs from the first refused attempt marked with the axes the judge's refusals named.
+// kogaki#1649: the passing record, each Paragraph Waypoint and rebind that differs from the first refused Round marked with the axes the judge's refusals named.
 export function paragraphPlanForcedMark(record, history, inputs) {
   const axes = (inputs && inputs.axes) || [];
   const named = (text) => axes.filter((id) => new RegExp(`\\b${escapeRe(id)}\\b`).test(String(text)));
@@ -823,7 +823,7 @@ export function paragraphPlanSitePrompt(ctx, inputs, unitId) {
 }
 
 // THE SITE CALL'S ANSWER, READ BACK. Returns `{ error }`, a refusal at the site that spends its
-// attempt, or `{ record, changed, suffixFrom?, sites? }`: the standing record with the entry in
+// Round, or `{ record, changed, suffixFrom?, sites? }`: the standing record with the entry in
 // place, the entries to judge again, the first entry the suffix call composes again where the
 // answer moved an endpoint, and later sites an unvalidated standing record still fails.
 export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
@@ -1016,7 +1016,7 @@ function carriedUnits(source, dir, { briefSha, movesDir, legs }) {
       mkdirSync(dirname(mappingStatePath(dir, u.id)), { recursive: true });
       copy(mappingStatePath(source, u.id), mappingStatePath(dir, u.id));
     }
-    return { id: u.id, status: "done", bytes: u.bytes || 0, attempts: u.attempts || 1, phase: u.phase || "fit",
+    return { id: u.id, status: "done", bytes: u.bytes || 0, rounds: u.rounds || 1, phase: u.phase || "fit",
       candidate: u.candidate, ...(candidateFile ? { candidate_file: candidateFile } : {}),
       ...(u.specialization ? { specialization: u.specialization } : {}),
       ...(specializationFile ? { specialization_file: specializationFile } : {}),
@@ -1055,9 +1055,9 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   const unjustified = axesFailures(readAxes());
   if (unjustified.length) fail(`src/paragraph-plan-axes.json is not a registry of kept axes (kogaki#1533): ${unjustified.join("; ")}. Nothing was started.`);
   const callLimitS = positiveSetting(table.job, "call_limit_s");
-  const unitAttempts = positiveSetting(table.job, "unit_attempts");
+  const unitRounds = positiveSetting(table.job, "unit_rounds");
   const siteRetry = table.job.site_retry || fail("src/paragraph-plan-workflow.json's `job` declares no `site_retry` (kogaki#1642). Nothing was started.");
-  const legAttempts = positiveSetting(siteRetry, "leg_attempts");
+  const legRevisions = positiveSetting(siteRetry, "leg_revisions");
   // THE MAPPER (kogaki#1734): reading, bind, grounding and the Paragraph Waypoints call, in that order, per Leg.
   const mapping = settingValue(table.job.mapper) === true;
   const declared = process.env.KOGAKI_JUDGE_CLI || table.judge.command;
@@ -1091,7 +1091,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     units, carried, command: binary.path, commandVersion: binary.version, model, outputFormat: String(table.judge.output_format || "json"),
     rows: Object.fromEntries([["compose", "paragraph_plan_unit"], ["fit", "paragraph_plan_judge_unit"], ["site", "paragraph_plan_site_unit"],
       ["suffix", "paragraph_plan_unit"]].map(([phase, id]) => [phase, { id, table: relFromRepo(PARAGRAPH_PLAN_TABLE) }])),
-    callLimitS, unitAttempts,
+    callLimitS, unitRounds,
     unitIsolation: table.job.unit_isolation === true,
     stallS: jobStallS(table.job.stall_s),
     heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
@@ -1104,7 +1104,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     // THE SITE LOOP (kogaki#1642): a refusal naming a Leg Waypoint is retried there alone.
     siteRetry: { module: siteRetry.module, site_prompt_export: siteRetry.site_prompt_export,
       site_validator_export: siteRetry.site_validator_export, suffix_prompt_export: siteRetry.suffix_prompt_export,
-      suffix_validator_export: siteRetry.suffix_validator_export, mark_export: siteRetry.mark_export, leg_attempts: legAttempts,
+      suffix_validator_export: siteRetry.suffix_validator_export, mark_export: siteRetry.mark_export, leg_revisions: legRevisions,
       inputs: { legs, movesDir, runDir: dir, mapping, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
         planHead } },
   });
@@ -1121,10 +1121,10 @@ export function jobStatusLines(dir, job, now = Date.now()) {
   let bounds = null;
   try { bounds = readerPathJobBounds(job); } catch { bounds = null; }
   const lines = [`ParagraphPlan job at ${relFromRepo(readerPathJobPath(dir))} — ${job.state}, elapsed ${Math.floor((now - startedAt) / 1000)}s; `
-    + `each Leg gets up to ${bounds ? bounds.unitAttempts : "?"} attempts of at most ${bounds ? `${bounds.callLimitS}s` : "?"} per call:`];
+    + `each Leg gets up to ${bounds ? bounds.unitRounds : "?"} rounds of at most ${bounds ? `${bounds.callLimitS}s` : "?"} per call:`];
   for (const u of job.units || []) {
     const phase = u.phase === "fit" ? "judge" : u.phase === "site" ? "site retry" : ["reading", "grounding"].includes(u.phase) ? u.phase : "plan";
-    lines.push(`  unit ${u.id}: attempt ${u.attempts || 1}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s)`);
+    lines.push(`  unit ${u.id}: round ${u.rounds || 1}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s)`);
   }
   return lines;
 }
@@ -1162,7 +1162,7 @@ export function stopLines(start, job) {
     const last = Array.isArray(u.refusals) && u.refusals.length ? u.refusals[u.refusals.length - 1]
       : (u.failure && u.failure.stderr_tail) || (job.failure && job.failure.note) || u.status;
     const ws = stoppedWaypoints(leg, last);
-    lines.push(`  Leg ${leg.leg_id}, Waypoint ${ws.join(", ")}: ${u.status} after ${u.attempts || 1} attempt(s) — ${String(last).split("\n").join(" ")}`);
+    lines.push(`  Leg ${leg.leg_id}, Waypoint ${ws.join(", ")}: ${u.status} after ${u.rounds || 1} round(s) — ${String(last).split("\n").join(" ")}`);
   }
   if (job.failure && job.failure.note && !unfinished.length) lines.push(`  ${job.failure.note}`);
   if (unfinished.length) {

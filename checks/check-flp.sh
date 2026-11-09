@@ -5,7 +5,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -15,7 +15,7 @@ const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
-const { writeAttemptRecord, pinAttemptRefusal, attemptDir } = await imp("src/workflow/attempt-record.mjs");
+const { writeCallRecord, pinCallRefusal, callDir } = await imp("src/workflow/call-record.mjs");
 const { SiteLoop } = await imp("src/workflow/site-retry.mjs");
 const { renderRowHead } = await imp("src/paragraph-plan.mjs");
 const { renderFlp, unitStatus, TABLE_HEADINGS, ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE } = await imp("src/flp/sheet.mjs");
@@ -33,7 +33,7 @@ writeFileSync(join(run, "paragraph-plan-start.json"), JSON.stringify({ brief: "t
 
 const head = (id, jp) => renderRowHead({ id, judgment_point: jp, input_shape: "one record" });
 const planInput = (tabled) => ({ leg_you_must_plan: { leg_id: "leg2", waypoints: [1, 2].map((waypoint) => ({ waypoint, ...(tabled ? { move: M1, table: {} } : {}) })) } });
-const record = (unit, n, phase, answer, refusal = null, prompt = "p") => writeAttemptRecord(run, unit, n,
+const record = (unit, n, phase, answer, refusal = null, prompt = "p") => writeCallRecord(run, unit, n,
   { prompt, argv: [], cli: null, input: null, row: { phase }, raw: "", answer, refusal });
 // leg1, with no Mapper: Call 1 refused at Waypoint 1 by the Leg validator, Call 2 passed.
 const L1_REFUSAL = "Leg leg1, Waypoint 1 carries `join` — the first Leg Waypoint of a Leg carries no join";
@@ -63,16 +63,16 @@ record("leg-2", 4, "fit", { version: 1, leg_id: "leg2", verdicts: [{ waypoint: 1
 const siteInput = { leg_waypoint_you_must_plan: { leg_id: "leg2", waypoint: 2 }, refused_here: [{ entry: entry(2, [WRITE1, KEPT2]), refusal: J2 }] };
 record("leg-2", 5, "site", entry(2, [SITE1, KEPT2], { move: M2 }), null, head("paragraph_plan_site_unit", SITE_JP) + JSON.stringify(siteInput, null, 2));
 // THE SITE LOOP REFUSES THE SITE RETRY'S ENTRY, and the refusal is pinned to that Call's record (kogaki#1756).
-const loop = new SiteLoop({ sitePrompt: () => "p", siteAccept: () => ({ error: S2 }), legAttempts: 1 }, "leg-2", 2);
+const loop = new SiteLoop({ sitePrompt: () => "p", siteAccept: () => ({ error: S2 }), legRevisions: 1 }, "leg-2", 2);
 loop.open({ waypoints: [entry(1, ["Beta one."]), entry(2, [WRITE1, KEPT2])] }, [{ waypoint: 2, refusal: J2 }], { byJudge: true });
 loop.answered(entry(2, [SITE1, KEPT2], { move: M2 }));
 const raised = loop.drainRaised();
 ok(raised.length === 1 && raised[0].text === S2 && JSON.stringify(raised[0].sites) === "[2]", `(e) the site loop raised ${JSON.stringify(raised)}`);
-for (const r of raised) pinAttemptRefusal(run, "leg-2", 5, r);
+for (const r of raised) pinCallRefusal(run, "leg-2", 5, r);
 // Call 6: a second site retry, kept by no validator and read by no Judge, the unit stopping first.
 record("leg-2", 6, "site", entry(2, [SITE2, KEPT2], { move: M2 }), null, head("paragraph_plan_site_unit", SITE_JP) + JSON.stringify(siteInput, null, 2));
-ok(!pinAttemptRefusal(run, "leg-2", 1, { text: "another" }), "(e) a pin replaced a refusal the call already carried");
-const pinned = JSON.parse(readFileSync(join(attemptDir(run, "leg-2", 5), "refusal.json"), "utf8"));
+ok(!pinCallRefusal(run, "leg-2", 1, { text: "another" }), "(e) a pin replaced a refusal the call already carried");
+const pinned = JSON.parse(readFileSync(join(callDir(run, "leg-2", 5), "refusal.json"), "utf8"));
 ok(pinned && pinned.text === S2 && JSON.stringify(pinned.sites) === "[2]", `(e) the refused call's record holds ${JSON.stringify(pinned)}`);
 record("leg-2/reading/waypoint-1", 1, "reading", { roles: [] });
 record("leg-2/grounding/waypoint-1", 1, "grounding", { base: { domain: "instructions" }, correspondences: [{ role: "rule", expression: "an enumerated prohibition" }] });
@@ -82,8 +82,8 @@ writeFileSync(join(run, "mapping", "leg-2.json"), JSON.stringify({ leg_id: "leg2
   tables: { 1: { move: M1, case: "own", base: { domain: "instructions" }, correspondences: [{ role: "rule", expression: "an enumerated prohibition" }] },
     2: { move: M1, case: "apart", base: { domain: "a shop counter" }, correspondences: [{ role: "rule", expression: "the price list" }] } } }));
 writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({ state: "refused", supervisor_pid: 0, units: [
-  { id: "leg-1", status: "done", attempts: 2, attempt_1_s: 12, candidate: l1b, refusals: [L1_REFUSAL] },
-  { id: "leg-2", status: "refused", attempts: 6, attempt_1_s: 30, failure: { class: "schema refusal", stderr_tail: STOP },
+  { id: "leg-1", status: "done", rounds: 2, call_1_s: 12, candidate: l1b, refusals: [L1_REFUSAL] },
+  { id: "leg-2", status: "refused", rounds: 6, call_1_s: 30, failure: { class: "schema refusal", stderr_tail: STOP },
     refusals: [STOPPED, `THE PARAGRAPH WAYPOINTS WERE JUDGED:\n${J2}`, J2, S2, LEGACY, STOP] }] }));
 
 const waypointHtml = (html, n) => (html.split(`id="waypoint-${n}"`)[1] || "").split('id="waypoint-')[0].split('id="calls"')[0];
@@ -183,6 +183,27 @@ ok(waypointStatus("refused", 2, [2], unjudged).text === "stopped after Round 2",
 for (const t of html.split("<table>").slice(0, -1)) {
   const h = (t.match(/<h4 class="th">([^<]*)<\/h4>(?:<p[^>]*>(?:(?!<\/?p).)*<\/p>)*$/) || [])[1];
   ok(h !== undefined && TABLE_HEADINGS.includes(h.replace(/&#39;|&apos;/g, "'")), `(n) a table stands under no fixed heading, after ${JSON.stringify(t.slice(-120))}`);
+}
+
+// (o) A RUN WRITTEN UNDER THE RETIRED NAMES (kogaki#1760): the same run, its Call Records under the retired directory
+// and its job record's units under the retired fields, renders the same sheet as the run written under the new names.
+{
+  const { RETIRED_NAMES } = await imp("src/workflow/call-record.mjs");
+  const old = join(root, "run-old");
+  cpSync(run, old, { recursive: true });
+  renameSync(join(old, "calls"), join(old, RETIRED_NAMES.dir));
+  const jobPath = join(old, "reader-path-job.json");
+  const jobRec = JSON.parse(readFileSync(jobPath, "utf8"));
+  jobRec.units = jobRec.units.map(({ rounds, call_1_s: firstS, ...u }) => ({ ...u, [RETIRED_NAMES.count]: rounds, [RETIRED_NAMES.firstCallS]: firstS }));
+  writeFileSync(jobPath, JSON.stringify(jobRec));
+  for (const legId of ["leg1", "leg2"]) {
+    const now = renderFlp({ runDir: run, legId, outDir: root });
+    const was = renderFlp({ runDir: old, legId, outDir: root });
+    // The record links name the directory they point into, so they are the one difference allowed.
+    const same = (was.html || "").split(old).join(run).split(`run-old/${RETIRED_NAMES.dir}/`).join("run/calls/");
+    ok(!was.error && was.html && same === now.html,
+      `(o) ${legId} of a run written under the retired names did not render as the same run under the new names: ${was.error || ""}`);
+  }
 }
 
 rmSync(root, { recursive: true, force: true });

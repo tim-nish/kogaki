@@ -1165,13 +1165,13 @@ and the run record could not say what judged it.
 **A refused response is RE-ASKED, up to the count the STATE declares** — with
 one exception, §15.6.10's timeout. When the retries are spent the STATE stops
 and asks (§15.6.10); it no longer fails the run outright. **The count carried
-in that stop is the attempts MADE, never the attempts licensed**: a message
+in that stop is the Calls MADE, never the Calls licensed**: a message
 composed from the bound would say a call had been retried when it had not.
 
 **The judgment provenance state `observed` now has a producer** (§13's split
 between what the Harness OBSERVED and what a record DECLARES). The invocation
 record is the Harness's own act — the command it ran, the model it pinned, the
-attempts it made, and a sha it took from the response bytes on disk. Nothing in
+Calls it made, and a sha it took from the response bytes on disk. Nothing in
 it comes from the response's content: a model cannot write its own provenance by
 saying it judged.
 
@@ -1321,11 +1321,11 @@ sitting). On the design fork: "Render a retry question — the failure renders a
 question (retry / abandon); the owner's click re-fires the advance through the
 existing hook."
 
-**A timeout is not re-asked.** `judgeAttempts` fails the attempt loop on the
+**A timeout is not re-asked.** `judgeCalls` fails the Call loop on the
 FIRST occurrence of the judge's child process exceeding the table's declared
 `timeout_s`, rather than looping to the state's declared `retries`: a re-ask
 changes nothing about a call's wall-clock cost, so re-asking spends the bound on
-a fact a re-ask cannot repair. The run record's attempt count is `1` on a
+a fact a re-ask cannot repair. The run record's Call count is `1` on a
 timeout, never the licensed bound.
 
 **A judgment state that exhausts its bound — by timeout or by repeated

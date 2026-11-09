@@ -1,5 +1,5 @@
 // The site loop of a Detached Job unit (kogaki#1642, owner decision 2026-10-31).
-// A job that declares `site_retry` keeps a refused attempt's record as the unit's standing
+// A job that declares `site_retry` keeps a refused Round's record as the unit's standing
 // record and repairs it at the Leg Waypoint the refusal named, one call at a time, rather
 // than asking the unit's whole call again. This file holds the loop's state and decides
 // the next call; the supervisor (detached-job.mjs) spawns it and hands its answer back.
@@ -19,9 +19,9 @@ export async function loadSiteRetry(declared) {
   if (declared === undefined || declared === null) return null;
   const missing = ["module", ...SITE_EXPORTS].filter((k) => !declared[k]);
   if (missing.length) throw new Error(`the units file's \`site_retry\` names no ${missing.join(", ")} (kogaki#1642).`);
-  const legAttempts = Number(declared.leg_attempts);
-  if (!Number.isInteger(legAttempts) || legAttempts <= 0) {
-    throw new Error("the units file's `site_retry` carries no positive integer `leg_attempts` (kogaki#1642).");
+  const legRevisions = Number(declared.leg_revisions);
+  if (!Number.isInteger(legRevisions) || legRevisions <= 0) {
+    throw new Error("the units file's `site_retry` carries no positive integer `leg_revisions` (kogaki#1642).");
   }
   const modulePath = String(declared.module);
   const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
@@ -35,7 +35,7 @@ export async function loadSiteRetry(declared) {
   const mark = declared.mark_export ? mod[String(declared.mark_export)] : null;
   if (declared.mark_export && typeof mark !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.mark_export)}.`);
   return {
-    legAttempts,
+    legRevisions,
     mark: mark ? (record, history, unitId) => mark(record, history, inputs, unitId) : null,
     sitePrompt: (ctx, unitId) => sitePrompt(ctx, inputs, unitId),
     siteAccept: (answer, ctx, unitId) => siteAccept(answer, ctx, inputs, unitId) || {},
@@ -47,13 +47,13 @@ export async function loadSiteRetry(declared) {
 // ONE UNIT'S SITE LOOP. Every method returns the next act: `{ kind: "site" | "suffix", prompt }`
 // to ask, `{ kind: "judge", scope }` to judge the entries that changed, `{ done }` with the
 // record every verdict passed, or `{ refused }` naming the Waypoint whose budget is spent.
-// THE BUDGET BELONGS TO THE SITE: `unitAttempts` per Leg Waypoint, the unit's first call
-// counting at each, and `legAttempts` over every retry of the unit together.
+// THE BUDGET BELONGS TO THE SITE: `unitRounds` per Leg Waypoint, the unit's first call
+// counting at each, and `legRevisions` over every retry of the unit together.
 export class SiteLoop {
-  constructor(hooks, unitId, unitAttempts) {
+  constructor(hooks, unitId, unitRounds) {
     this.h = hooks;
     this.unitId = unitId;
-    this.unitAttempts = unitAttempts;
+    this.unitRounds = unitRounds;
     this.verdicts = new Map();
     this.pending = new Map();
     this.spent = new Map();
@@ -96,7 +96,7 @@ export class SiteLoop {
   }
 
   // The refusals this loop raised against the last answered call since the last drain, each with its Leg Waypoint,
-  // for that call's Attempt Record (kogaki#1756). A call that returned no answer carries its own refusal already.
+  // for that call's Call Record (kogaki#1756). A call that returned no answer carries its own refusal already.
   drainRaised() {
     const out = this.raised;
     this.raised = [];
@@ -124,8 +124,8 @@ export class SiteLoop {
     }
     const n = Math.min(...this.pending.keys());
     const why = this.pending.get(n);
-    if (this.spent.get(n) >= this.unitAttempts) return this.spentRefusal(n, `its ${this.unitAttempts} attempts are spent`, why);
-    if (this.retries >= this.h.legAttempts) return this.spentRefusal(n, `the Leg's ${this.h.legAttempts} site retries are spent`, why);
+    if (this.spent.get(n) >= this.unitRounds) return this.spentRefusal(n, `its ${this.unitRounds} rounds are spent`, why);
+    if (this.retries >= this.h.legRevisions) return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, why);
     this.spent.set(n, this.spent.get(n) + 1);
     this.retries += 1;
     const ctx = { standing: this.standing, site: n, retry: this.spent.get(n) - 1, history: this.at(n) };
@@ -169,8 +169,8 @@ export class SiteLoop {
     if (r.error) {
       this.log.push(r.error);
       if (!failText) this.raised.push({ text: r.error, sites: [c.ctx.from] });
-      if (this.retries >= this.h.legAttempts) {
-        return this.spentRefusal(c.ctx.from, `the Leg's ${this.h.legAttempts} site retries are spent while the entries from it were composed again`, r.error);
+      if (this.retries >= this.h.legRevisions) {
+        return this.spentRefusal(c.ctx.from, `the Leg's ${this.h.legRevisions} site retries are spent while the entries from it were composed again`, r.error);
       }
       this.retries += 1;
       return this.suffix(c.ctx.from, [...c.ctx.history, { answer: answer ?? null, refusal: r.error }]);
@@ -187,7 +187,7 @@ export class SiteLoop {
     if (failText) {
       this.log.push(failText);
       const n = c.scope.judge[0];
-      if (this.retries >= this.h.legAttempts) return this.spentRefusal(n, `the Leg's ${this.h.legAttempts} site retries are spent`, failText);
+      if (this.retries >= this.h.legRevisions) return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, failText);
       this.retries += 1;
       return c;
     }

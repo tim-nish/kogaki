@@ -44,16 +44,16 @@ moved, none edited. Persona stays the name of the `persona` key. Carriers:
 **deferred slots minted by this amendment: none.**
 
 **Status:** v44, amended 2026-10-13 (kogaki#1355) — **A JOB UNIT IS BOUNDED
-PER CALL AND PER ATTEMPT COUNT, AND THE STATUS LINE SHOWS THE ATTEMPT AND AN
+PER CALL AND PER ROUND COUNT, AND THE STATUS LINE SHOWS THE ROUND AND AN
 ESTIMATE.** The Brief run of 2026-10-13 ended with no Brief: all three compose
-units were refused on their first attempt, after 605, 760 and 600 seconds, and
+units were refused in their first Round, after 605, 760 and 600 seconds, and
 not one was asked again, because a retry started only if it would end within
-twenty minutes of the job's start, which two ten-minute attempts never do. The
+twenty minutes of the job's start, which two ten-minute Rounds never do. The
 owner decided (2026-10-13), thinking of it as HTTP requests: bound each call by
-time and each unit by a number of attempts, with three attempts by default, and
-show the attempt and, from the second on, an estimate of the time left. So a
+time and each unit by a number of Rounds, with three Rounds by default, and
+show the Round and, from the second on, an estimate of the time left. So a
 call running past `brief.call_limit_s` is stopped and asked again, a refusal
-spends an attempt, a unit ends refused only once `brief.unit_rounds` is spent
+spends a Round, a unit ends refused only once `brief.unit_rounds` is spent
 (§4.12.2), and no other time bound applies. This replaces kogaki#1273's
 rule that a refused unit is retried once and only when the retry fits; that
 Issue's other rules stand. Carriers: `kogaki.settings.json`,
@@ -83,7 +83,7 @@ amendment: none.**
 **Status:** v42, amended 2026-10-08 (kogaki#1307) — **MOVE FIT IS JUDGED INSIDE
 THE COMPOSE JOB, PER JOB UNIT, AND THE REVISE PASS IS REMOVED.** The Brief run
 of 2026-10-08 ended with no Reader Path and no question: one compose job unit
-spent an attempt on malformed output, one ran out of time while still
+spent a Round on malformed output, one ran out of time while still
 reasoning, and the one Candidate that finished was excluded after Path Review
 by `judge_specialization`, from where nothing re-composed. The owner decided
 (2026-10-08): a content judgment made after a verdict-free review is
@@ -1357,8 +1357,8 @@ LEAVE; the record carries no field for either.
 
 **Count fidelity is not a criterion.** A Leg whose `technique` names "twice"
 and whose waypoints number three is not refused on that ground. The verdict
-vocabulary is unchanged, and a refused unit is asked again while it has an
-attempt left (below).
+vocabulary is unchanged, and a refused unit is asked again while it has a
+Round left (below).
 
 **Why not Path Review.** Path Review's output is reasoning surfaced for a human
 gate — never a verdict, never a score — and `src/review.mjs` refuses any
@@ -1423,11 +1423,11 @@ each Candidate's failing Legs and says the Brief was removed.
 words (kogaki#1699, in place of its `reader_state_after`). The fit input
 carries the Thesis, read from the Brief record (`readerPathFitInput`). A
 marked Leg that does not is `contradicts`, with a `why` naming the Thesis —
-the same schema refusal, re-asked until the unit's attempts are spent.
+the same schema refusal, re-asked until the unit's Rounds are spent.
 `closing_leg_introduces_nothing` and `readerTargetLegRefusal` are unchanged;
 `closing_leg_state_fixed` leaves with the state fields.
 
-**A job unit is bounded per call and per attempt count** (kogaki#1355, owner
+**A job unit is bounded per call and per Round count** (kogaki#1355, owner
 decision 2026-10-13, replacing kogaki#1273's one retry that fits). Two
 settings in `kogaki.settings.json` bound every unit of the compose job and of
 the path-review job, and each is written onto the job record when the job
@@ -1445,29 +1445,29 @@ starts:
   together. The Brief's compose job declares none and
   reads it per unit, as below.
 
-What spends an attempt: a **schema refusal** — the validator's, or the fit
+What spends a Round: a **schema refusal** — the validator's, or the fit
 judge's — is asked again with the refusal spliced in verbatim, until the
-attempts are spent, and the unit then ends refused with every attempt's
+Rounds are spent, and the unit then ends refused with every Round's
 refusal on its row. A **call stopped at the per-call limit** is asked again
 with the same prompt and its row records it as timed out; it is a time bound,
 not a defect, so the Brief does not end. A **malformed output** (not JSON, or
-no record in it) spends no attempt and is asked again with the same prompt, at
-most `brief.unit_rounds` times per attempt, past which the unit ends refused
+no record in it) spends no Round and is asked again with the same prompt, at
+most `brief.unit_rounds` times per Round, past which the unit ends refused
 naming the count. A **system failure** (`died`, `stalled`, `other`) still ends
-the Brief at once. Whether to ask again reads the attempt count alone, and
-no other time bound applies: a job's longest run is the attempts, times the
-calls per attempt plus the malformed-output bound (each respawn is a full call
-that spends no attempt), times the per-call limit — with the defaults, a
+the Brief at once. Whether to ask again reads the Round count alone, and
+no other time bound applies: a job's longest run is the Rounds, times the
+Calls per Round plus the malformed-output bound (each respawn is a full Call
+that spends no Round), times the per-call limit — with the defaults, a
 compose unit's 3 × (2 + 3) × 900 seconds — and the owner sets both numbers
 without an Issue. A settings file or a `job` row still carrying either retired
 time setting of kogaki#1307 is refused naming it, as a missing setting is.
 
 **The reach of a refusal** (kogaki#1708). A judgment row may carry
 `refusal_reach`, a map from each refusal group it declares to a reach, one of
-three. `part`: the next attempt keeps every part the refusal did not name and
-changes the part it did. `record`: the next attempt answers a whole new record,
+three. `part`: the next Round keeps every part the refusal did not name and
+changes the part it did. `record`: the next Round answers a whole new record,
 keeping nothing of the previous one, and the refusal names what the new one
-cannot contain. `stop`: there is no next attempt, and the run stops naming the
+cannot contain. `stop`: there is no next Round, and the run stops naming the
 refusal and its reach. A validator of such a row returns a refusal as
 `{ group, text }`. A refusal whose group the row does not declare stops the run
 at once, naming the row and the group: a refusal nobody has classified is not
@@ -1476,13 +1476,13 @@ closes on the sentence of the latest refusal's reach, one fixed sentence for
 `part` and one for `record`, both in `src/workflow/judge.mjs`, so a unit's
 retry and a synchronous re-ask stay byte-identical over the same history. Each
 retry's history and each run record carry the refusal's `group` and `reach`
-beside its text. The bound on attempts is unchanged. A row without
+beside its text. The bound on Rounds is unchanged. A row without
 `refusal_reach` is the state not yet moved: its validator returns bare text,
 and the `part` sentence closes its block. The Brief's and the ParagraphPlan's
 rows are in that state until an Issue names their groups.
 
-**The Attempt Record** (kogaki#1717). Every judged model call writes one
-directory, `attempts/<unit>/<n>/`, where `<n>` counts the unit's calls from 1.
+**The Call Record** (kogaki#1717). Every judged model call writes one
+directory, `calls/<unit>/<n>/`, where `<n>` counts the unit's Calls from 1.
 It holds:
 
 - `prompt.md` — the exact stdin, so a retry's is the retry prompt as sent;
@@ -1499,24 +1499,24 @@ It holds:
   the answer passed; `validator` names the function that raised it. A
   refusal the ParagraphPlan site loop raises against a site or suffix call's
   answer, after that call's record is written, is written into the same
-  `refusal.json` with its Leg Waypoint as `sites`, by `pinAttemptRefusal`,
+  `refusal.json` with its Leg Waypoint as `sites`, by `pinCallRefusal`,
   which fills only a `null` (kogaki#1756).
 
-One writer, `writeAttemptRecord` in `src/workflow/attempt-record.mjs`, is
-called from three places, and `readAttemptRecord` reads a directory back:
+One writer, `writeCallRecord` in `src/workflow/call-record.mjs`, is
+called from three places, and `readCallRecord` reads a directory back:
 
 - **The short Trial** (§4.20.2). The `bind` and `grounding` calls
   (`retriedCall`), the `waypoints` call and the writer call each write under
   the call's own directory, so each bound Move's `smp_correspondence` call
   keeps its own. The record replaces `prompt-<n>.md` and `answer-<n>.json`. Each
-  stage entry of `trial.json` carries `attempt_records`, the list of
-  `attempts/` directories the stage wrote.
+  stage entry of `trial.json` carries `call_records`, the list of
+  `calls/` directories the stage wrote.
 - **The detached job supervisor**, under the job directory. Every call of a
   unit — compose, fit, site or suffix — is the next `<n>` under
-  `attempts/<unit>/`, and its `row.json` also names the call's phase. A
+  `calls/<unit>/`, and its `row.json` also names the call's phase. A
   malformed output asked again is a call of its own, and a call stopped at the
   per-call limit writes the stdout it had. Each unit row carries
-  `attempt_records`, the unit's directory; its stdout file and the rest of the
+  `call_records`, the unit's directory; its stdout file and the rest of the
   job record are unchanged. A starter may hand over the binary's version, the
   table and row id of each phase, and each unit's input. The ParagraphPlan's
   starter (§4.19) hands over all three; anything not handed over is written
@@ -1524,11 +1524,22 @@ called from three places, and `readAttemptRecord` reads a directory back:
 - **The synchronous judge**, under the run's directory. The unit is the
   state's id, or `<state>-<group>` for a per-group ask.
 
-`attempt_records` is a new key: `attempts` stays the count.
+Each unit row's count of Rounds is `rounds`, and the job record's bound is `unit_rounds`; a
+job record carrying the bound under the retired name `RETIRED_NAMES` in
+`src/workflow/call-record.mjs` lists is refused naming both names, so a job written under the
+old names is not resumed.
 
-**Replaying an Attempt** (kogaki#1718). `node src/workflow/replay.mjs <attempt
+**A run written under the old names is read, never rewritten** (kogaki#1760). A writer
+writes `calls/`, `call_records`, `call_1_s`, `rounds` and `rounds.json` only. A reader —
+`callRows`, `replay`, the job report, the FLP, the short Trial's sheet and the Proof Sheet's
+ParagraphPlan card — reads the name `RETIRED_NAMES` lists for each where the new one is
+absent: `callsRoot` returns `calls/` where it exists and the retired directory where only
+that does, and `callRecordsOf`, `firstCallSecondsOf`, `roundsOf` and `roundsFileIn` do the
+same for a unit row, a Rounds file and its count. No run directory is migrated.
+
+**Replaying a Call** (kogaki#1718). `node src/workflow/replay.mjs <call
 dir> --mode judge|render|model [--prompt <file>]` re-runs one part of one
-record and writes its result under `<attempt dir>/replays/<timestamp>/`, with
+record and writes its result under `<call dir>/replays/<timestamp>/`, with
 `result.json` naming the mode and the verdict. The record's own files are
 never written.
 
@@ -1538,8 +1549,8 @@ never written.
   `correspondenceRefusal`, `answerRecord` and `writerRefusal`, and a
   detached job's compose validator, read from the job's units file. Any
   other name is refused by name.
-- `render` re-renders attempt `<n+1>`'s prompt from attempts 1 to `<n>`,
-  writes `prompt.md`, and reports `same` or `drift` against attempt
+- `render` re-renders Call `<n+1>`'s prompt from Calls 1 to `<n>`,
+  writes `prompt.md`, and reports `same` or `drift` against Call
   `<n+1>`'s recorded `prompt.md`. A detached job's record goes through
   `readerPathUnitRetryPrompt`; every other record goes through
   `judgePrompt`. A job unit whose earlier calls include a site or suffix
@@ -1551,21 +1562,21 @@ never written.
   model received, not what it answered. A binary whose sha256 no longer
   matches `cli.json` is refused, naming both hashes.
 
-**The Attempts section** (kogaki#1718). The short Trial's sheet has an
-`Attempts` part before `Model calls`: per stage, one row per attempt, with the
-unit, the attempt number, the group, the reach, the refusal's first line
+**The Call Records section** (kogaki#1718, kogaki#1760). The short Trial's sheet has a
+`Call Records` part, id `call-records`, before `Model calls`, whose part id is `calls`: per
+stage, one row per Call Record, with the unit, the Call number, the group, the reach, the refusal's first line
 (`passed` where there was none), links to the record's files, and each
 replay's verdict linked to its `result.json`. `node src/workflow/job-report.mjs
 <job dir>` prints the same rows per unit for a Brief or ParagraphPlan job.
 
-**The status line shows the attempt and an estimate.** `job status`, and
+**The status line shows the Round and an estimate.** `job status`, and
 `job await` each time it returns at its 30-second bound, print a header
-naming both settings — `each unit gets up to <N> attempts of at most <s>s per
-call` — and one line per unit: `unit <id>: attempt <n> of <N>,
-<compose|fit>, <status>, <bytes> byte(s) so far`, followed from attempt 2 on
-by `about <m>s to go`, where `<m>` is attempt 1's own duration, written onto
-the unit's row by the supervisor as `attempt_1_s`, less the time the current
-attempt has already run.
+naming both settings — `each unit gets up to <N> rounds of at most <s>s per
+call` — and one line per unit: `unit <id>: round <n> of <N>,
+<compose|fit>, <status>, <bytes> byte(s) so far`, followed from Round 2 on
+by `about <m>s to go`, where `<m>` is Round 1's own duration, written onto
+the unit's row by the supervisor as `call_1_s`, less the time the current
+Round has already run.
 
 `necessity:` the split between what a runtime may decide and what only a
 reading sitting can. The schema holds the record's shape; nothing but prose can
@@ -3040,9 +3051,9 @@ a validator's reading.
 
 **Bounds and records.** Reading and grounding keep the Trial's call bound,
 `MAPPER_CALLS`, and its refusal groups and reaches (kogaki#1708). Each Call
-writes its Call Record (the Attempt Record of §4.12.2) under the Leg's unit, in
-`attempts/<unit>/reading/waypoint-<n>/` or
-`attempts/<unit>/grounding/waypoint-<n>/`. The job report lists them, and
+writes its Call Record (§4.12.2) under the Leg's unit, in
+`calls/<unit>/reading/waypoint-<n>/` or
+`calls/<unit>/grounding/waypoint-<n>/`. The job report lists them, and
 `replay` re-runs one. A refusal past the bound stops the unit, naming the Leg,
 the Leg Waypoint and the stage. The structures and tables settled are written
 to the Mapping Record (§4.19.2) with the plan.
@@ -3066,7 +3077,7 @@ spec, the FLP and `kogaki.settings.json` uses it in this sense.
 | **Verdict** | the Judge's result on a Submission, per axis (TAKEN, LEFT, OWN STEP, BREAKS); or `refused before the Judge` where a validator refused the Submission; or `not judged` with the reason, where the unit stopped before the Judge ran. |
 | **Comment** | the text a refused Submission drew, verbatim, with its source named (the Judge, or the validator by name), and the Points it names. The next Round's Call is handed it. |
 | **Binding** | the Move a Submission is written under, with the Mapping Table grounded for it. A Round that rebinds carries a new Binding, and a Binding with no Mapping Table grounded for its Move says so. |
-| **Call** | one model call under a unit: bind, write, judge, site retry, suffix, reading, grounding. Its record is the Call Record; the code and the run directory keep the names `Attempt Record` and `attempts/` until the Issue that renames them lands. |
+| **Call** | one model call under a unit: bind, write, judge, site retry, suffix, reading, grounding. Its record is the Call Record, under `calls/` in the run directory (§4.12.2). |
 
 A validator's text is a Comment as the Judge's is: the Call that writes a
 Revision is handed both, verbatim, in one refusal block of its prompt, and
@@ -3297,7 +3308,7 @@ file's `cite:`), `attributes` (a Role's `attributes` not a list of distinct
 texts) and `context` (a `context` naming the reader, kogaki#1720), each of
 reach `part`. A `holds` missing a placeholder is in `shape`. Any other refusal
 belongs to no group the row declares and stops the Trial at `reading` on the
-first attempt.
+first Call.
 
 **What the record says.** `trial.json` carries `mapper: { variant,
 prompt_sha256 }`, the hash of the rendered prompt, and `structure.author:
@@ -3393,7 +3404,7 @@ the Role it stands for.
 
 **The `bind` row** (kogaki#1700, kogaki#1719). The `bind` stage is one model
 call of the row `smp_bind_move` through the run's recorder, under the Mapper's
-bound of two attempts. Its input is the structure record, the Persona's
+bound of two Calls. Its input is the structure record, the Persona's
 prior-knowledge line, and every Move of the library as `{ id, description,
 segments, takes, leaves }`. It chooses one Move for the Base Paragraph whose
 Segments can carry the structure's relations and then its higher-order
@@ -3419,9 +3430,9 @@ refusals:
 
 An undeclared or missing key is group `shape`. `shape` is of reach `part`;
 `library`, `case` and `carry` are of reach `record` (kogaki#1708). The first
-refusal is put back verbatim into the second attempt under its reach, and a
-second refusal stops the Trial at `bind`. Each attempt is kept as its Attempt
-Record, `<out>/bind/attempts/smp_bind_move/<n>/` (§4.12.2). The answer carries
+refusal is put back verbatim into the second Call under its reach, and a
+second refusal stops the Trial at `bind`. Each Call is kept as its Call
+Record, `<out>/bind/calls/smp_bind_move/<n>/` (§4.12.2). The answer carries
 no `rationale`: the record's `binding_rationale` is written by the Harness
 from the answer's `case` and Moves (kogaki#1719).
 
@@ -3454,10 +3465,10 @@ are `shape` (an undeclared key, or a `correspondences` list that is not one
 of `{ role, expression }`), `role` (a `role` naming no Role, or a Role with
 other than one correspondence) and `base` (a `base` that is not
 `{ domain }`); any other refusal belongs to none of them and stops the Trial
-at `grounding` on the first attempt. The first refusal is put back
-verbatim into the second attempt, and a second refusal stops the Trial at
-`grounding`, naming the Move. Each attempt is kept as its Attempt Record,
-`<out>/grounding/<move>/attempts/smp_correspondence/<n>/` (§4.12.2). The
+at `grounding` on the first Call. The first refusal is put back
+verbatim into the second Call, and a second refusal stops the Trial at
+`grounding`, naming the Move. Each Call is kept as its Call Record,
+`<out>/grounding/<move>/calls/smp_correspondence/<n>/` (§4.12.2). The
 record carries `rbs: { variant: composed, path, sha256 }`. Attribute and Abstract are
 the structure's in every table and independent of the Move; the
 Correspondence column depends on it.

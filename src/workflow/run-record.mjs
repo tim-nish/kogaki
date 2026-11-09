@@ -264,7 +264,7 @@ export class JudgmentRefusal extends Error {}
 
 // A REFUSAL THE RE-ASK WINDOW MUST NOT ABSORB (kogaki#1125).
 // The ask itself was malformed, so a re-ask from the same input cannot repair it; terminal by
-// construction. `judgeAttempts` catches only `JudgmentRefusal`, so this propagates to `fail()`
+// construction. `judgeCalls` catches only `JudgmentRefusal`, so this propagates to `fail()`
 // and `refusals_repaired` never counts it.
 // consulted: coding::lesson/a-bounded-process-needs-one-exit-that-does-not-reproduce-it@206c657ee8da71ffbb1f4e41bf673d60401aaf49b87508be5b996058a5b8ea82
 export class TerminalJudgmentRefusal extends Error {}
