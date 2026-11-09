@@ -8,6 +8,7 @@
 #       and nothing is written.
 #   (c) validateReadSet refuses a claim no relation is `from`, a Role in no relation, a higher-order relation relating one
 #       relation and a missing `attains_thesis`, naming each; a refused first answer is handed back and the second is read.
+
 #   (d) the lpp_waypoints stdin carries the structure, the thesis and the Persona and no claim text; an unknown id, a
 #       relation carried by none, a last Waypoint not carrying `attains_thesis` and a written `serves` are refused naming the
 #       Waypoint or the relation; `serves` is the `from` ids of the carried relations.
