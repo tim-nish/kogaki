@@ -24,7 +24,7 @@ const SELF = "checks/check-loop-vocabulary.sh";
 const TERRAIN_SPEC = "specs/spec-terrain/SPEC.md";
 const TERRAIN_PARAGRAPHS = ["**A refused response is RE-ASKED", "**The judgment provenance state `observed` now has a producer**",
   "**A timeout is not re-asked.**"];
-// [file, text]: a line of `file` holding `text` is read with `text` removed. `null` text excludes the whole file.
+// [file, text]: a line of `file` holding `text` is read with `text` removed.
 const ALLOWED = [
   // The ordinary English verb and noun.
   ["src/workflow/strands.mjs", "`not-attempted`"],
@@ -47,8 +47,11 @@ const ALLOWED = [
   ["src/paragraph-plan.mjs", "carries no word of the refusal, the attempt,"],
   ["src/paragraph-plan-workflow.json", "carrying `refus`, `attempt`, `kogaki#`"],
   ["src/paragraph-plan-workflow.json", "carry no word of the refusal, the attempt, the shape"],
-  // Terrain's workflow table, a sibling subsystem's vocabulary.
-  ["src/terrain-workflow.json", null],
+  // The run history quoted in Terrain's judge note: the attempts of runs, never the loop's own names.
+  ["src/terrain-workflow.json", "two of three attempts exceeded it"],
+  ["src/terrain-workflow.json", "a first-attempt-clean advance cost"],
+  ["src/terrain-workflow.json", "all three licensed attempts"],
+  ["src/terrain-workflow.json", "three exhausted attempts"],
 ];
 
 const paragraphs = (text, openers) => text.split(/\n\s*\n/).filter((p) => openers.some((o) => p.trimStart().startsWith(o)));
@@ -57,7 +60,7 @@ const paragraphs = (text, openers) => text.split(/\n\s*\n/).filter((p) => opener
 function scan(root, files) {
   const found = [];
   for (const f of files) {
-    if (f === SELF || ALLOWED.some(([af, t]) => af === f && t === null)) continue;
+    if (f === SELF) continue;
     const text = readFileSync(join(root, f), "utf8");
     const lines = text.split("\n");
     const allowed = ALLOWED.filter(([af]) => af === f).map(([, t]) => t);
