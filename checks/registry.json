@@ -698,6 +698,27 @@
       }
     },
     {
+      "id": "leg-planning",
+      "file": "checks/check-leg-planning.sh",
+      "covers": [
+        "src/leg-planning/trial.mjs",
+        "src/leg-planning/read-set.mjs",
+        "src/leg-planning/sheet.mjs",
+        "src/leg-planning/workflow.json"
+      ],
+      "admission": {
+        "contract": "One command runs a Trial of the Leg-Planning Playground: a claims file read into one RelationalStructure, Leg Waypoints composed from its relations and judged GROUNDED, then grouped into Legs with one Move bound each and judged by the Brief's own fit judge (kogaki#1764, owner direction 2026-11-10). Driven end to end through `node src/leg-planning/trial.mjs run` with one fake model binary: (a) a thesis and three claims with valid answers at every row exit 0 and write `structure.yaml`, `waypoints.yaml`, `legs.yaml`, `trial.json` and `sheet.html`, every Call under `calls/<row>/<n>/`, and `trial.json` carries the claims file's, the library's, each stage file's and the sheet's sha256; (b) a `proposition:` line is refused naming `claim:`, a second `thesis:` and a `cite:` with no `claim:` naming the line, with nothing written; (c) `validateReadSet` refuses a claim no relation is `from`, a Role in no relation, a higher-order relation relating one relation and a missing `attains_thesis`, naming each, and a refused first structure answer is handed back verbatim and the second is read; (d) the `lpp_waypoints` stdin carries the structure, the thesis and the Persona and no claim text, `validateWaypoints` refuses an unknown id, a relation carried by none, a last Waypoint not carrying `attains_thesis` and a written `serves` naming the Waypoint or the relation, and `serves` in `waypoints.yaml` is the `from` ids of each Waypoint's carried relations; (e) a GROUNDED `does-not-fit` naming Waypoint 2 re-asks Waypoint 2 alone with the judge's phrase and text verbatim, the passed set carries the rewrite, and the sheet highlights row 2 with the phrase; (f) `legs.yaml` passes `/paragraph-plan`'s Leg reader and Leg Waypoint rule, carries `composed_by: leg-planning`, each Leg's claims its Waypoints' `serves`, and no `purpose`, `rationale`, `introduces` or `opens_section`; (g) the sheet's parts stand in order, every heading is in `LPP_HEADINGS`, the Legs part shows the Move's Segments beside the Waypoints carrying them and the fit verdict, and a `--brief` run renders that Brief's Legs beside the Trial's and records its sha256; (h) nothing under the repository's `moves/` or `theses/` changes.",
+        "license": "kogaki#1764",
+        "tier": "pre-push",
+        "runtime_ms": 3000,
+        "runtime_ms_note": "MEASURED AT AUTHORING (kogaki#1764, 2026-11-10): plain serial runs of the file took about 2000 ms; 3000 allows the slower CI host. The fake model answers at once.",
+        "efficacy": "case: checks/check-leg-planning.sh::(d) serves is not the from ids of each Waypoint's carried relations",
+        "efficacy_note": "mutation-verified at kogaki#1764: making `servesOf` return no claim ids failed (a), (c) and (d): the runner refused its own legs.yaml as a reader_path with an empty `serves`, the named defect being a Waypoint whose claims are not derived from the relations it carries.",
+        "removal_signal": "a ruling retires the Leg-Planning Playground, or folds its stages into the Brief -- either way the run this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/leg-planning/trial.mjs"
+      }
+    },
+    {
       "id": "flp",
       "file": "checks/check-flp.sh",
       "covers": [

@@ -1,11 +1,12 @@
 // The src/ lane rule (owner ruling 2026-11-08, kogaki#1746): a file named after
 // a workflow holds that workflow's processes, a workflow does not use another
 // workflow's files, shared functionality lives in a shared home, and a
-// playground may use production executables. This file is the rule's only
+// playground may use production executables. The Leg-Planning Playground may
+// also use the other two playgrounds (kogaki#1764). This file is the rule's only
 // carrier; checks/check-dependency-rules.sh runs it.
 const lane = (names) => `^src/(${names})(/|\\.mjs$|-[^/]*$)`;
 const PRODUCTION = "terrain|brief|paragraph-plan|draft|review-draft";
-const BENCHES = "proof-sheet|mapping-playground|flp";
+const BENCHES = "proof-sheet|mapping-playground|flp|leg-planning";
 const ALL = `${PRODUCTION}|${BENCHES}`;
 
 module.exports = {
@@ -35,15 +36,22 @@ module.exports = {
       name: "bench-reached-from-outside",
       comment: "A playground may use production files, and nothing outside it uses the playground (kogaki#1746).",
       severity: "error",
-      from: { path: "^src/", pathNot: lane("mapping-playground|flp") },
+      from: { path: "^src/", pathNot: lane("mapping-playground|flp|leg-planning") },
       to: { path: lane("mapping-playground") },
     },
     {
       name: "bench-reached-from-outside",
       comment: "The FLP is a playground: it may use production files and the Trial sheet's helpers, and nothing outside it uses it (kogaki#1752).",
       severity: "error",
-      from: { path: "^src/", pathNot: lane("flp") },
+      from: { path: "^src/", pathNot: lane("flp|leg-planning") },
       to: { path: lane("flp") },
+    },
+    {
+      name: "bench-reached-from-outside",
+      comment: "The Leg-Planning Playground may use production files and the other playgrounds, and nothing outside it uses it (kogaki#1764).",
+      severity: "error",
+      from: { path: "^src/", pathNot: lane("leg-planning") },
+      to: { path: lane("leg-planning") },
     },
     {
       name: "no-circular",

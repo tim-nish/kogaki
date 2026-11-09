@@ -969,6 +969,9 @@ carried by a test on the artifact rather than by a claim about how it was made.
 **Delete the Move name from the Leg's rationale. If what remains does not
 stand on its grounds, the Leg was composed Move-first.** Judged at **path
 review**.
+The Leg-Planning Playground (§4.21) is where that order is recorded rather
+than tested: its Leg Waypoints are composed from a structure read over the
+Strand claims before any Move is bound.
 `consulted: product-lab@dec0d568dd8fc0b2df1185eac10dc1a10600f299 topics/articles.md:16`
 
 `necessity:` the whole point is that the property is unobservable and the test
@@ -3698,6 +3701,132 @@ and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.
+
+### 4.21 The Leg-Planning Playground (kogaki#1764)
+
+**What it is.** The owner asked on 2026-11-10 for a mechanism that reads what
+a set of Strands is trying to say, and the relations among them, and composes
+Leg Waypoints from that rather than from the Strands directly. Today one
+Brief call writes every Leg Waypoint's `point` from the Strand claims, and
+nothing records how a point was derived. The **Leg-Planning Playground
+(LPP)** proves the other order in a Trial before the Brief is rebuilt on it:
+a structure first, Leg Waypoints from its relations, Legs and Moves after.
+It is a playground under §4.20's rule: it may import production files and
+the other playgrounds, nothing imports it, and it never writes under
+`theses/`. One run is a **Trial**: `node src/leg-planning/trial.mjs run
+--claims <file> --out <dir under runs/leg-planning/> [--audience <file>]
+[--library <dir>] [--brief <theses/<slug>/brief.yaml>]`.
+
+**The claims file.** One `thesis:` line, then one or more pairs of a `cite:`
+line and a `claim:` line, and nothing else; blank lines are ignored. The
+`cite` is a served address at a pin and the `claim` is the Strand's served
+claim as the Brief's compose input carries it. A claim's id is `c<n>`, its
+place in the file. A third line kind, a `cite:` with no `claim:` after it, a
+`claim:` with no `cite:` before it, a second `thesis:`, and a `thesis:` after
+a claim are each refused naming the line; a `proposition:` line is refused
+naming `claim:`. Nothing is written on a refusal. The runner never fetches:
+a Strand's rendering is not an input, and the owner stands in for the Brief
+by writing the claims.
+
+**Stage 1, the structure: the `sme_read_set` row.** One Call reads the
+claims, with their ids, the `thesis` and the Persona's `reader` and
+prior-knowledge line into one RelationalStructure: `roles`, each `{ id,
+context, attributes, claims }`; `relations`, each `{ id, between, holds,
+from }`; `higher_order`, a list of one or more `{ id, relates, holds }`; and
+`attains_thesis`, the id of the one higher-order relation that states the
+thesis. `validateReadSet` refuses, naming the item: an undeclared or missing
+key; an empty or repeated id; a Role whose `claims` names no claim, and a
+Role in no relation; a relation whose `from` is not one claim id, or whose
+`holds` writes no `{<id>}` for a Role its `between` names; a claim no
+relation is `from`; a higher-order relation relating fewer than two
+relations or an unknown one; and an `attains_thesis` absent or naming no
+higher-order relation. A refusal is handed back verbatim with the answer,
+under the Mapper's bound, `MAPPER_CALLS`. The passed structure is
+`structure.yaml`.
+
+**Stage 2, Leg Waypoints: the `lpp_waypoints` row and the `lpp_grounded`
+judge.** One Call is handed the structure, the thesis and the Persona, and
+**not the claims' text**. It answers `waypoints`, an ordered list of `{
+point, carries }`: `point` is one sentence under the Brief's rule for a
+point, copied from `reader_path_unit` (the text from "EACH WAYPOINT IS A
+POINT" through the end of "A WAYPOINT'S POINT IS READ ALONE"); `carries`
+names the relation or higher-order relation ids the point states.
+`validateWaypoints` refuses, naming the Waypoint or the relation: a written
+`serves`; an empty `carries`; a `carries` id not in the structure; a
+relation or higher-order relation no Waypoint carries; and a last Waypoint
+not carrying `attains_thesis`. The runner derives each Waypoint's `serves`:
+the `from` of each carried relation, and of each relation a carried
+higher-order relation relates, in claim order. Then one `lpp_grounded` Call
+judges the set on one criterion, GROUNDED: every assertion a point makes is
+stated by a relation or higher-order relation it carries, read in its
+`holds` and its Roles' `context` and `attributes`. It answers `fits` with
+no sites, or `does-not-fit` with one site per Waypoint not grounded: its
+number, the phrase verbatim and why. Each named Waypoint is asked again
+alone, the judge's text handed to it verbatim as the Comment, and the set is
+judged again, up to `brief.unit_rounds` Rounds. A malformed verdict is asked
+again once. The passed set is `waypoints.yaml`.
+
+**Stage 3, Legs and Moves: the `lpp_legs` row.** One Call is handed the
+passed Waypoints, the structure, the Persona and the Move library as
+`moves_you_may_bind` (each Move's `id`, `takes`, `leaves` and `segments`). It
+answers `legs`, each `{ leg_id, waypoints, move }`: an ordered partition of
+the Waypoints into contiguous runs, one Move bound per Leg as `smp_bind_move`
+binds one, under the TAKE and LEAVE rules copied from `reader_path_unit`.
+`validateLegPartition` refuses a written `claims`, an empty or repeated
+`leg_id`, a Move not in the library, a Waypoint left out, repeated or out of
+order, and a Leg whose Waypoints carry no higher-order relation. The runner
+derives each Leg's `claims` from its Waypoints' `serves`, marks the last Leg
+`reaches_target`, and gives every Waypoint `case: own`. The Legs are then
+judged by the Brief's own `reader_path_fit_unit`, over a Candidate built
+from them with the claims file's thesis; a Leg that does not fit is handed
+back with the judge's text, up to `brief.unit_rounds` Rounds. The passed Legs
+are `legs.yaml`: `composed_by: leg-planning` and `reader_path`, the Legs in
+the Brief's Leg shape (`leg_id`, `move`, `claims`, `waypoints[].point`,
+`waypoints[].serves`, `waypoints[].case`), with `purpose`, `rationale`,
+`introduces` and `opens_section` absent. The runner refuses to write a file
+`/paragraph-plan`'s Leg reader and Leg Waypoint rule would refuse.
+
+**A copy is read, never restated.** A `{{copy:<name>}}` token in a row of
+`src/leg-planning/workflow.json` is replaced at run time by the text its
+`copies.<name>` entry names in another table, from its `opens` words
+through the first `closes` words after them. A copy whose words that table
+no longer carries refuses the Trial before any Call.
+
+**Records and Rounds.** Every Call writes a Call Record under
+`<out>/calls/<row>/<n>/`. A Round is one Submission at a stage and the
+verdict on it: the validator's refusal, the GROUNDED verdict or the fit
+verdict, with the Comment it drew. `trial.json` carries the claims file's
+path and sha256, its thesis and claims, the Persona, the library's path and
+sha256, the Brief's path and sha256 under `--brief`, each stage's state,
+file and sha256 and Rounds, the GROUNDED sites under `named`, the fit
+verdicts and the Leg partition, and the sheet's path and sha256.
+
+**The sheet.** `<out>/sheet.html`, one page, under the FLP's fixed-heading
+rule with its own list (`LPP_HEADINGS`), in this order:
+
+1. `Claims`: the thesis and each claim with its id and cite.
+2. `Structure`: `Roles` (id, Abstract, Attribute, claims), `Relations` (id,
+   from, between, holds) and `Higher-order relations` (id, relates, holds),
+   the one that attains the thesis marked.
+3. `Leg Waypoints`: one row per Waypoint: number, point, carries, serves and
+   Leg. A Waypoint the GROUNDED judge named in any Round is highlighted, with
+   the phrase and the Round.
+4. `Legs`: per Leg, its `Move`, linked to its file and its Corpus passage as
+   the FLP renders them, then the Move's Segments beside the Leg's Waypoints in
+   order (Segment, operation, relation, manner, and the Waypoint and the ids
+   it carries), and the fit judge's verdict and `why` for the Leg.
+5. `Rounds`: per stage, each Round in the FLP's blocks, `Submission`,
+   `Comment` and `Calls`, each Call linked to its Call Record.
+6. With `--brief`, `The Brief's Legs`: that Brief's Legs and their Waypoints
+   beside the Trial's, by Leg number, read only.
+
+**Out of the Playground.** Rebuilding the Brief; grounding, the base choice
+and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
+sections, `introduces`, `opens_section` and renderings, which are the
+Brief's; and fetching a Strand.
+
+**Its check.** `checks/check-leg-planning.sh`, registered as `leg-planning`,
+drives the Trial through one fake model binary.
 
 ## 5. The Brief's centre, and Obligations inside it
 
