@@ -1495,7 +1495,11 @@ It holds:
 - `answer.raw` — stdout, verbatim;
 - `answer.json` — the parsed record, absent where parsing failed;
 - `refusal.json` — `{ group, reach, text, validator, sites }`, or `null` where
-  the answer passed; `validator` names the function that raised it.
+  the answer passed; `validator` names the function that raised it. A
+  refusal the ParagraphPlan site loop raises against a site or suffix call's
+  answer, after that call's record is written, is written into the same
+  `refusal.json` with its Leg Waypoint as `sites`, by `pinAttemptRefusal`,
+  which fills only a `null` (kogaki#1756).
 
 One writer, `writeAttemptRecord` in `src/workflow/attempt-record.mjs`, is
 called from three places, and `readAttemptRecord` reads a directory back:
@@ -3042,12 +3046,15 @@ writes its Attempt Record under the Leg's unit, in
 the Leg Waypoint and the stage. The structures and tables settled are written
 to the Mapping Record (§4.19.2) with the plan.
 
-#### 4.19.4 The Attempt Sheet (kogaki#1752)
+#### 4.19.4 The Feedback-Loop Playground (FLP) (kogaki#1752, kogaki#1756)
 
-The owner asked on 2026-11-08 that the final Points of every attempt stay
-visible whether the attempt passed or was refused, with the refusal and the
-revision it led to readable without a click, so that an incomplete plan can be
-discussed and corrected.
+The owner asked on 2026-11-08 that every attempt's Points stay visible
+whether the attempt passed or was refused, and on 2026-11-09 that each
+attempt be read as one chain: the signal it answered, the entry it wrote and
+the refusal that entry drew, pinned to the call that made it, one table each,
+stacked in order under small headings that never change. The owner adopted
+the name Feedback-Loop Playground (FLP) the same day; the file paths keep
+`attempt-sheet`.
 
 **What it reads.** `node src/attempt-sheet/sheet.mjs leg --run <ParagraphPlan
 run directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]` reads the
@@ -3057,36 +3064,67 @@ Attempt Records. It needs no `paragraph-plan.yaml`, and reads nothing under
 naming the file, and a `--leg` the start record does not carry, naming the
 Legs it does. It prints HTML to stdout, or writes `--out`, and writes nothing
 else. It is a playground: it may import production files and the Trial
-sheet's helpers, and nothing imports it.
+sheet's helpers, and nothing imports it. One Leg per sheet.
 
-**The Leg band.** One status line: the unit's status (`done`, `refused`,
-`died`, or `running`, read as `stopped` when its supervisor is gone), the
-attempt count and the first attempt's seconds. Every refusal that names no
-Leg Waypoint follows it in full.
+**Attempt.** An attempt is one model call under the Leg's unit, numbered in
+the order it was made, of one kind: `bind`, `write`, `judge`, `site retry at
+Waypoint n`, `suffix`, or `stopped` (the per-call limit). The kind is read
+from the Attempt Record: `stopped` where its refusal is the per-call limit;
+`judge`, `site retry` and `suffix` from the row's phase; and, for the Leg
+call, `write` where its input carries a Mapping Table and `bind` where it
+does not. A judge attempt writes no entry.
 
-**Each Leg Waypoint, in four parts.**
+**The Leg band.** The unit's status (`done`, `refused`, `died`, or
+`running`, read as `stopped` when its supervisor is gone), the attempt count
+by kind, the first attempt's seconds, and the attempt definition above in one
+line. Then the unit's stop in full; every attempt's refusal that names no Leg
+Waypoint, with its attempt; and, as `unplaced`, every refusal the job record
+carries that no Attempt Record does, as in a run made before kogaki#1756.
+
+**Each Leg Waypoint**, in this order:
 
 1. A status tag. `passed` when the unit is done. `refused here` when the
-   unit's last refusal names this Leg Waypoint, by its `sites` or by the
-   `Leg <id>, Waypoint <n>` form. `stood` when the unit was refused
-   elsewhere. `not reached` when no attempt produced an entry for it.
-2. The final Points: the entry in the unit's standing `candidate`, or, with
-   none, the entry standing after the last attempt. They render as the Trial
-   sheet's Segments table, with the bound Move, the `join` and the `case`,
-   beside the Brief's point and the Mapping Table.
-3. The refusal table, one row per refusal that named this Leg Waypoint, in
-   attempt order: the attempt, the row it came from, the full text, its
-   `group` and `reach`, and the point it names. A named point is highlighted
-   in the Segments table. A refusal only the job record carries, as the site
-   loop's are, is placed by order and marked so.
-4. The revision table, one per refusal row: the next attempt's entry for this
-   Leg Waypoint against the refused one, as `field | before | after` rows over
-   `move`, `join` and each point by number. An unchanged field reads
-   `unchanged`, so a retry that repeated the refused record reads as one.
+   unit's stop, or with none its last refusal, names this Leg Waypoint.
+   `stood` when the unit was refused elsewhere. `not reached` when no attempt
+   wrote an entry for it.
+2. `Brief's point`.
+3. `Points after the last attempt (attempt n)`: the entry of the
+   highest-numbered attempt that wrote one for this Leg Waypoint, whatever the
+   job record's `candidate` holds, as the Trial sheet's Segments table with
+   the Move, the `join` and the `case`.
+4. `Structure`: Role, Abstract and Attribute from the reading call, once.
+5. `Correspondence`: the base domain and one expression per Role, one column
+   per grounding call for this Leg Waypoint, headed by the bind attempt and
+   the Move it was grounded for. Where the last attempt binds another Move,
+   the line `grounded for <move>; the last attempt binds <move>` follows.
+6. One block per attempt, in attempt order, headed `Attempt n · <kind>`:
+   - `Signal answered`: what the call was handed for this Leg Waypoint,
+     verbatim, read from its prompt — for a site retry, each `refused_here`
+     refusal and the row's judgment point; for a Leg or suffix retry, each
+     refusal of its refusal block that names this Leg Waypoint or none, and
+     the sentence after them. Absent on a first call.
+   - `Entry as written`: the Move, `join`, `case` and the Segments table of
+     this attempt's entry; a judge attempt shows `Verdict`, its verdict and
+     `why` for this Leg Waypoint, instead.
+   - `Refusal drawn`: each refusal this attempt's entry drew here, verbatim,
+     with the attempt that raised it, `group`, `reach` and the points it
+     names, highlighted in the Segments table. A call's own refusal is drawn
+     by its own entry; a judge's is drawn by the last earlier attempt that
+     wrote this Leg Waypoint's entry. Every refusal is read from an Attempt
+     Record; none is placed by order.
 
-**The call list.** Every Attempt Record under the unit, the nested reading
-and grounding calls included, with its kind, its refusal's first line and
-links to its files.
+   An attempt that neither wrote, judged nor was refused here is one line,
+   `Attempt n · <kind> · left standing`.
+
+**The call list.** `Calls`: every Attempt Record under the unit, the nested
+reading and grounding calls included, with its kind, its refusal's first line
+and links to its files.
+
+**Headings.** Every table stands under one heading from this list, and no
+other: `Brief's point`, `Points after the last attempt (attempt n)`,
+`Structure`, `Correspondence`, `Signal answered`, `Entry as written`,
+`Verdict`, `Refusal drawn`, `Calls`. The list is `TABLE_HEADINGS` in the
+sheet, and `checks/check-attempt-sheet.sh` reads it.
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 

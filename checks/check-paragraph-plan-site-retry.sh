@@ -27,6 +27,7 @@ const fails = [];
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { legRecord, briefRecordText, readerStateMap } = await imp("src/compose.mjs");
+const { attemptRows, attemptsRoot, readAttemptRecord } = await imp("src/workflow/attempt-record.mjs");
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, siteRepeatRefusal, siteRestatementRefusal } = await imp("src/paragraph-plan.mjs");
 const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
 const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
@@ -138,7 +139,7 @@ function run(name, scenario, { settings = null } = {}) {
   const planPath = join(briefDir, PARAGRAPH_PLAN_FILE);
   const plan = existsSync(planPath) ? parseYaml(readFileSync(planPath, "utf8"), planPath) : null;
   const out = `${started.stdout}${started.stderr}${awaited ? awaited.stdout + awaited.stderr : ""}`;
-  return { calls, plan, out, job: readReaderPathJob(runDir), of: (kind, l = "s1") => calls.filter((c) => c.kind === kind && c.leg === l) };
+  return { calls, plan, out, runDir, job: readReaderPathJob(runDir), of: (kind, l = "s1") => calls.filter((c) => c.kind === kind && c.leg === l) };
 }
 const pwOf = (plan, l, w) => (plan ? plan.legs.find((x) => x.leg_id === l).waypoints[w - 1] : null);
 const point = (e) => (e && e.paragraph_waypoints[0] ? e.paragraph_waypoints[0].point : "");
@@ -242,6 +243,13 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
     fails.push(`(s4) Leg s1 does not end refused naming Waypoint 1 and its spent attempts: ${JSON.stringify(s1 && { status: s1.status, last })}`);
   }
   if (!s2 || s2.status !== "done" || !s2.candidate) fails.push(`(s4) Leg s2 did not finish beside the refused Leg: ${JSON.stringify(s2 && s2.status)}`);
+  // THE SITE LOOP'S REFUSAL IS PINNED TO THE CALL IT REFUSED (kogaki#1756): the second site call's Attempt Record.
+  const siteRecords = attemptRows(attemptsRoot(r.runDir)).filter((x) => x.unit === "leg-1")
+    .map((x) => readAttemptRecord(x.dir)).filter((x) => x.row && x.row.phase === "site");
+  const pinned = siteRecords[1] && siteRecords[1].refusal;
+  if (!pinned || !String(pinned.text).includes(siteRepeatRefusal(1)) || JSON.stringify(pinned.sites) !== "[1]") {
+    fails.push(`(s4) the second site call's Attempt Record does not hold the site loop's refusal at Waypoint 1: ${JSON.stringify(pinned)}`);
+  }
   if (!/Leg s1, Waypoint 1\b/.test(r.out) || r.plan) fails.push(`(s4) the stop does not name Leg s1, Waypoint 1, or a plan file was written: ${r.out.slice(0, 600)}`);
 }
 

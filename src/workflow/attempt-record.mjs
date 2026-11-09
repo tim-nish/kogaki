@@ -61,6 +61,15 @@ export function writeAttemptRecord(runDir, unit, n, { prompt, argv, cli, input, 
   return dir;
 }
 
+// A refusal raised after the call's record was written, as the site loop's are (kogaki#1756): it fills a record that
+// holds none, and never replaces one the call already carries.
+export function pinAttemptRefusal(runDir, unit, n, refusal) {
+  const path = join(attemptDir(runDir, unit, n), ATTEMPT_FILES.refusal);
+  if (!existsSync(path) || JSON.parse(readFileSync(path, "utf8")) !== null) return false;
+  writeFileSync(path, json(refusalRecord(refusal)));
+  return true;
+}
+
 export function readAttemptRecord(dir) {
   const at = (k) => join(dir, ATTEMPT_FILES[k]);
   if (!existsSync(at("prompt"))) return { error: `${dir} holds no ${ATTEMPT_FILES.prompt}: it is not an Attempt Record` };

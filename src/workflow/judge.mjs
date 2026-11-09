@@ -418,6 +418,25 @@ export function judgeRefusalBlock(history) {
   REACH_SENTENCE[reach]].join("\n");
 }
 
+// A JUDGE PROMPT, READ BACK (kogaki#1756): its judgment point, its input, and on a re-ask each refusal it was
+// handed and the sentence appended after them, all verbatim. `null` for a part the prompt does not carry.
+export function readJudgePrompt(prompt) {
+  const p = String(prompt ?? "");
+  const at = p.lastIndexOf(`${JUDGE_INPUT_MARKER}\n`);
+  let input = null;
+  if (at >= 0) { try { input = JSON.parse(p.slice(at + JUDGE_INPUT_MARKER.length + 1)); } catch { input = null; } }
+  const head = at >= 0 ? p.slice(0, at) : p;
+  const jp = /^JUDGMENT POINT: ([\s\S]*?)\nREQUIRED RECORD SHAPE: /m.exec(head);
+  const parts = head.split(`\n${JUDGE_REFUSAL_MARKER}\n`);
+  const instruction = Object.values(REACH_SENTENCE).find((s) => head.includes(`\n\n${s}`)) ?? null;
+  const ends = [/\n\n----- YOUR PREVIOUS ANSWER \(attempt \d+\) -----\n/, ...(instruction ? [`\n\n${instruction}`] : [])];
+  const refusals = parts.length < 2 ? [] : parts.slice(1).map((seg) => {
+    const cuts = ends.map((e) => (typeof e === "string" ? seg.indexOf(e) : seg.search(e))).filter((i) => i >= 0);
+    return cuts.length ? seg.slice(0, Math.min(...cuts)) : seg;
+  });
+  return { judgmentPoint: jp ? jp[1] : null, input, refusals, instruction };
+}
+
 // THE FILLED RECORD EXAMPLE (kogaki#1059): built from the run's own composed input
 // (`composition_pin`, the composed group names), never a hand-written literal.
 // Table-driven; two directives, each refused by name:

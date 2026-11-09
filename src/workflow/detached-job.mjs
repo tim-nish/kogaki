@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 import { JUDGE_INPUT_MARKER, judgeRefusalBlock, refusalReach } from "./judge.mjs";
 import { REPO, fail, readJson } from "./run-record.mjs";
 import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
-import { writeAttemptRecord, cliRecord, tableRecord } from "./attempt-record.mjs";
+import { writeAttemptRecord, pinAttemptRefusal, cliRecord, tableRecord } from "./attempt-record.mjs";
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
 // `compose_path` starts the job and throws `DetachedJobStarted`; the state is NOT complete
@@ -806,6 +806,7 @@ export async function cmdJobSupervise(args) {
     const siteAct = (u, act, sp, stdoutPath, specialization = null) => {
       const st = S.get(u.id);
       for (const refusal of st.loop.drain()) st.refusals.push({ refusal });
+      for (const r of st.loop.drainRaised()) pinAttemptRefusal(dir, u.id, st.calls, r);
       if (act.done) {
         st.composed = act.done;
         return { row: endUnit(u, { status: "done", candidate: act.done, ...(specialization ? { specialization } : {}) }, sp.out.bytes, stdoutPath), progressed: false };
