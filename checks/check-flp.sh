@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# check-flp -- the Feedback-Loop Playground (kogaki#1756, kogaki#1758) renders one Leg of a ParagraphPlan run from the
-# run directory alone, one Round per Submission. Its cases (a)-(n) are the `flp` entry's contract in checks/registry.json.
+# check-flp -- the Feedback-Loop Playground (kogaki#1756, kogaki#1758, kogaki#1762) renders one Leg of a ParagraphPlan
+# run, or one Candidate of a Brief compose run, from the run directory alone, one Round per Submission. Its cases
+# (a)-(s) are the `flp` entry's contract in checks/registry.json.
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync, renameSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync, renameSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -18,7 +19,7 @@ const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { writeCallRecord, pinCallRefusal, callDir } = await imp("src/workflow/call-record.mjs");
 const { SiteLoop } = await imp("src/workflow/site-retry.mjs");
 const { renderRowHead } = await imp("src/paragraph-plan.mjs");
-const { renderFlp, unitStatus, TABLE_HEADINGS, ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE } = await imp("src/flp/sheet.mjs");
+const { renderFlp, unitStatus, TABLE_HEADINGS, ROUND_BLOCKS, CANDIDATE_ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE, NO_RECORD } = await imp("src/flp/sheet.mjs");
 const root = mkdtempSync(join(tmpdir(), "flp-"));
 const run = join(root, "run");
 mkdirSync(join(run, "mapping"), { recursive: true });
@@ -42,7 +43,8 @@ record("leg-1", 1, "compose", { version: 1, leg_id: "leg1", waypoints: [entry(1,
 record("leg-1", 2, "compose", l1b);
 // leg2.
 const STOPPED = "the compose call ran past the 900s per-call limit";
-const J2 = "Leg leg2, Waypoint 2: the judge wrote: \"OWN STEP fails: point 1 restates the earlier case.\"";
+const WHY2 = "OWN STEP fails because Paragraph Waypoint 1 restates the earlier case, Segment 2's narrowing is lost, and Paragraph Waypoint 2 repeats it.";
+const J2 = `Leg leg2, Waypoint 2: the judge wrote: "${WHY2}"`;
 const S2 = "Leg leg2, Waypoint 2: Paragraph 2's points carry the Correspondence expression of the Role \"fallback\" in none of them";
 const STOP = `Waypoint 2: the Leg's 1 site retries are spent (kogaki#1642); the first refusal: ${J2}; the last refusal: ${S2}`;
 const LEGACY = "Leg leg2, Waypoint 2: a refusal an older run kept on the job record alone";
@@ -58,7 +60,7 @@ record("leg-2", 2, "compose", { version: 1, leg_id: "leg2", waypoints: [entry(1,
 record("leg-2", 3, "compose", { version: 1, leg_id: "leg2", waypoints: [entry(1, ["Beta one."]), entry(2, [WRITE1, KEPT2])] }, null,
   head("paragraph_plan_unit", "plan the Leg.") + JSON.stringify(planInput(true)));
 record("leg-2", 4, "fit", { version: 1, leg_id: "leg2", verdicts: [{ waypoint: 1, verdict: "fits", why: "It fits." },
-  { waypoint: 2, verdict: "does-not-fit", why: "OWN STEP fails: point 1 restates the earlier case." }] },
+  { waypoint: 2, verdict: "does-not-fit", why: WHY2 }] },
 { text: `THE PARAGRAPH WAYPOINTS WERE JUDGED:\n${J2}`, sites: [{ leg_id: "leg2", waypoint: 2, why: "OWN STEP fails", refusal: J2 }] });
 const siteInput = { leg_waypoint_you_must_plan: { leg_id: "leg2", waypoint: 2 }, refused_here: [{ entry: entry(2, [WRITE1, KEPT2]), refusal: J2 }] };
 record("leg-2", 5, "site", entry(2, [SITE1, KEPT2], { move: M2 }), null, head("paragraph_plan_site_unit", SITE_JP) + JSON.stringify(siteInput, null, 2));
@@ -86,10 +88,20 @@ writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({ state: "refuse
   { id: "leg-2", status: "refused", rounds: 6, call_1_s: 30, failure: { class: "schema refusal", stderr_tail: STOP },
     refusals: [STOPPED, `THE PARAGRAPH WAYPOINTS WERE JUDGED:\n${J2}`, J2, S2, LEGACY, STOP] }] }));
 
+const corpus = join(root, "corpus");
+mkdirSync(join(corpus, "batch", "legs"), { recursive: true });
+mkdirSync(join(corpus, "batch", "runs", "leg-run-x", "extract", "extractor-run-x"), { recursive: true });
+writeFileSync(join(corpus, "batch", "legs", "fixture-passage.md"), "# A fixture passage\n\n## Passage\n\nThe first paragraph.\n\nThe second paragraph,\nover two lines.\n\nThe third paragraph.\n");
+writeFileSync(join(corpus, "batch", "runs", "leg-run-x", "extract", "extractor-run-x", "extractions.json"),
+  JSON.stringify({ leg: join(corpus, "batch", "runs", "leg-run-x", "leg.md"), passage: "fixture-passage", written: ["open_a_case.yaml", `${M1}.yaml`, "close_a_case.yaml"] }));
+const listing = (d) => readdirSync(d, { recursive: true }).sort().join("\n");
+const corpusBefore = listing(corpus);
+const movesBefore = listing(join(repo, "moves"));
+
 const waypointHtml = (html, n) => (html.split(`id="waypoint-${n}"`)[1] || "").split('id="waypoint-')[0].split('id="calls"')[0];
 const escq = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const count = (hay, needle) => hay.split(needle).length - 1;
-const r2 = renderFlp({ runDir: run, legId: "leg2", outDir: root });
+const r2 = renderFlp({ runDir: run, legId: "leg2", outDir: root, corpusDir: corpus });
 const html = r2.html || "";
 const w1 = waypointHtml(html, 1);
 const w2 = waypointHtml(html, 2);
@@ -110,7 +122,6 @@ ok(waypointHtml(r1.html, 1).includes(">passed in Round 2<"), "(b) leg1's Leg Way
 // (c)
 ok(JSON.stringify(r2.tags) === JSON.stringify(["passed", "stopped"]), `(c) leg2 tags are ${JSON.stringify(r2.tags)}`);
 ok(w1.includes(">passed in Round 1<") && w2.includes(">stopped after Round 3<"), "(c) the status lines are not `passed in Round 1` and `stopped after Round 3`");
-ok(w2.split('<h3 class="round">')[0].includes(escq(STOP)), "(c) the stopped Leg Waypoint's status line is not followed by the unit's stop text");
 // (d) the Rounds, their bare headings and their five blocks
 const headings = [...html.matchAll(/<h3 class="round">([^<]*)<\/h3>/g)].map((m) => m[1]);
 ok(headings.every((h) => /^Round \d+$/.test(h)), `(d) a Round heading is more than the two words and the number: ${JSON.stringify(headings)}`);
@@ -122,29 +133,28 @@ for (const [n, w] of [[1, w1], [2, w2], ...[1, 2].map((k) => [`leg1 ${k}`, waypo
     ok(JSON.stringify(blocks) === JSON.stringify(ROUND_BLOCKS), `(d) ${r.split("</h3>")[0]} at Leg Waypoint ${n} holds the blocks ${JSON.stringify(blocks)}`);
   }
 }
-ok(![...roundsOf(w1), ...roundsOf(w2)].some((r) => /Call \d+: (bind|stopped|suffix)</.test(block(r, "Calls"))), "(d) a bind, stopped or suffix Call is listed as a Round's Call");
+ok(![...roundsOf(w1), ...roundsOf(w2)].some((r) => /Call \d+: (stopped|suffix)</.test(block(r, "Calls"))), "(d) a stopped or suffix Call is listed as a Round's Call");
 // (e) the Binding
 ok(block(round(w2, 1), "Binding").includes("the price list") && !block(round(w2, 1), "Binding").includes(NO_TABLE), "(e) Round 1's Binding lacks the Mapping Table grounded for its Move");
-ok(block(round(w2, 1), "Binding").includes("bound in Call 2"), "(e) Round 1's Binding does not name the bind Call");
-ok(block(round(w2, 2), "Binding").includes(NO_TABLE) && block(round(w2, 2), "Binding").includes(M2), "(e) the rebinding Round's Binding does not say no Mapping Table was grounded for its Move");
+ok(block(round(w2, 1), "Calls").includes("Call 2: bind"), "(e) Round 1's Calls do not name the bind Call");
+ok(block(round(w2, 2), "Binding").includes(NO_TABLE) && block(round(w2, 2), "Binding").includes(`>${M2}<`), "(e) the rebinding Round's Binding does not say no Mapping Table was grounded for its Move");
 ok(block(round(w2, 3), "Binding").includes("Binding of Round 2 holds"), "(e) Round 3's kept Binding is not `Binding of Round 2 holds`");
 const outside = [html.split('id="waypoint-1"')[0], ...[w1, w2].map((w) => w.split('<h3 class="round">')[0]), html.split('id="calls"')[1] || ""].join("");
 ok(!outside.includes("grounded for") && count(html, "grounded for") === roundsOf(html).filter((r) => block(r, "Binding").includes(NO_TABLE)).length, "(e) a `grounded for` line renders outside a Round's Binding");
 // (f) Verdict and Comment, with their sources
-ok(block(round(w2, 1), "Verdict").includes("does-not-fit") && block(round(w2, 1), "Comment").includes(escq(J2)) && block(round(w2, 1), "Comment").includes("the Judge"), "(f) the judge-refused Submission's Comment does not name the Judge");
-ok(block(round(w2, 2), "Verdict").includes("refused before the Judge") && block(round(w2, 2), "Comment").includes(escq(S2))
+ok(block(round(w2, 1), "Comment").includes("verdict: does-not-fit") && block(round(w2, 1), "Comment").includes(escq(J2)) && block(round(w2, 1), "Comment").includes("the Judge"), "(f) the judge-refused Submission's Comment does not name the Judge");
+ok(block(round(w2, 2), "Comment").includes("refused before the Judge") && block(round(w2, 2), "Comment").includes(escq(S2))
   && block(round(w2, 2), "Comment").includes("validateParagraphPlanSite"), "(f) the validator-refused Submission is not `refused before the Judge` with the validator as source");
-ok(block(round(w2, 3), "Verdict").includes("not judged") && block(round(w2, 3), "Verdict").includes("The unit stopped before the Judge read this Submission."), "(f) the unjudged Submission's Verdict is not `not judged` with its reason");
-ok(block(round(w1, 1), "Comment").includes(">none<") && block(round(w1, 1), "Verdict").includes("fits"), "(f) a `fits` Verdict's Comment does not read none");
+ok(block(round(w2, 3), "Comment").includes("not judged: The unit stopped before the Judge read this Submission."), "(f) the unjudged Submission's Comment is not `not judged` with its reason");
+ok(block(round(w1, 1), "Comment").includes("verdict: fits") && block(round(w1, 1), "Comment").includes("It fits."), "(f) a `fits` Comment does not read `verdict: fits` and the Judge's why");
 const l1w1 = waypointHtml(r1.html, 1);
 ok(block(round(l1w1, 1), "Comment").includes("validateParagraphPlanUnit") && block(round(l1w1, 1), "Comment").includes(escq(L1_REFUSAL)), "(f) the Leg validator's Comment does not name it as source");
 // (g) a Comment once
 ok(count(roundsOf(w2).join(""), escq(J2)) === 1 && count(roundsOf(w2).join(""), escq(S2)) === 1, "(g) a Comment text is rendered a second time under a following Round");
 // (h) the Move once per Round, in Binding; no two of Move, join and case on one line
 for (const r of roundsOf(w2)) {
-  const moves = count(r, M1) + count(r, M2);
-  ok(moves <= 1 && moves === count(block(r, "Binding"), M1) + count(block(r, "Binding"), M2), `(h) ${r.split("</h3>")[0]} names the Move outside its Binding, or twice`);
-  ok(block(r, "Submission").includes(`<caption>${r.split("</h3>")[0]}</caption>`), `(h) ${r.split("</h3>")[0]}'s Submission table is not captioned with the Round alone`);
+  const moves = count(r, `>${M1}<`) + count(r, `>${M2}<`);
+  ok(moves <= 1 && moves === count(block(r, "Binding"), `>${M1}<`) + count(block(r, "Binding"), `>${M2}<`), `(h) ${r.split("</h3>")[0]} names the Move outside its Binding, or twice`);
 }
 ok(![...html.matchAll(/<p[^>]*>([^<]*)<\/p>/g)].some((m) => [/Move:/, /join:/, /case:/].filter((re) => re.test(m[1])).length > 1) && !html.includes("·"), "(h) a rendered line joins two fields");
 // (i) the Points a Comment names are highlighted in its Submission
@@ -206,7 +216,64 @@ for (const t of html.split("<table>").slice(0, -1)) {
   }
 }
 
+// (p) THE STATUS LINE IS ONE LINE, the Brief's point carries its case, and Structure is the four-column table under
+// `Base:` inside the Round that bound the Move (kogaki#1762).
+ok(!w2.split('<h3 class="round">')[0].includes(escq(STOP)), "(p) the stopped Leg Waypoint's status line is followed by the unit's stop text");
+ok(w2.split('<h3 class="round">')[0].includes(">case: apart<") && w1.split('<h3 class="round">')[0].includes(">case: own<"), "(p) the Brief's point is not followed by its case");
+const b1 = block(round(w2, 1), "Binding");
+ok(b1.includes("<th>Role</th><th>Abstract</th><th>Attribute</th><th>Expression</th>") && b1.includes(">Base: a shop counter<") && b1.includes("<td>the price list</td>"), "(p) Round 1's Binding is not one Structure table with Expression under a Base line");
+ok(!html.includes("<th>base</th>") && !html.includes("bound in Call"), "(p) a `base` row or a `bound in Call` line renders");
+const b2 = block(round(w2, 2), "Binding");
+ok(b2.includes("<th>Expression</th>") && b2.includes(NO_TABLE) && !b2.includes("the price list"), "(p) the rebinding Round's Structure table does not leave Expression empty under the no-table line");
+ok(!html.includes("<caption>") && !html.includes('<h4 class="th">Verdict</h4>') && !TABLE_HEADINGS.includes("Verdict"), "(p) a Submission caption or a Verdict block renders");
+// (q) THE COMMENT NAMES ITS PARAGRAPH WAYPOINTS AND SEGMENTS, and they are highlighted in the Submission above.
+ok(block(round(w2, 1), "Comment").includes(">names: Paragraph Waypoint 1, Paragraph Waypoint 2, Segment 2<"), `(q) the Comment's names are not read: ${block(round(w2, 1), "Comment")}`);
+const sub1 = block(round(w2, 1), "Submission");
+ok(/<tr class="named"><td>1<\/td>/.test(sub1) && /<tr class="named"><td>2<\/td><td class="named">/.test(sub1), "(q) the named Paragraph Waypoint rows or Segment 2's operation cell are not highlighted");
+// (r) THE MOVE'S CORPUS PASSAGE, read from the extraction records and written nowhere.
+ok(b1.includes(`moves/${M1}.yaml"`) && b1.includes("fixture-passage.md:7<") && b1.includes("lines 7–8"), `(r) the Move line does not link its file and its passage paragraph: ${b1.split("<table>")[0]}`);
+ok(b2.includes(NO_RECORD), "(r) a Move no record names does not say so");
+const bare = renderFlp({ runDir: run, legId: "leg2", outDir: root, corpusDir: join(root, "no-corpus") });
+ok(!bare.error && bare.html.includes(NO_RECORD) && !bare.html.includes("fixture-passage"), "(r) with no corpus/ the sheet does not render with the no-record line");
+ok(listing(corpus) === corpusBefore && listing(join(repo, "moves")) === movesBefore, "(r) a file under corpus/ or moves/ was written");
+// (s) THE CANDIDATE SHEET over a Brief compose run: a unit refused then passed, and a unit of per-call-limit stops.
+{
+  const brief = join(root, "brief");
+  mkdirSync(brief, { recursive: true });
+  const bleg = (id, move) => ({ leg_id: id, move, purpose: `The purpose of ${id}.`, waypoints: [{ point: `The point of ${id}.`, serves: ["L1"], case: "own" }], claims: [], introduces: [] });
+  const cand = (move2) => ({ candidate_id: "B", legs: [bleg("leg1", M1), bleg("leg2", move2)] });
+  const fit = (v2) => ({ version: "1", verdicts: [{ leg_id: "leg1", move: M1, verdict: "consistent", why: "Leg 1 fits." }, { leg_id: "leg2", move: M2, verdict: v2, why: `Leg 2 is ${v2}.` }] });
+  const rec = (unit, n, phase, answer, refusal = null) => writeCallRecord(brief, unit, n, { prompt: "p", argv: [], cli: null, input: null, row: { phase }, raw: "", answer, refusal });
+  rec("candidate-2", 1, "compose", cand(M2));
+  rec("candidate-2", 2, "fit", fit("contradicts"), { text: "THE MOVE FIT WAS JUDGED" });
+  rec("candidate-2", 3, "compose", cand(M2));
+  rec("candidate-2", 4, "fit", fit("consistent"));
+  for (const n of [1, 2, 3]) rec("candidate-1", n, "compose", undefined, { text: STOPPED });
+  writeFileSync(join(brief, "reader-path-job.json"), JSON.stringify({ state: "done", supervisor_pid: 0, units: [
+    { id: "candidate-1", status: "refused", rounds: 3, call_1_s: 900, failure: { class: "call time limit", stderr_tail: STOPPED } },
+    { id: "candidate-2", status: "done", rounds: 4, call_1_s: 700 }, { id: "candidate-3", status: "done", rounds: 0 }] }));
+  const candCli = (unit) => spawnSync(process.execPath, ["src/flp/sheet.mjs", "candidate", "--run", brief, "--unit", unit], { encoding: "utf8" });
+  const c2 = candCli("candidate-2");
+  const c2rounds = c2.stdout.split('id="calls"')[0].split('<h3 class="round">').slice(1);
+  ok(c2.status === 0 && c2rounds.length === 2, `(s) candidate-2 does not render two Rounds: exit ${c2.status}, ${c2rounds.length}, ${c2.stderr}`);
+  ok(/<tr class="named"><td>leg2<\/td>/.test(block(c2rounds[0] || "", "Submission")) && /<td>leg2<\/td><td>contradicts<\/td>/.test(block(c2rounds[0] || "", "Comment")),
+    "(s) candidate-2's Round 1 does not carry `contradicts` on the refused Leg, highlighted in its Submission");
+  ok(count(block(c2rounds[1] || "", "Comment"), "<td>consistent</td>") === 2 && !(c2rounds[1] || "").includes('class="named"'), "(s) candidate-2's Round 2 is not `consistent` on every Leg");
+  ok(block(c2rounds[0] || "", "Submission").includes("<th>Leg</th><th>Move</th><th>Purpose</th><th>Leg Waypoints</th><th>Case</th>") && block(c2rounds[0] || "", "Submission").includes(`moves/${M1}.yaml"`),
+    "(s) the Candidate's Submission is not the Leg, Move, Purpose, Leg Waypoints, Case table with the Move linked");
+  for (const r of c2rounds) {
+    const blocks = [...r.matchAll(/<h4 class="th">([^<]*)<\/h4>/g)].map((m) => m[1]);
+    ok(JSON.stringify(blocks) === JSON.stringify(CANDIDATE_ROUND_BLOCKS), `(s) a Candidate Round holds the blocks ${JSON.stringify(blocks)}`);
+  }
+  const c1 = candCli("candidate-1").stdout;
+  ok(count(c1, `no Submission: ${STOPPED}`) === 3 && count(c1, "not judged: ") === 3, "(s) candidate-1 does not render three stopped Rounds, each not judged");
+  const c9 = candCli("candidate-9");
+  ok(c9.status === 1 && /candidate-1, candidate-2, candidate-3/.test(c9.stderr), `(s) an unknown unit is not refused naming the units: ${c9.stderr.trim()}`);
+  const noJob = spawnSync(process.execPath, ["src/flp/sheet.mjs", "candidate", "--run", join(root, "empty"), "--unit", "candidate-1"], { encoding: "utf8" });
+  ok(noJob.status === 1 && /reader-path-job\.json/.test(noJob.stderr), `(s) a directory with no job record is not refused naming the file: ${noJob.stderr.trim()}`);
+}
+
 rmSync(root, { recursive: true, force: true });
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
-console.log("flp: 14 cases pass");
+console.log("flp: 18 cases pass");
 JS
