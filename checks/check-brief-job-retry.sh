@@ -437,17 +437,18 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
 // `settingValue` reads them -- from a fixture file through `KOGAKI_SETTINGS` --
 // and `briefJobBounds`, the one reader the two job starters call, refuses a
 // settings file carrying `compose_job_limit_s` or `review_job_limit_s`, a file
-// missing `call_limit_s` or `unit_attempts`, and a `job` row carrying
+// missing `call_limit_s` or `unit_rounds`, one carrying the renamed `unit_attempts`
+// (kogaki#1758), and a `job` row carrying
 // `absolute_limit_s`, each naming the key.
 {
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   const composeJob = (table.states.find((x) => x.id === "compose_path") || {}).job || {};
-  if ((composeJob.call_limit_s || {}).setting !== "brief.call_limit_s" || (composeJob.unit_attempts || {}).setting !== "brief.unit_attempts"
+  if ((composeJob.call_limit_s || {}).setting !== "brief.call_limit_s" || (composeJob.unit_attempts || {}).setting !== "brief.unit_rounds"
     || composeJob.absolute_limit_s !== undefined) {
-    fails.push(`(y3) compose_path's job does not name the settings brief.call_limit_s and brief.unit_attempts alone: ${JSON.stringify(composeJob)}`);
+    fails.push(`(y3) compose_path's job does not name the settings brief.call_limit_s and brief.unit_rounds alone: ${JSON.stringify(composeJob)}`);
   }
   const settings = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
-  if (settings.brief.call_limit_s !== 900 || settings.brief.unit_attempts !== 3 || settings.brief.compose_units !== 3
+  if (settings.brief.call_limit_s !== 900 || settings.brief.unit_rounds !== 3 || "unit_attempts" in settings.brief || settings.brief.compose_units !== 3
     || "compose_job_limit_s" in settings.brief || "review_job_limit_s" in settings.brief) {
     fails.push(`(y3) kogaki.settings.json does not hold the owner's values: ${JSON.stringify(settings.brief)}`);
   }
@@ -471,16 +472,17 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   const tableFile = join(sdir, "table.json");
   writeFileSync(tableFile, JSON.stringify(table));
   const okFile = join(sdir, "ok.json");
-  writeFileSync(okFile, JSON.stringify({ brief: { call_limit_s: 11, unit_attempts: 4 } }));
+  writeFileSync(okFile, JSON.stringify({ brief: { call_limit_s: 11, unit_rounds: 4 } }));
   const ok = bounds(okFile, tableFile);
   if (ok.status !== 0 || ok.stdout.trim() !== JSON.stringify({ callLimitS: 11, unitAttempts: 4 })) {
     fails.push(`(y3) briefJobBounds did not read both bounds from the settings file: ${ok.stdout} ${ok.stderr}`);
   }
   for (const [label, brief, key] of [
-    ["carrying compose_job_limit_s", { call_limit_s: 11, unit_attempts: 4, compose_job_limit_s: 1200 }, "compose_job_limit_s"],
-    ["carrying review_job_limit_s", { call_limit_s: 11, unit_attempts: 4, review_job_limit_s: 600 }, "review_job_limit_s"],
-    ["missing call_limit_s", { unit_attempts: 4 }, "brief.call_limit_s"],
-    ["missing unit_attempts", { call_limit_s: 11 }, "brief.unit_attempts"],
+    ["carrying compose_job_limit_s", { call_limit_s: 11, unit_rounds: 4, compose_job_limit_s: 1200 }, "compose_job_limit_s"],
+    ["carrying review_job_limit_s", { call_limit_s: 11, unit_rounds: 4, review_job_limit_s: 600 }, "review_job_limit_s"],
+    ["missing call_limit_s", { unit_rounds: 4 }, "brief.call_limit_s"],
+    ["missing unit_rounds", { call_limit_s: 11 }, "brief.unit_rounds"],
+    ["carrying the renamed unit_attempts", { call_limit_s: 11, unit_rounds: 4, unit_attempts: 4 }, "`brief.unit_attempts`, renamed `brief.unit_rounds`"],
   ]) {
     const f = join(sdir, `${key}.json`);
     writeFileSync(f, JSON.stringify({ brief }));

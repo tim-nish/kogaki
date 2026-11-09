@@ -6,7 +6,7 @@
 #   (s2) a site answer repeating the refused entry is refused by name before any judge call;
 #   (s3) a rebound Move recomposes the entries after it, handed what it leaves (kogaki#1701);
 #   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
-#   (s5) the Leg ceiling `paragraph_plan.leg_attempts` ends a Leg naming the Waypoint;
+#   (s5) the Leg ceiling `paragraph_plan.leg_revisions` ends a Leg naming the Waypoint;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
 #   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
 #   are refused before the judge; (s10) a TAKEN or LEFT refusal holds no endpoint (kogaki#1701).
@@ -256,7 +256,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
 // (s5) THE LEG CEILING ENDS A LEG WHOSE SITES STILL HAVE ATTEMPTS.
 {
   const r = run("s5", `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
-export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { settings: { leg_attempts: 2 } });
+export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { settings: { leg_revisions: 2 } });
   const s1 = r.job && r.job.units.find((u) => u.id === "leg-1");
   const last = s1 && s1.refusals ? s1.refusals[s1.refusals.length - 1] : "";
   if (r.of("site").length !== 2 || !s1 || s1.status !== "refused" || !last.includes("Waypoint 1: the Leg's 2 site retries are spent")) {
@@ -270,8 +270,8 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { 
     .map((p) => readFileSync(p, "utf8")).join("\n");
   if (/siteRetry|site_retry/.test(briefSrc)) fails.push("(s6) the Brief's runtime declares a site loop");
   const table = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8"));
-  if (!table.job.site_retry || JSON.stringify(table.job.site_retry.leg_attempts) !== JSON.stringify({ setting: "paragraph_plan.leg_attempts" })) {
-    fails.push("(s6) src/paragraph-plan-workflow.json's job does not declare `site_retry` reading `paragraph_plan.leg_attempts`");
+  if (!table.job.site_retry || JSON.stringify(table.job.site_retry.leg_attempts) !== JSON.stringify({ setting: "paragraph_plan.leg_revisions" })) {
+    fails.push("(s6) src/paragraph-plan-workflow.json's job does not declare `site_retry` reading `paragraph_plan.leg_revisions`");
   }
 }
 

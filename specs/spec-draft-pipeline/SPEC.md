@@ -53,7 +53,7 @@ owner decided (2026-10-13), thinking of it as HTTP requests: bound each call by
 time and each unit by a number of attempts, with three attempts by default, and
 show the attempt and, from the second on, an estimate of the time left. So a
 call running past `brief.call_limit_s` is stopped and asked again, a refusal
-spends an attempt, a unit ends refused only once `brief.unit_attempts` is spent
+spends an attempt, a unit ends refused only once `brief.unit_rounds` is spent
 (§4.12.2), and no other time bound applies. This replaces kogaki#1273's
 rule that a refused unit is retried once and only when the retry fits; that
 Issue's other rules stand. Carriers: `kogaki.settings.json`,
@@ -1436,12 +1436,13 @@ starts:
 - `brief.call_limit_s` — how long one headless session (one compose call, one
   fit call, one review call) may run before it is stopped. The stall bound
   stays beneath it as the no-progress guard.
-- `brief.unit_attempts` — how many attempts a unit gets. A compose unit makes
-  two calls per attempt (compose, then fit); a review unit makes one. A job
-  that declares `site_retry` — the ParagraphPlan's (§4.19, kogaki#1642) —
-  reads it **per Leg Waypoint**: each site the unit's first call counted at
-  gets that many attempts, and `paragraph_plan.leg_attempts` bounds every
-  site retry of the Leg together. The Brief's compose job declares none and
+- `brief.unit_rounds` — how many Rounds a unit gets, the first included (the
+  Round is defined at §4.19.4). A compose unit makes two calls per Round
+  (compose, then fit); a review unit makes one. A job that declares
+  `site_retry` — the ParagraphPlan's (§4.19, kogaki#1642) — reads it **per Leg
+  Waypoint**: each site the unit's first call counted at gets that many
+  Rounds, and `paragraph_plan.leg_revisions` bounds every Revision of the Leg
+  together. The Brief's compose job declares none and
   reads it per unit, as below.
 
 What spends an attempt: a **schema refusal** — the validator's, or the fit
@@ -1451,7 +1452,7 @@ refusal on its row. A **call stopped at the per-call limit** is asked again
 with the same prompt and its row records it as timed out; it is a time bound,
 not a defect, so the Brief does not end. A **malformed output** (not JSON, or
 no record in it) spends no attempt and is asked again with the same prompt, at
-most `brief.unit_attempts` times per attempt, past which the unit ends refused
+most `brief.unit_rounds` times per attempt, past which the unit ends refused
 naming the count. A **system failure** (`died`, `stalled`, `other`) still ends
 the Brief at once. Whether to ask again reads the attempt count alone, and
 no other time bound applies: a job's longest run is the attempts, times the
@@ -2472,7 +2473,7 @@ Mapper's Issue lands, and the Packet never renders it to the Writer.
 
 **The loop.** One Detached Job unit per Leg, in Reader Path order, on the shared
 supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
-`judgePrompt`. Each attempt makes two calls:
+`judgePrompt`. Each Round makes two Calls (§4.19.4 names the loop's parts):
 
 1. `paragraph_plan_unit` binds one paragraph Move from `moves/` to each Leg
    Waypoint — a Move whose `takes` entries are each met by an entry standing
@@ -2501,7 +2502,7 @@ supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
    is among what the Leg leaves; whether, read in order, they follow the
    Move's order as its Segments give it; and whether they survive each test in
    the Move's `breaks`. A `does-not-fit` on any of the four refuses the
-   attempt. The four are the judge's axes TAKEN, LEFT, OWN STEP and BREAKS
+   Submission. The four are the judge's axes TAKEN, LEFT, OWN STEP and BREAKS
    (kogaki#1701), a TAKEN or LEFT refusal naming the entry by its kind and
    `what`; what stands to be taken up and the Move's `takes` and `leaves`
    ride on each entry in the judge's input, and the criteria table below
@@ -2536,14 +2537,14 @@ by five rules:
    repeats a refused entry — after a judge's refusal, the same `move`,
    Paragraph Waypoints and join; after the validator's, the same
    whole entry — is refused with `the answer repeats the refused entry at Leg
-   Waypoint n; the refusal asked for a change at that site`, spending an
-   attempt; a `move: null` answer naming only Moves already rejected at the
+   Waypoint n; the refusal asked for a change at that site`, spending a
+   Round; a `move: null` answer naming only Moves already rejected at the
    site is the same repeat. The site's later calls are handed the Moves
    rejected there.
 4. **The budget belongs to the site, under a Leg ceiling.** Each Leg Waypoint
-   gets `brief.unit_attempts` attempts, the Leg's first call counting at each,
-   and every site retry of the Leg together is bounded by
-   `paragraph_plan.leg_attempts` (`kogaki.settings.json`). Spending either
+   gets `brief.unit_rounds` Rounds, the Leg's first Call counting at each,
+   and every Revision of the Leg together is bounded by
+   `paragraph_plan.leg_revisions` (`kogaki.settings.json`). Spending either
    stops the stage naming the Leg Waypoint, its first refusal and its last.
    The judge then judges the entries that changed and the join of the entry
    after each, never again the entries it already passed.
@@ -2552,11 +2553,11 @@ by five rules:
 
 The supervisor carries this as the job table's `site_retry` option, naming the
 declaring module's site and suffix prompts and validators; the Brief's compose
-job declares none and is unchanged. Without a site, a refused attempt is asked
-again with the refusal text verbatim until
-`brief.unit_attempts` is spent; a call is bounded by `brief.call_limit_s`;
+job declares none and is unchanged. Without a site, a refused Submission is
+asked again with the refusal text verbatim until
+`brief.unit_rounds` is spent; a Call is bounded by `brief.call_limit_s`;
 there is no limit on the whole job — the Brief's own settings and rules, read
-by name. A unit that spends its attempts stops the stage naming the Leg and the
+by name. A unit that spends its Rounds stops the stage naming the Leg and the
 Waypoint, writing nothing and leaving the Brief unchanged, and the work resumes
 from the same Brief by running `/paragraph-plan` again; the Reader Path is not
 composed again. **A bound paragraph Move that does not fill a role the stage
@@ -2971,7 +2972,7 @@ RelationalStructure, and `<leg_id>/<waypoint>/table.yaml` holds the Mapping
 Table of the Move bound there, as `{ move, case, base, correspondences }`. A
 Leg Waypoint following an `apart` one shares its predecessor's structure and
 writes none (kogaki#1734). The shapes are the Trial's (§4.20). The record is
-the settled result; the Attempt Records (kogaki#1717) are how it was reached
+the settled result; the Call Records (kogaki#1717) are how it was reached
 and stay in the run directory. The stage replaces the record whole on every
 write. With the Mapper off (§4.19.3), the record holds no file.
 
@@ -2994,7 +2995,7 @@ theses/<slug>/paragraph-plan.yaml --leg <leg_id> [--run <dir>] [--moves-dir
 <dir>] [--out <file>]` renders one Leg's record in the Trial sheet's layout.
 For each Leg Waypoint it shows the Segments with the Paragraph Waypoints and
 their Cast, the binding with its `case`, the Mapping Table and the structure.
-With `--run` it lists the Attempt Records of the Leg's job unit. It prints
+With `--run` it lists the Call Records of the Leg's job unit. It prints
 HTML to stdout, or writes `--out`, and writes nothing else.
 
 #### 4.19.3 The Mapper in ParagraphPlan (kogaki#1734)
@@ -3037,9 +3038,9 @@ Role and the Role's expression, and the site retry and the judge run as
 before, over the tables. The judge row gains no criterion: the vocabulary is
 a validator's reading.
 
-**Bounds and records.** Reading and grounding keep the Trial's retry bound,
-`MAPPER_ATTEMPTS`, and its refusal groups and reaches (kogaki#1708). Each call
-writes its Attempt Record under the Leg's unit, in
+**Bounds and records.** Reading and grounding keep the Trial's call bound,
+`MAPPER_CALLS`, and its refusal groups and reaches (kogaki#1708). Each Call
+writes its Call Record (the Attempt Record of §4.12.2) under the Leg's unit, in
 `attempts/<unit>/reading/waypoint-<n>/` or
 `attempts/<unit>/grounding/waypoint-<n>/`. The job report lists them, and
 `replay` re-runs one. A refusal past the bound stops the unit, naming the Leg,
@@ -3048,83 +3049,117 @@ to the Mapping Record (§4.19.2) with the plan.
 
 #### 4.19.4 The Feedback-Loop Playground (FLP) (kogaki#1752, kogaki#1756)
 
-The owner asked on 2026-11-08 that every attempt's Points stay visible
-whether the attempt passed or was refused, and on 2026-11-09 that each
-attempt be read as one chain: the signal it answered, the entry it wrote and
-the refusal that entry drew, pinned to the call that made it, one table each,
-stacked in order under small headings that never change. The owner adopted
-the name Feedback-Loop Playground (FLP) the same day; the file paths keep
-`attempt-sheet`.
+The owner asked on 2026-11-08 that every Submission's Points stay visible
+whether the Judge passed or refused them, and on 2026-11-09 that the loop be
+read in the owner's own words: Points, then the Judge, then the Comment, then
+the next Points (kogaki#1758). The owner adopted the name Feedback-Loop
+Playground (FLP) the same day.
 
-**What it reads.** `node src/attempt-sheet/sheet.mjs leg --run <ParagraphPlan
-run directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]` reads the
-run's start record, its job record, the Leg unit's mapping state and its
-Attempt Records. It needs no `paragraph-plan.yaml`, and reads nothing under
+**The loop's parts.** Each is defined here, once, and every section of this
+spec, the FLP and `kogaki.settings.json` uses it in this sense.
+
+| Term | Means |
+|---|---|
+| **Round** | one Submission at one Leg Waypoint, the Verdict on it and, where the Verdict refuses it, the Comment. Numbered 1, 2, 3 at the Leg Waypoint. |
+| **Submission** | the Paragraph Waypoints written for one Leg Waypoint under one Binding, with their `join` and `case`, as handed to the Judge or refused before it. |
+| **Revision** | the Submission of Round n+1: a Submission that answers a Comment. |
+| **Verdict** | the Judge's result on a Submission, per axis (TAKEN, LEFT, OWN STEP, BREAKS); or `refused before the Judge` where a validator refused the Submission; or `not judged` with the reason, where the unit stopped before the Judge ran. |
+| **Comment** | the text a refused Submission drew, verbatim, with its source named (the Judge, or the validator by name), and the Points it names. The next Round's Call is handed it. |
+| **Binding** | the Move a Submission is written under, with the Mapping Table grounded for it. A Round that rebinds carries a new Binding, and a Binding with no Mapping Table grounded for its Move says so. |
+| **Call** | one model call under a unit: bind, write, judge, site retry, suffix, reading, grounding. Its record is the Call Record; the code and the run directory keep the names `Attempt Record` and `attempts/` until the Issue that renames them lands. |
+
+A validator's text is a Comment as the Judge's is: the Call that writes a
+Revision is handed both, verbatim, in one refusal block of its prompt, and
+answers them the same way. A refusal that is not about a Submission — the
+per-Call limit, an answer that could not be read — is a Call's refusal and
+opens no Round.
+
+**The loop.**
+
+```
+Binding → Submission (Round 1) → Judge → Verdict
+                                          fits          → the Leg Waypoint passed in Round 1
+                                          does-not-fit  → Comment → Submission (Round 2) → Judge → …
+```
+
+- A Round belongs to one Leg Waypoint. The Judge reads the Leg in one Call and
+  returns one Verdict per Leg Waypoint; that Verdict is the open Round's
+  Verdict there. A Leg Waypoint the Judge does not name again keeps its last
+  Verdict and has no further Round.
+- A validator's refusal at a Leg Waypoint (schema, Mapping Table vocabulary,
+  a repeated entry) is a Round whose Verdict is `refused before the Judge` and
+  whose Comment is the validator's text, so no Submission vanishes from the
+  sheet.
+- A Revision that rebinds the Move opens a new Binding inside its Round. Where
+  no grounding Call ran for that Move, the Binding reads `no Mapping Table was
+  grounded for this Move`, inside that Round and nowhere else.
+- The bind, suffix, reading and grounding Calls, and a Call stopped at the
+  per-Call limit, are Calls and never numbered Rounds. They appear in the
+  Calls list and, for the bind and grounding Calls, inside the Binding they
+  produced.
+- Every Round renders the same blocks in the same order, each filled or
+  carrying the reason it is empty.
+
+**What it reads.** `node src/flp/sheet.mjs leg --run <ParagraphPlan run
+directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]` reads the run's
+start record, its job record, the Leg unit's mapping state and its Call
+Records. It needs no `paragraph-plan.yaml`, and reads nothing under
 `theses/`. It refuses a directory with no start record or no job record,
 naming the file, and a `--leg` the start record does not carry, naming the
 Legs it does. It prints HTML to stdout, or writes `--out`, and writes nothing
 else. It is a playground: it may import production files and the Trial
 sheet's helpers, and nothing imports it. One Leg per sheet.
 
-**Attempt.** An attempt is one model call under the Leg's unit, numbered in
-the order it was made, of one kind: `bind`, `write`, `judge`, `site retry at
-Waypoint n`, `suffix`, or `stopped` (the per-call limit). The kind is read
-from the Attempt Record: `stopped` where its refusal is the per-call limit;
-`judge`, `site retry` and `suffix` from the row's phase; and, for the Leg
-call, `write` where its input carries a Mapping Table and `bind` where it
-does not. A judge attempt writes no entry.
+**A Call's kind** is read from its Call Record: `stopped` where its refusal is
+the per-Call limit; `judge`, `site retry` and `suffix` from the row's phase;
+and, for the Leg Call, `write` where its input carries a Mapping Table, or
+the Mapper is off, and `bind` where it does not.
 
-**The Leg band.** The unit's status (`done`, `refused`, `died`, or
-`running`, read as `stopped` when its supervisor is gone), the attempt count
-by kind, the first attempt's seconds, and the attempt definition above in one
-line. Then the unit's stop in full; every attempt's refusal that names no Leg
-Waypoint, with its attempt; and, as `unplaced`, every refusal the job record
-carries that no Attempt Record does, as in a run made before kogaki#1756.
+**The Leg band.** Each field on its own line: the unit's status (`done`,
+`refused`, `died`, or `running`, read as `stopped` when its supervisor is
+gone), the Call count by kind, the first Call's seconds, and the definition
+of a Round and a Call in the words above. Then the unit's stop in full; every
+Call's refusal that names no Leg Waypoint, with its Call; and, as `unplaced`,
+every refusal the job record carries that no Call Record does, as in a run
+made before kogaki#1756.
 
-**Each Leg Waypoint**, in this order:
+**Each Leg Waypoint**, in this order, each field on its own line and no field
+joined to another on one line:
 
-1. A status tag. `passed` when the unit is done. `refused here` when the
-   unit's stop, or with none its last refusal, names this Leg Waypoint.
-   `stood` when the unit was refused elsewhere. `not reached` when no attempt
-   wrote an entry for it.
+1. The status line: `passed in Round n`; `refused through Round n`;
+   `stopped after Round n`, followed by the unit's stop text; or `not
+   reached`.
 2. `Brief's point`.
-3. `Points after the last attempt (attempt n)`: the entry of the
-   highest-numbered attempt that wrote one for this Leg Waypoint, whatever the
-   job record's `candidate` holds, as the Trial sheet's Segments table with
-   the Move, the `join` and the `case`.
-4. `Structure`: Role, Abstract and Attribute from the reading call, once.
-5. `Correspondence`: the base domain and one expression per Role, one column
-   per grounding call for this Leg Waypoint, headed by the bind attempt and
-   the Move it was grounded for. Where the last attempt binds another Move,
-   the line `grounded for <move>; the last attempt binds <move>` follows.
-6. One block per attempt, in attempt order, headed `Attempt n · <kind>`:
-   - `Signal answered`: what the call was handed for this Leg Waypoint,
-     verbatim, read from its prompt — for a site retry, each `refused_here`
-     refusal and the row's judgment point; for a Leg or suffix retry, each
-     refusal of its refusal block that names this Leg Waypoint or none, and
-     the sentence after them. Absent on a first call.
-   - `Entry as written`: the Move, `join`, `case` and the Segments table of
-     this attempt's entry; a judge attempt shows `Verdict`, its verdict and
-     `why` for this Leg Waypoint, instead.
-   - `Refusal drawn`: each refusal this attempt's entry drew here, verbatim,
-     with the attempt that raised it, `group`, `reach` and the points it
-     names, highlighted in the Segments table. A call's own refusal is drawn
-     by its own entry; a judge's is drawn by the last earlier attempt that
-     wrote this Leg Waypoint's entry. Every refusal is read from an Attempt
-     Record; none is placed by order.
+3. `Structure`: the reading Call's Roles, Abstract and Attribute, once.
+4. `Round n`, for n = 1 …, the heading being the two words and the number and
+   nothing else, each Round holding exactly these blocks under these
+   headings:
+   - `Binding`: the Move; `join`; `case`; the Call that bound it; the Mapping
+     Table grounded for this Move (base, and one expression per Role), or `no
+     Mapping Table was grounded for this Move`. Rendered in full in the Round
+     that bound it, and as `Binding of Round m holds` in a later Round that
+     keeps it.
+   - `Submission`: the Segments table (operation, relation, manner, point,
+     cast). The Move's name appears in the Binding block only; the table's
+     caption is `Round n`.
+   - `Verdict`: per axis with the Judge's `why`; or `refused before the
+     Judge`; or `not judged` and the reason.
+   - `Comment`: the text verbatim; `source`: the Judge, or the validator by
+     name; the Points it names, highlighted in the Submission above. On a
+     `fits` Verdict, and where no Verdict was given, the block reads `none`.
+     It is shown once, here, and never again under Round n+1 as what that
+     Round answered.
+   - `Calls`: the Calls this Round is read from (the write or site retry
+     Call; the judge Call; the grounding Call).
 
-   An attempt that neither wrote, judged nor was refused here is one line,
-   `Attempt n · <kind> · left standing`.
-
-**The call list.** `Calls`: every Attempt Record under the unit, the nested
-reading and grounding calls included, with its kind, its refusal's first line
-and links to its files.
+**The Calls list.** `Calls`, at the end: every Call Record under the unit, the
+nested reading and grounding Calls included, with its kind, its refusal's
+first line and links to its files.
 
 **Headings.** Every table stands under one heading from this list, and no
-other: `Brief's point`, `Points after the last attempt (attempt n)`,
-`Structure`, `Correspondence`, `Signal answered`, `Entry as written`,
-`Verdict`, `Refusal drawn`, `Calls`. The list is `TABLE_HEADINGS` in the
-sheet, and `checks/check-attempt-sheet.sh` reads it.
+other: `Brief's point`, `Structure`, `Round n`, `Binding`, `Submission`,
+`Verdict`, `Comment`, `Calls`. The list is `TABLE_HEADINGS` in the sheet, and
+`checks/check-flp.sh` reads it.
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 

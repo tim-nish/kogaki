@@ -26,7 +26,7 @@ import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { parseProposition, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
-import { mapperRow, mapperInput, MAPPER_ATTEMPTS } from "./sme.mjs";
+import { mapperRow, mapperInput, MAPPER_CALLS } from "./sme.mjs";
 
 export const PLAYGROUND_TABLE = "src/mapping-playground/playground-workflow.json";
 export const TRIALS_DIR = join("runs", "mapping-playground");
@@ -149,7 +149,7 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
   const r = runRow({ dir, unitId: "map", row: m.row, recordArray: "roles", input: mapperInput(strand, persona),
     validator: { module: "src/mapping-playground/sme.mjs", export: "validateMapperAnswer", inputs: { cite: strand.cite, proposition: strand.proposition },
       ...(m.row.refusal_reach ? { refusal_reach: m.row.refusal_reach } : {}) },
-    bounds: { ...judgeBounds(extraction), unitAttempts: MAPPER_ATTEMPTS } });
+    bounds: { ...judgeBounds(extraction), unitAttempts: MAPPER_CALLS } });
   if (r.stopped) return { stopped: r.stopped.replace("the Trial's Brief stopped", "the Mapper stopped") };
   writeFileSync(resolve(structureOut), stringifyYaml(r.record));
   return { structure: resolve(structureOut), prompt: join(dir, "prompt.md") };

@@ -401,9 +401,9 @@ else {
   const ex1 = cards.extraction.slice(cards.extraction.indexOf("paragraph 1"));
   ok(ex1.includes("attempts 2") && ex1.includes("call 2 of 2"), "(e) the Extraction card does not show paragraph 1's two attempts");
 
-  ok(/id="run-conditions"[\s\S]*?attempt bound \(brief\.unit_attempts\)/.test(html), "(e) the run-conditions line does not show the settings the stages read");
+  ok(/id="run-conditions"[\s\S]*?Round bound \(brief\.unit_rounds\)/.test(html), "(e) the run-conditions line does not show the settings the stages read");
   for (const key of ORDER) {
-    ok(!cards[key].includes("attempt bound (brief.unit_attempts)"), `(e) the ${key} card shows the settings, which belong only to the run-conditions line`);
+    ok(!cards[key].includes("Round bound (brief.unit_rounds)"), `(e) the ${key} card shows the settings, which belong only to the run-conditions line`);
   }
 
   // No prompt text appears in more than one place: each recorded call's prompt is cut into its

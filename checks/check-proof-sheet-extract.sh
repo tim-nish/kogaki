@@ -959,7 +959,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   ok(kcp.includes("You are the judge at the Extractor workflow's `content_bound_unit` judgment point."), "(k) p1/content-bound/prompt.md is not the content_bound_unit row rendered by judgePrompt");
   // within the Extractor's own attempt budget: a clause refused on every attempt stops the run
   const stop = kRun("stop", { PSX_ALWAYS: "1" });
-  const budget = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "utf8")).brief.unit_attempts;
+  const budget = JSON.parse(readFileSync(join(repo, "kogaki.settings.json"), "utf8")).brief.unit_rounds;
   ok(stop.res.status === 1 && new RegExp(`the content-bound call refused the Extraction after ${budget} attempt\\(s\\) — paragraph 1, Segment 2: the \`content\` clause leaves "the strongest one" unresolved`).test(stop.res.stdout)
     && !existsSync(join(stop.d, "out", "sort_cases_by_a_claim.yaml")),
     `(k) a clause refused on every attempt did not stop the run at the Extractor's budget of ${budget}: ${stop.res.stdout}${stop.res.stderr}`);

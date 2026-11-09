@@ -15,11 +15,11 @@
       "setting": "brief.call_limit_s"
     },
     "unit_attempts": {
-      "setting": "brief.unit_attempts"
+      "setting": "brief.unit_rounds"
     },
     "stall_s": 90,
     "heartbeat_ms": 10000,
-    "note": "ONE JOB PER PARAGRAPH, ONE UNIT PER JOB, run in the Leg's order, and after it the paragraph's content-bound job (kogaki#1614) and then its constraints job (kogaki#1698), on the same bounds (kogaki#1583): paragraph N's input carries the names paragraphs 1 to N-1 took, so N cannot start before N-1 is written; the state-bound job is retired with the reader table (kogaki#1699). A call past `brief.call_limit_s` is stopped and spends one attempt, a refused answer spends one, an unreadable answer is asked again without spending one, and a paragraph that has spent `brief.unit_attempts` stops the run naming the paragraph and its last refusal; the Extractions already written stay."
+    "note": "ONE JOB PER PARAGRAPH, ONE UNIT PER JOB, run in the Leg's order, and after it the paragraph's content-bound job (kogaki#1614) and then its constraints job (kogaki#1698), on the same bounds (kogaki#1583): paragraph N's input carries the names paragraphs 1 to N-1 took, so N cannot start before N-1 is written; the state-bound job is retired with the reader table (kogaki#1699). A call past `brief.call_limit_s` is stopped and spends one attempt, a refused answer spends one, an unreadable answer is asked again without spending one, and a paragraph that has spent `brief.unit_rounds` stops the run naming the paragraph and its last refusal; the Extractions already written stay."
   },
   "extraction_unit": {
     "id": "extraction_unit",
