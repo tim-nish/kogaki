@@ -48,6 +48,17 @@ function raiseStateRetryGate(rec, dir, stateId, message) {
   rec.gate_declarations_owed.push({ state: stateId, gate_id: gateId, declaration: relFromRepo(resolve(declPath)) });
 }
 
+// A run whose `enter` never completed holds no answer to keep, so the next
+// start prunes it and clears the pointer rather than re-offering it (kogaki#1774).
+function pruneNeverEnteredRun() {
+  const dir = readOpenRunPointer();
+  const rec = dir ? readRunRecord(dir) : null;
+  if (!rec || rec.done || rec.awaiting || (rec.completed || []).length) return;
+  rmSync(dir, { recursive: true, force: true });
+  clearOpenRunPointer();
+  console.log(`Pruned the open run ${dir}: it never completed \`enter\`, so it holds no answer to keep (kogaki#1774).`);
+}
+
 // The open run a start must re-offer: not done, not at a wait, resumable against
 // this table, with a state still to run. Null otherwise.
 function unfinishedOpenRun(args) {
@@ -60,10 +71,16 @@ function unfinishedOpenRun(args) {
   return st ? { dir, rec, st } : null;
 }
 
+// THE TEXT STATES WHAT THE RECORD SHOWS (kogaki#1774): the last completed state,
+// the one still to run, and a cause only where the record carries `stop_cause`.
 function reofferUnfinishedRun({ dir, rec, st }) {
+  const last = rec.completed[rec.completed.length - 1];
+  const cause = typeof rec.stop_cause === "string" && rec.stop_cause
+    ? `The record names the cause: ${rec.stop_cause}. `
+    : `The record names no cause: the run stopped between those two steps. `;
   raiseStateRetryGate(rec, dir, st.id,
-    `This Brief run stopped inside \`${st.id}\` without finishing it: an advance ended before the step did, `
-    + `for instance at the hook's time bound. Starting again re-offers this run rather than a new one, so `
+    `This Brief run completed \`${last}\` and stopped before \`${st.id}\` finished. ${cause}`
+    + `Starting again re-offers this run rather than a new one, so `
     + `every earlier answer is kept. The run: ${dir}`);
   const recPath = writeRunRecord(dir, rec);
   console.log(`Executor STOPPED at ${st.id} — the open run ${dir} is unfinished, so this start re-offers it at the ${flow().stateRetryGateId} gate and opens no new run (kogaki#1740).`);
@@ -145,9 +162,12 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
   // where the open run is neither done nor at a wait, an advance ended inside a
   // state, so the start raises the retry gate there and mints no run directory.
   if (mintingFresh && flow().stateRetryGateId) {
+    pruneNeverEnteredRun();
     const unfinished = unfinishedOpenRun(args);
     if (unfinished) return reofferUnfinishedRun(unfinished);
   }
+  // A flow's start inputs are resolved before `runDir` (kogaki#1774).
+  if (stopAtFirstWait && flow().resolveStart) flow().resolveStart(args);
   const priorDoneRun = mintingFresh ? mostRecentDoneRun(flow().lane) : null;
   if (stopAtFirstWait || args["run-dir"] || pinned) {
     dir = runDir(args);
@@ -200,9 +220,9 @@ export async function cmdRun(args, advancedBy, { stopAtFirstWait = false } = {})
   }
   // ---- THE JUDGE BINARY, RESOLVED BEFORE THE SURVEY (kogaki#1076 item 1).
   //
-  // BEFORE `setRunPersist`, so a start whose resolution fails writes nothing at
-  // all: it refuses ahead of the survey and leaves no record naming a run that
-  // never began. It stands here rather than at the first judgment state because
+  // BEFORE `setRunPersist`, so a start whose judge-binary resolution fails
+  // writes no record; a start whose Strand addresses are refused was already
+  // stopped before `runDir` by the flow's `resolveStart` (kogaki#1774). It stands here rather than at the first judgment state because
   // the fact it establishes -- which executable this run's judgments run -- must
   // be settled by the session that STARTS the run, and a judgment state is
   // reached inside an advance fired from whatever session answered a gate.

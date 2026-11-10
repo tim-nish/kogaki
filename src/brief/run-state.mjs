@@ -17,6 +17,7 @@ import { attachReview } from "../review.mjs";
 import { BRIEF_ENTRIES, enterSubRun } from "../runs.mjs";
 import { RETIRED_JOB_LIMIT_KEYS } from "../workflow/detached-job.mjs";
 import { judgedRecordPath, settingValue } from "../workflow/judge.mjs";
+import { resolveStrandAddresses } from "../workflow/strands.mjs";
 import {
   JudgmentRefusal, TerminalJudgmentRefusal, persistPendingRun, readRunRecord, throwIfStateWindow,
 } from "../workflow/run-record.mjs";
@@ -263,6 +264,13 @@ export function entryInputs(args) {
       + "and this runtime refuses such a token by name. Nothing was written.");
   }
   return { entered, via: "supplied on the command line" };
+}
+
+// THE START'S ADDRESSES, RESOLVED BEFORE THE RUN DIRECTORY EXISTS (kogaki#1774):
+// a refused start prints the refusal and leaves no directory, pointer or record.
+export function resolveStartAddresses(args) {
+  const r = resolveStrandAddresses(entryInputs(args).entered);
+  if (r.error) fail(r.error);
 }
 
 // THE PATH-REVIEW UNIT'S DECLARED VALIDATOR (kogaki#1301), loaded by the
