@@ -89,6 +89,8 @@ const listOf = (v) => (Array.isArray(v) && v.length ? v : null);
 
 // THE STRUCTURE READ OVER THE CLAIM SET, refused `{ group, text }` or `{}`. `claims` is `parseClaims`'s list.
 export function validateReadSet(record, claims) {
+  const derived = isMap(record) ? ["reach", "unreached"].find((k) => Object.hasOwn(record, k)) : undefined;
+  if (derived) return shape(`the structure carries \`${derived}\` — it is derived from \`attains_thesis\`, never written`);
   const bad = keysRefusal(record, ["roles", "relations", "higher_order", "attains_thesis"], "the structure");
   if (bad) return shape(bad);
   const claimIds = new Set(claims.map((c) => c.id));
@@ -125,39 +127,114 @@ export function validateReadSet(record, claims) {
   }
   const higher = listOf(record.higher_order);
   if (!higher) return shape("the structure's `higher_order` is not a non-empty list");
+  const higherIds = new Set();
   for (const [i, h] of higher.entries()) {
-    const b = keysRefusal(h, ["id", "relates", "holds"], `higher_order[${i}]`);
+    const b = keysRefusal(h, ["id", "relates", "holds", "from"], `higher_order[${i}]`);
     if (b) return shape(b);
-    if (!isText(h.id) || ids.has(h.id)) return shape(`higher_order[${i}]'s \`id\` is empty or not unique`);
-    if (!Array.isArray(h.relates) || h.relates.length < 2) return shape(`the higher-order relation ${JSON.stringify(h.id)} relates fewer than two relations`);
-    const stray = h.relates.find((x) => !relationIds.has(x));
-    if (stray !== undefined) return shape(`the higher-order relation ${JSON.stringify(h.id)} relates ${JSON.stringify(stray)}, which is no relation's id`);
-    if (!isText(h.holds)) return shape(`the higher-order relation ${JSON.stringify(h.id)}'s \`holds\` is empty`);
-    ids.add(h.id);
+    if (!isText(h.id) || ids.has(h.id) || higherIds.has(h.id)) return shape(`higher_order[${i}]'s \`id\` is empty or not unique`);
+    higherIds.add(h.id);
   }
+  if (!higherIds.has(record.attains_thesis)) {
+    return shape(`\`attains_thesis\` ${JSON.stringify(record.attains_thesis ?? null)} names no higher-order relation`);
+  }
+  for (const h of higher) {
+    const at = `the higher-order relation ${JSON.stringify(h.id)}`;
+    if (!Array.isArray(h.relates) || h.relates.length < 2) return shape(`${at} relates fewer than two relations`);
+    const stray = h.relates.find((x) => !relationIds.has(x) && !higherIds.has(x));
+    if (stray !== undefined) return shape(`${at} relates ${JSON.stringify(stray)}, which is no relation's or higher-order relation's id`);
+    if (!isText(h.holds)) return shape(`${at}'s \`holds\` is empty`);
+    if (!Array.isArray(h.from)) return shape(`${at}'s \`from\` is not a list of claim ids`);
+    if (h.id === record.attains_thesis) {
+      if (h.from.length) return shape(`${at} attains the thesis, and its \`from\` names ${JSON.stringify(h.from[0])} — the one higher-order relation that attains the thesis carries \`from: []\``);
+      continue;
+    }
+    if (!h.from.length) return shape(`${at}'s \`from\` is empty — every higher-order relation but the one that attains the thesis names the claims whose text states it`);
+    const unknown = h.from.find((c) => !claimIds.has(c));
+    if (unknown !== undefined) return shape(`${at}'s \`from\` names ${JSON.stringify(unknown)}, which is no claim's id`);
+  }
+  const cycle = cycleThrough(new Map(higher.map((h) => [h.id, h.relates.filter((x) => higherIds.has(x))])));
+  if (cycle) return shape(`the higher-order relation ${JSON.stringify(cycle)} relates itself through \`relates\``);
   const used = new Set(relations.flatMap((r) => r.between));
   const idle = roles.find((r) => !used.has(r.id));
   if (idle) return { group: "coverage", text: `the Role ${JSON.stringify(idle.id)} is in no relation` };
-  const stated = new Set(relations.map((r) => r.from));
-  const unstated = claims.find((c) => !stated.has(c.id));
-  if (unstated) return { group: "coverage", text: `the claim ${unstated.id} is the \`from\` of no relation` };
-  if (!higher.some((h) => h.id === record.attains_thesis)) {
-    return shape(`\`attains_thesis\` ${JSON.stringify(record.attains_thesis ?? null)} names no higher-order relation`);
-  }
   return {};
 }
 
-// THE CLAIM IDS A CARRIED ID SERVES: a relation's `from`, a higher-order relation's relations' `from`, in claim order.
+// THE FIRST HIGHER-ORDER ID ON A CYCLE of `edges` (an id to the higher-order ids it relates), or `null`.
+function cycleThrough(edges) {
+  const state = new Map();
+  const visit = (id) => {
+    if (state.get(id) === "done") return null;
+    if (state.get(id) === "open") return id;
+    state.set(id, "open");
+    for (const next of edges.get(id) || []) {
+      const found = visit(next);
+      if (found) return found;
+    }
+    state.set(id, "done");
+    return null;
+  };
+  for (const id of edges.keys()) {
+    const found = visit(id);
+    if (found) return found;
+  }
+  return null;
+}
+
+// THE IDS THE APEX REACHES: `attains_thesis` and every relation and higher-order relation its `relates` names, closed,
+// in the structure's order, relations first.
+export function reachOf(structure) {
+  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const reached = new Set();
+  const walk = (id) => {
+    if (reached.has(id)) return;
+    reached.add(id);
+    for (const x of (higher.get(id) || { relates: [] }).relates) walk(x);
+  };
+  walk(structure.attains_thesis);
+  return [...structure.relations.map((r) => r.id), ...structure.higher_order.map((h) => h.id)].filter((id) => reached.has(id));
+}
+
+// THE STRUCTURE WITH ITS REACH: `reach`, and `unreached` — the relations, higher-order relations and claims outside it,
+// each with `reached_by`, the ids that would have reached it.
+export function withReach(structure, claims) {
+  const reach = reachOf(structure);
+  const inReach = new Set(reach);
+  const relatedBy = (id) => structure.higher_order.filter((h) => h.relates.includes(id)).map((h) => h.id);
+  const statedBy = (c) => [...structure.relations.filter((r) => r.from === c).map((r) => r.id),
+    ...structure.higher_order.filter((h) => h.from.includes(c)).map((h) => h.id)];
+  const reachedClaims = new Set(claims.map((c) => c.id).filter((c) => statedBy(c).some((id) => inReach.has(id))));
+  const read = Object.fromEntries(Object.entries(structure).filter(([k]) => k !== "reach" && k !== "unreached"));
+  return {
+    ...read,
+    reach,
+    unreached: {
+      relations: structure.relations.filter((r) => !inReach.has(r.id)).map((r) => ({ id: r.id, reached_by: relatedBy(r.id) })),
+      higher_order: structure.higher_order.filter((h) => !inReach.has(h.id)).map((h) => ({ id: h.id, reached_by: relatedBy(h.id) })),
+      claims: claims.filter((c) => !reachedClaims.has(c.id)).map((c) => ({ id: c.id, reached_by: statedBy(c.id) })),
+    },
+  };
+}
+
+// THE CLAIM IDS A CARRIED ID SERVES: a relation's `from`, and for a higher-order relation the `from` of every relation
+// at the bottom of its `relates`, closed, in claim order.
 export function servesOf(structure, carries, claims) {
   const relation = new Map(structure.relations.map((r) => [r.id, r]));
   const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
-  const from = new Set(carries.flatMap((id) => (relation.has(id) ? [relation.get(id).from]
-    : higher.has(id) ? higher.get(id).relates.map((x) => relation.get(x).from) : [])));
+  const from = new Set();
+  const seen = new Set();
+  const walk = (id) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    if (relation.has(id)) from.add(relation.get(id).from);
+    else if (higher.has(id)) higher.get(id).relates.forEach(walk);
+  };
+  carries.forEach(walk);
   return claims.map((c) => c.id).filter((id) => from.has(id));
 }
 
 // ONE WAYPOINT, refused naming it or `null`.
-function waypointRefusal(w, n, known) {
+function waypointRefusal(w, n, known, reached) {
   const at = `Waypoint ${n}`;
   if (isMap(w) && Object.hasOwn(w, "serves")) return { group: "shape", text: `${at} carries \`serves\` — it is derived from \`carries\`, never written` };
   const b = keysRefusal(w, ["point", "carries"], at);
@@ -166,6 +243,8 @@ function waypointRefusal(w, n, known) {
   if (!listOf(w.carries)) return { group: "carries", text: `${at}'s \`carries\` is empty` };
   const stray = w.carries.find((id) => !known.has(id));
   if (stray !== undefined) return { group: "carries", text: `${at} carries ${JSON.stringify(stray)}, which names no relation or higher-order relation of the structure` };
+  const outside = w.carries.find((id) => !reached.has(id));
+  if (outside !== undefined) return { group: "carries", text: `${at} carries ${JSON.stringify(outside)}, which the higher-order relation that attains the thesis does not reach — the article leaves it` };
   return null;
 }
 
@@ -175,15 +254,16 @@ export function validateWaypoints(answer, structure) {
   if (b) return shape(b);
   const ws = listOf(answer.waypoints);
   if (!ws) return shape("the answer's `waypoints` is not a non-empty list");
-  const all = [...structure.relations.map((r) => r.id), ...structure.higher_order.map((h) => h.id)];
-  const known = new Set(all);
+  const known = new Set([...structure.relations.map((r) => r.id), ...structure.higher_order.map((h) => h.id)]);
+  const reach = reachOf(structure);
+  const reached = new Set(reach);
   for (const [i, w] of ws.entries()) {
-    const r = waypointRefusal(w, i + 1, known);
+    const r = waypointRefusal(w, i + 1, known, reached);
     if (r) return r;
   }
   const carried = new Set(ws.flatMap((w) => w.carries));
-  const idle = all.find((id) => !carried.has(id));
-  if (idle) return { group: "coverage", text: `${JSON.stringify(idle)} is carried by no Waypoint — the Waypoints together carry every relation and higher-order relation` };
+  const idle = reach.find((id) => !carried.has(id));
+  if (idle) return { group: "coverage", text: `${JSON.stringify(idle)} is carried by no Waypoint — the Waypoints together carry every relation and higher-order relation the one that attains the thesis reaches` };
   if (!ws[ws.length - 1].carries.includes(structure.attains_thesis)) {
     return { group: "coverage", text: `Waypoint ${ws.length}, the last, does not carry ${JSON.stringify(structure.attains_thesis)}, the higher-order relation that attains the thesis` };
   }

@@ -19,9 +19,9 @@ import { movePassage, NO_RECORD } from "../flp/provenance.mjs";
 // THE SHEET'S PARTS, in order.
 export const LPP_PARTS = ["Claims", "Structure", "Leg Waypoints", "Legs", "Rounds", "The Brief's Legs"];
 // THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these.
-export const LPP_HEADINGS = [...LPP_PARTS, "Roles", "Relations", "Higher-order relations", "Leg <id>", "Move", "Stage <name>",
+export const LPP_HEADINGS = [...LPP_PARTS, "Unreached claims", "Roles", "Relations", "Higher-order relations", "Leg <id>", "Move", "Stage <name>",
   "Round n", ...CANDIDATE_ROUND_BLOCKS];
-const ACCENT = ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--accent)}tr.named td{background:#4a3a12}'
+const ACCENT = ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--accent)}tr.named td{background:#4a3a12}tr.unreached td{opacity:.6}'
   + ".refusal{white-space:pre-wrap}.line{margin:.15em 0}.cols{display:grid;grid-template-columns:1fr 1fr;gap:1em}"
   + "h3{font-size:1.05em;margin:1.2em 0 .3em}h4{font-size:.8em;text-transform:uppercase;letter-spacing:.05em;margin:.8em 0 .2em;color:#9aa}";
 
@@ -40,19 +40,32 @@ const row = (cells, cls = "") => `<tr${cls ? ` class="${cls}"` : ""}>${cells.map
 const link = (outDir, path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
 const stageOf = (record, name) => record.stages.find((s) => s.stage === name) || null;
 
-function claimsPart(record) {
-  return line(`thesis: ${record.claims.thesis}`)
+const UNREACHED = "unreached — the article leaves it";
+
+// The thesis and every claim, then the claims the thesis does not reach, with their cites.
+function claimsPart(record, structure) {
+  const all = line(`thesis: ${record.claims.thesis}`)
     + table(["id", "cite", "claim"], record.claims.claims.map((c) => row([esc(c.id), esc(c.cite), esc(c.claim)])));
+  if (!structure || !structure.unreached) return all;
+  const byId = new Map(record.claims.claims.map((c) => [c.id, c]));
+  const left = structure.unreached.claims;
+  return all + heading(3, "Unreached claims") + (left.length
+    ? table(["id", "cite", "claim", "stated by"], left.map((u) => row([esc(u.id), esc(byId.get(u.id).cite), esc(byId.get(u.id).claim),
+      esc(u.reached_by.join(", "))]), "unreached"))
+    : none("Every claim is reached; the article leaves none."));
 }
 
 function structurePart(structure) {
   if (!structure) return none("No structure was read.");
+  const left = new Set(structure.unreached ? [...structure.unreached.relations, ...structure.unreached.higher_order].map((u) => u.id) : []);
+  const mark = (id) => (id === structure.attains_thesis ? "attains the thesis" : left.has(id) ? UNREACHED : "");
+  const cls = (id) => (left.has(id) ? "unreached" : "");
   return heading(3, "Roles") + table(["id", "Abstract", "Attribute", "claims"], structure.roles.map((r) => row([esc(r.id), esc(r.context),
     esc(r.attributes.join(", ")), esc(r.claims.join(", "))])))
-    + heading(3, "Relations") + table(["id", "from", "between", "holds"], structure.relations.map((r) => row([esc(r.id), esc(r.from),
-      esc(r.between.join(", ")), esc(r.holds)])))
-    + heading(3, "Higher-order relations") + table(["id", "relates", "holds", ""], structure.higher_order.map((h) => row([esc(h.id),
-      esc(h.relates.join(", ")), esc(h.holds), h.id === structure.attains_thesis ? "attains the thesis" : ""])));
+    + heading(3, "Relations") + table(["id", "from", "between", "holds", ""], structure.relations.map((r) => row([esc(r.id), esc(r.from),
+      esc(r.between.join(", ")), esc(r.holds), esc(mark(r.id))], cls(r.id))))
+    + heading(3, "Higher-order relations") + table(["id", "from", "relates", "holds", ""], structure.higher_order.map((h) => row([esc(h.id),
+      esc((h.from || []).join(", ")), esc(h.relates.join(", ")), esc(h.holds), esc(mark(h.id))], cls(h.id))));
 }
 
 // The Leg each Waypoint number falls in.
@@ -134,7 +147,7 @@ export function renderLppSheet({ outDir, record, structure, waypoints, legs, lib
   const answerLegs = legs && st && st.partition ? st.partition : null;
   const legOf = legOfWaypoint(legs || [], answerLegs);
   const parts = [
-    part("Claims", claimsPart(record)),
+    part("Claims", claimsPart(record, structure)),
     part("Structure", structurePart(structure)),
     part("Leg Waypoints", waypointsPart(record, waypoints, legOf)),
     part("Legs", legsPart(record, legs, waypoints, answerLegs, libraryDir, outDir)),

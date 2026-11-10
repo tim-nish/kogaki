@@ -25,7 +25,7 @@ import { readerPathFitInput, readerPathFitVerdict } from "../brief/reader-path-u
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../mapping-playground/sme.mjs";
 import {
-  parseClaims, resolvedRow, validateReadSet, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment,
+  parseClaims, resolvedRow, validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment,
   validateLegPartition, briefShapedLegs, readerPathRefusal, COMPOSED_BY,
 } from "./read-set.mjs";
 import { renderLppSheet } from "./sheet.mjs";
@@ -114,7 +114,7 @@ function caller({ outDir, binary, cli, model, timeoutS }) {
 const historyEntry = (asked) => ({ answer: asked.answer, refusal: asked.refusal.text, group: asked.refusal.group, reach: asked.refusal.reach });
 const personaInput = (persona) => ({ reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) });
 
-// STAGE 1: the structure, under the Mapper's bound.
+// STAGE 1: the structure, under the Mapper's bound, with its `reach` and `unreached` derived from `attains_thesis`.
 function structureStage({ ask, row, claims, thesis, persona }) {
   const input = { thesis, claims: claims.map((c) => ({ id: c.id, claim: c.claim })), persona: personaInput(persona) };
   const history = [];
@@ -126,7 +126,10 @@ function structureStage({ ask, row, claims, thesis, persona }) {
     } });
     rounds.push({ round: k, submission: a.call, comment: a.stopped || (a.refusal && a.refusal.text) || null, verdict: a.stopped ? "stopped" : a.refusal ? "refused" : "passed" });
     if (a.stopped) return { stopped: a.stopped, rounds };
-    if (!a.refusal) return { value: a.answer, rounds };
+    if (!a.refusal) {
+      const structure = withReach(a.answer, claims);
+      return { value: structure, rounds, reach: structure.reach, unreached: structure.unreached };
+    }
     history.push(historyEntry(a));
   }
   return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_CALLS} times; the last refusal: ${history[history.length - 1].refusal}`, rounds };

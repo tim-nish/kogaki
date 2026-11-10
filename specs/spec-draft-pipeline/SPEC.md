@@ -3732,17 +3732,39 @@ by writing the claims.
 claims, with their ids, the `thesis` and the Persona's `reader` and
 prior-knowledge line into one RelationalStructure: `roles`, each `{ id,
 context, attributes, claims }`; `relations`, each `{ id, between, holds,
-from }`; `higher_order`, a list of one or more `{ id, relates, holds }`; and
-`attains_thesis`, the id of the one higher-order relation that states the
-thesis. `validateReadSet` refuses, naming the item: an undeclared or missing
-key; an empty or repeated id; a Role whose `claims` names no claim, and a
-Role in no relation; a relation whose `from` is not one claim id, or whose
-`holds` writes no `{<id>}` for a Role its `between` names; a claim no
-relation is `from`; a higher-order relation relating fewer than two
-relations or an unknown one; and an `attains_thesis` absent or naming no
-higher-order relation. A refusal is handed back verbatim with the answer,
-under the Mapper's bound, `MAPPER_CALLS`. The passed structure is
-`structure.yaml`.
+from }`; `higher_order`, a list of one or more `{ id, relates, holds, from
+}`; and `attains_thesis`, the id of the one higher-order relation that states
+the thesis. `validateReadSet` refuses, naming the item: an undeclared or
+missing key, and a written `reach` or `unreached`; an empty or repeated id;
+a Role whose `claims` names no claim, and a Role in no relation; a relation
+whose `from` is not one claim id, or whose `holds` writes no `{<id>}` for a
+Role its `between` names; a higher-order relation relating fewer than two
+relations or higher-order relations, or an unknown id, or relating itself
+through another; and an `attains_thesis` absent or naming no higher-order
+relation. A refusal is handed back verbatim with the answer, under the
+Mapper's bound, `MAPPER_CALLS`.
+
+**A higher-order relation names its source, and the apex alone has none**
+(kogaki#1766). A higher-order relation's `from` lists the claim ids whose
+text states the connection. Every higher-order relation but the one
+`attains_thesis` names carries a non-empty `from` of claim ids, and the
+apex carries `from: []`; either broken is refused naming the relation. A
+connection no claim states is therefore written only as the apex. A
+higher-order relation's `relates` may name higher-order relations, so the
+tower is one connected system under the apex rather than a flat list.
+
+**Reach is computed from the apex, and what it misses is reported, not
+refused** (kogaki#1766). The runner derives, and the Model never writes,
+`reach`: `attains_thesis` and every relation and higher-order relation its
+`relates` names, closed. Everything outside it is `unreached`, in three
+lists — relations, higher-order relations and claims — each entry carrying
+`reached_by`, the ids that would have reached it: the higher-order
+relations relating it, or for a claim the relations and higher-order
+relations whose `from` names it. A claim is reached when a reached relation
+or higher-order relation names it in `from`. A claim no relation is `from`
+is not refused; it is unreached, and the article leaves it. The passed
+structure, with `reach` and `unreached`, is `structure.yaml`, and the
+structure stage of `trial.json` carries both.
 
 **Stage 2, Leg Waypoints: the `lpp_waypoints` row and the `lpp_grounded`
 judge.** One Call is handed the structure, the thesis and the Persona, and
@@ -3753,10 +3775,12 @@ POINT" through the end of "A WAYPOINT'S POINT IS READ ALONE"); `carries`
 names the relation or higher-order relation ids the point states.
 `validateWaypoints` refuses, naming the Waypoint or the relation: a written
 `serves`; an empty `carries`; a `carries` id not in the structure; a
-relation or higher-order relation no Waypoint carries; and a last Waypoint
-not carrying `attains_thesis`. The runner derives each Waypoint's `serves`:
-the `from` of each carried relation, and of each relation a carried
-higher-order relation relates, in claim order. Then one `lpp_grounded` Call
+`carries` id outside `reach`, naming the Waypoint and the id; an id of
+`reach` no Waypoint carries; and a last Waypoint not carrying
+`attains_thesis`. The Waypoints carry the reached set exactly. The runner
+derives each Waypoint's `serves`: the `from` of each carried relation, and
+of each relation at the bottom of a carried higher-order relation's
+`relates`, closed, in claim order. Then one `lpp_grounded` Call
 judges the set on one criterion, GROUNDED: every assertion a point makes is
 stated by a relation or higher-order relation it carries, read in its
 `holds` and its Roles' `context` and `attributes`. It answers `fits` with
@@ -3804,10 +3828,13 @@ verdicts and the Leg partition, and the sheet's path and sha256.
 **The sheet.** `<out>/sheet.html`, one page, under the FLP's fixed-heading
 rule with its own list (`LPP_HEADINGS`), in this order:
 
-1. `Claims`: the thesis and each claim with its id and cite.
+1. `Claims`: the thesis and each claim with its id and cite, then
+   `Unreached claims`: each claim the thesis does not reach, with its id,
+   cite and the ids that state it.
 2. `Structure`: `Roles` (id, Abstract, Attribute, claims), `Relations` (id,
-   from, between, holds) and `Higher-order relations` (id, relates, holds),
-   the one that attains the thesis marked.
+   from, between, holds) and `Higher-order relations` (id, from, relates,
+   holds), the one that attains the thesis marked and each unreached row
+   marked as one the article leaves.
 3. `Leg Waypoints`: one row per Waypoint: number, point, carries, serves and
    Leg. A Waypoint the GROUNDED judge named in any Round is highlighted, with
    the phrase and the Round.
