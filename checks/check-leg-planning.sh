@@ -29,6 +29,9 @@
 #       structure.yaml with that relation and claim under `unreached`, trial.json carries `reach` and `unreached` under the
 #       structure stage, the sheet marks the unreached rows under Structure and lists the claim under Claims, and no Leg
 #       serves the unreached relation.
+#   (k) the Brief sheet (kogaki#1776): `sheet.mjs brief` over a Brief of that structure and its Legs renders with no model
+#       call, the graph first labelled by name, the Legs last, no retired word, every table under a <thead> of one
+#       heading per column, the Claims table id, claim and reached with no cite, and the apex's `from` empty.
 # Cases (e) and (i), the GROUNDED re-ask and the no-fit stop, went with the Waypoint Call (kogaki#1775).
 set -u
 cd "$(dirname "$0")/.."
@@ -281,6 +284,43 @@ const iClaims = iSheet.slice(iSheet.indexOf("<h2>Claims</h2>"), iSheet.indexOf("
 const iLeft = iClaims.slice(iClaims.indexOf("<h3>Unreached claims</h3>"));
 ok(iClaims.includes("<h3>Unreached claims</h3>") && iLeft.includes("coding::lesson/fixture-4@0123456789abcdef") && iLeft.includes(CLAIM4) && !iLeft.includes(CLAIMS[0]),
   "(j) the sheet does not list c4 with its cite under Claims' Unreached claims");
+
+// (k) the Brief sheet: a Brief over the Trial's structure and Legs, rendered with no model call
+const { BRIEF_PARTS, BRIEF_RETIRED_WORDS } = await load("src/leg-planning/sheet.mjs");
+const kRoot = join(root, "brief-sheet");
+mkdirSync(join(kRoot, "theses", "fixture"), { recursive: true });
+const kBrief = join(kRoot, "theses", "fixture", "brief.yaml");
+writeFileSync(kBrief, stringifyYaml({ slug: "fixture", thesis: THESIS, strands: claims4Ids.map((c) => ({ id: c.id, slug: c.id })),
+  structure: parseYaml(readFileSync(join(i4.o, "structure.yaml"), "utf8"), "structure.yaml"),
+  reader_path: l4.map((l, i) => (i ? l : { ...l, claims: [{ strand: "c1", proposition: CLAIMS[0] }] })) }));
+const k = spawnSync(process.execPath, ["src/leg-planning/sheet.mjs", "brief", "--brief", kBrief, "--out", join(kRoot, "out")],
+  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: join(root, "no-model") }, timeout: 60000 });
+const kSheet = existsSync(join(kRoot, "out", "sheet.html")) ? readFileSync(join(kRoot, "out", "sheet.html"), "utf8") : "";
+ok(k.status === 0 && kSheet, `(k) the brief command did not render a sheet: ${k.stderr}`);
+const kH2 = [...kSheet.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1]);
+ok(JSON.stringify(kH2) === JSON.stringify(BRIEF_PARTS) && BRIEF_PARTS[0] === "Structure" && BRIEF_PARTS.at(-1) === "Legs",
+  `(k) the Brief sheet's parts are not the graph first and the Legs last: ${JSON.stringify(kH2)}`);
+const kGraph = kSheet.slice(kSheet.indexOf("<h2>Structure</h2>"), kSheet.indexOf("<h2>Thesis</h2>"));
+ok(kGraph.includes('class="mermaid"') && kGraph.includes("rules (c1, c2)") && kGraph.includes("h_2 ==&gt; h_1")
+  && kGraph.includes("class h_2 apex") && /class [^\n]*c_4[^\n]* unreached/.test(kGraph) && !/\d+ Roles?,/.test(kSheet),
+  "(k) the graph does not label nodes by name, draw higher-order edges thick, the apex blue and the unreached red, with no counts line");
+const kWord = BRIEF_RETIRED_WORDS.find((w) => new RegExp(`\\b${w}`).test(kSheet));
+ok(kWord === undefined, `(k) the Brief sheet prints the retired word ${JSON.stringify(kWord)}`);
+const kTables = [...kSheet.matchAll(/<table>([\s\S]*?)<\/table>/g)].map((m) => m[1]);
+ok(kTables.length === 5 && kTables.every((t) => {
+  const head = /^<thead><tr>((?:<th>[^<]+<\/th>)+)<\/tr><\/thead>/.exec(t);
+  const cols = head ? head[1].split("<th>").length - 1 : 0;
+  return head && [...t.matchAll(/<tr[^>]*>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].every((r) => r[1].split("<td>").length - 1 === cols);
+}), "(k) a table of the Brief sheet carries no <thead> with one heading per column");
+const kClaims = kSheet.slice(kSheet.indexOf("<h2>Claims</h2>"), kSheet.indexOf("<h2>Roles</h2>"));
+ok(kClaims.includes("<thead><tr><th>id</th><th>claim</th><th>reached</th></tr></thead>") && !kClaims.includes("cite")
+  && kClaims.includes(CLAIMS[0]) && /<tr class="unreached"><td>c4<\/td>/.test(kClaims),
+  "(k) the Claims table is not id, claim and reached with the unreached claim marked");
+const kHigher = kSheet.slice(kSheet.indexOf("<h2>Higher-order relations</h2>"), kSheet.indexOf("<h2>Legs</h2>"));
+ok(/<tr><td>h_2<\/td><td>h2<\/td><td>[^<]*<\/td><td><\/td><\/tr>/.test(kHigher), "(k) the apex's from column is not empty");
+const kLegs = kSheet.slice(kSheet.indexOf("<h2>Legs</h2>"));
+ok(kLegs.includes("<th>id</th><th>relation</th><th>text</th>") && WANT.every(([id, , text]) => kLegs.includes(`<td>${id}</td>`) && kLegs.includes(text)),
+  "(k) the Legs part does not list the five Legs with id, relation and text");
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
