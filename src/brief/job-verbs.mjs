@@ -24,7 +24,7 @@ import {
 } from "./reader-path-unit.mjs";
 import { ANSWER_WORK, CONDITIONS, GATE_WORK, STATE_WORK } from "./renderers.mjs";
 import {
-  BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail,
+  BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail, resolveStartAddresses,
 } from "./run-state.mjs";
 
 // ---- THE READER-PATH JOB'S TWO BASH-REACHABLE VERBS (kogaki#1193).
@@ -450,6 +450,8 @@ export const BRIEF_FLOW = {
   startLine: "the brief skill's own `!` line (`node src/brief.mjs start`)",
   tablePath: BRIEF_TABLE,
   newRunDir: () => enterRun("brief", briefRunEntry()),
+  // Checked before `newRunDir`, so a refused start opens no run (kogaki#1774).
+  resolveStart: resolveStartAddresses,
   stateWork: STATE_WORK,
   gateWork: GATE_WORK,
   // A conditional state's entry test and a wait's answer work (kogaki#1742).
