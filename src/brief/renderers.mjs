@@ -15,19 +15,19 @@ import {
 } from "../compose.mjs";
 import { applyLegSections } from "../compose/sections.mjs";
 import {
-  componentsOf, derivedLegs, legPartitionRefusal, pathReachRefusal, servesOf, validateApex, validateReadSet,
+  componentsOf, derivedLegs, legPartitionRefusal, partitionComponents, pathReachRefusal, servesOf, validateApex,
+  validateReadSet,
 } from "../compose/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
   DetachedJobStarted, READER_PATH_JOB_AWAIT_COMMAND, READER_PATH_JOB_STALL_S, jobHeartbeatMs,
   readReaderPathJob, readerPathJobPath, startDetachedJobSupervisor,
 } from "../workflow/detached-job.mjs";
-import { judgePrompt, judgeSettings } from "../workflow/judge.mjs";
+import { judgePrompt, judgeSettings, settingValue } from "../workflow/judge.mjs";
 import { JudgmentRefusal, relFromRepo } from "../workflow/run-record.mjs";
 import {
   classifyHomes, cmdAdopt, cmdEnter, cmdMint, composeThesisCandidates, pendingHomeCollision, thesesDirOf,
-  thesisFreeTextRefusal,
-  thesisGate,
+  thesisFreeTextRefusal, thesisGate, thesisWords, unconnectedLines, withThesis,
 } from "./candidates.mjs";
 import { candidateSelectionExtra, selectedCandidateId } from "./reader-path-unit.mjs";
 import {
@@ -157,6 +157,61 @@ async function finishReaderPath(rec, st, table, args, { result, structure, langu
   return null;
 }
 
+// THE THESIS BOUND (kogaki#1773): every candidate whose Thesis is over `brief.thesis_words` is
+// rewritten once, by ONE Call under the `thesis_bound_unit` row handed each sentence, the bound and
+// the component it attains. A rewrite still over the bound, or one that drops or adds a candidate,
+// refuses and the run stops naming the length; the row declares no re-ask.
+export function thesisBoundRefusal(answer, over, bound) {
+  if (!answer || typeof answer !== "object" || Array.isArray(answer) || !Array.isArray(answer.theses)
+    || Object.keys(answer).some((k) => k !== "theses")) {
+    return "the answer is not one record carrying exactly `theses`, a list";
+  }
+  const want = new Set(over.map((c) => c.id));
+  const seen = new Set();
+  for (const [i, t] of answer.theses.entries()) {
+    if (!t || typeof t !== "object" || typeof t.candidate !== "string" || typeof t.thesis !== "string"
+      || Object.keys(t).some((k) => k !== "candidate" && k !== "thesis")) return `theses[${i}] is not \`{ candidate, thesis }\``;
+    if (!want.has(t.candidate) || seen.has(t.candidate)) return `theses[${i}] names ${JSON.stringify(t.candidate)}, which is not a candidate to rewrite or is named twice`;
+    seen.add(t.candidate);
+    if (t.thesis.trim() === "" || /\{[^}]+\}/.test(t.thesis)) return `the rewrite of ${t.candidate} is empty or carries a \`{<id>}\``;
+    const n = thesisWords(t.thesis);
+    if (n > bound) return `the rewrite of ${t.candidate} is ${n} words, and the Thesis is bounded at ${bound} words (brief.thesis_words)`;
+  }
+  const missing = over.find((c) => !seen.has(c.id));
+  return missing ? `the answer carries no rewrite of ${missing.id}` : null;
+}
+
+export function briefThesisWords(table) {
+  const row = table && table.thesis_bound_unit;
+  const n = Number(row ? settingValue(row.thesis_words) : undefined);
+  return Number.isInteger(n) && n > 0 ? n
+    : fail("src/brief-workflow.json's `thesis_bound_unit` row declares no positive `thesis_words` -- it names "
+      + "`brief.thesis_words` in kogaki.settings.json (kogaki#1773). Nothing was written.");
+}
+
+async function boundTheses(rec, table, args, { candidates, connected, language, described }) {
+  const bound = briefThesisWords(table);
+  const over = candidates.filter((c) => thesisWords(c.thesis) > bound);
+  if (!over.length) return candidates;
+  const row = table.thesis_bound_unit;
+  let rewrites = null;
+  const validate = (p) => {
+    let r;
+    try { r = readJson(p); }
+    catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+    const bad = thesisBoundRefusal(r, over, bound);
+    if (bad) refuseJudgment(bad);
+    rewrites = new Map(r.theses.map((t) => [t.candidate, t.thesis]));
+  };
+  const composeInputFor = () => writeJudgeInput(rec, row, {
+    state: "apex", unit: row.id, language, thesis_words: bound,
+    theses: over.map((c) => ({ candidate: c.id, thesis: c.thesis, words: thesisWords(c.thesis),
+      attains: described(connected.find((k) => k.component === c.component)) })),
+  });
+  rec.brief_thesis_bound = await judged(rec, row, table, args, "thesis-bound", composeInputFor, validate);
+  return candidates.map((c) => (rewrites.has(c.id) ? withThesis(c, rewrites.get(c.id)) : c));
+}
+
 // ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
 // id, exactly as Terrain's STATE_WORK is: a new state is a table
 // row PLUS a renderer, and the executor invents neither.
@@ -208,49 +263,55 @@ export const STATE_WORK = {
     return null;
   },
 
-  // ---- JUDGMENT POINT 1. The apexes (kogaki#1768): the structure's connected
-  // components are computed here (`componentsOf`), and one Call writes one apex
-  // per component — the Thesis an article on that component alone argues. The
-  // Thesis candidates and the gate are composed from them, and every
-  // candidate's home is classified before the gate (kogaki#1742).
+  // ---- JUDGMENT POINT 1. The apexes (kogaki#1768, kogaki#1773): the structure's connected
+  // components are computed here (`componentsOf`); only a component a higher-order relation
+  // connects is a candidate, the rest recorded as unconnected material. A component with one
+  // top carries that top as its apex; one Call writes one apex per component with several.
+  // A Thesis over `brief.thesis_words` is rewritten once by the `thesis_bound_unit` Call before
+  // the gate is composed, and every candidate's home is classified before it (kogaki#1742).
   apex: async (rec, st, args, table) => {
     const runState = needRunState(rec, st);
     const state = readJson(runState);
     if (!state.structure) fail(`${st.id}: the run state carries no structure — \`read_structure\` writes it and precedes this state.`);
     const claims = everyClaim(state, st);
     const components = componentsOf(state.structure, claims);
+    const { connected, unconnected } = partitionComponents(components);
+    state.unconnected = unconnected;
+    if (!connected.length) {
+      writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
+      fail(`${st.id}: no Thesis can be offered — ${unconnectedLines(unconnected).join(" ")} Go back through Terrain and re-settle the set; nothing was written under theses/.`);
+    }
+    const multi = connected.filter((k) => k.top.length > 1);
     const { language } = audienceFor(table, st);
-    let apexes = null;
-    const validate = (p) => {
-      let r;
-      try { r = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      const v = validateApex(r, components, state.structure);
-      if (v.text) refuseJudgment(v.text);
-      apexes = r.apexes;
-    };
     const holds = new Map([...state.structure.relations, ...state.structure.higher_order].map((x) => [x.id, x.holds]));
-    const composeInputFor = () => writeJudgeInput(rec, st, {
-      state: st.id,
-      language,
-      claims,
-      components: components.map((k) => ({
-        component: k.component,
-        relations: k.relations.map((id) => ({ id, holds: holds.get(id) })),
-        higher_order: k.higher_order.map((id) => ({ id, holds: holds.get(id) })),
-        top: k.top,
-        claims: k.claims,
-      })),
+    const described = (k) => ({
+      component: k.component,
+      relations: k.relations.map((id) => ({ id, holds: holds.get(id) })),
+      higher_order: k.higher_order.map((id) => ({ id, holds: holds.get(id) })),
+      top: k.top,
+      claims: k.claims,
     });
-    const path = await judged(rec, st, table, args, "apex", composeInputFor, validate);
-    const candidates = composeThesisCandidates(apexes, components, claims);
+    let apexes = [];
+    if (multi.length) {
+      const validate = (p) => {
+        let r;
+        try { r = readJson(p); }
+        catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+        const v = validateApex(r, multi, state.structure);
+        if (v.text) refuseJudgment(v.text);
+        apexes = r.apexes;
+      };
+      const composeInputFor = () => writeJudgeInput(rec, st, { state: st.id, language, claims, components: multi.map(described) });
+      rec.brief_apex = await judged(rec, st, table, args, "apex", composeInputFor, validate);
+      rec.judgments[st.id] = rec.brief_apex;
+    }
+    let candidates = composeThesisCandidates(apexes, connected, claims, state.structure);
+    candidates = await boundTheses(rec, table, args, { candidates, connected, language, described });
     classifyHomes(candidates, state.strands, thesesDirOf(args));
     state.components = components;
     state.thesis_candidates = candidates;
     state.gate = thesisGate(candidates, state.strands);
     writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
-    rec.brief_apex = path;
-    rec.judgments[st.id] = path;
     return null;
   },
 
@@ -608,6 +669,7 @@ export const GATE_WORK = {
     const provenance = [
       ...(set ? [`Composed over the settled Strand set ${(set.addresses || []).join(", ")}, entered ${set.via}.`] : []),
       ...kept,
+      ...unconnectedLines(state.unconnected || []),
     ];
     return {
       options: gate.options
