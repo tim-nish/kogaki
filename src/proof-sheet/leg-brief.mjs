@@ -20,7 +20,7 @@
 // whole production row with `substitutions` (the Mapping Playground's `smp_waypoints_unit`).
 //
 // THE VALIDATOR IS PRODUCTION'S, IMPORTED: `validateLegs` — which runs `waypointsRefusal` over
-// the Leg Waypoints — for the Leg. READER START IS RETIRED (kogaki#1699): no row authors one, the
+// the Brief Waypoints — for the Leg. READER START IS RETIRED (kogaki#1699): no row authors one, the
 // Leg opens from the Persona's prior knowledge, handed to the Leg row as
 // `persona_prior_knowledge`, and the Brief carries no `reader_start`, `reader_target` or
 // `reader_state_after`. Two of `validateLegs`' whole-path
@@ -34,7 +34,7 @@
 //
 // THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495, owner decision 2026-10-21). The Leg's
 // validator also runs the production recoverability criterion (`recoverabilityOf`,
-// kogaki#1494): a Claim's `proposition` and a Leg Waypoint's `point` are recoverable from the
+// kogaki#1494): a Claim's `proposition` and a Brief Waypoint's `point` are recoverable from the
 // Segment `content` clauses of the paragraph they serve, and the first word that is in none of
 // them and is not a function word refuses the Round, naming the
 // word and the Segments. It runs with an EMPTY renderings record: the Extraction's `content`
@@ -42,7 +42,7 @@
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
 // THE CLAIM REACHES ITS POINTS (kogaki#1547). After the recoverability criterion, every content
-// word of a Claim's `proposition` — `recoverabilityOf`'s own word test — is in a `point` of a Leg
+// word of a Claim's `proposition` — `recoverabilityOf`'s own word test — is in a `point` of a Brief
 // Waypoint serving that Claim's strand; the first that is in none
 // refuses the Round (`claimCoverageRefusal`). The plan judge reads the point, never the Claim.
 //
@@ -149,7 +149,7 @@ export function derivedRow(table, key, tableFile = "src/proof-sheet/extraction-w
 // kogaki#1699). The parts that
 // describe the Move rather than the paragraph — `why_this_order`, `breaks`, `presupposes`,
 // `description`, `name`, `notes`, a Segment's `operation`, `relation` and `manner` — are not the Brief's
-// material, and a word the Extractor coined in them reached a Leg Waypoint's point on the
+// material, and a word the Extractor coined in them reached a Brief Waypoint's point on the
 // 2026-10-19 run. The original text stays, as the Strand substitute.
 export function legCallExtraction(x) {
   return {
@@ -232,7 +232,7 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
     return `paragraph ${k}'s ${count === 1 ? "Segment 1" : `Segments 1–${count}`}`;
   }).join(" and ");
   return `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: \`${v.field}\` carries "${v.word}", which is in no Segment \`content\` of ${where || "the paragraph it serves"}, `
-    + "and is not a function word — a Claim's proposition and a Leg Waypoint's point are written in "
+    + "and is not a function word — a Claim's proposition and a Brief Waypoint's point are written in "
     + "the words of the Segment content they serve, and this Brief composes no renderings record, since the Extraction's "
     + "content is already the article's own rendering (kogaki#1495)";
 }
@@ -246,9 +246,9 @@ export function claimCoverageRefusal(leg, at = "leg 1") {
     const word = wordsOf(g.proposition).find((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)
       && ![...wordForms(w)].some((f) => allowed.has(f)));
     if (!word) continue;
-    const read = serving.length ? serving.map(([j]) => `waypoint ${j}`).join(" and ") : "no Leg Waypoint, since none serves it";
-    return `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Leg Waypoints `
-      + `serving ${g.strand} (read: ${read}) — a Leg Waypoint's point carries every content word of `
+    const read = serving.length ? serving.map(([j]) => `waypoint ${j}`).join(" and ") : "no Brief Waypoint, since none serves it";
+    return `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Brief Waypoints `
+      + `serving ${g.strand} (read: ${read}) — a Brief Waypoint's point carries every content word of `
       + "the Claim it serves, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)";
   }
   return null;
@@ -284,11 +284,11 @@ export function validateLegPathUnit(record, inputs) {
     }
   }
   if (!Array.isArray(leg.waypoints) || leg.waypoints.length !== n) {
-    return { error: `${at}: carries ${Array.isArray(leg.waypoints) ? leg.waypoints.length : "no"} Leg Waypoint(s) for the original Leg's ${n} paragraph(s) — one Leg Waypoint per paragraph, in order` };
+    return { error: `${at}: carries ${Array.isArray(leg.waypoints) ? leg.waypoints.length : "no"} Brief Waypoint(s) for the original Leg's ${n} paragraph(s) — one Brief Waypoint per paragraph, in order` };
   }
   for (const [i, w] of leg.waypoints.entries()) {
     if (isMap(w) && Array.isArray(w.serves) && !w.serves.includes(`L${o + i + 1}`)) {
-      return { error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${o + i + 1} — Leg Waypoint N serves the Claim of paragraph N` };
+      return { error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${o + i + 1} — Brief Waypoint N serves the Claim of paragraph N` };
     }
   }
   if ((inputs.taken_leg_ids || []).includes(leg.leg_id)) {

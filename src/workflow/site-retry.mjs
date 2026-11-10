@@ -1,6 +1,6 @@
 // The site loop of a Detached Job unit (kogaki#1642, owner decision 2026-10-31).
 // A job that declares `site_retry` keeps a refused Round's record as the unit's standing
-// record and repairs it at the Leg Waypoint the refusal named, one call at a time, rather
+// record and repairs it at the Brief Waypoint the refusal named, one call at a time, rather
 // than asking the unit's whole call again. This file holds the loop's state and decides
 // the next call; the supervisor (detached-job.mjs) spawns it and hands its answer back.
 // Like the supervisor it knows nothing of Legs or Moves: the prompts and the readers of
@@ -47,7 +47,7 @@ export async function loadSiteRetry(declared) {
 // ONE UNIT'S SITE LOOP. Every method returns the next act: `{ kind: "site" | "suffix", prompt }`
 // to ask, `{ kind: "judge", scope }` to judge the entries that changed, `{ done }` with the
 // record every verdict passed, or `{ refused }` naming the Waypoint whose budget is spent.
-// THE BUDGET BELONGS TO THE SITE: `unitRounds` per Leg Waypoint, the unit's first call
+// THE BUDGET BELONGS TO THE SITE: `unitRounds` per Brief Waypoint, the unit's first call
 // counting at each, and `legRevisions` over every retry of the unit together.
 export class SiteLoop {
   constructor(hooks, unitId, unitRounds) {
@@ -65,7 +65,7 @@ export class SiteLoop {
   }
 
   // The refused record becomes the standing record. `failures` are `{ waypoint, refusal }`;
-  // after a judgment every other Leg Waypoint passed.
+  // after a judgment every other Brief Waypoint passed.
   open(standing, failures, { byJudge }) {
     this.standing = standing;
     if (byJudge) for (const [i] of (standing.waypoints || []).entries()) this.verdicts.set(i + 1, "fits");
@@ -95,7 +95,7 @@ export class SiteLoop {
     return out;
   }
 
-  // The refusals this loop raised against the last answered call since the last drain, each with its Leg Waypoint,
+  // The refusals this loop raised against the last answered call since the last drain, each with its Brief Waypoint,
   // for that call's Call Record (kogaki#1756). A call that returned no answer carries its own refusal already.
   drainRaised() {
     const out = this.raised;
@@ -110,7 +110,7 @@ export class SiteLoop {
       + `${first && first !== why ? `the first refusal: ${first}; ` : ""}the last refusal: ${why}` };
   }
 
-  // THE NEXT ACT: the lowest Leg Waypoint still refused, or with none, a judgment of every
+  // THE NEXT ACT: the lowest Brief Waypoint still refused, or with none, a judgment of every
   // entry no verdict covers and the join of the entry after each.
   next() {
     if (!this.pending.size) {

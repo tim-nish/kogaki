@@ -2,7 +2,7 @@
 # check-brief-reader-path-job — the Detached Job that replaced the reader-path
 # step's synchronous judge call (kogaki#1193): the structural unit
 # classification (b), the job-level reduction (c), (d1)-(d11) as a real -- (d11) over the
-# compose unit's Leg Waypoint validator `validateBriefWaypoints` since kogaki#1768 --
+# compose unit's Waypoint validator, a fixture specimen since kogaki#1775 --
 # `job-supervise` child records it against a FAKE judge, a refused unit's
 # Call Records (d12, kogaki#1717), the six terminal states (a), and the
 # Stop arm's own bound (i).
@@ -313,13 +313,13 @@ const fails = [];
   }
 }
 
-// (d11) kogaki#1240, kogaki#1768: THE DECLARED, REAL `validateBriefWaypoints` VALIDATOR
-// REACHES UNIT CLASSIFICATION, loaded exactly as `job-supervise` loads it
-// (through its `module`/`export`/`inputs` declaration) -- never a stand-in. A
-// structurally-good record whose second Leg Waypoint carries no `carries` is
-// refused on the VALIDATOR'S text, naming `carries`, not on the generic
-// structural one; a unit refused this way gets the same one-re-ask (kogaki#1203)
-// and refused-twice-is-terminal (kogaki#1204) treatment a parse failure does.
+// (d11) kogaki#1240: A DECLARED VALIDATOR REACHES UNIT CLASSIFICATION, loaded exactly as
+// `job-supervise` loads it (through its `module`/`export`/`inputs` declaration). The
+// validator is the fixture specimen of the Waypoint validator the Brief retired (kogaki#1775);
+// what is held is the supervisor's loading and classification, which `review_path` and
+// /paragraph-plan still run. A record whose second Waypoint carries no `carries` is refused on
+// the VALIDATOR'S text, naming `carries`, and gets the one re-ask (kogaki#1203) and
+// refused-twice-is-terminal (kogaki#1204) treatment a parse failure does.
 {
   const structure = {
     roles: [{ id: "rules", context: "A set of checks that runs on its own.", attributes: [], claims: ["c1", "c2"] },
@@ -333,7 +333,7 @@ const fails = [];
     { point: "The walk is all the rules read, so nothing else is checked.", carries: ["p2", "h1"] }] };
   const missingCarriesRecord = { waypoints: [goodRecord.waypoints[0], { point: goodRecord.waypoints[1].point }] };
 
-  const legValidator = { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: { structure } };
+  const legValidator = { module: "checks/fixtures/brief-reader-path-job/waypoint-unit.mjs", export: "validateFixtureWaypoints", inputs: { structure } };
 
   const fakeJudgeLeg = join(scratch, "fake-judge-leg.mjs");
   writeFileSync(fakeJudgeLeg, `#!/usr/bin/env node
@@ -405,7 +405,7 @@ process.stdin.on("end", () => {
   // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
   (await import("./src/workflow/run-record.mjs")).bindFlow((await import("./src/brief/job-verbs.mjs")).BRIEF_FLOW);
   const { readCallRecord, RETIRED_NAMES } = await import("./src/workflow/call-record.mjs");
-  const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).lpp_waypoints; // the compose unit's first Call (kogaki#1768)
+  const { WAYPOINT_ROW: unitRow } = await import("./checks/fixtures/brief-reader-path-job/waypoint-unit.mjs"); // a fixture row: the Brief asks no Waypoint Call (kogaki#1775)
   const input = { state: "compose_path", unit_number: 1, fixture: "RECORD_ONCE" };
   const inputText = JSON.stringify(input, null, 2);
   const first = judgePrompt(unitRow, inputText, input, null);

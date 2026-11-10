@@ -27,10 +27,10 @@ export const START_FILE = "paragraph-plan-start.json";
 export const STATUS_TAGS = ["passed", "refused", "stopped", "not reached"];
 // THE ONLY HEADINGS A TABLE ON THE SHEET STANDS UNDER (specs/spec-draft-pipeline/SPEC.md §"The Feedback-Loop Playground (FLP)").
 export const TABLE_HEADINGS = ["Brief's point", "Structure", "Round n", "Binding", "Submission", "Comment", "Calls",
-  "Candidate <id>", "Leg", "Move", "Purpose", "Leg Waypoints", "Case"];
+  "Candidate <id>", "Leg", "Move", "Purpose", "Brief Waypoints", "Case"];
 export const ROUND_BLOCKS = ["Binding", "Submission", "Comment", "Calls"];
 export const CANDIDATE_ROUND_BLOCKS = ["Submission", "Comment", "Calls"];
-export const ROUND_DEFINITION = "A Round is one Submission at one Leg Waypoint, the Judge's verdict on it and, where the verdict "
+export const ROUND_DEFINITION = "A Round is one Submission at one Brief Waypoint, the Judge's verdict on it and, where the verdict "
   + "refuses it, the Comment it drew. A Call is one model call under this Leg's unit: bind, write, judge, site retry, "
   + "suffix, reading or grounding.";
 export const CANDIDATE_ROUND_DEFINITION = "A Round is one Candidate composed by one compose Call, the Judge's fit verdict on each of its "
@@ -69,12 +69,12 @@ export function unitStatus(job, unit) {
   return unit.status === "running" && !pidAlive(job.supervisor_pid) ? "stopped" : unit.status;
 }
 
-// The Leg Waypoints a refusal text names, in the `Leg <id>, Waypoint <n>` or leading `Waypoint <n>` form.
+// The Brief Waypoints a refusal text names, in the `Leg <id>, Waypoint <n>` or leading `Waypoint <n>` form.
 export function namedWaypoints(text) {
   return [...new Set([...String(text).matchAll(/(?:^|Leg [^,\s]+, )Waypoint (\d+)/gm)].map((m) => Number(m[1])))];
 }
 
-// A refusal record's text at Leg Waypoint `n`: a judge's per-site text where it carries one, else the whole text.
+// A refusal record's text at Brief Waypoint `n`: a judge's per-site text where it carries one, else the whole text.
 function refusalAt(refusal, n) {
   if (!refusal) return null;
   const sites = Array.isArray(refusal.sites) ? refusal.sites : null;
@@ -88,7 +88,7 @@ function refusalAt(refusal, n) {
 
 const isStopped = (rec) => Boolean(rec.refusal && /\bper-call limit\b/.test(String(rec.refusal.text)));
 
-// THE UNIT'S CALLS, oldest first, each with its kind, the entries its answer carries by Leg Waypoint, a judge's
+// THE UNIT'S CALLS, oldest first, each with its kind, the entries its answer carries by Brief Waypoint, a judge's
 // verdicts and its refusal record.
 export function unitCalls(runDir, unitId, { mapped = false } = {}) {
   return callRows(callsRoot(runDir)).filter((r) => r.unit === unitId).map((r) => {
@@ -111,9 +111,9 @@ export function unitCalls(runDir, unitId, { mapped = false } = {}) {
   });
 }
 
-// THE ROUNDS AT LEG WAYPOINT `n`, read from the Call Records alone. A write or site retry Call whose answer carries
-// an entry here, or whose refusal names this Leg Waypoint, opens a Round; a validator's refusal is that Round's
-// Comment, and the next judge Call naming this Leg Waypoint gives the open Round its verdict. Bind, suffix and
+// THE ROUNDS AT BRIEF WAYPOINT `n`, read from the Call Records alone. A write or site retry Call whose answer carries
+// an entry here, or whose refusal names this Brief Waypoint, opens a Round; a validator's refusal is that Round's
+// Comment, and the next judge Call naming this Brief Waypoint gives the open Round its verdict. Bind, suffix and
 // stopped Calls open none.
 export function roundsAt(calls, n, status) {
   const rounds = [];
@@ -143,19 +143,19 @@ export function roundsAt(calls, n, status) {
   }
   const last = rounds[rounds.length - 1];
   if (last && !last.verdict) {
-    last.verdict = { kind: "not judged", reason: status === "done" ? "No judge Call of this unit names this Leg Waypoint."
+    last.verdict = { kind: "not judged", reason: status === "done" ? "No judge Call of this unit names this Brief Waypoint."
       : status === "running" ? "The Judge has not read this Submission yet."
         : "The unit stopped before the Judge read this Submission." };
   }
   return rounds;
 }
 
-// THE LOCATIONS A COMMENT NAMES: Paragraph Waypoints, by `Paragraph Waypoint n`, `point n` or a quotation of one
+// THE LOCATIONS A COMMENT NAMES: Waypoints, by `Waypoint n`, `point n` or a quotation of one
 // whole point (a quoted expression inside a point names none); and Segments, by `Segment n`.
 export function namedLocations(text, entry) {
   const t = String(text);
   const nums = (re) => [...t.matchAll(re)].map((m) => Number(m[1]));
-  const waypoints = [...nums(/\bParagraph Waypoint (\d+)\b/g), ...nums(/\bpoint (\d+)\b/g)];
+  const waypoints = [...nums(/(?<!Brief )\bWaypoint (\d+)\b/g), ...nums(/\bpoint (\d+)\b/g)];
   const points = (entry && entry.paragraph_waypoints) || [];
   const quoted = [...t.matchAll(/"([^"]{12,})"/g)].map((m) => m[1]);
   points.forEach((p, i) => { const s = pointText(p).trim(); if (s && quoted.some((q) => q.trim() === s)) waypoints.push(i + 1); });
@@ -163,9 +163,9 @@ export function namedLocations(text, entry) {
   return { waypoints: sorted(waypoints), segments: sorted(nums(/\bSegment (\d+)\b/g)) };
 }
 
-const namesLine = ({ waypoints, segments }) => [...waypoints.map((k) => `Paragraph Waypoint ${k}`), ...segments.map((k) => `Segment ${k}`)].join(", ") || "none named";
+const namesLine = ({ waypoints, segments }) => [...waypoints.map((k) => `Waypoint ${k}`), ...segments.map((k) => `Segment ${k}`)].join(", ") || "none named";
 
-// The status line of a Leg Waypoint, and its tag.
+// The status line of a Brief Waypoint, and its tag.
 export function waypointStatus(status, n, lastNamed, rounds) {
   const last = rounds[rounds.length - 1];
   if (!last) return { tag: "not reached", text: "not reached" };
@@ -178,7 +178,7 @@ export function waypointStatus(status, n, lastNamed, rounds) {
   return { tag: "refused", text: `refused through Round ${k}` };
 }
 
-// The Segments table of one Submission, with no caption; a named Paragraph Waypoint's row and a named Segment's
+// The Segments table of one Submission, with no caption; a named Waypoint's row and a named Segment's
 // operation cell highlighted.
 function submissionTable(library, entry, named) {
   const c = moveContract(entry.move, resolve(REPO, library));
@@ -264,7 +264,7 @@ function roundHtml(round, n, ctx) {
 
 function structureHtml(mapping, n) {
   const structure = structureAt(mapping, n);
-  if (!structure) return none("No structure was read for this Leg Waypoint.");
+  if (!structure) return none("No structure was read for this Brief Waypoint.");
   return heading("Structure") + "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th></tr></thead><tbody>"
     + (structure.roles || []).map((r) => `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td></tr>`).join("")
     + "</tbody></table>";
@@ -325,7 +325,7 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
   const unplaced = ((unit && unit.refusals) || []).map(String).filter((t) => !onRecords.has(t) && t !== stop);
   const legWide = calls.filter((c) => c.refusal && !leg.waypoints.some((w) => refusalAt(c.refusal, Number(w.waypoint)) !== null));
   const band = bandHtml({ unitId, status, calls, unit, definition: ROUND_DEFINITION, stop,
-    extra: (legWide.length ? line("Refusals naming no Leg Waypoint:") + legWide.map((c) => line(`Call ${c.n}, ${c.kind}: ${c.refusal.text}`, "stop refusal")).join("") : "")
+    extra: (legWide.length ? line("Refusals naming no Brief Waypoint:") + legWide.map((c) => line(`Call ${c.n}, ${c.kind}: ${c.refusal.text}`, "stop refusal")).join("") : "")
     + (unplaced.length ? line("unplaced — on the job record and on no Call Record:") + unplaced.map((t) => line(t, "stop refusal")).join("") : "") });
   const statuses = [];
   const body = leg.waypoints.map((w) => {
@@ -341,9 +341,9 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
       if (!r.same) held = { number: round.number, binding: r.binding };
       return r.html;
     }).join("");
-    return part(`waypoint-${n}`, `Leg Waypoint ${n}`, `<p class="line">${tag(st.tag, st.text)}</p>`
+    return part(`waypoint-${n}`, `Brief Waypoint ${n}`, `<p class="line">${tag(st.tag, st.text)}</p>`
       + heading("Brief's point") + line(w.point) + line(`case: ${w.case ?? "none"}`) + structureHtml(mapping, n)
-      + (rounds.length ? roundsHtml : none("No Submission was written for this Leg Waypoint.")));
+      + (rounds.length ? roundsHtml : none("No Submission was written for this Brief Waypoint.")));
   }).join("");
   const html = page(`Leg ${legId}`, line(`run: ${relFromRepo(runDir)}`, "meta") + line(`job: ${job.state}`, "meta") + line(`Brief: ${start.brief}`, "meta")
     + band + body + part("calls", "Calls", callList(runDir, unitId, outDir, calls)));
@@ -387,7 +387,7 @@ function candidateRoundHtml(round, ctx) {
   const verdicts = new Map(round.fit && round.fit.answer && Array.isArray(round.fit.answer.verdicts) ? round.fit.answer.verdicts.map((v) => [String(v.leg_id), v]) : []);
   const refused = new Set([...verdicts.values()].filter((v) => v.verdict !== "consistent").map((v) => String(v.leg_id)));
   const submission = !legs ? none(`no Submission: ${round.compose.refusal ? round.compose.refusal.text : "the compose Call's answer did not parse"}`)
-    : "<table><thead><tr><th>Leg</th><th>Move</th><th>Purpose</th><th>Leg Waypoints</th><th>Case</th></tr></thead><tbody>"
+    : "<table><thead><tr><th>Leg</th><th>Move</th><th>Purpose</th><th>Brief Waypoints</th><th>Case</th></tr></thead><tbody>"
       + legs.map((l) => `<tr${refused.has(String(l.leg_id)) ? ' class="named"' : ""}><td>${esc(l.leg_id)}</td><td>${moveLine(l.move, { library, outDir, corpusDir })}</td>`
         + `<td>${esc(l.purpose)}</td><td>${(l.waypoints || []).map((w) => `<p>${esc(w.point)}</p>`).join("")}</td>`
         + `<td>${(l.waypoints || []).map((w) => `<p>${esc(w.case ?? "")}</p>`).join("")}</td></tr>`).join("")

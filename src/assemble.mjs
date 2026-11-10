@@ -69,7 +69,7 @@ export const RETIRED_READER_FIELDS = new Map([
   ["characteristic", "`characteristic` is a retired field (kogaki#1768) — one structure gives one Reader Path, so no "
     + "name tells it from a sibling; the Candidate gate renders its Legs; remove the field"],
   ["reader_experience", "`reader_experience` is a retired field (kogaki#1768) — one structure gives one Reader Path, "
-    + "so no experience tells it from a sibling; the Candidate gate renders its Legs and Leg Waypoints; remove the field"],
+    + "so no experience tells it from a sibling; the Candidate gate renders its Legs; remove the field"],
   ["opening_question", "`opening_question` is a retired field (kogaki#1216; its heading is removed by kogaki#1225) — "
     + "no Opening question is rendered, and no field authors one"],
 ]);
@@ -424,15 +424,14 @@ export function assembleSelection(reviewed, record) {
   // behaviours whose display this ruling removed and whose future is an open
   // decision — deleting the derivation would settle that decision by making
   // one arm unbuildable, which is not this issue's to do.
-  // THE OPTION IS THE HARNESS'S (kogaki#1768): the Reader Path's Legs and Leg
-  // Waypoints are the reading above the question (`readerPathReading`), never
-  // the option, so the option names the act and counts what it adopts.
+  // THE OPTION IS THE HARNESS'S (kogaki#1768): the Reader Path's Legs are the
+  // reading above the question (`readerPathReading`), never the option, so the
+  // option names the act and counts what it adopts (kogaki#1775).
   const options = cands.map((c) => {
-    const waypoints = c.legs.reduce((n, l) => n + (Array.isArray(l.waypoints) ? l.waypoints.length : 0), 0);
     return {
       id: c.candidate_id,
       label: "Follow this Reader Path",
-      description: `${c.legs.length} Leg${c.legs.length === 1 ? "" : "s"} and ${waypoints} Leg Waypoint${waypoints === 1 ? "" : "s"}, reaching the Thesis last`,
+      description: `${c.legs.length} Leg${c.legs.length === 1 ? "" : "s"}, one per relation the Thesis reaches`,
       rendering: decisionGradeRendering(c),
     };
   });
@@ -476,7 +475,7 @@ export function assembleSelection(reviewed, record) {
     id: "brief-candidate-selection-payload",
     kind: "proposal",
     where: "the Brief's sequence — which composed Reader Path the article follows",
-    why: "the machine's premise, rendered: the adopted Thesis and its structure support one composed Reader Path — the Legs and Leg Waypoints above, each Waypoint carrying the relations it states, reaching the Thesis last",
+    why: "the machine's premise, rendered: the adopted Thesis and its structure support one derived Reader Path — the Legs above, one per relation the Thesis reaches, each saying what its relation holds",
     label: "Adopting the Reader Path writes it into the Brief's sequence and fills the Brief's closing sections — which Strands it uses, and which the Thesis leaves",
     options,
     // THE PROMPT SAYS WHAT THE RUNTIME DOES (kogaki#950): SPEC-draft-pipeline v35 rules free
@@ -586,21 +585,21 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
   let out = filled.record;
   // WHAT ADOPTING THE PATH GAVE UP, AND WHAT IT BRIDGED (kogaki#1768): the
   // Strands the Thesis does not reach, read from the mint's `not_carried`
-  // entries; and no bridge, since every Leg Waypoint carries relations the
-  // claims state and the apex is the one connection no claim states.
+  // entries; and no bridge, since every Leg says a relation the claims state
+  // and the apex is the one connection no claim states (kogaki#1775).
   const left = (out.strand_coverage || []).filter((e) => typeof e.not_carried === "string").map((e) => e.strand);
   let r = fillSlot(out, "tradeoffs", { gave_up: left.length
     ? `The Thesis does not reach ${left.join(", ")}; the article leaves ${left.length === 1 ? "that Strand" : "those Strands"} out.`
     : "Nothing: the Thesis reaches every settled Strand." });
   if (r.error) return r;
   out = r.record;
-  r = fillSlot(out, "bridged", { bridges: "No gap was bridged: every Leg Waypoint carries relations the claims state, and the Thesis is the one connection no claim states." });
+  r = fillSlot(out, "bridged", { bridges: "No gap was bridged: every Leg says a relation the claims state, and the Thesis is the one connection no claim states." });
   if (r.error) return r;
   out = r.record;
   const structure = record.structure || null;
   const reach = structure && Array.isArray(structure.reach) ? structure.reach : [];
   return { record: out, placed: filled.placed, total: filled.total, selected_by: chose.tool_use_id,
-    reach: reach.length, unreached: left, grounded: c.reasoning?.leg_validity ?? null };
+    reach: reach.length, unreached: left };
 }
 
 function argString(args, key, usage) {
@@ -711,11 +710,11 @@ export function cmdAdoptCandidate(args) {
   writeFileSync(briefPath, text);
   snapshotBrief(briefPath, "adopt-candidate", "after", text, snapSeq);
   console.log(`candidate selection (the Candidate gate): ${id} was the owner's own answer at the brief-candidate-selection gate (AskUserQuestion ${r.selected_by}) — read from the capture, never carried by --candidate (kogaki#891)`);
-  // ONE SENTENCE, ON EVERY ADOPTION (kogaki#1768): the structure's reach — the
-  // relations and higher-order relations the Leg Waypoints carry, and the
-  // Strands the Thesis leaves — and the GROUNDED Rounds the Waypoints took.
-  console.log(`structure: the Leg Waypoints carry the ${r.reach} relation(s) and higher-order relation(s) the Thesis reaches; `
-    + `${r.unreached.length ? `Strands not carried: ${r.unreached.join(", ")}` : "every Strand is carried"}. ${r.grounded || ""}`.trim());
+  // ONE SENTENCE, ON EVERY ADOPTION (kogaki#1768, kogaki#1775): the structure's
+  // reach — one Leg per relation and higher-order relation the Thesis reaches —
+  // and the Strands the Thesis leaves.
+  console.log(`structure: one Leg for each of the ${r.reach} relation(s) and higher-order relation(s) the Thesis reaches; `
+    + `${r.unreached.length ? `Strands not carried: ${r.unreached.join(", ")}` : "every Strand is carried"}.`);
   console.log(`adopted ${id} — its Reader Path is the Brief's; its Strand coverage and tradeoffs are filled from it; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
 }
 

@@ -118,16 +118,16 @@ function evidenceLines(ws, run, recordDir) {
   return out;
 }
 
-// kogaki#1649: the closing section, each Leg Waypoint whose Packet marks a judge-forced Paragraph Waypoint, read from the Packet alone.
+// kogaki#1649: the closing section, each Brief Waypoint whose Packet marks a judge-forced Waypoint, read from the Packet alone.
 export function forcedParagraphLines(legs, draftDir) {
   const rows = [];
   for (const s of legs) {
     const path = resolve(draftDir, String(s.packet));
     if (!existsSync(path)) continue;
-    for (const m of forcedMarksOf(readFileSync(path, "utf8"))) rows.push(`- \`${s.leg_id}\`, Leg Waypoint ${m.waypoint} — ${m.axes.join(", ")}`);
+    for (const m of forcedMarksOf(readFileSync(path, "utf8"))) rows.push(`- \`${s.leg_id}\`, Brief Waypoint ${m.waypoint} — ${m.axes.join(", ")}`);
   }
   return ["## Forced paragraphs", "",
-    "Each line is a Leg Waypoint whose paragraph plan was rewritten until the plan's judge passed it,",
+    "Each line is a Brief Waypoint whose paragraph plan was rewritten until the plan's judge passed it,",
     "with the criteria that forced the rewrite. It is a count to read, and no review item acts on it.", "",
     ...(rows.length ? rows : ["_None._"]), ""];
 }

@@ -13,7 +13,7 @@
 #       buffer and handed through whole (Extractor 4 — paragraph 1 refused once — and one constraints call per
 #       paragraph, kogaki#1698, Leg Brief composer 2, ParagraphPlan generator and judge, Writer 1), each prompt and answer as sent.
 #   (b) the ingest derived one Move per Extraction into the run's own library, and the ParagraphPlan file gives each
-#       Leg Waypoint as many Paragraph Waypoints as its bound Move has Segments.
+#       Brief Waypoint as many Waypoints as its bound Move has Segments.
 #   (b2) paragraph 2's Segment 2 carries a `manner`: the Move ingested from it carries it on that Segment and the
 #       sheet's Segment table in its `manner` column (kogaki#1510), and neither the ParagraphPlan file nor the Packet
 #       carries it -- a Move is an input to the Composer and to nothing else (kogaki#1585, owner decision 2026-10-25).
@@ -36,14 +36,14 @@
 #       hand it to the Leg Brief composer and the Packet, and the Brief and the Draft carry it; another Audience's
 #       language replaces it throughout; an Audience declaring none is refused by name at the Brief stage.
 #   (l) the ParagraphPlan card's Rounds part (kogaki#1437, kogaki#1642): the main run's fake judge answers
-#       `does-not-fit` at Leg Waypoint 2 on the Leg call and `fits` on the site retry there, and the part carries two
-#       blocks -- the Leg call's, with its Paragraph Waypoints, the verdict and its `why`, naming where the site call's
-#       prompt is shown; and the site retry's, titled by its Leg Waypoint, `fits` at Leg Waypoints 2 and 3 alone, and "no further
+#       `does-not-fit` at Brief Waypoint 2 on the Leg call and `fits` on the site retry there, and the part carries two
+#       blocks -- the Leg call's, with its Waypoints, the verdict and its `why`, naming where the site call's
+#       prompt is shown; and the site retry's, titled by its Brief Waypoint, `fits` at Brief Waypoints 2 and 3 alone, and "no further
 #       Round". A run refused on every Round shows the Leg call and every site retry, as many blocks as the job's Rounds, and an Output of "(not written)". The Calls part names "the judge call" and never "the check call".
 #   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
-#       for each Leg Waypoint after the first carries its `join` type word (kogaki#1477), read from the row block
-#       alone since the Rounds part shows it too, and the row for Leg Waypoint 1 carries none.
-#   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Leg Waypoint 2 a `performs` Paragraph
+#       for each Brief Waypoint after the first carries its `join` type word (kogaki#1477), read from the row block
+#       alone since the Rounds part shows it too, and the row for Brief Waypoint 1 carries none.
+#   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Brief Waypoint 2 a `performs`
 #       Waypoint, and the ParagraphPlan card's Output row and Rounds part carry its text in italics with no list
 #       item empty; each Extraction paragraph block opens on its Segments table, with the folded "rendering" and
 #       "record file" blocks after it. Between the two sits an open `takes / leaves / breaks` table (kogaki#1534, kogaki#1699):
@@ -51,12 +51,12 @@
 #       order; the Move file carries no `before` or `after` (kogaki#1699).
 #   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
 #       block carrying one Segments table per paragraph, a refused-rounds table with exactly one row -- Round 1,
-#       Leg Waypoint 2, the judge's `why` -- linking to that Round's block, and a Bindings table with one row per
-#       Leg Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "takes
+#       Brief Waypoint 2, the judge's `why` -- linking to that Round's block, and a Bindings table with one row per
+#       Brief Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "takes
 #       / leaves" `<details>` closed on load holding the Move file's takes and leaves, and no other row in the table
 #       (kogaki#1516); a Round whose judge answer is unreadable is a row carrying the job record's refusal; the
 #       resumed run (h), refused nowhere, renders "no Round was refused". Each ParagraphPlan Output row opens on
-#       "Point:" and the Leg Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
+#       "Point:" and the Brief Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
 #       followed by its bound Move's `description` as one plain paragraph and then its table, and a paragraph with no
 #       Move bound has nothing between the two (kogaki#1517); each table there is followed by its Move file's `breaks` as one ordered list in order, the unbound paragraph's by nothing (kogaki#1637).
 #   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through `KOGAKI_JOB_STALL_S` and every
@@ -78,7 +78,7 @@
 #       no details element but the takes / leaves folds and no "Review" heading.
 #   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places the library's three
 #       records beside the run's own three in the plan's Move directory, and `run.json`'s `library` carries the
-#       directory, the records' sha256 and the ids by source; with the fake plan binding Leg Waypoint 1 from the
+#       directory, the records' sha256 and the ids by source; with the fake plan binding Brief Waypoint 1 from the
 #       library, paragraph 1's heading and Bindings row are badged "library" and the others "this run", and the run
 #       header names the library; a library holding one of the run's own ids is refused naming it, with no run
 #       directory and no model call; `--withhold-own` leaves the plan's directory holding the library's records only
@@ -99,7 +99,7 @@
 #       `reuse.legs`, and a plain reuse records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan`
 #       are each refused naming `--legs`, with no run directory written.
 #   (v) the Proof Sheet writes no Obligation row, and an extracted Move carries what its paragraph leaves in `leaves` and no `obligation` (kogaki#1582, kogaki#1698), as the block comment above the case states. The span of (s), raising nothing, carries `obligations: []`.
-#   (w) the Paragraph Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's middle cell lists Leg Waypoint 2's Paragraph Waypoints in order with the `performs` entry in italics, each Segments heading ends in one `copy table` button.
+#   (w) the Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's middle cell lists Brief Waypoint 2's Waypoints in order with the `performs` entry in italics, each Segments heading ends in one `copy table` button.
 #   (x) the Move's `takes` and `leaves` under each Move description (kogaki#1701): on the (o) copy whose third Move carries one of each they stand after its description, `kind: what` each, takes first, a Move carrying none draws no line, and no sheet draws an obligation trigger, a Move obligation, a paragraph obligation block or a fired Segment's tint.
 #   (y) the Leg Move (kogaki#1597), in checks/proof-sheet-leg-move-cases.mjs, whose header states the case.
 #   (z) the left column (kogaki#1621): no built sheet carries an "Original Leg" header and the comparison table is headed "Original Paragraph".
@@ -186,16 +186,16 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const retried = prompt.includes("----- YOUR PREVIOUS ANSWER (call ");
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
-    // (l) PSR_PLAN_REFUSE: "first" refuses Leg Waypoint 2 on the first judge call only, "all" on every one.
+    // (l) PSR_PLAN_REFUSE: "first" refuses Brief Waypoint 2 on the first judge call only, "all" on every one.
     const counter = dir + "/judge-count";
     const n = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
     writeFileSync(counter, String(n));
     const refuse = process.env.PSR_PLAN_REFUSE === "all" || (process.env.PSR_PLAN_REFUSE === "first" && n === 1);
     return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => (refuse && w.waypoint === 2
-      ? { waypoint: w.waypoint, verdict: "does-not-fit", why: "WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on." }
+      ? { waypoint: w.waypoint, verdict: "does-not-fit", why: "WHY-NOT-FIT the second waypoint restates the first instead of moving on." }
       : { waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan-judge");
   }
-  // A site retry (kogaki#1642) answers with the refused entry, its Paragraph Waypoints rewritten.
+  // A site retry (kogaki#1642) answers with the refused entry, its Waypoints rewritten.
   if (prompt.includes('"leg_waypoint_you_must_plan"')) {
     const refused = body("leg_waypoint_you_must_plan").refused_here.map((h) => h.entry).filter(Boolean), e = refused[refused.length - 1];
     return out({ ...e, paragraph_waypoints: e.paragraph_waypoints.map((p) => (p.point ? { ...p, point: p.point + " Rewritten " + refused.length + "." } : p)) }, "plan-generator");
@@ -203,12 +203,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes('"leg_you_must_plan"')) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
     const SEG = [2, 2, 3], segs = (w) => ((bindable || []).find((m) => m.id === MV + w.waypoint) || { segments: { length: SEG[w.waypoint - 1] } }).segments.length;
-    // (r) PSR_PLAN_BIND: "library-first" binds Leg Waypoint 1 from the library, "library" every one.
+    // (r) PSR_PLAN_BIND: "library-first" binds Brief Waypoint 1 from the library, "library" every one.
     const fromLibrary = (n) => (bindable || []).some((m) => m.id.startsWith("lib_")) && (process.env.PSR_PLAN_BIND === "library" || (process.env.PSR_PLAN_BIND === "library-first" && n === 1));
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: (fromLibrary(w.waypoint) ? "lib_" : "") + MV + w.waypoint,
       materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.", depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
       ...(w.waypoint > 1 ? { join: w.waypoint === 2 ? "consequence" : "contrast" } : {}),
-      // (n) Leg Waypoint 2's second Paragraph Waypoint is a \`performs\` entry (kogaki#1448).
+      // (n) Brief Waypoint 2's second Waypoint is a \`performs\` entry (kogaki#1448).
       paragraph_waypoints: Array.from({ length: segs(w) }, (_, n) => (w.waypoint === 2 && n === 1 ? { performs: "PERFORMS-2-2 the paragraph turns the reader back on the act." }
         : { point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan-generator");
   }
@@ -301,18 +301,18 @@ else {
     `(b) the ingest did not write one Move per Extraction into the run's library: ${JSON.stringify(ingest.written)}`);
   ok(ingest.entries.length === 3 && ingest.entries.every((e) => e.admitted && e.screen.includes(`id: ${e.move}`)), "(b) an ingest entry does not carry its screen");
   const plan = parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan");
-  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Paragraph Waypoint counts are not the Moves' Segment counts");
+  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Waypoint counts are not the Moves' Segment counts");
   ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.join || "")) === '["","consequence","contrast"]',
-    "(b) the ParagraphPlan file does not carry a type-word join on every Leg Waypoint after the first and none on the first (kogaki#1411, kogaki#1477)");
+    "(b) the ParagraphPlan file does not carry a type-word join on every Brief Waypoint after the first and none on the first (kogaki#1411, kogaki#1477)");
   // THE MANNER STOPS AT THE MOVE (kogaki#1510, kogaki#1585): paragraph 2's Segment 2 carries one,
-  // so its Move does, and no Paragraph Waypoint and no Packet line does.
+  // so its Move does, and no Waypoint and no Packet line does.
   const MANNER = "a brief direct statement, given with no elaboration.";
   const move2 = parseYaml(readOr(join(runDir, "moves", "name_an_act_then_its_cost_2.yaml"), "id: none\n"), "move2");
   ok(Array.isArray(move2.segments) && JSON.stringify(move2.segments.map((g) => g.manner ?? null)) === JSON.stringify([null, MANNER]),
     `(b) the Move ingested from paragraph 2 does not carry its manner on Segment 2 alone: ${JSON.stringify(move2.segments)}`);
   ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.map((p) => p.manner ?? null)))
     === JSON.stringify([[null, null], [null, null], [null, null, null]]),
-    `(b) the ParagraphPlan file carries a Segment's manner on a Paragraph Waypoint (kogaki#1585): ${JSON.stringify(plan.legs && plan.legs[0] && plan.legs[0].waypoints)}`);
+    `(b) the ParagraphPlan file carries a Segment's manner on a Waypoint (kogaki#1585): ${JSON.stringify(plan.legs && plan.legs[0] && plan.legs[0].waypoints)}`);
 
   // (c) the Writer's prompt is the Packet alone
   const packet = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
@@ -321,7 +321,7 @@ else {
   ok(packet !== null && packet.includes("   *Opens from:* consequence\n") && packet.includes("   *Opens from:* contrast\n")
     && (packet.match(/\*Opens from:\*/g) || []).length === 2, "(c) the Packet does not render each plan join as its Opens-from line (kogaki#1411)");
   ok(packet !== null && packet.split("\n").some((l) => /^   2\. /.test(l)) && !packet.includes("Manner:") && !packet.includes(MANNER),
-    `(c) the Packet renders a Segment's manner, or carries no Paragraph Waypoint line for the absence to be read over (kogaki#1585): ${JSON.stringify((packet || "").split("\n").filter((l) => /Manner|PW-2|PERFORMS-2/.test(l)))}`);
+    `(c) the Packet renders a Segment's manner, or carries no Waypoint line for the absence to be read over (kogaki#1585): ${JSON.stringify((packet || "").split("\n").filter((l) => /Manner|PW-2|PERFORMS-2/.test(l)))}`);
   ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
   ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
@@ -453,7 +453,7 @@ else {
   // Audience) and the six artifacts, with no Segments node and no Persona node -- each click to
   // an id that exists on the page, and its text is also written as a `<pre>` fallback inside a
   // closed details element. Each written-paragraph cell links to that paragraph's row in
-  // Extraction, Move, ParagraphPlan, Packet and Draft. The Packet card gets one row per Leg
+  // Extraction, Move, ParagraphPlan, Packet and Draft. The Packet card gets one row per Brief
   // Waypoint, cut from the rendered Packet by its own numbering, with the whole Packet below.
   const h1At = html.indexOf("<h1>Leg Proof Sheet</h1>");
   const diagramAt = html.indexOf('<div class="diagram">');
@@ -514,7 +514,7 @@ else {
     }
   }
 
-  // THE PER-PARAGRAPH (AND PER-LEG-WAYPOINT) ROWS ARE FOLDED (kogaki#1410, owner 2026-10-17):
+  // THE PER-PARAGRAPH (AND PER-BRIEF-WAYPOINT) ROWS ARE FOLDED (kogaki#1410, owner 2026-10-17):
   // every row on Extraction, Move, ParagraphPlan, Packet and Draft is a `details.prow`, open
   // only for the first. The link target sits INSIDE the details rather than on it, because
   // following a fragment opens a closed details that is the target's ancestor and leaves one
@@ -539,40 +539,40 @@ else {
   if (packetText) {
     for (let i = 1; i <= 3; i++) {
       const rowAt = cards.packet.indexOf(`id="packetwp-p${i}-0"`);
-      ok(rowAt >= 0, `(j) the Packet card has no row for Leg Waypoint ${i}`);
+      ok(rowAt >= 0, `(j) the Packet card has no row for Brief Waypoint ${i}`);
       if (rowAt >= 0) {
         const rowHtml = cards.packet.slice(rowAt, cards.packet.indexOf("</details>", rowAt));
-        ok(rowHtml.includes(`POINT-${i}`), `(j) the Packet card's Leg Waypoint ${i} row does not carry its point`);
-        ok(rowHtml.includes(`PW-${i}-1`), `(j) the Packet card's Leg Waypoint ${i} row does not carry its Paragraph Waypoints`);
+        ok(rowHtml.includes(`POINT-${i}`), `(j) the Packet card's Brief Waypoint ${i} row does not carry its point`);
+        ok(rowHtml.includes(`PW-${i}-1`), `(j) the Packet card's Brief Waypoint ${i} row does not carry its Waypoints`);
       }
     }
     ok(cards.packet.includes(escHtml(packetText.trim())), "(j) the whole Packet no longer appears below the per-waypoint table");
   }
 
-  // (m) THE JOIN IN THE PARAGRAPHPLAN OUTPUT (kogaki#1445): each Leg Waypoint row of the card's
-  // Output carries the plan file's join for a Leg Waypoint after the first and none for the
+  // (m) THE JOIN IN THE PARAGRAPHPLAN OUTPUT (kogaki#1445): each Brief Waypoint row of the card's
+  // Output carries the plan file's join for a Brief Waypoint after the first and none for the
   // first. The join also appears in the Rounds part, so this reads the row block alone --
   // a match over the card or the page would pass with the row's line deleted (the consult
   // receipt on the Issue).
   const planWps = (plan.legs && plan.legs[0] && plan.legs[0].waypoints) || [];
   for (let i = 1; i <= 3; i++) {
     const rowAt = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0"`);
-    ok(rowAt >= 0, `(m) the ParagraphPlan card has no Output row for Leg Waypoint ${i}`);
+    ok(rowAt >= 0, `(m) the ParagraphPlan card has no Output row for Brief Waypoint ${i}`);
     if (rowAt < 0) continue;
     const rowHtml = cards.paragraphPlan.slice(rowAt, cards.paragraphPlan.indexOf("</details>", rowAt));
     const want = (planWps.find((w) => w.waypoint === i) || {}).join;
-    if (i === 1) ok(!/<p>join: /.test(rowHtml), "(m) the ParagraphPlan Output row for Leg Waypoint 1 carries a join line");
-    else ok(want && rowHtml.includes(`<p>join: ${escHtml(want)}</p>`), `(m) the ParagraphPlan Output row for Leg Waypoint ${i} does not carry the plan file's join`);
+    if (i === 1) ok(!/<p>join: /.test(rowHtml), "(m) the ParagraphPlan Output row for Brief Waypoint 1 carries a join line");
+    else ok(want && rowHtml.includes(`<p>join: ${escHtml(want)}</p>`), `(m) the ParagraphPlan Output row for Brief Waypoint ${i} does not carry the plan file's join`);
   }
 
-  // (n) THE LEG SHEET'S FIRST VIEWS (kogaki#1479): the plan carries a `performs` entry at Leg
+  // (n) THE LEG SHEET'S FIRST VIEWS (kogaki#1479): the plan carries a `performs` entry at Brief
   // Waypoint 2, which the old list rendered as an empty item, so the no-empty assertion below is
   // fed a case that fails without the fix (the consult receipt on the Issue).
   const PERFORMS = "PERFORMS-2-2 the paragraph turns the reader back on the act.";
-  ok(planWps.some((w) => (w.paragraph_waypoints || []).some((p) => p.performs === PERFORMS)), "(n) the plan file does not carry the fixture's performs Paragraph Waypoint");
+  ok(planWps.some((w) => (w.paragraph_waypoints || []).some((p) => p.performs === PERFORMS)), "(n) the plan file does not carry the fixture's performs Waypoint");
   const row2At = cards.paragraphPlan.indexOf(`id="planwp-p2-0"`);
   const row2 = row2At >= 0 ? cards.paragraphPlan.slice(row2At, cards.paragraphPlan.indexOf("</details>", row2At)) : "";
-  ok(row2.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) the ParagraphPlan Output row for Leg Waypoint 2 does not carry the performs text in italics");
+  ok(row2.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) the ParagraphPlan Output row for Brief Waypoint 2 does not carry the performs text in italics");
   ok(!/<li>(<i>)?\s*(<\/i>)?<\/li>/.test(cards.paragraphPlan), "(n) the ParagraphPlan card carries an empty list item");
   for (let i = 1; i <= 3; i++) {
     const at = cards.extraction.indexOf(`<summary>paragraph ${i}</summary>`);
@@ -596,24 +596,24 @@ else {
       `(n) the Extraction block for paragraph ${i} carries no open takes / leaves / breaks table of its Move between its Segments table and the folded rendering`);
   }
 
-  // (l) THE ROUNDS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Leg Waypoint 2
+  // (l) THE ROUNDS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Brief Waypoint 2
   // and the site retry there passed, so the part holds two blocks, the second titled by its site
-  // and judged at Leg Waypoint 2 and the join of Leg Waypoint 3 alone.
+  // and judged at Brief Waypoint 2 and the join of Brief Waypoint 3 alone.
   const planCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_you_must_plan"'));
   const siteCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_waypoint_you_must_plan"'));
-  ok(planCalls.length === 1 && siteCalls.length === 1, `(l) the ParagraphPlan made ${planCalls.length} Leg call(s) and ${siteCalls.length} site call(s), not one each (refused at Leg Waypoint 2, then repaired there)`);
+  ok(planCalls.length === 1 && siteCalls.length === 1, `(l) the ParagraphPlan made ${planCalls.length} Leg call(s) and ${siteCalls.length} site call(s), not one each (refused at Brief Waypoint 2, then repaired there)`);
   const blocks = roundBlocks(cards.paragraphPlan);
   ok(blocks.length === 2, `(l) the Rounds part holds ${blocks.length} block(s), not 2`);
   if (blocks.length === 2 && siteCalls.length === 1) {
     const [b1, b2] = blocks;
-    ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) round 1's block does not show its Paragraph Waypoints");
-    ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) round 1's block does not show the performs Paragraph Waypoint in italics");
-    ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
+    ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) round 1's block does not show its Waypoints");
+    ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) round 1's block does not show the performs Waypoint in italics");
+    ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second waypoint restates the first instead of moving on."),
       "(l) round 1's block does not show the does-not-fit verdict with its why");
-    ok(b1.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2, byte for byte."), "(l) round 1's block does not name where the site call's prompt is shown");
-    ok(b2.startsWith("2 of 2 — site retry at Leg Waypoint 2") && b2.includes("PW-2-1 the paragraph makes its point. Rewritten 1."),
-      "(l) round 2's block is not titled as the site retry at Leg Waypoint 2, or does not show its rewritten Paragraph Waypoints");
-    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 2 && b2.includes("Leg Waypoint 3: <b>fits</b>"), "(l) round 2's block does not show fits at Leg Waypoint 2 and the join of Leg Waypoint 3 alone");
+    ok(b1.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Brief Waypoint 2, byte for byte."), "(l) round 1's block does not name where the site call's prompt is shown");
+    ok(b2.startsWith("2 of 2 — site retry at Brief Waypoint 2") && b2.includes("PW-2-1 the paragraph makes its point. Rewritten 1."),
+      "(l) round 2's block is not titled as the site retry at Brief Waypoint 2, or does not show its rewritten Waypoints");
+    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 2 && b2.includes("Brief Waypoint 3: <b>fits</b>"), "(l) round 2's block does not show fits at Brief Waypoint 2 and the join of Brief Waypoint 3 alone");
     ok(b2.includes("no further round: the job ended `done`"), "(l) round 2's block does not say no further round");
     ok(!/class="stop">The judge answered/.test(b1 + b2), "(l) the Rounds part shows a mismatch between the judge and the job record on a run where they agree");
   }
@@ -621,7 +621,7 @@ else {
 
   // (o) THE REVIEW BLOCK AND THE POINT LINE (kogaki#1487). Every property is read inside the
   // part it belongs to, and the refused-rounds table is held to one row naming Round 1,
-  // Leg Waypoint 2 and the judge's why -- a silent table cannot pass, since the run that
+  // Brief Waypoint 2 and the judge's why -- a silent table cannot pass, since the run that
   // refused nothing must render its own line (below, on the resumed run).
   const reviewAt = html.indexOf('<section class="review" id="review-0">');
   const pairEnd = html.indexOf("</table>", pairStart);
@@ -671,11 +671,11 @@ else {
   const nAfter = nHead >= 0 ? nSeg.slice(nHead + noMove.length) : "";
   ok(nHead >= 0 && nAfter.startsWith("<table") && nSeg.includes(escHtml("Names an act, then names who pays for it (paragraph 1).")), "(o) a paragraph with no Move bound does not show its heading directly above its Segments table");
   const nReview = nSeg.slice(nSeg.indexOf('<div class="rpart segments">'), nSeg.indexOf('<div class="rpart refused">')); ok(chunkAfterTable(nReview, 2) === "" && (chunkAfterTable(nReview, 1) || "").startsWith('<div class="move-breaks">'), `(o) the unbound paragraph's Segments table is followed by something, or its bound neighbour's by no breaks: ${chunkAfterTable(nReview, 2)}`);
-  // (w) THE PARAGRAPH WAYPOINTS COLUMN AND THE COPY BUTTON (kogaki#1591); the obligation line is read on the unbound copy above.
+  // (w) THE WAYPOINTS COLUMN AND THE COPY BUTTON (kogaki#1591); the obligation line is read on the unbound copy above.
   const pairHead = html.slice(pairStart, html.indexOf("</thead>", pairStart)), pw2 = (planWps.find((w) => w.waypoint === 2) || {}).paragraph_waypoints || [];
-  ok((pairHead.match(/<th>/g) || []).length === 4 && pairHead.includes('<th>Paragraph Waypoints <span class="meta">') && legRows.every((row) => (row.match(/<td/g) || []).length === 3), "(w) the comparison table does not carry three columns, the Paragraph Waypoints between the two paragraphs");
+  ok((pairHead.match(/<th>/g) || []).length === 4 && pairHead.includes('<th>Waypoints <span class="meta">') && legRows.every((row) => (row.match(/<td/g) || []).length === 3), "(w) the comparison table does not carry three columns, the Waypoints between the two paragraphs");
   ok(pw2.some((p) => p.performs === PERFORMS) && (legRows[1] || "").split("</td>")[1] === `<td class="pws"><ol>${pw2.map((p) => (p.performs !== undefined ? `<li><i>${escHtml(p.performs)}</i></li>` : `<li>${escHtml(p.point)}</li>`)).join("")}</ol>`,
-    `(w) paragraph 2's middle cell does not list Leg Waypoint 2's Paragraph Waypoints in order, the performs entry in italics: ${legRows[1]}`);
+    `(w) paragraph 2's middle cell does not list Brief Waypoint 2's Waypoints in order, the performs entry in italics: ${legRows[1]}`);
   const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
   ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
   // (x) THE MOVE'S TAKES AND LEAVES (kogaki#1701): paragraph 3's Move's entries stand after its
@@ -691,8 +691,8 @@ else {
   const refPart = rpart("refused");
   const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
   ok(refRows.length === 1 && refRows[0].includes(`href="#round-0-1"`) && refRows[0].includes("<td>2</td>")
-    && refRows[0].includes("WHY-NOT-FIT the second paragraph waypoint restates the first instead of moving on."),
-    `(o) the refused-rounds table does not carry exactly one row naming round 1, Leg Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
+    && refRows[0].includes("WHY-NOT-FIT the second waypoint restates the first instead of moving on."),
+    `(o) the refused-rounds table does not carry exactly one row naming round 1, Brief Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
   const att1 = cards.paragraphPlan.indexOf('id="round-0-1"');
   ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part rounds">', att1) >= 0, "(o) the refused row's link names no round block on the ParagraphPlan card");
   if (existsSync(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"))) fails.push("(o) the run directory still carries a paragraph-plan-bindings.json, retired (kogaki#1639)"); const bindRec = (parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan").legs || []).flatMap((l) => (l.waypoints || []).map((w) => ({ waypoint: w.waypoint, move: w.move, rationale: w.rationale })));
@@ -703,19 +703,19 @@ else {
   ok(bindRec.length === 3 && bindRows.length === 3, `(o) the Bindings table holds ${bindRows.length} row(s) against the record's ${bindRec.length}`);
   for (const b of bindRec) {
     const row = bindRows.find((x) => x.startsWith(`${b.waypoint}</td>`)) || "";
-    ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.rationale)), `(o) the Bindings row for Leg Waypoint ${b.waypoint} does not carry its point, its Move and the plan file's rationale`);
+    ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.rationale)), `(o) the Bindings row for Brief Waypoint ${b.waypoint} does not carry its point, its Move and the plan file's rationale`);
     const sAt = row.indexOf('<details class="states"><summary>takes / leaves</summary>');
     const fold = sAt >= 0 ? row.slice(sAt, row.indexOf("</details>", sAt) + 10) : "";
     const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
     ok(fold.includes("<table>") && ["takes", "leaves"].every((k) => fold.includes(`<tr><td>${k}</td><td colspan="2">${S.constraintEntriesHtml(mv[k])}</td></tr>`)),
-      `(o) the Bindings row for Leg Waypoint ${b.waypoint} carries no closed takes / leaves fold with the Move's lists`);
+      `(o) the Bindings row for Brief Waypoint ${b.waypoint} carries no closed takes / leaves fold with the Move's lists`);
   }
   // The takes / leaves folds are closed on load and sit inside their binding's own row, so the
-  // table's body holds one row per Leg Waypoint and nothing else (kogaki#1516).
+  // table's body holds one row per Brief Waypoint and nothing else (kogaki#1516).
   const bindBody = bindPart.includes("<tbody>") ? bindPart.slice(bindPart.indexOf("<tbody>") + 7, bindPart.lastIndexOf("</tbody>")) : "";
   const bodyRows = (bindBody.replace(/<details class="states">[\s\S]*?<\/details>/g, "").match(/<tr[\s>]/g) || []).length;
   ok(bodyRows === bindRec.length && !/<details class="states"[^>]*\sopen/.test(bindPart) && !bindPart.includes('<tr class="states">'),
-    `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Leg Waypoint(s), or a takes / leaves fold is open on load`);
+    `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Brief Waypoint(s), or a takes / leaves fold is open on load`);
   // A Round whose judge answer is unreadable is a row carrying the job record's refusal,
   // never a silence read as "no Round was refused".
   const unreadable = join(root, "unreadable-judge-run");
@@ -735,7 +735,7 @@ else {
   for (let i = 1; i <= 3; i++) {
     const at = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0">`);
     const body = at >= 0 ? cards.paragraphPlan.slice(at + `id="planwp-p${i}-0">`.length) : "";
-    ok(body.startsWith(`<p>Point: POINT-${i} names CLAIM-${i} in English</p>`), `(o) the ParagraphPlan Output row for Leg Waypoint ${i} does not open on "Point:" and its point from the Brief`);
+    ok(body.startsWith(`<p>Point: POINT-${i} names CLAIM-${i} in English</p>`), `(o) the ParagraphPlan Output row for Brief Waypoint ${i} does not open on "Point:" and its point from the Brief`);
   }
 
   // (f) the map gates; a stopped Draft still draws
@@ -762,7 +762,7 @@ else {
 }
 
 // (l) A PARAGRAPHPLAN REFUSED ON EVERY ROUND: the run stops at paragraph-plan, and the sheet
-// shows every Round, each refused at Leg Waypoint 2, and an Output of "(not written)".
+// shows every Round, each refused at Brief Waypoint 2, and an Output of "(not written)".
 const lRoot = join(root, "refused-every-round");
 mkdirSync(lRoot, { recursive: true });
 writeFileSync(join(lRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
@@ -783,8 +783,8 @@ if (lRunDir) {
   const blocks = roundBlocks(ppCard);
   ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Rounds part holds ${blocks.length} block(s) against the ${spent} round(s) the job spent`);
   ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused round's block does not show its does-not-fit verdict and why");
-  ok(blocks.slice(1).every((b) => b.includes("site retry at Leg Waypoint 2")), "(l) a refused round after the Leg call is not titled as the site retry at Leg Waypoint 2");
-  ok(blocks.slice(0, -1).every((b) => b.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Leg Waypoint 2")), "(l) a refused round's block does not name where the next site call's prompt is shown");
+  ok(blocks.slice(1).every((b) => b.includes("site retry at Brief Waypoint 2")), "(l) a refused round after the Leg call is not titled as the site retry at Brief Waypoint 2");
+  ok(blocks.slice(0, -1).every((b) => b.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Brief Waypoint 2")), "(l) a refused round's block does not name where the next site call's prompt is shown");
   ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further round: the job ended \`${lJob.state}\``), "(l) the last refused round does not say no further round and the job's state");
   const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part rounds"'));
   ok(output.includes("(not written)"), "(l) the refused run's ParagraphPlan Output does not read (not written)");
@@ -1248,7 +1248,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const plan = body("leg_you_must_plan");
     const leg = plan.leg_you_must_plan;
     const slug = leg.leg_id.replace("-", "_"), ids = plan.paragraph_moves_you_may_bind.map((m) => m.id), mv = (w) => (ids.includes("move_" + slug + "_" + w.waypoint) ? "move_" + slug + "_" + w.waypoint : ids[0]);
-    // One Paragraph Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
+    // One Waypoint per Segment of the bound Move, the validator's count (kogaki#1533).
     const segmentsOf = (id) => (plan.paragraph_moves_you_may_bind.find((m) => m.id === id) || { segments: [{}] }).segments;
     return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: mv(w),
       materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.",
@@ -1447,7 +1447,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       const planB = readOr(join(two.dir, "paragraph-plan", "calls.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
         .map((c) => c.stdin).filter((s) => s.includes('"leg_you_must_plan"') && s.includes('"leg_id": "leg-b"'));
       ok(planB.length >= 1 && planB.every((s) => !s.includes('"obligations_this_leg_owes"') && s.includes('"stands_to_be_taken_up"')),
-        "(v) the plan call for leg-b is handed a row to owe, or not what stands to be taken up at its first Leg Waypoint (kogaki#1701)");
+        "(v) the plan call for leg-b is handed a row to owe, or not what stands to be taken up at its first Brief Waypoint (kogaki#1701)");
     }
   }
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
@@ -1481,7 +1481,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "rounds.json") : "";
     const a = ap && existsSync(ap) ? JSON.parse(readFileSync(ap, "utf8")) : {};
     ok(a.rounds === 2 && Array.isArray(a.refusals) && a.refusals.length === 1
-      && /Claim 2 \(L2\) carries "english" in its `proposition`, which is in no `point` of the Leg Waypoints serving L2 \(read: waypoint 2\)/.test(a.refusals[0]),
+      && /Claim 2 \(L2\) carries "english" in its `proposition`, which is in no `point` of the Brief Waypoints serving L2 \(read: waypoint 2\)/.test(a.refusals[0]),
       `(t) leg-path/rounds.json does not record one refusal naming Claim 2 and the word: ${JSON.stringify(a)}`);
     const brief = readOr(join(tRunDir, "brief", "brief.yaml"), "");
     ok(brief.includes("POINT-2 names CLAIM-2 in English"), "(t) the Brief does not carry the second Leg answer's full point");

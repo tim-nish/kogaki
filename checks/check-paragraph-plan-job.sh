@@ -34,14 +34,14 @@
 
 #   (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM
 #       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
-#       per Leg, one `waypoints` row per Leg Waypoint carrying `point`,
+#       per Leg, one `waypoints` row per Brief Waypoint carrying `point`,
 #       `serves`, `next_point`, `stands_to_be_taken_up` (kogaki#1701),
 #       `terms_this_leg_introduces` and the Move ids, each in the prompt; a site call
 #       appends a `site_calls` row carrying `refused_here`, `fixed` and
 #       `moves_rejected_here`; (c) carries the kept Legs' records; `view --plan`
-#       over the plan (c) wrote prints each Leg Waypoint's point, Move `takes`,
-#       Segments table with each Paragraph Waypoint and Move `leaves`; `--run` adds the
-#       refusals of (b) with the axis they name, each under the Leg Waypoint
+#       over the plan (c) wrote prints each Brief Waypoint's point, Move `takes`,
+#       Segments table with each Waypoint and Move `leaves`; `--run` adds the
+#       refusals of (b) with the axis they name, each under the Brief Waypoint
 #       it names as its site; and an edited Brief is refused.
 
 #   (f) THE MAPPER'S CALL RECORDS ARE LISTED (kogaki#1734): a job directory
@@ -49,7 +49,7 @@
 #       calls' records lists each in `src/workflow/job-report.mjs`, under
 #       `leg-1/reading/waypoint-<n>` and `leg-1/grounding/waypoint-<n>`.
 
-# NOT COVERED, stated rather than implied: the retry inside a Leg -- which Leg
+# NOT COVERED, stated rather than implied: the retry inside a Leg -- which Brief
 # Waypoint is re-planned, and the refusal of an identical Round -- is its own
 # Issue. The Brief's compose job keeps kogaki#1273's sibling kill, asserted by
 # checks/check-brief-job-retry.sh (v4). The plan file's shape is
@@ -97,7 +97,7 @@ writeFileSync(join(moves, "p1.yaml"), stringifyYaml({ id: "p1", description: "a 
 writeFileSync(join(moves, "a_leg_move.yaml"), stringifyYaml({ id: "a_leg_move", description: "a fixture Leg Move.",
   breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
 
-// ---- the Brief: three Legs, one Leg Waypoint each ----
+// ---- the Brief: three Legs, one Brief Waypoint each ----
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
 const leg = (id, point) => ({
   leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
@@ -138,7 +138,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       verdict: refuse ? "does-not-fit" : "fits",
       why: refuse ? "JUDGE-SENTENCE BREAKS Waypoint 1 never reaches the after state." : "they begin at before and end at after." })) });
   }
-  // A site retry (kogaki#1642) answers with the refused entry, its Paragraph Waypoint rewritten.
+  // A site retry (kogaki#1642) answers with the refused entry, its Waypoint rewritten.
   if (prompt.includes('"leg_waypoint_you_must_plan"')) {
     const site = body("leg_waypoint_you_must_plan"), e = site.refused_here[site.refused_here.length - 1].entry;
     appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: site.leg_waypoint_you_must_plan.leg_id }) + "\\n");
@@ -255,7 +255,7 @@ if (refusedRun && refusedRun.job && refusedRun.job.state === "refused") {
     const rec = parseYaml(readFileSync(r.planPath, "utf8"), r.planPath);
     const ids = rec.legs.map((l) => l.leg_id);
     if (JSON.stringify(ids) !== JSON.stringify(["s1", "s2", "s3"])) fails.push(`(c) the plan file does not carry every Leg in order: ${JSON.stringify(ids)}`);
-    for (const l of rec.legs) if (!JSON.stringify(l).includes(`PW-${l.leg_id}`)) fails.push(`(c) the plan file lacks the Paragraph Waypoint of ${l.leg_id}`);
+    for (const l of rec.legs) if (!JSON.stringify(l).includes(`PW-${l.leg_id}`)) fails.push(`(c) the plan file lacks the Waypoint of ${l.leg_id}`);
   }
 } else fails.push("(c) not run: (b) left no refused job to resume from");
 
@@ -283,8 +283,8 @@ if (refusedRun) {
   for (const [i, l] of legs.entries()) {
     const id = `leg-${i + 1}`, rec = inputRecord(refusedRun.runDir, id), prompt = prompts.get(id) || "";
     const row = rec && rec.waypoints && rec.waypoints[0];
-    if (!rec || rec.leg_id !== l.leg_id || rec.waypoints.length !== 1 || !row) { fails.push(`(e) ${id} has no input record of one Leg Waypoint row: ${JSON.stringify(rec)}`); continue; }
-    if (row.point !== l.waypoints[0].point || JSON.stringify(row.serves) !== '["L1"]' || row.next_point !== null) fails.push(`(e) ${id}'s row does not carry the Leg Waypoint's point, serves and next_point: ${JSON.stringify(row)}`);
+    if (!rec || rec.leg_id !== l.leg_id || rec.waypoints.length !== 1 || !row) { fails.push(`(e) ${id} has no input record of one Brief Waypoint row: ${JSON.stringify(rec)}`); continue; }
+    if (row.point !== l.waypoints[0].point || JSON.stringify(row.serves) !== '["L1"]' || row.next_point !== null) fails.push(`(e) ${id}'s row does not carry the Brief Waypoint's point, serves and next_point: ${JSON.stringify(row)}`);
     // What stands to be taken up at a Leg's first Waypoint (kogaki#1701): the Persona's prior
     // knowledge on the first Leg, and on a later one what the previous Leg's Move leaves -- none here.
     const stands = row.stands_to_be_taken_up;
@@ -326,10 +326,10 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   const r = view("--run", refusedRun.runDir);
   const s2r = (r.stdout || "").slice((r.stdout || "").indexOf("## Leg s2"), (r.stdout || "").indexOf("## Leg s3"));
   if (r.status !== 0 || !/JUDGE-SENTENCE BREAKS Waypoint 1[^\n]* — axes: BREAKS/.test(s2r)) fails.push(`(e) view --run does not add (b)'s refusal with its axis: ${(r.stderr || "") + s2r.slice(0, 900)}`);
-  if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a Leg Waypoint met no refusal");
+  if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a Brief Waypoint met no refusal");
   const { legRefusals } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
   const cited = legRefusals({ units: [{ id: "leg-1", refusals: [
-    "Waypoint 3: its 2 rounds are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Leg Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
+    "Waypoint 3: its 2 rounds are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Brief Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
   if (JSON.stringify(cited.map((r) => r.waypoints)) !== "[[3]]") fails.push(`(e) a refusal citing its neighbour is attributed to it: ${JSON.stringify(cited)}`);
   writeFileSync(resumedRun.briefPath, briefText("The fixture claim, edited after the plan."));
   const moved = view("--moves-dir", moves);

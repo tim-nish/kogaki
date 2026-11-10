@@ -61,18 +61,17 @@
   ],
   "version": "1",
   "what_a_leg_is": [
-    "A Leg is one stretch of the Reader Path: the Leg Waypoints that serve one",
-    "higher-order relation of the Brief's RelationalStructure, in order",
-    "(kogaki#1768, owner decision 2026-11-10). A Leg binds no Move: its Waypoints",
-    "are composed from the structure's relations, the Legs are derived over them",
-    "by the runner, and the paragraph Move is bound once, per Leg Waypoint, by",
-    "/paragraph-plan.",
+    "A Leg is one stretch of the Reader Path: the one relation or higher-order relation of the Brief's",
+    "RelationalStructure it serves, stated by that relation's `holds` (kogaki#1775, owner decision",
+    "2026-11-10). The Legs are derived by the runner, one per relation and higher-order relation the apex",
+    "reaches, with no Call: the Brief carries no Waypoint, no Round and no Move, and the paragraphs a Leg",
+    "takes and their Waypoints are the ParagraphPlan's.",
     "",
     "The Leg's shape is the field table below. Every field written for a Leg Move's",
     "binding is retired and refused by name: `move`, `no_move_fits`, `materials`,",
     "`purpose`, `rationale`, `depends_on`, `re-activate`, `introduces`, `journeys`,",
     "`entailed`, `entailment_reasoning`, `bridges`, `names`, `budget`, `figure` and",
-    "`figure_roles`."
+    "`figure_roles`; and on a Leg of a Brief that carries a `structure`, `waypoints`."
   ],
   "fields": {
     "leg_id": {
@@ -83,25 +82,30 @@
     "relation": {
       "required": false,
       "type": "string",
-      "description": "The id of the higher-order relation of the Brief's `structure` this Leg serves, as the derivation's partition records it (kogaki#1768). Present on every Leg of a Brief that carries a `structure`, and refused on a Leg of a Brief that carries none."
+      "description": "The id of the relation or higher-order relation of the Brief's `structure` this Leg serves, `c_<n>` or `h_<n>` (kogaki#1775): the Legs are derived one per relation and higher-order relation the apex reaches. Present on every Leg of a Brief that carries a `structure`, and refused on a Leg of a Brief that carries none."
     },
     "reaches_target": {
       "required": false,
       "type": "boolean",
-      "description": "Present, and true, on exactly ONE Leg of the path: the LAST, the Leg whose last Waypoint carries the apex (kogaki#1768). That Leg is the one that attains the Thesis: the Brief's Reader target heading renders the Thesis (kogaki#1699), and the Brief's derived Thesis row is handed to this Leg (kogaki#1328)."
+      "description": "Present, and true, on exactly ONE Leg of the path: in a Brief that carries a `structure`, the apex's Leg, wherever it sits in the order (kogaki#1775). That Leg is the one that attains the Thesis: the Brief's Reader target heading renders the Thesis (kogaki#1699), and the Brief's derived Thesis row is handed to this Leg (kogaki#1328)."
+    },
+    "text": {
+      "required": false,
+      "type": "string",
+      "description": "What this Leg says, in a Brief that carries a `structure` (kogaki#1775): its relation's `holds` with each `{<Role id>}` written as that Role's `name`, and no other change. Derived by the runner with no Call; no Judge reads it, since the relation already states what the Leg has to say."
     },
     "claims": {
       "required": true,
       "type": "array of claim",
       "min_length": 1,
-      "description": "What this Leg ASSERTS, one entry per Strand its Waypoints serve. A claim is a PROPOSITION ABOUT THE WORLD and names no reader. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below.",
+      "description": "What this Leg ASSERTS, one entry per Strand it serves: in a Brief that carries a `structure`, a higher-order relation's `from`, an ordinary relation's Roles' claims, and for the apex the claims its `relates` reaches (kogaki#1775). A claim is a PROPOSITION ABOUT THE WORLD and names no reader. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below.",
       "see": "claim"
     },
     "waypoints": {
-      "required": true,
+      "required": false,
       "type": "array of waypoint",
       "min_length": 1,
-      "description": "The points this Leg's paragraphs make, as an ORDERED list of waypoints, composed from the Brief's RelationalStructure (kogaki#1768). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326) -- what the paragraph establishes, never how the reader is to feel or what they are handed. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. One waypoint is one paragraph, and /paragraph-plan binds its Move. See `waypoint` below.",
+      "description": "ONLY ON A LEG OF A BRIEF THAT CARRIES NO `structure`, which predates kogaki#1768, and refused naming the field on a Leg of a Brief that carries one (kogaki#1775): the Brief ends at Legs, and only the ParagraphPlan writes Waypoints. There, the points the Leg's paragraphs make, as an ORDERED list, each a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326). Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one. See `waypoint` below.",
       "see": "waypoint"
     },
     "opens_section": {
@@ -161,12 +165,12 @@
     "one_claim_per_strand": {
       "class": "checked",
       "name": "the claims rule -- one claim per Strand, per Leg",
-      "rule": "A Leg asserts ONE claim on behalf of each Strand its Waypoints serve. A Strand that serves several Legs carries its claim in each."
+      "rule": "A Leg asserts ONE claim on behalf of each Strand it serves. A Strand that serves several Legs carries its claim in each."
     },
     "section_rule_1": {
       "class": "judgment",
       "name": "the Section grouping rule 1",
-      "rule": "A Leg OPENS a Section when it changes the reader's question -- its Waypoints carry a higher-order relation the previous Leg did not. This is the positive case and it is the `leg_sections` row's TO JUDGE: nothing checks it."
+      "rule": "A Leg OPENS a Section when it changes the reader's question -- read in its `text`, the relation it serves turns to matter the Legs before it in the current Section did not state, where a higher-order relation's Leg continues the Section of the relations it relates (kogaki#1775). This is the positive case and it is the `leg_sections` row's TO JUDGE: nothing checks it."
     },
     "section_rule_3": {
       "class": "checked",
@@ -181,8 +185,8 @@
     },
     "reaches_target_marked": {
       "class": "checked",
-      "name": "the Reader target Leg -- exactly one Leg marked, and it is the last",
-      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true`, and it is the LAST Leg (kogaki#1768): the derived Legs end on the one whose last Waypoint carries the apex. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which Leg attains the Thesis."
+      "name": "the Reader target Leg -- exactly one Leg marked",
+      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true` (kogaki#1775): in a Brief that carries a `structure` it is the apex's Leg, at any position in the order, since the Brief describes the Reader start and the Reader target and no state between. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which Leg attains the Thesis."
     }
   },
   "claim": {
@@ -269,11 +273,10 @@
       "\"handed\", or when they \"receive\" something. The point is not quoted: its",
       "wording is the writer's.",
       "",
-      "IT CARRIES RELATIONS AND SERVES CLAIMS (kogaki#1768). In a Brief /brief",
-      "composed, `carries` names the relation or higher-order relation ids of the",
-      "Brief's `structure` the point states, and `serves` is derived from them: the",
-      "claims those relations are `from`. A Brief with no `structure` carries no",
-      "`carries`, and a waypoint carrying it there is refused.",
+      "ONLY ON A LEG OF A BRIEF WITH NO `structure` (kogaki#1775). A Brief /brief",
+      "composes from a structure ends at Legs, and a Leg of it carrying `waypoints` is",
+      "refused naming the field; the waypoints below are a Brief's that predates",
+      "kogaki#1768, and the Proof Sheet's and the Mapping Playground's one Leg.",
       "",
       "NO MOVE INFORMATION REACHES THE BRIEF. The paragraph Move each waypoint is",
       "planned with is bound AFTER the Brief, by the ParagraphPlan stage",
@@ -288,12 +291,10 @@
       "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses an",
       "empty list, a waypoint with an empty `point` or an empty `serves`, a waypoint",
       "with no `case` or a `case` other than `own` and `apart`, a Leg whose last",
-      "waypoint is `apart`, a waypoint carrying the retired `effect`, `move` or",
-      "`segments`, a `serves` entry naming a Strand this Leg carries no claim for, a",
-      "claim of this Leg that no waypoint serves, and, in a Brief with a `structure`,",
-      "a waypoint carrying no `carries` or a `carries` id not in it -- each naming the",
-      "Leg and the waypoint. Whether a point is grounded in what it carries is",
-      "judged, by the GROUNDED judgment, and never a lint."
+      "waypoint is `apart`, a waypoint carrying the retired `effect`, `move`,",
+      "`segments` or `carries`, a `serves` entry naming a Strand this Leg carries no",
+      "claim for, and a claim of this Leg that no waypoint serves -- each naming the",
+      "Leg and the waypoint."
     ],
     "fields": {
       "point": {
@@ -307,12 +308,6 @@
         "min_length": 1,
         "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
       },
-      "carries": {
-        "required": false,
-        "type": "array of string",
-        "min_length": 1,
-        "description": "The relation or higher-order relation ids of the Brief's `structure` this point states (kogaki#1768). Required in a Brief that carries a `structure`, refused in one that carries none."
-      },
       "case": {
         "required": true,
         "type": "string",
@@ -325,10 +320,9 @@
     }
   },
   "what_is_judged_elsewhere": [
-    "Nothing here is a lint over a judgment. Whether a point is grounded in the",
-    "relations it carries is judged by the GROUNDED judgment at composition, and",
-    "whether a Section opens where the reader's question changes by the",
-    "`leg_sections` row; a refusal from this file always names a SHAPE.",
+    "Nothing here is a lint over a judgment. Whether a Section opens where the",
+    "reader's question changes is judged by the `leg_sections` row; a refusal from",
+    "this file always names a SHAPE.",
     "",
     "Every MUST is judgment, and nothing becomes a lint -- which is the rule this paragraph is an instance of."
   ]

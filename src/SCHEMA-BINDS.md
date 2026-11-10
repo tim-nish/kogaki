@@ -49,12 +49,12 @@ it does not read, and empty where the stage does not read the schema at all.
 | `leg_id` | unread | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |
 | `relation` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |
 | `reaches_target` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |
+| `text` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |
 | `claims` | unread | excluded | excluded | unread | unread | unread | unread | content | content | content |  |  | excluded |  |  |  |  |
 | `waypoints` | unread | unread | unread | unread | unread | structural | unread | content |  |  |  |  |  |  |  |  |  |
 | `opens_section` | unread | unread | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |  |  |
 | `waypoints.point` | unread | unread | unread | unread | unread | content | excluded | content | content |  |  |  |  | excluded |  |  | excluded |
 | `waypoints.serves` | unread | unread | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |
-| `waypoints.carries` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |
 | `waypoints.case` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.

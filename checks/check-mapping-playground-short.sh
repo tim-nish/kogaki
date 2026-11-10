@@ -4,10 +4,10 @@
 #       two correspondence calls, the waypoints and the writer calls recorded, and its files and trial.json fields are written;
 #       `rbs.yaml` carries `variant: composed`, two `tables` whose `move`s match the two bindings, each with its `base.domain` and one
 #       correspondence per Role, no root `base` or `correspondences`, and the two bindings; each Move's Calls are kept under
-#       `grounding/<move>/` (kogaki#1709); the waypoints call's stdin carries two Leg Waypoints, each with the Move `bind`
+#       `grounding/<move>/` (kogaki#1709); the waypoints call's stdin carries two Brief Waypoints, each with the Move `bind`
 #       bound, the second's `point` the structure in the inference table's expressions, and the `tables`; `bind.yaml`'s
 #       `paragraphs` has two entries, and the sheet carries two Segments tables and two Binding tables. A base Move leaving no
-#       `carry` writes one correspondence call, one table, one paragraph, one Leg Waypoint, one binding and one `Base:` line.
+#       `carry` writes one correspondence call, one table, one paragraph, one Brief Waypoint, one binding and one `Base:` line.
 #   (b) `--mapper sme_map_roles --compose` records six calls and `structure.author: mapper`.
 #   (c) `--rbs` is refused naming `--compose` and `--rbs-file`, and a run with neither is refused naming both, with nothing written.
 
@@ -22,7 +22,7 @@
 
 #   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet's first numbered line is each `holds` in order with
 #       every `{<Role id>}` replaced by its correspondence's `expression` and no Role id (kogaki#1688, kogaki#1693); the fake
-#       waypoints answer sets `cast: { terse: true }` on the first Paragraph Waypoint alone, and the Packet carries `*Cast:* terse`
+#       waypoints answer sets `cast: { terse: true }` on the first Waypoint alone, and the Packet carries `*Cast:* terse`
 #       on the line beneath it and no other `*Cast:*` line (kogaki#1695).
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
@@ -31,7 +31,7 @@
 #       Table per paragraph, each under its own `Base: <domain>` line and captioned `Paragraph <n>` with its Move (kogaki#1709),
 #       headed `Role`, `Abstract`, `Attribute`, `Correspondence` with no `Abstract` cell opening on a Role id (kogaki#1716), the
 #       fixture's attribute word in its Role's `Attribute` cell, and no kind word (kogaki#1693); and the Segments table's point
-#       cell carries its true cast keys in a `meta` span, on the one Paragraph Waypoint whose cast sets one (kogaki#1695).
+#       cell carries its true cast keys in a `meta` span, on the one Waypoint whose cast sets one (kogaki#1695).
 
 #   (g) an `expression` or a `role` sharing a word with the `proposition:` is accepted, in a table and in the owner's file, and
 #       against the guard-reach proposition "the openings the panel has been set to sound on" is accepted while Base Paragraph
@@ -87,10 +87,10 @@
 #       group `case`, one with `case: own` and an `inference_move` in group `case`, and a missing or unknown `case` or a
 #       `rationale` in group `shape`; the base Move's correspondence stdin carries the declared `case` and the inference Move's
 #       carries `own`; `bind.yaml`'s Base Paragraph entry carries the added `carry` naming its table's `base.domain` under
-#       `apart`, and the waypoints call hands it to the Inference Paragraph's Leg Waypoint as `stands_to_be_taken_up`;
+#       `apart`, and the waypoints call hands it to the Inference Paragraph's Brief Waypoint as `stands_to_be_taken_up`;
 #       Binding 1 shows the `Case` row; and a Trial whose last Move leaves an `apply` shows it under `Left unmet` on
 #       the last Binding table, `none` where no entry is left.
-#   (w) the short Trial's Leg Waypoints carry `case` (kogaki#1732): the first takes the declared case and every later one
+#   (w) the short Trial's Brief Waypoints carry `case` (kogaki#1732): the first takes the declared case and every later one
 #       `own`; on the owner's route `legCase` reads `apart` where the file binds a Move after the first, else `own`.
 set -u
 cd "$(dirname "$0")/.."
@@ -135,7 +135,7 @@ const mapped = { strand: CITE,
 const structure = join(root, "structure.yaml");
 writeFileSync(structure, stringifyYaml(mapped));
 const ROLE_IDS = mapped.roles.map((r) => r.id);
-// The first Leg Waypoint's point (kogaki#1688).
+// The first Brief Waypoint's point (kogaki#1688).
 const pointOf = (holds, base) => holds.map((h) => h.replace(/\{([^{}\s]+)\}/g, (_, id) => base(id))).map((h) => h[0].toUpperCase() + h.slice(1)).join(" ");
 
 // ---- the one fake model binary ----
@@ -286,7 +286,7 @@ ok(aLeg && aLeg.waypoints.length === 2 && aLeg.waypoints[1].point === SECOND && 
   && aLeg.waypoints[0].move === MOVE && aLeg.waypoints[1].move === INFER
   && JSON.stringify(aIn.tables) === JSON.stringify(TABLES) && !Object.hasOwn(aIn, "correspondences")
   && JSON.stringify(aIn.paragraph_moves_you_may_bind.map((m) => m.id)) === JSON.stringify([MOVE, INFER]),
-  `(a) the waypoints call's stdin does not carry two Leg Waypoints with their bound Moves, the second's point the structure in the inference table's expressions, and the tables: ${JSON.stringify(aLeg && aLeg.waypoints)}`);
+  `(a) the waypoints call's stdin does not carry two Brief Waypoints with their bound Moves, the second's point the structure in the inference table's expressions, and the tables: ${JSON.stringify(aLeg && aLeg.waypoints)}`);
 const aBindIn = a.calls("bind").length ? inputOf(a.calls("bind")[0].stdin, "structure") : null;
 const aMoveIn = aBindIn && (aBindIn.moves || []).find((m) => m.id === MOVE);
 ok(aBindIn && aBindIn.persona && aBindIn.persona.prior_knowledge && aMoveIn && typeof aMoveIn.description === "string"
@@ -296,7 +296,7 @@ const aBindYaml = existsSync(join(a.o, "bind.yaml")) ? parseYaml(readFileSync(jo
 ok(Array.isArray(aBindYaml.paragraphs) && aBindYaml.paragraphs.length === 2 && JSON.stringify(rec.bind.paragraphs) === JSON.stringify(aBindYaml.paragraphs)
   && aBindYaml.paragraphs.every((e) => typeof e.move === "string" && e.binding_rationale === RATIONALE && e.paragraph_waypoints.length > 0),
   `(a) bind.yaml's paragraphs is not two entries of { move, binding_rationale, leaves, paragraph_waypoints }: ${JSON.stringify(aBindYaml.paragraphs)}`);
-// a base Move leaving no carry: one paragraph, one Leg Waypoint, one binding
+// a base Move leaving no carry: one paragraph, one Brief Waypoint, one binding
 const a1 = run("composed-alone", ["--structure", structure, "--compose"], { SMP_BIND_ANSWERS: answers("bind-alone", [ALONE]) });
 const a1Leg = a1.calls("waypoints").length ? (inputOf(a1.calls("waypoints")[0].stdin, "leg_you_must_plan") || {}).leg_you_must_plan : null;
 const a1Rbs = existsSync(join(a1.o, "rbs.yaml")) ? parseYaml(readFileSync(join(a1.o, "rbs.yaml"), "utf8"), "rbs") : {};
@@ -306,7 +306,7 @@ ok(a1.res.status === 0 && stagesOf(a1.rec) === STAGES && a1Leg && a1Leg.waypoint
   && a1.calls("grounding").length === 1 && (a1Rbs.tables || []).length === 1 && a1Rbs.tables[0].move === PLAIN
   && (a1Sheet.match(/<p class="meta">Base: /g) || []).length === 1
   && (a1Sheet.match(/<caption>Paragraph \d+ <span class="meta">[^<]*<\/span><\/caption><thead><tr><th>#/g) || []).length === 1 && (a1Sheet.match(/<caption>Binding \d+<\/caption>/g) || []).length === 1,
-  `(a) a base Move leaving no carry did not write one paragraph, one Leg Waypoint and one binding: ${a1.res.status} ${stagesOf(a1.rec)} ${JSON.stringify(a1Leg && a1Leg.waypoints)} ${a1.res.stderr}`);
+  `(a) a base Move leaving no carry did not write one paragraph, one Brief Waypoint and one binding: ${a1.res.status} ${stagesOf(a1.rec)} ${JSON.stringify(a1Leg && a1Leg.waypoints)} ${a1.res.stderr}`);
 
 // (e) the writer's stdin is the Packet; its first numbered line is the structure in the Correspondence expressions
 const w = a.calls("write");
@@ -315,7 +315,7 @@ ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(e) the writer's
 const pLines = (packet || "").split("\n");
 const castAt = pLines.findIndex((l) => l.includes("PW-1-1 the gardener and the planting chart and a flower bed hold together."));
 ok(castAt !== -1 && pLines[castAt + 1] === "      *Cast:* terse" && pLines.filter((l) => l.includes("*Cast:*")).length === 1,
-  `(e) the Packet does not carry \`*Cast:* terse\` beneath the first Paragraph Waypoint alone: ${JSON.stringify(pLines.slice(castAt, castAt + 2))}`);
+  `(e) the Packet does not carry \`*Cast:* terse\` beneath the first Waypoint alone: ${JSON.stringify(pLines.slice(castAt, castAt + 2))}`);
 const aTop = pLines.find((l) => /^1\. .* \*Serves:\* /.test(l)) || "";
 const byBase = new Map(GARDEN.correspondences.map((c) => [c.role, c.expression]));
 const WANT = pointOf([...mapped.relations.map((x) => x.holds), mapped.higher_order.holds], (id) => byBase.get(id));
@@ -469,7 +469,7 @@ ok(j.res.status === 0 && stagesOf(j.rec) === STAGES && jCalls.length === 1 && j.
   && j.rec.rbs.variant === "owner-authored" && fileOk(j.rec.rbs) && j.rec.rbs.source && j.rec.rbs.source.sha256 === sha(ownedFile),
   `(j) the --rbs-file run did not make one call with bind.state supplied: ${j.res.status} ${stagesOf(j.rec)} ${jCalls.length} ${JSON.stringify(j.rec && j.rec.bind)} ${j.res.stderr}`);
 const jPacket = existsSync(join(j.o, "write", "packet.md")) ? readFileSync(join(j.o, "write", "packet.md"), "utf8") : "";
-ok(jPacket.includes("OWNED-1 the crew") && jPacket.includes(`OWNED-${SEGMENTS} the crew`), "(j) the Packet does not carry the supplied points as its Paragraph Waypoints");
+ok(jPacket.includes("OWNED-1 the crew") && jPacket.includes(`OWNED-${SEGMENTS} the crew`), "(j) the Packet does not carry the supplied points as its Waypoints");
 const jNo = run("owned-unprojected", ["--structure", wide, "--rbs-file", unprojectedFile]);
 ok(jNo.res.status !== 0 && jNo.res.stderr.includes("`projection`") && jNo.seen.length === 0 && !existsSync(jNo.o),
   `(j) an owner's file without projection was not refused naming projection: ${jNo.res.status} ${jNo.res.stderr}`);
@@ -553,7 +553,7 @@ ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === Str
 ok(!sheet.includes("serves L") && !jSheet.includes("serves L"), "(f) a sheet still carries `serves L`");
 ok(section(sheet, "segments").includes('<td>PW-1-1 the gardener and the planting chart and a flower bed hold together. <span class="meta">terse</span></td>')
   && (section(sheet, "segments").match(/class="meta">terse</g) || []).length === 1,
-  "(f) the Segments table's point cell of the Paragraph Waypoint whose cast sets `terse` does not carry it in a meta span, alone (kogaki#1695)");
+  "(f) the Segments table's point cell of the Waypoint whose cast sets `terse` does not carry it in a meta span, alone (kogaki#1695)");
 const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption>${caption}</caption>([\\s\\S]*?)</table>`, "g"))].map((x) => x[1]);
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
 const labelsOf = (table) => [...table.matchAll(/<th rowspan="\d+">([\s\S]*?)<\/th>/g)].map((x) => x[1]);
@@ -865,8 +865,8 @@ ok(JSON.stringify(vBase.leaves) === JSON.stringify([{ kind: "carry", what: CARRY
   && JSON.stringify(((aBindYaml.paragraphs || [])[1] || {}).leaves) === "[]",
   `(v) bind.yaml's Base Paragraph entry does not carry the Move's leaves and the added carry under apart: ${JSON.stringify(vBase.leaves)}`);
 const vStands = ((aLeg && aLeg.waypoints[1]) || {}).stands_to_be_taken_up || [];
-ok(vStands.some((x) => x.kind === "carry" && x.what === ADDED.what && x.left_by === "Leg Waypoint 1"),
-  `(v) the waypoints call does not hand the Inference Paragraph's Leg Waypoint the Base Paragraph's added carry: ${JSON.stringify(vStands)}`);
+ok(vStands.some((x) => x.kind === "carry" && x.what === ADDED.what && x.left_by === "Brief Waypoint 1"),
+  `(v) the waypoints call does not hand the Inference Paragraph's Brief Waypoint the Base Paragraph's added carry: ${JSON.stringify(vStands)}`);
 const a1Bind = existsSync(join(a1.o, "bind.yaml")) ? parseYaml(readFileSync(join(a1.o, "bind.yaml"), "utf8"), "bind") : {};
 const plainLast = moveContract(PLAIN, resolve(repo, library)).segments.length;
 ok(JSON.stringify(((a1Bind.paragraphs || [])[0] || {}).leaves) === JSON.stringify([{ kind: "apply", what: PLAIN_LEAVES, segment: plainLast }])
@@ -879,7 +879,7 @@ ok(a1Binding && JSON.stringify(labelsOf(a1Binding)) === JSON.stringify(["Move", 
   && rowOf(a1Binding, "Case") === "<td>own</td></tr>" && rowOf(a1Binding, "Left unmet") === `<td>${esc(`apply: ${PLAIN_LEAVES}`)}</td></tr>`,
   `(v) a Trial whose last Move leaves an apply does not show it under Left unmet: ${a1Binding}`);
 
-// (w) the short Trial's Leg Waypoints carry `case` (kogaki#1732).
+// (w) the short Trial's Brief Waypoints carry `case` (kogaki#1732).
 {
   const tbl = { correspondences: [] };
   const st = { relations: [{ holds: "a holds" }], higher_order: [{ holds: "b holds" }] };

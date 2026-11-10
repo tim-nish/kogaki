@@ -184,8 +184,8 @@ export function targetLegIndex(legs) {
 // THE PARAGRAPH OBLIGATION RECORD (kogaki#1612, kogaki#1620; SPEC-draft-pipeline "Obligations").
 // The Leg-scale ledger is retired (kogaki#1699); the ParagraphPlan's Leg still carries these
 // records until the ParagraphPlan's Issue. An Obligation is `{opened_by, items}`: `opened_by`
-// the Leg Waypoint that opens the promise, and `items` `{item, closed_by, subitems?}` in the
-// order it names them -- `closed_by` the Leg Waypoint that explains the item, or `null` while it
+// the Brief Waypoint that opens the promise, and `items` `{item, closed_by, subitems?}` in the
+// order it names them -- `closed_by` the Brief Waypoint that explains the item, or `null` while it
 // is open, and `subitems` the `{item, closed_by}` parts it names, one level deep. `pos` maps a
 // unit to its place.
 // The retired keys are refused by name. Four of them are composed rather than spelled, so the
@@ -326,12 +326,11 @@ export function obligationItemsAt(o, pos, unit) {
   if (at === opened) return items.map(copy);
   return items.filter((e) => e.closed_by === null || pos(e.closed_by) >= at).map(copy);
 }
-// THE READER TARGET LEG (kogaki#1231, owner decision 2026-09-30, reversing
-// kogaki#1225's last-Leg derivation): exactly one Leg is marked
-// `reaches_target`, and it is the last (kogaki#1768: the derived Legs end on
-// the one whose last Waypoint carries the apex). Run after every Leg
-// is known to be well formed, for the reason `sectionGroupingRefusal` runs
-// there: this is a statement about a Leg's position relative to the whole
+// THE READER TARGET LEG (kogaki#1231, owner decision 2026-09-30): exactly one
+// Leg is marked `reaches_target`, at any position (kogaki#1775: in a Brief that
+// carries a `structure` it is the apex's Leg, which `pathReachRefusal` checks).
+// Run after every Leg is known to be well formed, for the reason
+// `sectionGroupingRefusal` runs there: this is a statement about the whole
 // path, not about one Leg alone. Returns a string to refuse with, or null.
 export function readerTargetLegRefusal(legs) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
@@ -341,9 +340,6 @@ export function readerTargetLegRefusal(legs) {
       marked.length === 0
         ? "No Leg of this path carries `reaches_target: true`."
         : `${marked.length} Legs carry it: ${marked.map((i) => at(i)).join(", ")}.`);
-  }
-  if (marked[0] !== legs.length - 1) {
-    return pathRefusal("reaches_target_marked", at(marked[0]), `It is not the last Leg: ${at(legs.length - 1)} follows it.`);
   }
   return null;
 }

@@ -54,26 +54,17 @@ const fails = [];
   }
 }
 
-// (c) THE MOVE-FIT INPUT IS RETIRED (kogaki#1768): a Leg binds no Move, so the compose unit's
-// second Call is the GROUNDED judge, whose input carries the structure and each Waypoint's
-// `point` and `carries` -- no Move contract, no state and no slot.
+// (c) THE MOVE-FIT INPUT AND THE GROUNDED JUDGE ARE RETIRED (kogaki#1768, kogaki#1775): a Leg
+// binds no Move and its text is its relation's `holds`, derived with no Call, so the unit module
+// exports neither the Move-fit input nor the GROUNDED judge's.
 {
   const unit = await import("./src/brief/reader-path-unit.mjs");
-  for (const gone of ["readerPathFitInput", "readerPathFitVerdict"]) {
-    if (gone in unit) fails.push(`(c) src/brief/reader-path-unit.mjs still exports the retired Move-fit \`${gone}\``);
-  }
-  const structure = { relations: [{ id: "r1", holds: "a cause has a consequence." }], higher_order: [], attains_thesis: "r1" };
-  const input = unit.groundedInput({ waypoints: [{ point: "a cause has the consequence it has", carries: ["r1"] }] }, structure);
-  if (input.structure !== structure || JSON.stringify(input.waypoints) !== JSON.stringify([{ waypoint: 1, point: "a cause has the consequence it has", carries: ["r1"] }])) {
-    fails.push(`(c) the GROUNDED input does not carry the structure and each Waypoint's point and carries: ${JSON.stringify(input)}`);
-  }
-  const text = JSON.stringify(input);
-  for (const gone of ["\"takes\"", "\"leaves\"", "move_contracts", "\"before\"", "\"after\"", "deferred_slots", "obligations_raised"]) {
-    if (text.includes(gone)) fails.push(`(c) the GROUNDED input still carries ${gone}`);
+  for (const gone of ["readerPathFitInput", "readerPathFitVerdict", "groundedInput", "groundedPrompt", "groundedVerdict", "validateBriefWaypoints"]) {
+    if (gone in unit) fails.push(`(c) src/brief/reader-path-unit.mjs still exports the retired \`${gone}\``);
   }
 }
 
-// (g) readerTargetLegRefusal — exactly one Leg marked, and it is the last (kogaki#1768).
+// (g) readerTargetLegRefusal — exactly one Leg marked, at any position (kogaki#1768, kogaki#1775).
 {
   const base = () => ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
 
@@ -92,8 +83,7 @@ const fails = [];
   const middle = base();
   middle[1].reaches_target = true;
   const rMiddle = readerTargetLegRefusal(middle);
-  if (!rMiddle) fails.push("(g) a path marking a Leg before its last was not refused");
-  else if (!/leg 2 \(leg2\)/.test(rMiddle) || !/It is not the last Leg: leg 3 \(leg3\) follows it/.test(rMiddle)) fails.push(`(g) the not-last refusal did not name the Leg and the one following it: ${rMiddle}`);
+  if (rMiddle) fails.push(`(g) a path marking one Leg before its last was refused, though the apex's Leg stands at any position (kogaki#1775): ${rMiddle}`);
 
   const last = base();
   last[2].reaches_target = true;
@@ -101,12 +91,12 @@ const fails = [];
   if (rLast) fails.push(`(g) exactly one Leg, the last, marked reaches_target was refused: ${rLast}`);
 }
 
-// (h) NO LEG CLOSES AFTER THE TARGET (kogaki#1768, retiring kogaki#1231's closing-Leg rule): the
-// marked Leg is the last, so a Leg after it is refused by the marking rule itself, whatever it
-// carries, and no Leg carries `introduces` at all.
+// (h) A LEG MAY FOLLOW THE TARGET (kogaki#1775, retiring kogaki#1768's last-Leg rule): the Legs
+// run in the structure's post-order, so the apex's Leg is marked wherever it stands, and no Leg
+// carries `introduces` at all (retiring kogaki#1231's closing-Leg rule).
 {
   const after = readerTargetLegRefusal([{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true }, { leg_id: "leg3" }]);
-  if (!after || !/leg 3 \(leg3\) follows it/.test(after)) fails.push(`(h) a Leg after the marked one was not refused naming it: ${after}`);
+  if (after) fails.push(`(h) a Leg after the marked one was refused, though the marked Leg stands at any position: ${after}`);
   const carrying = validateLegs(PATH_1260({ introduces: ["term"] }));
   if (!carrying.error || !/leg 1 \(s1\): carries `introduces`, which is retired/.test(carrying.error)) fails.push(`(h) a Leg carrying introduces was not refused by name: ${carrying.error}`);
 }
@@ -192,5 +182,5 @@ if (fails.length > 0) {
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — a Brief record carrying obligations, closure, discharges, reader_start or reader_target and a Leg carrying reader_state_after or reader_state_before refused naming the key, the retired Move-fit input replaced by a GROUNDED input carrying no Move contract (kogaki#1768), the reaches_target marking rule with the last Leg marked and no Leg after it, no Leg carrying introduces or names, the mark reaching the Packet, an introduces entry carrying no kind, and the ledger folding nothing in (kogaki#1229, kogaki#1231, kogaki#1568, kogaki#1699, kogaki#1768).");
+console.log("ok: check-brief-obligations — a Brief record carrying obligations, closure, discharges, reader_start or reader_target and a Leg carrying reader_state_after or reader_state_before refused naming the key, the retired Move-fit input and GROUNDED judge exported no more, and the Reader target Leg marked at any position (kogaki#1768, kogaki#1775), the reaches_target marking rule with the last Leg marked and no Leg after it, no Leg carrying introduces or names, the mark reaching the Packet, an introduces entry carrying no kind, and the ledger folding nothing in (kogaki#1229, kogaki#1231, kogaki#1568, kogaki#1699, kogaki#1768).");
 JS

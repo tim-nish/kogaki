@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # check-brief-path-review-job — path review as a Detached Job, one unit per
 # Candidate (kogaki#1301), driven by `job await` alone from a finished
-# Reader-path job to CANDIDATE_SELECTION: (x1)-(x6). Since kogaki#1768 the
+# minted Brief to CANDIDATE_SELECTION: (x1)-(x6). Since kogaki#1768 the
 # Brief composes ONE Candidate, the Reader Path derived from the adopted
-# structure: the compose job's one unit carries Leg Waypoints, the Harness
-# derives the Legs and makes the one synchronous `leg_sections` call, and the
-# path-review job reviews that one Candidate.
+# structure, and since kogaki#1775 `compose_path` starts no job: the Harness
+# derives one Leg per relation the apex reaches, with no Call, makes the
+# synchronous renderings and `leg_sections` calls, and the path-review job
+# reviews that one Candidate.
 # Cut from check-brief-reader-path-job.sh by kogaki#1464.
 set -u
 cd "$(dirname "$0")/.."
@@ -43,17 +44,16 @@ import {
 } from "./checks/fixtures/brief-reader-path-job/fixtures.mjs";
 const fails = [];
 
-// (x) kogaki#1301, kogaki#1768: PATH REVIEW IS A DETACHED JOB, ONE UNIT PER CANDIDATE, and
-// since kogaki#1768 the Brief composes exactly one Candidate, the Reader Path. A run directory
-// standing after `mint`, its Brief carrying the adopted structure, beside a `done` reader-path
-// job whose one `reader-path` unit carries the Leg Waypoints, is driven by `job await` alone
-// against a fake judge that answers the `leg_sections` call and the review unit, and logs each
-// call. (x1) the one unit's prompt holds the one Candidate and the structure; (x2) a `done`
-// review unit assembles to the record keyed by `candidate_id`; (x3) a review unit refused every
-// Round leaves no Candidate to offer, and `review_path` refuses naming that, never reaching
-// CANDIDATE_SELECTION; (x4) the one synchronous judge call is `leg_sections`, at
-// `compose_path`'s resumption, and no `review_path` call is synchronous; (x6) a compose job
-// whose one unit was refused writes no Waypoint and names the unit as excluded.
+// (x) kogaki#1301, kogaki#1768, kogaki#1775: PATH REVIEW IS A DETACHED JOB, ONE UNIT PER
+// CANDIDATE, and the Brief composes exactly one Candidate, the Reader Path. A run directory
+// standing after `mint`, its Brief carrying the adopted structure, is advanced once -- `compose_path`
+// derives the Legs with no Call and starts no job -- and then driven by `job await` alone against
+// a fake judge that answers the renderings call, the `leg_sections` call and the review unit, and
+// logs each call. (x1) the one unit's prompt holds the one Candidate, its four derived Legs, and the
+// structure; (x2) a `done` review unit assembles to the record keyed by `candidate_id`; (x3) a review
+// unit refused every Round leaves no Candidate to offer, and `review_path` refuses naming that, never
+// reaching CANDIDATE_SELECTION; (x4) the synchronous judge calls are the renderings and `leg_sections`
+// calls, and no `review_path` call is synchronous; (x6) `compose_path` writes no reader-path job.
 {
   const { composeBrief } = await import("./src/brief.mjs");
   const { withApex } = await import("./src/compose/structure.mjs");
@@ -70,12 +70,6 @@ const fails = [];
       { id: "c_2", name: "opens", between: ["r_1", "r_2"], holds: "{r_1} opens when {r_2} stops.", from: "L1" }],
     higher_order: [{ id: "h_1", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] }],
   }, { name: "apex", relates: ["h_1"], holds: CLAIM }, CLAIMS);
-  // THE LEG WAYPOINTS THE COMPOSE UNIT RETURNED: two under h_1, the apex last, so the Harness derives two Legs.
-  const WAYPOINTS = [
-    { point: "Guards fail when they read nobody.", carries: ["c_1"] },
-    { point: "Guards open when nobody feeds them.", carries: ["c_2", "h_1"] },
-    { point: CLAIM, carries: ["h_2"] },
-  ];
   const calls = join(base, "calls.jsonl");
   const judgeText = (refuseReview) => `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
@@ -90,7 +84,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   appendFileSync(${JSON.stringify(calls)}, JSON.stringify({ format, head }) + "\\n");
   const input = JSON.parse(prompt.slice(prompt.indexOf(${JSON.stringify(JUDGE_INPUT_MARKER)}) + ${JUDGE_INPUT_MARKER.length}));
   let record;
-  if (head.includes("\`leg_sections\`")) {
+  if (head.includes("\`renderings_unit\`")) {
+    record = { version: "1", renderings: [] };
+  } else if (head.includes("\`leg_sections\`")) {
     record = { sections: [{ leg_id: input.legs[0].leg_id, opens_section: "Guards and what feeds them" }] };
   } else if (head.includes("\`review_path_unit\`")) {
     const x = input.candidate_you_must_review;
@@ -131,25 +127,28 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   };
   const env = (dir, j) => ({ ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"),
     KOGAKI_JUDGE_CLI: j });
+  const advanceIn = (dir, j = judge) => spawnSync(process.execPath, ["src/brief.mjs", "run"],
+    { cwd: root, timeout: 60000, encoding: "utf8", env: env(dir, j),
+      input: JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s-x", tool_use_id: "toolu_x_0" }) });
   const awaitIn = (dir, j = judge) => spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
     { cwd: root, timeout: 60000, encoding: "utf8", env: env(dir, j) });
   const recOf = (dir) => JSON.parse(readFileSync(runRecordPath(dir), "utf8"));
   const drive = (dir, j = judge) => {
-    const outputs = [awaitIn(dir, j)];
+    const outputs = [advanceIn(dir, j)];
     for (let i = 0; i < 6 && recOf(dir).awaiting !== "CANDIDATE_SELECTION" && !recOf(dir).done
       && /Executor STOPPED at review_path|already open/.test(outputs[outputs.length - 1].stdout || ""); i++) outputs.push(awaitIn(dir, j));
     return { outputs, seen: JSON.stringify(outputs.map((o) => ({ status: o.status, stdout: (o.stdout || "").slice(-400), stderr: (o.stderr || "").slice(-400) }))) };
   };
-  const composeJob = (dir, units) => writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
-    started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done", units,
-  }, null, 2) + "\n");
   const now = new Date().toISOString();
 
   const dir = mkRun("live");
-  composeJob(dir, [{ id: "reader-path", status: "done", bytes: 50, rounds: 1, candidate: { waypoints: WAYPOINTS } }]);
   const { outputs, seen } = drive(dir);
   const rec = recOf(dir);
-  if (!/Executor STOPPED at review_path/.test(outputs[0].stdout || "")) fails.push(`(x4) the resumed reader-path job did not stop at review_path's own job start: ${seen}`);
+  if (!/Executor STOPPED at review_path/.test(outputs[0].stdout || "")) fails.push(`(x4) the advance past compose_path did not stop at review_path's own job start: ${seen}`);
+  // (x6) compose_path STARTS NO JOB (kogaki#1775): no reader-path job record stands at the run directory.
+  if (existsSync(join(dir, "reader-path-job.json")) || existsSync(join(dir, "reader-path-waypoints.json"))) {
+    fails.push("(x6) compose_path left a reader-path job record or a Waypoint file at the run directory -- it derives its Legs with no Call");
+  }
   if (rec.awaiting !== "CANDIDATE_SELECTION") fails.push(`(x4) the run did not reach CANDIDATE_SELECTION with the review done by the job: awaiting=${rec.awaiting} ${seen}`);
 
   // (x1) the one Candidate in the one unit prompt, with the structure, as the supervisor was handed it.
@@ -161,9 +160,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const input = JSON.parse(u.prompt.slice(u.prompt.indexOf(JUDGE_INPUT_MARKER) + JUDGE_INPUT_MARKER.length));
     const own = input.candidate_you_must_review;
     if (!own || own.candidate_id !== "reader-path" || map[u.id] !== "reader-path"
-      || JSON.stringify((own.legs || []).map((l) => [l.leg_id, l.relation, l.waypoints.length])) !== '[["L1","h_1",2],["L2","h_2",1]]'
+      || JSON.stringify((own.legs || []).map((l) => [l.leg_id, l.relation, typeof l.text, "waypoints" in l])) !== '[["L1","c_1","string",false],["L2","c_2","string",false],["L3","h_1","string",false],["L4","h_2","string",false]]'
       || !input.structure || input.structure.attains_thesis !== "h_2" || Object.hasOwn(input.structure.higher_order[1], "from")) {
-      fails.push(`(x1) unit ${u.id}'s prompt does not hold the one Reader Path, its two derived Legs, and the structure: ${JSON.stringify({ own: own && own.candidate_id, map: map[u.id], legs: own && own.legs })}`);
+      fails.push(`(x1) unit ${u.id}'s prompt does not hold the one Reader Path, its four derived Legs, and the structure: ${JSON.stringify({ own: own && own.candidate_id, map: map[u.id], legs: own && own.legs })}`);
     }
   }
   if (declared.record_array !== "claim_register" || !declared.validator || declared.validator.export !== "validateReviewPathUnit") {
@@ -175,13 +174,15 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     fails.push(`(x1) CANDIDATE_SELECTION offers ${JSON.stringify(decl.run_composed_option_ids)} with ${JSON.stringify(decl.excluded_candidates)} above it, want ["reader-path"] and nothing excluded`);
   }
 
-  // (x4) the one synchronous call is `leg_sections`; no `review_path` call is synchronous, and the detector fires.
+  // (x4) the synchronous calls are the renderings and `leg_sections` calls; no `review_path` call is synchronous, and the detector fires.
   const isSyncReviewPath = (call) => call.format !== "stream-json" && call.head.includes("`review_path`");
   const logged = existsSync(calls) ? readFileSync(calls, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
   if (logged.some(isSyncReviewPath)) fails.push(`(x4) a synchronous review_path judge call was made: ${JSON.stringify(logged)}`);
   if (logged.filter((c) => c.format === "stream-json" && c.head.includes("`review_path_unit`")).length !== 1) fails.push(`(x4) the one path-review unit did not reach the judge once: ${JSON.stringify(logged)}`);
   const sync = logged.filter((c) => c.format !== "stream-json");
-  if (sync.length !== 1 || !sync[0].head.includes("`leg_sections`")) fails.push(`(x4) the synchronous judge calls are not the one leg_sections call (kogaki#1768): ${JSON.stringify(sync)}`);
+  if (sync.length !== 2 || !sync[0].head.includes("`renderings_unit`") || !sync[1].head.includes("`leg_sections`")) {
+    fails.push(`(x4) the synchronous judge calls are not the renderings call and the one leg_sections call (kogaki#1768, kogaki#1775): ${JSON.stringify(sync)}`);
+  }
   const reviewRow = briefTable.states.find((s) => s.id === "review_path");
   const syncHead = judgePrompt(reviewRow, "{}", {}, null).split("\n")[0];
   if (!isSyncReviewPath({ format: briefTable.judge.output_format, head: syncHead })) fails.push(`(x4) the detector does not fire on the head a synchronous review_path call carries: ${syncHead}`);
@@ -214,7 +215,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   // (x3) the one review unit refused every Round: no Candidate is offered, and the run stops short of the gate.
   {
     const dir3 = mkRun("review-refused");
-    composeJob(dir3, [{ id: "reader-path", status: "done", bytes: 50, rounds: 1, candidate: { waypoints: WAYPOINTS } }]);
     const d3 = drive(dir3, refusingJudge);
     const rec3 = recOf(dir3);
     const all3 = d3.outputs.map((o) => `${o.stdout}${o.stderr}`).join("\n");
@@ -224,34 +224,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     if (!/carries no reviewed Candidate|refused/.test(all3)) fails.push(`(x3) the refused review was not reported: ${d3.seen}`);
   }
 
-  // (x6) kogaki#1360, kogaki#1768: A COMPOSE UNIT REFUSED IN EVERY ROUND writes no Waypoint and is named as excluded.
-  {
-    const dir6 = mkRun("compose-refused");
-    writeFileSync(join(dir6, "reader-path-job.json"), JSON.stringify({
-      started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "refused",
-      units: [{ id: "reader-path", status: "refused", bytes: 50, rounds: 3,
-        failure: { class: "schema refusal", exit_code: 0, stderr_tail: "GROUNDED: Waypoint 2 asserts what no carried relation states." } }],
-    }, null, 2) + "\n");
-    const r6 = awaitIn(dir6);
-    const rec6 = recOf(dir6);
-    const out6 = `${r6.stdout}${r6.stderr}`;
-    if (rec6.done !== true || rec6.awaiting === "CANDIDATE_SELECTION" || rec6.completed.includes("compose_path")
-      || JSON.stringify((rec6.brief_no_fit || []).map((x) => x.unit)) !== '["reader-path"]' || existsSync(join(dir6, "reader-path-waypoints.json"))) {
-      fails.push(`(x6) a compose job whose one unit was refused did not end the run naming the unit with no Waypoint forwarded: ${JSON.stringify({ done: rec6.done, awaiting: rec6.awaiting, no_fit: rec6.brief_no_fit })} ${out6.slice(-400)}`);
-    }
-    if (!out6.includes("No Reader Path was composed") || !out6.includes("The last Round was refused: GROUNDED: Waypoint 2") || existsSync(join(base, "theses", "compose-refused", "brief.yaml"))) {
-      fails.push(`(x6) the ending does not say no Reader Path was composed and name the last Round's refusal, or leaves the empty Brief under its name: ${out6.slice(-400)}`);
-    }
-  }
-
-  // (x5) the table: `review_path` carries a `job` block on the reader-path
-  // job's own stall and heartbeat, its two bounds NAME the same settings as the
-  // compose job's (kogaki#1355), its unit row exists, and the judge note states
-  // that no synchronous judgment follows the jobs.
+  // (x5) the table: `review_path` carries a `job` block declaring its own stall
+  // and heartbeat, its two bounds NAME the settings (kogaki#1355), `compose_path`
+  // declares no job (kogaki#1775), its unit row exists, and the judge note
+  // states that no synchronous judgment follows the jobs.
   const job = reviewRow.job || {};
-  const composeJobRow = (briefTable.states.find((s) => s.id === "compose_path") || {}).job || {};
+  if ((briefTable.states.find((s) => s.id === "compose_path") || {}).job) fails.push("(x5) compose_path still declares a job -- it derives its Legs with no Call (kogaki#1775)");
   for (const k of ["stall_s", "heartbeat_ms"]) {
-    if (job[k] === undefined || job[k] !== composeJobRow[k]) fails.push(`(x5) review_path's job block does not declare ${k} as the bound the supervisor enforces (${job[k]} vs ${composeJobRow[k]})`);
+    if (!(Number.isInteger(job[k]) && job[k] > 0)) fails.push(`(x5) review_path's job block does not declare ${k} as the bound the supervisor enforces (${job[k]})`);
   }
   if ((job.call_limit_s || {}).setting !== "brief.call_limit_s" || (job.unit_rounds || {}).setting !== "brief.unit_rounds"
     || job.absolute_limit_s !== undefined) {
@@ -268,7 +248,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-path-review-job — path review runs as its own Detached Job with the one Reader Path in its one unit beside the structure, a done unit assembled by candidate_id, a refused review offering nothing, a refused compose unit forwarding no Waypoint, and the one synchronous call the leg_sections call at compose_path's resumption (kogaki#1301, kogaki#1768)");
+console.log("ok: check-brief-path-review-job — compose_path derives its four Legs with no Call and starts no job, path review runs as its own Detached Job with the one Reader Path in its one unit beside the structure, a done unit assembled by candidate_id, a refused review offering nothing, and the synchronous calls the renderings and leg_sections calls alone (kogaki#1301, kogaki#1768, kogaki#1775)");
 JS
 status=$?
 

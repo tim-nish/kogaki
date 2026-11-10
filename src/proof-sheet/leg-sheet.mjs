@@ -22,7 +22,7 @@
 // that run, and a Segment row of a copied Extraction the owner edited carries "edited by owner",
 // both read from `run.json` alone.
 //
-// A RUN WITH A LIBRARY (kogaki#1521): each paragraph heading names the Move bound at its Leg
+// A RUN WITH A LIBRARY (kogaki#1521): each paragraph heading names the Move bound at its Brief
 // Waypoint and each Bindings row its bound Move, each badged `library` or `this run` from the run
 // record's `library.ids`; the run header names the library and whether the run's own Moves were
 // withheld, or reads "Moves from this run only".
@@ -42,8 +42,8 @@
 // kept record's `content_bound` judges unbound shows that verdict's `why` beside its content
 // clause; a bound one shows nothing.
 //
-// THE PARAGRAPH WAYPOINTS BETWEEN THE TWO PARAGRAPHS (kogaki#1591): the comparison table's middle
-// column lists the Leg Waypoint's Paragraph Waypoints from the plan file, item k against Segment k.
+// THE WAYPOINTS BETWEEN THE TWO PARAGRAPHS (kogaki#1591): the comparison table's middle
+// column lists the Brief Waypoint's Waypoints from the plan file, item k against Segment k.
 // Each Segments heading ends in a `copy table` button copying its table as tab-separated text.
 //
 // THE LEG MOVE BLOCKS (kogaki#1597): after the last Leg block (after the cards, for one Leg), one
@@ -352,7 +352,7 @@ function segmentCount(moveText) { return moveSegments(moveText).length; }
 // so two runs on one page never collide.
 const anchorId = (card, n, idx) => `${card}-p${n}-${idx}`;
 
-// A PER-PARAGRAPH (OR PER-LEG-WAYPOINT) ROW, folded (kogaki#1410, owner 2026-10-17): closed by
+// A PER-PARAGRAPH (OR PER-BRIEF-WAYPOINT) ROW, folded (kogaki#1410, owner 2026-10-17): closed by
 // default, open only for the first. The anchor id the comparison table links to sits on a
 // `div` INSIDE the details, never on the details itself: a browser navigating to a fragment
 // opens the closed details that are the target's ancestors, not a details that is the target.
@@ -360,9 +360,9 @@ const prowBlock = (card, n, idx, summary, body, cls = "") =>
   `<details class="prow${cls ? ` ${cls}` : ""}"${n === 1 ? " open" : ""}><summary>${esc(summary)}</summary><div id="${anchorId(card, n, idx)}">${body}</div></details>`;
 
 // THE PACKET'S RENDERED WAYPOINTS, CUT BY THEIR OWN NUMBERING (kogaki#1402): the Packet's
-// waypoints block is a NUMBERED list, one top-level line per Leg Waypoint with its Paragraph
+// waypoints block is a NUMBERED list, one top-level line per Brief Waypoint with its
 // Waypoints indented beneath it (`src/draft.mjs` `waypointLines`); this cuts that block back
-// into one piece per Leg Waypoint number, reading only the rendered Packet -- the Packet file
+// into one piece per Brief Waypoint number, reading only the rendered Packet -- the Packet file
 // and `/draft` are untouched.
 const WAYPOINTS_HEADING = "## The waypoints this Leg takes the reader through";
 export function packetWaypointBlocks(packetText) {
@@ -503,7 +503,7 @@ function runConditionsLine(r) {
 }
 
 // THE ORIGINAL-BESIDE-WRITTEN TABLE: one row per paragraph, original paragraph beside written Leg
-// (one Leg Waypoint is one paragraph; the original is cut as The paragraph unit cuts it).
+// (one Brief Waypoint is one paragraph; the original is cut as The paragraph unit cuts it).
 // Every written-paragraph cell links down to that paragraph's own row in each per-paragraph
 // card -- Extraction, Move, ParagraphPlan, Packet and Draft -- so a reader reading the problem
 // in a row can reach its evidence without reconstructing the pipeline (kogaki#1402).
@@ -525,7 +525,7 @@ function comparisonTable(r, idx, { sectionPath, written, writtenParas, draftStop
     pairs.push(`<tr><th>${i + 1}</th><td>${esc(r.paragraphs[i] || "")}</td><td class="pws">${pwCell(i)}</td><td>${writtenCell}</td></tr>`);
   }
   return `<table class="pair" id="comparison-${idx}"><thead><tr><th></th><th>${esc(original)} <span class="meta">${esc(rel(join(r.runDir, r.legCopy || "leg.md")))} · sha ${contentHash(r.legText)}</span></th>`
-    + `<th>Paragraph Waypoints <span class="meta">${esc(rel(r.planPath))} · sha ${contentHash(planText)}</span></th>`
+    + `<th>Waypoints <span class="meta">${esc(rel(r.planPath))} · sha ${contentHash(planText)}</span></th>`
     + `<th>Written Leg <span class="meta">${esc(rel(sectionPath))} · sha ${contentHash(written)}</span></th></tr></thead>`
     + `<tbody>${pairs.join("")}</tbody></table>`;
 }
@@ -538,9 +538,9 @@ function planLeg(r) {
   return { planText, pl: (plan && plan.legs && ((r.legId && plan.legs.find((l) => l && l.leg_id === r.legId)) || plan.legs[0])) || null };
 }
 
-// THE BINDINGS ARE READ FROM THE PLAN FILE (kogaki#1639): each Leg Waypoint entry carries the
+// THE BINDINGS ARE READ FROM THE PLAN FILE (kogaki#1639): each Brief Waypoint entry carries the
 // bound Move's id and its `rationale`, so the run directory keeps no bindings record. One row
-// per Leg Waypoint of this Leg's entry, `{ leg_id, waypoint, move, rationale }`.
+// per Brief Waypoint of this Leg's entry, `{ leg_id, waypoint, move, rationale }`.
 function planBindings(r) {
   const { pl } = planLeg(r);
   return pl && Array.isArray(pl.waypoints)
@@ -684,8 +684,8 @@ function briefCard(r, idx) {
   // Several Legs' Leg calls are told apart by the first Strand each Leg's input names.
   const strandKey = (k) => `"claim_strand": "L${legs.slice(0, k).reduce((a, l) => a + l.paragraphs, 0) + 1}"`;
   const rowsFor = legs
-    ? legs.map((l, k) => [`leg-path-${k + 1}`, [legPathMarker, strandKey(k)], `Brief, Leg Waypoint, Leg ${k + 1}`])
-    : [["leg-path", [legPathMarker], "Brief, Leg Waypoint"]];
+    ? legs.map((l, k) => [`leg-path-${k + 1}`, [legPathMarker, strandKey(k)], `Brief, Brief Waypoint, Leg ${k + 1}`])
+    : [["leg-path", [legPathMarker], "Brief, Brief Waypoint"]];
   const named = [];
   let callsHtml = "";
   for (const [sub_, markers, title] of rowsFor) {
@@ -724,7 +724,7 @@ function callAnswer(c) {
 }
 
 // A planning call's kind, read off its prompt (kogaki#1642): the Leg call; a site retry, which
-// asks one Leg Waypoint's entry; or the entries from a Leg Waypoint composed again after an
+// asks one Brief Waypoint's entry; or the entries from a Brief Waypoint composed again after an
 // endpoint before them moved. `null` for any other call.
 function planKind(text) {
   if (text.includes('"leg_waypoint_you_must_plan"')) return { kind: "site", at: Number((text.match(/"leg_waypoint_you_must_plan": \{[^}]*?"waypoint": (\d+)/) || [])[1]) };
@@ -732,9 +732,9 @@ function planKind(text) {
   if (!text.includes('"paragraphs_that_stand"')) return { kind: "leg" };
   return { kind: "suffix", at: Number((text.match(/"leg_you_must_plan": \{[\s\S]*?"waypoints": \[\s*\{\s*"waypoint": (\d+)/) || [])[1]) };
 }
-const planTitle = (a) => (a.kind === "site" ? `ParagraphPlan, the site call at Leg Waypoint ${a.at}`
-  : a.kind === "suffix" ? `ParagraphPlan, the entries from Leg Waypoint ${a.at} composed again` : "ParagraphPlan, the plan call");
-const roundLabel = (a) => (a.kind === "site" ? ` — site retry at Leg Waypoint ${a.at}` : a.kind === "suffix" ? ` — the entries from Leg Waypoint ${a.at} composed again` : "");
+const planTitle = (a) => (a.kind === "site" ? `ParagraphPlan, the site call at Brief Waypoint ${a.at}`
+  : a.kind === "suffix" ? `ParagraphPlan, the entries from Brief Waypoint ${a.at} composed again` : "ParagraphPlan, the plan call");
+const roundLabel = (a) => (a.kind === "site" ? ` — site retry at Brief Waypoint ${a.at}` : a.kind === "suffix" ? ` — the entries from Brief Waypoint ${a.at} composed again` : "");
 
 // The ParagraphPlan's Rounds, paired from its recorded calls by order of `at` (kogaki#1437):
 // each planning call opens a Round, and the judge call after it (before the next planning
@@ -751,7 +751,7 @@ function planRounds(calls) {
   return rounds;
 }
 
-// A Paragraph Waypoint as a list item: a `point` entry as its text, a `performs` entry as its
+// A Waypoint as a list item: a `point` entry as its text, a `performs` entry as its
 // text in italics, as the Packet renders it (kogaki#1448), so no item is empty (kogaki#1479).
 const pwItem = (p) => (p && Object.hasOwn(p, "performs") ? `<li><i>${esc(p.performs)}</i></li>` : `<li>${esc((p && p.point) || "")}</li>`);
 
@@ -762,8 +762,8 @@ const roundId = (n, idx) => `round-${idx}-${n}`;
 const waypointsNamed = (text) => [...new Set([...String(text || "").matchAll(/Waypoint (\d+)/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
 
 // THE ROUNDS PART (kogaki#1437): one folded block per Round, in order, each holding the
-// planner's record per Leg Waypoint (a site retry's, its one entry, kogaki#1642), the judge's
-// verdict per Leg Waypoint it judged with its `why` in full, and the refusal block the next
+// planner's record per Brief Waypoint (a site retry's, its one entry, kogaki#1642), the judge's
+// verdict per Brief Waypoint it judged with its `why` in full, and the refusal block the next
 // Round received. No prompt is repeated: each block names where its prompts are shown, under
 // Prompt or under Calls. The job record's refusal for a Round is cross-checked against the
 // judge's `does-not-fit` verdicts, and a mismatch is shown, never resolved.
@@ -777,7 +777,7 @@ function roundsPart(rounds, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
     const planRecord = plan.record && Array.isArray(plan.record.waypoints) ? plan.record
       : plan.record && a.kind === "site" && Array.isArray(plan.record.paragraph_waypoints) ? { waypoints: [plan.record] } : null;
     const planner = planRecord
-      ? planRecord.waypoints.map((w) => `<p class="meta">Leg Waypoint ${esc(w.waypoint)} · bound Move: ${esc(w.move === null ? "(none bound)" : w.move || "?")}</p>`
+      ? planRecord.waypoints.map((w) => `<p class="meta">Brief Waypoint ${esc(w.waypoint)} · bound Move: ${esc(w.move === null ? "(none bound)" : w.move || "?")}</p>`
         + (w.join ? `<p>join: ${esc(w.join)}</p>` : "")
         + `<ol>${(w.paragraph_waypoints || []).map(pwItem).join("")}</ol>`).join("")
       : `<p class="stop">(no readable record)</p>${pre(plan.record ? json(plan.record) : plan.raw)}`;
@@ -788,7 +788,7 @@ function roundsPart(rounds, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
       const v = callAnswer(a.judge);
       if (v.record && Array.isArray(v.record.verdicts)) {
         notFit = v.record.verdicts.filter((x) => x && x.verdict === "does-not-fit").map((x) => Number(x.waypoint)).sort((p, q) => p - q);
-        judge = `<ul>${v.record.verdicts.map((x) => `<li>Leg Waypoint ${esc(x && x.waypoint)}: <b>${esc(x && x.verdict)}</b> — ${esc((x && x.why) || "")}</li>`).join("")}</ul>`
+        judge = `<ul>${v.record.verdicts.map((x) => `<li>Brief Waypoint ${esc(x && x.waypoint)}: <b>${esc(x && x.verdict)}</b> — ${esc((x && x.why) || "")}</li>`).join("")}</ul>`
           + `<p class="muted">The judge's prompt is shown under Prompt, ${esc(judgeTitle(a.judge))}.</p>`;
       } else {
         judge = `<p class="stop">(no readable record)</p>${pre(v.record ? json(v.record) : v.raw)}`;
@@ -805,11 +805,11 @@ function roundsPart(rounds, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
     if (notFit !== null) {
       const named = refusals[i] !== undefined ? waypointsNamed(refusals[i]) : [];
       if (notFit.length && refusals[i] === undefined) {
-        mismatch = `The judge answered does-not-fit at Leg Waypoint ${notFit.join(", ")}, and the job record holds no refusal for round ${n}.`;
+        mismatch = `The judge answered does-not-fit at Brief Waypoint ${notFit.join(", ")}, and the job record holds no refusal for round ${n}.`;
       } else if (!notFit.length && refusals[i] !== undefined) {
-        mismatch = `The judge answered fits at every Leg Waypoint, and the job record holds a refusal for round ${n}: ${refusals[i]}`;
+        mismatch = `The judge answered fits at every Brief Waypoint, and the job record holds a refusal for round ${n}: ${refusals[i]}`;
       } else if (notFit.length && JSON.stringify(named) !== JSON.stringify(notFit)) {
-        mismatch = `The judge answered does-not-fit at Leg Waypoint ${notFit.join(", ")}; the job record's refusal for round ${n} names Waypoint ${named.join(", ") || "none"}.`;
+        mismatch = `The judge answered does-not-fit at Brief Waypoint ${notFit.join(", ")}; the job record's refusal for round ${n} names Waypoint ${named.join(", ") || "none"}.`;
       }
     }
 
@@ -823,7 +823,7 @@ function roundsPart(rounds, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
       next = `<p>no further round: the job ended \`${esc(job ? job.state : "(no job record)")}\`</p>`;
     }
 
-    const verdicts = notFit === null ? "" : notFit.length ? ` — does-not-fit at Leg Waypoint ${notFit.join(", ")}` : ` — fits at every Leg Waypoint${a.kind === "leg" ? "" : " judged"}`;
+    const verdicts = notFit === null ? "" : notFit.length ? ` — does-not-fit at Brief Waypoint ${notFit.join(", ")}` : ` — fits at every Brief Waypoint${a.kind === "leg" ? "" : " judged"}`;
     const own = againstShown(a.plan.stdin, shown);
     const where = !own ? "Calls" : own.inserted === null ? own.where : `${own.where}, with the block shown under round ${i}'s "what the next round received" inserted`;
     return sub(`round ${n} of ${rounds.length}${roundLabel(a)}${verdicts}`, `<div id="${roundId(n, idx)}">`
@@ -836,9 +836,9 @@ function roundsPart(rounds, job, shown, judgeTitle, idx = 0, unitIndex = 0) {
 }
 
 // CARD 4 — PARAGRAPHPLAN. Output: the plan file, the check verdict as a line (not a card),
-// and Leg Waypoint -> Paragraph Waypoints counts against the bound Move's Segments, each row
-// opening on the Leg Waypoint's point from the Brief (kogaki#1487) and carrying the plan
-// file's join for a Leg Waypoint after the first (kogaki#1445).
+// and Brief Waypoint -> Waypoints counts against the bound Move's Segments, each row
+// opening on the Brief Waypoint's point from the Brief (kogaki#1487) and carrying the plan
+// file's join for a Brief Waypoint after the first (kogaki#1445).
 // Rounds: every Round's record, verdicts and the refusal block the next one received
 // (kogaki#1437). Inputs: Brief, Move. Prompt/Calls: the plan call and the judge call, each
 // titled by what it produced.
@@ -855,7 +855,7 @@ function paragraphPlanCard(r, idx) {
   let verdictJson = null;
   try { verdictJson = verdict ? JSON.parse(verdict) : null; } catch { verdictJson = null; }
   const verdictLine = verdictJson && Array.isArray(verdictJson.verdicts)
-    ? `Check verdict: ${verdictJson.verdicts.map((v) => `Leg Waypoint ${v.waypoint}: ${v.verdict}`).join("; ")}`
+    ? `Check verdict: ${verdictJson.verdicts.map((v) => `Brief Waypoint ${v.waypoint}: ${v.verdict}`).join("; ")}`
     : "Check verdict: (none recorded)";
 
   let countsTable = "";
@@ -864,7 +864,7 @@ function paragraphPlanCard(r, idx) {
       const bnd = bindings.find((x) => x.waypoint === w.waypoint) || {};
       const segs = bnd.move ? segmentCount(read(join(r.runDir, "moves", `${bnd.move}${MOVE_RECORD_EXT}`))) : 0;
       const pws = w.paragraph_waypoints || [];
-      return prowBlock("planwp", w.waypoint, idx, `Leg Waypoint ${w.waypoint}`,
+      return prowBlock("planwp", w.waypoint, idx, `Brief Waypoint ${w.waypoint}`,
         `<p>Point: ${esc(legPoint(r, w.waypoint))}</p>`
         + `<p class="meta">bound Move: ${esc(bnd.move || "?")} · Segments of the Move: ${segs}</p>`
         + (w.join ? `<p>join: ${esc(w.join)}</p>` : "")
@@ -916,7 +916,7 @@ function paragraphPlanCard(r, idx) {
   }, idx);
 }
 
-// CARD 5 — PACKET. Output: the Packet file, whole, with a per-Leg-Waypoint table above it
+// CARD 5 — PACKET. Output: the Packet file, whole, with a per-Brief-Waypoint table above it
 // cutting the rendered waypoints block by its own numbering (kogaki#1402: "the Packet is shown
 // whole, so the lines the Writer received for paragraph N are not readable beside paragraph
 // N"). Inputs: Brief, ParagraphPlan. No model call -- `/draft` renders it mechanically.
@@ -929,7 +929,7 @@ function packetCard(r, idx) {
   const wpRows = [];
   for (let i = 1; i <= n; i++) {
     const b = blocks.find((x) => x.n === i);
-    wpRows.push(prowBlock("packetwp", i, idx, `Leg Waypoint ${i}`, b ? pre(b.text) : `<p class="muted">No block for this Leg Waypoint.</p>`));
+    wpRows.push(prowBlock("packetwp", i, idx, `Brief Waypoint ${i}`, b ? pre(b.text) : `<p class="muted">No block for this Brief Waypoint.</p>`));
   }
   const output = (packet ? "" : stageNote(r, "draft"))
     + `<p class="meta">${packetPath ? esc(rel(packetPath)) : "(not rendered)"} · sha ${contentHash(packet)}</p>`
@@ -994,7 +994,7 @@ function runRecordCard(r, idx) {
   }, idx);
 }
 
-// A Leg Waypoint's point from the Brief, by its number on the run's Leg.
+// A Brief Waypoint's point from the Brief, by its number on the run's Leg.
 function legPoint(r, n) {
   const legs = (r.briefRecord && r.briefRecord.reader_path) || [];
   const leg = r.legId ? legs.find((l) => l && l.leg_id === r.legId) : legs[0];
@@ -1088,12 +1088,12 @@ function sourceBadge(run, move) {
 // Rounds with the judge's `why` in full, and the bindings -- read from the plan file's own
 // entries (kogaki#1639) -- with each bound Move's takes and leaves in its row -- so a reader
 // completes a review without opening a card. The takes and leaves fold closed under
-// `takes / leaves`, one row per Leg Waypoint (kogaki#1516). Each paragraph's heading is followed
+// `takes / leaves`, one row per Brief Waypoint (kogaki#1516). Each paragraph's heading is followed
 // by its bound Move's description (kogaki#1517).
 function reviewBlock(r, idx) {
   const entries = (r.ingest && r.ingest.entries) || [];
   const rows = planBindings(r);
-  // With a library, the heading also names the Move bound at the paragraph's Leg Waypoint and its source.
+  // With a library, the heading also names the Move bound at the paragraph's Brief Waypoint and its source.
   const boundAt = (n) => {
     const b = r.run.library ? rows.find((x) => Number(x.waypoint) === n) : null;
     return b ? ` · bound ${esc(b.move || "(none bound)")}${sourceBadge(r.run, b.move)}` : "";
@@ -1120,16 +1120,16 @@ function reviewBlock(r, idx) {
     }
     const notFit = verdicts.filter((x) => x && x.verdict === "does-not-fit");
     for (const x of notFit) refused.push({ n: i + 1, waypoint: x.waypoint, why: x.why || "" });
-    if (!notFit.length && jobRefusals[i] !== undefined) refused.push({ n: i + 1, waypoint: "—", why: `the judge answered fits at every Leg Waypoint; ${jobSays}` });
+    if (!notFit.length && jobRefusals[i] !== undefined) refused.push({ n: i + 1, waypoint: "—", why: `the judge answered fits at every Brief Waypoint; ${jobSays}` });
   });
   const refusedHtml = !rounds.length ? `<p class="muted">No plan call was recorded.</p>`
     : !refused.length ? `<p>no round was refused</p>`
-      : `<table class="refused"><thead><tr><th>round</th><th>Leg Waypoint</th><th>the judge's why</th></tr></thead><tbody>`
+      : `<table class="refused"><thead><tr><th>round</th><th>Brief Waypoint</th><th>the judge's why</th></tr></thead><tbody>`
         + refused.map((x) => `<tr><td><a href="#${roundId(x.n, idx)}">round ${x.n}</a></td><td>${esc(x.waypoint)}</td><td>${esc(x.why)}</td></tr>`).join("")
         + `</tbody></table>`;
 
   const bindingsHtml = rows.length
-    ? `<table class="bindings"><thead><tr><th>Leg Waypoint</th><th>point</th><th>bound Move</th><th>rationale</th></tr></thead><tbody>`
+    ? `<table class="bindings"><thead><tr><th>Brief Waypoint</th><th>point</th><th>bound Move</th><th>rationale</th></tr></thead><tbody>`
       + rows.map((b) => `<tr><td>${esc(b.waypoint)}</td><td>${esc(legPoint(r, b.waypoint))}</td><td><a href="#card-${idx}-move">${esc(b.move || "(none bound)")}</a>${sourceBadge(r.run, b.move)}`
         + `<details class="states"><summary>takes / leaves</summary>${moveStates(r, b.move)}</details></td><td>${esc(b.rationale || "")}</td></tr>`).join("")
       + `</tbody></table>`

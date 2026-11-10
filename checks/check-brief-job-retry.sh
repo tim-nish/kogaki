@@ -57,35 +57,14 @@ const STRUCTURE = {
 if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carries no sentence ahead of the unit's own prompt");
 
 
-// (j) THE REAL UNIT ROW RENDERS A PROMPT THE PARSER ACTUALLY ACCEPTS
-// (kogaki#1203 acceptance 4a; the row `lpp_waypoints` since kogaki#1768).
-// The compose unit's row is rendered through the SAME `judgePrompt` renderer the
-// unit build uses, and a fixture judge answering with the record shape THIS ROW
-// STATES (`waypoints` at the record's own root) must classify `done` under the
-// real `validateBriefWaypoints` and the `waypoints` record array compose_path
-// declares -- the row's stated shape and the parser's accepted shape are one.
+// (j) RETIRED WITH ITS UNIT (kogaki#1775): the case held the compose unit's real row and
+// its real parser to one shape, and the Brief now asks no Waypoint Call, so no row is left
+// for the case to hold. What remains is that the retired rows are gone, so a later row
+// reaching the table under their names is seen.
 {
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-  const unitRow = table.lpp_waypoints;
-  if (!unitRow) {
-    fails.push("(j) src/brief-workflow.json declares no top-level `lpp_waypoints` row");
-  } else {
-    if (!/`waypoints`/.test(unitRow.input_shape || "") || /\{\s*candidates\s*:/i.test(unitRow.input_shape || "")) {
-      fails.push(`(j) lpp_waypoints.input_shape does not state the \`waypoints\` record: ${unitRow.input_shape}`);
-    }
-    for (const gone of ["reader_path_unit", "reader_path_fit_unit"]) if (table[gone]) fails.push(`(j) src/brief-workflow.json still declares \`${gone}\` (kogaki#1768)`);
-    const input = { state: "compose_path", structure: STRUCTURE };
-    const prompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
-    const dir = mkNewRun();
-    superviseSync(dir, { units: [{ id: "reader-path", prompt: "BARE_WAYPOINTS" }], record_array: "waypoints",
-      validator: { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: { structure: STRUCTURE } } }, {});
-    const row = unitRowOf(readRecord(dir), "reader-path");
-    if (!row || row.status !== "done" || !row.candidate || !Array.isArray(row.candidate.waypoints)) {
-      fails.push(`(j) an answer of the shape lpp_waypoints.input_shape states was refused by the unit parser: ${JSON.stringify(row)}`);
-    }
-    if (!prompt.includes(unitRow.judgment_point.slice(0, 200))) {
-      fails.push("(j) judgePrompt(unitRow, ...) did not render the unit row's own judgment_point");
-    }
+  for (const gone of ["lpp_waypoints", "lpp_grounded", "reader_path_unit", "reader_path_fit_unit"]) {
+    if (table[gone]) fails.push(`(j) src/brief-workflow.json still declares \`${gone}\` (kogaki#1768, kogaki#1775)`);
   }
 }
 
@@ -449,10 +428,13 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
 // `absolute_limit_s`, each naming the key.
 {
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-  const composeJob = (table.states.find((x) => x.id === "compose_path") || {}).job || {};
+  // compose_path runs no job since kogaki#1775 -- its Legs are derived with no Call -- so the one
+  // job row is review_path's.
+  if ((table.states.find((x) => x.id === "compose_path") || {}).job) fails.push("(y3) compose_path still declares a job (kogaki#1775)");
+  const composeJob = (table.states.find((x) => x.id === "review_path") || {}).job || {};
   if ((composeJob.call_limit_s || {}).setting !== "brief.call_limit_s" || (composeJob.unit_rounds || {}).setting !== "brief.unit_rounds"
     || composeJob.absolute_limit_s !== undefined) {
-    fails.push(`(y3) compose_path's job does not name the settings brief.call_limit_s and brief.unit_rounds alone: ${JSON.stringify(composeJob)}`);
+    fails.push(`(y3) review_path's job does not name the settings brief.call_limit_s and brief.unit_rounds alone: ${JSON.stringify(composeJob)}`);
   }
   const settings = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
   if (settings.brief.call_limit_s !== 900 || settings.brief.unit_rounds !== 3 || RETIRED_UNIT_SETTING in settings.brief || settings.brief.compose_units !== 3
@@ -474,7 +456,7 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   // THE STARTERS' OWN READER, over fixture settings files and a fixture table.
   const bounds = (file, tableFile) => spawnSync(process.execPath, ["--input-type=module", "-e",
     `import { readFileSync } from "node:fs"; const m = await import("./src/" + "brief.mjs"); `
-    + `console.log(JSON.stringify(m.briefJobBounds(JSON.parse(readFileSync(${JSON.stringify(tableFile)}, "utf8")), "compose_path")));`],
+    + `console.log(JSON.stringify(m.briefJobBounds(JSON.parse(readFileSync(${JSON.stringify(tableFile)}, "utf8")), "review_path")));`],
     { cwd: root, timeout: 15000, encoding: "utf8", env: { ...process.env, KOGAKI_SETTINGS: file } });
   const tableFile = join(sdir, "table.json");
   writeFileSync(tableFile, JSON.stringify(table));
@@ -497,7 +479,7 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
     if (r.status === 0 || !String(r.stderr).includes(key)) fails.push(`(y3) a settings file ${label} was not refused naming \`${key}\`: status=${r.status} stdout=${r.stdout} stderr=${r.stderr}`);
   }
   const oldTable = JSON.parse(JSON.stringify(table));
-  oldTable.states.find((x) => x.id === "compose_path").job.absolute_limit_s = { setting: "brief.compose_job_limit_s" };
+  oldTable.states.find((x) => x.id === "review_path").job.absolute_limit_s = { setting: "brief.review_job_limit_s" };
   const oldTableFile = join(sdir, "old-table.json");
   writeFileSync(oldTableFile, JSON.stringify(oldTable));
   const oldRow = bounds(okFile, oldTableFile);
@@ -570,8 +552,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   writeFileSync(unitsPath, JSON.stringify({
     units: [{ id: "reader-path", prompt: "COMPOSE THE WAYPOINTS" }],
     record_array: "waypoints",
-    validator: { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: { structure: STRUCTURE } },
-    fit_judge: { module: "src/brief.mjs", prompt_export: "groundedPrompt", verdict_export: "groundedVerdict", record_array: "sites",
+    validator: { module: "checks/fixtures/brief-reader-path-job/waypoint-unit.mjs", export: "validateFixtureWaypoints", inputs: { structure: STRUCTURE } },
+    fit_judge: { module: "checks/fixtures/brief-reader-path-job/waypoint-unit.mjs", prompt_export: "groundedPrompt", verdict_export: "groundedVerdict", record_array: "sites",
       inputs: { structure: STRUCTURE, promptHead: "FIT_JUDGE_HEAD\n" } },
   }, null, 2));
   spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", base, "--units", unitsPath,

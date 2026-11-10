@@ -16,7 +16,7 @@ import { briefJourneyStrands, briefStrandIds, fillSlot, legRecord, placements } 
 // total }` or `{ error }`.
 export function fillBrief(record, { legs, coverage = {}, renderings = null }) {
   // THE LEGS ARE READ UNDER THE BRIEF'S STRUCTURE WHERE IT CARRIES ONE
-  // (kogaki#1768): every Leg Waypoint then owes `carries` naming an id of it.
+  // (kogaki#1775): every Leg then names the relation it serves and says it.
   const v = validateLegs(legs, { structure: record.structure || null });
   if (v.error) return { error: v.error };
   legs = v.legs;
@@ -49,7 +49,7 @@ export function fillBrief(record, { legs, coverage = {}, renderings = null }) {
       return { strand: id, used_by_legs: place.get(id),
         ...(typeof coverage[id]?.role_in_thesis === "string" ? { role_in_thesis: coverage[id].role_in_thesis } : {}) };
     }
-    return minted.get(id) || { strand: id, not_carried: "No Leg Waypoint serves this Strand's claim." };
+    return minted.get(id) || { strand: id, not_carried: "No Leg serves this Strand's claim." };
   });
   // JOURNEY COVERAGE (kogaki#1768): a Leg binds no Move and places no Journey
   // material, so every Journey-bearing Strand's Journey is disclosed as omitted.

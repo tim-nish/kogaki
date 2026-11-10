@@ -14,7 +14,7 @@
 #
 # WHAT THIS COVERS, driven through `buildJoin` (src/review-draft.mjs) over a
 # fixture Draft whose trace names a Packet rendered by `renderPacket`
-# (src/draft.mjs) from a fixture Brief record, the second Leg Waypoint carrying
+# (src/draft.mjs) from a fixture Brief record, the second Brief Waypoint carrying
 # the join `consequence`, and whose paragraph 2 opens by narrating it:
 #   (a) the item owes exactly ONE pair for the Leg -- paragraph 2's, the one
 #       paragraph after the first that carries an Opens-from line -- and the
@@ -28,7 +28,7 @@
 #   (c) a paragraph 2 opening on a bare connective is paired the same way and
 #       a `holds` verdict holds its row with no evidence (the control that
 #       stops (b) passing on any verdict);
-#   (d) a Packet whose Leg Waypoints carry no join owes no pair and holds by
+#   (d) a Packet whose Brief Waypoints carry no join owes no pair and holds by
 #       the item's stated absence.
 # AND THE `performs` ITEM (kogaki#1556), one pair per italic line of the
 # waypoints block, the passage as reverse side:
@@ -43,7 +43,7 @@
 #       Packet line they read: src/review-items.json declares neither
 #       (kogaki#1584);
 #   (h) a Leg with no italic line holds by `when_declared_absent`.
-# AND (i) review.md's closing Forced paragraphs list names the Leg Waypoint and axis a Packet
+# AND (i) review.md's closing Forced paragraphs list names the Brief Waypoint and axis a Packet
 #   marks, with no finding, and `_None._` where no Packet carries a mark (kogaki#1649).
 #
 # NOT COVERED, stated rather than implied: whether a LIVE judge answers
@@ -165,8 +165,8 @@ else {
   }
 }
 
-// (e)-(h) THE PERFORMS ITEM (kogaki#1556), over a Packet whose first Leg Waypoint carries one
-// `performs` Paragraph Waypoint.
+// (e)-(h) THE PERFORMS ITEM (kogaki#1556), over a Packet whose first Brief Waypoint carries one
+// `performs` Waypoint.
 const OPERATION = "announce that a definition follows";
 const packetWith = ({ performs = false } = {}) => {
   const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
@@ -199,7 +199,7 @@ else {
   else if (!readFileSync(adds.owed.owed[0].packet, "utf8").includes(`paragraph 1 performs: ${OPERATION}`)) fails.push("(e) the performs Packet's declared side does not carry the italic line named as paragraph 1's");
   const addsPacket = packetWith({ performs: true });
   const italic = addsPacket.split("\n").find((l) => /^   \d+\. \*/.test(l)) || "";
-  if (!/^   \d+\. \*[^*]+\*$/.test(italic) || !italic.includes(OPERATION)) fails.push(`(e) the Packet does not render the performs Paragraph Waypoint as an italic line with nothing after it: ${JSON.stringify(italic)}`);
+  if (!/^   \d+\. \*[^*]+\*$/.test(italic) || !italic.includes(OPERATION)) fails.push(`(e) the Packet does not render the performs Waypoint as an italic line with nothing after it: ${JSON.stringify(italic)}`);
   const tailed = judge(fixture("performs-tailed", addsPacket.replace(italic, `${italic} and more`), PARA2_OWN, ADDS), onlyP,
     "holds", "the sentence announces the definition and adds nothing.");
   if (tailed.owed.owed.length !== 0) fails.push(`(e) an italic line carrying text after the operation was read as a performs line: owed ${tailed.owed.owed.length}`);
@@ -231,8 +231,8 @@ else {
     writeFileSync(join(dir, "packets", `${name}.md`), r.packet || "");
   }
   const got = forcedParagraphLines([{ leg_id: "s1", packet: "packets/forced.md" }], dir);
-  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, Leg Waypoint 1 — PERFORMS IS BARE") || got.some((l) => /fail|finding/i.test(l))) {
-    fails.push(`(i) the Forced paragraphs section does not name Leg s1, Leg Waypoint 1 and PERFORMS IS BARE as a list with no finding: ${JSON.stringify(got)}`);
+  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, Brief Waypoint 1 — PERFORMS IS BARE") || got.some((l) => /fail|finding/i.test(l))) {
+    fails.push(`(i) the Forced paragraphs section does not name Leg s1, Brief Waypoint 1 and PERFORMS IS BARE as a list with no finding: ${JSON.stringify(got)}`);
   }
   const none = forcedParagraphLines([{ leg_id: "s1", packet: "packets/plain.md" }], dir);
   if (!none.includes("_None._") || none.some((l) => l.startsWith("- "))) fails.push(`(i) a Packet with no mark lists a forced paragraph: ${JSON.stringify(none)}`);
@@ -242,5 +242,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).; review.md closes with a Forced paragraphs list naming each Leg Waypoint a Packet marks and its axes, with no finding (kogaki#1649)");
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).; review.md closes with a Forced paragraphs list naming each Brief Waypoint a Packet marks and its axes, with no finding (kogaki#1649)");
 JS

@@ -34,7 +34,7 @@ than inferring it from the words its input happens to carry.
 
 THE PARAGRAPH PLAN OWNS PARAGRAPH STRUCTURE, THE AUDIENCE'S REGISTER OWNS
 WORD CHOICE (kogaki#1350, owner ruling 2026-10-12; kogaki#1375): where a
-paragraph opens and what it establishes arrive as the Paragraph Waypoints the
+paragraph opens and what it establishes arrive as the Waypoints the
 ParagraphPlan stage generated from a paragraph Move; the register carries no
 rule that dictates either.
 
@@ -91,16 +91,16 @@ kogaki#1375, owner decision 2026-10-14). The Leg's Move's responsibility ends
 when the Candidate is composed; what the writer needs from it arrives as this
 Leg's waypoints, which the Brief composed as the Leg's own specialization of
 the Move and judged there. A paragraph Move's responsibility ends when the
-ParagraphPlan stage has generated the Paragraph Waypoints from it; what the
-writer needs from THAT arrives as the Paragraph Waypoints, read from the
+ParagraphPlan stage has generated the Waypoints from it; what the
+writer needs from THAT arrives as the Waypoints, read from the
 ParagraphPlan file beside the Brief and rendered under each waypoint -- and
 nothing of the Move itself. No Move file is opened here. The *Opens from* line
 under a waypoint is the ParagraphPlan's join, one word of a closed set of
 relations the stage chose from the reader state the previous paragraph leaves,
 and carries nothing of a Move (kogaki#1411, kogaki#1477). A *Cast* line under
-a Paragraph Waypoint is the ParagraphPlan's cast, keys of a closed set the stage
+a Waypoint is the ParagraphPlan's cast, keys of a closed set the stage
 set from the Segment's manner, and is not the manner (kogaki#1695).
-No Segment field is copied onto a Paragraph Waypoint, `manner` included
+No Segment field is copied onto a Waypoint, `manner` included
 (kogaki#1585, owner decision 2026-10-25, reverting kogaki#1510's copy).
 NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25):
 the Obligations ledger is the Plan's, at both scales, and the Writer is given

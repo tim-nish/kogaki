@@ -185,7 +185,7 @@ writeFileSync(planPath, planText("gamma", mapping));
   writeFileSync(structurePath, structure);
 }
 
-// (g) the sheet's `leg` mode renders the Leg's structure, Mapping Table, binding with case and Paragraph Waypoints.
+// (g) the sheet's `leg` mode renders the Leg's structure, Mapping Table, binding with case and Waypoints.
 {
   const r = spawnSync(process.execPath, ["src/mapping-playground/sheet.mjs", "leg", "--plan", planPath, "--leg", "G1"], { encoding: "utf8" });
   const want = ["Mapping Record — Leg G1", "<caption>Paragraph 1", "the turnstile", "a turnstile", "apart", "PLANMARK-gamma"];

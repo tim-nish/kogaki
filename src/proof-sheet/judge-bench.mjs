@@ -3,8 +3,8 @@
 // decision 2026-10-23). For one axis, or `all`, it runs the production judge over the axis's
 // fixtures from src/paragraph-plan-axes.json twice: with the row as rendered, and with that
 // axis's one line taken out. Each arm is `--draws` calls per fixture record, made with the
-// model, argv and row the ParagraphPlan job uses. A defect is refused where its own Leg
-// Waypoint is judged `does-not-fit`; a clean record passes where every Leg Waypoint `fits`.
+// model, argv and row the ParagraphPlan job uses. A defect is refused where its own Brief
+// Waypoint is judged `does-not-fit`; a clean record passes where every Brief Waypoint `fits`.
 //
 // It writes `<run>/bench.json` -- per axis the four rates and whether the registry's
 // retention rule keeps it -- and every call to `<run>/calls.jsonl`. `--record` writes each

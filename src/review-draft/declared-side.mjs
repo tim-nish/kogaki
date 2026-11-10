@@ -171,7 +171,7 @@ const PACKET_READERS = {
   },
   // ONE LABELLED LINE PER PARAGRAPH, NUMBERED BY ITS PARAGRAPH (kogaki#1447). The
   // waypoints block renders the ParagraphPlan's join as an indented `*Opens from:*` line
-  // under its numbered Leg Waypoint, and `heading_list` drops it because it is no list
+  // under its numbered Brief Waypoint, and `heading_list` drops it because it is no list
   // item. This reads each such line under the numbered line it sits beneath, so an entry
   // names the paragraph it opens; a block carrying none answers the empty list.
   labelled_lines: (t, spec) => {
@@ -189,7 +189,7 @@ const PACKET_READERS = {
     }
     return out;
   },
-  // ONE ITALIC SUB-LINE PER `performs` PARAGRAPH WAYPOINT, NUMBERED BY ITS PARAGRAPH
+  // ONE ITALIC SUB-LINE PER `performs` WAYPOINT, NUMBERED BY ITS PARAGRAPH
   // (kogaki#1556). The renderer writes the entry as the indented `<j>. *<operation>*` and
   // nothing after it (kogaki#1585); this reads that line whole under the numbered line it
   // sits beneath, and a block carrying none answers the empty list.

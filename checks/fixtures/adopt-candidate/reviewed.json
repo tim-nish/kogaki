@@ -3,7 +3,7 @@
     {
       "candidate_id": "cand-a",
       "reasoning": {
-        "leg_validity": "every Leg Waypoint was judged GROUNDED in the relations it carries, over the fixture Strand's claim"
+        "leg_validity": "every Brief Waypoint was judged GROUNDED in the relations it carries, over the fixture Strand's claim"
       },
       "review": {
         "rationale_stands": "the path's reasoning holds over the fixture Strand's claim with nothing else in play",
