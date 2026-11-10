@@ -6,19 +6,26 @@
 #       file's sha256.
 #   (b) a `proposition:` line is refused naming `claim`, a second `thesis:` and a `cite:` with no `claim:` naming the line,
 #       and nothing is written.
-#   (c) validateReadSet refuses a claim no relation is `from`, a Role in no relation, a higher-order relation relating one
-#       relation and a missing `attains_thesis`, naming each; a refused first answer is handed back and the second is read.
+#   (c) validateReadSet refuses a non-apex higher-order relation with no `from` or a `from` naming no claim, a Role in no
+#       relation, a higher-order relation relating one relation, one relating itself through another, a written `reach` and
+#       a missing `attains_thesis`, naming each; the apex with `from: []` and a higher-order relation relating a
+#       higher-order relation pass; a refused first answer is handed back and the second is read.
 
 #   (d) the lpp_waypoints stdin carries the structure, the thesis and the Persona and no claim text; an unknown id, a
-#       relation carried by none, a last Waypoint not carrying `attains_thesis` and a written `serves` are refused naming the
-#       Waypoint or the relation; `serves` is the `from` ids of the carried relations.
+#       reached relation carried by none, a Waypoint carrying an unreached id, a last Waypoint not carrying
+#       `attains_thesis` and a written `serves` are refused naming the Waypoint or the relation; `serves` is the `from` ids
+#       of the relations at the bottom of each carried id's closure.
 #   (e) a GROUNDED `does-not-fit` naming Waypoint 2 re-asks Waypoint 2 alone with the judge's text verbatim, and the sheet
 #       highlights row 2 with the phrase.
 #   (f) legs.yaml reads as a Brief's `reader_path`, carries `composed_by: leg-planning` and no purpose, rationale,
 #       introduces or opens_section.
 #   (g) the sheet's parts stand in order under listed headings, each Leg's Move Segments beside its Waypoints, and a
 #       `--brief` run renders that Brief's Legs beside the Trial's.
+
 #   (h) the repository's moves/ and theses/ are unchanged.
+#   (i) a claims file of four claims whose fourth is the `from` of a relation the apex does not reach writes
+#       structure.yaml with that relation and claim under `unreached`, trial.json carries `reach` and `unreached` under the
+#       structure stage, and the sheet marks the unreached rows under Structure and lists the claim under Claims.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -35,7 +42,7 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const load = (p) => import(pathToFileURL(join(repo, p)).href);
 const { parseYaml, stringifyYaml } = await load("src/yaml.mjs");
-const { validateReadSet, validateWaypoints, readerPathRefusal } = await load("src/leg-planning/read-set.mjs");
+const { validateReadSet, validateWaypoints, readerPathRefusal, withReach } = await load("src/leg-planning/read-set.mjs");
 const { LPP_PARTS, LPP_HEADINGS } = await load("src/leg-planning/sheet.mjs");
 const { briefLegs } = await load("src/compose/record.mjs");
 const { loadMoveContracts, readerPersona, personaPriorKnowledgeLine } = await load("src/compose.mjs");
@@ -62,8 +69,8 @@ const STRUCTURE = {
   relations: [{ id: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "c1" },
     { id: "p2", between: ["walk", "file"], holds: "{file} left off {walk} is never checked.", from: "c2" },
     { id: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as covering every file.", from: "c3" }],
-  higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked." },
-    { id: "h2", relates: ["p2", "p3"], holds: "{team} trusts a pass that never reached {file}." }],
+  higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked.", from: ["c2"] },
+    { id: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}.", from: [] }],
   attains_thesis: "h2",
 };
 const WAYPOINTS = { waypoints: [
@@ -154,7 +161,10 @@ for (const [name, text, want] of [
 // (c) the structure's refusals, and the retry
 const without = (f) => { const s = JSON.parse(JSON.stringify(STRUCTURE)); f(s); return s; };
 const refusals = [
-  ["a claim no relation is from", without((s) => { s.relations[2].from = "c2"; }), "c3"],
+  ["a non-apex higher-order relation with no from", without((s) => { s.higher_order[0].from = []; }), "\"h1\""],
+  ["a from naming no claim", without((s) => { s.higher_order[0].from = ["c9"]; }), "\"h1\""],
+  ["a higher-order relation relating itself through another", without((s) => { s.higher_order[0].relates = ["p1", "h2"]; }), "\"h1\""],
+  ["a written reach", without((s) => { s.reach = ["h2"]; }), "reach"],
   ["a Role in no relation", without((s) => { s.roles.push({ id: "idle", context: "A thing nothing relates.", attributes: [], claims: ["c1"] }); }), "\"idle\""],
   ["a higher-order relation relating one relation", without((s) => { s.higher_order[0].relates = ["p1"]; }), "\"h1\""],
   ["a missing attains_thesis", without((s) => { delete s.attains_thesis; }), "attains_thesis"]];
@@ -162,7 +172,8 @@ for (const [what, s, word] of refusals) {
   const v = validateReadSet(s, fixtureClaims);
   ok(v.text && v.text.includes(word), `(c) ${what} was not refused naming ${word}: ${JSON.stringify(v)}`);
 }
-ok(!validateReadSet(STRUCTURE, fixtureClaims).text, "(c) the valid structure was refused");
+ok(!validateReadSet(STRUCTURE, fixtureClaims).text, "(c) the valid structure, its apex `from: []` and h2 relating h1, was refused");
+ok(!validateReadSet(without((s) => { s.relations[2].from = "c2"; }), fixtureClaims).text, "(c) a claim no relation is from was refused rather than reported");
 const c = run("retry", { LPP_STRUCTURE: answers("structure-retry", [refusals[0][1], STRUCTURE]) });
 ok(c.status === 0 && existsSync(join(c.o, "calls", "sme_read_set", "2", "answer.json")), `(c) the second structure answer was not read: ${c.said}`);
 ok(existsSync(join(c.o, "calls", "sme_read_set", "2")) && prompt(c.o, "sme_read_set/2").includes(validateReadSet(refusals[0][1], fixtureClaims).text),
@@ -176,14 +187,14 @@ ok(CLAIMS.every((t) => !wp.includes(t)), "(d) the lpp_waypoints stdin carries cl
 const wset = (f) => { const w = JSON.parse(JSON.stringify(WAYPOINTS)); f(w.waypoints); return w; };
 for (const [what, w, word] of [
   ["an unknown id", wset((ws) => { ws[1].carries.push("p9"); }), "Waypoint 2"],
-  ["a relation carried by none", wset((ws) => { ws[0].carries = ["h1"]; ws[1].carries = ["p2"]; }), "\"p1\""],
+  ["a reached relation carried by none", wset((ws) => { ws[0].carries = ["h1"]; ws[1].carries = ["p2"]; }), "\"p1\""],
   ["a last Waypoint not carrying attains_thesis", wset((ws) => { ws[2].carries = ["p3"]; ws[1].carries.push("h2"); }), "Waypoint 3"],
   ["a written serves", wset((ws) => { ws[0].serves = ["c1"]; }), "Waypoint 1"]]) {
   const v = validateWaypoints(w, STRUCTURE);
   ok(v.text && v.text.includes(word), `(d) ${what} was not refused naming ${word}: ${JSON.stringify(v)}`);
 }
 const wy = existsSync(join(a.o, "waypoints.yaml")) ? parseYaml(readFileSync(join(a.o, "waypoints.yaml"), "utf8"), "waypoints.yaml") : { waypoints: [] };
-ok(JSON.stringify(wy.waypoints.map((w) => w.serves)) === JSON.stringify([["c1"], ["c1", "c2"], ["c2", "c3"]]),
+ok(JSON.stringify(wy.waypoints.map((w) => w.serves)) === JSON.stringify([["c1"], ["c1", "c2"], ["c1", "c2", "c3"]]),
   `(d) serves is not the from ids of each Waypoint's carried relations: ${JSON.stringify(wy.waypoints.map((w) => w.serves))}`);
 
 // (e) a GROUNDED refusal at Waypoint 2
@@ -210,7 +221,7 @@ const persona = readerPersona(join(repo, "audiences", "dev-to-zenn.md"));
 const options = planLegOptions(legs, library.moves || [], personaPriorKnowledgeLine(persona));
 ok(legs.length === 2 && options.every((x) => !x.error), `(f) /paragraph-plan's Leg reader refuses legs.yaml: ${JSON.stringify(options.find((x) => x.error))}`);
 for (const k of ["purpose", "rationale", "introduces", "opens_section"]) ok(legs.every((l) => !Object.hasOwn(l, k)), `(f) a Leg of legs.yaml carries \`${k}\``);
-ok(JSON.stringify(legs.map((l) => l.claims.map((g) => g.strand))) === JSON.stringify([["c1", "c2"], ["c2", "c3"]]), "(f) a Leg's claims are not its Waypoints' serves");
+ok(JSON.stringify(legs.map((l) => l.claims.map((g) => g.strand))) === JSON.stringify([["c1", "c2"], ["c1", "c2", "c3"]]), "(f) a Leg's claims are not its Waypoints' serves");
 
 // (g) the sheet
 const sheet = existsSync(join(a.o, "sheet.html")) ? readFileSync(join(a.o, "sheet.html"), "utf8") : "";
@@ -231,6 +242,43 @@ const gSheet = existsSync(join(g.o, "sheet.html")) ? readFileSync(join(g.o, "she
 const gPart = gSheet.slice(gSheet.indexOf("<h2>The Brief&#39;s Legs</h2>") >= 0 ? gSheet.indexOf("<h2>The Brief&#39;s Legs</h2>") : gSheet.indexOf("<h2>The Brief's Legs</h2>"));
 ok(g.status === 0 && gPart.includes("THE BRIEF") && gPart.includes(WAYPOINTS.waypoints[0].point), `(g) the --brief sheet does not render the Brief's Legs beside the Trial's: ${g.said}`);
 ok((readTrial(g.o) || {}).brief && readTrial(g.o).brief.sha256 === sha(briefFile), "(g) trial.json does not carry the Brief's sha256");
+
+// (i) a fourth claim the apex does not reach
+const CLAIM4 = "A team keeps the run's log for ninety days.";
+const claims4 = join(root, "claims4.md");
+writeFileSync(claims4, readFileSync(claimsFile, "utf8") + `\ncite: coding::lesson/fixture-4@0123456789abcdef\nclaim: ${CLAIM4}\n`);
+const claims4Ids = [...fixtureClaims, { id: "c4", claim: CLAIM4 }];
+const S4 = without((s) => {
+  s.roles.push({ id: "log", context: "The record a run leaves behind.", attributes: [], claims: ["c4"] });
+  s.relations.push({ id: "p4", between: ["team", "log"], holds: "{team} keeps {log} for ninety days.", from: "c4" });
+  s.higher_order.push({ id: "h3", relates: ["p4", "p3"], holds: "{team} keeps {log} of a pass of {rules}.", from: ["c4"] });
+});
+ok(!validateReadSet(S4, claims4Ids).text, `(i) the four-claim structure was refused: ${JSON.stringify(validateReadSet(S4, claims4Ids))}`);
+const R4 = withReach(S4, claims4Ids);
+const wsOver4 = (f) => { const w = JSON.parse(JSON.stringify(WAYPOINTS)); f(w.waypoints); return w; };
+const v4 = validateWaypoints(wsOver4((ws) => { ws[0].carries.push("p4"); }), R4);
+ok(v4.text && v4.text.includes("Waypoint 1") && v4.text.includes("\"p4\""), `(i) a Waypoint carrying an unreached relation was not refused naming the Waypoint and the id: ${JSON.stringify(v4)}`);
+ok(!validateWaypoints(WAYPOINTS, R4).text, "(i) the set carrying exactly the reached ids with the apex last was refused");
+const i4 = run("unreached", { LPP_STRUCTURE: answers("structure-4", [S4]) }, [], claims4);
+ok(i4.status === 0, `(i) the four-claim Trial did not exit 0: ${i4.said}`);
+const sy = existsSync(join(i4.o, "structure.yaml")) ? parseYaml(readFileSync(join(i4.o, "structure.yaml"), "utf8"), "structure.yaml") : {};
+const un = sy.unreached || { relations: [], higher_order: [], claims: [] };
+ok(JSON.stringify(un.relations) === JSON.stringify([{ id: "p4", reached_by: ["h3"] }])
+  && JSON.stringify(un.higher_order) === JSON.stringify([{ id: "h3", reached_by: [] }])
+  && JSON.stringify(un.claims) === JSON.stringify([{ id: "c4", reached_by: ["p4", "h3"] }]),
+  `(i) structure.yaml does not carry p4, h3 and c4 under unreached: ${JSON.stringify(sy.unreached)}`);
+ok(JSON.stringify(sy.reach) === JSON.stringify(["p1", "p2", "p3", "h1", "h2"]), `(i) structure.yaml's reach is not the apex's closure: ${JSON.stringify(sy.reach)}`);
+const st4 = ((readTrial(i4.o) || { stages: [] }).stages).find((x) => x.stage === "structure") || {};
+ok(JSON.stringify(st4.reach) === JSON.stringify(sy.reach) && JSON.stringify(st4.unreached) === JSON.stringify(sy.unreached),
+  `(i) trial.json's structure stage does not carry reach and unreached: ${JSON.stringify(st4)}`);
+const iSheet = existsSync(join(i4.o, "sheet.html")) ? readFileSync(join(i4.o, "sheet.html"), "utf8") : "";
+const iStructure = iSheet.slice(iSheet.indexOf("<h2>Structure</h2>"), iSheet.indexOf("<h2>Leg Waypoints</h2>"));
+ok(/<tr class="unreached"><td>p4<\/td>/.test(iStructure) && /<tr class="unreached"><td>h3<\/td>/.test(iStructure) && !/<tr class="unreached"><td>p1<\/td>/.test(iStructure),
+  "(i) the sheet does not mark p4 and h3, and only them, unreached under Structure");
+const iClaims = iSheet.slice(iSheet.indexOf("<h2>Claims</h2>"), iSheet.indexOf("<h2>Structure</h2>"));
+const iLeft = iClaims.slice(iClaims.indexOf("<h3>Unreached claims</h3>"));
+ok(iClaims.includes("<h3>Unreached claims</h3>") && iLeft.includes("coding::lesson/fixture-4@0123456789abcdef") && iLeft.includes(CLAIM4) && !iLeft.includes(CLAIMS[0]),
+  "(i) the sheet does not list c4 with its cite under Claims' Unreached claims");
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
