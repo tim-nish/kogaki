@@ -16,8 +16,10 @@ import re, subprocess, sys
 
 RETIRED = re.compile(r"(?:\b|(?<=\\b))(?:leg|paragraph)[ -]waypoints?\b", re.IGNORECASE)
 # THE SAME NAME WRAPPED at a line break, the continuation line's comment or quote marker
-# skipped: a line-by-line read misses it, and a rename by line missed 28 such sites.
-WRAPPED = re.compile(r"\b(?:leg|paragraph)[ \t]*\n[ \t]*(?:[#/>*]+[ \t]*)?waypoints?\b", re.IGNORECASE)
+# skipped, or SPLIT ACROSS A STRING CONCATENATION (`Leg ` + `Waypoint`): a line-by-line read
+# misses both, a rename by line missed 28 wrapped sites, and review found the split one.
+WRAPPED = re.compile(r"\b(?:leg|paragraph)[ \t]*(?:\n[ \t]*(?:[#/>*]+[ \t]*)?"
+                     r"|[\"'`][\s+]*[\"'`][ \t]*)waypoints?\b", re.IGNORECASE)
 
 def hits(text):
     found = [(i, l.strip()) for i, l in enumerate(text.splitlines(), 1) if RETIRED.search(l)]
@@ -26,8 +28,8 @@ def hits(text):
         found.append((n, text.splitlines()[n - 1].strip() + " / (wrapped)"))
     return found
 
-# THE FIXTURE PASS RUNS ON EVERY INVOCATION. Cases 1-6 are the retired forms;
-# 7-9 are the CONTROLS that stop the deny passing vacuously.
+# THE FIXTURE PASS RUNS ON EVERY INVOCATION. Cases 1-7 are the retired forms;
+# 8-10 are the CONTROLS that stop the deny passing vacuously.
 FIXTURES = [
     ("a Leg Waypoint fails", False, "binds one paragraph Move to every Leg Waypoint"),
     ("a Paragraph Waypoints list fails", False, "generates that Leg's Paragraph Waypoints"),
@@ -35,6 +37,7 @@ FIXTURES = [
     ("a hyphenated form fails", False, "the Leg-Waypoint count"),
     ("a form in regex source fails", False, "nums(/\\bParagraph Waypoint (\\d+)\\b/g)"),
     ("a form wrapped at a comment line fails", False, "// binds a Move to every Leg\n// Waypoint in order"),
+    ("a form split across a string concatenation fails", False, "renders each Leg `\n      + `Waypoint's Waypoints"),
     ("a bare Waypoint passes", True, "each Waypoint is one Segment of the bound Move"),
     ("a Brief Waypoint passes", True, "one paragraph per Brief Waypoint, in order"),
     ("a snake_case field passes", True, "`paragraph_waypoints` and `leg_waypoint_you_must_plan`"),

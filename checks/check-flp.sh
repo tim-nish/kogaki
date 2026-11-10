@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-flp -- the Feedback-Loop Playground (kogaki#1756, kogaki#1758, kogaki#1762) renders one Leg of a ParagraphPlan
 # run, or one Candidate of a Brief compose run, from the run directory alone, one Round per Submission. Its cases
-# (a)-(s) are the `flp` entry's contract in checks/registry.json.
+# (a)-(t) are the `flp` entry's contract in checks/registry.json.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -19,7 +19,7 @@ const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { writeCallRecord, pinCallRefusal, callDir } = await imp("src/workflow/call-record.mjs");
 const { SiteLoop } = await imp("src/workflow/site-retry.mjs");
 const { renderRowHead } = await imp("src/paragraph-plan.mjs");
-const { renderFlp, unitStatus, TABLE_HEADINGS, ROUND_BLOCKS, CANDIDATE_ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE, NO_RECORD } = await imp("src/flp/sheet.mjs");
+const { renderFlp, unitStatus, namedLocations, TABLE_HEADINGS, ROUND_BLOCKS, CANDIDATE_ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE, NO_RECORD } = await imp("src/flp/sheet.mjs");
 const root = mkdtempSync(join(tmpdir(), "flp-"));
 const run = join(root, "run");
 mkdirSync(join(run, "mapping"), { recursive: true });
@@ -274,6 +274,14 @@ ok(listing(corpus) === corpusBefore && listing(join(repo, "moves")) === movesBef
 }
 
 rmSync(root, { recursive: true, force: true });
+// (t) kogaki#1775: a Comment's bare `Waypoint n` names a paragraph-level Waypoint, and the Brief Waypoint forms
+// `Brief Waypoint n` and `leg <id>, Waypoint n` name none of them.
+{
+  const t = "the ParagraphPlan file x, leg s1, Waypoint 2's Waypoints: Waypoint 1 carries a, and Brief Waypoint 3 too";
+  const got = namedLocations(t, { paragraph_waypoints: [] }).waypoints;
+  ok(JSON.stringify(got) === "[1]", `(t) a Comment naming Brief Waypoints highlights a paragraph-level Waypoint it never named: ${JSON.stringify(got)}`);
+}
+
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
-console.log("flp: 18 cases pass");
+console.log("flp: 19 cases pass");
 JS

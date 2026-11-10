@@ -521,8 +521,9 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
 }
 
 // (y4) THE GROUNDED JUDGMENT RUNS INSIDE THE UNIT (kogaki#1768, on kogaki#1307's seam): a
-// judge declared in the units file -- the real `groundedPrompt`/`groundedVerdict` of
-// src/brief.mjs, beside the real `validateBriefWaypoints` -- answers `does-not-fit` on
+// judge declared in the units file -- the fixture specimen's `groundedPrompt`/`groundedVerdict`
+// beside its `validateFixtureWaypoints` (kogaki#1775: the Brief retired them; the fit-judge
+// plumbing they drive is /paragraph-plan's) -- answers `does-not-fit` on
 // the first Waypoint set, which re-asks the compose call with the judge's site verbatim;
 // the second set is judged `fits`, and that verdict is written beside the unit's record.
 {

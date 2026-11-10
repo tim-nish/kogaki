@@ -12,11 +12,10 @@
 // supervisor (src/workflow/detached-job.mjs) with the Brief's bounds. It changes no
 // production executable.
 //
-// THE ROW IS AUTHORED, ITS POINT TEXT COPIED (kogaki#1768). `leg_path_unit` is this table's own
-// row, and its `{{copy:point}}` is replaced at every run by the span of the Brief's
-// `lpp_waypoints` row its `copies` names (`resolvedRow`, src/workflow/copies.mjs), so the one
-// span keeps one origin and a production edit that moves it refuses naming the copy. `diff`
-// prints each copy and whether it resolves. `derivedRow` stays for a row that still copies a
+// THE ROW IS AUTHORED, ITS POINT TEXT ITS OWN (kogaki#1775). `leg_path_unit` carries the point
+// span inline and is its origin since the Brief's `lpp_waypoints` row left; the Mapping
+// Playground's `smp_leg_unit` copies it from here (`resolvedRow`, src/workflow/copies.mjs). `diff`
+// prints each copy a row carries and whether it resolves. `derivedRow` stays for a row that still copies a
 // whole production row with `substitutions` (the Mapping Playground's `smp_waypoints_unit`).
 //
 // THE VALIDATOR IS PRODUCTION'S, IMPORTED: `validateLegs` — which runs `waypointsRefusal` over

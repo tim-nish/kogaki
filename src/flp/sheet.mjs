@@ -155,7 +155,7 @@ export function roundsAt(calls, n, status) {
 export function namedLocations(text, entry) {
   const t = String(text);
   const nums = (re) => [...t.matchAll(re)].map((m) => Number(m[1]));
-  const waypoints = [...nums(/(?<!Brief )\bWaypoint (\d+)\b/g), ...nums(/\bpoint (\d+)\b/g)];
+  const waypoints = [...nums(/(?<!Brief |[Ll]eg [^,\s]+, )\bWaypoint (\d+)\b/g), ...nums(/\bpoint (\d+)\b/g)];
   const points = (entry && entry.paragraph_waypoints) || [];
   const quoted = [...t.matchAll(/"([^"]{12,})"/g)].map((m) => m[1]);
   points.forEach((p, i) => { const s = pointText(p).trim(); if (s && quoted.some((q) => q.trim() === s)) waypoints.push(i + 1); });

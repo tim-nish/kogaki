@@ -233,7 +233,7 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
   const rel = relFromRepo(path);
   const briefRel = relFromRepo(resolve(briefPath));
   if (!existsSync(path)) {
-    return { error: `the Brief at ${briefRel} has no ParagraphPlan file beside it (${rel}) — /draft renders each Leg `
+    return { error: `the Brief at ${briefRel} has no ParagraphPlan file beside it (${rel}) — /draft renders each Brief `
       + `Waypoint's Waypoints from that file, and /paragraph-plan writes it from the adopted Brief: run `
       + `\`node src/paragraph-plan.mjs start --brief ${briefRel}\` first (kogaki#1375)` };
   }
