@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# check-brief-mint — the Persona, claim register and mint-side rules of Brief
-# composition. A LIGHT member: pure calls, no model run.
+# check-brief-mint — the mint-side rules of Brief composition; pure calls, no model run.
 #   (af) a Leg carries no `introduces` (kogaki#1768); a ParagraphPlan introduces
 #        entry carrying `nearest` or `differs` is refused naming it (kogaki#1571).
 #   (ar) the Persona is read once, by `audienceFor`, and handed to the Leg Waypoint
@@ -9,7 +8,8 @@
 #   (as) the claim register (kogaki#1281); (bb) `composeBrief` records
 #        `compose_path` (kogaki#1262, #1328); (cc) no external-authority switch (#1571).
 #   (dd)/(dh) a home resolved at its gate (kogaki#1742) over Thesis candidates from
-#        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749).
+#        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749);
+#        (dj) the candidate constraint, single-top apex, depth line and bound (#1773).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -22,8 +22,9 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { composeBrief, composeThesisCandidates } from "./src/brief.mjs";
 import { classifyHomes, thesisGateOptions, thesisGate } from "./src/brief/candidates.mjs";
-import { componentsOf } from "./src/compose/structure.mjs";
-import { homeCollisionReading } from "./src/brief/renderers.mjs";
+import { componentsOf, partitionComponents, withApex, withReach } from "./src/compose/structure.mjs";
+import { unreachedCoverage, withThesis } from "./src/brief/candidates.mjs";
+import { GATE_WORK, STATE_WORK, briefThesisWords, homeCollisionReading, thesisBoundRefusal } from "./src/brief/renderers.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
 import { STATE_RETRY_GATE_ID } from "./src/workflow/gate.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS } from "./src/review.mjs";
@@ -155,8 +156,8 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
 // src/brief/ deletes a directory.
 const DD_STRANDS = [{ display_id: "L1", slug: "a-strand", address: "coding::lesson/a-strand", cite: "coding::lesson/a-strand@abc123" }];
 // THE CANDIDATES ARE THE STRUCTURE'S APEXES (kogaki#1768): one Strand read as two components, each
-// two relations under one higher-order relation, so two Thesis candidates, the first the one whose home
-// (dh) collides; `keep` then leaves the second offered.
+// two relations under one higher-order relation -- a single top, so that top is the apex (kogaki#1773) --
+// so two Thesis candidates, the first the one whose home (dh) collides; `keep` then leaves the second offered.
 const DD_CLAIMS = [{ id: "L1", claim: "guards fail open when nobody feeds them" }];
 const DD_STRUCTURE = {
   roles: [{ id: "guard", context: "A check standing at a gate.", attributes: [], claims: ["L1"] },
@@ -172,9 +173,7 @@ const DD_STRUCTURE = {
 };
 const ddCandidates = () => {
   const ks = componentsOf(DD_STRUCTURE, DD_CLAIMS);
-  const holds = ["Guards fail open when nobody feeds them.", "Caches serve stale answers when nobody evicts them."];
-  return composeThesisCandidates(ks.map((k, i) => ({ component: k.component, id: `apex-${i + 1}`, relates: [...k.top],
-    holds: holds[i], from: [] })), ks, DD_CLAIMS);
+  return composeThesisCandidates([], ks, DD_CLAIMS, DD_STRUCTURE);
 };
 const ddHome = (thesesDir, slug, thesis, cite) => {
   mkdirSync(join(thesesDir, slug), { recursive: true });
@@ -217,6 +216,146 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
   if (!existsSync(join(other, name, "brief.yaml"))) fails.push("(dd) classifying a home touched it");
 
   if (/\b(rmSync|rmdirSync)\(/.test(briefRuntimeText())) fails.push("(dd) a code path under src/brief/ still deletes a directory");
+}
+
+// (dj) kogaki#1773: three components over L1..L4. k1 (L1, L2) stacks two higher-order relations under
+// one top, so its apex is that top; k2 (L3) carries two tops, so its apex is written; k3 (L4) carries one
+// ordinary relation and no higher-order relation, so it is not offered and is reported instead.
+const DJ_CLAIMS = ["L1", "L2", "L3", "L4"].map((id) => ({ id, claim: `claim ${id}` }));
+const DJ_STRUCTURE = {
+  roles: [["gate", "L1"], ["feed", "L1"], ["check_root", "L2"], ["log", "L3"], ["reader", "L3"], ["clock", "L3"], ["tick", "L3"], ["note", "L4"], ["page", "L4"]]
+    .map(([id, c]) => ({ id, context: `A ${id}.`, attributes: [], claims: [c] })),
+  relations: [
+    { id: "r1", between: ["gate", "feed"], holds: "{gate} reads {feed}.", from: "L1" },
+    { id: "r2", between: ["gate", "check_root"], holds: "{gate} lives under {check_root}.", from: "L2" },
+    { id: "r3", between: ["feed", "check_root"], holds: "{feed} is listed in {check_root}.", from: "L2" },
+    { id: "r4", between: ["log", "reader"], holds: "{log} is read by {reader}.", from: "L3" },
+    { id: "r5", between: ["log", "reader"], holds: "{log} is kept for {reader}.", from: "L3" },
+    { id: "r6", between: ["clock", "log"], holds: "{clock} stamps {log}.", from: "L3" },
+    { id: "r7", between: ["clock", "tick"], holds: "{clock} counts {tick}.", from: "L3" },
+    { id: "r8", between: ["note", "page"], holds: "{note} sits on {page}.", from: "L4" }],
+  higher_order: [
+    { id: "h1", relates: ["r1", "r2"], holds: "{gate} reads {feed} because it lives under {check_root}.", from: ["L1"] },
+    { id: "h2", relates: ["h1", "r3"], holds: "Every {gate} under {check_root} reads a listed {feed}.", from: ["L2"] },
+    { id: "h3", relates: ["r4", "r5"], holds: "{log} exists for {reader}.", from: ["L3"] },
+    { id: "h4", relates: ["r6", "r7"], holds: "{clock} stamps {log} by counting {tick}.", from: ["L3"] }],
+};
+{
+  const ks = componentsOf(DJ_STRUCTURE, DJ_CLAIMS);
+  const { connected, unconnected } = partitionComponents(ks);
+  if (JSON.stringify(connected.map((k) => k.claims)) !== '[["L1","L2"],["L3"]]' || JSON.stringify(unconnected.map((k) => k.claims)) !== '[["L4"]]') {
+    fails.push(`(dj) the components were not split into connected [L1,L2],[L3] and unconnected [L4]: ${JSON.stringify(ks.map((k) => [k.claims, k.higher_order]))}`);
+  }
+  const k2 = connected.find((k) => k.claims[0] === "L3");
+  const written = { component: k2.component, id: "ax_log", relates: [...k2.top], holds: "A log and a clock are both kept for whoever reads them later.", from: [] };
+  const c = composeThesisCandidates([written], connected, DJ_CLAIMS, DJ_STRUCTURE);
+  const single = c.find((x) => x.claims.includes("L1"));
+  const multi = c.find((x) => x.claims.includes("L3"));
+  if (c.length !== 2 || c[0] !== single) fails.push(`(dj) the candidates are not two, deepest first: ${JSON.stringify(c.map((x) => [x.id, x.depth]))}`);
+  if (!single || single.apex.id !== "h2" || Object.keys(single.apex).length !== 1 || single.thesis !== "Every gate under check root reads a listed feed.") {
+    fails.push(`(dj) the single-top candidate's apex is not its top h2 with its holds in Role names: ${JSON.stringify(single)}`);
+  }
+  if (!multi || multi.apex.id !== "ax_log" || multi.depth !== 2 || single.depth !== 2) {
+    // both are depth 2: h2 over h1, and the written apex over h3/h4; a tie keeps the components. order
+    fails.push(`(dj) the depths are not 2 and 2, the written apex over its tops: ${JSON.stringify(c.map((x) => [x.id, x.depth]))}`);
+  }
+  const opts = thesisGateOptions(c);
+  if (!opts[0].label.includes("— depth 2, 3 relations over 2 Strands; leaves L3, L4 — Brief: ")
+    || !opts[1].label.includes("— depth 2, 4 relations over 1 Strand; leaves L1, L2, L4 — Brief: ")) {
+    fails.push(`(dj) the option labels do not carry the depth line: ${JSON.stringify(opts.map((o) => o.label))}`);
+  }
+  const shallow = { ...DJ_STRUCTURE, higher_order: DJ_STRUCTURE.higher_order.filter((h) => h.id !== "h2") };
+  const sk = partitionComponents(componentsOf(shallow, DJ_CLAIMS)).connected;
+  const sc = composeThesisCandidates([written], sk, DJ_CLAIMS, shallow);
+  if (JSON.stringify(sc.map((x) => x.depth)) !== "[2,1]" || !sc[0].claims.includes("L3")) {
+    fails.push(`(dj) the candidates are not ordered deepest first: ${JSON.stringify(sc.map((x) => [x.claims, x.depth]))}`);
+  }
+
+  const adoptedSingle = withApex(DJ_STRUCTURE, single.apex, DJ_CLAIMS);
+  if (adoptedSingle.attains_thesis !== "h2" || adoptedSingle.higher_order.length !== DJ_STRUCTURE.higher_order.length) {
+    fails.push(`(dj) a single-top adoption wrote an apex rather than naming h2: ${JSON.stringify([adoptedSingle.attains_thesis, adoptedSingle.higher_order.map((h) => h.id)])}`);
+  }
+  const adoptedMulti = withApex(DJ_STRUCTURE, multi.apex, DJ_CLAIMS);
+  if (adoptedMulti.attains_thesis !== "ax_log" || !adoptedMulti.higher_order.some((h) => h.id === "ax_log" && h.from.length === 0)) {
+    fails.push(`(dj) a multi-top adoption did not carry the written apex: ${JSON.stringify(adoptedMulti.higher_order.map((h) => h.id))}`);
+  }
+  const cov = unreachedCoverage(adoptedSingle);
+  const l4 = cov.find((e) => e.strand === "L4");
+  const l3 = cov.find((e) => e.strand === "L3");
+  if (!l4 || !l4.not_carried.includes("no higher-order relation connects this Strand's claim to any other")
+    || !l3 || l3.not_carried.includes("no higher-order relation connects")) {
+    fails.push(`(dj) strand_coverage does not give L4 the unconnected reason and L3 the ordinary one: ${JSON.stringify(cov)}`);
+  }
+  const minted = composeBrief({ slug: "dj", strands: DJ_CLAIMS.map((x) => ({ display_id: x.id, slug: x.id.toLowerCase(), cite: `coding::lesson/${x.id}@abc` })),
+    thesis: single.thesis, composePath: "audiences/dev-to-zenn.md", claims: DJ_CLAIMS.map((x) => x.claim), structure: adoptedSingle });
+  const rec = compose.parseBriefRecord(minted, "dj.yaml");
+  if (rec.error || rec.record.structure.attains_thesis !== "h2" || !(rec.record.strand_coverage || []).some((e) => e.strand === "L4")) {
+    fails.push(`(dj) the minted Brief does not carry attains_thesis h2 and L4 under strand_coverage: ${rec.error || JSON.stringify(rec.record.strand_coverage)}`);
+  }
+
+  // The unconnected material, rendered above the Thesis question.
+  const dir = mkdtempSync(join(tmpdir(), "kogaki-dj-gate-"));
+  const runState = join(dir, "run.json");
+  writeFileSync(runState, JSON.stringify({ gate: thesisGate(c, []), thesis_candidates: c, unconnected }) + "\n");
+  const g = GATE_WORK.THESIS_ADOPTION({ brief_run_state: runState });
+  if (!String(g.extra.settled_set_provenance || "").includes("Not offered: L4 — no higher-order relation connects this Strand's claim to any other.")) {
+    fails.push(`(dj) the unconnected material is not rendered above the question: ${JSON.stringify(g.extra)}`);
+  }
+
+  // The bound: the setting, the rewrite's refusal naming the length, and the slug following the rewrite.
+  const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  const settings = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
+  if (briefThesisWords(briefTable) !== 30 || settings.brief.thesis_words !== 30 || typeof settings.brief.thesis_words_means !== "string") {
+    fails.push(`(dj) brief.thesis_words is not 30 with a _means line: ${briefThesisWords(briefTable)}`);
+  }
+  const over = [{ id: "thesis-k1" }];
+  const long = Array.from({ length: 31 }, (_, i) => `word${i}`).join(" ");
+  const r1 = thesisBoundRefusal({ theses: [{ candidate: "thesis-k1", thesis: long }] }, over, 30);
+  if (!r1 || !r1.includes("31 words") || !r1.includes("30 words")) fails.push(`(dj) a rewrite still over the bound was not refused naming its length: ${r1}`);
+  if (thesisBoundRefusal({ theses: [{ candidate: "thesis-k1", thesis: "Guards read only what is listed." }] }, over, 30) !== null) {
+    fails.push("(dj) a rewrite within the bound was refused");
+  }
+  if (!thesisBoundRefusal({ theses: [] }, over, 30)) fails.push("(dj) a rewrite dropping a candidate was not refused");
+  const re = withThesis(single, "Listed feeds keep guards honest");
+  if (re.thesis !== "Listed feeds keep guards honest." || re.slug === single.slug) fails.push(`(dj) a rewritten Thesis did not carry its own slug: ${JSON.stringify(re)}`);
+
+  // The apex state end to end, over fixture records: no apex Call is owed for a single top, the
+  // over-long Thesis is rewritten once, and a rewrite still over the bound stops the run naming it.
+  const st = briefTable.states.find((x) => x.id === "apex");
+  const runApex = (rewrite) => {
+    const d = mkdtempSync(join(tmpdir(), "kogaki-dj-apex-"));
+    const rs = join(d, "run.json");
+    const longHolds = `${Array.from({ length: 35 }, (_, i) => `w${i}`).join(" ")} {gate}`;
+    const structure = { ...DJ_STRUCTURE, higher_order: DJ_STRUCTURE.higher_order.map((h) => (h.id === "h2" ? { ...h, holds: longHolds } : h)) };
+    writeFileSync(rs, JSON.stringify({ strands: DJ_CLAIMS.map((x) => ({ display_id: x.id, slug: x.id.toLowerCase(), address: `coding::lesson/${x.id}` })),
+      strand_renderings: Object.fromEntries(DJ_CLAIMS.map((x) => [x.id.toLowerCase(), { found: true, headline: x.claim }])), structure }) + "\n");
+    const apexFile = join(d, "apex.json");
+    writeFileSync(apexFile, JSON.stringify({ apexes: [{ ...written }] }) + "\n");
+    const boundFile = join(d, "bound.json");
+    writeFileSync(boundFile, JSON.stringify({ theses: [{ candidate: "thesis-k1", thesis: rewrite }] }) + "\n");
+    const rec = { _dir: d, judgments: {}, brief_run_state: rs };
+    return { d, rs, rec, run: () => STATE_WORK.apex(rec, st, { apex: apexFile, "thesis-bound": boundFile, "theses-dir": join(d, "theses") }, briefTable) };
+  };
+  const ok1 = runApex("Every guard under the check root reads a feed the root lists.");
+  await ok1.run();
+  const s1 = JSON.parse(readFileSync(ok1.rs, "utf8"));
+  const t1 = (s1.thesis_candidates || []).find((x) => x.id === "thesis-k1");
+  if (!t1 || t1.thesis !== "Every guard under the check root reads a feed the root lists." || !ok1.rec.brief_thesis_bound
+    || !s1.gate.options.some((o) => o.label.startsWith(t1.thesis)) || (s1.unconnected || []).length !== 1) {
+    fails.push(`(dj) the apex state did not rewrite the over-long Thesis before the gate: ${JSON.stringify(s1.gate && s1.gate.options)}`);
+  }
+  const bad = runApex(long);
+  let stopped = null;
+  const exit = process.exit;
+  process.exit = (code) => { throw new Error(`exit ${code}`); };
+  const err = console.error;
+  const write = process.stderr.write.bind(process.stderr);
+  const said = [];
+  console.error = (...a) => said.push(a.join(" "));
+  process.stderr.write = (chunk) => { said.push(String(chunk)); return true; };
+  try { await bad.run(); } catch (e) { stopped = e.message; } finally { process.exit = exit; console.error = err; process.stderr.write = write; }
+  if (!stopped || !said.join(" ").includes("31 words")) fails.push(`(dj) a rewrite still over the bound did not stop the run naming its length: ${stopped} ${said.join(" ")}`);
+  if (JSON.parse(readFileSync(bad.rs, "utf8")).gate) fails.push("(dj) a refused rewrite still composed the gate");
 }
 
 // (dh) kogaki#1742 end to end: from a record after `apex` (kogaki#1768), the advance stops at
@@ -480,5 +619,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — a Leg declaring no introduces (kogaki#1768) and an introduces entry carrying nearest or differs refused by name (kogaki#1571); the Persona read once, handed in compose_path's unit input and never to its validator (kogaki#1768), review_path reading none of it and carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes over candidates composed from the structure's apex (kogaki#1768), a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
+console.log("ok: check-brief-mint — a Leg declaring no introduces (kogaki#1768) and an introduces entry carrying nearest or differs refused by name (kogaki#1571); the Persona read once, handed in compose_path's unit input and never to its validator (kogaki#1768), review_path reading none of it and carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes over candidates composed from the structure's apex (kogaki#1768), a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a component no higher-order relation connects reported above the question and under strand_coverage rather than offered, a single top as its own apex, the depth line deepest first, and a Thesis over brief.thesis_words rewritten once and refused if still over (kogaki#1773); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
 JS

@@ -3908,19 +3908,37 @@ of what the Brief did before.
    and higher-order relations each relating two or more relations or
    higher-order relations. A settled Strand carrying no served claim refuses
    the state by name.
-3. `apex` splits the structure into its connected components and composes
-   one apex per component: one sentence, in the claims' words, stating the
-   connection the component's top-level relations make. Each apex is a
-   Thesis candidate, and the Thesis gate offers one option per candidate,
-   labelled `<Thesis> — reaches <Strand ids>; leaves <Strand ids or none> —
-   Brief: <slug>` (`src/gate-registry.json`). `HOME_COLLISION` follows where
-   a candidate's home already holds the same Thesis (kogaki#1742).
+3. `apex` splits the structure into its connected components. Only a
+   component a higher-order relation connects is a Thesis candidate
+   (kogaki#1773); a component of ordinary relations alone is recorded on the
+   run state as unconnected material and named above the Thesis question,
+   and a set with no candidate stops before the gate with that report and
+   the route back through Terrain. A component with ONE top-level
+   higher-order relation takes that relation as its apex, and its Thesis is
+   the relation's `holds` with its Roles named; one Call writes an apex for
+   each component with several tops: one sentence, in the claims' words,
+   stating the connection those tops make. A Thesis over
+   `brief.thesis_words` words (`kogaki.settings.json`) is rewritten once by
+   the `thesis_bound_unit` Call, handed the sentence, the bound and the
+   component it attains; a rewrite still over the bound stops the run naming
+   its length, so the owner never reads an over-long Thesis. The Thesis gate
+   offers one option per candidate, deepest first, labelled `<Thesis> —
+   depth <d>, <k> relations over <n> Strands; leaves <Strand ids or none> —
+   Brief: <slug>` (`src/gate-registry.json`), `d` the longest chain of
+   higher-order relations from the apex down to an ordinary relation.
+   `HOME_COLLISION` follows where a candidate's home already holds the same
+   Thesis (kogaki#1742).
 4. `adopt_thesis` adopts the selected apex, and the structure is closed under
-   it (`withApex`): the apex becomes `attains_thesis`, and what it does not
-   reach is recorded as unreached.
+   it (`withApex`): the apex becomes `attains_thesis` — a single top is named
+   and no apex is written — and what it does not reach is recorded as
+   unreached.
 5. `mint` writes `theses/<slug>/brief.yaml` with `structure` beside the
    Thesis, and `strand_coverage` naming each Strand whose claims the apex
-   leaves unreached. Nothing unreached is forced into a Waypoint.
+   leaves unreached; a claim of unconnected material carries the reason `no
+   higher-order relation connects this Strand's claim to any other`.
+   Nothing unreached is forced into a Waypoint. The Leg-Planning
+   Playground's run already holds the same constraint: its read names one
+   higher-order relation `attains_thesis`, relating two or more.
 6. `compose_path` asks the renderings record (§5.1.4), then starts one
    Detached Job unit. Its Call is `lpp_waypoints`: the Leg Waypoints, each a
    `point` beside the ids it `carries`, together carrying every relation and

@@ -31,7 +31,7 @@ import {
   definedTermsRefusal, ownerGateDigest, snapshotBrief, validateOwnerAnswer,
 } from "../compose.mjs";
 import { resolveHeadlines, resolveStrandAddresses } from "../workflow/strands.mjs";
-import { withApex } from "../compose/structure.mjs";
+import { componentsOf, depthOf, holdsInRoleNames, withApex } from "../compose/structure.mjs";
 import {
   argString, briefComposePathDefault, defaultRunState, fail, readRunState, strandClaims,
 } from "./run-state.mjs";
@@ -43,10 +43,16 @@ const COMPOSE_BRIEF_INPUTS = Object.freeze(["slug", "strands", "thesis", "compos
 
 // One `strand_coverage` entry per claim the adopted structure leaves unreached:
 // `{ strand, not_carried }`, the reason naming what would have reached it.
+// A claim of a component no higher-order relation connects carries that reason instead (kogaki#1773).
 export function unreachedCoverage(structure) {
-  return ((structure.unreached && structure.unreached.claims) || []).map((c) => ({
+  const left = (structure.unreached && structure.unreached.claims) || [];
+  const ks = componentsOf(structure, left);
+  const joined = new Set(ks.filter((k) => k.higher_order.length > 0).flatMap((k) => k.claims));
+  const loose = new Set(ks.filter((k) => k.higher_order.length === 0).flatMap((k) => k.claims).filter((id) => !joined.has(id)));
+  return left.map((c) => ({
     strand: c.id,
-    not_carried: (c.reached_by || []).length
+    not_carried: loose.has(c.id) ? `The Thesis does not reach this Strand: ${UNCONNECTED_REASON}`
+      : (c.reached_by || []).length
       ? `The Thesis does not reach this Strand: it states ${c.reached_by.join(", ")}, which the adopted apex does not relate.`
       : "The Thesis does not reach this Strand: the structure reads no relation from it.",
   }));
@@ -178,25 +184,47 @@ function sentence(text) {
   return /[?!]$/.test(t) ? t : `${t}.`;
 }
 
-export function composeThesisCandidates(apexes, components, claims) {
+// ONLY A COMPONENT A HIGHER-ORDER RELATION CONNECTS IS A CANDIDATE, AND A SINGLE TOP IS ITS OWN APEX (kogaki#1773):
+// `components` is `partitionComponents`'s `connected`; a component with one top carries that top as its apex, its
+// Thesis the top's `holds` in Role names, and `apexes` holds the written apex of each component with several. Each
+// candidate carries its `depth` and its relation count, and the list is ordered deepest first.
+export function composeThesisCandidates(apexes, components, claims, structure) {
   const ids = claims.map((c) => c.id);
+  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
   return components.map((k) => {
-    const apex = apexes.find((a) => a.component === k.component);
+    const single = k.top.length === 1 && higher.has(k.top[0]);
+    const apex = single ? higher.get(k.top[0]) : apexes.find((a) => a.component === k.component);
     if (!apex) throw new Error(`composeThesisCandidates: the component ${k.component} carries no apex — \`validateApex\` refuses that before this runs`);
-    const claim = sentence(apex.holds);
-    return {
+    const claim = sentence(single ? holdsInRoleNames(apex.holds) : apex.holds);
+    return withThesis({
       id: `thesis-${k.component}`,
-      claim,
-      thesis: claim,
       component: k.component,
-      apex: { id: apex.id, relates: [...apex.relates], holds: apex.holds, from: [] },
+      apex: single ? { id: apex.id } : { id: apex.id, relates: [...apex.relates], holds: apex.holds, from: [] },
+      depth: single ? depthOf(structure, apex.id) : 1 + Math.max(0, ...k.top.map((id) => depthOf(structure, id))),
+      relation_count: k.relations.length,
       claims: [...k.claims],
       reaches: ids.filter((id) => k.claims.includes(id)),
       leaves: ids.filter((id) => !k.claims.includes(id)),
-      slug: deriveSlugCandidate(String(claim).split(/(?<=[.?!])\s+/)[0] || claim),
-    };
-  });
+    }, claim);
+  }).map((c, i) => [c, i]).sort(([a, i], [b, j]) => b.depth - a.depth || i - j).map(([c]) => c);
 }
+
+// A CANDIDATE CARRYING `thesis` (kogaki#1773): its claim, and the slug that claim derives, set together so a
+// rewritten Thesis never keeps the slug of the sentence it replaced.
+export function withThesis(candidate, thesis) {
+  const claim = sentence(thesis);
+  return { ...candidate, claim, thesis: claim, slug: deriveSlugCandidate(String(claim).split(/(?<=[.?!])\s+/)[0] || claim) };
+}
+
+// THE THESIS'S LENGTH IN WORDS (kogaki#1773), counted over whitespace.
+export const thesisWords = (text) => String(text).trim().split(/\s+/).filter(Boolean).length;
+
+// THE UNCONNECTED MATERIAL, AS THE OWNER READS IT ABOVE THE QUESTION (kogaki#1773): one line per component no
+// higher-order relation connects, naming the Strands it is read from.
+export function unconnectedLines(unconnected) {
+  return unconnected.map((k) => `Not offered: ${k.claims.join(", ")} — ${UNCONNECTED_REASON}`);
+}
+export const UNCONNECTED_REASON = "no higher-order relation connects this Strand's claim to any other.";
 
 // Derive ONE slug from a Thesis (story 1.72 AC4; paired into the gate at
 // v11, kogaki#518): the slug is thesis-derived and owner-decided, never
@@ -309,7 +337,13 @@ export function classifyHomes(candidates, strands, thesesDir) {
 // component reaches and leaves (kogaki#1768).
 export function thesisGateOptions(candidates) {
   return candidates.map((c) => ({ id: c.id,
-    label: `${c.thesis} — reaches ${c.reaches.join(", ")}; leaves ${c.leaves.length ? c.leaves.join(", ") : "none"} — Brief: ${c.slug}` }));
+    label: `${c.thesis} — ${depthLine(c)}; leaves ${c.leaves.length ? c.leaves.join(", ") : "none"} — Brief: ${c.slug}` }));
+}
+
+// THE DEPTH LINE (kogaki#1773): `depth <d>, <k> relations over <n> Strands`.
+export function depthLine(c) {
+  const n = c.reaches.length;
+  return `depth ${c.depth}, ${c.relation_count} relation${c.relation_count === 1 ? "" : "s"} over ${n} Strand${n === 1 ? "" : "s"}`;
 }
 
 // The thesis-determination gate's declaration, carried WITH the ask (story
@@ -497,7 +531,7 @@ export function cmdAdopt(args) {
   // THE ADOPTED STRUCTURE (kogaki#1768): the adopted component's apex appended to
   // `higher_order` and named `attains_thesis`, the other apexes discarded, and
   // `reach` and `unreached` derived from it.
-  if (!state.structure || !hit.apex) {
+  if (!state.structure || !hit.apex || typeof hit.apex.id !== "string") {
     fail(`candidate ${hit.id} carries no apex, or the run state carries no structure — the \`apex\` state composes `
       + "both before the gate (kogaki#1768). Nothing was written.");
   }

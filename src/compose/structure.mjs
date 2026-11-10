@@ -338,6 +338,30 @@ export function componentsOf(structure, claims) {
   });
 }
 
+// A COMPONENT IS A THESIS CANDIDATE ONLY WHERE A HIGHER-ORDER RELATION CONNECTS ITS CLAIMS (kogaki#1773): `connected`
+// carries a higher-order relation, `unconnected` carries ordinary relations alone and is reported, never offered.
+export function partitionComponents(components) {
+  return { connected: components.filter((k) => k.higher_order.length > 0),
+    unconnected: components.filter((k) => k.higher_order.length === 0) };
+}
+
+// THE DEPTH OF `id` (kogaki#1773): 0 for an ordinary relation, and for a higher-order relation one more than the
+// deepest id it relates -- the longest chain of higher-order relations down to an ordinary relation.
+export function depthOf(structure, id) {
+  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
+  const walk = (x, seen) => {
+    const h = higher.get(x);
+    if (!h || seen.has(x)) return 0;
+    const next = new Set(seen).add(x);
+    return 1 + Math.max(0, ...h.relates.map((r) => walk(r, next)));
+  };
+  return walk(id, new Set());
+}
+
+// A HIGHER-ORDER RELATION'S `holds` WITH ITS ROLES NAMED (kogaki#1773): each `{<id>}` written as the Role's id, its
+// hyphens and underscores read as spaces -- the Thesis of a component whose one top is its apex.
+export const holdsInRoleNames = (holds) => String(holds).replace(/\{([^}]+)\}/g, (_, id) => id.replace(/[-_]+/g, " "));
+
 // THE APEX RECORD (kogaki#1768), refused `{ group, text }` or `{}`: one apex per component of `components`, each
 // relating exactly that component's `top`, with an id no relation, higher-order relation or other apex carries, a
 // `holds` that is one sentence, and `from: []`.
@@ -371,8 +395,11 @@ export function validateApex(answer, components, structure) {
 
 // THE STRUCTURE WITH ONE APEX ADOPTED (kogaki#1768): the apex appended to `higher_order` and named `attains_thesis`,
 // the other apexes discarded, and `reach` and `unreached` derived as \`withReach\` derives them.
+// An apex whose id is already a higher-order relation of the structure is a single top (kogaki#1773): it is named
+// `attains_thesis` and nothing is appended.
 export function withApex(structure, apex, claims) {
   const read = Object.fromEntries(Object.entries(structure).filter(([k]) => !["reach", "unreached", "attains_thesis"].includes(k)));
+  if (structure.higher_order.some((h) => h.id === apex.id)) return withReach({ ...read, attains_thesis: apex.id }, claims);
   return withReach({ ...read, higher_order: [...structure.higher_order, { id: apex.id, relates: [...apex.relates], holds: apex.holds, from: [] }],
     attains_thesis: apex.id }, claims);
 }

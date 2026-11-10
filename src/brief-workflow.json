@@ -105,14 +105,14 @@
     {
       "id": "apex",
       "kind": "judgment",
-      "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. compose ONE APEX for EACH connected component of the RelationalStructure in the input, `components`: each component lists its relations and higher-order relations with their `holds`, its `top` -- the higher-order relations no other relates, or its relations where it has none -- and the claims it is read from, `claims`. The apex is the Thesis an article built on that component alone argues: one sentence, in the claims' own words and naming the claims' objects -- never over Role ids, so it carries no `{<id>}` -- stating the connection the component's top-level relations together make, which no single claim states. `component` names the component's id, `id` is a new short id that no Role, relation or higher-order relation of `structure` carries, `relates` names exactly the component's `top`, and `from` is empty: the apex is the one connection no claim states. Answer the apex record and nothing else.",
+      "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. compose ONE APEX for EACH connected component of the RelationalStructure in the input, `components` -- each one a higher-order relation connects and with two or more top-level relations, since a component no higher-order relation connects is not a Thesis candidate and a component with one top carries that top as its apex (kogaki#1773): each component lists its relations and higher-order relations with their `holds`, its `top` -- the higher-order relations no other relates, or its relations where it has none -- and the claims it is read from, `claims`. The apex is the Thesis an article built on that component alone argues: one sentence, in the claims' own words and naming the claims' objects -- never over Role ids, so it carries no `{<id>}` -- stating the connection the component's top-level relations together make, which no single claim states. `component` names the component's id, `id` is a new short id that no Role, relation or higher-order relation of `structure` carries, `relates` names exactly the component's `top`, and `from` is empty: the apex is the one connection no claim states. Answer the apex record and nothing else.",
       "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly `apexes` -- a list of `{ \"component\": <a component id of the input>, \"id\": <a short unique id>, \"relates\": [<the component's `top` ids>], \"holds\": <one sentence, the Thesis>, \"from\": [] }`, one per component of the input.",
       "refusal": "a key the record or an apex does not declare, or a declared key missing; an apex naming a component the input does not carry, or two apexes naming one; an `id` that is empty or already an id of the structure; `relates` other than exactly the component's `top`, refused naming the component; a `holds` that is empty or carries `{<id>}`; a `from` that is not empty; and a component carrying no apex. The refusal is put back into your next round verbatim with your answer.",
       "retries": 2,
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1768"
+      "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1768, kogaki#1773"
     },
     {
       "id": "HOME_COLLISION",
@@ -382,6 +382,19 @@
     "refusal": "a record whose `version` is not \"1\"; `defined_terms` not a list; an entry that is not a `{ term, class }` map, carries any other key, carries no term, or a class outside `defined`, `ordinary`; a term listed twice; a term that occurs whole-word in neither the Thesis nor any Strand claim. The next Call receives the refused record beside its refusal, both verbatim (kogaki#1438).",
     "retries": 2,
     "governing": "SPEC-draft-pipeline, the durable home and the entry point; kogaki#1331"
+  },
+  "thesis_bound_unit": {
+    "id": "thesis_bound_unit",
+    "kind": "judgment",
+    "note": "NOT A STATE OF THIS FLOW (kogaki#1773). Asked from inside the `apex` state's renderer, after the Thesis candidates are composed and before the Thesis gate, only where a candidate's Thesis is over `thesis_words`; a run whose every Thesis is within the bound makes no Call. `retries` is 0: the Thesis is rewritten once, and a rewrite still over the bound stops the run naming its length.",
+    "thesis_words": {
+      "setting": "brief.thesis_words"
+    },
+    "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. Each entry of `theses` in the input is one Thesis candidate whose sentence, `thesis`, is longer than `thesis_words` words, beside `attains`, the part of the structure it is the Thesis of: its relations and higher-order relations with their `holds`, its `top` and the claims it is read from. Rewrite each Thesis as ONE sentence of at most `thesis_words` words that states the same connection `attains` makes, in the claims' own words and naming the claims' objects -- never over Role ids, so it carries no `{<id>}` -- dropping no part of that connection and adding nothing the structure does not state. Answer the record and nothing else.",
+    "input_shape": "ONE record AT ITS OWN ROOT carrying exactly `theses` -- a list of `{ \"candidate\": <a `candidate` id of the input>, \"thesis\": <one sentence of at most `thesis_words` words> }`, one per entry of the input's `theses`.",
+    "refusal": "a key the record or an entry does not declare, or a declared key missing; an entry naming no candidate of the input, or naming one twice; a candidate of the input with no entry; a `thesis` that is empty or carries `{<id>}`; and a `thesis` still longer than `thesis_words` words, refused naming its length. The row declares no re-ask, so a refusal stops the run.",
+    "retries": 0,
+    "governing": "SPEC-draft-pipeline, the structure-first Brief; kogaki#1773"
   },
   "renderings_unit": {
     "id": "renderings_unit",
