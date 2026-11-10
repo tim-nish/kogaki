@@ -1,5 +1,5 @@
 // The Leg-Planning Playground's records, read and refused (kogaki#1764): the claims file, the structure read over the
-// claim set, the Leg Waypoints composed from it, the Legs grouped over them, and the file `/paragraph-plan` reads.
+// claim set, the Leg Waypoints composed from it, the Legs derived over them, and the file `/paragraph-plan` reads.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -302,51 +302,54 @@ export function validateGrounded(answer, waypoints) {
 // A GROUNDED SITE AS THE COMMENT ITS WAYPOINT IS HANDED: the judge's text, verbatim.
 export const siteComment = (s) => `Waypoint ${s.waypoint}: the judge quoted "${s.phrase}" and wrote: ${s.why}`;
 
-// THE LEGS, refused `{ group, text }` or `{}`. `waypoints` is the passed set; `moveIds` the library's ids.
-export function validateLegPartition(answer, waypoints, structure, moveIds) {
-  const b = keysRefusal(answer, ["legs"], "the answer");
-  if (b) return shape(b);
-  const legs = listOf(answer.legs);
-  if (!legs) return shape("the answer's `legs` is not a non-empty list");
-  const higher = new Set(structure.higher_order.map((h) => h.id));
-  const seen = new Set();
-  let next = 1;
-  for (const [i, leg] of legs.entries()) {
-    const at = isMap(leg) && isText(leg.leg_id) ? `Leg ${leg.leg_id}` : `legs[${i}]`;
-    if (isMap(leg) && Object.hasOwn(leg, "claims")) return shape(`${at} carries \`claims\` — they are derived from the Waypoints' \`serves\`, never written`);
-    const lb = keysRefusal(leg, ["leg_id", "waypoints", "move"], at);
-    if (lb) return shape(lb);
-    if (!isText(leg.leg_id) || seen.has(leg.leg_id)) return shape(`${at}'s \`leg_id\` is empty or not unique`);
-    seen.add(leg.leg_id);
-    if (!moveIds.has(leg.move)) return { group: "library", text: `${at} binds ${JSON.stringify(leg.move)}, which names no Move of the library` };
-    if (!listOf(leg.waypoints)) return { group: "partition", text: `${at} carries no Waypoint` };
-    for (const n of leg.waypoints) {
-      if (n !== next) return { group: "partition", text: `${at} carries Waypoint ${JSON.stringify(n)} where Waypoint ${next} comes next — the Legs are contiguous runs of the Waypoints, in order` };
-      next += 1;
-    }
-    if (!leg.waypoints.some((n) => waypoints[n - 1].carries.some((id) => higher.has(id)))) {
-      return { group: "partition", text: `${at}'s Waypoints carry no higher-order relation` };
-    }
-  }
-  if (next <= waypoints.length) return { group: "partition", text: `Waypoint ${next} is in no Leg — every Waypoint is in exactly one Leg` };
-  return {};
-}
-
-// THE LEGS IN THE BRIEF'S LEG SHAPE: each Leg's claims derived from its Waypoints' `serves`, the last marked
-// `reaches_target`, and `purpose`, `rationale`, `introduces` and `opens_section` absent.
-export function briefShapedLegs(answer, waypoints, claims) {
+// THE LEGS, DERIVED BY THE RUNNER (kogaki#1767; the rule is the spec's Leg-Planning Playground, Stage 3). Returns
+// `{ legs, partition }`, `partition` naming each Leg's higher-order relation and Waypoint numbers.
+export function derivedLegs(waypoints, structure, claims) {
+  const apex = structure.attains_thesis;
+  const others = structure.higher_order.filter((h) => h.id !== apex);
+  const relates = new Map(structure.higher_order.map((h) => [h.id, new Set(h.relates)]));
+  const reaches = (w, h) => w.carries.includes(h.id) || w.carries.some((id) => relates.get(h.id).has(id));
+  const placed = waypoints.map((w) => {
+    if (w.carries.includes(apex)) return apex;
+    const h = others.find((x) => w.carries.includes(x.id)) || others.find((x) => reaches(w, x))
+      || structure.higher_order.find((x) => x.id === apex && reaches(w, x));
+    return h ? h.id : null;
+  });
+  for (let i = placed.length - 1; i >= 0; i--) if (placed[i] === null) placed[i] = placed[i + 1] ?? null;
+  const order = [...new Set(placed.filter((id) => id !== null && id !== apex)), apex];
+  const partition = order.map((relation, i) => ({ leg_id: `L${i + 1}`, relation,
+    waypoints: placed.flatMap((id, k) => (id === relation ? [k + 1] : [])) })).filter((p) => p.waypoints.length);
   const byId = new Map(claims.map((c) => [c.id, c]));
-  return answer.legs.map((leg, i) => {
-    const ws = leg.waypoints.map((n) => waypoints[n - 1]);
+  const legs = partition.map((p, i) => {
+    const ws = p.waypoints.map((n) => waypoints[n - 1]);
     const served = claims.map((c) => c.id).filter((id) => ws.some((w) => w.serves.includes(id)));
     return {
-      leg_id: leg.leg_id,
-      move: leg.move,
+      leg_id: p.leg_id,
       claims: served.map((id) => ({ strand: id, proposition: byId.get(id).claim })),
       waypoints: ws.map((w) => ({ point: w.point, serves: [...w.serves], case: "own" })),
-      ...(i === answer.legs.length - 1 ? { reaches_target: true } : {}),
+      ...(i === partition.length - 1 ? { reaches_target: true } : {}),
     };
   });
+  return { legs, partition };
+}
+
+// THE DERIVATION'S INVARIANT (kogaki#1767), refused naming what breaks it or `{}`.
+export function legPartitionRefusal({ legs, partition }, waypoints, structure) {
+  const seen = waypoints.map(() => 0);
+  for (const p of partition) {
+    if (!p.waypoints.length) return { error: `Leg ${p.leg_id} holds no Waypoint` };
+    for (const n of p.waypoints) seen[n - 1] += 1;
+  }
+  const off = seen.findIndex((k) => k !== 1);
+  if (off >= 0) return { error: `Waypoint ${off + 1} is in ${seen[off]} Legs — every Waypoint is in exactly one Leg` };
+  const moved = legs.find((l) => Object.hasOwn(l, "move"));
+  if (moved) return { error: `Leg ${moved.leg_id} binds a Move — a Leg binds none; the paragraph Move is ParagraphPlan's` };
+  if (partition[partition.length - 1].relation !== structure.attains_thesis) {
+    return { error: `the last Leg serves ${JSON.stringify(partition[partition.length - 1].relation)}, not the apex ${JSON.stringify(structure.attains_thesis)}` };
+  }
+  const marked = legs.filter((l) => l.reaches_target === true);
+  if (marked.length !== 1 || marked[0] !== legs[legs.length - 1]) return { error: "the last Leg, and it alone, is marked `reaches_target`" };
+  return {};
 }
 
 // THE FILE `/paragraph-plan` READS AS A BRIEF'S `reader_path`, refused naming the Leg or `{}`: its own Leg reader and

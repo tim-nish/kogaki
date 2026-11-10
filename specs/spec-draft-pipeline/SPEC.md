@@ -2916,7 +2916,8 @@ the Leg or is among `leaves_for_next_leg`, and a `carry` one paragraph leaves
 is taken up by the next. Whether an entry is met or taken up is judged by
 sense, never compared verbatim, and is the judge's TAKEN and LEFT; the plan
 file records none of it. A Leg the Brief binds no Move to (a Trial's Brief)
-leaves nothing; a Leg naming a Move the library does not hold stops the stage
+leaves nothing; a Leg with no `move` is read as leaving nothing for the next
+Leg, which is how the Leg-Planning Playground's Legs are read (§4.21); a Leg naming a Move the library does not hold stops the stage
 at `start`, naming the Leg and the Move. The Obligations ledger this replaced is
 retired (§5.2).
 
@@ -3710,7 +3711,10 @@ Leg Waypoints from that rather than from the Strands directly. Today one
 Brief call writes every Leg Waypoint's `point` from the Strand claims, and
 nothing records how a point was derived. The **Leg-Planning Playground
 (LPP)** proves the other order in a Trial before the Brief is rebuilt on it:
-a structure first, Leg Waypoints from its relations, Legs and Moves after.
+a structure first, Leg Waypoints from its relations, Legs derived from its
+higher-order relations, and one paragraph Move per Leg Waypoint bound by
+ParagraphPlan after (kogaki#1767, owner ruling 2026-11-10: a Move is bound
+once, at the paragraph, after the Leg Waypoints stand).
 It is a playground under §4.20's rule: it may import production files and
 the other playgrounds, nothing imports it, and it never writes under
 `theses/`. One run is a **Trial**: `node src/leg-planning/trial.mjs run
@@ -3790,25 +3794,37 @@ alone, the judge's text handed to it verbatim as the Comment, and the set is
 judged again, up to `brief.unit_rounds` Rounds. A malformed verdict is asked
 again once. The passed set is `waypoints.yaml`.
 
-**Stage 3, Legs and Moves: the `lpp_legs` row.** One Call is handed the
-passed Waypoints, the structure, the Persona and the Move library as
-`moves_you_may_bind` (each Move's `id`, `takes`, `leaves` and `segments`). It
-answers `legs`, each `{ leg_id, waypoints, move }`: an ordered partition of
-the Waypoints into contiguous runs, one Move bound per Leg as `smp_bind_move`
-binds one, under the TAKE and LEAVE rules copied from `reader_path_unit`.
-`validateLegPartition` refuses a written `claims`, an empty or repeated
-`leg_id`, a Move not in the library, a Waypoint left out, repeated or out of
-order, and a Leg whose Waypoints carry no higher-order relation. The runner
-derives each Leg's `claims` from its Waypoints' `serves`, marks the last Leg
-`reaches_target`, and gives every Waypoint `case: own`. The Legs are then
-judged by the Brief's own `reader_path_fit_unit`, over a Candidate built
-from them with the claims file's thesis; a Leg that does not fit is handed
-back with the judge's text, up to `brief.unit_rounds` Rounds. The passed Legs
-are `legs.yaml`: `composed_by: leg-planning` and `reader_path`, the Legs in
-the Brief's Leg shape (`leg_id`, `move`, `claims`, `waypoints[].point`,
-`waypoints[].serves`, `waypoints[].case`), with `purpose`, `rationale`,
-`introduces` and `opens_section` absent. The runner refuses to write a file
-`/paragraph-plan`'s Leg reader and Leg Waypoint rule would refuse.
+**Stage 3, Legs: derived by the runner, never asked** (kogaki#1767). No
+Call is made and no Move is bound. There is one Leg per higher-order relation,
+holding the Waypoints that carry that relation or a relation it relates, and
+each Waypoint is in exactly one Leg. A Waypoint carrying `attains_thesis` (the
+apex) goes in the apex's Leg. Any other Waypoint goes in the Leg of the first
+higher-order relation, in the structure's order, that it carries or relates a
+relation of. A Waypoint carrying neither goes in the Leg of the next Waypoint
+that has a Leg. The Legs are ordered by their first Waypoint, the apex's Leg
+last and marked `reaches_target`, and a Leg holding no Waypoint is not
+written. The runner derives each Leg's `claims` from its Waypoints' `serves`
+and gives every Waypoint `case: own`. `legPartitionRefusal` checks the
+derivation's invariant: every Waypoint in exactly one Leg, no Leg empty or
+carrying a `move`, and the apex's Leg last and alone `reaches_target`. The
+Legs are `legs.yaml`: `composed_by: leg-planning` and `reader_path`, the Legs
+in the Brief's Leg shape (`leg_id`, `claims`, `waypoints[].point`,
+`waypoints[].serves`, `waypoints[].case`), with `move`, `purpose`,
+`rationale`, `introduces` and `opens_section` absent. The runner refuses to
+write a file that `/paragraph-plan`'s Leg reader and Leg Waypoint rule would
+refuse.
+
+**Stage 4, ParagraphPlan over the Legs** (kogaki#1767). The Trial drives
+`/paragraph-plan` (§4.19) as the SMP Trial does (§4.20): `start`, then `await`
+until the job ends, under `<out>/paragraph-plan/`. It is handed `brief.yaml`
+there: the Brief record's required keys (the Trial's name as `slug`, the
+Audience as `compose_path`, the claims as `strands`, the thesis) around
+legs.yaml's `reader_path`, copied unchanged. Each Leg Waypoint becomes one
+paragraph with one Move. `trial.json` records the stage with the plan's path
+and sha256, and, for each Leg Waypoint, the bound Move id and the verdict,
+read from the plan's run as the FLP reads it. A `no_paragraph_move_fits`
+refusal stops the Trial as a stage stop, naming the Leg and the Waypoint; it
+does not refuse the Waypoints or the Legs.
 
 **A copy is read, never restated.** A `{{copy:<name>}}` token in a row of
 `src/leg-planning/workflow.json` is replaced at run time by the text its
@@ -3818,12 +3834,14 @@ no longer carries refuses the Trial before any Call.
 
 **Records and Rounds.** Every Call writes a Call Record under
 `<out>/calls/<row>/<n>/`. A Round is one Submission at a stage and the
-verdict on it: the validator's refusal, the GROUNDED verdict or the fit
-verdict, with the Comment it drew. `trial.json` carries the claims file's
+verdict on it: the validator's refusal, the GROUNDED verdict or the plan
+judge's verdict, with the Comment it drew. `trial.json` carries the claims file's
 path and sha256, its thesis and claims, the Persona, the library's path and
 sha256, the Brief's path and sha256 under `--brief`, each stage's state,
-file and sha256 and Rounds, the GROUNDED sites under `named`, the fit
-verdicts and the Leg partition, and the sheet's path and sha256.
+file and sha256 and Rounds, the GROUNDED sites under `named`, the Leg
+partition with each Leg's higher-order relation, the ParagraphPlan stage's
+plan, Brief and run with each Leg Waypoint's bound Move and verdict, and the
+sheet's path and sha256.
 
 **The sheet.** `<out>/sheet.html`, one page, under the FLP's fixed-heading
 rule with its own list (`LPP_HEADINGS`), in this order:
@@ -3838,12 +3856,14 @@ rule with its own list (`LPP_HEADINGS`), in this order:
 3. `Leg Waypoints`: one row per Waypoint: number, point, carries, serves and
    Leg. A Waypoint the GROUNDED judge named in any Round is highlighted, with
    the phrase and the Round.
-4. `Legs`: per Leg, its `Move`, linked to its file and its Corpus passage as
-   the FLP renders them, then the Move's Segments beside the Leg's Waypoints in
-   order (Segment, operation, relation, manner, and the Waypoint and the ids
-   it carries), and the fit judge's verdict and `why` for the Leg.
+4. `Legs`: per Leg, the higher-order relation it serves. Under it, one row
+   for each of its Waypoints: the point, the paragraph Move ParagraphPlan
+   bound (linked to its file and its Corpus passage as the FLP renders them),
+   the Paragraph Waypoints under it, and the plan judge's verdict.
 5. `Rounds`: per stage, each Round in the FLP's blocks, `Submission`,
-   `Comment` and `Calls`, each Call linked to its Call Record.
+   `Comment` and `Calls`, each Call linked to its Call Record. The Legs stage
+   has no Round. `Stage paragraph-plan` gives each Leg Waypoint's Rounds, read
+   from the plan's own run.
 6. With `--brief`, `The Brief's Legs`: that Brief's Legs and their Waypoints
    beside the Trial's, by Leg number, read only.
 

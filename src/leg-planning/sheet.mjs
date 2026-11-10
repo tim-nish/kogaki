@@ -1,4 +1,4 @@
-// The Leg-Planning Playground's sheet (kogaki#1764): one page over one Trial directory, its parts in a fixed order and
+// The Leg-Planning Playground's sheet (kogaki#1764, kogaki#1767): one page over one Trial directory, its parts in a fixed order and
 // every heading from one fixed list, the Rounds of each stage in the FLP's blocks.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
@@ -11,7 +11,6 @@
 import { join, relative, resolve } from "node:path";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { CALLS_DIR } from "../workflow/call-record.mjs";
-import { moveContract } from "../compose.mjs";
 import { proofSheetCss } from "../mapping-playground/sheet.mjs";
 import { CANDIDATE_ROUND_BLOCKS } from "../flp/sheet.mjs";
 import { movePassage, NO_RECORD } from "../flp/provenance.mjs";
@@ -19,7 +18,7 @@ import { movePassage, NO_RECORD } from "../flp/provenance.mjs";
 // THE SHEET'S PARTS, in order.
 export const LPP_PARTS = ["Claims", "Structure", "Leg Waypoints", "Legs", "Rounds", "The Brief's Legs"];
 // THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these.
-export const LPP_HEADINGS = [...LPP_PARTS, "Unreached claims", "Roles", "Relations", "Higher-order relations", "Leg <id>", "Move", "Stage <name>",
+export const LPP_HEADINGS = [...LPP_PARTS, "Unreached claims", "Roles", "Relations", "Higher-order relations", "Leg <id>", "Stage <name>",
   "Round n", ...CANDIDATE_ROUND_BLOCKS];
 const ACCENT = ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--accent)}tr.named td{background:#4a3a12}tr.unreached td{opacity:.6}'
   + ".refusal{white-space:pre-wrap}.line{margin:.15em 0}.cols{display:grid;grid-template-columns:1fr 1fr;gap:1em}"
@@ -68,12 +67,8 @@ function structurePart(structure) {
       esc((h.from || []).join(", ")), esc(h.relates.join(", ")), esc(h.holds), esc(mark(h.id))], cls(h.id))));
 }
 
-// The Leg each Waypoint number falls in.
-const legOfWaypoint = (legs, answerLegs) => {
-  const m = new Map();
-  (answerLegs || []).forEach((l, i) => l.waypoints.forEach((n) => m.set(n, legs[i].leg_id)));
-  return m;
-};
+// The Leg each Waypoint number falls in, from the derivation's partition.
+const legOfWaypoint = (partition) => new Map((partition || []).flatMap((p) => p.waypoints.map((n) => [n, p.leg_id])));
 
 function waypointsPart(record, waypoints, legOf) {
   const st = stageOf(record, "waypoints");
@@ -96,33 +91,50 @@ function moveLine(move, libraryDir, outDir) {
   return `<p class="line">${link(outDir, join(libraryDir, `${move}.yaml`), move)}</p><p class="line">passage: ${passage}</p>`;
 }
 
-// One Leg: its Move, the Move's Segments beside the Leg's Waypoints in order, and the fit verdict on it.
-function legHtml(leg, numbers, waypoints, verdict, libraryDir, outDir) {
-  const c = moveContract(leg.move, libraryDir);
-  const segments = c.error ? [] : c.segments;
-  const cell = (sg, k) => esc(sg && typeof sg[k] === "string" ? sg[k] : "");
-  const rows = Array.from({ length: Math.max(segments.length, numbers.length) }, (_, i) => {
-    const n = numbers[i];
-    const w = n ? waypoints[n - 1] : null;
-    return row([String(i + 1), cell(segments[i], "operation"), cell(segments[i], "relation"), cell(segments[i], "manner"),
-      w ? esc(`Waypoint ${n}: ${w.carries.join(", ")}`) : ""]);
+// One Leg of the `Legs` part (kogaki#1767).
+function legHtml(leg, p, structure, waypoints, planLeg, bindings, libraryDir, outDir) {
+  const h = structure.higher_order.find((x) => x.id === p.relation);
+  const rows = p.waypoints.map((n, k) => {
+    const w = waypoints[n - 1];
+    const b = bindings.find((x) => x.leg_id === leg.leg_id && x.waypoint === k + 1) || null;
+    const entry = planLeg ? planLeg.waypoints[k] : null;
+    const move = (entry && entry.move) || (b && b.move);
+    const pws = entry ? entry.paragraph_waypoints.map((pw, i) => line(`${i + 1}. ${pw.performs !== undefined ? `performs: ${pw.performs}` : pw.point}`)).join("")
+      : none("no Paragraph Waypoints");
+    return row([String(n), esc(w.point), move ? moveLine(move, libraryDir, outDir) : none("no Move bound"), pws, esc(b ? b.verdict : "not reached")]);
   });
-  return heading(3, `Leg ${leg.leg_id}`) + heading(4, "Move") + moveLine(leg.move, libraryDir, outDir) + (c.error ? line(c.error) : "")
-    + table(["Segment", "operation", "relation", "manner", "Waypoint carried"], rows)
-    + line(verdict ? `fit: ${verdict.verdict} — ${verdict.why}` : "fit: not judged");
+  return heading(3, `Leg ${leg.leg_id}`)
+    + line(`serves ${p.relation}${h ? ` — ${h.holds}` : ""}${leg.reaches_target ? " (reaches the target)" : ""}`)
+    + table(["Waypoint", "point", "paragraph Move", "Paragraph Waypoints", "verdict"], rows);
 }
 
-function legsPart(record, legs, waypoints, answerLegs, libraryDir, outDir) {
+function legsPart(record, legs, structure, waypoints, plan, libraryDir, outDir) {
   const st = stageOf(record, "legs");
-  if (!legs) return none(`No Legs passed${st && st.stopped ? `: ${st.stopped}` : "."}`);
-  const verdicts = new Map(((st && st.verdicts) || []).map((v) => [v.leg_id, v]));
-  return legs.map((leg, i) => legHtml(leg, answerLegs[i].waypoints, waypoints, verdicts.get(leg.leg_id), libraryDir, outDir)).join("");
+  if (!legs) return none(`No Legs were derived${st && st.stopped ? `: ${st.stopped}` : "."}`);
+  const pst = stageOf(record, "paragraph-plan");
+  const bindings = (pst && pst.waypoints) || [];
+  const planLegs = new Map(((plan && plan.legs) || []).map((l) => [l.leg_id, l]));
+  return (pst && pst.stopped ? line(`ParagraphPlan stopped: ${pst.stopped}`, "line refusal") : "")
+    + legs.map((leg, i) => legHtml(leg, st.partition[i], structure, waypoints, planLegs.get(leg.leg_id), bindings, libraryDir, outDir)).join("");
 }
 
-// THE ROUNDS OF EACH STAGE, in the FLP's blocks: Submission, Comment, Calls.
+// THE ROUNDS OF THE PARAGRAPHPLAN STAGE, per Leg Waypoint, from the record trial.json carries (kogaki#1767).
+function planRounds(st, outDir) {
+  const callLink = (dir) => link(outDir, resolve(REPO, dir), dir.split("/").slice(-2).join("/"));
+  if (!(st.waypoints || []).length) return st.stopped ? line(`stopped: ${st.stopped}`, "line refusal") : none("no Round");
+  return st.waypoints.map((w) => w.rounds.map((r) => {
+    const calls = r.call === null ? none("none") : `<p class="line">${callLink(r.call)}</p>`;
+    const blocks = { Submission: calls, Comment: line(`verdict: ${r.verdict}`) + (r.comment ? line(`why: ${r.comment}`, "line refusal") : ""), Calls: calls };
+    return heading(4, `Round ${w.leg_id} Waypoint ${w.waypoint}, ${r.round}`) + CANDIDATE_ROUND_BLOCKS.map((b) => heading(4, b) + blocks[b]).join("");
+  }).join("")).join("");
+}
+
+// THE ROUNDS OF EACH STAGE, in the FLP's blocks: Submission, Comment, Calls. The Legs are derived and carry none.
 function roundsPart(record, outDir) {
   const callLink = (c) => link(outDir, join(outDir, CALLS_DIR, c), c);
   return record.stages.map((st) => heading(3, `Stage ${st.stage}`) + (st.state === "not run" ? none("not run")
+    : st.stage === "paragraph-plan" ? planRounds(st, outDir)
+    : st.stage === "legs" ? none("derived by the runner — no Call")
     : (st.rounds || []).map((r) => {
       const blocks = {
         Submission: [].concat(r.submission).map((c) => `<p class="line">${callLink(c)}</p>`).join("") || none("none"),
@@ -142,15 +154,14 @@ function briefPart(briefLegs, legs) {
     briefLegs[i] ? legPoints(briefLegs[i]) : "", legs && legs[i] ? legPoints(legs[i]) : ""])));
 }
 
-export function renderLppSheet({ outDir, record, structure, waypoints, legs, libraryDir = resolve(REPO, "moves"), briefLegs = null }) {
+export function renderLppSheet({ outDir, record, structure, waypoints, legs, plan = null, libraryDir = resolve(REPO, "moves"), briefLegs = null }) {
   const st = stageOf(record, "legs");
-  const answerLegs = legs && st && st.partition ? st.partition : null;
-  const legOf = legOfWaypoint(legs || [], answerLegs);
+  const legOf = legOfWaypoint(legs && st ? st.partition : null);
   const parts = [
     part("Claims", claimsPart(record, structure)),
     part("Structure", structurePart(structure)),
     part("Leg Waypoints", waypointsPart(record, waypoints, legOf)),
-    part("Legs", legsPart(record, legs, waypoints, answerLegs, libraryDir, outDir)),
+    part("Legs", legsPart(record, legs, structure, waypoints, plan, libraryDir, outDir)),
     part("Rounds", roundsPart(record, outDir)),
     ...(briefLegs ? [part("The Brief's Legs", briefPart(briefLegs, legs))] : []),
   ];
