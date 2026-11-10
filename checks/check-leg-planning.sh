@@ -7,6 +7,7 @@
 #       trial.json carrying the plan's path and sha256 and, per Leg Waypoint, the bound Move id and the verdict.
 #   (b) a `proposition:` line is refused naming `claim`, a second `thesis:` and a `cite:` with no `claim:` naming the line,
 #       and nothing is written.
+
 #   (c) validateReadSet refuses a non-apex higher-order relation with no `from` or a `from` naming no claim, a Role in no
 #       relation, a higher-order relation relating one relation, one relating itself through another, a written `reach` and
 #       a missing `attains_thesis`, naming each; the apex with no `from` and a higher-order relation relating a

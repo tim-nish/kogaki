@@ -10,6 +10,7 @@
 #   (dd)/(dh) a home resolved at its gate (kogaki#1742) over Thesis candidates from
 #        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749);
 #        (dj) the candidate constraint, single-top apex, depth line and bound (#1773).
+
 #   (dn) the apex answered by its name with no `id` or `from`, minted h_<n> at
 #        adoption, and no bare minted id on the Thesis gate (kogaki#1772).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
