@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # check-brief-reader-path-job — the Detached Job that replaced the reader-path
 # step's synchronous judge call (kogaki#1193): the structural unit
-# classification (b), the job-level reduction (c), (d1)-(d11) as a real
+# classification (b), the job-level reduction (c), (d1)-(d11) as a real -- (d11) over the
+# compose unit's Leg Waypoint validator `validateBriefWaypoints` since kogaki#1768 --
 # `job-supervise` child records it against a FAKE judge, a refused unit's
 # Call Records (d12, kogaki#1717), the six terminal states (a), and the
 # Stop arm's own bound (i).
@@ -312,48 +313,28 @@ const fails = [];
   }
 }
 
-// (d11) kogaki#1240: THE DECLARED, REAL `validateReaderPathUnit` VALIDATOR
+// (d11) kogaki#1240, kogaki#1768: THE DECLARED, REAL `validateBriefWaypoints` VALIDATOR
 // REACHES UNIT CLASSIFICATION, loaded exactly as `job-supervise` loads it
-// (`loadReaderPathUnitValidator`, through its `module`/`export`/`inputs`
-// declaration) -- never a stand-in. A structurally-good Candidate record
-// whose Legs fail the Leg schema (here: the second Leg's `rationale`, a
-// required field) is refused on the VALIDATOR'S text, naming `rationale`,
-// not on the generic structural one `readerPathUnitRecord` raises; a unit
-// refused this way gets the same one-re-ask (kogaki#1203) and
-// refused-twice-is-terminal (kogaki#1204) treatment a parse failure already
-// does.
+// (through its `module`/`export`/`inputs` declaration) -- never a stand-in. A
+// structurally-good record whose second Leg Waypoint carries no `carries` is
+// refused on the VALIDATOR'S text, naming `carries`, not on the generic
+// structural one; a unit refused this way gets the same one-re-ask (kogaki#1203)
+// and refused-twice-is-terminal (kogaki#1204) treatment a parse failure does.
 {
-  const movesScratchDir = mkdtempSync(join(tmpdir(), "kogaki-rpjob-moves-"));
-  writeFileSync(join(movesScratchDir, "m1.yaml"), "id: m1\n");
-  // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
-  // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
-  writeFileSync(join(movesScratchDir, "ROLES.json"), readFileSync("moves/ROLES.json"));
+  const structure = {
+    roles: [{ id: "rules", context: "A set of checks that runs on its own.", attributes: [], claims: ["c1", "c2"] },
+      { id: "walk", context: "The files a tool visits.", attributes: [], claims: ["c1", "c2"] }],
+    relations: [{ id: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "c1" },
+      { id: "p2", between: ["walk", "rules"], holds: "{walk} is all {rules} ever reads.", from: "c2" }],
+    higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, nothing else is checked.", from: [] }],
+    attains_thesis: "h1",
+  };
+  const goodRecord = { waypoints: [{ point: "The rules apply only to the files the walk visits.", carries: ["p1"] },
+    { point: "The walk is all the rules read, so nothing else is checked.", carries: ["p2", "h1"] }] };
+  const missingCarriesRecord = { waypoints: [goodRecord.waypoints[0], { point: goodRecord.waypoints[1].point }] };
 
-  const legOf = (legId, extra) => ({
-    leg_id: legId, move: "m1", materials: ["L1"],
-    purpose: `what ${legId} is for`,
-    depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }],
-    ...extra,
-  });
-  const candidateOf = (leg2Extra) => ({
-    candidate_id: "c1", characteristic: "x", reader_experience: "y",
-    reasoning: { leg_validity: "x" },
-    legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true, ...leg2Extra })],
-  });
-  const goodCandidate = candidateOf({});
-  const missingRationaleCandidate = candidateOf({ rationale: undefined });
-  delete missingRationaleCandidate.legs[1].rationale;
+  const legValidator = { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: { structure } };
 
-  const legValidator = { module: "src/brief.mjs", export: "validateReaderPathUnit",
-    inputs: { strandIds: ["L1"], movesDir: movesScratchDir } };
-
-  // A SEPARATE fake judge, selecting its answer by prompt token the same way
-  // `fakeJudge` above does, but answering with these Candidates rather than
-  // the generic `{legs: [{id: "s1"}]}` stub -- "ONCE_MISSING" repairs on the
-  // retried prompt (kogaki#1203's own detection, keyed since kogaki#1438 on
-  // `prompt.includes("----- YOUR PREVIOUS ANSWER (call ")`), "ALWAYS_MISSING"
-  // never does.
   const fakeJudgeLeg = join(scratch, "fake-judge-leg.mjs");
   writeFileSync(fakeJudgeLeg, `#!/usr/bin/env node
 const NO_TOOLS = ${JSON.stringify(JOB_UNIT_NO_TOOLS_SENTENCE)};
@@ -368,24 +349,24 @@ process.stdin.on("end", () => {
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(candidate) }) + "\\n");
     process.exit(0);
   };
-  if (prompt.startsWith("ONCE_MISSING")) { write(retried ? ${JSON.stringify(goodCandidate)} : ${JSON.stringify(missingRationaleCandidate)}); return; }
-  write(${JSON.stringify(missingRationaleCandidate)});
+  if (prompt.startsWith("ONCE_MISSING")) { write(retried ? ${JSON.stringify(goodRecord)} : ${JSON.stringify(missingCarriesRecord)}); return; }
+  write(${JSON.stringify(missingCarriesRecord)});
 });
 `);
   chmodSync(fakeJudgeLeg, 0o755);
 
   function superviseLegSync(dir, unitId, prompt) {
     const unitsPath = join(dir, "units.json");
-    writeFileSync(unitsPath, JSON.stringify({ units: [{ id: unitId, prompt }], validator: legValidator }, null, 2));
+    writeFileSync(unitsPath, JSON.stringify({ units: [{ id: unitId, prompt }], validator: legValidator, record_array: "waypoints" }, null, 2));
     const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
       "--command", fakeJudgeLeg, "--model", "m", "--output-format", "json",
       "--call-limit-s", "100", "--unit-rounds", "2", "--stall-s", "100", "--heartbeat-ms", "250"];
     return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
   }
 
-  // (d11a) refused once on the Leg shape, repaired on the retried prompt --
+  // (d11a) refused once on the Waypoint shape, repaired on the retried prompt --
   // the job ends `done`, and the unit's own row still names the Round
-  // count and the FIRST refusal's text, carrying `rationale` verbatim.
+  // count and the FIRST refusal's text, naming `carries`.
   {
     const dir = mkNewRun();
     superviseLegSync(dir, "c1", "ONCE_MISSING");
@@ -394,8 +375,8 @@ process.stdin.on("end", () => {
     if (!rec || rec.state !== "done" || rec.failure) {
       fails.push(`(d11a) a unit refused once on the Leg shape and repaired on retry did not end the job \`done\`: ${JSON.stringify(rec)}`);
     }
-    if (!row || row.rounds !== 2 || !row.first_refusal || !row.first_refusal.includes("rationale")) {
-      fails.push(`(d11a) the repaired unit's row does not carry two rounds and the first refusal naming \`rationale\`: ${JSON.stringify(row)}`);
+    if (!row || row.rounds !== 2 || !row.first_refusal || !row.first_refusal.includes("`carries`")) {
+      fails.push(`(d11a) the repaired unit's row does not carry two rounds and the first refusal naming \`carries\`: ${JSON.stringify(row)}`);
     }
   }
 
@@ -408,11 +389,10 @@ process.stdin.on("end", () => {
     superviseLegSync(dir, "c1", "ALWAYS_MISSING");
     const rec = readRecord(dir);
     if (!rec || rec.state !== "refused" || !rec.failure || rec.failure.unit !== "c1"
-      || !rec.failure.stderr_tail || !rec.failure.stderr_tail.includes("rationale")) {
-      fails.push(`(d11b) a unit refused twice on the Leg shape did not end the job \`refused\`, naming the unit and the \`rationale\` refusal: ${JSON.stringify(rec)}`);
+      || !rec.failure.stderr_tail || !rec.failure.stderr_tail.includes("`carries`")) {
+      fails.push(`(d11b) a unit refused twice on the Waypoint shape did not end the job \`refused\`, naming the unit and the \`carries\` refusal: ${JSON.stringify(rec)}`);
     }
   }
-  rmSync(movesScratchDir, { recursive: true, force: true });
 }
 
 // (d12) kogaki#1717: A UNIT REFUSED ONCE LEAVES ONE CALL RECORD PER CALL. Round 1's
@@ -425,7 +405,7 @@ process.stdin.on("end", () => {
   // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
   (await import("./src/workflow/run-record.mjs")).bindFlow((await import("./src/brief/job-verbs.mjs")).BRIEF_FLOW);
   const { readCallRecord, RETIRED_NAMES } = await import("./src/workflow/call-record.mjs");
-  const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_unit;
+  const unitRow = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).lpp_waypoints; // the compose unit's first Call (kogaki#1768)
   const input = { state: "compose_path", unit_number: 1, fixture: "RECORD_ONCE" };
   const inputText = JSON.stringify(input, null, 2);
   const first = judgePrompt(unitRow, inputText, input, null);

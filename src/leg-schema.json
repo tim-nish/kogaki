@@ -61,132 +61,54 @@
   ],
   "version": "1",
   "what_a_leg_is": [
-    "A Leg is one move of the Reader Path: the smallest unit that takes the",
-    "reader from one state to another. `Leg = Input + State` -- the Input is",
-    "the material it stands on (its Strands), and the State is the Move it",
-    "binds, which is what names the kind of reader-state transition it makes.",
-    "A Leg that no Move in the library fits says so in `no_move_fits` instead",
-    "of naming the nearest Move, and its Candidate is refused with that sentence.",
+    "A Leg is one stretch of the Reader Path: the Leg Waypoints that serve one",
+    "higher-order relation of the Brief's RelationalStructure, in order",
+    "(kogaki#1768, owner decision 2026-11-10). A Leg binds no Move: its Waypoints",
+    "are composed from the structure's relations, the Legs are derived over them",
+    "by the runner, and the paragraph Move is bound once, per Leg Waypoint, by",
+    "/paragraph-plan.",
     "",
-    "The Leg's shape is the field table below. A Leg carries exactly one of `move` and `no_move_fits`: a Leg no Move fits says so, and its Candidate is refused with that sentence rather than adopted (kogaki#1276)."
+    "The Leg's shape is the field table below. Every field written for a Leg Move's",
+    "binding is retired and refused by name: `move`, `no_move_fits`, `materials`,",
+    "`purpose`, `rationale`, `depends_on`, `re-activate`, `introduces`, `journeys`,",
+    "`entailed`, `entailment_reasoning`, `bridges`, `names`, `budget`, `figure` and",
+    "`figure_roles`."
   ],
   "fields": {
     "leg_id": {
       "required": true,
       "type": "string",
-      "description": "This Leg's own id, unique within the path. Other Legs address it through `depends_on`, and the specialization record carries one verdict per id."
+      "description": "This Leg's own id, unique within the path."
     },
-    "materials": {
-      "required": true,
-      "type": "array of string",
-      "min_length": 1,
-      "description": "The Strands this Leg stands on, as LessonDisplayIDs (`L<n>`). A Leg with no material asserts nothing on anyone's behalf."
-    },
-    "purpose": {
-      "required": true,
+    "relation": {
+      "required": false,
       "type": "string",
-      "description": "What this Leg is for in the path -- the work it does toward the adopted Thesis, in one or two sentences. A VERB ABOUT THE READER, carrying no proposition from the material: a purpose that could be true or false of the world is a claim in the wrong field."
+      "description": "The id of the higher-order relation of the Brief's `structure` this Leg serves, as the derivation's partition records it (kogaki#1768). Present on every Leg of a Brief that carries a `structure`, and refused on a Leg of a Brief that carries none."
     },
     "reaches_target": {
       "required": false,
       "type": "boolean",
-      "description": "Present, and true, on exactly ONE Leg of the path -- never the first (kogaki#1231). That Leg is the one that attains the Thesis: the Brief's Reader target heading renders the Thesis (kogaki#1699), and the Brief's derived Thesis row is handed to this Leg (kogaki#1328). Every Leg AFTER the marked one is a CLOSING Leg, held to the closing-Leg path_rule below: it introduces nothing. A Leg before the marked one carries no meaning from this field at all; the marking is absent."
-    },
-    "names": {
-      "required": false,
-      "required_when": "reaches_target is true",
-      "type": "array of string",
-      "description": "Present on the Leg marked `reaches_target`, and there alone: the terms this path's own `introduces` entries have put in the reader's hands by the time the Thesis is attained. It is a LIST, not prose, because the Reader target heading renders the Thesis and cannot itself enumerate what the reader now knows by name. A Leg before the mark, or a closing Leg after it, carries no meaning from this field at all; the marking is absent."
-    },
-    "depends_on": {
-      "required": true,
-      "type": "array of string",
-      "description": "The EARLIER Legs whose conclusions this Leg stands on, by `leg_id`. May be empty. An id that is not an earlier Leg is refused -- a dependency on a later Leg is a path that cannot be read in order. The ordering rule is a property of the whole path and is stated in `path_rules` below.",
-      "see": "path_rules"
-    },
-    "rationale": {
-      "required": true,
-      "type": "string",
-      "description": "Why this Leg sits HERE, at this position, rather than earlier or later. The ORDER ARGUMENT, not a restatement of the purpose and not a claim the Leg asserts."
-    },
-    "move": {
-      "required": false,
-      "type": "string",
-      "description": "The Move library entry this Leg binds, by id. COMPOSE IT FROM `moves_you_may_bind` IN THIS ASK'S INPUT AND FROM NOTHING ELSE: that field carries every admitted Move with its `takes`, `leaves`, `segments` and `breaks`, read from the Move file. `takes` is what the Move's first Segment takes up on entry and `leaves` what it leaves for a later Leg's Move to take up (kogaki#1698, kogaki#1699); `segments` is the Move's general route, its ordered steps, which this Leg SPECIALIZES in its own `waypoints`; `breaks` are the tests that route must survive. Choose a Move only where you can write waypoints that specialize its `segments` from this Leg's own claims and materials and that survive each `breaks` test. THE MOVE IS READ HERE AND NEVER AGAIN (kogaki#1311, owner decision 2026-10-09): no stage after the Candidate opens a Move, so the writer meets this Leg's waypoints and never the Move's prose. An id outside the set resolves to no record and is refused at composition, naming the Leg and the id. A Leg carries exactly one of `move` and `no_move_fits` (kogaki#1125, kogaki#1276)."
-    },
-    "no_move_fits": {
-      "required": false,
-      "type": "string",
-      "description": "Present ONLY where no Move in `moves_you_may_bind` fits this Leg: one sentence naming what this Leg's claims need that no Move's `segments` provide. Never name the nearest Move instead. A Leg carries exactly one of `move` and `no_move_fits`, and a Candidate with any `no_move_fits` Leg is refused with that sentence, so the next round can revise the path: omit the Leg, change the path, or leave a Strand unused (kogaki#1276)."
+      "description": "Present, and true, on exactly ONE Leg of the path: the LAST, the Leg whose last Waypoint carries the apex (kogaki#1768). That Leg is the one that attains the Thesis: the Brief's Reader target heading renders the Thesis (kogaki#1699), and the Brief's derived Thesis row is handed to this Leg (kogaki#1328)."
     },
     "claims": {
       "required": true,
       "type": "array of claim",
       "min_length": 1,
-      "description": "What this Leg ASSERTS, one entry per Strand it names in `materials`. A claim is a PROPOSITION ABOUT THE WORLD and names no reader; a claim that mentions the reader belongs in `purpose` or in a state field. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. A term the Brief's `defined_terms` classifies `defined` appears in a claim only on or after the Leg whose `introduces` carries it (kogaki#1331, owner decision 2026-10-10); the Persona's `prior_knowledge` grants no word. Any other word appears in a claim only if an `introduces` entry on this Leg or an earlier Leg carries it -- the reader-knowledge ledger is what makes a term available to speak of. See `claim` below -- the cardinality rule is the part most likely to be got wrong.",
+      "description": "What this Leg ASSERTS, one entry per Strand its Waypoints serve. A claim is a PROPOSITION ABOUT THE WORLD and names no reader. Its ground is the pinned Lesson, held as an address in the Brief's Strands section and never copied here. See `claim` below.",
       "see": "claim"
     },
     "waypoints": {
       "required": true,
       "type": "array of waypoint",
       "min_length": 1,
-      "description": "The route this Leg takes the reader along, as an ORDERED list of waypoints -- this Leg's specialization of its Move's `segments` (kogaki#1311, owner decision 2026-10-09). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326, owner decision 2026-10-10) -- what the paragraph establishes, never how the reader is to feel or what they are handed, and never a stage direction. The point is not quoted; its wording is the writer's. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. How many waypoints a Leg carries is yours to decide from the Move's prose and this Leg's claims: you need not reproduce the Move's internal structure element for element, even where its `segments` hold a fixed number, and nothing reads the count. One waypoint tends to become one paragraph, as a strong tendency rather than a guarantee. A waypoint whose point no claim of this Leg supports is the signal that the Leg is short of material: pull in a Journey, bind another Move, or report `no_move_fits` -- never a waypoint serving a claim it does not draw on. See `waypoint` below.",
+      "description": "The points this Leg's paragraphs make, as an ORDERED list of waypoints, composed from the Brief's RelationalStructure (kogaki#1768). Each waypoint is a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326) -- what the paragraph establishes, never how the reader is to feel or what they are handed. Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one waypoint. One waypoint is one paragraph, and /paragraph-plan binds its Move. See `waypoint` below.",
       "see": "waypoint"
-    },
-    "journeys": {
-      "required": false,
-      "type": "array of journey",
-      "description": "The Journeys this Leg draws on, each naming the Strand whose Journey it takes and what the Leg uses it for. A Journey is MATERIAL THE LEG EDITS, never an assertion the Leg must recover -- it carries no claim, Reverse Outlining checks no fragment of it, and the Leg Packet renders it as prose to edit for this Leg's waypoints. Nothing here bounds how many a Leg declares: a Leg telling two cases for one claim is a path-review judgment, the way the number of claims is bounded by the Leg's materials rather than by a number. See `journey` below.",
-      "see": "journey"
-    },
-    "entailed": {
-      "required": false,
-      "type": "boolean",
-      "description": "True where a proposition this Leg asserts is not explicit in the material and is reached by inference. The flag is the composer's judgment; the Harness refuses only a flag with no reasoning beside it."
-    },
-    "entailment_reasoning": {
-      "required": false,
-      "type": "string",
-      "required_when": "entailed is true",
-      "description": "The inference itself, stated so path review and the owner can judge it. Entailment is interpretation, judged rather than silently trusted."
-    },
-    "bridges": {
-      "required": false,
-      "type": "array of exactly two string",
-      "description": "Present only on a Leg inserted between two adjacent Legs to repair a causal gap between them; names that adjacent pair by `leg_id`. It is disclosed at the Candidate-selection gate, so an unvalidated marking would render at an owner surface. The Bridge Leg is where that insertion is defined."
-    },
-    "introduces": {
-      "required": false,
-      "type": "array of introduces_item",
-      "description": "Terms this Leg introduces to the reader for the first time AND gives the meaning of, one item per term (kogaki#1529). The accumulated ledger the Leg Packet renders is derived from these; whether a term is genuinely new HERE is a judgment and is not checked. The reader-knowledge ledger is the accumulation this feeds. See `introduces_item` below -- its `term` field is what `re-activate`'s `term` form and the introduced-term refusal both match against.",
-      "see": "introduces_item"
-    },
-    "re-activate": {
-      "required": false,
-      "type": "array of string",
-      "description": "What this Leg treats as active material, restored from a Leg it depends on — not an inventory of what the reader possesses, but what the Writer may speak of as this Leg's own. One reference per line, in one of THREE forms: `<leg_id> term <exact introduces term>` (the string must match, verbatim, the `term` of an entry in that Leg's `introduces`), `<leg_id> claim <strand id> as <one plain sentence>` (the strand must be one that Leg carries a claim for, and the `as` sentence is required -- a plain restatement of that claim written at Brief time, never the claim's own `proposition` rendered verbatim), or `<leg_id> journey <strand id>` (the strand must be one that Leg names in its `journeys`). The named Leg must be in this Leg's `depends_on`. Anything not named here stays available to the reader but is not material for this Leg to speak of; the composer selects from what `depends_on` makes reachable and writes no free text here beyond the `as` sentence the claim form requires."
     },
     "opens_section": {
       "required": false,
       "type": "string",
-      "description": "Present on a Leg that opens a Section of the finished article. ITS VALUE STATES THE SECTION'S DESTINATION, not a title (owner decision 2026-10-10): one plain sentence or phrase stating what the reader holds at the Section's end, drawn from the after-state of the Section's last Leg, in EVERYDAY WORDS. It carries no term, whole-word and case-insensitive, that ANY Leg of the path lists under `introduces` -- not just a term introduced within that Section -- so a reader can skip directly to any Section and still understand its heading; this is checked (`opens_section_no_introduced_term` below). The four grouping rules and the heading rule are a property of the WHOLE PATH and run after every Leg is known to be well formed -- they are stated in `path_rules` below, as the validator checks them.",
+      "description": "Present on a Leg that opens a Section of the finished article, written by the `leg_sections` row (kogaki#1768). ITS VALUE STATES THE SECTION'S DESTINATION, not a title (owner decision 2026-10-10): one plain sentence or phrase stating where the Section's last claims leave the reader, in EVERYDAY WORDS, so a reader can skip directly to any Section and still understand its heading. The grouping rules are a property of the WHOLE PATH and run after every Leg is known to be well formed -- they are stated in `path_rules` below, as the validator checks them.",
       "see": "path_rules"
-    },
-    "figure": {
-      "required": false,
-      "type": "string",
-      "description": "The composer's statement of what a figure lets the reader hold here that the prose leaves hard to hold. The default is NO figure: a Leg without this field has none and nothing asks about it. The figure decision is where the field is defined."
-    },
-    "figure_roles": {
-      "required": false,
-      "type": "object mapping role -> g<n>",
-      "required_when": "figure is present",
-      "description": "Binds every role of the Move's `figure` to one of THIS Leg's own claims, addressed `g<n>` and numbered from 1 in the order the claims are declared. A role bound to another Leg's claim is unreachable by construction: the address space is this Leg's claims and has no syntax for anyone else's."
-    },
-    "budget": {
-      "required": false,
-      "type": "integer",
-      "description": "The word bound this Leg's realized prose may spend, rendered in the Packet's write instruction. A LIMIT THE WRITER SEES, never a target to reach -- its absence means no bound is declared, and nothing asks about it."
     }
   },
   "derived": {},
@@ -234,27 +156,17 @@
     "leg_id_unique": {
       "class": "checked",
       "name": "the Leg's shape -- one id per Leg",
-      "rule": "Each `leg_id` is unique within the path. Two Legs sharing an id leave every `depends_on` naming it ambiguous, and the specialization record carries one verdict per id, so it would address both at once."
-    },
-    "depends_on_ordering": {
-      "class": "checked",
-      "name": "the Leg's shape -- depends_on names an EARLIER Leg",
-      "rule": "Every id in a Leg's `depends_on` names a Leg EARLIER in the path. An id that is not an earlier Leg -- a later one, or one no Leg carries -- is a path that cannot be read in order."
+      "rule": "Each `leg_id` is unique within the path."
     },
     "one_claim_per_strand": {
       "class": "checked",
       "name": "the claims rule -- one claim per Strand, per Leg",
-      "rule": "A Leg asserts ONE claim on behalf of each Strand it names in `materials`. A Strand that serves several Legs carries a DIFFERENT claim in each -- that is what makes the path a sequence rather than a restatement -- so the repair for a second claim is to move it to the Leg where the reader needs it, or to drop it, never to merge the two into a longer proposition."
+      "rule": "A Leg asserts ONE claim on behalf of each Strand its Waypoints serve. A Strand that serves several Legs carries its claim in each."
     },
     "section_rule_1": {
       "class": "judgment",
       "name": "the Section grouping rule 1",
-      "rule": "A Leg OPENS a Section when it changes the reader's question -- its `purpose` answers a question the previous Leg did not pose, or its `introduces` names a term later Legs use. This is the positive case and it is YOURS TO JUDGE: nothing checks it, and its violation is exactly rule 2's refusal."
-    },
-    "section_rule_2": {
-      "class": "checked",
-      "name": "the Section grouping rule 2",
-      "rule": "A Leg CONTINUES the current Section when it develops the previous one -- when its `depends_on` is exactly the immediately preceding Leg AND its `materials` overlap that Leg's. A Leg that develops its predecessor may not open a new Section."
+      "rule": "A Leg OPENS a Section when it changes the reader's question -- its Waypoints carry a higher-order relation the previous Leg did not. This is the positive case and it is the `leg_sections` row's TO JUDGE: nothing checks it."
     },
     "section_rule_3": {
       "class": "checked",
@@ -267,29 +179,10 @@
       "rule": "TWO ADJACENT SECTIONS HOLDING EXACTLY ONE LEG EACH are refused with a request to MERGE them, because a heading on every Leg is the first of the two drafts the ruling rejected. Length enters as a bound on the grouping, never as its reason.",
       "the_other_clause": "Rule 4's other clause -- a Section running past roughly a display and a half of prose without a heading -- measures REALIZED PROSE, which no Brief contains. It is a named deferred slot in the Section grouping: it binds your judgment while you group the Legs, and no refusal reads it."
     },
-    "opens_section_no_introduced_term": {
-      "class": "checked",
-      "name": "the Section grouping -- a heading carries no term any Leg introduces",
-      "rule": "A Leg's `opens_section` carries no term, whole-word and case-insensitive, that ANY Leg of the path lists under `introduces` -- not just a term introduced within that Section (owner decision 2026-10-10). A Section heading states where the Section leaves the reader, in everyday words, and \"I want readers to be able to skip directly to any Section and still understand its heading\" is why the whole path is read rather than only the Legs before the Section opens. The same mechanical test that refuses an introduced term in Reader start."
-    },
     "reaches_target_marked": {
       "class": "checked",
-      "name": "the Reader target Leg -- exactly one Leg marked, and never the first",
-      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true`, and it is not the first Leg. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which Leg attains the Thesis; marking the first Leg leaves no Leg free to reach it from anywhere (kogaki#1231)."
-    },
-    "closing_leg_introduces_nothing": {
-      "class": "checked",
-      "name": "the Reader target Leg -- a closing Leg introduces nothing",
-      "rule": "A Leg AFTER the one marked `reaches_target` is a CLOSING Leg. A closing Leg carries no `introduces` entry: once the Thesis is attained, nothing new is put in front of the reader (kogaki#1231)."
-    },
-    "first_leg_binds_a_survivor": {
-      "class": "judgment",
-      "name": "the first Leg binds a Move whose `takes` the Persona's prior knowledge meets",
-      "rule": "The FIRST Leg opens from what the Persona's prior-knowledge line supplies (`differentiation`'s `reader.prior_knowledge`, kogaki#1699): nothing before it leaves anything. Which Move it may bind is decided by EXCLUSION, NOT OPTIMIZATION: a Move is excluded when an entry of its `takes` is not met by what that line supplies; a Move whose `takes` is empty is never excluded. The survivors are listed on the differentiation record as `leg1_survivors` and are NOT RANKED -- no score exists anywhere -- and your assigned `opening_move` is one of them. You bind it by the SAME composition order every Leg uses (Strand information, then Leg reasoning, then the Move), and the grounds test applies: delete the Move name from the first Leg's `rationale`, and what remains must still stand on its grounds. The Brief records how many Moves survived; a count of one names the library, not this rule, as the cause of a repeated opening.",
-      "retired": {
-        "reader_start_binds_first_leg": "a `checked` rule that refused the first Leg's `reader_state_before` on anything but a VERBATIM match with Reader start. With the specialization rule beside it, it forced Reader start to be written backwards from the first Leg's Move -- the Move's `before` with the article's nouns substituted -- which is the defect kogaki#1216 removes. Its EFFECT returns by construction at kogaki#1325, without its cause: the first Leg's before-state is Reader start because it is derived from it, and Reader start stays a cold read because the judgment now runs from the state to the Move's `before` rather than from a composed before-state back to Reader start.",
-        "reader_start": "the Brief's Reader start, a five-dimension stance the first Leg's derived before-state was, and the exclusion by the Move's `before` against it (kogaki#1216, kogaki#1325); retired with the reader states (kogaki#1699)."
-      }
+      "name": "the Reader target Leg -- exactly one Leg marked, and it is the last",
+      "rule": "EXACTLY ONE Leg of the path carries `reaches_target: true`, and it is the LAST Leg (kogaki#1768): the derived Legs end on the one whose last Waypoint carries the apex. Zero marked Legs leaves the Brief's Reader target undecided; two or more leaves it ambiguous which Leg attains the Thesis."
     }
   },
   "claim": {
@@ -360,60 +253,47 @@
       "strand": {
         "required": true,
         "type": "string",
-        "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is one of this Leg's `materials`, it is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Leg names it."
+        "description": "The Strand this claim is asserted on behalf of, as a LessonDisplayID (`L<n>`). It is where the pinned Lesson that grounds the claim is addressed, and no other claim of this Leg names it."
       }
     }
   },
   "waypoint": {
     "definition": [
       "A WAYPOINT IS A POINT ITS PARAGRAPH MAKES (kogaki#1326, owner decision",
-      "2026-10-10, replacing the effect form kogaki#1311 introduced). The",
-      "Leg's waypoints say, in order, what the Leg's paragraphs establish.",
-      "The Move's",
-      "`segments` say that in general and for every article; a Leg's",
-      "waypoints say it for THIS Leg's claims, in the article's subject.",
+      "2026-10-10). The Leg's waypoints say, in order, what the Leg's paragraphs",
+      "establish.",
       "",
       "A POINT, NEVER AN EFFECT AND NEVER A SENTENCE TO COPY. `point` is the",
       "proposition the paragraph makes, in one sentence. It names what the",
-      "paragraph establishes -- never how the reader is to feel, what they",
-      "are \"handed\", or when they \"receive\" something: an effect is a",
-      "stage direction, and a writer given one narrates it. Nor is it the",
-      "Move's Segments with the subject filled in. The point is not quoted:",
-      "its wording is the writer's.",
+      "paragraph establishes -- never how the reader is to feel, what they are",
+      "\"handed\", or when they \"receive\" something. The point is not quoted: its",
+      "wording is the writer's.",
       "",
-      "IT SERVES A CLAIM. A point need not restate the claim; it is a",
-      "proposition obtainable from the claim it serves. A reinforcing step --",
-      "an example, a consequence, an answer to the obvious objection -- names",
-      "the claim it reinforces in `serves`.",
+      "IT CARRIES RELATIONS AND SERVES CLAIMS (kogaki#1768). In a Brief /brief",
+      "composed, `carries` names the relation or higher-order relation ids of the",
+      "Brief's `structure` the point states, and `serves` is derived from them: the",
+      "claims those relations are `from`. A Brief with no `structure` carries no",
+      "`carries`, and a waypoint carrying it there is refused.",
       "",
-      "THE LEG'S MOVE ENDS HERE, AND NO MOVE INFORMATION REACHES THE BRIEF.",
-      "The Leg's Move is read when the Leg is composed and judged, and never",
-      "again. A waypoint carries `point`, `serves` and `case` and nothing else: the",
-      "paragraph Move each waypoint is planned with is bound AFTER the Brief,",
-      "by the ParagraphPlan stage (`/paragraph-plan`, kogaki#1375), which",
-      "generates this waypoint's Paragraph Waypoints -- the same shape, one",
-      "level down -- into its own file and keeps which Move it bound in its run",
-      "directory. Move information is used up to Paragraph Waypoint generation",
-      "and nowhere after it.",
+      "NO MOVE INFORMATION REACHES THE BRIEF. The paragraph Move each waypoint is",
+      "planned with is bound AFTER the Brief, by the ParagraphPlan stage",
+      "(`/paragraph-plan`, kogaki#1375), which keeps which Move it bound in its run",
+      "directory.",
       "",
       "IT RECORDS WHOSE CASE ITS PARAGRAPH TELLS (kogaki#1732, owner ruling",
-      "2026-11-07). `case` records a decision the composer took when it wrote",
-      "the waypoint: whether its paragraph tells the proposition's own case or a",
-      "case apart, in material the reader already holds. It instructs no stage",
-      "to add a paragraph, and one waypoint still binds one Move. The waypoint",
-      "after an `apart` one carries that structure onto the subject; no second",
-      "field says so.",
+      "2026-11-07). `case` records whether its paragraph tells the proposition's own",
+      "case or a case apart, in material the reader already holds. The waypoint",
+      "after an `apart` one carries that structure onto the subject.",
       "",
-      "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses",
-      "an empty list, a waypoint with an empty `point` or an empty `serves`,",
-      "a waypoint with no `case` or a `case` other than `own` and `apart`, a",
-      "Leg whose last waypoint is `apart`,",
-      "a waypoint carrying the retired `effect`, or the retired `move` or",
-      "`segments` (kogaki#1375), a `serves` entry naming a Strand this Leg",
-      "carries no claim for, and a claim of this Leg that no waypoint serves",
-      "-- each naming the Leg and the waypoint. Whether the waypoints",
-      "specialize the Move's `segments` and survive its `breaks` is judged,",
-      "at the Move-fit judgment, and never a lint."
+      "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses an",
+      "empty list, a waypoint with an empty `point` or an empty `serves`, a waypoint",
+      "with no `case` or a `case` other than `own` and `apart`, a Leg whose last",
+      "waypoint is `apart`, a waypoint carrying the retired `effect`, `move` or",
+      "`segments`, a `serves` entry naming a Strand this Leg carries no claim for, a",
+      "claim of this Leg that no waypoint serves, and, in a Brief with a `structure`,",
+      "a waypoint carrying no `carries` or a `carries` id not in it -- each naming the",
+      "Leg and the waypoint. Whether a point is grounded in what it carries is",
+      "judged, by the GROUNDED judgment, and never a lint."
     ],
     "fields": {
       "point": {
@@ -427,108 +307,28 @@
         "min_length": 1,
         "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
       },
+      "carries": {
+        "required": false,
+        "type": "array of string",
+        "min_length": 1,
+        "description": "The relation or higher-order relation ids of the Brief's `structure` this point states (kogaki#1768). Required in a Brief that carries a `structure`, refused in one that carries none."
+      },
       "case": {
         "required": true,
         "type": "string",
-        "values": ["own", "apart"],
-        "description": "Whose case this paragraph tells. `own`: the proposition's own case, in the subject's domain. `apart`: a case apart from the proposition's domain, in material the reader already holds -- chosen from the Persona's prior knowledge and this Leg's claims, never from the Move's `leaves`. The waypoint after an `apart` one carries that case's structure onto the subject, so a Leg never ends on `apart`. It records what you decided when you wrote the waypoint; it adds no paragraph."
-      }
-    }
-  },
-  "journey": {
-    "definition": [
-      "A JOURNEY IS MATERIAL THE LEG DRAWS ON, NEVER AN ASSERTION THE LEG",
-      "MUST RECOVER. A Lesson's Claim is a proposition, and the planning",
-      "decision is what transformation of it this Leg asserts -- so it is",
-      "carried in the Brief as the Leg's claim. A Journey is a Strand that",
-      "supplies a concrete example, and how much of it a Leg draws on depends",
-      "on the Move being performed and on the prose already on the page -- so",
-      "it is ADDRESSED at planning and EDITED at realization. That asymmetry is",
-      "the whole of why this field carries an address and a use rather than any",
-      "text. It is not fundamentally different from a Claim -- apart from",
-      "allowing more detailed specification, it is a long Strand that CAN be",
-      "turned into a narrative, but is never rendered as one merely because it",
-      "is called a Journey; its purpose is to supply technically appropriate,",
-      "relevant concrete examples, and it is not evidence (kogaki#1323, owner",
-      "ruling 2026-10-10).",
-      "",
-      "THE BRIEF CARRIES NO JOURNEY TEXT. The entry names a Strand and what",
-      "this Leg uses that Strand's Journey for; the prose lives at the",
-      "Strand's served journey cite, which the Brief already renders in its",
-      "Strands section. No decomposition of a Journey happens at planning",
-      "time.",
-      "",
-      "IT ASSERTS NOTHING, AND THE CONSEQUENCES ARE MECHANICAL. A Journey",
-      "generates no claim, so `claims` never asks for it back and the",
-      "Reverse Outline the Blind Reader hands over carries no Journey field",
-      "to compare. What this Leg may ASSERT is its `claims` list, and a",
-      "Journey placed here does not widen it.",
-      "",
-      "THE USE IS FROM A CLOSED SET, in plain words, read from `uses` below.",
-      "It is what the Leg does with the material, not a claim about the",
-      "world: a use outside the set is refused by `validateLegs`, and",
-      "whether the use chosen serves the Move is path review's judgment.",
-      "",
-      "COVERAGE ACCOUNTING IS TAKEN FROM THIS FIELD. Journey placement is",
-      "counted from `journeys`: a Strand's Journey is placed by a Leg when",
-      "that Leg declares an entry naming it here. It was once counted from a",
-      "`<L-id>.journey` token in `materials` instead, and that made two",
-      "readers of one fact -- a Leg that named its Strand bare and drew on",
-      "its Journey here rendered its `journey:` line and was disclosed as",
-      "OMITTED in the same Brief. A `<L-id>.journey` token stays legal, and",
-      "still names the Strand; it no longer places anything on its own.",
-      "",
-      "`use` IS READ BY `validateLegs`, THE BRIEF AND COVERAGE ACCOUNTING, AND",
-      "BY NOTHING IN THE PACKET (kogaki#1286, owner decision 2026-10-06). The",
-      "Brief renders it with this section's gloss, resolved there; the Packet's",
-      "Journey block renders the Strand's served text and its cite under the",
-      "block's existing header, and none of the three use words."
-    ],
-    "uses": {
-      "illustrate": "to illustrate this Leg's claim with the case that illustrates it",
-      "motivate": "to motivate the question this Leg opens, with the case that motivates it",
-      "contrast": "to contrast this Leg's claim with the case that contrasts it"
-    },
-    "fields": {
-      "strand": {
-        "required": true,
-        "type": "string",
-        "description": "The Strand whose Journey this Leg draws on, as a LessonDisplayID (`L<n>`). It is one of this Leg's `materials` -- named bare or as `<L-id>.journey` -- and its served record must carry Journey material, which is what the Brief's `- journey cite:` line records."
-      },
-      "use": {
-        "required": true,
-        "type": "string",
-        "description": "What this Leg uses the Journey for, from the closed set in `uses` above. A use outside that set is refused."
-      }
-    }
-  },
-  "introduces_item": {
-    "definition": [
-      "ONE TERM A LEG INTRODUCES: a term the article gives its meaning to, in",
-      "this Leg (kogaki#1529). A term the reader already holds is not",
-      "introduced at all. The retired `kind` (`coined` / `established`),",
-      "`source`, `nearest` and `differs` are refused by name."
-    ],
-    "fields": {
-      "term": {
-        "required": true,
-        "type": "string",
-        "description": "The term itself, exactly as it must appear to match -- `re-activate`'s `term` form and the introduced-term refusal both match this string verbatim."
-      },
-      "meaning": {
-        "required": true,
-        "type": "string",
-        "description": "One sentence giving the term's meaning, which this Leg supplies. The term crosses into a later Leg's Packet carrying it."
+        "values": [
+          "own",
+          "apart"
+        ],
+        "description": "Whose case this paragraph tells. `own`: the proposition's own case, in the subject's domain. `apart`: a case apart from the proposition's domain, in material the reader already holds -- chosen from the Persona's prior knowledge and this Leg's claims. The waypoint after an `apart` one carries that case's structure onto the subject, so a Leg never ends on `apart`. It records what you decided when you wrote the waypoint; it adds no paragraph."
       }
     }
   },
   "what_is_judged_elsewhere": [
-    "Nothing here is a lint over a judgment. Whether a rationale is good,",
-    "whether a claim is genuinely supported by its Strand, whether a term is",
-    "really introduced here, and whether the before/after states are faithful",
-    "specializations of the Move are all judgment-class: they are judged at",
-    "path review and at the specialization occasion, and a refusal from this",
-    "file always names a SHAPE.",
+    "Nothing here is a lint over a judgment. Whether a point is grounded in the",
+    "relations it carries is judged by the GROUNDED judgment at composition, and",
+    "whether a Section opens where the reader's question changes by the",
+    "`leg_sections` row; a refusal from this file always names a SHAPE.",
     "",
     "Every MUST is judgment, and nothing becomes a lint -- which is the rule this paragraph is an instance of."
   ]

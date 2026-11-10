@@ -24,7 +24,7 @@ import {
 } from "./reader-path-unit.mjs";
 import { ANSWER_WORK, CONDITIONS, GATE_WORK, STATE_WORK } from "./renderers.mjs";
 import {
-  BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail, readJson,
+  BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail,
 } from "./run-state.mjs";
 
 // ---- THE READER-PATH JOB'S TWO BASH-REACHABLE VERBS (kogaki#1193).
@@ -373,46 +373,23 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
         detachedJobExecutor(jobRel));
       return;
     }
-    // TAGGED WITH THE UNIT NUMBER HERE, AND NOWHERE ELSE (kogaki#1206): `u.id`
-    // is the Harness's own unit name, so `c.differentiation_unit` is not a field
-    // the Model could have written. The survivor count is set here too, by the
-    // Harness, from the differentiation record (kogaki#1216; Reader start retired, kogaki#1699):
-    // `leg1_survivor_count` is an integer, named apart from the id list (PR
-    // #1222 round 1). Read from the run record the job belongs to.
-    const jobRec = readRunRecord(dir);
-    const differentiation = jobRec && jobRec.brief_differentiation ? readJson(jobRec.brief_differentiation) : null;
-    // FROM THE UNITS THAT ENDED `done`, AND NO OTHER (kogaki#1360). Presence of
-    // `candidate` on a row stopped meaning "finished" at kogaki#1307: the Move-fit
-    // judge runs after the compose call has produced a structurally valid
-    // Candidate, so a unit it refuses keeps that Candidate on its row (the
-    // "Not offered" line reads the characteristic off it) under `status:
-    // "refused"`. Mapping every row carrying one put two refused Candidates on
-    // the Candidate question of run 2026-10-13T06-54-14-062Z, the owner chose
-    // one, and `adopt_candidate` refused it for having no specialization record.
-    const candidates = composeJobFinished(job.units).map((u) => {
-      const c = u.candidate;
-      const m = /^candidate-(\d+)$/.exec(String(u.id || ""));
-      if (m) c.differentiation_unit = Number(m[1]);
-      if (differentiation && Array.isArray(differentiation.leg1_survivors)) {
-        c.leg1_survivor_count = differentiation.leg1_survivors.length;
-      }
-      return c;
-    });
-    // THE MOVE-FIT RECORDS AND THE UNITS THAT FINISHED NO CANDIDATE (kogaki#1307), carried
-    // to `compose_path` beside the Candidates.
-    const specializations = (job.units || [])
-      .filter((u) => u.status === "done" && u.specialization && typeof u.specialization === "object")
-      .map((u) => u.specialization);
-    const excluded = composeJobExcluded(job.units);
-    const resultPath = join(dir, "reader-path-candidates.json");
-    writeFileSync(resultPath, `${JSON.stringify({ candidates, specializations, excluded }, null, 2)}\n`);
+    // FROM THE UNIT THAT ENDED `done`, AND NO OTHER (kogaki#1360, kogaki#1768):
+    // its Waypoints, judged GROUNDED, and the Rounds they took. `compose_path`
+    // derives the Legs over them on `--waypoints`.
+    const finished = composeJobFinished(job.units)[0] || null;
+    const resultPath = join(dir, "reader-path-waypoints.json");
+    writeFileSync(resultPath, `${JSON.stringify({
+      waypoints: finished ? finished.candidate.waypoints : [],
+      rounds: finished && Number.isInteger(finished.rounds) ? finished.rounds : null,
+      excluded: composeJobExcluded(job.units),
+    }, null, 2)}\n`);
     // `status` IS CLEARED, NOT ONLY `job` (kogaki#1193): `cmdRun` reads
     // `args.status` before any run record, so a spread leaving it `true` would
     // report the position instead of advancing past it. AWAITED, NOT
     // FIRED-AND-FORGOTTEN: `runWorkflow` restores the module-level `FLOW` in a
     // `finally`, so an unawaited call here resumed reading another flow's
     // binding for every later state (CANDIDATE_SELECTION composed no option set).
-    await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, candidates: resultPath, "run-dir": dir },
+    await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, waypoints: resultPath, "run-dir": dir },
       detachedJobExecutor(jobRel));
     return;
   }
@@ -428,9 +405,9 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
   // steps failed and why without spec-internal vocabulary
   // (`findInternalVocabulary`, checked at raising by
   // `checks/check-brief-reader-path-job.sh` section (e)).
-  // EVERY COMPOSE UNIT REFUSED (kogaki#1307): no Candidate fits, which the owner ruled an
-  // acceptable ending (2026-10-08) -- the Brief ends with no question and the empty Brief
-  // is removed. The path-review job keeps its Stop question below.
+  // THE COMPOSE UNIT REFUSED IN EVERY ROUND (kogaki#1307, kogaki#1768): no Reader Path
+  // was composed, which the owner ruled an acceptable ending (2026-10-08) -- the Brief
+  // ends with no question and the empty Brief is removed. The path-review job keeps its Stop question below.
   if (state === "refused" && j.stateId !== "review_path") {
     endBriefNoCandidateFits(rec, { id: failureState || "compose_path" }, composeJobExcluded(job.units));
   }

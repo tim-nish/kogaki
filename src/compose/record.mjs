@@ -68,66 +68,25 @@ export function readerStateText(map) {
   return READER_STATE_DIMENSIONS.filter((d) => typeof map[d] === "string").map((d) => `${d}: ${map[d]}`).join("\n");
 }
 
-// One Leg as the record carries it: its fields in the schema's order, an
-// `introduces` object with its fields in the schema's own order.
-const INTRODUCES_KEYS = ["term", "meaning"];
+// One Leg as the record carries it: its fields in the schema's order (kogaki#1768: a Leg binds no Move, so no field
+// written for a Leg Move's binding is carried).
 export function legRecord(s) {
   const out = { leg_id: s.leg_id };
-  if (s.move) out.move = s.move;
-  out.materials = [...s.materials];
-  out.purpose = s.purpose;
-  out.depends_on = [...(s.depends_on || [])];
-  out.rationale = s.rationale;
+  if (typeof s.relation === "string") out.relation = s.relation;
   out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
-  // A LEG WAYPOINT IS `point`, `serves` AND `case`, AND NOTHING ELSE (kogaki#1375, kogaki#1732): no
-  // Move information reaches the Brief; the paragraph Move is the ParagraphPlan stage's.
-  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], point: String(w.point).replace(/\s*\n\s*/g, " ").trim(),
-    case: w.case }));
-  if ((s.journeys || []).length) {
-    out.journeys = s.journeys.map((j) => {
-      const gloss = journeyUses().get(j.use);
-      return gloss ? { strand: j.strand, use: j.use, meaning: gloss } : { strand: j.strand, use: j.use };
-    });
-  }
-  if ((s.introduces || []).length) {
-    out.introduces = s.introduces.map((e) => {
-      if (!e || typeof e !== "object" || Array.isArray(e)) return e;
-      const p = parseIntroducesEntry(e);
-      const src = p.error ? e : p;
-      return Object.fromEntries(INTRODUCES_KEYS.filter((k) => src[k] !== undefined && src[k] !== null).map((k) => [k, src[k]]));
-    });
-  }
-  if ((s["re-activate"] || []).length) out["re-activate"] = [...s["re-activate"]];
-  if (s.budget !== undefined && s.budget !== null) out.budget = s.budget;
+  // A LEG WAYPOINT IS `point`, `serves`, `carries` AND `case` (kogaki#1375, kogaki#1732, kogaki#1768): no Move
+  // information reaches the Brief; the paragraph Move is the ParagraphPlan stage's.
+  out.waypoints = (s.waypoints || []).map((w) => ({ serves: [...w.serves], ...(Array.isArray(w.carries) ? { carries: [...w.carries] } : {}),
+    point: String(w.point).replace(/\s*\n\s*/g, " ").trim(), case: w.case }));
   if (s.opens_section !== undefined) out.opens_section = s.opens_section;
   if (s.reaches_target === true) out.reaches_target = true;
-  if (Array.isArray(s.names)) out.names = [...s.names];
-  if (s.bridges) out.bridges = [...s.bridges];
-  if (s.figure !== undefined && s.figure !== null) {
-    out.figure = s.figure;
-    out.figure_roles = { ...s.figure_roles };
-  }
-  if (s.entailed === true) {
-    out.entailed = true;
-    out.entailment_reasoning = s.entailment_reasoning;
-  }
   return out;
 }
 
 // The record's Legs back to the in-memory shape every reader of a Leg reads.
 export function briefLegs(record) {
   const path = Array.isArray(record?.reader_path) ? record.reader_path : [];
-  const legs = path.map((r) => {
-    const s = { ...r };
-    if (Array.isArray(r.journeys)) s.journeys = r.journeys.map((j) => ({ strand: j.strand, use: j.use }));
-    if (r.figure_roles && typeof r.figure_roles === "object") s.figure_roles = { ...r.figure_roles };
-    s.materials = Array.isArray(r.materials) ? r.materials.map(String) : [];
-    s.depends_on = Array.isArray(r.depends_on) ? r.depends_on.map(String) : [];
-    s.claims = Array.isArray(r.claims) ? r.claims : [];
-    s.waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
-    return s;
-  });
-  return legs;
+  return path.map((r) => ({ ...r, claims: Array.isArray(r.claims) ? r.claims : [], waypoints: Array.isArray(r.waypoints) ? r.waypoints : [] }));
 }
 
 // ---------------------------------------------------------------------------
@@ -703,15 +662,15 @@ export function thesisClosureLeg(record) {
 }
 
 // The placement count, taken AFTER composition and COUNTED IN PLACEMENTS
-// (the read-not-invented rule's completeness rider): a placement is a leg whose materials
+// (the read-not-invented rule's completeness rider): a placement is a leg whose claims
 // carry the Strand. Derived from the composed legs themselves, never from
 // a declaration — a composer that cannot omit in principle can still omit
 // in fact, and a declared cover would hide exactly that.
 export function placements(legs, strandIds) {
   const used = new Map(strandIds.map((id) => [id, []]));
   for (const s of legs) {
-    for (const m of s.materials) {
-      if (used.has(m)) used.get(m).push(s.leg_id);
+    for (const g of s.claims || []) {
+      if (used.has(g.strand) && !used.get(g.strand).includes(s.leg_id)) used.get(g.strand).push(s.leg_id);
     }
   }
   return used;

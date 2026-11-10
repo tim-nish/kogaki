@@ -49,7 +49,7 @@ import { join, resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { parseYaml, stringifyYaml } from "./yaml.mjs";
-import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, loadMoveContracts, loadMoveIds,
+import { parseBriefRecord, unfilledSlots, briefLegs, waypointsRefusal, briefStructureRefusal, loadMoveContracts, loadMoveIds,
   moveContract, MOVE_RECORD_EXT, readerPersona, personaPriorKnowledgeLine, PARAGRAPH_PLAN_FILE, sha256, paragraphPlanPathFor,
   paragraphPlanRecord, paragraphPlanRecordText, readParagraphPlanBeside, paragraphPlanShapeRefusal,
   paragraphWaypointsRefusal, joinRefusal, undeclaredKey, parseIntroducesEntry, introducedMeaning,
@@ -117,6 +117,9 @@ export function readAdoptedBrief(briefPath) {
     const bad = waypointsRefusal(leg.waypoints, (leg.claims || []).map((g) => g.strand), `the Brief at ${briefPath}, leg ${leg.leg_id}`);
     if (bad) return { error: bad };
   }
+  // `carries` AND `relation` BIND ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
+  const unbound = briefStructureRefusal(legs, parsed.record.structure, `the Brief at ${briefPath}`);
+  if (unbound) return { error: unbound };
   return { text, record: parsed.record, legs };
 }
 
@@ -148,11 +151,11 @@ function legForUnit(inputs, unitId) {
 // (kogaki#1639). Kept small and plain so the validator and the judge read the same Leg the
 // prompt showed.
 // WHAT STANDS TO BE TAKEN UP (kogaki#1701): the first Leg Waypoint is handed `stands_to_be_taken_up`,
-// the `leaves` of the Move the Brief bound to the previous Leg, each with `left_by` naming that
-// Leg, and, on the Brief's first Leg, the Persona's prior-knowledge line; a later Leg Waypoint's is
-// what the paragraphs before it leave (`standsToBeTakenUp`). `leaves_for_next_leg` is the `leaves`
-// of the Move the Brief bound to this Leg: what this Leg's paragraphs leave for the next one.
-// `opts` is `{ previousLeaves, previousLegId, leaves, priorKnowledge }`, read by `start` off the library.
+// on the Brief's first Leg the Persona's prior-knowledge line; a later Leg Waypoint's is what the
+// paragraphs before it leave (`standsToBeTakenUp`). No Leg binds a Move (kogaki#1768), so no Leg's
+// Move leaves anything for the next Leg and `leaves_for_next_leg` is empty unless a caller hands one.
+// A Leg Waypoint's `carries` rides beside its point where the Brief carries a `structure` (kogaki#1768).
+// `opts` is `{ previousLeaves, previousLegId, leaves, priorKnowledge }`.
 export function planLeg(leg, opts = {}) {
   const ws = leg.waypoints || [];
   const first = [
@@ -167,6 +170,7 @@ export function planLeg(leg, opts = {}) {
       // Carried beside the point and read by no row yet (kogaki#1732).
       case: w.case,
       serves: [...w.serves],
+      ...(Array.isArray(w.carries) ? { carries: [...w.carries] } : {}),
       next_point: i + 1 < ws.length ? String(ws[i + 1].point) : null,
       ...(i === 0 ? { stands_to_be_taken_up: first } : {}),
     })),
@@ -177,20 +181,12 @@ export function planLeg(leg, opts = {}) {
 }
 export const PRIOR_KNOWLEDGE = "the reader's prior knowledge";
 
-// The planLeg options for every Leg of a Brief, read off the Move library: each Leg's own Move's
-// `leaves`, the previous Leg's, and the Persona's prior-knowledge line on the first Leg. A Leg
-// binding no Move (a Trial's Brief, kogaki#1664) leaves nothing; a Leg naming a Move the library
-// does not hold is refused by name.
+// The planLeg options for every Leg of a Brief: the Persona's prior-knowledge line on the first Leg.
+// No Leg binds a Move (kogaki#1768), so `leg.move` is not read and no Leg leaves anything for the
+// next one; the paragraph Moves bound below each Leg Waypoint leave what a later paragraph takes up.
 export function planLegOptions(legs, moves, priorKnowledge) {
-  const byId = new Map(moves.map((m) => [m.id, m]));
-  const leavesOf = (leg) => (typeof leg.move === "string" ? (byId.get(leg.move) || {}).leaves || [] : []);
-  return legs.map((leg, i) => {
-    if (typeof leg.move === "string" && !byId.has(leg.move)) {
-      return { error: `the Brief's Leg ${leg.leg_id} binds the Move ${JSON.stringify(leg.move)}, which the Move library does not hold — the ParagraphPlan reads what that Move leaves for the next Leg (kogaki#1701)` };
-    }
-    return { leaves: leavesOf(leg), previousLeaves: i > 0 ? leavesOf(legs[i - 1]) : [], previousLegId: i > 0 ? legs[i - 1].leg_id : null,
-      priorKnowledge: i === 0 ? priorKnowledge : null };
-  });
+  return legs.map((leg, i) => ({ leaves: [], previousLeaves: [], previousLegId: i > 0 ? legs[i - 1].leg_id : null,
+    priorKnowledge: i === 0 ? priorKnowledge : null }));
 }
 
 // WHAT STANDS TO BE TAKEN UP WHEN LEG WAYPOINT n BEGINS (kogaki#1701): the first Leg Waypoint's
@@ -1098,7 +1094,8 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     recordArray: "waypoints",
     validator: { module: "src/paragraph-plan.mjs", export: "validateParagraphPlanUnit", inputs: { legs, movesDir, runDir: dir, mapping } },
     ...(mapping ? { mapper: { module: "src/paragraph-plan-mapper.mjs", export: "ParagraphPlanMapper",
-      inputs: { legs, strands: brief.legs.map((leg) => legStrand(leg, brief.record.strands)), movesDir, persona: planned, planHead } } } : {}),
+      inputs: { legs, strands: brief.legs.map((leg) => legStrand(leg, brief.record.strands)), movesDir, persona: planned, planHead,
+        structure: brief.record.structure || null } } } : {}),
     fitJudge: { module: "src/paragraph-plan.mjs", prompt_export: "paragraphPlanJudgePrompt", verdict_export: "paragraphPlanJudgeVerdict",
       inputs: { legs, movesDir, promptHead: renderRowHead(judgeRow) } },
     // THE SITE LOOP (kogaki#1642): a refusal naming a Leg Waypoint is retried there alone.

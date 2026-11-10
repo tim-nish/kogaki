@@ -21,12 +21,10 @@
 // passing specialization record; the figure decision; the Reader Path artifact and its five
 // blocks; the claims rule; the judgment rule; the settled structure section; the durable home and the entry point; the Candidate gate; journey register as a
 // Candidate axis; the Move library.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { resolve, dirname, join, basename } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fillBrief, fillSlot, briefStrandIds, placements,
-  validateSpecialization, specializationDigest, specializationSchema, gateSchema, gateRegistry,
-  figureClause, figureLegs,
   ownerGateDigest, validateOwnerAnswer,
   briefJourneyStrands, journeyPlacements, snapshotBrief, readBriefRecord, briefRecordText } from "./compose.mjs";
 import { REVIEW_AREAS } from "./review.mjs";
@@ -51,29 +49,13 @@ export const REASONING_FIELDS = ["leg_validity"];
 
 // The owner reads the gate, not the spec (kogaki#520): every evidence key renders under one
 // plain-register label and never by its key name.
-// THE CHARACTERISTIC'S BOUND, ONE DECLARATION (kogaki#1126): read from
-// `src/candidate-schema.json`, which the composing judge is shown, never typed twice; the
-// refusal names the file and the number it read.
+// THE CANDIDATE SCHEMA, read from `src/candidate-schema.json` once.
 export const CANDIDATE_SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), "candidate-schema.json");
 let CANDIDATE_SCHEMA = null;
 export function candidateSchema() {
   if (!CANDIDATE_SCHEMA) CANDIDATE_SCHEMA = JSON.parse(readFileSync(CANDIDATE_SCHEMA_PATH, "utf8"));
   return CANDIDATE_SCHEMA;
 }
-export function characteristicMaxLength() {
-  const n = candidateSchema()?.fields?.characteristic?.max_length;
-  if (typeof n !== "number" || !Number.isInteger(n) || n <= 0) {
-    // A SCHEMA THAT DECLARES NO BOUND IS A FAULT, NEVER AN UNBOUNDED FIELD. The
-    // permissive reading would leave the guard unfed by exactly the input it
-    // exists to read, and every over-long characteristic would pass as cleanly
-    // as a short one.
-    throw new Error(`src/candidate-schema.json declares no integer \`fields.characteristic.max_length\` `
-      + `(read: ${JSON.stringify(n)}). The bound is the schema's, read here rather than typed twice, and `
-      + `an absent one is a malformed schema rather than an unbounded field (kogaki#1126).`);
-  }
-  return n;
-}
-
 // A Candidate carries no reader value (kogaki#1699): the Brief's Reader start heading renders the
 // Persona's prior-knowledge line and its Reader target heading the Thesis. A Candidate carrying a
 // retired reader field is refused BY NAME with the message declared here.
@@ -84,6 +66,10 @@ export const RETIRED_READER_FIELDS = new Map([
     + "Persona's prior-knowledge line, which the Reader start heading renders; remove the field"],
   ["obligations", "`obligations` is a retired field (kogaki#1699) — the Obligations ledger is retired: what a Leg "
     + "takes up and leaves is its Move's `takes` and `leaves`, judged across the path; remove the field"],
+  ["characteristic", "`characteristic` is a retired field (kogaki#1768) — one structure gives one Reader Path, so no "
+    + "name tells it from a sibling; the Candidate gate renders its Legs; remove the field"],
+  ["reader_experience", "`reader_experience` is a retired field (kogaki#1768) — one structure gives one Reader Path, "
+    + "so no experience tells it from a sibling; the Candidate gate renders its Legs and Leg Waypoints; remove the field"],
   ["opening_question", "`opening_question` is a retired field (kogaki#1216; its heading is removed by kogaki#1225) — "
     + "no Opening question is rendered, and no field authors one"],
 ]);
@@ -127,22 +113,6 @@ export function retiredReasoningFieldRefusal(c) {
     if (Object.prototype.hasOwnProperty.call(reasoning, key)) return `candidate ${c.candidate_id}: ${why}`;
   }
   return null;
-}
-
-// THE SURVIVOR COUNT, RECORDED IN THE BRIEF (kogaki#1216 amendment). Where the
-// Candidate rides `leg1_survivor_count` (a Harness-set COUNT from the
-// differentiation record's `leg1_survivors` id list -- named apart because the
-// two are different types on two records, PR #1222 round 1), one sentence names how many Moves' `takes`
-// the Persona's prior knowledge meets for the first Leg (kogaki#1699). A count of one names the
-// LIBRARY, not the rule, as the cause of a repeated opening, and the fix is a
-// Move extracted from an opening passage -- said here so the reader of the
-// Brief is told where the repair goes. Null where no count rides (a run
-// predating the record), which is a statement rather than an omission.
-export function survivorSentence(c) {
-  if (!Number.isInteger(c.leg1_survivor_count)) return null;
-  const n = c.leg1_survivor_count;
-  return `Opening: ${n} Move${n === 1 ? "" : "s"} in the library could open from what the Persona already knows, `
-    + `and the first Leg binds one of them.${n === 1 ? " A count of one names the library, not the rule, as the cause of a repeated opening; the repair is a Move extracted from an opening passage." : ""}`;
 }
 
 // THESE TWO TABLES OUTLIVE BOTH THE RENDERING AND THE RECORD THAT USED THEM,
@@ -284,8 +254,7 @@ export function denyInternalVocabulary(payload, exemptByOption) {
 // ---- THE TWO LEDGER FIELDS, READ FROM ONE DECLARATION (kogaki#1129).
 // `coverage` and `unused` are declared in `src/candidate-schema.json`, the file
 // the judge is shown; this enforces that declaration from `compose_path`'s validator inside
-// the re-ask window, and lives here for the reason `characteristicMaxLength` does: one
-// function, two readers.
+// the re-ask window, and lives here so the two readers share one function.
 // IT REFUSES A SHAPE AND NEVER A JUDGMENT: an OPEN item stays a disclosure here, and only the
 // key names are a declared format.
 // Pure; returns a refusal string or null. `strandIds` is the Brief's closed set where the
@@ -410,7 +379,7 @@ export function decisionGradeRendering(c, table) {
 }
 
 // Pure; exported for the check. Returns { error } or { payload }.
-export function assembleSelection(reviewed, record, differentiation) {
+export function assembleSelection(reviewed, record) {
   // THE TABLE IS CHECKED BEFORE IT IS TRUSTED (kogaki#909). A malformed
   // disclosure table would make every surface obligation below vacuous while
   // reading exactly like a Candidate set that owed none — the degrades-to-zero
@@ -420,85 +389,16 @@ export function assembleSelection(reviewed, record, differentiation) {
   const all = reviewed?.candidates;
   if (!Array.isArray(all)) return { error: "input is the attach output: { candidates: [...] } (src/review.mjs)" };
   const cands = all;
-  // 1-3 CANDIDATES PER ARTICLE (the Candidate gate): the count is the contract, refused
-  // naming what arrived — four is the selector affordance overrun. One is
-  // enough (kogaki#1273, the owner's 2026-10-05 ruling: "Show the Candidate
-  // question even when there is only one successful candidate").
-  if (cands.length < 1 || cands.length > 3) {
-    return { error: `${cands.length} Candidate(s) — the Candidate gate presents one to three per article, differing in reader experience; four overruns the selector` };
+  // ONE READER PATH PER ARTICLE (kogaki#1768): one structure gives one Reader
+  // Path, so the Candidate gate offers it beside the premise's negation.
+  if (cands.length !== 1) {
+    return { error: `${cands.length} Candidate(s) — one structure gives one Reader Path, and the Candidate gate offers that one beside the premise's negation (kogaki#1768)` };
   }
-  const seenExp = new Map();
-  // THE CHARACTERISTIC'S OWN DEDUP MAP (kogaki#1126). Separate from the
-  // experience's rather than folded into one key: the two fields are two seats
-  // on the option -- the label and the description -- and a collision in either
-  // one leaves the owner two options they cannot tell apart at that seat. A
-  // single combined key would admit two options whose LABELS read identically
-  // on the ground that their descriptions differ, which is the whole of what
-  // the label is for.
-  const seenChar = new Map();
-  const charMax = characteristicMaxLength();
   for (const c of cands) {
     if (typeof c.candidate_id !== "string" || c.candidate_id === "") return { error: "every Candidate carries a candidate_id" };
-    // FOLDED BEFORE THE TEST, the same way the dedup key three lines down folds
-    // (kogaki#578). This refused only the empty string while the key beside it
-    // compared trimmed-and-lowercased — so a WHITESPACE-ONLY experience passed
-    // here, and since kogaki#568 made the option label the raw prose it then
-    // rendered as a BLANK OPTION LABEL: the owner asked to choose between a
-    // visible option and an invisible one.
-    //
-    // THE RETIRED PREFIX IS WHY TWO GUARDS CARRY THIS. `Adopt <id> — its Reader
-    // Path becomes …` made every label non-blank whatever the prose did, and
-    // removing it moved that property onto these two. PR #576 round 1 normalised
-    // one of them and left the other, which is the same defect one field over.
-    if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
-      return { error: `candidate ${c.candidate_id}: reader_experience is required and cannot be blank — Candidates DIFFER IN READER EXPERIENCE (the Candidate gate), the difference must be stated to be selectable, and since the option's DESCRIPTION is composed from this prose a whitespace-only value leaves the owner an option whose explanation is the figure clause alone (kogaki#1126)` };
-    }
-    // NORMALISED, because this refusal is now what keeps two OPTION LABELS
-    // distinguishable (kogaki#568 made the label the reader experience, and
-    // PR #576 round 1 found the claim overstated). An exact-string key passes
-    // two experiences differing only in case or surrounding whitespace, and
-    // the retired `Adopt <id> — …` prefix used to make every label distinct by
-    // the id whatever the prose did. The key is folded the same way the
-    // proposal contract's own floor compares labels — trimmed and lowercased —
-    // so the refusal matches the condition it is offered as proof of.
-    const expKey = String(c.reader_experience).trim().toLowerCase();
-    if (seenExp.has(expKey)) {
-      return { error: `candidates ${seenExp.get(expKey)} and ${c.candidate_id} state the SAME reader experience — Candidates differ in reader experience (the Candidate gate), or they are one Candidate presented twice` };
-    }
-    seenExp.set(expKey, c.candidate_id);
-    // THE CHARACTERISTIC IS A SCHEMA FIELD, AND ITS THREE REFUSALS ARE THE
-    // SCHEMA'S (kogaki#1126). Before this the option label was one free-prose
-    // string, and whether it opened with a short name or ran as an unbroken
-    // paragraph was the composing Model's habit on the day. The label is now
-    // composed by this file FROM this field, so the field has to be there, has
-    // to be readable, and has to fit the seat it is rendered into.
-    if (typeof c.characteristic !== "string" || c.characteristic.trim() === "") {
-      return { error: `candidate ${c.candidate_id}: characteristic is required and cannot be blank — `
-        + `the option LABEL is composed from it as \`<n>. <characteristic>\`, so a Candidate without one `
-        + `renders as a numbered option with no name (src/candidate-schema.json, \`characteristic\`)` };
-    }
-    // FOLDED BEFORE THE BOUND, the same way the experience's key folds one
-    // clause up: a characteristic that fits only once its surrounding
-    // whitespace is counted is not a characteristic that fits, because the
-    // rendered label carries the trimmed value.
-    const charValue = c.characteristic.trim();
-    if (charValue.length > charMax) {
-      return { error: `candidate ${c.candidate_id}: characteristic is ${charValue.length} characters and `
-        + `src/candidate-schema.json bounds it at ${charMax} — it is the option's LABEL, which names the `
-        + `path in a few words; an explanation belongs in reader_experience, which renders as the `
-        + `description beside it. Received: ${JSON.stringify(charValue)}` };
-    }
-    const charKey = charValue.toLowerCase();
-    if (seenChar.has(charKey)) {
-      return { error: `candidates ${seenChar.get(charKey)} and ${c.candidate_id} state the SAME `
-        + `characteristic — Candidates differ in reader experience (the Candidate gate), and the `
-        + `characteristic is the name the owner reads that difference by, so two that fold to one value `
-        + `are two options the owner cannot tell apart at the label` };
-    }
-    seenChar.set(charKey, c.candidate_id);
+    const retiredReader = retiredReaderFieldRefusal(c);
+    if (retiredReader) return { error: retiredReader };
     if (!Array.isArray(c.legs) || c.legs.length === 0) return { error: `candidate ${c.candidate_id}: no legs — a Candidate is an ordered sequence of Legs (the Reader Path artifact and its five blocks)` };
-    // The attach guaranteed the review areas; assembly re-checks presence
-    // because an unreviewed Candidate is unpresentable at this gate.
     for (const a of REVIEW_AREAS) {
       if (typeof c.review?.[a] !== "string" || c.review[a] === "") {
         return { error: `candidate ${c.candidate_id}: review area ${JSON.stringify(a)} absent — an unreviewed Candidate cannot be presented (the judgment rule; run src/review.mjs attach first)` };
@@ -511,28 +411,11 @@ export function assembleSelection(reviewed, record, differentiation) {
     }
     const retiredReasoning = retiredReasoningFieldRefusal(c);
     if (retiredReasoning) return { error: retiredReasoning };
-    // DIFFERENTIATION ASSIGNED THIS UNIT'S OPENING MOVE BEFORE THE UNIT
-    // COMPOSED (kogaki#1206). `c.differentiation_unit` is a Harness-written tag,
-    // never a Model field — attached in `src/brief.mjs` at the reader-path
-    // job's own boundary, where the unit order is still known — so this reads
-    // an assignment made before composition rather than checking a Candidate
-    // against its own choice.
-    if (differentiation) {
-      const entry = (differentiation.entries || []).find((e) => e.unit_number === c.differentiation_unit);
-      const openingMove = c.legs?.[0]?.move;
-      if (entry && openingMove !== entry.opening_move) {
-        return { error: `candidate ${c.candidate_id} (unit ${entry.unit_number}): its first Leg binds `
-          + `move ${JSON.stringify(openingMove ?? null)}, not ${JSON.stringify(entry.opening_move)} — `
-          + `Differentiation assigned this unit's opening Move in advance (src/differentiation-schema.json), `
-          + `and a Candidate whose first Leg does not bind it is refused, naming the unit` };
-      }
-    }
   }
   const strandIds = briefStrandIds(record);
   if (strandIds.length === 0) {
     return { error: "the Brief carries no Strands — not a minted Brief (assembly runs over the Brief whose closed set the Candidates composed from)" };
   }
-  const journeyIds = briefJourneyStrands(record);
   // `candidateEvidence` IS NO LONGER CALLED HERE, and that follows from the
   // ruling rather than being tidying beside it: computing a value the payload
   // does not carry is precisely "an entry with no reader". It stays EXPORTED
@@ -541,40 +424,18 @@ export function assembleSelection(reviewed, record, differentiation) {
   // behaviours whose display this ruling removed and whose future is an open
   // decision — deleting the derivation would settle that decision by making
   // one arm unbuildable, which is not this issue's to do.
-  const options = cands.map((c, i) => ({
-    id: c.candidate_id,
-    // THE EFFECT STATES ONCE, AT QUESTION LEVEL (kogaki#568): the payload's own `label` says
-    // what answering does, so no option repeats it; the proposal contract's mechanical label
-    // floor is unaffected (PR #576 round 2). The id stays the record id, not the label's opening.
-    // The figure decision's FIGURE CLAUSE (kogaki#877): how many Legs carry a figure, with the
-    // hub's soft warning above three (topics/articles.md 2026-08-01 D11). It is owed at the
-    // selection gate, not in src/disclosure-fields.json, whose rows are Candidate-level while
-    // `figure` is a Leg field (kogaki#909, kogaki#877 acceptance 3).
-    // THE OPTION IS COMPOSED FROM DECLARED FIELDS (kogaki#1126, owner decision 2026-09-09):
-    // `characteristic` is the label and `reader_experience` the description, so a Candidate
-    // cannot change the shape by writing its prose differently.
-    // `<n>` IS THE POSITION, NEVER THE ID: the id stays the join key `adoptCandidate` resolves
-    // through.
-    label: `${i + 1}. ${c.characteristic.trim()}`,
-    // THE FIGURE CLAUSE MOVED WITH THE PROSE IT QUALIFIES (kogaki#877,
-    // kogaki#1126). It is one clause about how many Legs carry a figure, and
-    // it qualifies the reader experience rather than the path's name; appending
-    // it to a three-word label would put the longest sentence on the option
-    // beside the shortest. The surface it is owed at is unchanged — the
-    // selection gate, where the owner is choosing — and both fields of an
-    // option are that surface.
-    description: `${c.reader_experience.trim()} — ${figureClause(c.legs)}`,
-    // NO EVIDENCE FIELD, AND THE RENDERING WAS EMPTIED (kogaki#859, owner ruling 2026-09-04;
-    // PR #863 round 2): sixteen paragraphs per Candidate went unread, and "the run record holds
-    // what a later act reads". Nothing is lost: the reasoning stays in `reviewed.json` and the
-    // rest is derived on demand by `candidateEvidence`. Empty rather than shorter, on the
-    // position this gate failed (product-lab@315feac6 topics/archive/articles.md:29).
-    // THE KEY STAYS, an empty array, so a check can tell "nothing is rendered" from "nothing
-    // renders it".
-    // ONE ITEM came back by its own ruling (kogaki#909, owner ruling 2026-09-06): the Harness's
-    // own decision-grade statement, rendered only when its arithmetic fired.
-    rendering: decisionGradeRendering(c),
-  }));
+  // THE OPTION IS THE HARNESS'S (kogaki#1768): the Reader Path's Legs and Leg
+  // Waypoints are the reading above the question (`readerPathReading`), never
+  // the option, so the option names the act and counts what it adopts.
+  const options = cands.map((c) => {
+    const waypoints = c.legs.reduce((n, l) => n + (Array.isArray(l.waypoints) ? l.waypoints.length : 0), 0);
+    return {
+      id: c.candidate_id,
+      label: "Follow this Reader Path",
+      description: `${c.legs.length} Leg${c.legs.length === 1 ? "" : "s"} and ${waypoints} Leg Waypoint${waypoints === 1 ? "" : "s"}, reaching the Thesis last`,
+      rendering: decisionGradeRendering(c),
+    };
+  });
   // THE OBLIGATION IS GENERATED BY THE EVIDENCE, NEVER BY A CALLER REMEMBERING TO LOOK
   // (kogaki#909, acceptance item 3): a declared decision-grade field its rendering did not emit
   // is REFUSED here, so a `decision` entry added without a `decisionGradeRendering` case fails
@@ -615,8 +476,8 @@ export function assembleSelection(reviewed, record, differentiation) {
     id: "brief-candidate-selection-payload",
     kind: "proposal",
     where: "the Brief's sequence — which composed Reader Path the article follows",
-    why: "the machine's premise, rendered: the adopted Thesis and the settled Strand set support a composed structure — the Candidates below differ in reader experience and each carries the reasoning it was composed with as evidence",
-    label: "Adopting a Candidate writes its Reader Path into the Brief's sequence and fills the Brief's closing sections — how the path closes the claim, and what it traded away — from its reasoning",
+    why: "the machine's premise, rendered: the adopted Thesis and its structure support one composed Reader Path — the Legs and Leg Waypoints above, each Waypoint carrying the relations it states, reaching the Thesis last",
+    label: "Adopting the Reader Path writes it into the Brief's sequence and fills the Brief's closing sections — which Strands it uses, and which the Thesis leaves",
     options,
     // THE PROMPT SAYS WHAT THE RUNTIME DOES (kogaki#950): SPEC-draft-pipeline v35 rules free
     // text at this gate a COMMENT, and the owner reads this prompt before the refusal below.
@@ -629,16 +490,9 @@ export function assembleSelection(reviewed, record, differentiation) {
   // spec-internal vocabulary before it can be presented. It does not stand
   // in for the plain labels above — it is what catches the NEXT term of art
   // that finds a rendering path (kogaki#520).
-  // THE OVERRIDE SET, BUILT FROM THE CLAUSE'S OWN INPUT (kogaki#934). Each
-  // Candidate's entry holds exactly the leg ids `figureClause` rendered into
-  // that Candidate's label — `figureLegs` is the same selector the clause
-  // calls, so the exempted set cannot drift from the rendered one by being
-  // derived twice. A Candidate with no figure contributes an empty Set and
-  // exempts nothing.
-  const exemptByOption = new Map(
-    cands.map((c) => [c.candidate_id, new Set(figureLegs(c.legs).map((st) => st.leg_id))]),
-  );
-  const leak = denyInternalVocabulary(payload, exemptByOption);
+  // No override set (kogaki#1768): the option's label and description are the
+  // Harness's own words, and carry no Leg id.
+  const leak = denyInternalVocabulary(payload);
   if (leak.error) return leak;
   return { payload };
 }
@@ -677,8 +531,7 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
   // clause, because it binds the subject's identity: judging a record about Candidate A when the
   // owner chose B is wasted work ending in a refusal naming the wrong thing. It sits BELOW the
   // two clauses establishing the Candidate is a Candidate at all; selection is the first about
-  // the OWNER. The owner gate over a passing specialization record keeps its order: this sits
-  // above both halves. The absence is refused here, not in the validator: "not selected" is a
+  // the OWNER. The absence is refused here, not in the validator: "not selected" is a
   // fact about an act that did not happen, not about a capture's shape.
   if (instantiation.selection === undefined) {
     return { error: `candidate ${candidateId}: which Reader Path the Brief follows is the OWNER'S choice at the Candidate gate `
@@ -708,7 +561,7 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
   if (chose.option === undefined) {
     return { error: `candidate ${candidateId}: the owner answered the Candidate gate Candidate-selection gate in their own `
       + `words rather than selecting a Reader Path — ${JSON.stringify(chose.free_text)}. Free text at this gate `
-      + `is a COMMENT, not a selection: a Candidate is a composed sequence of Legs with Move bindings, so there `
+      + `is a COMMENT, not a selection: a Candidate is a composed sequence of Legs, so there `
       + `is no Reader Path here to adopt and the runtime composes none. If the composed set is wrong, answer `
       + `"none-of-these" — that negation is first-class and routes to its own refusal. Otherwise re-raise the `
       + `gate and select a Candidate. Nothing was written.` };
@@ -722,75 +575,32 @@ export function adoptCandidate(record, reviewed, candidateId, instantiation = {}
       + `Nothing was written.` };
   }
 
-  // THE LEG↔MOVE INSTANTIATION CONTRACT AT ADOPTION IS ITS JUDGED HALF ALONE (kogaki#1311,
-  // owner decision 2026-10-09). Adoption opens no Move file: the mechanical half and the figure
-  // decision's Move-dependent half ran at composition (`validateReaderPathUnit`, src/brief.mjs).
-  // JUDGED HALF — the specialization record is REQUIRED, and its absence is refused HERE: "no
-  // record" is a fact about the act that did not happen. The validator owns everything else.
-  if (instantiation.specialization === undefined) {
-    return { error: `candidate ${candidateId}: no specialization record — whether each Leg's `
-      + `Move fits it — each of its \`takes\` met and each of its \`leaves\` taken up across the path (kogaki#1699) — is a `
-      + `JUDGMENT, and it is a mandatory occasion at Brief composition (the Leg-Move instantiation contract, kogaki#747). Adoption `
-      + `composes no verdict of its own and fills no default. Judge the path, record the verdicts `
-      + `(src/specialization-schema.json), and pass --specialization <path>. Nothing was written.` };
-  }
-  const judged = validateSpecialization(instantiation.specialization, c.legs, candidateId);
-  if (judged.error) {
-    return { error: `candidate ${candidateId}: ${judged.error}` };
-  }
-  // THE RECORD IS DISCLOSURE, NOT A WRITE UNLOCK (kogaki#1108, owner decision 2026-09-12). The
-  // `brief-specialization-ratification` gate that stood here was a human gate over a model
-  // verdict, removed under the 2026-09-04 control-input ruling; the Harness-owned workflow table
-  // now validates every judgment record against its state's own refusals.
-  // The record is still REQUIRED and validated above, and a `contradicts` or `cannot-determine`
-  // verdict still refuses in path order. The digest names the record in the closing summary.
-  const digest = specializationDigest(instantiation.specialization, c.legs);
-
-  // THE RECORD'S SLOTS FILL FROM THIS CANDIDATE, in one write (kogaki#1328).
-  // `fillBrief` writes the Reader Path and the two coverage lists; the Thesis row of Closure is not written at all — it is derived from
-  // the coverage and the Leg marked `reaches_target` wherever it is read
-  // (`thesisClosureRow`, src/compose.mjs).
   const filled = fillBrief(record, {
     legs: c.legs,
     coverage: c.coverage || {},
-    unused: c.unused || {},
     // THE RENDERINGS RECORD (kogaki#1494), written beside the Reader Path
     // composed under it; `null` where the run carries none.
     renderings: instantiation.renderings === undefined ? null : instantiation.renderings,
   });
   if (filled.error) return filled;
   let out = filled.record;
-  // TRADEOFFS ARE THE CANDIDATE'S OWN FIELDS, NOT A SENTENCE COMPOSED AROUND
-  // THEM (kogaki#1328). The sentence this replaces appended a period to a
-  // `reader_experience` that already ended in one.
-  const tradeoffs = { reader_experience: c.reader_experience };
-  if (typeof c.tradeoffs === "string" && c.tradeoffs !== "") tradeoffs.gave_up = c.tradeoffs;
-  const survivorLine = survivorSentence(c);
-  if (survivorLine) tradeoffs.opening = survivorLine;
-  let r = fillSlot(out, "tradeoffs", tradeoffs);
+  // WHAT ADOPTING THE PATH GAVE UP, AND WHAT IT BRIDGED (kogaki#1768): the
+  // Strands the Thesis does not reach, read from the mint's `not_carried`
+  // entries; and no bridge, since every Leg Waypoint carries relations the
+  // claims state and the apex is the one connection no claim states.
+  const left = (out.strand_coverage || []).filter((e) => typeof e.not_carried === "string").map((e) => e.strand);
+  let r = fillSlot(out, "tradeoffs", { gave_up: left.length
+    ? `The Thesis does not reach ${left.join(", ")}; the article leaves ${left.length === 1 ? "that Strand" : "those Strands"} out.`
+    : "Nothing: the Thesis reaches every settled Strand." });
   if (r.error) return r;
   out = r.record;
-  // THE POST-HOC DISCLOSURE FILLS HERE (kogaki#866). The scope is the ADOPTED
-  // Candidate: approval is only ever about what was adopted. The Journey half
-  // is the record's own `journey_coverage`, which `fillBrief` derived from the
-  // Legs above, so only the bridge half is written here.
-  {
-    const ev = candidateEvidence(c, briefStrandIds(record), briefJourneyStrands(record));
-    // THE EVIDENCE CAN REFUSE (kogaki#1129), and the refusal travels rather than
-    // being read past.
-    if (ev.error) return { error: ev.error };
-    r = fillSlot(out, "bridged", { bridges: ev.bridges });
-    if (r.error) return r;
-    out = r.record;
-  }
-  // THE DISCLOSURE THE SUMMARY SENTENCE IS COMPOSED FROM, returned rather than
-  // recomputed by the caller: the tally is over the SAME verdict list the
-  // digest was taken across, so the sentence cannot name a record other than
-  // the one that was validated.
-  const tally = {};
-  for (const v of instantiation.specialization.verdicts) tally[v.verdict] = (tally[v.verdict] || 0) + 1;
-  return { record: out, placed: filled.placed, total: filled.total, judged: judged.judged,
-    record_digest: digest, specialization_tally: tally, selected_by: chose.tool_use_id };
+  r = fillSlot(out, "bridged", { bridges: "No gap was bridged: every Leg Waypoint carries relations the claims state, and the Thesis is the one connection no claim states." });
+  if (r.error) return r;
+  out = r.record;
+  const structure = record.structure || null;
+  const reach = structure && Array.isArray(structure.reach) ? structure.reach : [];
+  return { record: out, placed: filled.placed, total: filled.total, selected_by: chose.tool_use_id,
+    reach: reach.length, unreached: left, grounded: c.reasoning?.leg_validity ?? null };
 }
 
 function argString(args, key, usage) {
@@ -825,18 +635,14 @@ export function cmdAssemble(args) {
   if (brief.error) fail(brief.error);
   const out = argString(args, "out",
     "assemble needs --out <path> — the machine-local file the selection payload rides in (never a tree *.proposal.json — the Candidate gate registers no new record class)");
-  // OPTIONAL (kogaki#1206): a Brief run predating Differentiation, or a
-  // fixture exercising assembly on its own, carries no such file, and the
-  // opening-Move check is skipped rather than refused for its absence — the
-  // record's own count/dimension/move refusals live at the `differentiation`
-  // state, not here.
-  const diffPath = args.differentiation;
-  const differentiation = typeof diffPath === "string" ? JSON.parse(readFileSync(diffPath, "utf8")) : undefined;
-  const r = assembleSelection(reviewed, brief.record, differentiation);
+  if (args.differentiation !== undefined) {
+    fail("--differentiation is retired (kogaki#1768): the `differentiation` state and its record are gone, and no Leg binds a Move to check an opening against. Nothing was written.");
+  }
+  const r = assembleSelection(reviewed, brief.record);
   if (r.error) fail(r.error);
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify(r.payload, null, 2) + "\n");
-  console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each option carrying its id and its reader-experience label and nothing else — never a verdict, and the composition-time reasoning stays in the reviewed Candidates it was composed from rather than being copied here (the Candidate gate, kogaki#859). Written: ${out}`);
+  console.log(`selection payload: ${r.payload.options.length - 1} Candidate(s) plus the first-class negation, each option carrying its id and the Harness's own label and nothing else — never a verdict, and the composition-time reasoning stays in the reviewed Candidates it was composed from rather than being copied here (the Candidate gate, kogaki#859). Written: ${out}`);
 }
 
 // EXPORTED AT kogaki#1108 under the name its dispatcher case carries, for the
@@ -856,18 +662,13 @@ export function cmdAdoptCandidate(args) {
     + "owner's recorded answer at the Candidate gate selection gate (--selection) and never stands in for it.");
   const brief = readBriefRecord(briefPath);
   if (brief.error) fail(brief.error);
-  // the Leg-Move instantiation contract's judged half reaches the runtime as a CALLER-SUPPLIED INPUT, never as
-  // something this command derives: the specialization record is read from
-  // disk and parsed, never composed. No moves directory is taken any more —
-  // adoption opens no Move file (kogaki#1311).
-  // `--specialization` has no default and no implicit empty value — an
-  // omitted flag reaches `adoptCandidate` as `undefined` and is refused
-  // there, which is what makes the occasion unskippable.
-  const instantiation = {};
-  if (typeof args.specialization === "string" && args.specialization !== "") {
-    try { instantiation.specialization = JSON.parse(readFileSync(args.specialization, "utf8")); }
-    catch (e) { fail(`the specialization record at ${args.specialization} cannot be read (${e.message}) — the Leg-Move instantiation contract's judgment record is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
+  // THE SPECIALIZATION RECORD IS RETIRED (kogaki#1768): no Leg binds a Move, so
+  // no Leg's Move fit is judged at the Brief, and a caller still passing the
+  // record is told so rather than ignored.
+  if (args.specialization !== undefined) {
+    fail("--specialization is retired (kogaki#1768): no Leg binds a Move, so the Brief judges no Leg's Move fit; the paragraph Move is ParagraphPlan's. Nothing was written.");
   }
+  const instantiation = {};
   // the Candidate gate's selection capture, read the same way and for the same reason: an
   // omitted flag reaches `adoptCandidate` as `undefined` and is refused there,
   // which is what makes the gate unskippable, while an unreadable file is a
@@ -876,7 +677,7 @@ export function cmdAdoptCandidate(args) {
     try { instantiation.selection = JSON.parse(readFileSync(args.selection, "utf8")); }
     catch (e) { fail(`the selection capture at ${args.selection} cannot be read (${e.message}) — the Candidate gate's owner answer is an input to adoption, so an unreadable one is not an absent one and is not treated as one`); }
   }
-  // THE RENDERINGS RECORD (kogaki#1494): the `differentiation` state's judged
+  // THE RENDERINGS RECORD (kogaki#1494): the `compose_path` state's judged
   // record, read whole; its `renderings` list is what adoption writes into the
   // Brief and refuses an `introduces` entry against. Absent, the run predates
   // it and nothing is written.
@@ -909,17 +710,13 @@ export function cmdAdoptCandidate(args) {
   const snapSeq = snapshotBrief(briefPath, "adopt-candidate", "before", brief.text);
   writeFileSync(briefPath, text);
   snapshotBrief(briefPath, "adopt-candidate", "after", text, snapSeq);
-  console.log(`instantiation contract (the Leg-Move instantiation contract): ${r.judged} Leg specialization verdict(s) read from the record — judged by the composing sitting, validated here, composed here never`);
   console.log(`candidate selection (the Candidate gate): ${id} was the owner's own answer at the brief-candidate-selection gate (AskUserQuestion ${r.selected_by}) — read from the capture, never carried by --candidate (kogaki#891)`);
-  // ONE SENTENCE, ON EVERY ADOPTION (kogaki#1108). Disclosure replaces the
-  // gate: the record is named by its digest and tallied by verdict, so a
-  // reader of this summary can tell what was judged without being asked to
-  // approve it, and two adoptions of one path under different judgments are
-  // still distinguishable.
-  console.log(`specialization (disclosure, never a write unlock — kogaki#1108): the record digesting ${r.record_digest} `
-    + `judged ${Object.entries(r.specialization_tally).map(([v, n]) => `${n} ${v}`).join(", ")} `
-    + `across ${r.judged} Leg(s); it was validated here and no owner ratification is asked for it`);
-  console.log(`adopted ${id} — its Reader Path is the Brief's; its coverage, Obligation rows and tradeoffs are filled from it; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
+  // ONE SENTENCE, ON EVERY ADOPTION (kogaki#1768): the structure's reach — the
+  // relations and higher-order relations the Leg Waypoints carry, and the
+  // Strands the Thesis leaves — and the GROUNDED Rounds the Waypoints took.
+  console.log(`structure: the Leg Waypoints carry the ${r.reach} relation(s) and higher-order relation(s) the Thesis reaches; `
+    + `${r.unreached.length ? `Strands not carried: ${r.unreached.join(", ")}` : "every Strand is carried"}. ${r.grounded || ""}`.trim());
+  console.log(`adopted ${id} — its Reader Path is the Brief's; its Strand coverage and tradeoffs are filled from it; Strand placement ${r.placed} of ${r.total}. READ THIS ONE (owner document): ${briefPath}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -943,6 +740,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   switch (args._cmd) {
     case "assemble": cmdAssemble(args); break;
     case "adopt-candidate": cmdAdoptCandidate(args); break;
-    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --specialization <json> --selection <capture>");
+    default: fail("usage: assemble.mjs assemble --reviewed <json> --brief <path> --out <path>\n  | adopt-candidate --brief <path> --reviewed <json> --candidate <id> --selection <capture> [--renderings <json>]");
   }
 }

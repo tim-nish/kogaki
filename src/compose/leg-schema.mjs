@@ -14,13 +14,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { laneDir } from "../runs.mjs";
-import { figureClaimRefusal, figureRefusal } from "./figure.mjs";
-import {
-  introducesRefusal, opensSectionIntroducedTermRefusal, opensSectionRefusal,
-  parseIntroducesEntry, reactivateRefusal, reactivateSemanticRefusal,
-  readerTargetLegRefusal, readerTargetNamesRefusal, sectionGroupingRefusal,
-} from "./sections.mjs";
-import { definedTermBeforeIntroductionRefusal } from "./defined-terms.mjs";
+import { opensSectionRefusal, readerTargetLegRefusal, sectionGroupingRefusal } from "./sections.mjs";
 
 export function fail(msg) {
   process.stderr.write(`compose: ${msg}\n`);
@@ -221,10 +215,9 @@ export function budgetRefusal(budget, at) {
 
 // ---- the route a Leg takes its reader along (kogaki#1311) ----
 //
-// `waypoints` specializes the Leg's Move `segments` at composition, so
-// nothing after the Candidate opens the Move. SHAPE ONLY: fit to `segments`
-// and `breaks` is the Move-fit judgment's, the count the composer's (owner
-// decision 2026-10-09). `claimStrands` is the Strand ids the Leg's claims
+// `waypoints` are the points the Leg's paragraphs make, composed from the Strands'
+// RelationalStructure (kogaki#1768). SHAPE ONLY: whether a point is grounded in the
+// relations it carries is the GROUNDED judgment's, the count the composer's. `claimStrands` is the Strand ids the Leg's claims
 // name. `ordinals` numbers a filtered list as its reader does (kogaki#1448);
 // `claimText` maps Strand ids to propositions and turns on the read-alone
 // rule and the method-verb rule, for Leg Waypoints at composition only
@@ -237,9 +230,8 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
     + (paragraph ? "" : " and `case` (`own` or `apart`: whose case the paragraph tells, kogaki#1732)")
     + " — src/leg-schema.json, `waypoint` (kogaki#1326)";
   if (!Array.isArray(waypoints) || waypoints.length === 0) {
-    return `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, its `
-      + `specialization of its Move's segments, written at composition because no stage after the Candidate `
-      + `reads the Move (kogaki#1311). ${def}`;
+    return `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, the points `
+      + `its paragraphs make, in order (kogaki#1311, kogaki#1768). ${def}`;
   }
   const strands = new Set(claimStrands);
   const served = new Set();
@@ -265,7 +257,7 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
     for (const k of RETIRED_WAYPOINT_MOVE_FIELDS) {
       if (Object.hasOwn(w, k)) {
         return `${at}: ${nth} carries \`${k}\`, which is retired — a Leg Waypoint carries \`point\`, \`serves\` `
-          + `and \`case\` only, and no Move information reaches the Brief: the paragraph Move is bound by /paragraph-plan, `
+          + `and \`case\` (and \`carries\` where the Brief carries a \`structure\`) only, and no Move information reaches the Brief: the paragraph Move is bound by /paragraph-plan, `
           + `after the Brief, and stays in that stage's run directory (kogaki#1375). ${def}`;
       }
     }
@@ -287,8 +279,7 @@ export function waypointsRefusal(waypoints, claimStrands, at, ordinals = null, c
     if (!Array.isArray(w.serves) || w.serves.length === 0
       || w.serves.some((x) => typeof x !== "string" || x.trim() === "")) {
       return `${at}: ${nth} has an empty serves — every waypoint serves at least one claim of this Leg, `
-        + `named by its Strand id; a step no claim of this Leg supports is the signal to pull in a Journey, `
-        + `bind another Move, or report no_move_fits. ${def}`;
+        + `named by its Strand id. ${def}`;
     }
     for (const x of w.serves) {
       if (!strands.has(x)) {
@@ -405,10 +396,56 @@ export function readerStateDimensionLine(value, dim) {
 // The Leg fields retired with the reader states (kogaki#1699).
 export const RETIRED_LEG_STATE_FIELDS = Object.freeze(["reader_state_after", "reader_state_before"]);
 
+// THE LEG FIELDS RETIRED WITH THE LEG MOVE (kogaki#1768, owner decision 2026-11-10): a Leg binds no Move, so every
+// field written for a Leg Move's binding, and every field whose composer was the Leg Move, is refused by name.
+export const RETIRED_LEG_MOVE_FIELDS = Object.freeze(["move", "no_move_fits", "materials", "purpose", "rationale", "depends_on",
+  "re-activate", "introduces", "journeys", "entailed", "entailment_reasoning", "bridges", "names", "budget", "figure", "figure_roles"]);
+const RETIRED_LEG_MOVE_REASON = "a Leg binds no Move (kogaki#1768): its Waypoints are composed from the Strands' "
+  + "RelationalStructure and the paragraph Move is bound once, per Leg Waypoint, by /paragraph-plan";
+
+// THE WAYPOINT'S `carries` AND THE LEG'S `relation` BIND WHERE A `structure` EXISTS (kogaki#1768). With one, every Leg
+// names the higher-order relation it serves and every Leg Waypoint the relation ids its point states; with none, a Leg
+// carrying either is refused naming it. Returns an error string or null.
+function structureRefusal(s, at, structure) {
+  const ids = structure ? new Set([...(structure.relations || []).map((r) => r.id), ...(structure.higher_order || []).map((h) => h.id)]) : null;
+  const higher = structure ? new Set((structure.higher_order || []).map((h) => h.id)) : null;
+  if (!structure) {
+    if (Object.hasOwn(s, "relation")) return `${at}: carries \`relation\`, and the Brief carries no \`structure\` for it to name — a Leg names its higher-order relation only in a Brief /brief composed from a structure (kogaki#1768)`;
+  } else if (typeof s.relation !== "string" || !higher.has(s.relation)) {
+    return `${at}: ${Object.hasOwn(s, "relation") ? `its \`relation\` ${JSON.stringify(s.relation)} names no higher-order relation of the Brief's \`structure\`` : "carries no `relation`"} — each Leg names the higher-order relation it serves (kogaki#1768)`;
+  }
+  for (const [i, w] of (Array.isArray(s.waypoints) ? s.waypoints : []).entries()) {
+    const nth = `waypoint ${i + 1}`;
+    if (!w || typeof w !== "object") continue;
+    if (!structure) {
+      if (Object.hasOwn(w, "carries")) return `${at}: ${nth} carries \`carries\`, and the Brief carries no \`structure\` for it to name — a Leg Waypoint names relation ids only in a Brief /brief composed from a structure (kogaki#1768)`;
+      continue;
+    }
+    if (!Array.isArray(w.carries) || w.carries.length === 0) return `${at}: ${nth} carries no \`carries\` — every Leg Waypoint names the relation or higher-order relation ids of the Brief's \`structure\` its point states (kogaki#1768)`;
+    const stray = w.carries.find((x) => !ids.has(x));
+    if (stray !== undefined) return `${at}: ${nth} carries ${JSON.stringify(stray)}, which is no relation's or higher-order relation's id in the Brief's \`structure\` (kogaki#1768)`;
+  }
+  return null;
+}
+
+// THE SAME BINDING OVER A RECORDED READER PATH (kogaki#1768): the readers after adoption
+// (`/paragraph-plan`, `draft.mjs resolve`) check `carries` and `relation` only against a
+// `structure` that is present. Returns the first refusal, naming the Leg, or null.
+export function briefStructureRefusal(legs, structure, at = "the Brief") {
+  for (const [i, s] of (Array.isArray(legs) ? legs : []).entries()) {
+    if (!s || typeof s !== "object") continue;
+    const bad = structureRefusal(s, `${at}, leg ${s.leg_id ?? i + 1}`, structure || null);
+    if (bad) return bad;
+  }
+  return null;
+}
+
 // ---- shape validation (the Leg's shape — the fields, not the markup) ----
-// THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's.
+// THE FIELD SET IS THE SCHEMA'S (kogaki#1108); the refusals are this file's. `opts.structure` is the Brief's
+// RelationalStructure where it carries one (kogaki#1768); a legacy array second argument names no structure.
 // Returns { error } or { legs }. Pure over its argument; exported for the check.
-export function validateLegs(legs, definedTerms = []) {
+export function validateLegs(legs, opts = {}) {
+  const structure = opts && !Array.isArray(opts) && opts.structure ? opts.structure : null;
   if (!Array.isArray(legs) || legs.length === 0) {
     return { error: pathRefusal("path_is_non_empty", null, "This answer carries no Leg at all.") };
   }
@@ -416,104 +453,35 @@ export function validateLegs(legs, definedTerms = []) {
   const seen = new Set();
   for (const [i, s] of legs.entries()) {
     const at = `leg ${i + 1}${s && s.leg_id ? ` (${s.leg_id})` : ""}`;
-    // `relations` IS A RETIRED FIELD, refused BY NAME ahead of every other
-    // check (kogaki#1215; the precedent is `retiredClaimTypes`, refused ahead
-    // of the closed-set message). The schema no longer advertises it, so a
-    // composer should never write it — but a Leg that did would otherwise have
-    // its marking silently dropped, which is the failure the draft side's
-    // by-name refusal of a `relation:` line exists against.
-    // THE READER STATES ARE RETIRED (kogaki#1699) and refused BY NAME for the
-    // reason `relations` below is: a dropped field never tells its composer.
+    if (!s || typeof s !== "object" || Array.isArray(s)) return { error: `${at}: is not a Leg record` };
+    // THE READER STATES ARE RETIRED (kogaki#1699) and refused BY NAME: a dropped field never tells its composer.
     for (const f of RETIRED_LEG_STATE_FIELDS) {
-      if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, f)) {
-        return { error: `${at}: carries \`${f}\` — the Leg's reader states are retired (kogaki#1699): what a Leg `
-          + "takes up and leaves is its Move's `takes` and `leaves`, judged across the path. Remove the field." };
+      if (Object.hasOwn(s, f)) {
+        return { error: `${at}: carries \`${f}\` — the Leg's reader states are retired (kogaki#1699). Remove the field.` };
       }
     }
-    if (s && typeof s === "object" && Object.prototype.hasOwnProperty.call(s, "relations")) {
-      return { error: `${at}: \`relations\` is a retired field — the relations layer is retired (kogaki#1215): `
-        + "a Leg's claims and introduces are flat lists with no item subordinate to another, and a whole "
-        + "category's realization is stated once in the Packet template, never marked per item. Remove the field." };
+    if (Object.hasOwn(s, "relations")) {
+      return { error: `${at}: \`relations\` is a retired field — the relations layer is retired (kogaki#1215). Remove the field.` };
     }
-    const errs = [];
+    const retired = RETIRED_LEG_MOVE_FIELDS.find((f) => Object.hasOwn(s, f));
+    if (retired !== undefined) return { error: `${at}: carries \`${retired}\`, which is retired — ${RETIRED_LEG_MOVE_REASON}. Remove the field.` };
     for (const name of requiredLegFields()) {
       if (BESPOKE_LEG_REFUSALS.has(name)) continue;
       const decl = schema.fields[name];
       const ok = legFieldPresent(decl, s[name]);
       if (ok === null) {
         return { error: `${at}: src/leg-schema.json declares the required field ${JSON.stringify(name)} `
-          + `with type ${JSON.stringify(decl.type)}, which this validator has no presence predicate for. `
-          + `The schema is rendered into the composition prompt and read back here, so a field the prompt `
-          + `asks for and the validator cannot check is exactly the drift one carrier exists to prevent — `
-          + `add the predicate in src/compose.mjs beside this refusal` };
+          + `with type ${JSON.stringify(decl.type)}, which this validator has no presence predicate for — `
+          + "add the predicate in src/compose/leg-schema.mjs beside this refusal" };
       }
       if (!ok) {
-        errs.push(`${at}: ${name}${decl.min_length ? ` (non-empty ${decl.type})` : ""} is required by the Leg's shape `
-          + `— a Leg record without it is not a Leg record. ${decl.description}`);
+        return { error: `${at}: ${name} is required by the Leg's shape — a Leg record without it is not a Leg record. ${decl.description}` };
       }
     }
-    if (errs.length) return { error: errs[0] };
     if (seen.has(s.leg_id)) {
       return { error: pathRefusal("leg_id_unique", at, `An earlier Leg already carries the id ${JSON.stringify(s.leg_id)} — this is a duplicate leg_id, and the repair is to rename one of the two, never to merge them.`) };
     }
-    // the Leg's shape v18 (kogaki#642) — `Leg = Input + State`, and the Move IS the
-    // State, so a Move-less Leg is not a Leg. This is the seat the spec
-    // names as the carrier: the requirement binds at composition, which is
-    // what makes such a Leg unwritable rather than discouraged. the constraints that survive's
-    // no-mandatory-Moves rider is superseded there by name.
-    // EXACTLY ONE OF `move` AND `no_move_fits` (kogaki#1276). A Leg no Move
-    // in the library fits says so in one sentence rather than naming the
-    // nearest Move; the reader-path unit then refuses its Candidate with that
-    // sentence (`validateReaderPathUnit`, src/brief.mjs).
-    const hasMove = typeof s.move === "string" && s.move !== "";
-    const hasNoFit = typeof s.no_move_fits === "string" && s.no_move_fits.trim() !== "";
-    if (hasMove && hasNoFit) {
-      return { error: `${at}: carries both move and no_move_fits — a Leg either binds a Move by id or says in one sentence that no Move fits it, never both (kogaki#1276)` };
-    }
-    if (!hasMove && !hasNoFit) {
-      return { error: `${at}: carries neither move nor no_move_fits — a Leg binds a Move library entry by id (the Move is the State component of a Leg), or says in one sentence what its claims need that no Move's segments provide (kogaki#1276)` };
-    }
-    for (const d of s.depends_on) {
-      if (!seen.has(d)) {
-        return { error: pathRefusal("depends_on_ordering", at, `Its depends_on names "${d}", which is not an EARLIER Leg of this path: either move the Leg that carries that id ahead of this one, or drop the dependency.`) };
-      }
-    }
-    // the Bridge Leg's `bridges` — optional, and when present it names the ADJACENT
-    // PAIR this Leg was inserted between. Validated here because the
-    // selection gate's disclosure is computed from it: an unvalidated marking
-    // renders `between :` or `between true:` at an owner surface.
-    if (s.bridges !== undefined) {
-      if (!Array.isArray(s.bridges) || s.bridges.length !== 2 || s.bridges.some((b) => typeof b !== "string" || b === "")) {
-        return { error: `${at}: bridges, when present, names the two adjacent legs this Leg was inserted between (the Bridge Leg) — an array of exactly two leg ids` };
-      }
-    }
-    // the reader-knowledge ledger's `introduces` (kogaki#751) — OPTIONAL, and validated here for
-    // the same reason `bridges` is: the accumulation the Packet derives from
-    // it is rendered at an owner-facing surface, so an unvalidated entry
-    // renders as a blank term or as `undefined` in a reader-knowledge ledger.
-    // SHAPE ONLY. Whether a term is genuinely introduced HERE, whether the
-    // anchor explains it, and whether the Leg's claims already carry it are
-    // judgments — the judgment rule clause 3 stands and nothing below reads meaning.
-    if (s.introduces !== undefined) {
-      const bad = introducesRefusal(s.introduces, at);
-      if (bad) return { error: bad };
-    }
-    // `re-activate` (kogaki#1237, owner decision 2026-09-30) — OPTIONAL, and validated for the
-    // same reason `introduces` is: it reaches the Leg Packet, an owner-facing
-    // surface, so an unvalidated entry would render a Leg speaking of material
-    // it was never shown to have a claim to. The candidate population is
-    // closed: only the `depends_on` Legs' `introduces` entries and `claims`,
-    // never Journey material or Obligation rows — the shape check refuses a
-    // malformed entry, the semantic check refuses one whose Leg, term or
-    // Strand does not exist where named.
-    if (s["re-activate"] !== undefined) {
-      const bad = reactivateRefusal(s["re-activate"], at);
-      if (bad) return { error: bad };
-      const badSemantic = reactivateSemanticRefusal(s["re-activate"], s.depends_on, legs, at);
-      if (badSemantic) return { error: badSemantic };
-    }
-    // the Section grouping's `opens_section` (kogaki#822) — shape only here; the four grouping
-    // rules are a property of the whole path and run after this loop.
+    // the Section grouping's `opens_section` (kogaki#822) — shape only here; the grouping rules run after this loop.
     if (s.opens_section !== undefined) {
       const bad = opensSectionRefusal(s.opens_section, at);
       if (bad) return { error: bad };
@@ -523,26 +491,12 @@ export function validateLegs(legs, definedTerms = []) {
     }
     {
       const types = claimTypes();
-      const retired = retiredClaimTypes();
-      // ONE CLAIM PER STRAND, PER LEG (kogaki#1108). The rule and its ground
-      // are the schema's (`claim.one_per_strand`, and the paragraph above it);
-      // this is the refusal that makes a second claim for one Strand
-      // UNWRITABLE rather than discouraged. It names the Leg and the Strand,
-      // because those are the two facts the composer needs to repair it: which
-      // Leg to look at, and which of its materials is carrying two claims
-      // where the path admits one.
-      //
-      // KEYED PER LEG AND RESET AT EACH ONE. A Strand serving several Legs
-      // carries a DIFFERENT claim in each — that is the sequence, not a
-      // duplication — so the scope of this set is one Leg and never the path.
+      const retiredTypes = retiredClaimTypes();
+      // ONE CLAIM PER STRAND, PER LEG (kogaki#1108), keyed per Leg and reset at each one.
       const byStrand = new Map();
       for (const g of s.claims) {
-        // The retired types are refused BY NAME and ahead of the closed-set
-        // message (kogaki#1095): a Brief written under the old grammar is the
-        // caller this arm exists for, and "not in the set" would tell it that
-        // its content is wrong rather than that its content has a home.
-        if (retired.has(g.type)) {
-          return { error: `${at}: claim type ${JSON.stringify(g.type)} is no longer a claim — a claim is one proposition derived from a Strand, and nothing else (the claims rule). What this claim carried is ${retired.get(g.type)}` };
+        if (retiredTypes.has(g.type)) {
+          return { error: `${at}: claim type ${JSON.stringify(g.type)} is no longer a claim — a claim is one proposition derived from a Strand, and nothing else (the claims rule). What this claim carried is ${retiredTypes.get(g.type)}` };
         }
         if (!types.has(g.type)) {
           return { error: `${at}: claim type ${JSON.stringify(g.type)} — the claims rule's list is closed: ${[...types].join(", ")}` };
@@ -561,81 +515,24 @@ export function validateLegs(legs, definedTerms = []) {
         byStrand.set(g.strand, g.proposition);
       }
     }
-    // the route (kogaki#1311) — REQUIRED, and checked after the claims loop
-    // because `serves` addresses the claims by Strand, so its address space
-    // does not exist until the claims are known to be well formed.
+    // the route (kogaki#1311) — checked after the claims loop because `serves` addresses the claims by Strand.
     {
       const bad = waypointsRefusal(s.waypoints, s.claims.map((g) => g.strand), at, null,
         Object.fromEntries(s.claims.map((g) => [g.strand, g.proposition])));
       if (bad) return { error: bad };
     }
-    // the figure decision's `figure:`/`figure_roles` (kogaki#877) — OPTIONAL, and validated
-    // here for the reason `bridges` and `introduces` are: the count and the
-    // Leg ids reach the SELECTION GATE's label, so an unvalidated declaration
-    // renders a binding an owner reads as decided. Placed AFTER the claims
-    // loop on purpose — a role binds to one of this Leg's claims, so the
-    // address space does not exist until they are known to be well formed.
     {
-      const bad = figureRefusal(s.figure, s.figure_roles, at);
+      const bad = structureRefusal(s, at, structure);
       if (bad) return { error: bad };
-      const badClaim = figureClaimRefusal(s.figure_roles, s.claims.length, at);
-      if (badClaim) return { error: badClaim };
-    }
-    // the Journey a Leg draws on (kogaki#1111) — OPTIONAL, and validated here for the
-    // reason `bridges`, `introduces` and `figure` are: the declaration reaches
-    // the Leg Packet, which is the model's ENTIRE input, so an unvalidated
-    // entry renders a use the realizer reads as instruction. Placed after the
-    // claims loop because its refusal quotes `materials`, and a Leg whose
-    // earlier fields are malformed should report that first.
-    {
-      const bad = journeysRefusal(s.journeys, s.materials, at);
-      if (bad) return { error: bad };
-    }
-    // `budget` — OPTIONAL, validated here for the reason `bridges`, `introduces`,
-    // `figure` and `journeys` are: it reaches the Leg Packet, the model's
-    // ENTIRE input, so an unvalidated budget renders as a limit the writer
-    // cannot read.
-    {
-      const bad = budgetRefusal(s.budget, at);
-      if (bad) return { error: bad };
-    }
-    // A proposition not explicit in the material is flagged `entailed` WITH
-    // its reasoning, exposed at the human gate (the claims rule). The flag is the
-    // composer's judgment; the runtime refuses only a flag with no reasoning
-    // to expose — an entailed leg whose reasoning is absent has nothing for
-    // the gate to judge.
-    if (s.entailed === true && (typeof s.entailment_reasoning !== "string" || s.entailment_reasoning === "")) {
-      return { error: `${at}: flagged entailed with no entailment_reasoning — entailment is interpretation, judged rather than silently trusted (the claims rule)` };
     }
     seen.add(s.leg_id);
   }
-  // the Section grouping's grouping rules (kogaki#822) run over the WHOLE path, after every
-  // Leg is known to be well formed — each rule is a statement about a Leg's
-  // relation to its neighbours, so none of them is decidable inside the loop.
+  // the Section grouping's grouping rules (kogaki#822) run over the WHOLE path, after every Leg is well formed.
   const grouping = sectionGroupingRefusal(legs);
   if (grouping) return { error: grouping };
-  // NO INTRODUCED TERM IN ANY HEADING (kogaki#1327), run beside the Section
-  // grouping for the same reason: a statement about a Leg's `opens_section`
-  // against every OTHER Leg's `introduces`, decidable only once the whole
-  // path is known.
-  const heading = opensSectionIntroducedTermRefusal(legs);
-  if (heading) return { error: heading };
-  // A DEFINED TERM BEFORE ITS INTRODUCING LEG (kogaki#1331, owner decision
-  // 2026-10-10), run beside the heading rule for the same reason: which Leg
-  // introduces a term is known only once the whole path is.
-  const defined = definedTermBeforeIntroductionRefusal(legs, definedTerms);
-  if (defined) return { error: defined };
-  // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by
-  // POSITION relative to every other Leg, so it is decidable only once every
-  // Leg above is known to be well formed — the same reason the Section
-  // grouping runs after the per-Leg loop rather than inside it.
+  // THE READER TARGET LEG (kogaki#1231), run last: it names a Leg by POSITION relative to every other Leg.
   const target = readerTargetLegRefusal(legs);
   if (target) return { error: target };
-  // THE REACHING LEG'S `names` (kogaki#1251 item 4, kogaki#1260), run right
-  // after: it is a further statement about that same Leg, decidable only
-  // once `readerTargetLegRefusal` has confirmed which Leg that is.
-  const names = readerTargetNamesRefusal(legs);
-  if (names) return { error: names };
   return { legs };
 }
 

@@ -9,73 +9,27 @@
 //       journey register as a Candidate axis
 //
 import { validateLegs } from "./leg-schema.mjs";
-import { definedTermsOf } from "./defined-terms.mjs";
-import { renderedTermIntroducedRefusal } from "./renderings.mjs";
-import {
-  briefJourneyStrands, briefStrandIds, fillSlot,
-  journeyPlacements, legRecord, placements,
-} from "./record.mjs";
+import { briefJourneyStrands, briefStrandIds, fillSlot, legRecord, placements } from "./record.mjs";
 
 // ---- the fill: reader_path, strand_coverage, journey_coverage ----
 // Pure over the record; exported for the check. Returns `{ record, placed,
 // total }` or `{ error }`.
-export function fillBrief(record, { legs, coverage = {}, unused = {}, renderings = null }) {
-  const v = validateLegs(legs, definedTermsOf(record));
+export function fillBrief(record, { legs, coverage = {}, renderings = null }) {
+  // THE LEGS ARE READ UNDER THE BRIEF'S STRUCTURE WHERE IT CARRIES ONE
+  // (kogaki#1768): every Leg Waypoint then owes `carries` naming an id of it.
+  const v = validateLegs(legs, { structure: record.structure || null });
   if (v.error) return { error: v.error };
   legs = v.legs;
-  // THE RENDERINGS RECORD (kogaki#1494): `introduces` carries only terms the
-  // article keeps, so a term the record renders is refused here, naming the
-  // term and the entry, before anything is written. A caller with no record
-  // (a run that predates it) writes none.
+  // THE RENDERINGS RECORD (kogaki#1494), written beside the Reader Path
+  // composed under it. A caller with no record writes none.
   if (renderings !== null) {
     if (!Array.isArray(renderings) || renderings.some((e) => !e || typeof e.term !== "string" || typeof e.as !== "string")) {
       return { error: `the renderings record is a list of { term, as } entries; received ${JSON.stringify(renderings)} (kogaki#1494)` };
     }
-    const introduced = renderedTermIntroducedRefusal(legs, renderings);
-    if (introduced) return { error: introduced };
   }
   const strandIds = briefStrandIds(record);
   if (strandIds.length === 0) return { error: "the Brief carries no Strands — not a minted Brief" };
-  // materials may reference only the closed set's Strands (plus the Thesis,
-  // reader assumptions, earlier legs' conclusions, constructed material —
-  // the Leg's shape's many-to-many list; only L<n> tokens are checkable against the
-  // closed set, and a foreign L<n> is a Brief fetch by the durable home and the entry point invariant).
-  const journeyIds = briefJourneyStrands(record);
   for (const s of legs) {
-    for (const m of s.materials) {
-      if (/^L[0-9]+$/.test(m) && !strandIds.includes(m)) {
-        return { error: `leg ${s.leg_id}: material ${m} is outside the Brief's closed Strand set `
-          + `(${strandIds.join(", ")}) — growing the set routes back through Terrain, never a Brief fetch (the durable home and the entry point)` };
-      }
-      // A Journey material (the Leg's shape) is checkable twice: against the closed set,
-      // and against that Strand ACTUALLY carrying Journey material. The second
-      // check is what stops a composer inventing journey material for a Strand
-      // whose served record has none — unsupported completion (the claims rule), in the
-      // one place the bare-L<n> check cannot see.
-      const j = /^(L[0-9]+)\.journey$/.exec(m);
-      if (j) {
-        if (!strandIds.includes(j[1])) {
-          return { error: `leg ${s.leg_id}: material ${m} names a Strand outside the Brief's closed set `
-            + `(${strandIds.join(", ")}) — never a Brief fetch (the durable home and the entry point)` };
-        }
-        if (!journeyIds.includes(j[1])) {
-          return { error: `leg ${s.leg_id}: material ${m} claims Journey material for ${j[1]}, whose served `
-            + `record carries none (the Brief records no journey cite for it) — a Journey the material does not `
-            + `have is unsupported completion (the claims rule), never a composition choice` };
-        }
-      }
-    }
-    // THE SERVED-RECORD HALF OF the Journey a Leg draws on (kogaki#1111). `journeysRefusal`
-    // checks the shape, the closed use set and that the Leg carries the
-    // Strand; whether that Strand's SERVED record carries Journey material is
-    // a fact about the Brief, and this is the one place holding both.
-    for (const j of s.journeys || []) {
-      if (!journeyIds.includes(j.strand)) {
-        return { error: `leg ${s.leg_id}: journey draws on ${j.strand}'s Journey, whose served record carries none `
-          + `(the Brief records no journey cite for it) — a Journey the material does not have is unsupported `
-          + `completion (the claims rule), never a composition choice` };
-      }
-    }
     for (const g of s.claims) {
       if (!strandIds.includes(g.strand)) {
         return { error: `leg ${s.leg_id}: strand claim ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
@@ -83,29 +37,29 @@ export function fillBrief(record, { legs, coverage = {}, unused = {}, renderings
     }
   }
 
-  // Strand coverage: used_by_legs DERIVED from the composed legs; an
-  // unplaced selected Strand DISCLOSES rather than silently drops.
+  // STRAND COVERAGE (kogaki#1768): `used_by_legs` DERIVED from the Legs'
+  // claims; a Strand the mint recorded as not carried keeps that entry, and a
+  // Strand neither carried nor so recorded discloses rather than silently drops.
   const place = placements(legs, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
-  const strandCoverage = strandIds.map((id) => (place.get(id).length > 0
-    ? { strand: id, used_by_legs: place.get(id), role_in_thesis: coverage[id]?.role_in_thesis ?? null }
-    : { strand: id, unplaced: unused[id] ?? "left unused (the claims rule's third move — omit the Leg, revise the path, or leave the Strand unused; never invention)" }));
-  // journey register as a Candidate axis MUST 1 — journey material is PLACED OR ITS OMISSION IS DISCLOSED,
-  // per Journey-bearing member. An empty list where the selected set carries
-  // no Journey material: vacuous rather than violated.
-  const jplace = journeyPlacements(legs, journeyIds);
-  const journeyCoverage = journeyIds.map((id) => (jplace.get(id).length > 0
-    ? { strand: id, placed_by: jplace.get(id) }
-    : { strand: id, omitted: unused[`${id}.journey`] ?? "the Journey material is left unplaced (the claims rule's third move — omit the Leg, revise the path, or leave the material unused; never invention)" }));
+  const minted = new Map((Array.isArray(record.strand_coverage) ? record.strand_coverage : [])
+    .filter((e) => e && typeof e.not_carried === "string").map((e) => [e.strand, e]));
+  const strandCoverage = strandIds.map((id) => {
+    if (place.get(id).length > 0) {
+      return { strand: id, used_by_legs: place.get(id),
+        ...(typeof coverage[id]?.role_in_thesis === "string" ? { role_in_thesis: coverage[id].role_in_thesis } : {}) };
+    }
+    return minted.get(id) || { strand: id, not_carried: "No Leg Waypoint serves this Strand's claim." };
+  });
+  // JOURNEY COVERAGE (kogaki#1768): a Leg binds no Move and places no Journey
+  // material, so every Journey-bearing Strand's Journey is disclosed as omitted.
+  const journeyCoverage = briefJourneyStrands(record).map((id) => ({ strand: id,
+    omitted: "No Leg places Journey material: a Leg binds no Move, and the Reader Path is derived from the claims' structure." }));
 
-  let out = record;
-  // WRITTEN BESIDE THE READER PATH COMPOSED UNDER IT (kogaki#1494). Not a slot:
-  // the record is composed at `differentiation`, and a Brief adopted before
-  // the field carries none.
+  let out = { ...record, strand_coverage: strandCoverage };
   if (Array.isArray(renderings)) out = { ...out, renderings: renderings.map((e) => ({ term: e.term.trim(), as: e.as.trim() })) };
   for (const [key, value] of [
     ["reader_path", legs.map(legRecord)],
-    ["strand_coverage", strandCoverage],
     ["journey_coverage", journeyCoverage],
   ]) {
     const r = fillSlot(out, key, value);

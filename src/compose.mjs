@@ -33,7 +33,7 @@ export {
   snapshotBrief, legschema, requiredLegFields, pathRules, pathRule,
   journeysRefusal, budgetRefusal, waypointsRefusal, READ_ALONE_OPENERS,
   RETIRED_WAYPOINT_MOVE_FIELDS, READER_STATE_DIMENSIONS, RETIRED_LEG_STATE_FIELDS,
-  readerStateShapeRefusal, readerStateDimensionLine, validateLegs,
+  readerStateShapeRefusal, readerStateDimensionLine, validateLegs, briefStructureRefusal,
 } from "./compose/leg-schema.mjs";
 export {
   figureKinds, renderFigureRoles, parseFigureRoles, figureRefusal,

@@ -12,12 +12,12 @@
 // supervisor (src/workflow/detached-job.mjs) with the Brief's bounds. It changes no
 // production executable.
 //
-// THE ROWS ARE DERIVED, NOT AUTHORED. Each row names the production row it copies
-// (`copy_of`) and the only differences from it (`substitutions`); `derivedRow` applies them
-// to the production text at every run. A fix to the production row therefore reaches the
-// Proof Sheet, and a production edit that moves a substituted span refuses naming the row,
-// the substitution and its text, so the difference from production is always the declared
-// list and never a silent drift. `diff` prints that list.
+// THE ROW IS AUTHORED, ITS POINT TEXT COPIED (kogaki#1768). `leg_path_unit` is this table's own
+// row, and its `{{copy:point}}` is replaced at every run by the span of the Brief's
+// `lpp_waypoints` row its `copies` names (`resolvedRow`, src/workflow/copies.mjs), so the one
+// span keeps one origin and a production edit that moves it refuses naming the copy. `diff`
+// prints each copy and whether it resolves. `derivedRow` stays for a row that still copies a
+// whole production row with `substitutions` (the Mapping Playground's `smp_waypoints_unit`).
 //
 // THE VALIDATOR IS PRODUCTION'S, IMPORTED: `validateLegs` — which runs `waypointsRefusal` over
 // the Leg Waypoints — for the Leg. READER START IS RETIRED (kogaki#1699): no row authors one, the
@@ -36,19 +36,18 @@
 // validator also runs the production recoverability criterion (`recoverabilityOf`,
 // kogaki#1494): a Claim's `proposition` and a Leg Waypoint's `point` are recoverable from the
 // Segment `content` clauses of the paragraph they serve, and the first word that is in none of
-// them, in no `introduces` entry and is not a function word refuses the Round, naming the
+// them and is not a function word refuses the Round, naming the
 // word and the Segments. It runs with an EMPTY renderings record: the Extraction's `content`
 // is already the article's own rendering of the source, so there is nothing to map. The run's
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
 // THE CLAIM REACHES ITS POINTS (kogaki#1547). After the recoverability criterion, every content
 // word of a Claim's `proposition` — `recoverabilityOf`'s own word test — is in a `point` of a Leg
-// Waypoint serving that Claim's strand or in an `introduces` entry; the first that is in neither
+// Waypoint serving that Claim's strand; the first that is in none
 // refuses the Round (`claimCoverageRefusal`). The plan judge reads the point, never the Claim.
 //
-// THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it). It mapped a term to `coined`
-// or `established`, and every introduced term is coined (kogaki#1531): an `introduces` entry
-// carries `term` and `meaning`, `--terms` is refused by name and `brief.json` carries no `terms`.
+// THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it), and a Leg carries no
+// `introduces` (kogaki#1768): `--terms` is refused by name and `brief.json` carries no `terms`.
 //
 // THE RECORD. Written by the production `briefRecordText` writer: the composed fields and,
 // for every field the parser requires that this composition does not compose, a fixed
@@ -73,9 +72,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, validateLegs, pathRule, RETIRED_LEG_STATE_FIELDS,
-  legRecord, briefRecordText, recoverabilityOf,
-  parseIntroducesEntry, FUNCTION_WORDS, wordsOf, wordForms } from "../compose.mjs";
-import { wholeWordMatch } from "../compose/sections.mjs";
+  legRecord, briefRecordText, recoverabilityOf, FUNCTION_WORDS, wordsOf, wordForms } from "../compose.mjs";
+import { resolvedRow } from "../workflow/copies.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
@@ -83,13 +81,9 @@ import { EXTRACTION_TABLE, legParagraphs, awaitJob, lastRefusal, writeJson } fro
 
 const FLOW = { lane: "brief", label: "Leg Brief composer" };
 const ROWS = ["leg_path_unit"];
-const LEG_KEYS = ["leg_id", "purpose", "rationale", "claims", "waypoints", "introduces"];
-const LEG_REQUIRED = LEG_KEYS.filter((k) => k !== "introduces");
-// What the Harness writes onto the composed Leg before the production validator reads it.
-// `no_move_fits` exists only for that read — `validateLegs` takes exactly one of `move` and
-// `no_move_fits` — and `legRecord` does not write it into the Brief.
-export const NO_MOVE_AT_THE_LEG = "The Proof Sheet binds no Move at the Leg level: /paragraph-plan binds a paragraph "
-  + "Move per Leg Waypoint, after the Brief (kogaki#1385).";
+// THE LEG'S KEYS (kogaki#1768): a Leg binds no Move, so it carries `leg_id`, `claims` and
+// `waypoints`, and the Harness writes nothing of a Move onto it.
+const LEG_KEYS = ["leg_id", "claims", "waypoints"];
 
 function fail(msg) {
   process.stderr.write(`leg-brief: ${msg}\n`);
@@ -207,10 +201,10 @@ function keysRefusal(obj, keys, at, required = keys) {
   return null;
 }
 
-// The composed Leg with what the Harness writes: every paragraph's Strand id as its
-// material, no dependency, and the no-Move sentence the production validator reads.
-export function completedLeg(leg, n, offset = 0) {
-  return { ...leg, materials: Array.from({ length: n }, (_, i) => `L${offset + i + 1}`), depends_on: [], no_move_fits: NO_MOVE_AT_THE_LEG };
+// The composed Leg as the production validator reads it (kogaki#1768): nothing of a Move is
+// written onto it — no `materials`, `depends_on` or `no_move_fits`.
+export function completedLeg(leg) {
+  return { ...leg };
 }
 
 // Each paragraph's Segment `content` clauses, in order: the material the Leg's words are
@@ -238,7 +232,7 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
     return `paragraph ${k}'s ${count === 1 ? "Segment 1" : `Segments 1–${count}`}`;
   }).join(" and ");
   return `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: \`${v.field}\` carries "${v.word}", which is in no Segment \`content\` of ${where || "the paragraph it serves"}, `
-    + "in no `introduces` entry, and is not a function word — a Claim's proposition and a Leg Waypoint's point are written in "
+    + "and is not a function word — a Claim's proposition and a Leg Waypoint's point are written in "
     + "the words of the Segment content they serve, and this Brief composes no renderings record, since the Extraction's "
     + "content is already the article's own rendering (kogaki#1495)";
 }
@@ -246,17 +240,15 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
 // THE CLAIM'S WORDS IN ITS POINTS (see the header). Returns the refusal, or null.
 export function claimCoverageRefusal(leg, at = "leg 1") {
   const formsOf = (texts) => new Set(texts.flatMap((t) => wordsOf(t)).flatMap((w) => [...wordForms(w)]));
-  const entries = (Array.isArray(leg.introduces) ? leg.introduces : []).map(parseIntroducesEntry)
-    .filter((e) => !e.error).map((e) => `${e.term} ${e.meaning ?? e.anchor ?? ""}`);
   for (const [i, g] of leg.claims.entries()) {
     const serving = leg.waypoints.map((w, j) => [j + 1, w]).filter(([, w]) => isMap(w) && Array.isArray(w.serves) && w.serves.includes(g.strand));
-    const allowed = formsOf([...serving.map(([, w]) => String(w.point ?? "")), ...entries]);
+    const allowed = formsOf(serving.map(([, w]) => String(w.point ?? "")));
     const word = wordsOf(g.proposition).find((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)
       && ![...wordForms(w)].some((f) => allowed.has(f)));
     if (!word) continue;
     const read = serving.length ? serving.map(([j]) => `waypoint ${j}`).join(" and ") : "no Leg Waypoint, since none serves it";
     return `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Leg Waypoints `
-      + `serving ${g.strand} (read: ${read}) and in no \`introduces\` entry — a Leg Waypoint's point carries every content word of `
+      + `serving ${g.strand} (read: ${read}) — a Leg Waypoint's point carries every content word of `
       + "the Claim it serves, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)";
   }
   return null;
@@ -275,13 +267,13 @@ export function validateLegPathUnit(record, inputs) {
   // A RETIRED READER-STATE FIELD (kogaki#1699) is refused by production's own sentence, ahead of
   // the key set, so the refusal names the retirement and not only an undeclared key.
   if (isMap(leg) && RETIRED_LEG_STATE_FIELDS.some((f) => f in leg)) {
-    const retired = validateLegs([completedLeg(leg, n, o)], []);
+    const retired = validateLegs([completedLeg(leg)], []);
     if (retired.error) return { error: retired.error };
   }
-  const badLeg = keysRefusal(leg, LEG_KEYS, at, LEG_REQUIRED);
+  const badLeg = keysRefusal(leg, LEG_KEYS, at);
   if (badLeg) {
-    return { error: `${badLeg}. The Harness writes \`materials\` and \`depends_on\`, and no \`move\`, \`no_move_fits\`, `
-      + "`opens_section`, `reaches_target` or `journeys` is composed, and a Leg carries no reader state (kogaki#1385, kogaki#1699)" };
+    return { error: `${badLeg}. A Leg binds no Move, so no \`move\`, \`materials\`, \`purpose\`, \`rationale\`, \`depends_on\`, `
+      + "`introduces`, `opens_section`, `reaches_target` or `journeys` is composed, and a Leg carries no reader state (kogaki#1385, kogaki#1699, kogaki#1768)" };
   }
   if (!Array.isArray(leg.claims) || leg.claims.length !== n) {
     return { error: `${at}: carries ${Array.isArray(leg.claims) ? leg.claims.length : "no"} Claim(s) for the original Leg's ${n} paragraph(s) — one Claim per paragraph, in order` };
@@ -302,7 +294,7 @@ export function validateLegPathUnit(record, inputs) {
   if ((inputs.taken_leg_ids || []).includes(leg.leg_id)) {
     return { error: `${at}: the leg_id ${JSON.stringify(leg.leg_id)} is already carried by an earlier Leg of this Brief — every Leg of the Brief has its own id (kogaki#1532)` };
   }
-  const full = completedLeg(leg, n, o);
+  const full = completedLeg(leg);
   const r = validateLegs([full], []);
   // THE ONE ADMITTED REFUSAL (see the header): Section grouping rule 3 over a Leg that opens
   // no Section.
@@ -326,46 +318,25 @@ export function validateLegPathUnit(record, inputs) {
 
 // ---------------------------------------------------------------------------
 // THE CROSS-LEG FIELDS OF SEVERAL LEGS, DERIVED (kogaki#1532, owner decision 2026-10-23). No
-// model call fills any of them: each Leg after the first depends on the Leg before it; the first
-// Leg opens the one Section, its heading the last Leg's last Claim's proposition (kogaki#1699: a
-// Section heading is judged against the claims of the Section's last Leg); the
-// last Leg reaches the target; and a term an earlier Leg introduces is re-activated by the first
-// later Leg whose Extraction Segment `content` uses it, which then depends on the introducing Leg
-// too, since a Leg re-activates only material of a Leg it depends on. `legs` are the composed
-// Legs in order, `counts` their paragraph counts and `segments` their Segment content per
-// paragraph (`segmentContents`). Returns `{ legs, derived }`: the completed Legs, and one row
-// per derived field naming the Leg, the field, its value and the rule.
+// model call fills any of them: the first Leg opens the one Section, its heading the last Leg's
+// last Claim's proposition (kogaki#1699: a Section heading is judged against the claims of the
+// Section's last Leg), and the last Leg reaches the target. No Leg depends on another or
+// re-activates a term (kogaki#1768): a Leg binds no Move and introduces no term. `legs` are the
+// composed Legs in order; `counts` and `segments` are kept for the callers that pass them.
+// Returns `{ legs, derived }`: the completed Legs, and one row per derived field naming the
+// Leg, the field, its value and the rule.
 export const DERIVED_RULES = {
-  depends_on: "the Leg before it",
   opens_section: "the last Leg's last Claim's proposition",
   reaches_target: "the last Leg",
-  "re-activate": "the first later Leg whose Extraction content uses a term an earlier Leg introduces",
 };
-export function crossLegPath(legs, counts, segments) {
-  const offsets = counts.map((_, k) => counts.slice(0, k).reduce((a, b) => a + b, 0));
-  const out = legs.map((leg, k) => completedLeg(leg, counts[k], offsets[k]));
+export function crossLegPath(legs) {
+  const out = legs.map((leg) => completedLeg(leg));
   const derived = [];
   const mark = (k, field, value) => derived.push({ leg_id: out[k].leg_id, field, value, rule: DERIVED_RULES[field] });
   if (out.length < 2) return { legs: out, derived };
-  for (let k = 1; k < out.length; k++) out[k].depends_on = [out[k - 1].leg_id];
-  for (let j = 0; j < out.length - 1; j++) {
-    for (const raw of Array.isArray(out[j].introduces) ? out[j].introduces : []) {
-      const p = parseIntroducesEntry(raw);
-      if (p.error) continue;
-      const k = out.findIndex((_, x) => x > j && (segments[x] || []).flat().some((c) => wholeWordMatch(p.term, c)));
-      if (k < 0) continue;
-      out[k]["re-activate"] = [...(out[k]["re-activate"] || []), `${out[j].leg_id} term ${p.term}`];
-      const deps = new Set([...out[k].depends_on, out[j].leg_id]);
-      out[k].depends_on = out.slice(0, k).map((l) => l.leg_id).filter((id) => deps.has(id));
-    }
-  }
   const last = out.length - 1;
   out[0].opens_section = String((out[last].claims || []).at(-1)?.proposition ?? "");
   out[last].reaches_target = true;
-  out.forEach((l, k) => {
-    if (k > 0) mark(k, "depends_on", l.depends_on);
-    if (l["re-activate"]) mark(k, "re-activate", l["re-activate"]);
-  });
   mark(0, "opens_section", out[0].opens_section);
   mark(last, "reaches_target", true);
   return { legs: out, derived };
@@ -393,7 +364,7 @@ export const CONSTANT_COMMENT = "# PROOF SHEET CONSTANT (kogaki#1385): not compo
 // `legs`, in place of `leg`, is a several-Leg Brief's composed Legs with `counts` and `segments`
 // for `crossLegPath` (kogaki#1532); the last Leg then reaches the target.
 export function legBriefText({ slug, composePath, paragraphs, leg, legs = null, counts = null, segments = null }) {
-  const path = legs ? crossLegPath(legs, counts, segments).legs : [completedLeg(leg, paragraphs.length)];
+  const path = legs ? crossLegPath(legs, counts, segments).legs : [completedLeg(leg)];
   const constants = constantFields({ slug, paragraphs });
   const text = briefRecordText({
     slug, compose_path: composePath, ...constants,
@@ -486,8 +457,8 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const rows = {};
   for (const key of ROWS) {
-    const d = derivedRow(table, key);
-    if (d.error) fail(`${d.error}. Nothing was started.`);
+    const d = resolvedRow(table, key);
+    if (d.error) fail(`src/proof-sheet/extraction-workflow.json: ${d.error}. Nothing was started.`);
     rows[key] = d.row;
   }
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
@@ -558,20 +529,18 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
   return { brief: briefPath, runDir };
 }
 
-// THE DIFFERENCE FROM PRODUCTION, printed: per row, the production row it copies and each
-// substitution as a removed and an added line.
+// WHAT THE ROWS COPY FROM PRODUCTION, printed (kogaki#1768): per row, each copy it declares —
+// the production row and the span's opening and closing words — and whether it resolves.
 export function rowsDiffText(table) {
   const L = [];
   for (const key of ROWS) {
     const row = table[key] || {};
-    const c = row.copy_of || {};
-    L.push(`${key} — a copy of ${c.file} ${c.state ? `state ${c.state}` : `row ${c.row}`}, field ${c.field}`);
-    for (const [i, s] of (row.substitutions || []).entries()) {
-      if (typeof s.cut_from === "string") L.push(`  ${i + 1}. - ${s.cut_from} … (to the end)`);
-      else { L.push(`  ${i + 1}. - ${s.from}`); L.push(`     + ${s.to}`); }
+    L.push(`${key} — authored here, its copies resolved from production`);
+    for (const [name, c] of Object.entries(row.copies || {})) {
+      L.push(`  {{copy:${name}}} — ${c.file} row ${c.row}, field ${c.field}, from ${JSON.stringify(c.opens)} through ${JSON.stringify(c.closes)}`);
     }
-    const d = derivedRow(table, key);
-    L.push(d.error ? `  REFUSED: ${d.error}` : "  applies cleanly to the production text");
+    const d = resolvedRow(table, key);
+    L.push(d.error ? `  REFUSED: ${d.error}` : "  every copy resolves against the production text");
     L.push("");
   }
   return L.join("\n");

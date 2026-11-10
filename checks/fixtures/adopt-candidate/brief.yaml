@@ -14,7 +14,7 @@ strands:
 # never invented.
 thesis: The fixture Strand's claim, carried by a two-Leg path.
 # The words this article gives a meaning to, and the words it uses as the reader already knows them. Written once, when
-# the Brief was named; a word marked defined is used only after the leg that introduces it.
+# the Brief was named; a word marked defined is used only after the paragraph that introduces it.
 defined_terms: []
 # The ordered legs the article walks.
 reader_path: null

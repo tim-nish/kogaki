@@ -21,17 +21,17 @@ import {
   START_ACT_EXECUTOR, advancedByFromPayload, readHookPayload,
 } from "./workflow/run-record.mjs";
 export {
-  composeBrief, composeThesisCandidates, deriveSlugCandidate,
+  composeBrief, composeThesisCandidates, deriveSlugCandidate, thesisGate, thesisGateOptions, unreachedCoverage,
 } from "./brief/candidates.mjs";
 export {
-  strandClaims, briefAudienceFile, briefJobBounds, briefThesis,
-  validateDifferentiationRecord, validateReviewPathUnit,
+  strandClaims, briefAudienceFile, briefJobBounds, briefThesis, validateReviewPathUnit,
 } from "./brief/run-state.mjs";
 export {
-  validateReaderPathUnit, readerPathFitInput, readerPathFitPrompt,
-  readerPathFitVerdict, moveFitRefusal, composeJobFinished, composeJobExcluded,
+  validateBriefWaypoints, groundedInput, groundedPrompt, groundedVerdict, groundedRefusal,
+  composeJobFinished, composeJobExcluded,
   candidateSelectionExtra, excludedCandidateLines, noCandidateFitsReport,
 } from "./brief/reader-path-unit.mjs";
+export { readerPathReading } from "./brief/renderers.mjs";
 export {
   readerPathJobStatusLines, READER_PATH_JOB_AWAIT_S, jobAwaitS,
   READER_PATH_JOB_STILL_RUNNING_LINE, REVIEW_PATH_JOB_STILL_RUNNING_LINE,

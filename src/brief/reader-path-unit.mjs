@@ -1,202 +1,71 @@
-// brief/reader-path-unit — the Reader-path unit validator, the per-unit fit
-// input, prompt and verdict, and the no-fit report. Cut from src/brief.mjs at
+// brief/reader-path-unit — the Reader-path unit validator, the per-unit
+// GROUNDED prompt and verdict, and the no-fit report. Cut from src/brief.mjs at
 // its named sections (kogaki#1466); the design and its rulings are stated in
 // the Issues each block below names.
 
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES: none.
 //
-import { basename, dirname, join } from "node:path";
-import {
-  candidateLedgerRefusal, characteristicMaxLength, retiredReaderFieldRefusal,
-  retiredReasoningFieldRefusal,
-} from "../assemble.mjs";
-import {
-  BRIEF_RECORD_FILE, moveContractsForLegs, resolveFigureForms,
-  resolveMoveIds, sectionHeadingsWithLastClaims, specializationFailures,
-  specializationSchema, validateLegs, validateSpecialization,
-} from "../compose.mjs";
+import { basename, dirname } from "node:path";
+import { BRIEF_RECORD_FILE } from "../compose.mjs";
+import { siteComment, validateGrounded, validateWaypoints } from "../compose/structure.mjs";
 import { checkpointRun, clearOpenRunPointer, relFromRepo } from "../workflow/run-record.mjs";
 import { archiveHome } from "./candidates.mjs";
 import { fail, needBrief } from "./run-state.mjs";
 
-// THE DECLARED PER-UNIT VALIDATOR (kogaki#1240): every rule a single Candidate
-// obeys on its own, applied at the unit's own classification. `job-supervise`
-// declares it by module path and export name in `reader-path-job-units.json`,
-// so a breach classifies the unit `refused` and gets the per-unit re-ask
-// (kogaki#1203) rather than ending the run. Pure and `{error}`-returning: it
-// runs outside any judged/re-ask window.
-export function validateReaderPathUnit(candidate, inputs) {
-  const c = candidate || {};
-  const { strandIds = [], movesDir, definedTerms = [] } = inputs || {};
-  if (typeof c.reader_experience !== "string" || c.reader_experience.trim() === "") {
-    return { error: `candidate ${c.candidate_id}: \`reader_experience\` is required and cannot be `
-      + "blank — Candidates differ in READER EXPERIENCE, the difference must be stated to be "
-      + "selectable, and the option's DESCRIPTION is composed from this prose (kogaki#1126)" };
-  }
-  if (typeof c.characteristic !== "string" || c.characteristic.trim() === "") {
-    return { error: `candidate ${c.candidate_id}: \`characteristic\` is required and cannot be `
-      + "blank — the option LABEL at the Candidate gate is composed from it as `<n>. "
-      + "<characteristic>`, and the Harness composes that label rather than the Candidate's prose "
-      + "(src/candidate-schema.json, `characteristic`)" };
-  }
-  const charMax = characteristicMaxLength();
-  const charValue = c.characteristic.trim();
-  if (charValue.length > charMax) {
-    return { error: `candidate ${c.candidate_id}: \`characteristic\` is ${charValue.length} `
-      + `characters and src/candidate-schema.json bounds it at ${charMax} — it names the path in a `
-      + "few words and renders as the option's label; the explanation belongs in "
-      + `\`reader_experience\`, which renders as the description beside it. Received: `
-      + `${JSON.stringify(charValue)}` };
-  }
-  // A RETIRED READER FIELD (kogaki#1225, kogaki#1699) IS REFUSED BY NAME FIRST: a Candidate
-  // carrying `reader_start`, `reader_target` or `obligations` is told the field is retired.
-  const retired = retiredReaderFieldRefusal(c);
-  if (retired) return { error: retired };
-  // THE LEG REFUSALS ARE `validateLegs`' OWN, re-implemented nowhere.
-  // One-claim-per-Strand, the closed claim type set, every required field
-  // and its description all come from `src/leg-schema.json` through that
-  // function.
-  // THE BRIEF'S DEFINED TERMS ride the same call (kogaki#1331), handed over at
-  // the job's boundary from the minted Brief, so a defined term used before
-  // its introducing Leg gets this unit's own re-ask.
-  // A WAYPOINT CARRYING `move` OR `segments` IS REFUSED BY NAME inside `validateLegs`
-  // (kogaki#1375): no Move information reaches the Brief, and the paragraph Move is bound
-  // by /paragraph-plan after the Brief is adopted.
-  const v = validateLegs(c.legs, definedTerms);
-  if (v.error) return { error: `candidate ${c.candidate_id}: ${v.error}` };
-  // A LEG NO MOVE FITS ENDS THE UNIT `refused` WITH ITS OWN SENTENCE
-  // (kogaki#1276). The refusal is the retry prompt's text verbatim
-  // (`readerPathUnitRetryPrompt`, kogaki#1203), so the retry can revise the
-  // path: omit the Leg, change the path, or leave a Strand unused.
-  const unfit = (c.legs || []).find((s) => typeof s.no_move_fits === "string" && s.no_move_fits.trim() !== "");
-  if (unfit) {
-    return { error: `candidate ${c.candidate_id}, leg ${unfit.leg_id}: no Move fits this Leg — `
-      + `"${unfit.no_move_fits.trim()}". Revise the path: omit this Leg, change the path, or leave a Strand unused` };
-  }
-  // THE MOVE IDS, RESOLVED HERE rather than only at adoption (kogaki#1125).
-  const mv = resolveMoveIds(c.legs, movesDir);
-  if (mv.error) return { error: `candidate ${c.candidate_id}: ${mv.error}` };
-  // THE FIGURE DECISION'S MOVE-DEPENDENT HALF, RESOLVED HERE AND NOWHERE LATER
-  // (kogaki#1311; it sat at adoption under kogaki#877). Whether a figure-
-  // carrying Leg's Move declares a form, and whether its bindings are exactly
-  // that form's roles, needs the Move open — and the Move is read up to the
-  // Candidate and never again, so this is the last seat that can decide it.
-  const fig = resolveFigureForms(c.legs, movesDir);
-  if (fig.error) return { error: `candidate ${c.candidate_id}: ${fig.error}` };
-  // THE CLOSED STRAND SET, refused HERE rather than only at adoption. A
-  // material outside the Brief's closed set is refused by `fillBrief` at
-  // `adopt_candidate` -- after the owner has chosen the path -- so raising
-  // it here is what makes it repairable instead of terminal. A Brief never
-  // fetches: the set closed at mint.
-  for (const s of c.legs || []) {
-    for (const m of s.materials || []) {
-      if (!strandIds.includes(m)) {
-        return { error: `candidate ${c.candidate_id}, leg ${s.leg_id}: material ${m} is outside `
-          + `the Brief's closed Strand set (${strandIds.join(", ")}). The set closed at mint and a `
-          + "Brief never fetches — compose from the settled Strands and from nothing else" };
-      }
-    }
-  }
-  const reasoning = c.reasoning || {};
-  // A RETIRED KEY IS REFUSED BY NAME FIRST (kogaki#1328): a Candidate still
-  // carrying `reasoning.thesis_closure` is told the field is retired, never
-  // that some other key is missing.
-  const retiredReasoning = retiredReasoningFieldRefusal(c);
-  if (retiredReasoning) return { error: retiredReasoning };
-  for (const key of ["leg_validity"]) {
-    if (typeof reasoning[key] !== "string" || reasoning[key].trim() === "") {
-      return { error: `candidate ${c.candidate_id}: \`reasoning.${key}\` is required — it is the Candidate's `
-        + "gate evidence, and adoption fills no default" };
-    }
-  }
-  // THE TWO LEDGER FIELDS, REFUSED HERE BY NAME (kogaki#1129).
-  // `candidateLedgerRefusal` reads the declaration in
-  // `src/candidate-schema.json`, which the executor renders into the unit's
-  // own prompt -- the same two-readers property `validateLegs` has, one
-  // field set over.
-  const ledger = candidateLedgerRefusal(c, strandIds);
-  if (ledger) return { error: ledger };
-  return null;
+// THE DECLARED PER-UNIT VALIDATOR (kogaki#1240, kogaki#1768): the `compose_path`
+// job's one unit answers the `lpp_waypoints` row's record, `{ waypoints }`, and
+// `validateWaypoints` (src/compose/structure.mjs) refuses it against the Brief's
+// adopted structure, handed over at the job's boundary. A breach classifies the
+// unit `refused` and gets the unit's own re-ask. Pure and `{error}`-returning.
+export function validateBriefWaypoints(record, inputs) {
+  const v = validateWaypoints(record, inputs.structure);
+  return v.text ? { error: v.text } : null;
 }
 
-// THE MOVE-FIT JUDGMENT, PER JOB UNIT (kogaki#1307; the judged half of the Leg-Move
-// instantiation contract, kogaki#1276). Once a compose unit's record passes
-// `validateReaderPathUnit`, the supervisor runs one more headless session over that
-// Candidate alone, with each Leg beside its Move's `takes`, `leaves`, `segments` and
-// `breaks` verbatim from `moves/<id>.yaml` (kogaki#1699). `taken` carries the TAKEN and LEFT
-// questions, read from src/specialization-schema.json, and `persona_prior_knowledge` what the
-// first Leg's `takes` are met by. `inputs.promptHead` is the `reader_path_fit_unit` row rendered
-// by `judgePrompt` in `compose_path`, ending at the input marker; this appends the unit's own input.
-export function readerPathFitInput(candidate, movesDir, priorKnowledge, thesis) {
-  const b = moveContractsForLegs(candidate.legs, movesDir);
-  if (b.error) return { error: `candidate ${candidate.candidate_id}: ${b.error}` };
-  const taken = specializationSchema().taken;
-  return {
-    input: {
-      candidate_you_must_judge: {
-        candidate_id: candidate.candidate_id,
-        legs: candidate.legs,
-        move_contracts: b.contracts,
-        persona_prior_knowledge: priorKnowledge,
-        // THE BRIEF'S THESIS (kogaki#1330), judged only on the Leg marked
-        // `reaches_target`: Thesis attainment is verified here, at
-        // composition, never at the review of the Draft.
-        thesis,
-        taken: { met_by: taken.met_by, question: taken.question, left_question: taken.left_question },
-        section_headings: sectionHeadingsWithLastClaims(candidate.legs),
-      },
-    },
-  };
+// THE GROUNDED JUDGMENT, PER ROUND (kogaki#1768): once the unit's Waypoints pass
+// the validator, the supervisor runs one more headless session over them with the
+// `lpp_grounded` row. `inputs.promptHead` is that row rendered by `judgePrompt`
+// in `compose_path`, ending at the input marker; this appends the input.
+export function groundedInput(record, structure) {
+  return { structure, waypoints: record.waypoints.map((w, i) => ({ waypoint: i + 1, point: w.point, carries: w.carries })) };
 }
 
-export function readerPathFitPrompt(candidate, inputs) {
-  const r = readerPathFitInput(candidate, inputs.movesDir, inputs.priorKnowledge, inputs.thesis);
-  // A MOVE THE VALIDATOR ADMITTED AND THIS CANNOT READ is a store fault, not a Candidate's.
-  if (r.error) throw new Error(r.error);
-  return `${inputs.promptHead}${JSON.stringify(r.input, null, 2)}`;
+export function groundedPrompt(record, inputs) {
+  return `${inputs.promptHead}${JSON.stringify(groundedInput(record, inputs.structure), null, 2)}`;
 }
 
-// THE JUDGE'S ANSWER, READ BACK (kogaki#1307). A record whose own shape is wrong is the
-// judge's malformed output and is asked again with the same prompt; a Leg judged
-// `contradicts` or `cannot-determine` is the Candidate's schema refusal, carrying the
-// judge's sentence verbatim into the unit's one re-ask.
-export function readerPathFitVerdict(record, candidate) {
-  const v = validateSpecialization(record, candidate.legs, candidate.candidate_id, { refuseFailing: false });
-  if (v.error) return { error: v.error };
-  const failures = specializationFailures(record, candidate.legs);
-  if (failures.length === 0) return {};
-  return { refusal: moveFitRefusal(failures), failures };
+// THE JUDGE'S ANSWER, READ BACK: a verdict whose own shape is wrong is the
+// judge's malformed output and is asked again; `does-not-fit` is the unit's
+// schema refusal, each site the judge's own words, so the next Round composes
+// the whole Waypoint set again under them.
+export function groundedVerdict(answer, record) {
+  const v = validateGrounded(answer, record.waypoints);
+  if (v.text) return { error: v.text };
+  if (answer.verdict === "fits") return {};
+  return { refusal: groundedRefusal(answer.sites) };
 }
 
-export function moveFitRefusal(failures) {
-  return ["THE MOVE FIT WAS JUDGED, AND THESE LEGS DO NOT FIT THE MOVE EACH BINDS:",
-    ...failures.map((f) => `Leg ${f.leg_id} (${f.move}): ${f.verdict} — the judge wrote: "${f.why}"`),
-    "Compose the Candidate again so that each of these Legs fits its Move, or binds a Move it does fit."].join("\n");
+export function groundedRefusal(sites) {
+  return ["THE WAYPOINTS WERE JUDGED, AND THESE ARE NOT GROUNDED IN THE RELATIONS THEY CARRY:",
+    ...sites.map(siteComment),
+    "Compose the Waypoints again so that every assertion a point makes is stated by a relation it carries."].join("\n");
 }
 
-// THE UNITS THAT FINISHED A FIT CANDIDATE (kogaki#1360): `status: "done"` with a
-// Candidate on the row. The partition `finishReaderPathJobAwait` forwards to
-// `compose_path` is this function's and `composeJobExcluded`'s, so a check that
-// asserts the offered set reads the same filter the run performs. It does not
-// also require a `specialization` on the row: a unit ends `done` with none when
-// the job ran no Move-fit judge (src/workflow/detached-job.mjs writes the record
-// only "with a Move-fit judge"), and that Candidate is still a finished one.
+// THE UNITS THAT FINISHED (kogaki#1360): `status: "done"` with a record on the
+// row, its Waypoints judged GROUNDED (kogaki#1768).
 export function composeJobFinished(units) {
   return (units || []).filter((u) => u.status === "done" && u.candidate && typeof u.candidate === "object");
 }
 
-// THE UNITS A FINISHED COMPOSE JOB DID NOT TURN INTO A CANDIDATE (kogaki#1307): each
-// refused unit, with the Legs that did not fit where Move fit was what refused it.
+// THE UNITS A FINISHED COMPOSE JOB DID NOT TURN INTO A READER PATH (kogaki#1307,
+// kogaki#1768): each refused unit, with the refusal its last Round ended on.
 export function composeJobExcluded(units) {
   return (units || []).filter((u) => u.status === "refused").map((u) => {
-    const c = u.candidate && typeof u.candidate === "object" ? u.candidate : {};
     const f = u.failure || {};
     return {
-      candidate_id: typeof c.candidate_id === "string" ? c.candidate_id : u.id,
-      characteristic: c.characteristic,
+      candidate_id: u.id,
       unit: u.id,
-      failures: Array.isArray(f.move_fit) ? f.move_fit : [],
       refusal: f.stderr_tail || f.first_refusal || "no further detail was recorded for it",
     };
   });
@@ -208,39 +77,28 @@ export function candidateSelectionExtra(excluded) {
   return excluded.length ? { excluded_candidates: excludedCandidateLines(excluded).join("\n") } : {};
 }
 
-function candidateName(x) {
-  return typeof x.characteristic === "string" && x.characteristic.trim() ? x.characteristic.trim() : x.candidate_id;
-}
-
-// One plain line per Candidate not offered: the first Leg that did not fit its Move,
-// a review that did not finish (kogaki#1301), or a composition refused twice.
+// One plain line per Reader Path not offered: a review that did not finish
+// (kogaki#1301), or a composition refused in every Round.
 export function excludedCandidateLines(excluded) {
-  return excluded.map((x) => {
-    if (x.review_unfinished) return `Not offered: "${candidateName(x)}" — its review did not finish.`;
-    if (x.failures && x.failures.length) return `Not offered: "${candidateName(x)}" — Leg ${x.failures[0].leg_id} does not fit its Move.`;
-    return `Not offered: "${candidateName(x)}" — its composition was refused.`;
-  });
+  return excluded.map((x) => (x.review_unfinished
+    ? "Not offered: the Reader Path — its review did not finish."
+    : "Not offered: the Reader Path — its Leg Waypoints were refused in every Round."));
 }
 
-// EVERY CANDIDATE FAILED (kogaki#1276, kogaki#1307): the Brief ends with no question.
-// The report names, per Candidate, each Leg that did not fit and the judge's sentence,
-// or the refusal its composition ended on. The empty Brief is archived, and the report
-// names where (`removed` is that path, or false); the run directory keeps every unit's record.
+// NO READER PATH WAS COMPOSED (kogaki#1276, kogaki#1307, kogaki#1768): the Brief ends
+// with no question. The report names the refusal the last Round ended on. The empty
+// Brief is archived, and the report names where (`removed` is that path, or false);
+// the run directory keeps every Round's record.
 export function noCandidateFitsReport(excluded, briefPath, { removed = false } = {}) {
-  const lines = ["No Candidate fits, so no question is asked and the Brief ends here."];
+  const lines = ["No Reader Path was composed, so no question is asked and the Brief ends here."];
   for (const x of excluded) {
-    lines.push(`Candidate "${candidateName(x)}":`);
-    if (x.review_unfinished) lines.push(`  its review did not finish (${x.review_unfinished}).`);
-    if (x.failures && x.failures.length) {
-      for (const f of x.failures) lines.push(`  Leg ${f.leg_id} (${f.move}): ${f.verdict} — ${f.why}`);
-    } else if (x.refusal) {
-      lines.push(`  its composition was refused: ${String(x.refusal).split("\n")[0]}`);
-    }
+    if (x.review_unfinished) lines.push(`  Its review did not finish (${x.review_unfinished}).`);
+    else if (x.refusal) lines.push(`  The last Round was refused: ${String(x.refusal).split("\n").slice(0, 4).join(" ")}`);
   }
   lines.push(removed
     ? `The Brief at ${briefPath} had no Reader Path in it and was moved to ${removed}, so its name is free again. `
-      + "The run directory keeps every unit's record. The way forward is to add a Move through the Move-ingest "
-      + "command, or to start the Brief again."
+      + "The run directory keeps every Round's record. The way forward is to re-settle the Strands through "
+      + "Terrain, or to start the Brief again."
     : `The Brief at ${briefPath} could not be moved and stays as minted, with no Reader Path in it.`);
   return lines.join("\n");
 }

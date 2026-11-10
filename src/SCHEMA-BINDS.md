@@ -20,65 +20,46 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## move -- the Move record
 
-| field | differentiation | reader_path_unit | reader_path_fit_unit | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit |
-|---|---|---|---|---|---|---|
-| `id` | unread | unread | unread | unread | unread | unread |
-| `takes` | excluded | structural | excluded | structural | excluded | content |
-| `leaves` | unread | structural | excluded | structural | excluded | content |
-| `before` | unread | unread | unread | unread | unread | unread |
-| `after` | unread | unread | unread | unread | unread | unread |
-| `breaks` | excluded | excluded | excluded | structural | excluded | content |
-| `segments` | excluded | structural | excluded | structural | excluded | content |
-| `figure` | unread | unread | unread | unread | unread | unread |
-| `continues_from` | unread | unread | unread | unread | unread | unread |
-| `after_segment` | unread | unread | unread | unread | unread | unread |
-| `description` | unread | unread | unread | unread | unread | content |
-| `evidence` | unread | unread | unread | unread | unread | unread |
-| `segments.operation` | excluded | operation | unread | operation | excluded | content |
-| `segments.relation` | excluded | structural | unread | structural | excluded | content |
-| `segments.manner` | excluded | excluded | unread | excluded | excluded | content |
+| field | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit |
+|---|---|---|---|
+| `id` | unread | unread | unread |
+| `takes` | structural | excluded | content |
+| `leaves` | structural | excluded | content |
+| `before` | unread | unread | unread |
+| `after` | unread | unread | unread |
+| `breaks` | structural | excluded | content |
+| `segments` | structural | excluded | content |
+| `figure` | unread | unread | unread |
+| `continues_from` | unread | unread | unread |
+| `after_segment` | unread | unread | unread |
+| `description` | unread | unread | content |
+| `evidence` | unread | unread | unread |
+| `segments.operation` | operation | excluded | content |
+| `segments.relation` | structural | excluded | content |
+| `segments.manner` | excluded | excluded | content |
 
-- `differentiation` is src/brief-workflow.json `differentiation`.
-- `reader_path_unit` is src/brief-workflow.json `reader_path_unit`.
-- `reader_path_fit_unit` is src/brief-workflow.json `reader_path_fit_unit`.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `extraction_unit` is src/proof-sheet/extraction-workflow.json `extraction_unit`.
 
 ## leg -- the Brief's Leg
 
-| field | compose_path | review_path | reader_path_unit | review_path_unit | reader_path_fit_unit | defined_terms_unit | renderings_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:waypoints | packet:claims | packet:journeys | packet:section_placement | packet:reader_target_line | packet:crosses_here | packet:budget | packet:figure_reason | review:claims | review:waypoints | review:introduces | review:already-knows | review:attribute-leak |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `leg_id` | unread | copied | content | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `materials` | unread | unread | content | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `purpose` | unread | unread | content | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `reaches_target` | unread | unread | content | unread | excluded | unread | unread | unread | unread | unread |  |  |  |  | structural |  |  |  |  |  |  |  |  |
-| `names` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `depends_on` | unread | unread | content | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `rationale` | unread | unread | content | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `move` | unread | unread | copied | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `no_move_fits` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `claims` | unread | excluded | content | excluded | unread | unread | unread | unread | unread | content | content | content |  |  |  |  |  |  | excluded |  |  |  |  |
-| `waypoints` | unread | unread | content | unread | excluded | unread | unread | structural | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `journeys` | unread | unread | content | unread | unread | unread | unread | copied | unread | unread |  |  | content |  |  |  |  |  |  |  |  |  |  |
-| `entailed` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `entailment_reasoning` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `bridges` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `introduces` | unread | excluded | content | excluded | excluded | excluded | excluded | content | excluded | content |  |  |  |  |  | content |  |  |  |  | excluded | excluded |  |
-| `re-activate` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  | content |  |  |  |  |  |  |  |
-| `opens_section` | unread | unread | content | unread | excluded | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |  |  |  |  |
-| `figure` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  | content |  |  |  |  |  |
-| `figure_roles` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `budget` | unread | unread | content | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  | structural |  |  |  |  |  |  |
-| `waypoints.point` | unread | unread | content | unread | unread | unread | unread | content | excluded | content | content |  |  |  |  |  |  |  |  | excluded |  |  | excluded |
-| `waypoints.serves` | unread | unread | copied | unread | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `waypoints.case` | unread | unread | content | unread | excluded | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:waypoints | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:waypoints | review:introduces | review:already-knows | review:attribute-leak |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `leg_id` | unread | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |
+| `relation` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |
+| `reaches_target` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |
+| `claims` | unread | excluded | excluded | unread | unread | unread | unread | content | content | content |  |  | excluded |  |  |  |  |
+| `waypoints` | unread | unread | unread | unread | unread | structural | unread | content |  |  |  |  |  |  |  |  |  |
+| `opens_section` | unread | unread | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |  |  |
+| `waypoints.point` | unread | unread | unread | unread | unread | content | excluded | content | content |  |  |  |  | excluded |  |  | excluded |
+| `waypoints.serves` | unread | unread | unread | unread | unread | structural | unread | copied |  |  |  |  |  |  |  |  |  |
+| `waypoints.carries` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |
+| `waypoints.case` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
 - `review_path` is src/brief-workflow.json `review_path`.
-- `reader_path_unit` is src/brief-workflow.json `reader_path_unit`.
 - `review_path_unit` is src/brief-workflow.json `review_path_unit`.
-- `reader_path_fit_unit` is src/brief-workflow.json `reader_path_fit_unit`.
 - `defined_terms_unit` is src/brief-workflow.json `defined_terms_unit`.
 - `renderings_unit` is src/brief-workflow.json `renderings_unit`.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
@@ -86,12 +67,8 @@ it does not read, and empty where the stage does not read the schema at all.
 - `leg_path_unit` is src/proof-sheet/extraction-workflow.json `leg_path_unit`.
 - `packet:waypoints` is src/packet-template.md block `{{waypoints}}`.
 - `packet:claims` is src/packet-template.md block `{{claims}}`.
-- `packet:journeys` is src/packet-template.md block `{{journeys}}`.
 - `packet:section_placement` is src/packet-template.md block `{{section_placement}}`.
 - `packet:reader_target_line` is src/packet-template.md block `{{reader_target_line}}`.
-- `packet:crosses_here` is src/packet-template.md block `{{crosses_here}}`.
-- `packet:budget` is src/packet-template.md block `{{budget}}`.
-- `packet:figure_reason` is src/packet-template.md block `{{figure_reason}}`.
 - `review:claims` is src/review-items.json item `claims`.
 - `review:waypoints` is src/review-items.json item `waypoints`.
 - `review:introduces` is src/review-items.json item `introduces`.

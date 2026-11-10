@@ -2,10 +2,8 @@
   "candidates": [
     {
       "candidate_id": "cand-a",
-      "characteristic": "a two-leg path stating then settling one claim",
-      "reader_experience": "the reader sees the fixture Strand's claim stated once, then sees it settled",
       "reasoning": {
-        "leg_validity": "each Leg's Move takes what the one before it leaves, over the fixture Strand's claim, in order"
+        "leg_validity": "every Leg Waypoint was judged GROUNDED in the relations it carries, over the fixture Strand's claim"
       },
       "review": {
         "rationale_stands": "the path's reasoning holds over the fixture Strand's claim with nothing else in play",
@@ -22,11 +20,6 @@
       "legs": [
         {
           "leg_id": "leg1",
-          "materials": ["L1"],
-          "purpose": "opens the fixture path by stating the fixture Strand's claim",
-          "depends_on": [],
-          "rationale": "the fixture path opens on the Strand's own claim, the only material this Candidate carries",
-          "move": "fixture-move-open",
           "claims": [
             { "type": "strand", "proposition": "the fixture Strand's claim, stated plainly", "strand": "L1" }
           ],
@@ -37,11 +30,6 @@
         },
         {
           "leg_id": "leg2",
-          "materials": ["L1"],
-          "purpose": "closes the fixture path by settling the fixture Strand's claim",
-          "depends_on": ["leg1"],
-          "rationale": "the fixture path closes on the same Strand's claim, now settled for the reader",
-          "move": "fixture-move-close",
           "claims": [
             { "type": "strand", "proposition": "the fixture Strand's claim, now settled", "strand": "L1" }
           ],

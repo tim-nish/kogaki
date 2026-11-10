@@ -2,8 +2,8 @@
 # check-brief-job-retry — the re-ask, Round and failure-class rules of a
 # Reader-path job unit: the retry prompt (j)-(m), the Round count and the
 # system-failure exit (v1)-(v5), no `rerun` left (v7), the no-tools sentence
-# (y0) and the two failure classes with the Move fit judged in the unit
-# (y1)-(y6). Cut from check-brief-reader-path-job.sh by kogaki#1464.
+# (y0) and the two failure classes with the GROUNDED judgment judged in the unit
+# (y1)-(y6; the Move fit until kogaki#1768). Cut from check-brief-reader-path-job.sh by kogaki#1464.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -45,38 +45,45 @@ import {
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
   .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
 const fails = [];
+// THE FIXTURE STRUCTURE THE COMPOSE UNIT'S WAYPOINTS ARE VALIDATED AGAINST (kogaki#1768).
+const STRUCTURE = {
+  roles: [{ id: "rules", context: "A set of checks that runs on its own.", attributes: [], claims: ["L1", "L2"] },
+    { id: "walk", context: "The files a tool visits.", attributes: [], claims: ["L1", "L2"] }],
+  relations: [{ id: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "L1" },
+    { id: "p2", between: ["walk", "rules"], holds: "{walk} is all {rules} ever reads.", from: "L2" }],
+  higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, nothing else is checked.", from: [] }],
+  attains_thesis: "h1",
+};
 if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carries no sentence ahead of the unit's own prompt");
 
 
 // (j) THE REAL UNIT ROW RENDERS A PROMPT THE PARSER ACTUALLY ACCEPTS
-// (kogaki#1203 acceptance 4a). `src/brief-workflow.json`'s `reader_path_unit`
-// row is rendered through the SAME `judgePrompt` renderer the unit build uses,
-// and a fixture judge answering with the record shape THIS ROW STATES (a bare
-// Candidate at the record's own root, `legs` included) must classify `done` --
-// proving the row's stated shape and the parser's accepted shape are one
-// shape, never two that can drift apart the way the old `compose_path` row
-// and `readerPathUnitRecord` did.
+// (kogaki#1203 acceptance 4a; the row `lpp_waypoints` since kogaki#1768).
+// The compose unit's row is rendered through the SAME `judgePrompt` renderer the
+// unit build uses, and a fixture judge answering with the record shape THIS ROW
+// STATES (`waypoints` at the record's own root) must classify `done` under the
+// real `validateBriefWaypoints` and the `waypoints` record array compose_path
+// declares -- the row's stated shape and the parser's accepted shape are one.
 {
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-  const unitRow = table.reader_path_unit;
+  const unitRow = table.lpp_waypoints;
   if (!unitRow) {
-    fails.push("(j) src/brief-workflow.json declares no top-level `reader_path_unit` row");
+    fails.push("(j) src/brief-workflow.json declares no top-level `lpp_waypoints` row");
   } else {
-    if (/\{\s*candidates\s*:/i.test(unitRow.input_shape || "")) {
-      fails.push(`(j) reader_path_unit.input_shape still describes a \`candidates\` wrapper array: ${unitRow.input_shape}`);
+    if (!/`waypoints`/.test(unitRow.input_shape || "") || /\{\s*candidates\s*:/i.test(unitRow.input_shape || "")) {
+      fails.push(`(j) lpp_waypoints.input_shape does not state the \`waypoints\` record: ${unitRow.input_shape}`);
     }
-    const input = { state: "compose_path", unit_number: 1 };
+    for (const gone of ["reader_path_unit", "reader_path_fit_unit"]) if (table[gone]) fails.push(`(j) src/brief-workflow.json still declares \`${gone}\` (kogaki#1768)`);
+    const input = { state: "compose_path", structure: STRUCTURE };
     const prompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
-    // THE PARSER IS THE SUPERVISOR'S OWN (kogaki#1257): a unit whose judge
-    // answers with that bare Candidate must classify `done` on a real
-    // `job-supervise` run, its Candidate carried onto the unit row.
     const dir = mkNewRun();
-    superviseSync(dir, [{ id: "c1", prompt: "BARE_CANDIDATE" }], {});
-    const row = unitRowOf(readRecord(dir), "c1");
-    if (!row || row.status !== "done" || !row.candidate || !Array.isArray(row.candidate.legs)) {
-      fails.push(`(j) an answer of the shape reader_path_unit.input_shape states was refused by the unit parser: ${JSON.stringify(row)}`);
+    superviseSync(dir, { units: [{ id: "reader-path", prompt: "BARE_WAYPOINTS" }], record_array: "waypoints",
+      validator: { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: { structure: STRUCTURE } } }, {});
+    const row = unitRowOf(readRecord(dir), "reader-path");
+    if (!row || row.status !== "done" || !row.candidate || !Array.isArray(row.candidate.waypoints)) {
+      fails.push(`(j) an answer of the shape lpp_waypoints.input_shape states was refused by the unit parser: ${JSON.stringify(row)}`);
     }
-    if (!prompt.includes(unitRow.judgment_point)) {
+    if (!prompt.includes(unitRow.judgment_point.slice(0, 200))) {
       fails.push("(j) judgePrompt(unitRow, ...) did not render the unit row's own judgment_point");
     }
   }
@@ -363,26 +370,24 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   }
 }
 
-// (v5) ONE `done` CANDIDATE PASSES BOTH COUNT CHECKS: `assembleSelection`'s
-// count refusal does not fire on one Candidate (four still refuses), and
-// `compose_path`'s own count check in src/brief.mjs admits one -- that one is
-// a closure inside the state's work function, so it is read from the source,
-// on the ground this suite's note states for checks a fixture cannot reach.
+// (v5) EXACTLY ONE CANDIDATE (kogaki#1768): one structure gives one Reader Path, so
+// `assembleSelection` admits one Candidate and refuses two on the count, and
+// compose_path writes the one Candidate its one unit composed.
 {
   const one = {
-    candidate_id: "c1", differentiation_unit: 1, reader_experience: "exp one", characteristic: "one",
-    legs: [{ move: "move-a" }],
+    candidate_id: "reader-path",
+    legs: [{ leg_id: "s1", relation: "h1", reaches_target: true, claims: [], waypoints: [] }],
     review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
     reasoning: { leg_validity: "x" },
   };
-  const r1 = assembleSelection({ candidates: [one] }, "");
+  const record = { strands: [{ id: "L1", slug: "s", cite: "c" }] };
+  const r1 = assembleSelection({ candidates: [one] }, record);
   if (r1.error && /Candidate\(s\) —/.test(r1.error)) fails.push(`(v5) assembleSelection refused one Candidate on the count: ${r1.error}`);
-  const four = [1, 2, 3, 4].map((n) => ({ ...one, candidate_id: `c${n}`, reader_experience: `exp ${n}`, characteristic: `c${n}` }));
-  const r4 = assembleSelection({ candidates: four }, "");
-  if (!r4.error || !/4 Candidate\(s\) —/.test(r4.error)) fails.push(`(v5) assembleSelection did not refuse four Candidates on the count: ${JSON.stringify(r4)}`);
+  const r2 = assembleSelection({ candidates: [one, { ...one, candidate_id: "c2" }] }, record);
+  if (!r2.error || !/2 Candidate\(s\) — one structure gives one Reader Path/.test(r2.error)) fails.push(`(v5) assembleSelection did not refuse two Candidates on the count: ${JSON.stringify(r2)}`);
   const brief = briefRuntimeText();
-  if (!brief.includes("if (cands.length < 1 || cands.length > 3) {") || brief.includes("cands.length < 2")) {
-    fails.push("(v5) the Brief runtime's compose_path count check does not admit one Candidate");
+  if (!brief.includes('candidate_id: "reader-path"') || !brief.includes("JSON.stringify([candidate], null, 2)")) {
+    fails.push("(v5) the Brief runtime's compose_path does not write its one Candidate");
   }
   if (brief.includes("default in disguise") || readFileSync("src/assemble.mjs", "utf8").includes("default in disguise")) {
     fails.push("(v5) a count refusal still says a single Candidate is a default in disguise");
@@ -390,7 +395,7 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
 }
 
 // ---- kogaki#1307: THE TWO FAILURE CLASSES, THE LIMIT FROM THE SETTINGS FILE,
-// AND THE MOVE FIT JUDGED INSIDE EACH COMPOSE JOB UNIT.
+// AND THE PER-UNIT JUDGE INSIDE EACH COMPOSE JOB UNIT (GROUNDED since kogaki#1768).
 
 // (y1) MALFORMED OUTPUT SPENDS NO ROUND: a unit whose first answer is not
 // JSON is respawned with the SAME prompt and finishes `done` with
@@ -533,34 +538,17 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
   }
 }
 
-// (y4) THE MOVE FIT IS JUDGED INSIDE THE UNIT: a fit judge declared in the units
-// file -- the real `readerPathFitPrompt`/`readerPathFitVerdict` of src/brief.mjs
-// over a real Move library, beside the real `validateReaderPathUnit` -- answers
-// `contradicts` on the first Candidate, which re-asks the compose call with the
-// judge's sentence verbatim; the second Candidate is judged `consistent`, and
-// that record is written beside the unit's Candidate.
+// (y4) THE GROUNDED JUDGMENT RUNS INSIDE THE UNIT (kogaki#1768, on kogaki#1307's seam): a
+// judge declared in the units file -- the real `groundedPrompt`/`groundedVerdict` of
+// src/brief.mjs, beside the real `validateBriefWaypoints` -- answers `does-not-fit` on
+// the first Waypoint set, which re-asks the compose call with the judge's site verbatim;
+// the second set is judged `fits`, and that verdict is written beside the unit's record.
 {
   const base = mkNewScratch();
-  const moves = join(base, "moves");
-  mkdirSync(moves);
-  writeFileSync(join(moves, "m1.yaml"), ["id: m1", "description: the fixture Move m1.",
-    "before:", "  knowledge: before.", "after:", "  knowledge: after.",
-    "breaks:", "  - breaks if the left-out case is never named.",
-    "segments:", "  - operation: states the claim.", "  - operation: names the case it leaves out.", "    relation: limits the claim.", "takes: []", "leaves: []", ""].join("\n"));
-  // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
-  // `src/compose.mjs` reads `<movesDir>/ROLES.json` with no fallback.
-  writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-  const legOf = (legId, extra) => ({
-    leg_id: legId, move: "m1", materials: ["L1"], purpose: `what ${legId} is for`,
-    depends_on: [], rationale: `why ${legId} sits here`,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }], ...extra,
-  });
-  const candidate = {
-    candidate_id: "c1", characteristic: "x", reader_experience: "y",
-    reasoning: { leg_validity: "x" },
-    legs: [legOf("s1", { opens_section: "Intro" }), legOf("s2", { depends_on: ["s1"], reaches_target: true })],
-  };
-  const SENTENCE = "the Leg names no case left out, which the Segments require of it.";
+  const waypoints = { waypoints: [{ point: "The rules apply only to the files the walk visits.", carries: ["p1"] },
+    { point: "The walk is all the rules read, so nothing else is checked.", carries: ["p2", "h1"] }] };
+  const PHRASE = "so nothing else is checked";
+  const SENTENCE = "no carried relation states that nothing else is checked in those words.";
   const counter = join(base, "fit-counter.json");
   const prompts = join(base, "prompts.jsonl");
   const judgeFile = join(base, "fit-fake-judge.mjs");
@@ -570,48 +558,45 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const prompt = Buffer.concat(c).toString("utf8");
   appendFileSync(${JSON.stringify(prompts)}, JSON.stringify(prompt) + "\\n");
   const out = (r) => { process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0); };
-  if (!prompt.includes("FIT_JUDGE_HEAD")) out(${JSON.stringify(candidate)});
+  if (!prompt.includes("FIT_JUDGE_HEAD")) out(${JSON.stringify(waypoints)});
   const n = (existsSync(${JSON.stringify(counter)}) ? Number(readFileSync(${JSON.stringify(counter)}, "utf8")) : 0) + 1;
   writeFileSync(${JSON.stringify(counter)}, String(n));
-  const verdicts = ["s1", "s2"].map((leg) => ({ leg_id: leg, move: "m1",
-    verdict: n === 1 && leg === "s2" ? "contradicts" : "consistent",
-    why: n === 1 && leg === "s2" ? ${JSON.stringify(SENTENCE)} : "every takes entry is met and every leaves entry taken up." }));
-  out({ version: "1", candidate_id: "c1", verdicts });
+  out(n === 1 ? { verdict: "does-not-fit", sites: [{ waypoint: 2, phrase: ${JSON.stringify(PHRASE)}, why: ${JSON.stringify(SENTENCE)} }] }
+    : { verdict: "fits", sites: [] });
 });
 `);
   chmodSync(judgeFile, 0o755);
   const unitsPath = join(base, "units.json");
   writeFileSync(unitsPath, JSON.stringify({
-    units: [{ id: "c1", prompt: "COMPOSE ONE CANDIDATE" }],
-    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: { strandIds: ["L1"], movesDir: moves } },
-    fit_judge: { module: "src/brief.mjs", prompt_export: "readerPathFitPrompt", verdict_export: "readerPathFitVerdict",
-      inputs: { movesDir: moves, priorKnowledge: "has used a CI system", promptHead: "FIT_JUDGE_HEAD\n" } },
+    units: [{ id: "reader-path", prompt: "COMPOSE THE WAYPOINTS" }],
+    record_array: "waypoints",
+    validator: { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: { structure: STRUCTURE } },
+    fit_judge: { module: "src/brief.mjs", prompt_export: "groundedPrompt", verdict_export: "groundedVerdict", record_array: "sites",
+      inputs: { structure: STRUCTURE, promptHead: "FIT_JUDGE_HEAD\n" } },
   }, null, 2));
   spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", base, "--units", unitsPath,
     "--command", judgeFile, "--model", "m", "--output-format", "json",
     "--call-limit-s", "100", "--unit-rounds", "2", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
   const rec = readRecord(base);
-  const row = unitRowOf(rec, "c1");
+  const row = unitRowOf(rec, "reader-path");
   const sent = existsSync(prompts) ? readFileSync(prompts, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
   const composeCalls = sent.filter((x) => !x.includes("FIT_JUDGE_HEAD"));
-  if (!row || row.status !== "done" || row.rounds !== 2 || !String(row.first_refusal || "").includes(SENTENCE)) {
-    fails.push(`(y4) a contradicts verdict did not re-ask the unit once with the judge's sentence and then finish: ${JSON.stringify(row)}`);
+  if (!row || row.status !== "done" || row.rounds !== 2 || !String(row.first_refusal || "").includes(SENTENCE) || !String(row.first_refusal || "").includes(PHRASE)) {
+    fails.push(`(y4) a does-not-fit verdict did not re-ask the unit once with the judge's site and then finish: ${JSON.stringify(row)}`);
   }
   if (composeCalls.length !== 2 || !composeCalls[1].includes(SENTENCE)) {
-    fails.push(`(y4) the re-asked compose prompt does not carry the judge's sentence verbatim: ${JSON.stringify(composeCalls.map((x) => x.slice(-300)))}`);
+    fails.push(`(y4) the re-asked compose prompt does not carry the judge's site verbatim: ${JSON.stringify(composeCalls.map((x) => x.slice(-300)))}`);
   }
-  if (!sent.every((x) => x.startsWith(JOB_UNIT_NO_TOOLS_SENTENCE))) fails.push("(y4) a compose or fit call's prompt does not begin with the no-tools sentence");
+  if (!sent.every((x) => x.startsWith(JOB_UNIT_NO_TOOLS_SENTENCE))) fails.push("(y4) a compose or judge call's prompt does not begin with the no-tools sentence");
   if (!row || !row.specialization_file || !existsSync(row.specialization_file) || !row.candidate_file
     || join(row.specialization_file, "..") !== join(row.candidate_file, "..")) {
-    fails.push(`(y4) no specialization record was written beside the unit's Candidate: ${JSON.stringify(row)}`);
+    fails.push(`(y4) the judge's verdict record was not written beside the unit's record: ${JSON.stringify(row)}`);
   } else {
-    const spec = JSON.parse(readFileSync(row.specialization_file, "utf8"));
-    if (spec.candidate_id !== "c1" || !spec.verdicts.every((v) => v.verdict === "consistent")) {
-      fails.push(`(y4) the written specialization record is not the consistent one: ${JSON.stringify(spec)}`);
-    }
+    const verdict = JSON.parse(readFileSync(row.specialization_file, "utf8"));
+    if (verdict.verdict !== "fits" || (verdict.sites || []).length) fails.push(`(y4) the written verdict record is not the fits one: ${JSON.stringify(verdict)}`);
   }
-  // (y5) A FIT CALL THAT DIES KEEPS THE COMPOSED CANDIDATE ON THE ROW (PR #1308
-  // round 1): the unit ends `died`, its row carries the schema-valid Candidate it
+  // (y5) A JUDGE CALL THAT DIES KEEPS THE COMPOSED RECORD ON THE ROW (PR #1308
+  // round 1): the unit ends `died`, its row carries the schema-valid Waypoints it
   // composed, marked `fit_judged: false`, and it is not written as an offered one.
   const dieDir = mkNewScratch();
   const dieJudge = join(base, "fit-dies.mjs");
@@ -619,17 +604,17 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   if (prompt.includes("FIT_JUDGE_HEAD")) { process.stderr.write("fit call died on purpose\\n"); process.exit(4); }
-  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(${JSON.stringify(candidate)}) }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(${JSON.stringify(waypoints)}) }) + "\\n");
 });
 `);
   chmodSync(dieJudge, 0o755);
   spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", dieDir, "--units", unitsPath,
     "--command", dieJudge, "--model", "m", "--output-format", "json",
     "--call-limit-s", "100", "--unit-rounds", "2", "--stall-s", "100", "--heartbeat-ms", "150"], { cwd: root, timeout: 30000, encoding: "utf8" });
-  const dieRow = unitRowOf(readRecord(dieDir), "c1");
-  if (!dieRow || dieRow.status !== "died" || !dieRow.candidate || dieRow.candidate.candidate_id !== "c1"
+  const dieRow = unitRowOf(readRecord(dieDir), "reader-path");
+  if (!dieRow || dieRow.status !== "died" || !dieRow.candidate || !Array.isArray(dieRow.candidate.waypoints)
     || dieRow.fit_judged !== false || dieRow.candidate_file) {
-    fails.push(`(y5) a unit whose fit call died did not keep its composed Candidate on the row, unoffered: ${JSON.stringify(dieRow)}`);
+    fails.push(`(y5) a unit whose judge call died did not keep its composed Waypoints on the row, unoffered: ${JSON.stringify(dieRow)}`);
   }
 }
 
@@ -657,7 +642,7 @@ if (fails.length) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-job-retry — a refused unit is re-asked with every refusal so far and bounded by its round count alone, a died unit ends the job at once, one Candidate passes both count checks, no `rerun` remains, malformed output is respawned spending no round while a schema refusal spends one, the bounds are read from kogaki.settings.json with a missing or retired key refused by name, and a contradicts Move-fit verdict re-asks the unit (kogaki#1203, kogaki#1273, kogaki#1307, kogaki#1355)");
+console.log("ok: check-brief-job-retry — a refused unit is re-asked with every refusal so far and bounded by its round count alone, a died unit ends the job at once, exactly one Candidate passes the count check, no `rerun` remains, malformed output is respawned spending no round while a schema refusal spends one, the bounds are read from kogaki.settings.json with a missing or retired key refused by name, and a does-not-fit GROUNDED verdict re-asks the unit (kogaki#1203, kogaki#1273, kogaki#1307, kogaki#1355, kogaki#1768)");
 JS
 status=$?
 

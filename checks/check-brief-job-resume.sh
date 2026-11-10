@@ -2,7 +2,10 @@
 # check-brief-job-resume — the resume claim over a finished Reader-path job
 # (kogaki#1278): two concurrent `job await` calls resume it once (w1), a
 # `done` run is never resumed (w2), a gone claimant's claim is taken over
-# (w3), and only the `done` arm takes a claim (w4).
+# (w3), and only the `done` arm takes a claim (w4). The fixture job is the one
+# `reader-path` unit composing the Leg Waypoints, its record `{ waypoints }`,
+# and the run record stands after `read_structure`, `apex` and `mint`, the
+# states `compose_path` sits behind since kogaki#1768.
 # Cut from check-brief-reader-path-job.sh by kogaki#1464.
 set -u
 cd "$(dirname "$0")/.."
@@ -56,17 +59,17 @@ chmodSync(resumeJudge, 0o755);
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
-    units: [{ id: "candidate-1", status: "done", bytes: 50,
-      candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
+    units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { waypoints: [] } }],
   }, null, 2) + "\n");
   const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: briefTable.version },
     judge_binary: null, survey_record: null,
-    // EVERY STATE `compose_path` SITS BEHIND IS `completed`, so the advance
+    // EVERY STATE `compose_path` SITS BEHIND IS `completed` (kogaki#1768: `read_structure` and
+    // `apex` before the Thesis gate, no `differentiation`), so the advance
     // loop below walks straight to it rather than restarting the run from
     // `enter` (which demands a Strand address this fixture has none of).
-    completed: ["enter", "THESIS_ADOPTION", "adopt_thesis", "mint", "differentiation"], waits_reached: [],
+    completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint"], waits_reached: [],
     conditional_entered: [], conditional_skipped: [], awaiting: null,
     owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
     done: false,
@@ -111,8 +114,7 @@ chmodSync(resumeJudge, 0o755);
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
-    units: [{ id: "candidate-1", status: "done", bytes: 50,
-      candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
+    units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { waypoints: [] } }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null },
@@ -148,14 +150,13 @@ chmodSync(resumeJudge, 0o755);
     const now = new Date().toISOString();
     writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
       started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
-      units: [{ id: "candidate-1", status: "done", bytes: 50,
-        candidate: { candidate_id: "c1", reader_experience: "exp one", characteristic: "char one", legs: [] } }],
+      units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { waypoints: [] } }],
     }, null, 2) + "\n");
     const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
     const rec = {
       workflow: { path: "src/brief-workflow.json", version: briefTable.version },
       judge_binary: null, survey_record: null,
-      completed: ["enter", "THESIS_ADOPTION", "adopt_thesis", "mint", "differentiation"], waits_reached: [],
+      completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint"], waits_reached: [],
       conditional_entered: [], conditional_skipped: [], awaiting: null,
       owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
       done: false,
@@ -198,7 +199,7 @@ chmodSync(resumeJudge, 0o755);
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "refused",
-    units: [{ id: "candidate-1", status: "refused", failure: { first_refusal: "fixture refusal" } }],
+    units: [{ id: "reader-path", status: "refused", failure: { first_refusal: "fixture refusal" } }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null }, judge_binary: null, survey_record: null,

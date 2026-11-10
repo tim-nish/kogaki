@@ -67,13 +67,10 @@
 #       sentence, so the paragraph is the template's and no Audience edit
 #       removes it. Whether the Writer yields is the prose's, and no judge
 #       reads it, by the owner's ruling.
-#   (i) THE CROSSING LINE CARRIES A TERM AND ITS MEANING (kogaki#1491,
-#       kogaki#1529): a Leg introducing one term renders a "What crosses into
-#       this Leg" block carrying the term with its meaning, its `nearest`
-#       clause set apart from the meaning by a period -- read first, so the
-#       absences below are read over a block known to hold the line in scope
-#       -- and carrying neither "coined" nor "established" nor "present it as
-#       a name" nor "may be handed this name as given".
+#   (i) A LEG INTRODUCES NO TERM (kogaki#1768, retiring kogaki#1491's crossing
+#       line): a Brief whose Leg carries `introduces` is refused naming the
+#       field, and the fixture Leg renders a Packet whose crossing block carries
+#       no term line.
 #   (j) NO OBLIGATION ROW REACHES THE PACKET, AND THE PACKET ASKS FOR NO
 #       SENTENCE THE PLAN DOES NOT CARRY (kogaki#1584, kogaki#1496): a Leg
 #       of a Brief, which carries no Obligation row since kogaki#1699 (a
@@ -515,36 +512,28 @@ if (!r.error) {
   }
 }
 
-// (i) one crossing-line form, `- <term> — <meaning>` and nothing else (kogaki#1491, kogaki#1529,
-// kogaki#1571); an entry carrying the retired `nearest` is refused naming the key.
+// (i) A LEG INTRODUCES NO TERM (kogaki#1768): a Leg binds no Move and carries no `introduces`, so a
+// Brief whose Leg carries one is refused naming the field, and the ledgerless fixture Leg renders a
+// Packet whose crossing block carries no term line.
 {
   const TERM = { term: "unfed guard", meaning: "a guard whose input nobody feeds" };
-  const recordWith = (term) => briefRecordText({
+  const recordWith = (extra) => briefRecordText({
     slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
     strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-    thesis: "The fixture claim.", reader_path: [{ ...legRecord(leg), introduces: [term] }],
+    thesis: "The fixture claim.", reader_path: [{ ...legRecord(leg), ...extra }],
     strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
   });
-  const gBrief = readBrief(recordWith(TERM), "theses/packet-brief/brief.yaml");
+  const refused = readBrief(recordWith({ introduces: [TERM] }), "theses/packet-brief/brief.yaml");
+  if (!(refused.refusals || []).some((m) => m.includes("carries `introduces`, which is not a Leg field"))) {
+    fails.push(`(i) a Brief whose Leg carries \`introduces\` was not refused naming the field: ${JSON.stringify(refused.refusals)}`);
+  }
+  const gBrief = readBrief(recordWith({}), "theses/packet-brief/brief.yaml");
   const split = splitPacketTemplate(template);
   const g = (gBrief.refusals || []).length ? { error: JSON.stringify(gBrief.refusals) } : split.error ? { error: split.error }
     : renderPacket({ template: split.packet, brief: gBrief, leg: gBrief.legs[0], priorSections: [],
       section: sectionOfLeg(gBrief.legs).get(gBrief.legs[0].leg_id), sections: sectionsOf(gBrief.legs) });
-  if (g.error) fails.push(`(i) the fixture Packet with an introduced term did not render: ${g.error}`);
-  else {
-    const i = g.packet.indexOf("## What crosses into this Leg");
-    const end = i === -1 ? -1 : g.packet.indexOf("\n## ", i + 1);
-    const crosses = i === -1 ? "" : g.packet.slice(i, end === -1 ? undefined : end);
-    const termLine = crosses.split("\n").find((l) => l.startsWith(`- ${TERM.term} — `));
-    if (termLine !== `- ${TERM.term} — ${TERM.meaning}`) fails.push(`(i) the crossing block does not carry the term as \`- <term> — <meaning>\` alone: ${JSON.stringify(crosses)}`);
-    else {
-      for (const bad of ["coined", "established", "present it as a name", "may be handed this name as given"]) {
-        if (crosses.includes(bad)) fails.push(`(i) the crossing block carries "${bad}": ${JSON.stringify(crosses)}`);
-      }
-    }
-  }
-  const retired = readBrief(recordWith({ ...TERM, nearest: "guard clause" }), "theses/packet-brief/brief.yaml");
-  if (!(retired.refusals || []).some((m) => m.includes("`nearest`"))) fails.push(`(i) a Brief whose introduces entry carries the retired nearest was not refused naming the key: ${JSON.stringify(retired.refusals)}`);
+  if (g.error) fails.push(`(i) the fixture Packet with no introduced term did not render: ${g.error}`);
+  else if (g.packet.includes(`- ${TERM.term} — `)) fails.push("(i) the crossing block carries a term line from no `introduces`");
 }
 
 // (j) no Obligation row reaches the Packet (kogaki#1584), and the Packet asks for no sentence the plan does not carry (kogaki#1496).

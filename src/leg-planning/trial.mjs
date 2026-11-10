@@ -26,10 +26,11 @@ import { PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } from "../pa
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../mapping-playground/sme.mjs";
 import { unitCalls, roundsAt, unitStatus, waypointStatus, namedWaypoints } from "../flp/sheet.mjs";
+import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
 import {
-  parseClaims, resolvedRow, validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment,
-  derivedLegs, legPartitionRefusal, readerPathRefusal, COMPOSED_BY,
-} from "./read-set.mjs";
+  validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment, derivedLegs, legPartitionRefusal,
+} from "../compose/structure.mjs";
+import { resolvedRow } from "../workflow/copies.mjs";
 import { renderLppSheet } from "./sheet.mjs";
 
 export const LPP_TABLE = "src/leg-planning/workflow.json";

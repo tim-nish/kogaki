@@ -434,6 +434,8 @@ records forces it, and the collapse is a convenience that reads as tidiness.
 
 ### 4.1 The Leg — the Brief's sequence element
 
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** A Leg binds no Move and carries `leg_id`, `relation`, `reaches_target`, `claims`, `waypoints` and `opens_section` alone; the `move`, `materials`, `purpose`, `depends_on`, `rationale`, `introduces`, `re-activate`, `journeys`, `figure` and `budget` fields below are retired. The text below is kept as the record of the Brief before the structure-first rebuild.
+
 **RENAMED FROM "THE STEP" (kogaki#1177), and the rename is recorded rather
 than left to a reader who remembers the old name.** The Move concept is
 recorded as following Swales' move analysis, where a Move is **realized by**
@@ -877,6 +879,8 @@ against itself once (§5.1.1), which is the argument for keeping it stated.
 
 ### 4.4 What a Leg claims, and the `entailed` flag
 
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** A Leg's claims are the claims its Waypoints serve, derived from the relations they carry; `entailed` and its reasoning are retired with the Leg fields. The text below is kept as the record of the Brief before the structure-first rebuild.
+
 **A claim is the one proposition a Leg asserts on behalf of one Strand, for
 this reader at this point in the path** (owner ruling, 2026-09-13; kogaki#1113).
 A Leg's `claims` are **specific propositions**, each traceable to sentences in
@@ -960,6 +964,8 @@ well-formed output. No schema can tell a reconstructed reading from an invented
 one; only a reader holding the material can.
 
 ### 4.5 The grounds test — the observable form of describe-never-generate
+
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** At the Leg, the grounds test is GROUNDED (`lpp_grounded`): every assertion a Leg Waypoint's point makes is stated by a relation it carries. The text below is kept as the record of the Brief before the structure-first rebuild.
 
 The composition order is **Strand information → concrete Leg reasoning → Move
 binding**, and the order is **invisible in the finished Brief**: a Move-first
@@ -1274,6 +1280,8 @@ the field being deleted as redundant with the placement constraints. The
 disclosure shape is conduct at a judgment point.
 
 ### 4.12 The Leg↔Move instantiation contract
+
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** No Leg binds a Move, so this contract holds at the paragraph alone (§4.19); the specialization verdict at the Leg and its owner gate are retired from the Brief. The text below is kept as the record of the Brief before the structure-first rebuild.
 
 A Leg **instantiates** a Move: `move` names a record in the library (§7), the
 Leg's `waypoints` specialize its `segments` to this reader and these Strands,
@@ -2423,6 +2431,8 @@ lines are recorded beside the prose's rather than inside them.
 
 ### 4.19 The ParagraphPlan stage — Paragraph Waypoints, after the Brief (kogaki#1375)
 
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** No Leg's Move leaves anything for the next Leg, and a Leg introduces no term: `leaves_for_next_leg` and the ledger `terms_this_leg_introduces` are empty, and a Leg Waypoint's `carries` rides into the plan input where the Brief carries a `structure`. The text below is kept as the record of the Brief before the structure-first rebuild.
+
 **What it is.** The Brief's Reader Path plans an article down to Leg Waypoints,
 the points a Leg's paragraphs make. **ParagraphPlan** refines that document plan
 one level down, to paragraphs: for every Leg Waypoint the Composer generates
@@ -2578,13 +2588,13 @@ composed again. **A bound paragraph Move that does not fill a role the stage
 needs (`breaks`, or `segments`) is a fatal stop naming the Move and the
 role**, never a default.
 
-**The criteria table: the ParagraphPlan judge is the Leg judge one level down
-(kogaki#1647, owner decision 2026-11-02).** A paragraph owes its Move what a
-Leg owes its Move, with the paragraph-only axes on top, and every difference
-between the two judges is stated here with its reason. Strict unification is
-not the aim: the two judges tend toward consistency through this one table,
-and neither is generated from it. The Leg column names the item as
-`reader_path_fit_unit`'s judgment point lists it (`src/brief-workflow.json`);
+**The criteria table: what the Leg judge and the ParagraphPlan judge each hold
+(kogaki#1647, owner decision 2026-11-02; kogaki#1768, owner ruling
+2026-11-10).** A Move is bound once, at the paragraph, so the Move criteria
+are the paragraph's alone; the Leg judge holds the Leg Waypoints to the
+RelationalStructure instead, and every difference between the two judges is
+stated here with its reason. The Leg column names the criterion as
+`lpp_grounded`'s judgment point names it (`src/brief-workflow.json`);
 the Paragraph column names an axis of `src/paragraph-plan-axes.json` or a
 shared criterion of `src/paragraph-plan-workflow.json`. `binds` says which
 half of the row is load-bearing: `criterion` where any wording that keeps the
@@ -2593,18 +2603,16 @@ by a bench run or by the shared-text rule (kogaki#1452).
 
 | criterion | standing | Leg | Paragraph | reason | binds |
 |---|---|---|---|---|---|
-| Takes met | shared | `TAKEN` | `TAKEN` | a unit's Move's `takes` are met by what an earlier unit's Move leaves or, at the start, by the Persona's prior knowledge, at both scales (kogaki#1699, kogaki#1701) | criterion |
-| Leaves taken up | shared | `LEFT` | `LEFT` | a unit's Move's `leaves` are taken up by a later unit of its scale or left for the scale above: by the `reaches_target` Leg for a Leg, among the Leg's own Move's `leaves` for a paragraph (kogaki#1699, kogaki#1701) | criterion |
-| Segment order | shared | `the waypoints against the Move's order (its segments role)` | `OWN STEP` | tightened at the paragraph: a Paragraph Waypoint is one Segment, so it carries nothing a later Segment produces, where a Leg need not reproduce the Move element for element | wording |
-| Breaks | shared | `the waypoints against the tests role` | `BREAKS` | a test names a change to the points, and the points exist at both levels | criterion |
+| Takes met | paragraph only | — | `TAKEN` | a paragraph's Move's `takes` are met by what an earlier paragraph's Move leaves or, at the start, by the Persona's prior knowledge; a Leg binds no Move, so no Leg has `takes` (kogaki#1699, kogaki#1701, kogaki#1768) | criterion |
+| Leaves taken up | paragraph only | — | `LEFT` | a paragraph's Move's `leaves` are taken up by a later paragraph of its Leg or left among what the Leg carries; a Leg binds no Move, so no Leg has `leaves` (kogaki#1699, kogaki#1701, kogaki#1768) | criterion |
+| Segment order | paragraph only | — | `OWN STEP` | a Paragraph Waypoint is one Segment of its bound Move, so it carries nothing a later Segment produces; a Leg Waypoint is a claim sentence and follows no Move's order (kogaki#1768) | wording |
+| Breaks | paragraph only | — | `BREAKS` | a test names a change to a Move's points, and only a paragraph binds a Move (kogaki#1768) | criterion |
 | Operation performed | paragraph only | — | `operation_is_performed` | a Segment's operation is performed only where a Paragraph Waypoint is that Segment, and a Leg Waypoint is a point | wording |
 | Manner not content | paragraph only | — | `manner_is_not_content` | a manner realises one Segment, and only a Paragraph Waypoint realises one | wording |
-| Constraint kinds | paragraph only | — | `takes_and_leaves` | the four kinds are written once for the paragraph rows, which read `takes` and `leaves` beside the Segments; the Leg judge reads them from its own row (kogaki#1701) | wording |
-| Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through their Moves' `takes` and `leaves` (kogaki#1699) | wording |
+| Constraint kinds | paragraph only | — | `takes_and_leaves` | the four kinds are written once for the paragraph rows, which read `takes` and `leaves` beside the Segments (kogaki#1701) | wording |
+| Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through the relations their Waypoints carry (kogaki#1699, kogaki#1768) | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Paragraph Waypoint's field | wording |
-| Section heading | Leg only | `the heading against its Section's last claims` | — | a Section opens at a Leg, and its heading is a Leg-level object | criterion |
-| Case carried onto the subject | Leg only | `each apart waypoint followed by the one that carries it onto the subject` | — | `case` is a Leg Waypoint's field, and a Paragraph Waypoint carries none (kogaki#1732) | criterion |
-| Thesis attainment | Leg only | `the claims and waypoints against the Thesis` | — | the Thesis is attained at the Leg marked `reaches_target` (kogaki#1330), a Leg-level object | criterion |
+| Grounded | Leg only | `GROUNDED` | — | a Leg Waypoint is a claim sentence derived from the RelationalStructure, so every assertion it makes is stated by a relation it carries; a Paragraph Waypoint is held to its Leg Waypoint instead (kogaki#1764, kogaki#1768) | criterion |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
 Paragraph cell is an axis or a shared criterion the judge row names, every
@@ -3867,7 +3875,7 @@ rule with its own list (`LPP_HEADINGS`), in this order:
 6. With `--brief`, `The Brief's Legs`: that Brief's Legs and their Waypoints
    beside the Trial's, by Leg number, read only.
 
-**Out of the Playground.** Rebuilding the Brief; grounding, the base choice
+**Out of the Playground.** Rebuilding the Brief, which §4.22 does in the Playground's order; grounding, the base choice
 and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
 sections, `introduces`, `opens_section` and renderings, which are the
 Brief's; and fetching a Strand.
@@ -3875,12 +3883,105 @@ Brief's; and fetching a Strand.
 **Its check.** `checks/check-leg-planning.sh`, registered as `leg-planning`,
 drives the Trial through one fake model binary.
 
+### 4.22 The structure-first Brief (kogaki#1768)
+
+**The ruling.** The owner ruled on 2026-11-10 that a Move is bound once, at
+the paragraph, after the Leg Waypoints stand, and that the Brief is rebuilt
+in the Leg-Planning Playground's order (§4.21): Leg Waypoints are ordered
+claim sentences derived from the Strands' RelationalStructure, and the
+Brief's mission is to derive the higher-order relations and guarantee each
+is explained through Leg Waypoints. Kogaki is not designed around long-form
+writing. This section is normative for the Brief; where an earlier section
+of §4–§6 states a Leg Move, a Leg's `purpose`, `rationale`, `materials`,
+`depends_on`, `introduces`, `re-activate`, `journeys`, `figure` or `budget`,
+the differentiation record, the specialization verdict at the Leg, or one to
+three Candidates, that statement is superseded here and kept as the record
+of what the Brief did before.
+
+**The states** (`src/brief-workflow.json`), in order:
+
+1. `enter` reads the settled Strand set and writes the run state with each
+   Strand's served rendering; it composes no Thesis and raises no gate.
+2. `read_structure` reads every settled Strand's claim into ONE
+   RelationalStructure (`validateReadSet` with `thesis: false`,
+   `src/compose/structure.mjs`): Roles, relations each stated by one claim,
+   and higher-order relations each relating two or more relations or
+   higher-order relations. A settled Strand carrying no served claim refuses
+   the state by name.
+3. `apex` splits the structure into its connected components and composes
+   one apex per component: one sentence, in the claims' words, stating the
+   connection the component's top-level relations make. Each apex is a
+   Thesis candidate, and the Thesis gate offers one option per candidate,
+   labelled `<Thesis> — reaches <Strand ids>; leaves <Strand ids or none> —
+   Brief: <slug>` (`src/gate-registry.json`). `HOME_COLLISION` follows where
+   a candidate's home already holds the same Thesis (kogaki#1742).
+4. `adopt_thesis` adopts the selected apex, and the structure is closed under
+   it (`withApex`): the apex becomes `attains_thesis`, and what it does not
+   reach is recorded as unreached.
+5. `mint` writes `theses/<slug>/brief.yaml` with `structure` beside the
+   Thesis, and `strand_coverage` naming each Strand whose claims the apex
+   leaves unreached. Nothing unreached is forced into a Waypoint.
+6. `compose_path` asks the renderings record (§5.1.4), then starts one
+   Detached Job unit. Its Call is `lpp_waypoints`: the Leg Waypoints, each a
+   `point` beside the ids it `carries`, together carrying every relation and
+   higher-order relation the apex reaches, the last carrying the apex
+   (`validateBriefWaypoints`). Its per-Round judge is `lpp_grounded`, one
+   criterion, GROUNDED: every assertion a point makes is stated by a relation
+   it carries. A `does-not-fit` is the unit's refusal and its sites are the
+   next Round's refusal text. On the unit's `done`, the runner derives each
+   Waypoint's `serves` from its `carries`, derives the Legs (`derivedLegs`:
+   one Leg per higher-order relation the Waypoints serve, the apex's Leg
+   last and `reaches_target`), and one judged Call, `leg_sections`, writes
+   each Leg's `opens_section`. A unit refused in every Round ends the Brief
+   with no question, its folder archived (kogaki#1742).
+7. `review_path`, `attach_review` and `assemble_candidates` review and
+   assemble the ONE Candidate. `CANDIDATE_SELECTION` offers it as `Follow
+   this Reader Path` beside the premise's negation, with the Reader Path
+   rendered above the question (`reader_path`: each Leg with the relation it
+   serves and its Section heading, each Leg Waypoint with what it carries).
+   That reading is the owner's reading of the Brief's sheet.
+8. `adopt_candidate` writes the Reader Path into the Brief.
+
+**The Leg** (`src/leg-schema.json`) carries `leg_id`, `relation` (the
+higher-order relation it serves), `reaches_target`, `claims`, `waypoints`
+and `opens_section`, and nothing else; a Leg Waypoint carries `point`,
+`serves`, `carries` and `case`. A Brief carrying a `structure` binds every
+Leg's `relation` and every Waypoint's `carries` to it
+(`briefStructureRefusal`); `validateLegs` refuses a retired Leg field by
+name. Every reader of the Brief — `/paragraph-plan`, `/draft`, the Proof
+Sheet's Leg Brief composer and the playgrounds — reads this one shape.
+
+**ParagraphPlan after the Brief.** A Leg binds no Move, so no Leg's Move
+leaves anything for the next Leg: `planLegOptions` hands no
+`leaves_for_next_leg` and no `stands_to_be_taken_up` across a Leg boundary,
+and the paragraph Moves bound per Leg Waypoint (§4.19) are the only Moves of
+the article. A Leg introduces no term, so the plan's
+`terms_this_leg_introduces` is empty. Where the Brief carries a `structure`,
+each Leg Waypoint's `carries` rides into the plan input, and the Mapper reads
+the carried relations' `holds` beside the point.
+
+**What is retired with it.** The `differentiation` state and
+`src/differentiation-schema.json`; the Move-fit judge `reader_path_fit_unit`
+and its TAKEN and LEFT at the Leg; the `reader_path_unit` row; the
+specialization record at `adopt_candidate`; `characteristic` and
+`reader_experience` on a Candidate (`src/candidate-schema.json` records them
+as retired fields); and the Leg fields named above. The Draft Packet's
+`journeys`, `crosses_here`, `budget` and figure blocks bind no Brief field
+any more (`src/packet-template.md`), so they render their absent forms.
+
+**Its acceptance.** The owner's reading of the rebuilt Brief's sheet for
+`theses/set-automatic-rules-only-sees/brief.yaml` is recorded on kogaki#1768
+before the Issue closes; Briefs under `theses/` are machine-local and are
+rewritten once, by a new `/brief` run, never migrated in place.
+
 ## 5. The Brief's centre, and Obligations inside it
 
 `necessity:` a container for §§5.1–5.3. The grouping is what makes the Brief's
 centre readable as one thing rather than three fields and a file path.
 
 ### 5.1 The settled structure section
+
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** The Brief's structure is the RelationalStructure `mint` writes as `structure`, and the Strands it leaves unreached are named under `strand_coverage`. The text below is kept as the record of the Brief before the structure-first rebuild.
 
 **The Brief is one YAML record** (kogaki#1328, owner decision 2026-10-10):
 `theses/<slug>/brief.yaml`, and no Markdown rendering of it is written at any
@@ -4459,6 +4560,8 @@ rule that the next shared piece goes to a neutral home, not to the first lane
 that needed it.
 
 ## 6. Candidates ride the existing gate — no new carrier, no new check
+
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** One structure gives one Reader Path: the Candidate gate offers exactly one Candidate, labelled `Follow this Reader Path`, and refuses any other count. The text below is kept as the record of the Brief before the structure-first rebuild.
 
 Two to three **Candidates** per article, differing in **reader experience**,
 presented on the carriers this repository already ships: the record shape,

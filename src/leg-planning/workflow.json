@@ -25,7 +25,7 @@
     "copies": {
       "point": {
         "file": "src/brief-workflow.json",
-        "row": "reader_path_unit",
+        "row": "lpp_waypoints",
         "field": "judgment_point",
         "opens": "EACH WAYPOINT IS A POINT (kogaki#1326):",
         "closes": "is refused."
