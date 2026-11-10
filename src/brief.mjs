@@ -27,9 +27,7 @@ export {
   strandClaims, briefAudienceFile, briefJobBounds, briefThesis, validateReviewPathUnit,
 } from "./brief/run-state.mjs";
 export {
-  validateBriefWaypoints, groundedInput, groundedPrompt, groundedVerdict, groundedRefusal,
-  composeJobFinished, composeJobExcluded,
-  candidateSelectionExtra, excludedCandidateLines, noCandidateFitsReport,
+  candidateSelectionExtra, excludedCandidateLines,
 } from "./brief/reader-path-unit.mjs";
 export { readerPathReading } from "./brief/renderers.mjs";
 export {

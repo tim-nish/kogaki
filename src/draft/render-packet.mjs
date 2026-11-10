@@ -27,10 +27,10 @@ export const READER_OWN_WORLD_ABSENT =
   "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 
 // The waypoints block's lines (kogaki#1311, kogaki#1326): a NUMBERED list,
-// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per Leg Waypoint, a `serves`
+// `<i>. <point> *Serves:* <claim>[; <claim>]`, one per Brief Waypoint, a `serves`
 // entry resolved to this Leg's claim for that Strand; null on an empty route.
 // Beneath each, an indented `*Opens from:* <join>` line where the ParagraphPlan
-// carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Paragraph Waypoints as a numbered
+// carries a join (kogaki#1411) -- one relation word of its closed set (kogaki#1477) -- then its Waypoints as a numbered
 // sub-list (kogaki#1375) -- a `performs` entry as the italic `<j>. *<operation>*`
 // with no point and no Serves (kogaki#1448); no Segment field rides on it (kogaki#1585). Under a
 // point whose `cast` sets any key, one further indented `*Cast:* <keys>` line, the true keys in
@@ -40,7 +40,7 @@ export const READER_OWN_WORLD_ABSENT =
 // realization entry (`loadBrief`), not here.
 export const OPENS_FROM_LABEL = "*Opens from:*";
 export const CAST_LABEL = "*Cast:*";
-// A LEG WAYPOINT CARRYING `mapping` (kogaki#1735) renders its line as its structure's `holds` sentences
+// A BRIEF WAYPOINT CARRYING `mapping` (kogaki#1735) renders its line as its structure's `holds` sentences
 // in its table's expressions, by the Trial's own function; its `point` is not rendered.
 export function waypointLines(leg) {
   const ws = leg.waypoints || [];
@@ -60,13 +60,13 @@ export function waypointLines(leg) {
     ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...castOf(p), ...markOf(p)])].join("\n")).join("\n");
 }
 
-// THE MAPPED LINE'S REFUSAL (kogaki#1735): a Leg Waypoint of a plan with a Mapping Record whose record
+// THE MAPPED LINE'S REFUSAL (kogaki#1735): a Brief Waypoint of a plan with a Mapping Record whose record
 // carries no table, or a `holds` placeholder naming a Role its table gives no expression; null when none.
 const PLACEHOLDER = /\{([^{}\s]+)\}/g;
 export function mappedLineRefusal(leg) {
   for (const [i, w] of (leg.waypoints || []).entries()) {
     if (!w.mapping) continue;
-    const at = `Leg ${leg.leg_id}, Leg Waypoint ${i + 1}`;
+    const at = `Leg ${leg.leg_id}, Brief Waypoint ${i + 1}`;
     const { structure, table } = w.mapping;
     if (!structure) return `${at}: the Mapping Record carries no structure for this Waypoint — run /paragraph-plan on this Brief again (kogaki#1735)`;
     if (!table) return `${at}: the Mapping Record carries no table for this Waypoint — run /paragraph-plan on this Brief again (kogaki#1735)`;
@@ -80,11 +80,11 @@ export function mappedLineRefusal(leg) {
   return null;
 }
 
-// kogaki#1649: a judge-forced Paragraph Waypoint's mark, an HTML comment on a line of its own beneath it.
+// kogaki#1649: a judge-forced Waypoint's mark, an HTML comment on a line of its own beneath it.
 export const forcedMarkLine = (axes) => `<!-- forced by: ${axes.join(", ")} -->`;
 const FORCED_MARK = /^\s+<!-- forced by: (.+) -->$/;
 
-// kogaki#1649: the marks a Packet carries, one row per Leg Waypoint, its axes in the order first marked.
+// kogaki#1649: the marks a Packet carries, one row per Brief Waypoint, its axes in the order first marked.
 export function forcedMarksOf(packet) {
   const out = [];
   let n = null;

@@ -2,10 +2,10 @@
   "version": 1,
   "note": [
     "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
-    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Paragraph Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`), a `join` replaced (`waypoint`, `join`), a Leg Waypoint's `stands_to_be_taken_up` replaced (`waypoint`, `stands_to_be_taken_up`), or the bound Move's `takes` or `leaves` replaced (`waypoint`, `move_takes` or `move_leaves`) (kogaki#1701). `at_waypoint` names the Leg Waypoint a defect sits on.",
+    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`), a `join` replaced (`waypoint`, `join`), a Brief Waypoint's `stands_to_be_taken_up` replaced (`waypoint`, `stands_to_be_taken_up`), or the bound Move's `takes` or `leaves` replaced (`waypoint`, `move_takes` or `move_leaves`) (kogaki#1701). `at_waypoint` names the Brief Waypoint a defect sits on.",
     "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/proof-sheet/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
-    "Countable rules are not axes: the Paragraph Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
+    "Countable rules are not axes: the Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
   ],
   "retention": {
     "draws_min": 5,
@@ -121,7 +121,7 @@
                 {
                   "kind": "answer",
                   "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them",
-                  "left_by": "Leg Waypoint 1"
+                  "left_by": "Brief Waypoint 1"
                 }
               ],
               "bound_move": {
@@ -203,7 +203,7 @@
                 {
                   "kind": "answer",
                   "what": "what puts one position where the effect arises readily and another where it does not",
-                  "left_by": "Leg Waypoint 2"
+                  "left_by": "Brief Waypoint 2"
                 }
               ],
               "bound_move": {
@@ -265,7 +265,7 @@
       }
     },
     "leg3-clean": {
-      "source": "the run's record with Leg Waypoint 3's join `grounds` replaced by `elaboration`, the word the judge named for it in three of five draws on 2026-10-23",
+      "source": "the run's record with Brief Waypoint 3's join `grounds` replaced by `elaboration`, the word the judge named for it in three of five draws on 2026-10-23",
       "from": "leg3-run",
       "edit": {
         "waypoint": 3,
@@ -285,7 +285,7 @@
       }
     },
     "leg4-run": {
-      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Leg Waypoint 1's first Paragraph Waypoint already carries Segment 2's compression and the call answered fits; each bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
+      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Brief Waypoint 1's first Waypoint already carries Segment 2's compression and the call answered fits; each bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
       "at_waypoint": 1,
       "input": {
         "leg_you_must_judge": {
@@ -569,7 +569,7 @@
       }
     },
     "leg4-own-step": {
-      "source": "the run's record with the compression held to Segment 2's Paragraph Waypoint, Leg Waypoint 1's first Paragraph Waypoint stating the definition alone",
+      "source": "the run's record with the compression held to Segment 2's Waypoint, Brief Waypoint 1's first Waypoint stating the definition alone",
       "from": "leg4-run",
       "edit": {
         "waypoint": 1,
@@ -583,7 +583,7 @@
       }
     },
     "g1-clean": {
-      "source": "Leg G1's first Leg Waypoint of run paragraph-plan-set-automatic-rules-only-sees-2026-10-31T14-52-10-146Z, the Leg cut to that one Leg Waypoint, its record's Paragraph Waypoint 3 verbatim, the first a bare claim, the second carrying both terms' meanings and the fourth extending the instance to a second matter; the bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
+      "source": "Leg G1's first Brief Waypoint of run paragraph-plan-set-automatic-rules-only-sees-2026-10-31T14-52-10-146Z, the Leg cut to that one Brief Waypoint, its record's Waypoint 3 verbatim, the first a bare claim, the second carrying both terms' meanings and the fourth extending the instance to a second matter; the bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "G1",
@@ -667,7 +667,7 @@
       }
     },
     "g1-defines-first": {
-      "source": "constructed: the specimen's first Paragraph Waypoint defines its subject before claiming anything for it, against the bound Move's second break",
+      "source": "constructed: the specimen's first Waypoint defines its subject before claiming anything for it, against the bound Move's second break",
       "from": "g1-clean",
       "at_waypoint": 1,
       "edit": {
@@ -740,7 +740,7 @@
     },
     {
       "id": "OWN STEP",
-      "sentence": "A Paragraph Waypoint carries nothing a later Segment's `operation` produces, not even in apposition or as a `that is` restatement of its own content, which a refusal names by both Paragraph Waypoints and that Segment.",
+      "sentence": "A Waypoint carries nothing a later Segment's `operation` produces, not even in apposition or as a `that is` restatement of its own content, which a refusal names by both Waypoints and that Segment.",
       "fixtures": {
         "defect": [
           "leg4-run"
@@ -809,7 +809,7 @@
     },
     {
       "id": "BREAKS",
-      "sentence": "The Paragraph Waypoints, read in order, survive each test in the Move's `breaks`, no test naming a change the Waypoints have made.",
+      "sentence": "The Waypoints, read in order, survive each test in the Move's `breaks`, no test naming a change the Waypoints have made.",
       "fixtures": {
         "defect": [
           "g1-defines-first"

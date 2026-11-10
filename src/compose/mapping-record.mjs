@@ -1,5 +1,5 @@
 // compose/mapping-record — the Mapping Record beside the ParagraphPlan (kogaki#1733): one
-// `structure.yaml` per Leg Waypoint whose structure was read and one `table.yaml` per bound Move,
+// `structure.yaml` per Brief Waypoint whose structure was read and one `table.yaml` per bound Move,
 // under `theses/<slug>/mapping/<leg_id>/<waypoint>/`, named by the plan by path and digest.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
@@ -58,7 +58,7 @@ export function mappingRecordOf(dir) {
 }
 
 // WRITE THE RECORD (the stage's own output, replaced whole): `entries` holds one
-// `{ leg_id, waypoint, structure?, table? }` per Leg Waypoint whose record was settled.
+// `{ leg_id, waypoint, structure?, table? }` per Brief Waypoint whose record was settled.
 export function writeMappingRecord(dir, entries = []) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });

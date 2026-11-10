@@ -2,10 +2,10 @@
 # check-brief-job-resume — the resume claim over a finished Reader-path job
 # (kogaki#1278): two concurrent `job await` calls resume it once (w1), a
 # `done` run is never resumed (w2), a gone claimant's claim is taken over
-# (w3), and only the `done` arm takes a claim (w4). The fixture job is the one
-# `reader-path` unit composing the Leg Waypoints, its record `{ waypoints }`,
-# and the run record stands after `read_structure`, `apex` and `mint`, the
-# states `compose_path` sits behind since kogaki#1768.
+# (w3), and only the `done` arm takes a claim (w4). The fixture job is the
+# path review's (kogaki#1775: `compose_path` runs no job, deriving its Legs
+# with no Call), and the run record stands after `compose_path`, awaiting
+# `review_path`, whose first line refuses a run with no composed Candidates.
 # Cut from check-brief-reader-path-job.sh by kogaki#1464.
 set -u
 cd "$(dirname "$0")/.."
@@ -28,7 +28,7 @@ export CLAUDE_CODE_SESSION_ID="check-brief-job-resume-fixture"
 mkdir -p "$KOGAKI_OPEN_GATES" "$GATE_DECLARATION_SIDECAR_DIR"
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, rmSync, existsSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync, existsSync, chmodSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -47,8 +47,8 @@ chmodSync(resumeJudge, 0o755);
 
 // (w1) kogaki#1278: TWO CONCURRENT `job await` CALLS OVER THE SAME FINISHED
 // JOB RESUME IT EXACTLY ONCE. The fixture job is already `done`, and its run
-// record carries no minted Brief, so `compose_path`'s own `needBrief` -- the
-// first line of the resumed state work -- refuses deterministically and at
+// record carries no composed Candidates, so `review_path`'s own first line --
+// the first line of the resumed state work -- refuses deterministically and at
 // once: the claimant's own resume is observed by that one, single refusal
 // landing, never by a successful compose (which this fixture has nothing to
 // support). The second, deferred caller never reaches state work at all -- it
@@ -57,20 +57,21 @@ chmodSync(resumeJudge, 0o755);
 {
   const dir = mkNewRun();
   const now = new Date().toISOString();
-  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+  mkdirSync(join(dir, "review-path"), { recursive: true });
+    writeFileSync(join(dir, "review-path", "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
-    units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { waypoints: [] } }],
+    units: [{ id: "reader-path", status: "done", bytes: 50, candidate: {} }],
   }, null, 2) + "\n");
   const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: briefTable.version },
     judge_binary: null, survey_record: null,
-    // EVERY STATE `compose_path` SITS BEHIND IS `completed` (kogaki#1768: `read_structure` and
+    // EVERY STATE `review_path` SITS BEHIND IS `completed` (kogaki#1768: `read_structure` and
     // `apex` before the Thesis gate, no `differentiation`), so the advance
     // loop below walks straight to it rather than restarting the run from
     // `enter` (which demands a Strand address this fixture has none of).
-    completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint"], waits_reached: [],
-    conditional_entered: [], conditional_skipped: [], awaiting: null,
+    completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint", "compose_path"], waits_reached: [],
+    conditional_entered: [], conditional_skipped: [], awaiting: "review_path",
     owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
     done: false,
   }, null, 2) + "\n");
@@ -84,22 +85,22 @@ chmodSync(resumeJudge, 0o755);
     child.on("close", (code) => resolvePromise({ code, stdout, stderr }));
   });
   const results = await Promise.all([runAwait(), runAwait()]);
-  const claimed = results.filter((r) => /has no minted Brief/.test(r.stderr));
+  const claimed = results.filter((r) => /has no composed Candidates/.test(r.stderr));
   // EITHER READING IS A DEFERRAL (kogaki#1278 round 1): the claimant's own
   // refusal may finish the run before the second caller's precheck runs, and
   // then that caller refuses as `already done` rather than `already claimed`.
   // Both advance nothing; which one it prints is ordering, not the defect.
-  const deferred = results.filter((r) => !/has no minted Brief/.test(r.stderr)
+  const deferred = results.filter((r) => !/has no composed Candidates/.test(r.stderr)
     && /already claimed|already done/.test(r.stdout));
   if (claimed.length !== 1) {
-    fails.push(`(w1) two concurrent \`job await\` calls over the same \`done\` job did not resume exactly once (${claimed.length} reached needBrief's own refusal): ${JSON.stringify(results)}`);
+    fails.push(`(w1) two concurrent \`job await\` calls over the same \`done\` job did not resume exactly once (${claimed.length} reached review_path's own refusal): ${JSON.stringify(results)}`);
   }
   if (deferred.length !== 1) {
     fails.push(`(w1) two concurrent \`job await\` calls did not leave exactly one call reading the resume as already claimed: ${JSON.stringify(results)}`);
   } else if (deferred[0].code !== 0) {
     fails.push(`(w1) the deferred \`job await\` call did not exit 0: ${JSON.stringify(deferred[0])}`);
   }
-  if (!existsSync(join(dir, "reader-path-job-resume.claim"))) {
+  if (!existsSync(join(dir, "review-path", "reader-path-job-resume.claim"))) {
     fails.push(`(w1) no exclusive resume-claim file was left beside the job record at ${dir}`);
   }
 }
@@ -140,7 +141,7 @@ chmodSync(resumeJudge, 0o755);
 }
 
 // (w3) kogaki#1278 round 1: A CLAIM WHOSE CLAIMANT IS GONE IS TAKEN OVER
-// while the run has not moved, so a resume cut off mid-`compose_path` stays
+// while the run has not moved, so a resume cut off mid-`review_path` stays
 // resumable by `job await`; and a claim whose claimant moved the run before
 // exiting stands. The dead pid is a child this member started and reaped.
 {
@@ -148,16 +149,17 @@ chmodSync(resumeJudge, 0o755);
   const mkDone = () => {
     const dir = mkNewRun();
     const now = new Date().toISOString();
-    writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+    mkdirSync(join(dir, "review-path"), { recursive: true });
+    writeFileSync(join(dir, "review-path", "reader-path-job.json"), JSON.stringify({
       started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
-      units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { waypoints: [] } }],
+      units: [{ id: "reader-path", status: "done", bytes: 50, candidate: {} }],
     }, null, 2) + "\n");
     const briefTable = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
     const rec = {
       workflow: { path: "src/brief-workflow.json", version: briefTable.version },
       judge_binary: null, survey_record: null,
-      completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint"], waits_reached: [],
-      conditional_entered: [], conditional_skipped: [], awaiting: null,
+      completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint", "compose_path"], waits_reached: [],
+      conditional_entered: [], conditional_skipped: [], awaiting: "review_path",
       owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [],
       done: false,
     };
@@ -170,22 +172,26 @@ chmodSync(resumeJudge, 0o755);
       env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: resumeJudge } });
   {
     const { dir, rec } = mkDone();
-    writeFileSync(join(dir, "reader-path-job-resume.claim"),
+    writeFileSync(join(dir, "review-path", "reader-path-job-resume.claim"),
       JSON.stringify({ claimed_at: new Date().toISOString(), pid: Number(deadPid), state: "done", position: positionOf(rec) }) + "\n");
     const r = awaitIn(dir);
-    if (!/has no minted Brief/.test(r.stderr || "")) {
+    if (!/has no composed Candidates/.test(r.stderr || "")) {
       fails.push(`(w3) a claim left by an exited claimant over an unmoved run was not taken over: stdout=${r.stdout} stderr=${r.stderr}`);
     }
   }
   {
     const { dir, rec } = mkDone();
-    const moved = { ...rec, completed: [...rec.completed, "compose_path"], awaiting: "CANDIDATE_SELECTION" };
-    writeFileSync(join(dir, "reader-path-job-resume.claim"),
+    const moved = { ...rec, completed: [...rec.completed, "review_path"], awaiting: "CANDIDATE_SELECTION" };
+    writeFileSync(join(dir, "review-path", "reader-path-job-resume.claim"),
       JSON.stringify({ claimed_at: new Date().toISOString(), pid: Number(deadPid), state: "done", position: positionOf(rec) }) + "\n");
     writeFileSync(runRecordPath(dir), JSON.stringify(moved, null, 2) + "\n");
     const before = readFileSync(runRecordPath(dir), "utf8");
     const r = awaitIn(dir);
-    if (!/already claimed/.test(r.stdout || "") || r.status !== 0 || readFileSync(runRecordPath(dir), "utf8") !== before) {
+    // A run moved past `review_path` names no job of its own any more (kogaki#1775: the path
+    // review is the Brief's one job), so the later call reads either the claim or no job --
+    // and either way advances nothing and leaves the record as the claimant left it.
+    if (!/already claimed|nothing is running/.test(r.stdout || "") || /has no composed Candidates/.test(r.stderr || "")
+      || r.status !== 0 || readFileSync(runRecordPath(dir), "utf8") !== before) {
       fails.push(`(w3) a claim whose exited claimant had moved the run was taken over: stdout=${r.stdout} stderr=${r.stderr}`);
     }
   }
@@ -197,19 +203,20 @@ chmodSync(resumeJudge, 0o755);
 {
   const dir = mkNewRun();
   const now = new Date().toISOString();
-  writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
+  mkdirSync(join(dir, "review-path"), { recursive: true });
+    writeFileSync(join(dir, "review-path", "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "refused",
     units: [{ id: "reader-path", status: "refused", failure: { first_refusal: "fixture refusal" } }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null }, judge_binary: null, survey_record: null,
-    completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: "compose_path",
+    completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: "review_path",
     owner_input: {}, artifacts_written: [], judgments: {}, gate_declarations_owed: [], done: false,
   }, null, 2) + "\n");
   spawnSync(process.execPath, ["src/brief.mjs", "run", "--status", "--job", "await"],
     { cwd: root, timeout: 15000, encoding: "utf8",
       env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: dir, KOGAKI_BRIEF_OPEN_RUN: join(dir, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: resumeJudge } });
-  if (existsSync(join(dir, "reader-path-job-resume.claim"))) {
+  if (existsSync(join(dir, "review-path", "reader-path-job-resume.claim"))) {
     fails.push("(w4) a job ended `refused` left a resume claim, which the `done` arm alone takes");
   }
 }

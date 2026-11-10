@@ -224,8 +224,8 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
     + "</body></html>\n";
 }
 
-// ONE LEG'S MAPPING RECORD (kogaki#1733), in the short Trial sheet's layout: per Leg Waypoint its structure (an `apart`
-// successor shows its predecessor's), Mapping Table, binding with `case`, Paragraph Waypoints with their Cast, and, with a
+// ONE LEG'S MAPPING RECORD (kogaki#1733), in the short Trial sheet's layout: per Brief Waypoint its structure (an `apart`
+// successor shows its predecessor's), Mapping Table, binding with `case`, Waypoints with their Cast, and, with a
 // run, the Call Records of the Leg's job unit. Reads the plan and the record beside it; writes nothing but `out`.
 const readYamlAt = (path) => (existsSync(path) ? parseYaml(readFileSync(path, "utf8"), relFromRepo(path)) : null);
 
@@ -272,10 +272,10 @@ export function renderLegSheet({ planPath, legId, runDir = null, movesDir = "mov
   });
   const body = waypoints.map(({ w, structure, sharedFrom, table }) => {
     const n = w.waypoint;
-    const structureHtml = structure ? (sharedFrom ? `<p class="meta">shared with Leg Waypoint ${sharedFrom}</p>` : "") + structureSection(structure)
-      : none("No structure was recorded for this Leg Waypoint.");
-    const mapping = table ? mappingTable(structure, table, n) : none("No Mapping Table was recorded for this Leg Waypoint.");
-    return part(`waypoint-${n}`, `Leg Waypoint ${n}`, "")
+    const structureHtml = structure ? (sharedFrom ? `<p class="meta">shared with Brief Waypoint ${sharedFrom}</p>` : "") + structureSection(structure)
+      : none("No structure was recorded for this Brief Waypoint.");
+    const mapping = table ? mappingTable(structure, table, n) : none("No Mapping Table was recorded for this Brief Waypoint.");
+    return part(`waypoint-${n}`, `Brief Waypoint ${n}`, "")
       + part(`segments-${n}`, "Segments", segmentsTable({ library: movesDir }, w, n))
       + part(`bindings-${n}`, "Bindings", legBindingTable(w, table, n, contracts))
       + part(`mapping-${n}`, "Mapping", mapping)

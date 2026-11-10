@@ -109,18 +109,18 @@ export function loadBrief(args) {
     const bad = waypointsRefusal(leg.waypoints, strands, `the Brief at ${path}, leg ${leg.leg_id}`);
     if (bad) fail(bad);
   }
-  // THE PARAGRAPH WAYPOINTS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
+  // THE WAYPOINTS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
   // owner decision 2026-10-14): `/paragraph-plan` writes `paragraph-plan.yaml` next to
   // the Brief, naming the Brief's path and content hash, and /draft reads it here. A
   // missing file, and one made from a different Brief, are refused naming both files;
   // the Brief itself names nothing downstream. The file holds `point` and `serves` per
-  // Paragraph Waypoint, or `performs` alone (kogaki#1448), and NOTHING OF A MOVE, so this
+  // Waypoint, or `performs` alone (kogaki#1448), and NOTHING OF A MOVE, so this
   // read opens no Move file either.
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
-  // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Leg Waypoint after the first carries the
+  // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Brief Waypoint after the first carries the
   // plan's `join`, which `waypointLines` renders as its Opens-from line.
-  // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH LEG WAYPOINT'S STRUCTURE AND TABLE (kogaki#1735),
+  // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH BRIEF WAYPOINT'S STRUCTURE AND TABLE (kogaki#1735),
   // which `waypointLines` renders in place of the `point`; one following an `apart` Waypoint reads its
   // predecessor's structure. A plan naming none, or a record holding no file, renders the `point` as before.
   const mapped = plan.mappingSha !== null && plan.record.mapping.files.length ? mappingDirFor(plan.path) : null;
@@ -137,7 +137,7 @@ export function loadBrief(args) {
   return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha } };
 }
 
-// One Leg Waypoint's `{ structure, table }` from the Mapping Record, either null where its file is absent.
+// One Brief Waypoint's `{ structure, table }` from the Mapping Record, either null where its file is absent.
 function waypointMapping(dir, leg, i) {
   const read = (n, file) => {
     const p = join(dir, String(leg.leg_id), String(n), file);

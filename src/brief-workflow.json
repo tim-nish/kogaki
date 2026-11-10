@@ -164,42 +164,30 @@
           "leg_id",
           "relation",
           "reaches_target",
+          "text",
           "claims",
           "waypoints",
           "opens_section",
           "waypoints.point",
           "waypoints.serves",
-          "waypoints.carries",
           "waypoints.case"
         ]
       },
       "kind": "judgment",
-      "judgment_point": "compose ONE READER PATH for this Brief from its RelationalStructure (kogaki#1768): the Leg Waypoints, from the `lpp_waypoints` row below, judged GROUNDED by the `lpp_grounded` row, and the Legs derived over them by the runner, with no Call and no Move",
+      "judgment_point": "derive ONE READER PATH for this Brief from its RelationalStructure (kogaki#1775, owner decision 2026-11-10): the Legs are derived by the runner with no Call, one per relation and higher-order relation the apex reaches, the apex's own included, each higher-order relation after the ids it relates; a Leg's `text` is its relation's `holds` with each Role named. The Brief carries no Waypoint, no Round and no Move; the one Call is the `leg_sections` row's, which groups the Legs into Sections.",
       "reader_file": {
         "setting": "brief.audience_file"
       },
-      "reader_file_note": "THE AUDIENCE (kogaki#1370, owner decision 2026-10-13): one owner-authored file under audiences/ with three keys -- `persona`, who is read to, `register`, how they are addressed, and `language`. THE PERSONA (kogaki#1216) holds two fields -- `reader` and `prior_knowledge` -- and nothing about attitude, trust or the reader's question. The `register` is read by the Leg Packet alone. This row NAMES the file through the setting `brief.audience_file` in `kogaki.settings.json` (kogaki#1307), and every reader resolves it there; `read_structure`, `apex` and the `lpp_waypoints` unit read its `persona` (kogaki#1768). No per-article selection.",
-      "input_shape": "the one job unit's answer is the `lpp_waypoints` row's record, `{ waypoints: [...] }`, each `{ point, carries }`; the Harness derives each Waypoint's `serves` from its `carries`, the Legs over the Waypoints (`derivedLegs`, src/compose/structure.mjs), and each Leg's `opens_section` from the `leg_sections` row below, and writes ONE Candidate, `{ candidate_id, legs, reasoning }`, onto which nothing of a Move is written.",
+      "reader_file_note": "THE AUDIENCE (kogaki#1370, owner decision 2026-10-13): one owner-authored file under audiences/ with three keys -- `persona`, who is read to, `register`, how they are addressed, and `language`. THE PERSONA (kogaki#1216) holds two fields -- `reader` and `prior_knowledge` -- and nothing about attitude, trust or the reader's question. The `register` is read by the Leg Packet alone. This row NAMES the file through the setting `brief.audience_file` in `kogaki.settings.json` (kogaki#1307), and every reader resolves it there; `read_structure` and `apex` read its `persona` (kogaki#1768), and this state its `language`. No per-article selection.",
+      "input_shape": "no Call composes the Legs: the Harness derives them from the Brief's adopted `structure` (`structureLegs`, src/compose/structure.mjs), each Leg's `opens_section` from the `leg_sections` row below, and writes ONE Candidate, `{ candidate_id, legs, reasoning }`, onto which nothing of a Move or a Waypoint is written.",
       "schema_file": [
         "src/leg-schema.json"
       ],
-      "refusal": "the unit's own refusals are the `lpp_waypoints` and `lpp_grounded` rows', at the unit's classification, where its next Round can fire on them (kogaki#1355); this state refuses only what needs the finished set: derived Legs that break the derivation's invariant (`legPartitionRefusal`), and a `leg_sections` answer its row refuses twice. The next Round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
+      "refusal": "derived Legs that leave a reached relation with no Leg, serve an id outside the reach, or mark a Leg other than the apex's `reaches_target` (`pathReachRefusal`), and a `leg_sections` answer its row refuses twice. The next Round of that row receives the refused record beside its refusal, both verbatim (kogaki#1438).",
       "retries": 2,
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "job": {
-        "units": 1,
-        "call_limit_s": {
-          "setting": "brief.call_limit_s"
-        },
-        "unit_rounds": {
-          "setting": "brief.unit_rounds"
-        },
-        "stall_s": 90,
-        "heartbeat_ms": 10000,
-        "note": "ONE UNIT (kogaki#1768): one structure gives one Reader Path. `call_limit_s` AND `unit_rounds` NAME SETTINGS (kogaki#1307, kogaki#1355): `brief.call_limit_s` and `brief.unit_rounds` in `kogaki.settings.json`, read when the job starts and written onto the job record, which the supervisor enforces and `job await` reads back. A UNIT IS BOUNDED PER CALL AND PER ROUND COUNT, NEVER BY A WHOLE-JOB LIMIT (kogaki#1355): a call running past `call_limit_s` is stopped, spends one Round and is asked again with the same prompt, and a `job` row or a settings file carrying the retired whole-job limit is refused naming the key. The JOB UNIT is a HEADLESS SESSION -- a `claude -p` child that runs with no tools -- and composes the Leg Waypoints from the `lpp_waypoints` row; once its record passes the Waypoint validator, the same unit runs a second headless session that judges the Waypoints GROUNDED from the `lpp_grounded` row, so a unit is two calls per Round. A unit's answer fails in one of two classes: MALFORMED OUTPUT (not JSON, or no record in it) respawns the call with the same prompt and spends no Round; a SCHEMA REFUSAL (a record the validator refuses, or a Waypoint judged not grounded) spends one Round and is re-asked with the refusal text, and the unit ends `refused` with every Round's refusal once `unit_rounds` is spent. `stall_s` and `heartbeat_ms` are `src/workflow/detached-job.mjs`'s READER_PATH_JOB_STALL_S/READER_PATH_JOB_HEARTBEAT_MS constants, stated here as their second reader. This state runs outside the `judge` block's `advance_timeout_s` budget -- starting the job returns as soon as the supervisor is spawned."
-      },
       "governing": "SPEC-draft-pipeline, the Leg's shape and the claims rule"
     },
     {
@@ -214,17 +202,17 @@
         "leg": [
           "relation",
           "reaches_target",
-          "waypoints",
+          "text",
           "opens_section",
+          "waypoints",
           "waypoints.point",
           "waypoints.serves",
-          "waypoints.carries",
           "waypoints.case"
         ]
       },
       "shared_text_file": "src/brief-workflow.json",
       "kind": "judgment",
-      "judgment_point": "review each composed Candidate against {{shared:review_areas}}. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1). The `discharge` item is RETIRED (kogaki#1699) with the Obligations ledger, as is the `question_chain` item (kogaki#1325); a record carrying either is refused by name. AND, for every Candidate, run the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331, owner decision 2026-10-10): {{shared:claim_register}} This is judgment, never a mechanical word list -- the vocabulary a claim may use is read, not matched against a list. THE STRUCTURE'S REACH (kogaki#1768): the input carries the Brief's RelationalStructure, `structure`, and each Leg Waypoint names in `carries` the relations its point states, so `entailment` and `arc_integrity` read the reach -- whether every relation and higher-order relation in `structure.reach` is carried by a Waypoint, in an order the relations' `relates` can be followed in, and whether the apex, `structure.attains_thesis`, is carried last -- and `rationale_stands` reads each Leg's Waypoints against the higher-order relation it serves, its `relation`, since no Leg states a rationale. Whether each point is grounded in what it carries was judged at composition, by GROUNDED; a Reader Path leaving a reached relation uncarried, or not carrying the apex last, is refused before this review is asked.",
+      "judgment_point": "review each composed Candidate against {{shared:review_areas}}. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1). The `discharge` item is RETIRED (kogaki#1699) with the Obligations ledger, as is the `question_chain` item (kogaki#1325); a record carrying either is refused by name. AND, for every Candidate, run the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331, owner decision 2026-10-10): {{shared:claim_register}} This is judgment, never a mechanical word list -- the vocabulary a claim may use is read, not matched against a list. THE STRUCTURE'S REACH (kogaki#1775): the input carries the Brief's RelationalStructure, `structure`, and each Leg names in `relation` the relation or higher-order relation it serves and says it in `text`, so `entailment` and `arc_integrity` read the order -- whether each higher-order relation's Leg stands where the relations it relates can be followed into it -- and `rationale_stands` reads each Leg's `text` against the relation it serves, since no Leg states a rationale. One Leg per relation the apex reaches, the apex's Leg marked, is refused before this review is asked.",
       "input_shape": "an object keyed by `candidate_id`, each value an object carrying one prose entry per review area, NO verdict-shaped field among them, plus `claim_register` (an array, one entry per Leg in Leg order, each `{ leg_id, verdict, word? }`), PLUS the input's own top-level `defined_terms` (the terms the Brief classifies `defined`) the claim register is judged against -- not per-Candidate, because the list is the Brief's, written once at mint (kogaki#1331)",
       "refusal": "a Candidate with no review entry; a verdict-shaped field among the six prose areas -- `verdict`, `pass`, `score` and kin, or any non-string value -- because nothing there becomes a lint; a `question_chain` (retired, kogaki#1325) or a `discharge` (retired, kogaki#1699) carried at all; a `claim_register` absent, not an array, or not carrying exactly one entry per the Candidate's own Legs, in Leg order; an entry whose `verdict` is outside the closed set `holds`/`fails`; a `fails` entry naming no `word`. The next Round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
       "retries": 2,
@@ -293,34 +281,10 @@
       "governing": "SPEC-terrain, the workflow table"
     }
   ],
-  "lpp_waypoints": {
-    "id": "lpp_waypoints",
-    "note": "NOT A STATE OF THIS FLOW (kogaki#1768): the `compose_path` job's one unit asks this row, carried over from the Leg-Planning Playground's `lpp_waypoints` (src/leg-planning/workflow.json, kogaki#1764, kogaki#1766). The span from \"EACH WAYPOINT IS A POINT\" through \"is refused.\" has its origin here, and the Leg-Planning Playground, the Proof Sheet and the Mapping Playground copy it through their `copies`. `serves` is the Harness's, derived from `carries` through each relation's `from`.",
-    "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. compose the Leg Waypoints of ONE article from the RelationalStructure in the input, `structure`, for the Persona in `persona`, ending on `thesis` in the input: an ordered list of Waypoints, each one paragraph's point. EACH WAYPOINT IS A POINT (kogaki#1326): its `point` is the proposition its paragraph makes, in the article's subject, one sentence -- it names what the paragraph establishes, never how the reader is to feel or what they are handed or receive, and it is never the Move's specialized-by-the-Leg role with the subject filled in. A WAYPOINT'S POINT IS READ ALONE (kogaki#1449): a later stage reads each waypoint's `point` by itself, never beside the other waypoints, so the point names what it refers to in full -- it carries no \"this\", \"that\", \"these\", \"those\", \"it\" or bare definite noun whose referent is another waypoint -- and uses no term that is not in its Claim's served material or the Persona's prior knowledge, since a Leg introduces no term (kogaki#1768); a point opening with one of those words, or carrying \"this <noun>\" or \"these <noun>\" whose noun is in no Claim it serves, is refused. Each Waypoint names in `carries` the ids of the relations or higher-order relations of `structure` its `point` states, one or more, and its `point` states only what those relations' `holds`, and their Roles' `context` and `attributes`, state. Every id of `structure.reach` is carried by some Waypoint, no Waypoint carries an id `structure.unreached` lists, and the last Waypoint carries `structure.attains_thesis`. Write no `serves`: it is derived from `carries`.",
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT: `waypoints` -- an ordered, non-empty list of `{ \"point\": <one sentence>, \"carries\": [<one or more relation or higher-order relation ids>] }`.",
-    "refusal": "a key the record or a Waypoint does not declare, or a declared key missing; a `serves` written on a Waypoint; an empty `carries`, or a `carries` id that names no relation or higher-order relation of `structure`; a `carries` id outside `structure.reach`, refused naming the Waypoint and the id; a relation or higher-order relation of `structure.reach` no Waypoint carries; and a last Waypoint not carrying `structure.attains_thesis` -- each refused naming the Waypoint or the relation. The refusal is put back into your next round verbatim with your answer.",
-    "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1764, kogaki#1768",
-    "refusal_reach": {
-      "shape": "part",
-      "carries": "part",
-      "coverage": "part"
-    }
-  },
-  "lpp_grounded": {
-    "id": "lpp_grounded",
-    "note": "NOT A STATE OF THIS FLOW (kogaki#1768): the `compose_path` job unit's second Call each Round, carried over from the Leg-Planning Playground's `lpp_grounded` (kogaki#1764): one criterion, GROUNDED, over the whole Waypoint set. A `does-not-fit` is the unit's schema refusal, and its sites are the next Round's refusal text.",
-    "judgment_point": "judge the Leg Waypoints in the input, `waypoints`, each a `point` beside the ids it `carries`, against the RelationalStructure in the input, `structure`, on ONE criterion. GROUNDED: every assertion a Waypoint's `point` makes is stated by a relation or higher-order relation it carries, read in that relation's `holds` and in its Roles' `context` and `attributes`. An assertion stated by none of them -- a comparison, a kind, a history, a quantity or a consequence no carried relation states -- is not grounded, whatever else the structure states. Answer `fits` where every Waypoint is grounded, with `sites` empty. Answer `does-not-fit` otherwise, with one site per Waypoint not grounded: its `waypoint` number, its `phrase`, the words of its `point` that assert what no carried relation states, quoted verbatim, and `why`, one sentence naming what the carried relations state instead.",
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `verdict` -- `fits` or `does-not-fit`; and `sites` -- a list of `{ \"waypoint\": <a Waypoint number>, \"phrase\": <words of its point, verbatim>, \"why\": <one sentence> }`, empty under `fits` and non-empty under `does-not-fit`.",
-    "refusal": "a key the record or a site does not declare, or a declared key missing; a `verdict` other than `fits` or `does-not-fit`; `sites` non-empty under `fits` or empty under `does-not-fit`; and a site naming no Waypoint of the input, or whose `phrase` is not words of that Waypoint's `point`, refused naming the site. A malformed verdict is asked again with the same input.",
-    "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1764, kogaki#1768",
-    "refusal_reach": {
-      "shape": "part"
-    }
-  },
   "leg_sections": {
     "id": "leg_sections",
-    "note": "NOT A STATE OF THIS FLOW (kogaki#1768): one Call inside `compose_path`'s resumption, after the Legs are derived. The derived Legs carry no `opens_section`, and this row writes it.",
-    "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. group the derived Legs in the input, `legs`, into the Sections of the finished article, under the Section grouping. Each Leg is given by its `leg_id`, the higher-order relation it serves, `relation`, with that relation's `holds`, and its Waypoints' points in order. THE FIRST LEG OPENS A SECTION. A Leg opens a Section where the reader's question changes -- where its Waypoints carry a higher-order relation the previous Leg did not -- and continues the current Section otherwise. Two adjacent Sections holding exactly one Leg each are not written: merge them. For each Leg that opens a Section write its heading, `opens_section`: one plain sentence or phrase stating where the Section's last claims leave the reader, in everyday words, so a reader can skip directly to any Section and still understand its heading -- never a title, and never a term the article has not put in front of the reader. Answer the Sections record and nothing else.",
+    "note": "NOT A STATE OF THIS FLOW (kogaki#1768): the one Call inside `compose_path`, after the Legs are derived (kogaki#1775). The derived Legs carry no `opens_section`, and this row writes it.",
+    "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. group the derived Legs in the input, `legs`, into the Sections of the finished article, under the Section grouping. Each Leg is given by its `leg_id`, the relation or higher-order relation it serves, `relation`, and what it says, `text`. THE FIRST LEG OPENS A SECTION. A Leg opens a Section where the reader's question changes -- where its `text` turns to matter the Legs before it in the current Section did not state -- and continues the current Section otherwise; a higher-order relation's Leg continues the Section of the relations it relates. Two adjacent Sections holding exactly one Leg each are not written: merge them. For each Leg that opens a Section write its heading, `opens_section`: one plain sentence or phrase stating where the Section's last claims leave the reader, in everyday words, so a reader can skip directly to any Section and still understand its heading -- never a title, and never a term the article has not put in front of the reader. Answer the Sections record and nothing else.",
     "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly `sections` -- a list of `{ \"leg_id\": <the id of a Leg that opens a Section>, \"opens_section\": <one plain sentence or phrase> }`, in Leg order, its first entry the first Leg.",
     "refusal": "a key the record or an entry does not declare, or a declared key missing; an entry naming no Leg of the input, two entries naming one Leg, or entries out of Leg order; an empty `opens_section`; and the Section grouping's own refusals over the Legs with the headings in place -- the first Leg not opening a Section, and two adjacent one-Leg Sections -- each refused naming the Leg. The refusal is put back into your next round verbatim with your answer.",
     "retries": 2,
@@ -337,18 +301,18 @@
     "binds_unread": {
       "leg": [
         "reaches_target",
-        "waypoints",
+        "text",
         "opens_section",
+        "relation",
+        "waypoints",
         "waypoints.point",
         "waypoints.serves",
-        "waypoints.case",
-        "relation",
-        "waypoints.carries"
+        "waypoints.case"
       ]
     },
     "shared_text_file": "src/brief-workflow.json",
-    "note": "NOT A STATE OF THIS FLOW (kogaki#1301), on the ground `lpp_waypoints` above states for itself: the path-review Detached Job's units run inside `review_path`'s own in-process code, never as a separately-executed flow state. `src/brief.mjs`'s `review_path` handler reads this row and renders each unit's prompt through the SAME `judgePrompt` renderer every judgment state uses.",
-    "judgment_point": "review ONE composed Candidate -- `candidate_you_must_review` in the input -- against {{shared:review_areas}}; the areas ride in the input under `review_areas`. The `discharge` item (kogaki#1699) and the `question_chain` item (kogaki#1325) are retired, and a record carrying either is refused by name. AND the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331): {{shared:claim_register}} THE STRUCTURE'S REACH (kogaki#1768): the input carries the Brief's RelationalStructure, `structure`, and each Leg Waypoint names in `carries` the relations its point states, so `entailment` and `arc_integrity` read the reach -- whether every relation and higher-order relation in `structure.reach` is carried by a Waypoint, in an order the relations' `relates` can be followed in, and whether the apex, `structure.attains_thesis`, is carried last -- and `rationale_stands` reads each Leg's Waypoints against the higher-order relation it serves, its `relation`, since no Leg states a rationale. Whether each point is grounded in what it carries was judged at composition, by GROUNDED; a Reader Path leaving a reached relation uncarried, or not carrying the apex last, is refused before this review is asked.",
+    "note": "NOT A STATE OF THIS FLOW (kogaki#1301), on the ground `leg_sections` above states for itself: the path-review Detached Job's units run inside `review_path`'s own in-process code, never as a separately-executed flow state. `src/brief.mjs`'s `review_path` handler reads this row and renders each unit's prompt through the SAME `judgePrompt` renderer every judgment state uses.",
+    "judgment_point": "review ONE composed Candidate -- `candidate_you_must_review` in the input -- against {{shared:review_areas}}; the areas ride in the input under `review_areas`. The `discharge` item (kogaki#1699) and the `question_chain` item (kogaki#1325) are retired, and a record carrying either is refused by name. AND the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331): {{shared:claim_register}} THE STRUCTURE'S REACH (kogaki#1775): the input carries the Brief's RelationalStructure, `structure`, and each Leg names in `relation` the relation or higher-order relation it serves and says it in `text`, so `entailment` and `arc_integrity` read the order -- whether each higher-order relation's Leg stands where the relations it relates can be followed into it -- and `rationale_stands` reads each Leg's `text` against the relation it serves, since no Leg states a rationale. One Leg per relation the apex reaches, the apex's Leg marked, is refused before this review is asked.",
     "input_shape": "a BARE review entry AT THE RECORD'S OWN ROOT -- no wrapping `candidate_id` key, since this ask names exactly one Candidate and the Harness keys the entry by the Candidate it handed this unit -- carrying one prose entry per review area, NO verdict-shaped field among them, and `claim_register` (an array, one entry per Leg in Leg order, each `{ leg_id, verdict, word? }`)",
     "refusal": "a verdict-shaped field among the six prose areas -- `verdict`, `pass`, `score` and kin, or any non-string value; a `question_chain` (retired, kogaki#1325) or a `discharge` (retired, kogaki#1699) carried at all; a `claim_register` absent, not an array, or not carrying exactly one entry per the Candidate's own Legs, in Leg order; an entry whose `verdict` is outside the closed set `holds`/`fails`; a `fails` entry naming no `word` -- each refused by `attachReview` over this unit's one Candidate, applied at the unit's own classification so the unit's next Round can fire on it. The next Round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
     "governing": "SPEC-draft-pipeline, the judgment rule; kogaki#1301"
@@ -369,7 +333,7 @@
         "waypoints.serves",
         "waypoints.case",
         "relation",
-        "waypoints.carries"
+        "text"
       ]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1331, owner decision 2026-10-10). The Brief's Defined Terms are written ONCE, by the mint, so the judgment that classifies them is asked from inside the `mint` state's renderer, before the Brief exists, and its record is what the mint writes as `defined_terms`. It is a row rather than a state for the reason the two unit rows above are: it is one judged record inside an act the flow already has, and a state of its own would be a second writer of a field the owner ruled is written once. Composition is its one consumer; nothing of it reaches the Packet.",
@@ -412,7 +376,7 @@
         "waypoints.serves",
         "waypoints.case",
         "relation",
-        "waypoints.carries"
+        "text"
       ]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1494, owner decision 2026-10-21). The renderings record is composed ONCE, inside the `compose_path` state's renderer before its job starts (kogaki#1768), so it stands before the Waypoints are composed -- the owner placed the terminology mapping table at or before the Candidate stage. It is a row rather than a state for the reason `defined_terms_unit` is: one judged record inside an act the flow already has. Its consumers are the Path Review, whose `recoverability` entry the Harness computes under it from each Candidate's claims and points (src/compose.mjs `recoverabilityOf`) and attaches beside the judged review, never asked of the judge; and adoption, which writes it into the Brief as `renderings` and refuses an `introduces` entry carrying a term it renders.",

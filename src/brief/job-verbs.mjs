@@ -19,9 +19,6 @@ import { READER_PATH_JOB_GATE_ID, STATE_RETRY_GATE_ID, emitGateDeclaration } fro
 import {
   checkpointRun, clearOpenRunPointer, detachedJobExecutor, readRunRecord, relFromRepo,
 } from "../workflow/run-record.mjs";
-import {
-  composeJobExcluded, composeJobFinished, endBriefNoCandidateFits,
-} from "./reader-path-unit.mjs";
 import { ANSWER_WORK, CONDITIONS, GATE_WORK, STATE_WORK } from "./renderers.mjs";
 import {
   BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail, resolveStartAddresses,
@@ -373,25 +370,10 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
         detachedJobExecutor(jobRel));
       return;
     }
-    // FROM THE UNIT THAT ENDED `done`, AND NO OTHER (kogaki#1360, kogaki#1768):
-    // its Waypoints, judged GROUNDED, and the Rounds they took. `compose_path`
-    // derives the Legs over them on `--waypoints`.
-    const finished = composeJobFinished(job.units)[0] || null;
-    const resultPath = join(dir, "reader-path-waypoints.json");
-    writeFileSync(resultPath, `${JSON.stringify({
-      waypoints: finished ? finished.candidate.waypoints : [],
-      rounds: finished && Number.isInteger(finished.rounds) ? finished.rounds : null,
-      excluded: composeJobExcluded(job.units),
-    }, null, 2)}\n`);
-    // `status` IS CLEARED, NOT ONLY `job` (kogaki#1193): `cmdRun` reads
-    // `args.status` before any run record, so a spread leaving it `true` would
-    // report the position instead of advancing past it. AWAITED, NOT
-    // FIRED-AND-FORGOTTEN: `runWorkflow` restores the module-level `FLOW` in a
-    // `finally`, so an unawaited call here resumed reading another flow's
-    // binding for every later state (CANDIDATE_SELECTION composed no option set).
-    await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, waypoints: resultPath, "run-dir": dir },
-      detachedJobExecutor(jobRel));
-    return;
+    // `compose_path` STARTS NO JOB (kogaki#1775): its Legs are derived with no
+    // Call, so a finished job is the path review's and no other's.
+    fail(`${j.label} at ${dir} is a \`${j.stateId}\` job, and only \`review_path\` runs one — \`compose_path\` `
+      + "derives its Legs with no Call since kogaki#1775. Start the Brief again.");
   }
   const rec = readRunRecord(dir);
   if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
@@ -405,12 +387,6 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
   // steps failed and why without spec-internal vocabulary
   // (`findInternalVocabulary`, checked at raising by
   // `checks/check-brief-reader-path-job.sh` section (e)).
-  // THE COMPOSE UNIT REFUSED IN EVERY ROUND (kogaki#1307, kogaki#1768): no Reader Path
-  // was composed, which the owner ruled an acceptable ending (2026-10-08) -- the Brief
-  // ends with no question and the empty Brief is removed. The path-review job keeps its Stop question below.
-  if (state === "refused" && j.stateId !== "review_path") {
-    endBriefNoCandidateFits(rec, { id: failureState || "compose_path" }, composeJobExcluded(job.units));
-  }
   if (state === "refused") {
     const refusedUnits = (job.units || []).filter((u) => u.status === "refused");
     const reading = refusedUnits.length

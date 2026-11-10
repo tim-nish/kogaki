@@ -1,6 +1,6 @@
 // The Mapper in ParagraphPlan (kogaki#1734): inside one Leg's job unit, structure reading on each
-// Leg Waypoint's point before the bind call, grounding of one Mapping Table per bound Move after it,
-// and the Paragraph Waypoints call, each Move fixed and its table in the input.
+// Brief Waypoint's point before the bind call, grounding of one Mapping Table per bound Move after it,
+// and the Waypoints call, each Move fixed and its table in the input.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -65,7 +65,7 @@ export class ParagraphPlanMapper {
     return !u || u.stage === "confined" || u.stage === "done";
   }
 
-  // READING FIRST: a Leg Waypoint following an `apart` one reads none and takes its predecessor's structure.
+  // READING FIRST: a Brief Waypoint following an `apart` one reads none and takes its predecessor's structure.
   begin(unitId, input) {
     const { leg, strand } = this.legOf(unitId);
     const ws = leg.waypoints;
@@ -111,7 +111,7 @@ export class ParagraphPlanMapper {
     return { compose: this.composeAct(u, true) };
   }
 
-  // THE PLAN CALL'S INPUT: each Leg Waypoint carries its structure; once grounded, its bound Move and its table.
+  // THE PLAN CALL'S INPUT: each Brief Waypoint carries its structure; once grounded, its bound Move and its table.
   composeAct(u, confined) {
     const leg = u.input.leg_you_must_plan;
     const waypoints = leg.waypoints.map((w) => {
@@ -124,7 +124,7 @@ export class ParagraphPlanMapper {
     return { prompt: `${this.inputs.planHead}${JSON.stringify(input, null, 2)}`, input };
   }
 
-  // THE PROPOSITION THE MAPPER READS (kogaki#1768): the Leg Waypoint's `point`, and, where the
+  // THE PROPOSITION THE MAPPER READS (kogaki#1768): the Brief Waypoint's `point`, and, where the
   // Brief carries a `structure`, the `holds` of each relation the Waypoint `carries` beside it, so
   // the reading is grounded in the structure rather than the Strand's words. A Role written
   // `{<id>}` reads as its name (kogaki#1772). With no structure, the point alone.
@@ -156,7 +156,7 @@ export class ParagraphPlanMapper {
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, u.history.length ? u.history : null); } finally { bindFlow(held); }
     u.pending = { n, row, input, prompt };
-    return { call: { phase: u.stage, prompt, label: `${u.stage} at Leg Waypoint ${n}, call ${u.calls}` } };
+    return { call: { phase: u.stage, prompt, label: `${u.stage} at Brief Waypoint ${n}, call ${u.calls}` } };
   }
 
   // ONE READING OR GROUNDING CALL, ANSWERED: `out` is `{ raw, record }`, or `{ raw, unread }` for an answer

@@ -6,7 +6,7 @@
 # WHAT THIS COVERS, driven end to end through `node src/proof-sheet/leg-brief.mjs run` over
 # a three-paragraph Leg, an Extractor run directory this member writes, and a FAKE judge
 # binary (`KOGAKI_JUDGE_CLI`) — never the actual `claude` CLI:
-#   (a) the run writes `brief.yaml` with ONE Leg carrying three Leg Waypoints and three
+#   (a) the run writes `brief.yaml` with ONE Leg carrying three Brief Waypoints and three
 #       Claims, and every constant field marked by the constant comment; READER START IS
 #       RETIRED (kogaki#1699): the Brief carries no `reader_start`, `reader_target` or
 #       `obligations`, and its Leg no `reader_state_after` or `reader_state_before`.
@@ -18,13 +18,13 @@
 #       `reader_state_after`, is refused by the production `validateLegs` naming it
 #       (kogaki#1699), and the refusal is put verbatim into the second Round's prompt; no
 #       Reader start call is made, and the Leg call is handed the Persona's prior knowledge.
-#   (d) the rendered prompt carries the row's judgment point with its `{{copy:point}}` resolved
-#       from the Brief's `lpp_waypoints` row (kogaki#1768) — the copied span present, no copy
-#       token left — and `leg-brief.mjs diff` lists the copy and that it resolves; a copy naming
-#       a span production no longer carries refuses naming it.
+#   (d) the rendered prompt carries the row's judgment point, which holds the point span
+#       itself since the Brief's `lpp_waypoints` row left (kogaki#1775) — no copy token left —
+#       and `leg-brief.mjs diff` applies the row cleanly; the Mapping Playground's copy of the
+#       span resolves, and a copy naming a span this row no longer carries refuses naming it.
 #   (e) every call ran with `--tools ""`, on the shared supervisor.
-#   (f) the validators refuse by name: a Leg carrying `move` (a Leg binds no Move, kogaki#1768), a Leg Waypoint count other
-#       than the paragraph count, Claim N not naming L<N>, a Leg Waypoint carrying the
+#   (f) the validators refuse by name: a Leg carrying `move` (a Leg binds no Move, kogaki#1768), a Brief Waypoint count other
+#       than the paragraph count, Claim N not naming L<N>, a Brief Waypoint carrying the
 #       retired `effect` (production `waypointsRefusal`), and a Leg carrying the retired
 #       `reader_state_after` or `reader_state_before` (production `validateLegs`); a good Leg passes.
 #   (g) THE LEG CALL READS AN EXTRACTION'S PARAGRAPH CONTENT ONLY (kogaki#1449): the fixture
@@ -38,7 +38,7 @@
 #       paragraph in them, and reads `what_it_does` for no field — a Leg carries no `purpose` or
 #       `rationale` (kogaki#1768).
 #   (i) THE WORDS ARE THE SEGMENT CONTENT'S (kogaki#1495): the Leg validator, handed each
-#       paragraph's Segment `content`, refuses a Leg Waypoint whose point carries a word in no
+#       paragraph's Segment `content`, refuses a Brief Waypoint whose point carries a word in no
 #       Segment `content` of its paragraph, naming the word and the Segments, and the same for a
 #       Claim's proposition; a point built from the Segment's own words and function words
 #       passes, and a Leg carrying the retired `introduces` refuses (kogaki#1768); a validator handed no Segment content refuses
@@ -151,8 +151,8 @@ else {
   const legs = rec.reader_path || [];
   ok(legs.length === 1, `(a) the Brief carries ${legs.length} Leg(s), not one`);
   const leg = legs[0] || {};
-  ok((leg.waypoints || []).length === 3 && (leg.claims || []).length === 3, "(a) the Leg does not carry three Leg Waypoints and three Claims");
-  ok((leg.waypoints || []).every((w, i) => w.point === `POINT-${i + 1} CLAIM-${i + 1}` && w.serves[0] === `L${i + 1}`), "(a) a Leg Waypoint is not paragraph N's point serving L<N>");
+  ok((leg.waypoints || []).length === 3 && (leg.claims || []).length === 3, "(a) the Leg does not carry three Brief Waypoints and three Claims");
+  ok((leg.waypoints || []).every((w, i) => w.point === `POINT-${i + 1} CLAIM-${i + 1}` && w.serves[0] === `L${i + 1}`), "(a) a Brief Waypoint is not paragraph N's point serving L<N>");
   ok(!("move" in leg) && !("no_move_fits" in leg), "(a) the Brief's Leg carries a Move field");
   for (const k of ["reader_start", "reader_target", "obligations"]) {
     ok(!(k in rec) && !new RegExp(`^${k}:`, "m").test(text), `(a) the Brief carries the retired \`${k}\` (kogaki#1699)`);
@@ -173,7 +173,7 @@ else {
       purpose: `brings the reader to the point of paragraph ${i + 1}.`,
       reader_state_after: { knowledge: `after paragraph ${i + 1}.` },
       depends_on: i ? [i] : [], rationale: "its before holds the state the paragraph before leaves.", introduces: [], "re-activate": [] })),
-    // a later Leg Waypoint's join is one relation word (kogaki#1477).
+    // a later Brief Waypoint's join is one relation word (kogaki#1477).
     joins: l.waypoints.map((w, i) => (i ? "consequence" : null)) }));
   writeFileSync(paragraphPlanPathFor(briefPath), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, legs: planLegs })));
   const dr = spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, "ws")], { encoding: "utf8", timeout: 120000 });
@@ -239,7 +239,7 @@ else {
   const leg = prompts.find((p) => p.includes("`leg_path_unit` judgment point")) || "";
   const jp = (leg.match(/^JUDGMENT POINT: (.*)$/m) || [])[1] || "";
   ok(jp, "(h) the Leg call's rendered prompt carries no judgment point");
-  ok(jp.includes("Claim N's `proposition` and Leg Waypoint N's `point` are written from paragraph N's `text`, with its Extraction's Segment `content` clauses"),
+  ok(jp.includes("Claim N's `proposition` and Brief Waypoint N's `point` are written from paragraph N's `text`, with its Extraction's Segment `content` clauses"),
     "(h) the Leg call's instruction does not name the paragraph's `text` and its Segment `content` clauses as the source of the proposition and the point");
   ok(/carry no characterisation of the paragraph -- no "exhaustively", "exactly", "only" or "in parallel"/.test(jp),
     "(h) the Leg call's instruction does not forbid a characterisation of the paragraph in the proposition and the point");
@@ -255,10 +255,17 @@ const diff = spawnSync(process.execPath, ["src/proof-sheet/leg-brief.mjs", "diff
 ok(diff.status === 0 && (diff.stdout.match(/every copy resolves against the production text/g) || []).length === 1 && !diff.stdout.includes("leg_reader_start_unit"),
   `(d) \`leg-brief.mjs diff\` does not apply the one Leg row cleanly: ${diff.stdout}${diff.stderr}`);
 {
+  // THE POINT SPAN'S ORIGIN IS `leg_path_unit` ITSELF since the Brief's `lpp_waypoints` row left
+  // (kogaki#1775): the row carries the span and no copy, and the Mapping Playground's
+  // `smp_leg_unit` copies it from here -- a copy naming a span this row no longer carries refuses.
   const table = JSON.parse(readFileSync(join(repo, "src", "proof-sheet", "extraction-workflow.json"), "utf8"));
-  table.leg_path_unit.copies.point.opens = "a span production never carried";
-  const d = resolvedRow(table, "leg_path_unit");
-  ok(/`leg_path_unit`'s copy `point`: src\/brief-workflow.json's `lpp_waypoints.judgment_point` no longer carries "a span production never carried"/.test(d.error || ""),
+  ok(!table.leg_path_unit.copies && table.leg_path_unit.judgment_point.includes("EACH WAYPOINT IS A POINT (kogaki#1326):"),
+    "(d) leg_path_unit does not carry the point span itself with no copy (kogaki#1775)");
+  const playground = JSON.parse(readFileSync(join(repo, "src", "mapping-playground", "playground-workflow.json"), "utf8"));
+  ok(!resolvedRow(playground, "smp_leg_unit").error, `(d) smp_leg_unit's copy of the point span does not resolve: ${resolvedRow(playground, "smp_leg_unit").error}`);
+  playground.smp_leg_unit.copies.point.opens = "a span production never carried";
+  const d = resolvedRow(playground, "smp_leg_unit");
+  ok(/`smp_leg_unit`'s copy `point`: src\/proof-sheet\/extraction-workflow.json's `leg_path_unit.judgment_point` no longer carries "a span production never carried"/.test(d.error || ""),
     `(d) a copy naming an absent span was not refused by name: ${d.error}`);
 }
 
@@ -275,11 +282,11 @@ ok(!LB.validateLegPathUnit(good(), inputs).error, `(f) a good Leg was refused: $
 const m1 = good(); m1.legs[0].move = "some_move";
 ok(/carries `move`, which it does not declare/.test(LB.validateLegPathUnit(m1, inputs).error || ""), "(f) a Leg carrying `move` was not refused by name");
 const m2 = good(); m2.legs[0].waypoints.pop();
-ok(/one Leg Waypoint per paragraph/.test(LB.validateLegPathUnit(m2, inputs).error || ""), "(f) a Leg Waypoint count other than the paragraph count was not refused");
+ok(/one Brief Waypoint per paragraph/.test(LB.validateLegPathUnit(m2, inputs).error || ""), "(f) a Brief Waypoint count other than the paragraph count was not refused");
 const m3 = good(); m3.legs[0].claims[1].strand = "L7";
 ok(/Claim 2 names "L7", not L2/.test(LB.validateLegPathUnit(m3, inputs).error || ""), "(f) Claim N not naming L<N> was not refused");
 const m4 = good(); m4.legs[0].waypoints[1].effect = "the reader feels it";
-ok(/waypoint 2 carries `effect`, which is retired/.test(LB.validateLegPathUnit(m4, inputs).error || ""), "(f) a Leg Waypoint carrying `effect` was not refused by waypointsRefusal");
+ok(/waypoint 2 carries `effect`, which is retired/.test(LB.validateLegPathUnit(m4, inputs).error || ""), "(f) a Brief Waypoint carrying `effect` was not refused by waypointsRefusal");
 for (const f of ["reader_state_after", "reader_state_before"]) {
   const m5 = good(); m5.legs[0][f] = "knowledge: holds it";
   ok(new RegExp(`carries \`${f}\` — the Leg's reader states are retired \\(kogaki#1699\\)`).test(LB.validateLegPathUnit(m5, inputs).error || ""),
@@ -310,7 +317,7 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
   // a Claim word refuses, naming the Claim, the word and the Waypoints read; a Claim word an
   // Leg carries no `introduces` (kogaki#1768), so no entry stands in for a point
   const dropped = LB.validateLegPathUnit(leg("The run copies it again"), iIn).error || "";
-  ok(/Claim 2 \(L2\) carries "next" in its `proposition`, which is in no `point` of the Leg Waypoints serving L2 \(read: waypoint 2\) —/.test(dropped),
+  ok(/Claim 2 \(L2\) carries "next" in its `proposition`, which is in no `point` of the Brief Waypoints serving L2 \(read: waypoint 2\) —/.test(dropped),
     `(i) a point dropping a word of the Claim it serves was not refused naming the Claim, the word and the Waypoint: ${dropped}`);
   const m6 = leg("The next run copies it again"); m6.legs[0].introduces = ["kit — the copy as it stands"];
   ok(/carries `introduces`, which it does not declare/.test(LB.validateLegPathUnit(m6, iIn).error || ""),

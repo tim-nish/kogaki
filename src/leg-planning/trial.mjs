@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// The Leg-Planning Playground's Trial (kogaki#1764): a claims file read into one RelationalStructure, Leg Waypoints
-// composed from its relations and judged GROUNDED, Legs derived over them with no Move (kogaki#1767), and
-// `/paragraph-plan` run over the Legs to bind one Move per Leg Waypoint, every Call recorded and the chain rendered as
-// one sheet.
+// The Leg-Planning Playground's Trial (kogaki#1764): a claims file read into one RelationalStructure, the Legs derived
+// from it as the Brief derives them, one per relation the apex reaches with no Call and no Move (kogaki#1775), and
+// `/paragraph-plan` run over the Legs, every Call recorded and the chain rendered as one sheet. The ParagraphPlan's
+// reading of a Leg with no Waypoint is kogaki#1777's; until it lands, the paragraph-plan stage stops on its refusal.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -27,9 +27,7 @@ import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../mapping-playground/sme.mjs";
 import { unitCalls, roundsAt, unitStatus, waypointStatus, namedWaypoints } from "../flp/sheet.mjs";
 import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
-import {
-  mintStructure, validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment, derivedLegs, legPartitionRefusal,
-} from "../compose/structure.mjs";
+import { mintStructure, validateReadSet, withReach, structureLegs, pathReachRefusal } from "../compose/structure.mjs";
 import { resolvedRow } from "../workflow/copies.mjs";
 import { renderLppSheet } from "./sheet.mjs";
 
@@ -38,12 +36,11 @@ export const BRIEF_TABLE = "src/brief-workflow.json";
 export const TRIALS_DIR = join("runs", "leg-planning");
 export const TRIAL_FILE = "trial.json";
 export const STRUCTURE_FILE = "structure.yaml";
-export const WAYPOINTS_FILE = "waypoints.yaml";
 export const LEGS_FILE = "legs.yaml";
 export const SHEET_FILE = "sheet.html";
 export const PLAN_DIR = "paragraph-plan";
 export const PLAN_BRIEF_FILE = "brief.yaml";
-export const STAGES = ["structure", "waypoints", "legs", "paragraph-plan"];
+export const STAGES = ["structure", "legs", "paragraph-plan"];
 const PLAN_AWAIT_S = 30;
 const PLAN_AWAITS_MAX = 240;
 const FLOW = { lane: "brief", label: "Leg-Planning Playground" };
@@ -142,89 +139,19 @@ function structureStage({ ask, row, claims, thesis, persona }) {
   return { stopped: `the \`${row.id}\` answer was refused ${MAPPER_CALLS} times; the last refusal: ${history[history.length - 1].refusal}`, rounds };
 }
 
-// THE GROUNDED JUDGE over one Waypoint set: its verdict, or the stop. A malformed verdict is asked again once.
-function groundedVerdict({ ask, row, structure, waypoints }) {
-  const input = { structure, waypoints: waypoints.map((w, i) => ({ waypoint: i + 1, point: w.point, carries: w.carries })) };
-  const calls = [];
-  for (let k = 1; k <= 2; k++) {
-    const a = ask({ row, input, tables: [LPP_TABLE], phase: "judge", check: (rec) => {
-      const v = validateGrounded(rec, waypoints);
-      return v.text ? { ...v, validator: "validateGrounded" } : null;
-    } });
-    calls.push(a.call);
-    if (a.stopped) return { stopped: a.stopped, calls };
-    if (!a.refusal) return { verdict: a.answer, calls };
-  }
-  return { stopped: `the \`${row.id}\` verdict was malformed twice`, calls };
+// STAGE 2: the Legs, derived as the Brief derives them (kogaki#1775); no Call is made.
+function legsStage({ structure, claims }) {
+  const legs = structureLegs(structure, claims);
+  const bad = pathReachRefusal(legs, structure);
+  if (bad) return { stopped: `the derived Legs break the path's reach: ${bad}` };
+  return { value: legs, rounds: [] };
 }
 
-// STAGE 2: the Waypoint set, judged GROUNDED; a named Waypoint is asked again alone with the judge's text, up to `rounds`.
-function waypointsStage({ ask, row, judgeRow, structure, thesis, persona, claims, bound }) {
-  const base = { thesis, structure, persona: personaInput(persona) };
-  const history = [];
-  const rounds = [];
-  let set = null;
-  let sites = [];
-  const named = [];
-  for (let k = 1; k <= bound; k++) {
-    const round = { round: k, submission: [], comment: null, verdict: null, calls: [] };
-    rounds.push(round);
-    if (!set) {
-      const a = ask({ row, input: base, history, tables: [LPP_TABLE, BRIEF_TABLE], phase: "compose", check: (rec) => {
-        const v = validateWaypoints(rec, structure);
-        return v.text ? { ...v, validator: "validateWaypoints" } : null;
-      } });
-      round.submission.push(a.call);
-      if (a.stopped) { round.verdict = "stopped"; return { stopped: a.stopped, rounds, named }; }
-      if (a.refusal) { round.verdict = "refused"; round.comment = a.refusal.text; history.push(historyEntry(a)); continue; }
-      set = a.answer.waypoints.map((w) => ({ point: w.point, carries: w.carries }));
-    } else {
-      for (const s of sites) {
-        const n = Number(s.waypoint);
-        const comment = siteComment(s);
-        const input = { ...base, waypoints: set.map((w, i) => ({ waypoint: i + 1, point: w.point, carries: w.carries })),
-          waypoint_you_must_rewrite: { waypoint: n, point: set[n - 1].point, carries: set[n - 1].carries } };
-        let next = null;
-        const a = ask({ row, input, history: [{ answer: { waypoint: n, ...set[n - 1] }, refusal: comment, group: "carries", reach: "part" }],
-          tables: [LPP_TABLE, BRIEF_TABLE], phase: "site", check: (rec) => {
-            const v = rewrittenSet(rec, n, set, structure);
-            if (v.text) return { ...v, validator: "rewrittenSet" };
-            next = v.waypoints;
-            return null;
-          } });
-        round.submission.push(a.call);
-        if (a.stopped) { round.verdict = "stopped"; return { stopped: a.stopped, rounds, named }; }
-        if (a.refusal) { round.verdict = "refused"; round.comment = a.refusal.text; break; }
-        set = next;
-      }
-      if (round.verdict === "refused") continue;
-    }
-    const j = groundedVerdict({ ask, row: judgeRow, structure, waypoints: set });
-    round.calls.push(...j.calls);
-    if (j.stopped) { round.verdict = "stopped"; return { stopped: j.stopped, rounds, named }; }
-    round.verdict = j.verdict.verdict;
-    if (j.verdict.verdict === "fits") {
-      return { value: set.map((w) => ({ point: w.point, carries: [...w.carries], serves: servesOf(structure, w.carries, claims) })), rounds, named };
-    }
-    sites = j.verdict.sites;
-    round.comment = sites.map(siteComment).join("\n");
-    named.push(...sites.map((s) => ({ round: k, waypoint: Number(s.waypoint), phrase: s.phrase, why: s.why })));
-  }
-  return { stopped: `the Waypoints were not GROUNDED in ${bound} Round(s)`, rounds, named };
-}
-
-// STAGE 3: the Legs, derived by the runner (kogaki#1767); no Call is made.
-function legsStage({ waypoints, structure, claims }) {
-  const d = derivedLegs(waypoints, structure, claims);
-  const bad = legPartitionRefusal(d, waypoints, structure);
-  if (bad.error) return { stopped: `the derived Legs break their invariant: ${bad.error}` };
-  return { value: d.legs, partition: d.partition, rounds: [] };
-}
-
-// THE BRIEF `/paragraph-plan` IS HANDED (kogaki#1767): legs.yaml's `reader_path`, unchanged, in a Brief record.
-function planBriefText({ slug, audiencePath, claims, thesis, legsFile }) {
+// THE BRIEF `/paragraph-plan` IS HANDED (kogaki#1767): legs.yaml's `reader_path`, unchanged, in a Brief record beside
+// the structure it was derived from (kogaki#1775).
+function planBriefText({ slug, audiencePath, claims, thesis, legsFile, structure }) {
   return briefRecordText({ slug, compose_path: relFromRepo(audiencePath),
-    strands: claims.map((c) => ({ id: c.id, slug: `${slug}-${c.id}`, cite: c.cite })), thesis, defined_terms: [],
+    strands: claims.map((c) => ({ id: c.id, slug: `${slug}-${c.id}`, cite: c.cite })), thesis, defined_terms: [], structure,
     reader_path: legsFile.reader_path, strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {} });
 }
 
@@ -234,7 +161,7 @@ function planCommand(args) {
   return { exit: r.status, stdout: String(r.stdout || ""), line: said.slice(-3).join(" ") || (r.error ? r.error.message : "(no output)") };
 }
 
-// THE BINDING AND THE VERDICT AT EACH LEG WAYPOINT, read from the plan's run as the FLP reads it.
+// THE BINDING AND THE VERDICT AT EACH WAYPOINT, read from the plan's run as the FLP reads it.
 function planWaypoints(runDir, legs) {
   const job = readReaderPathJob(runDir) || { units: [] };
   return legs.flatMap((leg, i) => {
@@ -243,7 +170,7 @@ function planWaypoints(runDir, legs) {
     const status = unitStatus(job, unit);
     const calls = unitCalls(runDir, unitId);
     const last = unit && Array.isArray(unit.refusals) && unit.refusals.length ? unit.refusals[unit.refusals.length - 1] : "";
-    return leg.waypoints.map((_, k) => {
+    return (leg.waypoints || []).map((_, k) => {
       const n = k + 1;
       const rounds = roundsAt(calls, n, status);
       const r = rounds[rounds.length - 1];
@@ -269,12 +196,12 @@ function noFitStop(runDir) {
 }
 
 // STAGE 4: `/paragraph-plan` over the Legs, driven as the SMP Trial drives it (kogaki#1767).
-function paragraphPlanStage({ outDir, legsPath, legsFile, slug, audiencePath, claims, thesis, libraryDir }) {
+function paragraphPlanStage({ outDir, legsPath, legsFile, slug, audiencePath, claims, thesis, libraryDir, structure }) {
   const dir = join(outDir, PLAN_DIR);
   const runDir = join(dir, "run");
   mkdirSync(runDir, { recursive: true });
   const briefPath = join(dir, PLAN_BRIEF_FILE);
-  writeFileSync(briefPath, planBriefText({ slug, audiencePath, claims, thesis, legsFile }));
+  writeFileSync(briefPath, planBriefText({ slug, audiencePath, claims, thesis, legsFile, structure }));
   const shown = { legs: fileRecord(legsPath), brief: fileRecord(briefPath), run: relFromRepo(runDir) };
   const pp = (cmd, extra = []) => planCommand([cmd, "--brief", briefPath, "--run-dir", runDir, "--moves-dir", libraryDir, ...extra]);
   const ended = (line) => ({ ...shown, waypoints: planWaypoints(runDir, legsFile.reader_path), stopped: noFitStop(runDir) || line });
@@ -314,7 +241,7 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   const { thesis, claims } = readClaims(claimsFile);
   const table = readJson(LPP_TABLE);
   const rows = {};
-  for (const id of ["sme_read_set", "lpp_waypoints", "lpp_grounded"]) {
+  for (const id of ["sme_read_set"]) {
     const r = resolvedRow(table, id);
     if (r.error) fail(`${r.error}. Nothing was written.`);
     rows[id] = r.row;
@@ -327,7 +254,6 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   if (lib.error) fail(`${lib.error}. Nothing was written.`);
   const briefRecord = readBrief(brief);
   const judge = resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || readJson(BRIEF_TABLE).judge.command), process.env.PATH);
-  const bound = Number(settingValue({ setting: "brief.unit_rounds" }));
   const ask = caller({ outDir, binary: judge.path, cli: cliRecord(judge.path, judge.version),
     model: String(settingValue({ setting: "brief.judge_model" })), timeoutS: Number(settingValue({ setting: "brief.call_limit_s" })) });
   mkdirSync(outDir, { recursive: true });
@@ -356,14 +282,12 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   save();
   const wrap = (r, file) => (r.stopped ? r : { ...r, value: { data: r.value, file: file(r.value) } });
   const structure = stage("structure", STRUCTURE_FILE, () => wrap(structureStage({ ask, row: rows.sme_read_set, claims, thesis, persona }), (s) => s));
-  const waypoints = stage("waypoints", WAYPOINTS_FILE, () => wrap(waypointsStage({ ask, row: rows.lpp_waypoints, judgeRow: rows.lpp_grounded,
-    structure, thesis, persona, claims, bound }), (ws) => ({ waypoints: ws })));
   let legsFile = null;
   const legs = stage("legs", LEGS_FILE, () => {
-    const r = legsStage({ waypoints, structure, claims });
+    const r = legsStage({ structure, claims });
     if (r.stopped) return r;
     const file = { composed_by: COMPOSED_BY, reader_path: r.value };
-    const readable = readerPathRefusal(file);
+    const readable = readerPathRefusal(file, structure);
     if (readable.error) return { stopped: `legs.yaml would not read as a Brief's \`reader_path\`: ${readable.error}`, rounds: r.rounds };
     legsFile = file;
     return { ...r, value: { data: r.value, file } };
@@ -371,7 +295,7 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   let plan = null;
   if (record.stopped) record.stages.push({ stage: "paragraph-plan", state: "not run" });
   else {
-    const r = paragraphPlanStage({ outDir, legsPath: join(outDir, LEGS_FILE), legsFile, slug: record.trial, audiencePath, claims, thesis, libraryDir });
+    const r = paragraphPlanStage({ outDir, legsPath: join(outDir, LEGS_FILE), legsFile, slug: record.trial, audiencePath, claims, thesis, libraryDir, structure });
     record.stages.push({ stage: "paragraph-plan", state: r.stopped ? "stopped" : "done", ...r });
     if (r.stopped) record.stopped = `paragraph-plan: ${r.stopped}`;
     else plan = parseYaml(readFileSync(join(outDir, PLAN_DIR, PARAGRAPH_PLAN_FILE), "utf8"), PARAGRAPH_PLAN_FILE);
@@ -379,7 +303,7 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   }
   record.finished_at = new Date().toISOString();
   const sheetPath = join(outDir, SHEET_FILE);
-  writeFileSync(sheetPath, renderLppSheet({ outDir, record, structure, waypoints, legs, plan, libraryDir, briefLegs: briefRecord ? briefRecord.legs : null }));
+  writeFileSync(sheetPath, renderLppSheet({ outDir, record, structure, legs, plan, libraryDir, briefLegs: briefRecord ? briefRecord.legs : null }));
   record.sheet = fileRecord(sheetPath);
   save();
   return { outDir, stopped: record.stopped || null };

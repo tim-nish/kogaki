@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, a Base Paragraph and, where `bind` declares
 // its case apart, an Inference Paragraph, read on a sheet (kogaki#1719); the model route binds the Moves first, then fills one Mapping Table per bound
-// Move under its Segments, then writes each paragraph's Paragraph Waypoints from its own table (kogaki#1700, kogaki#1709).
+// Move under its Segments, then writes each paragraph's Waypoints from its own table (kogaki#1700, kogaki#1709).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -68,10 +68,10 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
 
 // ---------------------------------------------------------------------------
-// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700, kogaki#1709): its one claim is the proposition, in the Brief's form; one Leg
+// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700, kogaki#1709): its one claim is the proposition, in the Brief's form; one Brief
 // Waypoint per bound Move, each `point` the structure in the expressions of that Move's table: one per projecting binding of the
 // owner's file after the first, and in the model route one where an Inference Move is bound, else none.
-// A Leg Waypoint's point (kogaki#1688). Only the first Waypoint takes the declared case; the owner's file declares none,
+// A Brief Waypoint's point (kogaki#1688). Only the first Waypoint takes the declared case; the owner's file declares none,
 // so `legCase` reads it from the bindings (kogaki#1732).
 export function firstPoint(structure, table) {
   const base = new Map(table.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
@@ -246,7 +246,7 @@ export function correspondenceRefusal(answer, structure) {
   return v.error ? { group: v.group, text: v.error } : null;
 }
 
-// THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Leg Waypoint's Move fixed; an answer binding another Move is
+// THE `waypoints` ROW (kogaki#1700): one call over the Leg with each Brief Waypoint's Move fixed; an answer binding another Move is
 // refused naming the Waypoint, the record is a ParagraphPlan unit's, and each paragraph's points keep to its own table (kogaki#1709).
 function waypointsStage({ dir, env, cli, leg, persona, libraryDir, playground, tables, moves, contracts, leaves }) {
   const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
@@ -254,9 +254,9 @@ function waypointsStage({ dir, env, cli, leg, persona, libraryDir, playground, t
   if (d.error) return { stopped: d.error };
   const row = { ...plan.paragraph_plan_unit, ...d.row, shared_text_file: plan.paragraph_plan_unit.shared_text_file };
   const planned = planLeg(leg, { priorKnowledge: personaPriorKnowledgeLine(persona) });
-  // kogaki#1719: a later Leg Waypoint stands to take up what the binding before it leaves (kogaki#1701).
+  // kogaki#1719: a later Brief Waypoint stands to take up what the binding before it leaves (kogaki#1701).
   const fixed = { ...planned, waypoints: planned.waypoints.map((w, i) => ({ ...w, move: moves[i],
-    ...(i > 0 ? { stands_to_be_taken_up: leaves[i - 1].map((x) => ({ kind: x.kind, what: x.what, left_by: `Leg Waypoint ${i}` })) } : {}) })) };
+    ...(i > 0 ? { stands_to_be_taken_up: leaves[i - 1].map((x) => ({ kind: x.kind, what: x.what, left_by: `Brief Waypoint ${i}` })) } : {}) })) };
   const bound = [...new Set(moves)].map((id) => contracts.get(id));
   const input = { ...paragraphPlanUnitInput(fixed, bound, persona), tables };
   const held = bindFlow(FLOW);
@@ -287,7 +287,7 @@ function waypointsStage({ dir, env, cli, leg, persona, libraryDir, playground, t
   return { entries: a.record.waypoints };
 }
 
-// THE PARAGRAPHS: one Packet over a one-Leg Brief, each Leg Waypoint carrying its binding's points, and the writer called once.
+// THE PARAGRAPHS: one Packet over a one-Leg Brief, each Brief Waypoint carrying its binding's points, and the writer called once.
 export function shortPacket({ leg, paragraphs, audiencePath }) {
   const split = splitPacketTemplate(readFileSync(PACKET_TEMPLATE, "utf8"));
   if (split.error) return { error: split.error };
@@ -491,7 +491,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     return { value: t, refusals };
   });
   const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure, legCase(record.bind)) : null;
-  // THE PARAGRAPH WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
+  // THE WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
   const paragraphs = stage("waypoints", (d, env) => {
     let listed;
     if (owned) {
@@ -544,8 +544,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (args._cmd !== "run") fail(USAGE);
   if (Object.hasOwn(args, "rbs")) fail(`\`--rbs\` is retired with the \`rbs_<variant>\` family: the model route is \`--compose\` and the owner's table is \`--rbs-file\` (kogaki#1700). Nothing was started. ${USAGE}`);
   if (Object.hasOwn(args, "compose") && args.compose !== true) fail(`\`--compose\` takes no value. Nothing was started. ${USAGE}`);
-  if (args.compose === true && str("rbs-file")) fail(`\`--compose\` and \`--rbs-file\` are given together: a Trial's Moves, Correspondence column and Paragraph Waypoints are composed or the owner's file, never both. Nothing was started. ${USAGE}`);
-  if (args.compose !== true && !str("rbs-file")) fail(`neither \`--compose\` nor \`--rbs-file\` is given: a Trial composes its Moves, Correspondence column and Paragraph Waypoints, or reads them from the owner's file (kogaki#1700). Nothing was started. ${USAGE}`);
+  if (args.compose === true && str("rbs-file")) fail(`\`--compose\` and \`--rbs-file\` are given together: a Trial's Moves, Correspondence column and Waypoints are composed or the owner's file, never both. Nothing was started. ${USAGE}`);
+  if (args.compose !== true && !str("rbs-file")) fail(`neither \`--compose\` nor \`--rbs-file\` is given: a Trial composes its Moves, Correspondence column and Waypoints, or reads them from the owner's file (kogaki#1700). Nothing was started. ${USAGE}`);
   if (str("structure") && str("mapper")) fail(`\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`);
   if (Object.hasOwn(args, "strand")) fail(`\`--strand\` is no flag of the short Trial: its input is \`--proposition <file>\` (kogaki#1685). Nothing was started. ${USAGE}`);
   for (const k of ["proposition", ...(str("mapper") ? [] : ["structure"]), "out"]) if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);

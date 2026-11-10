@@ -2,8 +2,8 @@
 # check-brief-mint — the mint-side rules of Brief composition; pure calls, no model run.
 #   (af) a Leg carries no `introduces` (kogaki#1768); a ParagraphPlan introduces
 #        entry carrying `nearest` or `differs` is refused naming it (kogaki#1571).
-#   (ar) the Persona is read once, by `audienceFor`, and handed to the Leg Waypoint
-#        unit's input, never its validator (kogaki#1768); review_path carries
+#   (ar) the Persona is read once, by `audienceFor`; compose_path hands it to no
+#        Call, its Legs derived with none (kogaki#1775); review_path carries
 #        `defined_terms` instead (kogaki#1331).
 #   (as) the claim register (kogaki#1281); (bb) `composeBrief` records
 #        `compose_path` (kogaki#1262, #1328); (cc) no external-authority switch (#1571).
@@ -58,18 +58,19 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   }
 }
 
-// (ar) kogaki#1331, kogaki#1768: the Persona is read once, by `audienceFor`; compose_path hands
-// it in the Leg Waypoint unit's input -- where a waypoint's `case` is chosen from the prior
-// knowledge -- and never to the unit validator, which is handed the structure alone;
-// review_path reads none of it and carries the Brief's `defined_terms` in its place.
+// (ar) kogaki#1331, kogaki#1775: the Persona is read once, by `audienceFor`; compose_path hands
+// it to no Call, since its Legs are derived with none; review_path reads none of it and
+// carries the Brief's `defined_terms` in its place.
 {
   const brief = briefRuntimeText();
   const code = (t) => t.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
   const composePath = code(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")));
   const reviewPath = code(brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:")));
   if ((code(brief).match(/personaPriorKnowledgeLine\(/g) || []).length !== 1) fails.push("(ar) the Brief runtime does not read the Persona's prior_knowledge exactly once");
-  if (!composePath.includes("const input = { state: st.id, thesis, structure, persona, language };")) fails.push("(ar) compose_path does not hand the Persona in the unit's input");
-  if (!/validator: \{[^}]*inputs: \{ structure \}/.test(composePath)) fails.push("(ar) compose_path hands the unit validator more than the structure");
+  // compose_path ASKS NO LEG CALL (kogaki#1775): its Legs are derived with no Call, so it reads
+  // the audience's language alone and hands the Persona to nothing.
+  if (/\bpersona\b/.test(composePath)) fails.push("(ar) compose_path still reads or passes the Persona, though its Legs are derived with no Call (kogaki#1775)");
+  if (!composePath.includes("const { language } = audienceFor(table, st);")) fails.push("(ar) compose_path does not read the audience's language through audienceFor");
   if (/persona_prior_knowledge|personaPriorKnowledgeLine|audienceFor\(/.test(reviewPath)) fails.push("(ar) review_path still reads or passes the Persona's prior_knowledge");
   if ((reviewPath.match(/defined_terms: definedTerms,/g) || []).length !== 2) fails.push("(ar) review_path's base write and per-unit input do not both carry defined_terms");
 }
@@ -656,5 +657,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — a Leg declaring no introduces (kogaki#1768) and an introduces entry carrying nearest or differs refused by name (kogaki#1571); the Persona read once, handed in compose_path's unit input and never to its validator (kogaki#1768), review_path reading none of it and carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes over candidates composed from the structure's apex (kogaki#1768), a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a component no higher-order relation connects reported above the question and under strand_coverage rather than offered, a single top as its own apex, the depth line deepest first, and a Thesis over brief.thesis_words rewritten once and refused if still over (kogaki#1773); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
+console.log("ok: check-brief-mint — a Leg declaring no introduces (kogaki#1768) and an introduces entry carrying nearest or differs refused by name (kogaki#1571); the Persona read once and handed to no compose_path Call (kogaki#1775), review_path reading none of it and carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes over candidates composed from the structure's apex (kogaki#1768), a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a component no higher-order relation connects reported above the question and under strand_coverage rather than offered, a single top as its own apex, the depth line deepest first, and a Thesis over brief.thesis_words rewritten once and refused if still over (kogaki#1773); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
 JS

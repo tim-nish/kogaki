@@ -15,8 +15,8 @@ import {
 } from "../compose.mjs";
 import { applyLegSections } from "../compose/sections.mjs";
 import {
-  componentsOf, derivedLegs, elementLabel, legPartitionRefusal, mintStructure, partitionComponents, pathReachRefusal,
-  readHolds, servesOf, validateApex, validateReadSet,
+  componentsOf, elementLabel, mintStructure, partitionComponents, pathReachRefusal,
+  readHolds, structureLegs, validateApex, validateReadSet,
 } from "../compose/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
@@ -102,58 +102,49 @@ function everyClaim(state, st) {
   return claims;
 }
 
-// THE READER PATH FROM ITS WAYPOINTS (kogaki#1767, kogaki#1768), at
-// `compose_path`'s resumption: each Waypoint's `serves` derived from its
-// `carries`, the Legs derived over the Waypoints (`derivedLegs`) and refused
-// where they break the derivation's invariant, each Leg's `opens_section`
-// written by the one `leg_sections` Call, and ONE Candidate written whose
-// reasoning names the GROUNDED Rounds the Waypoints took.
-async function finishReaderPath(rec, st, table, args, { result, structure, language }) {
+// THE READER PATH FROM THE STRUCTURE (kogaki#1775): the Legs derived by the
+// Harness with no Call, one per relation and higher-order relation the apex
+// reaches (`structureLegs`), refused where they break the path's reach, each
+// Leg's `opens_section` written by the one `leg_sections` Call, and ONE
+// Candidate written. The Brief records no Round.
+async function finishReaderPath(rec, st, table, args, { structure, language }) {
   const claims = servedClaims(rec);
-  const raw = Array.isArray(result && result.waypoints) ? result.waypoints : [];
-  if (!raw.length) fail(`${st.id}: the reader-path job ended \`done\` and its result carries no Waypoint.`);
-  const waypoints = raw.map((w) => ({ point: w.point, carries: [...w.carries], serves: servesOf(structure, w.carries, claims) }));
-  const derived = derivedLegs(waypoints, structure, claims, { withStructure: true });
-  const bad = legPartitionRefusal(derived, waypoints, structure);
-  if (bad.error) fail(`${st.id}: the derived Legs break their invariant: ${bad.error}`);
+  const derived = structureLegs(structure, claims);
+  const bad = pathReachRefusal(derived, structure);
+  if (bad) fail(`${st.id}: the derived Legs break the path's reach: ${bad}`);
   const row = table.leg_sections
     || fail(`${st.id}: src/brief-workflow.json declares no leg_sections row for the Legs' Sections (kogaki#1768)`);
-  const holds = new Map(structure.higher_order.map((h) => [h.id, readHolds(structure, h.holds)]));
   let legs = null;
   const validate = (p) => {
     let r;
     try { r = readJson(p); }
     catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
-    const out = applyLegSections(derived.legs, r);
+    const out = applyLegSections(derived, r);
     if (out.error) refuseJudgment(out.error);
     legs = out.legs;
   };
   const composeInputFor = () => writeJudgeInput(rec, row, {
     state: st.id, unit: row.id, language,
-    legs: derived.legs.map((l) => ({ leg_id: l.leg_id, relation: l.relation, holds: holds.get(l.relation),
-      points: l.waypoints.map((w) => w.point) })),
+    legs: derived.map((l) => ({ leg_id: l.leg_id, relation: l.relation, text: l.text })),
   });
   rec.brief_leg_sections = await judged(rec, row, table, args, "leg-sections", composeInputFor, validate);
   const v = validateLegs(legs, { structure });
   if (v.error) fail(`${st.id}: ${v.error}`);
-  const rounds = result.rounds;
   const candidate = {
     candidate_id: "reader-path",
     legs: v.legs,
     reasoning: {
-      leg_validity: `Every Leg Waypoint was judged GROUNDED in the relations it carries`
-        + `${Number.isInteger(rounds) ? `, in ${rounds} Round${rounds === 1 ? "" : "s"}` : ""}; the Legs are derived over `
-        + "the Waypoints, one per higher-order relation they serve, the Thesis last.",
+      leg_validity: "The Legs are derived from the structure with no Call, one per relation and higher-order relation "
+        + "the apex reaches, each saying its relation's `holds`; the apex's Leg attains the Thesis.",
     },
   };
-  // THE UNITS THAT ENDED WITHOUT A READER PATH, named above the Candidate question.
-  rec.brief_compose_excluded = Array.isArray(result.excluded) ? result.excluded : [];
+  rec.brief_compose_excluded = [];
   // THE BARE ARRAY, WRITTEN BESIDE THE RECORD. `src/review.mjs attach` reads
   // its `--candidates` as the Candidate array.
   const out = join(rec._dir, "brief-candidates.json");
   writeFileSync(out, JSON.stringify([candidate], null, 2) + "\n");
   rec.brief_candidates = out;
-  rec.judgments[st.id] = relFromRepo(resolve(readerPathJobPath(rec._dir)));
+  rec.judgments[st.id] = rec.brief_leg_sections;
   return null;
 }
 
@@ -359,88 +350,28 @@ export const STATE_WORK = {
     return { artifact: cmdMint({ ...args, "run-state": runState, definedTerms: entries }) };
   },
 
-  // ---- JUDGMENT POINT 2. The Reader Path (kogaki#1768): the renderings record
-  // first, then ONE Detached Job unit composing the Leg Waypoints from the
-  // Brief's adopted structure under the `lpp_waypoints` row, its record refused
-  // by `validateBriefWaypoints` and judged GROUNDED by the `lpp_grounded` row
-  // inside the same Round. The Legs are derived over the Waypoints on
-  // resumption, by the Harness, with no Move.
+  // ---- JUDGMENT POINT 2. The Reader Path (kogaki#1775): the renderings record
+  // first, then the Legs derived from the Brief's adopted structure by the
+  // Harness, with no Call but the one `leg_sections` Call that groups them.
   compose_path: async (rec, st, args, table) => {
     const { briefPath, record } = readMintedBrief(rec, st);
     const structure = record.structure
       || fail(`${st.id}: the Brief at ${relFromRepo(briefPath)} carries no \`structure\` — the mint writes the adopted `
-        + "structure beside the Thesis, and the Reader Path is composed from it (kogaki#1768). Nothing was started.");
+        + "structure beside the Thesis, and the Reader Path is derived from it (kogaki#1768). Nothing was started.");
     const thesis = briefThesis(record);
-    const { persona, language } = audienceFor(table, st);
-    const dir = rec._dir;
-
-    // RESUMPTION (kogaki#1193). `job await`'s "done" arm re-enters this state
-    // carrying `--waypoints <file>`: the finished unit's Waypoints, already
-    // validated and judged GROUNDED by the supervisor, and the Rounds they took.
-    if (args.waypoints) {
-      try {
-        return await finishReaderPath(rec, st, table, args, { result: readJson(String(args.waypoints)), structure, language });
-      } catch (e) {
-        if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);
-        throw e;
-      }
-    }
-
-    // ALREADY OPEN (kogaki#1193). A job already started is polled again by
-    // `job await`, never restarted.
-    if (readReaderPathJob(dir)) {
-      throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
-        `the reader-path job at ${readerPathJobPath(dir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
-        + "to poll it (kogaki#1193).");
-    }
+    const { language } = audienceFor(table, st);
 
     // THE RENDERINGS RECORD, ASKED FIRST (kogaki#1494, owner decision
     // 2026-10-21): the source terms the article will not keep, each with the
     // plain phrase it uses instead. The Path Review's recoverability entry and
     // adoption read it from `brief_renderings`.
     rec.brief_renderings = await judgeRenderings(rec, st, table, args, { record, thesis, language });
-
-    const cfg = judgeSettings(table, rec);
-    const { callLimitS, unitRounds } = briefJobBounds(table, "compose_path");
-    const unitRow = table.lpp_waypoints
-      || fail(`${st.id}: src/brief-workflow.json declares no lpp_waypoints row for the job unit's prompt — nothing was started (kogaki#1768).`);
-    const fitRow = table.lpp_grounded
-      || fail(`${st.id}: src/brief-workflow.json declares no lpp_grounded row for the job unit's GROUNDED judgment — nothing was started (kogaki#1768).`);
-    const input = { state: st.id, thesis, structure, persona, language };
-    writeJudgeInput(rec, st, input);
-    startDetachedJobSupervisor(dir, {
-      units: [{ id: "reader-path", prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) }],
-      command: cfg.command,
-      model: cfg.model,
-      outputFormat: cfg.outputFormat,
-      callLimitS,
-      unitRounds,
-      stallS: READER_PATH_JOB_STALL_S,
-      heartbeatMs: jobHeartbeatMs(),
-      recordArray: "waypoints",
-      // THE DECLARED GROUNDED JUDGE (kogaki#1768): once the unit's Waypoints pass
-      // the validator, the supervisor runs one more headless session over them with
-      // what `groundedPrompt` builds, and reads the answer with `groundedVerdict`. A
-      // `does-not-fit` is a schema refusal of the unit: the next Round composes the
-      // whole Waypoint set again under the judge's sites.
-      fitJudge: {
-        module: "src/brief.mjs",
-        prompt_export: "groundedPrompt",
-        verdict_export: "groundedVerdict",
-        record_array: "sites",
-        inputs: { structure, promptHead: judgePrompt(fitRow, "", null, null) },
-      },
-      // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit: the
-      // structure the Waypoints are refused against is handed over here.
-      validator: {
-        module: "src/brief.mjs",
-        export: "validateBriefWaypoints",
-        inputs: { structure },
-      },
-    });
-    throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
-      `reader-path job started at ${readerPathJobPath(dir)} (kogaki#1193) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
-      + "to poll it.");
+    try {
+      return await finishReaderPath(rec, st, table, args, { structure, language });
+    } catch (e) {
+      if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);
+      throw e;
+    }
   },
 
   // ---- JUDGMENT POINT 3. Path review, which is REASONING and never a verdict.
@@ -717,9 +648,9 @@ export const GATE_WORK = {
       options: offered.options
         .filter((o) => o.id !== "none-of-these")
         .map((o) => ({ id: o.id, label: o.label, description: o.description })),
-      // THE READER PATH IS SHOWN ABOVE THE QUESTION (kogaki#1768): its Legs and
-      // Leg Waypoints, each Waypoint with the relations it carries. That reading
-      // is the owner's reading of the Brief's sheet.
+      // THE READER PATH IS SHOWN ABOVE THE QUESTION (kogaki#1768, kogaki#1775):
+      // its Legs, each with the relation it serves and its text. That reading is
+      // the owner's reading of the Brief's sheet.
       extra: { ...candidateSelectionExtra(rec.brief_excluded || []),
         reader_path: readerPathReading(reviewed.candidates || [], record.structure || null) },
     };
@@ -727,23 +658,17 @@ export const GATE_WORK = {
 };
 
 // THE READER PATH, AS THE OWNER READS IT ABOVE THE CANDIDATE QUESTION
-// (kogaki#1768): each Leg with the higher-order relation it serves and its
-// Section heading where it opens one, and each Leg Waypoint's point with the
-// relations it carries, each as its name and the claim ids it is read from (kogaki#1772). A Role written `{<id>}` in a
-// relation reads as its name.
+// (kogaki#1775): each Leg with its Section heading where it opens one, the
+// relation it serves as its name and the claim ids it is read from
+// (kogaki#1772), and its `text`; the apex's Leg says it attains the Thesis.
 export function readerPathReading(candidates, structure) {
-  const holds = new Map((structure ? [...structure.relations, ...structure.higher_order] : [])
-    .map((x) => [x.id, readHolds(structure, x.holds)]));
   const lines = [];
   for (const c of candidates) {
-    const n = (c.legs || []).reduce((k, l) => k + (l.waypoints || []).length, 0);
-    lines.push(`The Reader Path: ${(c.legs || []).length} Leg(s), ${n} Leg Waypoint(s).`);
+    lines.push(`The Reader Path: ${(c.legs || []).length} Leg(s).`);
     for (const l of c.legs || []) {
       if (typeof l.opens_section === "string") lines.push(`Section: ${l.opens_section}`);
-      lines.push(`${l.leg_id}${l.relation ? ` — ${holds.get(l.relation) || l.relation}` : ""}`);
-      for (const [i, w] of (l.waypoints || []).entries()) {
-        lines.push(`  ${i + 1}. ${w.point}${Array.isArray(w.carries) && w.carries.length ? ` (carries ${w.carries.map((id) => elementLabel(structure, id)).join(", ")})` : ""}`);
-      }
+      lines.push(`${l.leg_id}${l.relation ? ` — ${elementLabel(structure, l.relation)}` : ""}${l.reaches_target ? " (attains the Thesis)" : ""}`);
+      if (typeof l.text === "string") lines.push(`  ${l.text}`);
     }
   }
   return lines.join("\n");

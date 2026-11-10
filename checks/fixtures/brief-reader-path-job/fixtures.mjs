@@ -131,7 +131,7 @@ process.stdin.on("end", () => {
     }) }) + "\\n");
     process.exit(0);
   }
-  // The compose unit's Waypoint record at the record's root (kogaki#1768), the shape \`lpp_waypoints\` states.
+  // The retired compose unit's Waypoint record at the record's root (kogaki#1768), the shape the fixture specimen's \`lpp_waypoints\` row states (kogaki#1775).
   if (prompt.startsWith("BARE_WAYPOINTS")) {
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({
       waypoints: [{ point: "The rules apply only to the files the walk visits.", carries: ["p1"] },

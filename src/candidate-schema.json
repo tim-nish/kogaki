@@ -68,14 +68,14 @@
   "what_a_candidate_is": [
     "A Candidate is ONE COMPOSED READER PATH: an ordered sequence of Legs",
     "taking the reader from what the Persona already knows to the adopted Thesis,",
-    "plus the reasoning it was composed with. One is composed per article",
-    "(kogaki#1768): the Leg Waypoints are composed from the Brief's",
-    "RelationalStructure and judged GROUNDED, and the Legs are derived over them",
-    "by the Harness, so one structure gives one Reader Path.",
+    "plus the reasoning it was derived with. One is derived per article",
+    "(kogaki#1775): the Legs are derived from the Brief's RelationalStructure by",
+    "the Harness with no Call, one per relation the apex reaches, so one",
+    "structure gives one Reader Path.",
     "",
     "THE OWNER ADOPTS IT OR NEGATES THE PREMISE AT THE CANDIDATE GATE, and that",
-    "is the one surface a Candidate has. The Harness renders its Legs and Leg",
-    "Waypoints, with the relations each Waypoint carries, above the question.",
+    "is the one surface a Candidate has. The Harness renders its Legs, each with",
+    "the relation it serves and its text, above the question.",
     "Everything else a Candidate carries is read by the runtime."
   ],
   "the_option_format": [
@@ -83,9 +83,9 @@
     "field of the Candidate is prose written for the option:",
     "",
     "  label        `Follow this Reader Path`",
-    "  description  `<n> Legs and <m> Leg Waypoints, reaching the Thesis last`",
+    "  description  `<n> Legs, one per relation the Thesis reaches`",
     "",
-    "The Legs and Leg Waypoints themselves are the reading above the question,",
+    "The Legs themselves are the reading above the question,",
     "never the option. `characteristic` and `reader_experience` named the",
     "difference between two or three Candidates, and one Reader Path has no",
     "sibling to differ from, so both are retired."
@@ -128,7 +128,7 @@
   },
   "retired_fields": {
     "characteristic": "RETIRED (kogaki#1768, owner decision 2026-11-10) and REFUSED BY NAME where a Candidate carries it. It named a path's difference from its sibling Candidates, and one structure gives one Reader Path; the Candidate gate renders the path's Legs instead.",
-    "reader_experience": "RETIRED (kogaki#1768, owner decision 2026-11-10) and REFUSED BY NAME where a Candidate carries it. It stated what the reader goes through on one of two or three paths, and one structure gives one Reader Path; the Candidate gate renders the path's Legs and Leg Waypoints instead.",
+    "reader_experience": "RETIRED (kogaki#1768, owner decision 2026-11-10) and REFUSED BY NAME where a Candidate carries it. It stated what the reader goes through on one of two or three paths, and one structure gives one Reader Path; the Candidate gate renders the path's Legs and Brief Waypoints instead.",
     "reader_target": "RETIRED (kogaki#1225, kogaki#1699) and REFUSED BY NAME where a Candidate carries it. The Brief's Reader target heading renders the Thesis, which the Leg marked `reaches_target` attains; no field authors it.",
     "reader_start": "RETIRED (kogaki#1699) and REFUSED BY NAME where a Candidate carries it. The first Leg's entry condition is the Persona's prior-knowledge line, which the Reader start heading renders.",
     "obligations": "RETIRED (kogaki#1699) and REFUSED BY NAME where a Candidate carries it. What a Leg takes up and leaves is its Move's `takes` and `leaves`, judged across the path; no field records it.",
@@ -194,13 +194,13 @@
         "filled_at": "compose_path",
         "caption": "The source's own words this article does not keep, each with the plain phrase it uses instead. A word not listed here keeps the source's wording.",
         "entry_keys": ["term", "as"],
-        "description": "The renderings record (kogaki#1494, owner decision 2026-10-21): one entry per term of the served material the article will not keep, `term` the served word and `as` the plain phrase the article uses in its place. Composed once at the start of the `compose_path` state, before the Leg Waypoints are composed (kogaki#1768), from the settled Strands and the Defined Terms (the `renderings_unit` row of src/brief-workflow.json); every reader-path unit composes under it and the Path Review judges each claim and point recoverable from its served material under it. Written into the Brief at adoption, beside the Reader Path composed under it; it is not a slot, so a Brief adopted before the field carries none and renders nothing. A term an `introduces` entry carries is refused here at adoption: `introduces` carries only terms the article keeps."
+        "description": "The renderings record (kogaki#1494, owner decision 2026-10-21): one entry per term of the served material the article will not keep, `term` the served word and `as` the plain phrase the article uses in its place. Composed once at the start of the `compose_path` state, before the Brief Waypoints are composed (kogaki#1768), from the settled Strands and the Defined Terms (the `renderings_unit` row of src/brief-workflow.json); every reader-path unit composes under it and the Path Review judges each claim and point recoverable from its served material under it. Written into the Brief at adoption, beside the Reader Path composed under it; it is not a slot, so a Brief adopted before the field carries none and renders nothing. A term an `introduces` entry carries is refused here at adoption: `introduces` carries only terms the article keeps."
       },
       "structure": {
         "required": false,
         "filled_at": "mint",
         "caption": "How the settled Strands' claims relate: the parts each claim plays, the relations among them, the relations among those relations, and the one connection none of them states, which is the Thesis.",
-        "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations`, `higher_order` with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Leg Waypoint of a Brief carrying it names in `carries` the relations its point states, and every Leg names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
+        "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations`, `higher_order` with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Brief Waypoint of a Brief carrying it names in `carries` the relations its point states, and every Leg names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
       },
       "reader_path": {
         "required": true,
@@ -230,7 +230,7 @@
         "required": true,
         "filled_at": "adoption",
         "caption": "What the composer inserted to carry the reader across a gap, and on what reasoning.",
-        "description": "`bridges`: the statement that the path bridges no gap, since every Leg Waypoint carries relations the claims state and the apex is the one connection no claim states (kogaki#1768)."
+        "description": "`bridges`: the statement that the path bridges no gap, since every Leg says a relation the claims state and the apex is the one connection no claim states (kogaki#1775)."
       }
     }
   },

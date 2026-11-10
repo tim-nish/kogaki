@@ -1,5 +1,5 @@
-// The RelationalStructure a claim set is read into, the Leg Waypoints composed from it and the Legs derived over them
-// (kogaki#1764, kogaki#1766, kogaki#1767), read and refused here for the Brief (kogaki#1768) and the Leg-Planning
+// The RelationalStructure a claim set is read into and the Legs derived from it, one per relation the apex reaches
+// (kogaki#1764, kogaki#1766, kogaki#1775), read and refused here for the Brief (kogaki#1768) and the Leg-Planning
 // Playground alike.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
@@ -234,128 +234,43 @@ export function servesOf(structure, carries, claims) {
   return claims.map((c) => c.id).filter((id) => from.has(id));
 }
 
-// ONE WAYPOINT, refused naming it or `null`.
-function waypointRefusal(w, n, known, reached) {
-  const at = `Waypoint ${n}`;
-  if (isMap(w) && Object.hasOwn(w, "serves")) return { group: "shape", text: `${at} carries \`serves\` — it is derived from \`carries\`, never written` };
-  const b = keysRefusal(w, ["point", "carries"], at);
-  if (b) return { group: "shape", text: b };
-  if (!isText(w.point)) return { group: "shape", text: `${at}'s \`point\` is empty` };
-  if (!listOf(w.carries)) return { group: "carries", text: `${at}'s \`carries\` is empty` };
-  const stray = w.carries.find((id) => !known.has(id));
-  if (stray !== undefined) return { group: "carries", text: `${at} carries ${JSON.stringify(stray)}, which names no relation or higher-order relation of the structure` };
-  const outside = w.carries.find((id) => !reached.has(id));
-  if (outside !== undefined) return { group: "carries", text: `${at} carries ${JSON.stringify(outside)}, which the higher-order relation that attains the thesis does not reach — the article leaves it` };
-  return null;
-}
-
-// THE WAYPOINT SET, refused `{ group, text }` or `{}`.
-export function validateWaypoints(answer, structure) {
-  const b = keysRefusal(answer, ["waypoints"], "the answer");
-  if (b) return shape(b);
-  const ws = listOf(answer.waypoints);
-  if (!ws) return shape("the answer's `waypoints` is not a non-empty list");
-  const known = new Set([...structure.relations.map((r) => r.id), ...structure.higher_order.map((h) => h.id)]);
-  const reach = reachOf(structure);
-  const reached = new Set(reach);
-  for (const [i, w] of ws.entries()) {
-    const r = waypointRefusal(w, i + 1, known, reached);
-    if (r) return r;
-  }
-  const carried = new Set(ws.flatMap((w) => w.carries));
-  const idle = reach.find((id) => !carried.has(id));
-  if (idle) return { group: "coverage", text: `${JSON.stringify(idle)} is carried by no Waypoint — the Waypoints together carry every relation and higher-order relation the one that attains the thesis reaches` };
-  if (!ws[ws.length - 1].carries.includes(structure.attains_thesis)) {
-    return { group: "coverage", text: `Waypoint ${ws.length}, the last, does not carry ${JSON.stringify(structure.attains_thesis)}, the higher-order relation that attains the thesis` };
-  }
-  return {};
-}
-
-// A REWRITE OF WAYPOINT `n` ALONE, refused or `{ waypoints }`, the set with it in place.
-export function rewrittenSet(answer, n, waypoints, structure) {
-  if (isMap(answer) && Object.hasOwn(answer, "waypoint") && answer.waypoint !== n) {
-    return shape(`the rewrite answers Waypoint ${JSON.stringify(answer.waypoint)}, and the Waypoint to rewrite is ${n}`);
-  }
-  const b = keysRefusal(answer, ["waypoint", "point", "carries"], `the rewrite of Waypoint ${n}`);
-  if (b) return shape(b);
-  const next = waypoints.map((w, i) => (i + 1 === n ? { point: answer.point, carries: answer.carries } : { point: w.point, carries: w.carries }));
-  const v = validateWaypoints({ waypoints: next }, structure);
-  return v.text ? v : { waypoints: next };
-}
-
-// THE GROUNDED VERDICT, refused `{ group, text }` or `{}`.
-export function validateGrounded(answer, waypoints) {
-  const b = keysRefusal(answer, ["verdict", "sites"], "the verdict");
-  if (b) return shape(b);
-  if (!["fits", "does-not-fit"].includes(answer.verdict)) return shape(`\`verdict\` ${JSON.stringify(answer.verdict)} is neither \`fits\` nor \`does-not-fit\``);
-  if (!Array.isArray(answer.sites)) return shape("`sites` is not a list");
-  if ((answer.verdict === "fits") !== (answer.sites.length === 0)) return shape(`\`sites\` is ${answer.sites.length ? "non-empty under `fits`" : "empty under `does-not-fit`"}`);
-  for (const [i, s] of answer.sites.entries()) {
-    const sb = keysRefusal(s, ["waypoint", "phrase", "why"], `sites[${i}]`);
-    if (sb) return shape(sb);
-    const w = waypoints[Number(s.waypoint) - 1];
-    if (!w) return shape(`sites[${i}] names Waypoint ${JSON.stringify(s.waypoint)}, which the input does not carry`);
-    if (!isText(s.phrase) || !w.point.includes(s.phrase)) return shape(`sites[${i}]'s \`phrase\` is not words of Waypoint ${s.waypoint}'s \`point\``);
-  }
-  return {};
-}
-
-// A GROUNDED SITE AS THE COMMENT ITS WAYPOINT IS HANDED: the judge's text, verbatim.
-export const siteComment = (s) => `Waypoint ${s.waypoint}: the judge quoted "${s.phrase}" and wrote: ${s.why}`;
-
-// THE LEGS, DERIVED BY THE RUNNER (kogaki#1767; the rule is the spec's Leg-Planning Playground, Stage 3). Returns
-// `{ legs, partition }`, `partition` naming each Leg's higher-order relation and Waypoint numbers.
-// `withStructure` is the Brief's (kogaki#1768): each Leg names its higher-order relation as `relation`, each Leg
-// Waypoint keeps its `carries`, and each claim is typed `strand`.
-export function derivedLegs(waypoints, structure, claims, { withStructure = false } = {}) {
+// THE LEGS, DERIVED BY THE RUNNER WITH NO CALL (kogaki#1775; the rule is the spec's Reader Path): one Leg per relation and
+// higher-order relation the apex reaches, the apex's own included, each higher-order relation after the ids it relates,
+// in `relates` order. A Leg's `text` is its relation's `holds` with each Role named (`readHolds`); its `claims` are a
+// higher-order relation's `from`, an ordinary relation's Roles' claims, and for the apex, which carries no `from`, the
+// claims its `relates` reaches. The apex's Leg alone carries `reaches_target`.
+export function structureLegs(structure, claims) {
+  const relation = new Map(structure.relations.map((r) => [r.id, r]));
+  const higher = new Map(structure.higher_order.map((h) => [h.id, h]));
   const apex = structure.attains_thesis;
-  const others = structure.higher_order.filter((h) => h.id !== apex);
-  const relates = new Map(structure.higher_order.map((h) => [h.id, new Set(h.relates)]));
-  const reaches = (w, h) => w.carries.includes(h.id) || w.carries.some((id) => relates.get(h.id).has(id));
-  const placed = waypoints.map((w) => {
-    if (w.carries.includes(apex)) return apex;
-    const h = others.find((x) => w.carries.includes(x.id)) || others.find((x) => reaches(w, x))
-      || structure.higher_order.find((x) => x.id === apex && reaches(w, x));
-    return h ? h.id : null;
-  });
-  for (let i = placed.length - 1; i >= 0; i--) if (placed[i] === null) placed[i] = placed[i + 1] ?? null;
-  const order = [...new Set(placed.filter((id) => id !== null && id !== apex)), apex];
-  const partition = order.map((relation, i) => ({ leg_id: `L${i + 1}`, relation,
-    waypoints: placed.flatMap((id, k) => (id === relation ? [k + 1] : [])) })).filter((p) => p.waypoints.length);
+  const order = [];
+  const seen = new Set();
+  const visit = (id) => {
+    if (seen.has(id) || (!relation.has(id) && !higher.has(id))) return;
+    seen.add(id);
+    if (higher.has(id)) higher.get(id).relates.forEach(visit);
+    order.push(id);
+  };
+  visit(apex);
+  const roleClaims = new Map(structure.roles.map((r) => [r.id, r.claims || []]));
   const byId = new Map(claims.map((c) => [c.id, c]));
-  const legs = partition.map((p, i) => {
-    const ws = p.waypoints.map((n) => waypoints[n - 1]);
-    const served = claims.map((c) => c.id).filter((id) => ws.some((w) => w.serves.includes(id)));
-    return {
-      leg_id: p.leg_id,
-      ...(withStructure ? { relation: p.relation } : {}),
-      claims: served.map((id) => ({ ...(withStructure ? { type: "strand" } : {}), strand: id, proposition: byId.get(id).claim })),
-      waypoints: ws.map((w) => ({ point: w.point, serves: [...w.serves], ...(withStructure ? { carries: [...w.carries] } : {}), case: "own" })),
-      ...(i === partition.length - 1 ? { reaches_target: true } : {}),
-    };
-  });
-  return { legs, partition };
+  const claimsOf = (id) => {
+    if (relation.has(id)) {
+      const from = new Set(relation.get(id).between.flatMap((r) => roleClaims.get(r) || []));
+      return claims.map((c) => c.id).filter((c) => from.has(c));
+    }
+    const h = higher.get(id);
+    if (Array.isArray(h.from) && h.from.length) return claims.map((c) => c.id).filter((c) => h.from.includes(c));
+    return servesOf(structure, [id], claims);
+  };
+  return order.map((id, i) => ({
+    leg_id: `L${i + 1}`,
+    relation: id,
+    text: readHolds(structure, (relation.get(id) || higher.get(id)).holds),
+    claims: claimsOf(id).map((c) => ({ type: "strand", strand: c, proposition: byId.get(c).claim })),
+    ...(id === apex ? { reaches_target: true } : {}),
+  }));
 }
-
-// THE DERIVATION'S INVARIANT (kogaki#1767), refused naming what breaks it or `{}`.
-export function legPartitionRefusal({ legs, partition }, waypoints, structure) {
-  const seen = waypoints.map(() => 0);
-  for (const p of partition) {
-    if (!p.waypoints.length) return { error: `Leg ${p.leg_id} holds no Waypoint` };
-    for (const n of p.waypoints) seen[n - 1] += 1;
-  }
-  const off = seen.findIndex((k) => k !== 1);
-  if (off >= 0) return { error: `Waypoint ${off + 1} is in ${seen[off]} Legs — every Waypoint is in exactly one Leg` };
-  const moved = legs.find((l) => Object.hasOwn(l, "move"));
-  if (moved) return { error: `Leg ${moved.leg_id} binds a Move — a Leg binds none; the paragraph Move is ParagraphPlan's` };
-  if (partition[partition.length - 1].relation !== structure.attains_thesis) {
-    return { error: `the last Leg serves ${JSON.stringify(partition[partition.length - 1].relation)}, not the apex ${JSON.stringify(structure.attains_thesis)}` };
-  }
-  const marked = legs.filter((l) => l.reaches_target === true);
-  if (marked.length !== 1 || marked[0] !== legs[legs.length - 1]) return { error: "the last Leg, and it alone, is marked `reaches_target`" };
-  return {};
-}
-
 
 // THE STRUCTURE'S CONNECTED COMPONENTS (kogaki#1768): two relations are connected when they share a Role or a
 // higher-order relation relates both, and a component is the closure. Each component carries its id (`k<n>`, in the
@@ -475,16 +390,23 @@ export function withApex(structure, apex, claims) {
     attains_thesis: id }, claims);
 }
 
-// THE PATH'S REACH, refused naming what breaks it or `null` (kogaki#1768): every relation and higher-order relation
-// the apex reaches is carried by a Leg Waypoint, and the last Waypoint of the last Leg carries the apex.
+// THE PATH'S REACH, refused naming what breaks it or `null` (kogaki#1775): every relation and higher-order relation the
+// apex reaches is one Leg's `relation`, no Leg serves an id outside the reach, and the Leg marked `reaches_target` is the
+// apex's, wherever it sits.
 export function pathReachRefusal(legs, structure) {
-  const ws = (legs || []).flatMap((l) => (l.waypoints || []).map((w, i) => ({ leg: l.leg_id, n: i + 1, carries: Array.isArray(w.carries) ? w.carries : [] })));
-  const carried = new Set(ws.flatMap((w) => w.carries));
-  const idle = (structure.reach || []).find((id) => !carried.has(id));
-  if (idle !== undefined) return `the Reader Path leaves ${JSON.stringify(idle)} uncarried — the apex reaches it, so a Leg Waypoint carries it`;
-  const last = ws[ws.length - 1];
-  if (!last || !last.carries.includes(structure.attains_thesis)) {
-    return `the Reader Path does not reach the apex last — Leg ${last ? last.leg : "(none)"}, Waypoint ${last ? last.n : "(none)"}, the last, does not carry ${JSON.stringify(structure.attains_thesis)}`;
+  const reachIds = Array.isArray(structure.reach) ? structure.reach : reachOf(structure);
+  const reach = new Set(reachIds);
+  const served = new Map();
+  for (const l of legs || []) {
+    if (!reach.has(l.relation)) return `Leg ${l.leg_id} serves ${JSON.stringify(l.relation)}, which the apex does not reach — the article leaves it`;
+    if (served.has(l.relation)) return `Legs ${served.get(l.relation)} and ${l.leg_id} both serve ${JSON.stringify(l.relation)} — each reached relation is one Leg`;
+    served.set(l.relation, l.leg_id);
+  }
+  const idle = reachIds.find((id) => !served.has(id));
+  if (idle !== undefined) return `the Reader Path leaves ${JSON.stringify(idle)} with no Leg — the apex reaches it, so one Leg serves it`;
+  const marked = (legs || []).filter((l) => l.reaches_target === true);
+  if (marked.length !== 1 || marked[0].relation !== structure.attains_thesis) {
+    return `the Leg marked \`reaches_target\` is not the apex's alone — exactly one Leg is marked, the one serving ${JSON.stringify(structure.attains_thesis)}`;
   }
   return null;
 }

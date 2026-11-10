@@ -9,7 +9,7 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { briefLegs } from "../compose/record.mjs";
-import { waypointsRefusal } from "../compose/leg-schema.mjs";
+import { validateLegs } from "../compose/leg-schema.mjs";
 
 export const COMPOSED_BY = "leg-planning";
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -52,15 +52,13 @@ export function parseClaims(text) {
   return { thesis, claims };
 }
 
-// THE FILE `/paragraph-plan` READS AS A BRIEF'S `reader_path`, refused naming the Leg or `{}`: its own Leg reader and
-// its own Leg Waypoint rule over every Leg.
-export function readerPathRefusal(record) {
+// THE FILE `/paragraph-plan` READS AS A BRIEF'S `reader_path`, refused naming the Leg or `{}`: the Brief's own Leg
+// reader over the structure (kogaki#1775).
+export function readerPathRefusal(record, structure) {
   if (!isMap(record) || record.composed_by !== COMPOSED_BY) return { error: `the file carries no \`composed_by: ${COMPOSED_BY}\` line` };
   const legs = briefLegs(record);
   if (!legs.length) return { error: "the file carries no Reader Path legs" };
-  for (const leg of legs) {
-    const bad = waypointsRefusal(leg.waypoints, (leg.claims || []).map((g) => g.strand), `leg ${leg.leg_id}`);
-    if (bad) return { error: bad };
-  }
-  return {};
+  // The Trial asks no `leg_sections` Call, so the Section grouping is not its to meet (kogaki#1775).
+  const v = validateLegs(legs, { structure, sections: false });
+  return v.error ? { error: v.error } : {};
 }
