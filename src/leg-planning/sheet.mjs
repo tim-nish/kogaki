@@ -1,5 +1,6 @@
 // The Leg-Planning Playground's sheet (kogaki#1764, kogaki#1767, kogaki#1775): one page over one Trial directory, its parts in a fixed order and
-// every heading from one fixed list, the Rounds of each stage in the FLP's blocks.
+// every heading from one fixed list, the Rounds of each stage in the FLP's blocks. The Brief sheet (kogaki#1776): one page over one
+// adopted Brief file, rendered with no model call.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -8,7 +9,11 @@
 //   The Leg-Planning Playground, Round, Submission, Comment, Call
 //       specs/spec-draft-pipeline/SPEC.md
 //
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { parseYaml } from "../yaml.mjs";
+import { strandClaims } from "../brief/run-state.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { CALLS_DIR } from "../workflow/call-record.mjs";
 import { proofSheetCss } from "../mapping-playground/sheet.mjs";
@@ -21,6 +26,13 @@ export const LPP_PARTS = ["Claims", "Structure", "Legs", "Rounds", "The Brief's 
 // THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these.
 export const LPP_HEADINGS = [...LPP_PARTS, "Unreached claims", "Roles", "Relations", "Higher-order relations", "Leg <id>", "Stage <name>",
   "Round n", ...CANDIDATE_ROUND_BLOCKS];
+// THE BRIEF SHEET'S PARTS, in order (kogaki#1776), and every column heading either sheet's tables carry.
+export const BRIEF_PARTS = ["Structure", "Thesis", "Claims", "Roles", "Relations", "Higher-order relations", "Legs"];
+export const LPP_COLUMNS = ["id", "name", "claim", "reached", "holds", "from", "relation", "text", "Role", "Abstract", "Attribute",
+  "between", "higher-order relation", "relates", "cite", "stated by", "paragraph", "paragraph Move", "Waypoints", "verdict", "Leg",
+  "The Brief", "This run"];
+// THE WORDS THE BRIEF SHEET NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
+export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round", "Waypoint"];
 const ACCENT = ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--accent)}tr.named td{background:#4a3a12}tr.unreached td{opacity:.6}'
   + ".refusal{white-space:pre-wrap}.line{margin:.15em 0}.cols{display:grid;grid-template-columns:1fr 1fr;gap:1em}"
   + "h3{font-size:1.05em;margin:1.2em 0 .3em}h4{font-size:.8em;text-transform:uppercase;letter-spacing:.05em;margin:.8em 0 .2em;color:#9aa}";
@@ -28,14 +40,19 @@ const ACCENT = ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--acce
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const line = (text, cls = "line") => `<p class="${cls}">${esc(text)}</p>`;
 const none = (text) => `<p class="muted">${esc(text)}</p>`;
-const listed = (name) => LPP_HEADINGS.some((h) => (h.includes("<") || h === "Round n"
+const listed = (name) => [...LPP_HEADINGS, ...BRIEF_PARTS].some((h) => (h.includes("<") || h === "Round n"
   ? new RegExp(`^${h.replace(/<[^>]+>|\bn$/, ".+")}$`).test(name) : h === name));
 function heading(level, name) {
   if (!listed(name)) throw new Error(`the Leg-Planning sheet has no heading ${JSON.stringify(name)}`);
   return `<h${level}>${esc(name)}</h${level}>`;
 }
 const part = (name, body) => `<section class="card" id="${esc(name.toLowerCase().replace(/[^a-z]+/g, "-"))}">${heading(2, name)}${body}</section>`;
-const table = (head, rows) => `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+const table = (head, rows) => {
+  const stray = head.find((h) => !LPP_COLUMNS.includes(h));
+  if (stray !== undefined) throw new Error(`the Leg-Planning sheet has no column heading ${JSON.stringify(stray)}`);
+  return tableHtml(head, rows);
+};
+const tableHtml = (head, rows) => `<table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
 const row = (cells, cls = "") => `<tr${cls ? ` class="${cls}"` : ""}>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
 const link = (outDir, path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
 const stageOf = (record, name) => record.stages.find((s) => s.stage === name) || null;
@@ -67,9 +84,9 @@ function structurePart(structure, claims) {
   const names = (ids) => esc(ids.map((id) => nameOf.get(id) ?? id).join(", "));
   return heading(3, "Roles") + table(["Role", "Abstract", "Attribute"], structure.roles.map((r) => row([label(r.id), esc(r.context),
     esc(r.attributes.join(", "))])))
-    + heading(3, "Relations") + table(["relation", "between", "holds", ""], structure.relations.map((r) => row([label(r.id),
+    + heading(3, "Relations") + table(["relation", "between", "holds", "reached"], structure.relations.map((r) => row([label(r.id),
       names(r.between), esc(readHolds(structure, r.holds)), esc(mark(r.id))], cls(r.id))))
-    + heading(3, "Higher-order relations") + table(["higher-order relation", "relates", "holds", ""], structure.higher_order.map((h) => row([label(h.id),
+    + heading(3, "Higher-order relations") + table(["higher-order relation", "relates", "holds", "reached"], structure.higher_order.map((h) => row([label(h.id),
       names(h.relates), esc(readHolds(structure, h.holds)), esc(mark(h.id))], cls(h.id))));
 }
 
@@ -112,10 +129,11 @@ function legsPart(record, legs, structure, plan, libraryDir, outDir) {
 function planRounds(st, outDir) {
   const callLink = (dir) => link(outDir, resolve(REPO, dir), dir.split("/").slice(-2).join("/"));
   if (!(st.waypoints || []).length) return st.stopped ? line(`stopped: ${st.stopped}`, "line refusal") : none("no Round");
-  return st.waypoints.map((w) => w.rounds.map((r) => {
+  const units = [...new Set(st.waypoints.map((w) => w.leg_id))];
+  return units.map((unit) => heading(4, `Leg ${unit}`) + st.waypoints.filter((w) => w.leg_id === unit).flatMap((w) => w.rounds).map((r) => {
     const calls = r.call === null ? none("none") : `<p class="line">${callLink(r.call)}</p>`;
     const blocks = { Submission: calls, Comment: line(`verdict: ${r.verdict}`) + (r.comment ? line(`why: ${r.comment}`, "line refusal") : ""), Calls: calls };
-    return heading(4, `Round ${w.leg_id} Waypoint ${w.waypoint}, ${r.round}`) + CANDIDATE_ROUND_BLOCKS.map((b) => heading(4, b) + blocks[b]).join("");
+    return heading(4, `Round ${r.round}`) + CANDIDATE_ROUND_BLOCKS.map((b) => heading(4, b) + blocks[b]).join("");
   }).join("")).join("");
 }
 
@@ -135,12 +153,12 @@ function roundsPart(record, outDir) {
     }).join(""))).join("");
 }
 
-const legPoints = (leg) => `<p class="line">${esc(`Leg ${leg.leg_id} — ${leg.move ?? "no Move"}`)}</p>`
+const legPoints = (leg) => `<p class="line">${esc(leg.move ? `Leg ${leg.leg_id} — ${leg.move}` : `Leg ${leg.leg_id}`)}</p>`
   + (typeof leg.text === "string" ? line(leg.text) : (leg.waypoints || []).map((w, i) => line(`${i + 1}. ${w.point}`)).join(""));
 
 function briefPart(briefLegs, legs) {
   const n = Math.max(briefLegs.length, (legs || []).length);
-  return table(["Leg", "The Brief", "This Trial"], Array.from({ length: n }, (_, i) => row([String(i + 1),
+  return table(["Leg", "The Brief", "This run"], Array.from({ length: n }, (_, i) => row([String(i + 1),
     briefLegs[i] ? legPoints(briefLegs[i]) : "", legs && legs[i] ? legPoints(legs[i]) : ""])));
 }
 
@@ -153,7 +171,102 @@ export function renderLppSheet({ outDir, record, structure, legs, plan = null, l
     ...(briefLegs ? [part("The Brief's Legs", briefPart(briefLegs, legs))] : []),
   ];
   return `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
-    + `<title>Leg-Planning Playground ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>`
-    + `<h1>Leg-Planning Playground — ${esc(record.trial)}</h1>`
+    + `<title>Leg-Planning Playground run ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>`
+    + `<h1>Leg-Planning Playground — run ${esc(record.trial)}</h1>`
     + (record.stopped ? line(`Stopped: ${record.stopped}`, "line refusal") : "") + parts.join("") + "</body></html>\n";
 }
+
+// ---- THE BRIEF SHEET (kogaki#1776) ----
+const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+const BRIEF_CSS = ".diagram .mermaid{margin:.5em 0}tr.unreached td{color:#e07070}";
+
+// EACH STRAND'S CLAIM SENTENCE: the headline the newest Brief run that wrote this file resolved, else the proposition a
+// Leg of the Brief carries for it, else none. The runs are read beside the `theses/` the Brief sits in.
+export function briefClaims(brief, briefPath, root = resolve(briefPath, "..", "..", "..")) {
+  const runsDir = join(root, "runs", "brief");
+  const rel = relative(root, resolve(briefPath)).split("\\").join("/");
+  const runs = existsSync(runsDir) ? readdirSync(runsDir).sort().reverse() : [];
+  let served = [];
+  for (const d of runs) {
+    const f = join(runsDir, d, "run-record.json");
+    if (!existsSync(f)) continue;
+    let rec;
+    try { rec = JSON.parse(readFileSync(f, "utf8")); } catch { continue; }
+    if (!(rec.artifacts_written || []).some((a) => a.artifact === "brief" && a.path === rel)) continue;
+    if (rec.brief_run_state && existsSync(rec.brief_run_state)) served = strandClaims(JSON.parse(readFileSync(rec.brief_run_state, "utf8")));
+    break;
+  }
+  const fromRun = new Map(served.map((c) => [c.id, c.claim]));
+  const fromLegs = new Map();
+  for (const leg of brief.reader_path || []) for (const c of leg.claims || []) if (c.strand && c.proposition && !fromLegs.has(c.strand)) fromLegs.set(c.strand, c.proposition);
+  return (brief.strands || []).map((s) => ({ id: s.id, claim: fromRun.get(s.id) ?? fromLegs.get(s.id) ?? null }));
+}
+
+// THE STRUCTURE GRAPH: each element a node labelled by its name and claim ids, a relation joined to its Roles, a higher-order
+// relation joined by a thick edge to what it relates, the apex blue and every unreached element red.
+function structureGraph(structure, claims) {
+  const quote = (s) => `"${String(s).replace(/"/g, "#quot;")}"`;
+  const left = unreachedIds(structure);
+  const lines = ["flowchart TB"];
+  for (const x of [...structure.roles, ...structure.relations, ...structure.higher_order]) lines.push(`  ${x.id}[${quote(elementLabel(structure, x.id, claims))}]`);
+  for (const r of structure.relations) for (const role of r.between) lines.push(`  ${r.id} --- ${role}`);
+  for (const h of structure.higher_order) for (const id of h.relates) lines.push(`  ${h.id} ==> ${id}`);
+  lines.push("  classDef apex fill:#2b5fa8,stroke:#9cc2ff,color:#ffffff", "  classDef unreached fill:#8a2626,stroke:#ff9a9a,color:#ffffff");
+  if (structure.attains_thesis) lines.push(`  class ${structure.attains_thesis} apex`);
+  if (left.size) lines.push(`  class ${[...left].join(",")} unreached`);
+  const text = lines.join("\n");
+  return `<div class="diagram"><div class="mermaid">${esc(text)}</div><details><summary>Graph as text</summary><pre>${esc(text)}</pre></details></div>`;
+}
+
+function unreachedIds(structure) {
+  const u = structure.unreached || {};
+  const left = new Set([...(u.relations || []), ...(u.higher_order || [])].map((x) => x.id));
+  for (const r of structure.relations) if (left.has(r.id)) for (const role of r.between) {
+    if (!structure.relations.some((o) => !left.has(o.id) && o.between.includes(role))) left.add(role);
+  }
+  return left;
+}
+
+export function renderBriefSheet({ brief, claims }) {
+  const structure = brief.structure;
+  if (!structure) throw new Error("the Brief carries no `structure` to render");
+  const leftClaims = new Set(((structure.unreached || {}).claims || []).map((c) => c.id));
+  const left = unreachedIds(structure);
+  const cls = (id) => (left.has(id) ? "unreached" : "");
+  const holds = (h) => esc(readHolds(structure, h));
+  const nameOf = (id) => esc(elementLabel(structure, id, claims));
+  const elements = (list, holdsOf, fromOf) => table(["id", "name", "holds", "from"], list.map((x) => row([esc(x.id), esc(x.name ?? ""), holdsOf(x), fromOf(x)], cls(x.id))));
+  const parts = [
+    part("Structure", structureGraph(structure, claims)),
+    part("Thesis", line(brief.thesis)),
+    part("Claims", table(["id", "claim", "reached"], claims.map((c) => row([esc(c.id), c.claim === null ? none("no claim sentence recorded") : esc(c.claim),
+      esc(leftClaims.has(c.id) ? UNREACHED : "reached")], leftClaims.has(c.id) ? "unreached" : "")))),
+    part("Roles", elements(structure.roles, (r) => esc(r.context ?? ""), (r) => esc((r.claims || []).join(", ")))),
+    part("Relations", elements(structure.relations, (r) => holds(r.holds), (r) => esc(r.from ?? ""))),
+    part("Higher-order relations", elements(structure.higher_order, (h) => holds(h.holds),
+      (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))))),
+    part("Legs", table(["id", "relation", "text"], (brief.reader_path || []).map((l) => row([esc(l.leg_id), nameOf(l.relation),
+      typeof l.text === "string" ? esc(l.text) : none("no text recorded")])))),
+  ];
+  return `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+    + `<title>Brief ${esc(brief.slug)}</title><style>${proofSheetCss()}\n${ACCENT}${BRIEF_CSS}</style>`
+    + `<script type="module">import mermaid from "${MERMAID_CDN}"; mermaid.initialize({ startOnLoad: true, theme: "dark" });</script></head><body>`
+    + `<h1>Brief — ${esc(brief.slug)}</h1>` + parts.join("") + "</body></html>\n";
+}
+
+const BRIEF_USAGE = "usage: node src/leg-planning/sheet.mjs brief --brief <theses/<slug>/brief.yaml> --out <dir>";
+
+function briefMain(argv) {
+  const arg = (k) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : undefined; };
+  const briefPath = arg("brief");
+  const outDir = arg("out");
+  if (argv[0] !== "brief" || !briefPath || !outDir) { process.stderr.write(`${BRIEF_USAGE}\n`); process.exit(2); }
+  if (!existsSync(briefPath)) { process.stderr.write(`sheet: ${briefPath} does not exist\n`); process.exit(1); }
+  const brief = parseYaml(readFileSync(briefPath, "utf8"), briefPath);
+  mkdirSync(outDir, { recursive: true });
+  const out = join(outDir, "sheet.html");
+  writeFileSync(out, renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }));
+  process.stdout.write(`${out}\n`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) briefMain(process.argv.slice(2));
