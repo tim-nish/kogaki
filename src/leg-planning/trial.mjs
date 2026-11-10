@@ -28,7 +28,7 @@ import { MAPPER_CALLS } from "../mapping-playground/sme.mjs";
 import { unitCalls, roundsAt, unitStatus, waypointStatus, namedWaypoints } from "../flp/sheet.mjs";
 import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
 import {
-  validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment, derivedLegs, legPartitionRefusal,
+  mintStructure, validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment, derivedLegs, legPartitionRefusal,
 } from "../compose/structure.mjs";
 import { resolvedRow } from "../workflow/copies.mjs";
 import { renderLppSheet } from "./sheet.mjs";
@@ -126,13 +126,15 @@ function structureStage({ ask, row, claims, thesis, persona }) {
   const rounds = [];
   for (let k = 1; k <= MAPPER_CALLS; k++) {
     const a = ask({ row, input, history, tables: [LPP_TABLE], check: (rec) => {
-      const v = validateReadSet(rec, claims);
+      const m = mintStructure(rec);
+      if (m.text) return { ...m, validator: "mintStructure" };
+      const v = validateReadSet(m.structure, claims);
       return v.text ? { ...v, validator: "validateReadSet" } : null;
     } });
     rounds.push({ round: k, submission: a.call, comment: a.stopped || (a.refusal && a.refusal.text) || null, verdict: a.stopped ? "stopped" : a.refusal ? "refused" : "passed" });
     if (a.stopped) return { stopped: a.stopped, rounds };
     if (!a.refusal) {
-      const structure = withReach(a.answer, claims);
+      const structure = withReach(mintStructure(a.answer).structure, claims);
       return { value: structure, rounds, reach: structure.reach, unreached: structure.unreached };
     }
     history.push(historyEntry(a));

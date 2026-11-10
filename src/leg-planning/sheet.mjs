@@ -14,6 +14,7 @@ import { CALLS_DIR } from "../workflow/call-record.mjs";
 import { proofSheetCss } from "../mapping-playground/sheet.mjs";
 import { CANDIDATE_ROUND_BLOCKS } from "../flp/sheet.mjs";
 import { movePassage, NO_RECORD } from "../flp/provenance.mjs";
+import { elementLabel, readHolds } from "../compose/structure.mjs";
 
 // THE SHEET'S PARTS, in order.
 export const LPP_PARTS = ["Claims", "Structure", "Leg Waypoints", "Legs", "Rounds", "The Brief's Legs"];
@@ -50,27 +51,32 @@ function claimsPart(record, structure) {
   const left = structure.unreached.claims;
   return all + heading(3, "Unreached claims") + (left.length
     ? table(["id", "cite", "claim", "stated by"], left.map((u) => row([esc(u.id), esc(byId.get(u.id).cite), esc(byId.get(u.id).claim),
-      esc(u.reached_by.join(", "))]), "unreached"))
+      esc(u.reached_by.map((id) => elementLabel(structure, id, record.claims.claims)).join(", "))]), "unreached"))
     : none("Every claim is reached; the article leaves none."));
 }
 
-function structurePart(structure) {
+// Every Role, relation and higher-order relation as its name and the claim ids it is read from (kogaki#1772), each
+// `holds` with its Roles' names, and never a bare id.
+function structurePart(structure, claims) {
   if (!structure) return none("No structure was read.");
   const left = new Set(structure.unreached ? [...structure.unreached.relations, ...structure.unreached.higher_order].map((u) => u.id) : []);
   const mark = (id) => (id === structure.attains_thesis ? "attains the thesis" : left.has(id) ? UNREACHED : "");
   const cls = (id) => (left.has(id) ? "unreached" : "");
-  return heading(3, "Roles") + table(["id", "Abstract", "Attribute", "claims"], structure.roles.map((r) => row([esc(r.id), esc(r.context),
-    esc(r.attributes.join(", ")), esc(r.claims.join(", "))])))
-    + heading(3, "Relations") + table(["id", "from", "between", "holds", ""], structure.relations.map((r) => row([esc(r.id), esc(r.from),
-      esc(r.between.join(", ")), esc(r.holds), esc(mark(r.id))], cls(r.id))))
-    + heading(3, "Higher-order relations") + table(["id", "from", "relates", "holds", ""], structure.higher_order.map((h) => row([esc(h.id),
-      esc((h.from || []).join(", ")), esc(h.relates.join(", ")), esc(h.holds), esc(mark(h.id))], cls(h.id))));
+  const label = (id) => esc(elementLabel(structure, id, claims));
+  const nameOf = new Map([...structure.roles, ...structure.relations, ...structure.higher_order].map((x) => [x.id, x.name]));
+  const names = (ids) => esc(ids.map((id) => nameOf.get(id) ?? id).join(", "));
+  return heading(3, "Roles") + table(["Role", "Abstract", "Attribute"], structure.roles.map((r) => row([label(r.id), esc(r.context),
+    esc(r.attributes.join(", "))])))
+    + heading(3, "Relations") + table(["relation", "between", "holds", ""], structure.relations.map((r) => row([label(r.id),
+      names(r.between), esc(readHolds(structure, r.holds)), esc(mark(r.id))], cls(r.id))))
+    + heading(3, "Higher-order relations") + table(["higher-order relation", "relates", "holds", ""], structure.higher_order.map((h) => row([label(h.id),
+      names(h.relates), esc(readHolds(structure, h.holds)), esc(mark(h.id))], cls(h.id))));
 }
 
 // The Leg each Waypoint number falls in, from the derivation's partition.
 const legOfWaypoint = (partition) => new Map((partition || []).flatMap((p) => p.waypoints.map((n) => [n, p.leg_id])));
 
-function waypointsPart(record, waypoints, legOf) {
+function waypointsPart(record, waypoints, legOf, structure) {
   const st = stageOf(record, "waypoints");
   if (!waypoints) return none(`No Leg Waypoint set passed${st && st.stopped ? `: ${st.stopped}` : "."}`);
   const named = new Map();
@@ -78,7 +84,8 @@ function waypointsPart(record, waypoints, legOf) {
   return table(["#", "point", "carries", "serves", "Leg"], waypoints.map((w, i) => {
     const s = named.get(i + 1);
     const flag = s ? `<p class="line refusal">${esc(`GROUNDED named in Round ${s.round}: "${s.phrase}"`)}</p>` : "";
-    return row([String(i + 1), esc(w.point) + flag, esc(w.carries.join(", ")), esc(w.serves.join(", ")), esc(legOf.get(i + 1) ?? "")], s ? "named" : "");
+    return row([String(i + 1), esc(w.point) + flag, esc(w.carries.map((id) => elementLabel(structure, id, record.claims.claims)).join(", ")),
+      esc(w.serves.join(", ")), esc(legOf.get(i + 1) ?? "")], s ? "named" : "");
   }));
 }
 
@@ -104,7 +111,7 @@ function legHtml(leg, p, structure, waypoints, planLeg, bindings, libraryDir, ou
     return row([String(n), esc(w.point), move ? moveLine(move, libraryDir, outDir) : none("no Move bound"), pws, esc(b ? b.verdict : "not reached")]);
   });
   return heading(3, `Leg ${leg.leg_id}`)
-    + line(`serves ${p.relation}${h ? ` — ${h.holds}` : ""}${leg.reaches_target ? " (reaches the target)" : ""}`)
+    + line(`serves ${elementLabel(structure, p.relation)}${h ? ` — ${readHolds(structure, h.holds)}` : ""}${leg.reaches_target ? " (reaches the target)" : ""}`)
     + table(["Waypoint", "point", "paragraph Move", "Paragraph Waypoints", "verdict"], rows);
 }
 
@@ -159,8 +166,8 @@ export function renderLppSheet({ outDir, record, structure, waypoints, legs, pla
   const legOf = legOfWaypoint(legs && st ? st.partition : null);
   const parts = [
     part("Claims", claimsPart(record, structure)),
-    part("Structure", structurePart(structure)),
-    part("Leg Waypoints", waypointsPart(record, waypoints, legOf)),
+    part("Structure", structurePart(structure, record.claims.claims)),
+    part("Leg Waypoints", waypointsPart(record, waypoints, legOf, structure)),
     part("Legs", legsPart(record, legs, structure, waypoints, plan, libraryDir, outDir)),
     part("Rounds", roundsPart(record, outDir)),
     ...(briefLegs ? [part("The Brief's Legs", briefPart(briefLegs, legs))] : []),

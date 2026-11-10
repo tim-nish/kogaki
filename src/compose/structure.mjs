@@ -23,79 +23,142 @@ export function keysRefusal(obj, keys, at) {
 const shape = (text) => ({ group: "shape", text });
 const listOf = (v) => (Array.isArray(v) && v.length ? v : null);
 
+// THE ID PREFIX OF EACH KIND OF ELEMENT (kogaki#1772): a Role's `r_<n>`, a relation's `c_<n>` and a higher-order
+// relation's `h_<n>`, numbered in order of appearance from 1.
+export const ID_PREFIX = Object.freeze({ roles: "r", relations: "c", higher_order: "h" });
+const NAME = /^[a-z][a-z0-9_]*$/;
+const KIND_WORD = { roles: "the Role", relations: "the relation", higher_order: "the higher-order relation" };
+
+// THE IDS, MINTED BY THE RUNNER (kogaki#1772). The read answers each Role, relation and higher-order relation by its
+// `name` and names the elements it refers to by name; this assigns each its id in order of appearance and rewrites
+// `between`, `relates`, `attains_thesis` and every `{<name>}` of a `holds` to the ids. Returns `{ structure }`, or a
+// refusal `{ group, text }` where the answer writes an `id` itself. A name that names nothing is left as written, and
+// `validateReadSet` refuses it.
+export function mintStructure(answer) {
+  if (!isMap(answer)) return { structure: answer };
+  for (const kind of Object.keys(ID_PREFIX)) {
+    const at = (Array.isArray(answer[kind]) ? answer[kind] : []).findIndex((x) => isMap(x) && Object.hasOwn(x, "id"));
+    if (at >= 0) return shape(`${kind}[${at}] carries \`id\` — ids are minted by the runner; write the element's \`name\` and name the elements it relates by their names`);
+  }
+  const ids = Object.fromEntries(Object.entries(ID_PREFIX).map(([kind, p]) => [kind,
+    new Map((Array.isArray(answer[kind]) ? answer[kind] : []).map((x, i) => [isMap(x) ? x.name : undefined, `${p}_${i + 1}`]).reverse())]));
+  const role = (n) => ids.roles.get(n) ?? n;
+  const related = (n) => ids.relations.get(n) ?? ids.higher_order.get(n) ?? n;
+  const holds = (h) => (typeof h === "string" ? h.replace(/\{([^}]+)\}/g, (m, n) => (ids.roles.has(n) ? `{${ids.roles.get(n)}}` : m)) : h);
+  const minted = (kind, f) => (Array.isArray(answer[kind])
+    ? answer[kind].map((x, i) => (isMap(x) ? { id: `${ID_PREFIX[kind]}_${i + 1}`, ...f(x) } : x)) : answer[kind]);
+  const structure = { ...answer,
+    roles: minted("roles", (r) => r),
+    relations: minted("relations", (r) => ({ ...r, ...(Array.isArray(r.between) ? { between: r.between.map(role) } : {}), holds: holds(r.holds) })),
+    higher_order: minted("higher_order", (h) => ({ ...h, ...(Array.isArray(h.relates) ? { relates: h.relates.map(related) } : {}), holds: holds(h.holds) })),
+    ...(Object.hasOwn(answer, "attains_thesis") ? { attains_thesis: ids.higher_order.get(answer.attains_thesis) ?? answer.attains_thesis } : {}) };
+  return { structure };
+}
+
+// AN ELEMENT AS A REFUSAL NAMES IT: its name, and its id beside it.
+const named = (kind, x) => `${KIND_WORD[kind]} ${JSON.stringify(x.name)} (${x.id})`;
+
+// THE ELEMENT'S `id` AND `name` (kogaki#1772), refused naming the element or `null`.
+function idNameRefusal(kind, x, i, names) {
+  const want = `${ID_PREFIX[kind]}_${i + 1}`;
+  if (x.id !== want) return `${kind}[${i}]'s \`id\` ${JSON.stringify(x.id)} is not ${want} — ids are ${ID_PREFIX[kind]}_<n>, in order of appearance`;
+  if (typeof x.name !== "string" || !NAME.test(x.name)) return `${kind}[${i}] (${want}) carries no \`name\` that is one short snake_case word`;
+  if (names.has(x.name)) return `${kind}[${i}] (${want}): its \`name\` ${JSON.stringify(x.name)} is already another element's`;
+  names.add(x.name);
+  return null;
+}
+
 // THE STRUCTURE READ OVER THE CLAIM SET, refused `{ group, text }` or `{}`. `claims` is `parseClaims`'s list.
 // `thesis: false` is the Brief's read (kogaki#1768): no Thesis is adopted yet, so the record carries no `attains_thesis`
-// and every higher-order relation names the claims that state it.
+// and every higher-order relation names the claims that state it. The apex — the higher-order relation `attains_thesis`
+// names — carries no `from` (kogaki#1772).
 export function validateReadSet(record, claims, { thesis = true } = {}) {
   const derived = isMap(record) ? ["reach", "unreached"].find((k) => Object.hasOwn(record, k)) : undefined;
   if (derived) return shape(`the structure carries \`${derived}\` — it is derived from \`attains_thesis\`, never written`);
   const bad = keysRefusal(record, ["roles", "relations", "higher_order", ...(thesis ? ["attains_thesis"] : [])], "the structure");
   if (bad) return shape(bad);
   const claimIds = new Set(claims.map((c) => c.id));
-  const ids = new Set();
+  const names = new Set();
   const roles = listOf(record.roles);
   if (!roles) return shape("the structure's `roles` is not a non-empty list");
   for (const [i, r] of roles.entries()) {
-    const b = keysRefusal(r, ["id", "context", "attributes", "claims"], `roles[${i}]`);
+    const b = keysRefusal(r, ["id", "name", "context", "attributes", "claims"], `roles[${i}]`) || idNameRefusal("roles", r, i, names);
     if (b) return shape(b);
-    if (!isText(r.id) || ids.has(r.id)) return shape(`roles[${i}]'s \`id\` is empty or not unique`);
-    if (!isText(r.context)) return shape(`the Role ${JSON.stringify(r.id)}'s \`context\` is empty`);
-    if (!Array.isArray(r.attributes) || r.attributes.some((a) => !isText(a))) return shape(`the Role ${JSON.stringify(r.id)}'s \`attributes\` is not a list of text`);
+    const at = named("roles", r);
+    if (!isText(r.context)) return shape(`${at}'s \`context\` is empty`);
+    if (!Array.isArray(r.attributes) || r.attributes.some((a) => !isText(a))) return shape(`${at}'s \`attributes\` is not a list of text`);
     const stray = listOf(r.claims) ? r.claims.find((c) => !claimIds.has(c)) : null;
-    if (!listOf(r.claims) || stray !== undefined) return shape(`the Role ${JSON.stringify(r.id)}'s \`claims\` ${listOf(r.claims) ? `names ${JSON.stringify(stray)}, which is no claim's id` : "is not a non-empty list"}`);
-    ids.add(r.id);
+    if (!listOf(r.claims) || stray !== undefined) return shape(`${at}'s \`claims\` ${listOf(r.claims) ? `names ${JSON.stringify(stray)}, which is no claim's id` : "is not a non-empty list"}`);
   }
-  const roleIds = new Set(ids);
+  const roleIds = new Set(roles.map((r) => r.id));
+  const roleName = new Map(roles.map((r) => [r.id, r.name]));
   const relations = listOf(record.relations);
   if (!relations) return shape("the structure's `relations` is not a non-empty list");
-  const relationIds = new Set();
   for (const [i, r] of relations.entries()) {
-    const b = keysRefusal(r, ["id", "between", "holds", "from"], `relations[${i}]`);
+    const b = keysRefusal(r, ["id", "name", "between", "holds", "from"], `relations[${i}]`) || idNameRefusal("relations", r, i, names);
     if (b) return shape(b);
-    if (!isText(r.id) || ids.has(r.id)) return shape(`relations[${i}]'s \`id\` is empty or not unique`);
+    const at = named("relations", r);
     if (!Array.isArray(r.between) || r.between.length < 2 || r.between.some((x) => !roleIds.has(x))) {
-      return shape(`the relation ${JSON.stringify(r.id)}'s \`between\` does not name two or more Roles`);
+      return shape(`${at}'s \`between\` does not name two or more Roles`);
     }
-    if (!claimIds.has(r.from)) return shape(`the relation ${JSON.stringify(r.id)}'s \`from\` ${JSON.stringify(r.from)} is not one claim id`);
-    if (!isText(r.holds)) return shape(`the relation ${JSON.stringify(r.id)}'s \`holds\` is empty`);
+    if (!claimIds.has(r.from)) return shape(`${at}'s \`from\` ${JSON.stringify(r.from)} is not one claim id`);
+    if (!isText(r.holds)) return shape(`${at}'s \`holds\` is empty`);
     const absent = r.between.find((x) => !r.holds.includes(`{${x}}`));
-    if (absent !== undefined) return shape(`the relation ${JSON.stringify(r.id)}'s \`holds\` writes no {${absent}}, a Role its \`between\` names`);
-    ids.add(r.id);
-    relationIds.add(r.id);
+    if (absent !== undefined) return shape(`${at}'s \`holds\` writes no {${roleName.get(absent)}}, a Role its \`between\` names`);
   }
+  const relationIds = new Set(relations.map((r) => r.id));
   const higher = listOf(record.higher_order);
   if (!higher) return shape("the structure's `higher_order` is not a non-empty list");
-  const higherIds = new Set();
+  const apexId = thesis ? record.attains_thesis : undefined;
   for (const [i, h] of higher.entries()) {
-    const b = keysRefusal(h, ["id", "relates", "holds", "from"], `higher_order[${i}]`);
+    const apex = isMap(h) && h.id === apexId;
+    if (apex && Object.hasOwn(h, "from")) return shape(`the apex, higher_order[${i}], carries \`from\` — the apex is the one connection no claim states, and carries no \`from\``);
+    const b = keysRefusal(h, ["id", "name", "relates", "holds", ...(apex ? [] : ["from"])], `higher_order[${i}]`) || idNameRefusal("higher_order", h, i, names);
     if (b) return shape(b);
-    if (!isText(h.id) || ids.has(h.id) || higherIds.has(h.id)) return shape(`higher_order[${i}]'s \`id\` is empty or not unique`);
-    higherIds.add(h.id);
   }
+  const higherIds = new Set(higher.map((h) => h.id));
   if (thesis && !higherIds.has(record.attains_thesis)) {
     return shape(`\`attains_thesis\` ${JSON.stringify(record.attains_thesis ?? null)} names no higher-order relation`);
   }
   for (const h of higher) {
-    const at = `the higher-order relation ${JSON.stringify(h.id)}`;
+    const at = named("higher_order", h);
     if (!Array.isArray(h.relates) || h.relates.length < 2) return shape(`${at} relates fewer than two relations`);
     const stray = h.relates.find((x) => !relationIds.has(x) && !higherIds.has(x));
-    if (stray !== undefined) return shape(`${at} relates ${JSON.stringify(stray)}, which is no relation's or higher-order relation's id`);
+    if (stray !== undefined) return shape(`${at} relates ${JSON.stringify(stray)}, which names no relation or higher-order relation`);
     if (!isText(h.holds)) return shape(`${at}'s \`holds\` is empty`);
+    if (h.id === apexId) continue;
     if (!Array.isArray(h.from)) return shape(`${at}'s \`from\` is not a list of claim ids`);
-    if (thesis && h.id === record.attains_thesis) {
-      if (h.from.length) return shape(`${at} attains the thesis, and its \`from\` names ${JSON.stringify(h.from[0])} — the one higher-order relation that attains the thesis carries \`from: []\``);
-      continue;
-    }
-    if (!h.from.length) return shape(`${at}'s \`from\` is empty — every higher-order relation but the one that attains the thesis names the claims whose text states it`);
+    if (!h.from.length) return shape(`${at}'s \`from\` is empty — every higher-order relation but the apex names the claims whose text states it`);
     const unknown = h.from.find((c) => !claimIds.has(c));
     if (unknown !== undefined) return shape(`${at}'s \`from\` names ${JSON.stringify(unknown)}, which is no claim's id`);
   }
   const cycle = cycleThrough(new Map(higher.map((h) => [h.id, h.relates.filter((x) => higherIds.has(x))])));
-  if (cycle) return shape(`the higher-order relation ${JSON.stringify(cycle)} relates itself through \`relates\``);
+  if (cycle) return shape(`${named("higher_order", higher.find((h) => h.id === cycle))} relates itself through \`relates\``);
   const used = new Set(relations.flatMap((r) => r.between));
   const idle = roles.find((r) => !used.has(r.id));
-  if (idle) return { group: "coverage", text: `the Role ${JSON.stringify(idle.id)} is in no relation` };
+  if (idle) return { group: "coverage", text: `${named("roles", idle)} is in no relation` };
   return {};
+}
+
+// A `holds` AS A READER READS IT (kogaki#1772): each `{<Role id>}` written as that Role's `name`.
+export function readHolds(structure, holds) {
+  const names = new Map(((structure && structure.roles) || []).map((r) => [r.id, r.name]));
+  return String(holds ?? "").replace(/\{([^}]+)\}/g, (m, id) => names.get(id) ?? id);
+}
+
+// AN ELEMENT AS A RENDERER PRINTS IT (kogaki#1772): its `name` and, in parentheses, the claim ids it is read from — a
+// Role's `claims`, a relation's `from`, a higher-order relation's `from`, and for the apex, which carries none, the
+// claims its `relates` reaches. An id naming no element prints as itself.
+export function elementLabel(structure, id, claims = null) {
+  const s = structure || {};
+  const role = (s.roles || []).find((x) => x.id === id);
+  const rel = (s.relations || []).find((x) => x.id === id);
+  const ho = (s.higher_order || []).find((x) => x.id === id);
+  const x = role || rel || ho;
+  if (!x) return String(id);
+  const ids = role ? role.claims : rel ? [rel.from] : Array.isArray(ho.from) && ho.from.length ? ho.from
+    : servesOf(s, [id], claims || [...new Set((s.relations || []).map((r) => r.from))].map((c) => ({ id: c })));
+  return `${x.name ?? id} (${ids.join(", ")})`;
 }
 
 // THE FIRST HIGHER-ORDER ID ON A CYCLE of `edges` (an id to the higher-order ids it relates), or `null`.
@@ -140,7 +203,7 @@ export function withReach(structure, claims) {
   const inReach = new Set(reach);
   const relatedBy = (id) => structure.higher_order.filter((h) => h.relates.includes(id)).map((h) => h.id);
   const statedBy = (c) => [...structure.relations.filter((r) => r.from === c).map((r) => r.id),
-    ...structure.higher_order.filter((h) => h.from.includes(c)).map((h) => h.id)];
+    ...structure.higher_order.filter((h) => (h.from || []).includes(c)).map((h) => h.id)];
   const reachedClaims = new Set(claims.map((c) => c.id).filter((c) => statedBy(c).some((id) => inReach.has(id))));
   const read = Object.fromEntries(Object.entries(structure).filter(([k]) => k !== "reach" && k !== "unreached"));
   return {
@@ -332,7 +395,7 @@ export function componentsOf(structure, claims) {
     const hos = structure.higher_order.filter((h) => bottom(h.id).some((id) => inside.has(id))).map((h) => h.id);
     const tops = hos.filter((id) => !related.has(id));
     const from = new Set([...structure.relations.filter((r) => inside.has(r.id)).map((r) => r.from),
-      ...structure.higher_order.filter((h) => hos.includes(h.id)).flatMap((h) => h.from)]);
+      ...structure.higher_order.filter((h) => hos.includes(h.id)).flatMap((h) => h.from || [])]);
     return { component: `k${i + 1}`, relations, higher_order: hos, top: tops.length ? tops : relations,
       claims: claims.map((c) => c.id).filter((id) => from.has(id)) };
   });
@@ -358,50 +421,58 @@ export function depthOf(structure, id) {
   return walk(id, new Set());
 }
 
-// A HIGHER-ORDER RELATION'S `holds` WITH ITS ROLES NAMED (kogaki#1773): each `{<id>}` written as the Role's id, its
-// hyphens and underscores read as spaces -- the Thesis of a component whose one top is its apex.
-export const holdsInRoleNames = (holds) => String(holds).replace(/\{([^}]+)\}/g, (_, id) => id.replace(/[-_]+/g, " "));
+// A HIGHER-ORDER RELATION'S `holds` WITH ITS ROLES NAMED (kogaki#1773): each `{<Role id>}` written as that Role's
+// `name` (kogaki#1772), its hyphens and underscores read as spaces -- the Thesis of a component whose one top is its
+// apex, read as a sentence rather than over the minted ids.
+export const holdsInRoleNames = (structure, holds) => {
+  const names = new Map((((structure || {}).roles) || []).map((r) => [r.id, String(r.name ?? r.id).replace(/[-_]+/g, " ")]));
+  return String(holds ?? "").replace(/\{([^}]+)\}/g, (m, id) => names.get(id) ?? id.replace(/[-_]+/g, " "));
+};
 
 // THE APEX RECORD (kogaki#1768), refused `{ group, text }` or `{}`: one apex per component of `components`, each
-// relating exactly that component's `top`, with an id no relation, higher-order relation or other apex carries, a
-// `holds` that is one sentence, and `from: []`.
+// relating exactly that component's `top`, with a `name` no element of the structure or other apex carries and a
+// `holds` that is one sentence. The apex carries no `id`, which the adoption mints, and no `from` (kogaki#1772).
 export function validateApex(answer, components, structure) {
   const b = keysRefusal(answer, ["apexes"], "the answer");
   if (b) return shape(b);
   if (!Array.isArray(answer.apexes)) return shape("the answer's `apexes` is not a list");
-  const taken = new Set([...structure.roles.map((r) => r.id), ...structure.relations.map((r) => r.id), ...structure.higher_order.map((h) => h.id)]);
+  const taken = new Set([...structure.roles, ...structure.relations, ...structure.higher_order].map((x) => x.name));
   const seen = new Set();
   for (const [i, a] of answer.apexes.entries()) {
-    const ab = keysRefusal(a, ["component", "id", "relates", "holds", "from"], `apexes[${i}]`);
+    if (isMap(a) && Object.hasOwn(a, "from")) return shape(`apexes[${i}] carries \`from\` — the apex is the one connection no claim states, and carries no \`from\``);
+    if (isMap(a) && Object.hasOwn(a, "id")) return shape(`apexes[${i}] carries \`id\` — the apex's id is minted when it is adopted; write its \`name\``);
+    const ab = keysRefusal(a, ["component", "name", "relates", "holds"], `apexes[${i}]`);
     if (ab) return shape(ab);
     const k = components.find((c) => c.component === a.component);
     if (!k) return shape(`apexes[${i}] names the component ${JSON.stringify(a.component)}, which the input does not carry`);
     if (seen.has(a.component)) return shape(`two apexes name the component ${JSON.stringify(a.component)} — each component carries one`);
     seen.add(a.component);
-    if (!isText(a.id) || taken.has(a.id)) return shape(`the apex of ${a.component}: its \`id\` ${JSON.stringify(a.id)} is empty or already an id of the structure`);
-    taken.add(a.id);
+    if (typeof a.name !== "string" || !NAME.test(a.name) || taken.has(a.name)) return shape(`the apex of ${a.component}: its \`name\` ${JSON.stringify(a.name)} is not one short snake_case word, or is already a name of the structure`);
+    taken.add(a.name);
     const want = new Set(k.top);
     if (!Array.isArray(a.relates) || a.relates.length !== want.size || a.relates.some((x) => !want.has(x))) {
       return { group: "relates", text: `the apex of ${a.component} relates ${JSON.stringify(a.relates)}, and it relates exactly ${JSON.stringify(k.top)}, the component's top-level relations` };
     }
     if (!isText(a.holds)) return shape(`the apex of ${a.component}: its \`holds\` is empty`);
     if (/\{[^}]+\}/.test(a.holds)) return shape(`the apex of ${a.component}: its \`holds\` carries ${/\{[^}]+\}/.exec(a.holds)[0]} — the apex is the Thesis sentence, written in the claims' own words, never over Role ids`);
-    if (!Array.isArray(a.from) || a.from.length) return shape(`the apex of ${a.component}: its \`from\` is not empty — the apex is the one connection no claim states`);
   }
   const missing = components.find((c) => !seen.has(c.component));
   if (missing) return { group: "coverage", text: `the component ${missing.component} carries no apex — every component carries one` };
   return {};
 }
 
-// THE STRUCTURE WITH ONE APEX ADOPTED (kogaki#1768): the apex appended to `higher_order` and named `attains_thesis`,
-// the other apexes discarded, and `reach` and `unreached` derived as \`withReach\` derives them.
-// An apex whose id is already a higher-order relation of the structure is a single top (kogaki#1773): it is named
-// `attains_thesis` and nothing is appended.
+// THE STRUCTURE WITH ONE APEX ADOPTED (kogaki#1768): the apex appended to `higher_order` under the next `h_<n>` id
+// (kogaki#1772) and named `attains_thesis`, the other apexes discarded, and `reach` and `unreached` derived as
+// \`withReach\` derives them.
+// An apex whose `name` is already a higher-order relation's is a single top (kogaki#1773): it is named
+// `attains_thesis` under the id it already carries and nothing is appended.
 export function withApex(structure, apex, claims) {
   const read = Object.fromEntries(Object.entries(structure).filter(([k]) => !["reach", "unreached", "attains_thesis"].includes(k)));
-  if (structure.higher_order.some((h) => h.id === apex.id)) return withReach({ ...read, attains_thesis: apex.id }, claims);
-  return withReach({ ...read, higher_order: [...structure.higher_order, { id: apex.id, relates: [...apex.relates], holds: apex.holds, from: [] }],
-    attains_thesis: apex.id }, claims);
+  const top = structure.higher_order.find((h) => h.name === apex.name);
+  if (top) return withReach({ ...read, attains_thesis: top.id }, claims);
+  const id = `${ID_PREFIX.higher_order}_${structure.higher_order.length + 1}`;
+  return withReach({ ...read, higher_order: [...structure.higher_order, { id, name: apex.name, relates: [...apex.relates], holds: apex.holds }],
+    attains_thesis: id }, claims);
 }
 
 // THE PATH'S REACH, refused naming what breaks it or `null` (kogaki#1768): every relation and higher-order relation
