@@ -2,7 +2,7 @@
   "version": "1",
   "governing_text": "specs/spec-draft-pipeline/SPEC.md, The Leg-Planning Playground",
   "licensed_by": "kogaki#1764",
-  "note": "The Leg-Planning Playground's rows (kogaki#1764): a claim set read into one RelationalStructure, Leg Waypoints composed from its relations, judged GROUNDED, then grouped into Legs and bound to Moves. A `{{copy:<name>}}` token in a row's `judgment_point` is replaced at run time by the text `copies.<name>` names in another table, from its `opens` words through the first `closes` words after them; a copy whose words are no longer in that table refuses the Trial before any Call.",
+  "note": "The Leg-Planning Playground's rows (kogaki#1764): a claim set read into one RelationalStructure, Leg Waypoints composed from its relations, judged GROUNDED; the Legs over them are derived by the runner and ask no row (kogaki#1767). A `{{copy:<name>}}` token in a row's `judgment_point` is replaced at run time by the text `copies.<name>` names in another table, from its `opens` words through the first `closes` words after them; a copy whose words are no longer in that table refuses the Trial before any Call.",
   "sme_read_set": {
     "id": "sme_read_set",
     "note": "Stage 1 (kogaki#1764, kogaki#1766): the Mapper's reading, `sme_map_roles`, extended from one sentence to a set of claims. Under the Mapper's bound, MAPPER_CALLS. `reach` and `unreached` are the runner's, derived from `attains_thesis` through `relates`.",
@@ -46,36 +46,6 @@
     "governing": "specs/spec-draft-pipeline/SPEC.md, The Leg-Planning Playground; kogaki#1764",
     "refusal_reach": {
       "shape": "part"
-    }
-  },
-  "lpp_legs": {
-    "id": "lpp_legs",
-    "note": "Stage 3 (kogaki#1764): the passed Waypoints grouped into Legs, one Move bound per Leg, as `smp_bind_move` binds one. `claims` is the runner's, derived from the Waypoints' `serves`. The result is judged by the Brief's own `reader_path_fit_unit`, and a Leg that does not fit is handed back with the judge's text, up to `brief.unit_rounds` Rounds.",
-    "judgment_point": "group the Leg Waypoints in the input, `waypoints`, each numbered by `waypoint` and carrying relations of `structure`, into Legs: an ordered partition of the Waypoints into contiguous runs, every Waypoint in exactly one Leg, in order. For each Leg, choose ONE Move of `moves_you_may_bind` whose `segments`, in order, can carry the Leg's relations and then its higher-order relation, and every entry of whose `takes` the reader in `persona` meets from `persona.prior_knowledge` or an earlier Leg's Move leaves. {{copy:take}} {{copy:leave}} The last Leg is the one marked `reaches_target`. Every Leg's Waypoints carry at least one higher-order relation between them. Write no `claims`: they are derived from the Waypoints' `serves`.",
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT: `legs` -- an ordered, non-empty list of `{ \"leg_id\": <a short unique id>, \"waypoints\": [<the Waypoint numbers of this Leg, in order>], \"move\": <one Move id of moves_you_may_bind> }`.",
-    "refusal": "a key the record or a Leg does not declare, or a declared key missing; a `claims` written on a Leg; an empty or repeated `leg_id`; a `move` naming no Move of `moves_you_may_bind`, refused naming the Leg and the id; a partition that leaves a Waypoint out, repeats one, or breaks the order, refused naming the Waypoint; and a Leg whose Waypoints carry no higher-order relation, refused naming the Leg. A Leg judged not to fit its Move is handed back with the judge's sentence. The refusal is put back into your next round verbatim with your answer.",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, The Leg-Planning Playground; kogaki#1764",
-    "copies": {
-      "take": {
-        "file": "src/brief-workflow.json",
-        "row": "reader_path_unit",
-        "field": "judgment_point",
-        "opens": "TAKE:",
-        "closes": "never verbatim."
-      },
-      "leave": {
-        "file": "src/brief-workflow.json",
-        "row": "reader_path_unit",
-        "field": "judgment_point",
-        "opens": "LEAVE:",
-        "closes": "never left at the end."
-      }
-    },
-    "refusal_reach": {
-      "shape": "part",
-      "library": "part",
-      "partition": "part",
-      "fit": "part"
     }
   }
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The Leg-Planning Playground's Trial (kogaki#1764): a claims file read into one RelationalStructure, Leg Waypoints
-// composed from its relations and judged GROUNDED, then grouped into Legs with one Move bound each and judged by the
-// Brief's own fit judge, every Call recorded and the chain rendered as one sheet.
+// composed from its relations and judged GROUNDED, Legs derived over them with no Move (kogaki#1767), and
+// `/paragraph-plan` run over the Legs to bind one Move per Leg Waypoint, every Call recorded and the chain rendered as
+// one sheet.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -16,17 +17,18 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts } from "../compose.mjs";
-import { briefLegs } from "../compose/record.mjs";
+import { briefLegs, briefRecordText, PARAGRAPH_PLAN_FILE } from "../compose/record.mjs";
 import { judgePrompt, refusalReach, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { writeCallRecord, cliRecord, tableRecord } from "../workflow/call-record.mjs";
-import { segmentsForPlanCall } from "../paragraph-plan.mjs";
-import { readerPathFitInput, readerPathFitVerdict } from "../brief/reader-path-unit.mjs";
+import { readReaderPathJob } from "../workflow/detached-job.mjs";
+import { PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../mapping-playground/sme.mjs";
+import { unitCalls, roundsAt, unitStatus, waypointStatus, namedWaypoints } from "../flp/sheet.mjs";
 import {
   parseClaims, resolvedRow, validateReadSet, withReach, servesOf, validateWaypoints, rewrittenSet, validateGrounded, siteComment,
-  validateLegPartition, briefShapedLegs, readerPathRefusal, COMPOSED_BY,
+  derivedLegs, legPartitionRefusal, readerPathRefusal, COMPOSED_BY,
 } from "./read-set.mjs";
 import { renderLppSheet } from "./sheet.mjs";
 
@@ -38,9 +40,11 @@ export const STRUCTURE_FILE = "structure.yaml";
 export const WAYPOINTS_FILE = "waypoints.yaml";
 export const LEGS_FILE = "legs.yaml";
 export const SHEET_FILE = "sheet.html";
-export const FIT_ROW = "reader_path_fit_unit";
-export const STAGES = ["structure", "waypoints", "legs"];
-const CANDIDATE_ID = "lpp";
+export const PLAN_DIR = "paragraph-plan";
+export const PLAN_BRIEF_FILE = "brief.yaml";
+export const STAGES = ["structure", "waypoints", "legs", "paragraph-plan"];
+const PLAN_AWAIT_S = 30;
+const PLAN_AWAITS_MAX = 240;
 const FLOW = { lane: "brief", label: "Leg-Planning Playground" };
 const USAGE = "usage: node src/leg-planning/trial.mjs run --claims <file> --out <dir under runs/leg-planning/> "
   + "[--audience <audiences/<name>.md>] [--library <dir>] [--brief <theses/<slug>/brief.yaml>]";
@@ -206,51 +210,82 @@ function waypointsStage({ ask, row, judgeRow, structure, thesis, persona, claims
   return { stopped: `the Waypoints were not GROUNDED in ${bound} Round(s)`, rounds, named };
 }
 
-// STAGE 3: the Legs, each with one Move, judged by the Brief's own fit judge; a Leg that does not fit is handed back.
-function legsStage({ ask, row, fitRow, waypoints, structure, persona, claims, thesis, library, libraryDir, bound }) {
-  const ids = new Set(library.map((m) => m.id));
-  const input = { waypoints: waypoints.map((w, i) => ({ waypoint: i + 1, ...w })), structure, persona: personaInput(persona),
-    moves_you_may_bind: library.map((m) => ({ id: m.id, takes: m.takes, leaves: m.leaves, segments: segmentsForPlanCall(m.segments) })) };
-  const history = [];
-  const rounds = [];
-  for (let k = 1; k <= bound; k++) {
-    const round = { round: k, submission: [], comment: null, verdict: null, calls: [] };
-    rounds.push(round);
-    const a = ask({ row, input, history, tables: [LPP_TABLE, BRIEF_TABLE], phase: "compose", check: (rec) => {
-      const v = validateLegPartition(rec, waypoints, structure, ids);
-      return v.text ? { ...v, validator: "validateLegPartition" } : null;
-    } });
-    round.submission.push(a.call);
-    if (a.stopped) { round.verdict = "stopped"; return { stopped: a.stopped, rounds }; }
-    if (a.refusal) { round.verdict = "refused"; round.comment = a.refusal.text; history.push(historyEntry(a)); continue; }
-    const legs = briefShapedLegs(a.answer, waypoints, claims);
-    const candidate = { candidate_id: CANDIDATE_ID, legs };
-    const fit = readerPathFitInput(candidate, libraryDir, personaPriorKnowledgeLine(persona), thesis);
-    if (fit.error) { round.verdict = "stopped"; return { stopped: fit.error, rounds }; }
-    let refusal = null;
-    let verdicts = null;
-    for (let j = 1; j <= 2 && verdicts === null; j++) {
-      const f = ask({ row: fitRow, input: fit.input, tables: [BRIEF_TABLE], phase: "fit", check: (rec) => {
-        const v = readerPathFitVerdict(rec, candidate);
-        if (v.error) return { group: "shape", text: v.error, validator: "readerPathFitVerdict" };
-        refusal = v.refusal || null;
-        verdicts = rec.verdicts;
-        return null;
-      } });
-      round.calls.push(f.call);
-      if (f.stopped) { round.verdict = "stopped"; return { stopped: f.stopped, rounds }; }
-    }
-    if (verdicts === null) { round.verdict = "stopped"; return { stopped: "the fit judge's record was malformed twice", rounds }; }
-    round.fit = verdicts;
-    if (!refusal) {
-      round.verdict = "consistent";
-      return { value: legs, rounds, verdicts, partition: a.answer.legs.map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints })) };
-    }
-    round.verdict = "does-not-fit";
-    round.comment = refusal;
-    history.push({ answer: a.answer, refusal, group: "fit", reach: "part" });
+// STAGE 3: the Legs, derived by the runner (kogaki#1767); no Call is made.
+function legsStage({ waypoints, structure, claims }) {
+  const d = derivedLegs(waypoints, structure, claims);
+  const bad = legPartitionRefusal(d, waypoints, structure);
+  if (bad.error) return { stopped: `the derived Legs break their invariant: ${bad.error}` };
+  return { value: d.legs, partition: d.partition, rounds: [] };
+}
+
+// THE BRIEF `/paragraph-plan` IS HANDED (kogaki#1767): legs.yaml's `reader_path`, unchanged, in a Brief record.
+function planBriefText({ slug, audiencePath, claims, thesis, legsFile }) {
+  return briefRecordText({ slug, compose_path: relFromRepo(audiencePath),
+    strands: claims.map((c) => ({ id: c.id, slug: `${slug}-${c.id}`, cite: c.cite })), thesis, defined_terms: [],
+    reader_path: legsFile.reader_path, strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {} });
+}
+
+function planCommand(args) {
+  const r = spawnSync(process.execPath, ["src/paragraph-plan.mjs", ...args], { cwd: REPO, encoding: "utf8", env: process.env, maxBuffer: 64 * 1024 * 1024 });
+  const said = `${r.stdout || ""}\n${r.stderr || ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
+  return { exit: r.status, stdout: String(r.stdout || ""), line: said.slice(-3).join(" ") || (r.error ? r.error.message : "(no output)") };
+}
+
+// THE BINDING AND THE VERDICT AT EACH LEG WAYPOINT, read from the plan's run as the FLP reads it.
+function planWaypoints(runDir, legs) {
+  const job = readReaderPathJob(runDir) || { units: [] };
+  return legs.flatMap((leg, i) => {
+    const unitId = `leg-${i + 1}`;
+    const unit = (job.units || []).find((u) => u.id === unitId);
+    const status = unitStatus(job, unit);
+    const calls = unitCalls(runDir, unitId);
+    const last = unit && Array.isArray(unit.refusals) && unit.refusals.length ? unit.refusals[unit.refusals.length - 1] : "";
+    return leg.waypoints.map((_, k) => {
+      const n = k + 1;
+      const rounds = roundsAt(calls, n, status);
+      const r = rounds[rounds.length - 1];
+      const entry = unit && unit.candidate ? unit.candidate.waypoints[k] : r && r.entry;
+      return { leg_id: leg.leg_id, waypoint: n, move: entry && typeof entry.move === "string" ? entry.move : null,
+        verdict: waypointStatus(status, n, namedWaypoints(last), rounds).text,
+        rounds: rounds.map((x) => ({ round: x.number, call: x.call ? relFromRepo(x.call.dir) : null,
+          verdict: x.verdict.kind === "judge" ? x.verdict.record.verdict : x.verdict.kind, comment: x.comment ? x.comment.text : null })) };
+    });
+  });
+}
+
+// The Leg and Waypoint a unit's last `no_paragraph_move_fits` refusal names, or `null`.
+function noFitStop(runDir) {
+  const job = readReaderPathJob(runDir) || { units: [] };
+  for (const u of job.units || []) {
+    const last = Array.isArray(u.refusals) && u.refusals.length ? String(u.refusals[u.refusals.length - 1]) : "";
+    if (u.status === "done" || !last.includes(NO_PARAGRAPH_MOVE_FITS)) continue;
+    const at = [...last.matchAll(/^Leg (\S+), Waypoint (\d+) /gm)].map((m) => `Leg ${m[1]}, Waypoint ${m[2]}`);
+    return `${NO_PARAGRAPH_MOVE_FITS} at ${at.join("; ") || u.id}`;
   }
-  return { stopped: `the Legs did not fit their Moves in ${bound} Round(s)`, rounds };
+  return null;
+}
+
+// STAGE 4: `/paragraph-plan` over the Legs, driven as the SMP Trial drives it (kogaki#1767).
+function paragraphPlanStage({ outDir, legsPath, legsFile, slug, audiencePath, claims, thesis, libraryDir }) {
+  const dir = join(outDir, PLAN_DIR);
+  const runDir = join(dir, "run");
+  mkdirSync(runDir, { recursive: true });
+  const briefPath = join(dir, PLAN_BRIEF_FILE);
+  writeFileSync(briefPath, planBriefText({ slug, audiencePath, claims, thesis, legsFile }));
+  const shown = { legs: fileRecord(legsPath), brief: fileRecord(briefPath), run: relFromRepo(runDir) };
+  const pp = (cmd, extra = []) => planCommand([cmd, "--brief", briefPath, "--run-dir", runDir, "--moves-dir", libraryDir, ...extra]);
+  const ended = (line) => ({ ...shown, waypoints: planWaypoints(runDir, legsFile.reader_path), stopped: noFitStop(runDir) || line });
+  const s = pp("start");
+  if (s.exit !== 0) return { ...shown, stopped: `\`paragraph-plan start\` exited ${s.exit}: ${s.line}` };
+  for (let i = 0; i < PLAN_AWAITS_MAX; i++) {
+    const a = pp("await", ["--wait-s", String(PLAN_AWAIT_S)]);
+    if (a.exit !== 0) return ended(`\`paragraph-plan await\` exited ${a.exit}: ${a.line}`);
+    if (a.stdout.includes(PARAGRAPH_PLAN_STILL_RUNNING_LINE)) continue;
+    const planPath = join(dir, PARAGRAPH_PLAN_FILE);
+    if (!existsSync(planPath)) return ended("the ParagraphPlan job ended and wrote no plan");
+    return { ...shown, plan: fileRecord(planPath), waypoints: planWaypoints(runDir, legsFile.reader_path) };
+  }
+  return { ...shown, stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s` };
 }
 
 function readClaims(file) {
@@ -276,12 +311,11 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   const { thesis, claims } = readClaims(claimsFile);
   const table = readJson(LPP_TABLE);
   const rows = {};
-  for (const id of ["sme_read_set", "lpp_waypoints", "lpp_grounded", "lpp_legs"]) {
+  for (const id of ["sme_read_set", "lpp_waypoints", "lpp_grounded"]) {
     const r = resolvedRow(table, id);
     if (r.error) fail(`${r.error}. Nothing was written.`);
     rows[id] = r.row;
   }
-  const fitRow = { ...readJson(BRIEF_TABLE)[FIT_ROW], id: FIT_ROW };
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
   const persona = readerPersona(audiencePath);
   if (persona.error) fail(`${persona.error}. Nothing was written.`);
@@ -321,17 +355,28 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   const structure = stage("structure", STRUCTURE_FILE, () => wrap(structureStage({ ask, row: rows.sme_read_set, claims, thesis, persona }), (s) => s));
   const waypoints = stage("waypoints", WAYPOINTS_FILE, () => wrap(waypointsStage({ ask, row: rows.lpp_waypoints, judgeRow: rows.lpp_grounded,
     structure, thesis, persona, claims, bound }), (ws) => ({ waypoints: ws })));
+  let legsFile = null;
   const legs = stage("legs", LEGS_FILE, () => {
-    const r = legsStage({ ask, row: rows.lpp_legs, fitRow, waypoints, structure, persona, claims, thesis, library: lib.moves, libraryDir, bound });
+    const r = legsStage({ waypoints, structure, claims });
     if (r.stopped) return r;
     const file = { composed_by: COMPOSED_BY, reader_path: r.value };
     const readable = readerPathRefusal(file);
     if (readable.error) return { stopped: `legs.yaml would not read as a Brief's \`reader_path\`: ${readable.error}`, rounds: r.rounds };
+    legsFile = file;
     return { ...r, value: { data: r.value, file } };
   });
+  let plan = null;
+  if (record.stopped) record.stages.push({ stage: "paragraph-plan", state: "not run" });
+  else {
+    const r = paragraphPlanStage({ outDir, legsPath: join(outDir, LEGS_FILE), legsFile, slug: record.trial, audiencePath, claims, thesis, libraryDir });
+    record.stages.push({ stage: "paragraph-plan", state: r.stopped ? "stopped" : "done", ...r });
+    if (r.stopped) record.stopped = `paragraph-plan: ${r.stopped}`;
+    else plan = parseYaml(readFileSync(join(outDir, PLAN_DIR, PARAGRAPH_PLAN_FILE), "utf8"), PARAGRAPH_PLAN_FILE);
+    save();
+  }
   record.finished_at = new Date().toISOString();
   const sheetPath = join(outDir, SHEET_FILE);
-  writeFileSync(sheetPath, renderLppSheet({ outDir, record, structure, waypoints, legs, libraryDir, briefLegs: briefRecord ? briefRecord.legs : null }));
+  writeFileSync(sheetPath, renderLppSheet({ outDir, record, structure, waypoints, legs, plan, libraryDir, briefLegs: briefRecord ? briefRecord.legs : null }));
   record.sheet = fileRecord(sheetPath);
   save();
   return { outDir, stopped: record.stopped || null };
