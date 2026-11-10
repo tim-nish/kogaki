@@ -15,8 +15,8 @@ import {
 } from "../compose.mjs";
 import { applyLegSections } from "../compose/sections.mjs";
 import {
-  componentsOf, derivedLegs, legPartitionRefusal, partitionComponents, pathReachRefusal, servesOf, validateApex,
-  validateReadSet,
+  componentsOf, derivedLegs, elementLabel, legPartitionRefusal, mintStructure, partitionComponents, pathReachRefusal,
+  readHolds, servesOf, validateApex, validateReadSet,
 } from "../compose/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
@@ -118,7 +118,7 @@ async function finishReaderPath(rec, st, table, args, { result, structure, langu
   if (bad.error) fail(`${st.id}: the derived Legs break their invariant: ${bad.error}`);
   const row = table.leg_sections
     || fail(`${st.id}: src/brief-workflow.json declares no leg_sections row for the Legs' Sections (kogaki#1768)`);
-  const holds = new Map(structure.higher_order.map((h) => [h.id, h.holds]));
+  const holds = new Map(structure.higher_order.map((h) => [h.id, readHolds(structure, h.holds)]));
   let legs = null;
   const validate = (p) => {
     let r;
@@ -250,9 +250,11 @@ export const STATE_WORK = {
       let r;
       try { r = readJson(p); }
       catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      const v = validateReadSet(r, claims, { thesis: false });
+      const m = mintStructure(r);
+      if (m.text) refuseJudgment(m.text);
+      const v = validateReadSet(m.structure, claims, { thesis: false });
       if (v.text) refuseJudgment(v.text);
-      structure = r;
+      structure = m.structure;
     };
     const composeInputFor = () => writeJudgeInput(rec, st, { state: st.id, claims, persona });
     const path = await judged(rec, st, table, args, "structure", composeInputFor, validate);
@@ -283,11 +285,12 @@ export const STATE_WORK = {
     }
     const multi = connected.filter((k) => k.top.length > 1);
     const { language } = audienceFor(table, st);
-    const holds = new Map([...state.structure.relations, ...state.structure.higher_order].map((x) => [x.id, x.holds]));
+    const element = new Map([...state.structure.relations, ...state.structure.higher_order]
+      .map((x) => [x.id, { id: x.id, name: x.name, holds: readHolds(state.structure, x.holds) }]));
     const described = (k) => ({
       component: k.component,
-      relations: k.relations.map((id) => ({ id, holds: holds.get(id) })),
-      higher_order: k.higher_order.map((id) => ({ id, holds: holds.get(id) })),
+      relations: k.relations.map((id) => element.get(id)),
+      higher_order: k.higher_order.map((id) => element.get(id)),
       top: k.top,
       claims: k.claims,
     });
@@ -726,10 +729,11 @@ export const GATE_WORK = {
 // THE READER PATH, AS THE OWNER READS IT ABOVE THE CANDIDATE QUESTION
 // (kogaki#1768): each Leg with the higher-order relation it serves and its
 // Section heading where it opens one, and each Leg Waypoint's point with the
-// relations it carries. A Role written `{<id>}` in a relation reads as its id.
+// relations it carries, each as its name and the claim ids it is read from (kogaki#1772). A Role written `{<id>}` in a
+// relation reads as its name.
 export function readerPathReading(candidates, structure) {
   const holds = new Map((structure ? [...structure.relations, ...structure.higher_order] : [])
-    .map((x) => [x.id, String(x.holds).replace(/\{([^}]+)\}/g, "$1")]));
+    .map((x) => [x.id, readHolds(structure, x.holds)]));
   const lines = [];
   for (const c of candidates) {
     const n = (c.legs || []).reduce((k, l) => k + (l.waypoints || []).length, 0);
@@ -738,7 +742,7 @@ export function readerPathReading(candidates, structure) {
       if (typeof l.opens_section === "string") lines.push(`Section: ${l.opens_section}`);
       lines.push(`${l.leg_id}${l.relation ? ` — ${holds.get(l.relation) || l.relation}` : ""}`);
       for (const [i, w] of (l.waypoints || []).entries()) {
-        lines.push(`  ${i + 1}. ${w.point}${Array.isArray(w.carries) && w.carries.length ? ` (carries ${w.carries.join(", ")})` : ""}`);
+        lines.push(`  ${i + 1}. ${w.point}${Array.isArray(w.carries) && w.carries.length ? ` (carries ${w.carries.map((id) => elementLabel(structure, id)).join(", ")})` : ""}`);
       }
     }
   }

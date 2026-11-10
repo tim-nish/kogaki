@@ -3742,25 +3742,38 @@ by writing the claims.
 
 **Stage 1, the structure: the `sme_read_set` row.** One Call reads the
 claims, with their ids, the `thesis` and the Persona's `reader` and
-prior-knowledge line into one RelationalStructure: `roles`, each `{ id,
-context, attributes, claims }`; `relations`, each `{ id, between, holds,
-from }`; `higher_order`, a list of one or more `{ id, relates, holds, from
-}`; and `attains_thesis`, the id of the one higher-order relation that states
-the thesis. `validateReadSet` refuses, naming the item: an undeclared or
-missing key, and a written `reach` or `unreached`; an empty or repeated id;
-a Role whose `claims` names no claim, and a Role in no relation; a relation
-whose `from` is not one claim id, or whose `holds` writes no `{<id>}` for a
-Role its `between` names; a higher-order relation relating fewer than two
+prior-knowledge line into one RelationalStructure: `roles`, each `{ id, name,
+context, attributes, claims }`; `relations`, each `{ id, name, between,
+holds, from }`; `higher_order`, a list of one or more `{ id, name, relates,
+holds, from }`; and `attains_thesis`, the id of the one higher-order relation
+that states the thesis. `validateReadSet` refuses, naming the item: an
+undeclared or missing key, and a written `reach` or `unreached`; an id out of
+the convention below, and a `name` missing, not one snake_case word, or
+repeated; a Role whose `claims` names no claim, and a Role in no relation; a
+relation whose `from` is not one claim id, or whose `holds` writes no
+`{<id>}` for a Role its `between` names; a higher-order relation relating fewer than two
 relations or higher-order relations, or an unknown id, or relating itself
 through another; and an `attains_thesis` absent or naming no higher-order
 relation. A refusal is handed back verbatim with the answer, under the
 Mapper's bound, `MAPPER_CALLS`.
 
+**Ids are minted by the runner, and a name is a field** (kogaki#1772). The
+read answers each Role, relation and higher-order relation by its `name`,
+one short snake_case word, and names the elements it refers to — `between`,
+`relates`, `attains_thesis` and each `{<name>}` of a `holds` — by name. The
+runner then mints the ids (`mintStructure`): a Role's is `r_<n>`, a
+relation's `c_<n>` and a higher-order relation's `h_<n>`, numbered from 1 in
+order of appearance, and every reference is rewritten to the id. A read that
+writes an `id` itself is refused naming the element. Every renderer prints
+an element as its `name` with the claim ids it is read from in parentheses,
+`registration (L1)`, and a `holds` with its Roles' names, never a bare id.
+
 **A higher-order relation names its source, and the apex alone has none**
 (kogaki#1766). A higher-order relation's `from` lists the claim ids whose
 text states the connection. Every higher-order relation but the one
 `attains_thesis` names carries a non-empty `from` of claim ids, and the
-apex carries `from: []`; either broken is refused naming the relation. A
+apex carries no `from` (kogaki#1772); either broken is refused naming the
+relation. A
 connection no claim states is therefore written only as the apex. A
 higher-order relation's `relates` may name higher-order relations, so the
 tower is one connected system under the apex rather than a flat list.
@@ -3929,9 +3942,11 @@ of what the Brief did before.
    `HOME_COLLISION` follows where a candidate's home already holds the same
    Thesis (kogaki#1742).
 4. `adopt_thesis` adopts the selected apex, and the structure is closed under
-   it (`withApex`): the apex becomes `attains_thesis` — a single top is named
-   and no apex is written — and what it does not reach is recorded as
-   unreached.
+   it (`withApex`): the apex becomes `attains_thesis` under the next `h_<n>`
+   id — a single top is named under the id it already carries and no apex is
+   written — and what it does not reach is recorded as unreached. The `apex`
+   Call answers each apex by its `name` and writes no `id` and no `from`
+   (kogaki#1772); the ids of every element follow §4.21's convention.
 5. `mint` writes `theses/<slug>/brief.yaml` with `structure` beside the
    Thesis, and `strand_coverage` naming each Strand whose claims the apex
    leaves unreached; a claim of unconnected material carries the reason `no

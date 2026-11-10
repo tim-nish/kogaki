@@ -24,6 +24,7 @@ import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
 import { bindFlow } from "./src/workflow/run-record.mjs";
+import { mintStructure } from "./src/compose/structure.mjs";
 import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
 // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
 bindFlow(BRIEF_FLOW);
@@ -34,30 +35,31 @@ const composePathText = () => { const b = briefRuntimeText(); return b.slice(b.i
 const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
 const fails = [];
 
-// THE FIXTURE STRUCTURE: three relations, two higher-order relations, `h2` the apex.
-const STRUCTURE = {
-  roles: [{ id: "rules", context: "A set of checks that runs without anyone choosing what it reads.", attributes: ["automatic"], claims: ["L1", "L2"] },
-    { id: "walk", context: "The list of files a tool visits when it runs.", attributes: [], claims: ["L1", "L2"] },
-    { id: "file", context: "One file in a repository.", attributes: ["skipped"], claims: ["L2", "L3"] },
-    { id: "team", context: "The people who read the result of a run.", attributes: [], claims: ["L3"] }],
-  relations: [{ id: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "L1" },
-    { id: "p2", between: ["walk", "file"], holds: "{file} left off {walk} is never checked.", from: "L2" },
-    { id: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as covering every file.", from: "L3" }],
-  higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked.", from: ["L2"] },
-    { id: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}.", from: [] }],
+// THE FIXTURE STRUCTURE: three relations, two higher-order relations, `h2` the apex, its ids minted by the runner over
+// the names the read answers (kogaki#1772).
+const STRUCTURE = mintStructure({
+  roles: [{ name: "rules", context: "A set of checks that runs without anyone choosing what it reads.", attributes: ["automatic"], claims: ["L1", "L2"] },
+    { name: "walk", context: "The list of files a tool visits when it runs.", attributes: [], claims: ["L1", "L2"] },
+    { name: "file", context: "One file in a repository.", attributes: ["skipped"], claims: ["L2", "L3"] },
+    { name: "team", context: "The people who read the result of a run.", attributes: [], claims: ["L3"] }],
+  relations: [{ name: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "L1" },
+    { name: "p2", between: ["walk", "file"], holds: "{file} left off {walk} is never checked.", from: "L2" },
+    { name: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as covering every file.", from: "L3" }],
+  higher_order: [{ name: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked.", from: ["L2"] },
+    { name: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}." }],
   attains_thesis: "h2",
-};
+}).structure;
 const WAYPOINTS = [
-  { point: "An automatic rule set applies only to the files its walker visits.", carries: ["p1"] },
-  { point: "A file the walker skips is never checked, because the rules read only the walk.", carries: ["p2", "h1"] },
-  { point: "A team that reads a pass as covering every file trusts a pass that never reached the skipped file.", carries: ["p3", "h2"] }];
+  { point: "An automatic rule set applies only to the files its walker visits.", carries: ["c_1"] },
+  { point: "A file the walker skips is never checked, because the rules read only the walk.", carries: ["c_2", "h_1"] },
+  { point: "A team that reads a pass as covering every file trusts a pass that never reached the skipped file.", carries: ["c_3", "h_2"] }];
 
 // (a) THE UNIT PROMPT IS `lpp_waypoints` OVER THE STRUCTURE, and no Move library reaches it.
 {
   const input = { state: "compose_path", thesis: "A green run says nothing of the files it never visited.", structure: STRUCTURE,
     persona: { reader: "a developer", prior_knowledge: "has used a CI system" }, language: "English" };
   const prompt = judgePrompt(table.lpp_waypoints, JSON.stringify(input, null, 2), input, null);
-  if (!prompt.includes("`lpp_waypoints` judgment point") || !prompt.includes(STRUCTURE.higher_order[1].holds) || !prompt.includes('"attains_thesis": "h2"')) {
+  if (!prompt.includes("`lpp_waypoints` judgment point") || !prompt.includes(STRUCTURE.higher_order[1].holds) || !prompt.includes('"attains_thesis": "h_2"')) {
     fails.push("(a) the compose_path unit prompt is not the lpp_waypoints row rendered over the structure");
   }
   const cp = composePathText();
@@ -78,8 +80,8 @@ const WAYPOINTS = [
   const cases = [
     ["a written `serves`", WAYPOINTS.map((w, i) => (i ? w : { ...w, serves: ["L1"] })), /Waypoint 1 carries `serves` — it is derived from `carries`, never written/],
     ["an id the structure does not carry", WAYPOINTS.map((w, i) => (i ? w : { ...w, carries: ["p9"] })), /"p9"/],
-    ["a reached relation no Waypoint carries", [WAYPOINTS[1], WAYPOINTS[2]], /"p1" is carried by no Waypoint/],
-    ["a last Waypoint not carrying the apex", [WAYPOINTS[0], WAYPOINTS[2], WAYPOINTS[1]], /Waypoint 3, the last, does not carry "h2"/],
+    ["a reached relation no Waypoint carries", [WAYPOINTS[1], WAYPOINTS[2]], /"c_1" is carried by no Waypoint/],
+    ["a last Waypoint not carrying the apex", [WAYPOINTS[0], WAYPOINTS[2], WAYPOINTS[1]], /Waypoint 3, the last, does not carry "h_2"/],
   ];
   for (const [what, ws, want] of cases) {
     const e = v(ws);
@@ -207,13 +209,14 @@ const WAYPOINTS = [
 // it serves, its Section heading where it opens one, and each Leg Waypoint with what it carries.
 {
   const candidate = { candidate_id: "reader-path", legs: [
-    { leg_id: "s1", relation: "h1", opens_section: "What the walk leaves out", waypoints: [{ ...WAYPOINTS[0], serves: ["L1"] }, { ...WAYPOINTS[1], serves: ["L2"] }] },
-    { leg_id: "s2", relation: "h2", reaches_target: true, waypoints: [{ ...WAYPOINTS[2], serves: ["L3"] }] }] };
+    { leg_id: "s1", relation: "h_1", opens_section: "What the walk leaves out", waypoints: [{ ...WAYPOINTS[0], serves: ["L1"] }, { ...WAYPOINTS[1], serves: ["L2"] }] },
+    { leg_id: "s2", relation: "h_2", reaches_target: true, waypoints: [{ ...WAYPOINTS[2], serves: ["L3"] }] }] };
   const text = readerPathReading([candidate], STRUCTURE);
   const want = ["The Reader Path: 2 Leg(s), 3 Leg Waypoint(s).", "Section: What the walk leaves out",
-    "s1 — Because rules reads only walk, file off it is unchecked.", `  2. ${WAYPOINTS[1].point} (carries p2, h1)`,
+    "s1 — Because rules reads only walk, file off it is unchecked.", `  2. ${WAYPOINTS[1].point} (carries p2 (L2), h1 (L2))`, `  1. ${WAYPOINTS[2].point} (carries p3 (L3), h2 (L1, L2, L3))`,
     "s2 — team trusts a pass that never reached file."];
   for (const w of want) if (!text.includes(w)) fails.push(`(am) the Reader Path reading does not carry ${JSON.stringify(w)}: ${text}`);
+  if (/\b[rch]_\d+\b/.test(text)) fails.push(`(am) the Reader Path reading prints a bare minted id (kogaki#1772): ${text}`);
 }
 
 if (fails.length > 0) {

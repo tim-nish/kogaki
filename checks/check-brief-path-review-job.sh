@@ -61,18 +61,20 @@ const fails = [];
   const CLAIM = "Guards fail open when nobody feeds them.";
   const CLAIMS = [{ id: "L1", claim: CLAIM }];
   const STRANDS = [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }];
+  // THE STRUCTURE AS THE RUNNER MINTS IT (kogaki#1772): `r_`, `c_` and `h_` ids beside each name, and the adopted apex
+  // the next `h_<n>`, carrying no `from`.
   const structure = withApex({
-    roles: [{ id: "guard", context: "A check standing at a gate.", attributes: [], claims: ["L1"] },
-      { id: "input", context: "What feeds the check.", attributes: [], claims: ["L1"] }],
-    relations: [{ id: "r1", between: ["guard", "input"], holds: "{guard} reads {input}.", from: "L1" },
-      { id: "r2", between: ["guard", "input"], holds: "{guard} opens when {input} stops.", from: "L1" }],
-    higher_order: [{ id: "h1", relates: ["r1", "r2"], holds: "Because {guard} reads only {input}, it opens when {input} stops.", from: ["L1"] }],
-  }, { id: "apex", relates: ["h1"], holds: CLAIM }, CLAIMS);
-  // THE LEG WAYPOINTS THE COMPOSE UNIT RETURNED: two under h1, the apex last, so the Harness derives two Legs.
+    roles: [{ id: "r_1", name: "guard", context: "A check standing at a gate.", attributes: [], claims: ["L1"] },
+      { id: "r_2", name: "input", context: "What feeds the check.", attributes: [], claims: ["L1"] }],
+    relations: [{ id: "c_1", name: "reads", between: ["r_1", "r_2"], holds: "{r_1} reads {r_2}.", from: "L1" },
+      { id: "c_2", name: "opens", between: ["r_1", "r_2"], holds: "{r_1} opens when {r_2} stops.", from: "L1" }],
+    higher_order: [{ id: "h_1", name: "fails_open", relates: ["c_1", "c_2"], holds: "Because {r_1} reads only {r_2}, it opens when {r_2} stops.", from: ["L1"] }],
+  }, { name: "apex", relates: ["h_1"], holds: CLAIM }, CLAIMS);
+  // THE LEG WAYPOINTS THE COMPOSE UNIT RETURNED: two under h_1, the apex last, so the Harness derives two Legs.
   const WAYPOINTS = [
-    { point: "Guards fail when they read nobody.", carries: ["r1"] },
-    { point: "Guards open when nobody feeds them.", carries: ["r2", "h1"] },
-    { point: CLAIM, carries: ["apex"] },
+    { point: "Guards fail when they read nobody.", carries: ["c_1"] },
+    { point: "Guards open when nobody feeds them.", carries: ["c_2", "h_1"] },
+    { point: CLAIM, carries: ["h_2"] },
   ];
   const calls = join(base, "calls.jsonl");
   const judgeText = (refuseReview) => `#!/usr/bin/env node
@@ -159,8 +161,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const input = JSON.parse(u.prompt.slice(u.prompt.indexOf(JUDGE_INPUT_MARKER) + JUDGE_INPUT_MARKER.length));
     const own = input.candidate_you_must_review;
     if (!own || own.candidate_id !== "reader-path" || map[u.id] !== "reader-path"
-      || JSON.stringify((own.legs || []).map((l) => [l.leg_id, l.relation, l.waypoints.length])) !== '[["L1","h1",2],["L2","apex",1]]'
-      || !input.structure || input.structure.attains_thesis !== "apex") {
+      || JSON.stringify((own.legs || []).map((l) => [l.leg_id, l.relation, l.waypoints.length])) !== '[["L1","h_1",2],["L2","h_2",1]]'
+      || !input.structure || input.structure.attains_thesis !== "h_2" || Object.hasOwn(input.structure.higher_order[1], "from")) {
       fails.push(`(x1) unit ${u.id}'s prompt does not hold the one Reader Path, its two derived Legs, and the structure: ${JSON.stringify({ own: own && own.candidate_id, map: map[u.id], legs: own && own.legs })}`);
     }
   }

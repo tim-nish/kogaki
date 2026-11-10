@@ -195,11 +195,11 @@ export function composeThesisCandidates(apexes, components, claims, structure) {
     const single = k.top.length === 1 && higher.has(k.top[0]);
     const apex = single ? higher.get(k.top[0]) : apexes.find((a) => a.component === k.component);
     if (!apex) throw new Error(`composeThesisCandidates: the component ${k.component} carries no apex — \`validateApex\` refuses that before this runs`);
-    const claim = sentence(single ? holdsInRoleNames(apex.holds) : apex.holds);
+    const claim = sentence(single ? holdsInRoleNames(structure, apex.holds) : apex.holds);
     return withThesis({
       id: `thesis-${k.component}`,
       component: k.component,
-      apex: single ? { id: apex.id } : { id: apex.id, relates: [...apex.relates], holds: apex.holds, from: [] },
+      apex: single ? { name: apex.name } : { name: apex.name, relates: [...apex.relates], holds: apex.holds },
       depth: single ? depthOf(structure, apex.id) : 1 + Math.max(0, ...k.top.map((id) => depthOf(structure, id))),
       relation_count: k.relations.length,
       claims: [...k.claims],
@@ -531,7 +531,7 @@ export function cmdAdopt(args) {
   // THE ADOPTED STRUCTURE (kogaki#1768): the adopted component's apex appended to
   // `higher_order` and named `attains_thesis`, the other apexes discarded, and
   // `reach` and `unreached` derived from it.
-  if (!state.structure || !hit.apex || typeof hit.apex.id !== "string") {
+  if (!state.structure || !hit.apex || typeof hit.apex.name !== "string") {
     fail(`candidate ${hit.id} carries no apex, or the run state carries no structure — the \`apex\` state composes `
       + "both before the gate (kogaki#1768). Nothing was written.");
   }

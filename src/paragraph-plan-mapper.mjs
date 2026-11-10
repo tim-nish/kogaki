@@ -19,6 +19,7 @@ import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./mapping-playg
 import { correspondenceInput, correspondenceRefusal } from "./mapping-playground/short.mjs";
 import { PLAYGROUND_TABLE } from "./mapping-playground/trial.mjs";
 import { boundMoveContract, mappingStatePath } from "./paragraph-plan.mjs";
+import { readHolds } from "./compose/structure.mjs";
 
 const FLOW = { lane: "paragraph-plan", label: "ParagraphPlan" };
 export const READING_ROW = "sme_map_roles";
@@ -126,11 +127,11 @@ export class ParagraphPlanMapper {
   // THE PROPOSITION THE MAPPER READS (kogaki#1768): the Leg Waypoint's `point`, and, where the
   // Brief carries a `structure`, the `holds` of each relation the Waypoint `carries` beside it, so
   // the reading is grounded in the structure rather than the Strand's words. A Role written
-  // `{<id>}` reads as its id. With no structure, the point alone.
+  // `{<id>}` reads as its name (kogaki#1772). With no structure, the point alone.
   proposition(w) {
     const structure = this.inputs.structure;
     if (!structure || !Array.isArray(w.carries) || !w.carries.length) return String(w.point);
-    const holds = new Map([...structure.relations, ...structure.higher_order].map((x) => [x.id, String(x.holds).replace(/\{([^}]+)\}/g, "$1")]));
+    const holds = new Map([...structure.relations, ...structure.higher_order].map((x) => [x.id, readHolds(structure, x.holds)]));
     return [String(w.point), "The relations it carries:", ...w.carries.map((id) => `- ${holds.get(id) || id}`)].join("\n");
   }
 
