@@ -112,7 +112,7 @@ WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
 field it renders is held to; checks/check-schema-binds.sh reads it and
 src/SCHEMA-BINDS.md renders it beside the workflow rows.
-BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation", "paragraph_waypoints.cast": "operation"}}, "claims": {"leg": {"claims": "content"}}, "journeys": {"leg": {"journeys": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}, "crosses_here": {"leg": {"introduces": "content", "re-activate": "content"}}, "budget": {"leg": {"budget": "structural"}}, "figure_reason": {"leg": {"figure": "content"}}}
+BINDS (kogaki#1452): {"waypoints": {"leg": {"waypoints.point": "content", "claims": "content"}, "paragraph_plan": {"waypoints.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation", "paragraph_waypoints.cast": "operation"}}, "claims": {"leg": {"claims": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}}
 -->
 
 # Write one Leg

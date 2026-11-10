@@ -21,7 +21,8 @@ import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, awaitJob, lastRefusal, writeJson } from "../proof-sheet/extract.mjs";
-import { derivedRow, completedLeg } from "../proof-sheet/leg-brief.mjs";
+import { completedLeg } from "../proof-sheet/leg-brief.mjs";
+import { resolvedRow } from "../workflow/copies.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
@@ -112,7 +113,7 @@ function trialBriefText({ slug, composePath, claims, leg, thesis }) {
     bridged: {},
   };
   const text = briefRecordText({ slug, compose_path: composePath, ...constants, defined_terms: [],
-    reader_path: [completedLeg(leg, claims.length)].map(legRecord) });
+    reader_path: [completedLeg(leg)].map(legRecord) });
   const keys = new Set(Object.keys(constants));
   return text.split("\n").flatMap((line) => {
     const m = /^([a-z_]+):/.exec(line);
@@ -159,7 +160,7 @@ export function composeTrialBrief({ strandFile, structureFile, out, slug, audien
   const { strand, structure } = readInputs(strandFile, structureFile);
   const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
   const playground = JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
-  const lr = derivedRow(playground, "smp_leg_unit", PLAYGROUND_TABLE);
+  const lr = resolvedRow(playground, "smp_leg_unit");
   if (lr.error) fail(`${lr.error}. Nothing was started.`);
   const { audiencePath, persona } = audienceOf(audience);
   const lang = audienceLanguage(audiencePath);

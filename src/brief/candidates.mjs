@@ -30,7 +30,8 @@ import {
   BRIEF_RECORD_FILE, briefRecordDeclaration, briefRecordText, briefSlotKeys,
   definedTermsRefusal, ownerGateDigest, snapshotBrief, validateOwnerAnswer,
 } from "../compose.mjs";
-import { glossFor, resolveHeadlines, resolveStrandAddresses } from "../workflow/strands.mjs";
+import { resolveHeadlines, resolveStrandAddresses } from "../workflow/strands.mjs";
+import { withApex } from "../compose/structure.mjs";
 import {
   argString, briefComposePathDefault, defaultRunState, fail, readRunState, strandClaims,
 } from "./run-state.mjs";
@@ -38,7 +39,18 @@ import {
 // The inputs the mint reads, and no others: an input it does not name is
 // refused by name rather than ignored (kogaki#1571 retired the
 // external-authority switch, and a caller still passing it learns so here).
-const COMPOSE_BRIEF_INPUTS = Object.freeze(["slug", "strands", "thesis", "composePath", "definedTerms", "claims"]);
+const COMPOSE_BRIEF_INPUTS = Object.freeze(["slug", "strands", "thesis", "composePath", "definedTerms", "claims", "structure"]);
+
+// One `strand_coverage` entry per claim the adopted structure leaves unreached:
+// `{ strand, not_carried }`, the reason naming what would have reached it.
+export function unreachedCoverage(structure) {
+  return ((structure.unreached && structure.unreached.claims) || []).map((c) => ({
+    strand: c.id,
+    not_carried: (c.reached_by || []).length
+      ? `The Thesis does not reach this Strand: it states ${c.reached_by.join(", ")}, which the adopted apex does not relate.`
+      : "The Thesis does not reach this Strand: the structure reads no relation from it.",
+  }));
+}
 
 // THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10), and
 // the mint writes its first version: the header fields, the closed Strand set
@@ -56,7 +68,7 @@ export function composeBrief(input) {
   if (unread !== undefined) {
     throw new Error(`composeBrief: \`${unread}\` is not an input the mint reads (${COMPOSE_BRIEF_INPUTS.join(", ")}) — the Brief header carries \`slug\` and \`compose_path\` only, and an introduced term crosses as \`- <term> — <meaning>\` (kogaki#1571)`);
   }
-  const { slug, strands, thesis, composePath, definedTerms = [], claims = [] } = input;
+  const { slug, strands, thesis, composePath, definedTerms = [], claims = [], structure = null } = input;
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error("composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)");
   }
@@ -99,6 +111,15 @@ export function composeBrief(input) {
     thesis,
     defined_terms: definedTerms.map((e) => ({ term: e.term.trim(), class: e.class })),
   };
+  // THE ADOPTED STRUCTURE AND THE CLAIMS IT LEAVES (kogaki#1768): `structure` is
+  // written beside the Thesis it is the apex of, and every Strand whose claim
+  // the apex does not reach is recorded under `strand_coverage` as not carried,
+  // with the reason. The Strands it reaches are added at adoption, with the
+  // Legs that carry them. A mint with no structure writes neither.
+  if (structure) {
+    record.structure = structure;
+    record.strand_coverage = unreachedCoverage(structure);
+  } else record.strand_coverage = [];
   for (const key of briefSlotKeys()) record[key] = null;
   // THE TRIPWIRE, OVER THIS COMPOSER'S OWN TEXT (kogaki#526, kogaki#537). The
   // owner reads the file directly, so the captions and the header — the text
@@ -134,133 +155,47 @@ export function composeBrief(input) {
 // one place a set now enters. Keeping this beside it would be a second answer
 // to what a Strand is, reachable whenever the first refused.
 
-// Compose 2–3 Thesis candidates FROM THE SETTLED STRAND SET ONLY (the
-// read-not-invented rule, story 1.72 AC2), from the set's served gloss
-// renderings rather than its slugs (kogaki#519/#528). Never widened and never
-// fetched here: Terrain resolves the renderings (the served-renderings input
-// rule and the rendering rule), and an absent rendering is disclosed as
-// Terrain's NO_HEADLINE marker, never substituted. The candidates differ in
-// which member LEADS, each carrying its round-trip concession. Plain register
-// is defined in src/packet-template.md, not here (kogaki#749).
+// THE THESIS CANDIDATES ARE THE STRUCTURE'S CONNECTED COMPONENTS (kogaki#1768, owner decision 2026-11-10): one
+// candidate per component `componentsOf` computes, its Thesis the apex the `apex` judgment wrote for it, and its
+// claim ids the component's. The read-not-invented rule (story 1.72 AC2) holds through the apex's own refusal: it
+// relates exactly the component's top-level relations, so the Thesis is the connection those relations make.
+// `reaches` and `leaves` are the settled Strands' display ids the component is and is not read from; the gate renders
+// both on the option.
 
 // PROSE AT THE SURFACE, SCHEMA IN THE RECORD (the prose-at-the-surface rule
 // v20, kogaki#566): the owner reads prose with no field label. `claim` is what
-// the owner adopts; `thesis` is `claim` plus gate scaffolding the mint drops.
-// Each candidate also carries the slug its own Thesis derives (v11,
-// kogaki#518), so the gate's every option is a (Thesis, slug) pair.
+// the owner adopts and the mint records. Each candidate also carries the slug
+// its own Thesis derives (v11, kogaki#518), so the gate's every option is a
+// (Thesis, slug) pair.
 
 // ONE TERMINAL PERIOD, AND NEVER TWO (the prose-at-the-surface rule,
-// kogaki#566): trim the served sentence's own ending and add one period back.
+// kogaki#566): trim the sentence's own ending and add one period back.
 function sentence(text) {
   const t = String(text).trim().replace(/[.\s]+$/, "");
   if (t === "") return "";
   // A question mark or an exclamation is ALREADY terminal, so it keeps its own
-  // punctuation rather than collecting a period behind it. The trim above takes
-  // periods and whitespace only, which is why this second test is needed and is
-  // not the same test twice: served prose is prose, and nothing guarantees it
-  // ends the way the common case does.
+  // punctuation rather than collecting a period behind it.
   return /[?!]$/.test(t) ? t : `${t}.`;
 }
 
-// THE CLAIM IS A PREFIX OF WHAT THE GATE RENDERS (the prose-at-the-surface
-// rule; kogaki#572): the mint records `claim` and the gate shows `thesis`, so
-// both are built from ONE claim and the Brief holds less than the owner read,
-// never something else. The name derives from the served sentence alone
-// (`nameFrom`), never the composer's own words.
-function buildCandidate({ id, claim, extra, concession, nameFrom }) {
-  const c = sentence(claim);
-  return { id, claim: c, thesis: extra ? `${c} ${extra}` : c, concession,
-           name_source: sentence(nameFrom || String(c).split(/(?<=[.?!])\s+/)[0] || c) };
-}
-
-export function composeThesisCandidates(strands, headlines = new Map(), resolved = {}) {
-  const phrase = (s) => {
-    const e = headlines.get(s.slug);
-    // READ `found`, NEVER TRUTHINESS OF THE ENTRY (kogaki#1106). `resolveHeadlines`
-    // stamps a MARKER into `headline` on a miss, so `e.headline` was truthy for
-    // every member of a fully-missing set and this returned the bare marker —
-    // the same string for all of them. That is what made three Thesis
-    // candidates byte-identical on 2026-09-11 and left the determination gate
-    // with nothing to choose between: the member-naming branch below, added for
-    // exactly this case at PR #534 round 1, was unreachable from this caller.
-    // The `found` flag PR #693 round 2 added for this defect class is what
-    // separates the two, and this lane was not reading it.
-    if (e && e.found) return e.headline;
-    // WHICH MARKER, DECIDED BY TERRAIN RATHER THAN HERE. `glossFor` holds the
-    // six-state vocabulary and the order the states resolve in; a second
-    // reading of the same question, sited in the consumer, is how this lane
-    // came to render a marker terrain had already ruled out.
-    // NO `|| NO_RENDERING` DISJUNCT (PR #1107 round 1, nit). `glossFor` returns
-    // one of six non-empty string constants on every path, so the right-hand
-    // side could only ever be unreachable — the identical residue PR #694
-    // round 2 removed one seam over, where the comment it left reads: in a
-    // function whose whole point is that each marker states exactly one fact, a
-    // branch that cannot fire states a second one. Here it would state that
-    // `glossFor` might decline to answer, which it may not.
-    const marker = glossFor(s, e, resolved.seam, resolved.namespaces,
-      resolved.unaddressable);
-    // THE MARKER CARRIES ITS MEMBER. An unresolved rendering is the same text
-    // for every member, so a bare marker made all 2-3 candidates byte-identical
-    // — one option presented three times, at the moment the owner most needed
-    // to see that something was wrong (PR #534 round 1). The display_id is the
-    // token the display-ID rule already renders on owner surfaces, so naming it here keeps
-    // the options distinguishable AND says which member is missing material.
-    return `${s.display_id} ${marker}`;
-    // KNOWN AND BOUNDED, stated rather than left: on a FULLY degraded set the
-    // derived slugs still collide, because `deriveSlugCandidate` drops tokens of
-    // two characters or fewer and every display_id is one. Three abnormally
-    // marked options sharing a name is a wart on a state the owner must clear,
-    // not the defect that mattered — which was three options that were
-    // indistinguishable as PROSE. Left alone deliberately: widening the
-    // derivation to keep short tokens would change every slug on the healthy
-    // path to fix a cosmetic on the broken one.
-  };
-  const candidates = [];
-  if (strands.length === 1) {
-    const p = sentence(phrase(strands[0]));
-    // THE TWO OPTIONS MUST ADOPT DIFFERENTLY, NOT ONLY READ DIFFERENTLY (PR
-    // #571 round 1): with one member there is no lead to vary, so the second
-    // option's claim carries its own commitment about what the article does
-    // with THIS claim. The owner reads every word of it (kogaki#572): `thesis`
-    // extends `claim` and never rewords it, a property `buildCandidate` holds.
-    const one = (id, claim, extra, concession) => buildCandidate({ id, claim, extra, concession });
-    candidates.push(one("thesis-1", p,
-      `The article states that claim, shows where it came from, and defends it.`,
-      `Argued on its own, it has no second member to test it against.`));
-    candidates.push(one("thesis-2",
-      `${p} The article reaches that claim by retracing how it was arrived at, rather than stating it and defending it.`,
-      `The reader follows the route before being asked to accept the destination.`,
-      `The flat statement of the claim arrives late, so a reader who wants the rule first waits for the story to finish.`));
-  } else {
-    const leads = strands.slice(0, 3);
-    const supporting = strands.length - 1;
-    const others = supporting === 1 ? "the other settled member shows" : `the other ${supporting} settled members each show`;
-    const become = supporting === 1 ? "the other member reads" : "the other members read";
-    for (let i = 0; i < leads.length; i++) {
-      const lead = sentence(phrase(leads[i]));
-      // BY INDEX, NEVER BY VALUE. Filtering `names` for inequality against the
-      // lead's TEXT collapses whenever two members share a phrase — and they all
-      // do on the degraded path, where every phrase is NO_RENDERING. `rest` then
-      // emptied for every lead, so all 2-3 candidates rendered byte-identical
-      // with an empty member list and the same derived slug: the gate offered
-      // three options that were one option, exactly when the owner most needed
-      // to see that something was wrong (PR #534 round 1).
-      candidates.push(buildCandidate({
-        id: `thesis-${i + 1}`,
-        claim: lead,
-        extra: `That is what the article argues, and ${others} one place where it holds.`,
-        concession: `Adopting it means ${become} as support rather than as claims of equal weight.`,
-      }));
-    }
-  }
-  // NO FALLBACK TO THE WHOLE CLAIM (PR #579 round 1). `buildCandidate` sets
-  // `name_source` on every branch, so a `|| c.claim` disjunct could never fire —
-  // and what it would do if it did is derive the name from the whole claim, the
-  // precise behaviour kogaki#572 exists to remove, silently and reporting
-  // nothing. That is the reading `cmdAdopt` already refuses by name thirty lines
-  // down: two adjacent readings of one question, and this was the rejected one.
-  for (const c of candidates) c.slug = deriveSlugCandidate(c.name_source);
-  return candidates;
+export function composeThesisCandidates(apexes, components, claims) {
+  const ids = claims.map((c) => c.id);
+  return components.map((k) => {
+    const apex = apexes.find((a) => a.component === k.component);
+    if (!apex) throw new Error(`composeThesisCandidates: the component ${k.component} carries no apex — \`validateApex\` refuses that before this runs`);
+    const claim = sentence(apex.holds);
+    return {
+      id: `thesis-${k.component}`,
+      claim,
+      thesis: claim,
+      component: k.component,
+      apex: { id: apex.id, relates: [...apex.relates], holds: apex.holds, from: [] },
+      claims: [...k.claims],
+      reaches: ids.filter((id) => k.claims.includes(id)),
+      leaves: ids.filter((id) => !k.claims.includes(id)),
+      slug: deriveSlugCandidate(String(claim).split(/(?<=[.?!])\s+/)[0] || claim),
+    };
+  });
 }
 
 // Derive ONE slug from a Thesis (story 1.72 AC4; paired into the gate at
@@ -294,7 +229,7 @@ const STOP = new Set(["the", "article", "articles", "makes", "one", "claim",
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 // The directory Briefs are minted into: `--theses-dir` when given, else `theses`.
-function thesesDirOf(args) {
+export function thesesDirOf(args) {
   return resolve(typeof args["theses-dir"] === "string" && args["theses-dir"] !== "" ? args["theses-dir"] : "theses");
 }
 
@@ -370,9 +305,39 @@ export function classifyHomes(candidates, strands, thesesDir) {
 }
 
 // THE NAME RIDES THE LABEL (kogaki#567): one Thesis-gate option per candidate,
-// its name set off as its own element after the Thesis and its concession.
+// its name set off as its own element after the Thesis and the Strands its
+// component reaches and leaves (kogaki#1768).
 export function thesisGateOptions(candidates) {
-  return candidates.map((c) => ({ id: c.id, label: `${c.thesis} ${c.concession} — Brief: ${c.slug}` }));
+  return candidates.map((c) => ({ id: c.id,
+    label: `${c.thesis} — reaches ${c.reaches.join(", ")}; leaves ${c.leaves.length ? c.leaves.join(", ") : "none"} — Brief: ${c.slug}` }));
+}
+
+// The thesis-determination gate's declaration, carried WITH the ask (story
+// 1.72 AC3): the record-shape fields of specs/spec-proposal-contract/SPEC.md,
+// the premise's negation as a first-class option routing back through
+// Terrain, and the registered gate id `brief-thesis-adoption`. This is the
+// only owner question before the mint (v11, kogaki#518): each option carries
+// its Thesis, the Strands it reaches and leaves, and the bare name that Thesis
+// derives. Composed by the `apex` state once the apexes stand (kogaki#1768).
+export function thesisGate(candidates, strands) {
+  return {
+    gate_id: "brief-thesis-adoption",
+    // THE PROVENANCE BLOCK (kogaki#1116, acceptance item 4): the SERVED
+    // ADDRESSES THE RUN WAS STARTED WITH, paired with the within-document id
+    // each one took — the catch point for a Model mis-resolution.
+    where: "the settled Strand set, supplied on the command line and resolved against the "
+      + `served enumeration: ${strands.map((s) => `${s.display_id} = ${s.address}`).join(", ")}`,
+    why: "the machine's premise, rendered: the settled set's claims, read as one structure, connect into the parts below — each candidate is the Thesis one connected part argues, composed from that part's own claims and from nothing else (the read-not-invented rule), and carries the Strands it reaches and leaves and the name it would give the Brief",
+    label: "Adopting a Thesis starts the Brief: the mint runs next and the Brief's durable home is created under the adopted name, carrying the adopted Thesis and the structure it is the apex of",
+    options: [
+      ...thesisGateOptions(candidates),
+      {
+        id: "back-to-terrain",
+        label: "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
+        negates_premise: true,
+      },
+    ],
+  };
 }
 
 // The first candidate whose home holds the same Thesis and whose answer at the
@@ -383,7 +348,7 @@ export function pendingHomeCollision(state) {
     .find((c) => c.home && c.home.exists && c.home.same_thesis && !(c.id in answered)) || null;
 }
 
-// ---- enter: resolve the set, compose candidates, write run state. ----
+// ---- enter: resolve the set and write run state. ----
 // WRITES NOTHING under theses/ or any tracked path (story 1.72 AC1) — the
 // run state is machine-local by default and the command has no theses-dir
 // concept at all.
@@ -409,71 +374,29 @@ export function cmdEnter(args) {
   // own tags (kogaki#528), in the `lessons` namespace alone (kogaki#689). The
   // seam state is consumed, never dropped (kogaki#1106): each marker
   // `resolveHeadlines` distinguishes reaches the gate as itself.
-  const { headlines, seam, namespaces, unaddressable } = resolveHeadlines(r.strands);
-  const candidates = composeThesisCandidates(r.strands, headlines,
-    { seam, namespaces, unaddressable });
-  // EVERY HOME IS CLASSIFIED HERE, BEFORE THE GATE (kogaki#1742).
-  classifyHomes(candidates, r.strands, thesesDirOf(args));
+  const { headlines } = resolveHeadlines(r.strands);
   const runPath = typeof args["run-state"] === "string" && args["run-state"] !== ""
     ? args["run-state"] : defaultRunState();
   mkdirSync(dirname(runPath), { recursive: true });
 
-  // The thesis-determination gate's declaration, carried WITH the ask (story
-  // 1.72 AC3): the record-shape fields of specs/spec-proposal-contract/SPEC.md,
-  // the premise's negation as a first-class option routing back through
-  // Terrain, and the registered gate id `brief-thesis-adoption`. This is the
-  // only owner question before the mint (v11, kogaki#518): each option carries
-  // its Thesis and the bare name that Thesis derives.
-  const gate = {
-    gate_id: "brief-thesis-adoption",
-    // THE PROVENANCE BLOCK (kogaki#1116, acceptance item 4). What the owner is
-    // shown here is the SERVED ADDRESSES THE RUN WAS STARTED WITH, marked as
-    // supplied on the command line and paired with the within-document id each
-    // one took. That pairing is the catch point for a Model mis-resolution: the
-    // owner reads the addresses before answering, and nothing under `theses/`
-    // exists until they do.
-    //
-    // NO PIN (the commit pin is deprecated, hub decision staged 2026-09-14). The
-    // set is identified by address, and each member's cite carries its own
-    // content hash on the Brief's Strands section — a single response-wide
-    // commit said less than the per-member hashes already say.
-    where: "the settled Strand set, supplied on the command line and resolved against the "
-      + `served enumeration: ${r.strands.map((s) => `${s.display_id} = ${s.address}`).join(", ")}`,
-    why: "the machine's premise, rendered: this settled set supports a Thesis — the candidates below are composed from the set's own members and from nothing else (the read-not-invented rule), and each carries the name it would give the Brief",
-    label: "Adopting a Thesis starts the Brief: the mint runs next and the Brief's durable home is created under the adopted name, carrying the adopted Thesis",
-    options: [
-      // THE NAME RIDES THE LABEL (kogaki#567): the body placement the durable
-      // home and the entry point v11 tried first read badly at the 2026-08-20
-      // dogfood, and this is the move it pre-authorized. The name is still
-      // separately rendered (its own dash-set element, the bare name) and
-      // separately declinable.
-      ...thesisGateOptions(candidates),
-      {
-        id: "back-to-terrain",
-        label: "The settled set is what should change — go back through Terrain and re-settle; no Brief is started and nothing is written (a Brief never fetches)",
-        negates_premise: true,
-      },
-    ],
-  };
-
+  // NO THESIS CANDIDATE IS COMPOSED HERE (kogaki#1768): the candidates are the
+  // connected components of the structure `read_structure` reads from the
+  // claims recorded below, and the `apex` state composes them and the gate.
   const state = {
     stage: "entered",
     entered_addresses: entered,
     settled_set_via: "supplied on the command line",
     strands: r.strands,
     // WHAT WAS RESOLVED, AND FROM WHERE (kogaki#528). Recorded because the
-    // candidates are composed FROM this and a later reader cannot otherwise
-    // tell served prose from an abnormal marker, nor which pin the prose came
-    // from. It also makes the dual-producer guard deterministic: the check
-    // feeds the exported composer exactly what the command used, instead of
-    // guessing and comparing two different inputs.
+    // structure is read FROM these claims (kogaki#1768), and a later reader
+    // cannot otherwise tell served prose from an abnormal marker, nor which pin
+    // the prose came from. `found` is false on a marker, and a marker is never
+    // read as a claim (`strandClaims`).
     strand_renderings: Object.fromEntries(
-      [...headlines].map(([slug, e]) => [slug, { headline: e.headline, cite: e.cite }])),
-    thesis_candidates: candidates,
-    gate,
+      [...headlines].map(([slug, e]) => [slug, { headline: e.headline, cite: e.cite, found: e.found === true }])),
   };
   writeFileSync(runPath, JSON.stringify(state, null, 2) + "\n");
-  console.log(JSON.stringify({ run_state: runPath, gate }, null, 2));
+  console.log(JSON.stringify({ run_state: runPath, strands: r.strands.map((s) => `${s.display_id} = ${s.address}`) }, null, 2));
   console.log(`# entry resolved ${r.strands.length} member(s); nothing written under theses/ — pre-Thesis state is machine-local (the durable home and the entry point v9).`);
 }
 
@@ -571,6 +494,14 @@ export function cmdAdopt(args) {
     fail(`slug ${JSON.stringify(slug)} — use lowercase words joined by hyphens; `
       + "the slug names a directory the owner enumerates.");
   }
+  // THE ADOPTED STRUCTURE (kogaki#1768): the adopted component's apex appended to
+  // `higher_order` and named `attains_thesis`, the other apexes discarded, and
+  // `reach` and `unreached` derived from it.
+  if (!state.structure || !hit.apex) {
+    fail(`candidate ${hit.id} carries no apex, or the run state carries no structure — the \`apex\` state composes `
+      + "both before the gate (kogaki#1768). Nothing was written.");
+  }
+  state.adopted_structure = withApex(state.structure, hit.apex, strandClaims(state));
   state.stage = "adopted";
   state.adopted_thesis = thesis;
   state.adopted_via = hit.id;
@@ -673,6 +604,7 @@ export function cmdMint(args) {
     slug, strands: state.strands, thesis: state.adopted_thesis,
     composePath: readerFile,
     definedTerms, claims: strandClaims(state).map((c) => c.claim),
+    ...(state.adopted_structure ? { structure: state.adopted_structure } : {}),
   });
   writeFileSync(out, doc);
   // Per-block snapshot (kogaki#523): the mint's before-state is NO FILE —

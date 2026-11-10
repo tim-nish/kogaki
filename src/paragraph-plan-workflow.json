@@ -12,7 +12,20 @@
   },
   "criteria": {
     "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's `judgment_point` is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict, each shared block one sentence; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. The judge row's criteria are not written here: they are the axes of src/paragraph-plan-axes.json, rendered by its `{{axes}}` token and named in the registry's order (kogaki#1533). `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names, `words_max` per criterion and `point_words_max` over the whole rendered judgment point, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
-    "paragraph_plan_unit": ["BIND", "MAP", "TERMS", "DIVIDE", "EXPLAIN", "CONSISTENT", "NO NEW FACT", "ORDER", "FORM", "JOIN", "CAST", "LEAVE"],
+    "paragraph_plan_unit": [
+      "BIND",
+      "MAP",
+      "TERMS",
+      "DIVIDE",
+      "EXPLAIN",
+      "CONSISTENT",
+      "NO NEW FACT",
+      "ORDER",
+      "FORM",
+      "JOIN",
+      "CAST",
+      "LEAVE"
+    ],
     "words_max": 75,
     "point_words_max": 860
   },
@@ -32,7 +45,9 @@
       "setting": "brief.unit_rounds"
     },
     "unit_isolation": true,
-    "mapper": {"setting": "paragraph_plan.mapper"},
+    "mapper": {
+      "setting": "paragraph_plan.mapper"
+    },
     "stall_s": 90,
     "heartbeat_ms": 10000,
     "note": "ONE JOB UNIT PER LEG, in Reader Path order, and the two bounds are the Brief's own settings (kogaki#1375): a call running past `brief.call_limit_s` is stopped and spends one round, a refused answer spends one, an unreadable answer is asked again without spending one, and a unit that has spent `brief.unit_rounds` stops naming its Leg and the Waypoint its last refusal named. There is no limit on the whole job. Each round makes two calls: `paragraph_plan_unit` binds a paragraph Move to every Leg Waypoint and generates its Paragraph Waypoints, and `paragraph_plan_judge_unit` judges them against the bound Move. A refusal of the whole Leg is put back into the next round's prompt verbatim; a refusal naming a Leg Waypoint is retried at that Leg Waypoint alone (`site_retry`, kogaki#1642). THE LEGS ARE INDEPENDENT (kogaki#1641, owner decision 2026-10-31): `unit_isolation` tells the shared supervisor that one Leg's death ends that Leg alone, its siblings finishing on their own merits; a finished Leg is kept in the run directory the tick its judge passes it; and a later run on the same Brief carries every kept Leg and plans only the Legs left unfinished.",
@@ -43,20 +58,70 @@
       "suffix_prompt_export": "paragraphPlanSuffixPrompt",
       "suffix_validator_export": "validateParagraphPlanSuffix",
       "mark_export": "paragraphPlanForcedMark",
-      "leg_revisions": {"setting": "paragraph_plan.leg_revisions"},
+      "leg_revisions": {
+        "setting": "paragraph_plan.leg_revisions"
+      },
       "note": "THE RETRY IS SCOPED TO THE LEG WAYPOINT THE REFUSAL NAMED (kogaki#1642, owner decision 2026-10-31). A judge's `does-not-fit`, a `move: null` or a validator refusal naming one Leg Waypoint keeps the round's record as the Leg's standing record and asks `paragraph_plan_site_unit` for that one entry; the Leg Waypoints the judge passed are not composed again. The first site retry holds the refused entry's `move`; a later one may move it, and then the entries after it are composed again by `paragraph_plan_unit` over the Leg Waypoints after it, from what the new Move leaves (kogaki#1701). An answer repeating a refused entry at the site is refused before the judge. The judge is then asked for the changed entries and the join after them, its other verdicts carried. `brief.unit_rounds` is read per site, the Leg call's first round counting at every site, and `leg_revisions` bounds the site retries of one Leg. The supervisor runs the loop (src/workflow/site-retry.mjs) when a job declares it; the Brief's compose job declares none."
     }
   },
   "paragraph_plan_unit": {
     "id": "paragraph_plan_unit",
     "binds": {
-      "move": { "takes": "structural", "leaves": "structural", "breaks": "structural", "segments": "structural", "segments.operation": "operation", "segments.relation": "structural", "segments.manner": "excluded" },
-      "leg": { "leg_id": "copied", "waypoints": "structural", "waypoints.point": "content", "waypoints.serves": "structural", "introduces": "content", "journeys": "copied" },
-      "paragraph_plan": { "version": "copied", "leg_id": "copied", "waypoints": "content", "waypoints.waypoint": "copied", "waypoints.move": "copied", "waypoints.materials": "copied", "waypoints.purpose": "content", "waypoints.depends_on": "content", "waypoints.rationale": "content", "waypoints.introduces": "content", "waypoints.re-activate": "content", "waypoints.journeys": "copied", "waypoints.join": "content", "waypoints.paragraph_waypoints": "content", "paragraph_waypoints.point": "content", "paragraph_waypoints.serves": "copied", "paragraph_waypoints.cast": "content", "paragraph_waypoints.performs": "content" }
+      "move": {
+        "takes": "structural",
+        "leaves": "structural",
+        "breaks": "structural",
+        "segments": "structural",
+        "segments.operation": "operation",
+        "segments.relation": "structural",
+        "segments.manner": "excluded"
+      },
+      "leg": {
+        "leg_id": "copied",
+        "waypoints": "structural",
+        "waypoints.point": "content",
+        "waypoints.serves": "structural"
+      },
+      "paragraph_plan": {
+        "version": "copied",
+        "leg_id": "copied",
+        "waypoints": "content",
+        "waypoints.waypoint": "copied",
+        "waypoints.move": "copied",
+        "waypoints.materials": "copied",
+        "waypoints.purpose": "content",
+        "waypoints.depends_on": "content",
+        "waypoints.rationale": "content",
+        "waypoints.introduces": "content",
+        "waypoints.re-activate": "content",
+        "waypoints.journeys": "copied",
+        "waypoints.join": "content",
+        "waypoints.paragraph_waypoints": "content",
+        "paragraph_waypoints.point": "content",
+        "paragraph_waypoints.serves": "copied",
+        "paragraph_waypoints.cast": "content",
+        "paragraph_waypoints.performs": "content"
+      }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
-      "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget", "waypoints.case"]
+      "move": [
+        "id",
+        "figure",
+        "continues_from",
+        "description",
+        "evidence",
+        "before",
+        "after",
+        "after_segment"
+      ],
+      "leg": [
+        "reaches_target",
+        "claims",
+        "opens_section",
+        "waypoints.case",
+        "relation",
+        "waypoints.carries"
+      ]
     },
     "shared_text_file": "src/paragraph-plan-workflow.json",
     "note": "The first call of every round (kogaki#1375). It carries the second-pass judgment kogaki#1359 put inside the compose job, moved out of it: the Move binding is judged here, after the Brief is adopted, and its result never reaches the Brief. `src/paragraph-plan.mjs` renders this row through the shared `judgePrompt` renderer up to the input marker and appends one Leg's own input below it; `validateParagraphPlanUnit` reads the answer.",
@@ -68,14 +133,63 @@
   "paragraph_plan_judge_unit": {
     "id": "paragraph_plan_judge_unit",
     "binds": {
-      "move": { "takes": "excluded", "leaves": "excluded", "breaks": "excluded", "segments": "excluded", "segments.operation": "excluded", "segments.relation": "excluded", "segments.manner": "excluded" },
-      "leg": { "leg_id": "copied", "waypoints.point": "excluded", "introduces": "excluded" },
-      "paragraph_plan": { "waypoints.join": "excluded", "paragraph_waypoints.point": "excluded", "paragraph_waypoints.performs": "excluded" }
+      "move": {
+        "takes": "excluded",
+        "leaves": "excluded",
+        "breaks": "excluded",
+        "segments": "excluded",
+        "segments.operation": "excluded",
+        "segments.relation": "excluded",
+        "segments.manner": "excluded"
+      },
+      "leg": {
+        "leg_id": "copied",
+        "waypoints.point": "excluded"
+      },
+      "paragraph_plan": {
+        "waypoints.join": "excluded",
+        "paragraph_waypoints.point": "excluded",
+        "paragraph_waypoints.performs": "excluded"
+      }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
-      "leg": ["materials", "purpose", "reaches_target", "names", "depends_on", "rationale", "move", "no_move_fits", "claims", "waypoints", "journeys", "entailed", "entailment_reasoning", "bridges", "re-activate", "opens_section", "figure", "figure_roles", "budget", "waypoints.serves", "waypoints.case"],
-      "paragraph_plan": ["version", "leg_id", "waypoints", "waypoints.waypoint", "waypoints.move", "waypoints.materials", "waypoints.purpose", "waypoints.depends_on", "waypoints.rationale", "waypoints.introduces", "waypoints.re-activate", "waypoints.journeys", "waypoints.paragraph_waypoints", "paragraph_waypoints.serves", "paragraph_waypoints.cast"]
+      "move": [
+        "id",
+        "figure",
+        "continues_from",
+        "description",
+        "evidence",
+        "before",
+        "after",
+        "after_segment"
+      ],
+      "leg": [
+        "reaches_target",
+        "claims",
+        "waypoints",
+        "opens_section",
+        "waypoints.serves",
+        "waypoints.case",
+        "relation",
+        "waypoints.carries"
+      ],
+      "paragraph_plan": [
+        "version",
+        "leg_id",
+        "waypoints",
+        "waypoints.waypoint",
+        "waypoints.move",
+        "waypoints.materials",
+        "waypoints.purpose",
+        "waypoints.depends_on",
+        "waypoints.rationale",
+        "waypoints.introduces",
+        "waypoints.re-activate",
+        "waypoints.journeys",
+        "waypoints.paragraph_waypoints",
+        "paragraph_waypoints.serves",
+        "paragraph_waypoints.cast"
+      ]
     },
     "shared_text_file": "src/paragraph-plan-workflow.json",
     "axes_file": "src/paragraph-plan-axes.json",

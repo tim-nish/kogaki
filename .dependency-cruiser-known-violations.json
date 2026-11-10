@@ -320,43 +320,6 @@
   },
   {
     "type": "cycle",
-    "from": "src/compose/defined-terms.mjs",
-    "to": "src/compose/sections.mjs",
-    "unresolvedTo": "./sections.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "src/compose/sections.mjs",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "src/compose/leg-schema.mjs",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "src/compose/defined-terms.mjs",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
     "from": "src/compose/leg-schema.mjs",
     "to": "src/compose/sections.mjs",
     "unresolvedTo": "./sections.mjs",

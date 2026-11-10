@@ -329,7 +329,9 @@ async function loadReaderPathFitJudge(declared) {
   if (typeof promptFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.prompt_export)}.`);
   if (typeof verdictFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.verdict_export)}.`);
   const inputs = declared.inputs || {};
+  // THE ARRAY THE JUDGE'S ANSWER CARRIES (kogaki#1768): `verdicts` unless the declaration names another.
   return {
+    recordArray: typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "verdicts",
     prompt: (candidate, unitId, scope) => promptFn(candidate, inputs, unitId, scope),
     verdict: (record, candidate, unitId, scope) => verdictFn(record, candidate, inputs, unitId, scope) || {},
   };
@@ -397,7 +399,7 @@ function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = n
 // `cannot-determine` on any Leg is a SCHEMA REFUSAL of the unit's Candidate, carrying
 // the judge's sentences verbatim, which the unit's next Round answers.
 function classifyFitJudgeCall(out, fit, candidate, unitId, scope = null) {
-  const base = classifyDetachedJobUnit(out, null, "verdicts", unitId);
+  const base = classifyDetachedJobUnit(out, null, fit.recordArray || "verdicts", unitId);
   if (base.status !== "done") return base;
   const v = fit.verdict(base.candidate, candidate, unitId, scope);
   if (v.error) {

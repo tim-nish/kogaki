@@ -93,8 +93,6 @@ export function shortLeg(proposition, tables, persona, structure, told = OWN) {
     leg_id: LEG_ID,
     claims: [{ strand: "L1", proposition }],
     waypoints: tables.map((t, i) => ({ point: firstPoint(structure, t), serves: ["L1"], case: i === 0 ? told : OWN })),
-    introduces: [],
-    journeys: [],
   };
 }
 

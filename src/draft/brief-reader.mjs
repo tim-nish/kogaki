@@ -8,7 +8,7 @@
 //
 import { resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
-import { introducesRefusal, opensSectionRefusal, figureRefusal, journeysRefusal, budgetRefusal, reactivateRefusal, parseBriefRecord, unfilledSlots, briefLegs, legschema } from "../compose.mjs";
+import { opensSectionRefusal, parseBriefRecord, unfilledSlots, briefLegs, briefStructureRefusal, legschema } from "../compose.mjs";
 
 export function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -91,6 +91,9 @@ export function readBrief(text, path = "<brief>") {
       const bad = legRecordRefusal(raw, declared, `the Brief at ${path}, leg ${raw?.leg_id ?? i + 1}`);
       if (bad) { refusals.push(bad); continue; }
     }
+    // `carries` AND `relation` BIND ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
+    const unbound = refusals.length ? null : briefStructureRefusal(record.reader_path, record.structure, `the Brief at ${path}`);
+    if (unbound) refusals.push(unbound);
     if (!refusals.length) legs.push(...briefLegs(record));
   }
   if (legs.length === 0 && refusals.length === 0) {
@@ -111,12 +114,9 @@ function legRecordRefusal(raw, declared, at) {
       return `${at}: carries \`${k}\` — the Leg's reader states are retired (kogaki#1699): a Leg's entry and `
         + "exit are its Move's `takes` and `leaves`, which no Brief records";
     }
-    // THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28):
-    // a Leg marking a satellite cannot be realized, and is refused by name.
-    if (k === "relation") {
-      return `${at}: carries a \`relation\` — the relations layer is retired (kogaki#1215): claims and `
-        + "introduce-here entries render as flat lists, and a Leg marking a satellite cannot be realized";
-    }
+    // `relation` NAMES THE HIGHER-ORDER RELATION THE LEG SERVES (kogaki#1768), bound
+    // against the Brief's `structure` below; the satellite-marking relations layer of
+    // kogaki#1215 stays retired as `relations` (src/compose/leg-schema.mjs).
     if (!declared.has(k)) {
       return `${at}: carries \`${k}\`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read`;
     }
@@ -127,29 +127,8 @@ function legRecordRefusal(raw, declared, at) {
   if (!Array.isArray(raw.waypoints) || raw.waypoints.some((w) => !w || typeof w.point !== "string" || !Array.isArray(w.serves))) {
     return `${at}: \`waypoints\` is a list of maps, each with its \`point\` and the Strands it \`serves\``;
   }
-  if (raw.introduces !== undefined) {
-    const bad = introducesRefusal(raw.introduces, at);
-    if (bad) return bad;
-  }
-  if (raw["re-activate"] !== undefined) {
-    const bad = reactivateRefusal(raw["re-activate"], at);
-    if (bad) return bad;
-  }
   if (raw.opens_section !== undefined) {
     const bad = opensSectionRefusal(typeof raw.opens_section === "string" ? raw.opens_section.trim() : raw.opens_section, at);
-    if (bad) return bad;
-  }
-  if (raw.figure !== undefined || raw.figure_roles !== undefined) {
-    const bad = figureRefusal(raw.figure, raw.figure_roles, at);
-    if (bad) return bad;
-  }
-  if (raw.journeys !== undefined) {
-    const bad = journeysRefusal((Array.isArray(raw.journeys) ? raw.journeys : []).map((j) => ({ strand: j?.strand, use: j?.use })),
-      Array.isArray(raw.materials) ? raw.materials.map(String) : [], at);
-    if (bad) return bad;
-  }
-  if (raw.budget !== undefined) {
-    const bad = budgetRefusal(raw.budget, at);
     if (bad) return bad;
   }
   // the Reader target Leg's mark (kogaki#1231): only `true` is a mark, and any

@@ -67,7 +67,7 @@
 #       file or bare, exits non-zero with the retirement sentence naming the flag and prints no run directory; the
 #       resumed run (h), its record carrying a `terms` key with its Brief not done, finishes with no `terms` key; the
 #       main run's record carries no `terms` key, and its sheet carries no terms line, in the run header or on the
-#       Brief card; the several-Leg Brief (s)'s `introduces` entries carry `term` and `meaning` and no `kind`.
+#       Brief card; the several-Leg Brief (s) carries no `introduces` (kogaki#1768).
 #
 #   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and Moves byte for
 #       byte, records the source run and the copied stage's sha256, and no Extractor call reaches the model binary;
@@ -86,17 +86,16 @@
 #       run's own were withheld; `--withhold-own` without `--library` is refused.
 #   (s) three consecutive Legs under one Brief (kogaki#1532): `--leg` given three times runs one Brief of three Legs;
 #       the Extractor runs every paragraph in order, Leg B's first reading Leg A's last as its earlier text;
-#       `depends_on`, `opens_section`, `reaches_target` and `re-activate` are filled as derived and `brief.json` marks
-#       each; the production `validateLegs` passes over the Brief's path; `/draft section` writes each Leg with its
+#       `opens_section` and `reaches_target` are filled as derived and `brief.json` marks each, and no Leg carries
+#       `depends_on`, `re-activate` or `introduces` (kogaki#1768); the production `validateLegs` passes over the Brief's path; `/draft section` writes each Leg with its
 #       own Writer calls file; the sheet carries three Leg blocks in order, each with its comparison table, under one
-#       Brief card marking five fields `derived`; and the one-file run's record keeps its shape apart from the `legs`
+#       Brief card marking two fields `derived`; and the one-file run's record keeps its shape apart from the `legs`
 #       list.
 #   (t) the Claim's words in its points (kogaki#1547): a run whose fake Leg answer first drops one content word of
 #       Claim 2 from point 2, then gives the full point, records one refusal in the Leg row's `rounds.json` naming
 #       the Claim and the word, carries the second answer in the Brief, and runs every later stage.
 #   (u) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief --legs 2` makes no
-#       Extractor call, keeps four Extraction records, composes a two-Leg Brief whose second Leg `depends_on` the
-#       first and reaches the target, and records `legs: 2`; `--legs 3` records what a plain reuse records apart from
+#       Extractor call, keeps four Extraction records, composes a two-Leg Brief whose second Leg reaches the target, and records `legs: 2`; `--legs 3` records what a plain reuse records apart from
 #       `reuse.legs`, and a plain reuse records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan`
 #       are each refused naming `--legs`, with no run directory written.
 #   (v) the Proof Sheet writes no Obligation row, and an extracted Move carries what its paragraph leaves in `leaves` and no `obligation` (kogaki#1582, kogaki#1698), as the block comment above the case states. The span of (s), raising nothing, carries `obligations: []`.
@@ -243,8 +242,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes("\`leg_path_unit\` judgment point")) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const ps = input.paragraphs;
-    return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
-      rationale: "It is the only Leg.",
+    return out({ legs: [{ leg_id: "copy-leg", 
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       // (t) PSR_LEG_DROP=first: the first Leg answer's point 2 drops its Claim's language word (kogaki#1547).
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph
@@ -862,8 +860,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes("\\\`leg_path_unit\\\` judgment point")) {
     const input = JSON.parse(prompt.slice(prompt.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     const ps = input.paragraphs;
-    return out({ legs: [{ leg_id: "copy-leg", purpose: "Move the reader from owning the copy to seeing who owns it.",
-      rationale: "It is the only Leg.",
+    return out({ legs: [{ leg_id: "copy-leg", 
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
   }
@@ -1219,8 +1216,8 @@ if (kRunDir) {
 
 // (s) THREE CONSECUTIVE LEGS UNDER ONE BRIEF (kogaki#1532): `--leg` three times, one run, one
 // fake binary of its own -- its Extraction names carry the Leg's file name, so the three Legs'
-// Moves never collide. Leg A introduces `frobnicator`, Leg B's content never uses it and Leg C's
-// does, so the derivation re-activates it on Leg C.
+// Moves never collide. A Leg binds no Move (kogaki#1768), so no Leg depends on another,
+// introduces a term or re-activates one.
 {
   const sRoot = join(root, "three-legs");
   mkdirSync(sRoot, { recursive: true });
@@ -1282,11 +1279,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes("\\\`leg_path_unit\\\` judgment point")) {
     const x = input();
     const id = { L1: "leg-a", L3: "leg-b", L5: "leg-c", L7: "leg-d" }[x.paragraphs[0].claim_strand];
-    const intro = T ? (T.introduces[id] || []) : id === "leg-a" ? ["frobnicator"] : [];
-    return out({ legs: [{ leg_id: id, purpose: "Move the reader one step on.", rationale: "It is one Leg of three.",
+    return out({ legs: [{ leg_id: id,
       claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + "." })),
-      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand], case: "own" })),
-      ...(intro.length ? { introduces: intro.map((t) => ({ term: t, meaning: t === "frobnicator" ? "the part that copies the kit" : "the part called " + t })) } : {}) }] }, "brief-leg-path");
+      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
   }
   return out("WRITTEN-1 the first paragraph.\\n\\nWRITTEN-2 the second.", "writer");
 });
@@ -1320,16 +1315,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const legs = rec ? briefLegs(rec) : [];
     ok(JSON.stringify(legs.map((l) => l.leg_id)) === '["leg-a","leg-b","leg-c"]', `(s) the Brief does not carry the three Legs in order: ${JSON.stringify(legs.map((l) => l.leg_id))}`);
     if (legs.length === 3) {
-      ok(JSON.stringify(legs.map((l) => l.depends_on)) === '[[],["leg-a"],["leg-a","leg-b"]]', `(s) depends_on is not derived as stated: ${JSON.stringify(legs.map((l) => l.depends_on))}`);
+      // a Leg binds no Move, so no Leg depends on another, re-activates or introduces anything (kogaki#1768)
+      ok(legs.every((l) => !(l.depends_on || []).length && !(l["re-activate"] || []).length && !(l.introduces || []).length),
+        `(s) a Leg carries a derived depends_on, re-activate or introduces: ${JSON.stringify(legs.map((l) => [l.depends_on, l["re-activate"], l.introduces]))}`);
       ok(legs[0].opens_section === legs[2].claims.at(-1).proposition && legs.slice(1).every((l) => l.opens_section == null),
         `(s) opens_section is not the first Leg's alone, stating the last Leg's last Claim (kogaki#1699): ${JSON.stringify(legs.map((l) => l.opens_section))}`);
       ok(JSON.stringify(legs.map((l) => l.reaches_target === true)) === "[false,false,true]" && !("reader_target" in rec) && !("reader_start" in rec),
         "(s) reaches_target is not the last Leg's alone, or the Brief carries a retired Reader start or Reader target (kogaki#1699)");
       ok(legs.every((l) => !("reader_state_after" in l) && !("reader_state_before" in l)), "(s) a Leg of the Brief carries a retired reader state (kogaki#1699)");
-      ok(JSON.stringify(legs.map((l) => l["re-activate"] || [])) === '[[],[],["leg-a term frobnicator"]]', `(s) re-activate is not carried by the first later Leg whose content uses the term: ${JSON.stringify(legs.map((l) => l["re-activate"]))}`);
-      const intro = legs.flatMap((l) => l.introduces || []);
-      ok(intro.length === 1 && intro.every((e) => JSON.stringify(Object.keys(e).sort()) === '["meaning","term"]'),
-        `(p) a composed Brief's \`introduces\` entry does not carry exactly \`term\` and \`meaning\`: ${JSON.stringify(intro)}`);
     }
     const legBriefRun = (run.stages.find((st) => st.stage === "brief") || {}).leg_brief_run;
     const bj = legBriefRun ? JSON.parse(readOr(join(legBriefRun, "brief.json"), "{}")) : {};
@@ -1339,12 +1332,12 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(legBriefRun && !existsSync(join(legBriefRun, "reader-start")), "(s) the composer made a Reader start call, which is retired (kogaki#1699)");
     if (answers.every(Boolean)) {
       const segs = [0, 2, 4].map((o) => [o, o + 1].map((i) => { const a = JSON.parse(readOr(join((run.stages[0] || {}).extractor_run || sRoot, `p${i + 1}`, "answer.json"), '{"segments":[]}')); return a.segments.map((g) => g.content); }));
-      const v = validateLegs(LB.crossLegPath(answers, [2, 2, 2], segs).legs, []);
+      const v = validateLegs(LB.crossLegPath(answers).legs, []);
       ok(!v.error, `(s) the production validateLegs refuses the composed path: ${v.error}`);
     } else fails.push("(s) a Leg path answer is not on disk");
     ok(rec && !("obligations" in rec) && !("deferrals" in bj),
       `(s) the Brief carries the retired \`obligations\` (kogaki#1699) or brief.json \`deferrals\`: ${JSON.stringify(rec && rec.obligations)} / ${JSON.stringify(bj.deferrals)}`);
-    ok(JSON.stringify((bj.derived || []).map((d) => `${d.leg_id}:${d.field}`).sort()) === JSON.stringify(["leg-a:opens_section", "leg-b:depends_on", "leg-c:depends_on", "leg-c:re-activate", "leg-c:reaches_target"]),
+    ok(JSON.stringify((bj.derived || []).map((d) => `${d.leg_id}:${d.field}`).sort()) === JSON.stringify(["leg-a:opens_section", "leg-c:reaches_target"]),
       `(s) brief.json does not mark every derived cross-Leg field: ${JSON.stringify(bj.derived)}`);
     const draft = run.stages.find((st) => st.stage === "draft") || {};
     ok(JSON.stringify(draft.leg_ids) === '["leg-a","leg-b","leg-c"]' && (draft.sections || []).length === 3 && draft.sections.every((f) => existsSync(f)),
@@ -1358,7 +1351,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok(JSON.stringify(blocks) === '["1:1:leg-a","2:2:leg-b","3:3:leg-c"]', `(s) the sheet does not carry three Leg blocks in order: ${JSON.stringify(blocks)}`);
     ok([1, 2, 3].every((k) => sheet.includes(`id="comparison-0-${k}"`)) && (sheet.match(/class="pcard[^"]*" id="card-0-brief"/g) || []).length === 1,
       "(s) the sheet does not carry a comparison table per Leg under one Brief card");
-    ok((sheet.match(/<span class="badge derived">derived<\/span>/g) || []).length === 5, "(s) the Brief card does not mark the five derived cross-Leg fields `derived`");
+    ok((sheet.match(/<span class="badge derived">derived<\/span>/g) || []).length === 2, "(s) the Brief card does not mark the two derived cross-Leg fields `derived`");
     ok(sheet.includes("WRITTEN-1 the first paragraph.") && !sheet.includes('href="#card-0-1-brief"'), "(s) a Leg block's written text or its Brief link is wrong");
   }
   // (u) A LEADING SUBSET OF THE LEGS (kogaki#1546), reusing the three-Leg run above rather than
@@ -1387,8 +1380,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       const { parseBriefRecord, briefLegs } = await imp("src/compose/record.mjs");
       let tLegs = [];
       try { tLegs = briefLegs(parseBriefRecord(readFileSync(join(t2.dir, "brief", "brief.yaml"), "utf8")).record); } catch (e) { fails.push(`(u) the two-Leg Brief does not parse: ${e.message}`); }
-      ok(JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target === true])) === '[["leg-a",[],false],["leg-b",["leg-a"],true]]',
-        `(u) the Brief is not two Legs, the second depending on the first and reaching the target: ${JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target]))}`);
+      ok(JSON.stringify(tLegs.map((l) => [l.leg_id, (l.depends_on || []).length, l.reaches_target === true])) === '[["leg-a",0,false],["leg-b",0,true]]',
+        `(u) the Brief is not two Legs, the second reaching the target and neither depending on another (kogaki#1768): ${JSON.stringify(tLegs.map((l) => [l.leg_id, l.depends_on, l.reaches_target]))}`);
     }
     // Every Leg kept records what a plain reuse records, `reuse.legs` apart.
     const t3 = tRun("3", ["--from", "brief", "--legs", "3"]);

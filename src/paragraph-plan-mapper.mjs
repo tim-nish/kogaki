@@ -123,10 +123,21 @@ export class ParagraphPlanMapper {
     return { prompt: `${this.inputs.planHead}${JSON.stringify(input, null, 2)}`, input };
   }
 
+  // THE PROPOSITION THE MAPPER READS (kogaki#1768): the Leg Waypoint's `point`, and, where the
+  // Brief carries a `structure`, the `holds` of each relation the Waypoint `carries` beside it, so
+  // the reading is grounded in the structure rather than the Strand's words. A Role written
+  // `{<id>}` reads as its id. With no structure, the point alone.
+  proposition(w) {
+    const structure = this.inputs.structure;
+    if (!structure || !Array.isArray(w.carries) || !w.carries.length) return String(w.point);
+    const holds = new Map([...structure.relations, ...structure.higher_order].map((x) => [x.id, String(x.holds).replace(/\{([^}]+)\}/g, "$1")]));
+    return [String(w.point), "The relations it carries:", ...w.carries.map((id) => `- ${holds.get(id) || id}`)].join("\n");
+  }
+
   callInput(u, n) {
     const w = u.leg.waypoints[n - 1];
     if (u.stage === READING) {
-      return { row: rowOf(this.table, READING_ROW), input: mapperInput({ cite: u.strand, proposition: w.point }, this.inputs.persona) };
+      return { row: rowOf(this.table, READING_ROW), input: mapperInput({ cite: u.strand, proposition: this.proposition(w) }, this.inputs.persona) };
     }
     const move = u.candidate.waypoints[n - 1].move;
     const prior = u.leg.waypoints.slice(0, n - 1).map((p) => u.tables[p.waypoint]).filter(Boolean)
@@ -180,7 +191,7 @@ export class ParagraphPlanMapper {
   }
 
   readingRefusal(record, u, n) {
-    const v = validateMapperAnswer(record, { cite: u.strand, proposition: u.leg.waypoints[n - 1].point });
+    const v = validateMapperAnswer(record, { cite: u.strand, proposition: this.proposition(u.leg.waypoints[n - 1]) });
     return v.text ? v : null;
   }
 }

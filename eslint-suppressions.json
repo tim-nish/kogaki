@@ -1,9 +1,4 @@
 {
-  "checks/fixtures/brief-compose/fixtures.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "checks/terrain-control-cases.mjs": {
     "no-regex-spaces": {
       "count": 1
@@ -29,7 +24,7 @@
   },
   "src/assemble.mjs": {
     "no-unused-vars": {
-      "count": 6
+      "count": 1
     }
   },
   "src/brief/candidates.mjs": {
@@ -45,15 +40,7 @@
       "count": 2
     }
   },
-  "src/brief/reader-path-unit.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/brief/run-state.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    },
     "no-useless-assignment": {
       "count": 2
     }
@@ -70,7 +57,7 @@
   },
   "src/compose/leg-schema.mjs": {
     "no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "src/compose/moves.mjs": {

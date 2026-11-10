@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# check-brief-mint — the Persona, claim register and mint-side rules of
-# Brief composition. A LIGHT member: pure calls, no model run.
-#   (af) `nearest` and `differs` are retired: introduces_item declares
-#        neither, and an entry carrying either is refused naming it (kogaki#1571).
-#   (ar) `persona_prior_knowledge` reaches no path-review input and no unit
-#        validator; review_path carries `defined_terms` instead (kogaki#1331);
-#        compose_path hands it to TAKE alone (kogaki#1699).
-#   (as) the claim register, one judged entry per Leg (kogaki#1281); (bb)
-#        `composeBrief` records `compose_path`, refusing one missing (kogaki#1262, #1328).
-#   (cc) the external-authority switch is retired and refused by name (kogaki#1571).
-#   (dd)/(dh) a home resolved at its gate (kogaki#1742); (fx) no Thesis free text (kogaki#1749).
+# check-brief-mint — the Persona, claim register and mint-side rules of Brief
+# composition. A LIGHT member: pure calls, no model run.
+#   (af) a Leg carries no `introduces` (kogaki#1768); a ParagraphPlan introduces
+#        entry carrying `nearest` or `differs` is refused naming it (kogaki#1571).
+#   (ar) the Persona is read once, by `audienceFor`, and handed to the Leg Waypoint
+#        unit's input, never its validator (kogaki#1768); review_path carries
+#        `defined_terms` instead (kogaki#1331).
+#   (as) the claim register (kogaki#1281); (bb) `composeBrief` records
+#        `compose_path` (kogaki#1262, #1328); (cc) no external-authority switch (#1571).
+#   (dd)/(dh) a home resolved at its gate (kogaki#1742) over Thesis candidates from
+#        the structure's apex (kogaki#1768); (fx) no Thesis free text (kogaki#1749).
 # Cut from check-brief-compose.sh by kogaki#1460; the registry row says more.
 set -u
 cd "$(dirname "$0")/.."
@@ -21,7 +21,8 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { composeBrief, composeThesisCandidates } from "./src/brief.mjs";
-import { classifyHomes, thesisGateOptions } from "./src/brief/candidates.mjs";
+import { classifyHomes, thesisGateOptions, thesisGate } from "./src/brief/candidates.mjs";
+import { componentsOf } from "./src/compose/structure.mjs";
 import { homeCollisionReading } from "./src/brief/renderers.mjs";
 import { findInternalVocabulary } from "./src/assemble.mjs";
 import { STATE_RETRY_GATE_ID } from "./src/workflow/gate.mjs";
@@ -43,37 +44,30 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
 // carrying either is refused naming the key rather than read past.
 {
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const fields = schema.introduces_item.fields;
+  if (Object.hasOwn(schema, "introduces_item") || Object.hasOwn(schema.fields || {}, "introduces")) {
+    fails.push("(af) src/leg-schema.json still declares a Leg's `introduces` or its introduces_item (kogaki#1768)");
+  }
   for (const k of ["nearest", "differs"]) {
-    if (Object.hasOwn(fields, k)) fails.push(`(af) src/leg-schema.json's introduces_item still declares ${k}`);
     const r = compose.parseIntroducesEntry({ term: "unfed guard", meaning: "a guard whose input nobody feeds", [k]: "guard clause" });
     if (!r.error) fails.push(`(af) an introduces entry carrying ${k} was not refused`);
     else if (!r.error.includes(`\`${k}\``)) fails.push(`(af) the refusal of ${k} did not name it: ${r.error}`);
   }
 }
 
-// (ar) kogaki#1331: `persona_prior_knowledge` reaches no composition or path-review
-// input -- the grant it carried is removed (owner decision 2026-10-10) -- and
-// review_path's input carries the Brief's `defined_terms` in its place. The
-// Persona's line is read by differentiation, for the first-Leg survivors, and by
-// compose_path, as what the first Leg's Move's `takes` must be met by (kogaki#1699).
+// (ar) kogaki#1331, kogaki#1768: the Persona is read once, by `audienceFor`; compose_path hands
+// it in the Leg Waypoint unit's input -- where a waypoint's `case` is chosen from the prior
+// knowledge -- and never to the unit validator, which is handed the structure alone;
+// review_path reads none of it and carries the Brief's `defined_terms` in its place.
 {
   const brief = briefRuntimeText();
   const code = (t) => t.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
   const composePath = code(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")));
   const reviewPath = code(brief.slice(brief.indexOf("  review_path: async"), brief.indexOf("  attach_review:")));
-  const differentiation = code(brief.slice(brief.indexOf("  differentiation: async"), brief.indexOf("  compose_path: async")));
-  // THE FIRST LEG'S ENTRY CONDITION (kogaki#1699): compose_path reads the line once and hands
-  // it to the unit, the assignment block and the Move-fit judge for TAKE -- never to the
-  // validator, so the word grant kogaki#1331 removed is not restored.
-  if ((composePath.match(/personaPriorKnowledgeLine\(/g) || []).length !== 1) fails.push("(ar) compose_path does not read the Persona's prior_knowledge exactly once");
-  for (const at of ["persona_prior_knowledge: priorKnowledge", "differentiationBlockFor(entry, priorKnowledge", "inputs: { movesDir, priorKnowledge,"]) {
-    if (!composePath.includes(at)) fails.push(`(ar) compose_path does not hand the Persona's prior_knowledge at ${JSON.stringify(at)}`);
-  }
-  if (/inputs: \{ strandIds,[^}]*priorKnowledge/.test(composePath)) fails.push("(ar) compose_path hands the Persona's prior_knowledge to the unit validator");
-  if (/persona_prior_knowledge|personaPriorKnowledgeLine/.test(reviewPath)) fails.push("(ar) review_path still reads or passes the Persona's prior_knowledge");
+  if ((code(brief).match(/personaPriorKnowledgeLine\(/g) || []).length !== 1) fails.push("(ar) the Brief runtime does not read the Persona's prior_knowledge exactly once");
+  if (!composePath.includes("const input = { state: st.id, thesis, structure, persona, language };")) fails.push("(ar) compose_path does not hand the Persona in the unit's input");
+  if (!/validator: \{[^}]*inputs: \{ structure \}/.test(composePath)) fails.push("(ar) compose_path hands the unit validator more than the structure");
+  if (/persona_prior_knowledge|personaPriorKnowledgeLine|audienceFor\(/.test(reviewPath)) fails.push("(ar) review_path still reads or passes the Persona's prior_knowledge");
   if ((reviewPath.match(/defined_terms: definedTerms,/g) || []).length !== 2) fails.push("(ar) review_path's base write and per-unit input do not both carry defined_terms");
-  if (!/prior_knowledge: personaPriorKnowledgeLine\(persona\)/.test(differentiation)) fails.push("(ar) differentiation no longer carries the Persona's prior_knowledge for the first-Leg survivors");
 }
 
 // (as) kogaki#1281: the claim register -- one judged entry per Leg, a closed
@@ -131,8 +125,7 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   }
   // THE RECORD REQUIRES IT (kogaki#1328): a Brief record carrying no
   // compose_path is refused by the Draft's reader, naming the key.
-  const bare = recordOf([{ leg_id: "s1", move: "m", materials: ["L1"], purpose: "p",
-    depends_on: [], rationale: "r", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w", serves: ["L1"] }] }]);
+  const bare = recordOf([{ leg_id: "s1", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w", serves: ["L1"] }] }]);
   delete bare.compose_path;
   const noPath = briefOfRecord(bare, "bb.yaml");
   if (!noPath.refusals.some((r) => /`compose_path`/.test(r))) fails.push(`(bb) a Brief record with no compose_path was not refused naming the key: ${JSON.stringify(noPath.refusals)}`);
@@ -155,13 +148,34 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   else if (!carried.error.includes(`\`${RETIRED_KEY}\``)) fails.push(`(cc) the record refusal did not name the key: ${carried.error}`);
 }
 
-// (dd) kogaki#1742: an existing home is classified at `enter` by its Thesis
+// (dd) kogaki#1742: an existing home is classified at `apex` by its Thesis
 // and its Strands' hashes. The same Thesis at the same hashes is a collision
 // whose reading says so and names the later work; a moved hash is named; a
 // different Thesis takes `<slug>-2`, named in its option label. No path under
 // src/brief/ deletes a directory.
 const DD_STRANDS = [{ display_id: "L1", slug: "a-strand", address: "coding::lesson/a-strand", cite: "coding::lesson/a-strand@abc123" }];
-const ddCandidates = () => composeThesisCandidates(DD_STRANDS, new Map([["a-strand", { headline: "guards fail open when nobody feeds them", cite: "c" }]]));
+// THE CANDIDATES ARE THE STRUCTURE'S APEXES (kogaki#1768): one Strand read as two components, each
+// two relations under one higher-order relation, so two Thesis candidates, the first the one whose home
+// (dh) collides; `keep` then leaves the second offered.
+const DD_CLAIMS = [{ id: "L1", claim: "guards fail open when nobody feeds them" }];
+const DD_STRUCTURE = {
+  roles: [{ id: "guard", context: "A check standing at a gate.", attributes: [], claims: ["L1"] },
+    { id: "input", context: "What feeds the check.", attributes: [], claims: ["L1"] },
+    { id: "cache", context: "A store of earlier answers.", attributes: [], claims: ["L1"] },
+    { id: "entry", context: "One answer the store keeps.", attributes: [], claims: ["L1"] }],
+  relations: [{ id: "r1", between: ["guard", "input"], holds: "{guard} reads {input}.", from: "L1" },
+    { id: "r2", between: ["guard", "input"], holds: "{guard} opens when {input} stops.", from: "L1" },
+    { id: "r3", between: ["cache", "entry"], holds: "{cache} keeps {entry}.", from: "L1" },
+    { id: "r4", between: ["cache", "entry"], holds: "{cache} serves {entry} after it changes.", from: "L1" }],
+  higher_order: [{ id: "h1", relates: ["r1", "r2"], holds: "Because {guard} reads only {input}, it opens when {input} stops.", from: ["L1"] },
+    { id: "h2", relates: ["r3", "r4"], holds: "Because {cache} keeps {entry}, it serves {entry} stale.", from: ["L1"] }],
+};
+const ddCandidates = () => {
+  const ks = componentsOf(DD_STRUCTURE, DD_CLAIMS);
+  const holds = ["Guards fail open when nobody feeds them.", "Caches serve stale answers when nobody evicts them."];
+  return composeThesisCandidates(ks.map((k, i) => ({ component: k.component, id: `apex-${i + 1}`, relates: [...k.top],
+    holds: holds[i], from: [] })), ks, DD_CLAIMS);
+};
 const ddHome = (thesesDir, slug, thesis, cite) => {
   mkdirSync(join(thesesDir, slug), { recursive: true });
   writeFileSync(join(thesesDir, slug, "brief.yaml"), composeBrief({ slug, strands: [{ ...DD_STRANDS[0], cite }], thesis, composePath: "audiences/dev-to-zenn.md" }));
@@ -205,7 +219,7 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
   if (/\b(rmSync|rmdirSync)\(/.test(briefRuntimeText())) fails.push("(dd) a code path under src/brief/ still deletes a directory");
 }
 
-// (dh) kogaki#1742 end to end: from a record after `enter`, the advance stops at
+// (dh) kogaki#1742 end to end: from a record after `apex` (kogaki#1768), the advance stops at
 // the conditional HOME_COLLISION wait; `replace` archives the home at `mint`,
 // `keep` drops the candidate from the Thesis gate and leaves the home alone,
 // and `back-to-terrain` ends the run with nothing written.
@@ -222,12 +236,13 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     classifyHomes(c, DD_STRANDS, thesesDir);
     const runState = join(dir, "run.json");
     writeFileSync(runState, JSON.stringify({
-      stage: "entered", strands: DD_STRANDS, strand_renderings: {}, thesis_candidates: c,
-      gate: { gate_id: "brief-thesis-adoption", options: [...thesisGateOptions(c), { id: "back-to-terrain", label: "back", negates_premise: true }] },
+      stage: "entered", strands: DD_STRANDS,
+      strand_renderings: { "a-strand": { found: true, headline: DD_CLAIMS[0].claim, cite: DD_STRANDS[0].cite } },
+      structure: DD_STRUCTURE, thesis_candidates: c, gate: thesisGate(c, DD_STRANDS),
     }, null, 2) + "\n");
     writeFileSync(join(dir, "run-record.json"), JSON.stringify({
       workflow: { path: "src/brief-workflow.json", version: briefTable.version }, judge_binary: null, survey_record: null,
-      completed: ["enter"], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: null, owner_input: {},
+      completed: ["enter", "read_structure", "apex"], waits_reached: [], conditional_entered: [], conditional_skipped: [], awaiting: null, owner_input: {},
       artifacts_written: [], judgments: {}, gate_declarations_owed: [], transitions: [], done: false, brief_run_state: runState,
       settled_set: { addresses: [DD_STRANDS[0].address], via: "supplied on the command line" },
     }, null, 2) + "\n");
@@ -237,7 +252,7 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     writeFileSync(pointer, `${dir}\n`);
     const gates = join(dir, "open-gates");
     mkdirSync(gates);
-    return { dir, thesesDir, terms, pointer, gates, slug: c[0].slug, claim: c[0].claim, rows: [] };
+    return { dir, thesesDir, terms, pointer, gates, slug: c[0].slug, claim: c[0].claim, id: c[0].id, rows: [] };
   };
   const advance = (f, toolUseId) => {
     const env = { ...process.env, KOGAKI_BRIEF_RUN_DIR: f.dir, KOGAKI_BRIEF_OPEN_RUN: f.pointer,
@@ -275,7 +290,7 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     const mid = record(f);
     if (mid.awaiting !== "THESIS_ADOPTION" || !mid.completed.includes("HOME_COLLISION")) fails.push(`(dh) replace did not move the run on to the Thesis gate: ${JSON.stringify(mid).slice(0, 400)}`);
     if (!existsSync(join(f.thesesDir, f.slug, "paragraph-plan.yaml"))) fails.push("(dh) replace moved the home at the click, before the mint");
-    answer(f, "brief-thesis-adoption", "thesis-1", "toolu_dh_2");
+    answer(f, "brief-thesis-adoption", f.id, "toolu_dh_2");
     const r = advance(f, "toolu_dh_2");
     const rec = record(f);
     const archive = join(f.thesesDir, ".archive");
@@ -293,10 +308,10 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     advance(f, "toolu_dh_3");
     const rec = record(f);
     const decl = existsSync(join(f.dir, "brief-thesis-adoption.run-declaration.json"))
-      ? JSON.parse(readFileSync(join(f.dir, "brief-thesis-adoption.run-declaration.json"), "utf8")) : { options: [{ id: "thesis-1" }] };
-    if (rec.awaiting !== "THESIS_ADOPTION" || decl.options.some((o) => o.id === "thesis-1")
+      ? JSON.parse(readFileSync(join(f.dir, "brief-thesis-adoption.run-declaration.json"), "utf8")) : { options: [{ id: f.id }] };
+    if (rec.awaiting !== "THESIS_ADOPTION" || decl.options.some((o) => o.id === f.id)
       || !callText(f, "brief-thesis-adoption").includes("Not offered:")) {
-      fails.push(`(dh) keep did not drop the candidate from the Thesis gate and name it above: ${JSON.stringify(decl.options)} awaiting=${rec.awaiting}`);
+      fails.push(`(dh) keep did not drop the candidate from the Thesis gate and name it above: ${JSON.stringify(decl.options)} awaiting=${rec.awaiting} call=${callText(f, "brief-thesis-adoption").slice(0, 600)}`);
     }
     if (!existsSync(join(f.thesesDir, f.slug, "paragraph-plan.yaml")) || existsSync(join(f.thesesDir, ".archive"))) fails.push("(dh) keep touched the existing home");
   }
@@ -323,7 +338,7 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     const decl = JSON.parse(readFileSync(join(f.dir, "brief-thesis-adoption.run-declaration.json"), "utf8"));
     const ids = decl.options.map((o) => o.id);
     if (decl.free_text_offered !== false || /own words/i.test(callText(f, "brief-thesis-adoption"))
-      || !ids.includes("back-to-terrain") || !ids.includes("thesis-1")) {
+      || !ids.includes("back-to-terrain") || !ids.includes(f.id)) {
       fails.push(`(fx) the Thesis gate call offers free text or lacks its options: ${JSON.stringify(ids)} free_text_offered=${decl.free_text_offered}`);
     }
     const before = readdirSync(f.thesesDir).sort().join(",");
@@ -361,7 +376,7 @@ const ddHome = (thesesDir, slug, thesis, cite) => {
     }, null, 2) + "\n");
     writeFileSync(join(dir, "run-record.json"), JSON.stringify({
       workflow: { path: "src/brief-workflow.json", version: briefTable.version }, judge_binary: null, survey_record: null,
-      completed: ["enter", "THESIS_ADOPTION", "adopt_thesis"], waits_reached: ["THESIS_ADOPTION"],
+      completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis"], waits_reached: ["THESIS_ADOPTION"],
       conditional_entered: [], conditional_skipped: [], awaiting: null, owner_input: {}, artifacts_written: [],
       judgments: {}, gate_declarations_owed: [], transitions: [], done: false, brief_run_state: runState,
     }, null, 2) + "\n");
@@ -465,5 +480,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-mint — an introduces entry carrying nearest or differs refused by name (kogaki#1571); persona_prior_knowledge reaching no review_path input and no unit validator, review_path carrying defined_terms (kogaki#1331), and compose_path handing it to TAKE alone (kogaki#1699); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes, a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
+console.log("ok: check-brief-mint — a Leg declaring no introduces (kogaki#1768) and an introduces entry carrying nearest or differs refused by name (kogaki#1571); the Persona read once, handed in compose_path's unit input and never to its validator (kogaki#1768), review_path reading none of it and carrying defined_terms (kogaki#1331); the claim register refused by count, by verdict and by an unworded fails (kogaki#1281); composeBrief recording compose_path and refusing a missing one (kogaki#1262), the retired external-authority switch written by no mint and refused by name as an input and as a record key (kogaki#1571); an existing home classified by Thesis and Strand hashes over candidates composed from the structure's apex (kogaki#1768), a different Thesis taking a free name, and the home-collision gate archiving on replace at mint, dropping the candidate on keep and ending on back-to-terrain (kogaki#1742); the Thesis gate offering no free text and a typed answer refused at the wait and by adopt (kogaki#1749); a mint refusal inside an advance waiting at the brief-state-retry gate, retry minting the adopted Thesis and abandon clearing the open-run pointer, a throwing renderer raising the same gate, and start over an unfinished run re-offering it with no new run directory (kogaki#1740).");
 JS

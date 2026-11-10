@@ -430,9 +430,7 @@
       "class": "preserved",
       "mode": "judged",
       "binds": {
-        "leg": {
-          "introduces": "excluded"
-        }
+        "leg": {}
       },
       "declared_block": "crosses_here",
       "field": "introduces",
@@ -447,9 +445,7 @@
       "class": "best-effort",
       "mode": "judged",
       "binds": {
-        "leg": {
-          "introduces": "excluded"
-        }
+        "leg": {}
       },
       "declared_block": "crosses_here",
       "also_declared_blocks": [

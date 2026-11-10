@@ -100,17 +100,13 @@ if (!two.includes("Leg v1, Waypoint 1") || !two.includes("Paragraph Waypoint 2 c
   fails.push(`(c2) an entry carrying both performs and point is not refused naming it: ${two || "no refusal"}`);
 }
 
-// (e) THE CRITERIA TABLE (kogaki#1647): every Paragraph cell is an axis or a shared criterion
-// the judge row names, every Leg cell an item of the Leg judge's list, and nothing either
-// judge carries is missing from the table. The Leg judge writes no criterion names, so its
-// items are the list after "Answer `consistent` only where all of them hold -- ", each
-// without its leading "(on a ...)" condition.
+// (e) THE CRITERIA TABLE (kogaki#1647, kogaki#1768): every Paragraph cell is an axis or a shared
+// criterion the judge row names, every Leg cell a criterion of the Leg judge `lpp_grounded`, and
+// nothing either judge carries is missing from the table. The Leg judge's criteria are the
+// upper-case names its judgment point writes before a colon.
 const spec = readFileSync("specs/spec-draft-pipeline/SPEC.md", "utf8");
-const legPoint = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit.judgment_point;
-const legItems = (point) => {
-  const m = /Answer `consistent` only where all of them hold -- (.*?)\. `taken` in the input/s.exec(point);
-  return m ? m[1].split(/,\s+(?:and\s+)?/).map((t) => t.replace(/^\([^)]*\)\s*/, "").trim()) : [];
-};
+const legPoint = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).lpp_grounded.judgment_point;
+const legItems = (point) => [...point.matchAll(/\b([A-Z][A-Z ]+[A-Z]): /g)].map((m) => m[1]);
 const sharedIds = (row) => [...row.judgment_point.matchAll(/\{\{shared:([a-z_]+)\}\}/g)].map((m) => m[1]);
 const STANDINGS = { shared: [true, true], "Leg only": [true, false], "paragraph only": [false, true] };
 const cell = (t) => { const v = t.trim(); return v === "—" ? null : v.replace(/^`|`$/g, ""); };
@@ -141,7 +137,7 @@ function tableFailures(text, paragraphIds, legList) {
 const paragraphIds = [...registry.axes.map((a) => a.id), ...sharedIds(table.paragraph_plan_judge_unit)];
 const legList = legItems(legPoint);
 cases++;
-if (legList.length < 4) fails.push(`(e) the Leg judge's list was not read from reader_path_fit_unit: ${JSON.stringify(legList)}`);
+if (legList.length < 1) fails.push(`(e) the Leg judge's criteria were not read from lpp_grounded: ${JSON.stringify(legList)}`);
 const atHead = tableFailures(spec, paragraphIds, legList);
 if (atHead.length) fails.push(`(e) the criteria table fails: ${atHead.join("; ")}`);
 const tableRefusals = [

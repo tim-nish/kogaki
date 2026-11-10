@@ -10,28 +10,34 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { cmdAdoptCandidate, cmdAssemble, selectionOptionIds } from "../assemble.mjs";
 import {
-  audienceLanguage, briefJourneyStrands, briefStrandIds, definedTermsOf, definedTermsRefusal,
-  loadMoveContracts, personaPriorKnowledgeLine,
-  readerPersona, recoverabilityOf, renderingsRefusal,
+  audienceLanguage, definedTermsOf, definedTermsRefusal, personaPriorKnowledgeLine,
+  readerPersona, recoverabilityOf, renderingsRefusal, validateLegs,
 } from "../compose.mjs";
+import { applyLegSections } from "../compose/sections.mjs";
+import {
+  componentsOf, derivedLegs, legPartitionRefusal, pathReachRefusal, servesOf, validateApex, validateReadSet,
+} from "../compose/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
   DetachedJobStarted, READER_PATH_JOB_AWAIT_COMMAND, READER_PATH_JOB_STALL_S, jobHeartbeatMs,
   readReaderPathJob, readerPathJobPath, startDetachedJobSupervisor,
 } from "../workflow/detached-job.mjs";
-import { JUDGE_INPUT_MARKER, judgePrompt, judgeSettings } from "../workflow/judge.mjs";
+import { judgePrompt, judgeSettings } from "../workflow/judge.mjs";
 import { JudgmentRefusal, relFromRepo } from "../workflow/run-record.mjs";
-import { cmdAdopt, cmdEnter, cmdMint, pendingHomeCollision, thesisFreeTextRefusal } from "./candidates.mjs";
+import {
+  classifyHomes, cmdAdopt, cmdEnter, cmdMint, composeThesisCandidates, pendingHomeCollision, thesesDirOf,
+  thesisFreeTextRefusal,
+  thesisGate,
+} from "./candidates.mjs";
 import { candidateSelectionExtra, selectedCandidateId } from "./reader-path-unit.mjs";
 import {
-  BRIEF_REPO, REVIEW_PATH_JOB_DIR, briefAudienceFile, briefJobBounds, briefJobSetting,
-  briefMovesDir, briefThesis, captureFile, detachedJobFor, differentiationBlockFor, entryInputs,
-  fail, judged, needBrief, needRunState, readJson, readMintedBrief, refuseJudgment,
-  strandClaims, validateDifferentiationRecord, writeJudgeInput,
+  BRIEF_REPO, REVIEW_PATH_JOB_DIR, briefAudienceFile, briefJobBounds, briefThesis, captureFile,
+  detachedJobFor, entryInputs, fail, judged, needBrief, needRunState, readJson, readMintedBrief,
+  refuseJudgment, strandClaims, writeJudgeInput,
 } from "./run-state.mjs";
 
-// THE RENDERINGS RECORD'S JUDGMENT (kogaki#1494), asked from inside the
-// `differentiation` state: the `renderings_unit` row over the settled Strands'
+// THE RENDERINGS RECORD'S JUDGMENT (kogaki#1494), asked at the start of the
+// `compose_path` state (kogaki#1768): the `renderings_unit` row over the settled Strands'
 // claims, the Thesis and the Brief's Defined Terms. The record is validated by
 // `renderingsRefusal`, so a re-ask carries its text. Returns the record's path.
 async function judgeRenderings(rec, st, table, args, { record, thesis, language }) {
@@ -62,12 +68,93 @@ function servedClaims(rec) {
   return rec.brief_run_state ? strandClaims(readJson(rec.brief_run_state)) : [];
 }
 
-// The renderings record's entries, as the `differentiation` state wrote it. A
+// The renderings record's entries, as the `compose_path` state wrote it. A
 // run that predates the record carries none, which renders nothing.
 function renderingsFor(rec) {
   if (!rec.brief_renderings) return [];
   const r = readJson(resolve(BRIEF_REPO, rec.brief_renderings));
   return Array.isArray(r && r.renderings) ? r.renderings : [];
+}
+
+// THE PERSONA AND THE ARTICLE'S LANGUAGE (kogaki#1216, kogaki#1370, kogaki#1417),
+// read from the Audience file the `compose_path` row names, and refused by name
+// as the STATE where either is missing — a judge asked to read for a Persona it
+// was never handed answers from nothing.
+function audienceFor(table, st) {
+  const file = resolve(BRIEF_REPO, briefAudienceFile(table));
+  const persona = readerPersona(file);
+  if (persona.error) fail(`${st.id}: ${persona.error}`);
+  const language = audienceLanguage(file);
+  if (language.error) fail(`${st.id}: ${language.error}`);
+  return { persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) }, language: language.language };
+}
+
+// Every settled Strand's served claim, or the STATE's refusal naming the Strands
+// that carry none: the structure is read from every claim (kogaki#1768), and a
+// Strand whose rendering is a marker has no claim to read.
+function everyClaim(state, st) {
+  const claims = strandClaims(state);
+  const missing = (state.strands || []).filter((s) => !claims.some((c) => c.id === s.display_id)).map((s) => s.display_id);
+  if (missing.length) {
+    fail(`${st.id}: the settled Strand${missing.length === 1 ? "" : "s"} ${missing.join(", ")} carr${missing.length === 1 ? "ies" : "y"} no served claim, `
+      + "and the structure is read from every settled Strand's claim (kogaki#1768). Re-settle the set through Terrain. Nothing was written.");
+  }
+  return claims;
+}
+
+// THE READER PATH FROM ITS WAYPOINTS (kogaki#1767, kogaki#1768), at
+// `compose_path`'s resumption: each Waypoint's `serves` derived from its
+// `carries`, the Legs derived over the Waypoints (`derivedLegs`) and refused
+// where they break the derivation's invariant, each Leg's `opens_section`
+// written by the one `leg_sections` Call, and ONE Candidate written whose
+// reasoning names the GROUNDED Rounds the Waypoints took.
+async function finishReaderPath(rec, st, table, args, { result, structure, language }) {
+  const claims = servedClaims(rec);
+  const raw = Array.isArray(result && result.waypoints) ? result.waypoints : [];
+  if (!raw.length) fail(`${st.id}: the reader-path job ended \`done\` and its result carries no Waypoint.`);
+  const waypoints = raw.map((w) => ({ point: w.point, carries: [...w.carries], serves: servesOf(structure, w.carries, claims) }));
+  const derived = derivedLegs(waypoints, structure, claims, { withStructure: true });
+  const bad = legPartitionRefusal(derived, waypoints, structure);
+  if (bad.error) fail(`${st.id}: the derived Legs break their invariant: ${bad.error}`);
+  const row = table.leg_sections
+    || fail(`${st.id}: src/brief-workflow.json declares no leg_sections row for the Legs' Sections (kogaki#1768)`);
+  const holds = new Map(structure.higher_order.map((h) => [h.id, h.holds]));
+  let legs = null;
+  const validate = (p) => {
+    let r;
+    try { r = readJson(p); }
+    catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+    const out = applyLegSections(derived.legs, r);
+    if (out.error) refuseJudgment(out.error);
+    legs = out.legs;
+  };
+  const composeInputFor = () => writeJudgeInput(rec, row, {
+    state: st.id, unit: row.id, language,
+    legs: derived.legs.map((l) => ({ leg_id: l.leg_id, relation: l.relation, holds: holds.get(l.relation),
+      points: l.waypoints.map((w) => w.point) })),
+  });
+  rec.brief_leg_sections = await judged(rec, row, table, args, "leg-sections", composeInputFor, validate);
+  const v = validateLegs(legs, { structure });
+  if (v.error) fail(`${st.id}: ${v.error}`);
+  const rounds = result.rounds;
+  const candidate = {
+    candidate_id: "reader-path",
+    legs: v.legs,
+    reasoning: {
+      leg_validity: `Every Leg Waypoint was judged GROUNDED in the relations it carries`
+        + `${Number.isInteger(rounds) ? `, in ${rounds} Round${rounds === 1 ? "" : "s"}` : ""}; the Legs are derived over `
+        + "the Waypoints, one per higher-order relation they serve, the Thesis last.",
+    },
+  };
+  // THE UNITS THAT ENDED WITHOUT A READER PATH, named above the Candidate question.
+  rec.brief_compose_excluded = Array.isArray(result.excluded) ? result.excluded : [];
+  // THE BARE ARRAY, WRITTEN BESIDE THE RECORD. `src/review.mjs attach` reads
+  // its `--candidates` as the Candidate array.
+  const out = join(rec._dir, "brief-candidates.json");
+  writeFileSync(out, JSON.stringify([candidate], null, 2) + "\n");
+  rec.brief_candidates = out;
+  rec.judgments[st.id] = relFromRepo(resolve(readerPathJobPath(rec._dir)));
+  return null;
 }
 
 // ---- THE RENDERER HALF. One entry per state the table declares, keyed by state
@@ -90,6 +177,80 @@ export const STATE_WORK = {
     // anything under `theses/` exists.
     rec.settled_set = { addresses: inputs.entered, via: inputs.via };
     rec.settled_set_via = inputs.via;
+    return null;
+  },
+
+  // ---- JUDGMENT POINT 0. The structure (kogaki#1768): the settled Strands'
+  // served claims read as ONE RelationalStructure under the `read_structure`
+  // row, before any Thesis exists, so no `attains_thesis` is written and every
+  // higher-order relation names the claims that state it. The structure is
+  // written onto the run state, where the `apex` state reads it.
+  read_structure: async (rec, st, args, table) => {
+    const runState = needRunState(rec, st);
+    const state = readJson(runState);
+    const claims = everyClaim(state, st);
+    const { persona } = audienceFor(table, st);
+    let structure = null;
+    const validate = (p) => {
+      let r;
+      try { r = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      const v = validateReadSet(r, claims, { thesis: false });
+      if (v.text) refuseJudgment(v.text);
+      structure = r;
+    };
+    const composeInputFor = () => writeJudgeInput(rec, st, { state: st.id, claims, persona });
+    const path = await judged(rec, st, table, args, "structure", composeInputFor, validate);
+    state.structure = structure;
+    writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
+    rec.brief_structure = path;
+    rec.judgments[st.id] = path;
+    return null;
+  },
+
+  // ---- JUDGMENT POINT 1. The apexes (kogaki#1768): the structure's connected
+  // components are computed here (`componentsOf`), and one Call writes one apex
+  // per component — the Thesis an article on that component alone argues. The
+  // Thesis candidates and the gate are composed from them, and every
+  // candidate's home is classified before the gate (kogaki#1742).
+  apex: async (rec, st, args, table) => {
+    const runState = needRunState(rec, st);
+    const state = readJson(runState);
+    if (!state.structure) fail(`${st.id}: the run state carries no structure — \`read_structure\` writes it and precedes this state.`);
+    const claims = everyClaim(state, st);
+    const components = componentsOf(state.structure, claims);
+    const { language } = audienceFor(table, st);
+    let apexes = null;
+    const validate = (p) => {
+      let r;
+      try { r = readJson(p); }
+      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      const v = validateApex(r, components, state.structure);
+      if (v.text) refuseJudgment(v.text);
+      apexes = r.apexes;
+    };
+    const holds = new Map([...state.structure.relations, ...state.structure.higher_order].map((x) => [x.id, x.holds]));
+    const composeInputFor = () => writeJudgeInput(rec, st, {
+      state: st.id,
+      language,
+      claims,
+      components: components.map((k) => ({
+        component: k.component,
+        relations: k.relations.map((id) => ({ id, holds: holds.get(id) })),
+        higher_order: k.higher_order.map((id) => ({ id, holds: holds.get(id) })),
+        top: k.top,
+        claims: k.claims,
+      })),
+    });
+    const path = await judged(rec, st, table, args, "apex", composeInputFor, validate);
+    const candidates = composeThesisCandidates(apexes, components, claims);
+    classifyHomes(candidates, state.strands, thesesDirOf(args));
+    state.components = components;
+    state.thesis_candidates = candidates;
+    state.gate = thesisGate(candidates, state.strands);
+    writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
+    rec.brief_apex = path;
+    rec.judgments[st.id] = path;
     return null;
   },
 
@@ -134,201 +295,27 @@ export const STATE_WORK = {
     return { artifact: cmdMint({ ...args, "run-state": runState, definedTerms: entries }) };
   },
 
-  // ---- JUDGMENT POINT 0. Differentiation (kogaki#1206): decided BEFORE any
-  // reader-path unit composes, one entry per unit, so the three Candidates
-  // differ BY ASSIGNMENT rather than by chance among units that cannot see
-  // each other. `compose_path` below reads this record to splice each unit's
-  // own entry above that unit's own input marker, and tags the resulting
-  // Candidate with its unit number so `src/assemble.mjs` can check the first
-  // Leg bound what was assigned.
-  differentiation: async (rec, st, args, table) => {
-    const { briefPath, record, doc } = readMintedBrief(rec, st);
-    const strandIds = briefStrandIds(record);
-    const movesDir = briefMovesDir(args);
-    const library = loadMoveContracts(movesDir);
-    if (library.error) fail(`${st.id}: ${library.error}`);
-    const units = briefJobSetting(table, "compose_path", "units");
-    const journeyBearing = briefJourneyStrands(record).length > 0;
-    const thesis = briefThesis(record);
-    // THE PERSONA, read from the Audience file the `compose_path` row names
-    // (kogaki#1216, kogaki#1370) -- the same row this state already reads
-    // `job.units` from. An Audience file this state cannot read is a store
-    // fault and refuses the STATE, before the ask: Reader start is authored
-    // FROM it, and a judge asked to author a cold read from a Persona it was
-    // never handed answers from nothing.
-    const readerFile = briefAudienceFile(table);
-    const persona = readerPersona(resolve(BRIEF_REPO, readerFile));
-    if (persona.error) fail(`${st.id}: ${persona.error}`);
-    // THE ARTICLE'S LANGUAGE (kogaki#1417), read from the same Audience file and
-    // refused by name before the ask where it is missing.
-    const language = audienceLanguage(resolve(BRIEF_REPO, readerFile));
-    if (language.error) fail(`${st.id}: ${language.error}`);
-    // THE RENDERINGS RECORD, ASKED FIRST (kogaki#1494, owner decision
-    // 2026-10-21): the source terms the article will not keep, each with the
-    // plain phrase it uses instead, from the `renderings_unit` row over the
-    // settled Strands' claims and the Defined Terms. It is composed here so it
-    // stands before any reader-path unit runs; every unit, the Path Review's
-    // recoverability entry and adoption read it from `brief_renderings`.
-    rec.brief_renderings = await judgeRenderings(rec, st, table, args, { record, thesis, language: language.language });
-    const validate = (p) => {
-      let record;
-      try { record = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
-      const r = validateDifferentiationRecord(record, { units, moves: library.moves, journeyBearing, thesis });
-      if (r.error) refuseJudgment(r.error);
-    };
-    const composeInputFor = () => writeJudgeInput(rec, st, {
-      state: st.id,
-      brief: relFromRepo(briefPath),
-      brief_document: doc,
-      strands_you_may_use: strandIds,
-      moves_you_may_bind: library.moves,
-      units,
-      journey_bearing: journeyBearing,
-      // THE PERSONA, verbatim from the Audience file's `persona` and named by
-      // path (kogaki#1216, kogaki#1370): `prior_knowledge` is what each survivor's `takes`
-      // is judged against (kogaki#1699).
-      reader_file: readerFile,
-      reader: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
-      language: language.language,
-    });
-    const path = await judged(rec, st, table, args, "differentiation", composeInputFor, validate);
-    rec.brief_differentiation = path;
-    rec.judgments[st.id] = path;
-    return null;
-  },
-
-  // ---- JUDGMENT POINT 1. The composition itself.
-  //
-  // THE SCHEMA IS RENDERED INTO THE PROMPT BY THE EXECUTOR, from this state's
-  // `schema_file` row. What is validated here is the same file's field set, read
-  // by `validateLegs` — so the text the Model composes against and the text the
-  // refusal enforces are ONE FILE and cannot disagree. That property is the
-  // reason `src/leg-schema.json` exists; this state is its second reader.
+  // ---- JUDGMENT POINT 2. The Reader Path (kogaki#1768): the renderings record
+  // first, then ONE Detached Job unit composing the Leg Waypoints from the
+  // Brief's adopted structure under the `lpp_waypoints` row, its record refused
+  // by `validateBriefWaypoints` and judged GROUNDED by the `lpp_grounded` row
+  // inside the same Round. The Legs are derived over the Waypoints on
+  // resumption, by the Harness, with no Move.
   compose_path: async (rec, st, args, table) => {
-    const { briefPath, record, doc } = readMintedBrief(rec, st);
-    const strandIds = briefStrandIds(record);
-    const movesDir = briefMovesDir(args);
-    // THE ADMITTED SET, READ ONCE AND BEFORE THE ASK (kogaki#1125). A store
-    // fault refuses the STATE rather than the composition: the library being
-    // unreadable is not something a judge can compose its way out of, so it
-    // never reaches the re-ask window.
-    const library = loadMoveContracts(movesDir);
-    if (library.error) {
-      fail(`${st.id}: ${library.error}`);
-    }
-    // THE PERSONA'S `prior_knowledge` IS NOT READ HERE (kogaki#1331, owner
-    // decision 2026-10-10: "Let us remove Persona's permission to use
-    // specialized terminology"). It granted a claim the words it named, and
-    // that grant is what let a word's article-specific sense through; which
-    // words need introducing is now the Brief's `defined_terms`, refused by
-    // `validateLegs`. `prior_knowledge` is read for one use only: what the first
-    // Leg's Move's `takes` must be met by (kogaki#1699), handed to the assignment
-    // block and the Move-fit judge, never to the claims.
-    // THE ARTICLE'S LANGUAGE (kogaki#1417): the Audience's `language`, handed to
-    // every unit, refused by name before anything starts where it is missing.
-    const language = audienceLanguage(resolve(BRIEF_REPO, briefAudienceFile(table)));
-    if (language.error) fail(`${st.id}: ${language.error}`);
-    const persona = readerPersona(resolve(BRIEF_REPO, briefAudienceFile(table)));
-    if (persona.error) fail(`${st.id}: ${persona.error}`);
-    const priorKnowledge = personaPriorKnowledgeLine(persona);
-    let composed = null;
-    // CROSS-CANDIDATE RULES ONLY (kogaki#1240). Every per-unit rule -- the Leg
-    // shape (`validateLegs`), the Move ids, the closed Strand set, the
-    // `reasoning` keys, the retired-field names, the Reader target derivation
-    // and the ledger fields -- moved into `validateReaderPathUnit` below,
-    // DECLARED to `job-supervise` and applied at the unit's own
-    // classification (kogaki#1193's `classifyDetachedJobUnit`), so a breach
-    // gets the unit's own re-ask rather than waiting for every unit to
-    // finish and failing the whole set here. What is left needs every
-    // Candidate in hand and cannot run any earlier: the count, and the three
-    // duplicate grounds across the set (id, reader experience, characteristic).
-    const validate = (cands) => {
-      if (!Array.isArray(cands)) {
-        refuseJudgment(`the assembled record carries no \`candidates\` array; ${st.input_shape}`);
-      }
-      // THE COUNT IS `assembleSelection`'s AND IS STATED HERE TOO, deliberately.
-      // One to three per article is the Candidate gate's own bound (kogaki#1273:
-      // one finished Candidate is enough, and the question is shown with it),
-      // and a breach reaching `assemble_candidates` would fail the run after
-      // the review state had already spent a judge call on every Candidate.
-      if (cands.length < 1 || cands.length > 3) {
-        refuseJudgment(`${cands.length} Candidate(s) — the Candidate gate presents one to three per `
-          + "article, differing in reader experience; none leaves nothing to choose, and four "
-          + "overruns the selector");
-      }
-      const seenId = new Set();
-      const seenExp = new Set();
-      const seenChar = new Set();
-      for (const c of cands) {
-        if (!c || typeof c.candidate_id !== "string" || c.candidate_id === "") {
-          refuseJudgment("every Candidate carries a non-empty `candidate_id`");
-        }
-        if (seenId.has(c.candidate_id)) {
-          refuseJudgment(`two Candidates carry the candidate_id ${JSON.stringify(c.candidate_id)} — `
-            + "the id is what the owner's answer at the selection gate resolves through");
-        }
-        seenId.add(c.candidate_id);
-        const expKey = String(c.reader_experience || "").trim().toLowerCase();
-        if (seenExp.has(expKey)) {
-          refuseJudgment(`candidate ${c.candidate_id} states a reader experience another Candidate `
-            + "already states — Candidates differ in reader experience, or they are one Candidate "
-            + "presented twice");
-        }
-        seenExp.add(expKey);
-        const charKey = String(c.characteristic || "").trim().toLowerCase();
-        if (seenChar.has(charKey)) {
-          refuseJudgment(`candidate ${c.candidate_id} states a characteristic another Candidate already `
-            + "states — Candidates differ in reader experience, and the characteristic is the name the "
-            + "owner reads that difference by, so two that fold to one value are two options they cannot "
-            + "tell apart at the label");
-        }
-        seenChar.add(charKey);
-      }
-      composed = cands;
-    };
+    const { briefPath, record } = readMintedBrief(rec, st);
+    const structure = record.structure
+      || fail(`${st.id}: the Brief at ${relFromRepo(briefPath)} carries no \`structure\` — the mint writes the adopted `
+        + "structure beside the Thesis, and the Reader Path is composed from it (kogaki#1768). Nothing was started.");
+    const thesis = briefThesis(record);
+    const { persona, language } = audienceFor(table, st);
     const dir = rec._dir;
-    const finishWith = (cands, judgmentAttribution, specializations = [], excluded = []) => {
-      validate(cands);
-      // THE MOVE-FIT RECORDS, ONE PER FINISHED CANDIDATE (kogaki#1307): each job unit
-      // judged its own Candidate's Move fit before it finished, so the set
-      // `adopt_candidate` renders from is assembled here rather than judged again.
-      const specOut = join(dir, "brief-specialization.json");
-      writeFileSync(specOut, JSON.stringify({ records: specializations }, null, 2) + "\n");
-      rec.brief_specialization = relFromRepo(resolve(specOut));
-      // THE UNITS THAT ENDED WITHOUT A FIT CANDIDATE, named above the Candidate question.
-      rec.brief_compose_excluded = excluded;
-      // THE BARE ARRAY, WRITTEN BESIDE THE RECORD. `src/review.mjs attach` reads
-      // its `--candidates` as the Candidate array; writing the projection here
-      // is what keeps that reader from unwrapping a job record its own way.
-      const out = join(dir, "brief-candidates.json");
-      writeFileSync(out, JSON.stringify(composed, null, 2) + "\n");
-      rec.brief_candidates = out;
-      rec.judgments[st.id] = judgmentAttribution;
-      return null;
-    };
 
     // RESUMPTION (kogaki#1193). `job await`'s "done" arm re-enters this state
-    // carrying `--candidates <file>` -- one Candidate per finished unit,
-    // already STRUCTURALLY validated by the supervisor
-    // (`readerPathUnitRecord`/`classifyDetachedJobUnit`). The FULL
-    // candidate-schema rules above -- cross-candidate dedup, the ledger, the
-    // closed Strand set -- can only be checked with every unit in hand, so
-    // they run here, once, over the assembled set; and a failure here is
-    // TERMINAL rather than re-asked, on the owner's 2026-09-25 "no automatic
-    // retries" ruling -- a detached job has already spent its one Round per
-    // unit, and there is no round left to spend repairing the whole set.
-    if (args.candidates) {
+    // carrying `--waypoints <file>`: the finished unit's Waypoints, already
+    // validated and judged GROUNDED by the supervisor, and the Rounds they took.
+    if (args.waypoints) {
       try {
-        // THE WRAPPED SHAPE (`{candidates: [...]}`), NOT THE BARE ARRAY --
-        // `finishReaderPathJobAwait` writes it that way deliberately, the same
-        // envelope the whole-input judge's record used to carry, so a reader
-        // of `reader-path-candidates.json` (a fixture, an operator) meets the
-        // same top-level key either way.
-        const doc = readJson(String(args.candidates));
-        return finishWith(doc.candidates, relFromRepo(resolve(readerPathJobPath(dir))),
-          Array.isArray(doc.specializations) ? doc.specializations : [],
-          Array.isArray(doc.excluded) ? doc.excluded : []);
+        return await finishReaderPath(rec, st, table, args, { result: readJson(String(args.waypoints)), structure, language });
       } catch (e) {
         if (e instanceof JudgmentRefusal) fail(`${st.id}: ${e.message}`);
         throw e;
@@ -343,97 +330,22 @@ export const STATE_WORK = {
         + "to poll it (kogaki#1193).");
     }
 
-    // START (kogaki#1193). The single whole-input ask this state used to make
-    // -- "compose two to three Candidates in one call" -- is what outgrew the
-    // hook's own bound (311 measured seconds against a 180s per-call bound,
-    // 2026-09-24). It becomes three concurrent one-Candidate units, each
-    // handed the SAME Brief, Strand set and Move library the whole-input ask
-    // carried, and nothing else -- the Harness composes each unit's whole
-    // prompt here, before the supervisor is spawned, so the detached process
-    // resolves no schema and reads no table of its own.
+    // THE RENDERINGS RECORD, ASKED FIRST (kogaki#1494, owner decision
+    // 2026-10-21): the source terms the article will not keep, each with the
+    // plain phrase it uses instead. The Path Review's recoverability entry and
+    // adoption read it from `brief_renderings`.
+    rec.brief_renderings = await judgeRenderings(rec, st, table, args, { record, thesis, language });
+
     const cfg = judgeSettings(table, rec);
-    // THE UNIT COUNT AND THE TWO BOUNDS ARE SETTINGS (kogaki#1307, kogaki#1355), read
-    // before anything starts.
-    const unitCount = briefJobSetting(table, "compose_path", "units");
     const { callLimitS, unitRounds } = briefJobBounds(table, "compose_path");
-    // THE MOVE-FIT ROW (kogaki#1307): judged per unit inside this job, so it is read here
-    // and its prompt head rendered here, where the Brief's own table and flow are in hand;
-    // the supervisor appends each unit's own input below the marker.
-    const fitRow = table.reader_path_fit_unit
-      || fail(`${st.id}: src/brief-workflow.json declares no reader_path_fit_unit row for the job unit's Move-fit `
-        + "judgment — nothing was started (kogaki#1307).");
-    // THE SHARED BASE, DISCLOSED (kogaki#1193). Every unit's own prompt is
-    // written straight into `reader-path-job-units.json` by
-    // `startDetachedJobSupervisor` below and never lands under this state's
-    // ordinary `brief-judge-input-<id>.json` name — but the fields every unit
-    // shares (the Brief, the Strand set, the Move library) are the same
-    // record a reader of THIS state's input has always found there, so it is
-    // written here once, before the per-unit prompts are built, rather than
-    // leaving that path silently unwritten.
-    writeJudgeInput(rec, st, {
-      state: st.id,
-      brief: relFromRepo(briefPath),
-      brief_document: doc,
-      strands_you_may_use: strandIds,
-      moves_you_may_bind: library.moves,
-      units: unitCount,
-      language: language.language,
-      strand_claims: servedClaims(rec),
-      renderings: renderingsFor(rec),
-    });
-    // THE UNIT'S OWN ROW (kogaki#1203), read fresh per unit build rather than
-    // reusing `st`: `st`'s own `input_shape`/`refusal` state the ASSEMBLED
-    // three-candidate shape (`{candidates:[...]}`) that `validate()` above
-    // checks, and a unit answering to that shape is refused by
-    // `readerPathUnitRecord`, which parses a bare Candidate at its own root.
-    const unitRow = table.reader_path_unit
-      || fail(`${st.id}: src/brief-workflow.json declares no reader_path_unit row for the Detached `
-        + "Job's per-unit prompt — nothing was started (kogaki#1203).");
-    // DIFFERENTIATION'S OWN RECORD (kogaki#1206), one entry per unit, read
-    // before any unit's prompt is built — `differentiation` precedes this
-    // state and its own count refusal already guarantees one entry per unit
-    // here, so a missing entry below is this state's own bug rather than a
-    // reachable input.
-    const differentiation = readJson(rec.brief_differentiation
-      || fail(`${st.id} has no differentiation record — \`differentiation\` writes it and precedes `
-        + "this state."));
-    const survivorCount = Array.isArray(differentiation.leg1_survivors) ? differentiation.leg1_survivors.length : 0;
-    // THE SERVED CLAIMS AND THE RENDERINGS RECORD (kogaki#1494): every unit
-    // composes its claims and points under the record, so each is handed the
-    // words it renders and the served claims it renders them from.
-    const strandClaimList = servedClaims(rec);
-    const renderings = renderingsFor(rec);
-    const units = Array.from({ length: unitCount }, (_, i) => i + 1).map((n) => {
-      const input = {
-        state: st.id,
-        brief: relFromRepo(briefPath),
-        brief_document: doc,
-        strands_you_may_use: strandIds,
-        moves_you_may_bind: library.moves,
-        unit_number: n,
-        // WHAT THE FIRST LEG OPENS FROM (kogaki#1699): the Persona's prior
-        // knowledge, the same value the assignment block above the marker renders.
-        persona_prior_knowledge: priorKnowledge,
-        language: language.language,
-        strand_claims: strandClaimList,
-        renderings,
-      };
-      const entry = (differentiation.entries || []).find((e) => e.unit_number === n)
-        || fail(`${st.id}: the differentiation record carries no entry for unit ${n} — its own count `
-          + "refusal should have caught this. Nothing was started.");
-      const basePrompt = judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null);
-      // SPLICED ABOVE THE INPUT MARKER, NEVER INSIDE THE INPUT (kogaki#1206
-      // acceptance 2): the marker's own contract is that everything past it is
-      // the composed input file verbatim, so the assignment rides as
-      // instruction ahead of it, the same layer the schema and the record
-      // example already occupy.
-      const markerAt = basePrompt.indexOf(JUDGE_INPUT_MARKER);
-      const prompt = markerAt === -1 ? basePrompt
-        : `${basePrompt.slice(0, markerAt)}${differentiationBlockFor(entry, priorKnowledge, survivorCount)}\n\n${basePrompt.slice(markerAt)}`;
-      return { id: `candidate-${n}`, prompt };
-    });
+    const unitRow = table.lpp_waypoints
+      || fail(`${st.id}: src/brief-workflow.json declares no lpp_waypoints row for the job unit's prompt — nothing was started (kogaki#1768).`);
+    const fitRow = table.lpp_grounded
+      || fail(`${st.id}: src/brief-workflow.json declares no lpp_grounded row for the job unit's GROUNDED judgment — nothing was started (kogaki#1768).`);
+    const input = { state: st.id, thesis, structure, persona, language };
+    writeJudgeInput(rec, st, input);
     startDetachedJobSupervisor(dir, {
-      units,
+      units: [{ id: "reader-path", prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) }],
       command: cfg.command,
       model: cfg.model,
       outputFormat: cfg.outputFormat,
@@ -441,27 +353,25 @@ export const STATE_WORK = {
       unitRounds,
       stallS: READER_PATH_JOB_STALL_S,
       heartbeatMs: jobHeartbeatMs(),
-      // THE DECLARED MOVE-FIT JUDGE (kogaki#1307): once a unit's record passes the
-      // validator, the supervisor runs one more headless session over it with what
-      // `readerPathFitPrompt` builds, and reads the answer with `readerPathFitVerdict`.
-      // A Leg that does not fit its Move is a schema refusal of the unit.
+      recordArray: "waypoints",
+      // THE DECLARED GROUNDED JUDGE (kogaki#1768): once the unit's Waypoints pass
+      // the validator, the supervisor runs one more headless session over them with
+      // what `groundedPrompt` builds, and reads the answer with `groundedVerdict`. A
+      // `does-not-fit` is a schema refusal of the unit: the next Round composes the
+      // whole Waypoint set again under the judge's sites.
       fitJudge: {
         module: "src/brief.mjs",
-        prompt_export: "readerPathFitPrompt",
-        verdict_export: "readerPathFitVerdict",
-        inputs: { movesDir, priorKnowledge, thesis: briefThesis(record),
-          promptHead: judgePrompt(fitRow, "", null, null) },
+        prompt_export: "groundedPrompt",
+        verdict_export: "groundedVerdict",
+        record_array: "sites",
+        inputs: { structure, promptHead: judgePrompt(fitRow, "", null, null) },
       },
-      // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit. The
-      // detached supervisor is a fresh `node src/workflow/job-supervise.mjs`
-      // process and never statically imports Brief-specific code; it
-      // dynamically imports exactly this module and export, and the Candidate
-      // ids every unit's materials must resolve against are handed over here
-      // rather than re-derived inside the subprocess.
+      // THE DECLARED VALIDATOR (kogaki#1240) -- named, never implicit: the
+      // structure the Waypoints are refused against is handed over here.
       validator: {
         module: "src/brief.mjs",
-        export: "validateReaderPathUnit",
-        inputs: { strandIds, movesDir, definedTerms: definedTermsOf(record) },
+        export: "validateBriefWaypoints",
+        inputs: { structure },
       },
     });
     throw new DetachedJobStarted(st.id, readerPathJobPath(dir),
@@ -469,7 +379,7 @@ export const STATE_WORK = {
       + "to poll it.");
   },
 
-  // ---- JUDGMENT POINT 2. Path review, which is REASONING and never a verdict.
+  // ---- JUDGMENT POINT 3. Path review, which is REASONING and never a verdict.
   //
   // A DETACHED JOB, ONE UNIT PER CANDIDATE (kogaki#1301), split the way
   // `compose_path` was split at kogaki#1193: the one synchronous call over
@@ -519,7 +429,7 @@ export const STATE_WORK = {
       rec.judgments[st.id] = relFromRepo(resolve(readerPathJobPath(job.jobDir)));
       rec.brief_review_unfinished = unreviewed.map((u) => {
         const c = cands.find((x) => x.candidate_id === u.candidate_id) || {};
-        return { candidate_id: u.candidate_id, characteristic: c.characteristic, review_unfinished: u.status };
+        return { candidate_id: c.candidate_id || u.candidate_id, review_unfinished: u.status };
       });
       rec.brief_excluded = [...(rec.brief_compose_excluded || []), ...rec.brief_review_unfinished];
       if (reviewed.length < cands.length) {
@@ -542,7 +452,19 @@ export const STATE_WORK = {
     // Brief classifies `defined` that no `introduces` entry up to its Leg has
     // handed it. The Persona's `prior_knowledge` is not in this input — it
     // granted words, and the grant is removed (owner decision 2026-10-10).
-    const definedTerms = definedTermsOf(readMintedBrief(rec, st).record);
+    const { record } = readMintedBrief(rec, st);
+    const definedTerms = definedTermsOf(record);
+    // THE STRUCTURE'S REACH, THE HARNESS'S OWN CHECK (kogaki#1768): a Reader Path
+    // leaving a reached relation uncarried, or not carrying the apex last, is
+    // refused before any review is asked. The review reads the reach from the
+    // same structure, handed to every unit.
+    const structure = record.structure || null;
+    if (structure) {
+      for (const c of cands) {
+        const bad = pathReachRefusal(c.legs, structure);
+        if (bad) fail(`${st.id}: ${bad}. Nothing was started.`);
+      }
+    }
     const unitRow = table.review_path_unit
       || fail(`${st.id}: src/brief-workflow.json declares no review_path_unit row for the Detached `
         + "Job's per-Candidate prompt — nothing was started (kogaki#1301).");
@@ -565,6 +487,7 @@ export const STATE_WORK = {
         // states and it carries no Obligations ledger, so nothing is derived.
         candidate_you_must_review: c,
         defined_terms: definedTerms,
+        ...(structure ? { structure } : {}),
       };
       return { id: `review-${i + 1}`, prompt: judgePrompt(unitRow, JSON.stringify(input, null, 2), input, null) };
     });
@@ -618,11 +541,6 @@ export const STATE_WORK = {
       reviewed: rec.brief_reviewed
         || fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`),
       brief: needBrief(rec, st),
-      // THE OPENING-MOVE CHECK'S OWN INPUT (kogaki#1206), carried through so
-      // `assembleSelection` can refuse a Candidate whose first Leg does not
-      // bind the Move `differentiation` assigned its unit, naming the unit.
-      differentiation: rec.brief_differentiation
-        || fail(`${st.id} has no differentiation record — \`differentiation\` writes it and precedes this state.`),
       out,
     });
     rec.brief_selection = out;
@@ -632,18 +550,11 @@ export const STATE_WORK = {
   adopt_candidate: (rec, st, args) => {
     const briefPath = needBrief(rec, st);
     const chosen = selectedCandidateId(rec, st);
-    const set = readJson(resolve(BRIEF_REPO, rec.brief_specialization
-      || fail(`${st.id} has no specialization record — the compose job writes one per finished Candidate (kogaki#1307).`)));
-    const selected = (set.records || []).find((r) => r.candidate_id === chosen)
-      || fail(`${st.id}: no compose job unit judged the Move fit of Candidate ${JSON.stringify(chosen)}. Nothing was written.`);
-    const specialization = join(rec._dir, "brief-specialization-selected.json");
-    writeFileSync(specialization, JSON.stringify(selected, null, 2) + "\n");
     cmdAdoptCandidate({
       ...args,
       brief: briefPath,
       reviewed: rec.brief_reviewed,
       candidate: chosen,
-      specialization,
       // THE RENDERINGS RECORD (kogaki#1494), written into the Brief beside the
       // adopted Reader Path; a run that predates it passes none.
       ...(rec.brief_renderings ? { renderings: resolve(BRIEF_REPO, rec.brief_renderings) } : {}),
@@ -741,10 +652,36 @@ export const GATE_WORK = {
       options: offered.options
         .filter((o) => o.id !== "none-of-these")
         .map((o) => ({ id: o.id, label: o.label, description: o.description })),
-      extra: candidateSelectionExtra(rec.brief_excluded || []),
+      // THE READER PATH IS SHOWN ABOVE THE QUESTION (kogaki#1768): its Legs and
+      // Leg Waypoints, each Waypoint with the relations it carries. That reading
+      // is the owner's reading of the Brief's sheet.
+      extra: { ...candidateSelectionExtra(rec.brief_excluded || []),
+        reader_path: readerPathReading(reviewed.candidates || [], record.structure || null) },
     };
   },
 };
+
+// THE READER PATH, AS THE OWNER READS IT ABOVE THE CANDIDATE QUESTION
+// (kogaki#1768): each Leg with the higher-order relation it serves and its
+// Section heading where it opens one, and each Leg Waypoint's point with the
+// relations it carries. A Role written `{<id>}` in a relation reads as its id.
+export function readerPathReading(candidates, structure) {
+  const holds = new Map((structure ? [...structure.relations, ...structure.higher_order] : [])
+    .map((x) => [x.id, String(x.holds).replace(/\{([^}]+)\}/g, "$1")]));
+  const lines = [];
+  for (const c of candidates) {
+    const n = (c.legs || []).reduce((k, l) => k + (l.waypoints || []).length, 0);
+    lines.push(`The Reader Path: ${(c.legs || []).length} Leg(s), ${n} Leg Waypoint(s).`);
+    for (const l of c.legs || []) {
+      if (typeof l.opens_section === "string") lines.push(`Section: ${l.opens_section}`);
+      lines.push(`${l.leg_id}${l.relation ? ` — ${holds.get(l.relation) || l.relation}` : ""}`);
+      for (const [i, w] of (l.waypoints || []).entries()) {
+        lines.push(`  ${i + 1}. ${w.point}${Array.isArray(w.carries) && w.carries.length ? ` (carries ${w.carries.join(", ")})` : ""}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
 
 // The reading above the home-collision question (kogaki#1742): the existing
 // Brief, whether every Strand is at the same hash or which are not, and what

@@ -122,7 +122,7 @@ const ASK_MAX_OPTIONS = 4;
 // THE READING KEYS, one enumeration the composer reads (kogaki#1087): the first key found
 // on a declaration is rendered above the question line. Add a key here, never a branch.
 // Members added at PR #1109, kogaki#1172 (`judgment_refusal`), kogaki#1740 (`state_refusal`) and kogaki#1742 (`home_collision`), spread from `extra`.
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "state_refusal", "reader_path_unit_refusal", "excluded_candidates", "home_collision"];
+const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "state_refusal", "reader_path_unit_refusal", "excluded_candidates", "home_collision", "reader_path"];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is

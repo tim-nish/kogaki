@@ -122,12 +122,20 @@ process.stdin.on("end", () => {
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ no_legs: true }) }) + "\\n");
     process.exit(0);
   }
-  // The bare Candidate at the record's root that \`reader_path_unit\` states (j).
+  // The bare Candidate at the record's root that the compose unit's record carries (j).
   if (prompt.startsWith("BARE_CANDIDATE")) {
     process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({
       candidate_id: "c1", characteristic: "x", reader_experience: "y",
       legs: [{ id: "s1" }], reasoning: {}, coverage: {}, unused: {},
+    }) }) + "\\n");
+    process.exit(0);
+  }
+  // The compose unit's Waypoint record at the record's root (kogaki#1768), the shape \`lpp_waypoints\` states.
+  if (prompt.startsWith("BARE_WAYPOINTS")) {
+    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({
+      waypoints: [{ point: "The rules apply only to the files the walk visits.", carries: ["p1"] },
+        { point: "The walk is all the rules read, so nothing else is checked.", carries: ["p2", "h1"] }],
     }) }) + "\\n");
     process.exit(0);
   }

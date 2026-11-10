@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# check-brief-packet — the Packet side of Brief composition: re-activate, Journey
-# resolution, the writer's refusal form, the typed introduces items, the Obligation
-# record's retirement (kogaki#1699) and kogaki#1261's Packet rendering.
-#   (n)-(o)   re-activate's refusals and Packet rendering (kogaki#1237/#1282).
+# check-brief-packet — the Packet side of Brief composition: the Leg's crossing
+# fields retired (kogaki#1768), Journey resolution, the writer's refusal form, the
+# introduces entry's shape and the Obligation record's retirement (kogaki#1699).
+#   (n)-(o)   re-activate retired at the Leg; every Packet states the absence
+#             under What crosses into this Leg (kogaki#1237, #1282, #1768).
 #   (p)-(s)   Journey text resolution, writerRefusal, shard prose (kogaki#1250).
-#   (t)-(w)   kogaki#1263's schema widenings, (v) now the record's retirement
-#             from both schemas (kogaki#1699); (z) the ledger refusal retired;
-#             (x)-(aa) and the first (am) kogaki#1260's compose refusals.
-#   (ab)-(ae) the Write block, Journey crossing and typed terms in the Packet
-#             (kogaki#1261), a Brief carrying an Obligation record refused naming
-#             the key (kogaki#1699), with the inner (aq) and (at).
+#   (t)-(aa)  kogaki#1263's widenings and kogaki#1260's compose refusals, now
+#             refusals of the retired fields by name; (v) the record retired
+#             (kogaki#1699); (y) an introduces entry as the ParagraphPlan carries it.
+#   (ab)-(ae) the Write block with no budget, Journey or introduced term (kogaki#1261,
+#             #1768), and an Obligation record refused by key, with (aq) and (at).
 # A LIGHT member: pure calls, no model run; cut from check-brief-compose.sh (kogaki#1460).
 set -u
 cd "$(dirname "$0")/.."
@@ -26,70 +26,40 @@ import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-comp
 const { validateLegs, legRecord } = compose;
 const fails = [];
 
-// (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282 owner
-// ruling 2026-10-06): the three composition refusals name the entry; the
-// Packet renders what is re-activated, WITH ITS MEANING, under "What crosses
-// into this Leg"; a term this Leg does not re-activate renders nowhere at
-// all (never "held"); a Leg re-activating nothing renders a stated absence;
-// `depends_on` reaches no Packet.
+// (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282), RETIRED AT THE LEG
+// (kogaki#1768): a Leg binds no Move, introduces no term and re-activates nothing, so a Leg
+// carrying `re-activate` is refused naming the field and kogaki#1768, every Packet of a Brief
+// renders the stated absence under "What crosses into this Leg", and `depends_on` and the
+// retired crossing headings reach no Packet.
 {
-  const { reactivateRefusal, reactivateSemanticRefusal, readerKnowledgeLedger } = compose;
-  if (typeof reactivateRefusal !== "function" || typeof reactivateSemanticRefusal !== "function") fails.push("(n) src/compose.mjs exports no re-activate refusals");
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
-  const path = (s2extra) => {
-    const legs = [legOf("s1", { opens_section: "A Section", introduces: ["unfed guard — a guard whose input nobody feeds", "pipeline"] }),
-      legOf("s2", { depends_on: ["s1"], reaches_target: true, ...s2extra }),
-      legOf("s3", { depends_on: ["s2"] })];
-    return legs;
-  };
-  const outside = validateLegs(path({ "re-activate": ["s3 term pipeline"], depends_on: ["s1"] }));
-  if (!outside.error || !/not in this Leg's depends_on/.test(outside.error) || !/"s3 term pipeline"/.test(outside.error)) fails.push(`(n) a re-activate naming a Leg outside depends_on was not refused naming the entry: ${outside.error}`);
-  const noTerm = validateLegs(path({ "re-activate": ["s1 term deterrence"] }));
-  if (!noTerm.error || !/does not introduce "deterrence"/.test(noTerm.error) || !/"s1 term deterrence"/.test(noTerm.error)) fails.push(`(n) a re-activate naming a term the Leg does not introduce was not refused naming the entry: ${noTerm.error}`);
-  const noClaim = validateLegs(path({ "re-activate": ["s1 claim L9 as a restated claim"] }));
-  if (!noClaim.error || !/carries no claim for strand "L9"/.test(noClaim.error) || !/"s1 claim L9 as a restated claim"/.test(noClaim.error)) fails.push(`(n) a re-activate naming a Strand the Leg carries no claim for was not refused naming the entry: ${noClaim.error}`);
-  const shape = validateLegs(path({ "re-activate": ["s1 pipeline"] }));
-  if (!shape.error || !/re-activate/.test(shape.error)) fails.push(`(n) a malformed re-activate entry was not refused: ${shape.error}`);
-  const good = validateLegs(path({ "re-activate": ["s1 term unfed guard", "s1 claim L1 as a restated claim"] }));
-  if (good.error) fails.push(`(n) a well-formed re-activate over depends_on material was refused: ${good.error}`);
+  const path = (s2extra = {}) => [legOf("s1", { opens_section: "A Section" }), legOf("s2", s2extra), legOf("s3", { reaches_target: true })];
+  const carrying = validateLegs(path({ "re-activate": ["s1 term pipeline"] }));
+  if (!carrying.error || !/leg 2 \(s2\): carries `re-activate`, which is retired/.test(carrying.error) || !carrying.error.includes("kogaki#1768")) {
+    fails.push(`(n) a Leg carrying re-activate was not refused naming the field and kogaki#1768: ${carrying.error}`);
+  }
+  const good = validateLegs(path());
+  if (good.error) fails.push(`(n) a path re-activating nothing was refused: ${good.error}`);
 
   // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
-  const legs = path({ "re-activate": ["s1 term unfed guard"] });
-  const brief = briefOfRecord(recordOf(legs), "n.yaml");
+  const brief = briefOfRecord(recordOf(path()), "n.yaml");
   if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(n) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
-  else if (JSON.stringify(brief.legs[1]["re-activate"]) !== JSON.stringify(["s1 term unfed guard"])) fails.push(`(n) readBrief did not read re-activate back one entry per list item: ${JSON.stringify(brief.legs[1]["re-activate"])}`);
   const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
-  const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-", "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
-  const ledger = readerKnowledgeLedger(brief.legs);
   const sections = sectionsOf(brief.legs);
   const packets = {};
   for (const leg of brief.legs) {
-    const r = renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
-      ledgerRow: ledger.find((row) => row.leg_id === leg.leg_id), section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
+    const r = renderPacket({ template: split.packet, brief, leg, priorSections: [],
+      section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
     if (r.error) { fails.push(`(n) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
     packets[leg.leg_id] = r.packet;
   }
-  const block = (id) => {
-    const m = (packets[id] || "").split("## What crosses into this Leg\n")[1];
-    return m ? m.split("\n## ")[0] : null;
-  };
-  const crosses2 = block("s2");
-  if (crosses2 === null) fails.push("(n) the Packet does not carry the What crosses into this Leg block");
-  else {
-    if (!/unfed guard/.test(crosses2) || !/re-activated from s1/.test(crosses2)) fails.push(`(n) the re-activated term is not under What crosses into this Leg: ${crosses2.trim().slice(0, 160)}`);
-    // THE BUG THIS ISSUE FIXES: a typed term crossed with no meaning because
-    // `introducedMeaning` never resolved the legacy bare/anchored form's
-    // anchor as its meaning anchor.
-    if (!/a guard whose input nobody feeds/.test(crosses2)) fails.push(`(n) the re-activated term crosses with no meaning: ${crosses2.trim().slice(0, 160)}`);
-    if (/pipeline/.test(crosses2)) fails.push("(n) a term this Leg did not re-activate still crosses into it (default-deny violated)");
-  }
-  const crosses3 = block("s3");
-  if (crosses3 === null || !/nothing — this Leg introduces and re-activates nothing/.test(crosses3)) fails.push(`(n) a Leg re-activating nothing does not render a stated absence under What crosses into this Leg: ${String(crosses3).trim().slice(0, 160)}`);
   for (const id of Object.keys(packets)) {
+    const m = packets[id].split("## What crosses into this Leg\n")[1];
+    const crosses = m ? m.split("\n## ")[0] : null;
+    if (crosses === null || !/nothing — this Leg introduces and re-activates nothing/.test(crosses)) fails.push(`(n) the Packet of ${id} does not render the stated absence under What crosses into this Leg: ${String(crosses).trim().slice(0, 160)}`);
     if (/depends_on/.test(packets[id])) fails.push(`(n) depends_on reaches the Packet of ${id}`);
     if (/Already knows/.test(packets[id])) fails.push(`(n) the retired Already knows heading is still rendered in the Packet of ${id}`);
     if (/Held by the reader/.test(packets[id])) fails.push(`(n) the retired Held by the reader heading is still rendered in the Packet of ${id}`);
@@ -102,8 +72,7 @@ const fails = [];
 // attribute-only use (kogaki#1247, owner ruling 2026-10-02/04).
 {
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const legs = [legOf("s1")];
@@ -252,36 +221,18 @@ const fails = [];
   if (journeyProseFromShardLines(lines, "first-journey", "lesson") !== null) fails.push("(s) a lesson-kind read returned a journey's prose");
 }
 
-// (t) `re-activate` admits a third form, `<leg_id> journey <strand id>`
-// (kogaki#1263): src/leg-schema.json's `re-activate` field declares it
-// beside the `term` and `claim` forms, naming the Leg's `journeys`.
+// (t)-(u) kogaki#1263's `re-activate` journey form and typed `introduces_item`, RETIRED FROM THE
+// LEG SCHEMA (kogaki#1768): src/leg-schema.json declares neither `re-activate` nor `introduces`
+// nor an `introduces_item` section, and `validateLegs` refuses each field by name.
 {
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const reactivate = schema.fields["re-activate"];
-  if (!reactivate) fails.push("(t) src/leg-schema.json declares no re-activate field");
-  else {
-    const desc = reactivate.description;
-    if (!/<leg_id> journey <strand id>/.test(desc)) fails.push(`(t) the re-activate description does not admit the journey form: ${desc}`);
-    if (!/journeys/.test(desc)) fails.push(`(t) the re-activate description does not ground the journey form in the Leg's journeys: ${desc}`);
-    if (!/<leg_id> term/.test(desc) || !/<leg_id> claim/.test(desc)) fails.push(`(t) the re-activate description dropped one of the two prior forms: ${desc}`);
+  for (const f of ["re-activate", "introduces", "journeys"]) {
+    if (schema.fields[f]) fails.push(`(t) src/leg-schema.json still declares the retired \`${f}\` field (kogaki#1768)`);
   }
-}
-
-// (u) `introduces` entries become items carrying `term` and `meaning`
-// (kogaki#1263); the retired `kind` and `source` (kogaki#1529) and `nearest`
-// and `differs` (kogaki#1571) are declared nowhere.
-{
-  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const introduces = schema.fields.introduces;
-  if (!introduces || !/introduces_item/.test(introduces.type)) fails.push(`(u) src/leg-schema.json's introduces field is not typed as introduces_item entries: ${JSON.stringify(introduces)}`);
-  const item = schema.introduces_item;
-  if (!item || !item.fields) fails.push("(u) src/leg-schema.json declares no introduces_item section");
-  else {
-    const f = item.fields;
-    if (!f.term || !f.term.required) fails.push("(u) introduces_item does not require term");
-    if (!f.meaning || !f.meaning.required) fails.push("(u) introduces_item does not require meaning (kogaki#1529)");
-    if (f.kind || f.source) fails.push(`(u) introduces_item still declares the retired kind or source (kogaki#1529): ${JSON.stringify({ kind: f.kind, source: f.source })}`);
-    if (f.nearest || f.differs) fails.push(`(u) introduces_item still declares the retired nearest or differs (kogaki#1571): ${JSON.stringify([f.nearest, f.differs])}`);
+  if (schema.introduces_item) fails.push("(u) src/leg-schema.json still declares an introduces_item section (kogaki#1768)");
+  for (const [f, v] of [["re-activate", ["s1 journey L2"]], ["introduces", [{ term: "unfed guard", meaning: "a guard whose input nobody feeds" }]], ["journeys", [{ strand: "L2", use: "illustrate" }]]]) {
+    const refused = validateLegs(PATH_1260({ [f]: v }));
+    if (!refused.error || !refused.error.includes(`leg 1 (s1): carries \`${f}\`, which is retired`)) fails.push(`(u) a Leg carrying \`${f}\` was not refused by name: ${refused.error}`);
   }
 }
 
@@ -303,61 +254,42 @@ const fails = [];
   }
 }
 
-// (w) the Leg marked `reaches_target` carries a `names` list (kogaki#1263): src/leg-schema.json declares `names` as an
-// array of string, required only when reaches_target is true.
+// (w)-(x) the reaching Leg's `names` (kogaki#1263) and re-activate's journey form (kogaki#1260),
+// RETIRED (kogaki#1768): src/leg-schema.json declares no `names`, and a reaching Leg carrying it is
+// refused by name, as a Leg re-activating a journey is.
 {
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  const names = schema.fields.names;
-  if (!names) fails.push("(w) src/leg-schema.json declares no names field");
-  else {
-    if (names.required !== false || names.required_when !== "reaches_target is true") fails.push(`(w) names is not required_when reaches_target is true: ${JSON.stringify(names)}`);
-    if (names.type !== "array of string") fails.push(`(w) names is not typed as an array of string: ${JSON.stringify(names.type)}`);
-  }
+  if (schema.fields.names) fails.push("(w) src/leg-schema.json still declares the retired names field (kogaki#1768)");
+  const named = validateLegs(PATH_1260({}, {}).map((l) => (l.reaches_target ? { ...l, names: ["unfed guard"] } : l)));
+  if (!named.error || !/leg 3 \(s3\): carries `names`, which is retired/.test(named.error)) fails.push(`(w) a reaching Leg carrying names was not refused by name: ${named.error}`);
+  const journey = validateLegs(PATH_1260({}, { "re-activate": ["s1 journey L2"] }));
+  if (!journey.error || !/leg 2 \(s2\): carries `re-activate`, which is retired/.test(journey.error)) fails.push(`(x) a Leg re-activating a journey was not refused by name: ${journey.error}`);
 }
 
-// (x) re-activate's third form, `<leg_id> journey <strand id>` (kogaki#1263, kogaki#1260).
+// (y) an introduces entry's own shape, as the ParagraphPlan's entries still carry it (kogaki#1768
+// retired it from the Leg): `term` and `meaning`, every retired key refused by name.
 {
-  const withJourney = { journeys: [{ strand: "L2", use: "illustrate" }] };
-  const good = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L2"] }));
-  if (good.error) fails.push(`(x) \`re-activate: s1 journey L2\` over a Leg that names L2 in its journeys was refused: ${good.error}`);
-  const noJourney = validateLegs(PATH_1260(withJourney, { "re-activate": ["s1 journey L9"] }));
-  if (!noJourney.error || !/carries no journey for strand "L9"/.test(noJourney.error) || !/"s1 journey L9"/.test(noJourney.error)) fails.push(`(x) a re-activate naming a Strand the Leg carries no journey for was not refused naming the entry: ${noJourney.error}`);
-  const noneAtAll = validateLegs(PATH_1260({}, { "re-activate": ["s1 journey L2"] }));
-  if (!noneAtAll.error || !/carries no journey for strand "L2"/.test(noneAtAll.error)) fails.push(`(x) a re-activate naming a journey on a Leg with no journeys was not refused: ${noneAtAll.error}`);
+  const { introducesRefusal } = compose;
+  for (const [entry, key] of [[{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" }, "kind"],
+    [{ term: "pipeline", meaning: "a chain of stages", source: "build practice" }, "source"],
+    [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", nearest: "guard clause" }, "nearest"],
+    [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", differs: "guard clause" }, "differs"]]) {
+    const r = introducesRefusal([entry], "leg 1 (s1)");
+    if (!r || !r.includes(`"${entry.term}" carries \`${key}\``)) fails.push(`(y) an introduces entry carrying the retired ${key} was not refused by name: ${r}`);
+  }
+  const noMeaning = introducesRefusal([{ term: "unfed guard" }, "pipeline"], "leg 1 (s1)");
+  if (!noMeaning || !/"unfed guard" carries no meaning/.test(noMeaning)) fails.push(`(y) an introduces entry with no meaning was not refused naming the entry: ${noMeaning}`);
+  const withMeaning = introducesRefusal([{ term: "unfed guard", meaning: "a guard whose input nobody feeds" }, "pipeline"], "leg 1 (s1)");
+  if (withMeaning && /no meaning/.test(withMeaning)) fails.push(`(y) an introduces entry carrying meaning was refused on the meaning ground: ${withMeaning}`);
 }
 
-// (y) an introduces_item's own shape: `term` and `meaning`, every retired key refused by name.
+// (am) a re-activate claim entry's `as` sentence (kogaki#1282), RETIRED with `re-activate`
+// (kogaki#1768): a claim entry, with its sentence or without, is refused as the retired field.
 {
-  // kind and source are retired (kogaki#1529), nearest and differs (kogaki#1571), and meaning is required.
-  const withKind = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", kind: "coined", meaning: "a guard whose input nobody feeds" }] }));
-  if (!withKind.error || !/"unfed guard" carries `kind`/.test(withKind.error)) fails.push(`(y) an introduces_item carrying the retired kind was not refused by name: ${withKind.error}`);
-  const withSource = validateLegs(PATH_1260({ introduces: [{ term: "pipeline", meaning: "a chain of stages", source: "build practice" }] }));
-  if (!withSource.error || !/"pipeline" carries `source`/.test(withSource.error)) fails.push(`(y) an introduces_item carrying the retired source was not refused by name: ${withSource.error}`);
-  for (const k of ["nearest", "differs"]) {
-    const withRetired = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds", [k]: "guard clause" }] }));
-    if (!withRetired.error || !withRetired.error.includes(`"unfed guard" carries \`${k}\``)) fails.push(`(y) an introduces_item carrying the retired ${k} was not refused by name: ${withRetired.error}`);
+  for (const entry of ["s1 claim L1", "s1 claim L1 as the grounded claim, restated plainly"]) {
+    const r = validateLegs(PATH_1260({}, { "re-activate": [entry] }));
+    if (!r.error || !/carries `re-activate`, which is retired/.test(r.error)) fails.push(`(am) the re-activate claim entry ${JSON.stringify(entry)} was not refused as the retired field: ${r.error}`);
   }
-  // an introduces_item with no meaning is refused naming the entry (kogaki#1282, kogaki#1529).
-  const noMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard" }, "pipeline"] }));
-  if (!noMeaning.error || !/"unfed guard" carries no meaning/.test(noMeaning.error)) fails.push(`(y) an introduces_item with no meaning was not refused naming the entry: ${noMeaning.error}`);
-  const withMeaning = validateLegs(PATH_1260({ introduces: [{ term: "unfed guard", meaning: "a guard whose input nobody feeds" }, "pipeline"] }));
-  if (withMeaning.error && /with no meaning/.test(withMeaning.error)) fails.push(`(y) an introduces_item carrying meaning was refused on the meaning ground: ${withMeaning.error}`);
-}
-
-// (am) a re-activate claim entry requires an `as` sentence (kogaki#1282, owner decision 2026-10-06):
-// the claim crosses as a plain restatement written at Brief time, never as its own proposition.
-{
-  const withClaim = (reactivate) => PATH_1260({}, { "re-activate": reactivate });
-  const noAs = validateLegs(withClaim(["s1 claim L1"]));
-  if (!noAs.error || !/a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required/.test(noAs.error)) {
-    fails.push(`(am) a re-activate claim entry with no as sentence was not refused naming the grammar: ${noAs.error}`);
-  }
-  const noAsEither = validateLegs(withClaim(["s1 claim L1 as"]));
-  if (!noAsEither.error || !/a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required/.test(noAsEither.error)) {
-    fails.push(`(am) a re-activate claim entry with a bare trailing as was not refused naming the grammar: ${noAsEither.error}`);
-  }
-  const withAs = validateLegs(withClaim(["s1 claim L1 as the grounded claim, restated plainly"]));
-  if (withAs.error) fails.push(`(am) a re-activate claim entry carrying an as sentence was refused: ${withAs.error}`);
 }
 
 // (z) THE BRIEF-SCALE LEDGER REFUSAL IS RETIRED (kogaki#1699, retiring kogaki#1612 and kogaki#1568):
@@ -370,22 +302,11 @@ const fails = [];
   if (rPath.error) fails.push(`(z) validateLegs refused a well-formed path over no ledger: ${rPath.error}`);
 }
 
-// (aa) the reaching Leg's `names` is a subset of the union of every Leg's introduces (kogaki#1251 item 4, kogaki#1260).
+// (aa) the reaching Leg's `names` subset rule (kogaki#1251 item 4, kogaki#1260) is moot with
+// `names` retired (kogaki#1768): a path carrying no `names` passes.
 {
-  const { readerTargetNamesRefusal } = compose;
-  if (typeof readerTargetNamesRefusal !== "function") fails.push("(aa) src/compose.mjs exports no readerTargetNamesRefusal");
-  const stray = validateLegs(PATH_1260({}, { names: ["unfed guard", "default-deny"] }));
-  if (!stray.error) fails.push("(aa) a reaching Leg naming a term no Leg introduces was not refused");
-  else {
-    if (!/"default-deny"/.test(stray.error)) fails.push(`(aa) the refusal did not name the term: ${stray.error}`);
-    if (!/leg 2 \(s2\)/.test(stray.error)) fails.push(`(aa) the refusal did not name the reaching Leg: ${stray.error}`);
-    if (!/no Leg of this path introduces it/.test(stray.error)) fails.push(`(aa) the refusal did not name the rule: ${stray.error}`);
-  }
-  // the union reaches across Legs: a term introduced by the reaching Leg itself, and one by an earlier Leg.
-  const subset = validateLegs(PATH_1260({}, { introduces: [{ term: "silent pass", meaning: "a check that passes having read nothing" }], names: ["unfed guard", "pipeline", "silent pass"] }));
-  if (subset.error && /no Leg of this path introduces it/.test(subset.error)) fails.push(`(aa) a names list inside the union of every Leg's introduces was refused on the names ground: ${subset.error}`);
   const absent = validateLegs(PATH_1260());
-  if (absent.error && /no Leg of this path introduces it/.test(absent.error)) fails.push(`(aa) a reaching Leg with no names list was refused on the names ground: ${absent.error}`);
+  if (absent.error) fails.push(`(aa) a path carrying no names was refused: ${absent.error}`);
 }
 
 // (ab)-(ae): the Packet side of kogaki#1251 (kogaki#1261).
@@ -393,7 +314,6 @@ const fails = [];
   const { mkdtempSync, writeFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const { parseIntroducesEntry } = compose;
   const dir = mkdtempSync(join(tmpdir(), "kogaki-1261-"));
   const personaA = join(dir, "persona-a.md");
   const personaB = join(dir, "persona-b.md");
@@ -414,8 +334,7 @@ const fails = [];
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const briefOf = (legs, keys = {}) => briefOfRecord(recordOf(legs, {
@@ -423,6 +342,13 @@ const fails = [];
       journey_cite: "coding::journey/first-strand@" + "0".repeat(64) }],
     ...keys,
   }), "ab.yaml");
+  // A record whose first Leg carries a field `legRecord` never writes, read back by the Brief reader.
+  const briefCarrying = (field, value) => {
+    const rec = recordOf([legOf("s1", { reaches_target: true })], { compose_path: personaA,
+      strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64) }] });
+    rec.reader_path[0][field] = value;
+    return briefOfRecord(rec, "carrying.yaml");
+  };
   const render = (brief, leg) => renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
     ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
   const writeBlock = (packet) => packet.slice(packet.indexOf("\n## Write\n"));
@@ -432,10 +358,10 @@ const fails = [];
     return a === -1 ? "" : packet.slice(a, b === -1 ? packet.length : b);
   };
 
-  // (ab) two Personas, two Write blocks; one Brief, one Write block but for the budget.
+  // (ab) two Personas, two Write blocks; one Brief, one Write block, the budget retired from the
+  // Leg (kogaki#1768).
   {
-    const legs = [legOf("s1", { budget: 120, introduces: ["pipeline"] }),
-      legOf("s2", { budget: 300, depends_on: ["s1"], "re-activate": ["s1 term pipeline"] })];
+    const legs = [legOf("s1"), legOf("s2", { reaches_target: true })];
     const packetsOf = (persona) => {
       const brief = briefOf(legs, { compose_path: persona });
       if (brief.refusals.length) { fails.push(`(ab) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`); return {}; }
@@ -454,11 +380,9 @@ const fails = [];
       if (!writeBlock(b.s1).includes("Persona B's rule, verbatim.") || writeBlock(b.s1).includes("Persona A's rule")) fails.push("(ab) the Write block under Persona B does not carry Persona B's register alone");
       if (writeBlock(a.s1) === writeBlock(b.s1)) fails.push("(ab) the Write block did not differ between two Personas");
     }
-    if (a.s1 && a.s2) {
-      const norm = (w) => w.replace(/^\*\*Budget\.\*\* .*$/m, "**Budget.** <budget>");
-      if (norm(writeBlock(a.s1)) !== norm(writeBlock(a.s2))) fails.push("(ab) the Write block differs across the Legs of one Brief beyond the budget");
-      if (writeBlock(a.s1) === writeBlock(a.s2)) fails.push("(ab) the budget did not reach the Write block");
-    }
+    if (a.s1 && a.s2 && writeBlock(a.s1) !== writeBlock(a.s2)) fails.push("(ab) the Write block differs across the Legs of one Brief, though no Leg carries a budget");
+    const budgeted = validateLegs([legOf("s1", { budget: 120, reaches_target: true })]);
+    if (!budgeted.error || !/carries `budget`, which is retired/.test(budgeted.error)) fails.push(`(ab) a Leg carrying budget was not refused by name: ${budgeted.error}`);
     if (a.s1 && !writeBlock(a.s1).includes("**The reader's own world.** Holds nothing.")) fails.push("(ab) the Write block does not render the Persona's prior_knowledge verbatim");
 
     // (ab) a Persona declaring no prior_knowledge renders the stated absence, never a refusal (kogaki#1285).
@@ -488,51 +412,30 @@ const fails = [];
     }
   }
 
-  // (ac) a Journey an earlier Leg used and this Leg does not re-activate crosses into neither Leg's Packet (default-deny); a re-activated one renders its scene.
+  // (ac) A JOURNEY CROSSES INTO NO LEG OF A BRIEF (kogaki#1768): a Brief whose Leg carries
+  // `journeys` is refused by the reader naming the field, and a Packet of a Brief carries no
+  // Journey line.
   {
-    const legs = [legOf("s1", { journeys: [{ strand: "L1", use: "illustrate" }] }),
-      legOf("s2", { depends_on: ["s1"] }),
-      legOf("s3", { depends_on: ["s1"], "re-activate": ["s1 journey L1"] })];
-    const brief = briefOf(legs, { compose_path: personaA });
+    const carrying = briefCarrying("journeys", [{ strand: "L1", use: "illustrate" }]);
+    if (!carrying.refusals.some((m) => m.includes("carries `journeys`"))) fails.push(`(ac) a Brief whose Leg carries journeys was not refused naming the field: ${JSON.stringify(carrying.refusals)}`);
+    const brief = briefOf([legOf("s1"), legOf("s2", { reaches_target: true })], { compose_path: personaA });
     if (brief.refusals.length) fails.push(`(ac) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`);
-    else {
-      const CROSSES = "## What crosses into this Leg";
-      const s2 = render(brief, brief.legs[1]);
-      if (s2.error) fails.push(`(ac) the Packet for s2 did not render: ${s2.error}`);
-      else if (s2.packet.includes("L1's Journey")) fails.push("(ac) a Leg that does not re-activate an earlier Leg's Journey still carries it somewhere in the Packet (default-deny violated)");
-      const scene = "The fixture scene, as served.";
-      const s3leg = { ...brief.legs[2], reactivatedJourneys: [{ leg_id: "s1", strand: "L1", use: "illustrate", resolvedText: scene }] };
-      const s3 = render(brief, s3leg);
-      if (s3.error) fails.push(`(ac) the Packet for s3 did not render: ${s3.error}`);
-      else {
-        const crosses = block(s3.packet, CROSSES, "\n## ");
-        if (!crosses.includes(scene) || !crosses.includes("L1's Journey") || !crosses.includes("re-activated from s1")) fails.push(`(ac) a re-activated Journey's scene is not rendered under What crosses into this Leg: ${JSON.stringify(crosses)}`);
-      }
-      const s3bare = render(brief, brief.legs[2]);
-      if (!s3bare.error || !/re-activated Journey L1/.test(s3bare.error)) fails.push(`(ac) an unresolved re-activated Journey did not refuse the Packet by name: ${s3bare.error || "rendered"}`);
+    else for (const leg of brief.legs) {
+      const r = render(brief, leg);
+      if (r.error) fails.push(`(ac) the Packet for ${leg.leg_id} did not render: ${r.error}`);
+      else if (r.packet.includes("L1's Journey")) fails.push(`(ac) the Packet for ${leg.leg_id} carries a Journey`);
     }
   }
 
-  // (ad) a typed introduces_item round-trips through the Brief and renders as its term and
-  // meaning alone (kogaki#1491, kogaki#1529, kogaki#1571); a Brief header carrying the retired
-  // external-authority switch is refused naming the key. The key is spelled apart because the
+  // (ad) a Leg introduces no term (kogaki#1768, retiring kogaki#1491's typed crossing line): a
+  // Brief whose Leg carries `introduces` is refused by the reader naming the field; a Brief header
+  // carrying the retired external-authority switch is refused naming the key. The key is spelled apart because the
   // Issue's Acceptance greps checks/ for its literal name to show no reader is left.
   {
     const coined = { term: "unfed guard", meaning: "a guard whose input nobody feeds" };
-    const legs = [legOf("s1", { introduces: [coined] })];
-    const read = briefOf(legs, { compose_path: personaA });
-    const entry = read.refusals.length ? null : (read.legs[0].introduces || []).find((e) => e && e.term === "unfed guard");
-    const back = entry ? parseIntroducesEntry(entry) : { error: "no entry" };
-    if (back.error || back.meaning !== coined.meaning) fails.push(`(ad) a typed introduces_item did not round-trip through legRecord and readBrief: ${JSON.stringify(back)}`);
-    const CROSSES = "## What crosses into this Leg";
-    if (!read.refusals.length) {
-      const r = render(read, read.legs[0]);
-      if (r.error) fails.push(`(ad) the Packet did not render: ${r.error}`);
-      else {
-        const lines = block(r.packet, CROSSES, "\n## ").split("\n").filter((l) => l.startsWith("- unfed guard"));
-        if (lines.length !== 1 || lines[0] !== `- unfed guard — ${coined.meaning}`) fails.push(`(ad) What crosses into this Leg does not render the introduced term as \`- <term> — <meaning>\` alone: ${JSON.stringify(lines)}`);
-      }
-    }
+    const read = briefCarrying("introduces", [coined]);
+    if (!read.refusals.some((m) => m.includes("carries `introduces`"))) fails.push(`(ad) a Brief whose Leg carries introduces was not refused naming the field: ${JSON.stringify(read.refusals)}`);
+    const legs = [legOf("s1", { reaches_target: true })];
     const retiredKey = ["external", "authority"].join("_");
     const carried = briefOf(legs, { compose_path: personaA, [retiredKey]: "off" });
     if (!carried.refusals.some((m) => m.includes(`\`${retiredKey}\``))) fails.push(`(ad) a Brief header carrying the retired external-authority switch was not refused naming the key: ${JSON.stringify(carried.refusals)}`);
@@ -541,7 +444,7 @@ const fails = [];
   // (ae) A BRIEF CARRYING AN OBLIGATION RECORD IS REFUSED NAMING THE KEY (kogaki#1699, retiring
   // kogaki#1584 and kogaki#1612), and the Packet of a ledgerless Brief carries no Obligations block.
   {
-    const legs = [legOf("s1"), legOf("s2", { depends_on: ["s1"] })];
+    const legs = [legOf("s1"), legOf("s2", { reaches_target: true })];
     const obligations = [{ opened_by: "s1", items: [{ item: "Whether the guard can be fed at all", closed_by: "s2" }] }];
     const ledgered = briefOf(legs, { compose_path: personaA, obligations });
     if (!ledgered.refusals.some((m) => m.includes("carries `obligations`") && m.includes("kogaki#1699"))) {
@@ -585,8 +488,8 @@ const fails = [];
   // its own Section's prose and none from before it.
   {
     const legs = [legOf("s1", { opens_section: "Section One" }),
-      legOf("s2", { opens_section: "Section Two", depends_on: ["s1"] }),
-      legOf("s3", { depends_on: ["s2"] })];
+      legOf("s2", { opens_section: "Section Two" }),
+      legOf("s3", { reaches_target: true })];
     const brief = briefOf(legs, { compose_path: personaA });
     if (brief.refusals.length) fails.push(`(at) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)}`);
     else {
@@ -622,5 +525,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-packet — re-activate's three composition refusals and its Packet rendering with meaning (kogaki#1237, kogaki#1282); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's four schema widenings and kogaki#1260's four compose refusals over them; the claim `as` sentence (kogaki#1282); and kogaki#1261's Packet rendering, a Brief carrying an Obligation record refused naming the key, the record retired from both schemas and the ledger refusal no longer exported (kogaki#1699), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
+console.log("ok: check-brief-packet — re-activate, introduces, journeys, names and budget retired from the Leg and refused by name, every Packet of a Brief stating the crossing absence (kogaki#1237, kogaki#1282, kogaki#1768); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's schema widenings retired from the Leg schema and an introduces entry's shape as the ParagraphPlan carries it; and kogaki#1261's Packet rendering, a Brief carrying an Obligation record refused naming the key, the record retired from both schemas and the ledger refusal no longer exported (kogaki#1699), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
 JS

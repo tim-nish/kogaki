@@ -101,8 +101,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes("\\\`smp_leg_unit\\\` judgment point")) {
     const x = input();
     // (c) the first Leg answer's point 1 carries "rule", a word of the proposition and of the crew's context.
-    return out({ legs: [{ leg_id: "crew-leg", purpose: "Bring the reader to the list as the bound of the crew's work.",
-      rationale: "It is the only Leg.",
+    return out({ legs: [{ leg_id: "crew-leg",
       claims: x.claims.map((g) => ({ type: "strand", strand: g.claim_strand, proposition: g.holds })),
       waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), serves: [g.claim_strand], case: "own" })) }] }, "brief");
   }

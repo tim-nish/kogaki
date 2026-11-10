@@ -11,8 +11,8 @@ import { pathRefusal } from "./leg-schema.mjs";
 import { INTRODUCES_SEP } from "./specialization.mjs";
 
 // AN ENTRY IS A STRING (the Brief's own serialized form, round-tripped by
-// `draft.mjs`) OR AN `introduces_item` OBJECT (the Candidate's own composed
-// form, src/leg-schema.json `introduces_item`; kogaki#1263, kogaki#1260),
+// `draft.mjs`) OR AN `introduces_item` OBJECT (the composed `{term, meaning}`
+// form; kogaki#1263, kogaki#1260; a ParagraphPlan entry's since kogaki#1768),
 // THE BRIEF CARRIES
 // THE ITEM AS ITS FIELDS (kogaki#1261, kogaki#1328), and a JSON line written
 // before that parses back here to the object it was. AN ITEM CARRIES `term`
@@ -36,9 +36,9 @@ export function parseIntroducesEntry(raw) {
     const term = typeof raw.term === "string" ? raw.term.trim() : "";
     if (term === "") return { error: "an introduces_item with no term" };
     const retired = Object.keys(RETIRED_INTRODUCES_KEYS).find((k) => Object.hasOwn(raw, k));
-    if (retired) return { error: `"${term}" carries ${RETIRED_INTRODUCES_KEYS[retired]} (src/leg-schema.json, \`introduces_item\`)` };
+    if (retired) return { error: `"${term}" carries ${RETIRED_INTRODUCES_KEYS[retired]} (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)` };
     if (typeof raw.meaning !== "string" || raw.meaning.trim() === "") {
-      return { error: `"${term}" carries no meaning — an introduced term is one the article gives its meaning to, in one sentence (src/leg-schema.json, \`introduces_item\`)` };
+      return { error: `"${term}" carries no meaning — an introduced term is one the article gives its meaning to, in one sentence (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)` };
     }
     return { term, anchor: null, typed: true, meaning: raw.meaning };
   }
@@ -143,9 +143,8 @@ export function sectionHeadingsWithLastClaims(legs) {
 // about a Leg's NEIGHBOURS. Returns the first refusal or null. The rule text
 // is `path_rules` in src/leg-schema.json, composed by `pathRefusal`
 // (kogaki#1147). rule 1 (a Leg opens when it changes the reader's question)
-// is judgment, and its violation is rule 2's refusal. rule 2: a Leg whose
-// `depends_on` is exactly the preceding Leg AND whose `materials` overlap it
-// is DEVELOPING it and may not open. rule 3: the first Leg always opens.
+// is the `leg_sections` row's judgment; rule 2 read the retired `depends_on`
+// and `materials` and is retired with them (kogaki#1768). rule 3: the first Leg always opens.
 // rule 4: two consecutive one-Leg Sections refuse with the request-to-merge;
 // its prose-length clause is a named deferred slot (no Brief holds prose).
 export function sectionGroupingRefusal(legs) {
@@ -154,18 +153,6 @@ export function sectionGroupingRefusal(legs) {
   // rule 3 — the first Leg always opens.
   if (legs[0].opens_section === undefined) {
     return pathRefusal("section_rule_3", at(0), "This path opens none: give the first Leg an opens_section carrying that Section's title.");
-  }
-
-  // rule 2 — a Leg that develops its predecessor continues, so it may not open.
-  for (let i = 1; i < legs.length; i++) {
-    const s = legs[i], prev = legs[i - 1];
-    if (s.opens_section === undefined) continue;
-    const dependsOnlyOnPrev = s.depends_on.length === 1 && s.depends_on[0] === prev.leg_id;
-    const overlaps = s.materials.some((m) => prev.materials.includes(m));
-    if (dependsOnlyOnPrev && overlaps) {
-      return pathRefusal("section_rule_2", at(i),
-        `This Leg DEVELOPS ${prev.leg_id} — its depends_on is exactly that Leg, and its materials overlap it — so it continues that Section. Remove its opens_section, or change what the Leg stands on if the reader's question really does change here.`);
-    }
   }
 
   // rule 4, Leg-count clause — two consecutive one-Leg Sections.
@@ -341,8 +328,8 @@ export function obligationItemsAt(o, pos, unit) {
 }
 // THE READER TARGET LEG (kogaki#1231, owner decision 2026-09-30, reversing
 // kogaki#1225's last-Leg derivation): exactly one Leg is marked
-// `reaches_target`, never the first, and every Leg after it is a CLOSING
-// Leg — held to the rule this function raises. Run after every Leg
+// `reaches_target`, and it is the last (kogaki#1768: the derived Legs end on
+// the one whose last Waypoint carries the apex). Run after every Leg
 // is known to be well formed, for the reason `sectionGroupingRefusal` runs
 // there: this is a statement about a Leg's position relative to the whole
 // path, not about one Leg alone. Returns a string to refuse with, or null.
@@ -355,17 +342,8 @@ export function readerTargetLegRefusal(legs) {
         ? "No Leg of this path carries `reaches_target: true`."
         : `${marked.length} Legs carry it: ${marked.map((i) => at(i)).join(", ")}.`);
   }
-  const targetIdx = marked[0];
-  if (targetIdx === 0) {
-    return pathRefusal("reaches_target_marked", at(0), "The first Leg carries it, leaving no Leg free to reach the target from anywhere.");
-  }
-  const targetLeg = legs[targetIdx];
-  for (let i = targetIdx + 1; i < legs.length; i++) {
-    const s = legs[i];
-    if (Array.isArray(s.introduces) && s.introduces.length > 0) {
-      return pathRefusal("closing_leg_introduces_nothing", at(i),
-        `This closing Leg (after ${targetLeg.leg_id}, which attains the Thesis) still carries introduces: ${JSON.stringify(s.introduces)}.`);
-    }
+  if (marked[0] !== legs.length - 1) {
+    return pathRefusal("reaches_target_marked", at(marked[0]), `It is not the last Leg: ${at(legs.length - 1)} follows it.`);
   }
   return null;
 }
@@ -416,7 +394,7 @@ export function introducesRefusal(value, at) {
   for (const raw of value) {
     const isItem = raw && typeof raw === "object" && !Array.isArray(raw);
     if (typeof raw !== "string" && !isItem) {
-      return `${at}: introduces carries an entry that is neither a string nor an introduces_item object — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor", or a Candidate's own \`{term, meaning, ...}\` object (src/leg-schema.json, \`introduces_item\`)`;
+      return `${at}: introduces carries an entry that is neither a string nor an introduces_item object — each entry is one line, "term" or "term ${INTRODUCES_SEP} anchor", or a Candidate's own \`{term, meaning, ...}\` object (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)`;
     }
     const e = parseIntroducesEntry(raw);
     if (e.error) return `${at}: introduces carries ${e.error} (the reader-knowledge ledger)`;
@@ -572,4 +550,34 @@ export function introducerOf(term, legs) {
     }
   }
   return null;
+}
+
+// THE `leg_sections` ANSWER, APPLIED (kogaki#1768): `{ sections: [{ leg_id, opens_section }] }`
+// over the derived Legs, in Leg order, its first entry the first Leg. Returns `{ legs }`, each
+// Leg that opens a Section carrying its heading, or `{ error }` naming what is wrong — the
+// answer's shape, or the Section grouping's own refusal over the Legs with the headings in place.
+export function applyLegSections(legs, answer) {
+  if (!answer || typeof answer !== "object" || Array.isArray(answer)) return { error: "the answer is not one record" };
+  const extra = Object.keys(answer).find((k) => k !== "sections");
+  if (extra !== undefined) return { error: `the answer carries \`${extra}\`, which the record does not declare` };
+  if (!Array.isArray(answer.sections) || answer.sections.length === 0) return { error: "the answer's `sections` is not a non-empty list" };
+  const order = legs.map((l) => l.leg_id);
+  let last = -1;
+  const heading = new Map();
+  for (const [i, e] of answer.sections.entries()) {
+    if (!e || typeof e !== "object" || Array.isArray(e)) return { error: `sections[${i}] is not a record` };
+    const stray = Object.keys(e).find((k) => k !== "leg_id" && k !== "opens_section");
+    if (stray !== undefined) return { error: `sections[${i}] carries \`${stray}\`, which an entry does not declare` };
+    const at = order.indexOf(e.leg_id);
+    if (at < 0) return { error: `sections[${i}] names ${JSON.stringify(e.leg_id)}, which is no Leg of the input` };
+    if (heading.has(e.leg_id)) return { error: `two entries name the Leg ${e.leg_id}` };
+    if (at <= last) return { error: `sections[${i}] names ${e.leg_id} out of Leg order` };
+    last = at;
+    const bad = opensSectionRefusal(e.opens_section, `the entry for ${e.leg_id}`);
+    if (bad) return { error: bad };
+    heading.set(e.leg_id, e.opens_section.trim());
+  }
+  const out = legs.map((l) => (heading.has(l.leg_id) ? { ...l, opens_section: heading.get(l.leg_id) } : l));
+  const grouping = sectionGroupingRefusal(out);
+  return grouping ? { error: grouping } : { legs: out };
 }

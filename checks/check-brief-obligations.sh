@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
-# check-brief-obligations — the retired Obligations ledger and reader states,
-# and the Reader target Leg rules of Brief composition (kogaki#1229, #1231,
-# #1699). A LIGHT member: pure validator calls over fixture paths, no model run.
-#   (a) a Brief record carrying `obligations`, `closure`, `discharges`,
-#       `reader_start` or `reader_target` is refused naming the key (kogaki#1699).
-#   (b) a Leg carrying `reader_state_after` or `reader_state_before` is refused
-#       naming the field, by `validateLegs` and by the Brief reader (kogaki#1699).
-#   (c) the Move-fit input carries each Move's `takes` and `leaves`, and no `before`, `after`, `deferred_slots` or `obligations_raised` (kogaki#1699).
-#   (g) the reaches_target marking rule; (h) a closing Leg introduces nothing; (k) the
-#   mark reaches the Packet; (r) no `kind` on an `introduces` entry; (u) `names` and the
-#   reader-knowledge ledger read `introduces` alone. Cases (f), (i), (j), (l)-(q),
-#   (s)-(t), (v)-(y) left with the ledger and the Leg's reader states (kogaki#1699).
+# check-brief-obligations — the retired Obligations ledger and reader states, and
+# the Reader target Leg rules (kogaki#1229, #1231, #1699). A LIGHT member: pure calls.
+#   (a) a Brief carrying `obligations`, `closure`, `discharges`, `reader_start` or
+#       `reader_target` is refused naming the key (kogaki#1699); (b) so is a Leg
+#       carrying a reader state, by `validateLegs` and the Brief reader.
+#   (c) the GROUNDED input carries the structure and each Waypoint's point and
+#       carries, and no Move contract (kogaki#1768).
+#   (g)/(h) the marked Leg is the last, and no Leg carries `introduces` (kogaki#1768);
+#   (k) the mark reaches the Packet; (r) no `kind` on a ParagraphPlan `introduces`
+#   entry; (u) `names` retired from the Leg (kogaki#1768). Cases (f), (i), (j),
+#   (l)-(q), (s)-(t), (v)-(y) left with the ledger and the reader states (kogaki#1699).
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg, readerTargetLine,
   REACHES_TARGET_LINE, CLOSING_LEG_LINE } from "./src/draft.mjs";
 import * as compose from "./src/compose.mjs";
@@ -57,43 +54,26 @@ const fails = [];
   }
 }
 
-// (c) the Move-fit input carries `takes` and `leaves` and no state or slot (kogaki#1699).
+// (c) THE MOVE-FIT INPUT IS RETIRED (kogaki#1768): a Leg binds no Move, so the compose unit's
+// second Call is the GROUNDED judge, whose input carries the structure and each Waypoint's
+// `point` and `carries` -- no Move contract, no state and no slot.
 {
-  const { readerPathFitInput } = await import("./src/brief/reader-path-unit.mjs");
-  const dir = mkdtempSync(join(tmpdir(), "obligations-moves-"));
-  try {
-    const lib = join(dir, "moves");
-    mkdirSync(lib);
-    copyFileSync("moves/ROLES.json", join(lib, "ROLES.json"));
-    // The Move carries no `obligation`, retired from the Move for its `leaves` (kogaki#1701).
-    writeFileSync(join(lib, "open_the_claim.yaml"), [
-      "id: open_the_claim", "description: >-", "  Names a consequence, then gives the name its meaning.",
-      "breaks:", "  - drop the definition — the name stays a label the reader cannot use",
-      "segments:", "  - operation: names the consequence a cause leads to",
-      "  - operation: gives the name just used its meaning", "    relation: defines the name the step before introduced",
-      "takes:", "  - kind: answer", "    what: why a cause has the consequence it has",
-      "leaves:", "  - kind: explain", "    what: the name given to the consequence", "    segment: 2", "",
-    ].join("\n"));
-    const fit = readerPathFitInput({ candidate_id: "c1", legs: PATH_1260() }, lib, "knowledge: can read code", "a thesis");
-    if (fit.error) fails.push(`(c) the Move-fit input did not build: ${fit.error}`);
-    else {
-      const contracts = fit.input.candidate_you_must_judge
-        ? fit.input.candidate_you_must_judge.move_contracts : fit.input.move_contracts;
-      const first = (contracts || [])[0] || {};
-      if (!Array.isArray(first.takes) || first.takes[0].kind !== "answer" || !Array.isArray(first.leaves) || first.leaves[0].kind !== "explain") {
-        fails.push(`(c) the Move-fit input does not carry the Move's takes and leaves: ${JSON.stringify(first)}`);
-      }
-      const text = JSON.stringify(fit.input);
-      for (const gone of ["\"before\"", "\"after\"", "deferred_slots", "obligations_raised"]) {
-        if (text.includes(gone)) fails.push(`(c) the Move-fit input still carries ${gone}`);
-      }
-    }
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
+  const unit = await import("./src/brief/reader-path-unit.mjs");
+  for (const gone of ["readerPathFitInput", "readerPathFitVerdict"]) {
+    if (gone in unit) fails.push(`(c) src/brief/reader-path-unit.mjs still exports the retired Move-fit \`${gone}\``);
+  }
+  const structure = { relations: [{ id: "r1", holds: "a cause has a consequence." }], higher_order: [], attains_thesis: "r1" };
+  const input = unit.groundedInput({ waypoints: [{ point: "a cause has the consequence it has", carries: ["r1"] }] }, structure);
+  if (input.structure !== structure || JSON.stringify(input.waypoints) !== JSON.stringify([{ waypoint: 1, point: "a cause has the consequence it has", carries: ["r1"] }])) {
+    fails.push(`(c) the GROUNDED input does not carry the structure and each Waypoint's point and carries: ${JSON.stringify(input)}`);
+  }
+  const text = JSON.stringify(input);
+  for (const gone of ["\"takes\"", "\"leaves\"", "move_contracts", "\"before\"", "\"after\"", "deferred_slots", "obligations_raised"]) {
+    if (text.includes(gone)) fails.push(`(c) the GROUNDED input still carries ${gone}`);
   }
 }
 
-// (g) readerTargetLegRefusal — exactly one Leg marked, and never the first.
+// (g) readerTargetLegRefusal — exactly one Leg marked, and it is the last (kogaki#1768).
 {
   const base = () => ["leg1", "leg2", "leg3"].map((leg_id) => ({ leg_id }));
 
@@ -109,43 +89,34 @@ const fails = [];
   if (!rTwo) fails.push("(g) a path with two Legs marked reaches_target was not refused");
   else if (!/2 Legs carry it/.test(rTwo)) fails.push(`(g) the two-marked refusal did not count the Legs: ${rTwo}`);
 
-  const first = base();
-  first[0].reaches_target = true;
-  const rFirst = readerTargetLegRefusal(first);
-  if (!rFirst) fails.push("(g) a path marking its first Leg reaches_target was not refused");
-  else if (!/leg 1 \(leg1\)/.test(rFirst)) fails.push(`(g) the first-Leg refusal did not name the Leg: ${rFirst}`);
+  const middle = base();
+  middle[1].reaches_target = true;
+  const rMiddle = readerTargetLegRefusal(middle);
+  if (!rMiddle) fails.push("(g) a path marking a Leg before its last was not refused");
+  else if (!/leg 2 \(leg2\)/.test(rMiddle) || !/It is not the last Leg: leg 3 \(leg3\) follows it/.test(rMiddle)) fails.push(`(g) the not-last refusal did not name the Leg and the one following it: ${rMiddle}`);
 
-  const one = base();
-  one[1].reaches_target = true;
-  const rOne = readerTargetLegRefusal(one);
-  if (rOne) fails.push(`(g) exactly one Leg, not the first, marked reaches_target was refused: ${rOne}`);
+  const last = base();
+  last[2].reaches_target = true;
+  const rLast = readerTargetLegRefusal(last);
+  if (rLast) fails.push(`(g) exactly one Leg, the last, marked reaches_target was refused: ${rLast}`);
 }
 
-// (h) a closing Leg introduces nothing (kogaki#1231); the "raises nothing" half left with the
-// Obligations ledger (kogaki#1699).
+// (h) NO LEG CLOSES AFTER THE TARGET (kogaki#1768, retiring kogaki#1231's closing-Leg rule): the
+// marked Leg is the last, so a Leg after it is refused by the marking rule itself, whatever it
+// carries, and no Leg carries `introduces` at all.
 {
-  const withIntroduces = [
-    { leg_id: "leg1" },
-    { leg_id: "leg2", reaches_target: true },
-    { leg_id: "leg3", introduces: ["term"] },
-  ];
-  const rIntroduces = readerTargetLegRefusal(withIntroduces);
-  if (!rIntroduces) fails.push("(h) a closing Leg carrying introduces was not refused");
-  else {
-    if (!/leg 3 \(leg3\)/.test(rIntroduces)) fails.push(`(h) the introduces refusal did not name the Leg: ${rIntroduces}`);
-    if (!/closing_leg_introduces_nothing/.test(rIntroduces) && !/introduces nothing/.test(rIntroduces)) fails.push(`(h) the introduces refusal did not name the rule: ${rIntroduces}`);
-  }
-  const clean = readerTargetLegRefusal([{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true }, { leg_id: "leg3" }]);
-  if (clean) fails.push(`(h) a closing Leg introducing nothing was refused: ${clean}`);
+  const after = readerTargetLegRefusal([{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true }, { leg_id: "leg3" }]);
+  if (!after || !/leg 3 \(leg3\) follows it/.test(after)) fails.push(`(h) a Leg after the marked one was not refused naming it: ${after}`);
+  const carrying = validateLegs(PATH_1260({ introduces: ["term"] }));
+  if (!carrying.error || !/leg 1 \(s1\): carries `introduces`, which is retired/.test(carrying.error)) fails.push(`(h) a Leg carrying introduces was not refused by name: ${carrying.error}`);
 }
 
 // (k) the mark reaches the Packet (kogaki#1231, acceptance item 4): written by legRecord,
-// read back by readBrief, and rendered under `## This Leg` on the marked Leg and
-// on each closing Leg, and on no Leg before the mark.
+// read back by readBrief, and rendered under `## This Leg` on the marked Leg, the last since
+// kogaki#1768, and on no Leg before it; the closing-Leg line reaches no Packet of a Brief.
 {
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, move: "open_the_claim", materials: ["L1"], purpose: `purpose of ${leg_id}`,
-    depends_on: [], rationale: `why ${leg_id}`, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
   const marked = legRecord(legOf("s2", { reaches_target: true }));
@@ -162,10 +133,9 @@ const fails = [];
   const half = briefOfRecord(halfRecord, "k.yaml");
   if (!half.refusals.some((r) => /leg s2/.test(r) && /reaches_target/.test(r))) fails.push(`(k) a reaches_target value other than true was not refused naming the Leg: ${JSON.stringify(half.refusals)}`);
 
-  const legs = [legOf("s1"), legOf("s2", { reaches_target: true }), legOf("s3")];
-  if (readerTargetLine(legs, "s1") !== "") fails.push("(k) readerTargetLine rendered a line on a Leg before the mark");
-  if (readerTargetLine(legs, "s2") !== REACHES_TARGET_LINE) fails.push("(k) readerTargetLine did not render the target line on the marked Leg");
-  if (readerTargetLine(legs, "s3") !== CLOSING_LEG_LINE) fails.push("(k) readerTargetLine did not render the closing line on the Leg after the mark");
+  const legs = [legOf("s1"), legOf("s2"), legOf("s3", { reaches_target: true })];
+  if (readerTargetLine(legs, "s1") !== "" || readerTargetLine(legs, "s2") !== "") fails.push("(k) readerTargetLine rendered a line on a Leg before the mark");
+  if (readerTargetLine(legs, "s3") !== REACHES_TARGET_LINE) fails.push("(k) readerTargetLine did not render the target line on the marked Leg");
   if (readerTargetLine([legOf("s1"), legOf("s2")], "s2") !== "") fails.push("(k) readerTargetLine rendered a line on a path carrying no mark");
 
   // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
@@ -186,12 +156,12 @@ const fails = [];
     packets[leg.leg_id] = r.packet;
   }
   const carries = (id, line) => (packets[id] || "").includes(line);
-  if (carries("s1", REACHES_TARGET_LINE) || carries("s1", CLOSING_LEG_LINE)) fails.push("(k) the Packet of a Leg before the mark carries a Reader target line");
-  if (!carries("s2", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the marked Leg does not carry the target line");
-  if (carries("s2", CLOSING_LEG_LINE)) fails.push("(k) the Packet of the marked Leg carries the closing-Leg line");
-  if (!carries("s3", CLOSING_LEG_LINE)) fails.push("(k) the Packet of the closing Leg does not carry the closing-Leg line");
-  if (carries("s3", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the closing Leg carries the target line");
-  if (packets.s2 && !/## The Section this Leg sits in[\s\S]*This Leg reaches the Reader target\.[\s\S]*## What crosses into this Leg/.test(packets.s2)) fails.push("(k) the target line is not rendered inside the `## The Section this Leg sits in` block");
+  for (const id of ["s1", "s2"]) {
+    if (carries(id, REACHES_TARGET_LINE) || carries(id, CLOSING_LEG_LINE)) fails.push(`(k) the Packet of ${id}, before the mark, carries a Reader target line`);
+  }
+  if (!carries("s3", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the marked Leg does not carry the target line");
+  if (Object.values(packets).some((p) => p.includes(CLOSING_LEG_LINE))) fails.push("(k) a Packet carries the closing-Leg line, though no Leg follows the mark");
+  if (packets.s3 && !/## The Section this Leg sits in[\s\S]*This Leg reaches the Reader target\.[\s\S]*## What crosses into this Leg/.test(packets.s3)) fails.push("(k) the target line is not rendered inside the `## The Section this Leg sits in` block");
 }
 
 // (r) an `introduces` entry carrying `kind` is refused; one carrying term and meaning is read.
@@ -205,17 +175,14 @@ const fails = [];
   if (!noMeaning.error || !/no meaning/.test(noMeaning.error)) fails.push(`(r) an entry carrying no meaning was not refused: ${JSON.stringify(noMeaning)}`);
 }
 
-// (u) `names` on the target Leg and the reader-knowledge ledger read `introduces` alone
-// (kogaki#1568): an Obligation item is a second register, so a term only a row names is refused
-// in `names` and folds into no Leg's knowledge.
+// (u) `names` IS RETIRED FROM THE LEG (kogaki#1768, retiring kogaki#1568's target-Leg `names`):
+// a Leg carrying it is refused by name, and the reader-knowledge ledger over a path that
+// introduces nothing folds nothing in and takes the Legs alone.
 {
-  const { readerTargetNamesRefusal, readerKnowledgeLedger } = compose;
-  const legs = [{ leg_id: "leg1" }, { leg_id: "leg2", reaches_target: true, names: ["ownership boundary"] }, { leg_id: "leg3" }];
-  const r = readerTargetNamesRefusal(legs);
-  if (!r || !/ownership boundary/.test(r)) fails.push(`(u) names carrying a term only an Obligation row names was not refused: ${r}`);
-  const introduced = [{ leg_id: "leg1", introduces: [{ term: "ownership boundary", meaning: "where the installer's ownership ends" }] }, ...legs.slice(1)];
-  if (readerTargetNamesRefusal(introduced)) fails.push(`(u) names carrying an introduced term was refused: ${readerTargetNamesRefusal(introduced)}`);
-  const ledger = readerKnowledgeLedger(legs);
+  const { readerKnowledgeLedger } = compose;
+  const named = validateLegs(PATH_1260({}, { names: ["ownership boundary"] }));
+  if (!named.error || !/leg 2 \(s2\): carries `names`, which is retired/.test(named.error)) fails.push(`(u) a Leg carrying names was not refused by name: ${named.error}`);
+  const ledger = readerKnowledgeLedger(PATH_1260());
   if (ledger.some((row) => row.reader_already_knows.length)) fails.push(`(u) the ledger folded something in over a path that introduces nothing: ${JSON.stringify(ledger)}`);
   if (readerKnowledgeLedger.length !== 1) fails.push(`(u) readerKnowledgeLedger still declares an obligations parameter (arity ${readerKnowledgeLedger.length})`);
 }
@@ -225,5 +192,5 @@ if (fails.length > 0) {
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log("ok: check-brief-obligations — a Brief record carrying obligations, closure, discharges, reader_start or reader_target and a Leg carrying reader_state_after or reader_state_before refused naming the key, the Move-fit input carrying each Move's takes and leaves and no before, after, deferred_slots or obligations_raised (kogaki#1699), the reaches_target marking rule, a closing Leg introducing nothing, the mark reaching the Packet, an introduces entry carrying no kind, and names and the ledger reading introduces alone (kogaki#1229, kogaki#1231, kogaki#1568, kogaki#1699).");
+console.log("ok: check-brief-obligations — a Brief record carrying obligations, closure, discharges, reader_start or reader_target and a Leg carrying reader_state_after or reader_state_before refused naming the key, the retired Move-fit input replaced by a GROUNDED input carrying no Move contract (kogaki#1768), the reaches_target marking rule with the last Leg marked and no Leg after it, no Leg carrying introduces or names, the mark reaching the Packet, an introduces entry carrying no kind, and the ledger folding nothing in (kogaki#1229, kogaki#1231, kogaki#1568, kogaki#1699, kogaki#1768).");
 JS

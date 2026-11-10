@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# check-brief-compose-job — the Move library fixtures, the compose job's
-# unit prompts and the per-unit fit judge's input (kogaki#1276, kogaki#1307,
-# kogaki#1311, kogaki#1320, kogaki#1325, kogaki#1327, kogaki#1412).
-#   (ag)-(au2) segments and breaks reach the prompt and the fit input; the
-#              compose_path prompt and fit input; derived before-states.
-#   (ah)-(al)  move/no_move_fits, the no-tools sentence, the partition, the
-#              line above the question and the closing report.
-#   (ao)-(aq)  waypoints, Section headings and the fit input's Sections.
-# Case (ai) and (al) run a real `job-supervise` and `job await` over a fake
-# judge; nothing calls a model. Cut from check-brief-compose.sh by
-# kogaki#1460; the registry row says more.
+# check-brief-compose-job — the compose_path job of the structure-first Brief
+# (kogaki#1768; the job kogaki#1193, kogaki#1307). Its one unit composes the Leg
+# Waypoints from the adopted RelationalStructure (`lpp_waypoints`), and the
+# per-unit judge holds them to GROUNDED (`lpp_grounded`); no Move is bound.
+#   (a) the unit prompt and what compose_path declares; (b) `validateBriefWaypoints`
+#       refusals by name; (c) the GROUNDED judge's prompt and verdict read back.
+#   (aj) the no-tools sentence, no `judge_specialization` or `effort`.
+#   (ak) the partition and the lines above the question; (al) a unit refused in
+#        every Round ends the Brief through `job await` with no question.
+#   (am) the Reader Path renders above the Candidate question.
+# Case (al) runs a real `job await` over a fake judge; nothing calls a model.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -18,10 +18,8 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, chmodSync, existsS
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as compose from "./src/compose.mjs";
-import { stringifyYaml } from "./src/yaml.mjs";
-import { composeBrief, validateReaderPathUnit, readerPathFitInput, readerPathFitVerdict,
-  composeJobExcluded, composeJobFinished, candidateSelectionExtra, noCandidateFitsReport } from "./src/brief.mjs";
+import { composeBrief, validateBriefWaypoints, groundedPrompt, groundedVerdict, groundedInput,
+  composeJobExcluded, composeJobFinished, candidateSelectionExtra, noCandidateFitsReport, readerPathReading } from "./src/brief.mjs";
 import { startDetachedJobSupervisor } from "./src/workflow/detached-job.mjs";
 import { runRecordPath } from "./src/workflow/run-record.mjs";
 import { judgePrompt } from "./src/workflow/judge.mjs";
@@ -29,247 +27,87 @@ import { bindFlow } from "./src/workflow/run-record.mjs";
 import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
 // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
 bindFlow(BRIEF_FLOW);
-import { recordOf, FIT_MOVE, segmentText, START_1276, leg1276, cand1276, fitMoveLibrary } from "./checks/fixtures/brief-compose/fixtures.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
   .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
-const { validateLegs } = compose;
-const fitMoves = fitMoveLibrary();
+const composePathText = () => { const b = briefRuntimeText(); return b.slice(b.indexOf("  compose_path: async"), b.indexOf("  review_path: async")); };
+const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
 const fails = [];
 
-// (ag) segments and breaks reach the composer's prompt and the per-unit fit judge's input verbatim,
-// and no `technique` does (kogaki#1412).
+// THE FIXTURE STRUCTURE: three relations, two higher-order relations, `h2` the apex.
+const STRUCTURE = {
+  roles: [{ id: "rules", context: "A set of checks that runs without anyone choosing what it reads.", attributes: ["automatic"], claims: ["L1", "L2"] },
+    { id: "walk", context: "The list of files a tool visits when it runs.", attributes: [], claims: ["L1", "L2"] },
+    { id: "file", context: "One file in a repository.", attributes: ["skipped"], claims: ["L2", "L3"] },
+    { id: "team", context: "The people who read the result of a run.", attributes: [], claims: ["L3"] }],
+  relations: [{ id: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "L1" },
+    { id: "p2", between: ["walk", "file"], holds: "{file} left off {walk} is never checked.", from: "L2" },
+    { id: "p3", between: ["team", "rules"], holds: "{team} reads a pass of {rules} as covering every file.", from: "L3" }],
+  higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, {file} off it is unchecked.", from: ["L2"] },
+    { id: "h2", relates: ["h1", "p3"], holds: "{team} trusts a pass that never reached {file}.", from: [] }],
+  attains_thesis: "h2",
+};
+const WAYPOINTS = [
+  { point: "An automatic rule set applies only to the files its walker visits.", carries: ["p1"] },
+  { point: "A file the walker skips is never checked, because the rules read only the walk.", carries: ["p2", "h1"] },
+  { point: "A team that reads a pass as covering every file trusts a pass that never reached the skipped file.", carries: ["p3", "h2"] }];
+
+// (a) THE UNIT PROMPT IS `lpp_waypoints` OVER THE STRUCTURE, and no Move library reaches it.
 {
-  const library = compose.loadMoveContracts(fitMoves);
-  if (library.error) fails.push(`(ag) loadMoveContracts refused the fixture library: ${library.error}`);
-  else {
-    for (const [id, f] of Object.entries(FIT_MOVE)) {
-      const m = library.moves.find((x) => x.id === id);
-      if (!m || JSON.stringify(m.segments) !== JSON.stringify(f.segments) || JSON.stringify(m.breaks) !== JSON.stringify(f.breaks) || "technique" in m) fails.push(`(ag) loadMoveContracts does not carry ${id}'s segments and breaks verbatim, and no technique: ${JSON.stringify(m)}`);
-    }
-    const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-    const input = { state: "compose_path", moves_you_may_bind: library.moves, unit_number: 1 };
-    const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
-    for (const f of Object.values(FIT_MOVE)) {
-      if (!segmentText(f).every((d) => prompt.includes(d)) || !f.breaks.every((b) => prompt.includes(b))) fails.push(`(ag) the compose_path unit prompt does not carry a Move's segments and breaks verbatim: ${segmentText(f)}`);
-    }
-    const brief = briefRuntimeText();
-    const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
-    if (!/const library = loadMoveContracts\(movesDir\)/.test(composePath) || !/moves_you_may_bind: library\.moves,\n\s+unit_number: n/.test(composePath)) {
-      fails.push("(ag) compose_path's unit input no longer takes `moves_you_may_bind` from loadMoveContracts");
-    }
+  const input = { state: "compose_path", thesis: "A green run says nothing of the files it never visited.", structure: STRUCTURE,
+    persona: { reader: "a developer", prior_knowledge: "has used a CI system" }, language: "English" };
+  const prompt = judgePrompt(table.lpp_waypoints, JSON.stringify(input, null, 2), input, null);
+  if (!prompt.includes("`lpp_waypoints` judgment point") || !prompt.includes(STRUCTURE.higher_order[1].holds) || !prompt.includes('"attains_thesis": "h2"')) {
+    fails.push("(a) the compose_path unit prompt is not the lpp_waypoints row rendered over the structure");
   }
-  const j = readerPathFitInput(cand1276("c1"), fitMoves, "has used a CI system");
-  if (j.error) fails.push(`(ag) readerPathFitInput refused: ${j.error}`);
-  else {
-    const own = j.input.candidate_you_must_judge;
-    if (!own || own.candidate_id !== "c1") fails.push(`(ag) the per-unit fit input does not hold its one Candidate: ${JSON.stringify(own && own.candidate_id)}`);
-    for (const c of (own && own.move_contracts) || []) {
-      const f = FIT_MOVE[c.move];
-      if (!f || JSON.stringify(c.segments) !== JSON.stringify(f.segments) || "technique" in c || JSON.stringify(c.breaks) !== JSON.stringify(f.breaks) || !Array.isArray(c.takes) || !Array.isArray(c.leaves) || "before" in c || "after" in c) {
-        fails.push(`(ag) the per-unit fit input does not carry leg ${c.leg_id}'s Move contract verbatim: ${JSON.stringify(c)}`);
-      }
-    }
-    const brief = briefRuntimeText();
-    const composePath = brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async"));
-    if (!/prompt_export: "readerPathFitPrompt"/.test(composePath) || !/verdict_export: "readerPathFitVerdict"/.test(composePath)) {
-      fails.push("(ag) compose_path does not declare the per-unit fit judge to its job");
-    }
-    // THE FIT PROMPT ASKS FOR ONE RECORD (PR #1308 round 1): the schema text it renders
-    // carries the one-record blocks and never the `set` envelope's `records` requirement.
-    const fitHead = judgePrompt(JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit, "", null, null);
-    const schemaText = fitHead.slice(fitHead.indexOf("THE SCHEMA THE ELEMENTS"));
-    if (/"set"\s*:/.test(schemaText) || /"required":\s*\[\s*"records"/.test(schemaText) || !/"verdicts"/.test(schemaText)) {
-      fails.push("(ag) the per-unit fit prompt renders the set envelope, or no `verdicts` record, as the shape to answer");
-    }
+  const cp = composePathText();
+  if (/loadMoveContracts|moves_you_may_bind|move_contracts/.test(cp)) fails.push("(a) compose_path still reads the Move library or hands Move contracts (kogaki#1768)");
+  for (const [what, re] of [["the unit row lpp_waypoints", /table\.lpp_waypoints/], ["the GROUNDED row lpp_grounded", /table\.lpp_grounded/],
+    ["recordArray \"waypoints\"", /recordArray: "waypoints"/], ["record_array \"sites\"", /record_array: "sites"/],
+    ["the groundedPrompt / groundedVerdict judge", /prompt_export: "groundedPrompt",\s+verdict_export: "groundedVerdict"/],
+    ["the validateBriefWaypoints validator", /export: "validateBriefWaypoints"/], ["the one unit `reader-path`", /id: "reader-path"/]]) {
+    if (!re.test(cp)) fails.push(`(a) compose_path does not declare ${what}`);
+  }
+  for (const gone of ["reader_path_unit", "reader_path_fit_unit"]) if (table[gone]) fails.push(`(a) src/brief-workflow.json still declares the retired \`${gone}\` row`);
+}
+
+// (b) THE WAYPOINT VALIDATOR, the real one the job declares.
+{
+  const v = (ws) => (validateBriefWaypoints({ waypoints: ws }, { structure: STRUCTURE }) || {}).error || null;
+  if (v(WAYPOINTS)) fails.push(`(b) a covering Waypoint set was refused: ${v(WAYPOINTS)}`);
+  const cases = [
+    ["a written `serves`", WAYPOINTS.map((w, i) => (i ? w : { ...w, serves: ["L1"] })), /Waypoint 1 carries `serves` — it is derived from `carries`, never written/],
+    ["an id the structure does not carry", WAYPOINTS.map((w, i) => (i ? w : { ...w, carries: ["p9"] })), /"p9"/],
+    ["a reached relation no Waypoint carries", [WAYPOINTS[1], WAYPOINTS[2]], /"p1" is carried by no Waypoint/],
+    ["a last Waypoint not carrying the apex", [WAYPOINTS[0], WAYPOINTS[2], WAYPOINTS[1]], /Waypoint 3, the last, does not carry "h2"/],
+  ];
+  for (const [what, ws, want] of cases) {
+    const e = v(ws);
+    if (!e || !want.test(e)) fails.push(`(b) ${what} was not refused by name: ${e}`);
   }
 }
 
-// (at) kogaki#1320 — the compose_path prompt and the per-unit fit judge's
-// input carry each bound Move's `segments` verbatim; a library holding a Move
-// that carries none is refused by name, never read with `segments: null`
-// (kogaki#1412, retiring the null kogaki#1320 allowed).
+// (c) THE GROUNDED JUDGE: its prompt, and its verdict read back.
 {
-  const library = compose.loadMoveContracts(fitMoves);
-  if (library.error) fails.push(`(at) loadMoveContracts refused the fixture library: ${library.error}`);
-  else {
-    const mTurn = library.moves.find((m) => m.id === "m_turn");
-    const mOpen = library.moves.find((m) => m.id === "m_open");
-    if (!mTurn || JSON.stringify(mTurn.segments) !== JSON.stringify(FIT_MOVE.m_turn.segments)) fails.push(`(at) loadMoveContracts does not carry m_turn's segments verbatim: ${JSON.stringify(mTurn)}`);
-    if (!mOpen || JSON.stringify(mOpen.segments) !== JSON.stringify(FIT_MOVE.m_open.segments)) fails.push(`(at) loadMoveContracts does not carry m_open's segments verbatim: ${JSON.stringify(mOpen)}`);
-    const bare = mkdtempSync(join(tmpdir(), "kogaki-1412-moves-"));
-    writeFileSync(join(bare, "ROLES.json"), readFileSync("moves/ROLES.json"));
-    writeFileSync(join(bare, "m_bare.yaml"), stringifyYaml({ id: "m_bare", description: "the fixture Move m_bare.", takes: [], leaves: [], before: { knowledge: "before." }, after: { knowledge: "after." },
-      breaks: ["breaks if dropped."], technique: "restates an order in prose." }));
-    const refused = compose.loadMoveContracts(bare);
-    if (!refused.error || !refused.error.includes('move "m_bare" carries no segments') || !refused.error.includes("kogaki#1412")) {
-      fails.push(`(at) a library holding a Move with no segments was not refused by name: ${JSON.stringify(refused).slice(0, 300)}`);
-    }
-    const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-    const input = { state: "compose_path", moves_you_may_bind: library.moves, unit_number: 1 };
-    const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
-    // THE PROMPT TEXT IS A JSON-STRINGIFIED INPUT, so a segments value with
-    // newlines appears there with escaped `\n`, not a literal newline.
-    if (!FIT_MOVE.m_turn.segments.every((s) => prompt.includes(s.operation))) fails.push("(at) the compose_path unit prompt does not carry m_turn's segments verbatim");
+  const record = { waypoints: WAYPOINTS };
+  const head = judgePrompt(table.lpp_grounded, "", null, null);
+  const prompt = groundedPrompt(record, { structure: STRUCTURE, promptHead: head });
+  const input = groundedInput(record, STRUCTURE);
+  if (!prompt.startsWith(head) || !prompt.endsWith(JSON.stringify(input, null, 2))
+    || JSON.stringify(input.waypoints.map((w) => w.waypoint)) !== "[1,2,3]" || !("structure" in input)) {
+    fails.push("(c) the GROUNDED prompt is not the lpp_grounded head followed by the numbered Waypoints beside the structure");
   }
-  const j = readerPathFitInput(cand1276("c1"), fitMoves, "has used a CI system");
-  if (j.error) fails.push(`(at) readerPathFitInput refused: ${j.error}`);
-  else {
-    for (const c of j.input.candidate_you_must_judge.move_contracts) {
-      const f = FIT_MOVE[c.move];
-      const want = f.segments;
-      if (JSON.stringify(c.segments) !== JSON.stringify(want)) fails.push(`(at) the per-unit fit input does not carry leg ${c.leg_id}'s Move segments (want ${JSON.stringify(want)}, got ${JSON.stringify(c.segments)})`);
-    }
-  }
-}
-
-// (au) kogaki#1699 — a Leg carries no reader state, and the Move-fit judge reads the Move's
-// `takes` and `leaves`. (au1) a Candidate whose Leg carries `reader_state_before` or
-// `reader_state_after` is refused naming the field, at the pure validator and at the compose
-// unit; (au2) the per-unit fit input carries each Move's `takes` and `leaves` in
-// `move_contracts` and no `before`, `after`, `deferred_slots` or `obligations_raised`, the
-// Persona's prior-knowledge line the first Leg's `takes` are met by, and the TAKEN and LEFT
-// questions; the fit row renders TAKEN and LEFT and the `taken` block; (au3) a fit record whose
-// Leg 1 verdict is `contradicts` is read as a refusal of the unit carrying that sentence, and the
-// unit is re-asked once, as before. Whether a `takes` entry is met is the model's judgment and
-// is not exercised here.
-{
-  const legs = () => cand1276("c1").legs;
-  const PRIOR = "has used a CI system and read a failing check's log";
-  // (au1)
-  for (const field of ["reader_state_before", "reader_state_after"]) {
-    const written = legs();
-    written[1][field] = "knowledge: holds the Thesis as a slogan\nquestion: holds: none";
-    const r1 = validateLegs(written);
-    if (!r1.error || !new RegExp(`leg 2 \\(s2\\): carries \`${field}\``).test(r1.error) || !/kogaki#1699/.test(r1.error)) {
-      fails.push(`(au1) validateLegs did not refuse a Leg carrying ${field} by name: ${JSON.stringify(r1)}`);
-    }
-    const unit = validateReaderPathUnit({ ...cand1276("c1"), legs: written }, { strandIds: ["L1"], movesDir: fitMoves });
-    if (!unit || !unit.error || !unit.error.includes(`carries \`${field}\``)) {
-      fails.push(`(au1) the compose unit did not refuse a Candidate whose Leg writes ${field}: ${JSON.stringify(unit)}`);
-    }
-  }
-  const clean = validateLegs(legs());
-  if (clean.error) fails.push(`(au1) a Candidate writing no reader state was refused: ${clean.error}`);
-  else if (clean.legs.some((l) => "reader_state_before" in l || "reader_state_after" in l)) {
-    fails.push(`(au1) validateLegs wrote a reader state onto a Leg: ${JSON.stringify(clean.legs)}`);
-  }
-  const schemaFields = JSON.parse(readFileSync("src/leg-schema.json", "utf8")).fields;
-  for (const f of ["reader_state_before", "reader_state_after"]) if (f in schemaFields) fails.push(`(au1) src/leg-schema.json still lists ${f} among the Leg's fields`);
-
-  // (au2)
-  const cand = cand1276("c1");
-  const j = readerPathFitInput(cand, fitMoves, PRIOR, "The fixture claim.");
-  if (j.error) fails.push(`(au2) readerPathFitInput refused: ${j.error}`);
-  else {
-    const own = j.input.candidate_you_must_judge;
-    const contracts = own.move_contracts || [];
-    if (!contracts.length || contracts.some((c) => !Array.isArray(c.takes) || !Array.isArray(c.leaves))) {
-      fails.push(`(au2) the fit input's move_contracts do not carry each Move's takes and leaves: ${JSON.stringify(contracts)}`);
-    }
-    for (const gone of ["before", "after", "deferred_slots", "obligations_raised"]) {
-      if (contracts.some((c) => gone in c) || gone in own) fails.push(`(au2) the fit input still carries \`${gone}\``);
-    }
-    if (own.legs.some((l) => "reader_state_before" in l)) fails.push("(au2) the fit input's Legs carry a derived before-state");
-    if (own.persona_prior_knowledge !== PRIOR) fails.push(`(au2) the fit input does not carry the Persona's prior-knowledge line: ${JSON.stringify(own.persona_prior_knowledge)}`);
-    const spec = JSON.parse(readFileSync("src/specialization-schema.json", "utf8"));
-    if ("before_state" in spec) fails.push("(au2) src/specialization-schema.json still declares `before_state`");
-    if (!own.taken || own.taken.question !== spec.taken.question || own.taken.left_question !== spec.taken.left_question) {
-      fails.push(`(au2) the fit input does not carry the TAKEN and LEFT questions: ${JSON.stringify(own.taken)}`);
-    }
-    if ("first_leg" in own || "first_leg" in spec) fails.push("(au2) the fit input or the schema still carries the retired `first_leg` before-state comparison");
-    const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-    const fitRow = table.reader_path_fit_unit;
-    if (!/TAKEN:/.test(fitRow.judgment_point) || !/LEFT:/.test(fitRow.judgment_point)
-        || !fitRow.schema_blocks.includes("taken") || fitRow.schema_blocks.includes("before_state")) {
-      fails.push("(au2) the reader_path_fit_unit row does not judge TAKEN and LEFT, or does not render `taken`");
-    }
-    for (const gone of ["`before`", "`after`", "deferred_slots", "obligations_raised", "reader_state_after"]) {
-      if (fitRow.judgment_point.includes(gone)) fails.push(`(au2) the reader_path_fit_unit row still names ${gone}`);
-    }
-    // THE COMPOSE UNIT'S ROW (compose_path_unit, `reader_path_unit` in the table) states TAKE and
-    // LEAVE in place of its reader-state and obligation lines, and its prompt carries each Move's
-    // `takes` and `leaves` in `moves_you_may_bind`.
-    const unitRow = table.reader_path_unit;
-    if (!/TAKE: /.test(unitRow.judgment_point) || !/LEAVE: /.test(unitRow.judgment_point)) fails.push("(au2) the reader_path_unit row does not state TAKE and LEAVE");
-    for (const gone of ["reader_state_after", "obligations", "Reader start"]) {
-      if (unitRow.judgment_point.includes(gone)) fails.push(`(au2) the reader_path_unit row still names ${gone}`);
-    }
-    const lib = compose.loadMoveContracts(fitMoves);
-    const unitInput = { state: "compose_path", moves_you_may_bind: lib.moves, unit_number: 1 };
-    const unitPrompt = judgePrompt(unitRow, JSON.stringify(unitInput, null, 2), unitInput, null);
-    if (lib.error || !lib.moves.every((m) => Array.isArray(m.takes) && Array.isArray(m.leaves)) || !unitPrompt.includes('"takes"') || !unitPrompt.includes('"leaves"')) {
-      fails.push("(au2) the compose unit's prompt does not carry each Move's takes and leaves");
-    }
-  }
-
-  // (au3)
-  const verdict = (leg, v, why) => ({ leg_id: leg.leg_id, move: leg.move, verdict: v, why });
-  const WHY_K = "the Move's takes entry apply (a stated general claim) is left by no earlier Leg and the Persona does not supply it.";
-  const rec = { version: "1", candidate_id: "c1",
-    verdicts: [verdict(cand.legs[0], "contradicts", WHY_K), verdict(cand.legs[1], "consistent", "every takes entry is met and every leaves entry taken up.")] };
-  const v = readerPathFitVerdict(rec, cand);
-  if (v.error) fails.push(`(au3) a contradicts record on Leg 1 was refused as malformed rather than read: ${v.error}`);
-  else if (!v.refusal || !v.refusal.includes(`Leg s1 (m_open): contradicts — the judge wrote: "${WHY_K}"`)
-      || !/Compose the Candidate again/.test(v.refusal) || !(v.failures || []).some((f) => f.leg_id === "s1")) {
-    fails.push(`(au3) a Leg 1 contradicts naming knowledge was not read as the unit's refusal with the judge's sentence: ${JSON.stringify(v)}`);
-  }
-  const note = JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit.note;
-  if (!/the unit is re-asked once with this judge's sentence verbatim/.test(note)) fails.push("(au3) the fit row no longer declares the one re-ask on a contradicts verdict");
-}
-
-// (ah) both or neither of move / no_move_fits is refused naming the Leg.
-{
-  const both = cand1276("c1", { no_move_fits: "the claims describe one guard, and no Move works with one party." });
-  const rBoth = validateLegs(both.legs);
-  if (!rBoth.error || !/leg 2 \(s2\)/.test(rBoth.error) || !/both move and no_move_fits/.test(rBoth.error)) fails.push(`(ah) a Leg carrying both move and no_move_fits was not refused naming the Leg: ${rBoth.error}`);
-  const neither = cand1276("c1");
-  delete neither.legs[1].move;
-  const rNeither = validateLegs(neither.legs);
-  if (!rNeither.error || !/leg 2 \(s2\)/.test(rNeither.error) || !/neither move nor no_move_fits/.test(rNeither.error)) fails.push(`(ah) a Leg carrying neither move nor no_move_fits was not refused naming the Leg: ${rNeither.error}`);
-  const ok = validateLegs(cand1276("c1").legs);
-  if (ok.error) fails.push(`(ah) the fixture path with a move on every Leg was refused: ${ok.error}`);
-}
-
-// (ai) a no_move_fits Leg refuses its unit with the sentence, and the retry prompt carries it.
-{
-  const SENTENCE = "the claims describe one guard, and every Move here needs a second party who answers.";
-  const c = cand1276("c1");
-  delete c.legs[1].move;
-  c.legs[1].no_move_fits = SENTENCE;
-  const validate = (x) => { const r = validateReaderPathUnit(x, { strandIds: ["L1"], movesDir: fitMoves }); return r && r.error ? r.error : null; };
-  // THE UNIT IS CLASSIFIED BY A REAL `job-supervise` RUN (kogaki#1257), under
-  // the declared `validateReaderPathUnit` validator and a fake judge that
-  // answers this Candidate on every Round and records each prompt it is
-  // sent -- so the refusal is read off the unit row and the retry prompt is
-  // the second one the supervisor actually sent.
-  const sup = mkdtempSync(join(tmpdir(), "kogaki-ai-"));
-  const judge = join(sup, "judge.mjs");
-  writeFileSync(judge, "#!/usr/bin/env node\nimport { appendFileSync } from \"node:fs\";\n"
-    + "let c = []; process.stdin.on(\"data\", (d) => c.push(d)); process.stdin.on(\"end\", () => {\n"
-    + `  appendFileSync(${JSON.stringify(join(sup, "prompts.jsonl"))}, JSON.stringify(Buffer.concat(c).toString("utf8")) + "\\n");\n`
-    + `  process.stdout.write(${JSON.stringify(JSON.stringify({ type: "result", result: JSON.stringify(c) }) + "\n")});\n`
-    + "});\n");
-  chmodSync(judge, 0o755);
-  writeFileSync(join(sup, "units.json"), JSON.stringify({ units: [{ id: "u", prompt: "compose one path\n----- INPUT -----\n{}" }],
-    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit",
-      inputs: { strandIds: ["L1"], movesDir: fitMoves } } }));
-  spawnSync(process.execPath, ["src/workflow/job-supervise.mjs", "--run", sup, "--units", join(sup, "units.json"),
-    "--command", judge, "--model", "m", "--output-format", "json",
-    "--call-limit-s", "100", "--unit-rounds", "2", "--stall-s", "100", "--heartbeat-ms", "250"], { encoding: "utf8", timeout: 15000 });
-  const jobFile = join(sup, "reader-path-job.json");
-  const unit = existsSync(jobFile) ? (JSON.parse(readFileSync(jobFile, "utf8")).units || []).find((u) => u.id === "u") : null;
-  if (!unit || unit.status !== "refused") fails.push(`(ai) a Candidate with a no_move_fits Leg classified ${unit && unit.status}, want refused`);
-  else {
-    const refusal = unit.first_refusal || "";
-    if (!refusal.includes(SENTENCE) || !/leg s2/.test(refusal)) fails.push(`(ai) the unit refusal does not carry the Leg's sentence: ${refusal}`);
-    const promptsFile = join(sup, "prompts.jsonl");
-    const sent = existsSync(promptsFile) ? readFileSync(promptsFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
-    const retry = sent[1] || "";
-    if (!retry.includes("----- YOUR PREVIOUS ANSWER (call 1) -----") || !retry.includes(SENTENCE)) fails.push("(ai) the retry prompt does not carry the no_move_fits sentence verbatim");
-  }
-  const good = validate(cand1276("c1"));
-  if (good) fails.push(`(ai) the same Candidate with a move on every Leg was refused: ${good}`);
+  if (!/GROUNDED/.test(table.lpp_grounded.judgment_point)) fails.push("(c) the lpp_grounded row does not judge GROUNDED");
+  const fits = groundedVerdict({ verdict: "fits", sites: [] }, record);
+  if (fits.error || fits.refusal) fails.push(`(c) a fits verdict did not pass: ${JSON.stringify(fits)}`);
+  const PHRASE = "because the rules read only the walk";
+  const WHY = "No carried relation states why the file goes unchecked in those words.";
+  const no = groundedVerdict({ verdict: "does-not-fit", sites: [{ waypoint: 2, phrase: PHRASE, why: WHY }] }, record);
+  if (!no.refusal || !no.refusal.includes(PHRASE) || !no.refusal.includes(WHY)) fails.push(`(c) a does-not-fit verdict is not the unit's refusal carrying its site verbatim: ${JSON.stringify(no)}`);
+  const bad = groundedVerdict({ verdict: "fits", sites: [{ waypoint: 2, phrase: PHRASE, why: WHY }] }, record);
+  if (!bad.error) fails.push(`(c) a fits verdict with sites was not refused as malformed: ${JSON.stringify(bad)}`);
+  const offPhrase = groundedVerdict({ verdict: "does-not-fit", sites: [{ waypoint: 2, phrase: "words the point never says", why: WHY }] }, record);
+  if (!offPhrase.error) fails.push(`(c) a site whose phrase is not words of its Waypoint was not refused: ${JSON.stringify(offPhrase)}`);
 }
 
 // (aj) every compose job unit prompt begins with the no-tools sentence, and
@@ -279,9 +117,9 @@ const fails = [];
 {
   const run = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
   const started = startDetachedJobSupervisor(run, {
-    units: [{ id: "candidate-1", prompt: "first unit prompt" }, { id: "candidate-2", prompt: "second unit prompt" }],
+    units: [{ id: "reader-path", prompt: "first unit prompt" }, { id: "reader-path-2", prompt: "second unit prompt" }],
     command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitRounds: 2, stallS: 5, heartbeatMs: 100,
-    validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
+    validator: { module: "src/brief.mjs", export: "validateBriefWaypoints", inputs: {} },
   });
   try { process.kill(started.supervisorPid); } catch { /* already gone */ }
   const declared = JSON.parse(readFileSync(started.unitsPath, "utf8"));
@@ -294,7 +132,7 @@ const fails = [];
     fails.push(`(aj) the sentence every unit prompt begins with does not say the session has no tools and that a path is not to be opened: ${JSON.stringify(sentence)}`);
   }
   const brief = briefRuntimeText();
-  if (!/startDetachedJobSupervisor\(dir, \{\n\s+units,/.test(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")))) {
+  if (!/startDetachedJobSupervisor\(dir, \{\n\s+units[,:]/.test(brief.slice(brief.indexOf("  compose_path: async"), brief.indexOf("  review_path: async")))) {
     fails.push("(aj) compose_path no longer starts its job through startDetachedJobSupervisor, so the units file above is not its prompts");
   }
   const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
@@ -304,66 +142,45 @@ const fails = [];
   if (hasEffort(JSON.parse(readFileSync("src/terrain-workflow.json", "utf8")))) fails.push("(aj) src/terrain-workflow.json still carries an `effort` field");
 }
 
-// (ak)/(al) the partition, the line above the question, and the closing report.
-// Since kogaki#1307 the partition is the compose job's own: a unit whose Legs do
-// not fit their Moves after its one re-ask ends `refused`, carrying the judge's
-// verdicts, and `composeJobExcluded` reads the excluded Candidates off the rows.
+// (ak)/(al) the partition, the lines above the question, and the closing report.
+// A unit refused in its last Round ends `refused`, carrying the refusal; the
+// partition is read off the rows by the run's own filters (kogaki#1360).
 {
-  const cands = ["c1", "c2", "c3"].map((id) => cand1276(id));
-  const verdict = (leg, v, why) => ({ leg_id: leg.leg_id, move: leg.move, verdict: v, why });
-  const recordOf = (c, v2, why2 = "both reader states specialize the Move's before and after.") => ({
-    version: "1", candidate_id: c.candidate_id,
-    verdicts: [verdict(c.legs[0], "consistent", "the reader states specialize the Move's before and after."), verdict(c.legs[1], v2, why2)],
-  });
-  const WHY = "the Leg's two claims are about one guard, and the Segments need a second party.";
-  // The unit row the supervisor writes for a refused unit, built from the real verdict reader.
-  const rowOf = (c, i, v2, why2) => {
-    const r = readerPathFitVerdict(recordOf(c, v2, why2), c);
-    if (v2 === "consistent") return { id: `candidate-${i + 1}`, status: "done", candidate: c };
-    if (!r.refusal) fails.push(`(ak) a ${v2} verdict was not read as a refusal of the unit: ${JSON.stringify(r)}`);
-    return { id: `candidate-${i + 1}`, status: "refused", candidate: c,
-      failure: { class: "schema refusal", stderr_tail: r.refusal, move_fit: r.failures || [] } };
-  };
-  const rows = [rowOf(cands[0], 0, "consistent"), rowOf(cands[1], 1, "contradicts", WHY), rowOf(cands[2], 2, "consistent")];
-  const excluded = composeJobExcluded(rows);
-  // THE RUN'S OWN FILTER, NOT A HAND-WRITTEN ONE (kogaki#1360): the partition
-  // asserted here is the one `job await` forwards to `compose_path`.
-  const fit = composeJobFinished(rows).map((u) => u.candidate);
-  if (JSON.stringify(fit.map((c) => c.candidate_id)) !== JSON.stringify(["c1", "c3"])) fails.push(`(ak) the offered Candidates are ${JSON.stringify(fit.map((c) => c.candidate_id))}, want ["c1","c3"]`);
+  const WHY = "THE WAYPOINTS WERE JUDGED, AND THESE ARE NOT GROUNDED IN THE RELATIONS THEY CARRY: Waypoint 2";
+  const done = { id: "reader-path", status: "done", rounds: 2, candidate: { waypoints: WAYPOINTS } };
+  const refused = { id: "reader-path", status: "refused", rounds: 3, candidate: { waypoints: WAYPOINTS }, failure: { class: "schema refusal", stderr_tail: WHY } };
+  if (JSON.stringify(composeJobFinished([done]).map((u) => u.id)) !== '["reader-path"]' || composeJobFinished([refused]).length) {
+    fails.push("(ak) composeJobFinished does not keep the done unit alone");
+  }
+  const excluded = composeJobExcluded([refused]);
+  if (excluded.length !== 1 || excluded[0].refusal !== WHY) fails.push(`(ak) composeJobExcluded does not carry the refused unit's refusal: ${JSON.stringify(excluded)}`);
   const extra = candidateSelectionExtra(excluded).excluded_candidates || "";
-  const lines = extra.split("\n").filter(Boolean);
-  if (lines.length !== 1 || !lines[0].includes("path c2") || !lines[0].includes("Leg s2")) fails.push(`(ak) the line above the Candidate question does not name the excluded Candidate and its Leg in one line: ${JSON.stringify(extra)}`);
-  if (/path c1|path c3/.test(extra)) fails.push(`(ak) the excluded line names an offered Candidate: ${extra}`);
-  if (Object.keys(candidateSelectionExtra([])).length) fails.push("(ak) with no Candidate excluded, something still renders above the question");
-  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
+  if (extra !== "Not offered: the Reader Path — its Leg Waypoints were refused in every Round.") fails.push(`(ak) the line above the Candidate question is not the plain not-offered line: ${JSON.stringify(extra)}`);
+  if (Object.keys(candidateSelectionExtra([])).length) fails.push("(ak) with nothing excluded, something still renders above the question");
   const sel = table.states.find((x) => x.id === "CANDIDATE_SELECTION");
-  const filled = Object.keys(candidateSelectionExtra(excluded));
-  if (JSON.stringify(filled) !== JSON.stringify([sel.renders_above_question])) fails.push(`(ak) CANDIDATE_SELECTION's renders_above_question (${JSON.stringify(sel.renders_above_question)}) is not the key its option composer fills (${JSON.stringify(filled)})`);
-  if (!/"excluded_candidates"/.test(readFileSync("src/workflow/gate.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0])) fails.push("(ak) excluded_candidates is not a gate-call reading key");
+  if (sel.renders_above_question !== "reader_path") fails.push(`(ak) CANDIDATE_SELECTION renders ${JSON.stringify(sel.renders_above_question)} above the question, not the Reader Path`);
+  const keys = readFileSync("src/workflow/gate.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0];
+  if (!/"excluded_candidates"/.test(keys) || !/"reader_path"/.test(keys)) fails.push("(ak) excluded_candidates or reader_path is not a gate-call reading key");
 
-  // (al) END TO END through `job await`: a compose job whose every unit ended
-  // `refused` on its Move fit, under a run whose Brief was minted in a
-  // `theses/<slug>/` of its own. No question is asked, the directory is gone,
-  // and the report names each failing Leg and says the Brief was removed.
-  const allRows = [rowOf(cands[0], 0, "contradicts", WHY),
-    rowOf(cands[1], 1, "cannot-determine", "the Move's Segments cannot be read against these claims."),
-    rowOf(cands[2], 2, "contradicts", WHY)];
-  const base = mkdtempSync(join(tmpdir(), "kogaki-1307-nofit-"));
-  const thesisDir = join(base, "theses", "fixture-1307");
+  // (al) END TO END through `job await`: the compose unit refused in every Round, under a run
+  // whose Brief was minted in a `theses/<slug>/` of its own. No question is asked, the folder is
+  // archived, and the report carries the last Round's refusal.
+  const base = mkdtempSync(join(tmpdir(), "kogaki-1768-nofit-"));
+  const thesisDir = join(base, "theses", "fixture-1768");
   mkdirSync(thesisDir, { recursive: true });
   const briefPath = join(thesisDir, "brief.yaml");
-  writeFileSync(briefPath, composeBrief({ slug: "fixture-1307", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
-    thesis: "The fixture claim.", composePath: "audiences/dev-to-zenn.md" }));
+  writeFileSync(briefPath, composeBrief({ slug: "fixture-1768", strands: [{ display_id: "L1", slug: "fixture-strand", cite: "fixture" }],
+    thesis: "The fixture claim.", composePath: "audiences/dev-to-zenn.md", structure: STRUCTURE }));
   const run = join(base, "run");
   mkdirSync(run);
   const now = new Date().toISOString();
   writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "refused",
-    units: allRows.map((u) => ({ ...u, bytes: 50 })),
+    units: [{ ...refused, bytes: 50 }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(run), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: table.version }, judge_binary: null, survey_record: null,
-    completed: ["enter", "THESIS_ADOPTION", "adopt_thesis", "mint", "differentiation"], waits_reached: [],
+    completed: ["enter", "read_structure", "apex", "THESIS_ADOPTION", "adopt_thesis", "mint"], waits_reached: [],
     conditional_entered: [], conditional_skipped: [], awaiting: "compose_path", owner_input: {},
     artifacts_written: [{ state: "mint", path: briefPath }], judgments: {}, gate_declarations_owed: [], done: false,
   }, null, 2) + "\n");
@@ -374,134 +191,29 @@ const fails = [];
     env: { ...process.env, KOGAKI_BRIEF_RUN_DIR: run, KOGAKI_BRIEF_OPEN_RUN: join(run, "open-run-pointer.json"), KOGAKI_JUDGE_CLI: stub } });
   const report = String(r.stderr || "");
   const after = JSON.parse(readFileSync(runRecordPath(run), "utf8"));
-  if (existsSync(thesisDir)) fails.push(`(al) every Candidate failed and theses/<slug>/ is still there: ${thesisDir} stderr=${report}`);
+  if (existsSync(thesisDir)) fails.push(`(al) no Reader Path was composed and theses/<slug>/ is still there: ${thesisDir} stderr=${report}`);
   // ARCHIVED, NEVER DELETED (kogaki#1742): the folder is under theses/.archive/.
   const archived = existsSync(join(base, "theses", ".archive")) ? readdirSync(join(base, "theses", ".archive")) : [];
-  if (!archived.some((n) => n.startsWith("fixture-1307@") && existsSync(join(base, "theses", ".archive", n, "brief.yaml")))) fails.push(`(al) the empty Brief was not moved to theses/.archive/: ${JSON.stringify(archived)}`);
-  if (!/was moved to \S*\.archive\/fixture-1307@\S*, so its name is free again/.test(report)) fails.push(`(al) the closing report does not say where the Brief was moved: ${report}`);
-  if (/under a different name/.test(report)) fails.push(`(al) the report still offers the different-name route though the name is free: ${report}`);
-  for (const c of cands) if (!report.includes(`"path ${c.candidate_id}"`)) fails.push(`(al) the report does not name candidate ${c.candidate_id}`);
-  if (!report.includes(`Leg s2 (m_turn): contradicts — ${WHY}`) || !report.includes("cannot-determine — the Move's Segments cannot be read")) fails.push(`(al) the report does not name each failing Leg with the judge's sentence: ${report}`);
-  if (after.done !== true || (after.gate_declarations_owed || []).length || after.awaiting) fails.push(`(al) ending with every Candidate failed raised a question or left the run open: ${JSON.stringify(after)}`);
-  if (existsSync(join(run, "brief-reader-path-job.gate-call.json"))) fails.push("(al) ending with every Candidate failed wrote a gate call");
-  const kept = noCandidateFitsReport(composeJobExcluded(allRows), "theses/fixture/brief.yaml", { removed: false });
+  if (!archived.some((n) => n.startsWith("fixture-1768@") && existsSync(join(base, "theses", ".archive", n, "brief.yaml")))) fails.push(`(al) the empty Brief was not moved to theses/.archive/: ${JSON.stringify(archived)}`);
+  if (!/was moved to \S*\.archive\/fixture-1768@\S*, so its name is free again/.test(report)) fails.push(`(al) the closing report does not say where the Brief was moved: ${report}`);
+  if (!report.includes("No Reader Path was composed") || !report.includes(`The last Round was refused: ${WHY}`)) fails.push(`(al) the report does not carry the last Round's refusal: ${report}`);
+  if (after.done !== true || (after.gate_declarations_owed || []).length || after.awaiting) fails.push(`(al) a unit refused in every Round raised a question or left the run open: ${JSON.stringify(after)}`);
+  if (existsSync(join(run, "brief-reader-path-job.gate-call.json"))) fails.push("(al) a unit refused in every Round wrote a gate call");
+  const kept = noCandidateFitsReport(excluded, "theses/fixture/brief.yaml", { removed: false });
   if (!/could not be moved/.test(kept)) fails.push(`(al) a Brief that could not be moved is not reported as kept: ${kept}`);
 }
 
-// (ao) kogaki#1311 — a Leg carries waypoints that serve its claims, and the
-// count is no rule. (ao1) each shape refusal names the Leg and the waypoint;
-// (ao2) the compose_path unit prompt renders src/leg-schema.json's
-// `waypoints` entry, and the per-unit fit input carries each Leg's waypoints
-// beside its Move's segments and breaks; (ao3) a Candidate whose waypoint
-// counts differ from its Move's Segment count passes.
+// (am) THE READER PATH ABOVE THE QUESTION (kogaki#1768): each Leg with the higher-order relation
+// it serves, its Section heading where it opens one, and each Leg Waypoint with what it carries.
 {
-  const legs = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "Intro", ...s1Extra }),
-    leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...s2Extra })];
-  const refusal = (ls) => { const r = compose.validateLegs(ls, []); return r.error || null; };
-  const noField = legs();
-  delete noField[0].waypoints;
-  const twoClaims = { materials: ["L1", "L2"], claims: [{ type: "strand", strand: "L1", proposition: "claim one of s1" },
-    { type: "strand", strand: "L2", proposition: "claim two of s1" }] };
-  const cases = [
-    ["a Leg with no waypoints field", noField, /leg 1 \(s1\): carries no waypoints/],
-    ["a Leg with an empty waypoints list", legs({ waypoints: [] }), /leg 1 \(s1\): carries no waypoints/],
-    ["a waypoint with an empty point", legs({}, { waypoints: [{ point: "s2's claim holds", serves: ["L1"], case: "own" }, { point: " ", serves: ["L1"], case: "own" }] }),
-      /leg 2 \(s2\): waypoint 2 has an empty point/],
-    // THE EFFECT FORM IS REFUSED BY NAME (kogaki#1326): a waypoint still
-    // carrying `effect` is not read as one with no point.
-    ["a waypoint carrying the retired effect", legs({}, { waypoints: [{ effect: "the reader is handed one dated run", point: "s2's claim holds", serves: ["L1"], case: "own" }] }),
-      /leg 2 \(s2\): waypoint 1 carries `effect`, which is retired/],
-    ["a waypoint with an empty serves", legs({ waypoints: [{ point: "s1's claim holds", serves: [], case: "own" }] }),
-      /leg 1 \(s1\): waypoint 1 has an empty serves/],
-    ["a serves naming a Strand the Leg has no claim for", legs({ waypoints: [{ point: "s1's claim holds", serves: ["L1", "L9"], case: "own" }] }),
-      /leg 1 \(s1\): waypoint 1 serves "L9", and this Leg carries no claim for that Strand/],
-    ["a claim no waypoint serves", legs({ ...twoClaims, waypoints: [{ point: "claim one holds", serves: ["L1"], case: "own" }] }),
-      /leg 1 \(s1\): its claim for "L2" is served by no waypoint/],
-  ];
-  for (const [what, ls, want] of cases) {
-    const e = refusal(ls);
-    if (!e) fails.push(`(ao1) ${what} was not refused`);
-    else if (!want.test(e)) fails.push(`(ao1) ${what} was refused without naming the Leg and the waypoint: ${e}`);
-  }
-
-  const table = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
-  const library = compose.loadMoveContracts(fitMoves);
-  const input = { state: "compose_path", moves_you_may_bind: library.moves, unit_number: 1 };
-  const prompt = judgePrompt(table.reader_path_unit, JSON.stringify(input, null, 2), input, null);
-  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  if (!schema.fields.waypoints || !prompt.includes(schema.fields.waypoints.description)) {
-    fails.push("(ao2) the compose_path unit prompt does not render src/leg-schema.json's `waypoints` entry");
-  }
-  if (!schema.waypoint || !prompt.includes(schema.waypoint.fields.point.description)) {
-    fails.push("(ao2) the compose_path unit prompt does not render the schema's `waypoint` block");
-  }
-  const W2 = [{ point: "the first party acts", serves: ["L1"], case: "own" },
-    { point: "the second party answers", serves: ["L1"], case: "own" },
-    { point: "the answer is answered, and the balance holds", serves: ["L1"], case: "own" }];
-  const c = cand1276("c1", { waypoints: W2 });
-  const j = readerPathFitInput(c, fitMoves, START_1276);
-  if (j.error) fails.push(`(ao2) readerPathFitInput refused: ${j.error}`);
-  else {
-    for (const mc of j.input.candidate_you_must_judge.move_contracts) {
-      const leg = c.legs.find((l) => l.leg_id === mc.leg_id);
-      if (JSON.stringify(mc.waypoints) !== JSON.stringify(leg.waypoints) || !Array.isArray(mc.segments) || !Array.isArray(mc.breaks)) {
-        fails.push(`(ao2) the fit input does not carry leg ${mc.leg_id}'s waypoints beside its Move's segments and breaks: ${JSON.stringify(mc)}`);
-      }
-    }
-  }
-  if (!/judge the points, not the claims/.test(table.reader_path_fit_unit.judgment_point)) {
-    fails.push("(ao2) the reader_path_fit_unit judgment no longer judges the waypoints against the Move's order");
-  }
-
-  // (ao3) m_turn carries two Segments; s2 carries three waypoints and s1
-  // one, and nothing refuses either.
-  if (FIT_MOVE.m_turn.segments.length === W2.length) fails.push("(ao3) the fixture Move's Segment count no longer differs from the waypoint count");
-  const e3 = refusal(legs({}, { waypoints: W2 }));
-  if (e3) fails.push(`(ao3) a Candidate whose waypoint counts differ from its Move's named count was refused: ${e3}`);
-  const u3 = validateReaderPathUnit(cand1276("c1", { waypoints: W2 }), { strandIds: ["L1"], movesDir: fitMoves });
-  if (u3 && u3.error) fails.push(`(ao3) the compose unit refused the same Candidate: ${u3.error}`);
-}
-
-// (ap) kogaki#1327 — a Section heading carries no term ANY Leg of the path
-// introduces, not just terms introduced within that Section.
-{
-  const legsFor = (s1Extra = {}, s2Extra = {}) => [leg1276("s1", { opens_section: "what the reader now holds", ...s1Extra }),
-    leg1276("s2", { move: "m_turn", depends_on: ["s1"], reaches_target: true, ...s2Extra })];
-  const refusal = (ls) => { const r = compose.validateLegs(ls, []); return r.error || null; };
-
-  // a term introduced on a LATER Leg still refuses an EARLIER heading.
-  const laterTerm = refusal(legsFor({ opens_section: "what a pipeline now does" }, { introduces: ["pipeline"] }));
-  if (!laterTerm) fails.push("(ap) a heading carrying a term introduced on a later Leg was not refused");
-  else {
-    if (!/"pipeline"/.test(laterTerm)) fails.push(`(ap) the refusal did not name the term: ${laterTerm}`);
-    if (!/leg 1 \(s1\)/.test(laterTerm)) fails.push(`(ap) the refusal did not name the heading's Leg: ${laterTerm}`);
-    if (!/leg "s2"/.test(laterTerm)) fails.push(`(ap) the refusal did not name the introducing Leg: ${laterTerm}`);
-  }
-
-  // a heading free of introduced terms passes.
-  const clean = refusal(legsFor({}, { introduces: ["pipeline"] }));
-  if (clean) fails.push(`(ap) a heading carrying no introduced term was refused: ${clean}`);
-}
-
-// (aq) kogaki#1327 — the `reader_path_fit_unit` input carries each Section's
-// heading beside its LAST Leg's claims (its after-state until kogaki#1699), not
-// the opening Leg's own, so the fit judge can answer whether the heading states
-// that destination.
-{
-  const s2Claims = [{ type: "strand", strand: "L1", proposition: "the guard passes on an empty input" }];
-  const cand = cand1276("c-aq", { claims: s2Claims });
-  const j = readerPathFitInput(cand, fitMoves, "has used a CI system");
-  if (j.error) fails.push(`(aq) readerPathFitInput refused: ${j.error}`);
-  else {
-    const sh = j.input.candidate_you_must_judge.section_headings;
-    if (!Array.isArray(sh) || sh.length !== 1) fails.push(`(aq) section_headings does not carry one entry per Section: ${JSON.stringify(sh)}`);
-    else if (sh[0].leg_id !== "s1" || sh[0].heading !== "Intro" || JSON.stringify(sh[0].last_leg_claims) !== JSON.stringify([s2Claims[0].proposition]) || "after_state" in sh[0]) {
-      fails.push(`(aq) section_headings did not carry the opening Leg's heading beside the Section's LAST Leg's claims: ${JSON.stringify(sh)}`);
-    }
-  }
-  if (!/section_headings/.test(JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).reader_path_fit_unit.judgment_point)) {
-    fails.push("(aq) the reader_path_fit_unit judgment_point does not name section_headings as one more judged item at the Leg that opens the Section");
-  }
+  const candidate = { candidate_id: "reader-path", legs: [
+    { leg_id: "s1", relation: "h1", opens_section: "What the walk leaves out", waypoints: [{ ...WAYPOINTS[0], serves: ["L1"] }, { ...WAYPOINTS[1], serves: ["L2"] }] },
+    { leg_id: "s2", relation: "h2", reaches_target: true, waypoints: [{ ...WAYPOINTS[2], serves: ["L3"] }] }] };
+  const text = readerPathReading([candidate], STRUCTURE);
+  const want = ["The Reader Path: 2 Leg(s), 3 Leg Waypoint(s).", "Section: What the walk leaves out",
+    "s1 — Because rules reads only walk, file off it is unchecked.", `  2. ${WAYPOINTS[1].point} (carries p2, h1)`,
+    "s2 — team trusts a pass that never reached file."];
+  for (const w of want) if (!text.includes(w)) fails.push(`(am) the Reader Path reading does not carry ${JSON.stringify(w)}: ${text}`);
 }
 
 if (fails.length > 0) {
@@ -509,5 +221,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-compose-job — kogaki#1276: the compose_path prompt and the per-unit Move-fit input carry each Move's segments and breaks verbatim and no technique (kogaki#1412), move/no_move_fits refused naming the Leg, a no_move_fits Leg refusing its unit, the no-tools sentence (kogaki#1307), one contradicts unit among three excluded and named, every Candidate failing ending the Brief with its directory removed; kogaki#1320's compose_path prompt and fit input; kogaki#1699's retired reader states and the TAKEN and LEFT fit input; kogaki#1311's waypoint refusals; and kogaki#1327's Section heading rule and the fit input's Sections.");
+console.log("ok: check-brief-compose-job — kogaki#1768: the compose_path unit prompt is lpp_waypoints over the RelationalStructure and hands no Move library, the Waypoint validator refuses a written serves, an unknown id, an uncarried reached relation and a last Waypoint without the apex, the GROUNDED judge's verdict is the unit's refusal carrying its sites verbatim; the no-tools sentence (kogaki#1307); the partition and the not-offered line; a unit refused in every Round ending the Brief with its folder archived; and the Reader Path rendered above the Candidate question.");
 JS

@@ -1,5 +1,5 @@
 // brief/run-state — the refusal shape, the run state, the audience file, the
-// job bounds, the judged call and the differentiation record. Cut from
+// job bounds, the judged call and the job unit validators. Cut from
 // src/brief.mjs at its named sections (kogaki#1466); the design and its rulings
 // are stated in the Issues each block below names.
 
@@ -75,7 +75,7 @@ export function readRunState(args) {
 export function strandClaims(state) {
   const renderings = (state && state.strand_renderings) || {};
   return (Array.isArray(state?.strands) ? state.strands : [])
-    .map((s) => ({ id: s.display_id, claim: renderings[s.slug] && renderings[s.slug].headline }))
+    .map((s) => ({ id: s.display_id, claim: renderings[s.slug] && renderings[s.slug].found !== false ? renderings[s.slug].headline : null }))
     .filter((c) => typeof c.claim === "string" && c.claim.trim() !== "");
 }
 
@@ -84,8 +84,8 @@ export function strandClaims(state) {
 // HARNESS-OWNED WORKFLOW TABLE on the Terrain pattern — `src/brief-workflow.json`,
 // a lane, and the two maps a state id is looked up in — advanced by the shared
 // `runWorkflow`, which is never reimplemented here. The Model acts only as the
-// judge the executor calls, at `differentiation`, `compose_path` (and its
-// per-unit Move fit, kogaki#1307) and `review_path`; it fills declared fields
+// judge the executor calls, at `read_structure`, `apex`, `compose_path` (and
+// its per-Round GROUNDED judgment, kogaki#1768) and `review_path`; it fills declared fields
 // and never decides when a state runs, whether the run advances, or what the
 // owner is asked.
 const BRIEF_HERE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -100,7 +100,7 @@ export function readJson(p) {
 // `cmdMint` runs standalone (the CLI's `mint` verb) as well as under the
 // workflow, so it reads `src/brief-workflow.json` itself rather than relying
 // on a `table` a standalone caller never has in hand — the same row the
-// `differentiation` state reads `reader_file` from, by the row's own id
+// `compose_path` state reads `reader_file` from, by the row's own id
 // rather than by position, so the two readings cannot drift apart by table
 // edit order.
 export function briefComposePathDefault() {
@@ -229,8 +229,6 @@ export function writeJudgeInput(rec, st, body) {
   return p;
 }
 
-const DIFFERENTIATION_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
-
 // THE BRIEF'S ADOPTED THESIS, the record's `thesis` key as `composeBrief`
 // writes it (kogaki#1325, kogaki#1328). Null where it is absent or blank, so a
 // caller checks nothing rather than a blank.
@@ -246,125 +244,6 @@ export function readMintedBrief(rec, st) {
   const r = readBriefRecord(briefPath);
   if (r.error) fail(`${st.id}: ${r.error}`);
   return { briefPath, record: r.record, doc: r.text };
-}
-const DIFFERENTIATION_PLACEMENTS = ["opening", "turn", "close"];
-
-// PURE, so `checks/check-brief-differentiation.sh` can import and test every
-// refusal directly, matching the codebase's other pure judgment validators
-// (attachReview, validateLegs, assembleSelection, candidateLedgerRefusal).
-// Returns `{ error }` naming the offending entry, or `{ entries }` on success
-// (kogaki#1206).
-export function validateDifferentiationRecord(record, { units, moves, journeyBearing, thesis }) {
-  if (!record || record.version !== "1") {
-    return { error: `\`version\` must be "1" (src/differentiation-schema.json); received `
-      + `${JSON.stringify(record && record.version)}` };
-  }
-  // THE FIRST-LEG SURVIVORS (kogaki#1216; Reader start retired, kogaki#1699).
-  // A property of the Brief and of no path, so it is checked here, once, before
-  // the per-unit entries that draw on it. Which Moves survive is judgment --
-  // each Move whose `takes` the Persona's prior knowledge meets -- and is linted
-  // nowhere; the list is checked for resolution and non-emptiness, and every
-  // unit's `opening_move` must be a member of it.
-  if (record.reader_start !== undefined) {
-    return { error: "the differentiation record carries `reader_start` -- Reader start is retired (kogaki#1699): "
-      + "the first Leg opens from the Persona's prior knowledge, which its opening Move's `takes` must meet, "
-      + "and no record authors a Reader start (src/differentiation-schema.json)" };
-  }
-  const survivors = record.leg1_survivors;
-  if (!Array.isArray(survivors) || survivors.length === 0) {
-    return { error: "`leg1_survivors` is required and cannot be empty -- every Move whose `takes` the Persona's "
-      + "prior knowledge meets, by id (src/differentiation-schema.json, kogaki#1216, kogaki#1699); an empty list "
-      + "names a library with no Move able to open from what the Persona already knows, which is a store fault and not a Brief" };
-  }
-  for (const id of survivors) {
-    if (typeof id !== "string" || id === "" || !moves.some((m) => m.id === id)) {
-      return { error: `\`leg1_survivors\` names ${JSON.stringify(id)}, which resolves to no record in `
-        + "`moves_you_may_bind` (src/differentiation-schema.json, kogaki#1216)" };
-    }
-  }
-  const entries = record.entries;
-  if (!Array.isArray(entries) || entries.length !== units) {
-    return { error: `\`entries\` must carry exactly ${units} entries, one per reader-path unit; `
-      + `received ${Array.isArray(entries) ? entries.length : "no array"} (src/differentiation-schema.json)` };
-  }
-  const seenUnit = new Set();
-  const seenDim = new Set();
-  for (const e of entries) {
-    if (!e || typeof e.unit_number !== "number" || !Number.isInteger(e.unit_number)
-      || e.unit_number < 1 || e.unit_number > units) {
-      return { error: `every entry carries an integer \`unit_number\` in 1..${units}; received `
-        + `${JSON.stringify(e && e.unit_number)}` };
-    }
-    if (seenUnit.has(e.unit_number)) {
-      return { error: `two entries carry \`unit_number\` ${e.unit_number} — it is the join key the `
-        + "unit's own prompt and the assembled Candidate's tag both resolve through" };
-    }
-    seenUnit.add(e.unit_number);
-    if (typeof e.dimension !== "string" || !DIFFERENTIATION_DIMENSIONS.includes(e.dimension)) {
-      return { error: `unit ${e.unit_number}: \`dimension\` must be one of `
-        + `${DIFFERENTIATION_DIMENSIONS.join(", ")} (src/differentiation-schema.json); received `
-        + `${JSON.stringify(e && e.dimension)}` };
-    }
-    if (seenDim.has(e.dimension)) {
-      return { error: `unit ${e.unit_number} leads with \`dimension\` ${JSON.stringify(e.dimension)}, `
-        + "already assigned to another unit — two units leading with the same dimension are not "
-        + "differentiated by assignment, they are differentiated by luck" };
-    }
-    seenDim.add(e.dimension);
-    if (typeof e.opening_move !== "string" || e.opening_move === ""
-      || !moves.some((m) => m.id === e.opening_move)) {
-      return { error: `unit ${e.unit_number}: \`opening_move\` must resolve in \`moves_you_may_bind\`; `
-        + `received ${JSON.stringify(e && e.opening_move)}` };
-    }
-    if (!survivors.includes(e.opening_move)) {
-      return { error: `unit ${e.unit_number}: \`opening_move\` ${JSON.stringify(e.opening_move)} is not a member of `
-        + "`leg1_survivors` -- the first Leg binds a Move whose `takes` the Persona's prior knowledge meets, and "
-        + "the survivor list is where that exclusion is recorded (src/differentiation-schema.json, kogaki#1216, kogaki#1699)" };
-    }
-    if (e.journey_placement !== undefined) {
-      if (!journeyBearing) {
-        return { error: `unit ${e.unit_number}: \`journey_placement\` is present and this Brief's `
-          + "selected Strands carry no Journey material at all (src/differentiation-schema.json, "
-          + "`absent_when`)" };
-      }
-      if (!DIFFERENTIATION_PLACEMENTS.includes(e.journey_placement)) {
-        return { error: `unit ${e.unit_number}: \`journey_placement\` must be one of `
-          + `${DIFFERENTIATION_PLACEMENTS.join(", ")} when present; received `
-          + `${JSON.stringify(e.journey_placement)}` };
-      }
-    }
-    if (typeof e.reader_experience !== "string" || e.reader_experience.trim() === "") {
-      return { error: `unit ${e.unit_number}: \`reader_experience\` is required and cannot be blank — `
-        + "it is carried into the unit's own prompt so it composes toward it" };
-    }
-  }
-  return { entries };
-}
-
-// ONE UNIT'S OWN ASSIGNMENT, rendered as instruction rather than as a second
-// input (kogaki#1206). `compose_path` splices this ABOVE the input marker
-// its per-unit prompt already carries — the same layer the rendered schema
-// and record example occupy — so the unit is told what it was assigned
-// before it ever reaches the input file it is judging over.
-export function differentiationBlockFor(entry, priorKnowledge, survivorCount) {
-  return [
-    "YOUR ASSIGNED DIFFERENTIATION (kogaki#1206) — decided before any unit composed, so the three",
-    "Candidates differ BY ASSIGNMENT and not by chance (src/differentiation-schema.json):",
-    `  dimension you lead with: ${entry.dimension}`,
-    `  opening Move your first Leg MUST bind: ${entry.opening_move}`,
-    `  journey placement: ${entry.journey_placement || "(none assigned — carry no Journey material for this unit)"}`,
-    `  intended reader experience: ${entry.reader_experience}`,
-    "",
-    // THE FIRST LEG OPENS FROM WHAT THE PERSONA ALREADY KNOWS (kogaki#1699).
-    // Reader start and the Leg's reader states are retired: no Leg writes a
-    // before- or after-state, and a Leg carrying either is refused by name.
-    "THE FIRST LEG OPENS FROM WHAT THE PERSONA ALREADY KNOWS (kogaki#1699). No Leg writes a reader state:",
-    "`reader_state_before` and `reader_state_after` are retired and a Leg carrying either is refused by name.",
-    "Your opening Move's `takes` must be met by the Persona's prior knowledge; every later Leg's Move's `takes`",
-    "must be met by what an earlier Leg's Move `leaves`. Your assigned opening Move is one of the",
-    `${survivorCount} Move(s) whose \`takes\` this prior knowledge meets:`,
-    ...String(priorKnowledge || "(none stated)").split("\n").map((l) => `  ${l}`),
-  ].join("\n");
 }
 
 // ---- THE ONE FACT `enter` NEEDS, AND WHERE IT COMES FROM (kogaki#1116).
