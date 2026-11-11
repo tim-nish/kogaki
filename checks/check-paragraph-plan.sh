@@ -1135,10 +1135,11 @@ writeFileSync(mappingStatePath(runDir, "leg-1"), JSON.stringify({ structure: { r
   table: { correspondences: [{ role: "gate", expression: "the installer" }, { role: "crowd", expression: "the consumer's edits" }] } }));
 const record = { paragraphs: [{ paragraph_waypoints: [{ point: "The installer writes over the consumer's edits." }] }] };
 const rows = (g, c, r) => [{ role: "gate", waypoint: g }, { role: "crowd", waypoint: c }, { relation: "r1", waypoint: r }];
-const judge = (expressed, mapping = true) => verdict({ version: "1", leg_id: "m1", verdicts: [{ paragraph: 1, verdict: "fits", why: "every criterion holds for it.",
+const judge = (expressed, mapping = true, v = "fits") => verdict({ version: "1", leg_id: "m1", verdicts: [{ paragraph: 1, verdict: v, why: "every criterion holds for it.",
   ...(expressed ? { expressed } : {}) }] }, record, { legs: [{ leg_id: "m1" }], mapping, runDir }, "leg-1");
 const cases = [["every Role and relation named passes", judge(rows(1, 1, 1)), (v) => !v.error && !v.refusal],
   ["a Role named by no Waypoint refuses its paragraph naming it and its expression", judge(rows(1, null, 1)), (v) => String(v.refusal).includes('Leg m1, paragraph 1: the judge wrote: "EXPRESSED no Waypoint names the role "crowd", "the consumer\'s edits""') && v.failures[0].site === 1],
+  ["a Role named by no Waypoint is named beside a does-not-fit verdict's own sentence", judge(rows(1, null, 1), true, "does-not-fit"), (v) => String(v.refusal).includes('the judge wrote: "every criterion holds for it.; EXPRESSED no Waypoint names the role "crowd"')],
   ["a relation stated by no Waypoint is refused naming it", judge(rows(1, 1, null)), (v) => String(v.refusal).includes('the relation "r1", "{gate} lets part of {crowd} through."')],
   ["a verdict missing a row is malformed", judge(rows(1, 1, 1).slice(0, 2)), (v) => String(v.error).includes("carries 2 `expressed` row(s) for the 3 Role(s) and relation(s)")],
   ["a verdict carrying no rows is malformed", judge(null), (v) => String(v.error).includes("carries no `expressed` row(s)")],

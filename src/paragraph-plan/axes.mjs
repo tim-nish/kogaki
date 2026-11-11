@@ -538,16 +538,13 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
       ? expressedRead(x, mapping, ((record.paragraphs[n - 1] || {}).paragraph_waypoints || []).length, n)
       : { missing: [] };
     if (expressed.error) return { error: expressed.error };
-    if (x.verdict === "does-not-fit") {
-      const f = { leg_id: leg.leg_id, paragraph: n, why: x.why.trim() };
-      failures.push({ ...f, ...(BINDING_REFUSAL.test(f.why) ? {} : { site: n }), refusal: judgeSiteRefusal(f) });
-    } else if (expressed.missing.length) {
-      // AN UNNAMED ROLE OR RELATION REFUSES THE PARAGRAPH WHATEVER ITS VERDICT (kogaki#1811).
-      const why = expressed.missing
-        .map((w) => `EXPRESSED no Waypoint names the ${w.key} "${w.id}", "${w.says}"`)
-        .join("; ");
-      const f = { leg_id: leg.leg_id, paragraph: n, why };
-      failures.push({ ...f, site: n, refusal: judgeSiteRefusal(f) });
+    // AN UNNAMED ROLE OR RELATION REFUSES THE PARAGRAPH WHATEVER ITS VERDICT, beside the judge's own sentence (kogaki#1811).
+    const own = x.verdict === "does-not-fit" ? [x.why.trim()] : [];
+    const unnamed = expressed.missing.map((w) => `EXPRESSED no Waypoint names the ${w.key} "${w.id}", "${w.says}"`);
+    if (own.length || unnamed.length) {
+      const f = { leg_id: leg.leg_id, paragraph: n, why: [...own, ...unnamed].join("; ") };
+      const binding = own.length && BINDING_REFUSAL.test(own[0]);
+      failures.push({ ...f, ...(binding ? {} : { site: n }), refusal: judgeSiteRefusal(f) });
     }
   }
   if (!failures.length) return {};
