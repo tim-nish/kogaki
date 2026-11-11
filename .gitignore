@@ -139,6 +139,9 @@ policy/shape.md
 # PARAGRAPH-PLAN JOINS THEM (kogaki#1375), on the identical criterion:
 # `check-paragraph-plan.sh` asserts every Harness path and subcommand
 # `.claude/skills/paragraph-plan/SKILL.md` names.
+#
+# BRIEF-SHEET JOINS THEM (kogaki#1788), on the identical criterion:
+# `check-leg-planning.sh` asserts the command `.claude/skills/brief-sheet/SKILL.md` names.
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/brief/
@@ -147,18 +150,21 @@ policy/shape.md
 !.claude/skills/review-draft/
 !.claude/skills/project/
 !.claude/skills/paragraph-plan/
+!.claude/skills/brief-sheet/
 .claude/skills/brief/*
 .claude/skills/terrain/*
 .claude/skills/draft/*
 .claude/skills/review-draft/*
 .claude/skills/project/*
 .claude/skills/paragraph-plan/*
+.claude/skills/brief-sheet/*
 !.claude/skills/brief/SKILL.md
 !.claude/skills/terrain/SKILL.md
 !.claude/skills/draft/SKILL.md
 !.claude/skills/review-draft/SKILL.md
 !.claude/skills/project/SKILL.md
 !.claude/skills/paragraph-plan/SKILL.md
+!.claude/skills/brief-sheet/SKILL.md
 
 # THE CONSULT-FIRST SKILL'S RE-INCLUDE IS GONE (kogaki#725), and the argument
 # it stood on is answered rather than deleted. That argument, from kogaki#621,

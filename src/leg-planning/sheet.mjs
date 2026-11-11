@@ -9,8 +9,9 @@
 //   The Leg-Planning Playground, Round, Submission, Comment, Call
 //       specs/spec-draft-pipeline/SPEC.md
 //
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseYaml } from "../yaml.mjs";
 import { strandClaims } from "../brief/run-state.mjs";
@@ -227,7 +228,18 @@ function unreachedIds(structure) {
   return left;
 }
 
+// A Leg of the shape before kogaki#1775: the first key, in this order, that marks it.
+function retiredLegKey(leg) {
+  if ("waypoints" in leg) return "waypoints";
+  if ("move" in leg) return "move";
+  return typeof leg.text === "string" ? null : "text";
+}
+
 export function renderBriefSheet({ brief, claims }) {
+  for (const leg of brief.reader_path || []) {
+    const key = retiredLegKey(leg);
+    if (key) throw new Error(`Leg ${leg.leg_id} ${key === "text" ? "carries no `text`" : `carries \`${key}\``}: this Brief predates kogaki#1775; regenerate it with /brief`);
+  }
   const structure = brief.structure;
   if (!structure) throw new Error("the Brief carries no `structure` to render");
   const leftClaims = new Set(((structure.unreached || {}).claims || []).map((c) => c.id));
@@ -246,7 +258,7 @@ export function renderBriefSheet({ brief, claims }) {
     part("Higher-order relations", elements(structure.higher_order, (h) => holds(h.holds),
       (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))))),
     part("Legs", table(["id", "relation", "text"], (brief.reader_path || []).map((l) => row([esc(l.leg_id), nameOf(l.relation),
-      typeof l.text === "string" ? esc(l.text) : none("no text recorded")])))),
+      esc(l.text)])))),
   ];
   return `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Brief ${esc(brief.slug)}</title><style>${proofSheetCss()}\n${ACCENT}${BRIEF_CSS}</style>`
@@ -254,18 +266,47 @@ export function renderBriefSheet({ brief, claims }) {
     + `<h1>Brief — ${esc(brief.slug)}</h1>` + parts.join("") + "</body></html>\n";
 }
 
-const BRIEF_USAGE = "usage: node src/leg-planning/sheet.mjs brief --brief <theses/<slug>/brief.yaml> --out <dir>";
+const BRIEF_USAGE = "usage: node src/leg-planning/sheet.mjs brief --brief <theses/<slug>/brief.yaml> --out <dir>\n"
+  + "       node src/leg-planning/sheet.mjs show --brief <theses/<slug>/brief.yaml>";
+
+// Reads and renders the Brief at `briefPath`; a refusal exits 1 before anything is written.
+function renderOrExit(briefPath) {
+  if (!existsSync(briefPath)) { process.stderr.write(`sheet: ${briefPath} does not exist\n`); process.exit(1); }
+  const text = readFileSync(briefPath, "utf8");
+  const brief = parseYaml(text, briefPath);
+  try {
+    return { text, html: renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }) };
+  } catch (e) { process.stderr.write(`sheet: ${briefPath}: ${e.message}\n`); process.exit(1); }
+}
+
+// The Brief sheet's owner act, /brief-sheet (kogaki#1788): its home is read from the Brief's path, so
+// `<root>/theses/<slug>/brief.yaml` writes under `<root>/runs/leg-planning/brief-sheets/<slug>/`.
+function showMain(briefPath) {
+  const abs = resolve(briefPath);
+  const slug = basename(dirname(abs));
+  if (basename(abs) !== "brief.yaml" || basename(dirname(dirname(abs))) !== "theses") {
+    process.stderr.write(`sheet: ${briefPath} is not a theses/<slug>/brief.yaml\n`); process.exit(2);
+  }
+  const { text, html } = renderOrExit(abs);
+  const root = dirname(dirname(dirname(abs)));
+  const home = join(root, "runs", "leg-planning", "brief-sheets", slug);
+  mkdirSync(home, { recursive: true });
+  const out = join(home, "sheet.html");
+  writeFileSync(out, html);
+  writeFileSync(join(home, "brief.sha256"), `${createHash("sha256").update(text).digest("hex")}  ${relative(root, abs)}\n`);
+  process.stdout.write(`${pathToFileURL(out).href}\n`);
+}
 
 function briefMain(argv) {
   const arg = (k) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : undefined; };
   const briefPath = arg("brief");
+  if (argv[0] === "show" && briefPath) return showMain(briefPath);
   const outDir = arg("out");
   if (argv[0] !== "brief" || !briefPath || !outDir) { process.stderr.write(`${BRIEF_USAGE}\n`); process.exit(2); }
-  if (!existsSync(briefPath)) { process.stderr.write(`sheet: ${briefPath} does not exist\n`); process.exit(1); }
-  const brief = parseYaml(readFileSync(briefPath, "utf8"), briefPath);
+  const { html } = renderOrExit(briefPath);
   mkdirSync(outDir, { recursive: true });
   const out = join(outDir, "sheet.html");
-  writeFileSync(out, renderBriefSheet({ brief, claims: briefClaims(brief, briefPath) }));
+  writeFileSync(out, html);
   process.stdout.write(`${out}\n`);
 }
 
