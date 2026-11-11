@@ -107,6 +107,7 @@ const findingLine = (f) =>
 // Finding that fixed the Arm. The narrower Findings ride the same retry.
 export function repairOf(findings) {
   const fs = Array.isArray(findings) ? findings : [];
+  /** @type {string[]} */
   const arms = fs.map(armOf);
   const arm = REPAIR_ARMS.find((a) => arms.includes(a)) || "rewrite_all_points";
   const fixer = fs[arms.indexOf(arm)];
