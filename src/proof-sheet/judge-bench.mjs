@@ -18,16 +18,35 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { PARAGRAPH_PLAN_TABLE, PARAGRAPH_PLAN_AXES, readAxes, axisRecord, axesFailures,
-  renderRowHead } from "../paragraph-plan.mjs";
+import {
+  PARAGRAPH_PLAN_TABLE,
+  PARAGRAPH_PLAN_AXES,
+  readAxes,
+  axisRecord,
+  axesFailures,
+  renderRowHead,
+} from "../paragraph-plan.mjs";
 
 export const BENCH_FILE = "bench.json";
 const CALLS_FILE = "calls.jsonl";
 const RUN_ROOT = join(REPO, "runs", "judge-bench");
 // The ParagraphPlan job's own argv (src/workflow/detached-job.mjs), so a bench call is that call.
-const ARGV = (model) => ["-p", "--model", model, "--output-format", "stream-json", "--verbose",
-  "--include-partial-messages", "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
-  "--setting-sources", "", "--no-session-persistence"];
+const ARGV = (model) => [
+  "-p",
+  "--model",
+  model,
+  "--output-format",
+  "stream-json",
+  "--verbose",
+  "--include-partial-messages",
+  "--tools",
+  "",
+  "--disable-slash-commands",
+  "--strict-mcp-config",
+  "--setting-sources",
+  "",
+  "--no-session-persistence",
+];
 const READ_TRIES = 3;
 
 function fail(msg) {
@@ -43,24 +62,39 @@ export function benchHeads(axis, registryPath = PARAGRAPH_PLAN_AXES) {
   const row = { id: "paragraph_plan_judge_unit", ...table.paragraph_plan_judge_unit, axes_file: registryPath };
   const held = bindFlow({ lane: "paragraph-plan", label: "ParagraphPlan" });
   let withAxis;
-  try { withAxis = renderRowHead(row); } finally { bindFlow(held); }
+  try {
+    withAxis = renderRowHead(row);
+  } finally {
+    bindFlow(held);
+  }
   const line = `- ${axis.id}: ${axis.sentence}\n`;
-  if (withAxis.split(line).length !== 2) throw new Error(`the rendered judge row does not carry the axis ${axis.id} once`);
+  if (withAxis.split(line).length !== 2)
+    throw new Error(`the rendered judge row does not carry the axis ${axis.id} once`);
   return { with: withAxis, without: withAxis.replace(line, "") };
 }
 
 // The verdict record from a stream-json transcript: the `result` of its last result line.
 export function verdictOf(stdout) {
-  const lines = String(stdout || "").split("\n").filter((l) => l.trim());
+  const lines = String(stdout || "")
+    .split("\n")
+    .filter((l) => l.trim());
   for (let i = lines.length - 1; i >= 0; i--) {
     let o;
-    try { o = JSON.parse(lines[i]); } catch { continue; }
+    try {
+      o = JSON.parse(lines[i]);
+    } catch {
+      continue;
+    }
     if (!o || o.type !== "result") continue;
     let r = o.result;
     if (typeof r === "string") {
       const a = r.indexOf("{");
       const b = r.lastIndexOf("}");
-      try { r = JSON.parse(r.slice(a, b + 1)); } catch { return null; }
+      try {
+        r = JSON.parse(r.slice(a, b + 1));
+      } catch {
+        return null;
+      }
     }
     return r && Array.isArray(r.verdicts) ? r : null;
   }
@@ -69,12 +103,20 @@ export function verdictOf(stdout) {
 
 function callOnce(binary, model, prompt, limitS) {
   return new Promise((done) => {
-    const child = spawn(binary, ARGV(model), { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" } });
+    const child = spawn(binary, ARGV(model), {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" },
+    });
     let out = "";
-    child.stdout.on("data", (b) => { out += b; });
+    child.stdout.on("data", (b) => {
+      out += b;
+    });
     child.stderr.on("data", () => {});
     const timer = setTimeout(() => child.kill("SIGKILL"), limitS * 1000);
-    child.on("close", () => { clearTimeout(timer); done(out); });
+    child.on("close", () => {
+      clearTimeout(timer);
+      done(out);
+    });
     child.stdin.on("error", () => {});
     child.stdin.end(prompt);
   });
@@ -94,7 +136,12 @@ async function judgeOnce(ctx, prompt) {
 async function pool(jobs, width) {
   const results = new Array(jobs.length);
   let next = 0;
-  const worker = async () => { while (next < jobs.length) { const i = next++; results[i] = await jobs[i](); } };
+  const worker = async () => {
+    while (next < jobs.length) {
+      const i = next++;
+      results[i] = await jobs[i]();
+    }
+  };
   await Promise.all(Array.from({ length: Math.max(1, width) }, worker));
   return results;
 }
@@ -103,10 +150,15 @@ const rate = (hits, n) => (n ? Math.round((hits / n) * 1000) / 1000 : null);
 
 // The registry's retention rule over one axis's rates.
 export function keeps(retention, r, draws) {
-  return draws >= retention.draws_min
-    && r.defect_refused_with !== null && r.defect_refused_with >= retention.defect_refused_with_min
-    && r.defect_refused_without !== null && r.defect_refused_without <= retention.defect_refused_without_max
-    && r.clean_passed_with !== null && r.clean_passed_with >= retention.clean_passed_with_min;
+  return (
+    draws >= retention.draws_min &&
+    r.defect_refused_with !== null &&
+    r.defect_refused_with >= retention.defect_refused_with_min &&
+    r.defect_refused_without !== null &&
+    r.defect_refused_without <= retention.defect_refused_without_max &&
+    r.clean_passed_with !== null &&
+    r.clean_passed_with >= retention.clean_passed_with_min
+  );
 }
 
 export async function bench({ axisIds, draws, out, parallel, registryPath }) {
@@ -143,10 +195,15 @@ export async function bench({ axisIds, draws, out, parallel, registryPath }) {
             jobs.push(async () => {
               const v = await judged(prompt, d);
               const verdicts = v ? v.verdicts : null;
-              const hit = !verdicts ? null : kind === "defect"
-                ? (verdicts[at - 1] || {}).verdict === "does-not-fit"
-                : verdicts.every((x) => x.verdict === "fits");
-              appendFileSync(join(out, CALLS_FILE), `${JSON.stringify({ axis: id, arm, kind, record: name, draw: d, prompt_sha256: sha(prompt), verdict: v })}\n`);
+              const hit = !verdicts
+                ? null
+                : kind === "defect"
+                  ? (verdicts[at - 1] || {}).verdict === "does-not-fit"
+                  : verdicts.every((x) => x.verdict === "fits");
+              appendFileSync(
+                join(out, CALLS_FILE),
+                `${JSON.stringify({ axis: id, arm, kind, record: name, draw: d, prompt_sha256: sha(prompt), verdict: v })}\n`,
+              );
               tally[arm][kind].push(hit);
             });
           }
@@ -165,9 +222,17 @@ export async function bench({ axisIds, draws, out, parallel, registryPath }) {
       clean_passed_with: share(tally.with.clean),
       clean_passed_without: share(tally.without.clean),
     };
-    const unread = Object.values(tally).flatMap((k) => Object.values(k)).flat().filter((x) => x === null).length;
+    const unread = Object.values(tally)
+      .flatMap((k) => Object.values(k))
+      .flat()
+      .filter((x) => x === null).length;
     // An unread call leaves the axis unmeasured, which is never a reason to remove it.
-    report.axes[id] = { rates: r, unread, measured: unread === 0, kept: unread === 0 && keeps(registry.retention, r, draws) };
+    report.axes[id] = {
+      rates: r,
+      unread,
+      measured: unread === 0,
+      kept: unread === 0 && keeps(registry.retention, r, draws),
+    };
   }
   writeJson(join(out, BENCH_FILE), report);
   return report;
@@ -186,12 +251,21 @@ export function recordBench(report, registryPath) {
   for (const [id, a] of Object.entries(report.axes)) {
     const axis = registry.axes.find((x) => x.id === id);
     if (!axis || a.measured === false || a.unread > 0) continue;
-    if (a.kept) axis.justified_by = { date: report.date.slice(0, 10), run: report.run, draws: report.draws, rates: a.rates };
-    else { registry.axes = registry.axes.filter((x) => x.id !== id); removed.push(id); }
+    if (a.kept)
+      axis.justified_by = { date: report.date.slice(0, 10), run: report.run, draws: report.draws, rates: a.rates };
+    else {
+      registry.axes = registry.axes.filter((x) => x.id !== id);
+      removed.push(id);
+    }
   }
-  if (!registry.axes.length) throw new Error(`recording ${report.run} would remove every axis (${removed.join(", ")}); nothing was recorded`);
+  if (!registry.axes.length)
+    throw new Error(`recording ${report.run} would remove every axis (${removed.join(", ")}); nothing was recorded`);
   const reached = new Set();
-  const reach = (n) => { if (!n || reached.has(n)) return; reached.add(n); reach((registry.records[n] || {}).from); };
+  const reach = (n) => {
+    if (!n || reached.has(n)) return;
+    reached.add(n);
+    reach((registry.records[n] || {}).from);
+  };
   for (const a of registry.axes) for (const n of [...a.fixtures.defect, ...a.fixtures.clean]) reach(n);
   for (const n of Object.keys(registry.records)) if (!reached.has(n)) delete registry.records[n];
   writeJson(registryPath, registry);
@@ -204,14 +278,18 @@ function parseArgs(argv) {
     const k = argv[i];
     if (!k.startsWith("--")) fail(`unexpected argument ${JSON.stringify(k)}`);
     const name = k.slice(2);
-    if (name === "record") { a.record = true; continue; }
+    if (name === "record") {
+      a.record = true;
+      continue;
+    }
     a[name] = argv[++i];
   }
   return a;
 }
 
 async function main() {
-  const usage = "usage: node src/proof-sheet/judge-bench.mjs --axis <id|all> --draws <N> [--out <dir>] [--parallel <k>] [--record] [--registry <file>], or --record-from <run>/bench.json [--registry <file>]";
+  const usage =
+    "usage: node src/proof-sheet/judge-bench.mjs --axis <id|all> --draws <N> [--out <dir>] [--parallel <k>] [--record] [--registry <file>], or --record-from <run>/bench.json [--registry <file>]";
   const a = parseArgs(process.argv.slice(2));
   if (a["record-from"]) {
     const registryPath = a.registry ? resolve(a.registry) : PARAGRAPH_PLAN_AXES;
@@ -231,8 +309,10 @@ async function main() {
   const report = await bench({ axisIds, draws, out, parallel: Number(a.parallel) || 6, registryPath });
   for (const [id, x] of Object.entries(report.axes)) {
     const r = x.rates;
-    console.log(`${id}: defect refused ${r.defect_refused_with} with / ${r.defect_refused_without} without; `
-      + `clean passed ${r.clean_passed_with} with / ${r.clean_passed_without} without; unread ${x.unread} -- ${x.kept ? "kept" : x.measured ? "not kept" : "not measured"}`);
+    console.log(
+      `${id}: defect refused ${r.defect_refused_with} with / ${r.defect_refused_without} without; ` +
+        `clean passed ${r.clean_passed_with} with / ${r.clean_passed_without} without; unread ${x.unread} -- ${x.kept ? "kept" : x.measured ? "not kept" : "not measured"}`,
+    );
   }
   console.log(`bench: ${relFromRepo(join(out, BENCH_FILE))}`);
   if (a.record) {

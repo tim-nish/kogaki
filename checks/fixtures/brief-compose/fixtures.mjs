@@ -16,20 +16,27 @@ import { readBrief } from "../../../src/draft.mjs";
 // one reader the Draft uses -- so a fixture exercises the round trip rather
 // than an in-memory shortcut. `keys` overrides any top-level key.
 export const recordOf = (legs, keys = {}) => ({
-  slug: "fixture", compose_path: "audiences/dev-to-zenn.md",
+  slug: "fixture",
+  compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64) }],
   thesis: "The fixture claim.",
   reader_path: legs.map(legRecord),
-  strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
+  strand_coverage: [],
+  journey_coverage: [],
+  tradeoffs: {},
+  bridged: {},
   ...keys,
 });
 // THE DRAFT READS A LEG BY ITS TEXT (kogaki#1775, kogaki#1777): the compose-side fixtures below keep the
 // legacy Waypoint form `validateLegs` still admits without a structure, and a record handed to readBrief
 // is read with each Leg's first point as its text, the form the Draft's reader admits.
-export const legacyLegsToText = (legs) => (legs || []).map(({ waypoints, ...l }) => (l.text != null || !waypoints ? l : { ...l, text: waypoints[0].point }));
-export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText({ ...record, reader_path: legacyLegsToText(record.reader_path) }), path);
+export const legacyLegsToText = (legs) =>
+  (legs || []).map(({ waypoints, ...l }) => (l.text != null || !waypoints ? l : { ...l, text: waypoints[0].point }));
+export const briefOfRecord = (record, path = "fixture.yaml") =>
+  readBrief(briefRecordText({ ...record, reader_path: legacyLegsToText(record.reader_path) }), path);
 
-export const READER_START = "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
+export const READER_START =
+  "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
 
 // THE FOUR kogaki#1260 FIXTURES share one minimal path: s1 opens the Section, s2
 // follows, s3 reaches the Reader target -- the last Leg, since kogaki#1768. Each fixture varies one field and asserts
@@ -37,12 +44,16 @@ export const READER_START = "knowledge: can read code and has used a CI system\n
 // no term (kogaki#1768), so it carries its id, claims, waypoints and placement.
 export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id,
+    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+    waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
     ...extra,
   });
-  const legs = [legOf("s1", { opens_section: "A Section", ...s1extra }),
+  const legs = [
+    legOf("s1", { opens_section: "A Section", ...s1extra }),
     legOf("s2", s2extra),
-    legOf("s3", { reaches_target: true })];
+    legOf("s3", { reaches_target: true }),
+  ];
   return legs;
 };
 
@@ -50,10 +61,20 @@ export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
 // distinctive, and Candidates whose Legs bind it. Every Move carries its
 // `segments` -- the Adapter refuses one without them (kogaki#1412).
 export const FIT_MOVE = {
-  m_open: { breaks: ["breaks if the uncovered case is never named."],
-    segments: [{ operation: "states the claim." }, { operation: "names the one case it does not cover.", relation: "limits the claim it follows." }] },
-  m_turn: { breaks: ["breaks if only one party acts."],
-    segments: [{ operation: "states the first party's claim." }, { operation: "answers the claim in kind.", relation: "answers the opening." }] },
+  m_open: {
+    breaks: ["breaks if the uncovered case is never named."],
+    segments: [
+      { operation: "states the claim." },
+      { operation: "names the one case it does not cover.", relation: "limits the claim it follows." },
+    ],
+  },
+  m_turn: {
+    breaks: ["breaks if only one party acts."],
+    segments: [
+      { operation: "states the first party's claim." },
+      { operation: "answers the claim in kind.", relation: "answers the opening." },
+    ],
+  },
 };
 export const segmentText = (f) => f.segments.map((x) => x.operation);
 let fitMoves = null;
@@ -65,7 +86,16 @@ export function fitMoveLibrary() {
   // A Move record is YAML read by the Brief's own reader (kogaki#1413), so the
   // fixture is written by its writer, with `before` and `after` maps.
   for (const [id, f] of Object.entries(FIT_MOVE)) {
-    const rec = { id, description: `the fixture Move ${id}.`, before: { knowledge: `before ${id}.` }, after: { knowledge: `after ${id}.` }, breaks: f.breaks, segments: f.segments, takes: [], leaves: [] };
+    const rec = {
+      id,
+      description: `the fixture Move ${id}.`,
+      before: { knowledge: `before ${id}.` },
+      after: { knowledge: `after ${id}.` },
+      breaks: f.breaks,
+      segments: f.segments,
+      takes: [],
+      leaves: [],
+    };
     writeFileSync(join(fitMoves, `${id}.yaml`), stringifyYaml(rec));
   }
   // A FIXTURE LIBRARY IS A LIBRARY (kogaki#1349): the adapter in
@@ -78,7 +108,8 @@ export const START_1276 = "knowledge: before\nquestion: holds: none";
 // A Leg binds no Move (kogaki#1768): the fixture Leg carries its id, claims and waypoints.
 export const leg1276 = (legId, extra) => ({
   leg_id: legId,
-  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }], waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }],
+  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
+  waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }],
   ...extra,
 });
 // One Reader Path (kogaki#1768): no `characteristic` or `reader_experience`, which are retired.
@@ -105,16 +136,35 @@ export const CLAIMS_1494 = {
 export const STRUCTURE_1494 = {
   roles: [{ id: "cost", context: "What an attack costs.", attributes: [], claims: ["L1"] }],
   relations: [{ id: "r1", between: ["cost"], holds: "{cost} rises.", claims: ["L1"] }],
-  higher_order: [], attains_thesis: "r1",
+  higher_order: [],
+  attains_thesis: "r1",
 };
 export function runRenderings({ renderings }) {
   const dir = mkdtempSync(join(tmpdir(), "kogaki-1494-renderings-"));
-  const strands = [{ display_id: "L1", slug: "bamboo", cite: "fixture" }, { display_id: "L2", slug: "zebra", cite: "fixture" }];
+  const strands = [
+    { display_id: "L1", slug: "bamboo", cite: "fixture" },
+    { display_id: "L2", slug: "zebra", cite: "fixture" },
+  ];
   const briefPath = join(dir, "brief.yaml");
-  writeFileSync(briefPath, composeBrief({ slug: "fixture", strands, thesis: THESIS_1494, composePath: "audiences/dev-to-zenn.md", structure: STRUCTURE_1494 }));
+  writeFileSync(
+    briefPath,
+    composeBrief({
+      slug: "fixture",
+      strands,
+      thesis: THESIS_1494,
+      composePath: "audiences/dev-to-zenn.md",
+      structure: STRUCTURE_1494,
+    }),
+  );
   const runState = join(dir, "run.json");
-  writeFileSync(runState, JSON.stringify({ stage: "minted", strands,
-    strand_renderings: { bamboo: { headline: CLAIMS_1494.L1 }, zebra: { headline: CLAIMS_1494.L2 } } }));
+  writeFileSync(
+    runState,
+    JSON.stringify({
+      stage: "minted",
+      strands,
+      strand_renderings: { bamboo: { headline: CLAIMS_1494.L1 }, zebra: { headline: CLAIMS_1494.L2 } },
+    }),
+  );
   const renderingsPath = join(dir, "renderings.json");
   writeFileSync(renderingsPath, JSON.stringify({ version: "1", renderings }));
   const driver = `

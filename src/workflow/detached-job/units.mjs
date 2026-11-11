@@ -48,14 +48,19 @@ export function readerPathUnitRetryPrompt(firstPrompt, history) {
 // tool call written as text -- the malformed output of run brief-2026-10-08T02-55-02-626Z.
 // `startDetachedJobSupervisor` puts this first in every unit prompt it writes, and the
 // supervisor puts it first in every Move-fit prompt it builds, so no caller can omit it.
-const JOB_UNIT_NO_TOOLS_SENTENCE = "You are running with no tools and cannot open files. Every file path "
-  + "in this prompt is a citation for a human reader, not something to open; everything you need is in this "
-  + "prompt. Answer with the record alone.";
+const JOB_UNIT_NO_TOOLS_SENTENCE =
+  "You are running with no tools and cannot open files. Every file path " +
+  "in this prompt is a citation for a human reader, not something to open; everything you need is in this " +
+  "prompt. Answer with the record alone.";
 
 // A JUDGE'S REFUSAL, AS THE SITE LOOP READS IT (kogaki#1642, kogaki#1777): one failure per site it
 // names, or, where it names none, one failure refusing the record whole.
 export function judgedSites(failure) {
-  const named = (failure.move_fit || []).map((f) => ({ ...f, site: f.site ?? f.waypoint ?? null, refusal: f.refusal || f.why }));
+  const named = (failure.move_fit || []).map((f) => ({
+    ...f,
+    site: f.site ?? f.waypoint ?? null,
+    refusal: f.refusal || f.why,
+  }));
   return named.length ? named : [{ site: null, refusal: failure.stderr_tail }];
 }
 
@@ -96,32 +101,60 @@ export function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutF
   let child;
   let fd = null;
   if (stdoutFile && stdoutFile.path) {
-    try { fd = openSync(stdoutFile.path, stdoutFile.flag || "w"); } catch { fd = null; }
+    try {
+      fd = openSync(stdoutFile.path, stdoutFile.flag || "w");
+    } catch {
+      fd = null;
+    }
   }
   const closeFd = () => {
     if (fd === null) return;
-    try { closeSync(fd); } catch { /* already gone */ }
+    try {
+      closeSync(fd);
+    } catch {
+      /* already gone */
+    }
     fd = null;
   };
   try {
-    child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"], env: env ? { ...process.env, ...env } : process.env });
+    child = spawn(command, argv, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: env ? { ...process.env, ...env } : process.env,
+    });
   } catch (e) {
     closeFd();
-    out.error = e; out.done = true; out.endedAt = new Date().toISOString();
+    out.error = e;
+    out.done = true;
+    out.endedAt = new Date().toISOString();
     return { child: null, out };
   }
   child.stdout.on("data", (d) => {
-    out.bytes += d.length; out.chunks.push(d);
-    if (fd !== null) { try { writeSync(fd, d); } catch { /* the disk copy is best-effort; `out.chunks` is still the truth */ } }
+    out.bytes += d.length;
+    out.chunks.push(d);
+    if (fd !== null) {
+      try {
+        writeSync(fd, d);
+      } catch {
+        /* the disk copy is best-effort; `out.chunks` is still the truth */
+      }
+    }
     if (onBytes) onBytes(out.bytes);
   });
   child.stderr.on("data", (d) => out.errChunks.push(d));
-  child.on("error", (e) => { out.error = e; });
+  child.on("error", (e) => {
+    out.error = e;
+  });
   child.on("close", (code) => {
-    out.exitCode = code; out.done = true; out.endedAt = new Date().toISOString();
+    out.exitCode = code;
+    out.done = true;
+    out.endedAt = new Date().toISOString();
     closeFd();
   });
-  try { child.stdin.end(input); } catch { /* a child that exited before reading its prompt is the failure arm's */ }
+  try {
+    child.stdin.end(input);
+  } catch {
+    /* a child that exited before reading its prompt is the failure arm's */
+  }
   return { child, out };
 }
 
@@ -135,22 +168,40 @@ export function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutF
 // (`system`, `assistant`, …) before the one that terminates it. Unwrapping
 // `result` mirrors the same envelope `judgeRecordFrom` reads.
 function readerPathUnitRecord(stdout, recordArray = "legs") {
-  const lines = String(stdout == null ? "" : stdout).split("\n").filter((l) => l.trim() !== "");
+  const lines = String(stdout == null ? "" : stdout)
+    .split("\n")
+    .filter((l) => l.trim() !== "");
   let resultLine = null;
   let anyValidJson = false;
   for (let i = lines.length - 1; i >= 0; i--) {
     let obj;
-    try { obj = JSON.parse(lines[i]); } catch { continue; }
+    try {
+      obj = JSON.parse(lines[i]);
+    } catch {
+      continue;
+    }
     anyValidJson = true;
-    if (obj && typeof obj === "object" && obj.type === "result") { resultLine = obj; break; }
+    if (obj && typeof obj === "object" && obj.type === "result") {
+      resultLine = obj;
+      break;
+    }
   }
   if (!resultLine) {
-    return { error: anyValidJson ? "no `type: \"result\"` line in the stream-json output" : "not JSON: no line parsed as JSON" };
+    return {
+      error: anyValidJson ? 'no `type: "result"` line in the stream-json output' : "not JSON: no line parsed as JSON",
+    };
   }
   const inner = Object.prototype.hasOwnProperty.call(resultLine, "result") ? resultLine.result : resultLine;
-  const record = typeof inner === "string" ? (() => {
-    try { return JSON.parse(inner); } catch (e) { return { __parseError: `result did not parse: ${e.message}` }; }
-  })() : inner;
+  const record =
+    typeof inner === "string"
+      ? (() => {
+          try {
+            return JSON.parse(inner);
+          } catch (e) {
+            return { __parseError: `result did not parse: ${e.message}` };
+          }
+        })()
+      : inner;
   if (record && record.__parseError) return { error: record.__parseError };
   if (!record || typeof record !== "object" || Array.isArray(record)) return { error: "not a JSON object" };
   // THE ARRAY THE RECORD MUST CARRY IS DECLARED BY THE UNITS FILE (kogaki#1301):
@@ -167,11 +218,23 @@ function readerPathUnitRecord(stdout, recordArray = "legs") {
 // `readerPathUnitRecord`, whose "not a JSON object" / "no `legs` array"
 // checks are shaped for a LIVE candidate, not a dead unit's error string.
 function readerPathDeadUnitResult(stdout) {
-  const lines = String(stdout == null ? "" : stdout).split("\n").filter((l) => l.trim() !== "");
+  const lines = String(stdout == null ? "" : stdout)
+    .split("\n")
+    .filter((l) => l.trim() !== "");
   for (let i = lines.length - 1; i >= 0; i--) {
     let obj;
-    try { obj = JSON.parse(lines[i]); } catch { continue; }
-    if (obj && typeof obj === "object" && obj.type === "result" && obj.is_error === true && typeof obj.result === "string") {
+    try {
+      obj = JSON.parse(lines[i]);
+    } catch {
+      continue;
+    }
+    if (
+      obj &&
+      typeof obj === "object" &&
+      obj.type === "result" &&
+      obj.is_error === true &&
+      typeof obj.result === "string"
+    ) {
       return obj.result;
     }
   }
@@ -194,15 +257,41 @@ export const CALL_TIME_LIMIT = "call time limit";
 
 export function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = null) {
   if (out.error) {
-    return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+    return {
+      status: "died",
+      failure: {
+        exit_code: out.exitCode,
+        stderr_tail: readerPathBytes(String(out.error.message || out.error), 4000),
+        bytes_written: out.bytes,
+        ended_at: out.endedAt,
+      },
+    };
   }
   if (out.exitCode !== 0) {
     const result = readerPathDeadUnitResult(Buffer.concat(out.chunks || []).toString("utf8"));
-    return { status: "died", failure: { exit_code: out.exitCode, stderr_tail: readerPathBytes(Buffer.concat(out.errChunks).toString("utf8"), 4000), bytes_written: out.bytes, ended_at: out.endedAt, ...(result !== null ? { result } : {}) } };
+    return {
+      status: "died",
+      failure: {
+        exit_code: out.exitCode,
+        stderr_tail: readerPathBytes(Buffer.concat(out.errChunks).toString("utf8"), 4000),
+        bytes_written: out.bytes,
+        ended_at: out.endedAt,
+        ...(result !== null ? { result } : {}),
+      },
+    };
   }
   const r = readerPathUnitRecord(Buffer.concat(out.chunks).toString("utf8"), recordArray);
   if (r.error) {
-    return { status: "malformed", failure: { class: MALFORMED_OUTPUT, exit_code: out.exitCode, stderr_tail: readerPathBytes(r.error, 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+    return {
+      status: "malformed",
+      failure: {
+        class: MALFORMED_OUTPUT,
+        exit_code: out.exitCode,
+        stderr_tail: readerPathBytes(r.error, 4000),
+        bytes_written: out.bytes,
+        ended_at: out.endedAt,
+      },
+    };
   }
   if (validate) {
     const refusal = validate(r.candidate, unitId);
@@ -210,9 +299,21 @@ export function classifyDetachedJobUnit(out, validate, recordArray = "legs", uni
       // The refused record rides the classification so the next Round can be shown it
       // (kogaki#1438); `endUnit` keeps it off the row, where `candidate` means schema-valid.
       const text = typeof refusal === "string" ? refusal : refusal.text;
-      return { status: "refused", candidate: r.candidate, failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(text), 4000), bytes_written: out.bytes, ended_at: out.endedAt,
-        ...(typeof refusal === "object" ? { sites: refusal.sites } : {}),
-        ...(typeof refusal === "object" && refusal.reach ? { group: refusal.group, reach: refusal.reach, ...(refusal.undeclared ? { undeclared: true } : {}) } : {}) } };
+      return {
+        status: "refused",
+        candidate: r.candidate,
+        failure: {
+          class: SCHEMA_REFUSAL,
+          exit_code: out.exitCode,
+          stderr_tail: readerPathBytes(String(text), 4000),
+          bytes_written: out.bytes,
+          ended_at: out.endedAt,
+          ...(typeof refusal === "object" ? { sites: refusal.sites } : {}),
+          ...(typeof refusal === "object" && refusal.reach
+            ? { group: refusal.group, reach: refusal.reach, ...(refusal.undeclared ? { undeclared: true } : {}) }
+            : {}),
+        },
+      };
     }
   }
   return { status: "done", candidate: r.candidate };
@@ -229,11 +330,30 @@ export function classifyFitJudgeCall(out, fit, candidate, unitId, scope = null) 
   if (base.status !== "done") return base;
   const v = fit.verdict(base.candidate, candidate, unitId, scope);
   if (v.error) {
-    return { status: "malformed", failure: { class: MALFORMED_OUTPUT, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(v.error), 4000), bytes_written: out.bytes, ended_at: out.endedAt } };
+    return {
+      status: "malformed",
+      failure: {
+        class: MALFORMED_OUTPUT,
+        exit_code: out.exitCode,
+        stderr_tail: readerPathBytes(String(v.error), 4000),
+        bytes_written: out.bytes,
+        ended_at: out.endedAt,
+      },
+    };
   }
   if (v.refusal) {
-    return { status: "refused", specialization: base.candidate,
-      failure: { class: SCHEMA_REFUSAL, exit_code: out.exitCode, stderr_tail: readerPathBytes(String(v.refusal), 4000), bytes_written: out.bytes, ended_at: out.endedAt, move_fit: v.failures || [] } };
+    return {
+      status: "refused",
+      specialization: base.candidate,
+      failure: {
+        class: SCHEMA_REFUSAL,
+        exit_code: out.exitCode,
+        stderr_tail: readerPathBytes(String(v.refusal), 4000),
+        bytes_written: out.bytes,
+        ended_at: out.endedAt,
+        move_fit: v.failures || [],
+      },
+    };
   }
   return { status: "done", specialization: base.candidate };
 }

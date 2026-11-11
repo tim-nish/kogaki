@@ -18,16 +18,19 @@ export function resolvedRow(table, id) {
   let text = String(row.judgment_point);
   for (const [name, c] of Object.entries(row.copies || {})) {
     const source = JSON.parse(readFileSync(join(REPO, c.file), "utf8"));
-    const field = String(((source[c.row] || {})[c.field]) ?? "");
+    const field = String((source[c.row] || {})[c.field] ?? "");
     const open = field.indexOf(c.opens);
     const close = open < 0 ? -1 : field.indexOf(c.closes, open + c.opens.length);
-    if (close < 0) return { error: `\`${id}\`'s copy \`${name}\`: ${c.file}'s \`${c.row}.${c.field}\` no longer carries ${JSON.stringify(c.opens)} … ${JSON.stringify(c.closes)}` };
+    if (close < 0)
+      return {
+        error: `\`${id}\`'s copy \`${name}\`: ${c.file}'s \`${c.row}.${c.field}\` no longer carries ${JSON.stringify(c.opens)} … ${JSON.stringify(c.closes)}`,
+      };
     const token = `{{copy:${name}}}`;
-    if (!text.includes(token)) return { error: `\`${id}\` declares the copy \`${name}\`, and its judgment point carries no ${token}` };
+    if (!text.includes(token))
+      return { error: `\`${id}\` declares the copy \`${name}\`, and its judgment point carries no ${token}` };
     text = text.split(token).join(field.slice(open, close + c.closes.length));
   }
   const left = /\{\{copy:([^}]+)\}\}/.exec(text);
   if (left) return { error: `\`${id}\`'s judgment point carries ${left[0]}, which its \`copies\` does not declare` };
   return { row: { ...row, id, judgment_point: text } };
 }
-

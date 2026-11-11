@@ -29,9 +29,7 @@ import { fail, argString, readBrief, sha256 } from "./brief-reader.mjs";
 // four of the five commands call this one mid-run, when pruning would be a
 // lane act performed by a leg that owns no run.
 export function workspaceFor(args, slug) {
-  const base = typeof args.workspace === "string" && args.workspace !== ""
-    ? args.workspace
-    : laneDir("draft");
+  const base = typeof args.workspace === "string" && args.workspace !== "" ? args.workspace : laneDir("draft");
   return join(base, slug);
 }
 
@@ -66,13 +64,19 @@ export function langOf(args) {
 // English track's own paths, untouched, and a Japanese Leg's realized prose
 // and Packet live at `sections/ja/<id>.md` / `packets/ja/<id>.md` instead of
 // colliding with the English Leg of the same id.
-export function sectionsDir(ws, lang) { return lang === "en" ? join(ws, "sections") : join(ws, "sections", lang); }
-export function packetsDir(ws, lang) { return lang === "en" ? join(ws, "packets") : join(ws, "packets", lang); }
+export function sectionsDir(ws, lang) {
+  return lang === "en" ? join(ws, "sections") : join(ws, "sections", lang);
+}
+export function packetsDir(ws, lang) {
+  return lang === "en" ? join(ws, "packets") : join(ws, "packets", lang);
+}
 // run.json's packet-record key, for the SAME reason: `packets` is the
 // English track's own key, untouched, and a non-English track's records live
 // under `packets_<lang>` instead of overwriting the English Leg's record of
 // the same id.
-export function packetsRecordKey(lang) { return lang === "en" ? "packets" : `packets_${lang}`; }
+export function packetsRecordKey(lang) {
+  return lang === "en" ? "packets" : `packets_${lang}`;
+}
 
 // Per-block snapshot (kogaki#523 shape): the FULL assembled state, into
 // the run workspace, before-and-after per section landing. A snapshot failure
@@ -90,21 +94,28 @@ export function snapshotDraft(ws, phase, seq, content) {
 export function loadBrief(args) {
   const path = argString(args, "brief", "this command needs --brief <path to theses/<slug>/brief.yaml>");
   let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (e) {
+    fail(`the Brief at ${path} cannot be read (${e.message})`);
+  }
   const brief = readBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
   // NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired, kogaki#1311): the Move is read up to
   // Waypoint generation and never again.
   if (args["moves-dir"] !== undefined) {
-    fail("--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg's paragraphs and their "
-      + "Waypoints are written by /paragraph-plan, and the Packet renders those");
+    fail(
+      "--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg's paragraphs and their " +
+        "Waypoints are written by /paragraph-plan, and the Packet renders those",
+    );
   }
   // THE LEG IS THE UNIT (kogaki#1777): a Leg carries its relation's `holds` as `text` and no Brief Waypoint.
   for (const leg of brief.legs) {
     if (Array.isArray(leg.waypoints)) {
-      fail(`the Brief at ${path}, leg ${leg.leg_id} carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775), `
-        + "and its paragraphs are /paragraph-plan's (kogaki#1777); compose the Brief again with /brief");
+      fail(
+        `the Brief at ${path}, leg ${leg.leg_id} carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775), ` +
+          "and its paragraphs are /paragraph-plan's (kogaki#1777); compose the Brief again with /brief",
+      );
     }
   }
   // THE PARAGRAPHS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
@@ -128,7 +139,12 @@ export function loadBrief(args) {
   // text as read, which the run record, each Packet entry and the Draft carry.
   const planSha = sha256(readFileSync(plan.path, "utf8"));
   // ...AND OF THE MAPPING RECORD AT ITS DIGEST (kogaki#1733), null where the plan names none.
-  return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha } };
+  return {
+    ...brief,
+    legs,
+    path: resolve(path),
+    paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha },
+  };
 }
 
 // One Leg's `{ structure, table }` from the Mapping Record, either null where its file is absent.
@@ -180,17 +196,34 @@ function figureBlocks(ws) {
   const out = new Map();
   const errors = [];
   let records = {};
-  try { records = JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).figures || {}; }
-  catch { return { blocks: out, errors }; }
+  try {
+    records = JSON.parse(readFileSync(join(ws, "run.json"), "utf8")).figures || {};
+  } catch {
+    return { blocks: out, errors };
+  }
   for (const id of Object.keys(records).sort()) {
     const rec = records[id];
     if (!rec || typeof rec.path !== "string" || !existsSync(rec.path)) continue;
     let record;
-    try { record = JSON.parse(readFileSync(rec.path, "utf8")); }
-    catch (e) { errors.push(`leg ${id}: the figure record at ${rec.path} is not readable JSON (${e.message}) — it was written by \`figure\` and validated then, so a record unreadable now was edited outside the Harness`); continue; }
+    try {
+      record = JSON.parse(readFileSync(rec.path, "utf8"));
+    } catch (e) {
+      errors.push(
+        `leg ${id}: the figure record at ${rec.path} is not readable JSON (${e.message}) — it was written by \`figure\` and validated then, so a record unreadable now was edited outside the Harness`,
+      );
+      continue;
+    }
     const r = renderFigure(record);
-    if (r.error) { errors.push(`leg ${id}: ${r.error}`); continue; }
-    out.set(id, { markup: r.markup, position: rec.position === "before" ? "before" : "after", path: rec.path, sha256: rec.sha256 });
+    if (r.error) {
+      errors.push(`leg ${id}: ${r.error}`);
+      continue;
+    }
+    out.set(id, {
+      markup: r.markup,
+      position: rec.position === "before" ? "before" : "after",
+      path: rec.path,
+      sha256: rec.sha256,
+    });
   }
   return { blocks: out, errors };
 }
@@ -241,7 +274,10 @@ export function assembleBody(brief, ws, lang = "en") {
   const figureRanges = new Map();
   for (const leg of brief.legs) {
     const f = join(sectionsDir(ws, lang), `${leg.leg_id}.md`);
-    if (!existsSync(f)) { missing.push(leg.leg_id); continue; }
+    if (!existsSync(f)) {
+      missing.push(leg.leg_id);
+      continue;
+    }
     const sec = opensAt.get(leg.leg_id);
     // An untitled Section renders no heading rather than an empty one. It is
     // reachable only on a pre-Section-grouping path, whose whole body is one Section.

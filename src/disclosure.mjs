@@ -61,9 +61,11 @@ function loadTable() {
   try {
     raw = JSON.parse(readFileSync(TABLE_PATH, "utf8"));
   } catch (e) {
-    throw new Error(`src/disclosure-fields.json is unreadable or unparseable (${e.message}) — `
-      + `the disclosure table is REFUSED rather than defaulted to empty, because an empty table `
-      + `makes every surface obligation vacuous and reads exactly like a Candidate that owed none`);
+    throw new Error(
+      `src/disclosure-fields.json is unreadable or unparseable (${e.message}) — ` +
+        `the disclosure table is REFUSED rather than defaulted to empty, because an empty table ` +
+        `makes every surface obligation vacuous and reads exactly like a Candidate that owed none`,
+    );
   }
   return raw;
 }
@@ -83,14 +85,22 @@ export function validateDisclosureTable(table = TABLE) {
   const grades = table.grades || {};
   const fields = table.fields || {};
   if (Object.keys(grades).length === 0) {
-    return { error: "the disclosure table declares no grades — a table with no grade names no surface, and every field in it would be undeliverable" };
+    return {
+      error:
+        "the disclosure table declares no grades — a table with no grade names no surface, and every field in it would be undeliverable",
+    };
   }
   if (Object.keys(fields).length === 0) {
-    return { error: "the disclosure table declares no fields — an empty table makes every surface obligation vacuous, which is indistinguishable from a Candidate that owed none" };
+    return {
+      error:
+        "the disclosure table declares no fields — an empty table makes every surface obligation vacuous, which is indistinguishable from a Candidate that owed none",
+    };
   }
   for (const [g, surface] of Object.entries(grades)) {
     if (typeof surface !== "string" || surface.trim() === "") {
-      return { error: `disclosure grade ${JSON.stringify(g)} names no surface — a grade IS the mapping from evidence to the place the owner reads it, so a grade with no surface declares nothing` };
+      return {
+        error: `disclosure grade ${JSON.stringify(g)} names no surface — a grade IS the mapping from evidence to the place the owner reads it, so a grade with no surface declares nothing`,
+      };
     }
   }
   const claimed = new Set();
@@ -99,16 +109,22 @@ export function validateDisclosureTable(table = TABLE) {
       return { error: `disclosure field ${JSON.stringify(name)} carries no entry — a bare name declares no surface` };
     }
     if (!Object.prototype.hasOwnProperty.call(grades, entry.grade)) {
-      return { error: `disclosure field ${JSON.stringify(name)} names grade ${JSON.stringify(entry.grade)}, which the table does not declare — the known grades are ${Object.keys(grades).join(", ")}` };
+      return {
+        error: `disclosure field ${JSON.stringify(name)} names grade ${JSON.stringify(entry.grade)}, which the table does not declare — the known grades are ${Object.keys(grades).join(", ")}`,
+      };
     }
     if (typeof entry.why !== "string" || entry.why.trim() === "") {
-      return { error: `disclosure field ${JSON.stringify(name)} states no reason for its grade — the grade is a judgment about whether the evidence bears on the choice, and a judgment with no ground is a preference` };
+      return {
+        error: `disclosure field ${JSON.stringify(name)} states no reason for its grade — the grade is a judgment about whether the evidence bears on the choice, and a judgment with no ground is a preference`,
+      };
     }
     claimed.add(entry.grade);
   }
   for (const g of Object.keys(grades)) {
     if (!claimed.has(g)) {
-      return { error: `disclosure grade ${JSON.stringify(g)} is declared and claimed by no field — a surface nothing reaches reads as coverage while delivering nothing` };
+      return {
+        error: `disclosure grade ${JSON.stringify(g)} is declared and claimed by no field — a surface nothing reaches reads as coverage while delivering nothing`,
+      };
     }
   }
   return {};

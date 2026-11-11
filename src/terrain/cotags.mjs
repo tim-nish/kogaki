@@ -6,11 +6,20 @@ import { loadGrammar, refuseUnlessConformant, FormatRefusal } from "../format-gu
 import { announceDisplay, writeDisplaySurface } from "./compose-input.mjs";
 import { artifactPath } from "./flows.mjs";
 import {
-  claimsOutsideBound, judgePinLine, judgmentProvenance, readClaimsRecord, readSubdivisionEntry,
+  claimsOutsideBound,
+  judgePinLine,
+  judgmentProvenance,
+  readClaimsRecord,
+  readSubdivisionEntry,
 } from "./report.mjs";
 import { SUBDIVISION_REQUIRED_AT, judgeSubgroup, subgroupPlacement } from "./subdivide.mjs";
 import {
-  SURVEY_SCHEMA, denominator, displayIdAbnormalLine, displayIds, familySplit, lessonCount,
+  SURVEY_SCHEMA,
+  denominator,
+  displayIdAbnormalLine,
+  displayIds,
+  familySplit,
+  lessonCount,
   strandFigure,
 } from "./survey.mjs";
 import { subdivisionLimits } from "../workflow/judge.mjs";
@@ -27,7 +36,8 @@ const NO_SECOND_TAG = "(no second served tag)";
 // discipline the rendering rule applies to a missing Gloss rendering, at the claim's layer.
 // The row's TC-target marker (kogaki#861). Same vocabulary as the Gloss
 // markers beside it: a fault to clear, never a substituted candidate id.
-export const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
+export const NO_TARGET =
+  "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
 
 export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clear, never substituted⟩";
 
@@ -37,7 +47,8 @@ export const NO_CLAIM = "⟨no composed GroupClaim — ABNORMAL, a fault to clea
 // "Group ID, Strand ID, gloss, journey — and nothing else" (wa#1115/#1116).
 // The ordering is DECLARED rather than scored: co-tag name ascending, then
 // member id ascending. No scoring, no model call in the ordering.
-const COTAG_SORT = "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
+const COTAG_SORT =
+  "co-tag name ascending, then member id ascending (declared; no scoring, no model call in the ordering)";
 
 export function cotagGroups(members, selectedTag) {
   const byCotag = new Map();
@@ -87,11 +98,16 @@ export function cmdCotags(args) {
   // still goes to stderr and is not a line of this surface
   // (report-format.json `refusal_text_boundary`).
   const display = [];
-  const say = (s = "") => { for (const line of String(s).split("\n")) display.push(line); };
+  const say = (s = "") => {
+    for (const line of String(s).split("\n")) display.push(line);
+  };
   const record = readJson(String(args.survey || fail("cotags needs --survey <file>")));
   const tag = String(args.tag || fail("cotags needs --tag <selected tag>"));
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
-  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
+  if (members.length === 0)
+    fail(
+      `no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`,
+    );
   const groups = cotagGroups(members, tag);
 
   // Machine-composed connective prose at render time is ADMISSIBLE (the co-tag navigation step), and
@@ -104,7 +120,9 @@ export function cmdCotags(args) {
     prose = readJson(String(args.connective));
     for (const k of Object.keys(prose)) {
       if (!groups.some((g) => g.name === k)) {
-        fail(`connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md, the co-tag navigation step)`);
+        fail(
+          `connective prose names ${JSON.stringify(k)}, which is no composed group — prose carries no selection authority and may not invent, merge or rename a group (SPEC.md, the co-tag navigation step)`,
+        );
       }
     }
   }
@@ -127,18 +145,24 @@ export function cmdCotags(args) {
   if (_compPin) {
     const outside = claimsOutsideBound(claims, _compPin, groups);
     if (outside.length) {
-      const detail = outside.map((o) => o.members.length
-        ? `${o.group}: ${o.members.join(", ")} (${o.reason})`
-        : `${o.group} (${o.reason})`).join("; ");
-      fail(`--claims were composed OUTSIDE the bounded read: ${detail}. `
-        + "Every claim must be composed from the material `compose-input` served, and "
-        + "the composition pin records what that was — recompose from it rather than "
-        + "from the whole survey (SPEC.md, the open-questions section, v10)");
+      const detail = outside
+        .map((o) =>
+          o.members.length ? `${o.group}: ${o.members.join(", ")} (${o.reason})` : `${o.group} (${o.reason})`,
+        )
+        .join("; ");
+      fail(
+        `--claims were composed OUTSIDE the bounded read: ${detail}. ` +
+          "Every claim must be composed from the material `compose-input` served, and " +
+          "the composition pin records what that was — recompose from it rather than " +
+          "from the whole survey (SPEC.md, the open-questions section, v10)",
+      );
     }
   }
   for (const k of Object.keys(claims)) {
     if (!groups.some((g) => g.name === k || g.cotag === k)) {
-      fail(`--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md, the display's serve rule)`);
+      fail(
+        `--claims names ${JSON.stringify(k)}, which is no composed group — a claim carries no selection authority and may not invent, merge or rename a group (SPEC.md, the display's serve rule)`,
+      );
     }
   }
   // SubGroups, where semantic subdivision's conditions bind (the SubGroup threshold). WHETHER to subdivide is the
@@ -165,16 +189,22 @@ export function cmdCotags(args) {
   if (Object.keys(subdivisions).length) {
     const m = args["judge-model"];
     const e = args["judge-effort"];
-    if (!m || !e) fail("--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md, the SubGroup threshold, semantic subdivision)");
-  // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
-  // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
-  // declared pin names a model the composer says judged, and there is no
-  // executable behind it to name. The executor's own path supplies it, which is
-  // the path every judged surface this repository mints comes through.
+    if (!m || !e)
+      fail(
+        "--judge-model and --judge-effort are required when the display serves SubGroups: a judged surface that records no judge cannot be seen to drift (SPEC.md, the SubGroup threshold, semantic subdivision)",
+      );
+    // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
+    // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
+    // declared pin names a model the composer says judged, and there is no
+    // executable behind it to name. The executor's own path supplies it, which is
+    // the path every judged surface this repository mints comes through.
     judgePin = {
-      model_id: String(m), effort_tier: String(e),
-      binary_version: args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
-        ? null : String(args["judge-binary-version"]),
+      model_id: String(m),
+      effort_tier: String(e),
+      binary_version:
+        args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
+          ? null
+          : String(args["judge-binary-version"]),
     };
   }
   // WHAT THE HARNESS OBSERVED about that pin (kogaki#892). Computed here, beside
@@ -200,7 +230,9 @@ export function cmdCotags(args) {
     // any display — the pin is sited ONCE, in the Full Report (the display's serve rule v5's
     // withdrawal of the v4 per-row pin; the WA baseline, wa#1115/#1116).
     const _entry = readSubdivisionEntry(
-      g.name, subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+      g.name,
+      subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag],
+    );
     // The display's own reader takes the SubGroupClaim list out of the typed
     // record. A judged-empty group has none, which is the conformant state and
     // renders as no SubGroups rather than as a catch-all.
@@ -244,8 +276,7 @@ export function cmdCotags(args) {
       // retired-vocab-ok: provenance, past tense.
       // Keys on the OUTCOME — one SubGroup labelled `other` — and never fires at or above
       // SUBDIVISION_REQUIRED_AT: a ≥10 group renders its split. Records: kogaki#683, kogaki#738.
-      const bought = named.length === 1 && named[0].verdicts
-        && named[0].verdicts.coherence === "other";
+      const bought = named.length === 1 && named[0].verdicts && named[0].verdicts.coherence === "other";
       const boughtNothing = bought && g.members.length < SUBDIVISION_REQUIRED_AT;
       judged = boughtNothing ? null : subgroups;
       if (boughtNothing) suppressedSplits++;
@@ -264,9 +295,11 @@ export function cmdCotags(args) {
     // the SubGroup threshold — a subdivided group's heading carries the parent's Lesson count
     // (kogaki#739; report-format.json v15). Only the count, not the member list: the two
     // heading classes differ by exactly the `: <ids>` tail, count in the same position.
-    say(judged
-      ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
-      : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`);
+    say(
+      judged
+        ? `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}`
+        : `${g.gid} — ${g.name} — ${lessonCount(g.members.length)}: ${gShown.rendered.join(", ")}`,
+    );
     if (!judged && gShown.missing) {
       say(displayIdAbnormalLine(gShown.missing, g.members.length));
     }
@@ -320,7 +353,7 @@ export function cmdCotags(args) {
         // belongs. Flush left; the parenthesised count form is gone with the
         // indentation, since two punctuations for one shape meant nothing once
         // the level moved into the id.
-        sg.sgid = `${g.gid}-${sgIdx += 1}`;
+        sg.sgid = `${g.gid}-${(sgIdx += 1)}`;
         say(`\n${sg.sgid} — ${lessonCount(sg.members.length)}: ${sgShown.rendered.join(", ")} — ${sg.name}`);
         if (sgShown.missing) say(displayIdAbnormalLine(sgShown.missing, sg.members.length));
         say(`in common: ${sg.claim || NO_CLAIM}`);
@@ -340,14 +373,20 @@ export function cmdCotags(args) {
   // cannot otherwise tell that from a group nobody judged. Aggregate rather
   // than per-group, because a per-group line is what AC5 removes.
   if (suppressedSplits) {
-    say(`\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md, the SubGroup threshold v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`);
+    say(
+      `\n${suppressedSplits} of ${shown.length} group(s) under ${SUBDIVISION_REQUIRED_AT} members render flat because their only named SubGroup was labelled \`other\` — the residual, so the judge found no subset of ${subdivisionLimits().min} or more members at loose-or-better affinity among them and the split bought nothing and does not discharge the subdivision obligation (SPEC.md, the SubGroup threshold v7, kogaki#316; re-keyed and bounded at kogaki#683). The groups are fully conformant; nothing was hidden and no member was dropped. At or above ${SUBDIVISION_REQUIRED_AT} members this path is unavailable: the group renders its split, labelled honestly.`,
+    );
   }
   if (claimless) {
-    say(`\nABNORMAL: ${claimless} of ${shown.length} group(s) on this display carry no composed GroupClaim. The display's serve rule serves the claim FIRST and a display without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`);
+    say(
+      `\nABNORMAL: ${claimless} of ${shown.length} group(s) on this display carry no composed GroupClaim. The display's serve rule serves the claim FIRST and a display without one cannot show what its members share — this is a fault to clear in composition, and nothing was substituted for it.`,
+    );
     // The remedy names the BOUNDED input rather than "go compose something":
     // the fault above is cleared by composing, and the way composing was
     // costing ~19 minutes was per-group reads (kogaki#163 lever 3).
-    say(`Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which semantic subdivision's judgment is composed from the SAME artifact and spends no further read).`);
+    say(
+      `Compose them from the bounded input — compose-input --survey ${String(args.survey)} --tag ${tag} — and pass the result back as --claims (and --subdivisions, which semantic subdivision's judgment is composed from the SAME artifact and spends no further read).`,
+    );
   }
 
   // The cover, counted AFTER composition, over ALL composed groups — never
@@ -356,15 +395,28 @@ export function cmdCotags(args) {
   // denominator or the numerator of the figure below.
   const { covered, uncovered, invented } = cotagCover(members, groups);
   if (uncovered.length) {
-    fail(`COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md, the placement cover, the co-tag navigation step).`);
+    fail(
+      `COTAG_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${tag} appear in no co-tag group: ${uncovered.join(", ")}. Every member appears in at least one group and members carrying no second tag appear in the explicit ${JSON.stringify(NO_SECOND_TAG)} group rather than being dropped (SPEC.md, the placement cover, the co-tag navigation step).`,
+    );
   }
   if (invented.length) {
-    fail(`COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md, the placement cover, the co-tag navigation step).`);
+    fail(
+      `COTAG_COVER_INVENTED — ${invented.length} id(s) appear in a co-tag group without carrying ${JSON.stringify(tag)}: ${invented.join(", ")}. Composition may group the members and may not add one; a cover counted without checking its numerator's provenance would pass a group list that dropped a member and gained a stranger (SPEC.md, the placement cover, the co-tag navigation step).`,
+    );
   }
-  const split = familySplit(members.map((c) => c.id), record.candidates);
-  say(`\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`);
-  say(`Classification: NAVIGATION (SPEC.md, the second-proposer boundary — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`);
-  say(`Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`);
+  const split = familySplit(
+    members.map((c) => c.id),
+    record.candidates,
+  );
+  say(
+    `\nCover: ${covered.size} of ${members.length} member Lessons appear in at least one co-tag group — counted AFTER composition, over placements. Selected tag: ${strandFigure(split)}; ${denominator(members.length, record.candidates.length)}.`,
+  );
+  say(
+    `Classification: NAVIGATION (SPEC.md, the second-proposer boundary — enumerate + sort over tags the members already carry on the served surface). No proposal record is written, and no record of any kind.`,
+  );
+  say(
+    `Narrows nothing: the survey record is unchanged, the full candidate set stays reachable, and free text still reaches every Strand at the gate.`,
+  );
   if (!selected) say(`\nSelect a group (still narrowing nothing): cotags --survey <F> --tag ${tag} --group "<co-tag>"`);
 
   // THE REFUSAL is over the STRING about to be emitted (AC1, AC3), never over `groups`/`record`.
@@ -424,19 +476,28 @@ export function composeOwnerListing(surfaceName, text) {
 const COTAG_MEMBER_ID = "(?:L\\d+|⟨[^⟩]*⟩)";
 const COTAG_GROUP_HEADING = /^(G\d+) — (.+?) — (\d+ Lessons?)(?::.*)?$/;
 const COTAG_SUBGROUP_HEADING = new RegExp(
-  `^(G\\d+-\\d+) — (\\d+ Lessons?): ${COTAG_MEMBER_ID}(?:, ${COTAG_MEMBER_ID})* — (.+)$`);
+  `^(G\\d+-\\d+) — (\\d+ Lessons?): ${COTAG_MEMBER_ID}(?:, ${COTAG_MEMBER_ID})* — (.+)$`,
+);
 const COTAG_ANY_ID_LINE = /^G\d+(?:-\d+)? — /;
 
 export function composeIdGateListing(text, artifactPath) {
   const rows = [];
   for (const line of String(text).split("\n")) {
     const g = COTAG_GROUP_HEADING.exec(line);
-    if (g) { rows.push(`${g[1]} — ${g[3]} — ${g[2]}`); continue; }
+    if (g) {
+      rows.push(`${g[1]} — ${g[3]} — ${g[2]}`);
+      continue;
+    }
     const sg = COTAG_SUBGROUP_HEADING.exec(line);
-    if (sg) { rows.push(`${sg[1]} — ${sg[2]} — ${sg[3]}`); continue; }
+    if (sg) {
+      rows.push(`${sg[1]} — ${sg[2]} — ${sg[3]}`);
+      continue;
+    }
     if (COTAG_ANY_ID_LINE.test(line)) {
-      fail(`the co-tag rendering carries a Group or SubGroup heading this listing cannot reduce to an id, a count and a name: ${JSON.stringify(line)}. `
-        + "The ID gate's reading is a projection of that file's heading lines (kogaki#1090), so a heading shape it does not know is a row the owner would never see — and a listing shorter than the grouping is the failure the whole-file payload was replaced to avoid.");
+      fail(
+        `the co-tag rendering carries a Group or SubGroup heading this listing cannot reduce to an id, a count and a name: ${JSON.stringify(line)}. ` +
+          "The ID gate's reading is a projection of that file's heading lines (kogaki#1090), so a heading shape it does not know is a row the owner would never see — and a listing shorter than the grouping is the failure the whole-file payload was replaced to avoid.",
+      );
     }
   }
   // AN ARTIFACT THAT YIELDS NO ROW IS THE SAME REFUSAL, not an absence (PR
@@ -450,8 +511,10 @@ export function composeIdGateListing(text, artifactPath) {
   // and stays with the caller, which is the only party that can tell the two
   // apart.
   if (!rows.length) {
-    fail(`the co-tag rendering at ${artifactPath} carries no Group heading this listing could reduce, and a written rendering always carries at least one. `
-      + "The ID gate's reading is a projection of that file (kogaki#1090), so an empty projection over a non-empty file is a read that failed rather than a grouping that is absent.");
+    fail(
+      `the co-tag rendering at ${artifactPath} carries no Group heading this listing could reduce, and a written rendering always carries at least one. ` +
+        "The ID gate's reading is a projection of that file (kogaki#1090), so an empty projection over a non-empty file is a read that failed rather than a grouping that is absent.",
+    );
   }
   return [
     `The composed grouping — ${rows.length} row(s). Read ${artifactPath} for the claims, the coherence lines and the disclosures; this is the id, the count and the name alone.`,

@@ -56,8 +56,18 @@ export class ParagraphPlanMapper {
     const u = this.units.get(unitId);
     const path = mappingStatePath(this.ctx.runDir, unitId);
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${JSON.stringify({ leg_id: u.leg.leg_id, ...(u.structure ? { structure: u.structure } : {}),
-      ...(u.table ? { table: u.table } : {}) }, null, 2)}\n`);
+    writeFileSync(
+      path,
+      `${JSON.stringify(
+        {
+          leg_id: u.leg.leg_id,
+          ...(u.structure ? { structure: u.structure } : {}),
+          ...(u.table ? { table: u.table } : {}),
+        },
+        null,
+        2,
+      )}\n`,
+    );
   }
 
   grounded(unitId) {
@@ -68,8 +78,18 @@ export class ParagraphPlanMapper {
   // READING FIRST: the Leg's relation, once.
   begin(unitId, input) {
     const { leg, strand } = this.legOf(unitId);
-    this.units.set(unitId, { leg, strand, input, stage: READING, pending_calls: 1, history: [], calls: 0,
-      structure: null, table: null, candidate: null });
+    this.units.set(unitId, {
+      leg,
+      strand,
+      input,
+      stage: READING,
+      pending_calls: 1,
+      history: [],
+      calls: 0,
+      structure: null,
+      table: null,
+      candidate: null,
+    });
     return this.next(unitId);
   }
 
@@ -106,10 +126,15 @@ export class ParagraphPlanMapper {
   composeAct(u, confined) {
     const leg = u.input.leg_you_must_plan;
     const t = u.table;
-    const planned = { ...leg, ...(u.structure ? { structure: structureForPlan(u.structure) } : {}),
-      ...(confined && t ? { move: t.move, table: { base: t.base, correspondences: t.correspondences } } : {}) };
-    const input = confined && t ? withAnalogy({ ...u.input, leg_you_must_plan: planned }, this.contractOf(u), this.inputs.analogy)
-      : { ...u.input, leg_you_must_plan: planned };
+    const planned = {
+      ...leg,
+      ...(u.structure ? { structure: structureForPlan(u.structure) } : {}),
+      ...(confined && t ? { move: t.move, table: { base: t.base, correspondences: t.correspondences } } : {}),
+    };
+    const input =
+      confined && t
+        ? withAnalogy({ ...u.input, leg_you_must_plan: planned }, this.contractOf(u), this.inputs.analogy)
+        : { ...u.input, leg_you_must_plan: planned };
     return { prompt: `${this.inputs.planHead}${JSON.stringify(input, null, 2)}`, input };
   }
 
@@ -119,22 +144,37 @@ export class ParagraphPlanMapper {
   // reader-state field: the last is derived from the Leg order (`toldBefore`).
   proposition(leg) {
     const lines = [String(leg.text)];
-    if ((leg.claims || []).length) lines.push("The Claims it is read from:", ...leg.claims.map((g) => `- ${g.strand}: ${g.proposition}`));
-    if ((leg.roles || []).length) lines.push("The Roles it stands between:", ...leg.roles.map((r) => `- ${r.name || r.id}: ${r.context}`));
+    if ((leg.claims || []).length)
+      lines.push("The Claims it is read from:", ...leg.claims.map((g) => `- ${g.strand}: ${g.proposition}`));
+    if ((leg.roles || []).length)
+      lines.push("The Roles it stands between:", ...leg.roles.map((r) => `- ${r.name || r.id}: ${r.context}`));
     if ((leg.the_reader_has_been_told || []).length) {
-      lines.push("What the Legs before it state:", ...leg.the_reader_has_been_told.map((x) => `- ${x.leg_id}: ${x.text}`));
+      lines.push(
+        "What the Legs before it state:",
+        ...leg.the_reader_has_been_told.map((x) => `- ${x.leg_id}: ${x.text}`),
+      );
     }
     return lines.join("\n");
   }
 
   callInput(u) {
     if (u.stage === READING) {
-      return { row: rowOf(this.table, READING_ROW), input: mapperInput({ cite: u.strand, proposition: this.proposition(u.leg) }, this.inputs.persona) };
+      return {
+        row: rowOf(this.table, READING_ROW),
+        input: mapperInput({ cite: u.strand, proposition: this.proposition(u.leg) }, this.inputs.persona),
+      };
     }
     const move = u.candidate.move;
     const contract = boundMoveContract(move, this.inputs.movesDir);
-    return { row: rowOf(this.table, GROUNDING_ROW),
-      input: withAnalogy(correspondenceInput(u.structure, this.inputs.persona, contract, undefined, []), contract, this.inputs.analogy), move };
+    return {
+      row: rowOf(this.table, GROUNDING_ROW),
+      input: withAnalogy(
+        correspondenceInput(u.structure, this.inputs.persona, contract, undefined, []),
+        contract,
+        this.inputs.analogy,
+      ),
+      move,
+    };
   }
 
   // The bound Move's contract, read once per unit.
@@ -158,7 +198,11 @@ export class ParagraphPlanMapper {
     const { row, input } = this.callInput(u);
     const held = bindFlow(FLOW);
     let prompt;
-    try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, u.history.length ? u.history : null); } finally { bindFlow(held); }
+    try {
+      prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, u.history.length ? u.history : null);
+    } finally {
+      bindFlow(held);
+    }
     u.pending = { row, input, prompt };
     return { call: { phase: u.stage, prompt, label: `${u.stage} of Leg ${u.leg.leg_id}, call ${u.calls}` } };
   }
@@ -169,12 +213,29 @@ export class ParagraphPlanMapper {
     const u = this.units.get(unitId);
     const { row, input, prompt } = u.pending;
     const validator = u.stage === READING ? "validateMapperAnswer" : "correspondenceRefusal";
-    const raw = out.died ? { group: null, text: out.died } : out.unread ? { group: "shape", text: out.unread }
-      : u.stage === READING ? this.readingRefusal(out.record, u) : this.groundingRefusal(out.record, u);
+    const raw = out.died
+      ? { group: null, text: out.died }
+      : out.unread
+        ? { group: "shape", text: out.unread }
+        : u.stage === READING
+          ? this.readingRefusal(out.record, u)
+          : this.groundingRefusal(out.record, u);
     const r = raw && raw.text ? (raw.group ? refusalReach(row, raw) : { ...raw, reach: null }) : null;
-    writeCallRecord(this.ctx.runDir, `${unitId}/${u.stage}`, u.calls, { prompt, argv: this.ctx.callArgv, cli: this.ctx.cli, input,
-      row: { row, tables: [tableRecord(PLAYGROUND_TABLE)] }, raw: out.raw, answer: out.record ?? undefined,
-      refusal: r && { group: r.group, reach: r.reach, text: r.text, validator: out.died || out.unread ? null : validator } });
+    writeCallRecord(this.ctx.runDir, `${unitId}/${u.stage}`, u.calls, {
+      prompt,
+      argv: this.ctx.callArgv,
+      cli: this.ctx.cli,
+      input,
+      row: { row, tables: [tableRecord(PLAYGROUND_TABLE)] },
+      raw: out.raw,
+      answer: out.record ?? undefined,
+      refusal: r && {
+        group: r.group,
+        reach: r.reach,
+        text: r.text,
+        validator: out.died || out.unread ? null : validator,
+      },
+    });
     const at = `Leg ${u.leg.leg_id}`;
     if (out.died) return { stopped: `${at}: the ${u.stage} call died: ${out.died}` };
     if (!r) {
@@ -188,8 +249,11 @@ export class ParagraphPlanMapper {
     }
     u.history.push({ answer: out.record ?? null, refusal: r.text, group: r.group, reach: r.reach });
     if (r.undeclared || r.reach === "stop" || u.calls >= MAPPER_CALLS) {
-      const why = r.undeclared ? `its refusal names the group ${JSON.stringify(r.group)}, which the \`${row.id}\` row does not declare`
-        : r.reach === "stop" ? `its refusal of group ${JSON.stringify(r.group)} has reach stop` : `the \`${row.id}\` answer was refused ${u.calls} times`;
+      const why = r.undeclared
+        ? `its refusal names the group ${JSON.stringify(r.group)}, which the \`${row.id}\` row does not declare`
+        : r.reach === "stop"
+          ? `its refusal of group ${JSON.stringify(r.group)} has reach stop`
+          : `the \`${row.id}\` answer was refused ${u.calls} times`;
       return { stopped: `${at}: ${u.stage} stopped — ${why}; the last refusal: ${r.text}` };
     }
     return this.call(unitId);
@@ -200,4 +264,3 @@ export class ParagraphPlanMapper {
     return v.text ? v : null;
   }
 }
-

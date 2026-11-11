@@ -40,11 +40,11 @@ const ALLOWED = [
   ["src/leg-schema.json", "a refusal that had already spent an attempt"],
   ["src/leg-schema.json", "its three attempts. Two runs on 2026-09-18"],
   // The names a run or a settings file written before the rename carries, read where the new name is absent.
-  ["src/workflow/call-record.mjs", 'dir: "attempts", records: "attempt_records", firstCallS: "attempt_1_s", unitBound: "unit_attempts", count: "attempts", roundsFile: "attempts.json"'],
-  ["src/workflow/judge.mjs", '"brief.unit_attempts": "brief.unit_rounds", "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions"'],
+  ["src/workflow/call-record.mjs", 'dir: "attempts"'], ["src/workflow/call-record.mjs", 'records: "attempt_records"'], ["src/workflow/call-record.mjs", 'firstCallS: "attempt_1_s"'], ["src/workflow/call-record.mjs", 'unitBound: "unit_attempts"'], ["src/workflow/call-record.mjs", 'count: "attempts"'], ["src/workflow/call-record.mjs", 'roundsFile: "attempts.json"'],
+  ["src/workflow/judge.mjs", '"brief.unit_attempts": "brief.unit_rounds"'], ["src/workflow/judge.mjs", '"paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions"'],
   // The word the ParagraphPlan's prose validator refuses in a model's answer, and the instruction naming it.
-  ["src/paragraph-plan.mjs", "/\\w*attempt\\w*/i"],
-  ["src/paragraph-plan.mjs", "carries no word of the refusal, the attempt,"],
+  ["src/paragraph-plan/site-retry.mjs", "/\\w*attempt\\w*/i"],
+  ["src/paragraph-plan/site-retry.mjs", "carries no word of the refusal, the attempt,"],
   ["src/paragraph-plan-workflow.json", "carrying `refus`, `attempt`, `kogaki#`"],
   ["src/paragraph-plan-workflow.json", "carry no word of the refusal, the attempt, the shape"],
   // The run history quoted in Terrain's judge note: the attempts of runs, never the loop's own names.

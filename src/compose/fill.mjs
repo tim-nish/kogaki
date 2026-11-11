@@ -23,8 +23,13 @@ export function fillBrief(record, { legs, coverage = {}, renderings = null }) {
   // THE RENDERINGS RECORD (kogaki#1494), written beside the Reader Path
   // composed under it. A caller with no record writes none.
   if (renderings !== null) {
-    if (!Array.isArray(renderings) || renderings.some((e) => !e || typeof e.term !== "string" || typeof e.as !== "string")) {
-      return { error: `the renderings record is a list of { term, as } entries; received ${JSON.stringify(renderings)} (kogaki#1494)` };
+    if (
+      !Array.isArray(renderings) ||
+      renderings.some((e) => !e || typeof e.term !== "string" || typeof e.as !== "string")
+    ) {
+      return {
+        error: `the renderings record is a list of { term, as } entries; received ${JSON.stringify(renderings)} (kogaki#1494)`,
+      };
     }
   }
   const strandIds = briefStrandIds(record);
@@ -32,7 +37,9 @@ export function fillBrief(record, { legs, coverage = {}, renderings = null }) {
   for (const s of legs) {
     for (const g of s.claims) {
       if (!strandIds.includes(g.strand)) {
-        return { error: `leg ${s.leg_id}: strand claim ${g.strand} is outside the closed set (${strandIds.join(", ")})` };
+        return {
+          error: `leg ${s.leg_id}: strand claim ${g.strand} is outside the closed set (${strandIds.join(", ")})`,
+        };
       }
     }
   }
@@ -42,22 +49,32 @@ export function fillBrief(record, { legs, coverage = {}, renderings = null }) {
   // Strand neither carried nor so recorded discloses rather than silently drops.
   const place = placements(legs, strandIds);
   const placed = strandIds.filter((id) => place.get(id).length > 0);
-  const minted = new Map((Array.isArray(record.strand_coverage) ? record.strand_coverage : [])
-    .filter((e) => e && typeof e.not_carried === "string").map((e) => [e.strand, e]));
+  const minted = new Map(
+    (Array.isArray(record.strand_coverage) ? record.strand_coverage : [])
+      .filter((e) => e && typeof e.not_carried === "string")
+      .map((e) => [e.strand, e]),
+  );
   const strandCoverage = strandIds.map((id) => {
     if (place.get(id).length > 0) {
-      return { strand: id, used_by_legs: place.get(id),
-        ...(typeof coverage[id]?.role_in_thesis === "string" ? { role_in_thesis: coverage[id].role_in_thesis } : {}) };
+      return {
+        strand: id,
+        used_by_legs: place.get(id),
+        ...(typeof coverage[id]?.role_in_thesis === "string" ? { role_in_thesis: coverage[id].role_in_thesis } : {}),
+      };
     }
     return minted.get(id) || { strand: id, not_carried: "No Leg serves this Strand's claim." };
   });
   // JOURNEY COVERAGE (kogaki#1768): a Leg binds no Move and places no Journey
   // material, so every Journey-bearing Strand's Journey is disclosed as omitted.
-  const journeyCoverage = briefJourneyStrands(record).map((id) => ({ strand: id,
-    omitted: "No Leg places Journey material: a Leg binds no Move, and the Reader Path is derived from the claims' structure." }));
+  const journeyCoverage = briefJourneyStrands(record).map((id) => ({
+    strand: id,
+    omitted:
+      "No Leg places Journey material: a Leg binds no Move, and the Reader Path is derived from the claims' structure.",
+  }));
 
   let out = { ...record, strand_coverage: strandCoverage };
-  if (Array.isArray(renderings)) out = { ...out, renderings: renderings.map((e) => ({ term: e.term.trim(), as: e.as.trim() })) };
+  if (Array.isArray(renderings))
+    out = { ...out, renderings: renderings.map((e) => ({ term: e.term.trim(), as: e.as.trim() })) };
   for (const [key, value] of [
     ["reader_path", legs.map(legRecord)],
     ["journey_coverage", journeyCoverage],

@@ -38,10 +38,15 @@ export function subgroupPlacement(parent, classification, block) {
     // THE KEYS ARE THE RECORD EXAMPLE'S (kogaki#1067; kogaki#1062 item 5):
     // `src/terrain-workflow.json`'s `J2_subdivision.record_example` writes each SubGroup as
     // `{name, claim, members, verdicts: {coherence, …}}`. NO SECOND SPELLING is accepted.
-    const name = String(sg.name || fail("each SubGroup needs a `name` — the key `J2_subdivision.record_example` declares (kogaki#1067)"));
+    const name = String(
+      sg.name || fail("each SubGroup needs a `name` — the key `J2_subdivision.record_example` declares (kogaki#1067)"),
+    );
     const members = [...new Set(sg.members || [])].sort();
     const stray = members.filter((id) => !parent.members.includes(id));
-    if (stray.length) fail(`SubGroup ${JSON.stringify(name)} places ${stray.join(", ")}, which are not members of ${parent.name} — subdivision decides WHERE a member appears, never that a new one exists`);
+    if (stray.length)
+      fail(
+        `SubGroup ${JSON.stringify(name)} places ${stray.join(", ")}, which are not members of ${parent.name} — subdivision decides WHERE a member appears, never that a new one exists`,
+      );
     members.forEach((id) => placedIds.add(id));
     subgroups.push({ name, claim: String(sg.claim || ""), members, verdicts: sg.verdicts || {} });
   }
@@ -52,13 +57,15 @@ export function subgroupPlacement(parent, classification, block) {
   // consulted: product-lab@652f47da1ed137c98d7f0264d8676e9e40e5af02 LESSONS.md:38
   const unplaced = parent.members.filter((id) => !placedIds.has(id));
   if (unplaced.length) {
-    fail(`SUBDIVISION_COVER_INCOMPLETE — the classification of ${parent.name} leaves `
-      + `${unplaced.length} member(s) unplaced: ${unplaced.sort().join(", ")}. Every member is `
-      + `placed by the JUDGE, never swept: place each of these in a composed SubGroup, or in one `
-      + `labelled \`other\` — the residual, which asserts you found no subset of `
-      + `${subdivisionLimits().min} or more members at loose-or-better affinity among them `
-      + `(SPEC-terrain, semantic subdivision, kogaki#738). The engine no longer composes a catch-all, `
-      + `because a bucket it fills carries a verdict nobody reached.`);
+    fail(
+      `SUBDIVISION_COVER_INCOMPLETE — the classification of ${parent.name} leaves ` +
+        `${unplaced.length} member(s) unplaced: ${unplaced.sort().join(", ")}. Every member is ` +
+        `placed by the JUDGE, never swept: place each of these in a composed SubGroup, or in one ` +
+        `labelled \`other\` — the residual, which asserts you found no subset of ` +
+        `${subdivisionLimits().min} or more members at loose-or-better affinity among them ` +
+        `(SPEC-terrain, semantic subdivision, kogaki#738). The engine no longer composes a catch-all, ` +
+        `because a bucket it fills carries a verdict nobody reached.`,
+    );
   }
 
   // THE RESIDUAL IS BOUNDED (owner amendment 1 ruling 2, kogaki#738): until it falls to N the
@@ -67,13 +74,15 @@ export function subgroupPlacement(parent, classification, block) {
   // kogaki#1068): the cover refusal cannot see it, since the counts sum OVER the parent.
   const placedCount = subgroups.reduce((n, sg) => n + sg.members.length, 0);
   if (placedCount !== parent.members.length) {
-    fail(`SUBGROUP_MEMBERS_DO_NOT_SUM — ${parent.name} holds ${parent.members.length} member Lesson(s) `
-      + `and its SubGroups place ${placedCount}. the SubGroup threshold rule 1 requires the SubGroup `
-      + `member counts to sum to the parent's total: over the total means a member was placed in more `
-      + `than one SubGroup and renders twice, under it means a member is hidden. Subdivision decides `
-      + `WHERE a member appears, never how many times `
-      + `(SPEC.md, the SubGroup threshold; report-format.json v13 carries this as a pre-render refusal, `
-      + `the heading no longer rendering a parent count).`);
+    fail(
+      `SUBGROUP_MEMBERS_DO_NOT_SUM — ${parent.name} holds ${parent.members.length} member Lesson(s) ` +
+        `and its SubGroups place ${placedCount}. the SubGroup threshold rule 1 requires the SubGroup ` +
+        `member counts to sum to the parent's total: over the total means a member was placed in more ` +
+        `than one SubGroup and renders twice, under it means a member is hidden. Subdivision decides ` +
+        `WHERE a member appears, never how many times ` +
+        `(SPEC.md, the SubGroup threshold; report-format.json v13 carries this as a pre-render refusal, ` +
+        `the heading no longer rendering a parent count).`,
+    );
   }
 
   const { maxResidual } = subdivisionLimits();
@@ -81,12 +90,14 @@ export function subgroupPlacement(parent, classification, block) {
     .filter((sg) => (sg.verdicts || {}).coherence === RESIDUAL_LABEL)
     .reduce((n, sg) => n + sg.members.length, 0);
   if (residual > maxResidual) {
-    fail(`SUBDIVISION_RESIDUAL_OVER_LIMIT — the classification of ${parent.name} leaves `
-      + `${residual} member(s) in the residual \`other\`, over the limit of ${maxResidual} `
-      + `(report-format.json limits.max_residual_members, SPEC-terrain, semantic subdivision, kogaki#738 owner `
-      + `amendment 1). Compose additional SubGroups until the residual falls to ${maxResidual} `
-      + `or fewer. The residual exists so an absence of relationships is EXPLICIT, not so that `
-      + `members can be parked in it.`);
+    fail(
+      `SUBDIVISION_RESIDUAL_OVER_LIMIT — the classification of ${parent.name} leaves ` +
+        `${residual} member(s) in the residual \`other\`, over the limit of ${maxResidual} ` +
+        `(report-format.json limits.max_residual_members, SPEC-terrain, semantic subdivision, kogaki#738 owner ` +
+        `amendment 1). Compose additional SubGroups until the residual falls to ${maxResidual} ` +
+        `or fewer. The residual exists so an absence of relationships is EXPLICIT, not so that ` +
+        `members can be parked in it.`,
+    );
   }
   return { subgroups, placedIds };
 }
@@ -108,11 +119,15 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   // The value is the judge's: a missing or out-of-set label is REFUSED, never defaulted.
   const coherence = vd.coherence;
   if (!COHERENCE_LABELS.includes(coherence)) {
-    fail(`SubGroup ${JSON.stringify(sg.name)} carries coherence ${JSON.stringify(coherence === undefined ? null : coherence)}; the closed set is ${COHERENCE_LABELS.join(" | ")} (SPEC-terrain, semantic subdivision, kogaki#683). The label is the judge's and is never defaulted here — a default would be this layer supplying the judgment the label exists to carry.`);
+    fail(
+      `SubGroup ${JSON.stringify(sg.name)} carries coherence ${JSON.stringify(coherence === undefined ? null : coherence)}; the closed set is ${COHERENCE_LABELS.join(" | ")} (SPEC-terrain, semantic subdivision, kogaki#683). The label is the judge's and is never defaulted here — a default would be this layer supplying the judgment the label exists to carry.`,
+    );
   }
   const why = String(vd.coherence_why || "").trim();
   if (!why) {
-    fail(`SubGroup ${JSON.stringify(sg.name)} carries a coherence label with no \`coherence_why\`. The label and one free-form sentence of why are ONE instrument: a label with no reason is a verdict a reader cannot weigh.`);
+    fail(
+      `SubGroup ${JSON.stringify(sg.name)} carries a coherence label with no \`coherence_why\`. The label and one free-form sentence of why are ONE instrument: a label with no reason is a verdict a reader cannot weigh.`,
+    );
   }
   sg.coherence = coherence;
   sg.coherence_why = why;
@@ -126,10 +141,12 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   const { min } = subdivisionLimits();
   const cap = subgroupMemberCap(coherence);
   if (cap !== null && sg.members.length > cap) {
-    fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
-      + `${sg.members.length} members, over the cap of ${cap} `
-      + `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain, semantic subdivision, kogaki#738). `
-      + `Compose a tighter SubGroup, or judge these members at a label whose cap admits them.`);
+    fail(
+      `SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries ` +
+        `${sg.members.length} members, over the cap of ${cap} ` +
+        `(report-format.json limits.subgroup_member_cap.${coherence}, SPEC-terrain, semantic subdivision, kogaki#738). ` +
+        `Compose a tighter SubGroup, or judge these members at a label whose cap admits them.`,
+    );
   }
   // THE FLOOR EXEMPTS A WHOLE-GROUP SubGroup (owner selection 2026-09-01, amendment 1):
   // a SubGroup holding the entire parent divided nothing, so M has no splinter to refuse.
@@ -137,12 +154,14 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   // Keyed on the structural fact `parentSize === members.length`, never on a size.
   const wholeGroup = parentSize !== null && sg.members.length === parentSize;
   if (coherence !== RESIDUAL_LABEL && sg.members.length < min && !wholeGroup) {
-    fail(`SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries `
-      + `${sg.members.length} member(s), under the minimum of ${min} `
-      + `(report-format.json limits.min_subgroup_members, SPEC-terrain, semantic subdivision, kogaki#738 owner `
-      + `amendment 1). A SubGroup below the minimum asserts a relationship too small to be one; `
-      + `merge it into a SubGroup it belongs with, or let its members fall to the residual. `
-      + `(A SubGroup holding the WHOLE parent group is exempt: it divided nothing.)`);
+    fail(
+      `SubGroup ${JSON.stringify(sg.name)} is labelled ${coherence} and carries ` +
+        `${sg.members.length} member(s), under the minimum of ${min} ` +
+        `(report-format.json limits.min_subgroup_members, SPEC-terrain, semantic subdivision, kogaki#738 owner ` +
+        `amendment 1). A SubGroup below the minimum asserts a relationship too small to be one; ` +
+        `merge it into a SubGroup it belongs with, or let its members fall to the residual. ` +
+        `(A SubGroup holding the WHOLE parent group is exempt: it divided nothing.)`,
+    );
   }
 
   // The two disclosures, DISJUNCTIVE: each is evaluated independently and
@@ -151,12 +170,16 @@ export function judgeSubgroup(sg, groupClaim, parentSize = null) {
   sg.disclosures = [];
   const namesAMember = sg.members.some((id) => (sg.claim || "").includes(id.replace(/^lesson:/, "")));
   if (vd.trails_into_enumeration === true || namesAMember) {
-    sg.disclosures.push(`degenerate-claim: the claim trails into enumeration${namesAMember ? " (it names a member's slug)" : ""}`);
+    sg.disclosures.push(
+      `degenerate-claim: the claim trails into enumeration${namesAMember ? " (it names a member's slug)" : ""}`,
+    );
   }
   const sgText = (sg.claim || "").trim();
   const parentText = String(groupClaim || "").trim();
   if (vd.true_of_every_member === true || (sgText !== "" && sgText === parentText)) {
-    sg.disclosures.push("undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none");
+    sg.disclosures.push(
+      "undiscriminating-claim: honest, but true of every member at the size served — an honest summary true of every member discriminates between none",
+    );
   }
   return sg;
 }
@@ -187,21 +210,53 @@ export function composeSubdivisionRecord(args, dir, record) {
   const block = SURVEY_SCHEMA.subdivision;
   const tag = String(args.tag || fail("J2_subdivision needs --tag <selected tag>"));
   const groupArg = String(args.group || fail("J2_subdivision needs --group <co-tag>"));
-  const groupClaim = String(args["group-claim"] || fail("--group-claim is required: the parent GroupClaim the SubGroup claims' coherence is judged against"));
-  const modelId = String(args["judge-model"] || fail("--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served."));
-  const effortTier = String(args["judge-effort"] || fail("--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id"));
+  const groupClaim = String(
+    args["group-claim"] ||
+      fail("--group-claim is required: the parent GroupClaim the SubGroup claims' coherence is judged against"),
+  );
+  const modelId = String(
+    args["judge-model"] ||
+      fail(
+        "--judge-model is required: the judge pin's model id. A per-invocation judged surface with no judge pin is the drift-undetectable shape — `recomputed fresh` silently becomes `recomputed by a different judge` (topics/knowledge-architecture.md:84@f918c515). Terrain names no model of its own; it records the one that served.",
+      ),
+  );
+  const effortTier = String(
+    args["judge-effort"] ||
+      fail(
+        "--judge-effort is required: the judge pin's effort tier, the pin's fourth component alongside the model id",
+      ),
+  );
   // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
   // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
   // declared pin names a model the composer says judged, and there is no
   // executable behind it to name. The executor's own path supplies it, which is
   // the path every judged surface this repository mints comes through.
-  const binaryVersion = args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
-    ? null : String(args["judge-binary-version"]);
-  const displayBudget = Number(args["display-budget"] || fail("--display-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a display lands, not of the material, so it is the caller's to state (SPEC.md, semantic subdivision)"));
-  const classification = readJson(String(args.classification || fail("J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|other) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts")));
+  const binaryVersion =
+    args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
+      ? null
+      : String(args["judge-binary-version"]);
+  const displayBudget = Number(
+    args["display-budget"] ||
+      fail(
+        "--display-budget is required: the rendering destination, in lines. It is supplied per run rather than fixed in code — a rendering destination is a property of where a display lands, not of the material, so it is the caller's to state (SPEC.md, semantic subdivision)",
+      ),
+  );
+  const classification = readJson(
+    String(
+      args.classification ||
+        fail(
+          "J2_subdivision needs --classification <file>: the judge's SubGroups, each with its composed claim, its members, and its own coherence (tight|related|other) + coherence_why, and its trails_into_enumeration / true_of_every_member / legible_at_a_glance verdicts",
+        ),
+    ),
+  );
 
-  const groups = cotagGroups(record.candidates.filter((c) => (c.tags || []).includes(tag)), tag);
-  const parent = groups.find((g) => g.name === groupArg || g.cotag === groupArg) || fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
+  const groups = cotagGroups(
+    record.candidates.filter((c) => (c.tags || []).includes(tag)),
+    tag,
+  );
+  const parent =
+    groups.find((g) => g.name === groupArg || g.cotag === groupArg) ||
+    fail(`no co-tag group ${JSON.stringify(groupArg)} in ${tag}`);
 
   // Compose the SubGroups from the judge's placement. A member the judge
   // invented is refused; a member the judge left unplaced is placed in the
@@ -215,7 +270,8 @@ export function composeSubdivisionRecord(args, dir, record) {
     // Three instruments, three quantities, none a threshold, none gating.
     sg.instruments = {
       relative_share_of_placements: parent.members.length
-        ? Number((sg.members.length / parent.members.length).toFixed(4)) : 0,
+        ? Number((sg.members.length / parent.members.length).toFixed(4))
+        : 0,
       // Line arithmetic for the rendering destination, not a threshold and not
       // stop logic: one line for the SubGroup name, one for its claim, one per
       // member. It gates nothing — the budget is REPORTED against the need.
@@ -231,7 +287,10 @@ export function composeSubdivisionRecord(args, dir, record) {
 
   // The cover, counted AFTER composition, over placements.
   const uncovered = parent.members.filter((id) => !placedIds.has(id));
-  if (uncovered.length) fail(`SUBDIVISION_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${parent.name} appear in no SubGroup: ${uncovered.join(", ")}. ${block.no_member_hidden_rationale}`);
+  if (uncovered.length)
+    fail(
+      `SUBDIVISION_COVER_INCOMPLETE — ${uncovered.length} member(s) of ${parent.name} appear in no SubGroup: ${uncovered.join(", ")}. ${block.no_member_hidden_rationale}`,
+    );
 
   parent.by_family = familySplit(parent.members, record.candidates);
   const id = `terrain-subdivision-${Date.now()}`;
@@ -249,9 +308,11 @@ export function composeSubdivisionRecord(args, dir, record) {
     lessons_served: record.candidates.length,
   };
   for (const f of block.required) {
-    if (out[f] === undefined || out[f] === null || out[f] === "") fail(`refusing to write a non-conforming subdivision record: missing ${f}`);
+    if (out[f] === undefined || out[f] === null || out[f] === "")
+      fail(`refusing to write a non-conforming subdivision record: missing ${f}`);
   }
-  if (out.offered_by_default !== block.offered_by_default_must_be) fail("refusing to write a subdivision record marked offered by default (SPEC.md, measurement before offering)");
+  if (out.offered_by_default !== block.offered_by_default_must_be)
+    fail("refusing to write a subdivision record marked offered by default (SPEC.md, measurement before offering)");
   const path = join(dir, `${id}.terrain-subdivision.json`);
   writeFileSync(path, JSON.stringify(out, null, 2) + "\n");
   return path;
@@ -266,9 +327,8 @@ export function resolveReportTargets(record, tag, enteredIds, args) {
   if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)}`);
   const groups = cotagGroups(members, tag);
   const subdivisions = args.subdivisions ? readJson(String(args.subdivisions)) : {};
-  const subOf = (g) => readSubdivisionEntry(
-    g.name,
-    subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
+  const subOf = (g) =>
+    readSubdivisionEntry(g.name, subdivisions[g.name] !== undefined ? subdivisions[g.name] : subdivisions[g.cotag]);
   const resolved = resolveEnteredIds(enteredIds, groups, subOf);
   return { members, groups, resolved, subOf, targets: resolved.targets };
 }

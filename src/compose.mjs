@@ -30,65 +30,161 @@ import { fail } from "./compose/leg-schema.mjs";
 // THE NAMES THIS ENTRY EXPORTED BEFORE THE CUT (kogaki#1465), re-exported so
 // no importer and no check changes when the modules move.
 export {
-  snapshotBrief, legschema, requiredLegFields, pathRules, pathRule,
-  journeysRefusal, budgetRefusal, waypointsRefusal, READ_ALONE_OPENERS,
-  RETIRED_WAYPOINT_MOVE_FIELDS, READER_STATE_DIMENSIONS, RETIRED_LEG_STATE_FIELDS,
-  readerStateShapeRefusal, readerStateDimensionLine, validateLegs, briefStructureRefusal,
+  snapshotBrief,
+  legschema,
+  requiredLegFields,
+  pathRules,
+  pathRule,
+  journeysRefusal,
+  budgetRefusal,
+  waypointsRefusal,
+  READ_ALONE_OPENERS,
+  RETIRED_WAYPOINT_MOVE_FIELDS,
+  READER_STATE_DIMENSIONS,
+  RETIRED_LEG_STATE_FIELDS,
+  readerStateShapeRefusal,
+  readerStateDimensionLine,
+  validateLegs,
+  briefStructureRefusal,
 } from "./compose/leg-schema.mjs";
 export {
-  figureKinds, renderFigureRoles, parseFigureRoles, figureRefusal,
-  figureClaimRefusal, figureOf, resolveFigureForms, figureLegs,
-  FIGURE_SOFT_WARNING_AT, figureClause,
+  figureKinds,
+  renderFigureRoles,
+  parseFigureRoles,
+  figureRefusal,
+  figureClaimRefusal,
+  figureOf,
+  resolveFigureForms,
+  figureLegs,
+  FIGURE_SOFT_WARNING_AT,
+  figureClause,
 } from "./compose/figure.mjs";
 export {
-  loadMoveIds, resolveMoveIds, MOVE_RECORD_EXT, MOVE_STATE_DIMENSIONS,
-  moveStateRefusal, moveStateLines, readMoveRecord,
+  loadMoveIds,
+  resolveMoveIds,
+  MOVE_RECORD_EXT,
+  MOVE_STATE_DIMENSIONS,
+  moveStateRefusal,
+  moveStateLines,
+  readMoveRecord,
 } from "./compose/render.mjs";
 export {
-  moveRoles, moveContract, validateMoveRecord, RETIRED_MOVE_FIELDS,
-  MOVE_CARRIED_FIELDS, MOVE_DESCRIPTION_MAX,
+  moveRoles,
+  moveContract,
+  validateMoveRecord,
+  RETIRED_MOVE_FIELDS,
+  MOVE_CARRIED_FIELDS,
+  MOVE_DESCRIPTION_MAX,
 } from "./compose/moves.mjs";
 export {
-  audienceRecord, READER_PERSONA_FIELDS, READER_PERSONA_OPTIONAL_FIELDS,
-  readerPersona, PERSONA_PRIOR_KNOWLEDGE_ABSENT, personaPriorKnowledgeLine,
-  readerProse, audienceLanguage, loadMoveContracts, moveContractsForLegs,
+  audienceRecord,
+  READER_PERSONA_FIELDS,
+  READER_PERSONA_OPTIONAL_FIELDS,
+  readerPersona,
+  PERSONA_PRIOR_KNOWLEDGE_ABSENT,
+  personaPriorKnowledgeLine,
+  readerProse,
+  audienceLanguage,
+  loadMoveContracts,
+  moveContractsForLegs,
 } from "./compose/audience.mjs";
 export {
-  specializationSchema, gateSchema, gateRegistry, validateSpecialization,
-  specializationFailures, specializationDigest, ownerGateDigest,
+  specializationSchema,
+  gateSchema,
+  gateRegistry,
+  validateSpecialization,
+  specializationFailures,
+  specializationDigest,
+  ownerGateDigest,
   validateOwnerAnswer,
 } from "./compose/specialization.mjs";
 export {
-  parseIntroducesEntry, introducedMeaning, opensSectionRefusal,
-  opensSectionIntroducedTermRefusal, sectionHeadingsWithLastClaims,
-  sectionGroupingRefusal, targetLegIndex, RETIRED_OBLIGATION_KEYS,
-  obligationItems, obligationLine, obligationLabel, obligationItemRefusal, obligationCloseRefusal,
-  obligationLastClose, obligationItemsAt,
-  readerTargetLegRefusal, readerTargetNamesRefusal, introducesRefusal,
-  parseReactivateEntry, reactivateRefusal,
-  reactivateSemanticRefusal, readerKnowledgeLedger, introducerOf,
+  parseIntroducesEntry,
+  introducedMeaning,
+  opensSectionRefusal,
+  opensSectionIntroducedTermRefusal,
+  sectionHeadingsWithLastClaims,
+  sectionGroupingRefusal,
+  targetLegIndex,
+  RETIRED_OBLIGATION_KEYS,
+  obligationItems,
+  obligationLine,
+  obligationLabel,
+  obligationItemRefusal,
+  obligationCloseRefusal,
+  obligationLastClose,
+  obligationItemsAt,
+  readerTargetLegRefusal,
+  readerTargetNamesRefusal,
+  introducesRefusal,
+  parseReactivateEntry,
+  reactivateRefusal,
+  reactivateSemanticRefusal,
+  readerKnowledgeLedger,
+  introducerOf,
 } from "./compose/sections.mjs";
 export {
-  DEFINED_TERM_CLASSES, definedTermsRefusal, definedTermsOf,
+  DEFINED_TERM_CLASSES,
+  definedTermsRefusal,
+  definedTermsOf,
   definedTermBeforeIntroductionRefusal,
 } from "./compose/defined-terms.mjs";
 export {
-  RENDERING_KEYS, renderingsRefusal, renderingsOf, renderedTermIntroducedRefusal,
-  FUNCTION_WORDS, wordsOf, wordForms, recoverabilityOf,
+  RENDERING_KEYS,
+  renderingsRefusal,
+  renderingsOf,
+  renderedTermIntroducedRefusal,
+  FUNCTION_WORDS,
+  wordsOf,
+  wordForms,
+  recoverabilityOf,
 } from "./compose/renderings.mjs";
 export {
-  BRIEF_RECORD_FILE, briefRecordDeclaration, briefRecordKeys, briefSlotKeys,
-  readerStateMap, readerStateText, legRecord, briefLegs, PARAGRAPH_PLAN_FILE,
-  sha256, paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText,
-  undeclaredKey, readParagraphPlanBeside, paragraphPlanShapeRefusal, paragraphsPerLeg, paragraphCountRefusal, legStrandIds,
-  joinRefusal, CAST_KEYS, castRefusal, paragraphWaypointsRefusal, RETIRED_PLAN_KEYS, retiredPlanKeyRefusal,
-  briefStrandIds, briefJourneyStrands,
-  briefRecordText, parseBriefRecord, readBriefRecord, unfilledSlots, fillSlot,
-  thesisClosureRow, thesisClosureLeg,
-  placements, journeyPlacements,
+  BRIEF_RECORD_FILE,
+  briefRecordDeclaration,
+  briefRecordKeys,
+  briefSlotKeys,
+  readerStateMap,
+  readerStateText,
+  legRecord,
+  briefLegs,
+  PARAGRAPH_PLAN_FILE,
+  sha256,
+  paragraphPlanPathFor,
+  paragraphPlanRecord,
+  paragraphPlanRecordText,
+  undeclaredKey,
+  readParagraphPlanBeside,
+  paragraphPlanShapeRefusal,
+  paragraphsPerLeg,
+  paragraphCountRefusal,
+  legStrandIds,
+  joinRefusal,
+  CAST_KEYS,
+  castRefusal,
+  paragraphWaypointsRefusal,
+  RETIRED_PLAN_KEYS,
+  retiredPlanKeyRefusal,
+  briefStrandIds,
+  briefJourneyStrands,
+  briefRecordText,
+  parseBriefRecord,
+  readBriefRecord,
+  unfilledSlots,
+  fillSlot,
+  thesisClosureRow,
+  thesisClosureLeg,
+  placements,
+  journeyPlacements,
 } from "./compose/record.mjs";
 export {
-  MAPPING_DIR, STRUCTURE_FILE, TABLE_FILE, mappingDirFor, mappingRecordOf, writeMappingRecord, mappingDigest,
+  MAPPING_DIR,
+  STRUCTURE_FILE,
+  TABLE_FILE,
+  mappingDirFor,
+  mappingRecordOf,
+  writeMappingRecord,
+  mappingDigest,
 } from "./compose/mapping-record.mjs";
 export { fillBrief } from "./compose/fill.mjs";
 
@@ -106,7 +202,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -118,7 +217,6 @@ function parseArgs(argv) {
 // demotion-not-a-retirement shape this change exists to end. `fillBrief`,
 // the composer it called, is exported and untouched.
 
-
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
@@ -129,12 +227,17 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // is untouched and exported: `adopt-candidate` and the checks fill a
     // sequence through it.
     case "fill":
-      fail("`fill` no longer exists — a Brief's sequence is filled by adopting "
-        + "a Candidate at the selection gate (SPEC-draft-pipeline, the Candidate gate; retired "
-        + "at the durable home and the entry point v17, kogaki#551). Run `assemble.mjs assemble` to build the "
-        + "selection payload, raise the gate, then `assemble.mjs "
-        + "adopt-candidate --brief <path> --reviewed <json> --candidate <id>`.");
+      fail(
+        "`fill` no longer exists — a Brief's sequence is filled by adopting " +
+          "a Candidate at the selection gate (SPEC-draft-pipeline, the Candidate gate; retired " +
+          "at the durable home and the entry point v17, kogaki#551). Run `assemble.mjs assemble` to build the " +
+          "selection payload, raise the gate, then `assemble.mjs " +
+          "adopt-candidate --brief <path> --reviewed <json> --candidate <id>`.",
+      );
       break;
-    default: fail("usage: compose.mjs — no subcommand; `fillBrief` is exported for the composition path, and the retired `fill` subcommand is replaced by assemble.mjs adopt-candidate (the Candidate gate, kogaki#551)");
+    default:
+      fail(
+        "usage: compose.mjs — no subcommand; `fillBrief` is exported for the composition path, and the retired `fill` subcommand is replaced by assemble.mjs adopt-candidate (the Candidate gate, kogaki#551)",
+      );
   }
 }

@@ -127,7 +127,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -149,7 +152,8 @@ export function parseTermsYaml(text) {
     }
     i++;
   }
-  if (i >= lines.length) return { error: "carries no top-level `rules:` key — the prh.yml shape is a `rules:` sequence" };
+  if (i >= lines.length)
+    return { error: "carries no top-level `rules:` key — the prh.yml shape is a `rules:` sequence" };
   i++;
   const rules = [];
   let cur = null;
@@ -168,12 +172,22 @@ export function parseTermsYaml(text) {
       continue;
     }
     const patternsHdrM = /^ {4}patterns:\s*$/.exec(raw);
-    if (patternsHdrM) { continue; }
+    if (patternsHdrM) {
+      continue;
+    }
     const patternItemM = /^ {6}- (.+)$/.exec(raw);
-    if (patternItemM && cur) { cur.patterns.push(stripQuotes(patternItemM[1])); continue; }
+    if (patternItemM && cur) {
+      cur.patterns.push(stripQuotes(patternItemM[1]));
+      continue;
+    }
     const noteM = /^ {4}note:\s*(.+)$/.exec(raw);
-    if (noteM && cur) { cur.note = stripQuotes(noteM[1]); continue; }
-    return { error: `line ${i + 1} ("${raw.trim().slice(0, 60)}") is outside the parsed shape (a \`- expected:\` item, its \`patterns:\` list, or its \`note:\`)` };
+    if (noteM && cur) {
+      cur.note = stripQuotes(noteM[1]);
+      continue;
+    }
+    return {
+      error: `line ${i + 1} ("${raw.trim().slice(0, 60)}") is outside the parsed shape (a \`- expected:\` item, its \`patterns:\` list, or its \`note:\`)`,
+    };
   }
   if (!rules.length) return { error: "the `rules:` sequence is empty — the term list must seed at least one entry" };
   for (const r of rules) {
@@ -185,9 +199,10 @@ export function parseTermsYaml(text) {
 // The language block's own register statement — nothing but the term list
 // and the register, until a Round Trip failure names what is missing (the
 // owner's 2026-09-19 ruling).
-const REGISTER_NOTE = "Plain, formal technical-writing register: declarative sentences, no colloquial contraction, "
-  + "and the term list below is prescriptive — every concept it covers is written in its `expected` form and never "
-  + "in a listed forbidden variant.";
+const REGISTER_NOTE =
+  "Plain, formal technical-writing register: declarative sentences, no colloquial contraction, " +
+  "and the term list below is prescriptive — every concept it covers is written in its `expected` form and never " +
+  "in a listed forbidden variant.";
 
 export function renderLanguageBlock(rules, terms_sha, lang) {
   const lines = [
@@ -215,19 +230,37 @@ export function renderLanguageBlock(rules, terms_sha, lang) {
 // writer, never a general YAML parser.
 export function readJaDraft(text, path) {
   const lines = text.split("\n");
-  if (lines[0] !== "---") return { error: `${path} opens with no frontmatter — a Japanese Draft carries its record half (terms_sha_at_generation, trace) in frontmatter` };
+  if (lines[0] !== "---")
+    return {
+      error: `${path} opens with no frontmatter — a Japanese Draft carries its record half (terms_sha_at_generation, trace) in frontmatter`,
+    };
   let end = -1;
-  for (let i = 1; i < lines.length; i++) { if (lines[i] === "---") { end = i; break; } }
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === "---") {
+      end = i;
+      break;
+    }
+  }
   if (end === -1) return { error: `${path} has an unterminated frontmatter block` };
   const fmText = lines.slice(0, end + 1).join("\n");
   const trace = [];
   let inTrace = false;
   for (let i = 1; i < end; i++) {
     const l = lines[i];
-    if (l === "trace:") { inTrace = true; continue; }
+    if (l === "trace:") {
+      inTrace = true;
+      continue;
+    }
     if (inTrace) {
       const m = l.match(/^ {2}- (\{.*\})\s*$/);
-      if (m) { try { trace.push(JSON.parse(m[1])); } catch { /* malformed entry — trace stays without it */ } continue; }
+      if (m) {
+        try {
+          trace.push(JSON.parse(m[1]));
+        } catch {
+          /* malformed entry — trace stays without it */
+        }
+        continue;
+      }
       if (!l.startsWith("  ")) inTrace = false;
     }
   }
@@ -236,7 +269,17 @@ export function readJaDraft(text, path) {
   const bodyLines = lines.slice(end + 2);
   if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
   const body = bodyLines.join("\n");
-  return { path, text, lines, frontmatterEnd: end, fmText, body, trace, terms_sha_at_generation: genM ? genM[1] : null, terms_sha_at_lint: lintM ? lintM[1] : null };
+  return {
+    path,
+    text,
+    lines,
+    frontmatterEnd: end,
+    fmText,
+    body,
+    trace,
+    terms_sha_at_generation: genM ? genM[1] : null,
+    terms_sha_at_lint: lintM ? lintM[1] : null,
+  };
 }
 
 // The Leg a body line belongs to, from the trace's recorded `lines` spans
@@ -261,9 +304,11 @@ export function legAtLine(trace, fileLine) {
 let cachedLinter = null;
 function getTextlintLinter() {
   if (!cachedLinter) {
-    cachedLinter = loadTextlintModules()
-      .then(({ createLinter, loadTextlintrc }) => loadTextlintrc({ configFilePath: join(REPO_ROOT, ".textlintrc.json") })
-        .then((descriptor) => createLinter({ descriptor })));
+    cachedLinter = loadTextlintModules().then(({ createLinter, loadTextlintrc }) =>
+      loadTextlintrc({ configFilePath: join(REPO_ROOT, ".textlintrc.json") }).then((descriptor) =>
+        createLinter({ descriptor }),
+      ),
+    );
   }
   return cachedLinter;
 }
@@ -329,26 +374,41 @@ function linksOf(body) {
 
 export function checkStructureIdentity(jaBody, enBody, trace) {
   const findings = [];
-  const jaH = headingsOf(jaBody), enH = headingsOf(enBody);
+  const jaH = headingsOf(jaBody),
+    enH = headingsOf(enBody);
   if (jaH.length !== enH.length) {
-    findings.push({ leg_id: null, message: `structure identity: the Japanese Draft renders ${jaH.length} Section heading(s) against the English Draft's ${enH.length} — both realize the same Brief Legs and the same Section grouping, so the counts must match` });
+    findings.push({
+      leg_id: null,
+      message: `structure identity: the Japanese Draft renders ${jaH.length} Section heading(s) against the English Draft's ${enH.length} — both realize the same Brief Legs and the same Section grouping, so the counts must match`,
+    });
   } else {
     for (let i = 0; i < jaH.length; i++) {
       // A heading is compared by POSITION only, never by text — the two are
       // different languages by design. A missing heading (empty string) at a
       // position the English side carries one is what is named.
       if (jaH[i].trim() === "") {
-        findings.push({ leg_id: null, message: `structure identity: Section heading ${i + 1} is empty in the Japanese Draft where the English Draft carries "${enH[i]}"` });
+        findings.push({
+          leg_id: null,
+          message: `structure identity: Section heading ${i + 1} is empty in the Japanese Draft where the English Draft carries "${enH[i]}"`,
+        });
       }
     }
   }
-  const jaFences = fencesOf(jaBody), enFences = fencesOf(enBody);
+  const jaFences = fencesOf(jaBody),
+    enFences = fencesOf(enBody);
   if (jaFences !== enFences) {
-    findings.push({ leg_id: null, message: `structure identity: the Japanese Draft carries ${jaFences} code fence(s) against the English Draft's ${enFences}` });
+    findings.push({
+      leg_id: null,
+      message: `structure identity: the Japanese Draft carries ${jaFences} code fence(s) against the English Draft's ${enFences}`,
+    });
   }
-  const jaLinks = linksOf(jaBody), enLinks = linksOf(enBody);
+  const jaLinks = linksOf(jaBody),
+    enLinks = linksOf(enBody);
   if (jaLinks !== enLinks) {
-    findings.push({ leg_id: null, message: `structure identity: the Japanese Draft carries ${jaLinks} link(s) against the English Draft's ${enLinks}` });
+    findings.push({
+      leg_id: null,
+      message: `structure identity: the Japanese Draft carries ${jaLinks} link(s) against the English Draft's ${enLinks}`,
+    });
   }
   return findings;
 }
@@ -406,7 +466,11 @@ export function checkLanguageConfusion(body, trace, bodyLineOffset) {
 export function checkStaleness(draft, currentSha) {
   const findings = [];
   if (!draft.terms_sha_at_generation) {
-    findings.push({ leg_id: null, message: "staleness: the Draft carries no terms_sha_at_generation — it was not generated by src/draft.mjs --lang ja against a recorded term list" });
+    findings.push({
+      leg_id: null,
+      message:
+        "staleness: the Draft carries no terms_sha_at_generation — it was not generated by src/draft.mjs --lang ja against a recorded term list",
+    });
   }
   return findings;
 }
@@ -432,10 +496,15 @@ export async function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText })
   // itself is reported, and (since findings.length is then nonzero) no
   // terms_sha_at_lint is written for it.
   const findings = [
-    ...await checkTextlint(draft.body, draft.trace, bodyLineOffset),
+    ...(await checkTextlint(draft.body, draft.trace, bodyLineOffset)),
     ...(enBody !== null
       ? checkStructureIdentity(draft.body, enBody, draft.trace)
-      : [{ leg_id: null, message: `structure identity: no sibling English Draft found at ${enPath ?? "(unspecified)"} — the Japanese Draft's Section, fence and link structure cannot be checked against the Brief's declared structure without it` }]),
+      : [
+          {
+            leg_id: null,
+            message: `structure identity: no sibling English Draft found at ${enPath ?? "(unspecified)"} — the Japanese Draft's Section, fence and link structure cannot be checked against the Brief's declared structure without it`,
+          },
+        ]),
     ...checkLanguageConfusion(draft.body, draft.trace, bodyLineOffset),
     ...checkStaleness(draft, currentSha),
   ];
@@ -462,20 +531,38 @@ export async function lintDraftJa({ jaText, jaPath, enBody, enPath, termsText })
 
 // ---------------------------------------------------------------------------
 async function cmdLint(args) {
-  const jaPath = argString(args, "draft", "usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]");
+  const jaPath = argString(
+    args,
+    "draft",
+    "usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]",
+  );
   const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
   let jaText, termsText;
-  try { jaText = readFileSync(jaPath, "utf8"); } catch (e) { fail(`the Draft at ${jaPath} cannot be read (${e.message})`); }
-  try { termsText = readFileSync(termsPath, "utf8"); } catch (e) { fail(`the term list at ${termsPath} cannot be read (${e.message})`); }
+  try {
+    jaText = readFileSync(jaPath, "utf8");
+  } catch (e) {
+    fail(`the Draft at ${jaPath} cannot be read (${e.message})`);
+  }
+  try {
+    termsText = readFileSync(termsPath, "utf8");
+  } catch (e) {
+    fail(`the term list at ${termsPath} cannot be read (${e.message})`);
+  }
   let enBody = null;
-  const enPath = typeof args["en-draft"] === "string" && args["en-draft"] !== ""
-    ? args["en-draft"]
-    : jaPath.replace(/\.ja\.md$/, ".md");
+  const enPath =
+    typeof args["en-draft"] === "string" && args["en-draft"] !== ""
+      ? args["en-draft"]
+      : jaPath.replace(/\.ja\.md$/, ".md");
   if (existsSync(enPath)) {
     const enText = readFileSync(enPath, "utf8");
     const lines = enText.split("\n");
     let end = -1;
-    for (let i = 1; i < lines.length; i++) { if (lines[i] === "---") { end = i; break; } }
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i] === "---") {
+        end = i;
+        break;
+      }
+    }
     if (end !== -1) {
       const bodyLines = lines.slice(end + 2);
       if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
@@ -485,7 +572,9 @@ async function cmdLint(args) {
   const r = await lintDraftJa({ jaText, jaPath, enBody, enPath, termsText });
   if (r.error) fail(r.error);
   if (!r.clean) {
-    process.stderr.write(`lint-ja: ${r.findings.length} deviation(s) — the Draft is NOT marked lint-clean (no terms_sha_at_lint written):\n`);
+    process.stderr.write(
+      `lint-ja: ${r.findings.length} deviation(s) — the Draft is NOT marked lint-clean (no terms_sha_at_lint written):\n`,
+    );
     for (const f of r.findings) process.stderr.write(`  - ${f.message}\n`);
     process.exit(1);
   }
@@ -514,7 +603,11 @@ async function cmdFix(args) {
   const jaPath = argString(args, "draft", "usage: lint-ja.mjs fix --draft <draft.ja.md> [--terms <terms/prh.yml>]");
   const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
   let jaText;
-  try { jaText = readFileSync(jaPath, "utf8"); } catch (e) { fail(`the Draft at ${jaPath} cannot be read (${e.message})`); }
+  try {
+    jaText = readFileSync(jaPath, "utf8");
+  } catch (e) {
+    fail(`the Draft at ${jaPath} cannot be read (${e.message})`);
+  }
   const draft = readJaDraft(jaText, jaPath);
   if (draft.error) fail(draft.error);
   const fixedBody = await fixPrhOnly(draft.body, termsPath);
@@ -535,7 +628,12 @@ function readEnBody(enPath) {
   const enText = readFileSync(enPath, "utf8");
   const lines = enText.split("\n");
   let end = -1;
-  for (let i = 1; i < lines.length; i++) { if (lines[i] === "---") { end = i; break; } }
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i] === "---") {
+      end = i;
+      break;
+    }
+  }
   if (end === -1) return null;
   const bodyLines = lines.slice(end + 2);
   if (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
@@ -572,9 +670,7 @@ export async function correctTerms({ jaText, jaPath, enBody, enPath, termsText, 
   // corrected once, an unattributed finding (structure identity, a missing
   // sibling) names no Leg and corrects nothing, and the order is stable so
   // two runs over the same fixture report the same Legs in the same order.
-  const namedLegs = [...new Set(
-    (lintResult.findings || []).map((f) => f.leg_id).filter((id) => id !== null),
-  )].sort();
+  const namedLegs = [...new Set((lintResult.findings || []).map((f) => f.leg_id).filter((id) => id !== null))].sort();
   return {
     fixApplied,
     newText: afterFixText,
@@ -585,25 +681,37 @@ export async function correctTerms({ jaText, jaPath, enBody, enPath, termsText, 
 }
 
 async function cmdCorrectTerms(args) {
-  const usage = "usage: lint-ja.mjs correct-terms --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]";
+  const usage =
+    "usage: lint-ja.mjs correct-terms --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]";
   // ACCEPTANCE ITEM 3, THE REFUSAL ITSELF: no flag on this path offers a
   // whole-Draft re-derivation, and `--regenerate` is kept as a NAMED refusal
   // rather than left as an ordinary unknown flag, so a session that reaches
   // for the obvious wrong tool is told why rather than left to guess.
   if (args.regenerate) {
-    fail("correct-terms refuses --regenerate: the Terminology List Decision (top of this file) states a "
-      + "term-list change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require "
-      + "the Draft to be uniquely reproducible, so re-deriving it from a moved term list is not owed. "
-      + "Only the Legs this pass names below are corrected.");
+    fail(
+      "correct-terms refuses --regenerate: the Terminology List Decision (top of this file) states a " +
+        "term-list change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require " +
+        "the Draft to be uniquely reproducible, so re-deriving it from a moved term list is not owed. " +
+        "Only the Legs this pass names below are corrected.",
+    );
   }
   const jaPath = argString(args, "draft", usage);
   const termsPath = typeof args.terms === "string" && args.terms !== "" ? args.terms : DEFAULT_TERMS_PATH;
   let jaText, termsText;
-  try { jaText = readFileSync(jaPath, "utf8"); } catch (e) { fail(`the Draft at ${jaPath} cannot be read (${e.message})`); }
-  try { termsText = readFileSync(termsPath, "utf8"); } catch (e) { fail(`the term list at ${termsPath} cannot be read (${e.message})`); }
-  const enPath = typeof args["en-draft"] === "string" && args["en-draft"] !== ""
-    ? args["en-draft"]
-    : jaPath.replace(/\.ja\.md$/, ".md");
+  try {
+    jaText = readFileSync(jaPath, "utf8");
+  } catch (e) {
+    fail(`the Draft at ${jaPath} cannot be read (${e.message})`);
+  }
+  try {
+    termsText = readFileSync(termsPath, "utf8");
+  } catch (e) {
+    fail(`the term list at ${termsPath} cannot be read (${e.message})`);
+  }
+  const enPath =
+    typeof args["en-draft"] === "string" && args["en-draft"] !== ""
+      ? args["en-draft"]
+      : jaPath.replace(/\.ja\.md$/, ".md");
   const enBody = readEnBody(enPath);
 
   const r = await correctTerms({ jaText, jaPath, enBody, enPath, termsText, termsPath });
@@ -611,29 +719,44 @@ async function cmdCorrectTerms(args) {
 
   if (r.fixApplied) {
     writeFileSync(jaPath, r.newText);
-    process.stdout.write(`lint-ja: correct-terms — the mechanical fix (kogaki#1162) rewrote ${jaPath} first, before the bounded correction\n`);
+    process.stdout.write(
+      `lint-ja: correct-terms — the mechanical fix (kogaki#1162) rewrote ${jaPath} first, before the bounded correction\n`,
+    );
   }
 
   if (r.namedLegs.length === 0) {
-    process.stdout.write(`lint-ja: correct-terms — nothing to correct: after the mechanical fix, Lint names no Leg`
-      + `${r.clean ? " (a clean pass)" : " (every remaining finding is unattributed)"}. `
-      + "No model is invoked and the Round Trip is not re-entered.\n");
+    process.stdout.write(
+      `lint-ja: correct-terms — nothing to correct: after the mechanical fix, Lint names no Leg` +
+        `${r.clean ? " (a clean pass)" : " (every remaining finding is unattributed)"}. ` +
+        "No model is invoked and the Round Trip is not re-entered.\n",
+    );
     for (const f of r.findings) process.stdout.write(`  - ${f.message}\n`);
     return;
   }
 
-  process.stdout.write(`lint-ja: correct-terms — Lint names ${r.namedLegs.length} Leg(s) after the mechanical fix: ${r.namedLegs.join(", ")}.\n`
-    + "Re-enter the Round Trip scoped to exactly those Legs — no other Leg is re-outlined, re-compared or re-realized, "
-    + "and no whole-Draft regeneration is offered on this path (the Terminology List Decision):\n"
-    + `  node src/review-draft.mjs open --draft ${jaPath} --only-legs ${r.namedLegs.join(",")}\n`);
+  process.stdout.write(
+    `lint-ja: correct-terms — Lint names ${r.namedLegs.length} Leg(s) after the mechanical fix: ${r.namedLegs.join(", ")}.\n` +
+      "Re-enter the Round Trip scoped to exactly those Legs — no other Leg is re-outlined, re-compared or re-realized, " +
+      "and no whole-Draft regeneration is offered on this path (the Terminology List Decision):\n" +
+      `  node src/review-draft.mjs open --draft ${jaPath} --only-legs ${r.namedLegs.join(",")}\n`,
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
   switch (args._cmd) {
-    case "lint": await cmdLint(args); break;
-    case "fix": await cmdFix(args); break;
-    case "correct-terms": await cmdCorrectTerms(args); break;
-    default: fail("usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | fix --draft <draft.ja.md> [--terms <terms/prh.yml>] | correct-terms --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]");
+    case "lint":
+      await cmdLint(args);
+      break;
+    case "fix":
+      await cmdFix(args);
+      break;
+    case "correct-terms":
+      await cmdCorrectTerms(args);
+      break;
+    default:
+      fail(
+        "usage: lint-ja.mjs lint --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>] | fix --draft <draft.ja.md> [--terms <terms/prh.yml>] | correct-terms --draft <draft.ja.md> [--terms <terms/prh.yml>] [--en-draft <draft.md>]",
+      );
   }
 }

@@ -17,7 +17,10 @@ function parseGlossShard(resp) {
   let slug = null;
   for (const line of lines) {
     const t = line.text;
-    if (t.startsWith("## ")) { slug = t.slice(3).trim(); continue; }
+    if (t.startsWith("## ")) {
+      slug = t.slice(3).trim();
+      continue;
+    }
     if (!slug) continue;
     if (t.trim() === "" || t.startsWith("Source:") || t.startsWith("---")) continue;
     const sentence = t.match(/^.*?[.!?](?=\s|$)/);
@@ -50,7 +53,10 @@ function parseShardName(name) {
     // this module used to compose — must not parse as a cell carrying
     // `tag=agents`, or the selector would match the very address the surface
     // stopped serving and the fault would be invisible again.
-    if (eq <= 0) { cell.set("", pair); continue; }
+    if (eq <= 0) {
+      cell.set("", pair);
+      continue;
+    }
     cell.set(pair.slice(0, eq), pair.slice(eq + 1));
   }
   return { name, namespace, cell };
@@ -130,7 +136,8 @@ export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault t
 // Covers both causes: the record carries no tag, or its family is outside every namespace the
 // fetch was given. Tagged journeys are addressable (the fetch reads `journeys/` too).
 // product-lab@b20d85ea topics/archive/knowledge-architecture.md:57
-export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
+export const NO_SHARD_ADDRESSED =
+  "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
 
 // THE FOURTH STATE, DISTINGUISHED (kogaki#689, owner selection at the
 // /ship-cycle 689 sitting). When the SEAM ITSELF is unreachable no shard is
@@ -140,14 +147,17 @@ export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it car
 // and it is the same conflation the other three markers exist to prevent, one
 // layer further out. The shape is this repository's own degradation idiom: a
 // seam-absent member reports CANNOT-DETERMINE rather than passing or failing.
-export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
+export const NO_SEAM =
+  "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
 
 // THE FIFTH AND SIXTH STATES (kogaki#1106): the ADDRESS itself is the fault, so `NO_HEADLINE`
 // would wrongly claim the material is missing. A misaddressed corpus and an empty corpus are
 // kept apart, matching the seam state's `address-fault` / `empty-corpus` split.
-const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
+const NO_SHARD_NAME =
+  "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
 
-const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
+const NO_SHARD_SERVED =
+  "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
 
 // A TAG IS UNADDRESSABLE ONLY WHERE **EVERY** NAMESPACE READ FAILED TO NAME A SHARD FOR IT
 // (PR #1107 round 1, blocking) — an intersection, not a union, across namespaces.
@@ -187,8 +197,15 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   // whether it carries anything; `tagsAsked`/`tagsAddressed` and `unaddressable`
   // answer whether the tags this pull holds are names the surface serves. None
   // of the three questions is derivable from the other two.
-  const stats = { calls: 0, answered: 0, namesRead: false, namesServed: 0,
-                  tagsAsked: 0, tagsAddressed: 0, unaddressable: new Set() };
+  const stats = {
+    calls: 0,
+    answered: 0,
+    namesRead: false,
+    namesServed: 0,
+    tagsAsked: 0,
+    tagsAddressed: 0,
+    unaddressable: new Set(),
+  };
   // ONE SET PER NAMESPACE, INTERSECTED AFTER THE LOOP. `fetchHeadlines` reports
   // what ITS namespace could not name, which is a different question from what
   // the pull could not name; keeping one shared set answered the second with
@@ -226,8 +243,10 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
     // caller's own handling of it was dead code it could not detect. The
     // headline field keeps the marker so the disclosure contract this function
     // was built with is unchanged; the flag is added beside it.
-    out.set(m.slug, e ? { headline: e.headline, cite: e.cite, found: true }
-                      : { headline: NO_HEADLINE, cite: null, found: false });
+    out.set(
+      m.slug,
+      e ? { headline: e.headline, cite: e.cite, found: true } : { headline: NO_HEADLINE, cite: null, found: false },
+    );
   }
   // FIVE SEAM STATES, REPORTED RATHER THAN INFERRED FROM AN EMPTY MAP.
   // `not-attempted` is not a degraded seam: no row had a tag, so no address
@@ -241,12 +260,18 @@ export function resolveHeadlines(members, { namespaces = ["lessons"] } = {}) {
   // shard name (an empty corpus); then whether any of those names addresses a
   // tag this pull holds (an address fault); and only then the read states,
   // which presuppose that a request was actually made.
-  const seam = stats.tagsAsked === 0 ? "not-attempted"
-             : !stats.namesRead ? "unreachable"
-             : stats.namesServed === 0 ? "empty-corpus"
-             : stats.tagsAddressed === 0 ? "address-fault"
-             : stats.answered > 0 ? "answered"
-             : "unreachable";
+  const seam =
+    stats.tagsAsked === 0
+      ? "not-attempted"
+      : !stats.namesRead
+        ? "unreachable"
+        : stats.namesServed === 0
+          ? "empty-corpus"
+          : stats.tagsAddressed === 0
+            ? "address-fault"
+            : stats.answered > 0
+              ? "answered"
+              : "unreachable";
   // THE NAMESPACE SET TRAVELS WITH THE RESULT, so `glossFor` decides
   // addressability against what was read rather than against a second list.
   //
@@ -277,8 +302,7 @@ export function glossFor(sug, headline, seam, namespaces = ["lessons"], unaddres
   // ADDRESSABILITY IS A PROPERTY OF THE ROW and is decided first, because a row
   // with no address has nothing to attribute to the seam however the seam
   // behaved. The family set is the one the namespaces above can carry.
-  const addressable = ((sug && sug.tags) || []).length > 0
-    && sug && familiesFor(namespaces).includes(sug.family);
+  const addressable = ((sug && sug.tags) || []).length > 0 && sug && familiesFor(namespaces).includes(sug.family);
   if (!addressable) return NO_SHARD_ADDRESSED;
   // THE SEAM ARM SITS BETWEEN THE TWO READ STATES. `unreachable` means no shard
   // answered at all, so `NO_HEADLINE` — which asserts a shard was read — would
@@ -310,12 +334,14 @@ const TERRAIN_TOKEN = /^(?:G[0-9]+(?:-[0-9]+)?|L[0-9]+|D[0-9]+)$/;
 // The refusal every human-facing token takes, stated once so the three token
 // families cannot drift into three readings of one rule.
 function terrainTokenRefusal(tokens) {
-  return `${tokens.join(", ")}: a Full Report coordinate, not a Strand address. `
-    + "Terrain mints G/L/D tokens by position in the served enumeration at survey "
-    + "time, so they name a row of one report rather than a Strand, and a pin "
-    + "advance renumbers them. The MODEL resolves a report coordinate into served "
-    + "addresses from the Full Report BEFORE invoking the brief skill, and the "
-    + "skill is invoked with those addresses. Nothing was written.";
+  return (
+    `${tokens.join(", ")}: a Full Report coordinate, not a Strand address. ` +
+    "Terrain mints G/L/D tokens by position in the served enumeration at survey " +
+    "time, so they name a row of one report rather than a Strand, and a pin " +
+    "advance renumbers them. The MODEL resolves a report coordinate into served " +
+    "addresses from the Full Report BEFORE invoking the brief skill, and the " +
+    "skill is invoked with those addresses. Nothing was written."
+  );
 }
 
 // The served address at its content hash — the cite every Brief output carries
@@ -340,9 +366,12 @@ function composeAddressCite(unitId, contentHash) {
 export function resolveStrandAddresses(entered) {
   const list = (Array.isArray(entered) ? entered : []).map((x) => String(x).trim()).filter(Boolean);
   if (!list.length) {
-    return { error: "no Strand address was given. A Brief is started with the served "
-      + "Lesson addresses it composes from: `coding::lesson/<local-name>`, space-separated "
-      + "(a bare local name resolves against the Lesson kind). Nothing was written." };
+    return {
+      error:
+        "no Strand address was given. A Brief is started with the served " +
+        "Lesson addresses it composes from: `coding::lesson/<local-name>`, space-separated " +
+        "(a bare local name resolves against the Lesson kind). Nothing was written.",
+    };
   }
   const terrainTokens = list.filter((x) => TERRAIN_TOKEN.test(x));
   if (terrainTokens.length) return { error: terrainTokenRefusal(terrainTokens) };
@@ -362,10 +391,13 @@ export function resolveStrandAddresses(entered) {
     try {
       resp = JSON.parse(readFileSync(recorded, "utf8"));
     } catch (e) {
-      return { error: `KOGAKI_ELEMENTS_PAYLOAD names ${recorded}, which is not a readable `
-        + `element_survey recording (${e.message}). A recorded enumeration that cannot be read is `
-        + "not an empty enumeration, and falling through to the live seam would make this run's "
-        + "answer depend on a substrate the caller asked it not to read." };
+      return {
+        error:
+          `KOGAKI_ELEMENTS_PAYLOAD names ${recorded}, which is not a readable ` +
+          `element_survey recording (${e.message}). A recorded enumeration that cannot be read is ` +
+          "not an empty enumeration, and falling through to the live seam would make this run's " +
+          "answer depend on a substrate the caller asked it not to read.",
+      };
     }
   } else {
     resp = gatewayQuery("element_survey", {});
@@ -379,8 +411,11 @@ export function resolveStrandAddresses(entered) {
     try {
       rec = JSON.parse(line.text);
     } catch {
-      return { error: `unparseable served record at ${line.cite} — surfaced, not skipped: a silently `
-        + "dropped record makes an address look unserved when it is the read that failed" };
+      return {
+        error:
+          `unparseable served record at ${line.cite} — surfaced, not skipped: a silently ` +
+          "dropped record makes an address look unserved when it is the read that failed",
+      };
     }
     served++;
     if (rec.unit_id) byUnit.set(rec.unit_id, rec);
@@ -394,8 +429,14 @@ export function resolveStrandAddresses(entered) {
   const wrongKind = [];
   for (const addr of list) {
     const rec = byUnit.get(addr) || (addr.includes("::") ? null : lessonBySlug.get(addr));
-    if (!rec) { missing.push(addr); continue; }
-    if (rec.kind !== "lesson") { wrongKind.push(`${addr} (kind ${rec.kind})`); continue; }
+    if (!rec) {
+      missing.push(addr);
+      continue;
+    }
+    if (rec.kind !== "lesson") {
+      wrongKind.push(`${addr} (kind ${rec.kind})`);
+      continue;
+    }
     // Dedup preserving the entered order — the set is the unit, and a repeat is
     // not an error the owner should be stopped for (the deleted resolver's rule,
     // kept).
@@ -403,8 +444,11 @@ export function resolveStrandAddresses(entered) {
     seen.add(rec.unit_id);
     const cite = composeAddressCite(rec.unit_id, rec.content_hash);
     if (!cite) {
-      return { error: `the served record for ${addr} carries no ${rec.unit_id ? "content hash" : "address"} — `
-        + "a Strand whose cite cannot be composed is a fault to clear, never material to compose from" };
+      return {
+        error:
+          `the served record for ${addr} carries no ${rec.unit_id ? "content hash" : "address"} — ` +
+          "a Strand whose cite cannot be composed is a fault to clear, never material to compose from",
+      };
     }
     const j = journeyBySlug.get(rec.slug);
     strands.push({
@@ -419,16 +463,22 @@ export function resolveStrandAddresses(entered) {
     });
   }
   if (wrongKind.length) {
-    return { error: `${wrongKind.join(", ")}: served, but not a Lesson. A Brief composes from Lessons; `
-      + "a Journey is a Lesson's own material and rides its Strand, and a Decision is not article "
-      + "material at all. Nothing was written." };
+    return {
+      error:
+        `${wrongKind.join(", ")}: served, but not a Lesson. A Brief composes from Lessons; ` +
+        "a Journey is a Lesson's own material and rides its Strand, and a Decision is not article " +
+        "material at all. Nothing was written.",
+    };
   }
   if (missing.length) {
-    return { error: `${missing.join(", ")}: the Package serves no such address. Searched ${served} served `
-      + `record(s) at ${resp.pin ?? "an unnamed pin"}. An address is `
-      + "`<package>::<kind>/<local-name>` as the Package serves it, or a bare local name resolved "
-      + "against the Lesson kind. Nothing was dropped silently — every entered address is placed or "
-      + "named. Nothing was written." };
+    return {
+      error:
+        `${missing.join(", ")}: the Package serves no such address. Searched ${served} served ` +
+        `record(s) at ${resp.pin ?? "an unnamed pin"}. An address is ` +
+        "`<package>::<kind>/<local-name>` as the Package serves it, or a bare local name resolved " +
+        "against the Lesson kind. Nothing was dropped silently — every entered address is placed or " +
+        "named. Nothing was written.",
+    };
   }
   return { strands };
 }

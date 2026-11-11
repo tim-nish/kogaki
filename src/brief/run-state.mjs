@@ -10,16 +10,18 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  gateSchema, readBriefRecord,
-} from "../compose.mjs";
+import { gateSchema, readBriefRecord } from "../compose.mjs";
 import { attachReview } from "../review.mjs";
 import { BRIEF_ENTRIES, enterSubRun } from "../runs.mjs";
 import { RETIRED_JOB_LIMIT_KEYS } from "../workflow/detached-job.mjs";
 import { judgedRecordPath, settingValue } from "../workflow/judge.mjs";
 import { resolveStrandAddresses } from "../workflow/strands.mjs";
 import {
-  JudgmentRefusal, TerminalJudgmentRefusal, persistPendingRun, readRunRecord, throwIfStateWindow,
+  JudgmentRefusal,
+  TerminalJudgmentRefusal,
+  persistPendingRun,
+  readRunRecord,
+  throwIfStateWindow,
 } from "../workflow/run-record.mjs";
 
 /** @returns {never} */
@@ -60,12 +62,17 @@ export function defaultRunState() {
 }
 
 export function readRunState(args) {
-  const p = argString(args, "run-state",
-    "this command needs --run-state <path> — the machine-local run record "
-    + "`enter` wrote (pre-Thesis state is machine-local, the durable home and the entry point v9)");
+  const p = argString(
+    args,
+    "run-state",
+    "this command needs --run-state <path> — the machine-local run record " +
+      "`enter` wrote (pre-Thesis state is machine-local, the durable home and the entry point v9)",
+  );
   if (!existsSync(p)) {
-    fail(`run state ${p} does not exist — run \`brief.mjs enter\` first `
-      + "(entry → thesis-determination gate → mint, the durable home and the entry point v9).");
+    fail(
+      `run state ${p} does not exist — run \`brief.mjs enter\` first ` +
+        "(entry → thesis-determination gate → mint, the durable home and the entry point v9).",
+    );
   }
   return { path: p, state: JSON.parse(readFileSync(p, "utf8")) };
 }
@@ -77,7 +84,10 @@ export function readRunState(args) {
 export function strandClaims(state) {
   const renderings = (state && state.strand_renderings) || {};
   return (Array.isArray(state?.strands) ? state.strands : [])
-    .map((s) => ({ id: s.display_id, claim: renderings[s.slug] && renderings[s.slug].found !== false ? renderings[s.slug].headline : null }))
+    .map((s) => ({
+      id: s.display_id,
+      claim: renderings[s.slug] && renderings[s.slug].found !== false ? renderings[s.slug].headline : null,
+    }))
     .filter((c) => typeof c.claim === "string" && c.claim.trim() !== "");
 }
 
@@ -115,9 +125,13 @@ export function briefComposePathDefault() {
 export function briefAudienceFile(table) {
   const st = ((table && table.states) || []).find((s) => s.id === "compose_path");
   const v = st ? settingValue(st.reader_file) : undefined;
-  return (typeof v === "string" && v !== "" && v)
-    || fail("src/brief-workflow.json's `compose_path` state declares no `reader_file` — the Audience file's path is "
-      + "read through it (kogaki#1216, kogaki#1262). Nothing was written.");
+  return (
+    (typeof v === "string" && v !== "" && v) ||
+    fail(
+      "src/brief-workflow.json's `compose_path` state declares no `reader_file` — the Audience file's path is " +
+        "read through it (kogaki#1216, kogaki#1262). Nothing was written.",
+    )
+  );
 }
 
 // THE COMPOSE JOB'S UNIT COUNT AND EACH JOB'S TWO BOUNDS ARE SETTINGS (kogaki#1307,
@@ -126,9 +140,12 @@ export function briefJobSetting(table, stateId, key) {
   const st = ((table && table.states) || []).find((s) => s.id === stateId);
   const v = st && st.job ? settingValue(st.job[key]) : undefined;
   const n = Number(v);
-  return Number.isInteger(n) && n > 0 ? n
-    : fail(`src/brief-workflow.json's \`${stateId}\` job declares no positive \`${key}\` -- it names a setting in `
-      + "kogaki.settings.json (kogaki#1307). Nothing was started.");
+  return Number.isInteger(n) && n > 0
+    ? n
+    : fail(
+        `src/brief-workflow.json's \`${stateId}\` job declares no positive \`${key}\` -- it names a setting in ` +
+          "kogaki.settings.json (kogaki#1307). Nothing was started.",
+      );
 }
 
 // A JOB UNIT IS BOUNDED PER CALL AND PER ROUND COUNT, NEVER BY A WHOLE-JOB LIMIT
@@ -142,18 +159,28 @@ export function briefJobBounds(table, stateId) {
   const row = (st && st.job) || {};
   for (const k of RETIRED_JOB_LIMIT_KEYS) {
     if (Object.prototype.hasOwnProperty.call(row, k)) {
-      fail(`src/brief-workflow.json's \`${stateId}\` job carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- `
-        + "a unit is bounded by `call_limit_s` and `unit_rounds`. Nothing was started.");
+      fail(
+        `src/brief-workflow.json's \`${stateId}\` job carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- ` +
+          "a unit is bounded by `call_limit_s` and `unit_rounds`. Nothing was started.",
+      );
     }
   }
-  const settingsPath = process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(BRIEF_REPO, "kogaki.settings.json");
+  const settingsPath = process.env.KOGAKI_SETTINGS
+    ? resolve(process.env.KOGAKI_SETTINGS)
+    : join(BRIEF_REPO, "kogaki.settings.json");
   let settings = null;
-  try { settings = JSON.parse(readFileSync(settingsPath, "utf8")); } catch { settings = null; }
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  } catch {
+    settings = null;
+  }
   const brief = settings && settings.brief && typeof settings.brief === "object" ? settings.brief : {};
   for (const k of RETIRED_JOB_LIMIT_KEYS) {
     if (Object.prototype.hasOwnProperty.call(brief, k)) {
-      fail(`${settingsPath} carries the setting \`brief.${k}\`, a whole-job limit retired by kogaki#1355 -- remove it; `
-        + "`brief.call_limit_s` and `brief.unit_rounds` bound a job unit. Nothing was started.");
+      fail(
+        `${settingsPath} carries the setting \`brief.${k}\`, a whole-job limit retired by kogaki#1355 -- remove it; ` +
+          "`brief.call_limit_s` and `brief.unit_rounds` bound a job unit. Nothing was started.",
+      );
     }
   }
   return {
@@ -179,17 +206,23 @@ export function captureFile(rec) {
 }
 
 export function needRunState(rec, st) {
-  return rec.brief_run_state
-    || fail(`${st.id} has no run state — the \`enter\` state writes it and precedes this state in `
-      + "src/brief-workflow.json. Nothing was written.");
+  return (
+    rec.brief_run_state ||
+    fail(
+      `${st.id} has no run state — the \`enter\` state writes it and precedes this state in ` +
+        "src/brief-workflow.json. Nothing was written.",
+    )
+  );
 }
 
 export function needBrief(rec, st) {
   const written = (rec.artifacts_written || []).find((a) => a.state === "mint");
   return written
     ? resolve(BRIEF_REPO, written.path)
-    : fail(`${st.id} has no minted Brief — the \`mint\` state creates it and precedes this state in `
-      + "src/brief-workflow.json. Nothing was written.");
+    : fail(
+        `${st.id} has no minted Brief — the \`mint\` state creates it and precedes this state in ` +
+          "src/brief-workflow.json. Nothing was written.",
+      );
 }
 
 // A refusal a JUDGMENT state raises. Inside the executor's re-ask window this is
@@ -257,12 +290,14 @@ export function readMintedBrief(rec, st) {
 export function entryInputs(args) {
   const entered = Array.isArray(args._rest) ? args._rest : [];
   if (!entered.length) {
-    fail("`start` was given no Strand address. A Brief is started with the served Lesson addresses "
-      + "it composes from, space-separated: `/brief coding::lesson/<local-name> "
-      + "coding::lesson/<local-name>` (a bare local name resolves against the Lesson kind). A "
-      + "human-facing reference — a Full Report coordinate like `G1` or `L101`, or a description in "
-      + "prose — is resolved into served addresses from the Full Report BEFORE the skill is invoked, "
-      + "and this runtime refuses such a token by name. Nothing was written.");
+    fail(
+      "`start` was given no Strand address. A Brief is started with the served Lesson addresses " +
+        "it composes from, space-separated: `/brief coding::lesson/<local-name> " +
+        "coding::lesson/<local-name>` (a bare local name resolves against the Lesson kind). A " +
+        "human-facing reference — a Full Report coordinate like `G1` or `L101`, or a description in " +
+        "prose — is resolved into served addresses from the Full Report BEFORE the skill is invoked, " +
+        "and this runtime refuses such a token by name. Nothing was written.",
+    );
   }
   return { entered, via: "supplied on the command line" };
 }
@@ -305,6 +340,10 @@ export function detachedJobFor(runDir, stateId) {
 }
 export function detachedJobOfRun(runDir) {
   let rec = null;
-  try { rec = readRunRecord(runDir); } catch { rec = null; }
+  try {
+    rec = readRunRecord(runDir);
+  } catch {
+    rec = null;
+  }
   return detachedJobFor(runDir, rec && rec.awaiting);
 }

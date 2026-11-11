@@ -56,17 +56,29 @@ function fail(msg) {
 // non-empty prose field. The list is the agent contract's output shape —
 // one carrier (path-review-agent.md documents it; this file enforces it).
 export const REVIEW_AREAS = [
-  "rationale_stands",  // the Move name deleted, the rationale stands
-  "entailment",        // entailed flags judged, reasoning exposed
-  "prohibitions",      // the closed unsupported-completion list
-  "semantic_economy",  // in-place Move edits only, never mechanized
-  "arc_integrity",     // the arc's causality survives rearrangement
+  "rationale_stands", // the Move name deleted, the rationale stands
+  "entailment", // entailed flags judged, reasoning exposed
+  "prohibitions", // the closed unsupported-completion list
+  "semantic_economy", // in-place Move edits only, never mechanized
+  "arc_integrity", // the arc's causality survives rearrangement
   "evaluation_levels", // the three levels, observed and never scored
 ];
 
 // Verdict-shaped keys, refused wherever they appear in a review entry.
-const VERDICT_KEYS = new Set(["verdict", "pass", "fail", "passed", "failed",
-  "score", "grade", "ok", "approved", "rating", "result", "status"]);
+const VERDICT_KEYS = new Set([
+  "verdict",
+  "pass",
+  "fail",
+  "passed",
+  "failed",
+  "score",
+  "grade",
+  "ok",
+  "approved",
+  "rating",
+  "result",
+  "status",
+]);
 
 // THE DISCHARGE IS RETIRED (kogaki#1699) with the Obligations ledger it judged; a record
 // carrying `discharge` is refused by name below.
@@ -107,12 +119,16 @@ export function claimRegisterRefusal(entries, legs) {
   const legList = (Array.isArray(legs) ? legs : []).filter((l) => l && typeof l === "object");
   if (entries === undefined && legList.length === 0) return null;
   if (!Array.isArray(entries)) {
-    return `claim_register must be an array, one entry per Leg (${legList.length} Leg(s)) — `
-      + `the vocabulary rule is judged PER LEG, never once for the whole Candidate`;
+    return (
+      `claim_register must be an array, one entry per Leg (${legList.length} Leg(s)) — ` +
+      `the vocabulary rule is judged PER LEG, never once for the whole Candidate`
+    );
   }
   if (entries.length !== legList.length) {
-    return `claim_register carries ${entries.length} entry(ies) for ${legList.length} Leg(s) — `
-      + `one entry per Leg, in Leg order`;
+    return (
+      `claim_register carries ${entries.length} entry(ies) for ${legList.length} Leg(s) — ` +
+      `one entry per Leg, in Leg order`
+    );
   }
   for (let i = 0; i < legList.length; i++) {
     const leg = legList[i];
@@ -122,16 +138,22 @@ export function claimRegisterRefusal(entries, legs) {
       return `${at} is not an entry object`;
     }
     if (e.leg_id !== undefined && e.leg_id !== leg.leg_id) {
-      return `${at} names leg_id ${JSON.stringify(e.leg_id)}, not ${JSON.stringify(leg && leg.leg_id)} — `
-        + `entries ride in the Candidate's own Leg order`;
+      return (
+        `${at} names leg_id ${JSON.stringify(e.leg_id)}, not ${JSON.stringify(leg && leg.leg_id)} — ` +
+        `entries ride in the Candidate's own Leg order`
+      );
     }
     if (!CLAIM_REGISTER_VERDICTS.includes(e.verdict)) {
-      return `${at}: verdict ${JSON.stringify(e.verdict)} is not one of `
-        + `${CLAIM_REGISTER_VERDICTS.join("/")} — the vocabulary this judgment uses is closed`;
+      return (
+        `${at}: verdict ${JSON.stringify(e.verdict)} is not one of ` +
+        `${CLAIM_REGISTER_VERDICTS.join("/")} — the vocabulary this judgment uses is closed`
+      );
     }
     if (e.verdict === "fails" && (typeof e.word !== "string" || e.word.trim() === "")) {
-      return `${at} fails and names no \`word\` — a \`fails\` verdict names the defined term `
-        + `the Leg uses that no \`introduces\` entry on it or an earlier Leg has handed it`;
+      return (
+        `${at} fails and names no \`word\` — a \`fails\` verdict names the defined term ` +
+        `the Leg uses that no \`introduces\` entry on it or an earlier Leg has handed it`
+      );
     }
   }
   return null;
@@ -162,7 +184,10 @@ export function recoverabilityRefusal(entries, legs) {
     if (!RECOVERABILITY_VERDICTS.includes(e.verdict)) {
       return `${at}: verdict ${JSON.stringify(e.verdict)} is not one of ${RECOVERABILITY_VERDICTS.join("/")}`;
     }
-    if (e.verdict === "fails" && (typeof e.word !== "string" || e.word === "" || typeof e.field !== "string" || e.field === "")) {
+    if (
+      e.verdict === "fails" &&
+      (typeof e.word !== "string" || e.word === "" || typeof e.field !== "string" || e.field === "")
+    ) {
       return `${at} fails and does not name the field and the word nothing recovers`;
     }
   }
@@ -186,24 +211,36 @@ export function attachReview(candidates, review) {
       // REVIEW RUNS PER CANDIDATE: a Candidate the agent never reviewed has
       // no reasoning for the gate, and silently passing it forward would
       // put an unjudged Candidate in front of the owner as if judged.
-      return { error: `candidate ${c.candidate_id} has no review entry — path review runs `
-        + `machine-side PER CANDIDATE (kogaki#490), and an unreviewed Candidate `
-        + `cannot ride into the selection gate as if reviewed` };
+      return {
+        error:
+          `candidate ${c.candidate_id} has no review entry — path review runs ` +
+          `machine-side PER CANDIDATE (kogaki#490), and an unreviewed Candidate ` +
+          `cannot ride into the selection gate as if reviewed`,
+      };
     }
     if (r && typeof r === "object" && "discharge" in r) {
-      return { error: `candidate ${c.candidate_id}: \`discharge\` is a retired review item (kogaki#1699) — `
-        + "the Obligations ledger it judged is retired. Remove the field." };
+      return {
+        error:
+          `candidate ${c.candidate_id}: \`discharge\` is a retired review item (kogaki#1699) — ` +
+          "the Obligations ledger it judged is retired. Remove the field.",
+      };
     }
     if (r && typeof r === "object" && "question_chain" in r) {
-      return { error: `candidate ${c.candidate_id}: \`question_chain\` is a retired review item (kogaki#1325) — `
-        + "a Leg's before-state is the previous Leg's after-state, so the two question lines it compared are one "
-        + "line. Remove the field." };
+      return {
+        error:
+          `candidate ${c.candidate_id}: \`question_chain\` is a retired review item (kogaki#1325) — ` +
+          "a Leg's before-state is the previous Leg's after-state, so the two question lines it compared are one " +
+          "line. Remove the field.",
+      };
     }
     for (const [k, v] of Object.entries(r)) {
       if (VERDICT_KEYS.has(k)) {
-        return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
-          + `verdict-shaped — the agent's output is REASONING SURFACED FOR THE HUMAN GATE, `
-          + `never a verdict, never a lint` };
+        return {
+          error:
+            `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is ` +
+            `verdict-shaped — the agent's output is REASONING SURFACED FOR THE HUMAN GATE, ` +
+            `never a verdict, never a lint`,
+        };
       }
       // `claim_register` IS NOT PROSE (kogaki#1281): it is one judged entry per
       // Leg, checked below by `claimRegisterRefusal` against the Candidate's
@@ -211,15 +248,21 @@ export function attachReview(candidates, review) {
       // apply to, named here rather than left to fail the generic check.
       if (k === "claim_register" || k === "recoverability") continue;
       if (typeof v !== "string" || v === "") {
-        return { error: `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is `
-          + `not non-empty prose — a boolean or number is a verdict wearing a type` };
+        return {
+          error:
+            `candidate ${c.candidate_id}: review field ${JSON.stringify(k)} is ` +
+            `not non-empty prose — a boolean or number is a verdict wearing a type`,
+        };
       }
     }
     for (const area of REVIEW_AREAS) {
       if (!(area in r)) {
-        return { error: `candidate ${c.candidate_id}: review lacks ${JSON.stringify(area)} — `
-          + `every MUST of the five review areas is applied per Candidate, and an absent area is an `
-          + `unapplied one (src/path-review-agent.md declares the shape)` };
+        return {
+          error:
+            `candidate ${c.candidate_id}: review lacks ${JSON.stringify(area)} — ` +
+            `every MUST of the five review areas is applied per Candidate, and an absent area is an ` +
+            `unapplied one (src/path-review-agent.md declares the shape)`,
+        };
       }
     }
     // THE CLAIM REGISTER (kogaki#1281): one judged entry per Leg, checked
@@ -255,7 +298,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -265,26 +311,49 @@ function parseArgs(argv) {
 // on `cmdAssemble`'s own ground one file over: the state binds the CASE, so the
 // attach reached from a table is the one reached from a command line.
 export function cmdAttach(args) {
-  const candidates = JSON.parse(readFileSync(argString(args, "candidates",
-    "attach needs --candidates <json> — the assembled Candidates (machine-local run state)"), "utf8"));
-  const review = JSON.parse(readFileSync(argString(args, "review",
-    "attach needs --review <json> — the path-review agent's per-Candidate reasoning "
-    + "(src/path-review-agent.md declares the shape)"), "utf8"));
-  const out = argString(args, "out",
-    "attach needs --out <path> — the machine-local file the reviewed Candidates ride "
-    + "to the selection gate in");
+  const candidates = JSON.parse(
+    readFileSync(
+      argString(
+        args,
+        "candidates",
+        "attach needs --candidates <json> — the assembled Candidates (machine-local run state)",
+      ),
+      "utf8",
+    ),
+  );
+  const review = JSON.parse(
+    readFileSync(
+      argString(
+        args,
+        "review",
+        "attach needs --review <json> — the path-review agent's per-Candidate reasoning " +
+          "(src/path-review-agent.md declares the shape)",
+      ),
+      "utf8",
+    ),
+  );
+  const out = argString(
+    args,
+    "out",
+    "attach needs --out <path> — the machine-local file the reviewed Candidates ride " + "to the selection gate in",
+  );
   const r = attachReview(candidates, review);
   if (r.error) fail(r.error);
   mkdirSync(dirname(resolve(out)), { recursive: true });
   writeFileSync(out, JSON.stringify({ candidates: r.candidates }, null, 2) + "\n");
-  console.log(`reviewed: ${r.candidates.length} candidate(s), each carrying its per-Candidate `
-    + `reasoning for the selection gate — no verdict anywhere. Written: ${out}`);
+  console.log(
+    `reviewed: ${r.candidates.length} candidate(s), each carrying its per-Candidate ` +
+      `reasoning for the selection gate — no verdict anywhere. Written: ${out}`,
+  );
 }
 
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
-    case "attach": cmdAttach(args); break;
-    default: fail("usage: review.mjs attach --candidates <json> --review <json> --out <path>");
+    case "attach":
+      cmdAttach(args);
+      break;
+    default:
+      fail("usage: review.mjs attach --candidates <json> --review <json> --out <path>");
   }
 }

@@ -25,7 +25,7 @@ import { currentPass } from "./workspace.mjs";
 // RECORD IS THE ONE THE RUN READ, from `run.outlineFields`, never composed
 // from the pass.
 function evidencePass(run, f) {
-  return f.carried ? 1 : (run.checked_at ? 2 : 1);
+  return f.carried ? 1 : run.checked_at ? 2 : 1;
 }
 // THE CHOSEN PAIR'S `judged` IS READ BEFORE THE ROW'S, and the order is the
 // whole of this function (kogaki#1134). Since `decided_by` became `judged` a
@@ -53,23 +53,24 @@ function chosenJudged(f) {
 function findingEvidencePaths(ws, run, f, figureIds = new Set(), recordDir) {
   if (!f.leg_id) return [];
   const pass = evidencePass(run, f);
-  const rel = (...a) => relative(recordDir, join(ws, `pass-${pass}`, ...a))
-    || join(ws, `pass-${pass}`, ...a);
+  const rel = (...a) => relative(recordDir, join(ws, `pass-${pass}`, ...a)) || join(ws, `pass-${pass}`, ...a);
   const isFigure = figureIds.has(f.item);
   const base = isFigure ? `${f.leg_id}.figure.json` : `${f.leg_id}.json`;
-  const recorded = isFigure ? (run.figureOutlineFields || {}) : (run.outlineFields || {});
+  const recorded = isFigure ? run.figureOutlineFields || {} : run.outlineFields || {};
   const outlineFile = f.carried
     ? join(ws, "pass-1", "outline", base)
-    : (recorded[f.leg_id] || join(ws, `pass-${pass}`, "outline", base));
+    : recorded[f.leg_id] || join(ws, `pass-${pass}`, "outline", base);
   const label = isFigure ? "the figure's Reverse Outline" : "Reverse Outline";
   const out = [`  - ${label}: \`${relative(recordDir, outlineFile) || outlineFile}\``];
   if (chosenJudged(f)) {
-    const name = f.pair === null || f.pair === undefined
-      ? `${f.leg_id}.${f.item}.md` : `${f.leg_id}.${f.item}.${f.pair}.md`;
+    const name =
+      f.pair === null || f.pair === undefined ? `${f.leg_id}.${f.item}.md` : `${f.leg_id}.${f.item}.${f.pair}.md`;
     out.push(`  - the pair the judge saw: \`${rel("join", name)}\``);
   } else {
-    out.push("  - the pair the judge saw: none — this line was not a judge's answer to a rendered "
-      + `Packet; \`${rel(pass === 1 ? "join.json" : "check.json")}\` records how it was decided`);
+    out.push(
+      "  - the pair the judge saw: none — this line was not a judge's answer to a rendered " +
+        `Packet; \`${rel(pass === 1 ? "join.json" : "check.json")}\` records how it was decided`,
+    );
   }
   return out;
 }
@@ -97,14 +98,17 @@ function evidenceLines(ws, run, recordDir) {
       `  - \`check.json\` — pass two's verdicts, the bound it applied, and what it carried`,
       "",
       "A pair pass two carried rather than re-judged has its verdict in `pass-1/join.json`",
-      "and its input under `pass-1/join/`; the bound in `check.json` says which.");
+      "and its input under `pass-1/join/`; the bound in `check.json` says which.",
+    );
   } else {
     out.push("- **Pass 2 — `check`.** Did not run, so there is no `pass-2/`.");
   }
-  out.push("",
+  out.push(
+    "",
     `- **Snapshots.** \`${rel("snapshots")}/\` — the article before and after each correction,`,
     "  and, where pass two undid one, before and after each **restore**.",
-    `- **Run record.** \`${rel("run.json")}\` — every path above, per Leg, as it was written.`);
+    `- **Run record.** \`${rel("run.json")}\` — every path above, per Leg, as it was written.`,
+  );
   // THE ONE RECORD ABOUT BOTH PASSES (kogaki#1135). Named only where `check`
   // ran, by the same rule the `pass-2/` block above follows: a legend line
   // pointing at a file nothing wrote sends the owner to an absence.
@@ -113,7 +117,8 @@ function evidenceLines(ws, run, recordDir) {
       `- **Both passes.** \`${rel("passes.json")}\` — one row per Leg, item and pair, carrying`,
       `  pass one's verdict, pass two's, and one outcome word: ${PASS_OUTCOMES.join(", ")}.`,
       "  Comparing the passes meant reading the two join records side by side by hand;",
-      "  `regressed` is the word neither of them carries.");
+      "  `regressed` is the word neither of them carries.",
+    );
   }
   return out;
 }
@@ -125,12 +130,18 @@ export function forcedParagraphLines(legs, draftDir) {
   for (const s of legs) {
     const path = resolve(draftDir, String(s.packet));
     if (!existsSync(path)) continue;
-    for (const m of forcedMarksOf(readFileSync(path, "utf8"))) rows.push(`- \`${s.leg_id}\`, paragraph ${m.paragraph} — ${m.axes.join(", ")}`);
+    for (const m of forcedMarksOf(readFileSync(path, "utf8")))
+      rows.push(`- \`${s.leg_id}\`, paragraph ${m.paragraph} — ${m.axes.join(", ")}`);
   }
-  return ["## Forced paragraphs", "",
+  return [
+    "## Forced paragraphs",
+    "",
     "Each line is a paragraph of a Leg whose plan was rewritten until the plan's judge passed it,",
-    "with the criteria that forced the rewrite. It is a count to read, and no review item acts on it.", "",
-    ...(rows.length ? rows : ["_None._"]), ""];
+    "with the criteria that forced the rewrite. It is a count to read, and no review item acts on it.",
+    "",
+    ...(rows.length ? rows : ["_None._"]),
+    "",
+  ];
 }
 
 export { chosenJudged, findingEvidencePaths, evidenceLines };

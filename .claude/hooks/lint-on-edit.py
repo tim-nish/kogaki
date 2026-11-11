@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-"""PostToolUse on Edit|Write: an edited src/**/*.mjs file is cruised against
-the lane rule at once, so a new crossing edge reaches the session in the same
-turn (kogaki#1746), and an edited src/ or checks/ .mjs file is linted with
-ESLint, so a new finding does too (kogaki#1747), an edited src/ .mjs file is
-type-checked against its `tsc-baseline.json` row (kogaki#1791), and an edited
-.sh or .py file is measured against the heredoc bound (kogaki#1790). The rules
-are `.dependency-cruiser.cjs`, `eslint.config.mjs`, `jsconfig.json` and
-`checks/check-heredoc-bound.py`; this hook runs each over the one file with
-its baseline and exits 2 with the findings on stderr. Every registered member
-whose tier is `fast` and whose `covers` holds the edited path runs too, and a
-failing one exits 2 with its output (kogaki#1794). Any other path returns 0
-without running anything."""
+"""PostToolUse on Edit|Write: one file, the rules that read it. An edited
+src/**/*.mjs file is cruised against the lane rule (kogaki#1746), linted with
+ESLint (kogaki#1747), type-checked against its `tsc-baseline.json` row
+(kogaki#1791) and checked against `.prettierrc.json`, never rewritten
+(kogaki#1792); an edited checks/ .mjs file is linted and format-checked; an
+edited .sh or .py file is measured against the heredoc bound (kogaki#1790).
+Every registered member whose tier is `fast` and whose `covers` holds the
+edited path runs too (kogaki#1794). Each rule runs over the one file with its
+baseline, and a finding exits 2 with it on stderr. Any other path returns 0."""
 import json
 import pathlib
 import subprocess
@@ -23,6 +20,7 @@ HEREDOC_BOUND = "checks/check-heredoc-bound.py"
 TYPES = "checks/check-types.py"
 REGISTRY = "checks/registry.json"
 INTERPRETERS = {".sh": "bash", ".mjs": "node", ".py": sys.executable}
+FORMAT = "checks/check-format.py"
 
 
 def run(root, tool, args):
@@ -35,10 +33,10 @@ def run(root, tool, args):
     return "" if ran.returncode == 0 else ran.stdout + ran.stderr
 
 
-def types(root, rel):
-    if not (root / TYPES).is_file():
+def member(root, check, rel):
+    if not (root / check).is_file():
         return ""
-    ran = subprocess.run([sys.executable, str(root / TYPES), "--file", rel],
+    ran = subprocess.run([sys.executable, str(root / check), "--file", rel],
                          cwd=root, capture_output=True, text=True)
     return "" if ran.returncode == 0 else ran.stdout + ran.stderr
 
@@ -107,11 +105,12 @@ def main():
     found = run(root, "eslint", ["--max-warnings", "0",
                                  "--suppressions-location", SUPPRESSIONS,
                                  rel])
+    found += member(root, FORMAT, rel)
     if rel.startswith("src/"):
         found += run(root, "depcruise",
                      [rel, "--config", CONFIG, "--ignore-known", BASELINE,
                       "--output-type", "err"])
-        found += types(root, rel)
+        found += member(root, TYPES, rel)
     if not found:
         return status
     print(found, file=sys.stderr)

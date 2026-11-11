@@ -30,20 +30,27 @@ import { parseYaml } from "../yaml.mjs";
 // which is the lint the judgment rule forbids.
 export function loadMoveIds(movesDir = "moves") {
   let names;
-  try { names = readdirSync(movesDir); }
-  catch (e) {
+  try {
+    names = readdirSync(movesDir);
+  } catch (e) {
     // A STORE THAT CANNOT BE READ IS NOT AN EMPTY STORE. Returning an empty
     // set here would turn an unreadable directory into "every move id is
     // dangling", and a caller would render a refusal naming the Legs rather
     // than the missing store — a true refusal for a false reason.
-    return { error: `the Move library at ${movesDir} cannot be read (${e.message}) — `
-      + `a Leg binds a Move by id (the Leg's shape v18) and the ids resolve against this store (the Leg-Move instantiation contract); `
-      + `pass --moves-dir if the library is not at the default path` };
+    return {
+      error:
+        `the Move library at ${movesDir} cannot be read (${e.message}) — ` +
+        `a Leg binds a Move by id (the Leg's shape v18) and the ids resolve against this store (the Leg-Move instantiation contract); ` +
+        `pass --moves-dir if the library is not at the default path`,
+    };
   }
   const ids = new Set();
   const retired = [];
   for (const n of names) {
-    if (n.endsWith(MOVE_RECORD_EXT)) { ids.add(n.slice(0, -MOVE_RECORD_EXT.length)); continue; }
+    if (n.endsWith(MOVE_RECORD_EXT)) {
+      ids.add(n.slice(0, -MOVE_RECORD_EXT.length));
+      continue;
+    }
     if (!n.endsWith(".md") || n === "INDEX.md") continue; // INDEX is the regenerated view, never a record
     retired.push(n);
   }
@@ -53,8 +60,11 @@ export function loadMoveIds(movesDir = "moves") {
   // parser this record format retired.
   if (retired.length) return { error: retiredMoveFormRefusal(movesDir, retired.sort()) };
   if (ids.size === 0) {
-    return { error: `the Move library at ${movesDir} holds no Move records — `
-      + `every Leg's move id would dangle, which is a store problem and not a composition one (the Leg-Move instantiation contract)` };
+    return {
+      error:
+        `the Move library at ${movesDir} holds no Move records — ` +
+        `every Leg's move id would dangle, which is a store problem and not a composition one (the Leg-Move instantiation contract)`,
+    };
   }
   return { ids };
 }
@@ -73,15 +83,21 @@ export function resolveMoveIds(legs, movesDir = "moves") {
     if (typeof id !== "string" || id === "") {
       // Shape, not resolution — validateLegs owns this on the composition
       // side. Reached on the draft side, where the input is a parsed document.
-      return { error: `leg ${s.leg_id}: no move is bound — a Leg binds a Move library entry by id (the Leg's shape v18), `
-        + `because the Move is the State component of a Leg` };
+      return {
+        error:
+          `leg ${s.leg_id}: no move is bound — a Leg binds a Move library entry by id (the Leg's shape v18), ` +
+          `because the Move is the State component of a Leg`,
+      };
     }
     if (!store.ids.has(id)) {
-      return { error: `leg ${s.leg_id}: move "${id}" resolves to no record in the Move library `
-        + `(${movesDir}/${id}${MOVE_RECORD_EXT} does not exist) — a Leg INSTANTIATES a Move, so a Move that is not there `
-        + `leaves the Leg with no reader-state transition type to be the instance of (the Leg-Move instantiation contract). `
-        + `Bind an admitted Move, or admit this one to the library first — the library grows by an `
-        + `admission act, never by a Brief naming an id (the Move library)` };
+      return {
+        error:
+          `leg ${s.leg_id}: move "${id}" resolves to no record in the Move library ` +
+          `(${movesDir}/${id}${MOVE_RECORD_EXT} does not exist) — a Leg INSTANTIATES a Move, so a Move that is not there ` +
+          `leaves the Leg with no reader-state transition type to be the instance of (the Leg-Move instantiation contract). ` +
+          `Bind an admitted Move, or admit this one to the library first — the library grows by an ` +
+          `admission act, never by a Brief naming an id (the Move library)`,
+      };
     }
   }
   return { ok: true, checked: legs.length, store_size: store.ids.size };
@@ -108,21 +124,27 @@ export const MOVE_RECORD_EXT = ".yaml";
 // The five reader dimensions, in passages/FORMAT.md's order.
 export const MOVE_STATE_DIMENSIONS = ["knowledge", "question", "expectation", "orientation", "trust"];
 
-export function isPlainMap(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
+export function isPlainMap(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
 
 function retiredMoveFormRefusal(movesDir, files) {
-  return `the Move library at ${movesDir} holds ${files.length} Move record(s) in the retired \`.md\` form (${files.join(", ")}) — `
-    + `a Move record is a \`.yaml\` file read by the Brief's YAML reader, carrying \`before\` and \`after\` as maps keyed by `
-    + `dimension (kogaki#1413), and a \`.md\` Move is refused by name rather than read. Regenerate the record from its Extraction `
-    + `(kogaki#1415 regenerates the committed Leg Moves)`;
+  return (
+    `the Move library at ${movesDir} holds ${files.length} Move record(s) in the retired \`.md\` form (${files.join(", ")}) — ` +
+    `a Move record is a \`.yaml\` file read by the Brief's YAML reader, carrying \`before\` and \`after\` as maps keyed by ` +
+    `dimension (kogaki#1413), and a \`.md\` Move is refused by name rather than read. Regenerate the record from its Extraction ` +
+    `(kogaki#1415 regenerates the committed Leg Moves)`
+  );
 }
 
 // A state, `before` or `after`: a non-empty map whose keys are reader dimensions
 // and whose values are one-line sentences. Returns a refusal sentence or null.
 export function moveStateRefusal(value, field, at) {
   if (typeof value === "string") {
-    return `${at}: \`${field}\` is one joined line, not a map keyed by dimension — a Move's state is one \`<dimension>: <sentence>\` `
-      + `entry per changed dimension (kogaki#1413), and a joined-line state is refused by name rather than split`;
+    return (
+      `${at}: \`${field}\` is one joined line, not a map keyed by dimension — a Move's state is one \`<dimension>: <sentence>\` ` +
+      `entry per changed dimension (kogaki#1413), and a joined-line state is refused by name rather than split`
+    );
   }
   if (!isPlainMap(value) || !Object.keys(value).length) {
     return `${at}: \`${field}\` is not a map keyed by dimension — one entry per changed dimension, over ${MOVE_STATE_DIMENSIONS.join(", ")} (kogaki#1413)`;
@@ -143,7 +165,8 @@ export function moveStateRefusal(value, field, at) {
 // ParagraphPlan judge read (kogaki#1413).
 export function moveStateLines(state) {
   return MOVE_STATE_DIMENSIONS.filter((d) => Object.prototype.hasOwnProperty.call(state, d))
-    .map((d) => `${d}: ${String(state[d]).trim()}`).join("\n");
+    .map((d) => `${d}: ${String(state[d]).trim()}`)
+    .join("\n");
 }
 
 // One Move record, parsed. Returns `{ record, path }` or `{ error }`: a `.md`
@@ -153,19 +176,28 @@ export function readMoveRecord(moveId, movesDir = "moves") {
   const path = join(movesDir, `${moveId}${MOVE_RECORD_EXT}`);
   const retiredPath = join(movesDir, `${moveId}.md`);
   if (!existsSync(path) && existsSync(retiredPath)) {
-    return { error: `move "${moveId}" is a \`.md\` record (${retiredPath}) — ` + retiredMoveFormRefusal(movesDir, [`${moveId}.md`]) };
+    return {
+      error:
+        `move "${moveId}" is a \`.md\` record (${retiredPath}) — ` + retiredMoveFormRefusal(movesDir, [`${moveId}.md`]),
+    };
   }
   let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch (e) {
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (e) {
     return { error: `move "${moveId}" cannot be read from ${movesDir} (${e.message})` };
   }
   let record;
-  try { record = parseYaml(text, path); }
-  catch (e) { return { error: `move "${moveId}" is not a readable YAML record (${e.message})` }; }
+  try {
+    record = parseYaml(text, path);
+  } catch (e) {
+    return { error: `move "${moveId}" is not a readable YAML record (${e.message})` };
+  }
   if (!isPlainMap(record)) return { error: `move "${moveId}" (${path}) is not a map of fields` };
   if (record.id !== moveId) {
-    return { error: `move "${moveId}" (${path}) carries id ${JSON.stringify(record.id ?? null)} — a Move's id is its file's stem` };
+    return {
+      error: `move "${moveId}" (${path}) carries id ${JSON.stringify(record.id ?? null)} — a Move's id is its file's stem`,
+    };
   }
   return { record, path };
 }

@@ -46,7 +46,9 @@ const FIGURE_INPUT_MARKER = "<!-- FIGURE-INPUT -->";
 export function splitPacketTemplate(text) {
   const at = text.indexOf(FIGURE_INPUT_MARKER);
   if (at === -1) {
-    return { error: `the Packet template carries no ${FIGURE_INPUT_MARKER} marker — the figure block lives behind it (the figure record), and a template without it cannot say where the Packet ends` };
+    return {
+      error: `the Packet template carries no ${FIGURE_INPUT_MARKER} marker — the figure block lives behind it (the figure record), and a template without it cannot say where the Packet ends`,
+    };
   }
   return { packet: text.slice(0, at).trimEnd() + "\n", figure: text.slice(at + FIGURE_INPUT_MARKER.length) };
 }
@@ -83,10 +85,15 @@ export function figureFormFor(leg) {
     return roles.length === bound.length && roles.every((r, i) => r === bound[i]);
   });
   if (matches.length !== 1) {
-    return { error: `leg ${leg.leg_id}: figure_roles binds ${bound.length ? bound.map((r) => `"${r}"`).join(", ") : "no role"}, `
-      + `which is ${matches.length ? "the role set of more than one kind" : "the role set of no kind"} in src/figure-kinds.json `
-      + `(${Object.entries(kinds).map(([n, k]) => `${n}: ${(k.roles || []).join(", ")}`).join("; ")}) — composition binds exactly `
-      + `one form's roles, so this Brief has been edited since it was adopted` };
+    return {
+      error:
+        `leg ${leg.leg_id}: figure_roles binds ${bound.length ? bound.map((r) => `"${r}"`).join(", ") : "no role"}, ` +
+        `which is ${matches.length ? "the role set of more than one kind" : "the role set of no kind"} in src/figure-kinds.json ` +
+        `(${Object.entries(kinds)
+          .map(([n, k]) => `${n}: ${(k.roles || []).join(", ")}`)
+          .join("; ")}) — composition binds exactly ` +
+        `one form's roles, so this Brief has been edited since it was adopted`,
+    };
   }
   const [kind, decl] = matches[0];
   const roles = decl.roles || [];
@@ -100,20 +107,25 @@ export function figureFormFor(leg) {
 export function renderFigureInput({ figureTemplate, packetText, leg, form, prose }) {
   const missing = form.roles.filter((r) => !form.lines[r]);
   if (missing.length) {
-    return { error: `leg ${leg.leg_id}: the ${form.kind} form carries no line for ${missing.map((x) => `"${x}"`).join(", ")} — src/figure-kinds.json declares a relation for every kind, so the file has been edited since` };
+    return {
+      error: `leg ${leg.leg_id}: the ${form.kind} form carries no line for ${missing.map((x) => `"${x}"`).join(", ")} — src/figure-kinds.json declares a relation for every kind, so the file has been edited since`,
+    };
   }
   const binding = [];
   for (const role of form.roles) {
     const addr = (leg.figure_roles || {})[role];
     const g = claimAt(leg, addr);
     if (g === null) {
-      return { error: `leg ${leg.leg_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Leg has no such claim — composition refuses this (the figure decision), so the Brief has been edited since it was adopted` };
+      return {
+        error: `leg ${leg.leg_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Leg has no such claim — composition refuses this (the figure decision), so the Brief has been edited since it was adopted`,
+      };
     }
     binding.push(`- **${role}** — bound to \`${addr}\`:\n\n  ${g}`);
   }
   const fields = {
     figure_kind: form.kind,
-    figure_form_roles: form.roles.map((r) => `- **${r}**`).join("\n") + `\n\nWhat holds between them: ${form.relation}.`,
+    figure_form_roles:
+      form.roles.map((r) => `- **${r}**`).join("\n") + `\n\nWhat holds between them: ${form.relation}.`,
     figure_binding: binding.join("\n"),
     figure_reason: leg.figure,
     figure_prose: prose.trim(),
@@ -121,7 +133,10 @@ export function renderFigureInput({ figureTemplate, packetText, leg, form, prose
   let out = figureTemplate;
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
   const left = out.match(/\{\{(\w+)\}\}/);
-  if (left) return { error: `the figure block's slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the figure record)` };
+  if (left)
+    return {
+      error: `the figure block's slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the figure record)`,
+    };
   return { input: packetText.trimEnd() + "\n" + out };
 }
 
@@ -144,7 +159,9 @@ export function figureRecordRefusal(record, leg, form, schema) {
     }
   }
   const known = new Set([...schema.required, ...(schema.optional || [])]);
-  const extra = Object.keys(record).filter((k) => !known.has(k)).sort();
+  const extra = Object.keys(record)
+    .filter((k) => !known.has(k))
+    .sort();
   if (extra.length) {
     // REFUSED RATHER THAN IGNORED, the rule a closed key set states
     // for its own forbidden keys: an ignored field still shaped the reading
@@ -183,15 +200,17 @@ export function figureRecordRefusal(record, leg, form, schema) {
       return `${at}: element "${role}" is bound to ${JSON.stringify(el.claim ?? null)} and the Brief bound "${role}" to ${JSON.stringify(want ?? null)} — the binding is the Brief's decision (the figure decision), and a record that moves a role to another claim words it from material the composer did not put under that position`;
     }
   }
-  if (!Array.isArray(record.relations) || record.relations.length === 0
-      || record.relations.some((x) => typeof x !== "string" || x.trim() === "")) {
+  if (
+    !Array.isArray(record.relations) ||
+    record.relations.length === 0 ||
+    record.relations.some((x) => typeof x !== "string" || x.trim() === "")
+  ) {
     return `${at}: relations is a non-empty list of lines — the kind's whole content is the relation it holds (${form.kind}: ${form.relation}), so a record asserting none is a list rather than a figure`;
   }
   if (typeof record.caption !== "string" || record.caption.trim() === "") {
     return `${at}: caption is one line in the terms of this Leg's claims — what the reader holds after looking`;
   }
-  if (Object.prototype.hasOwnProperty.call(record, "emphasis")
-      && !form.roles.includes(record.emphasis)) {
+  if (Object.prototype.hasOwnProperty.call(record, "emphasis") && !form.roles.includes(record.emphasis)) {
     return `${at}: emphasis is ${JSON.stringify(record.emphasis)}, which is not a role of the ${form.kind} form (${form.roles.join(", ")}) — emphasis names which element the figure leans on`;
   }
   const positions = schema.fields.position.one_of;
@@ -238,12 +257,14 @@ export function sectionPlacement(sec) {
   }
   const others = sec.leg_ids.length - 1;
   return sec.opens
-    ? `- **This Leg OPENS a Section.** Its heading is **"${sec.title}"**, rendered by the Harness immediately above your prose.\n`
-      + `- **Your prose is what the heading promises.** ${others === 0
-          ? "This Leg is the whole Section."
-          : `${others} further Leg${others === 1 ? "" : "s"} continue${others === 1 ? "s" : ""} under it, so open the question rather than closing it.`}`
-    : `- **This Leg CONTINUES the Section headed "${sec.title}".** That heading is already on the page, above prose you are writing further into.\n`
-      + `- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.`;
+    ? `- **This Leg OPENS a Section.** Its heading is **"${sec.title}"**, rendered by the Harness immediately above your prose.\n` +
+        `- **Your prose is what the heading promises.** ${
+          others === 0
+            ? "This Leg is the whole Section."
+            : `${others} further Leg${others === 1 ? "" : "s"} continue${others === 1 ? "s" : ""} under it, so open the question rather than closing it.`
+        }`
+    : `- **This Leg CONTINUES the Section headed "${sec.title}".** That heading is already on the page, above prose you are writing further into.\n` +
+        `- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.`;
 }
 
 // PRIOR PROSE, SCOPED TO THE CURRENT SECTION ONLY (kogaki#1282, owner ruling

@@ -21,9 +21,15 @@ export function legPoint(r, n) {
 // from it (kogaki#1521), the ingest's; null where none is readable.
 function moveRecord(r, move) {
   const dirs = [join(r.runDir, "moves"), r.stage("ingest").moves_dir].filter(Boolean);
-  const mt = move ? dirs.map((d) => read(join(d, `${move}${MOVE_RECORD_EXT}`))).find((t) => t !== null) ?? null : null;
+  const mt = move
+    ? (dirs.map((d) => read(join(d, `${move}${MOVE_RECORD_EXT}`))).find((t) => t !== null) ?? null)
+    : null;
   if (!mt) return null;
-  try { return parseYaml(mt) || null; } catch { return null; }
+  try {
+    return parseYaml(mt) || null;
+  } catch {
+    return null;
+  }
 }
 
 // A bound Move's `description` as one plain paragraph (kogaki#1517); nothing where no Move is
@@ -38,8 +44,10 @@ export function moveDescription(r, move) {
 // nothing where no Move is bound or its record carries no entry.
 export function moveConstraintLines(r, move) {
   const rec = move ? moveRecord(r, move) : null;
-  const line = (field) => (rec && Array.isArray(rec[field]) ? rec[field] : [])
-    .map((x) => `<p class="${field}">${esc(`${x && x.kind}: ${x && x.what}`)}</p>`).join("");
+  const line = (field) =>
+    (rec && Array.isArray(rec[field]) ? rec[field] : [])
+      .map((x) => `<p class="${field}">${esc(`${x && x.kind}: ${x && x.what}`)}</p>`)
+      .join("");
   return line("takes") + line("leaves");
 }
 
@@ -47,10 +55,14 @@ export function moveConstraintLines(r, move) {
 // order, read from the run's moves directory. The Move's `before` and `after` are retired (kogaki#1699).
 export function constraintEntriesHtml(list) {
   const xs = Array.isArray(list) ? list : [];
-  return xs.length ? `<ol>${xs.map((x) => `<li>${esc(`${x && x.kind}: ${x && x.what}`)}</li>`).join("")}</ol>` : `<span class="muted">(none)</span>`;
+  return xs.length
+    ? `<ol>${xs.map((x) => `<li>${esc(`${x && x.kind}: ${x && x.what}`)}</li>`).join("")}</ol>`
+    : `<span class="muted">(none)</span>`;
 }
 function stateRows(rec) {
-  return ["takes", "leaves"].map((k) => `<tr><td>${k}</td><td colspan="2">${constraintEntriesHtml(rec[k])}</td></tr>`).join("");
+  return ["takes", "leaves"]
+    .map((k) => `<tr><td>${k}</td><td colspan="2">${constraintEntriesHtml(rec[k])}</td></tr>`)
+    .join("");
 }
 const STATES_HEAD = `<thead><tr><th>list</th><th colspan="2">entries</th></tr></thead>`;
 export function moveStates(r, move) {
@@ -67,10 +79,15 @@ export function moveStatesBreaks(r, move) {
   const rec = moveRecord(r, move);
   if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
   const breaks = Array.isArray(rec.breaks) ? rec.breaks : [];
-  return `<table class="move-states"><caption>takes / leaves / breaks</caption>${STATES_HEAD}<tbody>${stateRows(rec)}`
-    + `<tr class="breaks"><td>breaks</td><td colspan="2">${breaks.length
-      ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>` : `<span class="muted">(none)</span>`}</td></tr>`
-    + `</tbody></table>`;
+  return (
+    `<table class="move-states"><caption>takes / leaves / breaks</caption>${STATES_HEAD}<tbody>${stateRows(rec)}` +
+    `<tr class="breaks"><td>breaks</td><td colspan="2">${
+      breaks.length
+        ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>`
+        : `<span class="muted">(none)</span>`
+    }</td></tr>` +
+    `</tbody></table>`
+  );
 }
 
 // A paragraph's Move's `breaks` under its Segments table on the review block (kogaki#1637): an
@@ -80,8 +97,11 @@ export function moveBreaks(r, move) {
   const rec = moveRecord(r, move);
   if (!rec) return `<p class="muted">(the Move file is not readable)</p>`;
   const breaks = Array.isArray(rec.breaks) ? rec.breaks : [];
-  return `<div class="move-breaks"><p class="caption">Breaks</p>${breaks.length
-    ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>` : `<p class="muted">(none)</p>`}</div>`;
+  return `<div class="move-breaks"><p class="caption">Breaks</p>${
+    breaks.length
+      ? `<ol>${breaks.map((b) => `<li>${esc(String(b))}</li>`).join("")}</ol>`
+      : `<p class="muted">(none)</p>`
+  }</div>`;
 }
 
 // WHERE A BOUND MOVE CAME FROM (kogaki#1521): `library` or `this run`, read from the run record's

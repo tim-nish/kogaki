@@ -19,7 +19,10 @@ const KINDS = ["thesis", "cite", "claim"];
 // THE CLAIMS FILE: one `thesis:` line, then pairs of a `cite:` line and a `claim:` line, and nothing else. A claim's id is
 // `c<n>`, its place in the file.
 export function parseClaims(text) {
-  const lines = String(text).split("\n").map((l, i) => ({ n: i + 1, text: l })).filter((l) => l.text.trim() !== "");
+  const lines = String(text)
+    .split("\n")
+    .map((l, i) => ({ n: i + 1, text: l }))
+    .filter((l) => l.text.trim() !== "");
   const at = (l) => `line ${l.n}, ${JSON.stringify(l.text.trim())}`;
   let thesis = null;
   const claims = [];
@@ -28,8 +31,14 @@ export function parseClaims(text) {
     const m = /^([a-z_]+):(.*)$/.exec(l.text);
     const kind = m ? m[1] : null;
     const value = m ? m[2].trim() : "";
-    if (kind === "proposition") return { error: `${at(l)}: the claims file carries a \`proposition:\` line — its sentences are \`claim:\` lines` };
-    if (!KINDS.includes(kind)) return { error: `${at(l)}: the claims file carries \`thesis:\`, \`cite:\` and \`claim:\` lines and nothing else` };
+    if (kind === "proposition")
+      return {
+        error: `${at(l)}: the claims file carries a \`proposition:\` line — its sentences are \`claim:\` lines`,
+      };
+    if (!KINDS.includes(kind))
+      return {
+        error: `${at(l)}: the claims file carries \`thesis:\`, \`cite:\` and \`claim:\` lines and nothing else`,
+      };
     if (!value) return { error: `${at(l)}: the \`${kind}:\` line is empty` };
     if (kind === "thesis") {
       if (thesis !== null) return { error: `${at(l)}: a second \`thesis:\` line — the claims file carries one` };
@@ -55,7 +64,8 @@ export function parseClaims(text) {
 // THE FILE `/paragraph-plan` READS AS A BRIEF'S `reader_path`, refused naming the Leg or `{}`: the Brief's own Leg
 // reader over the structure (kogaki#1775).
 export function readerPathRefusal(record, structure) {
-  if (!isMap(record) || record.composed_by !== COMPOSED_BY) return { error: `the file carries no \`composed_by: ${COMPOSED_BY}\` line` };
+  if (!isMap(record) || record.composed_by !== COMPOSED_BY)
+    return { error: `the file carries no \`composed_by: ${COMPOSED_BY}\` line` };
   const legs = briefLegs(record);
   if (!legs.length) return { error: "the file carries no Reader Path legs" };
   // The Trial asks no `leg_sections` Call, so the Section grouping is not its to meet (kogaki#1775).

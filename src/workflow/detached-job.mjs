@@ -8,17 +8,42 @@ import { join, resolve } from "node:path";
 import { REPO, fail, readJson } from "./run-record.mjs";
 import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
 import { writeCallRecord, pinCallRefusal, cliRecord, tableRecord } from "./call-record.mjs";
-import { CALL_TIME_LIMIT, SCHEMA_REFUSAL, classifyDetachedJobUnit, classifyFitJudgeCall, judgedSites, readerPathUnitCandidatePath, readerPathUnitFitStdoutPath, readerPathUnitRetryPrompt, readerPathUnitSpecializationPath, readerPathUnitStdoutPath, spawnDetachedJobUnit, withNoToolsSentence } from "./detached-job/units.mjs";
-import { MAPPER_PHASES, loadMapper, loadReaderPathFitJudge, loadReaderPathUnitValidator } from "./detached-job/loaders.mjs";
-import { READER_PATH_JOB_STALL_S, READER_PATH_JOB_SYSTEM_FAILURE_STATES, classifyDetachedJobState, readReaderPathJob, readerPathDoneJobUnfinished, readerPathJobFailure, readerPathJobStopFlagPath, writeReaderPathJob } from "./detached-job/job-state.mjs";
+import {
+  CALL_TIME_LIMIT,
+  SCHEMA_REFUSAL,
+  classifyDetachedJobUnit,
+  classifyFitJudgeCall,
+  judgedSites,
+  readerPathUnitCandidatePath,
+  readerPathUnitFitStdoutPath,
+  readerPathUnitRetryPrompt,
+  readerPathUnitSpecializationPath,
+  readerPathUnitStdoutPath,
+  spawnDetachedJobUnit,
+  withNoToolsSentence,
+} from "./detached-job/units.mjs";
+import {
+  MAPPER_PHASES,
+  loadMapper,
+  loadReaderPathFitJudge,
+  loadReaderPathUnitValidator,
+} from "./detached-job/loaders.mjs";
+import {
+  READER_PATH_JOB_STALL_S,
+  READER_PATH_JOB_SYSTEM_FAILURE_STATES,
+  classifyDetachedJobState,
+  readReaderPathJob,
+  readerPathDoneJobUnfinished,
+  readerPathJobFailure,
+  readerPathJobStopFlagPath,
+  writeReaderPathJob,
+} from "./detached-job/job-state.mjs";
 export {
   readerPathUnitCandidatePath,
   readerPathUnitRetryPrompt,
   readerPathUnitSpecializationPath,
 } from "./detached-job/units.mjs";
-export {
-  loadReaderPathUnitValidator,
-} from "./detached-job/loaders.mjs";
+export { loadReaderPathUnitValidator } from "./detached-job/loaders.mjs";
 export {
   READER_PATH_JOB_STALL_S,
   READER_PATH_JOB_SYSTEM_FAILURE_STATES,
@@ -95,7 +120,6 @@ export const READER_PATH_JOB_AWAIT_COMMAND = "node src/brief.mjs run --status --
 // `checks/check-brief-reader-path-job.sh` (a) now reads the set off the job
 // records its fixtures end in.
 
-
 // THE SUPERVISOR (kogaki#1193). Spawned DETACHED by `startDetachedJobSupervisor`
 // below and never awaited by its spawner -- this function's own process
 // outlives the hook that started it, which is the whole point of a Detached
@@ -112,11 +136,16 @@ export async function cmdJobSupervise(args) {
     // THE TWO BOUNDS ARE HANDED OVER, NEVER DEFAULTED (kogaki#1307, kogaki#1355): the
     // starter read them from `kogaki.settings.json`, and a supervisor told either one
     // not refuses to start. The retired whole-job limit is refused by name.
-    if (args["absolute-limit-s"] !== undefined) throw new Error("job-supervise was handed --absolute-limit-s, a whole-job limit retired by kogaki#1355; it takes --call-limit-s and --unit-rounds.");
+    if (args["absolute-limit-s"] !== undefined)
+      throw new Error(
+        "job-supervise was handed --absolute-limit-s, a whole-job limit retired by kogaki#1355; it takes --call-limit-s and --unit-rounds.",
+      );
     const callLimitS = Number(args["call-limit-s"]);
-    if (!Number.isFinite(callLimitS) || callLimitS <= 0) throw new Error("job-supervise needs a positive --call-limit-s (kogaki#1355).");
+    if (!Number.isFinite(callLimitS) || callLimitS <= 0)
+      throw new Error("job-supervise needs a positive --call-limit-s (kogaki#1355).");
     const unitRounds = Number(args["unit-rounds"]);
-    if (!Number.isInteger(unitRounds) || unitRounds <= 0) throw new Error("job-supervise needs a positive integer --unit-rounds (kogaki#1355).");
+    if (!Number.isInteger(unitRounds) || unitRounds <= 0)
+      throw new Error("job-supervise needs a positive integer --unit-rounds (kogaki#1355).");
     const stallS = Number(args["stall-s"]) || READER_PATH_JOB_STALL_S;
     const heartbeatMs = Number(args["heartbeat-ms"]) || READER_PATH_JOB_HEARTBEAT_MS;
     // THE DECLARED VALIDATOR, REQUIRED (kogaki#1240): a units file with no
@@ -124,12 +153,18 @@ export async function cmdJobSupervise(args) {
     // before any child is spawned, and is caught by this function's own
     // catch-all below exactly like any other malformed units file.
     const declared = readJson(unitsPath);
-    const units = Array.isArray(declared) ? declared : (declared.units || fail("the units file at " + unitsPath + " carries no `units` array."));
+    const units = Array.isArray(declared)
+      ? declared
+      : declared.units || fail("the units file at " + unitsPath + " carries no `units` array.");
     const validate = await loadReaderPathUnitValidator(declared.validator);
     const fit = await loadReaderPathFitJudge(declared.fit_judge);
     const siteRetry = await loadSiteRetry(declared.site_retry);
-    const recordArray = declared.record_array === false ? false
-      : typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "legs";
+    const recordArray =
+      declared.record_array === false
+        ? false
+        : typeof declared.record_array === "string" && declared.record_array
+          ? declared.record_array
+          : "legs";
     // UNIT ISOLATION AND THE CARRIED ROWS (kogaki#1641), both written by the starter from
     // the job's own table: under `unit_isolation` a died unit ends that unit alone, and
     // every row in `carried` is a unit a prior run of the same inputs already finished --
@@ -144,10 +179,22 @@ export async function cmdJobSupervise(args) {
     // THE OUTPUT FORMAT IS HARDCODED (PR #1195): `stream-json` with
     // `--include-partial-messages` is the stall bound's only progress signal; never make it
     // a per-caller option.
-    const argv = ["-p", "--model", model,
-      "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-      "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
-      "--setting-sources", "", "--no-session-persistence"];
+    const argv = [
+      "-p",
+      "--model",
+      model,
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--include-partial-messages",
+      "--tools",
+      "",
+      "--disable-slash-commands",
+      "--strict-mcp-config",
+      "--setting-sources",
+      "",
+      "--no-session-persistence",
+    ];
     const childEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" };
     const startedAt = Date.now();
     // EVERY CALL WRITES ITS CALL RECORD (kogaki#1717); `n` counts all of a unit's calls, whatever their phase.
@@ -160,19 +207,37 @@ export async function cmdJobSupervise(args) {
       const t = readJson(resolve(REPO, String(r.table)));
       return { phase, row: { id: r.id, ...(t[r.id] || {}) }, tables: [tableRecord(r.table)] };
     };
-    const validatorName = (phase) => (phase === "fit" ? declared.fit_judge.verdict_export
-      : phase === "compose" ? declared.validator.export : declared.site_retry[`${phase}_validator_export`]);
+    const validatorName = (phase) =>
+      phase === "fit"
+        ? declared.fit_judge.verdict_export
+        : phase === "compose"
+          ? declared.validator.export
+          : declared.site_retry[`${phase}_validator_export`];
     const recordCall = (u, sp, cls) => {
       const st = S.get(u.id);
       st.calls += 1;
       const f = cls.failure || {};
-      const refusal = cls.status === "done" ? null : {
-        group: f.group ?? null, reach: f.reach ?? null, text: f.stderr_tail ?? f.class ?? cls.status,
-        validator: cls.status === "refused" && f.class === SCHEMA_REFUSAL ? validatorName(sp.phase) : null,
-        sites: f.sites || (f.move_fit && f.move_fit.length ? f.move_fit : null) };
+      const refusal =
+        cls.status === "done"
+          ? null
+          : {
+              group: f.group ?? null,
+              reach: f.reach ?? null,
+              text: f.stderr_tail ?? f.class ?? cls.status,
+              validator: cls.status === "refused" && f.class === SCHEMA_REFUSAL ? validatorName(sp.phase) : null,
+              sites: f.sites || (f.move_fit && f.move_fit.length ? f.move_fit : null),
+            };
       const answer = sp.phase === "fit" ? (cls.specialization ?? undefined) : (cls.candidate ?? undefined);
-      const dirOf = writeCallRecord(dir, u.id, st.calls, { prompt: sp.prompt, argv: callArgv, cli, input: u.input ?? null,
-        row: rowOf(sp.phase), raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), answer, refusal });
+      const dirOf = writeCallRecord(dir, u.id, st.calls, {
+        prompt: sp.prompt,
+        argv: callArgv,
+        cli,
+        input: u.input ?? null,
+        row: rowOf(sp.phase),
+        raw: Buffer.concat(sp.out.chunks || []).toString("utf8"),
+        answer,
+        refusal,
+      });
       st.callRecords = resolve(dirOf, "..");
     };
     // THE PER-UNIT STATE (kogaki#1355). `rounds` is the Round now running: it starts
@@ -185,21 +250,49 @@ export async function cmdJobSupervise(args) {
     // the status line's estimate. `phase` is `compose` while the unit's own record is
     // being written and `fit` while its Move fit is judged; `composed` holds the record
     // the fit call judges.
-    const S = new Map(units.map((u) => [u.id, {
-      rounds: 1, malformed: 0, malformedThisRound: 0, phase: "compose", prompt: withNoToolsSentence(u.prompt),
-      composed: null, fitPrompt: null, refusals: [], timedOut: [], round1S: undefined, loop: null, callPrompt: null, scope: null,
-      roundStartedAt: startedAt, callStartedAt: startedAt, final: null, calls: 0, callRecords: null,
-      roundBase: 0, refusalBase: 0,
-    }]));
+    const S = new Map(
+      units.map((u) => [
+        u.id,
+        {
+          rounds: 1,
+          malformed: 0,
+          malformedThisRound: 0,
+          phase: "compose",
+          prompt: withNoToolsSentence(u.prompt),
+          composed: null,
+          fitPrompt: null,
+          refusals: [],
+          timedOut: [],
+          round1S: undefined,
+          loop: null,
+          callPrompt: null,
+          scope: null,
+          roundStartedAt: startedAt,
+          callStartedAt: startedAt,
+          final: null,
+          calls: 0,
+          callRecords: null,
+          roundBase: 0,
+          refusalBase: 0,
+        },
+      ]),
+    );
     // A spawned call keeps the prompt it was sent and its phase, for its Call Record (kogaki#1717).
-    const spawnCall = (u, prompt, phase, stdoutPath, flag) => ({ ...spawnDetachedJobUnit(command, argv, prompt, () => {}, childEnv,
-      { path: stdoutPath, flag }), prompt, phase });
-    const spawnCompose = (u, flag) => spawnCall(u, S.get(u.id).prompt, "compose", readerPathUnitStdoutPath(dir, u.id), flag);
-    const spawnFit = (u, flag) => spawnCall(u, S.get(u.id).fitPrompt, "fit", readerPathUnitFitStdoutPath(dir, u.id), flag);
+    const spawnCall = (u, prompt, phase, stdoutPath, flag) => ({
+      ...spawnDetachedJobUnit(command, argv, prompt, () => {}, childEnv, { path: stdoutPath, flag }),
+      prompt,
+      phase,
+    });
+    const spawnCompose = (u, flag) =>
+      spawnCall(u, S.get(u.id).prompt, "compose", readerPathUnitStdoutPath(dir, u.id), flag);
+    const spawnFit = (u, flag) =>
+      spawnCall(u, S.get(u.id).fitPrompt, "fit", readerPathUnitFitStdoutPath(dir, u.id), flag);
     // A SITE OR SUFFIX CALL (kogaki#1642) writes beside the unit's own call, in its stdout file.
-    const spawnSite = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
+    const spawnSite = (u, flag) =>
+      spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     // A MAPPER'S CALL (kogaki#1734) writes beside the unit's own call; its Call Record is the Mapper's.
-    const spawnMapperCall = (u, flag) => spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
+    const spawnMapperCall = (u, flag) =>
+      spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     unitsRunning = new Map();
     // THE MAPPER'S ACT, CARRIED OUT: a reading or grounding call spawned, the plan call spawned over the
     // input the Mapper composed, or the unit ended naming the Leg, the Brief Waypoint and the stage.
@@ -207,14 +300,28 @@ export async function cmdJobSupervise(args) {
       const st = S.get(u.id);
       if (act.stopped) {
         st.refusals.push({ refusal: act.stopped });
-        return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.stopped, bytes_written: bytes } }, bytes, stdoutPath), progressed: false };
+        return {
+          row: endUnit(
+            u,
+            { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.stopped, bytes_written: bytes } },
+            bytes,
+            stdoutPath,
+          ),
+          progressed: false,
+        };
       }
       st.callStartedAt = Date.now();
       st.malformedThisRound = 0;
       if (act.call) {
         st.phase = act.call.phase;
         st.callPrompt = act.call.prompt;
-        if (flag === "a") { try { appendFileSync(stdoutPath, `\n----- ${act.call.label} -----\n`); } catch { /* best-effort */ } }
+        if (flag === "a") {
+          try {
+            appendFileSync(stdoutPath, `\n----- ${act.call.label} -----\n`);
+          } catch {
+            /* best-effort */
+          }
+        }
         unitsRunning.set(u.id, spawnMapperCall(u, flag));
         return { row: runningRow(u, 0), progressed: true };
       }
@@ -227,11 +334,23 @@ export async function cmdJobSupervise(args) {
       st.prompt = withNoToolsSentence(u.prompt);
       st.phase = "compose";
       st.composed = null;
-      if (flag === "a") { try { appendFileSync(stdoutPath, "\n----- the plan call over the Mapper's input -----\n"); } catch { /* best-effort */ } }
+      if (flag === "a") {
+        try {
+          appendFileSync(stdoutPath, "\n----- the plan call over the Mapper's input -----\n");
+        } catch {
+          /* best-effort */
+        }
+      }
       unitsRunning.set(u.id, spawnCompose(u, flag));
       return { row: runningRow(u, 0), progressed: true };
     };
-    const mapperAnswer = (u, sp, out) => mapperAct(u, mapper.answered(u.id, { raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), ...out }), "a", sp.out.bytes);
+    const mapperAnswer = (u, sp, out) =>
+      mapperAct(
+        u,
+        mapper.answered(u.id, { raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), ...out }),
+        "a",
+        sp.out.bytes,
+      );
 
     let lastProgressAt = startedAt;
     let lastBytesTotal = 0;
@@ -253,10 +372,16 @@ export async function cmdJobSupervise(args) {
     // what `job await`'s status line reads, never recomputes.
     const runningRow = (u, bytes) => {
       const st = S.get(u.id);
-      return { id: u.id, status: "running", bytes, rounds: st.rounds, phase: st.phase,
+      return {
+        id: u.id,
+        status: "running",
+        bytes,
+        rounds: st.rounds,
+        phase: st.phase,
         round_started_at: new Date(st.roundStartedAt).toISOString(),
         ...(st.callRecords ? { call_records: st.callRecords } : {}),
-        ...(st.round1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.round1S } : {}) };
+        ...(st.round1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.round1S } : {}),
+      };
     };
 
     // THE UNIT HAS ENDED. Its row keeps every count a reader needs to see a unit that
@@ -265,11 +390,18 @@ export async function cmdJobSupervise(args) {
       const st = S.get(u.id);
       const firstRefusal = st.rounds > 1 && st.refusals.length ? st.refusals[0].refusal : undefined;
       if (cls.status === "died" || cls.status === "refused") {
-        cls.failure = { ...cls.failure, file: stdoutPath,
-          ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}) };
+        cls.failure = {
+          ...cls.failure,
+          file: stdoutPath,
+          ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
+        };
       }
       const row = {
-        id: u.id, bytes, ...cls, rounds: st.rounds, phase: st.phase,
+        id: u.id,
+        bytes,
+        ...cls,
+        rounds: st.rounds,
+        phase: st.phase,
         ...(st.round1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.round1S } : {}),
         ...(st.malformed > 0 ? { malformed_output: st.malformed } : {}),
         ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
@@ -277,7 +409,9 @@ export async function cmdJobSupervise(args) {
         // reads it, and the refused answers live in the unit's own state and its prompts.
         ...(st.refusals.length ? { refusals: st.refusals.map((h) => h.refusal) } : {}),
         // Each refusal's group and reach, where the row declares them (kogaki#1708).
-        ...(st.refusals.some((h) => h.reach) ? { refusal_reach: st.refusals.map((h) => ({ group: h.group ?? null, reach: h.reach ?? null })) } : {}),
+        ...(st.refusals.some((h) => h.reach)
+          ? { refusal_reach: st.refusals.map((h) => ({ group: h.group ?? null, reach: h.reach ?? null })) }
+          : {}),
         ...(st.timedOut.length ? { timed_out: st.timedOut.slice() } : {}),
         ...(st.callRecords ? { call_records: st.callRecords } : {}),
       };
@@ -285,8 +419,10 @@ export async function cmdJobSupervise(args) {
       // fit call refused, died or ran out of time still carries the Candidate it composed,
       // so the record holds it. It is not offered: its Move fit was not judged `consistent`,
       // and "The judged half — the specialization verdict" makes that judgment an occasion with no skip.
-      if (st.composed && cls.status !== "done") { row.candidate = st.composed; row.fit_judged = cls.status === "refused" && !!cls.specialization; }
-      else if (cls.status !== "done") delete row.candidate;
+      if (st.composed && cls.status !== "done") {
+        row.candidate = st.composed;
+        row.fit_judged = cls.status === "refused" && !!cls.specialization;
+      } else if (cls.status !== "done") delete row.candidate;
       // THE CANDIDATE IS WRITTEN TO DISK THE MOMENT THIS UNIT ENDS `done` (kogaki#1204
       // acceptance 2), whatever its siblings are doing; with a Move-fit judge, the
       // specialization record is written beside it (kogaki#1307).
@@ -294,19 +430,26 @@ export async function cmdJobSupervise(args) {
         const candidate = st.composed || cls.candidate;
         row.candidate = candidate;
         row.candidate_file = readerPathUnitCandidatePath(dir, u.id);
-        try { writeFileSync(row.candidate_file, `${JSON.stringify(candidate, null, 2)}\n`); }
-        catch { /* the job record's own embedded `candidate` is still the truth */ }
+        try {
+          writeFileSync(row.candidate_file, `${JSON.stringify(candidate, null, 2)}\n`);
+        } catch {
+          /* the job record's own embedded `candidate` is still the truth */
+        }
         if (cls.specialization) {
           row.specialization_file = readerPathUnitSpecializationPath(dir, u.id);
-          try { writeFileSync(row.specialization_file, `${JSON.stringify(cls.specialization, null, 2)}\n`); }
-          catch { /* the job record's own embedded `specialization` is still the truth */ }
+          try {
+            writeFileSync(row.specialization_file, `${JSON.stringify(cls.specialization, null, 2)}\n`);
+          } catch {
+            /* the job record's own embedded `specialization` is still the truth */
+          }
         }
       }
       st.final = row;
       return row;
     };
 
-    const callStdoutPath = (u) => (S.get(u.id).phase === "fit" ? readerPathUnitFitStdoutPath(dir, u.id) : readerPathUnitStdoutPath(dir, u.id));
+    const callStdoutPath = (u) =>
+      S.get(u.id).phase === "fit" ? readerPathUnitFitStdoutPath(dir, u.id) : readerPathUnitStdoutPath(dir, u.id);
     const respawnCall = (u) => {
       const phase = S.get(u.id).phase;
       const sp = phase === "compose" ? spawnCompose(u, "a") : phase === "fit" ? spawnFit(u, "a") : spawnSite(u, "a");
@@ -321,11 +464,19 @@ export async function cmdJobSupervise(args) {
     // the limit once none is.
     const timeOut = (u, sp) => {
       const st = S.get(u.id);
-      try { if (sp.child) sp.child.kill("SIGKILL"); } catch { /* already gone */ }
-      if (MAPPER_PHASES.includes(st.phase)) return mapperAnswer(u, sp, { unread: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` });
+      try {
+        if (sp.child) sp.child.kill("SIGKILL");
+      } catch {
+        /* already gone */
+      }
+      if (MAPPER_PHASES.includes(st.phase))
+        return mapperAnswer(u, sp, { unread: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` });
       const callS = secondsSince(st.callStartedAt);
       st.timedOut.push({ round: st.rounds, phase: st.phase, call_s: callS });
-      recordCall(u, sp, { status: "refused", failure: { stderr_tail: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` } });
+      recordCall(u, sp, {
+        status: "refused",
+        failure: { stderr_tail: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` },
+      });
       const stdoutPath = callStdoutPath(u);
       // INSIDE A SITE LOOP the killed call is that site's refusal, or a judgment asked again.
       if (st.loop) {
@@ -334,13 +485,28 @@ export async function cmdJobSupervise(args) {
       }
       if (st.rounds < unitRounds) {
         beginNextRound(st, Date.now());
-        try { appendFileSync(stdoutPath, `\n----- the ${st.phase} call ran past the ${callLimitS}s per-call limit; round ${st.rounds} asks it again with the same prompt -----\n`); } catch { /* best-effort */ }
+        try {
+          appendFileSync(
+            stdoutPath,
+            `\n----- the ${st.phase} call ran past the ${callLimitS}s per-call limit; round ${st.rounds} asks it again with the same prompt -----\n`,
+          );
+        } catch {
+          /* best-effort */
+        }
         respawnCall(u);
         return { row: runningRow(u, 0), progressed: true };
       }
       const refusal = `the ${st.phase} call ran past the ${callLimitS}s per-call limit on round ${st.rounds} of ${unitRounds}, the last one`;
       st.refusals.push({ refusal });
-      return { row: endUnit(u, { status: "refused", failure: { class: CALL_TIME_LIMIT, stderr_tail: refusal, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
+      return {
+        row: endUnit(
+          u,
+          { status: "refused", failure: { class: CALL_TIME_LIMIT, stderr_tail: refusal, bytes_written: sp.out.bytes } },
+          sp.out.bytes,
+          stdoutPath,
+        ),
+        progressed: false,
+      };
     };
 
     // THE SITE LOOP'S NEXT ACT, CARRIED OUT (kogaki#1642): a site, suffix or judge call
@@ -351,12 +517,31 @@ export async function cmdJobSupervise(args) {
       for (const r of st.loop.drainRaised()) pinCallRefusal(dir, u.id, st.calls, r);
       if (act.done) {
         st.composed = act.done;
-        return { row: endUnit(u, { status: "done", candidate: act.done, ...(specialization ? { specialization } : {}) }, sp.out.bytes, stdoutPath), progressed: false };
+        return {
+          row: endUnit(
+            u,
+            { status: "done", candidate: act.done, ...(specialization ? { specialization } : {}) },
+            sp.out.bytes,
+            stdoutPath,
+          ),
+          progressed: false,
+        };
       }
       if (act.refused) {
         st.composed = st.loop.standing;
         st.refusals.push({ refusal: act.refused });
-        return { row: endUnit(u, { status: "refused", failure: { class: SCHEMA_REFUSAL, stderr_tail: act.refused, bytes_written: sp.out.bytes } }, sp.out.bytes, stdoutPath), progressed: false };
+        return {
+          row: endUnit(
+            u,
+            {
+              status: "refused",
+              failure: { class: SCHEMA_REFUSAL, stderr_tail: act.refused, bytes_written: sp.out.bytes },
+            },
+            sp.out.bytes,
+            stdoutPath,
+          ),
+          progressed: false,
+        };
       }
       if (act.kind === "judge") {
         st.malformedThisRound = 0;
@@ -373,8 +558,15 @@ export async function cmdJobSupervise(args) {
       beginNextRound(st, Date.now());
       st.phase = act.kind;
       st.callPrompt = withNoToolsSentence(act.prompt);
-      const label = act.kind === "site" ? `site retry at Waypoint ${act.site}` : `the entries from Waypoint ${act.ctx.from} composed again`;
-      try { appendFileSync(readerPathUnitStdoutPath(dir, u.id), `\n----- ${label} -----\n`); } catch { /* best-effort */ }
+      const label =
+        act.kind === "site"
+          ? `site retry at Waypoint ${act.site}`
+          : `the entries from Waypoint ${act.ctx.from} composed again`;
+      try {
+        appendFileSync(readerPathUnitStdoutPath(dir, u.id), `\n----- ${label} -----\n`);
+      } catch {
+        /* best-effort */
+      }
       unitsRunning.set(u.id, spawnSite(u, "a"));
       return { row: runningRow(u, 0), progressed: true };
     };
@@ -387,14 +579,24 @@ export async function cmdJobSupervise(args) {
       if (MAPPER_PHASES.includes(st.phase)) {
         const m = classifyDetachedJobUnit(sp.out, null, false, u.id);
         if (m.status === "died") {
-          mapper.answered(u.id, { raw: Buffer.concat(sp.out.chunks || []).toString("utf8"), died: String(m.failure.stderr_tail || m.failure.result || "exit") });
+          mapper.answered(u.id, {
+            raw: Buffer.concat(sp.out.chunks || []).toString("utf8"),
+            died: String(m.failure.stderr_tail || m.failure.result || "exit"),
+          });
           return { row: endUnit(u, m, sp.out.bytes, readerPathUnitStdoutPath(dir, u.id)), progressed: false };
         }
-        return mapperAnswer(u, sp, m.status === "malformed" ? { unread: m.failure.stderr_tail } : { record: m.candidate });
+        return mapperAnswer(
+          u,
+          sp,
+          m.status === "malformed" ? { unread: m.failure.stderr_tail } : { record: m.candidate },
+        );
       }
-      const cls = st.phase === "compose" ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
-        : st.phase === "fit" ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id, st.scope)
-        : classifyDetachedJobUnit(sp.out, null, st.phase === "suffix" ? recordArray : false, u.id);
+      const cls =
+        st.phase === "compose"
+          ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
+          : st.phase === "fit"
+            ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id, st.scope)
+            : classifyDetachedJobUnit(sp.out, null, st.phase === "suffix" ? recordArray : false, u.id);
       recordCall(u, sp, cls);
       const stdoutPath = callStdoutPath(u);
       const endedAt = Date.parse(sp.out.endedAt) || Date.now();
@@ -405,25 +607,48 @@ export async function cmdJobSupervise(args) {
         st.malformed += 1;
         st.malformedThisRound += 1;
         if (st.malformedThisRound <= unitRounds) {
-          try { appendFileSync(stdoutPath, `\n----- malformed output ${st.malformed}; respawned with the same prompt -----\n`); } catch { /* best-effort */ }
+          try {
+            appendFileSync(
+              stdoutPath,
+              `\n----- malformed output ${st.malformed}; respawned with the same prompt -----\n`,
+            );
+          } catch {
+            /* best-effort */
+          }
           respawnCall(u);
           return { row: runningRow(u, 0), progressed: true };
         }
         cls.status = "refused";
-        cls.failure = { ...cls.failure, stderr_tail: `malformed output ${st.malformedThisRound} times on round ${st.rounds}, past the bound of ${unitRounds} respawns per round; the last: ${cls.failure.stderr_tail}` };
+        cls.failure = {
+          ...cls.failure,
+          stderr_tail: `malformed output ${st.malformedThisRound} times on round ${st.rounds}, past the bound of ${unitRounds} respawns per round; the last: ${cls.failure.stderr_tail}`,
+        };
         st.refusals.push({ refusal: cls.failure.stderr_tail });
         return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
       }
       // INSIDE A SITE LOOP every answered call is the loop's to read (kogaki#1642).
       if (st.loop && cls.status !== "died") {
         if (st.phase !== "fit") return siteAct(u, st.loop.answered(cls.candidate), sp, stdoutPath);
-        return siteAct(u, st.loop.judged(cls.status === "refused" ? judgedSites(cls.failure) : []), sp, stdoutPath, cls.specialization);
+        return siteAct(
+          u,
+          st.loop.judged(cls.status === "refused" ? judgedSites(cls.failure) : []),
+          sp,
+          stdoutPath,
+          cls.specialization,
+        );
       }
       // A REFUSAL NAMING ITS SITES OPENS THE LOOP, where the job declares one (kogaki#1642): the
       // refused record stands, and only the Brief Waypoints it names are asked again.
-      if (siteRetry && cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL && (!mapper || mapper.grounded(u.id))) {
-        const sites = st.phase === "compose" ? (cls.failure.sites || []).map((n) => ({ site: n, refusal: cls.failure.stderr_tail }))
-          : judgedSites(cls.failure);
+      if (
+        siteRetry &&
+        cls.status === "refused" &&
+        cls.failure.class === SCHEMA_REFUSAL &&
+        (!mapper || mapper.grounded(u.id))
+      ) {
+        const sites =
+          st.phase === "compose"
+            ? (cls.failure.sites || []).map((n) => ({ site: n, refusal: cls.failure.stderr_tail }))
+            : judgedSites(cls.failure);
         if (sites.length) {
           st.loop = new SiteLoop(siteRetry, u.id, unitRounds);
           const standing = st.phase === "compose" ? cls.candidate : st.composed;
@@ -456,12 +681,20 @@ export async function cmdJobSupervise(args) {
         // next Round's fresh session sees what it is asked to repair.
         const refusal = cls.failure.stderr_tail;
         const { group, reach } = cls.failure;
-        st.refusals.push({ answer: st.phase === "fit" ? st.composed : cls.candidate, refusal, ...(reach ? { group, reach } : {}) });
+        st.refusals.push({
+          answer: st.phase === "fit" ? st.composed : cls.candidate,
+          refusal,
+          ...(reach ? { group, reach } : {}),
+        });
         // A `stop` refusal, or one whose group the row does not declare, is never put back (kogaki#1708).
         if (st.rounds - st.roundBase < unitRounds && reach !== "stop") {
           beginNextRound(st, endedAt);
           const composePath = readerPathUnitStdoutPath(dir, u.id);
-          try { appendFileSync(composePath, `\n----- round ${st.rounds} -----\n`); } catch { /* best-effort */ }
+          try {
+            appendFileSync(composePath, `\n----- round ${st.rounds} -----\n`);
+          } catch {
+            /* best-effort */
+          }
           st.prompt = readerPathUnitRetryPrompt(withNoToolsSentence(u.prompt), st.refusals.slice(st.refusalBase));
           st.phase = "compose";
           st.composed = null;
@@ -487,30 +720,44 @@ export async function cmdJobSupervise(args) {
       // between ticks, which is why this is `setTimeout` and never the
       // synchronous `Atomics.wait` `job await` uses on the CLI side -- that one
       // has no children of its own to starve.
-      await new Promise((r) => { setTimeout(r, heartbeatMs); });
+      await new Promise((r) => {
+        setTimeout(r, heartbeatMs);
+      });
       const stopRequested = existsSync(readerPathJobStopFlagPath(dir));
       let bytesTotal = 0;
       // A RESPAWN IS PROGRESS TOO (kogaki#1203): the respawned child's byte counter
       // starts back at 0, so `bytesTotal` can fall even though real work just
       // happened -- tracked separately so a respawn is never mistaken for a stall.
       let progressed = false;
-      const unitRows = [...carriedRows, ...units.map((u) => {
-        const st = S.get(u.id);
-        if (st.final) { bytesTotal += st.final.bytes || 0; return st.final; }
-        const sp = unitsRunning.get(u.id);
-        if (!sp.out.done) {
-          if (secondsSince(st.callStartedAt) < callLimitS) { bytesTotal += sp.out.bytes; return runningRow(u, sp.out.bytes); }
-          const t = timeOut(u, sp);
-          if (t.progressed) progressed = true;
-          bytesTotal += t.row.bytes || 0;
-          return t.row;
-        }
-        const a = answer(u, sp);
-        if (a.progressed) progressed = true;
-        bytesTotal += a.row.bytes || 0;
-        return a.row;
-      })];
-      if (progressed || bytesTotal > lastBytesTotal) { lastBytesTotal = bytesTotal; lastProgressAt = Date.now(); }
+      const unitRows = [
+        ...carriedRows,
+        ...units.map((u) => {
+          const st = S.get(u.id);
+          if (st.final) {
+            bytesTotal += st.final.bytes || 0;
+            return st.final;
+          }
+          const sp = unitsRunning.get(u.id);
+          if (!sp.out.done) {
+            if (secondsSince(st.callStartedAt) < callLimitS) {
+              bytesTotal += sp.out.bytes;
+              return runningRow(u, sp.out.bytes);
+            }
+            const t = timeOut(u, sp);
+            if (t.progressed) progressed = true;
+            bytesTotal += t.row.bytes || 0;
+            return t.row;
+          }
+          const a = answer(u, sp);
+          if (a.progressed) progressed = true;
+          bytesTotal += a.row.bytes || 0;
+          return a.row;
+        }),
+      ];
+      if (progressed || bytesTotal > lastBytesTotal) {
+        lastBytesTotal = bytesTotal;
+        lastProgressAt = Date.now();
+      }
       const stalledS = Math.floor((Date.now() - lastProgressAt) / 1000);
       const state = classifyDetachedJobState(unitRows, { stopRequested, stalledS, stallS, unitIsolation });
       let rows = unitRows;
@@ -518,8 +765,18 @@ export async function cmdJobSupervise(args) {
         // A SYSTEM FAILURE ENDS EVERY UNIT ON THIS TICK (kogaki#1273): the
         // units still running are killed below, with no retry, and their rows
         // say so rather than reading `running` on a job that has ended.
-        rows = unitRows.map((r) => (r.status === "running"
-          ? { id: r.id, status: "killed", bytes: r.bytes || 0, rounds: r.rounds, phase: r.phase, note: `killed on the tick the job ended ${state}` } : r));
+        rows = unitRows.map((r) =>
+          r.status === "running"
+            ? {
+                id: r.id,
+                status: "killed",
+                bytes: r.bytes || 0,
+                rounds: r.rounds,
+                phase: r.phase,
+                note: `killed on the tick the job ended ${state}`,
+              }
+            : r,
+        );
       }
       // A UNIT ENDED MID-FIT KEEPS ITS COMPOSED CANDIDATE (PR #1308 round 1), on the
       // ground the ended-unit row above states: on the record, never offered.
@@ -527,7 +784,8 @@ export async function cmdJobSupervise(args) {
         rows = rows.map((r) => {
           const st = S.get(r.id);
           return st && st.composed && r.status !== "done" && !r.candidate
-            ? { ...r, candidate: st.composed, fit_judged: false } : r;
+            ? { ...r, candidate: st.composed, fit_judged: false }
+            : r;
         });
       }
       writeReaderPathJob(dir, {
@@ -541,12 +799,19 @@ export async function cmdJobSupervise(args) {
         units: rows,
         ...(state === "done" ? readerPathDoneJobUnfinished(rows) : {}),
         ...(state !== "done" && state !== "running"
-          ? { failure: readerPathJobFailure(state, rows, { stalledS }) } : {}),
+          ? { failure: readerPathJobFailure(state, rows, { stalledS }) }
+          : {}),
       });
       if (state === "running") continue;
       for (const u of units) {
         const sp = unitsRunning.get(u.id);
-        if (!sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
+        if (!sp.out.done) {
+          try {
+            sp.child.kill("SIGKILL");
+          } catch {
+            /* already gone */
+          }
+        }
       }
       break;
     }
@@ -558,16 +823,26 @@ export async function cmdJobSupervise(args) {
     // own staleness check, never as a silent nothing.
     try {
       for (const [, sp] of unitsRunning || []) {
-        if (sp.child && !sp.out.done) { try { sp.child.kill("SIGKILL"); } catch { /* already gone */ } }
+        if (sp.child && !sp.out.done) {
+          try {
+            sp.child.kill("SIGKILL");
+          } catch {
+            /* already gone */
+          }
+        }
       }
       const existing = readReaderPathJob(dir) || { started_at: new Date().toISOString(), units: [] };
       writeReaderPathJob(dir, {
         ...existing,
         supervisor_pid: process.pid,
         state: "other",
-        failure: readerPathJobFailure("other", existing.units || [], { note: `the supervisor process itself failed: ${e.message}` }),
+        failure: readerPathJobFailure("other", existing.units || [], {
+          note: `the supervisor process itself failed: ${e.message}`,
+        }),
       });
-    } catch { /* the write itself failing leaves the prior record, which is still the truth as of its own timestamp */ }
+    } catch {
+      /* the write itself failing leaves the prior record, which is still the truth as of its own timestamp */
+    }
   }
 }
 
@@ -585,7 +860,9 @@ export function startDetachedJobSupervisor(dir, opts) {
   }
   const unitRounds = Number(opts.unitRounds);
   if (!Number.isInteger(unitRounds) || unitRounds <= 0) {
-    fail("startDetachedJobSupervisor needs a positive integer `unitRounds`, read from kogaki.settings.json (kogaki#1355).");
+    fail(
+      "startDetachedJobSupervisor needs a positive integer `unitRounds`, read from kogaki.settings.json (kogaki#1355).",
+    );
   }
   const unitsPath = join(dir, "reader-path-job-units.json");
   // EVERY UNIT PROMPT BEGINS WITH THE NO-TOOLS SENTENCE (kogaki#1307), written here so the
@@ -596,24 +873,52 @@ export function startDetachedJobSupervisor(dir, opts) {
   // on every record and spawns nothing for it.
   const carried = Array.isArray(opts.carried) ? opts.carried : [];
   const unitIsolation = opts.unitIsolation === true;
-  writeFileSync(unitsPath, `${JSON.stringify({ units, validator,
-    ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
-    ...(opts.siteRetry ? { site_retry: opts.siteRetry } : {}),
-    ...(opts.mapper ? { mapper: opts.mapper } : {}),
-    ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
-    ...(unitIsolation ? { unit_isolation: true } : {}),
-    ...(opts.rows ? { rows: opts.rows } : {}),
-    ...(carried.length ? { carried } : {}) }, null, 2)}\n`);
+  writeFileSync(
+    unitsPath,
+    `${JSON.stringify(
+      {
+        units,
+        validator,
+        ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
+        ...(opts.siteRetry ? { site_retry: opts.siteRetry } : {}),
+        ...(opts.mapper ? { mapper: opts.mapper } : {}),
+        ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
+        ...(unitIsolation ? { unit_isolation: true } : {}),
+        ...(opts.rows ? { rows: opts.rows } : {}),
+        ...(carried.length ? { carried } : {}),
+      },
+      null,
+      2,
+    )}\n`,
+  );
   // THE SHARED SUPERVISOR ENTRY POINT (kogaki#1741): named for no lane.
   const scriptPath = join(REPO, "src", "workflow", "job-supervise.mjs");
-  const child = spawn(process.execPath, [
-    scriptPath,
-    "--run", dir, "--units", unitsPath,
-    "--command", opts.command, "--model", opts.model, "--output-format", opts.outputFormat,
-    "--call-limit-s", String(callLimitS), "--unit-rounds", String(unitRounds),
-    "--stall-s", String(opts.stallS), "--heartbeat-ms", String(opts.heartbeatMs),
-    ...(opts.commandVersion ? ["--command-version", String(opts.commandVersion)] : []),
-  ], { detached: true, stdio: "ignore", cwd: REPO });
+  const child = spawn(
+    process.execPath,
+    [
+      scriptPath,
+      "--run",
+      dir,
+      "--units",
+      unitsPath,
+      "--command",
+      opts.command,
+      "--model",
+      opts.model,
+      "--output-format",
+      opts.outputFormat,
+      "--call-limit-s",
+      String(callLimitS),
+      "--unit-rounds",
+      String(unitRounds),
+      "--stall-s",
+      String(opts.stallS),
+      "--heartbeat-ms",
+      String(opts.heartbeatMs),
+      ...(opts.commandVersion ? ["--command-version", String(opts.commandVersion)] : []),
+    ],
+    { detached: true, stdio: "ignore", cwd: REPO },
+  );
   child.unref();
   const now = new Date().toISOString();
   writeReaderPathJob(dir, {
@@ -624,7 +929,17 @@ export function startDetachedJobSupervisor(dir, opts) {
     supervisor_pid: child.pid,
     ...(unitIsolation ? { unit_isolation: true } : {}),
     state: "running",
-    units: [...carried, ...opts.units.map((u) => ({ id: u.id, status: "running", bytes: 0, rounds: 1, phase: opts.mapper ? "reading" : "compose", round_started_at: now }))],
+    units: [
+      ...carried,
+      ...opts.units.map((u) => ({
+        id: u.id,
+        status: "running",
+        bytes: 0,
+        rounds: 1,
+        phase: opts.mapper ? "reading" : "compose",
+        round_started_at: now,
+      })),
+    ],
   });
   return { unitsPath, supervisorPid: child.pid };
 }

@@ -49,7 +49,9 @@ export function persistPendingRun() {
     const out = { ...rec };
     delete out._dir;
     writeRunRecord(dir, out);
-  } catch { /* the refusal below is the message that matters */ }
+  } catch {
+    /* the refusal below is the message that matters */
+  }
 }
 
 // ---- THE ONE SOFT WINDOW, AND IT IS A JUDGE RE-ASK (kogaki#1030). ----------
@@ -61,8 +63,11 @@ let SOFT_REFUSAL_DEPTH = 0;
 
 export function softRefusals(fn) {
   SOFT_REFUSAL_DEPTH += 1;
-  try { return fn(); }
-  finally { SOFT_REFUSAL_DEPTH -= 1; }
+  try {
+    return fn();
+  } finally {
+    SOFT_REFUSAL_DEPTH -= 1;
+  }
 }
 
 // ---- THE STATE WINDOW: A REFUSAL INSIDE AN ADVANCE IS A WAIT (kogaki#1740). ----
@@ -76,8 +81,11 @@ export class StateRefusal extends Error {}
 
 export async function stateRefusals(fn) {
   STATE_REFUSAL_DEPTH += 1;
-  try { return await fn(); }
-  finally { STATE_REFUSAL_DEPTH -= 1; }
+  try {
+    return await fn();
+  } finally {
+    STATE_REFUSAL_DEPTH -= 1;
+  }
 }
 
 // Every runtime's own `fail` calls this first, so one window serves all of them.
@@ -110,11 +118,18 @@ let FLOW = null;
 let DEFAULT_FLOW = null;
 export function flow() {
   const bound = FLOW || DEFAULT_FLOW;
-  if (!bound) throw new Error("no flow is bound: the caller binds its own with `bindFlow` or `runWorkflow` (kogaki#1741).");
+  if (!bound)
+    throw new Error("no flow is bound: the caller binds its own with `bindFlow` or `runWorkflow` (kogaki#1741).");
   return bound;
 }
-export function setDefaultFlow(binding) { DEFAULT_FLOW = binding; }
-export function bindFlow(binding) { const held = FLOW; FLOW = binding; return held; }
+export function setDefaultFlow(binding) {
+  DEFAULT_FLOW = binding;
+}
+export function bindFlow(binding) {
+  const held = FLOW;
+  FLOW = binding;
+  return held;
+}
 
 export function runDir(args) {
   const f = flow();
@@ -167,7 +182,11 @@ export function writeOpenRunPointer(dir) {
 // clear the pointer here, in `terrain.mjs`. It stays exported because the
 // export surface this module presents is not scoped file-by-file.
 export function clearOpenRunPointer() {
-  try { rmSync(openRunPointerPath(), { force: true }); } catch { /* a stale pointer costs a refusal, never a run */ }
+  try {
+    rmSync(openRunPointerPath(), { force: true });
+  } catch {
+    /* a stale pointer costs a refusal, never a run */
+  }
 }
 
 // `soft` callers get a NULL instead of a process exit when the seam is
@@ -189,10 +208,14 @@ export function gatewayQuery(tool, toolArgs, { soft = false } = {}) {
   const fd = openSync(outPath, "w");
   let res;
   try {
-    res = spawnSync(process.execPath, [bin, "--consumer", "kogaki", "--tool", tool, "--args", JSON.stringify(toolArgs)], {
-      stdio: ["ignore", fd, "pipe"],
-      encoding: "utf8",
-    });
+    res = spawnSync(
+      process.execPath,
+      [bin, "--consumer", "kogaki", "--tool", tool, "--args", JSON.stringify(toolArgs)],
+      {
+        stdio: ["ignore", fd, "pipe"],
+        encoding: "utf8",
+      },
+    );
   } finally {
     closeSync(fd);
   }
@@ -212,7 +235,10 @@ export function gatewayQuery(tool, toolArgs, { soft = false } = {}) {
     // on stderr, but stdout is captured to a file here and would otherwise be
     // discarded — so a failure whose whole content sat in one stream printed
     // an empty tail. Report what both carried (round-1 finding on PR #372).
-    const detail = [res.stderr, res.stdout].map((x) => (x || "").trim()).filter(Boolean).join(" | ");
+    const detail = [res.stderr, res.stdout]
+      .map((x) => (x || "").trim())
+      .filter(Boolean)
+      .join(" | ");
     fail(`gateway-query failed (${res.status}): ${detail || "(no diagnostic on either stream)"}`);
   }
   return JSON.parse(res.stdout);
@@ -233,8 +259,12 @@ let REPO_ROOT_FALLBACK_ANNOUNCED = false;
 
 export function repoRoot() {
   try {
-    return execFileSync("git", ["rev-parse", "--show-toplevel"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || process.cwd();
+    return (
+      execFileSync("git", ["rev-parse", "--show-toplevel"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() || process.cwd()
+    );
   } catch {
     // No git, or not a checkout. cwd is the honest fallback and it ANNOUNCES
     // ITSELF — a rendering written somewhere the owner did not expect is the
@@ -247,8 +277,10 @@ export function repoRoot() {
     // lacks is worse than no comment — it retires the question.
     if (!REPO_ROOT_FALLBACK_ANNOUNCED) {
       REPO_ROOT_FALLBACK_ANNOUNCED = true;
-      console.log(`NOTE: not a git checkout — the owner rendering is written under ${process.cwd()} `
-        + "rather than a repository root. The path printed below is relative to THAT.");
+      console.log(
+        `NOTE: not a git checkout — the owner rendering is written under ${process.cwd()} ` +
+          "rather than a repository root. The path printed below is relative to THAT.",
+      );
     }
     return process.cwd();
   }
@@ -326,7 +358,6 @@ export function detachedJobExecutor(jobRecordRelPath) {
   return { executor: "detached-job", job_record: jobRecordRelPath };
 }
 
-
 // The hook payload, read from stdin ONCE per act. Returns null when there is
 // nothing readable there: no payload, an empty stream, or bytes that are not
 // JSON. It never throws and never exits -- the REFUSAL is the caller's, so
@@ -354,7 +385,7 @@ export function readHookPayload(raw = null) {
   } catch {
     return null;
   }
-  return (doc && typeof doc === "object" && !Array.isArray(doc)) ? doc : null;
+  return doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null;
 }
 
 // The three fields, copied. A payload missing any of them is NOT a payload for
@@ -378,7 +409,9 @@ export function advancedByFromPayload(payload) {
 // discouraged.
 export function completeState(rec, stateId, advancedBy) {
   if (!advancedBy || !EXECUTOR_KINDS.includes(advancedBy.executor)) {
-    fail(`transition to ${JSON.stringify(stateId)} has no executor attribution. Every transition names the act that executed it (kogaki#1027); the executor writes none of its own.`);
+    fail(
+      `transition to ${JSON.stringify(stateId)} has no executor attribution. Every transition names the act that executed it (kogaki#1027); the executor writes none of its own.`,
+    );
   }
   rec.completed.push(stateId);
   (rec.transitions || (rec.transitions = [])).push({
@@ -395,7 +428,9 @@ export function completeState(rec, stateId, advancedBy) {
 export function loadWorkflowTable(path) {
   const table = readJson(path);
   if (!Array.isArray(table.states) || table.states.length === 0) {
-    fail(`workflow table ${path} declares no states. The workflow table makes this artifact authoritative over sequencing; an empty array is not a flow.`);
+    fail(
+      `workflow table ${path} declares no states. The workflow table makes this artifact authoritative over sequencing; an empty array is not a flow.`,
+    );
   }
   const seen = new Set();
   for (const s of table.states) {
@@ -405,14 +440,20 @@ export function loadWorkflowTable(path) {
     if (seen.has(s.id)) fail(`workflow table ${path}: duplicate state id ${JSON.stringify(s.id)}.`);
     seen.add(s.id);
     if (!Object.prototype.hasOwnProperty.call(KIND_SEMANTICS, s.kind)) {
-      fail(`workflow table ${path}: state ${JSON.stringify(s.id)} declares kind ${JSON.stringify(s.kind)}, which this executor does not interpret. Known kinds: ${Object.keys(KIND_SEMANTICS).join(", ")}.`);
+      fail(
+        `workflow table ${path}: state ${JSON.stringify(s.id)} declares kind ${JSON.stringify(s.kind)}, which this executor does not interpret. Known kinds: ${Object.keys(KIND_SEMANTICS).join(", ")}.`,
+      );
     }
     if (s.kind === "write" && !s.writes) {
-      fail(`workflow table ${path}: state ${JSON.stringify(s.id)} is kind "write" and names no artifact in its \`writes\` field.`);
+      fail(
+        `workflow table ${path}: state ${JSON.stringify(s.id)} is kind "write" and names no artifact in its \`writes\` field.`,
+      );
     }
   }
   if (!table.states.some((s) => s.kind === "terminal")) {
-    fail(`workflow table ${path} declares no terminal state. A generic executor reads the end of a run from the table and never from position (the workflow table).`);
+    fail(
+      `workflow table ${path} declares no terminal state. A generic executor reads the end of a run from the table and never from position (the workflow table).`,
+    );
   }
   if (table.judge) refuseOverBudgetAdvance(path, table);
   return table;
@@ -426,23 +467,33 @@ export function loadWorkflowTable(path) {
 // `advance_timeout_s` is refused, so the bound the hooks enforce cannot outgrow the table.
 function refuseOverBudgetAdvance(path, table) {
   const j = table.judge;
-  const positive = (k) => (Number.isFinite(j[k]) && j[k] > 0 ? j[k] : fail(
-    `workflow table ${path}: the \`judge\` block declares no positive \`${k}\`. The advance bound is read `
-    + "from the table by the advance hook and checked against the judge calls one advance makes (kogaki#1300)."));
+  const positive = (k) =>
+    Number.isFinite(j[k]) && j[k] > 0
+      ? j[k]
+      : fail(
+          `workflow table ${path}: the \`judge\` block declares no positive \`${k}\`. The advance bound is read ` +
+            "from the table by the advance hook and checked against the judge calls one advance makes (kogaki#1300).",
+        );
   const advance = positive("advance_timeout_s");
   const call = positive("timeout_s");
   let span = [];
   let sum = 0;
   const close = () => {
     if (sum > advance) {
-      fail(`workflow table ${path}: the synchronous judge calls of one advance (${span.join(", ")}) sum to ${sum}s, `
-        + `past the \`judge\` block's \`advance_timeout_s\` of ${advance}s. The advance hook kills the executor at that `
-        + "bound, so a table whose calls cannot fit inside it is refused rather than run (kogaki#1300).");
+      fail(
+        `workflow table ${path}: the synchronous judge calls of one advance (${span.join(", ")}) sum to ${sum}s, ` +
+          `past the \`judge\` block's \`advance_timeout_s\` of ${advance}s. The advance hook kills the executor at that ` +
+          "bound, so a table whose calls cannot fit inside it is refused rather than run (kogaki#1300).",
+      );
     }
-    span = []; sum = 0;
+    span = [];
+    sum = 0;
   };
   for (const s of table.states) {
-    if (s.kind === "wait" || s.kind === "terminal" || s.job) { close(); continue; }
+    if (s.kind === "wait" || s.kind === "terminal" || s.job) {
+      close();
+      continue;
+    }
     if (s.kind !== "judgment") continue;
     const waves = s.per_group ? Math.ceil(positive("per_group_ceiling") / positive("concurrency")) : 1;
     span.push(s.per_group ? `${s.id} ${waves}x${call}s` : `${s.id} ${call}s`);
@@ -493,7 +544,9 @@ export function runCounts(rec) {
   };
 }
 
-export function runRecordPath(dir) { return join(dir, RUN_RECORD_FILE); }
+export function runRecordPath(dir) {
+  return join(dir, RUN_RECORD_FILE);
+}
 
 // EXPORTED FOR THE JOB-VERB DISPATCH (kogaki#1193): `job await` runs as its
 // own `run --status --job await` invocation, outside the executor's own
@@ -542,16 +595,18 @@ export function endRunOnJudgeTimeout(rec, st, dir, e) {
   delete rec._dir;
   const recPath = writeRunRecord(dir, rec);
   clearOpenRunPointer();
-  process.stderr.write([
-    `${flow().label} run FAILED at ${st.id}: a judge call exceeded its bound.`,
-    `  state     ${st.id}`,
-    `  bound     ${e.boundS}s (the workflow table's judge.timeout_s)`,
-    `  measured  ${e.measuredS}s`,
-    `  run       ${dir}`,
-    `This is a system failure, not a refusal: no question is raised and no retry is spent (kogaki#1300).`,
-    `Every completed state is kept; \`run --run-dir ${dir}\` re-enters at ${st.id}.`,
-    `Run record: ${recPath}`,
-  ].join("\n") + "\n");
+  process.stderr.write(
+    [
+      `${flow().label} run FAILED at ${st.id}: a judge call exceeded its bound.`,
+      `  state     ${st.id}`,
+      `  bound     ${e.boundS}s (the workflow table's judge.timeout_s)`,
+      `  measured  ${e.measuredS}s`,
+      `  run       ${dir}`,
+      `This is a system failure, not a refusal: no question is raised and no retry is spent (kogaki#1300).`,
+      `Every completed state is kept; \`run --run-dir ${dir}\` re-enters at ${st.id}.`,
+      `Run record: ${recPath}`,
+    ].join("\n") + "\n",
+  );
   process.exit(1);
 }
 

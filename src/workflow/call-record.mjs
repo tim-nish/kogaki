@@ -9,16 +9,33 @@ import { REPO, relFromRepo } from "./run-record.mjs";
 
 export const CALLS_DIR = "calls";
 export const CALL_FILES = {
-  prompt: "prompt.md", argv: "argv.json", cli: "cli.json", input: "input.json", row: "row.json",
-  raw: "answer.raw", answer: "answer.json", refusal: "refusal.json",
+  prompt: "prompt.md",
+  argv: "argv.json",
+  cli: "cli.json",
+  input: "input.json",
+  row: "row.json",
+  raw: "answer.raw",
+  answer: "answer.json",
+  refusal: "refusal.json",
 };
 
 // A unit id is a path under `calls/`: one segment, or, for a call inside a unit, `<unit>/<stage>/<n>`
 // (kogaki#1734). No segment is empty or a dot.
-const unitSegment = (unit) => String(unit).split(/[\\/]+/).filter((p) => p && p !== "." && p !== "..").join("/") || "-";
+const unitSegment = (unit) =>
+  String(unit)
+    .split(/[\\/]+/)
+    .filter((p) => p && p !== "." && p !== "..")
+    .join("/") || "-";
 
 // THE NAMES A RUN WRITTEN BEFORE kogaki#1760 CARRIES: read where the new name is absent, never written.
-export const RETIRED_NAMES = Object.freeze({ dir: "attempts", records: "attempt_records", firstCallS: "attempt_1_s", unitBound: "unit_attempts", count: "attempts", roundsFile: "attempts.json" });
+export const RETIRED_NAMES = Object.freeze({
+  dir: "attempts",
+  records: "attempt_records",
+  firstCallS: "attempt_1_s",
+  unitBound: "unit_attempts",
+  count: "attempts",
+  roundsFile: "attempts.json",
+});
 
 // A writer's directory is always `calls/`; a reader's is `calls/` where it exists and the retired name where only that does.
 export function callsRoot(runDir) {
@@ -26,23 +43,31 @@ export function callsRoot(runDir) {
   const old = join(runDir, RETIRED_NAMES.dir);
   return !existsSync(now) && existsSync(old) ? old : now;
 }
-export function callDir(runDir, unit, n) { return join(runDir, CALLS_DIR, unitSegment(unit), String(n)); }
+export function callDir(runDir, unit, n) {
+  return join(runDir, CALLS_DIR, unitSegment(unit), String(n));
+}
 
 // A job record's unit row, or a stage record, read under either name.
-export const callRecordsOf = (row) => (row ? row.call_records ?? row[RETIRED_NAMES.records] : undefined);
-export const firstCallSecondsOf = (row) => (row ? row.call_1_s ?? row[RETIRED_NAMES.firstCallS] : undefined);
-export const roundsOf = (row) => (row ? row.rounds ?? row[RETIRED_NAMES.count] : undefined);
+export const callRecordsOf = (row) => (row ? (row.call_records ?? row[RETIRED_NAMES.records]) : undefined);
+export const firstCallSecondsOf = (row) => (row ? (row.call_1_s ?? row[RETIRED_NAMES.firstCallS]) : undefined);
+export const roundsOf = (row) => (row ? (row.rounds ?? row[RETIRED_NAMES.count]) : undefined);
 // A stage directory's Rounds file: `rounds.json`, or the retired name where only that exists.
 export function roundsFileIn(dir) {
   const now = join(dir, "rounds.json");
-  return !existsSync(now) && existsSync(join(dir, RETIRED_NAMES.roundsFile)) ? join(dir, RETIRED_NAMES.roundsFile) : now;
+  return !existsSync(now) && existsSync(join(dir, RETIRED_NAMES.roundsFile))
+    ? join(dir, RETIRED_NAMES.roundsFile)
+    : now;
 }
 
 // Keyed by path, size and mtime: the judge binary is replaced under a run (kogaki#1717).
 const SHA_CACHE = new Map();
 function fileSha256(path) {
   let st;
-  try { st = statSync(path); } catch { return null; }
+  try {
+    st = statSync(path);
+  } catch {
+    return null;
+  }
   const key = `${path}\0${st.size}\0${st.mtimeMs}`;
   if (!SHA_CACHE.has(key)) SHA_CACHE.set(key, createHash("sha256").update(readFileSync(path)).digest("hex"));
   return SHA_CACHE.get(key);
@@ -54,7 +79,10 @@ export function cliRecord(path, version = null) {
 
 export function tableRecord(path) {
   const abs = resolve(REPO, String(path));
-  if (!existsSync(abs)) throw new Error(`call record: the table ${relFromRepo(abs)} does not exist, so row.json would name a file nobody read`);
+  if (!existsSync(abs))
+    throw new Error(
+      `call record: the table ${relFromRepo(abs)} does not exist, so row.json would name a file nobody read`,
+    );
   return { path: relFromRepo(abs), sha256: fileSha256(abs) };
 }
 
@@ -93,9 +121,15 @@ export function readCallRecord(dir) {
   if (!existsSync(at("prompt"))) return { error: `${dir} holds no ${CALL_FILES.prompt}: it is not a Call Record` };
   const parsed = (k) => (existsSync(at(k)) ? JSON.parse(readFileSync(at(k), "utf8")) : undefined);
   return {
-    dir, prompt: readFileSync(at("prompt"), "utf8"), argv: parsed("argv"), cli: parsed("cli"), input: parsed("input"),
-    row: parsed("row"), raw: existsSync(at("raw")) ? readFileSync(at("raw"), "utf8") : null,
-    answer: parsed("answer"), refusal: parsed("refusal") ?? null,
+    dir,
+    prompt: readFileSync(at("prompt"), "utf8"),
+    argv: parsed("argv"),
+    cli: parsed("cli"),
+    input: parsed("input"),
+    row: parsed("row"),
+    raw: existsSync(at("raw")) ? readFileSync(at("raw"), "utf8") : null,
+    answer: parsed("answer"),
+    refusal: parsed("refusal") ?? null,
   };
 }
 
@@ -107,7 +141,10 @@ export const REPLAY_RESULT = "result.json";
 export function replaysOf(dir) {
   const root = join(dir, REPLAYS_DIR);
   if (!existsSync(root)) return [];
-  return readdirSync(root).sort().map((n) => join(root, n)).filter((d) => existsSync(join(d, REPLAY_RESULT)))
+  return readdirSync(root)
+    .sort()
+    .map((n) => join(root, n))
+    .filter((d) => existsSync(join(d, REPLAY_RESULT)))
     .map((d) => ({ dir: d, ...JSON.parse(readFileSync(join(d, REPLAY_RESULT), "utf8")) }));
 }
 
@@ -115,18 +152,34 @@ export function replaysOf(dir) {
 // refusal's group, reach and first line, the record's files and each replay. The sheet and the job report render these.
 export function callRows(root) {
   if (!existsSync(root)) return [];
-  const numbered = (d) => readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
-    .map((e) => Number(e.name)).sort((a, b) => a - b);
+  const numbered = (d) =>
+    readdirSync(d, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
+      .map((e) => Number(e.name))
+      .sort((a, b) => a - b);
   // A unit's directory holds its numbered Calls and, nested, the units of the calls inside it (kogaki#1734).
-  const units = (rel) => readdirSync(join(root, rel), { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !/^\d+$/.test(e.name)).map((e) => (rel ? `${rel}/${e.name}` : e.name)).sort()
-    .flatMap((u) => [u, ...units(u)]);
+  const units = (rel) =>
+    readdirSync(join(root, rel), { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !/^\d+$/.test(e.name))
+      .map((e) => (rel ? `${rel}/${e.name}` : e.name))
+      .sort()
+      .flatMap((u) => [u, ...units(u)]);
   return units("").flatMap((unit) =>
     numbered(join(root, unit)).map((n) => {
       const dir = join(root, unit, String(n));
-      const refusal = existsSync(join(dir, CALL_FILES.refusal)) ? JSON.parse(readFileSync(join(dir, CALL_FILES.refusal), "utf8")) : null;
-      return { unit, n, dir, group: refusal ? refusal.group ?? null : null, reach: refusal ? refusal.reach ?? null : null,
+      const refusal = existsSync(join(dir, CALL_FILES.refusal))
+        ? JSON.parse(readFileSync(join(dir, CALL_FILES.refusal), "utf8"))
+        : null;
+      return {
+        unit,
+        n,
+        dir,
+        group: refusal ? (refusal.group ?? null) : null,
+        reach: refusal ? (refusal.reach ?? null) : null,
         refusal: refusal ? String(refusal.text).split("\n")[0] : null,
-        files: Object.values(CALL_FILES).filter((f) => existsSync(join(dir, f))), replays: replaysOf(dir) };
-    }));
+        files: Object.values(CALL_FILES).filter((f) => existsSync(join(dir, f))),
+        replays: replaysOf(dir),
+      };
+    }),
+  );
 }

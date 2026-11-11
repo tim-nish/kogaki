@@ -46,14 +46,24 @@ function judgeBinaryCandidates(command, pathEnv) {
 // per-call bound is: a bound a hung child can outlast is not a bound.
 function probeJudgeBinary(candidate) {
   const r = spawnSync(candidate, ["--version"], {
-    stdio: ["ignore", "pipe", "pipe"], encoding: "utf8", timeout: JUDGE_VERSION_PROBE_MS,
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    timeout: JUDGE_VERSION_PROBE_MS,
   });
   if (r.error) return { ok: false, why: `${r.error.code || "spawn failed"}: ${r.error.message}` };
   if (r.status !== 0) {
-    const said = String(r.stderr || r.stdout || "").trim().split("\n")[0].trim() || "(no output)";
+    const said =
+      String(r.stderr || r.stdout || "")
+        .trim()
+        .split("\n")[0]
+        .trim() || "(no output)";
     return { ok: false, why: `${r.status === null ? `killed on ${r.signal}` : `exited ${r.status}`}: ${said}` };
   }
-  const first = (t) => String(t || "").trim().split("\n")[0].trim();
+  const first = (t) =>
+    String(t || "")
+      .trim()
+      .split("\n")[0]
+      .trim();
   return { ok: true, version: first(r.stdout) || first(r.stderr) || "(no version output)" };
 }
 
@@ -74,16 +84,18 @@ export function resolveJudgeBinary(command, pathEnv) {
     if (r.ok) return { command, path: cand, version: r.version, rejected };
     rejected.push({ path: cand, why: r.why });
   }
-  fail(`the judge command ${JSON.stringify(command)} resolves to no runnable binary. The judgment `
-    + `states run a pinned model through this command, and the run resolves it ONCE -- here, in the `
-    + `session that starts the run -- so that an advance fired from another session cannot run a `
-    + `different executable (kogaki#1076).\n`
-    + `  searched ${candidates.length} candidate(s) over PATH, ${rejected.length} of which exist:\n`
-    + (rejected.length
-      ? rejected.map((r) => `    ${r.path}\n      ${r.why}`).join("\n")
-      : "    (none -- no PATH entry carries a file by that name)")
-    + `\n  Each candidate is RUN with \`--version\` and the first to exit 0 is taken: existence and the `
-    + `execute bit do not discriminate a working install from a shim whose own \`exec\` fails.`);
+  fail(
+    `the judge command ${JSON.stringify(command)} resolves to no runnable binary. The judgment ` +
+      `states run a pinned model through this command, and the run resolves it ONCE -- here, in the ` +
+      `session that starts the run -- so that an advance fired from another session cannot run a ` +
+      `different executable (kogaki#1076).\n` +
+      `  searched ${candidates.length} candidate(s) over PATH, ${rejected.length} of which exist:\n` +
+      (rejected.length
+        ? rejected.map((r) => `    ${r.path}\n      ${r.why}`).join("\n")
+        : "    (none -- no PATH entry carries a file by that name)") +
+      `\n  Each candidate is RUN with \`--version\` and the first to exit 0 is taken: existence and the ` +
+      `execute bit do not discriminate a working install from a shim whose own \`exec\` fails.`,
+  );
 }
 
 // RESOLVED AT THE START ACT (kogaki#1076 item 1) and read back by later acts; a record
