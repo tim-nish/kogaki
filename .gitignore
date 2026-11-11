@@ -289,6 +289,10 @@ policy/shape.md
 # ignore closes the window rather than trusting the trap.
 /.gate-path-check-*
 
+# THE COVERAGE DIGEST'S WORK DIRECTORY (kogaki#1793): tools/digest-coverage.py
+# removes it on exit; the ignore covers a run killed before that.
+/.coverage/
+
 # RUN INTERMEDIATES (kogaki#750, owner rulings 2026-09-01). Every lane's
 # machine state — survey and proposal records, gate declarations, captures,
 # Brief and Draft workspaces, snapshots, packets, run records — lands under

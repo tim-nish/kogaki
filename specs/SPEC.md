@@ -436,6 +436,13 @@ declared measurement input for that class — never the policy system's
   here; `checks/check-registry-conformance.sh` refuses an admission whose
   instrument is missing or malformed (kogaki#113).
 
+  **Retention reads two on-demand instruments, and neither is a check**
+  (kogaki#1793). `tools/digest-check-catches.sh` renders how often each
+  member fired; `tools/digest-coverage.py` renders which lines of `src/` the
+  whole suite, or one member under `--only <id>`, executes, so a member that
+  never fired can be read against what it reaches. Neither is registered,
+  and neither decides or denies anything.
+
   **A member that DELEGATES its assertions to another artifact's fixture
   pass owes a `case_floor`** (kogaki#661, owner ruling 2026-08-26). Such a
   member can verify that the pass ran clean and cannot, by the same

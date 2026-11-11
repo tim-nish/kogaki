@@ -31,7 +31,7 @@
 #
 # NOT ITSELF A REGISTERED CHECK, and sited in tools/ for the same reason as
 # the runner: it renders evidence for a judgment; it decides nothing and
-# denies nothing.
+# denies nothing. What each member REACHES is tools/digest-coverage.py.
 #
 # Usage: tools/digest-check-catches.sh [--runs N]   (default N=50)
 set -euo pipefail
