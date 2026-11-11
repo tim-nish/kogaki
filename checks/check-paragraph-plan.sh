@@ -121,7 +121,7 @@ const fillParagraph = (e, j, leg) => {
     introduces: n === 1 ? terms.map((term) => ({ term, meaning: meaningOf(term) })) : [], "re-activate": [],
   };
   const out = { paragraph: n, ...e };
-  for (const k of PLAN_SCHEMA_KEYS) if (k !== "journeys" && !Object.hasOwn(out, k)) out[k] = defaults[k];
+  for (const k of PLAN_SCHEMA_KEYS) if (!Object.hasOwn(out, k)) out[k] = defaults[k];
   return out;
 };
 const fillLeg = (l, leg) => (l && leg && Array.isArray(l.paragraphs)
