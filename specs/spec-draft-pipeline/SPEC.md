@@ -2698,6 +2698,8 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through the relations their texts state (kogaki#1699, kogaki#1768, kogaki#1777) | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Waypoint's field | wording |
 | One analogy | paragraph only | — | `analogue_is_the_mapping` | an analogy Move draws from the one Analogy Mapping chosen before the first Leg, and only a Leg the ParagraphPlan binds to an analogy Move is handed it (kogaki#1778) | wording |
+| Cast held | paragraph only | — | `CAST` | a `cast` is set on a Waypoint, and only a Waypoint realises a Segment's `manner`, so each key it sets is held to its definition there (kogaki#1695, kogaki#1816) | criterion |
+| Cast is a set | paragraph only | — | `cast_is_a_set` | the closed set of cast keys and their definitions is written once for the paragraph rows, the planner's that sets them and the judge's that holds a point to them (kogaki#1695, kogaki#1816) | wording |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
 Paragraph cell is an axis or a shared criterion the judge row names, every
