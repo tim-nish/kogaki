@@ -21,9 +21,23 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readItems } from "./review-draft/declared-side.mjs";
-import { STDIN_LABEL, argString, checkJaTermsFreshness, fail, readDraft, requireReply, resolveInputs, sha256 } from "./review-draft/draft-reader.mjs";
+import {
+  STDIN_LABEL,
+  argString,
+  checkJaTermsFreshness,
+  fail,
+  readDraft,
+  requireReply,
+  resolveInputs,
+  sha256,
+} from "./review-draft/draft-reader.mjs";
 import { buildJoin } from "./review-draft/join.mjs";
-import { nextOutlineOwed, renderReverseOutlineInput, validateFigureOutline, validateReverseOutline } from "./review-draft/reverse-outline.mjs";
+import {
+  nextOutlineOwed,
+  renderReverseOutlineInput,
+  validateFigureOutline,
+  validateReverseOutline,
+} from "./review-draft/reverse-outline.mjs";
 import { passPath, readRun, requireCurrent, slugOf, workspaceFor, writeRun } from "./review-draft/workspace.mjs";
 import { cmdCheck, cmdClose, cmdCompare, cmdCorrect, missingFor } from "./review-draft/passes.mjs";
 
@@ -35,7 +49,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -52,16 +69,23 @@ function parseArgs(argv) {
 // until the named Legs are corrected and the Draft is Linted again.
 // `src/lint-ja.mjs correct-terms` names the Legs this flag takes.
 function scopeToOnlyLegs(legs, sections, onlyLegsArg) {
-  const onlyLegs = onlyLegsArg.split(",").map((s) => s.trim()).filter(Boolean);
+  const onlyLegs = onlyLegsArg
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const known = new Set(legs.map((s) => s.leg_id));
   const unknown = onlyLegs.filter((id) => !known.has(id));
   if (unknown.length) {
-    fail(`--only-legs names leg id(s) not in this Draft's trace: ${unknown.join(", ")} — known Legs are ${[...known].join(", ")}`);
+    fail(
+      `--only-legs names leg id(s) not in this Draft's trace: ${unknown.join(", ")} — known Legs are ${[...known].join(", ")}`,
+    );
   }
   if (!onlyLegs.length) {
-    fail("--only-legs names no Leg — a term-list change path with nothing to correct has nothing to "
-      + "open. Run `node src/lint-ja.mjs correct-terms --draft <draft.ja.md>` to see which Legs (if any) "
-      + "Lint still names after the mechanical fix.");
+    fail(
+      "--only-legs names no Leg — a term-list change path with nothing to correct has nothing to " +
+        "open. Run `node src/lint-ja.mjs correct-terms --draft <draft.ja.md>` to see which Legs (if any) " +
+        "Lint still names after the mechanical fix.",
+    );
   }
   const onlySet = new Set(onlyLegs);
   const scopedLegs = legs.filter((s) => onlySet.has(s.leg_id));
@@ -72,8 +96,7 @@ function scopeToOnlyLegs(legs, sections, onlyLegsArg) {
 }
 
 function cmdOpen(args) {
-  const draftPath = argString(args, "draft",
-    "usage: review-draft open --draft <draft.md> [--only-legs <id[,id...]>]");
+  const draftPath = argString(args, "draft", "usage: review-draft open --draft <draft.md> [--only-legs <id[,id...]>]");
   // retired-vocab-ok — `regenerat` is on checks/check-review-draft-retired-
   // vocabulary.sh's list (kogaki#1013 retired it with the deleted act it
   // named), and every use in this block is a MUST-NOT-APPEAR TRIPWIRE rather
@@ -82,10 +105,12 @@ function cmdOpen(args) {
   // that, citing src/lint-ja.mjs's Terminology List Decision. It names the
   // retired act to refuse it, never to perform it.
   if (args.regenerate) {
-    fail("open refuses --regenerate: the Terminology List Decision (src/lint-ja.mjs) states a term-list "
-      + "change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require the Draft "
-      + "to be uniquely reproducible, so re-deriving it from a moved term list is not owed. Only the Legs "
-      + "`node src/lint-ja.mjs correct-terms` names are corrected; open with `--only-legs` naming them.");
+    fail(
+      "open refuses --regenerate: the Terminology List Decision (src/lint-ja.mjs) states a term-list " +
+        "change is a CORRECTION, never a whole-Draft re-derivation — the owner does not require the Draft " +
+        "to be uniquely reproducible, so re-deriving it from a moved term list is not owed. Only the Legs " +
+        "`node src/lint-ja.mjs correct-terms` names are corrected; open with `--only-legs` naming them.",
+    );
   }
   const onlyLegsArg = typeof args["only-legs"] === "string" && args["only-legs"] !== "" ? args["only-legs"] : null;
   if (!onlyLegsArg) checkJaTermsFreshness(draftPath);
@@ -116,8 +141,12 @@ function cmdOpen(args) {
     opened_at: new Date().toISOString(),
     only_legs: onlyLegs,
     legs: legs.map((s) => ({
-      leg_id: s.leg_id, section: s.section, section_title: s.section_title,
-      lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
+      leg_id: s.leg_id,
+      section: s.section,
+      section_title: s.section_title,
+      lines: s.lines,
+      packet: s.packet,
+      packet_sha: s.packet_sha,
     })),
     sections: sections.map((s) => ({ index: s.index, title: s.title, legs: s.legs })),
     // THE PASS THE RUN IS ON, AND THE LEDGER OF WHAT EACH PASS WROTE
@@ -146,14 +175,17 @@ function cmdOpen(args) {
   writeRun(ws, run);
 
   process.stdout.write(
-    `ReviewDraft opened: ${slug}\n`
-    + (onlyLegs ? `  scope     term-list change path — only ${onlyLegs.join(", ")} (no other Leg is re-outlined, re-compared or re-realized)\n` : "")
-    + `  draft     ${resolve(draftPath)} (body sha ${draft.body_sha.slice(0, 16)})\n`
-    + `  legs     ${legs.length} — ${legs.map((s) => s.leg_id).join(", ")}\n`
-    + `  sections  ${sections.length} — ${sections.map((s) => `${s.index}. ${s.title ?? "(untitled)"}`).join(" | ")}\n`
-    + `  packets   ${legs.length} verified against the trace's shas\n`
-    + `  workspace ${ws}\n`
-    + `\nfirst Reverse Outline input: ${input}\n`);
+    `ReviewDraft opened: ${slug}\n` +
+      (onlyLegs
+        ? `  scope     term-list change path — only ${onlyLegs.join(", ")} (no other Leg is re-outlined, re-compared or re-realized)\n`
+        : "") +
+      `  draft     ${resolve(draftPath)} (body sha ${draft.body_sha.slice(0, 16)})\n` +
+      `  legs     ${legs.length} — ${legs.map((s) => s.leg_id).join(", ")}\n` +
+      `  sections  ${sections.length} — ${sections.map((s) => `${s.index}. ${s.title ?? "(untitled)"}`).join(" | ")}\n` +
+      `  packets   ${legs.length} verified against the trace's shas\n` +
+      `  workspace ${ws}\n` +
+      `\nfirst Reverse Outline input: ${input}\n`,
+  );
 }
 
 function cmdOutline(args) {
@@ -175,9 +207,11 @@ function cmdOutline(args) {
   // article — and there is no way to tell which afterwards. So the refusal is
   // here, at the only moment the distinction is still observable.
   if (!run.rendered[legId]) {
-    fail(`leg ${legId} has no rendered Reverse Outline input, so this record was not written against one.\n`
-      + "The Harness renders inputs in the path's recorded order — `open` renders the first and each "
-      + `\`outline\` renders the next. The Leg now owed is ${nextOutlineOwed(run)?.leg_id ?? "(none)"}.`);
+    fail(
+      `leg ${legId} has no rendered Reverse Outline input, so this record was not written against one.\n` +
+        "The Harness renders inputs in the path's recorded order — `open` renders the first and each " +
+        `\`outline\` renders the next. The Leg now owed is ${nextOutlineOwed(run)?.leg_id ?? "(none)"}.`,
+    );
   }
   // READ AFTER THE GUARDS, not before them. The reply arrives on standard input
   // and the refusals above are about the Leg rather than about the reading, so
@@ -209,9 +243,11 @@ function cmdOutline(args) {
   if (leg.figure) {
     figureProjected = validateFigureOutline(content, leg, STDIN_LABEL);
   } else if (hasFigureBlock) {
-    fail(`the Reverse Outline for ${legId} (${STDIN_LABEL}) carries a fenced \`figure\` block, and this Leg `
-      + "renders no figure. A reading of a block the reader never met is an invention, and the "
-      + "comparison downstream would treat it as evidence, so it is refused rather than dropped.");
+    fail(
+      `the Reverse Outline for ${legId} (${STDIN_LABEL}) carries a fenced \`figure\` block, and this Leg ` +
+        "renders no figure. A reading of a block the reader never met is an invention, and the " +
+        "comparison downstream would treat it as evidence, so it is refused rather than dropped.",
+    );
   }
 
   // BOTH ARE KEPT, AND THE OUTLINE IS THE EVIDENCE. The `.md` is the Reverse
@@ -394,9 +430,11 @@ async function main() {
   // session would read that as the act having run. The refusal names the pipe.
   for (const k of ["file", "verdicts"]) {
     if (args[k] !== undefined) {
-      fail(`\`--${k}\` is gone: a reply reaches this Harness on standard input, so that it can be `
-        + "piped straight from the spawn that produced it and `runs/` holds no file the Harness did "
-        + `not write.\n  <the reply> | node src/review-draft.mjs ${cmd} …`);
+      fail(
+        `\`--${k}\` is gone: a reply reaches this Harness on standard input, so that it can be ` +
+          "piped straight from the spawn that produced it and `runs/` holds no file the Harness did " +
+          `not write.\n  <the reply> | node src/review-draft.mjs ${cmd} …`,
+      );
     }
   }
   COMMANDS[cmd](args);

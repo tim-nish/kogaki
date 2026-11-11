@@ -20,8 +20,12 @@ const READER_PATH_JOB_FILE = "reader-path-job.json";
 // heartbeat and output signals.
 export const READER_PATH_JOB_STALL_S = 90;
 
-export function readerPathJobPath(dir) { return join(dir, READER_PATH_JOB_FILE); }
-export function readerPathJobStopFlagPath(dir) { return join(dir, "reader-path-job.stop"); }
+export function readerPathJobPath(dir) {
+  return join(dir, READER_PATH_JOB_FILE);
+}
+export function readerPathJobStopFlagPath(dir) {
+  return join(dir, "reader-path-job.stop");
+}
 
 export function readReaderPathJob(dir) {
   const p = readerPathJobPath(dir);
@@ -77,9 +81,10 @@ function reduceFinishedReaderPathUnits(units, { unitIsolation = false } = {}) {
 // that unit alone: its siblings keep running, and the job is reduced from the
 // finished set once none is. The owner's stop and the supervisor's own stall are
 // still read on their tick, as they are facts about the job rather than a unit.
-export function classifyDetachedJobState(units, {
-  stopRequested, stalledS, stallS = READER_PATH_JOB_STALL_S, unitIsolation = false,
-} = {}) {
+export function classifyDetachedJobState(
+  units,
+  { stopRequested, stalledS, stallS = READER_PATH_JOB_STALL_S, unitIsolation = false } = {},
+) {
   if (stopRequested) return "stopped";
   if (!unitIsolation && units.some((u) => u.status === "died")) return "died";
   const running = units.filter((u) => u.status === "running");
@@ -100,19 +105,27 @@ export const RETIRED_JOB_LIMIT_KEYS = ["compose_job_limit_s", "review_job_limit_
 export function readerPathJobBounds(job) {
   for (const k of RETIRED_JOB_LIMIT_KEYS) {
     if (job && Object.prototype.hasOwnProperty.call(job, k)) {
-      throw new Error(`the job record carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- a unit is bounded by \`call_limit_s\` and \`unit_rounds\` alone.`);
+      throw new Error(
+        `the job record carries \`${k}\`, a whole-job limit retired by kogaki#1355 -- a unit is bounded by \`call_limit_s\` and \`unit_rounds\` alone.`,
+      );
     }
   }
   if (job && Object.prototype.hasOwnProperty.call(job, RETIRED_NAMES.unitBound)) {
-    throw new Error(`the job record carries \`${RETIRED_NAMES.unitBound}\`, renamed \`unit_rounds\` (kogaki#1760) -- a job written under the old name is not resumed.`);
+    throw new Error(
+      `the job record carries \`${RETIRED_NAMES.unitBound}\`, renamed \`unit_rounds\` (kogaki#1760) -- a job written under the old name is not resumed.`,
+    );
   }
   const callLimitS = job && Number(job.call_limit_s);
   if (!Number.isFinite(callLimitS) || callLimitS <= 0) {
-    throw new Error("the job record carries no positive `call_limit_s` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
+    throw new Error(
+      "the job record carries no positive `call_limit_s` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).",
+    );
   }
   const unitRounds = job && Number(job.unit_rounds);
   if (!Number.isInteger(unitRounds) || unitRounds <= 0) {
-    throw new Error("the job record carries no positive integer `unit_rounds` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).");
+    throw new Error(
+      "the job record carries no positive integer `unit_rounds` -- the job's starter writes it from kogaki.settings.json (kogaki#1355).",
+    );
   }
   return { callLimitS, unitRounds };
 }
@@ -127,14 +140,20 @@ export function readerPathJobBounds(job) {
 export function readerPathAwaitStep(job, { stopRequested, stalledS } = {}) {
   readerPathJobBounds(job);
   const raw = job.units || [];
-  return { units: raw, state: classifyDetachedJobState(raw, { stopRequested, stalledS, unitIsolation: job.unit_isolation === true }) };
+  return {
+    units: raw,
+    state: classifyDetachedJobState(raw, { stopRequested, stalledS, unitIsolation: job.unit_isolation === true }),
+  };
 }
 
 function readerPathRefusedUnits(unitRows) {
-  return unitRows.filter((x) => x.status === "refused").map((x) => ({
-    id: x.id, rounds: x.rounds || 1,
-    ...(x.failure && x.failure.file ? { file: x.failure.file } : {}),
-  }));
+  return unitRows
+    .filter((x) => x.status === "refused")
+    .map((x) => ({
+      id: x.id,
+      rounds: x.rounds || 1,
+      ...(x.failure && x.failure.file ? { file: x.failure.file } : {}),
+    }));
 }
 
 // THE UNITS A `done` JOB DID NOT FINISH, NAMED ON ITS RECORD (kogaki#1273). A
@@ -170,13 +189,18 @@ export function readerPathJobFailure(state, unitRows, { stalledS, note } = {}) {
     // `refused` only when all of its units were refused.
     const refused_units = state === "refused" ? readerPathRefusedUnits(unitRows) : undefined;
     return {
-      unit: u ? u.id : null, ...(u && u.failure ? u.failure : {}), kept_candidates,
+      unit: u ? u.id : null,
+      ...(u && u.failure ? u.failure : {}),
+      kept_candidates,
       ...(killed_units.length ? { killed_units } : {}),
       ...(refused_units ? { refused_units } : {}),
     };
   }
   if (state === "stalled") {
-    return { stalled_s: stalledS, note: "no unit produced new output for the stall bound; nothing written so far is deleted." };
+    return {
+      stalled_s: stalledS,
+      note: "no unit produced new output for the stall bound; nothing written so far is deleted.",
+    };
   }
   if (state === "stopped") {
     return { note: "the owner's stop click ended the job; every unit's partial output stands." };

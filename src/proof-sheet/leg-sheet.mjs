@@ -78,9 +78,27 @@ import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
-import { PROVENANCE_SECTION, SHEET_CELLS, contentHash, legView, provenanceRows, readRun, writtenLegs } from "./leg-sheet/run-data.mjs";
+import {
+  PROVENANCE_SECTION,
+  SHEET_CELLS,
+  contentHash,
+  legView,
+  provenanceRows,
+  readRun,
+  writtenLegs,
+} from "./leg-sheet/run-data.mjs";
 import { ANCHOR_SCRIPT, COPY_SCRIPT, SHEET_TITLES, esc, pipelineDiagram, read } from "./leg-sheet/frame.mjs";
-import { briefCard, comparisonTable, draftCard, extractionCard, moveCard, packetCard, reviewBlock, runConditionsLine, runRecordCard } from "./leg-sheet/stage-cards.mjs";
+import {
+  briefCard,
+  comparisonTable,
+  draftCard,
+  extractionCard,
+  moveCard,
+  packetCard,
+  reviewBlock,
+  runConditionsLine,
+  runRecordCard,
+} from "./leg-sheet/stage-cards.mjs";
 import { paragraphPlanCard } from "./leg-sheet/plan-card.mjs";
 import { libraryLine } from "./leg-sheet/move-blocks.mjs";
 export {
@@ -101,17 +119,8 @@ export {
   SHEET_TITLES,
   briefAnchored,
 } from "./leg-sheet/frame.mjs";
-export {
-  DERIVED_BADGE,
-  EDITED_BADGE,
-  segmentsTable,
-} from "./leg-sheet/stage-cards.mjs";
-export {
-  constraintEntriesHtml,
-  libraryLine,
-  moveConstraintLines,
-  moveSource,
-} from "./leg-sheet/move-blocks.mjs";
+export { DERIVED_BADGE, EDITED_BADGE, segmentsTable } from "./leg-sheet/stage-cards.mjs";
+export { constraintEntriesHtml, libraryLine, moveConstraintLines, moveSource } from "./leg-sheet/move-blocks.mjs";
 const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
 
 const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--accent:#8a3b12;--off:#fbe3d6}
@@ -147,22 +156,40 @@ table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line)
 // THE LEG MOVE BLOCKS (see the header). The nested run draws no Brief card, so its cards name
 // the Brief they read without a link.
 export const LEG_MOVE_HEADING = "Leg Move of Leg";
-export const LEG_MOVE_NOTE = "The Original Claims here are the Leg's Claims from the Brief, one sentence each, in order.";
+export const LEG_MOVE_NOTE =
+  "The Original Claims here are the Leg's Claims from the Brief, one sentence each, in order.";
 function legMoveBlocks(r, idx) {
   const runs = r.stage("leg-move").runs || [];
   const total = runs.length;
-  return runs.map((m, k) => {
-    const v = readRun(resolve(m.run));
-    const vidx = `${idx}-m${k + 1}`;
-    const { sectionPath, written, writtenParas } = writtenLegs(v);
-    const shown = { sectionPath, written, writtenParas, draftStop: v.stage("draft").stopped || v.run.stopped || null, original: "Original Claims" };
-    const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
-      + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
-    return `<section class="leg-block leg-move" id="leg-${vidx}"><h3>${LEG_MOVE_HEADING} ${k + 1} of ${total} — ${esc(m.leg_id)}`
-      + ` <span class="meta">${esc(relFromRepo(resolve(m.run), REPO))}</span></h3><p class="muted">${esc(LEG_MOVE_NOTE)}</p>`
-      + (v.run.stopped ? `<p class="stop">The Leg Move stopped at ${esc(v.run.stopped)}</p>` : "")
-      + body.split(`<a href="#card-${vidx}-brief">${esc(SHEET_TITLES.brief)}</a>`).join(esc(SHEET_TITLES.brief)) + `</section>`;
-  }).join("");
+  return runs
+    .map((m, k) => {
+      const v = readRun(resolve(m.run));
+      const vidx = `${idx}-m${k + 1}`;
+      const { sectionPath, written, writtenParas } = writtenLegs(v);
+      const shown = {
+        sectionPath,
+        written,
+        writtenParas,
+        draftStop: v.stage("draft").stopped || v.run.stopped || null,
+        original: "Original Claims",
+      };
+      const body =
+        comparisonTable(v, vidx, shown) +
+        reviewBlock(v, vidx) +
+        extractionCard(v, vidx) +
+        moveCard(v, vidx) +
+        paragraphPlanCard(v, vidx) +
+        packetCard(v, vidx) +
+        draftCard(v, vidx, shown);
+      return (
+        `<section class="leg-block leg-move" id="leg-${vidx}"><h3>${LEG_MOVE_HEADING} ${k + 1} of ${total} — ${esc(m.leg_id)}` +
+        ` <span class="meta">${esc(relFromRepo(resolve(m.run), REPO))}</span></h3><p class="muted">${esc(LEG_MOVE_NOTE)}</p>` +
+        (v.run.stopped ? `<p class="stop">The Leg Move stopped at ${esc(v.run.stopped)}</p>` : "") +
+        body.split(`<a href="#card-${vidx}-brief">${esc(SHEET_TITLES.brief)}</a>`).join(esc(SHEET_TITLES.brief)) +
+        `</section>`
+      );
+    })
+    .join("");
 }
 
 function card(r, { provenance, mapHash, idx = 0 }) {
@@ -182,11 +209,18 @@ function card(r, { provenance, mapHash, idx = 0 }) {
     runRecordCard(r, idx),
   ].join("");
 
-  return `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
-    + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
-    + `<p class="library">${esc(libraryLine(r.run))}</p>`
-    + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
-    + conditions + comparison + reviewBlock(r, idx) + cards + legMoveBlocks(r, idx) + `</section>`;
+  return (
+    `<section class="card"><h2>${esc(r.run.passage || "Leg")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>` +
+    (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "") +
+    `<p class="library">${esc(libraryLine(r.run))}</p>` +
+    `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>` +
+    conditions +
+    comparison +
+    reviewBlock(r, idx) +
+    cards +
+    legMoveBlocks(r, idx) +
+    `</section>`
+  );
 }
 
 // A RUN OF SEVERAL LEGS (see the header). A Leg block's Inputs link to the one Brief card.
@@ -195,19 +229,36 @@ function legsCard(r, { provenance, mapHash, idx = 0 }) {
     const v = legView(r, k);
     const vidx = `${idx}-${k + 1}`;
     const { sectionPath, written, writtenParas } = writtenLegs(v);
-    const draftStop = (v.legIds.includes(v.stage("draft").leg_id) && v.stage("draft").stopped) || (!written && r.run.stopped) || null;
+    const draftStop =
+      (v.legIds.includes(v.stage("draft").leg_id) && v.stage("draft").stopped) || (!written && r.run.stopped) || null;
     const shown = { sectionPath, written, writtenParas, draftStop };
-    const body = comparisonTable(v, vidx, shown) + reviewBlock(v, vidx) + extractionCard(v, vidx) + moveCard(v, vidx)
-      + paragraphPlanCard(v, vidx) + packetCard(v, vidx) + draftCard(v, vidx, shown);
-    return `<section class="leg-block" id="leg-${vidx}"><h3>Leg ${k + 1} of ${r.run.legs.length} — ${esc(v.legIds.join(", ") || "(no Leg in the Brief)")}`
-      + ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>`
-      + body.split(`href="#card-${vidx}-brief"`).join(`href="#card-${idx}-brief"`) + `</section>`;
+    const body =
+      comparisonTable(v, vidx, shown) +
+      reviewBlock(v, vidx) +
+      extractionCard(v, vidx) +
+      moveCard(v, vidx) +
+      paragraphPlanCard(v, vidx) +
+      packetCard(v, vidx) +
+      draftCard(v, vidx, shown);
+    return (
+      `<section class="leg-block" id="leg-${vidx}"><h3>Leg ${k + 1} of ${r.run.legs.length} — ${esc(v.legIds.join(", ") || "(no Leg in the Brief)")}` +
+      ` <span class="meta">${esc(relFromRepo(join(r.runDir, l.copy), REPO))}</span></h3>` +
+      body.split(`href="#card-${vidx}-brief"`).join(`href="#card-${idx}-brief"`) +
+      `</section>`
+    );
   });
-  return `<section class="card"><h2>${esc(r.run.passage || "Legs")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>`
-    + (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "")
-    + `<p class="library">${esc(libraryLine(r.run))}</p>`
-    + `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>`
-    + runConditionsLine(r) + briefCard(r, idx) + blocks.join("") + legMoveBlocks(r, idx) + runRecordCard(r, idx) + `</section>`;
+  return (
+    `<section class="card"><h2>${esc(r.run.passage || "Legs")} <span class="meta">${esc(relFromRepo(r.runDir, REPO))}</span></h2>` +
+    (r.run.stopped ? `<p class="stop">The run stopped at ${esc(r.run.stopped)}</p>` : "") +
+    `<p class="library">${esc(libraryLine(r.run))}</p>` +
+    `<p class="muted">Provenance map: ${esc(provenance)} · sha ${mapHash}</p>` +
+    runConditionsLine(r) +
+    briefCard(r, idx) +
+    blocks.join("") +
+    legMoveBlocks(r, idx) +
+    runRecordCard(r, idx) +
+    `</section>`
+  );
 }
 
 // BUILD THE SHEET. Returns `{ written }` or `{ error }`.
@@ -217,7 +268,9 @@ export function buildSheet({ runs, provenance, out }) {
   const rows = provenanceRows(mapText);
   const missing = Object.values(SHEET_CELLS).filter((n) => !rows.has(n));
   if (missing.length) {
-    return { error: `the provenance map at ${provenance} has no "${PROVENANCE_SECTION}" row for ${missing.map((m) => `"${m}"`).join(", ")} — a cell nobody can trace is not drawn` };
+    return {
+      error: `the provenance map at ${provenance} has no "${PROVENANCE_SECTION}" row for ${missing.map((m) => `"${m}"`).join(", ")} — a cell nobody can trace is not drawn`,
+    };
   }
   const mapHash = contentHash(mapText);
   const cards = runs.map((d, idx) => {
@@ -225,10 +278,13 @@ export function buildSheet({ runs, provenance, out }) {
     return (r.run.legs && r.run.legs.length > 1 ? legsCard : card)(r, { provenance, mapHash, idx });
   });
   const mermaidScript = `<script type="module">import mermaid from "${MERMAID_CDN}"; mermaid.initialize({ startOnLoad: true });</script>`;
-  writeFileSync(out, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
-    + `<title>Leg Proof Sheet</title><style>${CSS}</style>${mermaidScript}</head><body><h1>Leg Proof Sheet</h1>`
-    + pipelineDiagram(0)
-    + `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}${ANCHOR_SCRIPT}${COPY_SCRIPT}</body></html>\n`);
+  writeFileSync(
+    out,
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>Leg Proof Sheet</title><style>${CSS}</style>${mermaidScript}</head><body><h1>Leg Proof Sheet</h1>` +
+      pipelineDiagram(0) +
+      `<p class="muted">One card per Leg run. Provenance map: ${esc(provenance)} · sha ${contentHash(mapText)}</p>${cards.join("")}${ANCHOR_SCRIPT}${COPY_SCRIPT}</body></html>\n`,
+  );
   return { written: out };
 }
 
@@ -243,10 +299,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     else if (argv[i] === "--out") out = argv[++i];
   }
   if (argv[0] !== "build" || !runs.length || !provenance || !out) {
-    process.stderr.write("leg-sheet: usage: node src/proof-sheet/leg-sheet.mjs build --run <Leg run directory> [--run <another>] --provenance <the provenance map> --out <sheet.html>\n");
+    process.stderr.write(
+      "leg-sheet: usage: node src/proof-sheet/leg-sheet.mjs build --run <Leg run directory> [--run <another>] --provenance <the provenance map> --out <sheet.html>\n",
+    );
     process.exit(1);
   }
   const r = buildSheet({ runs, provenance, out });
-  if (r.error) { process.stderr.write(`leg-sheet: ${r.error}\n`); process.exit(1); }
+  if (r.error) {
+    process.stderr.write(`leg-sheet: ${r.error}\n`);
+    process.exit(1);
+  }
   console.log(`sheet written: ${r.written}`);
 }

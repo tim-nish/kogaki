@@ -7,22 +7,23 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { JudgmentRefusal, REPO, checkpointRun, fail, flow, readJson, relFromRepo, softRefusals } from "./run-record.mjs";
+import {
+  JudgmentRefusal,
+  REPO,
+  checkpointRun,
+  fail,
+  flow,
+  readJson,
+  relFromRepo,
+  softRefusals,
+} from "./run-record.mjs";
 import { NO_GLOSS_BODY } from "./strands.mjs";
 import { writeCallRecord, cliRecord, tableRecord } from "./call-record.mjs";
 import { judgeLimits } from "./judge/limits.mjs";
 import { recordJudgeInvocation } from "./judge/binary.mjs";
 import { judgePrompt } from "./judge/prompt.mjs";
-export {
-  COHERENCE_LABELS,
-  RESIDUAL_LABEL,
-  subdivisionLimits,
-} from "./judge/limits.mjs";
-export {
-  JUDGE_INVOCATIONS,
-  ensureJudgeBinary,
-  resolveJudgeBinary,
-} from "./judge/binary.mjs";
+export { COHERENCE_LABELS, RESIDUAL_LABEL, subdivisionLimits } from "./judge/limits.mjs";
+export { JUDGE_INVOCATIONS, ensureJudgeBinary, resolveJudgeBinary } from "./judge/binary.mjs";
 export {
   AXES_TOKEN,
   JUDGE_INPUT_MARKER,
@@ -51,7 +52,10 @@ export {
 // `KOGAKI_SETTINGS` points at another file FOR FIXTURES ONLY.
 const SETTINGS_FILE = "kogaki.settings.json";
 // A settings file still carrying a renamed key is refused naming both names, as a missing key is.
-export const RENAMED_SETTINGS = { "brief.unit_attempts": "brief.unit_rounds", "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions" };
+export const RENAMED_SETTINGS = {
+  "brief.unit_attempts": "brief.unit_rounds",
+  "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions",
+};
 
 function settingsPath() {
   return process.env.KOGAKI_SETTINGS ? resolve(process.env.KOGAKI_SETTINGS) : join(REPO, SETTINGS_FILE);
@@ -59,28 +63,42 @@ function settingsPath() {
 
 function kogakiSetting(key) {
   const p = settingsPath();
-  if (!existsSync(p)) fail(`the setting \`${key}\` is needed and ${p} does not exist — ${SETTINGS_FILE} carries the values an owner changes without coding (kogaki#1307).`);
+  if (!existsSync(p))
+    fail(
+      `the setting \`${key}\` is needed and ${p} does not exist — ${SETTINGS_FILE} carries the values an owner changes without coding (kogaki#1307).`,
+    );
   let doc;
-  try { doc = JSON.parse(readFileSync(p, "utf8")); }
-  catch (e) { fail(`the setting \`${key}\` is needed and ${p} is not JSON (${e.message}).`); }
+  try {
+    doc = JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    fail(`the setting \`${key}\` is needed and ${p} is not JSON (${e.message}).`);
+  }
   for (const [old, now] of Object.entries(RENAMED_SETTINGS)) {
     const [group, name] = old.split(".");
     if (doc && doc[group] && typeof doc[group] === "object" && Object.prototype.hasOwnProperty.call(doc[group], name)) {
-      fail(`${p} carries the setting \`${old}\`, renamed \`${now}\` (kogaki#1758) — rename it there; nothing reads the old name.`);
+      fail(
+        `${p} carries the setting \`${old}\`, renamed \`${now}\` (kogaki#1758) — rename it there; nothing reads the old name.`,
+      );
     }
   }
   let v = doc;
   for (const part of String(key).split(".")) {
-    v = v && typeof v === "object" && !Array.isArray(v) && Object.prototype.hasOwnProperty.call(v, part) ? v[part] : undefined;
+    v =
+      v && typeof v === "object" && !Array.isArray(v) && Object.prototype.hasOwnProperty.call(v, part)
+        ? v[part]
+        : undefined;
   }
-  if (v === undefined || v === null || v === "") fail(`${p} carries no setting \`${key}\` — add it there; nothing defaults it (kogaki#1307).`);
+  if (v === undefined || v === null || v === "")
+    fail(`${p} carries no setting \`${key}\` — add it there; nothing defaults it (kogaki#1307).`);
   return v;
 }
 
 // A table value that names a setting is read from the settings file; any other value is the
 // table's own literal.
 export function settingValue(v) {
-  return v && typeof v === "object" && !Array.isArray(v) && typeof v.setting === "string" ? kogakiSetting(v.setting) : v;
+  return v && typeof v === "object" && !Array.isArray(v) && typeof v.setting === "string"
+    ? kogakiSetting(v.setting)
+    : v;
 }
 
 // EXPORTED FOR THE DETACHED JOB (kogaki#1193): `compose_path`'s own STATE_WORK
@@ -88,40 +106,55 @@ export function settingValue(v) {
 // because the unit prompts it composes are handed to the SAME binary at the
 // SAME pin -- there is no second judge configuration for a detached call.
 export function judgeSettings(table, rec) {
-  const j = (table && table.judge) || fail(
-    "the workflow table declares no `judge` block, so a judgment state has no model to invoke. "
-    + "field_semantics: the block names the command, THE PINNED MODEL and the output format, and the "
-    + "model is never inherited from the session (kogaki#1030).");
+  const j =
+    (table && table.judge) ||
+    fail(
+      "the workflow table declares no `judge` block, so a judgment state has no model to invoke. " +
+        "field_semantics: the block names the command, THE PINNED MODEL and the output format, and the " +
+        "model is never inherited from the session (kogaki#1030).",
+    );
   // THE RECORDED ABSOLUTE PATH, NEVER THE BARE WORD (kogaki#1076 item 2). The
   // table's `command` is what was RESOLVED; what is RUN is what the resolution
   // found and verified, so an advance fired from a session whose `PATH` differs
   // runs the run's own binary.
   const binary = (rec && rec.judge_binary) || null;
   return {
-    command: binary ? String(binary.path) : fail(
-      "this run's record carries no resolved judge binary, so a judgment call would spawn whatever the "
-      + "firing session's PATH offers first -- which is the defect kogaki#1076 closed. The binary is "
-      + "resolved and verified by the session that STARTS the run and written onto the run record; a "
-      + "record carrying none is one this act never opened."),
+    command: binary
+      ? String(binary.path)
+      : fail(
+          "this run's record carries no resolved judge binary, so a judgment call would spawn whatever the " +
+            "firing session's PATH offers first -- which is the defect kogaki#1076 closed. The binary is " +
+            "resolved and verified by the session that STARTS the run and written onto the run record; a " +
+            "record carrying none is one this act never opened.",
+        ),
     // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). What `--version` said,
     // taken from the executable the run actually resolved.
-    binaryVersion: binary ? (binary.version || null) : null,
+    binaryVersion: binary ? binary.version || null : null,
     model: String(settingValue(j.model) || fail("the workflow table's `judge` block pins no `model`")),
     outputFormat: String(j.output_format || "json"),
     // PER CALL, IN SECONDS IN THE TABLE AND MILLISECONDS HERE. Required rather
     // than defaulted: a bound that a table can silently omit is not a bound.
-    timeoutMs: 1000 * (Number.isFinite(j.timeout_s) ? j.timeout_s : fail(
-      "the workflow table's `judge` block declares no numeric `timeout_s`. A judgment call inside a "
-      + "PostToolUse hook is bounded by that hook, and an unbounded child can exhaust the hook's own "
-      + "timeout mid-span (kogaki#1030, PR #1044 round 1).")),
+    timeoutMs:
+      1000 *
+      (Number.isFinite(j.timeout_s)
+        ? j.timeout_s
+        : fail(
+            "the workflow table's `judge` block declares no numeric `timeout_s`. A judgment call inside a " +
+              "PostToolUse hook is bounded by that hook, and an unbounded child can exhaust the hook's own " +
+              "timeout mid-span (kogaki#1030, PR #1044 round 1).",
+          )),
     // HOW MANY BOUNDED CALLS RUN AT ONCE (kogaki#1073; kogaki#1062). Concurrency keeps
     // a per-group state's wall time near the LONGEST call, not the sum.
     // REQUIRED AND POSITIVE, like `timeout_s`; a cap of 1 is the sequential behaviour.
-    concurrency: Number.isInteger(j.concurrency) && j.concurrency > 0 ? j.concurrency : fail(
-      "the workflow table's `judge` block declares no positive integer `concurrency`. It is the number "
-      + "of judge calls a per-group judgment state runs at once; the per-call bound `timeout_s` and the "
-      + "advance's own bound both hold unchanged, and this is what keeps their SUM from being what the "
-      + "advance is measured against (kogaki#1073)."),
+    concurrency:
+      Number.isInteger(j.concurrency) && j.concurrency > 0
+        ? j.concurrency
+        : fail(
+            "the workflow table's `judge` block declares no positive integer `concurrency`. It is the number " +
+              "of judge calls a per-group judgment state runs at once; the per-call bound `timeout_s` and the " +
+              "advance's own bound both hold unchanged, and this is what keeps their SUM from being what the " +
+              "advance is measured against (kogaki#1073).",
+          ),
     // READ FROM THE RESOLUTION, not from this act's environment: the run's
     // binary was chosen once, and whether it was the fixture seam's is a fact
     // about that choice rather than about whoever is advancing the run now.
@@ -144,8 +177,12 @@ export function judgeSettings(table, rec) {
 function judgeSpawnAsync(command, argv, { input, timeoutMs, maxBuffer }) {
   return new Promise((resolvePromise) => {
     let child;
-    try { child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"] }); }
-    catch (e) { resolvePromise({ error: e, status: null, stdout: "", stderr: "" }); return; }
+    try {
+      child = spawn(command, argv, { stdio: ["pipe", "pipe", "pipe"] });
+    } catch (e) {
+      resolvePromise({ error: e, status: null, stdout: "", stderr: "" });
+      return;
+    }
     const outChunks = [];
     const errChunks = [];
     let outLen = 0;
@@ -157,26 +194,51 @@ function judgeSpawnAsync(command, argv, { input, timeoutMs, maxBuffer }) {
       if (timer) clearTimeout(timer);
       resolvePromise(r);
     };
-    const kill = (err) => { try { child.kill("SIGKILL"); } catch { /* already gone */ } settle(err); };
+    const kill = (err) => {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* already gone */
+      }
+      settle(err);
+    };
     child.stdout.on("data", (d) => {
       outLen += d.length;
       // THE SAME CEILING `spawnSync`'s `maxBuffer` CARRIED, enforced here because
       // `spawn` has none: a judge that streamed without end would otherwise fill
       // this process's memory rather than being cut off with a named error.
-      if (outLen > maxBuffer) { kill({ error: Object.assign(new Error("stdout maxBuffer exceeded"), { code: "ENOBUFS" }), status: null, stdout: "", stderr: "" }); return; }
+      if (outLen > maxBuffer) {
+        kill({
+          error: Object.assign(new Error("stdout maxBuffer exceeded"), { code: "ENOBUFS" }),
+          status: null,
+          stdout: "",
+          stderr: "",
+        });
+        return;
+      }
       outChunks.push(d);
     });
     child.stderr.on("data", (d) => errChunks.push(d));
     child.on("error", (e) => settle({ error: e, status: null, stdout: "", stderr: "" }));
-    child.on("close", (status) => settle({
-      error: null, status,
-      stdout: Buffer.concat(outChunks).toString("utf8"),
-      stderr: Buffer.concat(errChunks).toString("utf8"),
-    }));
+    child.on("close", (status) =>
+      settle({
+        error: null,
+        status,
+        stdout: Buffer.concat(outChunks).toString("utf8"),
+        stderr: Buffer.concat(errChunks).toString("utf8"),
+      }),
+    );
     timer = setTimeout(() => {
-      kill({ error: Object.assign(new Error("child timed out"), { code: "ETIMEDOUT" }), status: null, stdout: "", stderr: "" });
+      kill({
+        error: Object.assign(new Error("child timed out"), { code: "ETIMEDOUT" }),
+        status: null,
+        stdout: "",
+        stderr: "",
+      });
     }, timeoutMs);
-    child.stdin.on("error", () => { /* a child that exited before reading its prompt is the close arm's */ });
+    child.stdin.on("error", () => {
+      /* a child that exited before reading its prompt is the close arm's */
+    });
     child.stdin.end(input);
   });
 }
@@ -191,14 +253,16 @@ async function runPool(items, cap, fn) {
   const results = new Array(items.length);
   let next = 0;
   const width = Math.max(1, Math.min(cap, items.length));
-  await Promise.all(Array.from({ length: width }, async () => {
-    for (;;) {
-      const i = next;
-      next += 1;
-      if (i >= items.length) return;
-      results[i] = await fn(items[i], i);
-    }
-  }));
+  await Promise.all(
+    Array.from({ length: width }, async () => {
+      for (;;) {
+        const i = next;
+        next += 1;
+        if (i >= items.length) return;
+        results[i] = await fn(items[i], i);
+      }
+    }),
+  );
   return results;
 }
 
@@ -208,18 +272,26 @@ async function runPool(items, cap, fn) {
 // stub is likeliest to emit and because admitting it costs no ambiguity.
 function judgeRecordFrom(stdout, st) {
   let outer;
-  try { outer = JSON.parse(stdout); }
-  catch (e) {
-    fail(`${st.id}: the judge's response is not JSON (${e.message}). The response is what the `
-      + `pinned model returned to \`--output-format json\`, unedited: ${String(stdout).slice(0, 400)}`);
+  try {
+    outer = JSON.parse(stdout);
+  } catch (e) {
+    fail(
+      `${st.id}: the judge's response is not JSON (${e.message}). The response is what the ` +
+        `pinned model returned to \`--output-format json\`, unedited: ${String(stdout).slice(0, 400)}`,
+    );
   }
-  const inner = outer && typeof outer === "object" && !Array.isArray(outer)
-    && Object.prototype.hasOwnProperty.call(outer, "result") ? outer.result : outer;
+  const inner =
+    outer && typeof outer === "object" && !Array.isArray(outer) && Object.prototype.hasOwnProperty.call(outer, "result")
+      ? outer.result
+      : outer;
   if (typeof inner !== "string") return inner;
-  try { return JSON.parse(inner); }
-  catch (e) {
-    fail(`${st.id}: the judge's response envelope parsed and its \`result\` did not (${e.message}). `
-      + `The record must be the typed record alone -- no prose and no fences: ${inner.slice(0, 400)}`);
+  try {
+    return JSON.parse(inner);
+  } catch (e) {
+    fail(
+      `${st.id}: the judge's response envelope parsed and its \`result\` did not (${e.message}). ` +
+        `The record must be the typed record alone -- no prose and no fences: ${inner.slice(0, 400)}`,
+    );
   }
   return null;
 }
@@ -232,10 +304,18 @@ async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, l
   const argv = ["-p", "--model", cfg.model, "--output-format", cfg.outputFormat];
   const at = label || "";
   // EVERY CALL WRITES ITS CALL RECORD under the run's directory (kogaki#1717).
-  const recordCall = (n, prompt, raw, answer, refusal) => recordAt && writeCallRecord(recordAt.dir, recordAt.unit, n, {
-    prompt, argv: { argv, model: cfg.model, output_format: cfg.outputFormat, timeout_s: cfg.timeoutMs / 1000 },
-    cli: cliRecord(cfg.command, cfg.binaryVersion), input: input ?? inputText,
-    row: { row: st, tables: recordAt.table ? [tableRecord(recordAt.table)] : [] }, raw, answer, refusal });
+  const recordCall = (n, prompt, raw, answer, refusal) =>
+    recordAt &&
+    writeCallRecord(recordAt.dir, recordAt.unit, n, {
+      prompt,
+      argv: { argv, model: cfg.model, output_format: cfg.outputFormat, timeout_s: cfg.timeoutMs / 1000 },
+      cli: cliRecord(cfg.command, cfg.binaryVersion),
+      input: input ?? inputText,
+      row: { row: st, tables: recordAt.table ? [tableRecord(recordAt.table)] : [] },
+      raw,
+      answer,
+      refusal,
+    });
   let lastRefusal = null;
   // EVERY REFUSAL THE BOUND ABSORBED, in order. The run record carries them on
   // BOTH arms (kogaki#1059): a run refused once and repaired on the second ask
@@ -270,7 +350,8 @@ async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, l
       // window is a synchronous depth counter and must never be held across an `await`.
       const startedAt = Date.now();
       const raw = await judgeSpawnAsync(cfg.command, argv, {
-        input: prompt, maxBuffer: 64 * 1024 * 1024,
+        input: prompt,
+        maxBuffer: 64 * 1024 * 1024,
         // THE CHILD IS BOUNDED, AND ITS BOUND IS DERIVED FROM THE HOOK'S
         // (PR #1044 round 1). `.claude/hooks/advance-terrain.py` kills the whole
         // advance at the table's `advance_timeout_s`, and a span can now make several pinned
@@ -289,12 +370,19 @@ async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, l
       // `timeout` set; the caller throws `JudgeTimeout` and the run ends as a report.
       if (raw.error && raw.error.code === "ETIMEDOUT") {
         const measuredS = Math.round((Date.now() - startedAt) / 100) / 10;
-        const msg = `${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's `
-          + `\`judge\` block declares (measured ${measuredS}s). Not re-asked (kogaki#1172) and not retried (kogaki#1300).`;
+        const msg =
+          `${st.id}${at}: the judge exceeded the ${cfg.timeoutMs / 1000}s per-call bound the workflow table's ` +
+          `\`judge\` block declares (measured ${measuredS}s). Not re-asked (kogaki#1172) and not retried (kogaki#1300).`;
         refusals.push(msg);
         recordCall(calls, prompt, stdout, undefined, { text: msg, validator: null });
-        return { ok: false, out, calls, refusals, lastRefusal: msg,
-          timeout: { bound_s: cfg.timeoutMs / 1000, measured_s: measuredS, label: at } };
+        return {
+          ok: false,
+          out,
+          calls,
+          refusals,
+          lastRefusal: msg,
+          timeout: { bound_s: cfg.timeoutMs / 1000, measured_s: measuredS, label: at },
+        };
       }
       raisedBy = null;
       const res = softRefusals(() => {
@@ -308,7 +396,9 @@ async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, l
           throw r.error;
         }
         if (r.status !== 0) {
-          fail(`${st.id}${at}: the judge exited ${r.status}. Its stderr, verbatim: ${(r.stderr || "").trim() || "(empty)"}`);
+          fail(
+            `${st.id}${at}: the judge exited ${r.status}. Its stderr, verbatim: ${(r.stderr || "").trim() || "(empty)"}`,
+          );
         }
         return r;
       });
@@ -339,9 +429,11 @@ async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, l
         // judge did not answer" read alike to an operator.
         if (e && e.syscall) {
           recordCall(calls, prompt, stdout, undefined, { text: e.message, validator: null });
-          fail(`${st.id}${at}: the judge could not be run (${cfg.command}: ${e.message}). The command and the `
-            + "model are pinned in the workflow table's `judge` block; nothing here falls back to another "
-            + "model, and a binary that is not there will not be there on a re-ask, so the bound is not spent on it.");
+          fail(
+            `${st.id}${at}: the judge could not be run (${cfg.command}: ${e.message}). The command and the ` +
+              "model are pinned in the workflow table's `judge` block; nothing here falls back to another " +
+              "model, and a binary that is not there will not be there on a re-ask, so the bound is not spent on it.",
+          );
         }
         throw e;
       }
@@ -355,32 +447,39 @@ async function judgeCalls(cfg, st, retries, { inputText, input, out, validate, l
 }
 
 // Where a judge call's Call Record goes (kogaki#1717): the run's directory, the state or its group as the unit.
-const callRecordAt = (dir, unit, rec) => (dir ? { dir, unit, table: rec && rec.workflow ? rec.workflow.path : null } : null);
+const callRecordAt = (dir, unit, rec) =>
+  dir ? { dir, unit, table: rec && rec.workflow ? rec.workflow.path : null } : null;
 
 // THE WHOLE COMPOSED INPUT, ONE ASK. The default shape, and the one every
 // judgment state but `J2_subdivision` still spends.
 async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   const cfg = judgeSettings(table, rec);
-  const retries = Number.isInteger(st.retries) ? st.retries : fail(
-    `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the `
-    + `key of exactly the judgment states -- the count is a property of the workflow and is held in `
-    + `the table, never in this file (kogaki#1030).`);
+  const retries = Number.isInteger(st.retries)
+    ? st.retries
+    : fail(
+        `${st.id} is kind "judgment" and declares no integer \`retries\`. field_semantics requires the ` +
+          `key of exactly the judgment states -- the count is a property of the workflow and is held in ` +
+          `the table, never in this file (kogaki#1030).`,
+      );
   // READ AND PARSED ONCE, and the PROMPT is what is composed per Call
   // (kogaki#1059). The input does not change between Calls -- the whole of
   // what a re-ask repairs is the judge's record -- so re-reading the file each
   // time would spend a read to make the two asks look different.
   const inputText = readFileSync(inputPath, "utf8");
   let input = null;
-  try { input = JSON.parse(inputText); }
-  catch (e) {
+  try {
+    input = JSON.parse(inputText);
+  } catch (e) {
     // ONLY THE EXAMPLE NEEDS IT PARSED, so a state declaring none is unaffected
     // and a state declaring one refuses rather than silently dropping the
     // example -- an example that vanishes on a bad input is the prose-only
     // prompt returning at exactly the moment nothing would report it.
     if (st.record_example !== undefined && st.record_example !== null) {
-      fail(`${st.id}: the composed input at ${inputPath} is not JSON (${e.message}), so the filled `
-        + "record example this state declares cannot be built from the run's own material "
-        + "(kogaki#1059).");
+      fail(
+        `${st.id}: the composed input at ${inputPath} is not JSON (${e.message}), so the filled ` +
+          "record example this state declares cannot be built from the run's own material " +
+          "(kogaki#1059).",
+      );
     }
   }
   // ONE CALL PER COMPOSED GROUP WHERE THE TABLE DECLARES IT (kogaki#1062).
@@ -393,8 +492,14 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     return await invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits);
   }
   const out = join(dir, `${flow().lane}-judge-${st.id}.json`);
-  const r = await judgeCalls(cfg, st, retries, { inputText, input, out, validate, label: "",
-    recordAt: callRecordAt(dir, st.id, rec) });
+  const r = await judgeCalls(cfg, st, retries, {
+    inputText,
+    input,
+    out,
+    validate,
+    label: "",
+    recordAt: callRecordAt(dir, st.id, rec),
+  });
   if (r.ok) {
     recordJudgeInvocation(st.id, {
       state: st.id,
@@ -420,13 +525,17 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     if (rec) {
       rec.judge_calls = rec.judge_calls || {};
       rec.judge_calls[st.id] = {
-        per_group: false, calls: 1, calls_total: r.calls,
-        retries_declared: retries, refusals_repaired: r.refusals.length,
+        per_group: false,
+        calls: 1,
+        calls_total: r.calls,
+        retries_declared: retries,
+        refusals_repaired: r.refusals.length,
         // WHAT MADE THESE CALLS (kogaki#1076). `harnessJudgeInvocation`'s record
         // holds it too and lives in this process alone, so before this the run
         // record -- the one carrier a later reader has -- said how many calls
         // were made and nothing about which executable made them.
-        command: cfg.command, binary_version: cfg.binaryVersion,
+        command: cfg.command,
+        binary_version: cfg.binaryVersion,
       };
     }
     // THE REPAIRED ARM WRITES THE RECORD TOO (kogaki#1059). `judgment_refusals`
@@ -438,8 +547,11 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
     if (rec && r.refusals.length) {
       rec.judgment_refusals = rec.judgment_refusals || {};
       rec.judgment_refusals[st.id] = {
-        calls_total: r.calls, retries_declared: retries, refusal: r.lastRefusal,
-        refusals: r.refusals, repaired: true,
+        calls_total: r.calls,
+        retries_declared: retries,
+        refusal: r.lastRefusal,
+        refusals: r.refusals,
+        repaired: true,
       };
     }
     return out;
@@ -454,8 +566,11 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   if (rec) {
     rec.judgment_refusals = rec.judgment_refusals || {};
     rec.judgment_refusals[st.id] = {
-      calls_total: r.calls, retries_declared: retries, refusal: r.lastRefusal,
-      refusals: r.refusals, repaired: false,
+      calls_total: r.calls,
+      retries_declared: retries,
+      refusal: r.lastRefusal,
+      refusals: r.refusals,
+      repaired: false,
     };
   }
   if (r.timeout) throw new JudgeTimeout(st.id, r.timeout, r.lastRefusal);
@@ -463,9 +578,11 @@ async function invokeJudge(table, st, inputPath, dir, validate, rec) {
   // to be `fail()`, which exits the process; the state loop now catches this
   // instead and raises `judgment-retry` in its place, leaving the run
   // open rather than dead.
-  throw new JudgmentExhausted(st.id,
-    `${st.id}: the judge's record was refused on all ${r.calls} call(s) (${retries} re-ask(s) licensed, the count `
-    + `the workflow table declares for this state). The last refusal, verbatim: ${r.lastRefusal}`);
+  throw new JudgmentExhausted(
+    st.id,
+    `${st.id}: the judge's record was refused on all ${r.calls} call(s) (${retries} re-ask(s) licensed, the count ` +
+      `the workflow table declares for this state). The last refusal, verbatim: ${r.lastRefusal}`,
+  );
 }
 
 // THE COMPOSED INPUT, NARROWED TO ONE GROUP (kogaki#1062).
@@ -505,9 +622,11 @@ function scopeCompositionInput(input, group) {
 // A refused group is re-asked alone to the state's `retries` (kogaki#1060).
 async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, validate, rec, limits) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !Array.isArray(input.groups)) {
-    fail(`${st.id}: this state declares \`per_group\`, and the composed input at ${inputPath} carries no `
-      + "`groups` array to ask about. The per-group ask is one call per composed group, so an input that "
-      + "names no groups is not an input this state can be asked over (kogaki#1062).");
+    fail(
+      `${st.id}: this state declares \`per_group\`, and the composed input at ${inputPath} carries no ` +
+        "`groups` array to ask about. The per-group ask is one call per composed group, so an input that " +
+        "names no groups is not an input this state can be asked over (kogaki#1062).",
+    );
   }
   const groups = input.groups;
   const assembled = {};
@@ -541,12 +660,14 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
       const raw = readJson(p);
       const keys = raw && typeof raw === "object" && !Array.isArray(raw) ? Object.keys(raw) : null;
       if (!keys || keys.length !== 1 || keys[0] !== name) {
-        fail(`${st.id} refuses this group's record: it must be the one-key object `
-          + `{${JSON.stringify(name)}: {"judged": true, "subgroups": [...]}}. This ask carried exactly one `
-          + `composed group, so its answer names exactly that group; the record carried `
-          + `${keys ? JSON.stringify(keys) : "no key at all"}, and an envelope around the entry -- or a `
-          + `second group this ask never handed over -- is not an answer to the question asked `
-          + `(kogaki#1062).`);
+        fail(
+          `${st.id} refuses this group's record: it must be the one-key object ` +
+            `{${JSON.stringify(name)}: {"judged": true, "subgroups": [...]}}. This ask carried exactly one ` +
+            `composed group, so its answer names exactly that group; the record carried ` +
+            `${keys ? JSON.stringify(keys) : "no key at all"}, and an envelope around the entry -- or a ` +
+            `second group this ask never handed over -- is not an answer to the question asked ` +
+            `(kogaki#1062).`,
+        );
       }
       validate(p);
     };
@@ -590,7 +711,10 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
     }
     callsMade += 1;
     const r = await judgeCalls(cfg, st, retries, {
-      inputText: a.scopedText, input: a.scoped, out: a.out, validate: a.validateOne,
+      inputText: a.scopedText,
+      input: a.scoped,
+      out: a.out,
+      validate: a.validateOne,
       label: ` (group ${JSON.stringify(a.name)})`,
       recordAt: callRecordAt(dir, `${st.id}-${a.slug}`, rec),
     });
@@ -639,8 +763,13 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
       if (rec) {
         rec.judgment_refusals = rec.judgment_refusals || {};
         rec.judgment_refusals[st.id] = {
-          calls_total: callsTotal, retries_declared: retries, refusal: lastRefusal,
-          refusals: allRefusals, repaired: false, groups: perGroup, judged_before: [...judged],
+          calls_total: callsTotal,
+          retries_declared: retries,
+          refusal: lastRefusal,
+          refusals: allRefusals,
+          repaired: false,
+          groups: perGroup,
+          judged_before: [...judged],
         };
       }
       if (r.timeout) throw new JudgeTimeout(st.id, r.timeout, r.lastRefusal);
@@ -649,11 +778,13 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
       // are validated records on disk, and the reuse logic at the top of this
       // function picks them back up on the retry the owner's click re-fires,
       // so the state re-enters costing only the groups that had not judged yet.
-      throw new JudgmentExhausted(st.id,
-        `${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.calls} `
-        + `call(s) (${retries} re-ask(s) licensed, the count the workflow table declares for this state). `
-        + `${judged.length} of ${groups.length} group(s) were judged before it`
-        + `${judged.length ? `: ${judged.join(", ")}` : ""}. The last refusal, verbatim: ${r.lastRefusal}`);
+      throw new JudgmentExhausted(
+        st.id,
+        `${st.id}: the judge's record for group ${JSON.stringify(name)} was refused on all ${r.calls} ` +
+          `call(s) (${retries} re-ask(s) licensed, the count the workflow table declares for this state). ` +
+          `${judged.length} of ${groups.length} group(s) were judged before it` +
+          `${judged.length ? `: ${judged.join(", ")}` : ""}. The last refusal, verbatim: ${r.lastRefusal}`,
+      );
     }
     assembled[name] = readJson(r.out)[name];
     judged.push(name);
@@ -715,8 +846,12 @@ async function invokeJudgePerGroup(cfg, st, retries, inputPath, input, dir, vali
   if (rec && refusalsTotal) {
     rec.judgment_refusals = rec.judgment_refusals || {};
     rec.judgment_refusals[st.id] = {
-      calls_total: callsTotal, retries_declared: retries, refusal: lastRefusal,
-      refusals: allRefusals, repaired: true, groups: perGroup,
+      calls_total: callsTotal,
+      retries_declared: retries,
+      refusal: lastRefusal,
+      refusals: allRefusals,
+      repaired: true,
+      groups: perGroup,
     };
   }
   return out;

@@ -28,12 +28,16 @@ export function excludedCandidateLines(excluded) {
 export function selectedCandidateId(rec, st) {
   const chosen = (rec.owner_input || {}).CANDIDATE_SELECTION;
   if (typeof chosen !== "string" || chosen === "") {
-    fail(`${st.id} has no answer at the Candidate-selection gate — the CANDIDATE_SELECTION wait `
-      + "precedes this state in src/brief-workflow.json, and the answer is the OWNER's. Nothing was written.");
+    fail(
+      `${st.id} has no answer at the Candidate-selection gate — the CANDIDATE_SELECTION wait ` +
+        "precedes this state in src/brief-workflow.json, and the answer is the OWNER's. Nothing was written.",
+    );
   }
   if (chosen === "none-of-these") {
-    fail("the owner answered \"none-of-these\" at the Candidate-selection gate — the Thesis or the "
-      + "selected set is what should change, and NO Reader Path lands in the Brief. Nothing was written.");
+    fail(
+      'the owner answered "none-of-these" at the Candidate-selection gate — the Thesis or the ' +
+        "selected set is what should change, and NO Reader Path lands in the Brief. Nothing was written.",
+    );
   }
   return chosen;
 }

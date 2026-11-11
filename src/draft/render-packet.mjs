@@ -13,10 +13,24 @@ import { parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLangua
 import { CAST_KEYS } from "../compose/record.mjs";
 import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
-import { resolveLegJourneys, packetPersonaPath, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
+import {
+  resolveLegJourneys,
+  packetPersonaPath,
+  introduceLine,
+  introducedMeaning,
+  personaPriorKnowledge,
+} from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
 import { higherOrderOf, firstPoint } from "../mapping-playground/structure.mjs";
-import { REALIZATION_LANGUAGES, langOf, sectionsDir, packetsDir, packetsRecordKey, sectionsOf, sectionOfLeg } from "./workspace.mjs";
+import {
+  REALIZATION_LANGUAGES,
+  langOf,
+  sectionsDir,
+  packetsDir,
+  packetsRecordKey,
+  sectionsOf,
+  sectionOfLeg,
+} from "./workspace.mjs";
 
 // THE STATED ABSENCE (kogaki#1285 acceptance): rendered in place of
 // `prior_knowledge` where the Persona declares none, so the Referents rule
@@ -45,15 +59,27 @@ export function waypointLines(leg) {
   const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
   const serves = (ids) => `*Serves:* ${(ids || []).map((x) => byStrand.get(x) ?? x).join("; ")}`;
   const head = leg.mapping ? firstPoint(leg.mapping.structure, leg.mapping.table) : String(leg.text ?? "").trim();
-  const joinOf = (w) => (typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : []);
-  const sub = (p, n) => (Object.hasOwn(p, "performs") ? `${n}. *${String(p.performs).trim()}*` : `${n}. ${String(p.point).trim()} ${serves(p.serves)}`);
+  const joinOf = (w) =>
+    typeof w.join === "string" && w.join.trim() !== "" ? [`   ${OPENS_FROM_LABEL} ${w.join.trim()}`] : [];
+  const sub = (p, n) =>
+    Object.hasOwn(p, "performs")
+      ? `${n}. *${String(p.performs).trim()}*`
+      : `${n}. ${String(p.point).trim()} ${serves(p.serves)}`;
   const castOf = (p) => {
     const keys = Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
     return keys.length ? [`      ${CAST_LABEL} ${keys.join(", ")}`] : [];
   };
-  const markOf = (p) => (Array.isArray(p.forced_by) && p.forced_by.length ? [`      ${forcedMarkLine(p.forced_by)}`] : []);
-  return ps.map((w, i) => [`${i + 1}. ${head} ${serves(w.materials)}`, ...joinOf(w),
-    ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...castOf(p), ...markOf(p)])].join("\n")).join("\n");
+  const markOf = (p) =>
+    Array.isArray(p.forced_by) && p.forced_by.length ? [`      ${forcedMarkLine(p.forced_by)}`] : [];
+  return ps
+    .map((w, i) =>
+      [
+        `${i + 1}. ${head} ${serves(w.materials)}`,
+        ...joinOf(w),
+        ...(w.paragraph_waypoints || []).flatMap((p, j) => [`   ${sub(p, j + 1)}`, ...castOf(p), ...markOf(p)]),
+      ].join("\n"),
+    )
+    .join("\n");
 }
 
 // THE MAPPED LINE'S REFUSAL (kogaki#1735): a Leg of a plan with a Mapping Record whose record carries
@@ -63,12 +89,19 @@ export function mappedLineRefusal(leg) {
   if (!leg.mapping) return null;
   const at = `Leg ${leg.leg_id}`;
   const { structure, table } = leg.mapping;
-  if (!structure) return `${at}: the Mapping Record carries no structure for this Leg — run /paragraph-plan on this Brief again (kogaki#1735)`;
-  if (!table) return `${at}: the Mapping Record carries no table for this Leg — run /paragraph-plan on this Brief again (kogaki#1735)`;
-  const expressed = new Set((table.correspondences || []).filter((c) => typeof c.expression === "string" && c.expression.trim() !== "").map((c) => c.role));
+  if (!structure)
+    return `${at}: the Mapping Record carries no structure for this Leg — run /paragraph-plan on this Brief again (kogaki#1735)`;
+  if (!table)
+    return `${at}: the Mapping Record carries no table for this Leg — run /paragraph-plan on this Brief again (kogaki#1735)`;
+  const expressed = new Set(
+    (table.correspondences || [])
+      .filter((c) => typeof c.expression === "string" && c.expression.trim() !== "")
+      .map((c) => c.role),
+  );
   for (const e of [...(structure.relations || []), ...(higherOrderOf(structure) || [])]) {
     for (const [, id] of String(e.holds).matchAll(PLACEHOLDER)) {
-      if (!expressed.has(id)) return `${at}: the \`holds\` placeholder {${id}} names a Role its table gives no expression for (kogaki#1735)`;
+      if (!expressed.has(id))
+        return `${at}: the \`holds\` placeholder {${id}} names a Role its table gives no expression for (kogaki#1735)`;
     }
   }
   return null;
@@ -84,11 +117,14 @@ export function forcedMarksOf(packet) {
   let n = null;
   for (const l of String(packet).split("\n")) {
     const top = l.match(/^(\d+)\.\s/);
-    if (top) { n = Number(top[1]); continue; }
+    if (top) {
+      n = Number(top[1]);
+      continue;
+    }
     const m = l.match(FORCED_MARK);
     if (!m || n === null) continue;
     let row = out.find((r) => r.paragraph === n);
-    if (!row) out.push(row = { paragraph: n, axes: [] });
+    if (!row) out.push((row = { paragraph: n, axes: [] }));
     for (const a of m[1].split(", ")) if (!row.axes.includes(a)) row.axes.push(a);
   }
   return out;
@@ -99,28 +135,45 @@ const DRAFT_TABLE = join(dirname(fileURLToPath(import.meta.url)), "..", "draft-w
 const CRITERION_LINE = /^- ([A-Z][A-Z ]*[A-Z]): (.+)$/;
 export function templateCriteriaFailures(template, criteria = JSON.parse(readFileSync(DRAFT_TABLE, "utf8")).criteria) {
   const wordsMax = Number(criteria?.words_max);
-  if (!Number.isInteger(wordsMax) || wordsMax <= 0) return ["src/draft-workflow.json's `criteria` declares no positive `words_max`"];
+  if (!Number.isInteger(wordsMax) || wordsMax <= 0)
+    return ["src/draft-workflow.json's `criteria` declares no positive `words_max`"];
   const fails = [];
-  String(template).split("\n").forEach((line, i) => {
-    const m = CRITERION_LINE.exec(line);
-    if (!m) return;
-    const at = `line ${i + 1} \`${line}\``;
-    const n = line.slice(2).trim().split(/\s+/).length;
-    if (n >= wordsMax) fails.push(`${at} runs ${n} words, not under the bound of ${wordsMax}`);
-    const joint = [": ", "; ", " -- "].find((s) => m[2].includes(s));
-    if (joint) fails.push(`${at} joins two requirements with \`${joint}\``);
-  });
+  String(template)
+    .split("\n")
+    .forEach((line, i) => {
+      const m = CRITERION_LINE.exec(line);
+      if (!m) return;
+      const at = `line ${i + 1} \`${line}\``;
+      const n = line.slice(2).trim().split(/\s+/).length;
+      if (n >= wordsMax) fails.push(`${at} runs ${n} words, not under the bound of ${wordsMax}`);
+      const joint = [": ", "; ", " -- "].find((s) => m[2].includes(s));
+      if (joint) fails.push(`${at} joins two requirements with \`${joint}\``);
+    });
   return fails;
 }
 
-export function renderPacket({ template, brief, leg, priorSections, section, sections, language: languageOverride = null }) {
+export function renderPacket({
+  template,
+  brief,
+  leg,
+  priorSections,
+  section,
+  sections,
+  language: languageOverride = null,
+}) {
   const unbounded = templateCriteriaFailures(template);
   if (unbounded.length) {
-    return { error: `the Packet template's criteria break the bound src/draft-workflow.json declares: ${unbounded.join("; ")} -- `
-      + `one requirement per line, so a joined or grown line never reaches a Writer (kogaki#1555)` };
+    return {
+      error:
+        `the Packet template's criteria break the bound src/draft-workflow.json declares: ${unbounded.join("; ")} -- ` +
+        `one requirement per line, so a joined or grown line never reaches a Writer (kogaki#1555)`,
+    };
   }
   const missing = [];
-  const need = (label, v) => { if (v === null || v === undefined || v === "") missing.push(label); return v; };
+  const need = (label, v) => {
+    if (v === null || v === undefined || v === "") missing.push(label);
+    return v;
+  };
 
   // THE STRAND ID IS THE BRIEF'S, NOT THE PACKET'S (kogaki#1094). The Brief
   // serializes one form, `claim (strand L<n>): <proposition>` (kogaki#1095),
@@ -137,7 +190,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // own heading, exactly as `already knows` and `introduce here` render — so no
   // `claim:` prefix sits under a bulleted field label for the reader to parse.
   const claims = claimTexts.map((text) => `- ${text}`).join("\n");
-  const intro = (leg.introduces || []);
+  const intro = leg.introduces || [];
   // WHAT THIS LEG RE-ACTIVATES (kogaki#1237, owner decision 2026-09-30):
   // parsed the same way `validateLegs` parsed it before this Brief was
   // minted — a bad entry never reaches here, because `readBrief`
@@ -147,9 +200,7 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // plain restatement composed at Brief time (`e.as`), never its own
   // proposition. Nothing here is composed — the composer already selected
   // the reference and, for a claim, the restatement; this only resolves it.
-  const reactivateEntries = (leg["re-activate"] || [])
-    .map((raw) => parseReactivateEntry(raw))
-    .filter((e) => !e.error);
+  const reactivateEntries = (leg["re-activate"] || []).map((raw) => parseReactivateEntry(raw)).filter((e) => !e.error);
   const active = reactivateEntries.map((e) => {
     const target = (brief.legs || []).find((l) => l.leg_id === e.leg_id);
     // A RE-ACTIVATED JOURNEY RENDERS ITS SCENE (kogaki#1261): the served text
@@ -162,10 +213,11 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
         need(`${leg.leg_id}'s re-activated Journey ${e.value} text`, null);
         return "";
       }
-      const cite = (brief.strands.find((st) => st.id === e.value)?.cites || [])
-        .find((c) => c.kind === "journey cite");
-      return `- **${e.value}'s Journey** (re-activated from ${e.leg_id})${j.use ? ` — used there for: ${j.use}` : ""}. `
-        + `Its scene, served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n${j.resolvedText.trim()}`;
+      const cite = (brief.strands.find((st) => st.id === e.value)?.cites || []).find((c) => c.kind === "journey cite");
+      return (
+        `- **${e.value}'s Journey** (re-activated from ${e.leg_id})${j.use ? ` — used there for: ${j.use}` : ""}. ` +
+        `Its scene, served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n${j.resolvedText.trim()}`
+      );
     }
     if (e.kind === "term") {
       const found = (target?.introduces || [])
@@ -191,8 +243,11 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // same Audience and refused by name where it is missing. A second-language
   // realization (`--lang`, kogaki#1158) names its own language instead, so the
   // line and that track's language block never disagree.
-  const language = languageOverride ? { language: languageOverride }
-    : typeof personaPath === "string" ? audienceLanguage(personaPath) : personaPath;
+  const language = languageOverride
+    ? { language: languageOverride }
+    : typeof personaPath === "string"
+      ? audienceLanguage(personaPath)
+      : personaPath;
   if (language.error) missing.push(`the Audience's language (${language.error})`);
 
   const unmapped = mappedLineRefusal(leg);
@@ -214,9 +269,10 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     // `budget` — a LIMIT the writer sees, never a target: rendered in the
     // write instruction, and its absence states so rather than rendering a
     // blank the writer could read as zero.
-    budget: leg.budget !== undefined && leg.budget !== null
-      ? `${leg.budget} words. This is a ceiling, not a target — write what this Leg needs, up to it.`
-      : "(none declared — no word bound applies to this Leg.)",
+    budget:
+      leg.budget !== undefined && leg.budget !== null
+        ? `${leg.budget} words. This is a ceiling, not a target — write what this Leg needs, up to it.`
+        : "(none declared — no word bound applies to this Leg.)",
     claims: claims || "(none recorded)",
     reader_own_world: priorKnowledge || READER_OWN_WORLD_ABSENT,
     register: register.error ? "" : register.register,
@@ -229,38 +285,46 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     // text). Nothing the reader merely holds otherwise renders here. A
     // STATED ABSENCE, never an empty slot (acceptance item 2): a Leg that
     // introduces and re-activates nothing still gets the block, saying so.
-    crosses_here: (intro.length || active.length)
-      ? [...intro.map((raw) => introduceLine(raw)), ...active].join("\n")
-      : "(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)",
+    crosses_here:
+      intro.length || active.length
+        ? [...intro.map((raw) => introduceLine(raw)), ...active].join("\n")
+        : "(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)",
     // the Journey a Leg draws on (kogaki#1111), rendered as its served TEXT with
     // the address beside it as citation (kogaki#1250). Resolution happens in
     // `renderAndStorePacket` before this runs, so every entry carries its
     // `resolvedText`; a caller that skips resolution gets the same `need()`
     // refusal as any absent block. A Journey-less Leg renders the heading and
     // the absence line only (kogaki#1224; owner decision 2026-09-29).
-    journeys: need(`${leg.leg_id}'s Journey text`, (leg.journeys || []).length
-      ? ((leg.journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === ""))
-        ? null
-        : "Material for a concrete example serving this Leg's waypoints — use as much or as "
-          + "little of it as the waypoints need, in any form, from one clause to several "
-          + "sentences. It is material, never a claim, and earns no paragraph of its own by "
-          + "being present.\n\n"
-          + "Material, not assertion. Each entry below names a Journey this Leg draws on, "
-          + "and its served prose, quoted in full. **Edit it for "
-          + "this Leg's waypoints**: cut it, compress it, use as much or as little as they need.\n\n"
-          + "Nothing here is a claim. The claims above are the whole of what this Leg "
-          + "asserts, and the round trip asks for those back and never for a fragment of a "
-          + "Journey. A Journey you use well may leave almost none of its original wording "
-          + "on the page.\n\n"
-          + leg.journeys.map((j) => {
-            const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
-              .find((c) => c.kind === "journey cite");
-            return `- **${j.strand}'s Journey**. `
-              + `Served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n`
-              + `${j.resolvedText.trim()}`;
-          }).join("\n\n")
-      )
-      : "(none — this Leg draws on no Journey material, and nothing here asks for any.)"),
+    journeys: need(
+      `${leg.leg_id}'s Journey text`,
+      (leg.journeys || []).length
+        ? leg.journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === "")
+          ? null
+          : "Material for a concrete example serving this Leg's waypoints — use as much or as " +
+            "little of it as the waypoints need, in any form, from one clause to several " +
+            "sentences. It is material, never a claim, and earns no paragraph of its own by " +
+            "being present.\n\n" +
+            "Material, not assertion. Each entry below names a Journey this Leg draws on, " +
+            "and its served prose, quoted in full. **Edit it for " +
+            "this Leg's waypoints**: cut it, compress it, use as much or as little as they need.\n\n" +
+            "Nothing here is a claim. The claims above are the whole of what this Leg " +
+            "asserts, and the round trip asks for those back and never for a fragment of a " +
+            "Journey. A Journey you use well may leave almost none of its original wording " +
+            "on the page.\n\n" +
+            leg.journeys
+              .map((j) => {
+                const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || []).find(
+                  (c) => c.kind === "journey cite",
+                );
+                return (
+                  `- **${j.strand}'s Journey**. ` +
+                  `Served at \`${cite ? cite.cite : "(no journey cite recorded in the Brief)"}\`:\n\n` +
+                  `${j.resolvedText.trim()}`
+                );
+              })
+              .join("\n\n")
+        : "(none — this Leg draws on no Journey material, and nothing here asks for any.)",
+    ),
     section_placement: sectionPlacement(section),
     // SCOPED TO THE CURRENT SECTION ONLY (kogaki#1282, owner ruling
     // 2026-10-06): `sectionsOf` always derives at least one Section, so this
@@ -268,13 +332,17 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
     // fallback — the old "this is the article's first Leg" / "this is NOT
     // the article's opening" strings are retired with it, subsumed by
     // `priorProseInSection`'s own opens-it / continues-it absence messages.
-    prior_sections: priorProseInSection(priorSections, sections || [], section?.index ?? 1, leg.leg_id)
-      ?? "(nothing yet — this Leg opens the Section, so its prose is the first in it.)",
+    prior_sections:
+      priorProseInSection(priorSections, sections || [], section?.index ?? 1, leg.leg_id) ??
+      "(nothing yet — this Leg opens the Section, so its prose is the first in it.)",
   };
   if (missing.length) {
-    return { error: `the Packet for ${leg.leg_id} cannot be rendered: ${missing[0]} is absent. `
-      + `A Packet is the model's entire input, so a missing block is a hole the model fills by invention — `
-      + `it refuses by NAME rather than rendering an empty slot (the Leg Packet).` };
+    return {
+      error:
+        `the Packet for ${leg.leg_id} cannot be rendered: ${missing[0]} is absent. ` +
+        `A Packet is the model's entire input, so a missing block is a hole the model fills by invention — ` +
+        `it refuses by NAME rather than rendering an empty slot (the Leg Packet).`,
+    };
   }
   let out = template;
   for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
@@ -283,7 +351,10 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
   // exactly what the ruling describes and nothing more.
   out = out.replace(/^<!--[\s\S]*?-->\n*/, "");
   const left = out.match(/\{\{(\w+)\}\}/);
-  if (left) return { error: `the template slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the Leg Packet)` };
+  if (left)
+    return {
+      error: `the template slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the Leg Packet)`,
+    };
   return { packet: out };
 }
 
@@ -295,11 +366,19 @@ export function renderPacket({ template, brief, leg, priorSections, section, sec
 export function renderAndStorePacket(brief, id, args, ws) {
   const lang = langOf(args);
   const leg = brief.legs.find((s) => s.leg_id === id);
-  if (!leg) return { error: `no leg "${id}" in this Brief's Reader Path (${brief.legs.map((s) => s.leg_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it` };
+  if (!leg)
+    return {
+      error: `no leg "${id}" in this Brief's Reader Path (${brief.legs.map((s) => s.leg_id).join(", ")}) — the path is the Brief's, and /draft never re-opens it`,
+    };
   const tplPath = join(dirname(fileURLToPath(import.meta.url)), "..", "packet-template.md");
   let template;
-  try { template = readFileSync(tplPath, "utf8"); }
-  catch (e) { return { error: `the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains` }; }
+  try {
+    template = readFileSync(tplPath, "utf8");
+  } catch (e) {
+    return {
+      error: `the Packet template at ${tplPath} cannot be read (${e.message}) — it is a runtime-read carrier and the command has no built-in fallback, deliberately: a fallback template would be a second copy nobody maintains`,
+    };
+  }
   // THE FIGURE BLOCK IS NOT PART OF A PACKET (the figure record, kogaki#878). Split before
   // the render: `renderPacket` refuses on any unfilled slot, so the block's own
   // slots would make every Packet refuse if it reached that check.
@@ -329,8 +408,15 @@ export function renderAndStorePacket(brief, id, args, ws) {
   const journeysResolved = resolveLegJourneys(leg, brief);
   if (journeysResolved.error) return { error: journeysResolved.error };
 
-  const r = renderPacket({ template, brief, leg: journeysResolved.leg, priorSections: prior, section, sections,
-    language: lang === "en" ? null : (REALIZATION_LANGUAGES[lang] || lang) });
+  const r = renderPacket({
+    template,
+    brief,
+    leg: journeysResolved.leg,
+    priorSections: prior,
+    section,
+    sections,
+    language: lang === "en" ? null : REALIZATION_LANGUAGES[lang] || lang,
+  });
   if (r.error) return { error: r.error };
 
   // THE LANGUAGE BLOCK (kogaki#1158): rendered into every Packet when
@@ -341,12 +427,19 @@ export function renderAndStorePacket(brief, id, args, ws) {
   // List Decision), parsed by the SAME reader lint-ja.mjs's Lint uses.
   let packetText = r.packet;
   if (lang !== "en") {
-    const termsPath = typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : DEFAULT_TERMS_PATH;
+    const termsPath =
+      typeof args["terms-path"] === "string" && args["terms-path"] !== "" ? args["terms-path"] : DEFAULT_TERMS_PATH;
     let termsText;
-    try { termsText = readFileSync(termsPath, "utf8"); }
-    catch (e) { return { error: `leg ${id}'s Japanese Packet needs the term list at ${termsPath} and it cannot be read (${e.message})` }; }
+    try {
+      termsText = readFileSync(termsPath, "utf8");
+    } catch (e) {
+      return {
+        error: `leg ${id}'s Japanese Packet needs the term list at ${termsPath} and it cannot be read (${e.message})`,
+      };
+    }
     const parsedTerms = parseTermsYaml(termsText);
-    if (parsedTerms.error) return { error: `the term list at ${termsPath} is not readable as the prh.yml shape: ${parsedTerms.error}` };
+    if (parsedTerms.error)
+      return { error: `the term list at ${termsPath} is not readable as the prh.yml shape: ${parsedTerms.error}` };
     const termsSha = sha256Terms(termsText);
     let block = renderLanguageBlock(parsedTerms.rules, termsSha, lang);
     // FLUENCY NOTES (acceptance item 5): read, if present, into every
@@ -392,11 +485,20 @@ export function renderAndStorePacket(brief, id, args, ws) {
     if (existsSync(runFile)) rec = JSON.parse(readFileSync(runFile, "utf8"));
     const key = packetsRecordKey(lang);
     // The plan the Packet was rendered from rides beside its own hash (kogaki#1645).
-    rec[key] = { ...(rec[key] || {}), [id]: { path: out, sha256: sha, plan_sha256: brief.paragraphPlan?.sha256 ?? null,
-      mapping_sha256: brief.paragraphPlan?.mapping_sha256 ?? null } };
+    rec[key] = {
+      ...(rec[key] || {}),
+      [id]: {
+        path: out,
+        sha256: sha,
+        plan_sha256: brief.paragraphPlan?.sha256 ?? null,
+        mapping_sha256: brief.paragraphPlan?.mapping_sha256 ?? null,
+      },
+    };
     writeFileSync(runFile, JSON.stringify(rec, null, 2) + "\n");
   } catch (e) {
-    process.stderr.write(`draft: the packet's path and sha were not recorded in ${runFile} (${e.message}) — the Packet itself is written and printed; the record is the trace, and the trace never gates the write it traces\n`);
+    process.stderr.write(
+      `draft: the packet's path and sha were not recorded in ${runFile} (${e.message}) — the Packet itself is written and printed; the record is the trace, and the trace never gates the write it traces\n`,
+    );
   }
 
   return { packet: packetText, out, sha };

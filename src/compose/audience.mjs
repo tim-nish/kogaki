@@ -18,11 +18,17 @@ import { moveContract } from "./moves.mjs";
 // or `{ error }`.
 export function audienceRecord(path) {
   let text;
-  try { text = readFileSync(path, "utf8"); }
-  catch (e) { return { error: `the Audience file ${path} cannot be read (${e.message})` }; }
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (e) {
+    return { error: `the Audience file ${path} cannot be read (${e.message})` };
+  }
   let record;
-  try { record = parseYaml(text, path); }
-  catch (e) { return { error: `the Audience file ${path} is not a readable YAML record (${e.message})` }; }
+  try {
+    record = parseYaml(text, path);
+  } catch (e) {
+    return { error: `the Audience file ${path} is not a readable YAML record (${e.message})` };
+  }
   if (!isPlainMap(record)) return { error: `the Audience file ${path} is not a map of keys` };
   return { record };
 }
@@ -50,8 +56,11 @@ export const READER_PERSONA_OPTIONAL_FIELDS = ["prior_knowledge"];
 export function readerPersona(path) {
   const a = audienceRecord(path);
   if (a.error) {
-    return { error: `${a.error} — the Brief workflow table names it, and `
-      + "Reader start is authored from its `persona` and the Thesis (kogaki#1216)" };
+    return {
+      error:
+        `${a.error} — the Brief workflow table names it, and ` +
+        "Reader start is authored from its `persona` and the Thesis (kogaki#1216)",
+    };
   }
   const out = { id: audienceScalar(a.record, "id") };
   const persona = a.record.persona;
@@ -65,9 +74,12 @@ export function readerPersona(path) {
     out[f] = audienceScalar(persona, f); // null is a stated absence, read by personaPriorKnowledgeLine
   }
   if (missing.length) {
-    return { error: `the Audience file ${path} declares no ${missing.join(" and no ")} — the Persona names `
-      + `at least ${READER_PERSONA_FIELDS.join(" and ")} (kogaki#1216), and Reader start cannot be authored from half of it. `
-      + "Repair the Audience file under its own issue." };
+    return {
+      error:
+        `the Audience file ${path} declares no ${missing.join(" and no ")} — the Persona names ` +
+        `at least ${READER_PERSONA_FIELDS.join(" and ")} (kogaki#1216), and Reader start cannot be authored from half of it. ` +
+        "Repair the Audience file under its own issue.",
+    };
   }
   return out;
 }
@@ -77,11 +89,10 @@ export function readerPersona(path) {
 // `differentiation` state, which carries the Persona's `prior_knowledge` line
 // OR this sentence -- never `undefined`, and never a refusal. It grants a
 // claim no word (kogaki#1331, owner decision 2026-10-10).
-export const PERSONA_PRIOR_KNOWLEDGE_ABSENT =
-  "(the Persona declares no prior_knowledge)";
+export const PERSONA_PRIOR_KNOWLEDGE_ABSENT = "(the Persona declares no prior_knowledge)";
 export function personaPriorKnowledgeLine(persona) {
   const v = persona && persona.prior_knowledge;
-  return (typeof v === "string" && v.trim() !== "") ? v : PERSONA_PRIOR_KNOWLEDGE_ABSENT;
+  return typeof v === "string" && v.trim() !== "" ? v : PERSONA_PRIOR_KNOWLEDGE_ABSENT;
 }
 
 // THE AUDIENCE'S `register` (kogaki#1251 item 1, kogaki#1261, kogaki#1370):
@@ -98,8 +109,11 @@ export function readerProse(path) {
   }
   const register = audienceScalar(a.record, "register");
   if (register === null) {
-    return { error: `the Audience file ${path} declares no \`register\` — the Packet's Write block renders the Audience's register from it (kogaki#1261, kogaki#1370). `
-      + "Repair the Audience file under its own issue." };
+    return {
+      error:
+        `the Audience file ${path} declares no \`register\` — the Packet's Write block renders the Audience's register from it (kogaki#1261, kogaki#1370). ` +
+        "Repair the Audience file under its own issue.",
+    };
   }
   return { register };
 }
@@ -117,8 +131,11 @@ export function audienceLanguage(path) {
   }
   const language = audienceScalar(a.record, "language");
   if (language === null || /\n/.test(language)) {
-    return { error: `the Audience file ${path} declares no one-line \`language\` — the Brief composers write in it and the Packet's Write block renders it (kogaki#1417). `
-      + "Repair the Audience file under its own issue." };
+    return {
+      error:
+        `the Audience file ${path} declares no one-line \`language\` — the Brief composers write in it and the Packet's Write block renders it (kogaki#1417). ` +
+        "Repair the Audience file under its own issue.",
+    };
   }
   return { language };
 }
@@ -155,8 +172,15 @@ export function moveContractsForLegs(legs, movesDir = "moves") {
     // against those two, so the input sets them side by side rather than
     // leaving the judge to find them in the Leg array. `segments` is the
     // Move's whole structure and is never null here (kogaki#1412).
-    out.push({ leg_id: s.leg_id, move: s.move, takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks,
-      waypoints: s.waypoints });
+    out.push({
+      leg_id: s.leg_id,
+      move: s.move,
+      takes: c.takes,
+      leaves: c.leaves,
+      segments: c.segments,
+      breaks: c.breaks,
+      waypoints: s.waypoints,
+    });
   }
   return { contracts: out };
 }

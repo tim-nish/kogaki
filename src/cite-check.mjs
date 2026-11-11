@@ -110,7 +110,9 @@ export function parseDraftCites(text) {
     try {
       const v = JSON.parse(m[1]);
       cites.push(typeof v === "object" && v !== null ? v : { unparseable: ln.trim() });
-    } catch { cites.push({ unparseable: ln.trim() }); }
+    } catch {
+      cites.push({ unparseable: ln.trim() });
+    }
   }
   return cites;
 }
@@ -170,17 +172,23 @@ export function judgeCites(cites, served, servedPin) {
   const servedSha = (servedPin ?? "").split("@").pop();
   for (const c of cites) {
     if (c.unparseable) {
-      results.push({ ...c, verdict: "malformed",
-        detail: `the cite entry is not readable JSON and can be judged no further: ${c.unparseable.slice(0, 80)}` });
+      results.push({
+        ...c,
+        verdict: "malformed",
+        detail: `the cite entry is not readable JSON and can be judged no further: ${c.unparseable.slice(0, 80)}`,
+      });
       continue;
     }
     const ref = parseCiteRef(c.cite);
     if (!ref) {
       const positional = POSITIONAL_RE.test(c.cite ?? "");
-      results.push({ ...c, verdict: "malformed",
+      results.push({
+        ...c,
+        verdict: "malformed",
         detail: positional
           ? `the positional form gloss/ELEMENTS.jsonl:<line>@<sha> is retired (SPEC-draft-command v2, kogaki#600) — migrate to the address form <package>::<kind>/<local-name>@<content_hash> (kogaki#1116): ${c.cite}`
-          : `the cite is in neither resolvable form — the address form <package>::<kind>/<local-name>@<content_hash> (kogaki#1116) nor the identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha> it succeeds: ${c.cite}` });
+          : `the cite is in neither resolvable form — the address form <package>::<kind>/<local-name>@<content_hash> (kogaki#1116) nor the identity form gloss/ELEMENTS.jsonl slug=<slug> kind=<lesson|journey> @<sha> it succeeds: ${c.cite}`,
+      });
       continue;
     }
     const el = served.get(identityKey(ref.slug, ref.kind));
@@ -190,19 +198,31 @@ export function judgeCites(cites, served, servedPin) {
     // address cite carries the record's OWN content hash, so the question is
     // whether THIS Strand's material has moved — which is what the cite was
     // changed to make askable, and reading it as a pin would throw that away.
-    const pinMatch = ref.form === "address"
-      ? Boolean(el) && el.content_hash === ref.hash
-      : servedSha ? servedSha.startsWith(ref.sha) || ref.sha.startsWith(servedSha) : false;
+    const pinMatch =
+      ref.form === "address"
+        ? Boolean(el) && el.content_hash === ref.hash
+        : servedSha
+          ? servedSha.startsWith(ref.sha) || ref.sha.startsWith(servedSha)
+          : false;
     if (!el) {
-      results.push({ ...c, verdict: "resolves-nowhere", pinMatch,
-        detail: `resolves nowhere — the served survey (${served.size} record(s) at ${servedPin}) holds no record slug=${ref.slug} kind=${ref.kind}` });
+      results.push({
+        ...c,
+        verdict: "resolves-nowhere",
+        pinMatch,
+        detail: `resolves nowhere — the served survey (${served.size} record(s) at ${servedPin}) holds no record slug=${ref.slug} kind=${ref.kind}`,
+      });
       continue;
     }
-    results.push({ ...c, verdict: pinMatch ? "verified" : "verified-at-current-pin", pinMatch,
-      detail: pinMatch ? ""
+    results.push({
+      ...c,
+      verdict: pinMatch ? "verified" : "verified-at-current-pin",
+      pinMatch,
+      detail: pinMatch
+        ? ""
         : ref.form === "address"
           ? `the cite names content hash ${ref.hash} and the seam serves ${el.content_hash ?? "a record carrying none"} — this Strand's material has changed since the Draft cited it, and no history is served, so the trial ran against the current content`
-          : `the cite names ${ref.sha} and the seam serves ${servedPin} — no history is served, so the trial ran at the current pin` });
+          : `the cite names ${ref.sha} and the seam serves ${servedPin} — no history is served, so the trial ran at the current pin`,
+    });
   }
   return results;
 }
@@ -226,10 +246,12 @@ export function tally(results) {
 // ever moves, this is the line to revisit.
 function fetchSurvey() {
   const bin = join(REPO, "policy/kit/bin/gateway-query.mjs");
-  const res = spawnSync(process.execPath,
-    [bin, "--consumer", "kogaki", "--tool", "element_survey", "--args", "{}"],
-    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  if (res.status !== 0) return { ok: false, reason: (res.stdout + res.stderr).trim().split("\n")[0] || `gateway exit ${res.status}` };
+  const res = spawnSync(process.execPath, [bin, "--consumer", "kogaki", "--tool", "element_survey", "--args", "{}"], {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (res.status !== 0)
+    return { ok: false, reason: (res.stdout + res.stderr).trim().split("\n")[0] || `gateway exit ${res.status}` };
   return parseSurveyPayload(res.stdout);
 }
 
@@ -245,7 +267,10 @@ export function parseSurveyPayload(stdoutText) {
   // shape, so the caller degrades to CANNOT-DETERMINE.
   const start = stdoutText.indexOf("{");
   if (start < 0) {
-    return { ok: false, reason: `no payload in the transport's output: ${stdoutText.trim().slice(0, 80) || "(empty)"}` };
+    return {
+      ok: false,
+      reason: `no payload in the transport's output: ${stdoutText.trim().slice(0, 80) || "(empty)"}`,
+    };
   }
   try {
     const payload = JSON.parse(stdoutText.slice(start));
@@ -269,12 +294,14 @@ export function parseSurveyPayload(stdoutText) {
         if (typeof el?.slug === "string" && typeof el?.kind === "string") {
           served.set(identityKey(el.slug, el.kind), el);
         } else {
-          malformed.push({ cite: l.cite ?? "?",
-            reason: "the served record lacks string slug/kind — the repair belongs on the served record, not on any cite that names it" });
+          malformed.push({
+            cite: l.cite ?? "?",
+            reason:
+              "the served record lacks string slug/kind — the repair belongs on the served record, not on any cite that names it",
+          });
         }
       } catch {
-        malformed.push({ cite: l.cite ?? "?",
-          reason: "the served record's text is not readable JSON" });
+        malformed.push({ cite: l.cite ?? "?", reason: "the served record's text is not readable JSON" });
       }
     }
     return { ok: true, served, pin: payload.pin ?? null, malformed };
@@ -292,7 +319,9 @@ function runLive(draftPath) {
   }
   const f = fetchSurvey();
   if (!f.ok) {
-    console.log(`CANNOT-DETERMINE: ${draftPath} carries ${cites.length} cite(s) and the served seam is unavailable (${f.reason}) — the trial did not run, which is neither a pass nor a failure (absence-verification-counts-exercised-trials)`);
+    console.log(
+      `CANNOT-DETERMINE: ${draftPath} carries ${cites.length} cite(s) and the served seam is unavailable (${f.reason}) — the trial did not run, which is neither a pass nor a failure (absence-verification-counts-exercised-trials)`,
+    );
     return 0;
   }
   for (const m of f.malformed ?? []) {
@@ -304,7 +333,10 @@ function runLive(draftPath) {
     if (r.verdict === "verified") continue;
     const line = `${r.strand ?? "?"} ${r.cite}: ${r.detail}`;
     if (r.verdict === "verified-at-current-pin") console.log(`note: ${line}`);
-    else { failed = true; console.log(`FAIL: ${line}`); }
+    else {
+      failed = true;
+      console.log(`FAIL: ${line}`);
+    }
   }
   console.log(`${draftPath}: ${JSON.stringify(tally(results))} over ${cites.length} cite(s) at ${f.pin}`);
   return failed ? 1 : 0;

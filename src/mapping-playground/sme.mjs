@@ -21,7 +21,9 @@ export const MAPPER_CALLS = 2;
 export function mapperRow(table, variant) {
   const rows = Object.keys(table).filter((k) => k.startsWith(MAPPER_ROW_PREFIX));
   if (!String(variant).startsWith(MAPPER_ROW_PREFIX) || !table[variant] || !table[variant].judgment_point) {
-    return { error: `--mapper ${JSON.stringify(variant)} names no \`${MAPPER_ROW_PREFIX}<variant>\` row of the Playground's table — it declares ${rows.join(", ") || "none"}` };
+    return {
+      error: `--mapper ${JSON.stringify(variant)} names no \`${MAPPER_ROW_PREFIX}<variant>\` row of the Playground's table — it declares ${rows.join(", ") || "none"}`,
+    };
   }
   return { row: { id: variant, ...table[variant] } };
 }

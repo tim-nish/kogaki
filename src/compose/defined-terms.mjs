@@ -34,7 +34,8 @@ export function definedTermsRefusal(entries, { thesis = "", claims = [] } = {}) 
     const at = `defined_terms entry ${i + 1}`;
     if (!e || typeof e !== "object" || Array.isArray(e)) return `${at} is not a { term, class } map`;
     const extra = Object.keys(e).filter((k) => k !== "term" && k !== "class");
-    if (extra.length) return `${at} carries ${extra.map((k) => `\`${k}\``).join(", ")} — an entry is its term and its class, no prose`;
+    if (extra.length)
+      return `${at} carries ${extra.map((k) => `\`${k}\``).join(", ")} — an entry is its term and its class, no prose`;
     if (typeof e.term !== "string" || e.term.trim() === "") return `${at} carries no term`;
     const term = e.term.trim();
     if (!DEFINED_TERM_CLASSES.includes(e.class)) {
@@ -44,8 +45,10 @@ export function definedTermsRefusal(entries, { thesis = "", claims = [] } = {}) 
     if (seen.has(key)) return `${at} lists "${term}" a second time — one entry per term`;
     seen.add(key);
     if (!wholeWordMatch(term, thesis) && !claims.some((c) => wholeWordMatch(term, c))) {
-      return `${at} lists "${term}", which occurs whole-word in neither the Thesis nor any Strand's claim — `
-        + "the list is read from those texts, so a term in neither was not read from them";
+      return (
+        `${at} lists "${term}", which occurs whole-word in neither the Thesis nor any Strand's claim — ` +
+        "the list is read from those texts, so a term in neither was not read from them"
+      );
     }
   }
   return null;
@@ -55,7 +58,8 @@ export function definedTermsRefusal(entries, { thesis = "", claims = [] } = {}) 
 // field existed carries none, which defines nothing.
 export function definedTermsOf(record) {
   const list = Array.isArray(record?.defined_terms) ? record.defined_terms : [];
-  return list.filter((e) => e && e.class === "defined" && typeof e.term === "string" && e.term.trim() !== "")
+  return list
+    .filter((e) => e && e.class === "defined" && typeof e.term === "string" && e.term.trim() !== "")
     .map((e) => e.term.trim());
 }
 
@@ -70,7 +74,7 @@ export function definedTermBeforeIntroductionRefusal(legs, definedTerms = []) {
   const introducedAt = (term) => {
     const key = String(term).trim().toLowerCase();
     for (const [i, s] of legs.entries()) {
-      for (const raw of (s && Array.isArray(s.introduces) ? s.introduces : [])) {
+      for (const raw of s && Array.isArray(s.introduces) ? s.introduces : []) {
         const e = parseIntroducesEntry(raw);
         if (!e.error && e.term.toLowerCase() === key) return i;
       }
@@ -90,12 +94,15 @@ export function definedTermBeforeIntroductionRefusal(legs, definedTerms = []) {
       ];
       for (const [field, text] of fields) {
         if (typeof text !== "string" || !wholeWordMatch(term, text)) continue;
-        const where = intro < legs.length
-          ? `leg ${intro + 1}${legs[intro].leg_id ? ` (${legs[intro].leg_id})` : ""} is the first to introduce it`
-          : "no Leg introduces it";
-        return `${at}: ${field} uses "${term}", a term the Brief defines, and ${where} — a defined term reaches `
-          + "the reader only after the Leg whose introduces carries it (kogaki#1331). Add an introduces entry for it "
-          + "on this Leg or an earlier one, or reword";
+        const where =
+          intro < legs.length
+            ? `leg ${intro + 1}${legs[intro].leg_id ? ` (${legs[intro].leg_id})` : ""} is the first to introduce it`
+            : "no Leg introduces it";
+        return (
+          `${at}: ${field} uses "${term}", a term the Brief defines, and ${where} — a defined term reaches ` +
+          "the reader only after the Leg whose introduces carries it (kogaki#1331). Add an introduces entry for it " +
+          "on this Leg or an earlier one, or reword"
+        );
       }
     }
   }

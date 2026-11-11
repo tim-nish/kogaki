@@ -18,7 +18,12 @@ import { GATE_WORK, STATE_WORK } from "./terrain/flows.mjs";
 import { cmdSurvey, parseArgs, validateSurvey } from "./terrain/survey.mjs";
 import { cmdRun } from "./workflow/executor.mjs";
 import {
-  REPO, START_ACT_EXECUTOR, advancedByFromPayload, fail, readHookPayload, readJson,
+  REPO,
+  START_ACT_EXECUTOR,
+  advancedByFromPayload,
+  fail,
+  readHookPayload,
+  readJson,
   setDefaultFlow,
 } from "./workflow/run-record.mjs";
 
@@ -53,56 +58,74 @@ setDefaultFlow(TERRAIN_FLOW);
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
 
 function main() {
-const [cmd, ...rest] = process.argv.slice(2);
-const args = parseArgs(rest);
-switch (cmd) {
-  case "survey": cmdSurvey(args); break;
-  case "cotags": cmdCotags(args); break;
-  case "compose-input": cmdComposeInput(args); break;
-  case "report": cmdReport(args); break;
-  // the control plane's ONE ENTRY POINT, entered once per act (the re-entrant executor). Every standalone
-  // owner-facing act is now a state of the table, reachable only through here.
-  case "run": {
-    // ---- THE PAYLOAD GATE, BEFORE ANY WRITE (kogaki#1027 item 4).
-    //
-    // `--status` is read-only and is the ONE verb the PreToolUse deny admits
-    // from a Bash command, so it must not require a payload: an inspection
-    // route that needed a hook event would leave a stuck run unreadable by the
-    // one person able to unstick it.
-    //
-    // EVERYTHING ELSE REFUSES HERE, which is before `runDir` -- so a refused
-    // act creates no run directory, writes no record and prunes no lane. That
-    // ordering is the item's own wording ("refused before any write") and it
-    // is why this gate sits in the dispatcher rather than inside `cmdRun`.
-    if (args.status) { cmdRun(args, null); break; }
-    const advancedBy = advancedByFromPayload(readHookPayload());
-    if (!advancedBy) {
-      fail(`the executor advances only inside a harness hook event, and no hook payload carrying `
-        + `hook_event_name, session_id and tool_use_id was readable on stdin. Nothing was written. `
-        + `A Terrain run is STARTED by the terrain skill's own \`!\` line (\`node src/terrain.mjs start\`) and `
-        + `ADVANCED inside the PostToolUse hook for the AskUserQuestion that answered its gate `
-        + `(.claude/hooks/advance-terrain.py); \`run --status\` is the only verb reachable from a Bash `
-        + `command, and it is read-only (kogaki#1027).`);
+  const [cmd, ...rest] = process.argv.slice(2);
+  const args = parseArgs(rest);
+  switch (cmd) {
+    case "survey":
+      cmdSurvey(args);
+      break;
+    case "cotags":
+      cmdCotags(args);
+      break;
+    case "compose-input":
+      cmdComposeInput(args);
+      break;
+    case "report":
+      cmdReport(args);
+      break;
+    // the control plane's ONE ENTRY POINT, entered once per act (the re-entrant executor). Every standalone
+    // owner-facing act is now a state of the table, reachable only through here.
+    case "run": {
+      // ---- THE PAYLOAD GATE, BEFORE ANY WRITE (kogaki#1027 item 4).
+      //
+      // `--status` is read-only and is the ONE verb the PreToolUse deny admits
+      // from a Bash command, so it must not require a payload: an inspection
+      // route that needed a hook event would leave a stuck run unreadable by the
+      // one person able to unstick it.
+      //
+      // EVERYTHING ELSE REFUSES HERE, which is before `runDir` -- so a refused
+      // act creates no run directory, writes no record and prunes no lane. That
+      // ordering is the item's own wording ("refused before any write") and it
+      // is why this gate sits in the dispatcher rather than inside `cmdRun`.
+      if (args.status) {
+        cmdRun(args, null);
+        break;
+      }
+      const advancedBy = advancedByFromPayload(readHookPayload());
+      if (!advancedBy) {
+        fail(
+          `the executor advances only inside a harness hook event, and no hook payload carrying ` +
+            `hook_event_name, session_id and tool_use_id was readable on stdin. Nothing was written. ` +
+            `A Terrain run is STARTED by the terrain skill's own \`!\` line (\`node src/terrain.mjs start\`) and ` +
+            `ADVANCED inside the PostToolUse hook for the AskUserQuestion that answered its gate ` +
+            `(.claude/hooks/advance-terrain.py); \`run --status\` is the only verb reachable from a Bash ` +
+            `command, and it is read-only (kogaki#1027).`,
+        );
+      }
+      cmdRun(args, advancedBy);
+      break;
     }
-    cmdRun(args, advancedBy);
-    break;
-  }
-  // ---- THE START ACT (kogaki#1027 item 1). Executed by the harness's skill
-  // expansion -- the terrain skill file's one `!` line runs this before the
-  // model sees anything. It opens the run, runs to the first wait, and stops;
-  // its transitions carry the `start-act` executor kind and no hook
-  // fields, because no hook event produced them and inventing one would be the
-  // fabricated attribution this issue removes.
-  case "start": cmdRun(args, START_ACT_EXECUTOR, { stopAtFirstWait: true }); break;
-  case "validate": {
-    const record = readJson(String(args.survey || fail("validate needs --survey <file>")));
-    const v = validateSurvey(record);
-    if (v.length) { v.forEach((line) => console.log(`FAIL ${line}`)); process.exit(1); }
-    console.log("survey record conforms (the same rules the registered check applies)");
-    break;
-  }
-  default:
-    console.log(`usage: terrain.mjs <start|run|survey|cotags|compose-input|report|validate> [--run-dir DIR] ...
+    // ---- THE START ACT (kogaki#1027 item 1). Executed by the harness's skill
+    // expansion -- the terrain skill file's one `!` line runs this before the
+    // model sees anything. It opens the run, runs to the first wait, and stops;
+    // its transitions carry the `start-act` executor kind and no hook
+    // fields, because no hook event produced them and inventing one would be the
+    // fabricated attribution this issue removes.
+    case "start":
+      cmdRun(args, START_ACT_EXECUTOR, { stopAtFirstWait: true });
+      break;
+    case "validate": {
+      const record = readJson(String(args.survey || fail("validate needs --survey <file>")));
+      const v = validateSurvey(record);
+      if (v.length) {
+        v.forEach((line) => console.log(`FAIL ${line}`));
+        process.exit(1);
+      }
+      console.log("survey record conforms (the same rules the registered check applies)");
+      break;
+    }
+    default:
+      console.log(`usage: terrain.mjs <start|run|survey|cotags|compose-input|report|validate> [--run-dir DIR] ...
   start [--run-dir D] [--workflow F]        THE START ACT, executed by the harness's skill
                                             expansion — the terrain skill file's one \`!\` line.
                                             Opens the run, runs to its first wait, stops. It
@@ -188,6 +211,6 @@ switch (cmd) {
  THE RE-ENTRY IS NOT YOURS TO MAKE: .claude/hooks/advance-terrain.py runs the executor inside the
  PostToolUse hook for that question, after .claude/hooks/write-gate-capture.py has written the
  owner's answer. A Bash command naming this file with any verb but --status is denied.`);
-    process.exit(cmd ? 1 : 0);
-}
+      process.exit(cmd ? 1 : 0);
+  }
 }

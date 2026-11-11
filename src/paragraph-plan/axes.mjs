@@ -5,7 +5,17 @@
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { MOVE_RECORD_EXT, joinRefusal, loadMoveIds, moveContract, paragraphCountRefusal, paragraphWaypointsRefusal, paragraphsPerLeg, retiredPlanKeyRefusal, undeclaredKey } from "../compose.mjs";
+import {
+  MOVE_RECORD_EXT,
+  joinRefusal,
+  loadMoveIds,
+  moveContract,
+  paragraphCountRefusal,
+  paragraphWaypointsRefusal,
+  paragraphsPerLeg,
+  retiredPlanKeyRefusal,
+  undeclaredKey,
+} from "../compose.mjs";
 import { PLAN_SCHEMA_KEYS, paragraphLegRefusal, paragraphSchemaRefusal } from "../compose/record.mjs";
 import { correspondenceVocabularyRefusal } from "../mapping-playground/rbs.mjs";
 import { judgePrompt } from "../workflow/judge.mjs";
@@ -26,7 +36,11 @@ function judgmentPointOf(prompt) {
 }
 
 export function criteriaOf(prompt) {
-  return `\n${judgmentPointOf(prompt)}`.split("\n").map((l) => l.match(CRITERION_LINE)).filter(Boolean).map((m) => ({ name: m[1], text: m[2] }));
+  return `\n${judgmentPointOf(prompt)}`
+    .split("\n")
+    .map((l) => l.match(CRITERION_LINE))
+    .filter(Boolean)
+    .map((m) => ({ name: m[1], text: m[2] }));
 }
 
 // One sentence: it ends at its only full stop, and carries no example's run date and no Issue
@@ -49,14 +63,18 @@ export function criteriaFailures(table) {
   const bound = table.criteria || {};
   const wordsMax = Number(bound.words_max);
   const pointMax = Number(bound.point_words_max);
-  if (!Number.isInteger(wordsMax) || wordsMax <= 0) return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `words_max`"];
-  if (!Number.isInteger(pointMax) || pointMax <= 0) return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `point_words_max`"];
+  if (!Number.isInteger(wordsMax) || wordsMax <= 0)
+    return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `words_max`"];
+  if (!Number.isInteger(pointMax) || pointMax <= 0)
+    return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `point_words_max`"];
   const fails = [];
   for (const [name, text] of Object.entries(table.shared_text || {})) {
     if (!oneSentence(String(text))) fails.push(`shared text ${name} is not one sentence`);
   }
-  const named = { paragraph_plan_unit: bound.paragraph_plan_unit,
-    paragraph_plan_judge_unit: readAxes().axes.map((a) => String(a.id)) };
+  const named = {
+    paragraph_plan_unit: bound.paragraph_plan_unit,
+    paragraph_plan_judge_unit: readAxes().axes.map((a) => String(a.id)),
+  };
   for (const key of ["paragraph_plan_unit", "paragraph_plan_judge_unit"]) {
     const want = Array.isArray(named[key]) ? named[key] : [];
     const prompt = renderRowHead({ id: key, ...table[key] });
@@ -65,7 +83,9 @@ export function criteriaFailures(table) {
     const got = criteriaOf(prompt);
     if (!want.length) fails.push(`\`criteria\` names no criterion for ${key}`);
     if (JSON.stringify(got.map((c) => c.name)) !== JSON.stringify(want)) {
-      fails.push(`${key} carries the criteria ${JSON.stringify(got.map((c) => c.name))}, not the ${JSON.stringify(want)} \`criteria\` names`);
+      fails.push(
+        `${key} carries the criteria ${JSON.stringify(got.map((c) => c.name))}, not the ${JSON.stringify(want)} \`criteria\` names`,
+      );
     }
     for (const c of got) {
       const why = criterionRefusal(c, wordsMax);
@@ -87,7 +107,8 @@ export function readAxes(path = PARAGRAPH_PLAN_AXES) {
 // ONE RESPONSIBILITY, ONE SENTENCE: no `;`, `:` or ` — `, and no second finite clause
 // joined by "and". Declared limit: the clause test is lexical -- `and` followed within
 // two words by a verb from `AND_CLAUSE_VERBS`, or `, and` anywhere.
-const AND_CLAUSE_VERBS = "is|are|was|were|has|have|holds?|states?|carries|carry|gives?|leaves?|runs?|bears?|stands?|survives?|performs?|names?|says?|takes?";
+const AND_CLAUSE_VERBS =
+  "is|are|was|were|has|have|holds?|states?|carries|carry|gives?|leaves?|runs?|bears?|stands?|survives?|performs?|names?|says?|takes?";
 const AND_CLAUSE = new RegExp(`,\\s*and\\b|\\band\\s+(?:\\S+\\s+){0,2}(?:${AND_CLAUSE_VERBS})\\b`, "i");
 
 export function axisSentenceRefusal(sentence) {
@@ -96,7 +117,7 @@ export function axisSentenceRefusal(sentence) {
   if (/[;:]/.test(t)) return "carries `;` or `:`";
   if (t.includes(" — ")) return "carries ` — `";
   if (!oneSentence(t)) return "is not one sentence";
-  if (AND_CLAUSE.test(t)) return "joins a second clause with \"and\"";
+  if (AND_CLAUSE.test(t)) return 'joins a second clause with "and"';
   return null;
 }
 
@@ -111,11 +132,20 @@ export function axisRecord(registry, name, seen = new Set()) {
   const input = axisRecord(registry, r.from, new Set([...seen, name]));
   const e = r.edit || {};
   const leg = input.leg_you_must_judge;
-  if (Object.hasOwn(e, "move_takes")) { leg.bound_move.takes = e.move_takes; return input; }
-  if (Object.hasOwn(e, "move_leaves")) { leg.bound_move.leaves = e.move_leaves; return input; }
+  if (Object.hasOwn(e, "move_takes")) {
+    leg.bound_move.takes = e.move_takes;
+    return input;
+  }
+  if (Object.hasOwn(e, "move_leaves")) {
+    leg.bound_move.leaves = e.move_leaves;
+    return input;
+  }
   const p = leg.paragraphs[Number(e.paragraph) - 1];
   if (!p) throw new Error(`record "${name}" edits paragraph ${e.paragraph}, which "${r.from}" does not carry`);
-  if (Object.hasOwn(e, "join")) { p.join = e.join; return input; }
+  if (Object.hasOwn(e, "join")) {
+    p.join = e.join;
+    return input;
+  }
   const at = Number(e.waypoint) - 1;
   if (!p.paragraph_waypoints[at] || !e.to) throw new Error(`record "${name}" replaces no Waypoint of "${r.from}"`);
   p.paragraph_waypoints[at] = e.to;
@@ -136,19 +166,29 @@ export function axesFailures(registry) {
       const names = a.fixtures && Array.isArray(a.fixtures[kind]) ? a.fixtures[kind] : [];
       if (!names.length) fails.push(`axis ${id} carries no \`${kind}\` fixture`);
       for (const n of names) {
-        try { axisRecord(registry, n); } catch (e) { fails.push(`axis ${id}: ${e.message}`); }
-        if (kind === "defect" && !Number.isInteger((registry.records[n] || {}).at_paragraph)) fails.push(`axis ${id}: defect "${n}" names no \`at_paragraph\``);
+        try {
+          axisRecord(registry, n);
+        } catch (e) {
+          fails.push(`axis ${id}: ${e.message}`);
+        }
+        if (kind === "defect" && !Number.isInteger((registry.records[n] || {}).at_paragraph))
+          fails.push(`axis ${id}: defect "${n}" names no \`at_paragraph\``);
       }
     }
     const j = a.justified_by;
-    if (!j || !j.date || !j.run || !j.rates) fails.push(`axis ${id} carries no \`justified_by\` bench run (date, run, rates)`);
+    if (!j || !j.date || !j.run || !j.rates)
+      fails.push(`axis ${id} carries no \`justified_by\` bench run (date, run, rates)`);
   }
   return fails;
 }
 
 export function paragraphPlanUnitPrompt(row, input) {
   const held = bindFlow(FLOW);
-  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
+  try {
+    return judgePrompt(row, JSON.stringify(input, null, 2), input, null);
+  } finally {
+    bindFlow(held);
+  }
 }
 
 export const UNIT_KEYS = ["version", "leg_id", "move", "rationale", "paragraphs"];
@@ -163,17 +203,21 @@ const words = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
 export function boundMoveContract(moveId, movesDir) {
   const c = moveContract(moveId, movesDir);
   if (c.error) {
-    throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and cannot be read for the roles `
-      + `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}) — ${c.error}`);
+    throw new Error(
+      `ParagraphPlan stops: the paragraph Move "${moveId}" was bound and cannot be read for the roles ` +
+        `this stage needs (${PARAGRAPH_MOVE_ROLES.join(", ")}) — ${c.error}`,
+    );
   }
   // `breaks` arrives as a list of prose tests and `segments` as a list of Segments (kogaki#1413).
   const filled = (v) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "");
   for (const role of PARAGRAPH_MOVE_ROLES) {
     if (!filled(c[role])) {
-      throw new Error(`ParagraphPlan stops: the paragraph Move "${moveId}" was bound and does not fill the role `
-        + `\`${role}\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage judges `
-        + "that the Waypoints survive its breaks, and orders them by its segments, so nothing is defaulted. "
-        + "Repair the Move record under its own issue.");
+      throw new Error(
+        `ParagraphPlan stops: the paragraph Move "${moveId}" was bound and does not fill the role ` +
+          `\`${role}\` (${movesDir}/${moveId}${MOVE_RECORD_EXT}) — this stage judges ` +
+          "that the Waypoints survive its breaks, and orders them by its segments, so nothing is defaulted. " +
+          "Repair the Move record under its own issue.",
+      );
     }
   }
   return c;
@@ -194,20 +238,34 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   const retired = retiredPlanKeyRefusal(r, `${at}: the plan record`);
   if (retired) return { error: retired };
   if (Object.hasOwn(r, "waypoints")) {
-    return { error: `${at}: the plan record carries \`waypoints\` — the Leg is the unit (kogaki#1777): it binds one \`move\` and carries its \`paragraphs\`` };
+    return {
+      error: `${at}: the plan record carries \`waypoints\` — the Leg is the unit (kogaki#1777): it binds one \`move\` and carries its \`paragraphs\``,
+    };
   }
   const extra = undeclaredKey(r, UNIT_KEYS);
-  if (extra) return { error: `${at}: the plan record carries \`${extra}\`, which it does not declare — it carries ${UNIT_KEYS.join(", ")}` };
-  if (String(r.version) !== "1") return { error: `${at}: the plan record's version is ${JSON.stringify(r.version)}, not "1"` };
-  if (r.leg_id !== leg.leg_id) return { error: `${at}: the plan record names leg ${JSON.stringify(r.leg_id)}, not ${leg.leg_id}` };
-  if (typeof r.rationale !== "string" || words(r.rationale) < 4) return { error: `${at}: the plan record's \`rationale\`, why its Move fits this Leg, is under four words` };
-  if (r.move === null) return { error: noParagraphMoveFitsRefusal([{ leg_id: leg.leg_id, text: leg.text, why: r.rationale.trim() }]) };
+  if (extra)
+    return {
+      error: `${at}: the plan record carries \`${extra}\`, which it does not declare — it carries ${UNIT_KEYS.join(", ")}`,
+    };
+  if (String(r.version) !== "1")
+    return { error: `${at}: the plan record's version is ${JSON.stringify(r.version)}, not "1"` };
+  if (r.leg_id !== leg.leg_id)
+    return { error: `${at}: the plan record names leg ${JSON.stringify(r.leg_id)}, not ${leg.leg_id}` };
+  if (typeof r.rationale !== "string" || words(r.rationale) < 4)
+    return { error: `${at}: the plan record's \`rationale\`, why its Move fits this Leg, is under four words` };
+  if (r.move === null)
+    return { error: noParagraphMoveFitsRefusal([{ leg_id: leg.leg_id, text: leg.text, why: r.rationale.trim() }]) };
   const library = loadMoveIds(inputs.movesDir);
   if (library.error) throw new Error(library.error);
   if (typeof r.move !== "string" || r.move.trim() === "") {
-    return { error: `${at}: carries no \`move\` — a Leg names the one Move bound to it by id, or null where no Move fits (kogaki#1777)` };
+    return {
+      error: `${at}: carries no \`move\` — a Leg names the one Move bound to it by id, or null where no Move fits (kogaki#1777)`,
+    };
   }
-  if (!library.ids.has(r.move)) return { error: `${at}: binds move ${JSON.stringify(r.move)}, which names no Move in the library at ${inputs.movesDir}` };
+  if (!library.ids.has(r.move))
+    return {
+      error: `${at}: binds move ${JSON.stringify(r.move)}, which names no Move in the library at ${inputs.movesDir}`,
+    };
   if (!Array.isArray(r.paragraphs)) return { error: `${at}: the plan record carries no \`paragraphs\` list` };
   const count = paragraphCountRefusal(r.paragraphs.length, boundOf(inputs), at);
   if (count) return { error: count };
@@ -246,14 +304,19 @@ function mappingVocabularyRefusal(record, inputs, unitId, at) {
   const t = inputs.mapping ? (readMappingState(inputs.runDir, unitId) || {}).table : null;
   if (!t) return null;
   if (record.move !== t.move) {
-    return { error: `${at}: the plan binds ${JSON.stringify(record.move)}, and the Leg's Mapping Table was grounded for "${t.move}" — the Move is bound before grounding and kept after it` };
+    return {
+      error: `${at}: the plan binds ${JSON.stringify(record.move)}, and the Leg's Mapping Table was grounded for "${t.move}" — the Move is bound before grounding and kept after it`,
+    };
   }
   for (const [i, e] of record.paragraphs.entries()) {
     const v = correspondenceVocabularyRefusal(e.paragraph_waypoints, t, [], i + 1);
     if (v) {
       const id = (/carries the Role id "([^"]+)"/.exec(v) || [])[1];
       const c = id && t.correspondences.find((x) => x.role === id);
-      return { error: `${at}, paragraph ${i + 1}: ${v}${c ? `; the Role "${id}" reads "${c.expression}" in the Leg's Mapping Table` : ""}`, sites: [i + 1] };
+      return {
+        error: `${at}, paragraph ${i + 1}: ${v}${c ? `; the Role "${id}" reads "${c.expression}" in the Leg's Mapping Table` : ""}`,
+        sites: [i + 1],
+      };
     }
   }
   return null;
@@ -265,11 +328,15 @@ function paragraphRefusal(e, i, leg, prior, contract, moveId, atP) {
   if (!e || typeof e !== "object" || Array.isArray(e)) return `${atP}: the paragraph is not a map`;
   const retired = retiredPlanKeyRefusal(e, `${atP}: the paragraph`);
   if (retired) return retired;
-  if (Object.hasOwn(e, "why")) return `${atP}: the paragraph carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\``;
-  if (Object.hasOwn(e, "move")) return `${atP}: the paragraph carries \`move\` — the Leg binds one Move for all its paragraphs (kogaki#1777)`;
+  if (Object.hasOwn(e, "why"))
+    return `${atP}: the paragraph carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\``;
+  if (Object.hasOwn(e, "move"))
+    return `${atP}: the paragraph carries \`move\` — the Leg binds one Move for all its paragraphs (kogaki#1777)`;
   const k = undeclaredKey(e, UNIT_PARAGRAPH_KEYS);
-  if (k) return `${atP}: the paragraph carries \`${k}\`, which it does not declare — it carries paragraph, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every paragraph after the first) and paragraph_waypoints`;
-  if (e.paragraph !== i + 1) return `${atP}: the paragraph is numbered ${JSON.stringify(e.paragraph)} — paragraphs are numbered in order from 1`;
+  if (k)
+    return `${atP}: the paragraph carries \`${k}\`, which it does not declare — it carries paragraph, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every paragraph after the first) and paragraph_waypoints`;
+  if (e.paragraph !== i + 1)
+    return `${atP}: the paragraph is numbered ${JSON.stringify(e.paragraph)} — paragraphs are numbered in order from 1`;
   if (typeof e.rationale !== "string" || words(e.rationale) < 4) return `${atP}: \`rationale\` is under four words`;
   // THE PARAGRAPH'S SCHEMA, BY THE PLAN READER'S OWN RULE (kogaki#1639): so the record this
   // stage writes is one every later read accepts, and a refusal names the field here first.
@@ -278,8 +345,10 @@ function paragraphRefusal(e, i, leg, prior, contract, moveId, atP) {
   // ONE PER SEGMENT, COUNTED HERE AND NOT JUDGED (kogaki#1533).
   const n = Array.isArray(e.paragraph_waypoints) ? e.paragraph_waypoints.length : 0;
   if (n !== contract.segments.length) {
-    return `${atP}: carries ${n} Waypoint(s) for the ${contract.segments.length} Segment(s) of the Leg's bound Move `
-      + `"${moveId}" — one Waypoint per Segment, in the Move's order`;
+    return (
+      `${atP}: carries ${n} Waypoint(s) for the ${contract.segments.length} Segment(s) of the Leg's bound Move ` +
+      `"${moveId}" — one Waypoint per Segment, in the Move's order`
+    );
   }
   // THE JOIN, BY THE PLAN READER'S OWN RULE (kogaki#1411): so the file this stage writes is
   // one /draft reads. Whether it takes up what the previous paragraph left is the judge's.
@@ -287,10 +356,12 @@ function paragraphRefusal(e, i, leg, prior, contract, moveId, atP) {
 }
 
 export function noParagraphMoveFitsRefusal(failures) {
-  return [`NO PARAGRAPH MOVE FITS THESE LEGS (${NO_PARAGRAPH_MOVE_FITS}):`,
+  return [
+    `NO PARAGRAPH MOVE FITS THESE LEGS (${NO_PARAGRAPH_MOVE_FITS}):`,
     ...failures.map((f) => `Leg ${f.leg_id} ("${f.text}"): you wrote: "${f.why}"`),
-    "There is no fallback paragraph shape. Bind again: read each Move's takes against what the reader has been told "
-    + "when this Leg begins once more, with the Leg's relation in view."].join("\n");
+    "There is no fallback paragraph shape. Bind again: read each Move's takes against what the reader has been told " +
+      "when this Leg begins once more, with the Leg's relation in view.",
+  ].join("\n");
 }
 
 // THE SECOND CALL — the judge. Its input carries the Leg's text, what the reader has been told when it
@@ -314,15 +385,30 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
       prior_knowledge: leg.prior_knowledge || "",
       the_reader_has_been_told: leg.the_reader_has_been_told || [],
       leaves_for_next_leg: leg.leaves_for_next_leg || [],
-      bound_move: withAnalogy({ takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks }, c, inputs.analogy),
+      bound_move: withAnalogy(
+        { takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks },
+        c,
+        inputs.analogy,
+      ),
       paragraphs: judged.map((n) => {
         const e = record.paragraphs[n - 1];
-        return { paragraph: n, ...(joinOnly.has(n) ? { judge_its_join_only: true } : {}),
-          ...(n > 1 ? { join: e.join } : {}), paragraph_waypoints: e.paragraph_waypoints };
+        return {
+          paragraph: n,
+          ...(joinOnly.has(n) ? { judge_its_join_only: true } : {}),
+          ...(n > 1 ? { join: e.join } : {}),
+          paragraph_waypoints: e.paragraph_waypoints,
+        };
       }),
     },
-    ...(scope ? { standing_paragraphs: record.paragraphs.map((e, i) => ({ paragraph: i + 1,
-      ...(i > 0 ? { join: e.join } : {}), paragraph_waypoints: e.paragraph_waypoints })) } : {}),
+    ...(scope
+      ? {
+          standing_paragraphs: record.paragraphs.map((e, i) => ({
+            paragraph: i + 1,
+            ...(i > 0 ? { join: e.join } : {}),
+            paragraph_waypoints: e.paragraph_waypoints,
+          })),
+        }
+      : {}),
   };
 }
 
@@ -352,17 +438,26 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
   const leg = legForUnit(inputs, unitId);
   const want = judgedParagraphs(record, scope);
   const v = verdict || {};
-  if (String(v.version) !== "1") return { error: `the verdict record's version is ${JSON.stringify(v.version)}, not "1"` };
-  if (v.leg_id !== leg.leg_id) return { error: `the verdict record names leg ${JSON.stringify(v.leg_id)}, not ${leg.leg_id}` };
+  if (String(v.version) !== "1")
+    return { error: `the verdict record's version is ${JSON.stringify(v.version)}, not "1"` };
+  if (v.leg_id !== leg.leg_id)
+    return { error: `the verdict record names leg ${JSON.stringify(v.leg_id)}, not ${leg.leg_id}` };
   if (!Array.isArray(v.verdicts) || v.verdicts.length !== want.length) {
-    return { error: `the verdict record carries ${Array.isArray(v.verdicts) ? v.verdicts.length : "no"} verdict(s) for the `
-      + `${want.length} paragraph(s) it judges — one per paragraph, in order` };
+    return {
+      error:
+        `the verdict record carries ${Array.isArray(v.verdicts) ? v.verdicts.length : "no"} verdict(s) for the ` +
+        `${want.length} paragraph(s) it judges — one per paragraph, in order`,
+    };
   }
   const failures = [];
   for (const [i, x] of v.verdicts.entries()) {
     const n = want[i];
-    if (!x || typeof x !== "object" || x.paragraph !== n) return { error: `verdict ${i + 1} does not name paragraph ${n}` };
-    if (!PARAGRAPH_PLAN_VERDICTS.includes(x.verdict)) return { error: `paragraph ${n}'s verdict ${JSON.stringify(x.verdict)} is outside ${PARAGRAPH_PLAN_VERDICTS.join(" | ")}` };
+    if (!x || typeof x !== "object" || x.paragraph !== n)
+      return { error: `verdict ${i + 1} does not name paragraph ${n}` };
+    if (!PARAGRAPH_PLAN_VERDICTS.includes(x.verdict))
+      return {
+        error: `paragraph ${n}'s verdict ${JSON.stringify(x.verdict)} is outside ${PARAGRAPH_PLAN_VERDICTS.join(" | ")}`,
+      };
     if (typeof x.why !== "string" || words(x.why) < 4) return { error: `paragraph ${n}'s \`why\` is under four words` };
     if (x.verdict === "does-not-fit") {
       const f = { leg_id: leg.leg_id, paragraph: n, why: x.why.trim() };
@@ -370,16 +465,18 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
     }
   }
   if (!failures.length) return {};
-  const refusal = ["THE WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG:",
+  const refusal = [
+    "THE WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG:",
     ...failures.map((f) => f.refusal),
-    "Generate the Waypoints again so that the bound Move's takes are each met by what the reader has been told "
-    + "when the Leg begins, its leaves are each taken up by a later paragraph or left for the next Leg, they follow the "
-    + "Move's order (its segments), "
-    + "each perform its own Segment's operation and stand in that Segment's relation, "
-    + "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the "
-    + "previous paragraph leaves, restates no Waypoint, names no noun phrase "
-    + "of either paragraph's Waypoints, brings no case, example or term of its own and states no effect "
-    + "on the reader."].join("\n");
+    "Generate the Waypoints again so that the bound Move's takes are each met by what the reader has been told " +
+      "when the Leg begins, its leaves are each taken up by a later paragraph or left for the next Leg, they follow the " +
+      "Move's order (its segments), " +
+      "each perform its own Segment's operation and stand in that Segment's relation, " +
+      "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the " +
+      "previous paragraph leaves, restates no Waypoint, names no noun phrase " +
+      "of either paragraph's Waypoints, brings no case, example or term of its own and states no effect " +
+      "on the reader.",
+  ].join("\n");
   // A BINDING REFUSAL REOPENS THE LEG: the Round is refused whole, and no site is named.
   return { refusal, failures: failures.some((f) => f.site === undefined) ? [] : failures };
 }

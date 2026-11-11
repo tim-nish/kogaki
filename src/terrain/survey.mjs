@@ -51,8 +51,7 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
   const ids = new Set();
   const lessonSlugs = new Set();
   const displayIdSeen = new Set();
-  const displayIdPattern = s.candidate_display_id_pattern
-    ? new RegExp(s.candidate_display_id_pattern) : null;
+  const displayIdPattern = s.candidate_display_id_pattern ? new RegExp(s.candidate_display_id_pattern) : null;
   candidates.forEach((c, i) => {
     for (const f of s.candidate_required) {
       if (c[f] === undefined || c[f] === null || c[f] === "") {
@@ -60,9 +59,13 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
       }
     }
     if (c.family !== undefined && !schema.families.includes(c.family)) {
-      v.push(`FAMILY_UNKNOWN — candidates[${i}].family=${JSON.stringify(c.family)}; the served families are ${schema.families.join("|")}`);
+      v.push(
+        `FAMILY_UNKNOWN — candidates[${i}].family=${JSON.stringify(c.family)}; the served families are ${schema.families.join("|")}`,
+      );
     } else if (c.family !== undefined && c.family !== schema.candidate_family_must_be) {
-      v.push(`CANDIDATE_NOT_A_LESSON — candidates[${i}].family=${JSON.stringify(c.family)}: ${schema.candidate_family_rationale}`);
+      v.push(
+        `CANDIDATE_NOT_A_LESSON — candidates[${i}].family=${JSON.stringify(c.family)}: ${schema.candidate_family_rationale}`,
+      );
     }
     // the display-ID rule — the display_id is the rendered token, so its shape and its
     // uniqueness are record-level invariants rather than rendering-time hopes.
@@ -70,29 +73,38 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     // collision on any surface, it reads as one Strand appearing twice.
     if (c.display_id !== undefined && c.display_id !== null && c.display_id !== "") {
       if (displayIdPattern && !displayIdPattern.test(String(c.display_id))) {
-        v.push(`DISPLAY_ID_MALFORMED — candidates[${i}].display_id=${JSON.stringify(c.display_id)} does not match ${s.candidate_display_id_pattern}`);
+        v.push(
+          `DISPLAY_ID_MALFORMED — candidates[${i}].display_id=${JSON.stringify(c.display_id)} does not match ${s.candidate_display_id_pattern}`,
+        );
       }
       if (displayIdSeen.has(c.display_id)) {
-        v.push(`DISPLAY_ID_DUPLICATE — ${JSON.stringify(c.display_id)} appears twice; the survey record is the ID→slug map (SPEC.md, the display-ID rule) and a duplicate makes that map return the wrong Strand`);
+        v.push(
+          `DISPLAY_ID_DUPLICATE — ${JSON.stringify(c.display_id)} appears twice; the survey record is the ID→slug map (SPEC.md, the display-ID rule) and a duplicate makes that map return the wrong Strand`,
+        );
       }
       displayIdSeen.add(c.display_id);
     }
     if (c.slug) lessonSlugs.add(c.slug);
     if (c.id) {
       if (ids.has(c.id)) {
-        v.push(`CANDIDATE_ID_DUPLICATE — ${JSON.stringify(c.id)} appears twice; a duplicate id silently merges two Strands and breaks the cover (a journey shares its lesson's slug — qualify by family)`);
+        v.push(
+          `CANDIDATE_ID_DUPLICATE — ${JSON.stringify(c.id)} appears twice; a duplicate id silently merges two Strands and breaks the cover (a journey shares its lesson's slug — qualify by family)`,
+        );
       }
       ids.add(c.id);
     }
     narrowingKeys(c, s).forEach((k) =>
-      v.push(`NAVIGATION_STATE_NARROWS — candidates[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`));
+      v.push(`NAVIGATION_STATE_NARROWS — candidates[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`),
+    );
   });
   // Falsifier 1 (SPEC-terrain, what would falsify the candidate model) — a Journey whose slug matches no Lesson has no
   // row to be marked on, so the re-projection would drop it. Generation-time
   // refusal, never a rendering-time warning; the orphan slugs are named.
   const orphans = journeys.filter((j) => j && j.slug && !lessonSlugs.has(j.slug)).map((j) => j.slug);
   if (orphans.length) {
-    v.push(`JOURNEY_ORPHAN — ${orphans.length} Journey(s) match no Lesson row: ${orphans.sort().join(", ")}: ${s.orphan_journey_rationale}`);
+    v.push(
+      `JOURNEY_ORPHAN — ${orphans.length} Journey(s) match no Lesson row: ${orphans.sort().join(", ")}: ${s.orphan_journey_rationale}`,
+    );
   }
   const placed = new Set();
   sections.forEach((sec, i) => {
@@ -102,7 +114,8 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
       }
     }
     narrowingKeys(sec, s).forEach((k) =>
-      v.push(`NAVIGATION_STATE_NARROWS — sections[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`));
+      v.push(`NAVIGATION_STATE_NARROWS — sections[${i}] carries ${JSON.stringify(k)}: ${s.narrowing_rationale}`),
+    );
     const secPlaced = [];
     for (const m of sec.members || []) {
       if (!ids.has(m)) {
@@ -138,7 +151,9 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
     const name = record.no_relation_section;
     const sec = sections.find((x) => x.name === name);
     if (!name || !sec) {
-      v.push(`NO_RELATION_NOT_EXPLICIT — ${tagless.length} Strand(s) carry no served tag and no declared no-relation section holds them`);
+      v.push(
+        `NO_RELATION_NOT_EXPLICIT — ${tagless.length} Strand(s) carry no served tag and no declared no-relation section holds them`,
+      );
     }
   }
   const comp = record.completeness;
@@ -150,7 +165,9 @@ export function validateSurvey(record, schema = SURVEY_SCHEMA) {
       }
     }
     if (comp.counted_over !== undefined && comp.counted_over !== cs.counted_over_must_be) {
-      v.push(`FIGURE_NOT_OVER_PLACEMENTS — completeness.counted_over=${JSON.stringify(comp.counted_over)}: ${cs.counted_over_rationale}`);
+      v.push(
+        `FIGURE_NOT_OVER_PLACEMENTS — completeness.counted_over=${JSON.stringify(comp.counted_over)}: ${cs.counted_over_rationale}`,
+      );
     }
     if (comp.family !== undefined && comp.family !== "" && comp.family !== cs.family_must_name) {
       v.push(`FIGURE_FAMILY_UNNAMED — completeness.family=${JSON.stringify(comp.family)}: ${cs.family_rationale}`);
@@ -219,7 +236,8 @@ export function familySplit(ids, candidates, schema = SURVEY_SCHEMA) {
 // The survey record's candidate entry is the only ID map; no surface keeps its own (AC3).
 // A member with no `display_id` renders the stated `NO_DISPLAY_ID` token, never the slug (AC7);
 // the remedy for a legacy record is to run `terrain survey` again.
-export const NO_DISPLAY_ID = "⟨no display_id — ABNORMAL, a survey record predating the display-ID rule, never substituted⟩";
+export const NO_DISPLAY_ID =
+  "⟨no display_id — ABNORMAL, a survey record predating the display-ID rule, never substituted⟩";
 
 export function displayIdOf(id, candidates) {
   const c = (candidates || []).find((x) => x && x.id === id);
@@ -231,8 +249,12 @@ export function displayIdOf(id, candidates) {
 // "L2" in that order, and a display id's number is its meaning on every surface
 // in this file.
 export function compareDisplayIds(a, b) {
-  const n = (x) => { const m = /^([A-Za-z]+)([0-9]+)$/.exec(String(x)); return m ? [m[1], Number(m[2])] : null; };
-  const na = n(a); const nb = n(b);
+  const n = (x) => {
+    const m = /^([A-Za-z]+)([0-9]+)$/.exec(String(x));
+    return m ? [m[1], Number(m[2])] : null;
+  };
+  const na = n(a);
+  const nb = n(b);
   if (!na && !nb) return String(a).localeCompare(String(b));
   if (!na) return 1;
   if (!nb) return -1;
@@ -250,9 +272,11 @@ export function displayIds(ids, candidates) {
 // The one line every surface prints when `displayIds` reported a shortfall.
 // Stated once so the eight call sites cannot drift into eight wordings.
 export function displayIdAbnormalLine(missing, total) {
-  return `ABNORMAL: ${missing} of ${total} member(s) on this surface carry no display_id. `
-    + "The survey record is the ID→slug map (SPEC.md, the display-ID rule) and this one predates it — nothing was substituted for the missing IDs. "
-    + "Re-run `terrain survey` to regenerate the record (location and naming v11).";
+  return (
+    `ABNORMAL: ${missing} of ${total} member(s) on this surface carry no display_id. ` +
+    "The survey record is the ID→slug map (SPEC.md, the display-ID rule) and this one predates it — nothing was substituted for the missing IDs. " +
+    "Re-run `terrain survey` to regenerate the record (location and naming v11)."
+  );
 }
 
 // A SURVEY WITH NO CANDIDATES IS A REFUSAL (kogaki#1026; the ambiguity is kogaki#368's):
@@ -263,16 +287,20 @@ function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
   if (lessonCount > 0) return null;
   const at = `pin ${pin ?? "absent"}`;
   if (servedLines === 0) {
-    return `0 candidates, and THE SEAM SERVED NOTHING AT ALL — 0 served `
-      + `line(s) at ${at}. This is a statement about the CALL, not about the `
-      + "corpus: a served surface with no records is not a corpus with no "
-      + "Lessons. Ask a second surface at the same pin — if one answers while "
-      + "this one misses, the fault is the element manifest and re-running "
-      + "changes nothing.";
+    return (
+      `0 candidates, and THE SEAM SERVED NOTHING AT ALL — 0 served ` +
+      `line(s) at ${at}. This is a statement about the CALL, not about the ` +
+      "corpus: a served surface with no records is not a corpus with no " +
+      "Lessons. Ask a second surface at the same pin — if one answers while " +
+      "this one misses, the fault is the element manifest and re-running " +
+      "changes nothing."
+    );
   }
-  return `0 candidates, from ${servedLines} served record(s) at ${at} — the `
-    + "seam answered and NONE of what it served was a Lesson. This is a "
-    + "statement about the CORPUS.";
+  return (
+    `0 candidates, from ${servedLines} served record(s) at ${at} — the ` +
+    "seam answered and NONE of what it served was a Lesson. This is a " +
+    "statement about the CORPUS."
+  );
 }
 
 // The cite is COMPOSED at this producing site in the identity form
@@ -286,7 +314,9 @@ function surveyEmptinessRefusal(servedLines, lessonCount, pin) {
 // segment is taken as the response serves it; judging its shape belongs to
 // the resolve check (src/cite-check.mjs), not to the producer.
 function composeIdentityCite(slug, kind, pin) {
-  const sha = String(pin ?? "").split("@").pop();
+  const sha = String(pin ?? "")
+    .split("@")
+    .pop();
   if (!sha) return null;
   return `gloss/ELEMENTS.jsonl slug=${slug} kind=${kind} @${sha}`;
 }
@@ -310,7 +340,9 @@ export function cmdSurvey(args) {
     try {
       rec = JSON.parse(line.text);
     } catch {
-      fail(`unparseable served record at ${line.cite} — surfaced, not skipped: a silently dropped record breaks the cover`);
+      fail(
+        `unparseable served record at ${line.cite} — surfaced, not skipped: a silently dropped record breaks the cover`,
+      );
     }
     if (rec.kind === "lesson") {
       // The id stays family-qualified: a journey shares its lesson's slug.
@@ -319,11 +351,25 @@ export function cmdSurvey(args) {
       // Numbering follows the substrate's SERVED order (SQ1): append-stable across a pin advance,
       // not stable against an earlier insertion; no persistent map is kept (AC3).
       const cite = composeIdentityCite(rec.slug, rec.kind, resp.pin);
-      if (!cite) fail(`cannot compose an identity cite for lesson ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`);
-      lessons.push({ id: `lesson:${rec.slug}`, display_id: `L${lessons.length + 1}`, slug: rec.slug, family: "lesson", tags: rec.tags || [], cite, journey: null });
+      if (!cite)
+        fail(
+          `cannot compose an identity cite for lesson ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`,
+        );
+      lessons.push({
+        id: `lesson:${rec.slug}`,
+        display_id: `L${lessons.length + 1}`,
+        slug: rec.slug,
+        family: "lesson",
+        tags: rec.tags || [],
+        cite,
+        journey: null,
+      });
     } else if (rec.kind === "journey") {
       const cite = composeIdentityCite(rec.slug, rec.kind, resp.pin);
-      if (!cite) fail(`cannot compose an identity cite for journey ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`);
+      if (!cite)
+        fail(
+          `cannot compose an identity cite for journey ${rec.slug} — the survey response carries no resolvable pin (${resp.pin ?? "absent"}); surfaced, not skipped`,
+        );
       journeys.push({ slug: rec.slug, cite });
     }
   }
@@ -359,7 +405,10 @@ export function cmdSurvey(args) {
   const byTag = new Map();
   const tagless = [];
   for (const c of lessons) {
-    if (c.tags.length === 0) { tagless.push(c.id); continue; }
+    if (c.tags.length === 0) {
+      tagless.push(c.id);
+      continue;
+    }
     for (const t of c.tags) {
       if (!byTag.has(t)) byTag.set(t, []);
       byTag.get(t).push(c.id);
@@ -403,14 +452,20 @@ export function cmdSurvey(args) {
   // whether it is contract is carried open at SPEC.md, the open questions and not decided by
   // this runtime.
   const c = record.completeness;
-  console.log(`Completeness: ${denominator(c.placed, c.of)} placed (${strandFigure(c.by_family)}); counted over placements.`);
-  console.log(`Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`);
+  console.log(
+    `Completeness: ${denominator(c.placed, c.of)} placed (${strandFigure(c.by_family)}); counted over placements.`,
+  );
+  console.log(
+    `Journey coverage: ${c.coverage} Lessons carry a Journey — ${c.thin_lessons} thin Lesson(s), the actionable set; the mark reads by absence.`,
+  );
   console.log(`Pin: ${record.pin}`);
   console.log(`Survey record: ${out}\n`);
   // The tag listing is emitted only by `renderTagDisplay`, the `tag_listing` surface's one
   // emitter (PR #667 round 1 findings 4 and 5; kogaki#665) — do not emit it from this state.
   // The bounded-input pointer, sited at the step BEFORE the one that needs it (kogaki#163 lever 3).
-  console.log(`Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`);
+  console.log(
+    `Before composing claims for a tag: compose-input --survey ${out} --tag T — ${COMPOSITION_INPUT_BOUND}. Composing from per-group material instead spends one read per PLACEMENT, which is what the 2026-08-07 architecture run measured at ~19 minutes.`,
+  );
   // Returned so the control plane executor can record the survey record BY PATH (the run record)
   // without re-deriving the name. The record references it and copies nothing
   // out of it — the ID->slug map stays the display-ID rule's single carrier.
@@ -424,10 +479,12 @@ export function cmdSurvey(args) {
 // composed, so a new display cannot emit a bare count by forgetting to.
 export function strandFigure(split) {
   const total = SURVEY_SCHEMA.families.reduce((n, f) => n + (split[f] || 0), 0);
-  return `${total} — ${SURVEY_SCHEMA.families.map((f) => {
-    const n = split[f] || 0;
-    return `${n} ${n === 1 ? f : `${f}s`}`;
-  }).join(" + ")}`;
+  return `${total} — ${SURVEY_SCHEMA.families
+    .map((f) => {
+      const n = split[f] || 0;
+      return `${n} ${n === 1 ? f : `${f}s`}`;
+    })
+    .join(" + ")}`;
 }
 
 export function denominator(inView, served) {
@@ -514,5 +571,4 @@ export function renderTagDisplay(record) {
 // through here, with no second path and no caller-supplied name. One file, overwritten per render.
 // NAVIGATION_HINT is one literal shared by the emitter and `report-format.json`'s `navigation_hint`
 // form (kogaki#665); change both together.
-const NAVIGATION_HINT =
-  "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word.";
+const NAVIGATION_HINT = "Navigation (narrows nothing): name a tag in chat — the executor advances on the owner's word.";

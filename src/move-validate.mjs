@@ -37,13 +37,15 @@ export function moveConstraintsRefusal(record, segmentCount, at) {
     const seen = new Set();
     for (const [i, x] of v.entries()) {
       const atE = `${at}: \`${field}\` entry ${i + 1}`;
-      if (!x || typeof x !== "object" || Array.isArray(x)) return `${atE} is not a map of \`kind\` and \`what\` (kogaki#1698)`;
+      if (!x || typeof x !== "object" || Array.isArray(x))
+        return `${atE} is not a map of \`kind\` and \`what\` (kogaki#1698)`;
       const keys = field === "leaves" ? ["kind", "what", "segment"] : ["kind", "what"];
       if (field === "takes" && Object.hasOwn(x, "segment")) {
         return `${atE} carries \`segment\` — a \`takes\` entry is what Segment 1 takes up, and only a \`leaves\` entry names its Segment (kogaki#1698)`;
       }
       const extra = Object.keys(x).find((k) => !keys.includes(k));
-      if (extra) return `${atE} carries \`${extra}\` — an entry carries ${keys.map((k) => `\`${k}\``).join(", ")} only (kogaki#1698)`;
+      if (extra)
+        return `${atE} carries \`${extra}\` — an entry carries ${keys.map((k) => `\`${k}\``).join(", ")} only (kogaki#1698)`;
       for (const k of ["kind", "what"]) {
         if (x[k] === undefined || x[k] === null) return `${atE} carries no \`${k}\` (kogaki#1698)`;
       }
@@ -61,7 +63,8 @@ export function moveConstraintsRefusal(record, segmentCount, at) {
         }
       }
       const key = `${String(x.kind).trim()}\u0000${x.what.trim()}`;
-      if (seen.has(key)) return `${atE} repeats an earlier entry's \`kind\` and \`what\` — no two entries of one list are alike in both (kogaki#1698)`;
+      if (seen.has(key))
+        return `${atE} repeats an earlier entry's \`kind\` and \`what\` — no two entries of one list are alike in both (kogaki#1698)`;
       seen.add(key);
     }
   }
@@ -70,8 +73,11 @@ export function moveConstraintsRefusal(record, segmentCount, at) {
 
 export function validateMoveText(text, movesDir = "moves") {
   let record;
-  try { record = JSON.parse(text); }
-  catch (e) { return { fault: `the candidate is not a JSON record (${e.message})` }; }
+  try {
+    record = JSON.parse(text);
+  } catch (e) {
+    return { fault: `the candidate is not a JSON record (${e.message})` };
+  }
   const r = validateMoveRecord(record, movesDir);
   return r.error ? { error: r.error } : { ok: true };
 }
@@ -83,7 +89,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 2;
   } else {
     const r = validateMoveText(readFileSync(0, "utf8"), args[0] || "moves");
-    if (r.fault) { process.stderr.write(`${r.fault}\n`); process.exitCode = 2; }
-    else if (r.error) { process.stdout.write(`${r.error}\n`); process.exitCode = 1; }
+    if (r.fault) {
+      process.stderr.write(`${r.fault}\n`);
+      process.exitCode = 2;
+    } else if (r.error) {
+      process.stdout.write(`${r.error}\n`);
+      process.exitCode = 1;
+    }
   }
 }

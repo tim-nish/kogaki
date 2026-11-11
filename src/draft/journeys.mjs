@@ -42,7 +42,9 @@ function parseJourneyCiteRef(cite) {
   return a ? { slug: a[3], kind: a[2] } : null;
 }
 
-export function journeyIdentityKey(slug, kind) { return `${kind} ${slug}`; }
+export function journeyIdentityKey(slug, kind) {
+  return `${kind} ${slug}`;
+}
 
 // THE PURE HALF: cite × served survey → the Journey's text, or why it does
 // not resolve. `served` is Map<journeyIdentityKey(slug, kind), record>,
@@ -53,15 +55,17 @@ export function journeyIdentityKey(slug, kind) { return `${kind} ${slug}`; }
 export function journeyTextFromSurvey(cite, served) {
   const ref = parseJourneyCiteRef(cite);
   if (!ref) {
-    return { error: `the cite \`${cite ?? "(none recorded)"}\` is in neither the address form `
-      + `<package>::journey/<local-name>@<content_hash> nor the identity form `
-      + `gloss/ELEMENTS.jsonl slug=<slug> kind=journey @<sha>` };
+    return {
+      error:
+        `the cite \`${cite ?? "(none recorded)"}\` is in neither the address form ` +
+        `<package>::journey/<local-name>@<content_hash> nor the identity form ` +
+        `gloss/ELEMENTS.jsonl slug=<slug> kind=journey @<sha>`,
+    };
   }
   const rec = served.get(journeyIdentityKey(ref.slug, ref.kind));
   if (!rec) return { error: `resolves nowhere — the served survey holds no record slug=${ref.slug} kind=${ref.kind}` };
-  const body = typeof rec.body === "string" && rec.body.trim() !== ""
-    ? rec.body
-    : (typeof rec.text === "string" ? rec.text : null);
+  const body =
+    typeof rec.body === "string" && rec.body.trim() !== "" ? rec.body : typeof rec.text === "string" ? rec.text : null;
   if (body === null || body.trim() === "") {
     return { error: `no Gloss shard the record's renderings name carries prose for slug=${ref.slug} kind=${ref.kind}` };
   }
@@ -73,9 +77,11 @@ export function journeyTextFromSurvey(cite, served) {
 // dangling Journey is asserted in one place.
 export function journeyResolutionRefusal(legId, journey, cite, result) {
   if (!result || !result.error) return null;
-  return `leg ${legId}'s Journey ${journey.strand} (${cite || "(no journey cite recorded in the Brief)"}) does not resolve: ${result.error} — `
-    + `a Journey the writer cannot read is a refusal to the Harness, never a sentence in the Draft (kogaki#1250), `
-    + `so the Packet is not built and no writer is called`;
+  return (
+    `leg ${legId}'s Journey ${journey.strand} (${cite || "(no journey cite recorded in the Brief)"}) does not resolve: ${result.error} — ` +
+    `a Journey the writer cannot read is a refusal to the Harness, never a sentence in the Draft (kogaki#1250), ` +
+    `so the Packet is not built and no writer is called`
+  );
 }
 
 // THE SHARD READ, pure. `element_survey` serves MANIFESTS only — slug, kind,
@@ -86,10 +92,12 @@ export function journeyResolutionRefusal(legId, journey, cite, result) {
 // the prose is what lies between. Kept pure so a fixture drives it with
 // shard-shaped lines and spawns nothing.
 export function journeyProseFromShardLines(lines, slug, kind) {
-  const own = (lines || []).filter((l) => {
-    const ref = parseJourneyCiteRef(typeof l?.cite === "string" ? l.cite : "");
-    return ref && ref.slug === slug && ref.kind === kind;
-  }).map((l) => (typeof l.text === "string" ? l.text : ""));
+  const own = (lines || [])
+    .filter((l) => {
+      const ref = parseJourneyCiteRef(typeof l?.cite === "string" ? l.cite : "");
+      return ref && ref.slug === slug && ref.kind === kind;
+    })
+    .map((l) => (typeof l.text === "string" ? l.text : ""));
   if (own.length && own[0].trim() === `## ${slug}`) own.shift();
   while (own.length && own[own.length - 1].trim() === "") own.pop();
   if (own.length && /^Source: /.test(own[own.length - 1])) own.pop();
@@ -107,21 +115,42 @@ function gatewayCall(tool, args) {
   const fd = openSync(outPath, "w");
   let res;
   try {
-    res = spawnSync(process.execPath,
-      [bin, "--consumer", "kogaki", "--tool", tool, "--args", JSON.stringify(args)],
-      { stdio: ["ignore", fd, "pipe"], encoding: "utf8" });
-  } finally { closeSync(fd); }
+    res = spawnSync(process.execPath, [bin, "--consumer", "kogaki", "--tool", tool, "--args", JSON.stringify(args)], {
+      stdio: ["ignore", fd, "pipe"],
+      encoding: "utf8",
+    });
+  } finally {
+    closeSync(fd);
+  }
   let stdout = "";
-  try { stdout = readFileSync(outPath, "utf8"); } catch { /* nothing captured */ }
-  try { rmSync(outPath, { force: true }); } catch { /* best effort cleanup */ }
-  if (res.error) return { ok: false, reason: `the gateway query could not be run (${res.error.code || "spawn failed"}: ${res.error.message})` };
+  try {
+    stdout = readFileSync(outPath, "utf8");
+  } catch {
+    /* nothing captured */
+  }
+  try {
+    rmSync(outPath, { force: true });
+  } catch {
+    /* best effort cleanup */
+  }
+  if (res.error)
+    return {
+      ok: false,
+      reason: `the gateway query could not be run (${res.error.code || "spawn failed"}: ${res.error.message})`,
+    };
   if (res.status !== 0) {
-    const detail = [res.stderr, stdout].map((x) => (x || "").trim()).filter(Boolean).join(" | ");
+    const detail = [res.stderr, stdout]
+      .map((x) => (x || "").trim())
+      .filter(Boolean)
+      .join(" | ");
     return { ok: false, reason: detail || `gateway-query exited ${res.status}` };
   }
   let payload;
-  try { payload = JSON.parse(stdout); }
-  catch (e) { return { ok: false, reason: `the ${tool} payload is not readable JSON (${e.message})` }; }
+  try {
+    payload = JSON.parse(stdout);
+  } catch (e) {
+    return { ok: false, reason: `the ${tool} payload is not readable JSON (${e.message})` };
+  }
   if (!Array.isArray(payload.lines)) return { ok: false, reason: `miss-shaped ${tool} payload — no lines array` };
   return { ok: true, lines: payload.lines };
 }
@@ -141,7 +170,9 @@ function fetchJourneySurvey() {
       if (typeof rec?.slug === "string" && typeof rec?.kind === "string") {
         served.set(journeyIdentityKey(rec.slug, rec.kind), rec);
       }
-    } catch { /* an unparseable line resolves nowhere for any cite naming it, which journeyTextFromSurvey already reports */ }
+    } catch {
+      /* an unparseable line resolves nowhere for any cite naming it, which journeyTextFromSurvey already reports */
+    }
   }
   return { ok: true, served };
 }
@@ -154,7 +185,10 @@ function withServedProse(served, cite, shardCache) {
     if (!shardCache.has(shard)) shardCache.set(shard, gatewayCall("gloss_index", { tag: shard }));
     const got = shardCache.get(shard);
     const prose = got.ok ? journeyProseFromShardLines(got.lines, ref.slug, ref.kind) : null;
-    if (prose) { rec.body = prose; return; }
+    if (prose) {
+      rec.body = prose;
+      return;
+    }
   }
 }
 
@@ -185,8 +219,7 @@ export function resolveLegJourneys(leg, brief) {
   const survey = fetchJourneySurvey();
   const shardCache = new Map();
   const resolveOne = (j) => {
-    const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || [])
-      .find((c) => c.kind === "journey cite");
+    const cite = (brief.strands.find((st) => st.id === j.strand)?.cites || []).find((c) => c.kind === "journey cite");
     if (survey.ok) withServedProse(survey.served, cite?.cite, shardCache);
     const result = survey.ok
       ? journeyTextFromSurvey(cite?.cite, survey.served)
@@ -222,12 +255,20 @@ export function packetPersonaPath(brief) {
   const named = brief?.record?.compose_path;
   if (typeof named === "string" && named !== "") return resolve(DRAFT_REPO, named);
   let table;
-  try { table = JSON.parse(readFileSync(join(DRAFT_REPO, "src", "brief-workflow.json"), "utf8")); }
-  catch (e) { return { error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Audience otherwise` }; }
+  try {
+    table = JSON.parse(readFileSync(join(DRAFT_REPO, "src", "brief-workflow.json"), "utf8"));
+  } catch (e) {
+    return {
+      error: `src/brief-workflow.json cannot be read (${e.message}) — the Brief names no compose_path, and the workflow's compose_path row names the Audience otherwise`,
+    };
+  }
   const row = (table.states || []).find((s) => s.id === "compose_path");
   const readerFile = row ? settingValue(row.reader_file) : undefined;
   if (typeof readerFile !== "string" || readerFile === "") {
-    return { error: "the Brief names no compose_path and src/brief-workflow.json's compose_path row names no reader_file — the Packet has no Audience to render the register from (kogaki#1261, kogaki#1370)" };
+    return {
+      error:
+        "the Brief names no compose_path and src/brief-workflow.json's compose_path row names no reader_file — the Packet has no Audience to render the register from (kogaki#1261, kogaki#1370)",
+    };
   }
   return resolve(DRAFT_REPO, readerFile);
 }

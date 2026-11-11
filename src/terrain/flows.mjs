@@ -7,7 +7,10 @@ import { loadGrammar } from "../format-guard.mjs";
 import { cmdComposeInput, cmdReport, readThesisCandidates } from "./compose-input.mjs";
 import { cmdCotags, composeIdGateListing, composeOwnerListing } from "./cotags.mjs";
 import {
-  composeTrimProposal, neighborhoodForTargets, orFail, readNeighborhoodJudgments,
+  composeTrimProposal,
+  neighborhoodForTargets,
+  orFail,
+  readNeighborhoodJudgments,
   refuseTargetsOutsideCandidates,
 } from "./neighborhood.mjs";
 import { readSubdivisionEntry } from "./report.mjs";
@@ -21,21 +24,28 @@ import { REPO, REPORT_FORMAT, fail, flow, readJson, relFromRepo, repoRoot } from
 // edit and not a code edit (the workflow table's evolvability contract).
 export function artifactPath(table, st) {
   const decl = (table.owner_artifacts || {})[st.writes];
-  return (decl && decl.path)
-    || fail(`workflow table declares state ${JSON.stringify(st.id)} as writing ${JSON.stringify(st.writes)}, and its owner_artifacts map carries no path for that artifact.`);
+  return (
+    (decl && decl.path) ||
+    fail(
+      `workflow table declares state ${JSON.stringify(st.id)} as writing ${JSON.stringify(st.writes)}, and its owner_artifacts map carries no path for that artifact.`,
+    )
+  );
 }
 
 // The owner input a named wait supplied. Renderers use this; control code
 // does not (see the header note on why naming a wait here is not a state
 // list).
 function ownerInput(rec, waitId) {
-  return Object.prototype.hasOwnProperty.call(rec.owner_input, waitId)
-    ? rec.owner_input[waitId] : null;
+  return Object.prototype.hasOwnProperty.call(rec.owner_input, waitId) ? rec.owner_input[waitId] : null;
 }
 
 function needSurvey(rec) {
-  return rec.survey_record
-    || fail("this run has no survey record yet — the state that mints it has not run. Re-enter the executor without --input to advance the flow (the re-entrant executor).");
+  return (
+    rec.survey_record ||
+    fail(
+      "this run has no survey record yet — the state that mints it has not run. Re-enter the executor without --input to advance the flow (the re-entrant executor).",
+    )
+  );
 }
 
 // THE FIXTURE-ONLY STATE PREFIX (kogaki#824). A state id beginning with this
@@ -60,9 +70,13 @@ const FIXTURE_RECORD_KEY_VALUE = "written by this state's own renderer";
 // — which is a refusal about the RUN and not about the judge, so it is raised
 // here rather than inside the call.
 function needCompositionInput(rec, st) {
-  return rec.composition_input
-    || fail(`${st.id} has no composed input to judge over — \`compose_input\` writes it and precedes this `
-      + `state in the workflow table. A judgment asked over nothing is a judgment about nothing (kogaki#1030).`);
+  return (
+    rec.composition_input ||
+    fail(
+      `${st.id} has no composed input to judge over — \`compose_input\` writes it and precedes this ` +
+        `state in the workflow table. A judgment asked over nothing is a judgment about nothing (kogaki#1030).`,
+    )
+  );
 }
 
 // The judge pin the two writing states record (kogaki#1030; see kogaki#892).
@@ -94,8 +108,10 @@ function judgePinArgs(table, args, rec) {
   // identity key, an idempotent rerun that recomputes. An explicit
   // `--judge-binary-version` still wins, on the same rule the other two follow.
   const binary = (rec && rec.judge_binary) || null;
-  const fromRun = binary && binary.version && args["judge-binary-version"] === undefined
-    ? { "judge-binary-version": String(binary.version) } : {};
+  const fromRun =
+    binary && binary.version && args["judge-binary-version"] === undefined
+      ? { "judge-binary-version": String(binary.version) }
+      : {};
   if (!j.model) return fromRun;
   if (args["judge-model"] !== undefined || args["judge-effort"] !== undefined) return fromRun;
   return {
@@ -136,8 +152,7 @@ export const STATE_WORK = {
       // the run record named the first.
       "run-dir": rec._dir,
       survey: needSurvey(rec),
-      tag: ownerInput(rec, "TAG_SELECTION")
-        || fail("compose_input needs a tag, and no wait has supplied one yet."),
+      tag: ownerInput(rec, "TAG_SELECTION") || fail("compose_input needs a tag, and no wait has supplied one yet."),
     });
     return null;
   },
@@ -166,7 +181,9 @@ export const STATE_WORK = {
     const validate = (p) => {
       const raw = readJson(p);
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`);
+        fail(
+          `${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`,
+        );
       }
       // Each entry is read by the EXISTING validator, which carries the judged
       // flag, the judge pin and the coherence rules (semantic subdivision, measurement before offering, the report identity).
@@ -182,8 +199,15 @@ export const STATE_WORK = {
     // THE SAME COMPOSED ARTIFACT the retired `J1_claims` judged over, which is
     // this state's own standing note: semantic subdivision "is composed from
     // the SAME artifact and spends no further read".
-    const path = await judgedRecordPath(rec, st, table, args, "subdivisions",
-      () => needCompositionInput(rec, st), validate);
+    const path = await judgedRecordPath(
+      rec,
+      st,
+      table,
+      args,
+      "subdivisions",
+      () => needCompositionInput(rec, st),
+      validate,
+    );
     rec.judgments[st.id] = relFromRepo(resolve(path));
 
     // THE GroupClaim, DERIVED FROM THE FOLDED RECORD (kogaki#1172). Readers still take
@@ -234,15 +258,18 @@ export const STATE_WORK = {
   // WRITE, so J3 and the pull read one fixed set of ids.
   thesis_candidates: async (rec, st, args, table) => {
     const record = readJson(needSurvey(rec));
-    const tag = ownerInput(rec, "TAG_SELECTION")
-      || fail(`${st.id} needs a tag, and no wait has supplied one yet.`);
-    const ids = ownerInput(rec, "ID_SELECTION")
-      || fail(`${st.id} needs the entered ID set, and no wait has supplied one yet.`);
+    const tag = ownerInput(rec, "TAG_SELECTION") || fail(`${st.id} needs a tag, and no wait has supplied one yet.`);
+    const ids =
+      ownerInput(rec, "ID_SELECTION") || fail(`${st.id} needs the entered ID set, and no wait has supplied one yet.`);
     // SPLIT AS `report` AND `neighborhood_input` SPLIT IT. Two parsers over one
     // owner input is two answers to one question, and the member set a
     // candidate's strands are checked against is exactly the set the pull will
     // render.
-    const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+    const enteredIds = []
+      .concat(ids)
+      .flatMap((x) => String(x).split(","))
+      .map((x) => x.trim())
+      .filter(Boolean);
     // THE SUBDIVISION RECORD COMES FROM THE RUN RECORD, exactly as it does at
     // the state that PRINTED these ids (kogaki#1085). `cotag_groups` renders the
     // SubGroup ids through `judgmentJoins`, and resolving them here from
@@ -251,8 +278,9 @@ export const STATE_WORK = {
     // Two carriers for one fact is what was wrong; the explicit flag still
     // wins, for the fixture and second-repository paths.
     const { targets } = resolveReportTargets(record, tag, enteredIds, { ...judgmentJoins(rec, args), ...args });
-    const memberDisplayIds = [...new Set(
-      targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
+    const memberDisplayIds = [
+      ...new Set(targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members))),
+    ]
       .map((mid) => displayIdOf(mid, record.candidates))
       .filter((d) => d && d !== NO_DISPLAY_ID);
     const limits = loadGrammar(REPORT_FORMAT).limits || {};
@@ -270,11 +298,18 @@ export const STATE_WORK = {
     // anything else would be asking for a record this state must then refuse.
     const composeInputFor = () => {
       const p = join(rec._dir, `${flow().lane}-judge-input-${st.id}.json`);
-      writeFileSync(p, JSON.stringify({
-        state: st.id,
-        strands_you_may_use: memberDisplayIds,
-        candidates_required: limits.thesis_candidates,
-      }, null, 2) + "\n");
+      writeFileSync(
+        p,
+        JSON.stringify(
+          {
+            state: st.id,
+            strands_you_may_use: memberDisplayIds,
+            candidates_required: limits.thesis_candidates,
+          },
+          null,
+          2,
+        ) + "\n",
+      );
       return p;
     };
     const path = await judgedRecordPath(rec, st, table, args, "thesis-candidates", composeInputFor, validate);
@@ -289,39 +324,56 @@ export const STATE_WORK = {
 
   neighborhood_input: (rec, st, args) => {
     const record = readJson(needSurvey(rec));
-    const ids = ownerInput(rec, "ID_SELECTION")
-      || fail("neighborhood_input needs the entered ID set, and no wait has supplied one yet.");
-    const tag = ownerInput(rec, "TAG_SELECTION")
-      || fail("neighborhood_input needs a tag, and no wait has supplied one yet.");
+    const ids =
+      ownerInput(rec, "ID_SELECTION") ||
+      fail("neighborhood_input needs the entered ID set, and no wait has supplied one yet.");
+    const tag =
+      ownerInput(rec, "TAG_SELECTION") || fail("neighborhood_input needs a tag, and no wait has supplied one yet.");
     // SPLIT THE WAY `report` SPLITS IT (PR #701 round 1). Two parsers over one
     // owner input is two answers to one question: on a space-separated
     // selection this enumerated two groups here and reached `full_report` as
     // one, so the emitter's candidate list and the rendering's would have been
     // computed over different sets.
-    const enteredIds = [].concat(ids).flatMap((x) => String(x).split(",")).map((x) => x.trim()).filter(Boolean);
+    const enteredIds = []
+      .concat(ids)
+      .flatMap((x) => String(x).split(","))
+      .map((x) => x.trim())
+      .filter(Boolean);
     // ONE CARRIER, as at `thesis_candidates` beside it (kogaki#1085): the
     // subdivision record is joined from the run record so the ids this state
     // resolves are the ids `cotag_groups` printed.
     const { targets } = resolveReportTargets(record, tag, enteredIds, { ...judgmentJoins(rec, args), ...args });
     const n = neighborhoodForTargets(record, targets);
     const path = join(rec._dir, "terrain-neighborhood-candidates.json");
-    writeFileSync(path, JSON.stringify({
-      gids: n.gids,
-      // THE SLUGS THE JUDGE MAY KEY ON, and the only ones J3 admits. Written
-      // rather than recomputed at J3: two enumerations of "which candidates
-      // exist" is how the emitter and the refusal would disagree.
-      candidates: (n.suggestions || []).map((x) => ({ nid: x.nid, slug: x.slug, family: x.family, relation_substrates: x.substrates })),
-      no_material: n.no_material || false,
-      // THE FULL ENUMERATION, persisted so the pull CONSUMES it (kogaki#700).
-      // Three independent calls to `neighborhoodForTargets` — here, and (before
-      // this landed) again inside `cmdReport` — were three reads of the served
-      // surface where the reasoning assumed one: a key J3 admitted against THIS
-      // enumeration could be absent from the pull's own re-read and silently
-      // dropped, the section then reporting the judgment layer as not having
-      // run. The pull's mechanical layer is THIS object; `candidates` above
-      // stays the projection J3 keys on, unchanged.
-      neighborhood: n,
-    }, null, 2) + "\n");
+    writeFileSync(
+      path,
+      JSON.stringify(
+        {
+          gids: n.gids,
+          // THE SLUGS THE JUDGE MAY KEY ON, and the only ones J3 admits. Written
+          // rather than recomputed at J3: two enumerations of "which candidates
+          // exist" is how the emitter and the refusal would disagree.
+          candidates: (n.suggestions || []).map((x) => ({
+            nid: x.nid,
+            slug: x.slug,
+            family: x.family,
+            relation_substrates: x.substrates,
+          })),
+          no_material: n.no_material || false,
+          // THE FULL ENUMERATION, persisted so the pull CONSUMES it (kogaki#700).
+          // Three independent calls to `neighborhoodForTargets` — here, and (before
+          // this landed) again inside `cmdReport` — were three reads of the served
+          // surface where the reasoning assumed one: a key J3 admitted against THIS
+          // enumeration could be absent from the pull's own re-read and silently
+          // dropped, the section then reporting the judgment layer as not having
+          // run. The pull's mechanical layer is THIS object; `candidates` above
+          // stays the projection J3 keys on, unchanged.
+          neighborhood: n,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
     // STORED ABSOLUTE, like `survey_record` beside it. `relFromRepo` leaves an
     // outside-the-repo run dir as its own absolute path minus the leading
     // slash, so re-joining it to REPO produced a path under the repository
@@ -334,46 +386,60 @@ export const STATE_WORK = {
 
   J3_neighborhood: async (rec, st, args, table) => {
     const validate = (path) => {
-    // THE CLOSED-SET AND LEVEL-WITHOUT-CLAIM REFUSALS ARE THE EXISTING ONES.
-    // the typed judgment points: the executor validates and never composes, and re-implementing a
-    // refusal that already ships is how two readings of one rule appear.
-    const judgments = readNeighborhoodJudgments(path);
-    // THE THIRD REFUSAL NEEDS THE EMITTER'S OUTPUT, which is why the emitter is
-    // a state rather than a step inside this one: a key naming no mechanical
-    // candidate is only detectable against the enumeration, and the enumeration
-    // is what `neighborhood_input` wrote.
-    const emitted = rec.neighborhood_candidates
-      ? readJson(rec.neighborhood_candidates)
-      : fail(`${st.id} has no candidate enumeration to judge against — enter neighborhood_input in the same act (\`--enter neighborhood_input --enter ${st.id}\`).`);
-    // SCOPED TO A NON-EMPTY ENUMERATION, exactly as `cmdReport`'s own orphan
-    // refusal is (PR #701 round 1). Where the mechanical layer returned no
-    // candidate at all there is nothing to join, and the section's empty
-    // arms are already the honest report — refusing the whole run there
-    // would turn a legitimate empty neighborhood into an error, and would
-    // make `report` render a settled set that `run` refuses. That is the
-    // second reading of one rule this state's own comment sets out to avoid,
-    // reproduced in the state that quotes it.
-    const have = new Set((emitted.candidates || []).map((c) => c.slug));
-    const orphans = have.size ? [...judgments.keys()].filter((k) => !have.has(k)) : [];
-    if (orphans.length) {
-      fail(`${st.id} refuses ${orphans.length} judgment key(s) no mechanical candidate carries: ${orphans.join(", ")}. `
-        + "A judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false.");
-    }
-    // THE FOURTH REFUSAL — COVERAGE (kogaki#741 ruling 1, kogaki#754): every candidate must
-    // be labelled; so `neighborhoodDisplay` needs no unjudged tally.
-    // THE FIFTH REFUSAL — THE TARGET NAMES A COMPOSED CANDIDATE (kogaki#861). Ids are read
-    // from the file `thesis_candidates` wrote, not argv: J3 must check the ids the pull renders.
-    const composedTc = rec.thesis_candidates
-      ? readJson(rec.thesis_candidates)
-      : fail(`${st.id} has no composed Thesis candidates to check its targets against — enter thesis_candidates first (\`--enter thesis_candidates\`). A neighborhood judged before the candidates exist names ids nothing has fixed (kogaki#861).`);
-    orFail(() => refuseTargetsOutsideCandidates(judgments, (composedTc || []).map((c) => c.id), st.id));
-    const uncovered = [...have].filter((slug) => !judgments.has(slug));
-    if (uncovered.length) {
-      fail(`${st.id} refuses: ${uncovered.length} mechanical candidate(s) carry no judgment — `
-        + `${uncovered.join(", ")}. The neighborhood section's shape makes this pass unconditional and the LLM supplies the `
-        + "level label PER CANDIDATE, so a record that judges only some of them is the "
-        + "LLM-controlled skip kogaki#741 removes. Judge every candidate the enumeration wrote.");
-    }
+      // THE CLOSED-SET AND LEVEL-WITHOUT-CLAIM REFUSALS ARE THE EXISTING ONES.
+      // the typed judgment points: the executor validates and never composes, and re-implementing a
+      // refusal that already ships is how two readings of one rule appear.
+      const judgments = readNeighborhoodJudgments(path);
+      // THE THIRD REFUSAL NEEDS THE EMITTER'S OUTPUT, which is why the emitter is
+      // a state rather than a step inside this one: a key naming no mechanical
+      // candidate is only detectable against the enumeration, and the enumeration
+      // is what `neighborhood_input` wrote.
+      const emitted = rec.neighborhood_candidates
+        ? readJson(rec.neighborhood_candidates)
+        : fail(
+            `${st.id} has no candidate enumeration to judge against — enter neighborhood_input in the same act (\`--enter neighborhood_input --enter ${st.id}\`).`,
+          );
+      // SCOPED TO A NON-EMPTY ENUMERATION, exactly as `cmdReport`'s own orphan
+      // refusal is (PR #701 round 1). Where the mechanical layer returned no
+      // candidate at all there is nothing to join, and the section's empty
+      // arms are already the honest report — refusing the whole run there
+      // would turn a legitimate empty neighborhood into an error, and would
+      // make `report` render a settled set that `run` refuses. That is the
+      // second reading of one rule this state's own comment sets out to avoid,
+      // reproduced in the state that quotes it.
+      const have = new Set((emitted.candidates || []).map((c) => c.slug));
+      const orphans = have.size ? [...judgments.keys()].filter((k) => !have.has(k)) : [];
+      if (orphans.length) {
+        fail(
+          `${st.id} refuses ${orphans.length} judgment key(s) no mechanical candidate carries: ${orphans.join(", ")}. ` +
+            "A judgment that joins nothing is silently dropped and the section then reports that the judgment layer did not run, which is false.",
+        );
+      }
+      // THE FOURTH REFUSAL — COVERAGE (kogaki#741 ruling 1, kogaki#754): every candidate must
+      // be labelled; so `neighborhoodDisplay` needs no unjudged tally.
+      // THE FIFTH REFUSAL — THE TARGET NAMES A COMPOSED CANDIDATE (kogaki#861). Ids are read
+      // from the file `thesis_candidates` wrote, not argv: J3 must check the ids the pull renders.
+      const composedTc = rec.thesis_candidates
+        ? readJson(rec.thesis_candidates)
+        : fail(
+            `${st.id} has no composed Thesis candidates to check its targets against — enter thesis_candidates first (\`--enter thesis_candidates\`). A neighborhood judged before the candidates exist names ids nothing has fixed (kogaki#861).`,
+          );
+      orFail(() =>
+        refuseTargetsOutsideCandidates(
+          judgments,
+          (composedTc || []).map((c) => c.id),
+          st.id,
+        ),
+      );
+      const uncovered = [...have].filter((slug) => !judgments.has(slug));
+      if (uncovered.length) {
+        fail(
+          `${st.id} refuses: ${uncovered.length} mechanical candidate(s) carry no judgment — ` +
+            `${uncovered.join(", ")}. The neighborhood section's shape makes this pass unconditional and the LLM supplies the ` +
+            "level label PER CANDIDATE, so a record that judges only some of them is the " +
+            "LLM-controlled skip kogaki#741 removes. Judge every candidate the enumeration wrote.",
+        );
+      }
     };
     // THE JUDGE'S INPUT IS THE ENUMERATION `neighborhood_input` WROTE, plus the
     // composed Thesis candidates its targets must name. Both are read from the
@@ -382,14 +448,23 @@ export const STATE_WORK = {
     const composeInputFor = () => {
       const emitted = rec.neighborhood_candidates
         ? readJson(rec.neighborhood_candidates)
-        : fail(`${st.id} has no candidate enumeration to judge against — neighborhood_input writes it and it precedes this state in the table.`);
+        : fail(
+            `${st.id} has no candidate enumeration to judge against — neighborhood_input writes it and it precedes this state in the table.`,
+          );
       const tc = rec.thesis_candidates ? readJson(rec.thesis_candidates) : [];
       const p = join(rec._dir, `${flow().lane}-judge-input-${st.id}.json`);
-      writeFileSync(p, JSON.stringify({
-        state: st.id,
-        candidates_you_must_judge: emitted.candidates || [],
-        thesis_candidates_a_target_may_name: (tc || []).map((c) => ({ id: c.id, claim: c.claim })),
-      }, null, 2) + "\n");
+      writeFileSync(
+        p,
+        JSON.stringify(
+          {
+            state: st.id,
+            candidates_you_must_judge: emitted.candidates || [],
+            thesis_candidates_a_target_may_name: (tc || []).map((c) => ({ id: c.id, claim: c.claim })),
+          },
+          null,
+          2,
+        ) + "\n",
+      );
       return p;
     };
     const path = await judgedRecordPath(rec, st, table, args, "neighborhood", composeInputFor, validate);
@@ -403,8 +478,7 @@ export const STATE_WORK = {
       ...judgmentJoins(rec, args),
       ...args,
       survey: needSurvey(rec),
-      tag: ownerInput(rec, "TAG_SELECTION")
-        || fail("cotag_groups needs a tag, and no wait has supplied one yet."),
+      tag: ownerInput(rec, "TAG_SELECTION") || fail("cotag_groups needs a tag, and no wait has supplied one yet."),
     }),
   }),
 
@@ -421,10 +495,10 @@ export const STATE_WORK = {
       ...judgmentJoins(rec, args),
       ...args,
       survey: needSurvey(rec),
-      tag: ownerInput(rec, "TAG_SELECTION")
-        || fail("full_report needs a tag, and no wait has supplied one yet."),
-      ids: ownerInput(rec, "ID_SELECTION")
-        || fail("full_report needs the entered ID set, and no wait has supplied one yet."),
+      tag: ownerInput(rec, "TAG_SELECTION") || fail("full_report needs a tag, and no wait has supplied one yet."),
+      ids:
+        ownerInput(rec, "ID_SELECTION") ||
+        fail("full_report needs the entered ID set, and no wait has supplied one yet."),
       // THE EMITTER'S ENUMERATION, passed so the pull consumes it (kogaki#700).
       // Absent where no emitter ran — the unjudged flow — and cmdReport then
       // computes inside the pull as the settled-strand-set input always said.
@@ -443,8 +517,7 @@ export const STATE_WORK = {
       // unjudged section. An argv `--neighborhood` cannot substitute: the
       // record is the only source, so a stale flag can neither supply nor
       // override the judgment this run actually validated.
-      ...(rec.judgments && rec.judgments.J3_neighborhood
-        ? { neighborhood: rec.judgments.J3_neighborhood } : {}),
+      ...(rec.judgments && rec.judgments.J3_neighborhood ? { neighborhood: rec.judgments.J3_neighborhood } : {}),
     });
     // OBSERVED, NOT CONSTRUCTED (PR #655 round 1). `cmdSurvey`, the two display
     // renderers and `cmdCotags` each return the path they actually wrote; this
@@ -475,7 +548,7 @@ export const STATE_WORK = {
   // returns nothing at all, which is the direction the guard refuses. Bounded
   // by the same case as the state above.
   [`${FIXTURE_STATE_PREFIX}returns_outcome`]: (rec, st) =>
-    (Object.prototype.hasOwnProperty.call(st, "fixture_outcome") ? st.fixture_outcome : null),
+    Object.prototype.hasOwnProperty.call(st, "fixture_outcome") ? st.fixture_outcome : null,
 };
 
 // ---- GATE OPTION COMPOSERS — the mirror of STATE_WORK (kogaki#625 item 1; kogaki#1030).
@@ -494,7 +567,11 @@ export const GATE_WORK = {
   TAG_SELECTION: (rec) => {
     const survey = readJson(needSurvey(rec));
     const ranked = [...(survey.sections || [])]
-      .sort((a, b) => (((b.by_family || {}).lesson || 0) - ((a.by_family || {}).lesson || 0)) || String(a.name).localeCompare(String(b.name)))
+      .sort(
+        (a, b) =>
+          ((b.by_family || {}).lesson || 0) - ((a.by_family || {}).lesson || 0) ||
+          String(a.name).localeCompare(String(b.name)),
+      )
       .slice(0, TAG_OPTION_COUNT);
     return {
       options: ranked.map((sec) => ({ id: String(sec.name), label: tagRow(sec) })),
@@ -505,10 +582,15 @@ export const GATE_WORK = {
   TRIM_RATIFICATION: (rec, st, args, dir) => {
     const proposalPath = args.proposal ? String(args.proposal) : composeTrimProposal(args, dir);
     if (!proposalPath) {
-      fail("TRIM_RATIFICATION composed no proposal: the named act is navigation, or is in neither act list, so there is nothing to ratify. The second-proposer boundary — a navigation act wrapped as a proposal is a contract violation from the other direction.");
+      fail(
+        "TRIM_RATIFICATION composed no proposal: the named act is navigation, or is in neither act list, so there is nothing to ratify. The second-proposer boundary — a navigation act wrapped as a proposal is a contract violation from the other direction.",
+      );
     }
     const p = readJson(proposalPath);
-    return { options: (p.options || []).map((o) => ({ id: o.id, label: o.label })), extra: { proposal: relFromRepo(resolve(proposalPath)) } };
+    return {
+      options: (p.options || []).map((o) => ({ id: o.id, label: o.label })),
+      extra: { proposal: relFromRepo(resolve(proposalPath)) },
+    };
   },
 
   // THE ONE WAIT THAT DECLARED NO GATE (kogaki#890, acceptance item 3; see kogaki#1030).
@@ -527,16 +609,16 @@ export const GATE_WORK = {
     // `cotag_groups` surface — the reading carried to the owner is a projection
     // of text that was judged, not of text nobody grammared — and what rides the
     // declaration is the projection rather than the whole file.
-    const listing = artifact && existsSync(artifact)
-      ? composeIdGateListing(
-        composeOwnerListing("cotag_groups", readFileSync(artifact, "utf8")),
-        written.path)
-      : null;
+    const listing =
+      artifact && existsSync(artifact)
+        ? composeIdGateListing(composeOwnerListing("cotag_groups", readFileSync(artifact, "utf8")), written.path)
+        : null;
     return {
       options: [],
       extra: {
-        groups_listing: listing
-          || "none — cotag_groups wrote no readable artifact in this run, so this question is raised over a grouping you have not been shown; the run's own report is the surface to read before answering",
+        groups_listing:
+          listing ||
+          "none — cotag_groups wrote no readable artifact in this run, so this question is raised over a grouping you have not been shown; the run's own report is the surface to read before answering",
       },
     };
   },

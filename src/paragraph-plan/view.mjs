@@ -20,20 +20,33 @@ import { unitIdFor } from "./units.mjs";
 // Move's Segments with each Waypoint beside its Segment (kogaki#1701); with a run, the refusals the Leg
 // and each paragraph met and the axes they name. A rendering that writes nothing; the plan is read
 // through /draft's own reader, so a moved Brief is refused alike.
-const constraintsText = (list) => (Array.isArray(list) && list.length
-  ? list.map((x) => `${x.kind}: ${oneLineText(x.what)}`).join("; ") : "(none)");
-const oneLineText = (v) => String(v).replace(/\s*\n\s*/g, " ").trim();
+const constraintsText = (list) =>
+  Array.isArray(list) && list.length ? list.map((x) => `${x.kind}: ${oneLineText(x.what)}`).join("; ") : "(none)";
+const oneLineText = (v) =>
+  String(v)
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
 const cell = (v) => oneLineText(v ?? "").replace(/\|/g, "\\|");
-const paragraphWaypointText = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `performs: ${p.performs}`
-  : `${p.point} (serves ${(p.serves || []).join(", ")})`);
+const paragraphWaypointText = (p) =>
+  !p
+    ? ""
+    : Object.hasOwn(p, "performs")
+      ? `performs: ${p.performs}`
+      : `${p.point} (serves ${(p.serves || []).join(", ")})`;
 
 function viewRun(runDir, briefSha) {
   let start;
-  try { start = JSON.parse(readFileSync(join(runDir, START_FILE), "utf8")); }
-  catch (e) { return { error: `the run at ${relFromRepo(runDir)} has no start record a reader can read (${e.message})` }; }
+  try {
+    start = JSON.parse(readFileSync(join(runDir, START_FILE), "utf8"));
+  } catch (e) {
+    return { error: `the run at ${relFromRepo(runDir)} has no start record a reader can read (${e.message})` };
+  }
   if (start.brief_sha256 !== briefSha) {
-    return { error: `the run at ${relFromRepo(runDir)} was made from a different Brief: its start record names sha256 `
-      + `${start.brief_sha256}, and the plan names sha256 ${briefSha}` };
+    return {
+      error:
+        `the run at ${relFromRepo(runDir)} was made from a different Brief: its start record names sha256 ` +
+        `${start.brief_sha256}, and the plan names sha256 ${briefSha}`,
+    };
   }
   const job = readReaderPathJob(runDir);
   if (!job) return { error: `the run at ${relFromRepo(runDir)} has no job record` };
@@ -46,18 +59,26 @@ function viewRun(runDir, briefSha) {
 const REFUSAL_SITE = /(?:^|Leg [^,\s]+, )paragraph (\d+)/gi;
 export function legRefusals(job, unitId, axisIds) {
   const u = (job.units || []).find((x) => x.id === unitId);
-  return ((u && u.refusals) || []).map((r) => String(r)).map((text) => ({ text: oneLineText(text),
-    paragraphs: [...new Set([...text.matchAll(REFUSAL_SITE)].map((m) => Number(m[1])))],
-    axes: axisIds.filter((a) => new RegExp(`\\b${escapeRe(a)}\\b`).test(text)) }));
+  return ((u && u.refusals) || [])
+    .map((r) => String(r))
+    .map((text) => ({
+      text: oneLineText(text),
+      paragraphs: [...new Set([...text.matchAll(REFUSAL_SITE)].map((m) => Number(m[1])))],
+      axes: axisIds.filter((a) => new RegExp(`\\b${escapeRe(a)}\\b`).test(text)),
+    }));
 }
 const refusalLine = (r) => `  - ${r.text} — axes: ${r.axes.length ? r.axes.join(", ") : "none named"}`;
 
 export function paragraphPlanView(planPath, { runDir = null, movesDir = null } = {}) {
   let record;
-  try { record = parseYaml(readFileSync(planPath, "utf8"), planPath); }
-  catch (e) { return { error: `the ParagraphPlan file at ${planPath} cannot be read (${e.message})` }; }
+  try {
+    record = parseYaml(readFileSync(planPath, "utf8"), planPath);
+  } catch (e) {
+    return { error: `the ParagraphPlan file at ${planPath} cannot be read (${e.message})` };
+  }
   const named = record && record.brief && record.brief.path;
-  if (typeof named !== "string" || named === "") return { error: `the ParagraphPlan file at ${planPath} names no Brief` };
+  if (typeof named !== "string" || named === "")
+    return { error: `the ParagraphPlan file at ${planPath} names no Brief` };
   const briefPath = resolve(REPO, named);
   if (paragraphPlanPathFor(briefPath) !== resolve(planPath)) {
     return { error: `the ParagraphPlan file at ${planPath} is not beside the Brief it names (${named})` };
@@ -73,26 +94,42 @@ export function paragraphPlanView(planPath, { runDir = null, movesDir = null } =
   if (library.error) return { error: library.error };
   const moves = new Map(library.moves.map((m) => [m.id, m]));
   const axisIds = (readAxes().axes || []).map((a) => a.id);
-  const lines = [`# ParagraphPlan view: ${relFromRepo(resolve(planPath))}`, "",
-    `Brief: \`${plan.record.brief.path}\` (sha256 \`${plan.record.brief.sha256}\`). Move library: \`${dirOfMoves}\`. `
-    + `Run: ${run ? `\`${relFromRepo(resolve(runDir))}\`` : "none given"}.`];
+  const lines = [
+    `# ParagraphPlan view: ${relFromRepo(resolve(planPath))}`,
+    "",
+    `Brief: \`${plan.record.brief.path}\` (sha256 \`${plan.record.brief.sha256}\`). Move library: \`${dirOfMoves}\`. ` +
+      `Run: ${run ? `\`${relFromRepo(resolve(runDir))}\`` : "none given"}.`,
+  ];
   for (const [li, leg] of brief.legs.entries()) {
     const entry = plan.record.legs[li];
     const move = moves.get(entry.move);
     const segments = (move && move.segments) || [];
     const refusals = run ? legRefusals(run.job, unitIdFor(li), axisIds) : [];
-    lines.push("", `## Leg ${leg.leg_id}`, "", `- **Text:** ${oneLineText(leg.text)}`,
+    lines.push(
+      "",
+      `## Leg ${leg.leg_id}`,
+      "",
+      `- **Text:** ${oneLineText(leg.text)}`,
       `- **Move:** \`${entry.move}\`${move ? "" : ` — not in the Move library at ${dirOfMoves}`}`,
       `- **Move takes:** ${move ? constraintsText(move.takes) : "(not read)"}`,
-      `- **Move leaves:** ${move ? constraintsText(move.leaves) : "(not read)"}`);
+      `- **Move leaves:** ${move ? constraintsText(move.leaves) : "(not read)"}`,
+    );
     const legWide = refusals.filter((r) => !r.paragraphs.length);
     if (legWide.length) lines.push("", "Refusals in this run naming no paragraph:", ...legWide.map(refusalLine));
     for (const [i, e] of entry.paragraphs.entries()) {
       const pws = e.paragraph_waypoints || [];
-      lines.push("", `### Paragraph ${i + 1}`, "", "| Segment | Operation | Relation | Manner | Waypoint |", "|---|---|---|---|---|");
+      lines.push(
+        "",
+        `### Paragraph ${i + 1}`,
+        "",
+        "| Segment | Operation | Relation | Manner | Waypoint |",
+        "|---|---|---|---|---|",
+      );
       for (let k = 0; k < Math.max(segments.length, pws.length); k++) {
         const g = segments[k] || {};
-        lines.push(`| ${k < segments.length ? k + 1 : "—"} | ${cell(g.operation)} | ${cell(g.relation)} | ${cell(g.manner)} | ${cell(paragraphWaypointText(pws[k]))} |`);
+        lines.push(
+          `| ${k < segments.length ? k + 1 : "—"} | ${cell(g.operation)} | ${cell(g.relation)} | ${cell(g.manner)} | ${cell(paragraphWaypointText(pws[k]))} |`,
+        );
       }
       if (run) {
         const met = refusals.filter((r) => r.paragraphs.includes(i + 1));

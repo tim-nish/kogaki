@@ -9,9 +9,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { figureKinds } from "./figure.mjs";
-import {
-  isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord,
-} from "./render.mjs";
+import { isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord } from "./render.mjs";
 import { oneLine } from "./record.mjs";
 import { moveConstraintsRefusal } from "../move-validate.mjs";
 
@@ -28,19 +26,29 @@ import { moveConstraintsRefusal } from "../move-validate.mjs";
 export function moveRoles(movesDir = "moves") {
   const p = join(movesDir, "ROLES.json");
   let text;
-  try { text = readFileSync(p, "utf8"); }
-  catch (e) {
-    return { error: `the Move library at ${movesDir} carries no ROLES.json (${e.message}) — a Move library is `
-      + `its records AND its field-to-role declaration, and this adapter reads the declaration with no fallback `
-      + `to any built-in mapping (kogaki#1349)` };
+  try {
+    text = readFileSync(p, "utf8");
+  } catch (e) {
+    return {
+      error:
+        `the Move library at ${movesDir} carries no ROLES.json (${e.message}) — a Move library is ` +
+        `its records AND its field-to-role declaration, and this adapter reads the declaration with no fallback ` +
+        `to any built-in mapping (kogaki#1349)`,
+    };
   }
   let decl;
-  try { decl = JSON.parse(text); }
-  catch (e) {
+  try {
+    decl = JSON.parse(text);
+  } catch (e) {
     return { error: `${p} does not parse as JSON (${e.message})` };
   }
-  if (!decl || typeof decl.required !== "object" || decl.required === null
-    || typeof decl.optional !== "object" || decl.optional === null) {
+  if (
+    !decl ||
+    typeof decl.required !== "object" ||
+    decl.required === null ||
+    typeof decl.optional !== "object" ||
+    decl.optional === null
+  ) {
     return { error: `${p} declares no \`required\` and \`optional\` role-to-field mapping (kogaki#1349)` };
   }
   return { roles: decl };
@@ -48,14 +56,23 @@ export function moveRoles(movesDir = "moves") {
 
 // The required roles beside `identity`, mapped to the output key each emits
 // under (kogaki#1349, kogaki#1698).
-const REQUIRED_ROLE_OUTPUT_KEYS = [["takes", "takes"], ["leaves", "leaves"]];
-const STATE_ROLE_OUTPUT_KEYS = [["state-before", "before"], ["state-after", "after"]];
+const REQUIRED_ROLE_OUTPUT_KEYS = [
+  ["takes", "takes"],
+  ["leaves", "leaves"],
+];
+const STATE_ROLE_OUTPUT_KEYS = [
+  ["state-before", "before"],
+  ["state-after", "after"],
+];
 // The optional roles this reader has a use for. A role this library's
 // declaration leaves null is carried on the output as null, exactly as
 // `segments` already was before this adapter existed (kogaki#1320).
 // `technique` is not among them (kogaki#1412): `segments` is the Move's whole
 // structure, so the Adapter exposes it and never a prose restatement of it.
-const OPTIONAL_ROLE_OUTPUT_KEYS = [["tests", "breaks"], ["segments", "segments"]];
+const OPTIONAL_ROLE_OUTPUT_KEYS = [
+  ["tests", "breaks"],
+  ["segments", "segments"],
+];
 
 export function moveContract(moveId, movesDir = "moves") {
   const read = readMoveRecord(moveId, movesDir);
@@ -91,7 +108,8 @@ export const RETIRED_MOVE_FIELDS = {
   draws_on: "no composer, judge or Packet reads it (kogaki#1280)",
   question: "the Move's `after` carries its question (kogaki#1324)",
   obligation: "what a Move leaves for later is its `leaves` (kogaki#1701)",
-  obligation_triggers: "it was the retired `obligation` call's verdict, and what a Move leaves for later is its `leaves` (kogaki#1701)",
+  obligation_triggers:
+    "it was the retired `obligation` call's verdict, and what a Move leaves for later is its `leaves` (kogaki#1701)",
 };
 
 // THE FIELDS A MOVE MAY CARRY BESIDE THE ONES `moves/ROLES.json` MAPS
@@ -116,20 +134,29 @@ function moveRecordContract(record, moveId, path, movesDir) {
   for (const [role, outKey] of REQUIRED_ROLE_OUTPUT_KEYS) {
     const field = required[role];
     if (typeof field !== "string" || field === "") {
-      return { error: `${movesDir}/ROLES.json names no field for the required role "${role}" — every schema maps `
-        + `identity, takes and leaves (specs/spec-draft-pipeline/SPEC.md field-roles table)` };
+      return {
+        error:
+          `${movesDir}/ROLES.json names no field for the required role "${role}" — every schema maps ` +
+          `identity, takes and leaves (specs/spec-draft-pipeline/SPEC.md field-roles table)`,
+      };
     }
     const v = record[field];
-    if (v === undefined || v === null) { missing.push(field); continue; }
+    if (v === undefined || v === null) {
+      missing.push(field);
+      continue;
+    }
     out[outKey] = v;
   }
   if (missing.length) {
     // A STORE FAULT, NAMED AS ONE. A Move whose contract is half-written
     // cannot be judged against, and reporting it as a composition problem
     // would send the reader to the Brief rather than to the library.
-    return { error: `move "${moveId}" declares no ${missing.join(" and no ")} (${path}) — `
-      + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
-      + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
+    return {
+      error:
+        `move "${moveId}" declares no ${missing.join(" and no ")} (${path}) — ` +
+        `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), ` +
+        `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.`,
+    };
   }
   // A STATE IS A MAP KEYED BY DIMENSION (kogaki#1413), rendered here one
   // line per dimension: that is the text the binding contract and the judge
@@ -138,7 +165,10 @@ function moveRecordContract(record, moveId, path, movesDir) {
   for (const [role, outKey] of STATE_ROLE_OUTPUT_KEYS) {
     const field = optional[role];
     const v = typeof field === "string" && field !== "" ? record[field] : undefined;
-    if (v === undefined || v === null) { out[outKey] = null; continue; }
+    if (v === undefined || v === null) {
+      out[outKey] = null;
+      continue;
+    }
     const bad = moveStateRefusal(v, field, at);
     if (bad) return { error: bad };
     out[outKey] = moveStateLines(v);
@@ -150,47 +180,83 @@ function moveRecordContract(record, moveId, path, movesDir) {
       continue;
     }
     const v = record[field];
-    const absent = v === undefined || v === null || (typeof v === "string" && v.trim() === "")
-      || (Array.isArray(v) && !v.length);
+    const absent =
+      v === undefined || v === null || (typeof v === "string" && v.trim() === "") || (Array.isArray(v) && !v.length);
     if (absent && role === "segments") {
       // `segments` IS REQUIRED WHERE MAPPED (kogaki#1412, owner decision
       // 2026-10-17): a Move without its Segments is refused by name at every
       // read, never repaired -- no Segment is derived for an old Move, and
       // nothing falls back to a prose restatement of the structure.
-      return { error: `move "${moveId}" carries no ${field} (${path}) — a Move's \`${field}\` is its ordered structure, `
-        + `which the composer, the Move-fit judgment and the ParagraphPlan stage each read, and a Move without it is refused, `
-        + `not repaired (kogaki#1412). Regenerate the Move from its Extraction under its own issue.` };
+      return {
+        error:
+          `move "${moveId}" carries no ${field} (${path}) — a Move's \`${field}\` is its ordered structure, ` +
+          `which the composer, the Move-fit judgment and the ParagraphPlan stage each read, and a Move without it is refused, ` +
+          `not repaired (kogaki#1412). Regenerate the Move from its Extraction under its own issue.`,
+      };
     }
     if (absent && role === "tests") {
       // Mapped AND absent from the record is a half-written contract, same
       // as a missing required field — the declaration says this library's
       // Moves carry the role, so a record that does not is the fault.
-      return { error: `move "${moveId}" declares no ${field} (${path}) — `
-        + `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), `
-        + `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.` };
+      return {
+        error:
+          `move "${moveId}" declares no ${field} (${path}) — ` +
+          `the composer reads a Move by its required roles' fields and the specialization judgment compares each Leg against them (kogaki#1276), ` +
+          `so a record missing one leaves both with nothing to read. Repair the Move record under its own issue.`,
+      };
     }
     const bad = optionalRoleRefusal(role, field, v, at);
     if (bad) return { error: bad };
     out[outKey] = v;
   }
-  const retired = Object.keys(record).filter((k) => Object.prototype.hasOwnProperty.call(RETIRED_MOVE_FIELDS, k)).sort();
+  const retired = Object.keys(record)
+    .filter((k) => Object.prototype.hasOwnProperty.call(RETIRED_MOVE_FIELDS, k))
+    .sort();
   if (retired.length) {
-    return { error: `${at} carries the retired ${retired.map((k) => `\`${k}\``).join(", ")} — `
-      + retired.map((k) => RETIRED_MOVE_FIELDS[k]).join("; ") };
+    return {
+      error:
+        `${at} carries the retired ${retired.map((k) => `\`${k}\``).join(", ")} — ` +
+        retired.map((k) => RETIRED_MOVE_FIELDS[k]).join("; "),
+    };
   }
-  const named = new Set([...Object.values(required), ...Object.values(optional)].filter((f) => typeof f === "string" && f !== ""));
-  const unnamed = Object.keys(record).filter((k) => !named.has(k) && !MOVE_CARRIED_FIELDS.includes(k)
-    && !Object.prototype.hasOwnProperty.call(RETIRED_MOVE_FIELDS, k)).sort();
+  const named = new Set(
+    [...Object.values(required), ...Object.values(optional)].filter((f) => typeof f === "string" && f !== ""),
+  );
+  const unnamed = Object.keys(record)
+    .filter(
+      (k) =>
+        !named.has(k) &&
+        !MOVE_CARRIED_FIELDS.includes(k) &&
+        !Object.prototype.hasOwnProperty.call(RETIRED_MOVE_FIELDS, k),
+    )
+    .sort();
   if (unnamed.length) {
-    return { error: `${at} carries ${unnamed.map((k) => `\`${k}\``).join(", ")}, which the library's ROLES.json maps to no role — `
-      + `a Move carries the fields its declaration maps plus ${MOVE_CARRIED_FIELDS.map((k) => `\`${k}\``).join(" and ")}, and an unnamed field is refused, not carried into the library (kogaki#1418)` };
+    return {
+      error:
+        `${at} carries ${unnamed.map((k) => `\`${k}\``).join(", ")}, which the library's ROLES.json maps to no role — ` +
+        `a Move carries the fields its declaration maps plus ${MOVE_CARRIED_FIELDS.map((k) => `\`${k}\``).join(" and ")}, and an unnamed field is refused, not carried into the library (kogaki#1418)`,
+    };
   }
   const segmentCount = Array.isArray(record[optional.segments]) ? record[optional.segments].length : 0;
-  const constraints = moveConstraintsRefusal({ takes: record[required.takes], leaves: record[required.leaves] }, segmentCount, at);
+  const constraints = moveConstraintsRefusal(
+    { takes: record[required.takes], leaves: record[required.leaves] },
+    segmentCount,
+    at,
+  );
   if (constraints) return { error: constraints };
   out.takes = out.takes.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim() }));
-  out.leaves = out.leaves.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim(), segment: Number(x.segment) }));
-  const afterSegment = afterSegmentRefusal(record, optional["state-after-segments"], optional["state-after"], optional.segments, at);
+  out.leaves = out.leaves.map((x) => ({
+    kind: String(x.kind).trim(),
+    what: x.what.trim(),
+    segment: Number(x.segment),
+  }));
+  const afterSegment = afterSegmentRefusal(
+    record,
+    optional["state-after-segments"],
+    optional["state-after"],
+    optional.segments,
+    at,
+  );
   if (afterSegment) return { error: afterSegment };
   const description = descriptionRefusal(record.description, at);
   if (description) return { error: description };
@@ -207,17 +273,23 @@ function afterSegmentRefusal(record, field, afterField, segmentsField, at) {
   if (typeof field !== "string" || field === "" || record[field] === undefined || record[field] === null) return null;
   const v = record[field];
   const after = isPlainMap(record[afterField]) ? Object.keys(record[afterField]) : [];
-  if (!isPlainMap(v)) return `${at}: \`${field}\` is not a map keyed by the dimensions \`${afterField}\` names (kogaki#1652)`;
+  if (!isPlainMap(v))
+    return `${at}: \`${field}\` is not a map keyed by the dimensions \`${afterField}\` names (kogaki#1652)`;
   const keys = Object.keys(v);
   const extra = keys.find((k) => !after.includes(k));
-  if (extra) return `${at}: \`${field}\` carries \`${extra}\`, which \`${afterField}\` does not name — the column is keyed by the dimensions \`${afterField}\` names (kogaki#1652)`;
+  if (extra)
+    return `${at}: \`${field}\` carries \`${extra}\`, which \`${afterField}\` does not name — the column is keyed by the dimensions \`${afterField}\` names (kogaki#1652)`;
   const missing = after.find((k) => !keys.includes(k));
-  if (missing) return `${at}: \`${field}\` carries no \`${missing}\` — every dimension \`${afterField}\` names carries the Segment after which it holds (kogaki#1652)`;
+  if (missing)
+    return `${at}: \`${field}\` carries no \`${missing}\` — every dimension \`${afterField}\` names carries the Segment after which it holds (kogaki#1652)`;
   const n = Array.isArray(record[segmentsField]) ? record[segmentsField].length : 0;
   for (const k of keys) {
-    const nums = String(v[k]).split(",").map((x) => x.trim());
+    const nums = String(v[k])
+      .split(",")
+      .map((x) => x.trim());
     const off = nums.find((x) => !/^\d+$/.test(x) || Number(x) < 1 || Number(x) > n);
-    if (off !== undefined) return `${at}: \`${field}.${k}\` names Segment ${JSON.stringify(off)}, and the Move has Segments 1 to ${n} (kogaki#1652)`;
+    if (off !== undefined)
+      return `${at}: \`${field}.${k}\` names Segment ${JSON.stringify(off)}, and the Move has Segments 1 to ${n} (kogaki#1652)`;
   }
   return null;
 }
@@ -226,11 +298,15 @@ function afterSegmentRefusal(record, field, afterField, segmentsField, at) {
 // (kogaki#1412). Nothing about its wording is read.
 function descriptionRefusal(v, at) {
   if (typeof v !== "string" || v.trim() === "" || /[\r\n]/.test(v.trim())) {
-    return `${at} carries no \`description\` — one or two sentences on one line, at most ${MOVE_DESCRIPTION_MAX} characters, `
-      + `copied from the Extraction (kogaki#1412)`;
+    return (
+      `${at} carries no \`description\` — one or two sentences on one line, at most ${MOVE_DESCRIPTION_MAX} characters, ` +
+      `copied from the Extraction (kogaki#1412)`
+    );
   }
   const n = v.trim().length;
-  return n > MOVE_DESCRIPTION_MAX ? `${at}: \`description\` is ${n} characters — at most ${MOVE_DESCRIPTION_MAX} (kogaki#1412)` : null;
+  return n > MOVE_DESCRIPTION_MAX
+    ? `${at}: \`description\` is ${n} characters — at most ${MOVE_DESCRIPTION_MAX} (kogaki#1412)`
+    : null;
 }
 
 // The optional `figure` block (the Move visual form, kogaki#876): a map naming one
@@ -241,7 +317,10 @@ function figureBlockRefusal(block, at) {
   if (block === undefined || block === null) return null;
   if (!isPlainMap(block)) return `${at}: \`figure\` is not a block of \`kind:\` plus one line per role`;
   const kinds = figureKinds().kinds || {};
-  const names = Object.keys(kinds).sort().map((k) => `\`${k}\``).join(", ");
+  const names = Object.keys(kinds)
+    .sort()
+    .map((k) => `\`${k}\``)
+    .join(", ");
   const kind = block.kind;
   if (kind === undefined || kind === null || String(kind).trim() === "") {
     return `${at}: \`figure\` names no \`kind\`; the closed set is ${names}`;
@@ -259,7 +338,9 @@ function figureBlockRefusal(block, at) {
     if (extra.length) parts.push(`not a role of \`${kind}\`: ${extra.map((r) => `\`${r}\``).join(", ")}`);
     return `${at}: \`figure\` does not map exactly kind \`${kind}\`'s roles — ${parts.join("; ")}`;
   }
-  const blank = [...want].filter((r) => block[r] === null || block[r] === undefined || String(block[r]).trim() === "").sort();
+  const blank = [...want]
+    .filter((r) => block[r] === null || block[r] === undefined || String(block[r]).trim() === "")
+    .sort();
   if (blank.length) {
     return `${at}: \`figure\` maps ${blank.map((r) => `\`${r}\``).join(", ")} to nothing; a role carries one line in the Move's own vocabulary`;
   }
@@ -275,20 +356,25 @@ export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner"])
 function optionalRoleRefusal(role, field, v, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (role === "tests") {
-    if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of prose tests — one entry per test (kogaki#1414, kogaki#1413)`;
+    if (!Array.isArray(v))
+      return `${at}: \`${field}\` is not a list of prose tests — one entry per test (kogaki#1414, kogaki#1413)`;
     const i = v.findIndex((x) => !oneLine(x));
     return i < 0 ? null : `${at}: \`${field}\` test ${i + 1} is not one non-empty line`;
   }
   if (role === "segments") {
-    if (!Array.isArray(v)) return `${at}: \`${field}\` is not a list of Segments — one map per Segment carrying \`operation\`, \`relation\` and \`manner\` (kogaki#1414, kogaki#1413, kogaki#1510)`;
+    if (!Array.isArray(v))
+      return `${at}: \`${field}\` is not a list of Segments — one map per Segment carrying \`operation\`, \`relation\` and \`manner\` (kogaki#1414, kogaki#1413, kogaki#1510)`;
     for (const [i, s] of v.entries()) {
       const atS = `${at}: \`${field}\` Segment ${i + 1}`;
       if (!isPlainMap(s)) return `${atS} is not a map`;
       const extra = Object.keys(s).find((k) => !SEGMENT_FIELDS.includes(k));
-      if (extra) return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
+      if (extra)
+        return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
       if (!oneLine(s.operation)) return `${atS} carries no one-line \`operation\``;
-      if (s.manner !== undefined && !oneLine(s.manner)) return `${atS} carries a \`manner\` that is not one non-empty line — a Segment with no manner leaves the key out`;
-      if (i === 0 && s.relation !== undefined) return `${atS} carries a \`relation\` — a Move carries no relation to what precedes it (kogaki#1411)`;
+      if (s.manner !== undefined && !oneLine(s.manner))
+        return `${atS} carries a \`manner\` that is not one non-empty line — a Segment with no manner leaves the key out`;
+      if (i === 0 && s.relation !== undefined)
+        return `${atS} carries a \`relation\` — a Move carries no relation to what precedes it (kogaki#1411)`;
       if (i > 0 && !oneLine(s.relation)) return `${atS} carries no one-line \`relation\` to the Segment before it`;
     }
   }

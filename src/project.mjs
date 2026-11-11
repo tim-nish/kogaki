@@ -42,8 +42,11 @@ const RUNS_CONFIG = join(REPO, "src", "runs.json");
 
 function projectKeepLast() {
   let cfg;
-  try { cfg = JSON.parse(readFileSync(RUNS_CONFIG, "utf8")); }
-  catch (e) { fail(`${RUNS_CONFIG} cannot be read (${e.message}) — it carries the project lane's keep-last bound`); }
+  try {
+    cfg = JSON.parse(readFileSync(RUNS_CONFIG, "utf8"));
+  } catch (e) {
+    fail(`${RUNS_CONFIG} cannot be read (${e.message}) — it carries the project lane's keep-last bound`);
+  }
   const k = cfg && cfg.lanes && cfg.lanes.project && cfg.lanes.project.keep_last;
   if (!Number.isInteger(k) || k < 1) {
     fail(`${RUNS_CONFIG} declares no positive integer \`lanes.project.keep_last\``);
@@ -57,10 +60,14 @@ function entriesByAge(dir) {
     .filter((d) => d.isDirectory())
     .map((d) => {
       let mtime = 0;
-      try { mtime = statSync(join(dir, d.name)).mtimeMs; } catch { mtime = 0; }
+      try {
+        mtime = statSync(join(dir, d.name)).mtimeMs;
+      } catch {
+        mtime = 0;
+      }
       return { name: d.name, mtime };
     })
-    .sort((a, b) => (b.mtime - a.mtime) || a.name.localeCompare(b.name));
+    .sort((a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name));
 }
 
 // Prune the lane back to keep-last, exempting the slug this run is about to
@@ -77,8 +84,10 @@ function enterProjectWorkspace(slug, root = PROJECT_LANE_ROOT) {
     rmSync(target, { recursive: true, force: true });
   }
   if (doomed.length) {
-    process.stderr.write(`project: pruned ${doomed.length} run(s) beyond keep-last from ${root} `
-      + `(${doomed.map((e) => e.name).join(", ")})\n`);
+    process.stderr.write(
+      `project: pruned ${doomed.length} run(s) beyond keep-last from ${root} ` +
+        `(${doomed.map((e) => e.name).join(", ")})\n`,
+    );
   }
   const dest = join(root, slug);
   mkdirSync(dest, { recursive: true });
@@ -103,7 +112,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -115,8 +127,9 @@ function parseArgs(argv) {
 // a reply nobody is piping.
 function readReply() {
   if (process.stdin.isTTY) return "";
-  try { return readFileSync(0, "utf8"); }
-  catch (e) {
+  try {
+    return readFileSync(0, "utf8");
+  } catch (e) {
     if (e.code === "EOF") return "";
     throw e;
   }
@@ -140,7 +153,10 @@ function splitFrontmatter(text, path) {
   }
   let end = -1;
   for (let i = 1; i < lines.length; i++) {
-    if (lines[i] === "---") { end = i; break; }
+    if (lines[i] === "---") {
+      end = i;
+      break;
+    }
   }
   if (end === -1) fail(`${path} has an unterminated frontmatter block`);
   const bodyLines = lines.slice(end + 2);
@@ -158,7 +174,10 @@ function parseFieldFile(text, path) {
   if (lines[0] !== "---") fail(`${path} opens with no frontmatter — it is a frontmatter-only field file`);
   let end = -1;
   for (let i = 1; i < lines.length; i++) {
-    if (lines[i] === "---") { end = i; break; }
+    if (lines[i] === "---") {
+      end = i;
+      break;
+    }
   }
   if (end === -1) fail(`${path} has an unterminated frontmatter block`);
   const fields = {};
@@ -166,14 +185,20 @@ function parseFieldFile(text, path) {
     const l = lines[i];
     if (l.trim() === "") continue;
     const m = l.match(/^([a-z_]+): (.*)$/);
-    if (!m) fail(`${path}: line ${i + 1} is not \`key: <json>\` — every field file line is a `
-      + `frontmatter key followed by its value AS JSON: ${JSON.stringify(l)}`);
+    if (!m)
+      fail(
+        `${path}: line ${i + 1} is not \`key: <json>\` — every field file line is a ` +
+          `frontmatter key followed by its value AS JSON: ${JSON.stringify(l)}`,
+      );
     const [, key, raw] = m;
     let value;
-    try { value = JSON.parse(raw); }
-    catch (e) {
-      fail(`${path}: field \`${key}\` is not readable as JSON (${e.message}) — every field file `
-        + `value is written as JSON, so a bare word or an unquoted sentence is malformed here`);
+    try {
+      value = JSON.parse(raw);
+    } catch (e) {
+      fail(
+        `${path}: field \`${key}\` is not readable as JSON (${e.message}) — every field file ` +
+          `value is written as JSON, so a bare word or an unquoted sentence is malformed here`,
+      );
     }
     fields[key] = value;
   }
@@ -181,7 +206,10 @@ function parseFieldFile(text, path) {
   // prose never lives in this file (the issue's own "frontmatter only"), so
   // it is carried through verbatim by callers that preserve it and is never
   // read as a field.
-  const recordBody = lines.slice(end + 2).join("\n").replace(/\n+$/, "");
+  const recordBody = lines
+    .slice(end + 2)
+    .join("\n")
+    .replace(/\n+$/, "");
   return { fields, recordBody };
 }
 
@@ -213,18 +241,24 @@ function readReviewedDraft(draftPath) {
   const resolved = resolve(draftPath);
   if (!existsSync(resolved)) fail(`no Draft at ${resolved}`);
   if (basename(resolved) === "draft.md") {
-    fail(`${resolved} is \`draft.md\` — Projection reads only \`${REVIEWED_BASENAME}\`, ReviewDraft's `
-      + "output. A CanonicalDraft that has not been through ReviewDraft is not projected.");
+    fail(
+      `${resolved} is \`draft.md\` — Projection reads only \`${REVIEWED_BASENAME}\`, ReviewDraft's ` +
+        "output. A CanonicalDraft that has not been through ReviewDraft is not projected.",
+    );
   }
   if (basename(resolved) !== REVIEWED_BASENAME) {
-    fail(`${resolved} is not named \`${REVIEWED_BASENAME}\` — Projection reads exactly that basename, `
-      + "the reviewed Draft ReviewDraft's `close` writes beside its Draft");
+    fail(
+      `${resolved} is not named \`${REVIEWED_BASENAME}\` — Projection reads exactly that basename, ` +
+        "the reviewed Draft ReviewDraft's `close` writes beside its Draft",
+    );
   }
   const dir = dirname(resolved);
   const reviewPath = join(dir, "review.md");
   if (!existsSync(reviewPath)) {
-    fail(`no review.md beside ${resolved} — Projection refuses a reviewed Draft with no review record: `
-      + "an unreviewed Draft is not projected");
+    fail(
+      `no review.md beside ${resolved} — Projection refuses a reviewed Draft with no review record: ` +
+        "an unreviewed Draft is not projected",
+    );
   }
   const text = readFileSync(resolved, "utf8");
   const { body } = splitFrontmatter(text, resolved);
@@ -252,7 +286,9 @@ function imageAbsoluteUrlConverter(ctx) {
   const REVERSE_RE = new RegExp(`!\\[([^\\]]*)\\]\\(${escapedPrefix}([^)]+)\\)`, "g");
   return {
     name: "image-absolute-url",
-    applies(body) { return new RegExp(FORWARD_RE).test(body); },
+    applies(body) {
+      return new RegExp(FORWARD_RE).test(body);
+    },
     forward(body) {
       let count = 0;
       const out = body.replace(new RegExp(FORWARD_RE), (m, alt, path) => {
@@ -319,13 +355,14 @@ function validateFields(fields, profile, fieldFilePath) {
   for (const key of profile.requiredFields) {
     const v = fields[key];
     if (typeof v !== "string" || v.trim() === "") {
-      fail(`${fieldFilePath} carries no non-empty \`${key}\` — ${profile.id} requires it, and the `
-        + "Harness invents no value for a field it owns only the presence and cap of");
+      fail(
+        `${fieldFilePath} carries no non-empty \`${key}\` — ${profile.id} requires it, and the ` +
+          "Harness invents no value for a field it owns only the presence and cap of",
+      );
     }
     const cap = profile.caps[key];
     if (cap && v.length > cap) {
-      fail(`${fieldFilePath}'s \`${key}\` is ${v.length} character(s), over ${profile.id}'s cap of `
-        + `${cap}`);
+      fail(`${fieldFilePath}'s \`${key}\` is ${v.length} character(s), over ${profile.id}'s cap of ` + `${cap}`);
     }
     out[key] = v;
   }
@@ -337,8 +374,10 @@ function validateFields(fields, profile, fieldFilePath) {
     }
     for (const t of tags) {
       if (typeof t !== "string" || !TAG_RE.test(t)) {
-        fail(`${fieldFilePath}'s tag ${JSON.stringify(t)} is not alphanumeric — ${profile.id} tags `
-          + "carry no punctuation or spaces");
+        fail(
+          `${fieldFilePath}'s tag ${JSON.stringify(t)} is not alphanumeric — ${profile.id} tags ` +
+            "carry no punctuation or spaces",
+        );
       }
     }
     out.tags = tags;
@@ -369,7 +408,10 @@ function articleText(profile, fields, body, ctx) {
   }
   const fm = ["---"];
   for (const key of profile.frontmatterOrder) {
-    if (key === "published") { fm.push("published: false"); continue; }
+    if (key === "published") {
+      fm.push("published: false");
+      continue;
+    }
     if (fields[key] === undefined) continue;
     fm.push(`${key}: ${JSON.stringify(fields[key])}`);
   }
@@ -401,9 +443,11 @@ function cmdRun(args) {
   const fieldPath = join(draft.dir, "projection.md");
   const prior = readFieldFile(fieldPath);
   if (!existsSync(fieldPath)) {
-    fail(`no projection.md beside ${draft.path} — the owner-supplied field file \`run\` reads. `
-      + "The model may draft it (see `propose`); the Harness validates it and invents nothing in "
-      + "the Article from it.");
+    fail(
+      `no projection.md beside ${draft.path} — the owner-supplied field file \`run\` reads. ` +
+        "The model may draft it (see `propose`); the Harness validates it and invents nothing in " +
+        "the Article from it.",
+    );
   }
   const fields = validateFields(prior.fields, profile, fieldPath);
 
@@ -436,29 +480,51 @@ function cmdRun(args) {
     `- **Converters fired.** ${fired.length ? fired.map((f) => `\`${f.name}\` (${f.count})`).join(", ") : "none"}`,
     `- **Verify.** ${verifyOk ? "recovers the reviewed Draft body byte for byte" : "DOES NOT recover the reviewed Draft body — the run wrote an unreversible Article"}`,
   ];
-  writeFieldFile(fieldPath, fields, profile.frontmatterOrder.filter((k) => k !== "published"), recordLines.join("\n"));
+  writeFieldFile(
+    fieldPath,
+    fields,
+    profile.frontmatterOrder.filter((k) => k !== "published"),
+    recordLines.join("\n"),
+  );
 
   // THE WORKSPACE, machine state with the review lane's own lifetime rule
   // (`runs/review/<slug>/`'s own convention): overwritten in place, keyed on
   // the slug, pruned by `src/runs.json`'s `project` lane on entry.
   const ws = enterWorkspace(args, draft.slug);
-  writeFileSync(join(ws, "run.json"), JSON.stringify({
-    draft: draft.path, profile: profile.id, article: outPath,
-    source_body_sha: draft.body_sha, converters_fired: fired,
-    verify_ok: verifyOk, at: new Date().toISOString(),
-  }, null, 2) + "\n");
+  writeFileSync(
+    join(ws, "run.json"),
+    JSON.stringify(
+      {
+        draft: draft.path,
+        profile: profile.id,
+        article: outPath,
+        source_body_sha: draft.body_sha,
+        converters_fired: fired,
+        verify_ok: verifyOk,
+        at: new Date().toISOString(),
+      },
+      null,
+      2,
+    ) + "\n",
+  );
 
   if (!verifyOk) {
-    fail(`the Article at ${outPath} does not recover ${draft.path}'s body through ${profile.id}'s `
-      + "converters, reversed — a converter admitted to this profile must be reversible, and this "
-      + "run found one that is not. The Article was written; do not publish it.");
+    fail(
+      `the Article at ${outPath} does not recover ${draft.path}'s body through ${profile.id}'s ` +
+        "converters, reversed — a converter admitted to this profile must be reversible, and this " +
+        "run found one that is not. The Article was written; do not publish it.",
+    );
   }
-  process.stdout.write(`Article: ${outPath}\n`
-    + `  profile     ${profile.id}\n`
-    + `  converters  ${fired.length ? fired.map((f) => `${f.name}(${f.count})`).join(", ") : "none fired"}\n`
-    + `  verify      ok — recovers ${draft.path}'s body byte for byte\n`
-    + (moved ? `  NOTE        the source Draft moved (was ${priorSha.slice(0, 16)}, now `
-        + `${draft.body_sha.slice(0, 16)}) — this run OVERWROTE the Article at ${outPath}\n` : ""));
+  process.stdout.write(
+    `Article: ${outPath}\n` +
+      `  profile     ${profile.id}\n` +
+      `  converters  ${fired.length ? fired.map((f) => `${f.name}(${f.count})`).join(", ") : "none fired"}\n` +
+      `  verify      ok — recovers ${draft.path}'s body byte for byte\n` +
+      (moved
+        ? `  NOTE        the source Draft moved (was ${priorSha.slice(0, 16)}, now ` +
+          `${draft.body_sha.slice(0, 16)}) — this run OVERWROTE the Article at ${outPath}\n`
+        : ""),
+  );
 }
 
 function cmdVerify(args) {
@@ -479,12 +545,15 @@ function cmdVerify(args) {
     const recLines = recovered.split("\n");
     let at = 0;
     while (at < draftLines.length && at < recLines.length && draftLines[at] === recLines[at]) at++;
-    fail(`${outPath} does not recover ${draft.path}'s body byte for byte — they first differ at `
-      + `body line ${at + 1}:\n  draft     ${JSON.stringify(draftLines[at] ?? "(end of file)")}\n`
-      + `  recovered ${JSON.stringify(recLines[at] ?? "(end of file)")}`);
+    fail(
+      `${outPath} does not recover ${draft.path}'s body byte for byte — they first differ at ` +
+        `body line ${at + 1}:\n  draft     ${JSON.stringify(draftLines[at] ?? "(end of file)")}\n` +
+        `  recovered ${JSON.stringify(recLines[at] ?? "(end of file)")}`,
+    );
   }
-  process.stdout.write(`ok: ${outPath} recovers ${draft.path}'s body byte for byte, through `
-    + `${profile.id}'s converters reversed\n`);
+  process.stdout.write(
+    `ok: ${outPath} recovers ${draft.path}'s body byte for byte, through ` + `${profile.id}'s converters reversed\n`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -503,27 +572,32 @@ function cmdPropose(args) {
   const reply = readReply();
   if (reply.trim() === "") {
     process.stdout.write(
-      `project.mjs propose (${profile.id}): write a Title and a Description for the reviewed Draft `
-      + `below, and reply on standard input as JSON: {"title": "...", "description": "..."}\n\n`
-      + "The Harness owns only that both exist and fit their caps; their wording is yours, and "
-      + "the Audience's persona and register are settled at the Brief boundary, not here.\n\n"
-      + `  title        non-empty string, at most ${profile.caps.title} characters\n`
-      + `  description  non-empty string, at most ${profile.caps.description} characters `
-      + "(profile-declared, provisional)\n\n"
-      + `--- reviewed Draft body (${draft.slug}) ---\n${draft.body}\n`);
+      `project.mjs propose (${profile.id}): write a Title and a Description for the reviewed Draft ` +
+        `below, and reply on standard input as JSON: {"title": "...", "description": "..."}\n\n` +
+        "The Harness owns only that both exist and fit their caps; their wording is yours, and " +
+        "the Audience's persona and register are settled at the Brief boundary, not here.\n\n" +
+        `  title        non-empty string, at most ${profile.caps.title} characters\n` +
+        `  description  non-empty string, at most ${profile.caps.description} characters ` +
+        "(profile-declared, provisional)\n\n" +
+        `--- reviewed Draft body (${draft.slug}) ---\n${draft.body}\n`,
+    );
     return;
   }
   let parsed;
-  try { parsed = JSON.parse(reply); }
-  catch (e) { fail(`the reply on standard input is not readable JSON (${e.message})`); }
+  try {
+    parsed = JSON.parse(reply);
+  } catch (e) {
+    fail(`the reply on standard input is not readable JSON (${e.message})`);
+  }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     fail("the reply on standard input is not a JSON object carrying `title` and `description`");
   }
   for (const key of ["title", "description"]) {
     const v = parsed[key];
     if (typeof v !== "string" || v.trim() === "") {
-      fail(`the reply carries no non-empty \`${key}\` — propose refuses a reply missing it and `
-        + "never invents a value");
+      fail(
+        `the reply carries no non-empty \`${key}\` — propose refuses a reply missing it and ` + "never invents a value",
+      );
     }
     const cap = profile.caps[key];
     if (cap && v.length > cap) {
@@ -532,17 +606,28 @@ function cmdPropose(args) {
   }
   const prior = readFieldFile(fieldPath);
   const fields = { ...prior.fields, title: parsed.title, description: parsed.description };
-  writeFieldFile(fieldPath, fields, PROFILES[profile.id].frontmatterOrder.filter((k) => k !== "published"),
-    prior.recordBody);
+  writeFieldFile(
+    fieldPath,
+    fields,
+    PROFILES[profile.id].frontmatterOrder.filter((k) => k !== "published"),
+    prior.recordBody,
+  );
   process.stdout.write(`projection.md: wrote title and description to ${fieldPath}\n`);
 }
 
 const args = parseArgs(process.argv.slice(2));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   switch (args._cmd) {
-    case "run": cmdRun(args); break;
-    case "verify": cmdVerify(args); break;
-    case "propose": cmdPropose(args); break;
-    default: fail("usage: project.mjs run|verify|propose --draft <draft.reviewed.md> --profile <name>");
+    case "run":
+      cmdRun(args);
+      break;
+    case "verify":
+      cmdVerify(args);
+      break;
+    case "propose":
+      cmdPropose(args);
+      break;
+    default:
+      fail("usage: project.mjs run|verify|propose --draft <draft.reviewed.md> --profile <name>");
   }
 }

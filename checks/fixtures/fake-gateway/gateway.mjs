@@ -63,13 +63,22 @@ const rl = createInterface({ input: process.stdin });
 rl.on("line", (line) => {
   if (!line.trim()) return;
   let msg;
-  try { msg = JSON.parse(line); } catch { return; }
+  try {
+    msg = JSON.parse(line);
+  } catch {
+    return;
+  }
   if (msg.id === undefined) return;
   if (msg.method === "initialize") {
-    send({ jsonrpc: "2.0", id: msg.id, result: {
-      protocolVersion: "2024-11-05", capabilities: { tools: {} },
-      serverInfo: { name: "kogaki-fixture-gateway", version: "0" },
-    } });
+    send({
+      jsonrpc: "2.0",
+      id: msg.id,
+      result: {
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {} },
+        serverInfo: { name: "kogaki-fixture-gateway", version: "0" },
+      },
+    });
   } else if (msg.method === "tools/list") {
     send({ jsonrpc: "2.0", id: msg.id, result: { tools: TOOLS } });
   } else if (msg.method === "tools/call") {
@@ -78,10 +87,14 @@ rl.on("line", (line) => {
       appendFileSync(process.env.KOGAKI_FAKE_GATEWAY_LOG, `${JSON.stringify({ tool: name, args })}\n`);
     }
     const structured = answerFor(name, args);
-    send({ jsonrpc: "2.0", id: msg.id, result: {
-      content: [{ type: "text", text: JSON.stringify(structured) }],
-      structuredContent: structured,
-    } });
+    send({
+      jsonrpc: "2.0",
+      id: msg.id,
+      result: {
+        content: [{ type: "text", text: JSON.stringify(structured) }],
+        structuredContent: structured,
+      },
+    });
   } else {
     send({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `no method ${msg.method}` } });
   }

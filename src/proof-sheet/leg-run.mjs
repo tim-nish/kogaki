@@ -91,7 +91,18 @@
 //   The paragraph unit
 //       passages/FORMAT.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, chmodSync, cpSync, readdirSync, statSync, rmSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  copyFileSync,
+  chmodSync,
+  cpSync,
+  readdirSync,
+  statSync,
+  rmSync,
+} from "node:fs";
 import { join, resolve, basename, dirname, extname, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -179,10 +190,15 @@ child.on("close", (status, signal) => {
 // stage's binary.
 export function declaredCommand() {
   if (process.env.KOGAKI_JUDGE_CLI) return process.env.KOGAKI_JUDGE_CLI;
-  const seen = DECLARING_TABLES.map(([file, read]) => [file, String(read(JSON.parse(readFileSync(join(REPO, file), "utf8"))))]);
+  const seen = DECLARING_TABLES.map(([file, read]) => [
+    file,
+    String(read(JSON.parse(readFileSync(join(REPO, file), "utf8")))),
+  ]);
   const commands = [...new Set(seen.map(([, c]) => c))];
   if (commands.length !== 1) {
-    fail(`the stages declare ${commands.length} model commands (${seen.map(([f, c]) => `${f}: ${c}`).join("; ")}) — the recorder stands in for one. Nothing was started.`);
+    fail(
+      `the stages declare ${commands.length} model commands (${seen.map(([f, c]) => `${f}: ${c}`).join("; ")}) — the recorder stands in for one. Nothing was started.`,
+    );
   }
   return commands[0];
 }
@@ -195,26 +211,43 @@ export function installRecorder(dir) {
 }
 
 export function stageEnv(runDir, stageDir, realPath) {
-  return { ...process.env, KOGAKI_JUDGE_CLI: join(runDir, RECORDER_FILE), KOGAKI_PROOF_SHEET_REAL_CLI: realPath,
-    KOGAKI_PROOF_SHEET_CALLS: join(stageDir, CALLS_FILE) };
+  return {
+    ...process.env,
+    KOGAKI_JUDGE_CLI: join(runDir, RECORDER_FILE),
+    KOGAKI_PROOF_SHEET_REAL_CLI: realPath,
+    KOGAKI_PROOF_SHEET_CALLS: join(stageDir, CALLS_FILE),
+  };
 }
 
 // One command of a stage: run, keep its argv, exit status and output beside the stage.
 function runCommand(stageDir, name, argv, env, log) {
   const r = spawnSync(argv[0], argv.slice(1), { cwd: REPO, env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const rec = { name, argv: argv.map((a) => a.startsWith(REPO + "/") ? a.slice(REPO.length + 1) : a), exit: r.status,
-    stdout: r.stdout || "", stderr: r.stderr || "", ...(r.error ? { error: String(r.error.message) } : {}) };
+  const rec = {
+    name,
+    argv: argv.map((a) => (a.startsWith(REPO + "/") ? a.slice(REPO.length + 1) : a)),
+    exit: r.status,
+    stdout: r.stdout || "",
+    stderr: r.stderr || "",
+    ...(r.error ? { error: String(r.error.message) } : {}),
+  };
   log.push(rec);
   writeJson(join(stageDir, "command.json"), log);
   return rec;
 }
 
 function readJsonOr(path, dflt) {
-  try { return JSON.parse(readFileSync(path, "utf8")); } catch { return dflt; }
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return dflt;
+  }
 }
 
 function stopLine(rec) {
-  const said = `${rec.stdout}\n${rec.stderr}`.split("\n").map((l) => l.trim()).filter(Boolean);
+  const said = `${rec.stdout}\n${rec.stderr}`
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   return `\`${rec.name}\` exited ${rec.exit === null ? "on a signal" : rec.exit}: ${said.slice(-3).join(" ") || rec.error || "(no output)"}`;
 }
 
@@ -280,21 +313,36 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
   const legFiles = record.legs.map((l) => join(runDir, l.copy));
   const legArgs = legFiles.flatMap((f) => ["--leg", f]);
   const save = () => writeJson(join(runDir, RUN_FILE), record);
-  const dirOf = (stage) => { const d = join(runDir, stage); mkdirSync(d, { recursive: true }); return d; };
+  const dirOf = (stage) => {
+    const d = join(runDir, stage);
+    mkdirSync(d, { recursive: true });
+    return d;
+  };
   const stage = (name, body) => {
     const prev = priorStages && priorStages.get(name);
     // A `leg-move` stage recorded before kogaki#1601 carries no `moves` and is re-entered: its
     // nested runs are kept, so the re-entry only copies their Moves.
     const stale = name === LEG_MOVE_DIR && prev && !Array.isArray(prev.moves);
-    if (prev && prev.state === "done" && !stale) { record.stages.push(prev); save(); return prev; }
-    if (record.stopped) { record.stages.push({ stage: name, state: "not run" }); save(); return null; }
+    if (prev && prev.state === "done" && !stale) {
+      record.stages.push(prev);
+      save();
+      return prev;
+    }
+    if (record.stopped) {
+      record.stages.push({ stage: name, state: "not run" });
+      save();
+      return null;
+    }
     const d = dirOf(name);
     const log = readJsonOr(join(d, "command.json"), []);
     // A STAGE THAT THROWS IS STILL A PLACED STOP: the throw is this stage's stop line, so the
     // stage list and the sheet name where the run ended rather than the run dying unrecorded.
     let r;
-    try { r = body(d, stageEnv(runDir, d, realPath), log, prev); }
-    catch (e) { r = { stopped: `the stage threw: ${String(e && e.message || e).split("\n")[0]}` }; }
+    try {
+      r = body(d, stageEnv(runDir, d, realPath), log, prev);
+    } catch (e) {
+      r = { stopped: `the stage threw: ${String((e && e.message) || e).split("\n")[0]}` };
+    }
     record.stages.push({ stage: name, state: r.stopped ? "stopped" : "done", ...r });
     if (r.stopped) record.stopped = `${name}: ${r.stopped}`;
     save();
@@ -306,8 +354,23 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
   // wrote by naming its own earlier run directory with `--resume`.
   const ex = stage("extract", (d, env, log, prev) => {
     const resumeArgs = prev && prev.extractor_run ? ["--resume", prev.extractor_run] : [];
-    const c = runCommand(d, "extract", [process.execPath, "src/proof-sheet/extract.mjs", "run", ...legArgs,
-      "--out", d, ...(legFiles.length === 1 ? ["--passage", slug] : []), ...audienceArgs, ...resumeArgs], env, log);
+    const c = runCommand(
+      d,
+      "extract",
+      [
+        process.execPath,
+        "src/proof-sheet/extract.mjs",
+        "run",
+        ...legArgs,
+        "--out",
+        d,
+        ...(legFiles.length === 1 ? ["--passage", slug] : []),
+        ...audienceArgs,
+        ...resumeArgs,
+      ],
+      env,
+      log,
+    );
     const extractorRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || (prev && prev.extractor_run) || null;
     if (c.exit !== 0) return { stopped: stopLine(c), extractor_run: extractorRun };
     if (!extractorRun) return { stopped: `\`extract\` exited 0 but printed no run directory: ${stopLine(c)}` };
@@ -335,19 +398,40 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
     const now = readLibrary(lib.dir);
     if (now.error) return { stopped: now.error, moves_dir: moves, moves: written };
     if (now.sha256 !== lib.sha256) {
-      return { stopped: `the library at ${lib.dir} has changed since the run started (recorded sha ${lib.sha256.slice(0, 12)}, now ${now.sha256.slice(0, 12)})`, moves_dir: moves, moves: written };
+      return {
+        stopped: `the library at ${lib.dir} has changed since the run started (recorded sha ${lib.sha256.slice(0, 12)}, now ${now.sha256.slice(0, 12)})`,
+        moves_dir: moves,
+        moves: written,
+      };
     }
     const clash = libraryClash(now.ids, own);
     if (clash) return { stopped: clash, moves_dir: moves, moves: written };
-    for (const id of now.ids) copyFileSync(join(now.abs, `${id}${MOVE_RECORD_EXT}`), join(plan, `${id}${MOVE_RECORD_EXT}`));
+    for (const id of now.ids)
+      copyFileSync(join(now.abs, `${id}${MOVE_RECORD_EXT}`), join(plan, `${id}${MOVE_RECORD_EXT}`));
     lib.ids = { library: now.ids, run: lib.withhold_own ? [] : own };
     return { moves_dir: moves, moves: written };
   });
 
   // 3. The Leg Brief composer. It writes no Obligation row: the ledger is the Planner's (kogaki#1582).
   const brief = stage("brief", (d, env, log) => {
-    const c = runCommand(d, "leg-brief", [process.execPath, "src/proof-sheet/leg-brief.mjs", "run", "--extractions", ex.extractor_run,
-      "--out", d, "--slug", slug, ...audienceArgs], env, log);
+    const c = runCommand(
+      d,
+      "leg-brief",
+      [
+        process.execPath,
+        "src/proof-sheet/leg-brief.mjs",
+        "run",
+        "--extractions",
+        ex.extractor_run,
+        "--out",
+        d,
+        "--slug",
+        slug,
+        ...audienceArgs,
+      ],
+      env,
+      log,
+    );
     const legBriefRun = (c.stdout.match(/^run directory: (.+)$/m) || [])[1] || null;
     if (c.exit !== 0 || !legBriefRun) return { stopped: stopLine(c), leg_brief_run: legBriefRun };
     return { brief: join(d, "brief.yaml"), leg_brief_run: legBriefRun };
@@ -359,8 +443,25 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
   stage("paragraph-plan", (d, env, log) => {
     const job = join(d, "job");
     mkdirSync(job, { recursive: true });
-    const pp = (cmd, extra = []) => runCommand(d, `paragraph-plan ${cmd}`, [process.execPath, "src/paragraph-plan.mjs", cmd,
-      "--brief", brief.brief, "--run-dir", job, "--moves-dir", join(runDir, "moves"), ...extra], env, log);
+    const pp = (cmd, extra = []) =>
+      runCommand(
+        d,
+        `paragraph-plan ${cmd}`,
+        [
+          process.execPath,
+          "src/paragraph-plan.mjs",
+          cmd,
+          "--brief",
+          brief.brief,
+          "--run-dir",
+          job,
+          "--moves-dir",
+          join(runDir, "moves"),
+          ...extra,
+        ],
+        env,
+        log,
+      );
     const s = pp("start");
     if (s.exit !== 0) return { stopped: stopLine(s), job };
     for (let i = 0; i < PLAN_AWAITS_MAX; i++) {
@@ -370,22 +471,32 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
         return { job, plan: join(runDir, "brief", "paragraph-plan.yaml") };
       }
     }
-    return { stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s`, job };
+    return {
+      stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s`,
+      job,
+    };
   });
 
   // 5. /draft resolve, then section for each of the Brief's Legs in order -- one per original
   // paragraph (kogaki#1784), each Leg's Writer calls kept in `draft/calls-<leg_id>.jsonl`. Resumed
   // whole (out of scope).
   stage("draft", (d, env, log) => {
-    const dr = (cmd, extra = [], e = env) => runCommand(d, `draft ${cmd}`, [process.execPath, "src/draft.mjs", cmd,
-      "--brief", brief.brief, "--workspace", d, ...extra], e, log);
+    const dr = (cmd, extra = [], e = env) =>
+      runCommand(
+        d,
+        `draft ${cmd}`,
+        [process.execPath, "src/draft.mjs", cmd, "--brief", brief.brief, "--workspace", d, ...extra],
+        e,
+        log,
+      );
     const r = dr("resolve");
     if (r.exit !== 0) return { stopped: stopLine(r) };
     const legIds = (parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || []).map((l) => l.leg_id);
     const sections = [];
     for (const legId of legIds) {
       const s = dr("section", ["--leg", legId], { ...env, KOGAKI_PROOF_SHEET_CALLS: join(d, `calls-${legId}.jsonl`) });
-      if (s.exit !== 0) return { stopped: stopLine(s), leg_ids: legIds, leg_id: legId, workspace: join(d, slug), sections };
+      if (s.exit !== 0)
+        return { stopped: stopLine(s), leg_ids: legIds, leg_id: legId, workspace: join(d, slug), sections };
       sections.push(join(d, slug, "sections", `${legId}.md`));
     }
     return { leg_ids: legIds, workspace: join(d, slug), sections };
@@ -393,35 +504,48 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
 
   // 6. The Leg Move (see the header): one nested run per Leg of the Brief, in order. A nested run
   // already finished is kept; one that stopped is resumed.
-  if (!nested) stage(LEG_MOVE_DIR, (d, env, log) => {
-    const legs = parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || [];
-    const runs = [];
-    const moves = [];
-    // The directory the Leg Moves join first; the plan's `moves/` is checked for a clash too.
-    const lib = record.library;
-    const dirs = [...new Set([lib && lib.withhold_own ? join(runDir, OWN_MOVES_DIR) : join(runDir, "moves"), join(runDir, "moves")])];
-    // Every exit regenerates the index over the Leg Moves copied so far, a stop included.
-    const indexed = (r) => {
-      if (!moves.length) return r;
-      const c = runCommand(d, "leg-move index", ["python3", "-c", INDEX_PY, dirs[0]], env, log);
-      return c.exit === 0 ? r : { ...r, stopped: r.stopped || stopLine(c) };
-    };
-    for (const leg of legs) {
-      const claims = (leg.claims || []).map((c) => String(c.proposition || "").trim());
-      const text = claims.join(" ");
-      if (sentencesOf(text).length !== claims.length) {
-        return { stopped: `Leg ${leg.leg_id}: its ${claims.length} Claim(s) do not cut into ${claims.length} sentence(s) — each Claim's proposition must be one sentence`, runs };
+  if (!nested)
+    stage(LEG_MOVE_DIR, (d, env, log) => {
+      const legs = parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || [];
+      const runs = [];
+      const moves = [];
+      // The directory the Leg Moves join first; the plan's `moves/` is checked for a clash too.
+      const lib = record.library;
+      const dirs = [
+        ...new Set([
+          lib && lib.withhold_own ? join(runDir, OWN_MOVES_DIR) : join(runDir, "moves"),
+          join(runDir, "moves"),
+        ]),
+      ];
+      // Every exit regenerates the index over the Leg Moves copied so far, a stop included.
+      const indexed = (r) => {
+        if (!moves.length) return r;
+        const c = runCommand(d, "leg-move index", ["python3", "-c", INDEX_PY, dirs[0]], env, log);
+        return c.exit === 0 ? r : { ...r, stopped: r.stopped || stopLine(c) };
+      };
+      for (const leg of legs) {
+        const claims = (leg.claims || []).map((c) => String(c.proposition || "").trim());
+        const text = claims.join(" ");
+        if (sentencesOf(text).length !== claims.length) {
+          return {
+            stopped: `Leg ${leg.leg_id}: its ${claims.length} Claim(s) do not cut into ${claims.length} sentence(s) — each Claim's proposition must be one sentence`,
+            runs,
+          };
+        }
+        const file = join(d, `${leg.leg_id}.md`);
+        writeFileSync(file, `${text}\n`);
+        const dir = join(d, leg.leg_id);
+        const n = runNested(dir, file, {
+          slug: `${leg.leg_id}${LEG_MOVE_SLUG_SUFFIX}`,
+          audience: record.audience,
+          realPath,
+        });
+        runs.push({ leg_id: leg.leg_id, file, run: dir, state: n.stopped ? "stopped" : "done" });
+        const stop = n.stopped ? `Leg ${leg.leg_id}: ${n.stopped}` : joinLegMove(join(dir, "moves"), dirs, moves);
+        if (stop) return indexed({ stopped: n.stopped ? stop : `Leg ${leg.leg_id}: ${stop}`, runs, moves });
       }
-      const file = join(d, `${leg.leg_id}.md`);
-      writeFileSync(file, `${text}\n`);
-      const dir = join(d, leg.leg_id);
-      const n = runNested(dir, file, { slug: `${leg.leg_id}${LEG_MOVE_SLUG_SUFFIX}`, audience: record.audience, realPath });
-      runs.push({ leg_id: leg.leg_id, file, run: dir, state: n.stopped ? "stopped" : "done" });
-      const stop = n.stopped ? `Leg ${leg.leg_id}: ${n.stopped}` : joinLegMove(join(dir, "moves"), dirs, moves);
-      if (stop) return indexed({ stopped: n.stopped ? stop : `Leg ${leg.leg_id}: ${stop}`, runs, moves });
-    }
-    return indexed({ runs, moves });
-  });
+      return indexed({ runs, moves });
+    });
 
   record.finished_at = new Date().toISOString();
   save();
@@ -440,13 +564,18 @@ mi.write_index(sys.argv[1])
 // is this stage's own earlier copy (a resumed stage re-enters a kept nested run); any other file
 // holding the id, in any of `dirs`, is the clash, returned as the stop line.
 function joinLegMove(nestedMoves, dirs, moves) {
-  const names = existsSync(nestedMoves) ? readdirSync(nestedMoves).filter((f) => f.endsWith(MOVE_RECORD_EXT)).sort() : [];
+  const names = existsSync(nestedMoves)
+    ? readdirSync(nestedMoves)
+        .filter((f) => f.endsWith(MOVE_RECORD_EXT))
+        .sort()
+    : [];
   for (const f of names) {
     const src = join(nestedMoves, f);
     const own = join(dirs[0], f);
     const copied = existsSync(own) && readFileSync(own).equals(readFileSync(src));
     const held = copied ? null : dirs.map((x) => join(x, f)).find((p) => existsSync(p));
-    if (held) return `its Move ${relFromRepo(src, REPO)} has the id of ${relFromRepo(held, REPO)}, already in the run's Moves — an id held by both is refused`;
+    if (held)
+      return `its Move ${relFromRepo(src, REPO)} has the id of ${relFromRepo(held, REPO)}, already in the run's Moves — an id held by both is refused`;
     if (!copied) copyFileSync(src, own);
     moves.push(f);
   }
@@ -462,13 +591,29 @@ function runNested(dir, legFile, { slug, audience, realPath }) {
   if (prior && prior.finished_at && !prior.stopped) return prior;
   mkdirSync(dir, { recursive: true });
   installRecorder(dir);
-  const record = prior ? { ...prior, stages: [], model_command: realPath } : { leg: resolve(legFile), passage: slug, paragraphs: 1,
-    legs: writeLegs(dir, readLegs([legFile])), audience, language: recordedLanguage(audience), model_command: realPath,
-    library: null, started_at: new Date().toISOString(), stages: [] };
+  const record = prior
+    ? { ...prior, stages: [], model_command: realPath }
+    : {
+        leg: resolve(legFile),
+        passage: slug,
+        paragraphs: 1,
+        legs: writeLegs(dir, readLegs([legFile])),
+        audience,
+        language: recordedLanguage(audience),
+        model_command: realPath,
+        library: null,
+        started_at: new Date().toISOString(),
+        stages: [],
+      };
   delete record.stopped;
   delete record.finished_at;
-  runStages(dir, record, { slug, realPath, audienceArgs: ["--audience", audience],
-    priorStages: prior ? new Map(prior.stages.map((s) => [s.stage, s])) : null, nested: true });
+  runStages(dir, record, {
+    slug,
+    realPath,
+    audienceArgs: ["--audience", audience],
+    priorStages: prior ? new Map(prior.stages.map((s) => [s.stage, s])) : null,
+    nested: true,
+  });
   return record;
 }
 
@@ -478,18 +623,32 @@ function runNested(dir, legFile, { slug, audience, realPath }) {
 export function readLibrary(dir) {
   const abs = resolve(REPO, dir);
   let names;
-  try { names = readdirSync(abs); } catch (e) { return { error: `the library at ${dir} cannot be read (${e.message})` }; }
+  try {
+    names = readdirSync(abs);
+  } catch (e) {
+    return { error: `the library at ${dir} cannot be read (${e.message})` };
+  }
   const isRecord = (f) => f.endsWith(MOVE_RECORD_EXT) && statSync(join(abs, f)).isFile();
-  const ids = names.filter(isRecord).map((f) => f.slice(0, -MOVE_RECORD_EXT.length)).sort();
+  const ids = names
+    .filter(isRecord)
+    .map((f) => f.slice(0, -MOVE_RECORD_EXT.length))
+    .sort();
   if (!ids.length) return { error: `the library at ${dir} holds no Move record (*${MOVE_RECORD_EXT})` };
-  const lines = ids.map((id) => `${id}${MOVE_RECORD_EXT} ${createHash("sha256").update(readFileSync(join(abs, `${id}${MOVE_RECORD_EXT}`))).digest("hex")}`);
+  const lines = ids.map(
+    (id) =>
+      `${id}${MOVE_RECORD_EXT} ${createHash("sha256")
+        .update(readFileSync(join(abs, `${id}${MOVE_RECORD_EXT}`)))
+        .digest("hex")}`,
+  );
   return { abs, ids, sha256: createHash("sha256").update(lines.join("\n")).digest("hex") };
 }
 
 // The refusal for a Move id held by both the library and the run's own Moves, or null.
 function libraryClash(libraryIds, ownIds) {
   const both = ownIds.filter((id) => libraryIds.includes(id));
-  return both.length ? `the library and this run's own Moves both hold ${both.join(", ")} — an id held by both is refused` : null;
+  return both.length
+    ? `the library and this run's own Moves both hold ${both.join(", ")} — an id held by both is refused`
+    : null;
 }
 
 // The run record's `library` for `--library <dir>` and `--withhold-own`, or null with neither;
@@ -511,7 +670,10 @@ export function dirSha256(dir, keep = () => true) {
     for (const f of readdirSync(d).sort()) {
       const p = join(d, f);
       if (statSync(p).isDirectory()) walk(p);
-      else if (keep(f)) lines.push(`${relative(dir, p).split(sep).join("/")} ${createHash("sha256").update(readFileSync(p)).digest("hex")}`);
+      else if (keep(f))
+        lines.push(
+          `${relative(dir, p).split(sep).join("/")} ${createHash("sha256").update(readFileSync(p)).digest("hex")}`,
+        );
     }
   };
   walk(dir);
@@ -527,15 +689,27 @@ export function extractionEdits(extractDir, extractions, extractorRun) {
   extractions.forEach((name, i) => {
     let rec = null;
     let answer = null;
-    try { rec = parseYaml(readFileSync(join(extractDir, name), "utf8"), name); } catch { rec = null; }
-    try { answer = JSON.parse(readFileSync(join(extractorRun, `p${i + 1}`, "answer.json"), "utf8")); } catch { answer = null; }
+    try {
+      rec = parseYaml(readFileSync(join(extractDir, name), "utf8"), name);
+    } catch {
+      rec = null;
+    }
+    try {
+      answer = JSON.parse(readFileSync(join(extractorRun, `p${i + 1}`, "answer.json"), "utf8"));
+    } catch {
+      answer = null;
+    }
     if (!rec || !answer) return;
     const mine = Array.isArray(rec.segments) ? rec.segments : [];
     const raw = Array.isArray(answer.segments) ? answer.segments : [];
     for (let j = 0; j < Math.max(mine.length, raw.length); j++) {
-      if (!mine[j] || !raw[j]) { edits.push({ paragraph: i + 1, segment: j + 1, field: "segment" }); continue; }
+      if (!mine[j] || !raw[j]) {
+        edits.push({ paragraph: i + 1, segment: j + 1, field: "segment" });
+        continue;
+      }
       for (const field of Object.keys(raw[j])) {
-        if (String(mine[j][field] ?? "") !== String(raw[j][field] ?? "")) edits.push({ paragraph: i + 1, segment: j + 1, field });
+        if (String(mine[j][field] ?? "") !== String(raw[j][field] ?? ""))
+          edits.push({ paragraph: i + 1, segment: j + 1, field });
       }
     }
   });
@@ -551,15 +725,21 @@ function copyStages(source, runDir, from, { legs = null, paragraphs = null } = {
   const prior = JSON.parse(readFileSync(join(source, RUN_FILE), "utf8"));
   const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
   const relSource = relFromRepo(source, REPO);
-  const moved = (v) => (typeof v === "string" && (v === source || v.startsWith(source + sep)) ? runDir + v.slice(source.length) : v);
+  const moved = (v) =>
+    typeof v === "string" && (v === source || v.startsWith(source + sep)) ? runDir + v.slice(source.length) : v;
   const kept = new Map();
   const copied = [];
   for (const name of REUSE_FROM[from]) {
     const prev = priorStages.get(name);
-    if (!prev || prev.state !== "done") fail(`the run at ${source} records its ${name} stage ${prev ? prev.state : "absent"} — only a done stage is copied. Nothing was started.`);
+    if (!prev || prev.state !== "done")
+      fail(
+        `the run at ${source} records its ${name} stage ${prev ? prev.state : "absent"} — only a done stage is copied. Nothing was started.`,
+      );
     const exclude = REUSE_EXCLUDE[name] || [];
-    cpSync(join(source, name), join(runDir, name), { recursive: true,
-      filter: (p) => !exclude.includes(relative(join(source, name), p).split(sep).join("/")) });
+    cpSync(join(source, name), join(runDir, name), {
+      recursive: true,
+      filter: (p) => !exclude.includes(relative(join(source, name), p).split(sep).join("/")),
+    });
     const rec = Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, moved(v)]));
     if (name === "extract" && paragraphs !== null) keepLeadingExtractions(join(runDir, name), rec, legs, paragraphs);
     kept.set(name, { ...rec, copied_from: relSource });
@@ -578,12 +758,16 @@ function keepLeadingExtractions(dir, rec, legs, paragraphs) {
   const run = rec.extractor_run;
   const idx = JSON.parse(readFileSync(join(run, "extractions.json"), "utf8"));
   for (const f of rec.extractions.slice(paragraphs)) rmSync(join(dir, f), { force: true });
-  for (let i = paragraphs; i < rec.extractions.length; i++) rmSync(join(run, `p${i + 1}`), { recursive: true, force: true });
+  for (let i = paragraphs; i < rec.extractions.length; i++)
+    rmSync(join(run, `p${i + 1}`), { recursive: true, force: true });
   rec.extractions = rec.extractions.slice(0, paragraphs);
   const kept = idx.legs.slice(0, legs.length);
-  writeJson(join(run, "extractions.json"), kept.length === 1
-    ? { leg: kept[0].leg, passage: kept[0].passage, written: rec.extractions }
-    : { legs: kept, written: rec.extractions });
+  writeJson(
+    join(run, "extractions.json"),
+    kept.length === 1
+      ? { leg: kept[0].leg, passage: kept[0].passage, written: rec.extractions }
+      : { legs: kept, written: rec.extractions },
+  );
 }
 
 // A LEG FILE'S SLUG: its name without the extension or a `.passage` suffix.
@@ -594,13 +778,18 @@ const legSlug = (legPath) => basename(legPath, extname(legPath)).replace(/\.pass
 function readLegs(legPaths) {
   const legs = legPaths.map((legPath) => {
     let text;
-    try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
+    try {
+      text = readFileSync(legPath, "utf8");
+    } catch (e) {
+      fail(`the Leg at ${legPath} cannot be read (${e.message})`);
+    }
     const paragraphs = legParagraphs(text);
     if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to run`);
     return { path: legPath, text, paragraphs, slug: legSlug(legPath) };
   });
   const seen = legs.map((l) => l.slug).find((x, i, all) => all.indexOf(x) !== i);
-  if (seen) fail(`two Leg files are named ${seen} — each Leg is kept in the run under its own name. Nothing was started.`);
+  if (seen)
+    fail(`two Leg files are named ${seen} — each Leg is kept in the run under its own name. Nothing was started.`);
   return legs;
 }
 
@@ -616,12 +805,29 @@ function writeLegs(runDir, legs) {
 }
 
 // RUN ONE LEG, or several in order (`legPath` a list). Returns `{ runDir, stopped?, sheet }`.
-export function runLeg(legPath, { out, passage = null, audience = null, provenance, resume = null, terms = null, reuse = null, from = null,
-  legCount = null, library = null, withholdOwn = false }) {
+export function runLeg(
+  legPath,
+  {
+    out,
+    passage = null,
+    audience = null,
+    provenance,
+    resume = null,
+    terms = null,
+    reuse = null,
+    from = null,
+    legCount = null,
+    library = null,
+    withholdOwn = false,
+  },
+) {
   if (resume) return resumeLeg(resume, { provenance });
   if (reuse) return reuseLeg(reuse, { from, out, audience, provenance, terms, legCount, library, withholdOwn });
   const legs = readLegs([].concat(legPath));
-  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
+  if (!provenance || !existsSync(provenance))
+    fail(
+      `the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`,
+    );
   if (terms) fail(TERMS_RETIRED);
   const lib = libraryRecord(library, withholdOwn);
   const slug = passage || (legs.length === 1 ? legs[0].slug : `${legs[0].slug}-to-${legs.at(-1).slug}`);
@@ -631,10 +837,18 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
   const legsRecord = writeLegs(runDir, legs);
   installRecorder(runDir);
   const audiencePath = resolvedAudience(audience);
-  const record = { leg: legs.length === 1 ? resolve(legs[0].path) : null, passage: slug,
-    paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0), legs: legsRecord, audience: audiencePath,
-    language: recordedLanguage(audiencePath), model_command: realPath,
-    library: lib, started_at: new Date().toISOString(), stages: [] };
+  const record = {
+    leg: legs.length === 1 ? resolve(legs[0].path) : null,
+    passage: slug,
+    paragraphs: legsRecord.reduce((a, l) => a + l.paragraphs, 0),
+    legs: legsRecord,
+    audience: audiencePath,
+    language: recordedLanguage(audiencePath),
+    model_command: realPath,
+    library: lib,
+    started_at: new Date().toISOString(),
+    stages: [],
+  };
   runStages(runDir, record, { slug, realPath, audienceArgs: ["--audience", audiencePath], priorStages: null });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
@@ -648,23 +862,43 @@ export function runLeg(legPath, { out, passage = null, audience = null, provenan
 // With a library, a clash with the source's own Move ids is refused before anything is started.
 // `legCount`, the `--legs` flag, keeps the source's first `legCount` Legs (kogaki#1546).
 // Returns `{ runDir, stopped?, sheet }`.
-export function reuseLeg(source, { from, out, audience = null, provenance, terms = null, legCount = null, library = null, withholdOwn = false }) {
+export function reuseLeg(
+  source,
+  { from, out, audience = null, provenance, terms = null, legCount = null, library = null, withholdOwn = false },
+) {
   source = resolve(source);
-  if (!Object.hasOwn(REUSE_FROM, from)) fail(`--from takes one of ${Object.keys(REUSE_FROM).join(", ")}, not ${from}. Nothing was started.`);
-  if (!existsSync(join(source, RUN_FILE))) fail(`${source} carries no ${RUN_FILE} — there is no earlier run to reuse. Nothing was started.`);
+  if (!Object.hasOwn(REUSE_FROM, from))
+    fail(`--from takes one of ${Object.keys(REUSE_FROM).join(", ")}, not ${from}. Nothing was started.`);
+  if (!existsSync(join(source, RUN_FILE)))
+    fail(`${source} carries no ${RUN_FILE} — there is no earlier run to reuse. Nothing was started.`);
   const sourceLegs = recordedLegs(JSON.parse(readFileSync(join(source, RUN_FILE), "utf8")));
   const k = legCount === null ? null : Number(legCount);
-  if (k !== null && from !== "brief") fail(`--legs is valid only with --from brief: the Brief --from ${from} copies was composed over every Leg of the earlier run. Nothing was started.`);
+  if (k !== null && from !== "brief")
+    fail(
+      `--legs is valid only with --from brief: the Brief --from ${from} copies was composed over every Leg of the earlier run. Nothing was started.`,
+    );
   if (k !== null && !(Number.isInteger(k) && k >= 1 && k <= sourceLegs.length)) {
-    fail(`--legs takes a count of leading Legs from 1 to ${sourceLegs.length}, the Legs the run at ${source} records, not ${legCount}. Nothing was started.`);
+    fail(
+      `--legs takes a count of leading Legs from 1 to ${sourceLegs.length}, the Legs the run at ${source} records, not ${legCount}. Nothing was started.`,
+    );
   }
-  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`);
+  if (!provenance || !existsSync(provenance))
+    fail(
+      `the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was started.`,
+    );
   if (terms) fail(TERMS_RETIRED);
-  if (from === "paragraph-plan" && audience) fail(`--from paragraph-plan copies the earlier run's Brief, so it takes the Audience that Brief was composed under — drop --audience. Nothing was started.`);
+  if (from === "paragraph-plan" && audience)
+    fail(
+      `--from paragraph-plan copies the earlier run's Brief, so it takes the Audience that Brief was composed under — drop --audience. Nothing was started.`,
+    );
   const lib = libraryRecord(library, withholdOwn);
   if (lib) {
-    const ing = (JSON.parse(readFileSync(join(source, RUN_FILE), "utf8")).stages || []).find((st) => st.stage === "ingest") || {};
-    const clash = libraryClash(readLibrary(lib.dir).ids, (ing.moves || []).map((f) => basename(f, MOVE_RECORD_EXT)));
+    const ing =
+      (JSON.parse(readFileSync(join(source, RUN_FILE), "utf8")).stages || []).find((st) => st.stage === "ingest") || {};
+    const clash = libraryClash(
+      readLibrary(lib.dir).ids,
+      (ing.moves || []).map((f) => basename(f, MOVE_RECORD_EXT)),
+    );
     if (clash) fail(`${clash}. Nothing was started.`);
   }
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
@@ -681,16 +915,34 @@ export function reuseLeg(source, { from, out, audience = null, provenance, terms
   const audiencePath = audience ? resolvedAudience(audience) : prior.audience;
   const subset = legsRecord.length < sourceLegs.length;
   const slugs = legsRecord.map((l) => legSlug(l.copy));
-  const record = { leg: subset ? (legsRecord.length === 1 ? legsRecord[0].file : null) : prior.leg,
-    passage: subset ? (slugs.length === 1 ? slugs[0] : `${slugs[0]}-to-${slugs.at(-1)}`) : prior.passage, paragraphs, legs: legsRecord, audience: audiencePath,
-    language: recordedLanguage(audiencePath), model_command: realPath,
-    library: lib, reuse, started_at: new Date().toISOString(), stages: [] };
-  runStages(runDir, record, { slug: record.passage, realPath, audienceArgs: ["--audience", audiencePath], priorStages: kept });
+  const record = {
+    leg: subset ? (legsRecord.length === 1 ? legsRecord[0].file : null) : prior.leg,
+    passage: subset ? (slugs.length === 1 ? slugs[0] : `${slugs[0]}-to-${slugs.at(-1)}`) : prior.passage,
+    paragraphs,
+    legs: legsRecord,
+    audience: audiencePath,
+    language: recordedLanguage(audiencePath),
+    model_command: realPath,
+    library: lib,
+    reuse,
+    started_at: new Date().toISOString(),
+    stages: [],
+  };
+  runStages(runDir, record, {
+    slug: record.passage,
+    realPath,
+    audienceArgs: ["--audience", audiencePath],
+    priorStages: kept,
+  });
   // The paragraph Moves alone: a Leg Move each run's leg-move stage copied in is left out (kogaki#1601).
-  const paragraphMoves = (r) => { const lm = new Set(((r.stages || []).find((st) => st.stage === LEG_MOVE_DIR) || {}).moves || []);
-    return (f) => f.endsWith(MOVE_RECORD_EXT) && !lm.has(f); };
-  record.reuse.moves = { source_sha256: existsSync(join(source, "moves")) ? dirSha256(join(source, "moves"), paragraphMoves(prior)) : null,
-    sha256: existsSync(join(runDir, "moves")) ? dirSha256(join(runDir, "moves"), paragraphMoves(record)) : null };
+  const paragraphMoves = (r) => {
+    const lm = new Set(((r.stages || []).find((st) => st.stage === LEG_MOVE_DIR) || {}).moves || []);
+    return (f) => f.endsWith(MOVE_RECORD_EXT) && !lm.has(f);
+  };
+  record.reuse.moves = {
+    source_sha256: existsSync(join(source, "moves")) ? dirSha256(join(source, "moves"), paragraphMoves(prior)) : null,
+    sha256: existsSync(join(runDir, "moves")) ? dirSha256(join(runDir, "moves"), paragraphMoves(record)) : null,
+  };
   writeJson(join(runDir, RUN_FILE), record);
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
@@ -701,7 +953,9 @@ export function reuseLeg(source, { from, out, audience = null, provenance, terms
 // A RUN RECORD'S LEGS: its own `legs`, or for a record written before the list (kogaki#1532),
 // its one Leg in `leg.md`.
 function recordedLegs(record) {
-  return Array.isArray(record.legs) ? record.legs : [{ file: record.leg, copy: "leg.md", paragraphs: record.paragraphs }];
+  return Array.isArray(record.legs)
+    ? record.legs
+    : [{ file: record.leg, copy: "leg.md", paragraphs: record.paragraphs }];
 }
 
 // RESUME ONE LEG RUN, re-entering at the first stage its own `run.json` does not record
@@ -710,7 +964,10 @@ export function resumeLeg(runDir, { provenance }) {
   runDir = resolve(runDir);
   const runFile = join(runDir, RUN_FILE);
   if (!existsSync(runFile)) fail(`${runDir} carries no ${RUN_FILE} — there is nothing to resume`);
-  if (!provenance || !existsSync(provenance)) fail(`the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was resumed.`);
+  if (!provenance || !existsSync(provenance))
+    fail(
+      `the provenance map at ${provenance} cannot be read — the sheet labels every cell from it. Nothing was resumed.`,
+    );
   const prior = JSON.parse(readFileSync(runFile, "utf8"));
   const priorStages = new Map((prior.stages || []).map((s) => [s.stage, s]));
   const record = { ...prior, legs: recordedLegs(prior), stages: [] };
@@ -722,8 +979,12 @@ export function resumeLeg(runDir, { provenance }) {
   // fixed in the environment since. `record.model_command` is overwritten with the newly
   // resolved path, so the record keeps naming the binary the resumed run actually used.
   record.model_command = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
-  runStages(runDir, record, { slug: record.passage, realPath: record.model_command,
-    audienceArgs: ["--audience", record.audience], priorStages });
+  runStages(runDir, record, {
+    slug: record.passage,
+    realPath: record.model_command,
+    audienceArgs: ["--audience", record.audience],
+    priorStages,
+  });
   const sheet = join(runDir, "sheet.html");
   const built = buildSheet({ runs: [runDir], provenance, out: sheet });
   if (built.error) fail(`the sheet was not written: ${built.error}`);
@@ -738,8 +999,13 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else if (key === "leg") { args.leg = [...(args.leg || []), next]; i++; }
-      else { args[key] = next; i++; }
+      else if (key === "leg") {
+        args.leg = [...(args.leg || []), next];
+        i++;
+      } else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -750,23 +1016,49 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   const legs = Array.isArray(args.leg) ? args.leg : [];
   if (args.terms !== undefined) fail(TERMS_RETIRED);
-  const usage = "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> "
-    + "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] "
-    + "[--library <a directory of Move records> [--withhold-own]] "
-    + "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map> "
-    + `| node src/proof-sheet/leg-run.mjs run --reuse <earlier Leg run directory> --from <${Object.keys(REUSE_FROM).join("|")}> --out <dir> --provenance <the provenance map> [--legs <k>] [--audience <file>] [--library <dir> [--withhold-own]]`;
-  const shapeOk = str("resume") ? !(args.leg !== undefined || str("out") || str("reuse") || args.library || args["withhold-own"])
-    : str("reuse") ? !!(str("from") && str("out") && args.leg === undefined && !str("passage") && args.legs !== true)
+  const usage =
+    "usage: node src/proof-sheet/leg-run.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> " +
+    "--provenance <the provenance map> [--passage <slug>] [--audience <audiences/<name>.md>] " +
+    "[--library <a directory of Move records> [--withhold-own]] " +
+    "| node src/proof-sheet/leg-run.mjs run --resume <Leg run directory> --provenance <the provenance map> " +
+    `| node src/proof-sheet/leg-run.mjs run --reuse <earlier Leg run directory> --from <${Object.keys(REUSE_FROM).join("|")}> --out <dir> --provenance <the provenance map> [--legs <k>] [--audience <file>] [--library <dir> [--withhold-own]]`;
+  const shapeOk = str("resume")
+    ? !(args.leg !== undefined || str("out") || str("reuse") || args.library || args["withhold-own"])
+    : str("reuse")
+      ? !!(str("from") && str("out") && args.leg === undefined && !str("passage") && args.legs !== true)
       : !!(legs.length && str("out") && !str("from"));
-  if (args._cmd !== "run" || !str("provenance") || !shapeOk || (args.legs !== undefined && !str("reuse")) || args.library === true || ![undefined, true].includes(args["withhold-own"])) fail(usage);
+  if (
+    args._cmd !== "run" ||
+    !str("provenance") ||
+    !shapeOk ||
+    (args.legs !== undefined && !str("reuse")) ||
+    args.library === true ||
+    ![undefined, true].includes(args["withhold-own"])
+  )
+    fail(usage);
   const libraryArgs = { library: str("library"), withholdOwn: args["withhold-own"] === true };
   const r = str("resume")
     ? resumeLeg(str("resume"), { provenance: str("provenance") })
     : str("reuse")
-      ? reuseLeg(str("reuse"), { from: str("from"), out: str("out"), audience: str("audience"), provenance: str("provenance"), legCount: str("legs"), ...libraryArgs })
-      : runLeg(legs.length === 1 ? legs[0] : legs, { out: str("out"), passage: str("passage"), audience: str("audience"), provenance: str("provenance"),
-      ...libraryArgs });
+      ? reuseLeg(str("reuse"), {
+          from: str("from"),
+          out: str("out"),
+          audience: str("audience"),
+          provenance: str("provenance"),
+          legCount: str("legs"),
+          ...libraryArgs,
+        })
+      : runLeg(legs.length === 1 ? legs[0] : legs, {
+          out: str("out"),
+          passage: str("passage"),
+          audience: str("audience"),
+          provenance: str("provenance"),
+          ...libraryArgs,
+        });
   console.log(`run directory: ${r.runDir}`);
   console.log(`sheet written: ${r.sheet}`);
-  if (r.stopped) { console.log(`the run stopped at ${r.stopped}`); process.exitCode = 1; }
+  if (r.stopped) {
+    console.log(`the run stopped at ${r.stopped}`);
+    process.exitCode = 1;
+  }
 }

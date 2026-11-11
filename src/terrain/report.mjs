@@ -27,29 +27,35 @@ export function readClaimsRecord(raw, record) {
     fail("--claims must be an object (SPEC.md, the open-questions section, v10)");
   }
   if (!("composition_pin" in raw) || !("claims" in raw)) {
-    fail("--claims is a bare {group: claim} map, which is the withdrawn pre-v10 form. "
-      + "A claim composed outside the bounded read is what this refuses, and a bare map "
-      + "carries no evidence of where it was composed from. Write "
-      + '{"composition_pin": {...}, "claims": {...}} — `compose-input` emits the pin '
-      + "(SPEC.md, the open-questions section, v10)");
+    fail(
+      "--claims is a bare {group: claim} map, which is the withdrawn pre-v10 form. " +
+        "A claim composed outside the bounded read is what this refuses, and a bare map " +
+        "carries no evidence of where it was composed from. Write " +
+        '{"composition_pin": {...}, "claims": {...}} — `compose-input` emits the pin ' +
+        "(SPEC.md, the open-questions section, v10)",
+    );
   }
   const pin = raw.composition_pin;
   if (!pin || typeof pin !== "object" || Array.isArray(pin)) {
     fail("--claims carries no usable `composition_pin` object (SPEC.md, the open-questions section, v10)");
   }
   if (!pin.groups || typeof pin.groups !== "object" || Array.isArray(pin.groups)) {
-    fail("--claims `composition_pin` carries no `groups` map. It must hold the MEMBER "
-      + "SET compose-input served, per group — a digest cannot support a subset check "
-      + "and can name no offender (SPEC.md, the open-questions section, v10)");
+    fail(
+      "--claims `composition_pin` carries no `groups` map. It must hold the MEMBER " +
+        "SET compose-input served, per group — a digest cannot support a subset check " +
+        "and can name no offender (SPEC.md, the open-questions section, v10)",
+    );
   }
   // AC4 — THE PIN BINDS THE SURVEY RECORD IT WAS COMPUTED AGAINST. A stale pin
   // must not become a confident wrong acceptance: re-resolving it silently
   // against a different record is the shape where the guard passes and the
   // claim it admitted was composed from material this survey never served.
   if (record && pin.pin && record.pin && pin.pin !== record.pin) {
-    fail(`--claims was composed against survey pin ${pin.pin}, and this run's survey is `
-      + `${record.pin}. The bounded read it evidences is not this one — re-run `
-      + "compose-input against this survey and recompose (SPEC.md, the open-questions section, v10)");
+    fail(
+      `--claims was composed against survey pin ${pin.pin}, and this run's survey is ` +
+        `${record.pin}. The bounded read it evidences is not this one — re-run ` +
+        "compose-input against this survey and recompose (SPEC.md, the open-questions section, v10)",
+    );
   }
   const claims = raw.claims;
   if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
@@ -96,26 +102,34 @@ export function claimsOutsideBound(claims, pin, groups) {
 }
 
 export function readSubdivisionEntry(name, entry) {
-  if (entry === undefined || entry === null) return null;   // absent: not judged
+  if (entry === undefined || entry === null) return null; // absent: not judged
   if (Array.isArray(entry)) {
-    fail(`--subdivisions entry for ${JSON.stringify(name)} is a bare array, which is the `
-      + `withdrawn pre-v9 form. Judged-empty and never-judged are different states and a `
-      + `bare array cannot say which: write {"judged": true, "subgroups": [...]}, or omit `
-      + `the key if the group was not judged (SPEC.md, the report identity v9)`);
+    fail(
+      `--subdivisions entry for ${JSON.stringify(name)} is a bare array, which is the ` +
+        `withdrawn pre-v9 form. Judged-empty and never-judged are different states and a ` +
+        `bare array cannot say which: write {"judged": true, "subgroups": [...]}, or omit ` +
+        `the key if the group was not judged (SPEC.md, the report identity v9)`,
+    );
   }
   if (typeof entry !== "object") {
-    fail(`--subdivisions entry for ${JSON.stringify(name)} must be an object `
-      + `{"judged": true, "subgroups": [...]} (SPEC.md, the report identity v9)`);
+    fail(
+      `--subdivisions entry for ${JSON.stringify(name)} must be an object ` +
+        `{"judged": true, "subgroups": [...]} (SPEC.md, the report identity v9)`,
+    );
   }
   if (entry.judged !== true) {
-    fail(`--subdivisions entry for ${JSON.stringify(name)} does not declare "judged": true. `
-      + `The judgment is what the entry attests; an entry that does not state it is `
-      + `indistinguishable from a run that never asked (SPEC.md, the report identity v9, the SubGroup threshold)`);
+    fail(
+      `--subdivisions entry for ${JSON.stringify(name)} does not declare "judged": true. ` +
+        `The judgment is what the entry attests; an entry that does not state it is ` +
+        `indistinguishable from a run that never asked (SPEC.md, the report identity v9, the SubGroup threshold)`,
+    );
   }
   if (!Array.isArray(entry.subgroups)) {
-    fail(`--subdivisions entry for ${JSON.stringify(name)} needs a "subgroups" array — `
-      + `[] states JUDGED AND EMPTY, which is conformant and is not the same as absent `
-      + `(SPEC.md, the report identity v9)`);
+    fail(
+      `--subdivisions entry for ${JSON.stringify(name)} needs a "subgroups" array — ` +
+        `[] states JUDGED AND EMPTY, which is conformant and is not the same as absent ` +
+        `(SPEC.md, the report identity v9)`,
+    );
   }
   return { judged: true, subgroups: entry.subgroups };
 }
@@ -152,7 +166,10 @@ export function judgmentProvenance(subdivisionsPath) {
     // Taken from the bytes on disk BY THIS LAYER. A sha the composer supplied
     // would be one more declaration, which is the whole of what this removes.
     artifact_sha: subdivisionsPath
-      ? createHash("sha256").update(readFileSync(String(subdivisionsPath))).digest("hex").slice(0, 16)
+      ? createHash("sha256")
+          .update(readFileSync(String(subdivisionsPath)))
+          .digest("hex")
+          .slice(0, 16)
       : null,
     invocation,
   };
@@ -176,9 +193,7 @@ function invocationRef(invocation) {
 // consequence, so no renderer has to test for `undefined`.
 export function provenanceOf(carrier) {
   const p = carrier && carrier.judgment_provenance;
-  return p && p.state
-    ? p
-    : { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
+  return p && p.state ? p : { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
 }
 
 // THE DISPLAY'S WRAP COLUMN, and it is TAKEN from the report notice rather
@@ -197,12 +212,20 @@ const DISPLAY_WRAP_COLUMNS = 77;
 // A `head` is emitted WHOLE on the first line (PR #921): the grammar classifies a wrapped
 // line by its first line, so no input length may push the head onto a continuation.
 function wrapDisplayLine(text, columns = DISPLAY_WRAP_COLUMNS, indent = "  ", head = null) {
-  const words = String(text).split(/\s+/).filter((w) => w !== "");
+  const words = String(text)
+    .split(/\s+/)
+    .filter((w) => w !== "");
   const out = [];
   let line = head === null ? "" : String(head);
   for (const w of words) {
-    if (line === "") { line = w; continue; }
-    if (`${line} ${w}`.length <= columns) { line = `${line} ${w}`; continue; }
+    if (line === "") {
+      line = w;
+      continue;
+    }
+    if (`${line} ${w}`.length <= columns) {
+      line = `${line} ${w}`;
+      continue;
+    }
     out.push(line);
     line = indent + w;
   }
@@ -223,17 +246,23 @@ export function judgePinLine(pin, prov) {
   // THE PIN CLAUSE IS THE HEAD on both arms (PR #921): each form abbreviates at exactly
   // the head's end, not one space later.
   if (p.state === JUDGMENT_OBSERVED) {
-    return wrapDisplayLine(`the Harness holds its own `
-      + `invocation record \`${invocationRef(p.invocation)}\`, taken over ${seen} (SPEC-terrain, the SubGroup threshold, the report identity)`,
-    DISPLAY_WRAP_COLUMNS, "  ",
-    `judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED:`).join("\n");
+    return wrapDisplayLine(
+      `the Harness holds its own ` +
+        `invocation record \`${invocationRef(p.invocation)}\`, taken over ${seen} (SPEC-terrain, the SubGroup threshold, the report identity)`,
+      DISPLAY_WRAP_COLUMNS,
+      "  ",
+      `judged by ${pin.model_id} / ${pin.effort_tier} — OBSERVED:`,
+    ).join("\n");
   }
-  return wrapDisplayLine(`The Harness invoked no judge and holds `
-    + `no invocation record, so this names what the composer says judged this split rather than something the `
-    + `Harness saw happen; what it did observe is ${seen} (SPEC-terrain, the SubGroup threshold, the report identity — a judged surface with no `
-    + `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`,
-  DISPLAY_WRAP_COLUMNS, "  ",
-  `judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}.`).join("\n");
+  return wrapDisplayLine(
+    `The Harness invoked no judge and holds ` +
+      `no invocation record, so this names what the composer says judged this split rather than something the ` +
+      `Harness saw happen; what it did observe is ${seen} (SPEC-terrain, the SubGroup threshold, the report identity — a judged surface with no ` +
+      `judge pin is the drift-undetectable shape; kogaki#892 — a declaration is not rendered as an observation)`,
+    DISPLAY_WRAP_COLUMNS,
+    "  ",
+    `judge pin DECLARED — ${pin.model_id} / ${pin.effort_tier}.`,
+  ).join("\n");
 }
 
 // THE REPORT'S JUDGE LINE, composed ONCE (kogaki#918; see also kogaki#892).
@@ -244,17 +273,19 @@ export function judgePinLine(pin, prov) {
 // record through this same function, so fix wording here, not at the rerun site.
 export function reportJudgeLine(identity, prov) {
   const p = prov || { state: JUDGMENT_DECLARED, artifact_sha: null, invocation: null };
-  const held = p.artifact_sha
-    ? `subdivisions record sha \`${p.artifact_sha}\``
-    : "no subdivisions record";
+  const held = p.artifact_sha ? `subdivisions record sha \`${p.artifact_sha}\`` : "no subdivisions record";
   if (identity.judge_pin === NO_JUDGE) {
-    return "*Judge:* `none` — this report names no judge, so there is nothing here to attribute "
-      + `to one; the record holds: ${held}`;
+    return (
+      "*Judge:* `none` — this report names no judge, so there is nothing here to attribute " +
+      `to one; the record holds: ${held}`
+    );
   }
   const pinText = `\`${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}\``;
-  return `*Judge:* ${pinText} — ${p.state === JUDGMENT_OBSERVED
-    ? `OBSERVED, Harness invocation record \`${invocationRef(p.invocation)}\`, over ${held}`
-    : `pin DECLARED, no Harness invocation record; the record holds: ${held}`}`;
+  return `*Judge:* ${pinText} — ${
+    p.state === JUDGMENT_OBSERVED
+      ? `OBSERVED, Harness invocation record \`${invocationRef(p.invocation)}\`, over ${held}`
+      : `pin DECLARED, no Harness invocation record; the record holds: ${held}`
+  }`;
 }
 
 // THE JUDGED-EMPTY NOTICE (kogaki#892 acceptance 2). Below the threshold a
@@ -264,16 +295,19 @@ export function reportJudgeLine(identity, prov) {
 // size test would be a second carrier for one threshold.
 export function judgedEmptyNoticeLines(prov) {
   if ((prov || {}).state === JUDGMENT_OBSERVED) {
-    return ["*The judgment produced NO split — this is a judged-empty outcome,",
-      "not an absent judgment. Members are listed below.*"];
+    return [
+      "*The judgment produced NO split — this is a judged-empty outcome,",
+      "not an absent judgment. Members are listed below.*",
+    ];
   }
-  return ["*NO SPLIT IS RECORDED for this group. The subdivisions record declares a",
+  return [
+    "*NO SPLIT IS RECORDED for this group. The subdivisions record declares a",
     "judgment that produced none; the Harness invoked no judge and holds no",
     "invocation record, so it cannot show that a judgment RAN and does not say",
     "one did (kogaki#892). This is still not an absent record: `[]` and an absent",
-    "key stay different states. Members are listed below.*"];
+    "key stay different states. Members are listed below.*",
+  ];
 }
-
 
 // The shard, parsed WHOLE. `parseGlossShard` above returns the first sentence
 // because a display row is a headline; the Full Report forbids truncation anywhere, so the
@@ -286,17 +320,29 @@ function parseGlossFull(resp) {
   let cite = null;
   const flush = () => {
     if (slug && body.length) out.set(slug, { body: body.join("\n").trim(), cite });
-    slug = null; body = []; cite = null;
+    slug = null;
+    body = [];
+    cite = null;
   };
   for (const line of resp.lines || []) {
     const t = line.text;
-    if (t.startsWith("## ")) { flush(); slug = t.slice(3).trim(); continue; }
+    if (t.startsWith("## ")) {
+      flush();
+      slug = t.slice(3).trim();
+      continue;
+    }
     if (!slug) continue;
     // `Source:` closes an entry; `---` separates them. Everything between the
     // heading and those is the entry's body, kept WHOLE — no sentence match,
     // no cap, no ellipsis, because the Full Report forbids truncation anywhere.
-    if (t.startsWith("Source:") || t.startsWith("---")) { flush(); continue; }
-    if (t.trim() === "") { if (body.length) body.push(""); continue; }
+    if (t.startsWith("Source:") || t.startsWith("---")) {
+      flush();
+      continue;
+    }
+    if (t.trim() === "") {
+      if (body.length) body.push("");
+      continue;
+    }
     if (!body.length) cite = line.cite;
     body.push(t);
   }

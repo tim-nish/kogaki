@@ -57,10 +57,22 @@ const HEADER = "flowchart LR";
 // were ever edited, and a figure pointing at the wrong element is exactly the
 // defect that has no visible signature.
 const SHAPES = {
-  axis:      { edges: [["endpoint_a", "criterion"], ["criterion", "endpoint_b"]], stadium: ["criterion"] },
-  chain:     { edges: [["stages", "bottlenecks"]], stadium: [] },
-  tree:      { edges: [["root", "branches"]], stadium: [] },
-  threshold: { edges: [["successes", "line"], ["line", "failures"]], stadium: ["line"] },
+  axis: {
+    edges: [
+      ["endpoint_a", "criterion"],
+      ["criterion", "endpoint_b"],
+    ],
+    stadium: ["criterion"],
+  },
+  chain: { edges: [["stages", "bottlenecks"]], stadium: [] },
+  tree: { edges: [["root", "branches"]], stadium: [] },
+  threshold: {
+    edges: [
+      ["successes", "line"],
+      ["line", "failures"],
+    ],
+    stadium: ["line"],
+  },
 };
 const TABLE_KINDS = new Set(["matrix"]);
 
@@ -70,12 +82,18 @@ const TABLE_KINDS = new Set(["matrix"]);
 // LAYOUT decision and this renderer makes none, so a record whose text spans
 // lines renders as the one line it means.
 function label(text) {
-  return String(text).replace(/"/g, "#quot;").replace(/\s*\n\s*/g, " ").trim();
+  return String(text)
+    .replace(/"/g, "#quot;")
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
 }
 
 // Markdown table-cell escaping: a literal pipe would end the cell.
 function cell(text) {
-  return String(text).replace(/\|/g, "\\|").replace(/\s*\n\s*/g, " ").trim();
+  return String(text)
+    .replace(/\|/g, "\\|")
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
 }
 
 // The node id for a role. Stable, derived from the role name, and never from
@@ -107,7 +125,10 @@ function edgeLabels(relations, edgeCount) {
   const surplus = relations.slice(edgeCount);
   if (surplus.length) {
     const last = edgeCount - 1;
-    out[last] = [out[last], ...surplus].filter((x) => x !== null && x !== undefined).map(String).join("; ");
+    out[last] = [out[last], ...surplus]
+      .filter((x) => x !== null && x !== undefined)
+      .map(String)
+      .join("; ");
   }
   return out;
 }
@@ -128,7 +149,8 @@ export function checkMermaid(src) {
   if (lines[0] !== HEADER) {
     return `the first line is ${JSON.stringify(lines[0] ?? null)} and a Mermaid block this renderer emits opens with ${JSON.stringify(HEADER)} — a diagram with no declared type is not a diagram`;
   }
-  if (lines.length < 2) return "the block declares a diagram type and carries no statement — an empty diagram is a fence, not a figure";
+  if (lines.length < 2)
+    return "the block declares a diagram type and carries no statement — an empty diagram is a fence, not a figure";
   for (let i = 1; i < lines.length; i++) {
     const raw = lines[i];
     if (raw.trim() === "") continue;
@@ -156,7 +178,10 @@ export function checkMermaid(src) {
     // never sees. The defect is the check reading text as syntax, so the check
     // is what changes.
     const outside = line.replace(/"[^"]*"/g, '""');
-    for (const [open, close] of [["[", "]"], ["(", ")"]]) {
+    for (const [open, close] of [
+      ["[", "]"],
+      ["(", ")"],
+    ]) {
       const o = (outside.match(new RegExp(`\\${open}`, "g")) || []).length;
       const c = (outside.match(new RegExp(`\\${close}`, "g")) || []).length;
       if (o !== c) {
@@ -186,10 +211,14 @@ export function renderFigure(record) {
   const kind = record && record.kind;
   const spec = kinds[kind];
   if (!spec) {
-    return { error: `the figure record's kind ${JSON.stringify(kind ?? null)} is not in the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind` };
+    return {
+      error: `the figure record's kind ${JSON.stringify(kind ?? null)} is not in the closed set (${Object.keys(kinds).sort().join(", ")}) — src/figure-kinds.json is what admits a kind`,
+    };
   }
   if (!SHAPES[kind] && !TABLE_KINDS.has(kind)) {
-    return { error: `the kind "${kind}" is in src/figure-kinds.json and has no seat in src/render-figure.mjs — a kind admitted to the closed set owes a rendering here, and an unrendered kind is refused by name rather than emitted as an empty block` };
+    return {
+      error: `the kind "${kind}" is in src/figure-kinds.json and has no seat in src/render-figure.mjs — a kind admitted to the closed set owes a rendering here, and an unrendered kind is refused by name rather than emitted as an empty block`,
+    };
   }
   const roles = spec.roles;
   const elements = record.elements || {};
@@ -220,16 +249,16 @@ function renderMermaid(kind, roles, elements, relations, emphasis) {
   for (const role of roles) {
     const el = elements[role];
     if (!el || typeof el.text !== "string") {
-      return { error: `the figure record carries no element for role "${role}" of kind ${kind} — every role of the kind must be present, so a record reaching the renderer without one was not validated` };
+      return {
+        error: `the figure record carries no element for role "${role}" of kind ${kind} — every role of the kind must be present, so a record reaching the renderer without one was not validated`,
+      };
     }
     lines.push(`  ${nodeDecl(role, el.text, { stadium: stadium.has(role), emphasised: role === emphasis })}`);
   }
   const labels = edgeLabels(relations, shape.edges.length);
   shape.edges.forEach(([a, b], i) => {
     const l = labels[i];
-    lines.push(l === null
-      ? `  ${nodeId(a)} --- ${nodeId(b)}`
-      : `  ${nodeId(a)} -- "${label(l)}" --- ${nodeId(b)}`);
+    lines.push(l === null ? `  ${nodeId(a)} --- ${nodeId(b)}` : `  ${nodeId(a)} -- "${label(l)}" --- ${nodeId(b)}`);
   });
   const src = lines.join("\n");
   // THE EMITTER CHECKS ITS OWN OUTPUT, at the render rather than only in the
@@ -237,7 +266,10 @@ function renderMermaid(kind, roles, elements, relations, emphasis) {
   // found by a reader looking at a broken block, which is the latest possible
   // moment and the one with no recovery.
   const bad = checkMermaid(src);
-  if (bad) return { error: `the renderer produced Mermaid this runtime's own grammar check rejects: ${bad} — this is a renderer defect, fixed here and not in the record` };
+  if (bad)
+    return {
+      error: `the renderer produced Mermaid this runtime's own grammar check rejects: ${bad} — this is a renderer defect, fixed here and not in the record`,
+    };
   return { markup: "```" + MERMAID_FENCE + "\n" + src + "\n```" };
 }
 
@@ -255,7 +287,9 @@ function renderTable(roles, elements, relations, emphasis) {
   for (const role of roles) {
     const el = elements[role];
     if (!el || typeof el.text !== "string") {
-      return { error: `the figure record carries no element for role "${role}" of kind matrix — every role of the kind must be present, so a record reaching the renderer without one was not validated` };
+      return {
+        error: `the figure record carries no element for role "${role}" of kind matrix — every role of the kind must be present, so a record reaching the renderer without one was not validated`,
+      };
     }
     heads.push(role === emphasis ? `**${cell(el.text)}**` : cell(el.text));
   }
@@ -265,10 +299,6 @@ function renderTable(roles, elements, relations, emphasis) {
   const pad = Math.max(0, roles.length - 2);
   const rows = relations.map((r, i) => `| ${[i + 1, cell(r), ...Array(pad).fill("")].join(" | ")} |`);
   return {
-    markup: [
-      `| ${heads.join(" | ")} |`,
-      `| ${roles.map(() => "---").join(" | ")} |`,
-      ...rows,
-    ].join("\n"),
+    markup: [`| ${heads.join(" | ")} |`, `| ${roles.map(() => "---").join(" | ")} |`, ...rows].join("\n"),
   };
 }

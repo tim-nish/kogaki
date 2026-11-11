@@ -30,8 +30,10 @@ const INDENT = 2;
 // ---------------------------------------------------------------------------
 // The writer.
 
-const RESERVED_PLAIN = /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|y|Y|yes|Yes|YES|n|N|no|No|NO|on|On|ON|off|Off|OFF)$/;
-const NUMBERISH = /^[-+]?(?:\.?[0-9][0-9_]*(?:\.[0-9_]*)?(?:[eE][-+]?[0-9]+)?|\.(?:inf|Inf|INF|nan|NaN|NAN)|0x[0-9a-fA-F]+|0o[0-7]+)$/;
+const RESERVED_PLAIN =
+  /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|y|Y|yes|Yes|YES|n|N|no|No|NO|on|On|ON|off|Off|OFF)$/;
+const NUMBERISH =
+  /^[-+]?(?:\.?[0-9][0-9_]*(?:\.[0-9_]*)?(?:[eE][-+]?[0-9]+)?|\.(?:inf|Inf|INF|nan|NaN|NAN)|0x[0-9a-fA-F]+|0o[0-7]+)$/;
 
 function plainSafe(s) {
   if (s === "" || s !== s.trim()) return false;
@@ -49,10 +51,10 @@ function flowSafe(s) {
 }
 
 function quote(s) {
-  let out = "\"";
+  let out = '"';
   for (const ch of s) {
     const c = ch.codePointAt(0);
-    if (ch === "\"") out += "\\\"";
+    if (ch === '"') out += '\\"';
     else if (ch === "\\") out += "\\\\";
     else if (ch === "\n") out += "\\n";
     else if (ch === "\t") out += "\\t";
@@ -60,7 +62,7 @@ function quote(s) {
     else if (c < 0x20 || c === 0x7f) out += `\\x${c.toString(16).padStart(2, "0")}`;
     else out += ch;
   }
-  return out + "\"";
+  return out + '"';
 }
 
 function scalarInline(v) {
@@ -83,7 +85,10 @@ function wrapAtSpaces(text, avail) {
   while (rest.length > avail) {
     let at = -1;
     for (let k = Math.min(avail, rest.length - 1); k > 0; k--) {
-      if (rest[k] === " " && rest[k - 1] !== " " && rest[k + 1] !== undefined && rest[k + 1] !== " ") { at = k; break; }
+      if (rest[k] === " " && rest[k - 1] !== " " && rest[k + 1] !== undefined && rest[k + 1] !== " ") {
+        at = k;
+        break;
+      }
     }
     if (at === -1) return null;
     lines.push(rest.slice(0, at));
@@ -120,8 +125,16 @@ function quotedLines(s, firstAvail, avail) {
   while (rest.length > width) {
     let at = -1;
     for (let k = Math.min(width, rest.length - 1); k > 0; k--) {
-      if (rest[k] === " " && rest[k - 1] !== " " && rest[k + 1] !== undefined && rest[k + 1] !== " "
-        && !escapedAt(rest, k)) { at = k; break; }
+      if (
+        rest[k] === " " &&
+        rest[k - 1] !== " " &&
+        rest[k + 1] !== undefined &&
+        rest[k + 1] !== " " &&
+        !escapedAt(rest, k)
+      ) {
+        at = k;
+        break;
+      }
     }
     if (at !== -1) {
       lines.push(rest.slice(0, at));
@@ -156,7 +169,10 @@ function escapedAt(s, k) {
 
 function emitString(s, prefix, indent, width, out) {
   const inline = scalarInline(s);
-  if (prefix.length + inline.length <= width) { out.push(prefix + inline); return; }
+  if (prefix.length + inline.length <= width) {
+    out.push(prefix + inline);
+    return;
+  }
   const pad = " ".repeat(indent);
   const folded = foldedLines(s, width - indent);
   if (folded) {
@@ -169,7 +185,9 @@ function emitString(s, prefix, indent, width, out) {
   for (const l of lines.slice(1)) out.push(pad + l);
 }
 
-function isMap(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
+function isMap(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
 
 function keyText(k) {
   return /^[A-Za-z_][A-Za-z0-9_-]*$/.test(k) && !RESERVED_PLAIN.test(k) ? k : quote(k);
@@ -187,10 +205,16 @@ function commentLines(text, indent, width) {
 
 function emitValue(v, prefix, indent, width, out) {
   if (Array.isArray(v)) {
-    if (v.length === 0) { out.push(`${prefix}[]`); return; }
+    if (v.length === 0) {
+      out.push(`${prefix}[]`);
+      return;
+    }
     if (v.every(flowSafe)) {
       const flow = `${prefix}[${v.join(", ")}]`;
-      if (flow.length <= width) { out.push(flow); return; }
+      if (flow.length <= width) {
+        out.push(flow);
+        return;
+      }
     }
     out.push(prefix.trimEnd());
     emitSeq(v, indent, width, out);
@@ -198,12 +222,18 @@ function emitValue(v, prefix, indent, width, out) {
   }
   if (isMap(v)) {
     const keys = Object.keys(v).filter((k) => v[k] !== undefined);
-    if (keys.length === 0) { out.push(`${prefix}{}`); return; }
+    if (keys.length === 0) {
+      out.push(`${prefix}{}`);
+      return;
+    }
     out.push(prefix.trimEnd());
     emitMap(v, indent, width, out);
     return;
   }
-  if (typeof v === "string") { emitString(v, prefix, indent, width, out); return; }
+  if (typeof v === "string") {
+    emitString(v, prefix, indent, width, out);
+    return;
+  }
   out.push(prefix + scalarInline(v));
 }
 
@@ -260,11 +290,33 @@ function resolvePlain(s) {
   return s;
 }
 
-const ESCAPES = { "0": "\0", a: "\x07", b: "\b", t: "\t", "\t": "\t", n: "\n", v: "\v", f: "\f", r: "\r",
-  e: "\x1b", " ": " ", "\"": "\"", "/": "/", "\\": "\\", N: "\u0085", _: "\u00a0", L: "\u2028", P: "\u2029" };
+const ESCAPES = {
+  0: "\0",
+  a: "\x07",
+  b: "\b",
+  t: "\t",
+  "\t": "\t",
+  n: "\n",
+  v: "\v",
+  f: "\f",
+  r: "\r",
+  e: "\x1b",
+  " ": " ",
+  '"': '"',
+  "/": "/",
+  "\\": "\\",
+  N: "\u0085",
+  _: "\u00a0",
+  L: "\u2028",
+  P: "\u2029",
+};
 
-function indentOf(line) { return line.length - line.trimStart().length; }
-function blankOrComment(line) { return /^\s*(?:#.*)?$/.test(line); }
+function indentOf(line) {
+  return line.length - line.trimStart().length;
+}
+function blankOrComment(line) {
+  return /^\s*(?:#.*)?$/.test(line);
+}
 
 // Strip a trailing ` #` comment from the text after a plain scalar or a
 // closing quote.
@@ -274,17 +326,23 @@ function stripComment(s) {
 }
 
 export function parseYaml(text, where = "<yaml>") {
-  const lines = String(text).replace(/^\uFEFF/, "").split(/\r?\n/);
+  const lines = String(text)
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/);
   // The newline that ends the last line is not a blank line of its own.
   if (lines.length && lines[lines.length - 1] === "") lines.pop();
   let i = 0;
-  const fail = (msg, at = i) => { throw new YamlError(`${where}:${at + 1}: ${msg}`); };
+  const fail = (msg, at = i) => {
+    throw new YamlError(`${where}:${at + 1}: ${msg}`);
+  };
 
   for (const [n, l] of lines.entries()) {
     if (/^ *\t/.test(l) && !blankOrComment(l)) fail("a tab in indentation — YAML indents with spaces only", n);
   }
 
-  const skipBlank = () => { while (i < lines.length && blankOrComment(lines[i])) i++; };
+  const skipBlank = () => {
+    while (i < lines.length && blankOrComment(lines[i])) i++;
+  };
 
   // A document-start marker on the first line is admitted; a second document
   // is not, because a reader of one record has no rule for which to read.
@@ -302,13 +360,19 @@ export function parseYaml(text, where = "<yaml>") {
   // The key of a block-map line, or null where the line is not one.
   const splitKey = (c) => {
     let key, rest;
-    if (c[0] === "\"" || c[0] === "'") {
+    if (c[0] === '"' || c[0] === "'") {
       const q = c[0];
       let k = 1;
       for (; k < c.length; k++) {
-        if (q === "\"" && c[k] === "\\") { k++; continue; }
+        if (q === '"' && c[k] === "\\") {
+          k++;
+          continue;
+        }
         if (c[k] === q) {
-          if (q === "'" && c[k + 1] === "'") { k++; continue; }
+          if (q === "'" && c[k + 1] === "'") {
+            k++;
+            continue;
+          }
           break;
         }
       }
@@ -316,7 +380,7 @@ export function parseYaml(text, where = "<yaml>") {
       const after = c.slice(k + 1);
       const m = /^\s*:(?:\s|$)/.exec(after);
       if (!m) return null;
-      key = q === "\"" ? unescapeDouble(c.slice(1, k), i) : c.slice(1, k).replace(/''/g, "'");
+      key = q === '"' ? unescapeDouble(c.slice(1, k), i) : c.slice(1, k).replace(/''/g, "'");
       rest = after.slice(m[0].length);
       return { key, rest };
     }
@@ -332,7 +396,10 @@ export function parseYaml(text, where = "<yaml>") {
     let out = "";
     for (let k = 0; k < s.length; k++) {
       const ch = s[k];
-      if (ch !== "\\") { out += ch; continue; }
+      if (ch !== "\\") {
+        out += ch;
+        continue;
+      }
       const n = s[++k];
       if (n === undefined) fail("a backslash ends a double-quoted string", at);
       if (n === "x" || n === "u" || n === "U") {
@@ -354,7 +421,10 @@ export function parseYaml(text, where = "<yaml>") {
     let out = parts[0].text;
     let blanks = 0;
     for (const p of parts.slice(1)) {
-      if (p.text === "" && !p.last) { blanks++; continue; }
+      if (p.text === "" && !p.last) {
+        blanks++;
+        continue;
+      }
       if (p.joinBare) out += p.text;
       else out += (blanks ? "\n".repeat(blanks) : " ") + p.text;
       blanks = 0;
@@ -372,10 +442,17 @@ export function parseYaml(text, where = "<yaml>") {
       let k = 0;
       let closed = -1;
       for (; k < line.length; k++) {
-        if (q === "\"" && line[k] === "\\") { k++; continue; }
+        if (q === '"' && line[k] === "\\") {
+          k++;
+          continue;
+        }
         if (line[k] === q) {
-          if (q === "'" && line[k + 1] === "'") { k++; continue; }
-          closed = k; break;
+          if (q === "'" && line[k + 1] === "'") {
+            k++;
+            continue;
+          }
+          closed = k;
+          break;
         }
       }
       if (closed !== -1) {
@@ -389,7 +466,7 @@ export function parseYaml(text, where = "<yaml>") {
       let seg = first ? line : line.trimStart();
       let bare = false;
       const trail = /(\\+)\s*$/.exec(seg);
-      if (q === "\"" && trail && trail[1].length % 2 === 1) {
+      if (q === '"' && trail && trail[1].length % 2 === 1) {
         seg = seg.slice(0, seg.length - trail[0].length) + trail[1].slice(0, -1);
         bare = true;
       } else seg = seg.trimEnd();
@@ -401,7 +478,7 @@ export function parseYaml(text, where = "<yaml>") {
       line = lines[i];
     }
     i++;
-    const conv = (s) => (q === "\"" ? unescapeDouble(s, startLine) : s.replace(/''/g, "'"));
+    const conv = (s) => (q === '"' ? unescapeDouble(s, startLine) : s.replace(/''/g, "'"));
     return foldFlowLines(parts.map((p) => ({ text: conv(p.raw), joinBare: p.joinBare, last: p.last })));
   }
 
@@ -417,7 +494,11 @@ export function parseYaml(text, where = "<yaml>") {
     const body = [];
     while (i < lines.length) {
       const l = lines[i];
-      if (l.trim() === "") { body.push(contentIndent !== -1 && l.length > contentIndent ? l.slice(contentIndent) : ""); i++; continue; }
+      if (l.trim() === "") {
+        body.push(contentIndent !== -1 && l.length > contentIndent ? l.slice(contentIndent) : "");
+        i++;
+        continue;
+      }
       const ind = indentOf(l);
       if (contentIndent === -1) {
         if (ind <= parentIndent) break;
@@ -429,7 +510,10 @@ export function parseYaml(text, where = "<yaml>") {
     }
     if (contentIndent === -1) contentIndent = parentIndent + 1;
     let trailing = 0;
-    while (body.length && body[body.length - 1] === "") { body.pop(); trailing++; }
+    while (body.length && body[body.length - 1] === "") {
+      body.pop();
+      trailing++;
+    }
     let out;
     if (literal) out = body.join("\n");
     else {
@@ -438,7 +522,10 @@ export function parseYaml(text, where = "<yaml>") {
       let prevMore = false;
       let started = false;
       for (const l of body) {
-        if (l === "") { blanks++; continue; }
+        if (l === "") {
+          blanks++;
+          continue;
+        }
         const more = /^\s/.test(l);
         if (!started) out += "\n".repeat(blanks);
         else if (more || prevMore) out += "\n".repeat(blanks + 1);
@@ -461,21 +548,33 @@ export function parseYaml(text, where = "<yaml>") {
     const s = stripComment(c);
     if (!s.endsWith("]")) fail("a flow sequence must close on its own line");
     const inner = s.slice(1, -1).trim();
-    if (inner === "") { i++; return []; }
+    if (inner === "") {
+      i++;
+      return [];
+    }
     const items = [];
     let k = 0;
     while (k <= inner.length) {
       while (inner[k] === " ") k++;
       let item;
-      if (inner[k] === "\"" || inner[k] === "'") {
+      if (inner[k] === '"' || inner[k] === "'") {
         const q = inner[k];
         let e = k + 1;
         for (; e < inner.length; e++) {
-          if (q === "\"" && inner[e] === "\\") { e++; continue; }
-          if (inner[e] === q) { if (q === "'" && inner[e + 1] === "'") { e++; continue; } break; }
+          if (q === '"' && inner[e] === "\\") {
+            e++;
+            continue;
+          }
+          if (inner[e] === q) {
+            if (q === "'" && inner[e + 1] === "'") {
+              e++;
+              continue;
+            }
+            break;
+          }
         }
         const raw = inner.slice(k + 1, e);
-        item = q === "\"" ? unescapeDouble(raw, i) : raw.replace(/''/g, "'");
+        item = q === '"' ? unescapeDouble(raw, i) : raw.replace(/''/g, "'");
         k = e + 1;
       } else {
         let e = inner.indexOf(",", k);
@@ -507,7 +606,7 @@ export function parseYaml(text, where = "<yaml>") {
   function readInline(c, parentIndent) {
     refuseIndicators(c);
     if (c[0] === "|" || c[0] === ">") return readBlockScalar(c, parentIndent);
-    if (c[0] === "\"" || c[0] === "'") return readQuoted(c, i);
+    if (c[0] === '"' || c[0] === "'") return readQuoted(c, i);
     if (c[0] === "[") return readFlowSeq(c);
     if (c[0] === "{") {
       if (stripComment(c) !== "{}") fail("a flow map with content — write it as a block map");
@@ -522,7 +621,11 @@ export function parseYaml(text, where = "<yaml>") {
     let multi = false;
     while (i < lines.length) {
       const l = lines[i];
-      if (l.trim() === "") { blanks++; i++; continue; }
+      if (l.trim() === "") {
+        blanks++;
+        i++;
+        continue;
+      }
       if (/^\s*#/.test(l) || indentOf(l) <= parentIndent) break;
       const t = stripComment(l.trim());
       text += blanks ? "\n".repeat(blanks) : ` ${t}`;
@@ -567,8 +670,14 @@ export function parseYaml(text, where = "<yaml>") {
         if (i < lines.length) {
           const ni = indentOf(lines[i]);
           const nc = lines[i].slice(ni);
-          if (ni > ind) { out[kv.key] = readNode(ni); continue; }
-          if (ni === ind && /^-(?:\s|$)/.test(nc)) { out[kv.key] = readSeq(ind); continue; }
+          if (ni > ind) {
+            out[kv.key] = readNode(ni);
+            continue;
+          }
+          if (ni === ind && /^-(?:\s|$)/.test(nc)) {
+            out[kv.key] = readSeq(ind);
+            continue;
+          }
         }
         out[kv.key] = null;
         continue;
@@ -609,7 +718,10 @@ export function parseYaml(text, where = "<yaml>") {
 
   const value = readNode(0);
   skipBlank();
-  if (i < lines.length && /^\.\.\.\s*(?:#.*)?$/.test(lines[i])) { i++; skipBlank(); }
+  if (i < lines.length && /^\.\.\.\s*(?:#.*)?$/.test(lines[i])) {
+    i++;
+    skipBlank();
+  }
   if (i < lines.length) {
     if (/^---/.test(lines[i])) fail("a second document — a record file holds one");
     fail(`unread text: ${JSON.stringify(lines[i].trim())}`);

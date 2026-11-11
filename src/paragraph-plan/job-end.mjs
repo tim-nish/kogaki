@@ -23,11 +23,24 @@ import { unitIdFor } from "./units.mjs";
 export function jobStatusLines(dir, job, now = Date.now()) {
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
   let bounds = null;
-  try { bounds = readerPathJobBounds(job); } catch { bounds = null; }
-  const lines = [`ParagraphPlan job at ${relFromRepo(readerPathJobPath(dir))} — ${job.state}, elapsed ${Math.floor((now - startedAt) / 1000)}s; `
-    + `each Leg gets up to ${bounds ? bounds.unitRounds : "?"} rounds of at most ${bounds ? `${bounds.callLimitS}s` : "?"} per call:`];
+  try {
+    bounds = readerPathJobBounds(job);
+  } catch {
+    bounds = null;
+  }
+  const lines = [
+    `ParagraphPlan job at ${relFromRepo(readerPathJobPath(dir))} — ${job.state}, elapsed ${Math.floor((now - startedAt) / 1000)}s; ` +
+      `each Leg gets up to ${bounds ? bounds.unitRounds : "?"} rounds of at most ${bounds ? `${bounds.callLimitS}s` : "?"} per call:`,
+  ];
   for (const u of job.units || []) {
-    const phase = u.phase === "fit" ? "judge" : u.phase === "site" ? "site retry" : ["reading", "grounding"].includes(u.phase) ? u.phase : "plan";
+    const phase =
+      u.phase === "fit"
+        ? "judge"
+        : u.phase === "site"
+          ? "site retry"
+          : ["reading", "grounding"].includes(u.phase)
+            ? u.phase
+            : "plan";
     lines.push(`  unit ${u.id}: round ${u.rounds || 1}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s)`);
   }
   return lines;
@@ -55,22 +68,42 @@ export function stopLines(start, job) {
   const rows = unitsByLeg(start, job);
   const kept = rows.filter((r) => r.unit && r.unit.status === "done");
   const unfinished = rows.filter((r) => !r.unit || r.unit.status !== "done");
-  const lines = [`ParagraphPlan stopped: the job ended ${job.state}, and the Brief at ${start.brief} is unchanged — nothing was written beside it.`];
+  const lines = [
+    `ParagraphPlan stopped: the job ended ${job.state}, and the Brief at ${start.brief} is unchanged — nothing was written beside it.`,
+  ];
   if (kept.length) {
-    lines.push(`  Kept: Leg ${kept.map((r) => r.leg.leg_id).join(", ")} finished and ${kept.length === 1 ? "is" : "are"} kept in the run directory`
-      + `${kept.some((r) => r.unit.carried_from) ? ` (${kept.filter((r) => r.unit.carried_from).map((r) => `${r.leg.leg_id} carried from ${r.unit.carried_from}`).join("; ")})` : ""}.`);
+    lines.push(
+      `  Kept: Leg ${kept.map((r) => r.leg.leg_id).join(", ")} finished and ${kept.length === 1 ? "is" : "are"} kept in the run directory` +
+        `${
+          kept.some((r) => r.unit.carried_from)
+            ? ` (${kept
+                .filter((r) => r.unit.carried_from)
+                .map((r) => `${r.leg.leg_id} carried from ${r.unit.carried_from}`)
+                .join("; ")})`
+            : ""
+        }.`,
+    );
   }
   for (const { leg, unit: u } of unfinished) {
-    if (!u) { lines.push(`  Leg ${leg.leg_id}: no unit on the job record.`); continue; }
-    const last = Array.isArray(u.refusals) && u.refusals.length ? u.refusals[u.refusals.length - 1]
-      : (u.failure && u.failure.stderr_tail) || (job.failure && job.failure.note) || u.status;
+    if (!u) {
+      lines.push(`  Leg ${leg.leg_id}: no unit on the job record.`);
+      continue;
+    }
+    const last =
+      Array.isArray(u.refusals) && u.refusals.length
+        ? u.refusals[u.refusals.length - 1]
+        : (u.failure && u.failure.stderr_tail) || (job.failure && job.failure.note) || u.status;
     const ps = stoppedParagraphs(last);
-    lines.push(`  Leg ${leg.leg_id}${ps.length ? `, paragraph ${ps.join(", ")}` : ""}: ${u.status} after ${u.rounds || 1} round(s) — ${String(last).split("\n").join(" ")}`);
+    lines.push(
+      `  Leg ${leg.leg_id}${ps.length ? `, paragraph ${ps.join(", ")}` : ""}: ${u.status} after ${u.rounds || 1} round(s) — ${String(last).split("\n").join(" ")}`,
+    );
   }
   if (job.failure && job.failure.note && !unfinished.length) lines.push(`  ${job.failure.note}`);
   if (unfinished.length) {
-    lines.push(`  Next: run /paragraph-plan on the same Brief again; it plans Leg ${unfinished.map((r) => r.leg.leg_id).join(", ")} only`
-      + `${kept.length ? " and carries the kept Legs" : ""}; the Reader Path is not composed again.`);
+    lines.push(
+      `  Next: run /paragraph-plan on the same Brief again; it plans Leg ${unfinished.map((r) => r.leg.leg_id).join(", ")} only` +
+        `${kept.length ? " and carries the kept Legs" : ""}; the Reader Path is not composed again.`,
+    );
   }
   return lines;
 }
@@ -81,7 +114,13 @@ export function mappingEntries(dir, legs) {
   return legs.flatMap((leg, i) => {
     const state = readMappingState(dir, unitIdFor(i));
     if (!state || (!state.structure && !state.table)) return [];
-    return [{ leg_id: leg.leg_id, ...(state.structure ? { structure: state.structure } : {}), ...(state.table ? { table: state.table } : {}) }];
+    return [
+      {
+        leg_id: leg.leg_id,
+        ...(state.structure ? { structure: state.structure } : {}),
+        ...(state.table ? { table: state.table } : {}),
+      },
+    ];
   });
 }
 
@@ -98,22 +137,35 @@ export function finishParagraphPlan(dir) {
   const briefPath = resolve(REPO, start.brief);
   const briefText = readFileSync(briefPath, "utf8");
   if (sha256(briefText) !== start.brief_sha256) {
-    return { stopped: [`ParagraphPlan stopped: the Brief at ${start.brief} changed while the job ran (sha256 ${start.brief_sha256} `
-      + `at the start, ${sha256(briefText)} now) — nothing was written; run /paragraph-plan on it again.`] };
+    return {
+      stopped: [
+        `ParagraphPlan stopped: the Brief at ${start.brief} changed while the job ran (sha256 ${start.brief_sha256} ` +
+          `at the start, ${sha256(briefText)} now) — nothing was written; run /paragraph-plan on it again.`,
+      ],
+    };
   }
   // EACH LEG'S MOVE AND PARAGRAPHS RIDE INTO THE FILE (kogaki#1639, kogaki#1777): the bound Move's id
   // and each paragraph's schema fields, exactly as the validator passed them; the file is the record of
   // the binding.
-  const legs = start.legs.map((leg, i) => ({ leg_id: leg.leg_id, move: units[i].candidate.move,
+  const legs = start.legs.map((leg, i) => ({
+    leg_id: leg.leg_id,
+    move: units[i].candidate.move,
     ...(units[i].candidate.move_forced_by ? { move_forced_by: units[i].candidate.move_forced_by } : {}),
-    paragraphs: units[i].candidate.paragraphs }));
+    paragraphs: units[i].candidate.paragraphs,
+  }));
   // THE MAPPING RECORD IS WRITTEN WITH THE PLAN (kogaki#1733), and the plan names it by path and
   // digest: each Leg's structure read and table grounded (kogaki#1734).
   const planPath = paragraphPlanPathFor(briefPath);
   const mapping = writeMappingRecord(mappingDirFor(planPath), mappingEntries(dir, start.legs));
   const record = paragraphPlanRecord({ briefPath, briefText, analogy: readAnalogy(dir), legs, mapping });
   writeFileSync(planPath, paragraphPlanRecordText(record));
-  writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString(),
-    collisions: paragraphPlanCollisions(record.legs, readAxes().axes.map((a) => String(a.id))) });
+  writeJson(join(dir, DONE_FILE), {
+    written: relFromRepo(planPath),
+    at: new Date().toISOString(),
+    collisions: paragraphPlanCollisions(
+      record.legs,
+      readAxes().axes.map((a) => String(a.id)),
+    ),
+  });
   return { written: planPath };
 }

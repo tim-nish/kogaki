@@ -16,7 +16,10 @@ export function parseSuperviseArgs(argv) {
     if (!a.startsWith("--")) continue;
     const next = argv[i + 1];
     if (next === undefined || next.startsWith("--")) args[a.slice(2)] = true;
-    else { args[a.slice(2)] = next; i++; }
+    else {
+      args[a.slice(2)] = next;
+      i++;
+    }
   }
   return args;
 }

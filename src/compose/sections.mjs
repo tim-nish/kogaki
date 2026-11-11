@@ -21,24 +21,35 @@ import { INTRODUCES_SEP } from "./specialization.mjs";
 // and a term named here and explained later is an Obligation.
 // `nearest` and `differs` are refused by name too (kogaki#1571).
 const RETIRED_INTRODUCES_KEYS = Object.freeze({
-  "kind": "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation",
-  "source": "`source`, which is retired with `kind` (kogaki#1529): it was an `established` term's outside home, and an introduced term's meaning is the article's own `meaning`",
-  "nearest": "`nearest`, which is retired (kogaki#1571, owner decision 2026-10-24): what an article says about an existing term is a paragraph's content, which no Move validates in advance",
-  "differs": "`differs`, which is retired with `nearest` (kogaki#1571): it named how the term differs from `nearest`",
+  kind: "`kind`, which is retired (kogaki#1529): every introduced term is one the article gives its meaning to, so it carries `term` and `meaning`; a term the reader already holds is not introduced, and a term named here and explained by a later Leg is an Obligation",
+  source:
+    "`source`, which is retired with `kind` (kogaki#1529): it was an `established` term's outside home, and an introduced term's meaning is the article's own `meaning`",
+  nearest:
+    "`nearest`, which is retired (kogaki#1571, owner decision 2026-10-24): what an article says about an existing term is a paragraph's content, which no Move validates in advance",
+  differs: "`differs`, which is retired with `nearest` (kogaki#1571): it named how the term differs from `nearest`",
 });
 export function parseIntroducesEntry(raw) {
   if (typeof raw === "string" && /^\s*\{[\s\S]*\}\s*$/.test(raw)) {
     let obj;
-    try { obj = JSON.parse(raw); } catch { obj = null; }
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      obj = null;
+    }
     if (obj && typeof obj === "object" && !Array.isArray(obj)) return parseIntroducesEntry(obj);
   }
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const term = typeof raw.term === "string" ? raw.term.trim() : "";
     if (term === "") return { error: "an introduces_item with no term" };
     const retired = Object.keys(RETIRED_INTRODUCES_KEYS).find((k) => Object.hasOwn(raw, k));
-    if (retired) return { error: `"${term}" carries ${RETIRED_INTRODUCES_KEYS[retired]} (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)` };
+    if (retired)
+      return {
+        error: `"${term}" carries ${RETIRED_INTRODUCES_KEYS[retired]} (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)`,
+      };
     if (typeof raw.meaning !== "string" || raw.meaning.trim() === "") {
-      return { error: `"${term}" carries no meaning — an introduced term is one the article gives its meaning to, in one sentence (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)` };
+      return {
+        error: `"${term}" carries no meaning — an introduced term is one the article gives its meaning to, in one sentence (a ParagraphPlan entry's \`introduces\`; a Leg carries none, kogaki#1768)`,
+      };
     }
     return { term, anchor: null, typed: true, meaning: raw.meaning };
   }
@@ -49,7 +60,10 @@ export function parseIntroducesEntry(raw) {
   const term = line.slice(0, i).trim();
   const anchor = line.slice(i + INTRODUCES_SEP.length).trim();
   if (term === "") return { error: `an entry with no term before the ${INTRODUCES_SEP}` };
-  if (anchor === "") return { error: `"${term}" carries a ${INTRODUCES_SEP} with no meaning anchor after it — write the term bare, or anchor it` };
+  if (anchor === "")
+    return {
+      error: `"${term}" carries a ${INTRODUCES_SEP} with no meaning anchor after it — write the term bare, or anchor it`,
+    };
   return { term, anchor };
 }
 
@@ -120,8 +134,11 @@ export function opensSectionIntroducedTermRefusal(legs) {
     const at = `leg ${i + 1}${s.leg_id ? ` (${s.leg_id})` : ""}`;
     for (const { term, leg_id } of terms) {
       if (wholeWordMatch(term, s.opens_section)) {
-        return pathRefusal("opens_section_no_introduced_term", at,
-          `Its opens_section ${JSON.stringify(s.opens_section)} contains "${term}", a term leg ${JSON.stringify(leg_id)} lists under introduces.`);
+        return pathRefusal(
+          "opens_section_no_introduced_term",
+          at,
+          `Its opens_section ${JSON.stringify(s.opens_section)} contains "${term}", a term leg ${JSON.stringify(leg_id)} lists under introduces.`,
+        );
       }
     }
   }
@@ -132,10 +149,16 @@ export function opensSectionIntroducedTermRefusal(legs) {
 // per Leg that opens a Section, the heading it carries and the `claims` of the LAST Leg of that
 // Section, the destination the fit judge reads the heading against.
 export function sectionHeadingsWithLastClaims(legs) {
-  const opens = legs.map((s, i) => (typeof s.opens_section === "string" && s.opens_section !== "" ? i : -1)).filter((i) => i >= 0);
+  const opens = legs
+    .map((s, i) => (typeof s.opens_section === "string" && s.opens_section !== "" ? i : -1))
+    .filter((i) => i >= 0);
   return opens.map((i, k) => {
     const end = k + 1 < opens.length ? opens[k + 1] : legs.length;
-    return { leg_id: legs[i].leg_id, heading: legs[i].opens_section, last_leg_claims: (legs[end - 1].claims || []).map((g) => g.proposition) };
+    return {
+      leg_id: legs[i].leg_id,
+      heading: legs[i].opens_section,
+      last_leg_claims: (legs[end - 1].claims || []).map((g) => g.proposition),
+    };
   });
 }
 
@@ -152,7 +175,11 @@ export function sectionGroupingRefusal(legs) {
 
   // rule 3 — the first Leg always opens.
   if (legs[0].opens_section === undefined) {
-    return pathRefusal("section_rule_3", at(0), "This path opens none: give the first Leg an opens_section carrying that Section's title.");
+    return pathRefusal(
+      "section_rule_3",
+      at(0),
+      "This path opens none: give the first Leg an opens_section carrying that Section's title.",
+    );
   }
 
   // rule 4, Leg-count clause — two consecutive one-Leg Sections.
@@ -162,8 +189,11 @@ export function sectionGroupingRefusal(legs) {
     const next = k + 1 < opens.length ? opens[k + 1] : legs.length;
     const after = k + 2 < opens.length ? opens[k + 2] : legs.length;
     if (next - start === 1 && after - next === 1) {
-      return pathRefusal("section_rule_4", at(start),
-        `The Section this Leg opens and the one opening at ${legs[next].leg_id} each hold exactly one Leg: merge the two, or give one of them a second Leg.`);
+      return pathRefusal(
+        "section_rule_4",
+        at(start),
+        `The Section this Leg opens and the one opening at ${legs[next].leg_id} each hold exactly one Leg: merge the two, or give one of them a second Leg.`,
+      );
     }
   }
   return null;
@@ -192,16 +222,20 @@ export function targetLegIndex(legs) {
 // retirement leaves no live spelling of them in this repository (kogaki#1612 Acceptance).
 const joined = (...parts) => parts.join("_");
 export const RETIRED_OBLIGATION_KEYS = Object.freeze({
-  "item": "`item`, retired as the record's own list (kogaki#1612) — the items ride in `items`, each `{item, closed_by}`",
-  "kind": "`kind`, retired (kogaki#1568) — a question and a term are one expectation, an `item`",
-  "text": "`text`, retired (kogaki#1568) — an `item` carries the term or the question",
-  "term": "`term`, retired (kogaki#1568) — an `item` carries the term or the question",
-  "introduced_by": "`introduced_by`, the retired Closure row's field (kogaki#1529) — the record names its opening unit in `opened_by`",
-  "raised_by": "`raised_by`, retired (kogaki#1612) — the record names its opening unit in `opened_by`",
-  "owed_by": "`owed_by`, retired (kogaki#1612) — the units a record is open across are derived from `opened_by` and each item's `closed_by`",
-  [joined("discharged", "by")]: `\`${joined("discharged", "by")}\`, retired (kogaki#1612) — each item names the unit that explains it in its own \`closed_by\``,
-  [joined("conceded", "by")]: `\`${joined("conceded", "by")}\`, retired (kogaki#1612) — no item is set aside: each closes, in a later unit`,
-  "open": "`open`, retired with the conceded state (kogaki#1612)",
+  item: "`item`, retired as the record's own list (kogaki#1612) — the items ride in `items`, each `{item, closed_by}`",
+  kind: "`kind`, retired (kogaki#1568) — a question and a term are one expectation, an `item`",
+  text: "`text`, retired (kogaki#1568) — an `item` carries the term or the question",
+  term: "`term`, retired (kogaki#1568) — an `item` carries the term or the question",
+  introduced_by:
+    "`introduced_by`, the retired Closure row's field (kogaki#1529) — the record names its opening unit in `opened_by`",
+  raised_by: "`raised_by`, retired (kogaki#1612) — the record names its opening unit in `opened_by`",
+  owed_by:
+    "`owed_by`, retired (kogaki#1612) — the units a record is open across are derived from `opened_by` and each item's `closed_by`",
+  [joined("discharged", "by")]:
+    `\`${joined("discharged", "by")}\`, retired (kogaki#1612) — each item names the unit that explains it in its own \`closed_by\``,
+  [joined("conceded", "by")]:
+    `\`${joined("conceded", "by")}\`, retired (kogaki#1612) — no item is set aside: each closes, in a later unit`,
+  open: "`open`, retired with the conceded state (kogaki#1612)",
   [joined("why", "not", "here")]: `\`${joined("why", "not", "here")}\`, retired with the conceded state (kogaki#1612)`,
   [joined("reader", "keeps")]: `\`${joined("reader", "keeps")}\`, retired with the conceded state (kogaki#1612)`,
 });
@@ -226,22 +260,30 @@ export function obligationItemRefusal(o) {
   if (retired.length) return `carries ${retired.map((k) => RETIRED_OBLIGATION_KEYS[k]).join("; ")}`;
   const extra = Object.keys(o).find((k) => !OBLIGATION_KEYS.includes(k));
   if (extra) return `carries \`${extra}\`, which an Obligation record does not declare — it is \`{opened_by, items}\``;
-  if (!Array.isArray(o.items)) return "carries no `items` list — the items the opening unit leaves unexplained, each `{item, closed_by}`, in the order it names them";
+  if (!Array.isArray(o.items))
+    return "carries no `items` list — the items the opening unit leaves unexplained, each `{item, closed_by}`, in the order it names them";
   if (o.items.length === 0) return "carries an empty `items` list — a record names at least one item";
   const seen = new Set();
   const entryRefusal = (e, at, keys, shape) => {
     if (!e || typeof e !== "object" || Array.isArray(e)) return `carries ${at} that is not a map \`${shape}\``;
     const k = Object.keys(e).find((x) => !keys.includes(x));
     if (k) return `carries ${at} with \`${k}\` — an entry is \`${shape}\` alone`;
-    if (typeof e.item !== "string" || e.item.trim() === "" || /[\r\n]/.test(e.item)) return `carries ${at} whose \`item\` is not one non-empty line`;
-    if (!("closed_by" in e)) return `carries the item ${JSON.stringify(e.item.trim())} with no \`closed_by\` — the unit that explains it, or null while it is open`;
+    if (typeof e.item !== "string" || e.item.trim() === "" || /[\r\n]/.test(e.item))
+      return `carries ${at} whose \`item\` is not one non-empty line`;
+    if (!("closed_by" in e))
+      return `carries the item ${JSON.stringify(e.item.trim())} with no \`closed_by\` — the unit that explains it, or null while it is open`;
     const key = e.item.trim().toLowerCase();
     if (seen.has(key)) return `names the item ${JSON.stringify(e.item.trim())} twice — each item is named once`;
     seen.add(key);
     return null;
   };
   for (const [i, e] of o.items.entries()) {
-    const bad = entryRefusal(e, `an \`items\` entry ${i + 1}`, ["item", "closed_by", "subitems"], "{item, closed_by, subitems?}");
+    const bad = entryRefusal(
+      e,
+      `an \`items\` entry ${i + 1}`,
+      ["item", "closed_by", "subitems"],
+      "{item, closed_by, subitems?}",
+    );
     if (bad) return bad;
     if (!("subitems" in e)) continue;
     const parent = JSON.stringify(e.item.trim());
@@ -249,7 +291,12 @@ export function obligationItemRefusal(o) {
       return `carries the item ${parent} with \`subitems\` that is not a non-empty list of \`{item, closed_by}\` (kogaki#1620)`;
     }
     for (const [j, sub] of e.subitems.entries()) {
-      const badSub = entryRefusal(sub, `the item ${parent}'s SubItem ${j + 1}`, ["item", "closed_by"], "{item, closed_by}");
+      const badSub = entryRefusal(
+        sub,
+        `the item ${parent}'s SubItem ${j + 1}`,
+        ["item", "closed_by"],
+        "{item, closed_by}",
+      );
       if (badSub) return `${badSub} (kogaki#1620)`;
     }
   }
@@ -267,10 +314,14 @@ export function obligationItemRefusal(o) {
 export function obligationCloseRefusal(o, pos, unitName) {
   const label = obligationLabel(o);
   if (pos(o.opened_by) === undefined) {
-    return { unit: null, clause: `The ${label} record names opened_by ${unitName(o.opened_by)}, which is not one of its scale's units.` };
+    return {
+      unit: null,
+      clause: `The ${label} record names opened_by ${unitName(o.opened_by)}, which is not one of its scale's units.`,
+    };
   }
   const opened = pos(o.opened_by);
-  const named = (e, sub) => (sub ? `the SubItem ${JSON.stringify(e.item.trim())}` : `the item ${JSON.stringify(e.item.trim())}`);
+  const named = (e, sub) =>
+    sub ? `the SubItem ${JSON.stringify(e.item.trim())}` : `the item ${JSON.stringify(e.item.trim())}`;
   let prev = null;
   for (const parent of o.items) {
     const subs = Array.isArray(parent.subitems) ? parent.subitems : [];
@@ -278,27 +329,46 @@ export function obligationCloseRefusal(o, pos, unitName) {
       const what = named(e, isSub);
       if (e.closed_by !== null) {
         if (pos(e.closed_by) === undefined) {
-          return { unit: o.opened_by, clause: `The ${label} record closes ${what} by ${unitName(e.closed_by)}, which is not one of its scale's units.` };
+          return {
+            unit: o.opened_by,
+            clause: `The ${label} record closes ${what} by ${unitName(e.closed_by)}, which is not one of its scale's units.`,
+          };
         }
         if (pos(e.closed_by) === opened) {
-          return { unit: o.opened_by, clause: `The ${label} record closes ${what} where it opens it — a promise kept where it is made is the unit's own structure, never an Obligation.` };
+          return {
+            unit: o.opened_by,
+            clause: `The ${label} record closes ${what} where it opens it — a promise kept where it is made is the unit's own structure, never an Obligation.`,
+          };
         }
         if (pos(e.closed_by) < opened) {
-          return { unit: e.closed_by, clause: `The ${label} record closes ${what} here, before ${unitName(o.opened_by)} opens it.` };
+          return {
+            unit: e.closed_by,
+            clause: `The ${label} record closes ${what} here, before ${unitName(o.opened_by)} opens it.`,
+          };
         }
       }
       if (prev) {
         const [p, pSub] = prev;
         const ownSub = !isSub && pSub && subs.includes(p);
-        const early = p.closed_by === null ? e.closed_by !== null
-          : e.closed_by !== null && (ownSub ? pos(e.closed_by) <= pos(p.closed_by) : pos(e.closed_by) < pos(p.closed_by));
+        const early =
+          p.closed_by === null
+            ? e.closed_by !== null
+            : e.closed_by !== null &&
+              (ownSub ? pos(e.closed_by) <= pos(p.closed_by) : pos(e.closed_by) < pos(p.closed_by));
         if (early) {
           const state = p.closed_by === null ? "is still open" : `closes at ${unitName(p.closed_by)}`;
-          const where = ownSub && p.closed_by !== null && pos(e.closed_by) === pos(p.closed_by) ? "at the unit of" : "before";
+          const where =
+            ownSub && p.closed_by !== null && pos(e.closed_by) === pos(p.closed_by) ? "at the unit of" : "before";
           const earlier = isSub || pSub ? named(p, pSub) : `the earlier ${named(p, pSub).slice("the ".length)}`;
-          const rule = ownSub ? "an item closes after its last SubItem (kogaki#1620)"
-            : isSub || pSub ? "the SubItems close in the order named, each item after its own (kogaki#1620)" : "the items close in the order named";
-          return { unit: e.closed_by, clause: `The ${label} record closes ${what} ${where} ${earlier}, which ${state} — ${rule}.` };
+          const rule = ownSub
+            ? "an item closes after its last SubItem (kogaki#1620)"
+            : isSub || pSub
+              ? "the SubItems close in the order named, each item after its own (kogaki#1620)"
+              : "the items close in the order named";
+          return {
+            unit: e.closed_by,
+            clause: `The ${label} record closes ${what} ${where} ${earlier}, which ${state} — ${rule}.`,
+          };
         }
       }
       prev = [e, isSub];
@@ -321,8 +391,13 @@ export function obligationItemsAt(o, pos, unit) {
   const opened = pos(o.opened_by);
   if (at === undefined || opened === undefined || at < opened) return [];
   const items = Array.isArray(o.items) ? o.items : [];
-  const copy = (e) => ({ item: e.item, closed_by: e.closed_by,
-    ...(Array.isArray(e.subitems) ? { subitems: e.subitems.map((x) => ({ item: x.item, closed_by: x.closed_by })) } : {}) });
+  const copy = (e) => ({
+    item: e.item,
+    closed_by: e.closed_by,
+    ...(Array.isArray(e.subitems)
+      ? { subitems: e.subitems.map((x) => ({ item: x.item, closed_by: x.closed_by })) }
+      : {}),
+  });
   if (at === opened) return items.map(copy);
   return items.filter((e) => e.closed_by === null || pos(e.closed_by) >= at).map(copy);
 }
@@ -336,10 +411,13 @@ export function readerTargetLegRefusal(legs) {
   const at = (i) => `leg ${i + 1} (${legs[i].leg_id})`;
   const marked = legs.map((s, i) => (s && s.reaches_target === true ? i : -1)).filter((i) => i >= 0);
   if (marked.length !== 1) {
-    return pathRefusal("reaches_target_marked", null,
+    return pathRefusal(
+      "reaches_target_marked",
+      null,
       marked.length === 0
         ? "No Leg of this path carries `reaches_target: true`."
-        : `${marked.length} Legs carry it: ${marked.map((i) => at(i)).join(", ")}.`);
+        : `${marked.length} Legs carry it: ${marked.map((i) => at(i)).join(", ")}.`,
+    );
   }
   return null;
 }
@@ -371,8 +449,10 @@ export function readerTargetNamesRefusal(legs) {
   }
   for (const name of targetLeg.names) {
     if (!introduced.has(name)) {
-      return `leg ${idx + 1} (${targetLeg.leg_id}): names carries ${JSON.stringify(name)}, but no Leg of this path introduces it — `
-        + "names is the union of every Leg's introduces entries by the time the Reader target is reached (src/leg-schema.json, `names`)";
+      return (
+        `leg ${idx + 1} (${targetLeg.leg_id}): names carries ${JSON.stringify(name)}, but no Leg of this path introduces it — ` +
+        "names is the union of every Leg's introduces entries by the time the Reader target is reached (src/leg-schema.json, `names`)"
+      );
     }
   }
   return null;
@@ -418,19 +498,26 @@ export function parseReactivateEntry(raw) {
   if (line === "") return { error: "an empty entry" };
   const m = line.match(/^(\S+)\s+(term|claim|journey)\s+(.+)$/s);
   if (!m) {
-    return { error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id> as <one plain sentence>" or "<leg_id> journey <strand id>"` };
+    return {
+      error: `"${line}" — a re-activate entry is "<leg_id> term <exact introduces term>", "<leg_id> claim <strand id> as <one plain sentence>" or "<leg_id> journey <strand id>"`,
+    };
   }
   const [, leg_id, kind, rest] = m;
   if (kind === "claim") {
     const am = rest.match(/^(\S+)\s+as\s+(.+)$/s);
     if (!am) {
-      return { error: `"${line}" — a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required` };
+      return {
+        error: `"${line}" — a re-activate claim entry is "<leg_id> claim <strand id> as <one plain sentence>", and the as sentence is required`,
+      };
     }
     const [, strand, asSentence] = am;
     const value = strand.trim();
     const as = asSentence.trim();
     if (value === "") return { error: `"${line}" names no strand after claim` };
-    if (as === "") return { error: `"${line}" carries an as with no sentence after it — a re-activated claim crosses as a plain restatement, not as its proposition` };
+    if (as === "")
+      return {
+        error: `"${line}" carries an as with no sentence after it — a re-activated claim crosses as a plain restatement, not as its proposition`,
+      };
     return { leg_id, kind, value, as };
   }
   const value = rest.trim();
@@ -556,7 +643,8 @@ export function applyLegSections(legs, answer) {
   if (!answer || typeof answer !== "object" || Array.isArray(answer)) return { error: "the answer is not one record" };
   const extra = Object.keys(answer).find((k) => k !== "sections");
   if (extra !== undefined) return { error: `the answer carries \`${extra}\`, which the record does not declare` };
-  if (!Array.isArray(answer.sections) || answer.sections.length === 0) return { error: "the answer's `sections` is not a non-empty list" };
+  if (!Array.isArray(answer.sections) || answer.sections.length === 0)
+    return { error: "the answer's `sections` is not a non-empty list" };
   const order = legs.map((l) => l.leg_id);
   let last = -1;
   const heading = new Map();

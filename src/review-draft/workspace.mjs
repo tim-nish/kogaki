@@ -36,16 +36,23 @@ function workspaceFor(args, slug) {
   return enterRun("review", slug);
 }
 
-function runRecordPath(ws) { return join(ws, "run.json"); }
+function runRecordPath(ws) {
+  return join(ws, "run.json");
+}
 
 function readRun(ws) {
   const p = runRecordPath(ws);
   if (!existsSync(p)) {
-    fail(`no run record at ${p} — the run has not been opened; run `
-      + "`node src/review-draft.mjs open --draft <draft.md>` first");
+    fail(
+      `no run record at ${p} — the run has not been opened; run ` +
+        "`node src/review-draft.mjs open --draft <draft.md>` first",
+    );
   }
-  try { return JSON.parse(readFileSync(p, "utf8")); }
-  catch (e) { fail(`the run record at ${p} is not readable (${e.message})`); }
+  try {
+    return JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    fail(`the run record at ${p} is not readable (${e.message})`);
+  }
 }
 
 function writeRun(ws, run) {
@@ -78,24 +85,30 @@ function currentPass(run) {
   const p = run.pass;
   if (p === undefined || p === null) return 1;
   if (!Number.isInteger(p) || p < 1) {
-    fail(`the run record carries an unreadable pass number (${JSON.stringify(p)}). The pass is what `
-      + "names the directory this act's evidence belongs in, so there is nowhere to write until it "
-      + "is a whole number of at least 1.");
+    fail(
+      `the run record carries an unreadable pass number (${JSON.stringify(p)}). The pass is what ` +
+        "names the directory this act's evidence belongs in, so there is nowhere to write until it " +
+        "is a whole number of at least 1.",
+    );
   }
   return p;
 }
 
-function passDirFor(ws, pass) { return join(ws, `pass-${pass}`); }
+function passDirFor(ws, pass) {
+  return join(ws, `pass-${pass}`);
+}
 
 // A pass a CALLER named, checked rather than trusted. Both join builders take
 // one, and a missing or malformed value is a wiring defect in this file rather
 // than a state a run can reach, so it refuses by naming the site.
 function requirePass(pass, site) {
   if (!Number.isInteger(pass) || pass < 1) {
-    fail(`${site} was called without the pass it is building for `
-      + `(${JSON.stringify(pass)}). The pass is the caller's — \`compare\` is one and \`check\` is `
-      + "two — and there is no default, because a wrong default files a pass's pair inputs under "
-      + "another pass's directory.");
+    fail(
+      `${site} was called without the pass it is building for ` +
+        `(${JSON.stringify(pass)}). The pass is the caller's — \`compare\` is one and \`check\` is ` +
+        "two — and there is no default, because a wrong default files a pass's pair inputs under " +
+        "another pass's directory.",
+    );
   }
   return pass;
 }
@@ -141,18 +154,22 @@ function passPathAt(ws, run, pass, ...segments) {
   const dest = resolve(join(dir, ...segments));
   const root = resolve(dir) + sep;
   if (!dest.startsWith(root)) {
-    fail(`pass ${pass} composed a path outside its own directory — ${dest}. Every pass writes only `
-      + `under ${dir}, so a segment that escapes it is refused rather than written somewhere no `
-      + "pass owns.");
+    fail(
+      `pass ${pass} composed a path outside its own directory — ${dest}. Every pass writes only ` +
+        `under ${dir}, so a segment that escapes it is refused rather than written somewhere no ` +
+        "pass owns.",
+    );
   }
   const key = passKey(ws, dest);
   run.pass_files = run.pass_files || {};
   const owner = run.pass_files[key];
   if (owner !== undefined && owner !== pass) {
-    fail(`refused: pass ${pass} would write over a file pass ${owner} wrote — ${dest}. Each pass's `
-      + "evidence is its own record of what a reviewer read and judged, and pass "
-      + `${owner}'s reading is not retrievable once this write lands. Pass ${pass}'s copy belongs `
-      + `under ${dir}.`);
+    fail(
+      `refused: pass ${pass} would write over a file pass ${owner} wrote — ${dest}. Each pass's ` +
+        "evidence is its own record of what a reviewer read and judged, and pass " +
+        `${owner}'s reading is not retrievable once this write lands. Pass ${pass}'s copy belongs ` +
+        `under ${dir}.`,
+    );
   }
   run.pass_files[key] = pass;
   mkdirSync(dirname(dest), { recursive: true });
@@ -173,10 +190,12 @@ function passReadPath(ws, pass, ...segments) {
 // staleness the Packet-sha check refuses at `open`, one layer over.
 function requireCurrent(run, draft, allowCorrecting = null) {
   if (run.body_sha !== draft.body_sha) {
-    fail(`the Draft has changed since this run was opened.\n  opened on  ${run.body_sha}\n`
-      + `  now        ${draft.body_sha}\n`
-      + "Re-open the run (`open --draft <draft.md>`) — the Reverse Outline inputs already rendered were "
-      + "rendered from prose that is no longer there.");
+    fail(
+      `the Draft has changed since this run was opened.\n  opened on  ${run.body_sha}\n` +
+        `  now        ${draft.body_sha}\n` +
+        "Re-open the run (`open --draft <draft.md>`) — the Reverse Outline inputs already rendered were " +
+        "rendered from prose that is no longer there.",
+    );
   }
   // THE MID-CORRECTION STATE IS NAMED RATHER THAN MET AS A SHA MISMATCH
   // (kogaki#874). Rendering a correction input re-renders that Leg's Packet —
@@ -189,13 +208,27 @@ function requireCurrent(run, draft, allowCorrecting = null) {
   // opens and reported by name while it is open.
   const c = run.correcting;
   if (c && c.leg_id !== allowCorrecting) {
-    fail(`this run is mid-correction on leg ${c.leg_id} — its Packet has been re-rendered against `
-      + "the current article and its prose has not been re-realized yet, so the Draft's trace names "
-      + `a Packet that did not produce the prose beside it.\n  input  ${c.input}\n`
-      + "Realize the Leg from that input and record it with\n"
-      + `  <the corrected prose> | node src/review-draft.mjs correct --draft <draft.md> --leg ${c.leg_id}\n`
-      + "Re-emitting the Draft would discard the correction instead of completing it.");
+    fail(
+      `this run is mid-correction on leg ${c.leg_id} — its Packet has been re-rendered against ` +
+        "the current article and its prose has not been re-realized yet, so the Draft's trace names " +
+        `a Packet that did not produce the prose beside it.\n  input  ${c.input}\n` +
+        "Realize the Leg from that input and record it with\n" +
+        `  <the corrected prose> | node src/review-draft.mjs correct --draft <draft.md> --leg ${c.leg_id}\n` +
+        "Re-emitting the Draft would discard the correction instead of completing it.",
+    );
   }
 }
 
-export { slugOf, workspaceFor, readRun, writeRun, currentPass, requirePass, REVIEWED_BASENAME, passPath, passPathAt, passReadPath, requireCurrent };
+export {
+  slugOf,
+  workspaceFor,
+  readRun,
+  writeRun,
+  currentPass,
+  requirePass,
+  REVIEWED_BASENAME,
+  passPath,
+  passPathAt,
+  passReadPath,
+  requireCurrent,
+};

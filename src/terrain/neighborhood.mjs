@@ -18,7 +18,9 @@ export function composeTrimProposal(args, dir) {
   const act = String(args.act || fail("TRIM_RATIFICATION needs --act <name>: the proposal it ratifies"));
   const acts = RECORD_SCHEMA.acts;
   if (acts.navigation.includes(act)) {
-    console.log(`${act} is NAVIGATION — the executor reaches it as a table state (the non-flow utilities removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`);
+    console.log(
+      `${act} is NAVIGATION — the executor reaches it as a table state (the non-flow utilities removed \`view\` as an entry point); no record is written. A navigation act wrapped as a proposal is a contract violation from the other direction (record-schema.json acts).`,
+    );
     return null;
   }
   if (!acts.proposal.includes(act)) {
@@ -38,9 +40,16 @@ export function composeTrimProposal(args, dir) {
   // A proposal. Where/Why/effect-stating label are the caller's to state —
   // this runtime binds the record's shape, never the narrowing's computation.
   const where = String(args.where || fail(`--where is required: the material the ${act} applies to`));
-  const why = String(args.why || fail("--why is required: the machine premise, rendered — an implicit premise is the recorded failure"));
+  const why = String(
+    args.why || fail("--why is required: the machine premise, rendered — an implicit premise is the recorded failure"),
+  );
   const label = String(args.label || fail("--label is required: state the effect of taking the proposal"));
-  const members = args.ids ? String(args.ids).split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const members = args.ids
+    ? String(args.ids)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
   if (members.length === 0) fail("--ids is required: the Strand ids the proposal narrows to (comma-separated)");
   const record = {
     id: `terrain-${act}-${Date.now()}`,
@@ -53,7 +62,11 @@ export function composeTrimProposal(args, dir) {
       // Not the record's own label: item 3's floor refuses an option label
       // identical to the record's (caught by check-proposal-contract at
       // first dogfood, 2026-08-05).
-      { id: `apply-${act}`, label: `Apply the ${act}: ${members.length} named Strand(s) go forward, the rest stay in the survey`, members },
+      {
+        id: `apply-${act}`,
+        label: `Apply the ${act}: ${members.length} named Strand(s) go forward, the rest stay in the survey`,
+        members,
+      },
       {
         id: "decline",
         label: "No narrowing; the full candidate set stands",
@@ -67,7 +80,9 @@ export function composeTrimProposal(args, dir) {
   };
   const floor = RECORD_SCHEMA.proposal.label_floor;
   if (label.trim().split(/\s+/).length < floor.min_words || label.trim() === act) {
-    fail(`label fails the effect-stating floor (≥${floor.min_words} words, never the bare act token). The floor is form only; sufficiency is the review lane's.`);
+    fail(
+      `label fails the effect-stating floor (≥${floor.min_words} words, never the bare act token). The floor is form only; sufficiency is the review lane's.`,
+    );
   }
   const out = join(dir, `${record.id}${RECORD_SCHEMA.records_home.suffix}`);
   writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
@@ -207,8 +222,7 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // twelve legacy batches carry `source_batch: "q_a/3/answer.md"` against a
   // batch id of `"q_a/3"`.
   if (bound.source_batch > 0) {
-    const byBatchId = new Map(
-      records.filter((r) => r.kind === "batch" && r.id).map((r) => [r.id, r]));
+    const byBatchId = new Map(records.filter((r) => r.kind === "batch" && r.id).map((r) => [r.id, r]));
     // Seeds resolve to the DISTINCT batches they name; the member walk below
     // then visits each batch exactly once.
     const distinctBatches = new Map();
@@ -219,8 +233,12 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
       const raw = bySlug.get(s).source_batch;
       const k = batchKey(raw);
       if (!k) {
-        unresolved.push({ kind: "seed", slug: s, value: raw === undefined ? null : raw,
-          why: "the record carries no source_batch" });
+        unresolved.push({
+          kind: "seed",
+          slug: s,
+          value: raw === undefined ? null : raw,
+          why: "the record carries no source_batch",
+        });
         continue;
       }
       const batch = byBatchId.get(k);
@@ -228,8 +246,12 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
         // AC4's real case: the value is present and names a batch nothing
         // serves. An empty result here presented as "no same-sitting siblings"
         // is the silent exclusion the neighborhood defect removes.
-        unresolved.push({ kind: "seed", slug: s, value: raw,
-          why: `source_batch names a batch no served record carries (resolved to ${JSON.stringify(k)})` });
+        unresolved.push({
+          kind: "seed",
+          slug: s,
+          value: raw,
+          why: `source_batch names a batch no served record carries (resolved to ${JSON.stringify(k)})`,
+        });
         continue;
       }
       distinctBatches.set(k, batch);
@@ -266,8 +288,12 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
             // members. Typed at the push rather than inferred downstream from
             // the `why` text: a renderer sniffing prose to recover a fact the
             // producer knew is the join every wording change breaks.
-            unresolved.push({ kind: "member", slug: k, value: m,
-              why: `the batch lists a member no served record carries (family ${JSON.stringify(family)})` });
+            unresolved.push({
+              kind: "member",
+              slug: k,
+              value: m,
+              why: `the batch lists a member no served record carries (family ${JSON.stringify(family)})`,
+            });
             continue;
           }
           // The BATCH KEY, not the raw `source_batch` value: `k` is what the
@@ -320,10 +346,7 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
   // `population: null` IS NOT ZERO: it renders as "no denominator readable".
   // Both sides of the ratio range over one set: the numerator counts only suggestions drawn
   // from the walked members minus seeds; others are counted separately with no denominator.
-  const families = new Set([
-    ...population.keys(),
-    ...suggestions.map((s) => s.family).filter((f) => f !== null),
-  ]);
+  const families = new Set([...population.keys(), ...suggestions.map((s) => s.family).filter((f) => f !== null)]);
   const by_family = {};
   for (const fam of [...families].sort()) {
     const pop = population.has(fam) ? population.get(fam) : null;
@@ -354,9 +377,13 @@ function neighborhoodOf(records, seedSlugs, bound = NEIGHBORHOOD_BOUND) {
     // A single figure standing in for both is the conflation story 1.61's AC2a
     // exists to refuse — stated here at the source rather than left for the
     // display to infer from a structure it would have to re-walk.
-    counts: { seeds: seeds.length, suggested: suggestions.length,
+    counts: {
+      seeds: seeds.length,
+      suggested: suggestions.length,
       rendered: suggestions.reduce((n, s) => n + renderingsOf(s), 0),
-      unresolved: unresolved.length, by_family },
+      unresolved: unresolved.length,
+      by_family,
+    },
   };
 }
 
@@ -380,8 +407,9 @@ function settledSlugs(candidates, memberIds) {
 // The one converter, so the two readers of a throwing validator cannot drift in
 // WHEN they exit — the reason `emitOrRefuse` exists for the format guard.
 export function orFail(fn) {
-  try { return fn(); }
-  catch (e) {
+  try {
+    return fn();
+  } catch (e) {
     if (e instanceof JudgmentRefusal) fail(e.message);
     throw e;
   }
@@ -405,47 +433,64 @@ function neighborhoodJudgmentsFrom(raw) {
   const out = new Map();
   for (const [slug, v] of Object.entries(raw || {})) {
     if (!v || typeof v !== "object") {
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} is not an object: `
-        + `each entry is {"level": <one of ${NEIGHBORHOOD_LEVELS.join(" | ")}>, "claim": "<one sentence>", `
-        + `"target": {"candidate": "TC<n>", "role": "<the role it plays for that candidate>"}}`);
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} is not an object: ` +
+          `each entry is {"level": <one of ${NEIGHBORHOOD_LEVELS.join(" | ")}>, "claim": "<one sentence>", ` +
+          `"target": {"candidate": "TC<n>", "role": "<the role it plays for that candidate>"}}`,
+      );
     }
     if (!NEIGHBORHOOD_LEVELS.includes(v.level)) {
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries level `
-        + `${JSON.stringify(v.level)}, which is not the harness-fixed set `
-        + `(${NEIGHBORHOOD_LEVELS.join(" | ")}). The set is closed; extending it is the owner's act.`);
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} carries level ` +
+          `${JSON.stringify(v.level)}, which is not the harness-fixed set ` +
+          `(${NEIGHBORHOOD_LEVELS.join(" | ")}). The set is closed; extending it is the owner's act.`,
+      );
     }
     if (typeof v.claim !== "string" || !v.claim.trim()) {
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries no claim. `
-        + "A level without a claim is a rank with no reason, which the row has no way to render.");
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} carries no claim. ` +
+          "A level without a claim is a rank with no reason, which the row has no way to render.",
+      );
     }
     const t = v.target;
     if (!t || typeof t !== "object" || Array.isArray(t)) {
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries no target. `
-        + "A level and a claim with no target is a recommendation with nothing to serve: the row's "
-        + "TC-target line is a FIXED line class (kogaki#861) and there is nothing else to render it "
-        + `from. Write "target": {"candidate": "TC<n>", "role": "<the role it plays for that candidate>"}.`);
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} carries no target. ` +
+          "A level and a claim with no target is a recommendation with nothing to serve: the row's " +
+          "TC-target line is a FIXED line class (kogaki#861) and there is nothing else to render it " +
+          `from. Write "target": {"candidate": "TC<n>", "role": "<the role it plays for that candidate>"}.`,
+      );
     }
     if (typeof t.candidate !== "string" || !THESIS_CANDIDATE_ID.test(t.candidate.trim())) {
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} targets `
-        + `${JSON.stringify(t.candidate)}, which is not a Thesis-candidate id (TC<n>). The target names a `
-        + "candidate of the Thesis candidates section in THIS report; a slug, a display id or free text there would render a "
-        + "line the reader cannot join to anything above it.");
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} targets ` +
+          `${JSON.stringify(t.candidate)}, which is not a Thesis-candidate id (TC<n>). The target names a ` +
+          "candidate of the Thesis candidates section in THIS report; a slug, a display id or free text there would render a " +
+          "line the reader cannot join to anything above it.",
+      );
     }
     if (typeof t.role !== "string" || !t.role.trim()) {
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} names a target candidate `
-        + "and no role for it. WHICH candidate and WHAT FOR are both owed: a neighbor named against TC2 with "
-        + "no role states that it is relevant and withholds the whole of why.");
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} names a target candidate ` +
+          "and no role for it. WHICH candidate and WHAT FOR are both owed: a neighbor named against TC2 with " +
+          "no role states that it is relevant and withholds the whole of why.",
+      );
     }
     if (/\n/.test(t.role)) {
       // One RENDERED line per target, exactly as the Thesis candidates's claim is bounded: a
       // newline emits a line no grammar class admits, and the emit-time
       // refusal would then name the surface rather than this input.
-      throw new JudgmentRefusal(`neighborhood judgment for ${JSON.stringify(slug)} carries a role spanning more `
-        + "than one line. The TC-target line is one rendered line, so a multi-line role emits a line no grammar "
-        + "class admits and the refusal would name the surface rather than this input.");
+      throw new JudgmentRefusal(
+        `neighborhood judgment for ${JSON.stringify(slug)} carries a role spanning more ` +
+          "than one line. The TC-target line is one rendered line, so a multi-line role emits a line no grammar " +
+          "class admits and the refusal would name the surface rather than this input.",
+      );
     }
-    out.set(slug, { level: v.level, claim: v.claim.trim(),
-      target: { candidate: t.candidate.trim(), role: t.role.trim() } });
+    out.set(slug, {
+      level: v.level,
+      claim: v.claim.trim(),
+      target: { candidate: t.candidate.trim(), role: t.role.trim() },
+    });
   }
   return out;
 }
@@ -471,10 +516,12 @@ export function refuseTargetsOutsideCandidates(judgments, candidateIds, at) {
     .filter(([, j]) => j.target && !known.has(j.target.candidate))
     .map(([slug, j]) => `${slug} -> ${j.target.candidate}`);
   if (bad.length) {
-    throw new JudgmentRefusal(`${at} refuses ${bad.length} neighborhood target(s) naming a Thesis candidate this `
-      + `report does not carry: ${bad.join(", ")}. The composed candidates are: `
-      + `${known.size ? [...known].join(", ") : "(none composed)"}. A target that joins nothing renders a line `
-      + "pointing at a section that does not carry it.");
+    throw new JudgmentRefusal(
+      `${at} refuses ${bad.length} neighborhood target(s) naming a Thesis candidate this ` +
+        `report does not carry: ${bad.join(", ")}. The composed candidates are: ` +
+        `${known.size ? [...known].join(", ") : "(none composed)"}. A target that joins nothing renders a line ` +
+        "pointing at a section that does not carry it.",
+    );
   }
   return judgments;
 }
@@ -482,8 +529,7 @@ export function refuseTargetsOutsideCandidates(judgments, candidateIds, at) {
 export function neighborhoodForTargets(record, targets) {
   // The settled set is the MEMBERS the entered ids reach. A SubGroup id brings
   // its SubGroup, a Group id brings the group — story 1.58's rule, reused.
-  const memberIds = [...new Set(targets.flatMap((t) =>
-    (t.kind === "subgroup" ? t.sg.members : t.group.members)))];
+  const memberIds = [...new Set(targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))];
   // TWO KEY SPACES MEET HERE. A group's members are candidate `id`s
   // (`lesson:<slug>`, minted at :378); the served records the neighborhood
   // traverses are keyed by `slug`. Handing ids straight to the composer
@@ -505,8 +551,11 @@ export function neighborhoodForTargets(record, targets) {
   const resp = gatewayQuery("element_survey", {});
   const records = [];
   for (const line of resp.lines || []) {
-    try { records.push(JSON.parse(line.text)); }
-    catch { fail(`unparseable served record at ${line.cite} — surfaced, not skipped`); }
+    try {
+      records.push(JSON.parse(line.text));
+    } catch {
+      fail(`unparseable served record at ${line.cite} — surfaced, not skipped`);
+    }
   }
   if (records.length === 0) {
     // DEGRADE, NEVER ABORT THE PULL (PR #477 round 1, carried on kogaki#473).
@@ -518,10 +567,14 @@ export function neighborhoodForTargets(record, targets) {
     // is DISCLOSED as its own typed section form — a different state from an
     // enumeration that ran and found nothing, and stated as such, which is
     // the disclosure discipline of the neighborhood section's shape applied to the section's own inputs.
-    return { gids: targets.map((t) => t.gid), no_material: true,
-      suggestions: [], unresolved: [],
+    return {
+      gids: targets.map((t) => t.gid),
+      no_material: true,
+      suggestions: [],
+      unresolved: [],
       counts: { seeds: 0, suggested: 0, rendered: 0, unresolved: 0, by_family: {} },
-      unmapped };
+      unmapped,
+    };
   }
 
   const { suggestions, unresolved, counts } = neighborhoodOf(records, seedSlugs);
@@ -567,16 +620,17 @@ export function neighborhoodDisplaySet(suggestions) {
   // level the declared slug sort orders them and carries NO judgment.
   const ordered = [];
   for (const l of NEIGHBORHOOD_LEVELS) {
-    ordered.push(...judged.filter((x) => x.level === l)
-      .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0)));
+    ordered.push(
+      ...judged.filter((x) => x.level === l).sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0)),
+    );
   }
   const shown = ordered.slice(0, NEIGHBORHOOD_DISPLAY_CAP);
   // THE COMPOSITION IS COMPUTED HERE, not at the render site, for the reason
   // this helper exists at all: the counts line and the rows must describe one
   // selection, and two computations of "which rows show" is how those drift.
-  const composition = NEIGHBORHOOD_LEVELS
-    .map((l) => [l, shown.filter((x) => x.level === l).length])
-    .filter(([, n]) => n > 0);
+  const composition = NEIGHBORHOOD_LEVELS.map((l) => [l, shown.filter((x) => x.level === l).length]).filter(
+    ([, n]) => n > 0,
+  );
   return { state: "shown", found, unjudged, shown, composition };
 }
 
@@ -643,18 +697,25 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
     // the empty form's first line is TRUE and its second — "the half that
     // refuses the strong reading" — is true unconditionally, so a member gap
     // renders BESIDE them rather than deleting them.
-    if (seedGaps.length) { sayGaps(); return out; }
+    if (seedGaps.length) {
+      sayGaps();
+      return out;
+    }
     // THE TWO-LINE FORM IS THE DECLARED CLASS (`neighborhood_empty`), kept
     // through kogaki#686 because the ruling narrows what a POPULATED section
     // renders and says nothing about the empty one. The second line is the
     // load-bearing half: it refuses the strong reading of an empty result. It
     // is true only when every seed RESOLVED and the walk genuinely found
     // nothing, which is the condition guarded above.
-    say("No suggestion. The enumeration ran over the settled set's Batches and "
-      + "returned nothing — a result about this settled set, not a failure.");
-    say("Not asserted: that an empty neighborhood is informative in the STRONG "
-      + "sense. Absence here is absence of a same-Batch sibling, never evidence "
-      + "that the settled set stands alone.");
+    say(
+      "No suggestion. The enumeration ran over the settled set's Batches and " +
+        "returned nothing — a result about this settled set, not a failure.",
+    );
+    say(
+      "Not asserted: that an empty neighborhood is informative in the STRONG " +
+        "sense. Absence here is absence of a same-Batch sibling, never evidence " +
+        "that the settled set stands alone.",
+    );
     if (memberGaps.length) sayMemberGaps();
     return out;
   }
@@ -669,8 +730,10 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
   // itself is `neighborhoodDisplaySet`'s; this function renders its arms and
   // computes none of them.
   if (sel.state === "none-judged") {
-    say(`${found} candidate(s) found, 0 shown — none carries a recommendation `
-      + `level. The mechanical layer ran; the judgment layer did not.`);
+    say(
+      `${found} candidate(s) found, 0 shown — none carries a recommendation ` +
+        `level. The mechanical layer ran; the judgment layer did not.`,
+    );
     // A PARTIAL RESOLUTION FAILURE IS STILL OWED. Some seeds resolving does not
     // discharge the ones that did not: the count above is over what the walk
     // reached, and a reader cannot tell a small neighborhood from a small
@@ -690,9 +753,7 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
   // display set rather than being recomputed, so the line and the rows cannot
   // disagree about which selection they describe.
   const comp = sel.composition || [];
-  const desc = comp.length === 1
-    ? `all ${comp[0][0]}`
-    : comp.map(([l, n]) => `${n} ${l}`).join(", then ");
+  const desc = comp.length === 1 ? `all ${comp[0][0]}` : comp.map(([l, n]) => `${n} ${l}`).join(", then ");
   say(`showing ${sel.shown.length} of ${found} — ${desc}`);
   // THE BATCH-SIDE RESOLUTION GAPS RENDER HERE (kogaki#691; #686 disposition 4; PR #697).
   // Both kinds ride a populated section: the counts above cover only what the walk REACHED.
@@ -714,9 +775,11 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
     // MARKER rather than an omitted line. Omitting it would make "the target is
     // a fixed line class" false exactly where it matters, and substituting a
     // plausible candidate id would be the renderer inventing the join.
-    say(x.target && x.target.candidate && x.target.role
-      ? `  serves: ${x.target.role} for ${x.target.candidate}`
-      : `  ${NO_TARGET}`);
+    say(
+      x.target && x.target.candidate && x.target.role
+        ? `  serves: ${x.target.role} for ${x.target.candidate}`
+        : `  ${NO_TARGET}`,
+    );
     // A HEADLINE WITH NO CITE FALLS TO THE MARKER, NEVER TO BARE PROSE (PR #694
     // round 1). The ternary's second arm used to print `x.gloss` when it was
     // truthy, so a served headline arriving with a null cite rendered UNQUOTED
@@ -727,8 +790,7 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
     // returned without a cite yields exactly that entry. No grammar class is
     // shaped for the resulting line either, so the outcome was an emit-time
     // refusal of the whole report or an unclassed line.
-    say(x.gloss && x.gloss_cite ? `  “${x.gloss}”  ${x.gloss_cite}`
-                                : `  ${glossMarkerFor(x)}`);
+    say(x.gloss && x.gloss_cite ? `  “${x.gloss}”  ${x.gloss_cite}` : `  ${glossMarkerFor(x)}`);
     // THE LEVEL IS GONE FROM THIS LINE — it heads the row above (kogaki#861).
     say(`  ${x.claim || "claim unrecorded"}`);
   }
@@ -742,21 +804,18 @@ function neighborhoodDisplay({ tag, gids, suggestions, unresolved = [] }) {
 // This frame forwards exactly what the callee reads; its parameter list is the statement
 // of that (kogaki#698).
 export function neighborhoodSection({ gids, no_material, suggestions, unresolved = [] }) {
-  const head = [
-    "## Provenance neighborhood",
-    "",
-    `*Seeded by:* ${gids.join(", ")}`,
-    "",
-  ];
+  const head = ["## Provenance neighborhood", "", `*Seeded by:* ${gids.join(", ")}`, ""];
   // The seam served no element records: the enumeration DID NOT RUN, which is
   // a different state from an enumeration that ran and found nothing, and the
   // section says which (report-format.json v7 `neighborhood_no_material`).
   if (no_material) {
-    return [...head,
+    return [
+      ...head,
       "No served material reached the neighborhood: the seam returned no element records, so the enumeration did not run — a different state from an enumeration that ran and found nothing, stated rather than failing the pull (the disclosure discipline of the neighborhood section's shape).",
     ];
   }
-  return [...head,
+  return [
+    ...head,
     // Drop only the display's heading line; the tag it carried already heads
     // the report's own title, and the set rides `*Seeded by:*` above.
     ...neighborhoodDisplay({ tag: "", gids, suggestions, unresolved }).slice(1),

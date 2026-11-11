@@ -18,14 +18,16 @@ import { REPO } from "../run-record.mjs";
 // the process directly and would skip that catch entirely, leaving no job
 // record behind for a refusal this function itself can fully describe.
 export async function loadReaderPathUnitValidator(declared) {
-  if (!declared || typeof declared !== "object") throw new Error("the units file carries no declared validator (kogaki#1240).");
+  if (!declared || typeof declared !== "object")
+    throw new Error("the units file carries no declared validator (kogaki#1240).");
   if (!declared.module) throw new Error("the declared validator names no `module`.");
   if (!declared.export) throw new Error("the declared validator names no `export`.");
   const modulePath = String(declared.module);
   const exportName = String(declared.export);
   const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
   const fn = mod[exportName];
-  if (typeof fn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(exportName)}.`);
+  if (typeof fn !== "function")
+    throw new Error(`${modulePath} exports no function named ${JSON.stringify(exportName)}.`);
   const inputs = declared.inputs || {};
   // THE `{error}`-RETURNING CONVENTION (carried from `validateLegs` and
   // `resolveMoveIds`, which `validateReaderPathUnit` itself calls) is
@@ -57,18 +59,23 @@ export async function loadReaderPathUnitValidator(declared) {
 export async function loadReaderPathFitJudge(declared) {
   if (declared === undefined || declared === null) return null;
   if (typeof declared !== "object" || !declared.module || !declared.prompt_export || !declared.verdict_export) {
-    throw new Error("the units file's `fit_judge` names no `module`, `prompt_export` and `verdict_export` (kogaki#1307).");
+    throw new Error(
+      "the units file's `fit_judge` names no `module`, `prompt_export` and `verdict_export` (kogaki#1307).",
+    );
   }
   const modulePath = String(declared.module);
   const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
   const promptFn = mod[String(declared.prompt_export)];
   const verdictFn = mod[String(declared.verdict_export)];
-  if (typeof promptFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.prompt_export)}.`);
-  if (typeof verdictFn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.verdict_export)}.`);
+  if (typeof promptFn !== "function")
+    throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.prompt_export)}.`);
+  if (typeof verdictFn !== "function")
+    throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.verdict_export)}.`);
   const inputs = declared.inputs || {};
   // THE ARRAY THE JUDGE'S ANSWER CARRIES (kogaki#1768): `verdicts` unless the declaration names another.
   return {
-    recordArray: typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "verdicts",
+    recordArray:
+      typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "verdicts",
     prompt: (candidate, unitId, scope) => promptFn(candidate, inputs, unitId, scope),
     verdict: (record, candidate, unitId, scope) => verdictFn(record, candidate, inputs, unitId, scope) || {},
   };
@@ -84,7 +91,8 @@ export async function loadMapper(declared, ctx) {
   }
   const mod = await import(pathToFileURL(resolve(REPO, String(declared.module))).href);
   const Mapper = mod[String(declared.export)];
-  if (typeof Mapper !== "function") throw new Error(`${declared.module} exports no class named ${JSON.stringify(declared.export)}.`);
+  if (typeof Mapper !== "function")
+    throw new Error(`${declared.module} exports no class named ${JSON.stringify(declared.export)}.`);
   return new Mapper(declared.inputs || {}, ctx);
 }
 export const MAPPER_PHASES = ["reading", "grounding"];

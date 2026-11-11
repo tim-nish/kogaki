@@ -8,7 +8,14 @@
 //
 import { resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
-import { opensSectionRefusal, parseBriefRecord, unfilledSlots, briefLegs, briefStructureRefusal, legschema } from "../compose.mjs";
+import {
+  opensSectionRefusal,
+  parseBriefRecord,
+  unfilledSlots,
+  briefLegs,
+  briefStructureRefusal,
+  legschema,
+} from "../compose.mjs";
 
 export function fail(msg) {
   process.stderr.write(`draft: ${msg}\n`);
@@ -28,7 +35,8 @@ export function argString(args, key, usage) {
 // content hash. The absence is STATED in the Draft's frontmatter rather than
 // rendered as an empty value: a blank `survey_pin:` would read as a pin the
 // Draft failed to carry, which is the one thing that is not true of it.
-const NO_SURVEY_PIN = "none — the commit pin is deprecated (kogaki#1116); each Strand's cite carries its own content hash";
+const NO_SURVEY_PIN =
+  "none — the commit pin is deprecated (kogaki#1116); each Strand's cite carries its own content hash";
 
 export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
@@ -52,8 +60,10 @@ export function readBrief(text, path = "<brief>") {
   // composition names the field the refusal carries.
   const open = unfilledSlots(record);
   if (open.length) {
-    refusals.push(`the Brief at ${path} is a template, not an input: the field "${open[0]}" still reads as an `
-      + "unfilled slot (null) — the Brief is filled when a Candidate is adopted");
+    refusals.push(
+      `the Brief at ${path} is a template, not an input: the field "${open[0]}" still reads as an ` +
+        "unfilled slot (null) — the Brief is filled when a Candidate is adopted",
+    );
   }
 
   const slug = typeof record.slug === "string" && record.slug !== "" ? record.slug : basename(dirname(resolve(path)));
@@ -63,8 +73,10 @@ export function readBrief(text, path = "<brief>") {
   // stands. No field is composed for the title.
   const thesis = typeof record.thesis === "string" && record.thesis.trim() !== "" ? record.thesis.trim() : null;
   if (thesis === null) {
-    refusals.push(`the Brief at ${path} carries no non-empty \`thesis\` — `
-      + "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it");
+    refusals.push(
+      `the Brief at ${path} carries no non-empty \`thesis\` — ` +
+        "the Draft's title is the Thesis, rendered verbatim, and there is no field composed for it",
+    );
   }
 
   // THE SURVEY PIN IS NO LONGER CARRIED (kogaki#1116): each Strand's cite
@@ -89,10 +101,15 @@ export function readBrief(text, path = "<brief>") {
     const declared = new Set(Object.keys(legschema().fields));
     for (const [i, raw] of record.reader_path.entries()) {
       const bad = legRecordRefusal(raw, declared, `the Brief at ${path}, leg ${raw?.leg_id ?? i + 1}`);
-      if (bad) { refusals.push(bad); continue; }
+      if (bad) {
+        refusals.push(bad);
+        continue;
+      }
     }
     // `carries` AND `relation` BIND ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).
-    const unbound = refusals.length ? null : briefStructureRefusal(record.reader_path, record.structure, `the Brief at ${path}`);
+    const unbound = refusals.length
+      ? null
+      : briefStructureRefusal(record.reader_path, record.structure, `the Brief at ${path}`);
     if (unbound) refusals.push(unbound);
     if (!refusals.length) legs.push(...briefLegs(record));
   }
@@ -111,8 +128,10 @@ function legRecordRefusal(raw, declared, at) {
   if (typeof raw.leg_id !== "string" || raw.leg_id === "") return `${at}: carries no \`leg_id\``;
   for (const k of Object.keys(raw)) {
     if (k === "reader_state_before" || k === "reader_state_after") {
-      return `${at}: carries \`${k}\` — the Leg's reader states are retired (kogaki#1699): a Leg's entry and `
-        + "exit are its Move's `takes` and `leaves`, which no Brief records";
+      return (
+        `${at}: carries \`${k}\` — the Leg's reader states are retired (kogaki#1699): a Leg's entry and ` +
+        "exit are its Move's `takes` and `leaves`, which no Brief records"
+      );
     }
     // `relation` NAMES THE HIGHER-ORDER RELATION THE LEG SERVES (kogaki#1768), bound
     // against the Brief's `structure` below; the satellite-marking relations layer of
@@ -121,7 +140,10 @@ function legRecordRefusal(raw, declared, at) {
       return `${at}: carries \`${k}\`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read`;
     }
   }
-  if (!Array.isArray(raw.claims) || raw.claims.some((g) => !g || typeof g.strand !== "string" || typeof g.proposition !== "string")) {
+  if (
+    !Array.isArray(raw.claims) ||
+    raw.claims.some((g) => !g || typeof g.strand !== "string" || typeof g.proposition !== "string")
+  ) {
     return `${at}: \`claims\` is a list of maps, each naming its \`strand\` and its \`proposition\``;
   }
   // THE LEG ENDS AT ITS RELATION'S `holds` (kogaki#1775): its `text`, which the Packet renders above the
@@ -129,16 +151,22 @@ function legRecordRefusal(raw, declared, at) {
   if (Object.hasOwn(raw, "waypoints")) {
     return `${at}: carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775) and its paragraphs are /paragraph-plan's (kogaki#1777)`;
   }
-  if (typeof raw.text !== "string" || raw.text.trim() === "") return `${at}: carries no \`text\`, its relation's \`holds\` (kogaki#1775)`;
+  if (typeof raw.text !== "string" || raw.text.trim() === "")
+    return `${at}: carries no \`text\`, its relation's \`holds\` (kogaki#1775)`;
   if (raw.opens_section !== undefined) {
-    const bad = opensSectionRefusal(typeof raw.opens_section === "string" ? raw.opens_section.trim() : raw.opens_section, at);
+    const bad = opensSectionRefusal(
+      typeof raw.opens_section === "string" ? raw.opens_section.trim() : raw.opens_section,
+      at,
+    );
     if (bad) return bad;
   }
   // the Reader target Leg's mark (kogaki#1231): only `true` is a mark, and any
   // other value refuses naming the Leg rather than reading as unmarked.
   if (raw.reaches_target !== undefined && raw.reaches_target !== true) {
-    return `${at}: reaches_target reads ${JSON.stringify(raw.reaches_target)} — `
-      + "the mark is `true` on exactly one Leg and absent elsewhere (kogaki#1231)";
+    return (
+      `${at}: reaches_target reads ${JSON.stringify(raw.reaches_target)} — ` +
+      "the mark is `true` on exactly one Leg and absent elsewhere (kogaki#1231)"
+    );
   }
   return null;
 }
@@ -154,8 +182,9 @@ function legRecordRefusal(raw, declared, at) {
 // deliberate — the earlier Legs owe nothing on this ground, so no line tells
 // them so. Exported for the check.
 export const REACHES_TARGET_LINE = "This Leg reaches the Reader target.";
-export const CLOSING_LEG_LINE = "This Leg follows the Reader target: introduce nothing, raise nothing, "
-  + "and move only what the reader asks, expects or trusts.";
+export const CLOSING_LEG_LINE =
+  "This Leg follows the Reader target: introduce nothing, raise nothing, " +
+  "and move only what the reader asks, expects or trusts.";
 export function readerTargetLine(legs, legId) {
   const list = Array.isArray(legs) ? legs : [];
   const targetIdx = list.findIndex((s) => s && s.reaches_target === true);

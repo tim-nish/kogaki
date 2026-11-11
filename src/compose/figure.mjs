@@ -47,7 +47,9 @@ export function figureKinds() {
 // a writer and a reader disagreeing about a value fails silently at exactly
 // the field whose value reaches the rendered figure.
 export function renderFigureRoles(roles) {
-  return Object.entries(roles).map(([r, g]) => `${r}=${g}`).join(", ");
+  return Object.entries(roles)
+    .map(([r, g]) => `${r}=${g}`)
+    .join(", ");
 }
 // The READER of that form. Its consumer today is the round-trip assertion in
 // checks/check-brief-compose.sh — a writer whose output nothing can parse is a
@@ -140,7 +142,9 @@ export function figureOf(moveId, movesDir = "moves") {
   const block = r.record.figure;
   if (block === undefined || block === null) return { form: null };
   if (!isPlainMap(block)) {
-    return { error: `move "${moveId}" carries a \`figure\` that is not a map of \`kind\` and one line per role (${movesDir}/${moveId}${MOVE_RECORD_EXT})` };
+    return {
+      error: `move "${moveId}" carries a \`figure\` that is not a map of \`kind\` and one line per role (${movesDir}/${moveId}${MOVE_RECORD_EXT})`,
+    };
   }
   const form = {};
   for (const [k, v] of Object.entries(block)) form[k] = v === null || v === undefined ? "" : String(v).trim();
@@ -159,21 +163,29 @@ export function resolveFigureForms(legs, movesDir = "moves") {
     const r = figureOf(s.move, movesDir);
     if (r.error) return { error: `${at}: ${r.error}` };
     if (!r.form) {
-      return { error: `${at}: figure: is declared, and move "${s.move}" carries no figure — a figure is the INSTANCE of its Move's form (the figure decision), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Leg` };
+      return {
+        error: `${at}: figure: is declared, and move "${s.move}" carries no figure — a figure is the INSTANCE of its Move's form (the figure decision), so a Move with no form leaves the declaration with nothing to be an instance of. Give the Move a form under its own issue (src/figure-kinds.json names the closed kind set), or drop the figure: from this Leg`,
+      };
     }
     const kind = r.form.kind;
     if (!kind || !Object.prototype.hasOwnProperty.call(kinds, kind)) {
-      return { error: `${at}: move "${s.move}" declares figure kind ${JSON.stringify(kind ?? null)}, which is outside the closed set (${Object.keys(kinds).sort().join(", ")}) — the Move library is what admits a kind, and ingestion refuses this record` };
+      return {
+        error: `${at}: move "${s.move}" declares figure kind ${JSON.stringify(kind ?? null)}, which is outside the closed set (${Object.keys(kinds).sort().join(", ")}) — the Move library is what admits a kind, and ingestion refuses this record`,
+      };
     }
     const want = new Set(kinds[kind].roles || []);
     const have = new Set(Object.keys(s.figure_roles || {}));
     const missing = [...want].filter((x) => !have.has(x)).sort();
     const extra = [...have].filter((x) => !want.has(x)).sort();
     if (missing.length) {
-      return { error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Leg's claims (the figure decision). The form's roles are ${[...want].sort().join(", ")}` };
+      return {
+        error: `${at}: figure_roles leaves ${missing.map((x) => `"${x}"`).join(", ")} unbound — every role of move "${s.move}"'s ${kind} form binds to one of this Leg's claims (the figure decision). The form's roles are ${[...want].sort().join(", ")}`,
+      };
     }
     if (extra.length) {
-      return { error: `${at}: figure_roles binds ${extra.map((x) => `"${x}"`).join(", ")}, which is not a role of move "${s.move}"'s ${kind} form — the form's roles are ${[...want].sort().join(", ")} (src/figure-kinds.json)` };
+      return {
+        error: `${at}: figure_roles binds ${extra.map((x) => `"${x}"`).join(", ")}, which is not a role of move "${s.move}"'s ${kind} form — the form's roles are ${[...want].sort().join(", ")} (src/figure-kinds.json)`,
+      };
     }
   }
   return { ok: true, figures: legs.filter((s) => s.figure !== undefined && s.figure !== null).length };

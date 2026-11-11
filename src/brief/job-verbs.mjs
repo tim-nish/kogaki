@@ -11,17 +11,31 @@ import { join, resolve } from "node:path";
 import { gateSchema } from "../compose.mjs";
 import { enterRun } from "../runs.mjs";
 import {
-  READER_PATH_JOB_SYSTEM_FAILURE_STATES, jobHeartbeatMs, readReaderPathJob, readerPathAwaitStep,
-  readerPathJobBounds, readerPathJobPath, readerPathJobStopFlagPath,
+  READER_PATH_JOB_SYSTEM_FAILURE_STATES,
+  jobHeartbeatMs,
+  readReaderPathJob,
+  readerPathAwaitStep,
+  readerPathJobBounds,
+  readerPathJobPath,
+  readerPathJobStopFlagPath,
 } from "../workflow/detached-job.mjs";
 import { printWrittenGateCall, runWorkflow } from "../workflow/executor.mjs";
 import { READER_PATH_JOB_GATE_ID, STATE_RETRY_GATE_ID, emitGateDeclaration } from "../workflow/gate.mjs";
 import {
-  checkpointRun, clearOpenRunPointer, detachedJobExecutor, readRunRecord, relFromRepo,
+  checkpointRun,
+  clearOpenRunPointer,
+  detachedJobExecutor,
+  readRunRecord,
+  relFromRepo,
 } from "../workflow/run-record.mjs";
 import { ANSWER_WORK, CONDITIONS, GATE_WORK, STATE_WORK } from "./renderers.mjs";
 import {
-  BRIEF_TABLE, briefRunEntry, captureFile, detachedJobOfRun, fail, resolveStartAddresses,
+  BRIEF_TABLE,
+  briefRunEntry,
+  captureFile,
+  detachedJobOfRun,
+  fail,
+  resolveStartAddresses,
 } from "./run-state.mjs";
 
 // ---- THE READER-PATH JOB'S TWO BASH-REACHABLE VERBS (kogaki#1193).
@@ -38,27 +52,40 @@ import {
 // included; the refusal is this function's own).
 async function jobWork(dir, verb, table, tablePath, args) {
   if (verb === "start" || verb === "stop") {
-    fail(`\`--job ${verb}\` is refused from a Bash-reachable call — it runs in-process only, from the `
-      + "hook-driven advance that starts or stops the reader-path job, never from a session-typed command "
-      + "(kogaki#1193). The two verbs reachable this way are `status` and `await`.");
+    fail(
+      `\`--job ${verb}\` is refused from a Bash-reachable call — it runs in-process only, from the ` +
+        "hook-driven advance that starts or stops the reader-path job, never from a session-typed command " +
+        "(kogaki#1193). The two verbs reachable this way are `status` and `await`.",
+    );
   }
   if (verb !== "status" && verb !== "await") {
-    fail(`\`--job ${verb}\` is not one of the reader-path job's four verbs: `
-      + '`start`, `status`, `await`, `stop` (kogaki#1193).');
+    fail(
+      `\`--job ${verb}\` is not one of the reader-path job's four verbs: ` +
+        "`start`, `status`, `await`, `stop` (kogaki#1193).",
+    );
   }
   // THE JOB OF THE STATE THE RUN IS WAITING AT (kogaki#1301): the path-review
   // job while the run waits at `review_path`, the reader-path job otherwise.
   const j = detachedJobOfRun(dir);
   let job;
-  try { job = readReaderPathJob(j.jobDir); } catch (e) {
+  try {
+    job = readReaderPathJob(j.jobDir);
+  } catch (e) {
     if (verb === "status") throw e;
-    endBriefOnDefect(dir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(j.jobDir))));
+    endBriefOnDefect(
+      dir,
+      `the job record could not be read: ${e.message}`,
+      relFromRepo(resolve(readerPathJobPath(j.jobDir))),
+    );
   }
   if (!job) {
     console.log(`No ${j.label} record exists at ${readerPathJobPath(j.jobDir)} — nothing is running.`);
     return;
   }
-  if (verb === "status") { printReaderPathJobStatus(j, job); return; }
+  if (verb === "status") {
+    printReaderPathJobStatus(j, job);
+    return;
+  }
   await awaitReaderPathJob(j, job, table, tablePath, args);
 }
 
@@ -96,7 +123,10 @@ function readerPathDefectCause(j, job, state) {
     const uf = unit.failure || f;
     const why = typeof uf.result === "string" ? uf.result : String(uf.stderr_tail || "").trim();
     const file = uf.file ? relFromRepo(resolve(uf.file)) : jobFile;
-    return { cause: `the step ${JSON.stringify(unit.id || f.unit || "unknown")} stopped with exit code ${uf.exit_code}${why ? `: ${why}` : ""}`, file };
+    return {
+      cause: `the step ${JSON.stringify(unit.id || f.unit || "unknown")} stopped with exit code ${uf.exit_code}${why ? `: ${why}` : ""}`,
+      file,
+    };
   }
   if (state === "stalled") {
     return { cause: `no step produced new output for ${f.stalled_s}s`, file: jobFile };
@@ -106,7 +136,12 @@ function readerPathDefectCause(j, job, state) {
 
 function supervisorAlive(pid) {
   if (!Number.isInteger(pid)) return true;
-  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
 }
 
 // A ONE-LINE HEARTBEAT, read straight off the record the supervisor updates
@@ -124,10 +159,16 @@ export function readerPathJobStatusLines(label, jobPath, job, now = Date.now()) 
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
   const elapsedS = Math.floor((now - startedAt) / 1000);
   let bounds = null;
-  try { bounds = readerPathJobBounds(job); } catch { bounds = null; }
+  try {
+    bounds = readerPathJobBounds(job);
+  } catch {
+    bounds = null;
+  }
   const n = bounds ? bounds.unitRounds : "an unrecorded number of";
   const limit = bounds ? `${bounds.callLimitS}s` : "an unrecorded time";
-  const lines = [`${label} at ${jobPath} — elapsed ${elapsedS}s; each unit gets up to ${n} rounds of at most ${limit} per call:`];
+  const lines = [
+    `${label} at ${jobPath} — elapsed ${elapsedS}s; each unit gets up to ${n} rounds of at most ${limit} per call:`,
+  ];
   for (const u of job.units || []) {
     const round = Number.isInteger(u.rounds) ? u.rounds : 1;
     const phase = u.phase === "fit" ? "fit" : "compose";
@@ -139,7 +180,9 @@ export function readerPathJobStatusLines(label, jobPath, job, now = Date.now()) 
       const ranS = Number.isFinite(began) ? (now - began) / 1000 : 0;
       estimate = `, about ${Math.max(0, Math.round(u.call_1_s - ranS))}s to go`;
     }
-    lines.push(`  unit ${u.id}: round ${round} of ${bounds ? bounds.unitRounds : "?"}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s) so far${estimate}${why}`);
+    lines.push(
+      `  unit ${u.id}: round ${round} of ${bounds ? bounds.unitRounds : "?"}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s) so far${estimate}${why}`,
+    );
   }
   return lines;
 }
@@ -154,9 +197,10 @@ function printReaderPathJobStatus(j, job) {
   // `CANDIDATE_SELECTION`, say — and this print is the owner's only second
   // chance at whichever one is outstanding, not only at
   // `brief-reader-path-job`. Matched on `state`, not on `gate_id`.
-  const owed = rec && Array.isArray(rec.gate_declarations_owed)
-    ? rec.gate_declarations_owed.filter((g) => g.state === rec.awaiting && g.declaration).pop()
-    : null;
+  const owed =
+    rec && Array.isArray(rec.gate_declarations_owed)
+      ? rec.gate_declarations_owed.filter((g) => g.state === rec.awaiting && g.declaration).pop()
+      : null;
   if (rec && rec.awaiting && owed) {
     // BOTH ARTIFACTS ARE NAMED FROM `dir` AND THE GATE ID, NOT FROM
     // `owed.declaration` (kogaki#1198). `emitGateDeclaration` writes the
@@ -173,7 +217,9 @@ function printReaderPathJobStatus(j, job) {
         const doc = JSON.parse(readFileSync(capPath, "utf8"));
         const rows = Array.isArray(doc.rows) ? doc.rows : [];
         captured = rows.some((r) => r && r.gate_instance_id === decl.gate_instance_id);
-      } catch { /* an unreadable capture reads as not yet answered, not as an error status prints past */ }
+      } catch {
+        /* an unreadable capture reads as not yet answered, not as an error status prints past */
+      }
     }
     if (!captured) {
       console.log(`This run has an OWED, UNCAPTURED gate at state ${rec.awaiting}:`);
@@ -182,8 +228,11 @@ function printReaderPathJobStatus(j, job) {
       // is removed in favour of it, so the bytes `job status` and `job await`
       // print here are composed exactly once, never by a second reader kept
       // in step with the first by hand.
-      printWrittenGateCall(dir, owed.gate_id,
-        `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
+      printWrittenGateCall(
+        dir,
+        owed.gate_id,
+        `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`,
+      );
     }
   }
 }
@@ -242,19 +291,27 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
     if (state === "running" && !supervisorAlive(job.supervisor_pid)) {
       const again = readReaderPathJobOrDefect(j);
       if (again && again.state === job.state && again.updated_at === job.updated_at) {
-        endBriefOnDefect(dir, `the supervisor process ${job.supervisor_pid} is gone while the record says ${job.state}`,
-          relFromRepo(resolve(readerPathJobPath(j.jobDir))));
+        endBriefOnDefect(
+          dir,
+          `the supervisor process ${job.supervisor_pid} is gone while the record says ${job.state}`,
+          relFromRepo(resolve(readerPathJobPath(j.jobDir))),
+        );
       }
       job = again || job;
       continue;
     }
-    if (state !== "running") { await finishReaderPathJobAwait(j, { ...job, units }, state, table, tablePath, args); return; }
+    if (state !== "running") {
+      await finishReaderPathJobAwait(j, { ...job, units }, state, table, tablePath, args);
+      return;
+    }
     const remainingMs = jobAwaitS() * 1000 - (Date.now() - awaitStartedAt);
     if (remainingMs <= 0) {
       // THE HEARTBEAT CARRIES THE ROUNDS AND THE ESTIMATE (kogaki#1355), so the owner
       // waiting on a long job sees which Round each unit is on and how long is left.
       for (const line of readerPathJobStatusLines(j.label, readerPathJobPath(j.jobDir), job)) console.log(line);
-      console.log(`${j.stateId === "review_path" ? REVIEW_PATH_JOB_STILL_RUNNING_LINE : READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
+      console.log(
+        `${j.stateId === "review_path" ? REVIEW_PATH_JOB_STILL_RUNNING_LINE : READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`,
+      );
       return;
     }
     console.log(`${j.label} still running at ${elapsedS}s — waiting for the next heartbeat.`);
@@ -264,8 +321,14 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
 }
 
 function readReaderPathJobOrDefect(j) {
-  try { return readReaderPathJob(j.jobDir); } catch (e) {
-    return endBriefOnDefect(j.runDir, `the job record could not be read: ${e.message}`, relFromRepo(resolve(readerPathJobPath(j.jobDir))));
+  try {
+    return readReaderPathJob(j.jobDir);
+  } catch (e) {
+    return endBriefOnDefect(
+      j.runDir,
+      `the job record could not be read: ${e.message}`,
+      relFromRepo(resolve(readerPathJobPath(j.jobDir))),
+    );
   }
 }
 
@@ -292,7 +355,9 @@ function readerPathJobResumeClaimPath(j) {
 // later waiter prints the position rather than resuming a second time.
 function readerPathRunPosition(dir) {
   const rec = readRunRecord(dir);
-  return JSON.stringify(rec ? { completed: rec.completed || [], awaiting: rec.awaiting ?? null, done: !!rec.done } : null);
+  return JSON.stringify(
+    rec ? { completed: rec.completed || [], awaiting: rec.awaiting ?? null, done: !!rec.done } : null,
+  );
 }
 
 function claimReaderPathJobResume(j, state) {
@@ -307,10 +372,18 @@ function claimReaderPathJobResume(j, state) {
       if (!e || e.code !== "EEXIST") throw e;
     }
     let held = null;
-    try { held = JSON.parse(readFileSync(claimPath, "utf8")); } catch { held = null; }
+    try {
+      held = JSON.parse(readFileSync(claimPath, "utf8"));
+    } catch {
+      held = null;
+    }
     const pid = held && Number.isInteger(held.pid) ? held.pid : null;
     if (claimTry > 0 || pid === null || supervisorAlive(pid) || held.position !== position) return false;
-    try { unlinkSync(claimPath); } catch (e) { if (!e || e.code !== "ENOENT") throw e; }
+    try {
+      unlinkSync(claimPath);
+    } catch (e) {
+      if (!e || e.code !== "ENOENT") throw e;
+    }
   }
   return false;
 }
@@ -345,7 +418,9 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
     // position (the same reading `job status` gives) and exits 0 having
     // advanced nothing.
     if (!claimReaderPathJobResume(j, state)) {
-      console.log(`${j.label} resume at ${dir} is already claimed at ${readerPathJobResumeClaimPath(j)} — printing the run's position instead of resuming it again.`);
+      console.log(
+        `${j.label} resume at ${dir} is already claimed at ${readerPathJobResumeClaimPath(j)} — printing the run's position instead of resuming it again.`,
+      );
       printReaderPathJobStatus(j, job);
       return;
     }
@@ -366,14 +441,19 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
       }
       const resultPath = join(j.jobDir, "review-path-result.json");
       writeFileSync(resultPath, `${JSON.stringify({ review, unreviewed }, null, 2)}\n`);
-      await runWorkflow(BRIEF_FLOW, { ...args, status: undefined, job: undefined, "review-result": resultPath, "run-dir": dir },
-        detachedJobExecutor(jobRel));
+      await runWorkflow(
+        BRIEF_FLOW,
+        { ...args, status: undefined, job: undefined, "review-result": resultPath, "run-dir": dir },
+        detachedJobExecutor(jobRel),
+      );
       return;
     }
     // `compose_path` STARTS NO JOB (kogaki#1775): its Legs are derived with no
     // Call, so a finished job is the path review's and no other's.
-    fail(`${j.label} at ${dir} is a \`${j.stateId}\` job, and only \`review_path\` runs one — \`compose_path\` `
-      + "derives its Legs with no Call since kogaki#1775. Start the Brief again.");
+    fail(
+      `${j.label} at ${dir} is a \`${j.stateId}\` job, and only \`review_path\` runs one — \`compose_path\` ` +
+        "derives its Legs with no Call since kogaki#1775. Start the Brief again.",
+    );
   }
   const rec = readRunRecord(dir);
   if (!rec) fail(`no run record at ${dir} — the job it names has nothing to resume.`);
@@ -390,31 +470,61 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
   if (state === "refused") {
     const refusedUnits = (job.units || []).filter((u) => u.status === "refused");
     const reading = refusedUnits.length
-      ? refusedUnits.map((u) => `The step named ${JSON.stringify(u.id)} did not complete: ${
-        (u.failure && (u.failure.stderr_tail || u.failure.first_refusal)) || "no further detail was recorded for it"}`).join("\n")
+      ? refusedUnits
+          .map(
+            (u) =>
+              `The step named ${JSON.stringify(u.id)} did not complete: ${
+                (u.failure && (u.failure.stderr_tail || u.failure.first_refusal)) ||
+                "no further detail was recorded for it"
+              }`,
+          )
+          .join("\n")
       : "No step completed, and their own records are missing.";
     const options = [{ id: "stop", label: "Stop" }];
-    const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-      { reader_path_job_state: state, reader_path_job: jobRel, reader_path_unit_refusal: reading });
+    const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options, {
+      reader_path_job_state: state,
+      reader_path_job: jobRel,
+      reader_path_unit_refusal: reading,
+    });
     rec.gate_declarations_owed = rec.gate_declarations_owed || [];
-    rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
+    rec.gate_declarations_owed.push({
+      state: failureState,
+      gate_id: READER_PATH_JOB_GATE_ID,
+      declaration: relFromRepo(resolve(declPath)),
+    });
     checkpointRun(rec);
-    console.log(`${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
-    printWrittenGateCall(dir, READER_PATH_JOB_GATE_ID,
-      `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
+    console.log(
+      `${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`,
+    );
+    printWrittenGateCall(
+      dir,
+      READER_PATH_JOB_GATE_ID,
+      `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`,
+    );
     return;
   }
   // EVERY OTHER STATE ENDED THE JOB, so its Arm is stop alone; no state here
   // ever auto-retries.
   const options = [{ id: "stop", label: "Stop" }];
-  const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options,
-    { reader_path_job_state: state, reader_path_job: jobRel });
+  const declPath = emitGateDeclaration(dir, READER_PATH_JOB_GATE_ID, options, {
+    reader_path_job_state: state,
+    reader_path_job: jobRel,
+  });
   rec.gate_declarations_owed = rec.gate_declarations_owed || [];
-  rec.gate_declarations_owed.push({ state: failureState, gate_id: READER_PATH_JOB_GATE_ID, declaration: relFromRepo(resolve(declPath)) });
+  rec.gate_declarations_owed.push({
+    state: failureState,
+    gate_id: READER_PATH_JOB_GATE_ID,
+    declaration: relFromRepo(resolve(declPath)),
+  });
   checkpointRun(rec);
-  console.log(`${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`);
-  printWrittenGateCall(dir, READER_PATH_JOB_GATE_ID,
-    `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`);
+  console.log(
+    `${j.label} at ${state} — the ${failureState} state stops here; ${declPath} carries what the owner is asked.`,
+  );
+  printWrittenGateCall(
+    dir,
+    READER_PATH_JOB_GATE_ID,
+    `Send that file's contents as the tool_input, byte-for-byte. Nothing is retyped, summarized, reformatted or pre-selected.`,
+  );
 }
 
 // THE FLOW BINDING. Everything one flow differs from another in, and nothing
