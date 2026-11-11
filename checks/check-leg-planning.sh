@@ -105,12 +105,16 @@ const dir = process.env.LPP_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const at = (row) => prompt.includes("\\\`" + row + "\\\` judgment point");
-  // THE TRIAL ASKS THE STRUCTURE (kogaki#1775), and /paragraph-plan its plan and judge Calls (kogaki#1777): every
-  // other row is logged and exits 5.
-  const stage = at("sme_read_set") ? "structure" : at("lpp_waypoints") ? "waypoints" : at("lpp_grounded") ? "grounded"
+  // THE TRIAL ASKS THE STRUCTURE (kogaki#1775), and /paragraph-plan its Analogy Mapping (kogaki#1778), plan and
+  // judge Calls (kogaki#1777): every other row is logged and exits 5.
+  const stage = at("analogy_mapping") ? "analogy" : at("sme_read_set") ? "structure" : at("lpp_waypoints") ? "waypoints" : at("lpp_grounded") ? "grounded"
     : at("lpp_legs") ? "legs" : at("reader_path_fit_unit") ? "fit"
     : prompt.includes('"leg_you_must_judge"') ? "judge" : prompt.includes('"leg_you_must_plan"') ? "plan" : "unknown";
   const input = () => { const m = "----- INPUT (JSON) -----"; return JSON.parse(prompt.slice(prompt.lastIndexOf(m) + m.length)); };
+  if (stage === "analogy") {
+    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
+    writeSync(1, JSON.stringify({ type: "result", result: JSON.stringify({ version: "1", none: "no base domain the fixture reader holds carries the system." }) }) + "\\n"); process.exit(0);
+  }
   if (stage === "plan" || stage === "judge") {
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
     const x = input();
@@ -165,7 +169,7 @@ for (const f of ["structure.yaml", "legs.yaml", "trial.json", "sheet.html"]) ok(
 ok(!existsSync(join(a.o, "waypoints.yaml")), "(a) the Trial still writes waypoints.yaml");
 ok(existsSync(join(a.o, "calls", "sme_read_set", "1", "prompt.md")) && existsSync(join(a.o, "calls", "sme_read_set", "1", "answer.json")), "(a) no Call Record at calls/sme_read_set/1/");
 ok(JSON.stringify(existsSync(join(a.o, "calls")) ? readdirSync(join(a.o, "calls")) : []) === '["sme_read_set"]', `(a) the Trial made a Call other than sme_read_set: ${existsSync(join(a.o, "calls")) ? readdirSync(join(a.o, "calls")) : []}`);
-ok(a.seen.every((x) => ["structure", "plan", "judge"].includes(x.stage)), `(a) the fake model was asked a row the Trial no longer asks: ${JSON.stringify([...new Set(a.seen.map((x) => x.stage))])}`);
+ok(a.seen.every((x) => ["structure", "analogy", "plan", "judge"].includes(x.stage)), `(a) the fake model was asked a row the Trial no longer asks: ${JSON.stringify([...new Set(a.seen.map((x) => x.stage))])}`);
 ok(a.seen.filter((x) => x.stage === "plan").length === 5, `(a) /paragraph-plan did not make one plan Call per Leg: ${a.seen.filter((x) => x.stage === "plan").length}`);
 ok(ta.claims && ta.claims.sha256 === sha(claimsFile), "(a) trial.json does not carry the claims file's sha256");
 ok(ta.library && /^[0-9a-f]{64}$/.test(ta.library.sha256 || ""), "(a) trial.json does not carry the library's sha256");

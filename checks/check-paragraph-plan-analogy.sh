@@ -3,26 +3,11 @@
 # structure before its first Leg, writes it at the top of `paragraph-plan.yaml`, and every Leg
 # bound to an analogy Move draws from it (kogaki#1778, owner decision 2026-11-10).
 #
-# WHAT THIS COVERS, the job cases driven end to end through `node src/paragraph-plan.mjs
-# start|await` over a real structure Brief, a scratch Move library and a FAKE judge binary
-# (`KOGAKI_JUDGE_CLI`) — never the actual `claude` CLI:
-#   (a) one `analogy_mapping` call runs before any Leg's, handed the structure's Roles, its
-#       reached relations and the apex, and the plan file carries `analogy` after `brief` and
-#       before `legs`, one counterpart per Role and per reached relation.
-#   (b) the two Legs bound to analogy Moves (a `carry` entry in `takes` or `leaves`) are each
-#       judged with the same base domain under `analogy_you_must_draw_from`, the judge row carrying
-#       the shared criterion; the Leg bound to a Move with no `carry` entry, and every plan call,
-#       is handed nothing of it.
-#   (c) a paragraph naming another analogue is refused by the fit judge, and its site retry is
-#       handed the mapping, so the plan written names no other analogue.
-#   (d) a mapping leaving the apex without a counterpart is refused naming it on every round;
-#       the stage then stops before any Leg is planned and writes nothing.
-#   (e) a Brief carrying no structure records `analogy: none` with its reason and makes no call.
-#   (f) the validator: a missing Role, reached relation or apex is refused naming it, an id the
-#       structure lacks is refused, `none` needs its reason and stands alone; the plan reader
-#       refuses a malformed `analogy`; the Mapper's grounding for an analogy Move refuses a base
-#       domain that is not the mapping's.
-# NOT COVERED: whether a live model's base domain is apt is the judgment's own, never linted here.
+# Cases (a)-(e) drive `node src/paragraph-plan.mjs start|await` over a structure Brief, a scratch
+# Move library and a FAKE judge binary (`KOGAKI_JUDGE_CLI`), never the real `claude` CLI; (f) calls
+# the validator, the plan reader and the Mapper's grounding directly. Each case is stated in this
+# member's `contract` in checks/registry.json. Whether a live model's base domain is apt is the
+# judgment's own, never linted here.
 set -u
 cd "$(dirname "$0")/.."
 
