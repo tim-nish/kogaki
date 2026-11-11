@@ -19,9 +19,9 @@
 #       `library`, `case` or `carry`; a first refusal reaches the second Call's stdin, and a second stops at `bind`. A
 #       `library` refusal is `record`: the second Call's stdin carries the `record` sentence and not the `part` one, and its
 #       answer is taken whole (kogaki#1708). A waypoints answer binding another Move stops at
-#       `waypoints` naming the Leg's Move, and one whose Base Paragraph points carry no expression of a Role stops naming the Role;
-#       an Inference Paragraph whose points carry no expression of one Role of its own table stops naming the paragraph and the
-#       Role, its points may name the base table's expressions, and a Role id in them is refused naming the paragraph (kogaki#1709).
+#       `waypoints` naming the Leg's Move; a Base or Inference Paragraph whose points carry no expression of a Role verbatim passes
+#       the waypoints stage, the program matching no expression (kogaki#1811); an Inference Paragraph's points may name the base
+#       table's expressions, and a Role id in them is refused naming the paragraph (kogaki#1709).
 
 #   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet's first numbered line is the Leg's `text`, each
 #       `holds` in order with every `{<Role id>}` replaced by the Leg's own table's `expression` and no Role id (kogaki#1688,
@@ -409,13 +409,11 @@ ok(dWrong.res.status !== 0 && stagesOf(dWrong.rec) === "bind:done,grounding:done
   && String(dWrong.rec.stopped).includes(`the answer binds "${PLAIN}", and the Move bound to the Leg at \`bind\` is "${INFER}"`),
   `(d) a waypoints answer binding another Move was not refused naming the Leg's Move: ${dWrong.res.status} ${stagesOf(dWrong.rec)} ${JSON.stringify(dWrong.rec && dWrong.rec.stopped)}`);
 const dDrop = run("waypoints-drop-role", ["--structure", structure, "--compose"], { SMP_DROP_ROLE: "list" });
-ok(dDrop.res.status !== 0 && stagesOf(dDrop.rec) === "bind:done,grounding:done,waypoints:stopped,write:not run"
-  && String(dDrop.rec.stopped).includes('the Correspondence expression of the Role "list"') && !existsSync(join(dDrop.o, "paragraph.md")),
-  `(d) a Base Paragraph whose points carry no expression of one Role was not refused naming the Role: ${dDrop.res.status} ${stagesOf(dDrop.rec)} ${JSON.stringify(dDrop.rec && dDrop.rec.stopped)}`);
+ok(dDrop.res.status === 0 && stagesOf(dDrop.rec) === STAGES,
+  `(d) a Base Paragraph whose points carry no expression of one Role verbatim was refused by the program: ${dDrop.res.status} ${stagesOf(dDrop.rec)} ${JSON.stringify(dDrop.rec && dDrop.rec.stopped)}`);
 const dDrop2 = run("waypoints-drop-role-inference", ["--structure", structure, "--compose"], { SMP_DROP_ROLE_2: "list" });
-ok(dDrop2.res.status !== 0 && stagesOf(dDrop2.rec) === "bind:done,grounding:done,waypoints:stopped,write:not run"
-  && String(dDrop2.rec.stopped).includes(`Paragraph 2's points carry the Correspondence expression of the Role "list", "${OWN.correspondences[1].expression}"`),
-  `(d) an Inference Paragraph whose points carry no expression of one Role of its own table was not refused naming the paragraph and the Role: ${dDrop2.res.status} ${stagesOf(dDrop2.rec)} ${JSON.stringify(dDrop2.rec && dDrop2.rec.stopped)}`);
+ok(dDrop2.res.status === 0 && stagesOf(dDrop2.rec) === STAGES,
+  `(d) an Inference Paragraph whose points carry no expression of one Role of its own table verbatim was refused by the program: ${dDrop2.res.status} ${stagesOf(dDrop2.rec)} ${JSON.stringify(dDrop2.rec && dDrop2.rec.stopped)}`);
 const dId = correspondenceVocabularyRefusal([{ point: "The gardener and a flower bed follow the planting chart." }, { point: "The crew goes on." }], GARDEN);
 ok(dId && dId.includes('point 2 carries the Role id "crew"'), `(d) a Base Paragraph point carrying a Role id was not refused naming the point: ${dId}`);
 const OWN_ALL = "The automatic rule set covers the files the walker sees and passes a file left off the walk";
@@ -424,7 +422,7 @@ ok(correspondenceVocabularyRefusal([{ point: `${OWN_ALL}, as the gardener passes
 const dId2 = correspondenceVocabularyRefusal([{ point: `${OWN_ALL}.` }, { point: "The crew goes on." }], OWN, [GARDEN], 2);
 ok(dId2 && dId2.startsWith(`Paragraph 2's point 2 carries the Role id "crew"`), `(d) an Inference Paragraph point carrying a Role id was not refused naming the paragraph: ${dId2}`);
 ok(correspondenceVocabularyRefusal([{ performs: "asks the reader" }, { point: "The gardener tends a flower bed by the planting chart." }], GARDEN) === null,
-  "(d) Base Paragraph points carrying every expression and no Role id were refused");
+  "(d) Base Paragraph points carrying no Role id were refused");
 
 // (g) an expression sharing a word with the proposition is accepted (kogaki#1707); the Role rules hold on every table
 const BASES = { base: { domain: "a garden" }, correspondences: [{ role: "crew", expression: "the gardener" }, { role: "list", expression: "the chart the walker keeps" }, { role: "room", expression: "a bed" }] };
@@ -440,8 +438,7 @@ const GUARD_TABLE = { base: { domain: "a household alarm panel and the door and 
 const gGuard = validateRbsTable({ tables: [{ move: MOVE, ...GUARD_TABLE }] }, GUARD);
 ok(!gGuard.error, `(g) "the openings the panel has been set to sound on" was refused against the guard-reach proposition: ${JSON.stringify(gGuard)}`);
 const gVocab = correspondenceVocabularyRefusal([{ point: "The sensors wired to the household alarm panel cover the openings the panel has been set to sound on." }], GUARD_TABLE);
-ok(gVocab && gVocab.includes('the Correspondence expression of the Role "happening"'),
-  `(g) Base Paragraph points carrying no expression of the Role "happening" were not refused naming it: ${gVocab}`);
+ok(gVocab === null, `(g) Base Paragraph points carrying no expression of the Role "happening" verbatim were refused by the program: ${gVocab}`);
 const gNull = gv({ ...BASES, correspondences: BASES.correspondences.map((c, i) => (i === 0 ? { ...c, expression: null } : { ...c, expression: "a bed" })) });
 ok(gNull.error && gNull.error.startsWith("correspondences[0].expression "),
   `(g) a null expression was not refused naming correspondences[0].expression: ${JSON.stringify(gNull)}`);

@@ -6,9 +6,9 @@
 //       and carries both in `failures` with paragraph 1 as the one site;
 //   (b) the site call's `refused_here`, built from that refusal, carries both;
 //   (c) a site answer carrying both again is refused naming both;
-//   (d) the vocabulary check names every Role whose expression is missing, not the first;
 //   (e) the page renders each failure as its own `why:` line of the Round's Comment;
 //   (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it.
+// Its (d), the missing expressions, went with the program's substring match (kogaki#1811).
 // Declared limit: whether a live planner repairs every failure it is handed is the model's.
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,7 +16,6 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { validateParagraphPlanUnit, boundMoveContract } from "../src/paragraph-plan.mjs";
 import { paragraphPlanSiteInput, validateParagraphPlanSite } from "../src/paragraph-plan/site-retry.mjs";
-import { correspondenceVocabularyFailures } from "../src/mapping-playground/rbs.mjs";
 import { commentHtml } from "../src/flp/sheet.mjs";
 
 const repo = fileURLToPath(new URL("..", import.meta.url));
@@ -109,14 +108,6 @@ const site = validateParagraphPlanSite(
 ok(
   String(site.error || "").includes(JOIN) && String(site.error || "").includes(ROLE),
   `(c) the site refusal does not name both: ${site.error || "no refusal"}`,
-);
-
-// (d) every missing expression is named.
-const two = { correspondences: [...table.correspondences, { role: "gate", expression: "the locked door" }] };
-const missing = correspondenceVocabularyFailures([{ point: "Nothing of either." }], two);
-ok(
-  missing.length === 2 && missing[0].includes('"sentry"') && missing[1].includes('"gate"'),
-  `(d) the vocabulary check does not name every missing expression: ${JSON.stringify(missing)}`,
 );
 
 // (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it.

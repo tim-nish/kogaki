@@ -2700,6 +2700,7 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | One analogy | paragraph only | — | `analogue_is_the_mapping` | an analogy Move draws from the one Analogy Mapping chosen before the first Leg, and only a Leg the ParagraphPlan binds to an analogy Move is handed it (kogaki#1778) | wording |
 | Cast held | paragraph only | — | `CAST` | a `cast` is set on a Waypoint, and only a Waypoint realises a Segment's `manner`, so each key it sets is held to its definition there (kogaki#1695, kogaki#1816) | criterion |
 | Cast is a set | paragraph only | — | `cast_is_a_set` | the closed set of cast keys and their definitions is written once for the paragraph rows, the planner's that sets them and the judge's that holds a point to them (kogaki#1695, kogaki#1816) | wording |
+| Counterparts expressed | paragraph only | — | `EXPRESSED` | a Waypoint names a Role's counterpart or states a relation in its own wording, which only a judge reads by sense, and only a Leg the Mapper grounded carries a table (kogaki#1811) | criterion |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
 Paragraph cell is an axis or a shared criterion the judge row names, every
@@ -3125,13 +3126,19 @@ Persona.
 
 **The Waypoints.** A second `paragraph_plan_unit` call writes the Leg's
 paragraphs. The Leg in its input carries its bound Move, its table and its
-structure, and the MAP criterion says to keep that Move and write in the
-table's expressions. `validateParagraphPlanUnit` then refuses a plan whose Move
-is not the one the table was grounded for, and runs
-`correspondenceVocabularyRefusal` over each paragraph's Waypoints against the
-Leg's table. Each refusal names the Leg, the paragraph, the Role and the Role's
-expression, and the site retry and the judge run as before, over the table. The
-judge row gains no criterion: the vocabulary is a validator's reading.
+structure, and the MAP criterion says to keep that Move and name each Role's
+counterpart, by the sense of its expression in any wording, with no Role id in
+any Waypoint. `validateParagraphPlanUnit` then refuses a plan whose Move is not
+the one the table was grounded for, and runs `correspondenceVocabularyRefusal`
+over each paragraph's Waypoints against the Leg's table, which refuses a Role id
+outside an expression, naming the Leg, the paragraph, the Role and the Role's
+expression. Whether a Waypoint names a counterpart is a sense judgment, never a
+string match (kogaki#1811): the judge is handed the table's Roles with their
+expressions and the structure's relations as `mapping`, judges them on the
+EXPRESSED axis, and its verdict carries one `expressed` row per Role and
+relation naming the Waypoint that carries it. A row naming no Waypoint refuses
+the paragraph, naming the Role or relation and its expression, and the site
+retry runs as before.
 
 **Bounds and records.** Reading and grounding keep the Trial's call bound,
 `MAPPER_CALLS`, and its refusal groups and reaches (kogaki#1708). Each Call
@@ -3709,18 +3716,17 @@ is unchanged.
 
 **The Correspondence vocabulary** (kogaki#1700, kogaki#1709, kogaki#1784). Each
 paragraph's Waypoints are confined to its own table: they say the
-structure in the expressions of that table, every expression of it in at
-least one of them and no Role id in any. Under `apart` the Base Paragraph's
+structure in the objects of that table, each Role's counterpart named in one of
+them by the sense of its expression, and no Role id in any. Under `apart` the Base Paragraph's
 table is the base Move's, the Analogy Mapping's base domain, and the Inference
 Paragraph's is the Leg's own; under `own` every paragraph's is the Leg's own.
 The Inference Paragraph may also name the expressions of the base table where
 its Segment likens the subject to the case already told.
 `correspondenceVocabularyRefusal(points, table, priorTables)` in
 `src/mapping-playground/rbs.mjs` runs over every paragraph, `priorTables` the
-tables before its own. It refuses where an expression of the paragraph's table
-appears in none of its points, naming the paragraph and the Role, and where a
-point carries a Role id outside an expression of those tables, naming the
-paragraph and the point.
+tables before its own. It refuses where a point carries a Role id outside an
+expression of those tables, naming the paragraph and the point; it matches no
+expression, whose presence is a sense judgment (kogaki#1811).
 
 **The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
 of the library, and `waypoints`, one `{ segment, point }` per segment of that
