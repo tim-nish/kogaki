@@ -15,7 +15,6 @@
   {"file": "checks/check-draft-packet.sh", "interpreter": "node", "lines": 616},
   {"file": "checks/check-draft-plan-pin.sh", "interpreter": "node", "lines": 182},
   {"file": "checks/check-eslint.sh", "interpreter": "python3", "lines": 109},
-  {"file": "checks/check-flp.sh", "interpreter": "node", "lines": 308},
   {"file": "checks/check-leg-planning.sh", "interpreter": "node", "lines": 352},
   {"file": "checks/check-loop-vocabulary.sh", "interpreter": "node", "lines": 91},
   {"file": "checks/check-mapping-playground-short.sh", "interpreter": "node", "lines": 827},
