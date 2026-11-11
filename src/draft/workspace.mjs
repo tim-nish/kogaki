@@ -10,7 +10,7 @@
 //
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { waypointsRefusal, readParagraphPlanBeside } from "../compose.mjs";
+import { readParagraphPlanBeside } from "../compose.mjs";
 import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
 import { parseYaml } from "../yaml.mjs";
 import { renderFigure } from "../render-figure.mjs";
@@ -94,42 +94,36 @@ export function loadBrief(args) {
   catch (e) { fail(`the Brief at ${path} cannot be read (${e.message})`); }
   const brief = readBrief(text, path);
   if (brief.refusals.length) fail(brief.refusals[0]);
-  // THE LEG'S ROUTE AT THE REALIZATION ENTRY (kogaki#1311). A Leg carrying no
-  // `waypoints` refuses by name through the composition side's own
-  // `waypointsRefusal`, because the Packet renders the waypoints in place of the
-  // Move. A Brief composed before the field is recomposed by `/brief`, never
-  // patched here. NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired):
-  // the Move is read up to the Candidate and never again.
+  // NO MOVE ID IS RESOLVED HERE ANY MORE (kogaki#747 is retired, kogaki#1311): the Move is read up to
+  // Waypoint generation and never again.
   if (args["moves-dir"] !== undefined) {
-    fail("--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg carries its own "
-      + "waypoints, written when the Brief was composed, and the Packet renders those");
+    fail("--moves-dir is no longer taken: /draft opens no Move file (kogaki#1311). A Leg's paragraphs and their "
+      + "Waypoints are written by /paragraph-plan, and the Packet renders those");
   }
+  // THE LEG IS THE UNIT (kogaki#1777): a Leg carries its relation's `holds` as `text` and no Brief Waypoint.
   for (const leg of brief.legs) {
-    const strands = leg.claims.map((g) => g.strand);
-    const bad = waypointsRefusal(leg.waypoints, strands, `the Brief at ${path}, leg ${leg.leg_id}`);
-    if (bad) fail(bad);
+    if (Array.isArray(leg.waypoints)) {
+      fail(`the Brief at ${path}, leg ${leg.leg_id} carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775), `
+        + "and its paragraphs are /paragraph-plan's (kogaki#1777); compose the Brief again with /brief");
+    }
   }
-  // THE WAYPOINTS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
+  // THE PARAGRAPHS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
   // owner decision 2026-10-14): `/paragraph-plan` writes `paragraph-plan.yaml` next to
   // the Brief, naming the Brief's path and content hash, and /draft reads it here. A
   // missing file, and one made from a different Brief, are refused naming both files;
-  // the Brief itself names nothing downstream. The file holds `point` and `serves` per
-  // Waypoint, or `performs` alone (kogaki#1448), and NOTHING OF A MOVE, so this
-  // read opens no Move file either.
+  // the Brief itself names nothing downstream. The file holds each Leg's paragraphs, each
+  // with its `join` and its Waypoints, `point` and `serves` or `performs` alone (kogaki#1448),
+  // and NOTHING OF A MOVE but its id, so this read opens no Move file either.
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
-  // THE JOIN RIDES BESIDE THEM (kogaki#1411): a Brief Waypoint after the first carries the
-  // plan's `join`, which `waypointLines` renders as its Opens-from line.
-  // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH BRIEF WAYPOINT'S STRUCTURE AND TABLE (kogaki#1735),
-  // which `waypointLines` renders in place of the `point`; one following an `apart` Waypoint reads its
-  // predecessor's structure. A plan naming none, or a record holding no file, renders the `point` as before.
+  // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH LEG'S STRUCTURE AND TABLE (kogaki#1735, kogaki#1777),
+  // which `waypointLines` renders in place of the Leg's text. A plan naming none, or a record holding no
+  // file, renders the text as before.
   const mapped = plan.mappingSha !== null && plan.record.mapping.files.length ? mappingDirFor(plan.path) : null;
-  const legs = brief.legs.map((leg) => ({ ...leg,
-    waypoints: leg.waypoints.map((w, i) => {
-      const join = plan.joins.get(leg.leg_id)[i];
-      const mapping = mapped ? waypointMapping(mapped, leg, i) : null;
-      return { ...w, ...(join ? { join } : {}), ...(mapping ? { mapping } : {}), paragraph_waypoints: plan.waypoints.get(leg.leg_id)[i] };
-    }) }));
+  const legs = brief.legs.map((leg) => {
+    const mapping = mapped ? legMapping(mapped, leg) : null;
+    return { ...leg, ...(mapping ? { mapping } : {}), paragraphs: plan.paragraphs.get(leg.leg_id) };
+  });
   // A PACKET IS A RENDERING OF THE PLAN AT A HASH (kogaki#1645): the hash of the plan file's
   // text as read, which the run record, each Packet entry and the Draft carry.
   const planSha = sha256(readFileSync(plan.path, "utf8"));
@@ -137,18 +131,13 @@ export function loadBrief(args) {
   return { ...brief, legs, path: resolve(path), paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha } };
 }
 
-// One Brief Waypoint's `{ structure, table }` from the Mapping Record, either null where its file is absent.
-function waypointMapping(dir, leg, i) {
-  const read = (n, file) => {
-    const p = join(dir, String(leg.leg_id), String(n), file);
+// One Leg's `{ structure, table }` from the Mapping Record, either null where its file is absent.
+function legMapping(dir, leg) {
+  const read = (file) => {
+    const p = join(dir, String(leg.leg_id), file);
     return existsSync(p) ? parseYaml(readFileSync(p, "utf8"), p) : null;
   };
-  let structure = null;
-  for (let k = i; k >= 0 && !structure; k -= 1) {
-    structure = read(k + 1, STRUCTURE_FILE);
-    if (k > 0 && leg.waypoints[k - 1].case !== "apart") break;
-  }
-  return { structure, table: read(i + 1, TABLE_FILE) };
+  return { structure: read(STRUCTURE_FILE), table: read(TABLE_FILE) };
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing

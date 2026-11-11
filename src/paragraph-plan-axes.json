@@ -2,7 +2,7 @@
   "version": 1,
   "note": [
     "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
-    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, or `from` another record with one `edit`: a Waypoint replaced (`waypoint`, `paragraph_waypoint`, `to`), a `join` replaced (`waypoint`, `join`), a Brief Waypoint's `stands_to_be_taken_up` replaced (`waypoint`, `stands_to_be_taken_up`), or the bound Move's `takes` or `leaves` replaced (`waypoint`, `move_takes` or `move_leaves`) (kogaki#1701). `at_waypoint` names the Brief Waypoint a defect sits on.",
+    "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, one Leg under its one bound Move (kogaki#1777), or `from` another record with one `edit`: a Waypoint replaced (`paragraph`, `waypoint`, `to`), a `join` replaced (`paragraph`, `join`), or the bound Move's `takes` or `leaves` replaced (`move_takes` or `move_leaves`) (kogaki#1701). `at_paragraph` names the paragraph a defect sits on.",
     "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/proof-sheet/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
     "Countable rules are not axes: the Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
@@ -14,156 +14,67 @@
     "clean_passed_with_min": 0.8
   },
   "records": {
-    "leg3-run": {
-      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them",
+    "leg3-clean": {
+      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 2 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph, and what its Move leaves left for the next Leg, which Brief Waypoint 3 took up in the run",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "leg-1",
-          "leaves_for_next_leg": [
+          "text": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
+          "prior_knowledge": "no specialized grasp of the subject, only loose impressions picked up from the news",
+          "the_reader_has_been_told": [
             {
-              "kind": "explain",
-              "what": "what each of the named causes means and how it does its deciding"
+              "leg_id": "L1",
+              "text": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up."
             }
           ],
-          "waypoints": [
+          "leaves_for_next_leg": [
             {
-              "waypoint": 1,
-              "point": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up.",
-              "next_point": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
-              "stands_to_be_taken_up": [
-                {
-                  "what": "no specialized grasp of the subject, only loose impressions picked up from the news",
-                  "left_by": "the reader's prior knowledge"
-                }
-              ],
-              "bound_move": {
-                "takes": [],
-                "leaves": [
-                  {
-                    "kind": "answer",
-                    "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them",
-                    "segment": 5
-                  }
-                ],
-                "segments": [
-                  {
-                    "operation": "opens by asserting one general principle about the motive of a whole class of actors",
-                    "manner": "a brief direct statement, given with no support and no hedging"
-                  },
-                  {
-                    "operation": "explains a widely observed and seemingly contradictory self-description by treating it as literally true",
-                    "relation": "it takes the case that looks most like a refutation and turns it into the strongest evidence for the step before",
-                    "manner": "a short quoted self-description stands in for the whole behaviour being explained"
-                  },
-                  {
-                    "operation": "shifts the vantage point from an actor's own intention to how the same conduct is received by another party, stated as a general tendency",
-                    "relation": "it keeps the general register of the step before but moves to the other side of the same conduct"
-                  },
-                  {
-                    "operation": "labels one present-day instance as a typical case while withholding its detail",
-                    "relation": "it drops from the general tendency to a single instance the reader already knows of"
-                  },
-                  {
-                    "operation": "spells out a single instance from both sides in one step, so that two parties acting on the same motive are seen to produce an escalation neither intends",
-                    "relation": "it fills in the instance the step before only labelled, supplying the two halves that make it typical"
-                  }
-                ],
-                "breaks": [
-                  "hedge the opening principle with qualifications — the explanation that follows has nothing flat enough to lean on, and the reader takes it as one view among several",
-                  "drop the hardest-looking case and go straight from the principle to the general tendency — the principle reads as naive, and the reader keeps the blame-based explanation they came with",
-                  "report the quoted self-description as a summary instead — it loses its ring of familiarity and reads as the writer's characterisation rather than something the reader has heard",
-                  "name the present instance but stop before filling in both sides — the reader is left with a label and never sees two parties acting on the same motive producing the outcome neither chose",
-                  "insert a stretch of historical background between the general tendency and the present instance — the pairing loses its immediacy and the live case reads as illustration rather than as the point"
-                ]
+              "kind": "answer",
+              "what": "what puts one position where the effect arises readily and another where it does not"
+            }
+          ],
+          "bound_move": {
+            "takes": [
+              {
+                "kind": "answer",
+                "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them"
+              }
+            ],
+            "leaves": [
+              {
+                "kind": "answer",
+                "what": "what puts one position where the effect arises readily and another where it does not",
+                "segment": 4
+              }
+            ],
+            "segments": [
+              {
+                "operation": "divides a general principle's scope into conditions where it holds strongly and conditions where it does not"
               },
-              "paragraph_waypoints": [
-                {
-                  "point": "A state is by nature interested in protecting itself.",
-                  "serves": [
-                    "L1"
-                  ]
-                },
-                {
-                  "point": "The standing declaration that a war being started is a war of defence is literally true of a state's motive.",
-                  "serves": [
-                    "L1"
-                  ]
-                },
-                {
-                  "point": "Any state fears a neighbour's rapid build-up.",
-                  "serves": [
-                    "L1"
-                  ]
-                },
-                {
-                  "point": "The present relation between China and Japan is such a case.",
-                  "serves": [
-                    "L1"
-                  ]
-                },
-                {
-                  "point": "China builds up for its own protection, Japan fears attack, and Japan builds up in answer.",
-                  "serves": [
-                    "L1"
-                  ]
-                }
-              ]
-            },
+              {
+                "operation": "restates the division in operational terms, holding the action fixed and letting only the surrounding conditions vary",
+                "relation": "unpacks the division the step before named, saying in plain terms what it amounts to in practice"
+              },
+              {
+                "operation": "claims the distinction just drawn is needed to understand one particular case, without yet saying why",
+                "relation": "turns from stating the distinction to asserting its importance, holding back the ground for the assertion"
+              },
+              {
+                "operation": "supplies the withheld ground by contrasting two positions under the distinction, one of them cutting against what sheer strength would predict",
+                "relation": "delivers the ground the previous step deferred, in the form of a paired contrast"
+              }
+            ],
+            "breaks": [
+              "drop the restatement that holds the action fixed — the division stays a pair of names and the reader cannot test any case against it",
+              "give the ground before claiming the distinction matters — the contrast lands as one more fact, and the reader never feels a tool being used",
+              "add a full account of what places a party in each condition — the paragraph answers the question it exists to open, and the step after it has nothing left to do",
+              "replace the counterintuitive half of the contrast with an expected one — the distinction looks decorative, since strength alone would predict the same outcome",
+              "cut the assertion of importance and move straight to the contrast — the reader has no reason to hold the two positions together and reads them as separate reports"
+            ]
+          },
+          "paragraphs": [
             {
-              "waypoint": 2,
-              "point": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
-              "next_point": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
-              "stands_to_be_taken_up": [
-                {
-                  "what": "no specialized grasp of the subject, only loose impressions picked up from the news",
-                  "left_by": "the reader's prior knowledge"
-                },
-                {
-                  "kind": "answer",
-                  "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them",
-                  "left_by": "Brief Waypoint 1"
-                }
-              ],
-              "bound_move": {
-                "takes": [
-                  {
-                    "kind": "answer",
-                    "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them"
-                  }
-                ],
-                "leaves": [
-                  {
-                    "kind": "answer",
-                    "what": "what puts one position where the effect arises readily and another where it does not",
-                    "segment": 4
-                  }
-                ],
-                "segments": [
-                  {
-                    "operation": "divides a general principle's scope into conditions where it holds strongly and conditions where it does not"
-                  },
-                  {
-                    "operation": "restates the division in operational terms, holding the action fixed and letting only the surrounding conditions vary",
-                    "relation": "unpacks the division the step before named, saying in plain terms what it amounts to in practice"
-                  },
-                  {
-                    "operation": "claims the distinction just drawn is needed to understand one particular case, without yet saying why",
-                    "relation": "turns from stating the distinction to asserting its importance, holding back the ground for the assertion"
-                  },
-                  {
-                    "operation": "supplies the withheld ground by contrasting two positions under the distinction, one of them cutting against what sheer strength would predict",
-                    "relation": "delivers the ground the previous step deferred, in the form of a paired contrast"
-                  }
-                ],
-                "breaks": [
-                  "drop the restatement that holds the action fixed — the division stays a pair of names and the reader cannot test any case against it",
-                  "give the ground before claiming the distinction matters — the contrast lands as one more fact, and the reader never feels a tool being used",
-                  "add a full account of what places a party in each condition — the paragraph answers the question it exists to open, and the step after it has nothing left to do",
-                  "replace the counterintuitive half of the contrast with an expected one — the distinction looks decorative, since strength alone would predict the same outcome",
-                  "cut the assertion of importance and move straight to the contrast — the reader has no reason to hold the two positions together and reads them as separate reports"
-                ]
-              },
-              "join": "contrast",
+              "paragraph": 1,
               "paragraph_waypoints": [
                 {
                   "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not.",
@@ -190,58 +101,72 @@
                   ]
                 }
               ]
+            }
+          ]
+        }
+      }
+    },
+    "leg3-wp3-clean": {
+      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 3 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "leg-1",
+          "text": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
+          "prior_knowledge": "no specialized grasp of the subject, only loose impressions picked up from the news",
+          "the_reader_has_been_told": [
+            {
+              "leg_id": "L1",
+              "text": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up."
             },
             {
-              "waypoint": 3,
-              "point": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
-              "next_point": null,
-              "stands_to_be_taken_up": [
-                {
-                  "what": "no specialized grasp of the subject, only loose impressions picked up from the news",
-                  "left_by": "the reader's prior knowledge"
-                },
-                {
-                  "kind": "answer",
-                  "what": "what puts one position where the effect arises readily and another where it does not",
-                  "left_by": "Brief Waypoint 2"
-                }
-              ],
-              "bound_move": {
-                "takes": [
-                  {
-                    "kind": "answer",
-                    "what": "what puts one position where the effect arises readily and another where it does not"
-                  }
-                ],
-                "leaves": [
-                  {
-                    "kind": "explain",
-                    "what": "what each of the named causes means and how it does its deciding",
-                    "segment": 3
-                  }
-                ],
-                "segments": [
-                  {
-                    "operation": "puts the open point to the reader as a direct question in the reader's own voice"
-                  },
-                  {
-                    "operation": "announces that the answer consists of a fixed small number of items without yet naming them",
-                    "relation": "answers the question just asked only as far as its size, holding its content back"
-                  },
-                  {
-                    "operation": "fills the announced count by naming each item",
-                    "relation": "supplies the names the preceding step had withheld",
-                    "manner": "a bare naming, each item given with no definition and left for later"
-                  }
-                ],
-                "breaks": [
-                  "drop the direct question and open straight on the count — the reader is handed an answer to a question they were never shown holding, so the count reads as arbitrary",
-                  "name the items in the same sentence that announces their number — the beat in which the answer's shape is fixed before its content is lost, and the names arrive unsorted",
-                  "define each named item here rather than leaving it — the step stops being a frame the reader can hold and becomes the explanation itself, leaving nothing to follow forward",
-                  "replace the fixed small count with an open-ended set — the reader can no longer hold the whole answer at once, and stops expecting each part to be taken up in turn"
-                ]
+              "leg_id": "L2",
+              "text": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not."
+            }
+          ],
+          "leaves_for_next_leg": [
+            {
+              "kind": "explain",
+              "what": "what each of the named causes means and how it does its deciding"
+            }
+          ],
+          "bound_move": {
+            "takes": [
+              {
+                "kind": "answer",
+                "what": "what puts one position where the effect arises readily and another where it does not"
+              }
+            ],
+            "leaves": [
+              {
+                "kind": "explain",
+                "what": "what each of the named causes means and how it does its deciding",
+                "segment": 3
+              }
+            ],
+            "segments": [
+              {
+                "operation": "puts the open point to the reader as a direct question in the reader's own voice"
               },
-              "join": "grounds",
+              {
+                "operation": "announces that the answer consists of a fixed small number of items without yet naming them",
+                "relation": "answers the question just asked only as far as its size, holding its content back"
+              },
+              {
+                "operation": "fills the announced count by naming each item",
+                "relation": "supplies the names the preceding step had withheld",
+                "manner": "a bare naming, each item given with no definition and left for later"
+              }
+            ],
+            "breaks": [
+              "drop the direct question and open straight on the count — the reader is handed an answer to a question they were never shown holding, so the count reads as arbitrary",
+              "name the items in the same sentence that announces their number — the beat in which the answer's shape is fixed before its content is lost, and the names arrive unsorted",
+              "define each named item here rather than leaving it — the step stops being a frame the reader can hold and becomes the explanation itself, leaving nothing to follow forward",
+              "replace the fixed small count with an open-ended set — the reader can no longer hold the whole answer at once, and stops expecting each part to be taken up in turn"
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
               "paragraph_waypoints": [
                 {
                   "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises."
@@ -264,63 +189,54 @@
         }
       }
     },
-    "leg3-clean": {
-      "source": "the run's record with Brief Waypoint 3's join `grounds` replaced by `elaboration`, the word the judge named for it in three of five draws on 2026-10-23",
-      "from": "leg3-run",
-      "edit": {
-        "waypoint": 3,
-        "join": "elaboration"
-      }
-    },
     "performs-states-reading": {
       "source": "constructed: the performs line adds the reader's resulting reading",
-      "from": "leg3-clean",
-      "at_waypoint": 3,
+      "from": "leg3-wp3-clean",
+      "at_paragraph": 1,
       "edit": {
-        "waypoint": 3,
-        "paragraph_waypoint": 1,
+        "paragraph": 1,
+        "waypoint": 1,
         "to": {
           "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises, so that the reader now wants the deciding factors named."
         }
       }
     },
     "leg4-run": {
-      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Brief Waypoint 1's first Waypoint already carries Segment 2's compression and the call answered fits; each bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
-      "at_waypoint": 1,
+      "source": "corpus/p1329 Leg 4, leg run of 2026-10-25T07-09-09-656Z, the second judge call, verbatim: Brief Waypoint 1's first Waypoint already carries Segment 2's compression and the call answered fits; each bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither; Brief Waypoint 1 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "distinguishability-stated-then-worked-through-matched-societies",
+          "text": "Attack-defence distinguishability is how clearly the other side's action can be told to intend attack rather than defence, and the clearer the other side's intent, the less likely war becomes, the vaguer the likelier.",
+          "prior_knowledge": "",
+          "the_reader_has_been_told": [],
           "leaves_for_next_leg": [],
-          "waypoints": [
-            {
-              "waypoint": 1,
-              "point": "Attack-defence distinguishability is how clearly the other side's action can be told to intend attack rather than defence, and the clearer the other side's intent, the less likely war becomes, the vaguer the likelier.",
-              "next_point": "Two particular countries are alike in ordinary people's access to firearms while the spread of narcotics differs, and widespread addiction makes reading another's purpose hard in the one and easy in the other, and the difference makes the one place unsafe and the other safe.",
-              "stands_to_be_taken_up": [],
-              "bound_move": {
-                "takes": [],
-                "leaves": [],
-                "segments": [
-                  {
-                    "operation": "defines a further measure of the same kind by naming what it grades and the two opposite cases it grades between"
-                  },
-                  {
-                    "operation": "compresses the definition into a shorter plainer formulation that drops its internal division",
-                    "relation": "it says the step before again with its two parts collapsed into one quantity"
-                  },
-                  {
-                    "operation": "states a general regularity tying the degree of the measure to how likely an outcome is",
-                    "relation": "it turns the single quantity just isolated into the thing that governs an outcome, saying why the measure is worth having",
-                    "manner": "the two ends of the scale set against each other within one balanced pair of clauses"
-                  }
-                ],
-                "breaks": [
-                  "drop the plain restatement and keep only the full definition — the reader carries a two-part formulation they cannot hold, and the rule that follows lands on nothing",
-                  "state only the direction in which the outcome grows less likely — the reader takes the measure as one more good thing rather than a scale with a dangerous end",
-                  "argue the regularity here instead of asserting it — the paragraph stops being a setup and the reader loses the gap the next step is there to fill",
-                  "replace the definition with a single case sitting near one end — the reader has no general scale on which later cases can be placed"
-                ]
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "defines a further measure of the same kind by naming what it grades and the two opposite cases it grades between"
               },
+              {
+                "operation": "compresses the definition into a shorter plainer formulation that drops its internal division",
+                "relation": "it says the step before again with its two parts collapsed into one quantity"
+              },
+              {
+                "operation": "states a general regularity tying the degree of the measure to how likely an outcome is",
+                "relation": "it turns the single quantity just isolated into the thing that governs an outcome, saying why the measure is worth having",
+                "manner": "the two ends of the scale set against each other within one balanced pair of clauses"
+              }
+            ],
+            "breaks": [
+              "drop the plain restatement and keep only the full definition — the reader carries a two-part formulation they cannot hold, and the rule that follows lands on nothing",
+              "state only the direction in which the outcome grows less likely — the reader takes the measure as one more good thing rather than a scale with a dangerous end",
+              "argue the regularity here instead of asserting it — the paragraph stops being a setup and the reader loses the gap the next step is there to fill",
+              "replace the definition with a single case sitting near one end — the reader has no general scale on which later cases can be placed"
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
               "paragraph_waypoints": [
                 {
                   "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all, grades cases between those in which that intent is plain and those in which it cannot be made out.",
@@ -341,239 +257,18 @@
                   ]
                 }
               ]
-            },
-            {
-              "waypoint": 2,
-              "point": "Two particular countries are alike in ordinary people's access to firearms while the spread of narcotics differs, and widespread addiction makes reading another's purpose hard in the one and easy in the other, and the difference makes the one place unsafe and the other safe.",
-              "next_point": "Where many drug-dependent people in the one society make what others are thinking hard to read, a carried weapon cannot be read as attack or as defence, people are easily made anxious, anxiety drives still more people to arm themselves, so possession spreads in a chain, and the same anxiety makes police shoot suspects on the spot to make self-protection certain where aims cannot be read.",
-              "stands_to_be_taken_up": [],
-              "bound_move": {
-                "takes": [],
-                "leaves": [],
-                "segments": [
-                  {
-                    "operation": "announces a simplified treatment built on a pair of particular cases",
-                    "manner": "put as an invitation to proceed together rather than as a statement"
-                  },
-                  {
-                    "operation": "holds one factor alike across the pair and names the single factor on which they differ",
-                    "relation": "narrows the pair just proposed down to one point of difference"
-                  },
-                  {
-                    "operation": "reads each case's standing on the measure already in hand off the one differing factor",
-                    "relation": "converts the point of difference just named into opposed readings on that measure"
-                  },
-                  {
-                    "operation": "attributes each case's opposed result to the single difference between them",
-                    "relation": "turns the opposed readings into the results they produce"
-                  }
-                ],
-                "breaks": [
-                  "drop the factor held alike and report only the difference — the reader cannot see that one variable alone is doing the work",
-                  "let a second factor vary between the pair as well — the reader can no longer tell which difference produces the opposed results",
-                  "stop at the two opposed readings on the measure and leave the results unstated — the reader holds a comparison with no payoff",
-                  "insert a paragraph of qualifications about how the two cases differ in other respects before the results — the simplification just announced is undone and the pair becomes too tangled to carry unaided",
-                  "replace the matched pair with one case alone — the factor held alike has nothing to be alike to, and the single difference stops being visible as the cause"
-                ]
-              },
-              "join": "elaboration",
-              "paragraph_waypoints": [
-                {
-                  "performs": "Announces a simplified treatment built on two particular countries."
-                },
-                {
-                  "point": "The two countries are alike in ordinary people's access to firearms and differ in the spread of narcotics.",
-                  "serves": [
-                    "L16"
-                  ]
-                },
-                {
-                  "point": "Widespread addiction makes reading another person's purpose hard in the one country and easy in the other.",
-                  "serves": [
-                    "L16"
-                  ]
-                },
-                {
-                  "point": "That single difference makes the one place unsafe and the other safe.",
-                  "serves": [
-                    "L16"
-                  ]
-                }
-              ]
-            },
-            {
-              "waypoint": 3,
-              "point": "Where many drug-dependent people in the one society make what others are thinking hard to read, a carried weapon cannot be read as attack or as defence, people are easily made anxious, anxiety drives still more people to arm themselves, so possession spreads in a chain, and the same anxiety makes police shoot suspects on the spot to make self-protection certain where aims cannot be read.",
-              "next_point": "Gun ownership is constant across the two societies, and where addicts are few, rules strict, and vetting of judgment and criminal record thorough, a person's purpose in carrying one is comparatively easy to read, mass shootings are absent, and the fear of being shot by others does not arise, so the real reason for the frequency of gun crime in the worse case is not simply because guns are present but the social condition in which one cannot help fearing being shot.",
-              "stands_to_be_taken_up": [],
-              "bound_move": {
-                "takes": [],
-                "leaves": [],
-                "segments": [
-                  {
-                    "operation": "states a standing condition of one case together with the perceptual difficulty it creates"
-                  },
-                  {
-                    "operation": "draws from the stated difficulty one concrete ambiguity in a common situation and the unease it leaves",
-                    "relation": "takes the condition just stated as its premise and derives the first consequence from it"
-                  },
-                  {
-                    "operation": "carries the consequence one link further into a spread that feeds on itself",
-                    "relation": "makes the unease reached in the step before the cause of a further step"
-                  },
-                  {
-                    "operation": "applies the same explanation to the standing conduct of an official role",
-                    "relation": "extends the chain from ordinary people to an institutional actor while keeping the cause unchanged"
-                  },
-                  {
-                    "operation": "reports one small habitual gesture belonging to that role",
-                    "relation": "narrows from the practice just explained to a single observable detail of it"
-                  },
-                  {
-                    "operation": "supplies the reason behind the detail just reported",
-                    "relation": "answers the question the bare detail before it leaves open"
-                  },
-                  {
-                    "operation": "notes a difference in rate across conditions and traces it to the same underlying difficulty",
-                    "relation": "tests the cause relied on throughout against a case in which that cause is sharper"
-                  }
-                ],
-                "breaks": [
-                  "state only the outcome and cut the links between the condition and it — the reader is told the case is worse but never sees the danger assembled",
-                  "drop the small habitual gesture and keep only the general practice — the explanation stays at the level of assertion with nothing for the reader to picture",
-                  "give the reason before the detail it explains — the detail becomes an illustration of something already settled and the reader stops reading forward",
-                  "leave out the closing difference across conditions — the reader loses the one place where the cause is tested rather than asserted",
-                  "add supporting figures at each link — the chain's momentum breaks and a reader who could follow it unaided is handed authority instead"
-                ]
-              },
-              "join": "grounds",
-              "paragraph_waypoints": [
-                {
-                  "point": "In the one society many people are drug-dependent, and that makes what others are thinking hard to read.",
-                  "serves": [
-                    "L17"
-                  ]
-                },
-                {
-                  "point": "There a carried weapon cannot be read as meant for attack or for defence, and people are easily made anxious.",
-                  "serves": [
-                    "L17"
-                  ]
-                },
-                {
-                  "point": "That anxiety drives still more people to arm themselves, so possession spreads in a chain.",
-                  "serves": [
-                    "L17"
-                  ]
-                },
-                {
-                  "point": "The same anxiety governs the standing conduct of the police there.",
-                  "serves": [
-                    "L17"
-                  ]
-                },
-                {
-                  "point": "The police shoot suspects on the spot.",
-                  "serves": [
-                    "L17"
-                  ]
-                },
-                {
-                  "point": "They shoot on the spot to make their own protection certain.",
-                  "serves": [
-                    "L17"
-                  ]
-                },
-                {
-                  "point": "Police shoot on the spot more often where aims cannot be read than where they can, and it is that same unreadability of aims that accounts for the difference.",
-                  "serves": [
-                    "L17"
-                  ]
-                }
-              ]
-            },
-            {
-              "waypoint": 4,
-              "point": "Gun ownership is constant across the two societies, and where addicts are few, rules strict, and vetting of judgment and criminal record thorough, a person's purpose in carrying one is comparatively easy to read, mass shootings are absent, and the fear of being shot by others does not arise, so the real reason for the frequency of gun crime in the worse case is not simply because guns are present but the social condition in which one cannot help fearing being shot.",
-              "next_point": null,
-              "stands_to_be_taken_up": [],
-              "bound_move": {
-                "takes": [],
-                "leaves": [],
-                "segments": [
-                  {
-                    "operation": "holds the shared element fixed across the counterpart case and names the conditions that differ there"
-                  },
-                  {
-                    "operation": "draws from those conditions the consequence that what is being done becomes comparatively easy to read",
-                    "relation": "states the result that follows from the conditions just named"
-                  },
-                  {
-                    "operation": "reports the counterpart case's outcome as the absence of both the event and the attendant fear",
-                    "relation": "carries the legibility just established through to the outcome it produces"
-                  },
-                  {
-                    "operation": "denies the obvious cause that the shared element would suggest",
-                    "relation": "turns back to the worse case and uses the contrast just completed to strike down its apparent cause",
-                    "manner": "a flat denial of the expected explanation, stated and not argued"
-                  },
-                  {
-                    "operation": "names the underlying condition as the real cause in its place",
-                    "relation": "supplies the replacement for the cause just denied"
-                  }
-                ],
-                "breaks": [
-                  "drop the counterpart case's outcome and go straight from its conditions to the denial — the reader has only an inference where the denial needs a finished result to stand on",
-                  "state the real cause first and the denial after — the obvious explanation is never cleared from the reader's head, and the replacement reads as one more opinion beside it",
-                  "soften the denial into a concession that the shared element plays some part — the two cases stop differing in one condition only, and the measure loses the work the matched pair was built to do",
-                  "expand the differing conditions into a survey of how the counterpart case came to have them — the comparison stops being a controlled pair and the reader loses the single moved condition",
-                  "let the denial arrive without having held the shared element fixed in the counterpart case — the denial has no ground and reads as the author's preference"
-                ]
-              },
-              "join": "contrast",
-              "paragraph_waypoints": [
-                {
-                  "point": "Gun ownership is constant across the two societies, while in the other addicts are few, rules strict, and vetting of judgment and criminal record thorough.",
-                  "serves": [
-                    "L18"
-                  ]
-                },
-                {
-                  "point": "There a person's purpose in carrying a gun is comparatively easy to read.",
-                  "serves": [
-                    "L18"
-                  ]
-                },
-                {
-                  "point": "Mass shootings are absent in that country and the fear of being shot by others does not arise.",
-                  "serves": [
-                    "L18"
-                  ]
-                },
-                {
-                  "point": "The frequency of gun crime in the worse case is not simply because guns are present.",
-                  "serves": [
-                    "L18"
-                  ]
-                },
-                {
-                  "point": "Its real reason is the social condition in which one cannot help fearing being shot.",
-                  "serves": [
-                    "L18"
-                  ]
-                }
-              ]
             }
           ]
         }
-      }
+      },
+      "at_paragraph": 1
     },
     "leg4-own-step": {
       "source": "the run's record with the compression held to Segment 2's Waypoint, Brief Waypoint 1's first Waypoint stating the definition alone",
       "from": "leg4-run",
       "edit": {
+        "paragraph": 1,
         "waypoint": 1,
-        "paragraph_waypoint": 1,
         "to": {
           "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, grades cases between those in which that intent is plain and those in which it cannot be made out.",
           "serves": [
@@ -583,48 +278,48 @@
       }
     },
     "g1-clean": {
-      "source": "Leg G1's first Brief Waypoint of run paragraph-plan-set-automatic-rules-only-sees-2026-10-31T14-52-10-146Z, the Leg cut to that one Brief Waypoint, its record's Waypoint 3 verbatim, the first a bare claim, the second carrying both terms' meanings and the fourth extending the instance to a second matter; the bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither",
+      "source": "Leg G1's first Brief Waypoint of run paragraph-plan-set-automatic-rules-only-sees-2026-10-31T14-52-10-146Z, the Leg cut to that one Brief Waypoint, its record's Waypoint 3 verbatim, the first a bare claim, the second carrying both terms' meanings and the fourth extending the instance to a second matter; the bound Move's `takes` and `leaves` written empty for kogaki#1701, the axis it fixes reading neither; cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "G1",
+          "text": "A set of automatic rules can be written carefully and still never act on an entire kind of action, so what bounds the reach of such a set is not how well it was written.",
+          "prior_knowledge": "",
+          "the_reader_has_been_told": [],
           "leaves_for_next_leg": [],
-          "waypoints": [
-            {
-              "waypoint": 1,
-              "point": "A set of automatic rules can be written carefully and still never act on an entire kind of action, so what bounds the reach of such a set is not how well it was written.",
-              "next_point": null,
-              "stands_to_be_taken_up": [],
-              "bound_move": {
-                "takes": [],
-                "leaves": [],
-                "segments": [
-                  {
-                    "operation": "asserts that the subject yields substantial guidance for understanding present circumstances",
-                    "manner": "a single short declaration offered without support or qualification"
-                  },
-                  {
-                    "operation": "names one concrete instance habitually used to make a general point visible",
-                    "relation": "makes good on the bare claim just made by naming one instance of it"
-                  },
-                  {
-                    "operation": "describes the instance as a minimal rearrangement of familiar material and states the single thing it thereby makes plain",
-                    "relation": "takes the instance just named and works it, saying what it is made of and what it delivers"
-                  },
-                  {
-                    "operation": "extends the same instance to account for a second matter",
-                    "relation": "adds a further yield of the same instance beyond the one just drawn from it",
-                    "manner": "a short addition set down and left without elaboration"
-                  }
-                ],
-                "breaks": [
-                  "hedge the opening claim with a qualifier — nothing is claimed that what follows owes an account of, and the reader is given no reason to continue",
-                  "define the subject before claiming anything for it — the first thing met is vocabulary rather than a reason to care",
-                  "state the general point directly instead of working one instance through — the reader has nothing to verify and the claim stays as unsupported as when it was made",
-                  "drop the account of how slight the device is — the showing reads as the product of expertise the reader has no access to, and the general claim gains nothing checkable",
-                  "add a second and a third instance here — the demonstration spreads thin and the one case loses the force of being carried to its end",
-                  "cut the closing extension to a second matter — the instance reads as a one-off trick rather than something that keeps paying out"
-                ]
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "asserts that the subject yields substantial guidance for understanding present circumstances",
+                "manner": "a single short declaration offered without support or qualification"
               },
+              {
+                "operation": "names one concrete instance habitually used to make a general point visible",
+                "relation": "makes good on the bare claim just made by naming one instance of it"
+              },
+              {
+                "operation": "describes the instance as a minimal rearrangement of familiar material and states the single thing it thereby makes plain",
+                "relation": "takes the instance just named and works it, saying what it is made of and what it delivers"
+              },
+              {
+                "operation": "extends the same instance to account for a second matter",
+                "relation": "adds a further yield of the same instance beyond the one just drawn from it",
+                "manner": "a short addition set down and left without elaboration"
+              }
+            ],
+            "breaks": [
+              "hedge the opening claim with a qualifier — nothing is claimed that what follows owes an account of, and the reader is given no reason to continue",
+              "define the subject before claiming anything for it — the first thing met is vocabulary rather than a reason to care",
+              "state the general point directly instead of working one instance through — the reader has nothing to verify and the claim stays as unsupported as when it was made",
+              "drop the account of how slight the device is — the showing reads as the product of expertise the reader has no access to, and the general claim gains nothing checkable",
+              "add a second and a third instance here — the demonstration spreads thin and the one case loses the force of being carried to its end",
+              "cut the closing extension to a second matter — the instance reads as a one-off trick rather than something that keeps paying out"
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
               "paragraph_waypoints": [
                 {
                   "point": "A set of automatic rules can be written with every care and still never act on an entire kind of action.",
@@ -653,26 +348,16 @@
               ]
             }
           ]
-        },
-        "terms_this_leg_introduces": [
-          {
-            "term": "rules",
-            "meaning": "A set of automatic rules is a standing arrangement in a system that acts by itself, without anyone asking it to, whenever an action of a kind it was set up for happens."
-          },
-          {
-            "term": "action",
-            "meaning": "An action is one thing done in a system — a write, a deletion, a change of state — of a kind that can be named."
-          }
-        ]
+        }
       }
     },
     "g1-defines-first": {
       "source": "constructed: the specimen's first Waypoint defines its subject before claiming anything for it, against the bound Move's second break",
       "from": "g1-clean",
-      "at_waypoint": 1,
+      "at_paragraph": 1,
       "edit": {
+        "paragraph": 1,
         "waypoint": 1,
-        "paragraph_waypoint": 1,
         "to": {
           "point": "A set of automatic rules is a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and such a set can be written with every care and still never act on an entire kind of action.",
           "serves": [
@@ -683,9 +368,8 @@
     },
     "taken-unmet": {
       "from": "leg3-clean",
-      "at_waypoint": 2,
+      "at_paragraph": 1,
       "edit": {
-        "waypoint": 2,
         "move_takes": [
           {
             "kind": "explain",
@@ -696,9 +380,8 @@
     },
     "left-not-taken": {
       "from": "leg3-clean",
-      "at_waypoint": 2,
+      "at_paragraph": 1,
       "edit": {
-        "waypoint": 2,
         "move_leaves": [
           {
             "kind": "answer",
@@ -723,7 +406,7 @@
           "performs-states-reading"
         ],
         "clean": [
-          "leg3-clean"
+          "leg3-wp3-clean"
         ]
       },
       "justified_by": {
@@ -736,7 +419,8 @@
           "clean_passed_with": 1,
           "clean_passed_without": 1
         }
-      }
+      },
+      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
     },
     {
       "id": "OWN STEP",
@@ -759,11 +443,12 @@
           "clean_passed_with": 1,
           "clean_passed_without": 1
         }
-      }
+      },
+      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
     },
     {
       "id": "TAKEN",
-      "sentence": "Every `takes` entry of the bound Move is met by an entry of `stands_to_be_taken_up`, which a refusal names by its kind and `what`.",
+      "sentence": "Every `takes` entry of the bound Move is met by the Leg's `prior_knowledge` or by a relation of `the_reader_has_been_told`, which a refusal names by its kind and `what`.",
       "fixtures": {
         "defect": [
           "taken-unmet"
@@ -782,7 +467,8 @@
           "clean_passed_with": 1,
           "clean_passed_without": 1
         }
-      }
+      },
+      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
     },
     {
       "id": "LEFT",
@@ -805,7 +491,8 @@
           "clean_passed_with": 1,
           "clean_passed_without": 1
         }
-      }
+      },
+      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
     },
     {
       "id": "BREAKS",
@@ -828,7 +515,8 @@
           "clean_passed_with": 1,
           "clean_passed_without": 1
         }
-      }
+      },
+      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
     }
   ]
 }

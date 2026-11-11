@@ -29,7 +29,7 @@ bindFlow(BRIEF_FLOW);
 import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
 import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
-import { recordOf, briefOfRecord, leg1276, cand1276 } from "./checks/fixtures/brief-compose/fixtures.mjs";
+import { recordOf, briefOfRecord, legacyLegsToText, leg1276, cand1276 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 import { METHOD_VERBS } from "./src/compose/leg-schema.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
@@ -48,6 +48,7 @@ const S1775 = {
 };
 const C1775 = [{ id: "L1", claim: "A check reads what it is handed." }, { id: "L2", claim: "A check misses what it is not handed." }];
 const fails = [];
+const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, serves: ["L1"], cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
 
 // (am) the Journey use boundary (kogaki#1286, owner decision 2026-10-06), RETIRED AT THE LEG
 // (kogaki#1768): a Leg binds no Move and carries no `journeys`, so `validateLegs` refuses a Leg
@@ -68,7 +69,7 @@ const fails = [];
     const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
     if (split.error) fails.push(`(am) the Packet template did not split: ${split.error}`);
     else {
-      const r = renderPacket({ template: split.packet, brief, leg: brief.legs[0], priorSections: [],
+      const r = renderPacket({ template: split.packet, brief, leg: planned(brief.legs[0]), priorSections: [],
         section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
       if (r.error) fails.push(`(am) the Packet for s1 did not render: ${r.error}`);
       else {
@@ -168,7 +169,8 @@ const fails = [];
         if ((leg.waypoints || []).some((w) => typeof w !== "object" || !Array.isArray(w.serves))) fails.push(`(av) ${leg.leg_id}.waypoints is not a list of maps`);
       }
       if (path[0]?.claims?.[0]?.proposition !== long) fails.push("(av) the lengthened Claim did not read back whole after wrapping");
-      const read = readBrief(text, "brief.yaml");
+      // the Draft reads the adopted Legs by their text (kogaki#1775, kogaki#1777)
+      const read = readBrief(briefRecordText({ ...r.record, reader_path: legacyLegsToText(r.record.reader_path) }), "brief.yaml");
       if (read.refusals.length) fails.push(`(av) the Draft's reader refused the adopted record: ${JSON.stringify(read.refusals)}`);
       else if (read.legs.some((l) => "reader_state_before" in l || "reader_state_after" in l)) fails.push("(av) the Draft's reader derived a reader state the Brief no longer carries (kogaki#1699)");
     }

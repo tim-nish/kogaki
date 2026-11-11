@@ -124,9 +124,12 @@ function legRecordRefusal(raw, declared, at) {
   if (!Array.isArray(raw.claims) || raw.claims.some((g) => !g || typeof g.strand !== "string" || typeof g.proposition !== "string")) {
     return `${at}: \`claims\` is a list of maps, each naming its \`strand\` and its \`proposition\``;
   }
-  if (!Array.isArray(raw.waypoints) || raw.waypoints.some((w) => !w || typeof w.point !== "string" || !Array.isArray(w.serves))) {
-    return `${at}: \`waypoints\` is a list of maps, each with its \`point\` and the Strands it \`serves\``;
+  // THE LEG ENDS AT ITS RELATION'S `holds` (kogaki#1775): its `text`, which the Packet renders above the
+  // paragraphs /paragraph-plan wrote for it (kogaki#1777); a Brief Waypoint is refused by name.
+  if (Object.hasOwn(raw, "waypoints")) {
+    return `${at}: carries \`waypoints\` — a Leg ends at its relation's \`holds\` (kogaki#1775) and its paragraphs are /paragraph-plan's (kogaki#1777)`;
   }
+  if (typeof raw.text !== "string" || raw.text.trim() === "") return `${at}: carries no \`text\`, its relation's \`holds\` (kogaki#1775)`;
   if (raw.opens_section !== undefined) {
     const bad = opensSectionRefusal(typeof raw.opens_section === "string" ? raw.opens_section.trim() : raw.opens_section, at);
     if (bad) return bad;

@@ -122,7 +122,7 @@ function cmdResolve(args) {
   const ledger = readerKnowledgeLedger([...brief.legs, { leg_id: "(end)" }]);
   const introduced = ledger[ledger.length - 1].reader_already_knows.length;
   process.stdout.write(`reader-knowledge ledger: ${introduced} term(s) introduced across ${brief.legs.length} leg(s), derived from the path at read time and stored nowhere (the reader-knowledge ledger)${introduced === 0 ? " — this path introduces no terms, which is a reading of it and not an error" : ""}\n`);
-  process.stdout.write(`waypoints: ${brief.legs.reduce((n, l) => n + l.waypoints.length, 0)} across ${brief.legs.length} leg(s), each serving a claim of its Leg — the route was written and judged at composition, and no Move is opened here (kogaki#1311)\n`);
+  process.stdout.write(`paragraphs: ${brief.legs.reduce((n, l) => n + l.paragraphs.length, 0)} across ${brief.legs.length} leg(s), read from the ParagraphPlan, each standing on claims of its Leg — no Move is opened here (kogaki#1311, kogaki#1777)\n`);
   process.stdout.write(`workspace: ${ws} (machine-local; snapshots and run identity live here, never in the artifact)\n`);
 }
 

@@ -1,113 +1,44 @@
 #!/usr/bin/env bash
-# check-proof-sheet-leg-run — one command runs an original Leg through the Extractor, the
-# ingest, the Leg Brief composer, `/paragraph-plan` and `/draft`, and writes a sheet with one
-# card per Leg (kogaki#1386, owner decision 2026-10-15).
+# check-proof-sheet-leg-run: one command runs an original Leg through the Extractor, the
+# ingest and the Leg Brief composer, and writes a sheet with one card per Leg (kogaki#1386).
 #
-# WHAT THIS COVERS, driven end to end through `node src/proof-sheet/leg-run.mjs run` over a
-# three-paragraph Leg and ONE fake model binary (`KOGAKI_JUDGE_CLI`) answering every stage —
-# never the actual `claude` CLI. Each assertion names a stage's own record rather than the
-# sheet file alone, so a run that skipped a stage cannot pass (the consult receipt on the
-# Issue: a plan names the gate, not the outputs):
-#   (a) the run exits 0 with every stage `done` in `run.json`, and each model stage's calls went through the recorder:
-#       `calls.jsonl` per stage holds exactly the calls the fake binary saw, each judge answer padded past a pipe's
-#       buffer and handed through whole (Extractor 4 — paragraph 1 refused once — and one constraints call per
-#       paragraph, kogaki#1698, Leg Brief composer 2, ParagraphPlan generator and judge, Writer 1), each prompt and answer as sent.
-#   (b) the ingest derived one Move per Extraction into the run's own library, and the ParagraphPlan file gives each
-#       Brief Waypoint as many Waypoints as its bound Move has Segments.
-#   (b2) paragraph 2's Segment 2 carries a `manner`: the Move ingested from it carries it on that Segment and the
-#       sheet's Segment table in its `manner` column (kogaki#1510), and neither the ParagraphPlan file nor the Packet
-#       carries it -- a Move is an input to the Composer and to nothing else (kogaki#1585, owner decision 2026-10-25).
-#   (c) the Writer's recorded prompt is the Packet alone: the recorded stdin equals the
-#       Packet file `/draft` rendered, byte for byte, and equals what the fake binary read.
+# THE PLAN STAGE IS PARKED (kogaki#1777, owner decision 2026-11-11): the Leg-as-unit plan binds
+# one Move per Leg with at most two paragraphs, and this run binds one Move per original
+# paragraph. So `paragraph-plan` makes no call and stops with `PARKED_PLAN_LINE`, `draft` and
+# `leg-move` are recorded as not run, and the run exits 1. Its replay as one Leg per original
+# paragraph is kogaki#1784, where the cases this park retired -- the ParagraphPlan file and its
+# Rounds, the Packet, the Writer, the library, the recorder's streams and the Leg Move -- return.
+#
+# Cases (the letters are the ones the member carried before the park; the retired ones are gone):
+#   (a) the run exits 1 with `extract`, `ingest` and `brief` done, `paragraph-plan` stopped on the parked
+#       line, `draft` and `leg-move` not run, and `run.json`'s stop line is the stage's; the Extractor's
+#       and the Leg Brief composer's calls went through the recorder -- `calls.jsonl` per stage holds exactly
+#       the prompts and answers the binary saw (Extractor 10 with paragraph 1 refused once, composer 1) -- and
+#       no ParagraphPlan, Writer or Leg Move call reached the binary; the ingest made none.
+#   (b) the ingest derived one Move per Extraction into the run's own library, and a `manner` the
+#       Extractor fills on paragraph 2's Segment 2 rides to that Move's Segment alone (kogaki#1510).
 #   (d) the run writes nothing to the repository's `moves/` or `theses/`.
 #   (e) the sheet: one run-conditions line, one comparison table, and exactly the seven cards of `SHEET_CELLS` in
-#       pipeline order, stacked with no `.cols` row (kogaki#1487); every card has Output, Inputs, Prompt and Calls in
-#       that order, Output open -- folded on the Move and Brief cards (kogaki#1487) -- and the other three folded, and
-#       every Inputs entry links to another card's id on the page; the Extraction card shows paragraph 1's prompt and
-#       two Rounds; the Draft card states its prompt equals the Packet rather than repeating it; every recorded
-#       call's prompt but the judging calls' (kogaki#1614, kogaki#1652, kogaki#1698), cut into its instruction and its input, has each piece
-#       appear exactly once on the whole page (a retry shows only the refusal block it inserted); the Audience and the settings appear only in the run-conditions line.
-#   (f) the provenance map gates the sheet: a map missing a row refuses naming it, and a
-#       stopped Draft stage still draws the card with the stop in its Output.
+#       pipeline order, each with its title, badge and folded parts; the ParagraphPlan card carries the parked line.
+#   (f) the provenance map gates the sheet: a map missing a row refuses naming it.
 #   (g) where the owner's map is on disk (corpus/ is not versioned), it carries every row.
-#   (i) the Brief card badge (kogaki#1495): on a built sheet it reads "substitute, anchored", and an
-#       older run whose Leg Brief record carries no `anchored` reads "Proof Sheet substitute".
-#   (j) the article's language (kogaki#1417): two runs over one Passage under one Audience each record its language,
-#       hand it to the Leg Brief composer and the Packet, and the Brief and the Draft carry it; another Audience's
-#       language replaces it throughout; an Audience declaring none is refused by name at the Brief stage.
-#   (l) the ParagraphPlan card's Rounds part (kogaki#1437, kogaki#1642): the main run's fake judge answers
-#       `does-not-fit` at Brief Waypoint 2 on the Leg call and `fits` on the site retry there, and the part carries two
-#       blocks -- the Leg call's, with its Waypoints, the verdict and its `why`, naming where the site call's
-#       prompt is shown; and the site retry's, titled by its Brief Waypoint, `fits` at Brief Waypoints 2 and 3 alone, and "no further
-#       Round". A run refused on every Round shows the Leg call and every site retry, as many blocks as the job's Rounds, and an Output of "(not written)". The Calls part names "the judge call" and never "the check call".
-#   (m) the ParagraphPlan card's Output rows carry the plan file's join (kogaki#1445): the row
-#       for each Brief Waypoint after the first carries its `join` type word (kogaki#1477), read from the row block
-#       alone since the Rounds part shows it too, and the row for Brief Waypoint 1 carries none.
-#   (n) the Leg sheet's first views (kogaki#1479): the main run's plan gives Brief Waypoint 2 a `performs`
-#       Waypoint, and the ParagraphPlan card's Output row and Rounds part carry its text in italics with no list
-#       item empty; each Extraction paragraph block opens on its Segments table, with the folded "rendering" and
-#       "record file" blocks after it. Between the two sits an open `takes / leaves / breaks` table (kogaki#1534, kogaki#1699):
-#       one row each for the paragraph's Move file's `takes` and `leaves`, then one row listing that file's `breaks` in
-#       order; the Move file carries no `before` or `after` (kogaki#1699).
-#   (o) the review block and the Point line (kogaki#1487): between the comparison table and the Extraction card, a
-#       block carrying one Segments table per paragraph, a refused-rounds table with exactly one row -- Round 1,
-#       Brief Waypoint 2, the judge's `why` -- linking to that Round's block, and a Bindings table with one row per
-#       Brief Waypoint carrying its `point`, the bound Move and the plan file's `rationale` (kogaki#1639), each row carrying a "takes
-#       / leaves" `<details>` closed on load holding the Move file's takes and leaves, and no other row in the table
-#       (kogaki#1516); a Round whose judge answer is unreadable is a row carrying the job record's refusal; the
-#       resumed run (h), refused nowhere, renders "no Round was refused". Each ParagraphPlan Output row opens on
-#       "Point:" and the Brief Waypoint's `point` from the Brief. Each paragraph heading in the Segments part is
-#       followed by its bound Move's `description` as one plain paragraph and then its table, and a paragraph with no
-#       Move bound has nothing between the two (kogaki#1517); each table there is followed by its Move file's `breaks` as one ordered list in order, the unbound paragraph's by nothing (kogaki#1637).
-#   (k) the recorder streams (kogaki#1439): with a 1 s stall bound handed in through `KOGAKI_JOB_STALL_S` and every
-#       ParagraphPlan call running 2.5 s past its first line (a stream line every 200 ms, as a live stream-json call
-#       writes), the ParagraphPlan stage ends `done` rather than `stalled`, each recorded call carries the binary's
-#       whole stdout (past 64 KB) and exit status 0, and run.json keeps its shape.
-#   (p) the terms file is retired (kogaki#1498, retired by kogaki#1529, kogaki#1531): a run given `--terms`, with a
-#       file or bare, exits non-zero with the retirement sentence naming the flag and prints no run directory; the
-#       resumed run (h), its record carrying a `terms` key with its Brief not done, finishes with no `terms` key; the
-#       main run's record carries no `terms` key, and its sheet carries no terms line, in the run header or on the
-#       Brief card; the several-Leg Brief (s) carries no `introduces` (kogaki#1768).
+#   (h) resume (kogaki#1396): a run stopped at the Extractor's paragraph 2 of 3 is resumed to the park, and its
+#       extract/calls.jsonl holds exactly one paragraph-1 call; command.json is appended, not replaced.
+#   (p) the terms file is retired (kogaki#1498, kogaki#1529): `--terms` is refused before anything starts.
+#   (i) the Audience (kogaki#1396, kogaki#1495): run.json names the Audience path, the sheet shows its hash,
+#       a record naming none is unreadable, and the Brief card badge reads "substitute, anchored".
+#   (j) the article's language (kogaki#1417): each run records the Audience's language and hands it to the
+#       composer; an Audience declaring no language is refused by name at the Brief stage.
+#   (q) stage reuse (kogaki#1512): `--reuse --from brief` carries the Extraction and Moves byte for byte with
+#       no Extractor call; `--from paragraph-plan` also carries the Brief and makes no composer call, then
+#       parks; an edited Extraction is recorded by paragraph, Segment and field; the ingest's refusal reaches
+#       the stop line.
+#   (s) three consecutive Legs under one Brief (kogaki#1532), with (u) a leading subset of the Legs (kogaki#1546)
+#       and (v) no Obligation row and the items in the Move's `leaves` (kogaki#1582, kogaki#1698).
+#   (t) the Claim's words in its points (kogaki#1547): a Leg answer dropping a content word is refused once.
+#   (z) the left column (kogaki#1621): no built sheet carries an "Original Leg" header.
 #
-#   (q) stage reuse (kogaki#1512): `--reuse <the main run> --from brief` carries the Extraction and Moves byte for
-#       byte, records the source run and the copied stage's sha256, and no Extractor call reaches the model binary;
-#       `--from paragraph-plan` also carries the Brief and makes no Extractor or Brief call; the sheet badges each
-#       copied stage's card "copied from <source>"; a copied Extraction with one Segment's content clause edited is
-#       recorded as paragraph 2, Segment 1, `content`, and both Segments tables badge that row "edited by owner"; one
-#       the ingest refuses stops the run, naming the Move and item (kogaki#1576). The paragraph tables (o) render with
-#       no details element but the takes / leaves folds and no "Review" heading.
-#   (r) the library (kogaki#1521): `--reuse <the main run> --from brief --library <dir>` places the library's three
-#       records beside the run's own three in the plan's Move directory, and `run.json`'s `library` carries the
-#       directory, the records' sha256 and the ids by source; with the fake plan binding Brief Waypoint 1 from the
-#       library, paragraph 1's heading and Bindings row are badged "library" and the others "this run", and the run
-#       header names the library; a library holding one of the run's own ids is refused naming it, with no run
-#       directory and no model call; `--withhold-own` leaves the plan's directory holding the library's records only
-#       while the ingest still lists the run's own, every Bindings row is badged "library", and the header says the
-#       run's own were withheld; `--withhold-own` without `--library` is refused.
-#   (s) three consecutive Legs under one Brief (kogaki#1532): `--leg` given three times runs one Brief of three Legs;
-#       the Extractor runs every paragraph in order, Leg B's first reading Leg A's last as its earlier text;
-#       `opens_section` and `reaches_target` are filled as derived and `brief.json` marks each, and no Leg carries
-#       `depends_on`, `re-activate` or `introduces` (kogaki#1768); the production `validateLegs` passes over the Brief's path; `/draft section` writes each Leg with its
-#       own Writer calls file; the sheet carries three Leg blocks in order, each with its comparison table, under one
-#       Brief card marking two fields `derived`; and the one-file run's record keeps its shape apart from the `legs`
-#       list.
-#   (t) the Claim's words in its points (kogaki#1547): a run whose fake Leg answer first drops one content word of
-#       Claim 2 from point 2, then gives the full point, records one refusal in the Leg row's `rounds.json` naming
-#       the Claim and the word, carries the second answer in the Brief, and runs every later stage.
-#   (u) a leading subset of the Legs (kogaki#1546): `--reuse <the three-Leg run> --from brief --legs 2` makes no
-#       Extractor call, keeps four Extraction records, composes a two-Leg Brief whose second Leg reaches the target, and records `legs: 2`; `--legs 3` records what a plain reuse records apart from
-#       `reuse.legs`, and a plain reuse records no `legs`; `--legs 4`, `--legs 0` and `--legs 2 --from paragraph-plan`
-#       are each refused naming `--legs`, with no run directory written.
-#   (v) the Proof Sheet writes no Obligation row, and an extracted Move carries what its paragraph leaves in `leaves` and no `obligation` (kogaki#1582, kogaki#1698), as the block comment above the case states. The span of (s), raising nothing, carries `obligations: []`.
-#   (w) the Waypoints column (kogaki#1591): the main run's comparison table has three columns, paragraph 2's middle cell lists Brief Waypoint 2's Waypoints in order with the `performs` entry in italics, each Segments heading ends in one `copy table` button.
-#   (x) the Move's `takes` and `leaves` under each Move description (kogaki#1701): on the (o) copy whose third Move carries one of each they stand after its description, `kind: what` each, takes first, a Move carrying none draws no line, and no sheet draws an obligation trigger, a Move obligation, a paragraph obligation block or a fired Segment's tint.
-#   (y) the Leg Move (kogaki#1597), in checks/proof-sheet-leg-move-cases.mjs, whose header states the case.
-#   (z) the left column (kogaki#1621): no built sheet carries an "Original Leg" header and the comparison table is headed "Original Paragraph".
-#
-# NOT COVERED, stated rather than implied: the Extractor's, Leg Brief composer's, ParagraphPlan
-# stage's and Writer's own refusals are held by their own members
-# (check-proof-sheet-extract.sh, check-proof-sheet-leg-brief.sh, check-paragraph-plan.sh,
-# check-draft-*.sh). Whether a live model's Leg is any good is the owner's reading of the sheet.
+# Each stage's own contract is its own check (check-proof-sheet-extract.sh, check-proof-sheet-leg-brief.sh).
 set -u
 cd "$(dirname "$0")/.."
 
@@ -272,64 +203,51 @@ const before = snapshot();
 const out = join(root, "out");
 const r = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(root, "leg-fixture.md"), "--out", out, "--provenance", map],
   { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: root, PSR_PLAN_REFUSE: "first" }, timeout: 600000 });
-ok(r.status === 0, `(a) the run exited ${r.status}: ${r.stdout}${r.stderr}`);
+ok(r.status === 1, `(a) the parked run exited ${r.status}, not 1: ${r.stdout}${r.stderr}`);
 const runDir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
 const seen = existsSync(join(root, "seen.jsonl")) ? readFileSync(join(root, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
 const calls = (stage) => (runDir && existsSync(join(runDir, stage, "calls.jsonl")) ? readFileSync(join(runDir, stage, "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
 
+const LR0 = await imp("src/proof-sheet/leg-run.mjs");
+const PARKED = "extract:done,ingest:done,brief:done,paragraph-plan:stopped,draft:not run,leg-move:not run";
+const PARKED_STOP = "paragraph-plan: " + LR0.PARKED_PLAN_LINE;
+const stagesOf = (run) => run.stages.map((s) => `${s.stage}:${s.state}`).join(",");
+const stageRows = (run) => JSON.stringify(run.stages.map((s) => [s.stage, s.state, s.stopped]));
+
 if (!runDir) fails.push("(a) the run printed no run directory");
 else {
-  // (a) every stage done, every call through the recorder
+  // (a) the three stages before the park done, the park recorded, every call through the recorder
   const run = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
-  ok(run.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
-    `(a) the stages are not all done: ${JSON.stringify(run.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  const want = { extract: ["extract", 10], brief: ["brief-leg-path", 1], "paragraph-plan": ["plan-generator|plan-judge", null], draft: ["writer", 1] };
+  ok(stagesOf(run) === PARKED, `(a) the stages are not the parked shape: ${stageRows(run)}`);
+  ok(run.stopped === PARKED_STOP, `(a) run.json's stop line is not the parked stage's: ${JSON.stringify(run.stopped)}`);
+  ok(LR0.PARKED_PLAN_LINE.startsWith("parked (kogaki#1777)") && LR0.PARKED_PLAN_LINE.includes("kogaki#1784"), "(a) the parked line does not name the park and its successor");
+  const want = { extract: ["extract", 10], brief: ["brief-leg-path", 1] };
   for (const [stage, [kinds, n]] of Object.entries(want)) {
     const cs = calls(stage);
-    const ks = kinds.split("|");
-    const fake = seen.filter((s) => ks.includes(s.stage));
-    ok(n === null ? cs.length >= 2 : cs.length === n, `(a) ${stage}/calls.jsonl records ${cs.length} call(s)`);
+    const fake = seen.filter((s) => s.stage === kinds);
+    ok(cs.length === n, `(a) ${stage}/calls.jsonl records ${cs.length} call(s)`);
     ok(cs.length === fake.length && cs.every((c, i) => c.stdin === fake[i].prompt), `(a) ${stage}'s recorded calls are not the calls the model binary saw`);
     ok(cs.every((c, i) => c.stdout === fake[i].answer), `(a) ${stage}'s recorded answers are not the binary's own output`);
   }
-  ok(calls("paragraph-plan").some((c) => c.stdin.includes('"leg_you_must_judge"')), "(a) no ParagraphPlan judge call was recorded");
+  ok(!seen.some((s) => s.stage.startsWith("plan-") || s.stage === "writer"), `(a) a ParagraphPlan or Writer call reached the binary: ${JSON.stringify(seen.map((s) => s.stage))}`);
+  ok(!existsSync(join(runDir, "paragraph-plan", "calls.jsonl")) && !existsSync(join(runDir, "draft")) && !existsSync(join(runDir, "leg-move")), "(a) the parked stages wrote calls or a workspace");
   ok(!existsSync(join(runDir, "ingest", "calls.jsonl")), "(a) the ingest made a model call");
 
-  // (b) the ingest's Moves and the plan's counts
+  // (b) the ingest's Moves
   const ingest = JSON.parse(readOr(join(runDir, "ingest", "ingest.json"), '{"written":[],"entries":[]}'));
   ok(ingest.written.length === 3 && [1, 2, 3].every((n) => existsSync(join(runDir, "moves", `name_an_act_then_its_cost_${n}.yaml`))),
     `(b) the ingest did not write one Move per Extraction into the run's library: ${JSON.stringify(ingest.written)}`);
   ok(ingest.entries.length === 3 && ingest.entries.every((e) => e.admitted && e.screen.includes(`id: ${e.move}`)), "(b) an ingest entry does not carry its screen");
-  const plan = parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan");
-  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.length)) === "[2,2,3]", "(b) the ParagraphPlan file's Waypoint counts are not the Moves' Segment counts");
-  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.join || "")) === '["","consequence","contrast"]',
-    "(b) the ParagraphPlan file does not carry a type-word join on every Brief Waypoint after the first and none on the first (kogaki#1411, kogaki#1477)");
-  // THE MANNER STOPS AT THE MOVE (kogaki#1510, kogaki#1585): paragraph 2's Segment 2 carries one,
-  // so its Move does, and no Waypoint and no Packet line does.
+  // THE MANNER STOPS AT THE MOVE (kogaki#1510, kogaki#1585): paragraph 2's Segment 2 carries one, so its Move does.
   const MANNER = "a brief direct statement, given with no elaboration.";
   const move2 = parseYaml(readOr(join(runDir, "moves", "name_an_act_then_its_cost_2.yaml"), "id: none\n"), "move2");
   ok(Array.isArray(move2.segments) && JSON.stringify(move2.segments.map((g) => g.manner ?? null)) === JSON.stringify([null, MANNER]),
     `(b) the Move ingested from paragraph 2 does not carry its manner on Segment 2 alone: ${JSON.stringify(move2.segments)}`);
-  ok(plan.legs && plan.legs[0] && JSON.stringify(plan.legs[0].waypoints.map((w) => w.paragraph_waypoints.map((p) => p.manner ?? null)))
-    === JSON.stringify([[null, null], [null, null], [null, null, null]]),
-    `(b) the ParagraphPlan file carries a Segment's manner on a Waypoint (kogaki#1585): ${JSON.stringify(plan.legs && plan.legs[0] && plan.legs[0].waypoints)}`);
-
-  // (c) the Writer's prompt is the Packet alone
-  const packet = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
-  const w = calls("draft");
-  ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(c) the Writer's recorded prompt is not the Packet byte for byte");
-  ok(packet !== null && packet.includes("   *Opens from:* consequence\n") && packet.includes("   *Opens from:* contrast\n")
-    && (packet.match(/\*Opens from:\*/g) || []).length === 2, "(c) the Packet does not render each plan join as its Opens-from line (kogaki#1411)");
-  ok(packet !== null && packet.split("\n").some((l) => /^   2\. /.test(l)) && !packet.includes("Manner:") && !packet.includes(MANNER),
-    `(c) the Packet renders a Segment's manner, or carries no Waypoint line for the absence to be read over (kogaki#1585): ${JSON.stringify((packet || "").split("\n").filter((l) => /Manner|PW-2|PERFORMS-2/.test(l)))}`);
-  ok(seen.filter((s) => s.stage === "writer").every((s) => s.prompt === packet), "(c) the model binary was handed something other than the Packet");
-  ok(w.length && w[0].argv.includes("--tools") && w[0].argv[w[0].argv.indexOf("--tools") + 1] === "", "(c) the Writer was not called with --tools \"\"");
 
   // (e) the sheet: one run-conditions line, one comparison table, and the seven cards of
-  // `SHEET_CELLS` in pipeline order, Brief and ParagraphPlan in one row -- every assertion
-  // below reads inside the card a property belongs to, not a bare substring search over the
-  // whole page (the consult receipt on the Issue: the property is per card).
+  // `SHEET_CELLS` in pipeline order -- every assertion reads inside the card a property belongs to.
   const html = readOr(join(runDir, "sheet.html"), ""), mainHtml = html.split('<section class="leg-block leg-move"')[0];
+  ok(html.length > 0, "(e) the parked run wrote no sheet");
   ok((html.match(/<section class="card">/g) || []).length === 1, "(e) the sheet does not carry one run section");
   ok(/<div class="run-conditions" id="run-conditions">/.test(html), "(e) the run-conditions line is missing");
   ok(/<table class="pair"/.test(html), "(e) the comparison table is missing");
@@ -371,423 +289,16 @@ else {
       ok(ORDER.some((k) => href === `card-0-${k}`), `(e) the ${name} card's Inputs links to "${href}", which is not a card`);
     }
   }
+  ok(cards.paragraphPlan.includes(escHtml(LR0.PARKED_PLAN_LINE)), "(e) the ParagraphPlan card does not carry the parked line");
+  ok(cards.runRecord.includes(escHtml(LR0.PARKED_PLAN_LINE)) || cards.runRecord.includes("stopped"), "(e) the Run record card does not show the stop");
+  // (z) THE ORIGINAL PARAGRAPH (kogaki#1621)
+  ok(!html.includes("Original Leg") && html.includes("<th>Original Paragraph"), "(z) the sheet carries an \"Original Leg\" header, or no \"Original Paragraph\" column");
 
-  // the View block renders open (kogaki#1559): no `details` opened before it is still unclosed
-  // at it, so it sits inside no fold; the legend sentence and the anchor opener are on the page.
-  const viewAt = html.indexOf('<section class="review" id="review-0">');
-  const beforeReview = viewAt >= 0 ? html.slice(0, viewAt) : "";
-  ok(viewAt >= 0 && (beforeReview.match(/<details/g) || []).length === (beforeReview.match(/<\/details>/g) || []).length,
-    "(e) the View block is missing, or sits inside a folded details");
-  ok(html.includes(`<p class="muted fold-legend">${S.FOLD_LEGEND}</p>`), "(e) the legend sentence on folded cards is missing");
-  // the opener walks the target's `details` ancestors AND opens a card target's own Output part,
-  // since a `#card-<idx>-<key>` link lands on the section above its folded Output.
-  ok(/<script>const openTo=.*closest\("details"\).*querySelector\("details\.part\.out"\).*addEventListener\("hashchange",openTo\)/.test(html),
-    "(e) the anchor script that opens a folded card on its link is missing, or opens only the target's ancestors");
-
-  ok(new Set(Object.values(S.SHEET_CELLS)).size === Object.keys(S.SHEET_CELLS).length && Object.keys(S.SHEET_CELLS).every((k) => k in S.SHEET_TITLES),
-    "(e) two cards share a provenance row, or a card has no title");
-
-  const pairStart = html.indexOf('<table class="pair"');
-  const legRows = html.slice(pairStart, html.indexOf("</table>", pairStart))
-    .split("<tr><th>").slice(2);
-  ok(legRows.length === 3 && legRows.every((row, i) => row.includes(PARAS[i]) && row.includes(WRITTEN[i])),
-    `(e) the comparison table does not pair original paragraph N with written paragraph N: ${legRows.length} row(s)`);
-
-  ok(cards.extraction.includes("instruction"), "(e) the Extraction card does not show its paragraphs' prompts");
-  ok(cards.extraction.includes("<th>operation</th><th>relation</th><th>manner</th>") && cards.extraction.includes(`<td>${MANNER}</td>`)
-    && !cards.extraction.includes("<th>does</th>"), "(e) the Extraction card's Segment table does not carry the manner column (kogaki#1510)");
-  const ex1 = cards.extraction.slice(cards.extraction.indexOf("paragraph 1"));
-  ok(ex1.includes("rounds 2") && ex1.includes("call 2 of 2"), "(e) the Extraction card does not show paragraph 1's two rounds");
-
-  ok(/id="run-conditions"[\s\S]*?Round bound \(brief\.unit_rounds\)/.test(html), "(e) the run-conditions line does not show the settings the stages read");
-  for (const key of ORDER) {
-    ok(!cards[key].includes("Round bound (brief.unit_rounds)"), `(e) the ${key} card shows the settings, which belong only to the run-conditions line`);
-  }
-
-  // No prompt text appears in more than one place: each recorded call's prompt is cut into its
-  // instruction (before any refusal block or the input marker) and its input (from the input
-  // marker), and each piece, escaped as the sheet escapes it, occurs on the page exactly once
-  // -- a call whose prompt is shown under Prompt names it rather than repeating it, and a
-  // retry shows only the refusal block it inserted.
-  const occurrences = (needle) => mainHtml.split(needle).length - 1;
-  const INPUT = "----- INPUT (JSON) -----";
-  const REFUSED = "----- YOUR PREVIOUS ANSWER (call ";
-  let pieces = 0;
-  for (const st of ["extract", "brief", "paragraph-plan", "draft"]) {
-    const recorded = readOr(join(runDir, st, "calls.jsonl"), "").split("\n").filter(Boolean).map((l) => JSON.parse(l));
-    for (const [n, c] of recorded.entries()) {
-      const text = String(c.stdin);
-      // The content-bound, state-bound and constraints calls (kogaki#1614, kogaki#1652, kogaki#1698) are not drawn on the sheet; the answers are, on the record.
-      if (/`(content_bound|state_bound|constraints)_unit` judgment point/.test(text)) continue;
-      const cut = [text.indexOf(REFUSED), text.indexOf(INPUT)].filter((x) => x >= 0);
-      const end = cut.length ? Math.min(...cut) : text.length;
-      const at = text.indexOf(INPUT);
-      for (const [part, piece] of [["instruction", text.slice(0, end).trim()], ["input", at >= 0 ? text.slice(at).trim() : ""]]) {
-        if (!piece) continue;
-        pieces++;
-        const k = occurrences(escHtml(piece));
-        ok(k === 1, `(e) the ${st} call ${n + 1}'s prompt ${part} appears ${k} times on the sheet, not once`);
-      }
-    }
-  }
-  ok(pieces >= 9, `(e) only ${pieces} prompt piece(s) were checked for appearing once`);
-  const audienceRel = JSON.parse(readOr(join(runDir, "run.json"), "{}")).audience;
-  const audienceText = audienceRel ? readOr(resolve(repo, audienceRel), null) : null;
-  if (audienceText) {
-    const head = escHtml(audienceText.trim().split("\n")[0]);
-    ok(html.indexOf('id="run-conditions"') >= 0 && html.slice(html.indexOf('id="run-conditions"')).includes(head)
-      && ORDER.every((key) => !cards[key].includes(escHtml(audienceText))), "(e) the Audience is not shown in the run-conditions line alone");
-  }
-
-  ok(cards.draft.includes("The recorded prompt equals the Packet shown in the Packet card above, byte for byte."),
-    "(e) the Draft card does not state its prompt equals the Packet");
-  const packetText = readOr(join(runDir, "draft", "leg-fixture", "packets", "copy-leg.md"), null);
-  if (packetText) {
-    ok(cards.packet.includes(packetText.slice(0, 40).split("\n")[0]), "(e) the Packet card does not show the Packet's own text");
-    ok(!cards.draft.includes(packetText), "(e) the Draft card repeats the Packet's text instead of linking to it");
-  }
-
-  // (j) THE PIPELINE DIAGRAM, THE COMPARISON TABLE'S ANCHORS AND THE PACKET'S PER-WAYPOINT
-  // ROWS (kogaki#1402, redrawn kogaki#1410). The diagram opens the page, before the
-  // run-conditions line and the comparison table; its eight nodes -- the sources (Passage,
-  // Audience) and the six artifacts, with no Segments node and no Persona node -- each click to
-  // an id that exists on the page, and its text is also written as a `<pre>` fallback inside a
-  // closed details element. Each written-paragraph cell links to that paragraph's row in
-  // Extraction, Move, ParagraphPlan, Packet and Draft. The Packet card gets one row per Brief
-  // Waypoint, cut from the rendered Packet by its own numbering, with the whole Packet below.
-  const h1At = html.indexOf("<h1>Leg Proof Sheet</h1>");
-  const diagramAt = html.indexOf('<div class="diagram">');
-  ok(h1At >= 0 && diagramAt > h1At, "(j) the diagram does not follow the sheet's title");
-  ok(diagramAt >= 0 && diagramAt < html.indexOf('id="run-conditions"') && diagramAt < pairStart,
-    "(j) the diagram is not the sheet's first element, before the run-conditions line and the comparison table");
-
-  const diagramHtml = html.slice(diagramAt, html.indexOf('<div class="run-conditions"', diagramAt));
-  ok(diagramHtml.includes("flowchart LR"), "(j) the diagram is not a left-to-right flowchart");
-  ok(!diagramHtml.includes(escHtml('Segments_0["Segments"]')), "(j) the diagram still has a Segments node");
-  ok(!diagramHtml.includes(escHtml('Persona_0["Persona"]')), "(j) the diagram still has a Persona node");
-  const DIAGRAM_NODES = ["Passage", "Audience", "Extraction", "Move", "Brief", "ParagraphPlan", "Packet", "Draft"];
-  const DIAGRAM_LINKS = { Passage: "#comparison-0", Audience: "#run-conditions",
-    Extraction: "#card-0-extraction", Move: "#card-0-move", Brief: "#card-0-brief", ParagraphPlan: "#card-0-paragraphPlan",
-    Packet: "#card-0-packet", Draft: "#card-0-draft" };
-  for (const name of DIAGRAM_NODES) {
-    ok(diagramHtml.includes(escHtml(`${name}_0["${name}"]`)), `(j) the diagram has no "${name}" node`);
-    ok(diagramHtml.includes(escHtml(`click ${name}_0 "${DIAGRAM_LINKS[name]}"`)), `(j) the diagram's "${name}" node carries no click link`);
-  }
-  for (const target of ["comparison-0", "run-conditions", "card-0-extraction", "card-0-move", "card-0-brief", "card-0-paragraphPlan", "card-0-packet", "card-0-draft"]) {
-    ok(html.includes(`id="${target}"`), `(j) the diagram links to "#${target}", which is not an id on the page`);
-  }
-
-  // Two rows (kogaki#1410 design): Extraction, Move, ParagraphPlan, Packet, Draft on the chain
-  // row, Brief fed by Extraction and Audience, feeding ParagraphPlan and Packet, on the other --
-  // and the edge from Audience to Packet, the one that governs the Packet's prose rules.
-  const DIAGRAM_EDGES = [["Passage", "Extraction"], ["Audience", "Extraction"],
-    ["Extraction", "Move"], ["Extraction", "Brief"], ["Audience", "Brief"],
-    ["Move", "ParagraphPlan"], ["Brief", "ParagraphPlan"],
-    ["Brief", "Packet"], ["ParagraphPlan", "Packet"], ["Audience", "Packet"],
-    ["Packet", "Draft"]];
-  for (const [a, b] of DIAGRAM_EDGES) {
-    ok(diagramHtml.includes(escHtml(`${a}_0 --> ${b}_0`)), `(j) the diagram has no edge from "${a}" to "${b}"`);
-  }
-  ok(!diagramHtml.includes(escHtml("Segments_0 --> Move_0")), "(j) the diagram still has the edge from Segments to Move, bypassing Extraction");
-
-  // Three provenance classDefs with a legend, Extraction and Brief dashed.
-  for (const cls of ["ownerInput", "modelWritten", "mechanical"]) {
-    ok(diagramHtml.includes(`classDef ${cls} `), `(j) the diagram declares no "${cls}" classDef`);
-  }
-  ok(diagramHtml.includes("classDef dashed stroke-dasharray"), "(j) the diagram declares no dashed classDef");
-  const dashedLine = (diagramHtml.match(/class [^\n<]* dashed/) || [""])[0];
-  ok(dashedLine.includes("Extraction_0") && dashedLine.includes("Brief_0"), "(j) Extraction and Brief are not both assigned the dashed class");
-  ok(/<ul class="legend">/.test(html) && diagramAt < html.indexOf('<ul class="legend">'), "(j) the diagram carries no legend");
-  for (const label of ["owner-authored input", "model-written", "mechanically derived"]) {
-    ok(html.slice(diagramAt, html.indexOf('id="run-conditions"')).includes(label), `(j) the legend names no "${label}" class`);
-  }
-
-  ok(/<details[^>]*><summary>Diagram text/.test(diagramHtml) && !/<details[^>]* open[^>]*><summary>Diagram text/.test(diagramHtml),
-    "(j) the diagram's text fallback is missing, or is not closed by default");
-  ok(/<details[^>]*><summary>Diagram text[\s\S]*flowchart LR[\s\S]*<\/pre><\/details>/.test(diagramHtml), "(j) the diagram's text is not present as a <pre> fallback inside its details element");
-
-  for (let i = 1; i <= 3; i++) {
-    const cell = legRows[i - 1];
-    for (const card of ["extraction", "move", "planwp", "packetwp", "draft"]) {
-      ok(cell.includes(`href="#${card}-p${i}-0"`), `(j) paragraph ${i}'s written cell carries no link to "${card}-p${i}-0"`);
-      ok(html.includes(`id="${card}-p${i}-0"`), `(j) "${card}-p${i}-0" is linked but is not an id on the page`);
-    }
-  }
-
-  // THE PER-PARAGRAPH (AND PER-BRIEF-WAYPOINT) ROWS ARE FOLDED (kogaki#1410, owner 2026-10-17):
-  // every row on Extraction, Move, ParagraphPlan, Packet and Draft is a `details.prow`, open
-  // only for the first. The link target sits INSIDE the details rather than on it, because
-  // following a fragment opens a closed details that is the target's ancestor and leaves one
-  // that is the target closed -- so this is what makes a comparison-table link open the block.
-  for (const card of ["extraction", "move", "planwp", "packetwp", "draft"]) {
-    for (let i = 1; i <= 3; i++) {
-      const anchor = `${card}-p${i}-0`;
-      const at = html.indexOf(`id="${anchor}"`);
-      ok(at >= 0, `(j) "${anchor}" is not on the page`);
-      if (at < 0) continue;
-      const targetTag = html.slice(html.lastIndexOf("<", at), html.indexOf(">", at) + 1);
-      ok(!targetTag.startsWith("<details"), `(j) "${anchor}" is on the details itself, so following a link to it leaves the block closed: ${targetTag}`);
-      const tagStart = html.lastIndexOf('<details class="prow', at);
-      const enclosed = tagStart >= 0 && !html.slice(tagStart, at).includes("</details>");
-      ok(enclosed, `(j) "${anchor}" is not inside a folded per-paragraph block, so a link to it opens nothing`);
-      if (!enclosed) continue;
-      const tag = html.slice(tagStart, html.indexOf(">", tagStart) + 1);
-      ok(i === 1 ? / open/.test(tag) : !/ open/.test(tag), `(j) "${anchor}"'s block is ${i === 1 ? "not open" : "open"} by default: ${tag}`);
-    }
-  }
-
-  if (packetText) {
-    for (let i = 1; i <= 3; i++) {
-      const rowAt = cards.packet.indexOf(`id="packetwp-p${i}-0"`);
-      ok(rowAt >= 0, `(j) the Packet card has no row for Brief Waypoint ${i}`);
-      if (rowAt >= 0) {
-        const rowHtml = cards.packet.slice(rowAt, cards.packet.indexOf("</details>", rowAt));
-        ok(rowHtml.includes(`POINT-${i}`), `(j) the Packet card's Brief Waypoint ${i} row does not carry its point`);
-        ok(rowHtml.includes(`PW-${i}-1`), `(j) the Packet card's Brief Waypoint ${i} row does not carry its Waypoints`);
-      }
-    }
-    ok(cards.packet.includes(escHtml(packetText.trim())), "(j) the whole Packet no longer appears below the per-waypoint table");
-  }
-
-  // (m) THE JOIN IN THE PARAGRAPHPLAN OUTPUT (kogaki#1445): each Brief Waypoint row of the card's
-  // Output carries the plan file's join for a Brief Waypoint after the first and none for the
-  // first. The join also appears in the Rounds part, so this reads the row block alone --
-  // a match over the card or the page would pass with the row's line deleted (the consult
-  // receipt on the Issue).
-  const planWps = (plan.legs && plan.legs[0] && plan.legs[0].waypoints) || [];
-  for (let i = 1; i <= 3; i++) {
-    const rowAt = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0"`);
-    ok(rowAt >= 0, `(m) the ParagraphPlan card has no Output row for Brief Waypoint ${i}`);
-    if (rowAt < 0) continue;
-    const rowHtml = cards.paragraphPlan.slice(rowAt, cards.paragraphPlan.indexOf("</details>", rowAt));
-    const want = (planWps.find((w) => w.waypoint === i) || {}).join;
-    if (i === 1) ok(!/<p>join: /.test(rowHtml), "(m) the ParagraphPlan Output row for Brief Waypoint 1 carries a join line");
-    else ok(want && rowHtml.includes(`<p>join: ${escHtml(want)}</p>`), `(m) the ParagraphPlan Output row for Brief Waypoint ${i} does not carry the plan file's join`);
-  }
-
-  // (n) THE LEG SHEET'S FIRST VIEWS (kogaki#1479): the plan carries a `performs` entry at Brief
-  // Waypoint 2, which the old list rendered as an empty item, so the no-empty assertion below is
-  // fed a case that fails without the fix (the consult receipt on the Issue).
-  const PERFORMS = "PERFORMS-2-2 the paragraph turns the reader back on the act.";
-  ok(planWps.some((w) => (w.paragraph_waypoints || []).some((p) => p.performs === PERFORMS)), "(n) the plan file does not carry the fixture's performs Waypoint");
-  const row2At = cards.paragraphPlan.indexOf(`id="planwp-p2-0"`);
-  const row2 = row2At >= 0 ? cards.paragraphPlan.slice(row2At, cards.paragraphPlan.indexOf("</details>", row2At)) : "";
-  ok(row2.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) the ParagraphPlan Output row for Brief Waypoint 2 does not carry the performs text in italics");
-  ok(!/<li>(<i>)?\s*(<\/i>)?<\/li>/.test(cards.paragraphPlan), "(n) the ParagraphPlan card carries an empty list item");
-  for (let i = 1; i <= 3; i++) {
-    const at = cards.extraction.indexOf(`<summary>paragraph ${i}</summary>`);
-    ok(at >= 0, `(n) the Extraction card has no block for paragraph ${i}`);
-    if (at < 0) continue;
-    const blk = cards.extraction.slice(at, cards.extraction.indexOf("</div></details>", at));
-    const seg = blk.indexOf("<th>content clause</th>");
-    const rend = blk.indexOf(`<details class="sub"><summary>rendering</summary>`);
-    const file = blk.indexOf(`<details class="sub"><summary>record file</summary>`);
-    ok(seg >= 0 && blk.includes(`CONTENT-${i}-1`) && !blk.slice(0, seg).includes("<details"),
-      `(n) the Extraction block for paragraph ${i} does not open on its Segments table`);
-    ok(seg >= 0 && rend > seg && file > rend, `(n) the Extraction block for paragraph ${i} does not carry the folded rendering and record file after its Segments table`);
-    const stAt = blk.indexOf(`<table class="move-states"><caption>takes / leaves / breaks</caption>`);
-    const st = stAt >= 0 ? blk.slice(stAt, blk.indexOf("</table>", stAt)) : "";
-    const mv = parseYaml(readOr(join(runDir, "moves", `name_an_act_then_its_cost_${i}.yaml`), "{}"), "move");
-    // the Move's `takes` and `leaves` (kogaki#1699: its `before` and `after` are retired), one row per list
-    const listRows = ["takes", "leaves"].map((k) => `<tr><td>${k}</td><td colspan="2">${S.constraintEntriesHtml(mv[k])}</td></tr>`);
-    const brk = `<tr class="breaks"><td>breaks</td><td colspan="2"><ol>${(mv.breaks || []).map((x) => `<li>${escHtml(String(x))}</li>`).join("")}</ol></td></tr>`;
-    ok(stAt > seg && stAt < rend && !blk.slice(seg, stAt).includes("<details") && (mv.breaks || []).length > 0
-      && !("before" in mv) && !("after" in mv) && st.includes(listRows.join("") + brk),
-      `(n) the Extraction block for paragraph ${i} carries no open takes / leaves / breaks table of its Move between its Segments table and the folded rendering`);
-  }
-
-  // (l) THE ROUNDS PART (kogaki#1437, kogaki#1642): the Leg call was refused at Brief Waypoint 2
-  // and the site retry there passed, so the part holds two blocks, the second titled by its site
-  // and judged at Brief Waypoint 2 and the join of Brief Waypoint 3 alone.
-  const planCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_you_must_plan"'));
-  const siteCalls = calls("paragraph-plan").filter((c) => c.stdin.includes('"leg_waypoint_you_must_plan"'));
-  ok(planCalls.length === 1 && siteCalls.length === 1, `(l) the ParagraphPlan made ${planCalls.length} Leg call(s) and ${siteCalls.length} site call(s), not one each (refused at Brief Waypoint 2, then repaired there)`);
-  const blocks = roundBlocks(cards.paragraphPlan);
-  ok(blocks.length === 2, `(l) the Rounds part holds ${blocks.length} block(s), not 2`);
-  if (blocks.length === 2 && siteCalls.length === 1) {
-    const [b1, b2] = blocks;
-    ok(PARAS.every((_, i) => b1.includes(`PW-${i + 1}-1 the paragraph makes its point.`)), "(l) round 1's block does not show its Waypoints");
-    ok(b1.includes(`<li><i>${escHtml(PERFORMS)}</i></li>`), "(n) round 1's block does not show the performs Waypoint in italics");
-    ok(b1.includes("does-not-fit") && b1.includes("WHY-NOT-FIT the second waypoint restates the first instead of moving on."),
-      "(l) round 1's block does not show the does-not-fit verdict with its why");
-    ok(b1.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Brief Waypoint 2, byte for byte."), "(l) round 1's block does not name where the site call's prompt is shown");
-    ok(b2.startsWith("2 of 2 — site retry at Brief Waypoint 2") && b2.includes("PW-2-1 the paragraph makes its point. Rewritten 1."),
-      "(l) round 2's block is not titled as the site retry at Brief Waypoint 2, or does not show its rewritten Waypoints");
-    ok(!b2.includes("does-not-fit") && (b2.match(/<b>fits<\/b>/g) || []).length === 2 && b2.includes("Brief Waypoint 3: <b>fits</b>"), "(l) round 2's block does not show fits at Brief Waypoint 2 and the join of Brief Waypoint 3 alone");
-    ok(b2.includes("no further round: the job ended `done`"), "(l) round 2's block does not say no further round");
-    ok(!/class="stop">The judge answered/.test(b1 + b2), "(l) the Rounds part shows a mismatch between the judge and the job record on a run where they agree");
-  }
-  ok(cards.paragraphPlan.includes("the judge call") && !cards.paragraphPlan.includes("the check call"), "(l) the Calls part does not name the judge call, or still names the check call");
-
-  // (o) THE REVIEW BLOCK AND THE POINT LINE (kogaki#1487). Every property is read inside the
-  // part it belongs to, and the refused-rounds table is held to one row naming Round 1,
-  // Brief Waypoint 2 and the judge's why -- a silent table cannot pass, since the run that
-  // refused nothing must render its own line (below, on the resumed run).
-  const reviewAt = html.indexOf('<section class="review" id="review-0">');
-  const pairEnd = html.indexOf("</table>", pairStart);
-  ok(reviewAt > pairEnd && pairEnd > pairStart && reviewAt < starts[ORDER.indexOf("extraction")],
-    "(o) the review block does not sit between the comparison table and the Extraction card");
-  const review = reviewAt >= 0 ? html.slice(reviewAt, starts[ORDER.indexOf("extraction")]) : "";
-  const rpart = (cls) => {
-    const a = review.indexOf(`<div class="rpart ${cls}">`);
-    if (a < 0) return "";
-    const b = review.indexOf('<div class="rpart', a + 1);
-    return review.slice(a, b >= 0 ? b : undefined);
-  };
-  // (o) THE PARAGRAPH TABLES ARE PLAIN (kogaki#1512): three headings and no section heading,
-  // no details element anywhere between the comparison table and the first card but each
-  // binding's closed takes / leaves fold (kogaki#1516, kogaki#1699).
-  ok(!review.replace(/<details class="states"><summary>takes \/ leaves<\/summary>/g, "").includes("<details") && !review.includes("<h3>Review</h3>")
-    && ["Segments", "Refused rounds", "Bindings"].every((h) => review.includes(`<h3>${h}</h3>`)),
-    "(o) the paragraph tables carry a details element or a Review heading, or lack their own three headings");
-  const segPart = rpart("segments");
-  ok((segPart.match(/<th>content clause<\/th>/g) || []).length === 3 && [1, 2, 3].every((i) => segPart.includes(`CONTENT-${i}-1`) && segPart.includes(`paragraph ${i} — name_an_act_then_its_cost_${i}`)),
-    "(o) the review block does not carry one Segments table per paragraph, headed by its paragraph and Move");
-  // (o) THE MOVE'S DESCRIPTION (kogaki#1517): each paragraph heading is followed by its bound
-  // Move record's `description` as one plain paragraph, and only then by its Segments table. THE MOVE'S BREAKS (kogaki#1637) follow that table, read here since the Extraction card carries the same breaks.
-  const chunkAfterTable = (part, i) => { const a = part.indexOf(`<h4>paragraph ${i} — `), b = a < 0 ? -1 : part.indexOf("<h4>", a + 1), chunk = a < 0 ? "" : part.slice(a, b >= 0 ? b : part.lastIndexOf("</div>")), t = chunk.lastIndexOf("</table>"); return t >= 0 ? chunk.slice(t + 8) : null; };
-  for (let i = 1; i <= 3; i++) {
-    const head = segPart.indexOf(`<h4>paragraph ${i} — `);
-    const mv = parseYaml(readOr(join(runDir, "moves", `name_an_act_then_its_cost_${i}.yaml`), "{}"), "move");
-    const desc = typeof mv.description === "string" ? mv.description.trim() : "";
-    const headEnd = head >= 0 ? segPart.indexOf("</h4>", head) + 5 : -1;
-    const table = headEnd >= 0 ? segPart.indexOf("<table", headEnd) : -1;
-    ok(desc === `Names an act, then names who pays for it (paragraph ${i}).` && headEnd > 4 && table > headEnd && segPart.slice(headEnd, table) === `<p>${escHtml(desc)}</p>`, `(o)/(x) paragraph ${i}'s heading is not followed by its Move's description as one plain paragraph and nothing else -- its Move takes and leaves nothing, and no obligation trigger line is drawn (kogaki#1701) -- above its Segments table: ${segPart.slice(headEnd, table)}`);
-    ok((mv.breaks || []).length === 3 && chunkAfterTable(segPart, i) === `<div class="move-breaks"><p class="caption">Breaks</p><ol>${mv.breaks.map((x) => `<li>${escHtml(String(x))}</li>`).join("")}</ol></div>`, `(o) paragraph ${i}'s Segments table in the review block is not followed by its Move's breaks as one ordered list in order: ${chunkAfterTable(segPart, i)}`);
-  }
-  // A paragraph with no Move bound shows its heading and its table with nothing between them.
-  const unbound = join(root, "unbound-move-run");
-  cpSync(runDir, unbound, { recursive: true });
-  const ingestPath = join(unbound, "ingest", "ingest.json");
-  const ingestRec = JSON.parse(readOr(ingestPath, '{"entries":[]}'));
-  if (ingestRec.entries && ingestRec.entries[1]) delete ingestRec.entries[1].move;
-  writeFileSync(ingestPath, JSON.stringify(ingestRec));
-  const mv3 = join(unbound, "moves", "name_an_act_then_its_cost_3.yaml"); // (x)'s takes and leaves lines
-  const TAKES3 = [{ kind: "answer", what: "who pays for the act?" }], LEAVES3 = [{ kind: "explain", what: "the cost <named>.", segment: 1 }];
-  writeFileSync(mv3, stringifyYaml({ ...parseYaml(readOr(mv3, "{}"), "move"), takes: TAKES3, leaves: LEAVES3 }));
-  const nBuilt = S.buildSheet({ runs: [unbound], provenance: map, out: join(root, "unbound.html") });
-  const nSeg = nBuilt.written ? readFileSync(nBuilt.written, "utf8") : "";
-  const noMove = `<h4>paragraph 2 — (no Move)${COPY}</h4>`, nHead = nSeg.indexOf(noMove);
-  const nAfter = nHead >= 0 ? nSeg.slice(nHead + noMove.length) : "";
-  ok(nHead >= 0 && nAfter.startsWith("<table") && nSeg.includes(escHtml("Names an act, then names who pays for it (paragraph 1).")), "(o) a paragraph with no Move bound does not show its heading directly above its Segments table");
-  const nReview = nSeg.slice(nSeg.indexOf('<div class="rpart segments">'), nSeg.indexOf('<div class="rpart refused">')); ok(chunkAfterTable(nReview, 2) === "" && (chunkAfterTable(nReview, 1) || "").startsWith('<div class="move-breaks">'), `(o) the unbound paragraph's Segments table is followed by something, or its bound neighbour's by no breaks: ${chunkAfterTable(nReview, 2)}`);
-  // (w) THE WAYPOINTS COLUMN AND THE COPY BUTTON (kogaki#1591); the obligation line is read on the unbound copy above.
-  const pairHead = html.slice(pairStart, html.indexOf("</thead>", pairStart)), pw2 = (planWps.find((w) => w.waypoint === 2) || {}).paragraph_waypoints || [];
-  ok((pairHead.match(/<th>/g) || []).length === 4 && pairHead.includes('<th>Waypoints <span class="meta">') && legRows.every((row) => (row.match(/<td/g) || []).length === 3), "(w) the comparison table does not carry three columns, the Waypoints between the two paragraphs");
-  ok(pw2.some((p) => p.performs === PERFORMS) && (legRows[1] || "").split("</td>")[1] === `<td class="pws"><ol>${pw2.map((p) => (p.performs !== undefined ? `<li><i>${escHtml(p.performs)}</i></li>` : `<li>${escHtml(p.point)}</li>`)).join("")}</ol>`,
-    `(w) paragraph 2's middle cell does not list Brief Waypoint 2's Waypoints in order, the performs entry in italics: ${legRows[1]}`);
-  const heads = segPart.split("<h4>").slice(1).map((h) => h.slice(0, h.indexOf("</h4>")));
-  ok(heads.length === 3 && heads.every((h) => h.endsWith(COPY) && h.split("<button").length === 2) && html.includes('closest("button.copy-table")'), "(w) a Segments heading does not end in one copy table button, or the page carries no script for it");
-  // (x) THE MOVE'S TAKES AND LEAVES (kogaki#1701): paragraph 3's Move's entries stand after its
-  // description, `kind: what` each, takes first; paragraph 1's, with none, carry no line.
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 3).")}</p><p class="takes">answer: who pays for the act?</p><p class="leaves">explain: ${escHtml("the cost <named>.")}</p><table`),
-    "(x) paragraph 3's Move's takes and leaves do not stand after its description, `kind: what` each, takes first (kogaki#1701)");
-  ok(nSeg.includes(`${COPY}</h4><p>${escHtml("Names an act, then names who pays for it (paragraph 1).")}</p><table`), "(x) paragraph 1's Move, taking and leaving nothing, renders a line after its description");
-  for (const gone of ["obligation trigger", "Move obligation", "para-obligation", 'class="fired"', 'class="obligation']) {
-    ok(!nSeg.includes(gone) && !html.includes(gone), `(x) a built sheet still draws ${JSON.stringify(gone)}, retired (kogaki#1701)`);
-  }
-  // (z) THE ORIGINAL PARAGRAPH (kogaki#1621); its obligation block and the fired Segment's tint are retired with the Move's obligation (kogaki#1701), read in (x).
-  ok(!html.includes("Original Leg") && !nSeg.includes("Original Leg") && pairHead.includes('<th>Original Paragraph <span class="meta">'), "(z) a built sheet carries an Original Leg header, or its comparison table is not headed Original Paragraph");
-  const refPart = rpart("refused");
-  const refRows = refPart.split("<tbody>")[1] ? refPart.split("<tbody>")[1].split("</tbody>")[0].split("<tr>").slice(1) : [];
-  ok(refRows.length === 1 && refRows[0].includes(`href="#round-0-1"`) && refRows[0].includes("<td>2</td>")
-    && refRows[0].includes("WHY-NOT-FIT the second waypoint restates the first instead of moving on."),
-    `(o) the refused-rounds table does not carry exactly one row naming round 1, Brief Waypoint 2 and the judge's why: ${refRows.length} row(s)`);
-  const att1 = cards.paragraphPlan.indexOf('id="round-0-1"');
-  ok(att1 >= 0 && cards.paragraphPlan.lastIndexOf('<details class="part rounds">', att1) >= 0, "(o) the refused row's link names no round block on the ParagraphPlan card");
-  if (existsSync(join(runDir, "paragraph-plan", "job", "paragraph-plan-bindings.json"))) fails.push("(o) the run directory still carries a paragraph-plan-bindings.json, retired (kogaki#1639)"); const bindRec = (parseYaml(readOr(join(runDir, "brief", "paragraph-plan.yaml"), "legs: []\n"), "plan").legs || []).flatMap((l) => (l.waypoints || []).map((w) => ({ waypoint: w.waypoint, move: w.move, rationale: w.rationale })));
-  const bindPart = rpart("bindings");
-  // A binding row runs to the next binding row: the Move's takes / leaves table nests inside it.
-  const rowAt = [...bindPart.matchAll(/<tr><td>(?=\d+<\/td><td>(?:POINT-|\(no point))/g)].map((m) => m.index);
-  const bindRows = rowAt.map((at, i) => bindPart.slice(at + 8, i + 1 < rowAt.length ? rowAt[i + 1] : bindPart.length));
-  ok(bindRec.length === 3 && bindRows.length === 3, `(o) the Bindings table holds ${bindRows.length} row(s) against the record's ${bindRec.length}`);
-  for (const b of bindRec) {
-    const row = bindRows.find((x) => x.startsWith(`${b.waypoint}</td>`)) || "";
-    ok(row.includes(`POINT-${b.waypoint}`) && row.includes(`>${escHtml(b.move)}</a>`) && row.includes(escHtml(b.rationale)), `(o) the Bindings row for Brief Waypoint ${b.waypoint} does not carry its point, its Move and the plan file's rationale`);
-    const sAt = row.indexOf('<details class="states"><summary>takes / leaves</summary>');
-    const fold = sAt >= 0 ? row.slice(sAt, row.indexOf("</details>", sAt) + 10) : "";
-    const mv = parseYaml(readOr(join(runDir, "moves", `${b.move}.yaml`), "{}"), "move");
-    ok(fold.includes("<table>") && ["takes", "leaves"].every((k) => fold.includes(`<tr><td>${k}</td><td colspan="2">${S.constraintEntriesHtml(mv[k])}</td></tr>`)),
-      `(o) the Bindings row for Brief Waypoint ${b.waypoint} carries no closed takes / leaves fold with the Move's lists`);
-  }
-  // The takes / leaves folds are closed on load and sit inside their binding's own row, so the
-  // table's body holds one row per Brief Waypoint and nothing else (kogaki#1516).
-  const bindBody = bindPart.includes("<tbody>") ? bindPart.slice(bindPart.indexOf("<tbody>") + 7, bindPart.lastIndexOf("</tbody>")) : "";
-  const bodyRows = (bindBody.replace(/<details class="states">[\s\S]*?<\/details>/g, "").match(/<tr[\s>]/g) || []).length;
-  ok(bodyRows === bindRec.length && !/<details class="states"[^>]*\sopen/.test(bindPart) && !bindPart.includes('<tr class="states">'),
-    `(o) the Bindings table holds ${bodyRows} body row(s) against ${bindRec.length} Brief Waypoint(s), or a takes / leaves fold is open on load`);
-  // A Round whose judge answer is unreadable is a row carrying the job record's refusal,
-  // never a silence read as "no Round was refused".
-  const unreadable = join(root, "unreadable-judge-run");
-  cpSync(runDir, unreadable, { recursive: true });
-  const ppCalls = readFileSync(join(unreadable, "paragraph-plan", "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
-  const firstJudge = ppCalls.findIndex((c) => c.stdin.includes('"leg_you_must_judge"'));
-  if (firstJudge >= 0) ppCalls[firstJudge].stdout = "UNREADABLE";
-  writeFileSync(join(unreadable, "paragraph-plan", "calls.jsonl"), ppCalls.map((c) => JSON.stringify(c)).join("\n") + "\n");
-  const uBuilt = S.buildSheet({ runs: [unreadable], provenance: map, out: join(root, "unreadable.html") });
-  const uHtml = uBuilt.written ? readFileSync(uBuilt.written, "utf8") : "";
-  const uRef = uHtml.slice(uHtml.indexOf('<div class="rpart refused">'), uHtml.indexOf('<div class="rpart bindings"'));
-  const uJob = JSON.parse(readOr(join(unreadable, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
-  const uRefusal = (((uJob.units || [])[0] || {}).refusals || [])[0];
-  ok(firstJudge >= 0 && !uRef.includes("no round was refused") && uRef.includes(`href="#round-0-1"`) && uRef.includes("no readable verdicts")
-    && !!uRefusal && uRef.includes(escHtml(uRefusal)), "(o) a round with an unreadable judge answer does not render a row carrying the job record's refusal");
-
-  for (let i = 1; i <= 3; i++) {
-    const at = cards.paragraphPlan.indexOf(`id="planwp-p${i}-0">`);
-    const body = at >= 0 ? cards.paragraphPlan.slice(at + `id="planwp-p${i}-0">`.length) : "";
-    ok(body.startsWith(`<p>Point: POINT-${i} names CLAIM-${i} in English</p>`), `(o) the ParagraphPlan Output row for Brief Waypoint ${i} does not open on "Point:" and its point from the Brief`);
-  }
-
-  // (f) the map gates; a stopped Draft still draws
+  // (f) the map gates
   const short = join(root, "PROVENANCE-short.md");
   writeFileSync(short, mapText(mapRows.filter((l) => !l.startsWith("| Packet |"))));
   const refused = S.buildSheet({ runs: [runDir], provenance: short, out: join(root, "short.html") });
   ok(/has no "## Cells of the Leg card" row for "Packet"/.test(refused.error || ""), `(f) a map missing the Packet row was not refused by name: ${refused.error}`);
-  const stoppedRun = join(root, "stopped-run");
-  cpSync(runDir, stoppedRun, { recursive: true });
-  rmSync(join(stoppedRun, "draft", "leg-fixture", "sections"), { recursive: true, force: true });
-  const rec = JSON.parse(readFileSync(join(stoppedRun, "run.json"), "utf8"));
-  rec.stages[4] = { stage: "draft", state: "stopped", stopped: "STOP-LINE the writer refused section", leg_id: "copy-leg", workspace: join(stoppedRun, "draft", "leg-fixture") };
-  rec.stopped = "draft: STOP-LINE the writer refused section";
-  writeFileSync(join(stoppedRun, "run.json"), JSON.stringify(rec));
-  const built = S.buildSheet({ runs: [stoppedRun], provenance: map, out: join(root, "stopped.html") });
-  const sh = built.written ? readFileSync(built.written, "utf8") : "";
-  ok(sh.includes("STOP-LINE the writer refused section") && sh.includes("<b>Packet"), "(f) a stopped Draft stage does not draw the card with the stop");
-
-  // (retired) kogaki#1760: a run whose Rounds files carry the retired name draws the same Round counts.
-  const { RETIRED_NAMES } = await imp("src/workflow/call-record.mjs"), retiredRun = join(root, "retired-run"), renamed = []; cpSync(runDir, retiredRun, { recursive: true });
-  const renameRounds = (d) => readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? renameRounds(join(d, e.name)) : e.name === "rounds.json" && renamed.push(renameSync(join(d, e.name), join(d, RETIRED_NAMES.roundsFile))))); renameRounds(retiredRun);
-  const countsOf = (dir, out) => { const b = S.buildSheet({ runs: [dir], provenance: map, out: join(root, out) }); return (b.written ? readFileSync(b.written, "utf8") : "").match(/— rounds [^<]*/g) || []; }; const nowCounts = countsOf(runDir, "now.html"), wasCounts = countsOf(retiredRun, "retired.html");
-  ok(renamed.length > 0 && nowCounts.length > 0 && !nowCounts.some((c) => c.includes("?")) && JSON.stringify(wasCounts) === JSON.stringify(nowCounts), `(retired) a run whose Rounds files carry the retired name did not draw the same Round counts: ${renamed.length} ${JSON.stringify(nowCounts)} ${JSON.stringify(wasCounts)}`);
-}
-
-// (l) A PARAGRAPHPLAN REFUSED ON EVERY ROUND: the run stops at paragraph-plan, and the sheet
-// shows every Round, each refused at Brief Waypoint 2, and an Output of "(not written)".
-const lRoot = join(root, "refused-every-round");
-mkdirSync(lRoot, { recursive: true });
-writeFileSync(join(lRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
-const r6 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(lRoot, "leg-fixture.md"), "--out", join(lRoot, "out"), "--provenance", map],
-  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: lRoot, PSR_PLAN_REFUSE: "all" }, timeout: 600000 });
-const lRunDir = (r6.stdout.match(/^run directory: (.+)$/m) || [])[1];
-ok(!!lRunDir, `(l) the run refused on every ParagraphPlan round printed no run directory: ${r6.stdout}${r6.stderr}`);
-if (lRunDir) {
-  const lRun = JSON.parse(readFileSync(join(lRunDir, "run.json"), "utf8"));
-  const pp = lRun.stages.find((st) => st.stage === "paragraph-plan") || {};
-  ok(pp.state && pp.state !== "done", `(l) the ParagraphPlan stage ended ${pp.state} on a run refused at every round`);
-  const built = S.buildSheet({ runs: [lRunDir], provenance: map, out: join(lRoot, "sheet.html") });
-  const lHtml = built.written ? readFileSync(built.written, "utf8") : "";
-  const ppAt = lHtml.indexOf('id="card-0-paragraphPlan"');
-  const ppCard = ppAt >= 0 ? lHtml.slice(ppAt, lHtml.indexOf('id="card-0-packet"')) : "";
-  const lJob = JSON.parse(readOr(join(lRunDir, "paragraph-plan", "job", "reader-path-job.json"), "{}"));
-  const spent = ((lJob.units || [])[0] || {}).rounds;
-  const blocks = roundBlocks(ppCard);
-  ok(spent >= 2 && blocks.length === spent, `(l) the refused run's Rounds part holds ${blocks.length} block(s) against the ${spent} round(s) the job spent`);
-  ok(blocks.every((b) => b.includes("does-not-fit") && b.includes("WHY-NOT-FIT")), "(l) a refused round's block does not show its does-not-fit verdict and why");
-  ok(blocks.slice(1).every((b) => b.includes("site retry at Brief Waypoint 2")), "(l) a refused round after the Leg call is not titled as the site retry at Brief Waypoint 2");
-  ok(blocks.slice(0, -1).every((b) => b.includes("The next round's prompt is the one shown under Prompt, ParagraphPlan, the site call at Brief Waypoint 2")), "(l) a refused round's block does not name where the next site call's prompt is shown");
-  ok(blocks.length > 0 && blocks[blocks.length - 1].includes(`no further round: the job ended \`${lJob.state}\``), "(l) the last refused round does not say no further round and the job's state");
-  const output = ppCard.slice(ppCard.indexOf('<details class="part out"'), ppCard.indexOf('<details class="part rounds"'));
-  ok(output.includes("(not written)"), "(l) the refused run's ParagraphPlan Output does not read (not written)");
 }
 
 // (d) nothing in moves/ or theses/
@@ -900,18 +411,14 @@ if (hRunDir) {
 
   const r2 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--resume", hRunDir, "--provenance", map],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: goodJudge, PSR_FIXTURE_DIR: hRoot }, timeout: 600000 });
-  ok(r2.status === 0, `(h) the resumed run exited ${r2.status}: ${r2.stdout}${r2.stderr}`);
+  ok(r2.status === 1, `(h) the resumed run exited ${r2.status}, not 1 at the park: ${r2.stdout}${r2.stderr}`);
   const run2 = JSON.parse(readFileSync(join(hRunDir, "run.json"), "utf8"));
   ok(!("terms" in run2), `(p) the resumed run, its record carrying \`terms\`, kept the key: ${JSON.stringify(run2.terms)}`);
-  ok(run2.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
-    `(h) the resumed run did not finish every stage: ${JSON.stringify(run2.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
+  ok(stagesOf(run2) === PARKED && run2.stopped === PARKED_STOP, `(h) the resumed run did not run to the park: ${stageRows(run2)}`);
   const extractCalls = readFileSync(join(hRunDir, "extract", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
   const p1Calls = extractCalls.filter((c) => c.stdin.includes('"number": 1,'));
   ok(p1Calls.length === 1, `(h) the resumed run's extract/calls.jsonl does not hold exactly one paragraph-1 call: ${p1Calls.length} of ${extractCalls.length} total`);
   ok(existsSync(join(hRunDir, "sheet.html")), "(h) the resumed run did not write a sheet");
-  const hSheet = readOr(join(hRunDir, "sheet.html"), "");
-  const hRef = hSheet.slice(hSheet.indexOf('<div class="rpart refused">'), hSheet.indexOf('<div class="rpart bindings"'));
-  ok(hRef.includes("<p>no round was refused</p>") && !hRef.includes("<table"), "(o) the resumed run, refused nowhere, does not render \"no round was refused\"");
   const extractCmd = JSON.parse(readFileSync(join(hRunDir, "extract", "command.json"), "utf8"));
   ok(extractCmd.length > extractDoneBefore.length, "(h) the resumed extract stage replaced command.json instead of appending to it");
 
@@ -962,12 +469,11 @@ if (runDir) {
   const srcRel = relFromRepo(runDir, repo);
 
   const q1 = reuseRun(runDir, "brief", "brief");
-  ok(q1.rq.status === 0 && !!q1.run, `(q) the run reusing --from brief exited ${q1.rq.status}: ${q1.rq.stdout}${q1.rq.stderr}`);
+  ok(q1.rq.status === 1 && !!q1.run, `(q) the run reusing --from brief exited ${q1.rq.status}, not 1 at the park: ${q1.rq.stdout}${q1.rq.stderr}`);
   if (q1.run) {
-    ok(q1.run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
-      `(q) the reused run's stages are not all done: ${JSON.stringify(q1.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
-    ok(!q1.seen.some((x) => x.stage === "extract") && q1.seen.some((x) => x.stage === "brief-leg-path") && q1.seen.some((x) => x.stage === "writer"),
-      `(q) --from brief did not run the Brief and the Draft with no Extractor call: ${JSON.stringify(q1.seen.map((x) => x.stage))}`);
+    ok(stagesOf(q1.run) === PARKED, `(q) the reused run's stages are not the parked shape: ${stageRows(q1.run)}`);
+    ok(!q1.seen.some((x) => x.stage === "extract") && q1.seen.some((x) => x.stage === "brief-leg-path") && !q1.seen.some((x) => x.stage === "writer" || x.stage.startsWith("plan-")),
+      `(q) --from brief did not run the Brief alone to the park with no Extractor call: ${JSON.stringify(q1.seen.map((x) => x.stage))}`);
     ok(sameFiles(join(runDir, "extract"), join(q1.dir, "extract")) && sameFiles(join(runDir, "moves"), join(q1.dir, "moves"), isMove)
       && (q1.run.reuse.moves || {}).sha256 === LR.dirSha256(join(runDir, "moves"), isMove) && q1.run.reuse.moves.source_sha256 === q1.run.reuse.moves.sha256,
       "(q) --from brief does not carry the earlier run's Extraction and Moves byte for byte");
@@ -985,10 +491,9 @@ if (runDir) {
   }
 
   const q2 = reuseRun(runDir, "paragraph-plan", "plan");
-  ok(q2.rq.status === 0 && !!q2.run, `(q) the run reusing --from paragraph-plan exited ${q2.rq.status}: ${q2.rq.stdout}${q2.rq.stderr}`);
+  ok(q2.rq.status === 1 && !!q2.run, `(q) the run reusing --from paragraph-plan exited ${q2.rq.status}, not 1 at the park: ${q2.rq.stdout}${q2.rq.stderr}`);
   if (q2.run) {
-    ok(!q2.seen.some((x) => x.stage === "extract" || x.stage.startsWith("brief-")) && q2.seen.some((x) => x.stage === "plan-generator") && q2.seen.some((x) => x.stage === "writer"),
-      `(q) --from paragraph-plan ran a stage before the plan: ${JSON.stringify(q2.seen.map((x) => x.stage))}`);
+    ok(q2.seen.length === 0 && stagesOf(q2.run) === PARKED, `(q) --from paragraph-plan made a call, or did not park: ${JSON.stringify(q2.seen.map((x) => x.stage))} ${stageRows(q2.run)}`);
     ok(readOr(join(q2.dir, "brief", "brief.yaml"), "A") === readOr(join(runDir, "brief", "brief.yaml"), "B"), "(q) --from paragraph-plan does not carry the Brief byte for byte");
     ok(JSON.stringify(((q2.run.reuse || {}).copied || []).map((c) => c.stage)) === '["extract","brief"]', "(q) --from paragraph-plan does not record the copied Extraction and Brief");
     ok(cardOf(q2.html, "brief", "paragraphPlan").includes(`<span class="badge copied">copied from ${escHtml(srcRel)}</span>`), "(q) the sheet of --from paragraph-plan does not badge the Brief card as copied");
@@ -1000,7 +505,7 @@ if (runDir) {
     const text = existsSync(f) ? readFileSync(f, "utf8") : ""; writeFileSync(f, edit(text)); return { dir: d, text }; };
   const { dir: edited, text: p2Text } = editCopy("edited", (t) => t.replace("CONTENT-2-1 names", "CONTENT-2-1 OWNER-EDIT names"));
   const q3 = reuseRun(edited, "brief", "edited");
-  ok(q3.rq.status === 0 && !!q3.run && p2Text.includes("CONTENT-2-1 names"), `(q) the run reusing an edited Extraction exited ${q3.rq.status}: ${q3.rq.stdout}${q3.rq.stderr}`);
+  ok(q3.rq.status === 1 && !!q3.run && p2Text.includes("CONTENT-2-1 names"), `(q) the run reusing an edited Extraction exited ${q3.rq.status}: ${q3.rq.stdout}${q3.rq.stderr}`);
   if (q3.run) {
     ok(JSON.stringify(q3.run.reuse.edits) === JSON.stringify([{ paragraph: 2, segment: 1, field: "content" }]),
       `(q) run.json does not record the edit by paragraph, Segment and field: ${JSON.stringify(q3.run.reuse.edits)}`);
@@ -1013,70 +518,6 @@ if (runDir) {
   const q4 = reuseRun(editCopy("ingest-refused", (t) => t.replace(/^leaves: \[\]$/m, "leaves:\n  - kind: explain\n    what: leverage\n    segment: 1\n  - kind: explain\n    what: leverage\n    segment: 1")).dir, "brief", "ingest-refused"), q4stop = (q4.run && q4.run.stopped) || "";
   ok(q4.rq.status !== 0 && q4stop.startsWith("ingest:") && q4stop.includes('move "name_an_act_then_its_cost_2"') && q4stop.includes("repeats an earlier entry's `kind` and `what`") && !q4stop.includes("(no output)"), `(q) the ingest's refusal does not reach the run's stop line naming the Move and the entry: ${q4stop || q4.rq.stdout + q4.rq.stderr}`);
 
-  // (r) THE LIBRARY (kogaki#1521): a library of the main run's three Moves under `lib_` ids, and a
-  // second one that also holds one of the run's own ids. Each run reuses the main run's Extraction,
-  // so the run's own ids are the main run's.
-  const ownIds = readdirSync(join(runDir, "moves")).filter(isMove).map((f) => f.slice(0, -5)).sort();
-  const lib = join(root, "library");
-  const clashLib = join(root, "library-clash");
-  for (const d of [lib, clashLib]) mkdirSync(d, { recursive: true });
-  for (const id of ownIds) {
-    const t = readFileSync(join(runDir, "moves", `${id}.yaml`), "utf8");
-    for (const d of [lib, clashLib]) writeFileSync(join(d, `lib_${id}.yaml`), t.replace(`id: ${id}`, `id: lib_${id}`));
-  }
-  copyFileSync(join(runDir, "moves", `${ownIds[1]}.yaml`), join(clashLib, `${ownIds[1]}.yaml`));
-  const libIds = ownIds.map((id) => `lib_${id}`);
-  const libRel = relFromRepo(lib, repo);
-  const libraryRun = (tag, extra, bind) => {
-    const rRoot = join(root, `library-${tag}`);
-    mkdirSync(rRoot, { recursive: true });
-    const rr = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--reuse", runDir, "--from", "brief", "--out", join(rRoot, "out"), "--provenance", map, ...extra],
-      { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: rRoot, PSR_PLAN_BIND: bind }, timeout: 600000 });
-    const dir = (rr.stdout.match(/^run directory: (.+)$/m) || [])[1];
-    return { rr, dir, rRoot, run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null, html: dir ? readOr(join(dir, "sheet.html"), "") : "",
-      planIds: dir && existsSync(join(dir, "moves")) ? readdirSync(join(dir, "moves")).filter(isMove).map((f) => f.slice(0, -5)).sort() : [] };
-  };
-  const badge = (src) => `<span class="badge source">${src}</span>`;
-  const bindingRows = (html) => [...html.matchAll(/<tr><td>(\d+)<\/td><td>[^<]*<\/td><td><a href="#card-0-move">([^<]*)<\/a>( <span class="badge source">[^<]*<\/span>)?/g)]
-    .map((m) => [m[1], m[2], (m[3] || "").replace(/<[^>]*>/g, "").trim()]);
-  const libSha = LR.readLibrary(lib).sha256;
-
-  const r1 = libraryRun("beside", ["--library", lib], "library-first");
-  ok(r1.rr.status === 0 && !!r1.run, `(r) the run with --library exited ${r1.rr.status}: ${r1.rr.stdout}${r1.rr.stderr}`);
-  if (r1.run) {
-    ok(JSON.stringify(r1.planIds) === JSON.stringify([...libIds, ...ownIds].sort()), `(r) with --library the plan's Move directory does not hold both sets: ${r1.planIds}`);
-    ok(JSON.stringify(r1.run.library) === JSON.stringify({ dir: libRel, sha256: libSha, withhold_own: false, ids: { library: libIds, run: ownIds } }),
-      `(r) run.json's library does not carry the directory, the sha256 and the ids by source: ${JSON.stringify(r1.run.library)}`);
-    ok(r1.html.includes(`<h4>paragraph 1 — ${ownIds[0]} · bound ${libIds[0]} ${badge("library")}${COPY}</h4>`)
-      && r1.html.includes(`<h4>paragraph 2 — ${ownIds[1]} · bound ${ownIds[1]} ${badge("this run")}${COPY}</h4>`),
-      "(r) the paragraph headings do not name each bound Move with its source");
-    ok(JSON.stringify(bindingRows(r1.html)) === JSON.stringify([["1", libIds[0], "library"], ["2", ownIds[1], "this run"], ["3", ownIds[2], "this run"]]),
-      `(r) the Bindings rows do not badge each bound Move's source: ${JSON.stringify(bindingRows(r1.html))}`);
-    ok(r1.html.includes(`<p class="library">Moves from the library ${escHtml(libRel)} (3) beside this run's own (3)</p>`),
-      "(r) the run header does not name the library beside the run's own Moves");
-  }
-
-  const r2 = libraryRun("clash", ["--library", clashLib], "library-first");
-  ok(r2.rr.status !== 0 && !r2.dir && r2.rr.stderr.includes(ownIds[1]) && r2.rr.stderr.includes("Nothing was started")
-    && !existsSync(join(r2.rRoot, "out")) && !existsSync(join(r2.rRoot, "seen.jsonl")),
-    `(r) a library holding one of the run's own ids was not refused naming it with nothing started: ${r2.rr.status} ${r2.rr.stderr}`);
-
-  const r3 = libraryRun("withhold", ["--library", lib, "--withhold-own"], "library");
-  ok(r3.rr.status === 0 && !!r3.run, `(r) the run with --withhold-own exited ${r3.rr.status}: ${r3.rr.stdout}${r3.rr.stderr}`);
-  if (r3.run) {
-    const ing = r3.run.stages.find((st) => st.stage === "ingest") || {};
-    ok(JSON.stringify(r3.planIds) === JSON.stringify(libIds), `(r) with --withhold-own the plan's Move directory holds more than the library's records: ${r3.planIds}`);
-    ok(JSON.stringify((ing.moves || []).map((f) => f.replace(/\.yaml$/, "")).sort()) === JSON.stringify(ownIds)
-      && JSON.stringify(r3.run.library.ids) === JSON.stringify({ library: libIds, run: [] }) && r3.run.library.withhold_own === true,
-      `(r) with --withhold-own the run record does not list the run's own ids at the ingest and none placed: ${JSON.stringify([ing.moves, r3.run.library])}`);
-    ok(bindingRows(r3.html).length === 3 && bindingRows(r3.html).every((b) => b[2] === "library"), "(r) with --withhold-own a Bindings row is not badged \"library\"");
-    ok(r3.html.includes(`<p class="library">Moves from the library ${escHtml(libRel)} (3); this run's own withheld</p>`), "(r) the run header does not say the run's own Moves were withheld");
-  }
-
-  const r4 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--reuse", runDir, "--from", "brief", "--out", join(root, "withhold-alone"), "--provenance", map, "--withhold-own"],
-    { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: root } });
-  ok(r4.status !== 0 && r4.stderr.includes("--withhold-own is valid only with --library") && !existsSync(join(root, "withhold-alone")),
-    `(r) --withhold-own without --library was not refused: ${r4.status} ${r4.stderr}`);
 }
 
 // (i) THE AUDIENCE (kogaki#1396): run.json always names the Audience path the run used, and
@@ -1103,7 +544,7 @@ const r3 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "-
   "--provenance", map, "--audience", iAudience],
   { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: iRoot }, timeout: 600000 });
 const iRunDir = (r3.stdout.match(/^run directory: (.+)$/m) || [])[1];
-ok(r3.status === 0 && !!iRunDir, `(i) the --audience run exited ${r3.status}: ${r3.stdout}${r3.stderr}`);
+ok(r3.status === 1 && !!iRunDir, `(i) the --audience run exited ${r3.status}, not 1 at the park: ${r3.stdout}${r3.stderr}`);
 if (iRunDir) {
   const run3 = JSON.parse(readFileSync(join(iRunDir, "run.json"), "utf8"));
   ok(run3.audience === iAudience, `(i) run.json does not name the --audience flag's own path: ${run3.audience}`);
@@ -1160,10 +601,6 @@ const languageOf = (dir, want) => {
     `${at}: the Leg Brief composer's calls do not each carry the language ${want} and the row's language sentence`);
   const brief = existsSync(join(dir, "brief", "brief.yaml")) ? readFileSync(join(dir, "brief", "brief.yaml"), "utf8") : "";
   ok((brief.match(new RegExp(`\\(in ${want}\\)`, "g")) || []).length === 3, `${at}: the Brief's three claims are not written in ${want}`);
-  const packet = existsSync(join(dir, "draft", "leg-fixture", "packets", "copy-leg.md")) ? readFileSync(join(dir, "draft", "leg-fixture", "packets", "copy-leg.md"), "utf8") : "";
-  ok(packet.includes(`**Language.** Write this Leg in ${want}.`), `${at}: the Packet's Write block does not name ${want}`);
-  const section = existsSync(join(dir, "draft", "leg-fixture", "sections", "copy-leg.md")) ? readFileSync(join(dir, "draft", "leg-fixture", "sections", "copy-leg.md"), "utf8") : "";
-  ok((section.match(new RegExp(`\\(in ${want}\\)`, "g")) || []).length === 3, `${at}: the Draft's three paragraphs are not written in ${want}`);
 };
 if (runDir) languageOf(runDir, "English");
 if (hRunDir) languageOf(hRunDir, "English");
@@ -1185,33 +622,6 @@ if (jRunDir) {
   ok(typeof run4.stopped === "string" && run4.stopped.startsWith("brief:") && run4.stopped.includes("`language`"),
     `(j) the run did not stop at the Brief stage naming the missing \`language\` key: ${run4.stopped}`);
   ok(!existsSync(join(jRunDir, "brief", "calls.jsonl")), "(j) the Leg Brief composer made a model call under an Audience declaring no language");
-}
-
-// (k) THE RECORDER STREAMS (kogaki#1439): the ParagraphPlan job reads output growth as a call's
-// liveness, so a call running longer than the job's stall bound ends `done` only if the
-// recorder hands each chunk on as it arrives. The bound is handed in (`KOGAKI_JOB_STALL_S`,
-// 1 s) and each ParagraphPlan call runs 2.5 s past its first line, writing a stream line every
-// 200 ms; a buffering recorder shows the job no byte for the whole call and the job ends `stalled`.
-const kRoot = join(root, "streaming");
-mkdirSync(kRoot, { recursive: true });
-writeFileSync(join(kRoot, "leg-fixture.md"), `${PARAS.join("\n\n")}\n`);
-const r5 = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(kRoot, "leg-fixture.md"), "--out", join(kRoot, "out"), "--provenance", map],
-  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: kRoot, KOGAKI_JOB_STALL_S: "1", PSR_PLAN_PAUSE_MS: "2500" }, timeout: 600000 });
-const kRunDir = (r5.stdout.match(/^run directory: (.+)$/m) || [])[1];
-ok(r5.status === 0 && !!kRunDir, `(k) the run whose ParagraphPlan calls run past the stall bound exited ${r5.status}: ${r5.stdout}${r5.stderr}`);
-if (kRunDir) {
-  const run5 = JSON.parse(readFileSync(join(kRunDir, "run.json"), "utf8"));
-  const pp = run5.stages.find((st) => st.stage === "paragraph-plan") || {};
-  ok(pp.state === "done", `(k) the ParagraphPlan stage ended ${pp.state} (${pp.stopped || ""}) rather than done under calls running past the stall bound`);
-  if (runDir) {
-    ok(JSON.stringify(Object.keys(run5)) === JSON.stringify(Object.keys(JSON.parse(readFileSync(join(runDir, "run.json"), "utf8")))),
-      "(k) run.json's shape differs between a streamed run and the plain one");
-  }
-  const kSeen = existsSync(join(kRoot, "seen.jsonl")) ? readFileSync(join(kRoot, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((x) => x.stage.startsWith("plan-")) : [];
-  const kCalls = existsSync(join(kRunDir, "paragraph-plan", "calls.jsonl")) ? readFileSync(join(kRunDir, "paragraph-plan", "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
-  ok(kCalls.length >= 2 && kCalls.length === kSeen.length, `(k) paragraph-plan/calls.jsonl records ${kCalls.length} call(s) against ${kSeen.length} the binary saw`);
-  ok(kCalls.every((c, i) => c.stdout === kSeen[i].answer && c.stdout.length > 64 * 1024 && c.exit === 0 && c.signal === null),
-    "(k) a recorded streamed call does not carry the binary's whole stdout (past 64 KB) and its exit status 0");
 }
 
 // (s) THREE CONSECUTIVE LEGS UNDER ONE BRIEF (kogaki#1532): `--leg` three times, one run, one
@@ -1291,10 +701,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const rs = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", ...sArgs, "--out", join(sRoot, "out"), "--provenance", map],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: sRoot }, timeout: 600000 });
   const sRunDir = (rs.stdout.match(/^run directory: (.+)$/m) || [])[1];
-  ok(rs.status === 0 && !!sRunDir, `(s) the three-Leg run exited ${rs.status}: ${rs.stdout}${rs.stderr}`);
+  ok(rs.status === 1 && !!sRunDir, `(s) the three-Leg run exited ${rs.status}, not 1 at the park: ${rs.stdout}${rs.stderr}`);
   if (sRunDir) {
     const run = JSON.parse(readFileSync(join(sRunDir, "run.json"), "utf8"));
-    ok(run.stages.every((st) => st.state === "done"), `(s) the three-Leg run's stages are not all done: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+    ok(stagesOf(run) === PARKED, `(s) the three-Leg run's stages are not the parked shape: ${stageRows(run)}`);
     ok(run.leg === null && JSON.stringify(run.legs.map((l) => [basename(l.file), l.copy, l.paragraphs])) === JSON.stringify([["leg_a.md", "legs/leg_a.md", 2], ["leg_b.md", "legs/leg_b.md", 2], ["leg_c.md", "legs/leg_c.md", 2]]),
       `(s) run.json's legs do not list the three files with their paragraph counts: ${JSON.stringify(run.legs)}`);
     // The Extractor ran every paragraph in order, Leg B's first reading Leg A's last as its earlier text.
@@ -1339,11 +749,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       `(s) the Brief carries the retired \`obligations\` (kogaki#1699) or brief.json \`deferrals\`: ${JSON.stringify(rec && rec.obligations)} / ${JSON.stringify(bj.deferrals)}`);
     ok(JSON.stringify((bj.derived || []).map((d) => `${d.leg_id}:${d.field}`).sort()) === JSON.stringify(["leg-a:opens_section", "leg-c:reaches_target"]),
       `(s) brief.json does not mark every derived cross-Leg field: ${JSON.stringify(bj.derived)}`);
-    const draft = run.stages.find((st) => st.stage === "draft") || {};
-    ok(JSON.stringify(draft.leg_ids) === '["leg-a","leg-b","leg-c"]' && (draft.sections || []).length === 3 && draft.sections.every((f) => existsSync(f)),
-      `(s) /draft section did not write each Leg in order: ${JSON.stringify(draft)}`);
-    ok(["leg-a", "leg-b", "leg-c"].every((id) => readOr(join(sRunDir, "draft", `calls-${id}.jsonl`), "").trim().split("\n").filter(Boolean).length === 1),
-      "(s) each Leg's Writer call is not recorded in its own calls file");
     // The sheet: three Leg blocks in order, each with its comparison table, under one Brief card
     // marking the derived fields.
     const sheet = readOr(join(sRunDir, "sheet.html"), "");
@@ -1352,7 +757,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     ok([1, 2, 3].every((k) => sheet.includes(`id="comparison-0-${k}"`)) && (sheet.match(/class="pcard[^"]*" id="card-0-brief"/g) || []).length === 1,
       "(s) the sheet does not carry a comparison table per Leg under one Brief card");
     ok((sheet.match(/<span class="badge derived">derived<\/span>/g) || []).length === 2, "(s) the Brief card does not mark the two derived cross-Leg fields `derived`");
-    ok(sheet.includes("WRITTEN-1 the first paragraph.") && !sheet.includes('href="#card-0-1-brief"'), "(s) a Leg block's written text or its Brief link is wrong");
+    ok(!sheet.includes("WRITTEN-1 the first paragraph.") && !sheet.includes('href="#card-0-1-brief"'), "(s) a Leg block carries written text under the park, or its Brief link is wrong");
   }
   // (u) A LEADING SUBSET OF THE LEGS (kogaki#1546), reusing the three-Leg run above rather than
   // extracting again.
@@ -1367,11 +772,11 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       return { r, dir, seen, out: join(tRoot, "out"), run: dir ? JSON.parse(readFileSync(join(dir, "run.json"), "utf8")) : null };
     };
     const t2 = tRun("2", ["--from", "brief", "--legs", "2"]);
-    ok(t2.r.status === 0 && !!t2.run, `(u) --legs 2 exited ${t2.r.status}: ${t2.r.stdout}${t2.r.stderr}`);
+    ok(t2.r.status === 1 && !!t2.run, `(u) --legs 2 exited ${t2.r.status}: ${t2.r.stdout}${t2.r.stderr}`);
     if (t2.run) {
       const ex = t2.run.stages.find((st) => st.stage === "extract") || {};
       const records = readdirSync(join(t2.dir, "extract")).filter((f) => f.endsWith(".yaml"));
-      ok(!t2.seen.includes("extract") && t2.run.stages.every((st) => st.state === "done"),
+      ok(!t2.seen.includes("extract") && stagesOf(t2.run) === PARKED,
         `(u) --legs 2 called the Extractor or left a stage short of done: ${JSON.stringify(t2.seen)} / ${JSON.stringify(t2.run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
       ok((ex.extractions || []).length === 4 && records.length === 4 && JSON.stringify(records.sort()) === JSON.stringify([...ex.extractions].sort()),
         `(u) --legs 2 does not keep exactly the four Extraction records of the first two Legs: ${JSON.stringify(records)}`);
@@ -1416,9 +821,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: sJudge, PSR_FIXTURE_DIR: d,
           PSR_TERMS: JSON.stringify({ obligations: OBLIGATIONS, general: GENERAL, introduces: {}, content: { leg_a: ITEMS } }) }, timeout: 600000 });
       const dir = (r.stdout.match(/^run directory: (.+)$/m) || [])[1];
-      ok(r.status === 0 && !!dir, `(v) the ${tag} run exited ${r.status}: ${r.stdout}${r.stderr}`); if (!dir) return null;
+      ok(r.status === 1 && !!dir, `(v) the ${tag} run exited ${r.status}, not 1 at the park: ${r.stdout}${r.stderr}`); if (!dir) return null;
       const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
-      ok(run.stages.every((st) => st.state === "done"), `(v) the ${tag} run's stages are not all done: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+      ok(stagesOf(run) === PARKED, `(v) the ${tag} run's stages are not the parked shape: ${stageRows(run)}`);
       let rec = null;
       try { rec = parseBriefRecord(readFileSync(join(dir, "brief", "brief.yaml"), "utf8")).record; } catch (e) { fails.push(`(v) the ${tag} Brief does not parse: ${e.message}`); }
       const lb = (run.stages.find((st) => st.stage === "brief") || {}).leg_brief_run;
@@ -1444,20 +849,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       ok(!("deferrals" in two.bj) && !(two.bj.derived || []).some((d) => d.field === "obligations"),
         `(v) brief.json carries deferrals or a derived obligations row: ${JSON.stringify(two.bj)}`);
       ok(segs(two.sheet, 1).length === 2 && !two.sheet.includes("Move obligation") && !two.sheet.includes("raised here"), `(v) the sheet carries a Move obligation line, which no extracted Move carries now: ${segs(two.sheet, 1).join("")}`);
-      const planB = readOr(join(two.dir, "paragraph-plan", "calls.jsonl"), "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l))
-        .map((c) => c.stdin).filter((s) => s.includes('"leg_you_must_plan"') && s.includes('"leg_id": "leg-b"'));
-      ok(planB.length >= 1 && planB.every((s) => !s.includes('"obligations_this_leg_owes"') && s.includes('"stands_to_be_taken_up"')),
-        "(v) the plan call for leg-b is handed a row to owe, or not what stands to be taken up at its first Brief Waypoint (kogaki#1701)");
     }
   }
   // A ONE-FILE RUN KEEPS ITS RECORD SHAPE apart from the `legs` list.
   if (runDir) {
     const one = JSON.parse(readFileSync(join(runDir, "run.json"), "utf8"));
-    ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "library", "started_at", "stages", "finished_at"]),
+    ok(JSON.stringify(Object.keys(one)) === JSON.stringify(["leg", "passage", "paragraphs", "legs", "audience", "language", "model_command", "library", "started_at", "stages", "stopped", "finished_at"]),
       `(s) a one-file run's record shape changed beyond the legs list: ${JSON.stringify(Object.keys(one))}`);
     ok(JSON.stringify(one.legs) === JSON.stringify([{ file: one.leg, copy: "leg.md", paragraphs: 3 }]), `(s) a one-file run's legs list is not its one Leg: ${JSON.stringify(one.legs)}`);
-    const x = spawnSync("bash", ["-c", "node checks/proof-sheet-leg-move-cases.mjs"], { encoding: "utf8", env: { ...process.env, PSR_LEG_MOVE: JSON.stringify({ root, map, judge, runDir, sRunDir }) }, timeout: 600000 }); ok(x.status === 0, `(y) ${x.stdout}${x.stderr}`.trim());
-    const FLOOR = JSON.parse(readFileSync("checks/registry.json", "utf8")).checks.find((m) => m.id === "proof-sheet-leg-run").admission.case_floor, xN = Number((x.stdout.match(/^leg-move cases: (\d+) ran$/m) || [])[1]); ok(xN === FLOOR, `(y) the Leg Move pass ran ${xN} case(s) against case_floor ${FLOOR}: ${xN > FLOOR ? "raise case_floor in checks/registry.json to the count" : "cases were LOST, or no count was printed"}`);
   }
 }
 
@@ -1472,11 +871,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const rt = spawnSync(process.execPath, ["src/proof-sheet/leg-run.mjs", "run", "--leg", join(tRoot, "leg-fixture.md"), "--out", join(tRoot, "out"), "--provenance", map],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: judge, PSR_FIXTURE_DIR: tRoot, PSR_LEG_DROP: "first" }, timeout: 600000 });
   const tRunDir = (rt.stdout.match(/^run directory: (.+)$/m) || [])[1];
-  ok(rt.status === 0 && !!tRunDir, `(t) the run whose first Leg answer drops a Claim word exited ${rt.status}: ${rt.stdout}${rt.stderr}`);
+  ok(rt.status === 1 && !!tRunDir, `(t) the run whose first Leg answer drops a Claim word exited ${rt.status}: ${rt.stdout}${rt.stderr}`);
   if (tRunDir) {
     const run = JSON.parse(readFileSync(join(tRunDir, "run.json"), "utf8"));
-    ok(run.stages.map((st) => `${st.stage}:${st.state}`).join(",") === "extract:done,ingest:done,brief:done,paragraph-plan:done,draft:done,leg-move:done",
-      `(t) the stages after the refused Leg answer did not all run: ${JSON.stringify(run.stages.map((st) => [st.stage, st.state, st.stopped]))}`);
+    ok(stagesOf(run) === PARKED, `(t) the stages after the refused Leg answer did not run to the park: ${stageRows(run)}`);
     const lb = existsSync(join(tRunDir, "brief")) ? readdirSync(join(tRunDir, "brief")).filter((f) => f.startsWith("leg-brief-run-")) : [];
     const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "rounds.json") : "";
     const a = ap && existsSync(ap) ? JSON.parse(readFileSync(ap, "utf8")) : {};

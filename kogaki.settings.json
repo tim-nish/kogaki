@@ -12,12 +12,14 @@
     "audience_file": "audiences/dev-to-zenn.md",
     "audience_file_means": "The Audience file the Brief composes for. Its `persona` key says who the reader is and what they already know; its `register` key says how the prose addresses them.",
     "thesis_words": 30,
-    "thesis_words_means": "The longest a Thesis may be, in words. A Thesis composed longer than this is rewritten once to fit before the Thesis question is shown, and the Brief stops, naming the length, if the rewrite is still too long. Words are counted between spaces."
+    "thesis_words_means": "The longest a Thesis may be, in words. A Thesis composed longer than this is rewritten once to fit before the Thesis question is shown, and the Brief stops, naming the length, if the rewrite is still too long. Words are counted between spaces.",
+    "paragraphs_per_leg": 2,
+    "paragraphs_per_leg_means": "The most paragraphs /paragraph-plan writes for one Leg of the Brief. The Leg's one bound Move shapes every one of its paragraphs, and a plan with more paragraphs under one Leg than this is refused, naming the Leg. Two is enough for a Leg whose Move first presents an analogue and then carries the inference back."
   },
   "paragraph_plan": {
     "leg_revisions": 2,
-    "leg_revisions_means": "How many Revisions one Leg of a /paragraph-plan job gets in total, across all of its Leg Waypoints. A Revision is the next Submission at one Leg Waypoint, written to answer the Comment its last Submission drew, and it is written at that Leg Waypoint alone. Each Leg Waypoint gets brief.unit_rounds Rounds, the Leg's first counting; this number ends a Leg whose Revisions keep reopening the paragraphs after the one being repaired.",
+    "leg_revisions_means": "How many Revisions one Leg of a /paragraph-plan job gets in total, across all of its paragraphs. A Revision is the next Submission at one paragraph, written to answer the Comment its last Submission drew, and it is written at that paragraph alone, under the Leg's bound Move. Each paragraph gets brief.unit_rounds Rounds, the Leg's first counting; this number ends a Leg whose Revisions keep reopening the paragraph after the one being repaired.",
     "mapper": true,
-    "mapper_means": "Whether /paragraph-plan runs the Mapper inside each Leg's job unit: it reads each Leg Waypoint's point into a structure before the Moves are bound, grounds one Mapping Table per bound Move after, and writes the Paragraph Waypoints from those tables. With false, the stage binds and writes the Paragraph Waypoints in one call and the Mapping Record holds no file."
+    "mapper_means": "Whether /paragraph-plan runs the Mapper inside each Leg's job unit: it reads the Leg's relation into a structure before the Move is bound, grounds one Mapping Table for the bound Move after, and writes the Leg's Waypoints from that table. With false, the stage binds and writes the Waypoints in one call and the Mapping Record holds no file."
   }
 }

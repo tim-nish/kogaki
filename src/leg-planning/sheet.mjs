@@ -100,11 +100,11 @@ function moveLine(move, libraryDir, outDir) {
 }
 
 // One Leg of the `Legs` part (kogaki#1775): the relation it serves and its `text`, then the paragraphs the plan wrote
-// under it, each with its bound Move and Waypoints.
+// under it, each with the Move the Leg binds (kogaki#1777) and its Waypoints.
 function legHtml(leg, structure, planLeg, bindings, libraryDir, outDir) {
-  const rows = ((planLeg && planLeg.waypoints) || []).map((entry, k) => {
-    const b = bindings.find((x) => x.leg_id === leg.leg_id && x.waypoint === k + 1) || null;
-    const move = entry.move || (b && b.move);
+  const rows = ((planLeg && planLeg.paragraphs) || []).map((entry, k) => {
+    const b = bindings.find((x) => x.leg_id === leg.leg_id && x.paragraph === k + 1) || null;
+    const move = (planLeg && planLeg.move) || (b && b.move);
     const pws = (entry.paragraph_waypoints || []).map((pw, i) => line(`${i + 1}. ${pw.performs !== undefined ? `performs: ${pw.performs}` : pw.point}`)).join("")
       || none("no Waypoints");
     return row([String(k + 1), move ? moveLine(move, libraryDir, outDir) : none("no Move bound"), pws, esc(b ? b.verdict : "not reached")]);
@@ -119,21 +119,21 @@ function legsPart(record, legs, structure, plan, libraryDir, outDir) {
   const st = stageOf(record, "legs");
   if (!legs) return none(`No Legs were derived${st && st.stopped ? `: ${st.stopped}` : "."}`);
   const pst = stageOf(record, "paragraph-plan");
-  const bindings = (pst && pst.waypoints) || [];
+  const bindings = (pst && pst.paragraphs) || [];
   const planLegs = new Map(((plan && plan.legs) || []).map((l) => [l.leg_id, l]));
   return (pst && pst.stopped ? line(`ParagraphPlan stopped: ${pst.stopped}`, "line refusal") : "")
     + legs.map((leg) => legHtml(leg, structure, planLegs.get(leg.leg_id), bindings, libraryDir, outDir)).join("");
 }
 
-// THE ROUNDS OF THE PARAGRAPHPLAN STAGE, per Waypoint, from the record trial.json carries (kogaki#1767).
+// THE ROUNDS OF THE PARAGRAPHPLAN STAGE, per paragraph of each Leg, from the record trial.json carries (kogaki#1767, kogaki#1777).
 function planRounds(st, outDir) {
   const callLink = (dir) => link(outDir, resolve(REPO, dir), dir.split("/").slice(-2).join("/"));
-  if (!(st.waypoints || []).length) return st.stopped ? line(`stopped: ${st.stopped}`, "line refusal") : none("no Round");
-  const units = [...new Set(st.waypoints.map((w) => w.leg_id))];
-  return units.map((unit) => heading(4, `Leg ${unit}`) + st.waypoints.filter((w) => w.leg_id === unit).flatMap((w) => w.rounds).map((r) => {
+  if (!(st.paragraphs || []).length) return st.stopped ? line(`stopped: ${st.stopped}`, "line refusal") : none("no Round");
+  const units = [...new Set(st.paragraphs.map((w) => w.leg_id))];
+  return units.map((unit) => heading(4, `Leg ${unit}`) + st.paragraphs.filter((w) => w.leg_id === unit).flatMap((w) => w.rounds.map((r) => ({ w, r }))).map(({ w, r }) => {
     const calls = r.call === null ? none("none") : `<p class="line">${callLink(r.call)}</p>`;
     const blocks = { Submission: calls, Comment: line(`verdict: ${r.verdict}`) + (r.comment ? line(`why: ${r.comment}`, "line refusal") : ""), Calls: calls };
-    return heading(4, `Round ${r.round}`) + CANDIDATE_ROUND_BLOCKS.map((b) => heading(4, b) + blocks[b]).join("");
+    return heading(4, `Round ${r.round}, paragraph ${w.paragraph}`) + CANDIDATE_ROUND_BLOCKS.map((b) => heading(4, b) + blocks[b]).join("");
   }).join("")).join("");
 }
 

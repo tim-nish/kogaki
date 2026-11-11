@@ -134,6 +134,13 @@ const JOB_UNIT_NO_TOOLS_SENTENCE = "You are running with no tools and cannot ope
   + "in this prompt is a citation for a human reader, not something to open; everything you need is in this "
   + "prompt. Answer with the record alone.";
 
+// A JUDGE'S REFUSAL, AS THE SITE LOOP READS IT (kogaki#1642, kogaki#1777): one failure per site it
+// names, or, where it names none, one failure refusing the record whole.
+function judgedSites(failure) {
+  const named = (failure.move_fit || []).map((f) => ({ ...f, site: f.site ?? f.waypoint ?? null, refusal: f.refusal || f.why }));
+  return named.length ? named : [{ site: null, refusal: failure.stderr_tail }];
+}
+
 function withNoToolsSentence(prompt) {
   const p = String(prompt);
   return p.startsWith(JOB_UNIT_NO_TOOLS_SENTENCE) ? p : `${JOB_UNIT_NO_TOOLS_SENTENCE}\n\n${p}`;
@@ -883,13 +890,13 @@ export async function cmdJobSupervise(args) {
       // INSIDE A SITE LOOP every answered call is the loop's to read (kogaki#1642).
       if (st.loop && cls.status !== "died") {
         if (st.phase !== "fit") return siteAct(u, st.loop.answered(cls.candidate), sp, stdoutPath);
-        return siteAct(u, st.loop.judged(cls.status === "refused" ? cls.failure.move_fit || [] : []), sp, stdoutPath, cls.specialization);
+        return siteAct(u, st.loop.judged(cls.status === "refused" ? judgedSites(cls.failure) : []), sp, stdoutPath, cls.specialization);
       }
       // A REFUSAL NAMING ITS SITES OPENS THE LOOP, where the job declares one (kogaki#1642): the
       // refused record stands, and only the Brief Waypoints it names are asked again.
       if (siteRetry && cls.status === "refused" && cls.failure.class === SCHEMA_REFUSAL && (!mapper || mapper.grounded(u.id))) {
-        const sites = st.phase === "compose" ? (cls.failure.sites || []).map((n) => ({ waypoint: n, refusal: cls.failure.stderr_tail }))
-          : (cls.failure.move_fit || []).map((f) => ({ waypoint: f.waypoint, refusal: f.refusal || f.why }));
+        const sites = st.phase === "compose" ? (cls.failure.sites || []).map((n) => ({ site: n, refusal: cls.failure.stderr_tail }))
+          : judgedSites(cls.failure);
         if (sites.length) {
           st.loop = new SiteLoop(siteRetry, u.id, unitRounds);
           const standing = st.phase === "compose" ? cls.candidate : st.composed;

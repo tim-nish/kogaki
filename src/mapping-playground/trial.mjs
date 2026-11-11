@@ -21,7 +21,7 @@ import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, awaitJob, lastRefusal, writeJson } from "../proof-sheet/extract.mjs";
-import { completedLeg } from "../proof-sheet/leg-brief.mjs";
+import { completedLeg, legAsText } from "../proof-sheet/leg-brief.mjs";
 import { resolvedRow } from "../workflow/copies.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
@@ -113,7 +113,7 @@ function trialBriefText({ slug, composePath, claims, leg, thesis }) {
     bridged: {},
   };
   const text = briefRecordText({ slug, compose_path: composePath, ...constants, defined_terms: [],
-    reader_path: [completedLeg(leg)].map(legRecord) });
+    reader_path: [completedLeg(leg)].map(legAsText).map(legRecord) });
   const keys = new Set(Object.keys(constants));
   return text.split("\n").flatMap((line) => {
     const m = /^([a-z_]+):/.exec(line);

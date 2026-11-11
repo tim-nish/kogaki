@@ -1,6 +1,6 @@
-// The Mapper in ParagraphPlan (kogaki#1734): inside one Leg's job unit, structure reading on each
-// Brief Waypoint's point before the bind call, grounding of one Mapping Table per bound Move after it,
-// and the Waypoints call, each Move fixed and its table in the input.
+// The Mapper in ParagraphPlan (kogaki#1734): inside one Leg's job unit, structure reading on the Leg's relation
+// before the bind call, grounding of one Mapping Table for the Leg's bound Move after it, and the Waypoints call,
+// the Move fixed and its table in the input. The Leg is the unit (kogaki#1777): one reading and one grounding per Leg.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -19,14 +19,12 @@ import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./mapping-playg
 import { correspondenceInput, correspondenceRefusal } from "./mapping-playground/short.mjs";
 import { PLAYGROUND_TABLE } from "./mapping-playground/trial.mjs";
 import { boundMoveContract, mappingStatePath } from "./paragraph-plan.mjs";
-import { readHolds } from "./compose/structure.mjs";
 
 const FLOW = { lane: "paragraph-plan", label: "ParagraphPlan" };
 export const READING_ROW = "sme_map_roles";
 export const GROUNDING_ROW = "smp_correspondence";
 export const READING = "reading";
 export const GROUNDING = "grounding";
-const APART = "apart";
 
 const rowOf = (table, id) => ({ id, ...table[id] });
 // The Roles with their `context` and `attributes`, the relations and the higher-order relation.
@@ -57,7 +55,8 @@ export class ParagraphPlanMapper {
     const u = this.units.get(unitId);
     const path = mappingStatePath(this.ctx.runDir, unitId);
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, `${JSON.stringify({ leg_id: u.leg.leg_id, structures: u.structures, read_from: u.readFrom, tables: u.tables }, null, 2)}\n`);
+    writeFileSync(path, `${JSON.stringify({ leg_id: u.leg.leg_id, ...(u.structure ? { structure: u.structure } : {}),
+      ...(u.table ? { table: u.table } : {}) }, null, 2)}\n`);
   }
 
   grounded(unitId) {
@@ -65,17 +64,15 @@ export class ParagraphPlanMapper {
     return !u || u.stage === "confined" || u.stage === "done";
   }
 
-  // READING FIRST: a Brief Waypoint following an `apart` one reads none and takes its predecessor's structure.
+  // READING FIRST: the Leg's relation, once.
   begin(unitId, input) {
     const { leg, strand } = this.legOf(unitId);
-    const ws = leg.waypoints;
-    const queue = ws.map((w) => w.waypoint).filter((n) => !(n > 1 && ws[n - 2].case === APART));
-    this.units.set(unitId, { leg, strand, input, stage: READING, queue, history: [], calls: 0,
-      structures: {}, readFrom: {}, tables: {}, candidate: null });
+    this.units.set(unitId, { leg, strand, input, stage: READING, pending_calls: 1, history: [], calls: 0,
+      structure: null, table: null, candidate: null });
     return this.next(unitId);
   }
 
-  // The bind call's answer passed its validator: ground each bound Move, or, once grounded, go on.
+  // The bind call's answer passed its validator: ground the Leg's bound Move, or, once grounded, go on.
   bound(unitId, candidate) {
     const u = this.units.get(unitId);
     if (!u || this.grounded(unitId)) {
@@ -84,7 +81,7 @@ export class ParagraphPlanMapper {
     }
     u.stage = GROUNDING;
     u.candidate = candidate;
-    u.queue = u.leg.waypoints.map((w) => w.waypoint);
+    u.pending_calls = 1;
     u.history = [];
     u.calls = 0;
     return this.next(unitId);
@@ -93,15 +90,7 @@ export class ParagraphPlanMapper {
   // The next reading or grounding call, or the call after the last one.
   next(unitId) {
     const u = this.units.get(unitId);
-    if (u.stage === READING) {
-      for (const [i, w] of u.leg.waypoints.entries()) {
-        if (i > 0 && u.leg.waypoints[i - 1].case === APART && u.structures[w.waypoint - 1] && !u.structures[w.waypoint]) {
-          u.structures[w.waypoint] = u.structures[w.waypoint - 1];
-          u.readFrom[w.waypoint] = w.waypoint - 1;
-        }
-      }
-    }
-    if (u.queue.length) return this.call(unitId);
+    if (u.pending_calls) return this.call(unitId);
     this.save(unitId);
     if (u.stage === READING) {
       u.stage = "bind";
@@ -111,72 +100,68 @@ export class ParagraphPlanMapper {
     return { compose: this.composeAct(u, true) };
   }
 
-  // THE PLAN CALL'S INPUT: each Brief Waypoint carries its structure; once grounded, its bound Move and its table.
+  // THE PLAN CALL'S INPUT: the Leg carries its structure; once grounded, its bound Move and its table.
   composeAct(u, confined) {
     const leg = u.input.leg_you_must_plan;
-    const waypoints = leg.waypoints.map((w) => {
-      const s = u.structures[w.waypoint];
-      const t = u.tables[w.waypoint];
-      return { ...w, ...(s ? { structure: structureForPlan(s) } : {}),
-        ...(confined && t ? { move: t.move, table: { base: t.base, correspondences: t.correspondences } } : {}) };
-    });
-    const input = { ...u.input, leg_you_must_plan: { ...leg, waypoints } };
+    const t = u.table;
+    const planned = { ...leg, ...(u.structure ? { structure: structureForPlan(u.structure) } : {}),
+      ...(confined && t ? { move: t.move, table: { base: t.base, correspondences: t.correspondences } } : {}) };
+    const input = { ...u.input, leg_you_must_plan: planned };
     return { prompt: `${this.inputs.planHead}${JSON.stringify(input, null, 2)}`, input };
   }
 
-  // THE PROPOSITION THE MAPPER READS (kogaki#1768): the Brief Waypoint's `point`, and, where the
-  // Brief carries a `structure`, the `holds` of each relation the Waypoint `carries` beside it, so
-  // the reading is grounded in the structure rather than the Strand's words. A Role written
-  // `{<id>}` reads as its name (kogaki#1772). With no structure, the point alone.
-  proposition(w) {
-    const structure = this.inputs.structure;
-    if (!structure || !Array.isArray(w.carries) || !w.carries.length) return String(w.point);
-    const holds = new Map([...structure.relations, ...structure.higher_order].map((x) => [x.id, readHolds(structure, x.holds)]));
-    return [String(w.point), "The relations it carries:", ...w.carries.map((id) => `- ${holds.get(id) || id}`)].join("\n");
+  // THE PROPOSITION THE MAPPER READS (kogaki#1777): the Leg's `text`, its relation's `holds` with each
+  // Role named (kogaki#1772); the Claims it is `from`; the Roles it stands between, each with its
+  // `context`; and what the Legs before it state, as what the reader has been told. It reads no
+  // reader-state field: the last is derived from the Leg order (`toldBefore`).
+  proposition(leg) {
+    const lines = [String(leg.text)];
+    if ((leg.claims || []).length) lines.push("The Claims it is read from:", ...leg.claims.map((g) => `- ${g.strand}: ${g.proposition}`));
+    if ((leg.roles || []).length) lines.push("The Roles it stands between:", ...leg.roles.map((r) => `- ${r.name || r.id}: ${r.context}`));
+    if ((leg.the_reader_has_been_told || []).length) {
+      lines.push("What the Legs before it state:", ...leg.the_reader_has_been_told.map((x) => `- ${x.leg_id}: ${x.text}`));
+    }
+    return lines.join("\n");
   }
 
-  callInput(u, n) {
-    const w = u.leg.waypoints[n - 1];
+  callInput(u) {
     if (u.stage === READING) {
-      return { row: rowOf(this.table, READING_ROW), input: mapperInput({ cite: u.strand, proposition: this.proposition(w) }, this.inputs.persona) };
+      return { row: rowOf(this.table, READING_ROW), input: mapperInput({ cite: u.strand, proposition: this.proposition(u.leg) }, this.inputs.persona) };
     }
-    const move = u.candidate.waypoints[n - 1].move;
-    const prior = u.leg.waypoints.slice(0, n - 1).map((p) => u.tables[p.waypoint]).filter(Boolean)
-      .map((t) => ({ move: t.move, base: t.base, correspondences: t.correspondences }));
+    const move = u.candidate.move;
     return { row: rowOf(this.table, GROUNDING_ROW),
-      input: correspondenceInput(u.structures[n], this.inputs.persona, boundMoveContract(move, this.inputs.movesDir), w.case, prior), move };
+      input: correspondenceInput(u.structure, this.inputs.persona, boundMoveContract(move, this.inputs.movesDir), undefined, []), move };
   }
 
   call(unitId) {
     const u = this.units.get(unitId);
-    const n = u.queue[0];
     u.calls += 1;
-    const { row, input } = this.callInput(u, n);
+    const { row, input } = this.callInput(u);
     const held = bindFlow(FLOW);
     let prompt;
     try { prompt = judgePrompt(row, JSON.stringify(input, null, 2), input, u.history.length ? u.history : null); } finally { bindFlow(held); }
-    u.pending = { n, row, input, prompt };
-    return { call: { phase: u.stage, prompt, label: `${u.stage} at Brief Waypoint ${n}, call ${u.calls}` } };
+    u.pending = { row, input, prompt };
+    return { call: { phase: u.stage, prompt, label: `${u.stage} of Leg ${u.leg.leg_id}, call ${u.calls}` } };
   }
 
   // ONE READING OR GROUNDING CALL, ANSWERED: `out` is `{ raw, record }`, or `{ raw, unread }` for an answer
   // with no record in it or a call past its limit, or `{ raw, died }`.
   answered(unitId, out) {
     const u = this.units.get(unitId);
-    const { n, row, input, prompt } = u.pending;
+    const { row, input, prompt } = u.pending;
     const validator = u.stage === READING ? "validateMapperAnswer" : "correspondenceRefusal";
     const raw = out.died ? { group: null, text: out.died } : out.unread ? { group: "shape", text: out.unread }
-      : u.stage === READING ? this.readingRefusal(out.record, u, n) : correspondenceRefusal(out.record, u.structures[n]);
+      : u.stage === READING ? this.readingRefusal(out.record, u) : correspondenceRefusal(out.record, u.structure);
     const r = raw && raw.text ? (raw.group ? refusalReach(row, raw) : { ...raw, reach: null }) : null;
-    writeCallRecord(this.ctx.runDir, `${unitId}/${u.stage}/waypoint-${n}`, u.calls, { prompt, argv: this.ctx.callArgv, cli: this.ctx.cli, input,
+    writeCallRecord(this.ctx.runDir, `${unitId}/${u.stage}`, u.calls, { prompt, argv: this.ctx.callArgv, cli: this.ctx.cli, input,
       row: { row, tables: [tableRecord(PLAYGROUND_TABLE)] }, raw: out.raw, answer: out.record ?? undefined,
       refusal: r && { group: r.group, reach: r.reach, text: r.text, validator: out.died || out.unread ? null : validator } });
-    const at = `Leg ${u.leg.leg_id}, Waypoint ${n}`;
+    const at = `Leg ${u.leg.leg_id}`;
     if (out.died) return { stopped: `${at}: the ${u.stage} call died: ${out.died}` };
     if (!r) {
-      if (u.stage === READING) u.structures[n] = out.record;
-      else u.tables[n] = { move: u.candidate.waypoints[n - 1].move, case: u.leg.waypoints[n - 1].case, base: out.record.base, correspondences: out.record.correspondences };
-      u.queue.shift();
+      if (u.stage === READING) u.structure = out.record;
+      else u.table = { move: u.candidate.move, base: out.record.base, correspondences: out.record.correspondences };
+      u.pending_calls = 0;
       u.history = [];
       u.calls = 0;
       this.save(unitId);
@@ -191,8 +176,8 @@ export class ParagraphPlanMapper {
     return this.call(unitId);
   }
 
-  readingRefusal(record, u, n) {
-    const v = validateMapperAnswer(record, { cite: u.strand, proposition: this.proposition(u.leg.waypoints[n - 1]) });
+  readingRefusal(record, u) {
+    const v = validateMapperAnswer(record, { cite: u.strand, proposition: this.proposition(u.leg) });
     return v.text ? v : null;
   }
 }

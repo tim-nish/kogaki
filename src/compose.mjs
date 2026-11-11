@@ -80,7 +80,7 @@ export {
   BRIEF_RECORD_FILE, briefRecordDeclaration, briefRecordKeys, briefSlotKeys,
   readerStateMap, readerStateText, legRecord, briefLegs, PARAGRAPH_PLAN_FILE,
   sha256, paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText,
-  undeclaredKey, readParagraphPlanBeside, paragraphPlanShapeRefusal,
+  undeclaredKey, readParagraphPlanBeside, paragraphPlanShapeRefusal, paragraphsPerLeg, paragraphCountRefusal, legStrandIds,
   joinRefusal, CAST_KEYS, castRefusal, paragraphWaypointsRefusal, RETIRED_PLAN_KEYS, retiredPlanKeyRefusal,
   briefStrandIds, briefJourneyStrands,
   briefRecordText, parseBriefRecord, readBriefRecord, unfilledSlots, fillSlot,

@@ -25,6 +25,7 @@ import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, legRecord } = compose;
 const fails = [];
+const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, serves: ["L1"], cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
 
 // (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282), RETIRED AT THE LEG
 // (kogaki#1768): a Leg binds no Move, introduces no term and re-activates nothing, so a Leg
@@ -51,7 +52,7 @@ const fails = [];
   const sections = sectionsOf(brief.legs);
   const packets = {};
   for (const leg of brief.legs) {
-    const r = renderPacket({ template: split.packet, brief, leg, priorSections: [],
+    const r = renderPacket({ template: split.packet, brief, leg: planned(leg), priorSections: [],
       section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
     if (r.error) { fails.push(`(n) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
     packets[leg.leg_id] = r.packet;
@@ -85,7 +86,7 @@ const fails = [];
       const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
         "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
       const sections = sectionsOf(brief.legs);
-      const r = renderPacket({ template: split.packet, brief, leg: brief.legs[0], moveText, priorSections: [],
+      const r = renderPacket({ template: split.packet, brief, leg: planned(brief.legs[0]), moveText, priorSections: [],
         ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
       if (r.error) fails.push(`(o) the Packet for s1 did not render: ${r.error}`);
       else {
@@ -131,7 +132,7 @@ const fails = [];
   if (split.error) fails.push(`(p) the Packet template did not split: ${split.error}`);
   else {
     const sections = sectionsOf(brief.legs);
-    const r = renderPacket({ template: split.packet, brief, leg, priorSections: [],
+    const r = renderPacket({ template: split.packet, brief, leg: planned(leg), priorSections: [],
       ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
     if (r.error) fails.push(`(p) the Packet for s1 did not render: ${r.error}`);
     else {
@@ -146,7 +147,7 @@ const fails = [];
     waypoints: [{ point: "the paragraph establishes what s2 claims", serves: ["L1"], case: "own" }],
     journeys: [{ strand: "L1", use: "an example to retell" }] };
   const sections2 = sectionsOf([legUnresolved]);
-  const r2 = renderPacket({ template: split.packet, brief: { ...brief, legs: [legUnresolved] }, leg: legUnresolved,
+  const r2 = renderPacket({ template: split.packet, brief: { ...brief, legs: [legUnresolved] }, leg: planned(legUnresolved),
     priorSections: [], ledgerRow: undefined, section: sectionOfLeg([legUnresolved]).get("s2"), sections: sections2 });
   if (!r2.error) fails.push("(p) a Journey entry with no resolvedText rendered a Packet instead of refusing");
   else if (!/s2's Journey text/.test(r2.error)) fails.push(`(p) the unresolved-Journey refusal does not name the Leg's Journey text: ${r2.error}`);
@@ -349,7 +350,7 @@ const fails = [];
     rec.reader_path[0][field] = value;
     return briefOfRecord(rec, "carrying.yaml");
   };
-  const render = (brief, leg) => renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+  const render = (brief, leg) => renderPacket({ template: split.packet, brief, leg: planned(leg), moveText, priorSections: [],
     ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
   const writeBlock = (packet) => packet.slice(packet.indexOf("\n## Write\n"));
   const block = (packet, from, to) => {
@@ -497,7 +498,7 @@ const fails = [];
       const sectionOf = sectionOfLeg(brief.legs);
       const s1Prose = "Section One's own prose, as written.";
       const renderWithPrior = (leg, priorSections) => renderPacket({
-        template: split.packet, brief, leg, moveText, priorSections,
+        template: split.packet, brief, leg: planned(leg), moveText, priorSections,
         section: sectionOf.get(leg.leg_id), sections,
       });
       const ARTICLE = "## The article so far, up to this Leg:";
