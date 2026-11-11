@@ -127,6 +127,7 @@ export {
   paragraphPlanCollisions,
   paragraphPlanSiteInput,
   paragraphPlanSitePrompt,
+  paragraphPlanSiteRepair,
   validateParagraphPlanSite,
   paragraphPlanSuffixInput,
   paragraphPlanSuffixPrompt,

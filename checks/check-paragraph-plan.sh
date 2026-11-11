@@ -330,7 +330,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         : mode === "introduces" ? [{ point: "PW-" + leg.leg_id + "-" + n + "-1 the installer writes into the tree.", serves: [...w.serves], cast: {} }]
         : (mode === "segments3" || mode === "content") ? [pw(1), pw(2), pw(3)] : [pw(1)] };
   };
-  if (site) out(paragraphOf(plan[site.paragraph - 1], site.paragraph));
+  if (site) out(((a, r) => (r && r.arm === "modify_points" ? { ...a, paragraph_waypoints: a.paragraph_waypoints.map((p, i) => r.waypoints.includes(i + 1) ? p : (input.paragraph_as_it_stands.paragraph_waypoints || [])[i] || p) } : a))(paragraphOf(plan[site.paragraph - 1], site.paragraph), input.repair));
   if (nofit) out({ version: "1", leg_id: leg.leg_id, move: null, rationale: "NOFIT-SENTENCE-" + planN + " no paragraph Move's takes are met when this Leg begins.", paragraphs: [] });
   out({ version: "1", leg_id: leg.leg_id, move: table ? leg.move : move, rationale: "the bound Move's Segments carry the Leg's relation.",
     paragraphs: plan.map((w, i) => paragraphOf(w, i + 1)) });

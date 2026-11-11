@@ -39,11 +39,16 @@ export async function loadSiteRetry(declared) {
   const mark = declared.mark_export ? mod[String(declared.mark_export)] : null;
   if (declared.mark_export && typeof mark !== "function")
     throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.mark_export)}.`);
+  // kogaki#1815: an optional `repair_export` writes the Repair a retry is made under, and may answer the site itself.
+  const repair = declared.repair_export ? mod[String(declared.repair_export)] : null;
+  if (declared.repair_export && typeof repair !== "function")
+    throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.repair_export)}.`);
   return {
     legRevisions,
     recordArray,
     siteLabel: typeof declared.site_label === "string" && declared.site_label ? declared.site_label : null,
     mark: mark ? (record, history, unitId) => mark(record, history, inputs, unitId) : null,
+    repair: repair ? (ctx, unitId) => repair(ctx, inputs, unitId) || {} : null,
     sitePrompt: (ctx, unitId) => sitePrompt(ctx, inputs, unitId),
     siteAccept: (answer, ctx, unitId) => siteAccept(answer, ctx, inputs, unitId) || {},
     suffixPrompt: (ctx, unitId) => suffixPrompt(ctx, inputs, unitId),
@@ -145,6 +150,8 @@ export class SiteLoop {
       this.retries += 1;
       this.verdicts.clear();
       this.pending.clear();
+      if (this.h.repair)
+        this.h.repair({ standing: this.standing, from: 1, refusal: why, history: this.at(0) }, this.unitId);
       return this.suffix(1, [{ answer: this.standing ?? null, refusal: why }]);
     }
     if (!this.pending.size) {
@@ -165,7 +172,14 @@ export class SiteLoop {
       return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, why);
     this.spent.set(n, this.spent.get(n) + 1);
     this.retries += 1;
-    const ctx = { standing: this.standing, site: n, retry: this.spent.get(n) - 1, history: this.at(n) };
+    const ctx = { standing: this.standing, site: n, retry: this.spent.get(n) - 1, history: this.at(n), refusal: why };
+    // THE REPAIR IS WRITTEN BEFORE THE RETRY (kogaki#1815); one the program makes itself is answered with no call.
+    const r = this.h.repair ? this.h.repair(ctx, this.unitId) : {};
+    if (r.repair) ctx.repair = r.repair;
+    if (r.answer !== undefined) {
+      this.call = { kind: "site", site: n, ctx, program: true };
+      return this.answered(r.answer);
+    }
     this.call = { kind: "site", site: n, ctx, prompt: this.h.sitePrompt(ctx, this.unitId) };
     return this.call;
   }
@@ -183,7 +197,7 @@ export class SiteLoop {
     const r = failText ? { error: failText } : this.h.siteAccept(answer, c.ctx, this.unitId);
     if (r.error) {
       this.log.push(r.error);
-      if (!failText) this.raised.push({ text: r.error, sites: [c.site] });
+      if (!failText && !c.program) this.raised.push({ text: r.error, sites: [c.site] });
       this.at(c.site).push({ entry: answer ?? null, refusal: r.error, by_judge: false });
       this.pending.set(c.site, r.error);
       return this.next();

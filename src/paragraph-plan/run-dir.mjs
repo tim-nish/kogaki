@@ -297,6 +297,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
       suffix_prompt_export: siteRetry.suffix_prompt_export,
       suffix_validator_export: siteRetry.suffix_validator_export,
       mark_export: siteRetry.mark_export,
+      repair_export: siteRetry.repair_export,
       leg_revisions: legRevisions,
       record_array: "paragraphs",
       site_label: "paragraph",
