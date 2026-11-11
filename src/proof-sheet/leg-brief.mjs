@@ -344,6 +344,16 @@ export function crossLegPath(legs) {
 // ---------------------------------------------------------------------------
 // THE RECORD.
 
+// THE LEG AS /paragraph-plan READS IT (kogaki#1777): the stage takes the Leg as its unit and reads
+// its `text`, never a Brief Waypoint, so the composed Leg is written with its points, in order, as
+// its `text` and with no `waypoints`. The points are composed and validated as before; only the
+// record the Brief file carries changes shape.
+export function legAsText(leg) {
+  if (!Array.isArray(leg.waypoints)) return leg;
+  const { waypoints, ...rest } = leg;
+  return { ...rest, text: waypoints.map((w) => String(w.point ?? "").trim()).filter(Boolean).join(" ") };
+}
+
 // Every field the Brief parser requires that this composition does not compose, with the
 // fixed value it carries, and why. No downstream stage of the Proof Sheet reads them for
 // anything it composes from.
@@ -367,7 +377,7 @@ export function legBriefText({ slug, composePath, paragraphs, leg, legs = null, 
   const constants = constantFields({ slug, paragraphs });
   const text = briefRecordText({
     slug, compose_path: composePath, ...constants,
-    reader_path: path.map(legRecord),
+    reader_path: path.map(legAsText).map(legRecord),
   });
   // Mark each constant above its key; a comment is never read back.
   const keys = new Set(Object.keys(constants));

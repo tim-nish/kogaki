@@ -1,6 +1,6 @@
 // compose/mapping-record — the Mapping Record beside the ParagraphPlan (kogaki#1733): one
-// `structure.yaml` per Brief Waypoint whose structure was read and one `table.yaml` per bound Move,
-// under `theses/<slug>/mapping/<leg_id>/<waypoint>/`, named by the plan by path and digest.
+// `structure.yaml` per Leg whose structure was read and one `table.yaml` per Leg's bound Move,
+// under `theses/<slug>/mapping/<leg_id>/` (kogaki#1777), named by the plan by path and digest.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -58,12 +58,12 @@ export function mappingRecordOf(dir) {
 }
 
 // WRITE THE RECORD (the stage's own output, replaced whole): `entries` holds one
-// `{ leg_id, waypoint, structure?, table? }` per Brief Waypoint whose record was settled.
+// `{ leg_id, structure?, table? }` per Leg whose record was settled.
 export function writeMappingRecord(dir, entries = []) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   for (const e of entries) {
-    const at = join(dir, String(e.leg_id), String(e.waypoint));
+    const at = join(dir, String(e.leg_id));
     if (e.structure === undefined && e.table === undefined) continue;
     mkdirSync(at, { recursive: true });
     if (e.structure !== undefined) writeFileSync(join(at, STRUCTURE_FILE), stringifyYaml(e.structure, { width: 120 }));

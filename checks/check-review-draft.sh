@@ -14,7 +14,7 @@
 #
 # WHAT THIS COVERS, driven through `buildJoin` (src/review-draft.mjs) over a
 # fixture Draft whose trace names a Packet rendered by `renderPacket`
-# (src/draft.mjs) from a fixture Brief record, the second Brief Waypoint carrying
+# (src/draft.mjs) from a fixture Brief record and its Leg's paragraphs, the second carrying
 # the join `consequence`, and whose paragraph 2 opens by narrating it:
 #   (a) the item owes exactly ONE pair for the Leg -- paragraph 2's, the one
 #       paragraph after the first that carries an Opens-from line -- and the
@@ -28,7 +28,7 @@
 #   (c) a paragraph 2 opening on a bare connective is paired the same way and
 #       a `holds` verdict holds its row with no evidence (the control that
 #       stops (b) passing on any verdict);
-#   (d) a Packet whose Brief Waypoints carry no join owes no pair and holds by
+#   (d) a Packet whose paragraphs carry no join owes no pair and holds by
 #       the item's stated absence.
 # AND THE `performs` ITEM (kogaki#1556), one pair per italic line of the
 # waypoints block, the passage as reverse side:
@@ -43,7 +43,7 @@
 #       Packet line they read: src/review-items.json declares neither
 #       (kogaki#1584);
 #   (h) a Leg with no italic line holds by `when_declared_absent`.
-# AND (i) review.md's closing Forced paragraphs list names the Brief Waypoint and axis a Packet
+# AND (i) review.md's closing Forced paragraphs list names the paragraph and axis a Packet
 #   marks, with no finding, and `_None._` where no Packet carries a mark (kogaki#1649).
 #
 # NOT COVERED, stated rather than implied: whether a LIVE judge answers
@@ -77,18 +77,20 @@ const NARRATED = "What the first write left open is now taken up: the second run
 const CONNECTIVE = "So the second run replaces the copy wholesale, edits included.";
 const PARA1 = "The installer copies the kit into the consumer's tree. It writes every file it ships.";
 const PARA2_OWN = "The second run replaces the copy wholesale, edits included.";
+// The Leg says its relation's `holds` as its `text`, and its paragraphs are the ParagraphPlan's
+// (kogaki#1775, kogaki#1777): the Packet renders one numbered line per paragraph.
+const LEG_TEXT = "The installer writes into the consumer's tree, and the next run overwrites any edit to the copy.";
+const POINTS = ["The installer writes into the consumer's tree.", "The next run overwrites any edit to the copy."];
 const brief = readBrief(briefRecordText({
   slug: "review-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
-  thesis: "The fixture claim.", reader_path: [legRecord({ leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1", reader_state_after: "knowledge: after s1.",
-    materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
-    waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"] },
-      { point: "The next run overwrites any edit to the copy.", serves: ["L1"] }] })],
+  thesis: "The fixture claim.", reader_path: [legRecord({ leg_id: "s1", text: LEG_TEXT, claims: [{ strand: "L1", proposition: C1 }] })],
   strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 }), "theses/review-brief/brief.yaml");
 const template = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8")).packet;
 const packetFor = (join_) => {
-  const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 1 && join_ ? { ...w, join: join_ } : w)) };
+  const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"], ...(i === 1 && join_ ? { join: join_ } : {}),
+    paragraph_waypoints: [{ point, serves: ["L1"], cast: {} }] })) };
   const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
   return r.packet || "";
@@ -165,12 +167,12 @@ else {
   }
 }
 
-// (e)-(h) THE PERFORMS ITEM (kogaki#1556), over a Packet whose first Brief Waypoint carries one
+// (e)-(h) THE PERFORMS ITEM (kogaki#1556), over a Packet whose first paragraph carries one
 // `performs` Waypoint.
 const OPERATION = "announce that a definition follows";
 const packetWith = ({ performs = false } = {}) => {
-  const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
-    paragraph_waypoints: [{ point: w.point, serves: w.serves, cast: {} },
+  const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
+    paragraph_waypoints: [{ point, serves: ["L1"], cast: {} },
       ...(i === 0 && performs ? [{ performs: OPERATION }] : [])] })) };
   const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
@@ -221,8 +223,8 @@ else {
 
 // (i) review.md CLOSES WITH THE FORCED PARAGRAPHS, READ FROM THE PACKET ALONE (kogaki#1649).
 {
-  const leg = (forced) => ({ ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => ({ ...w,
-    paragraph_waypoints: [{ point: w.point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) });
+  const leg = (forced) => ({ ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
+    paragraph_waypoints: [{ point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) });
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
   for (const [name, forced] of [["forced", true], ["plain", false]]) {
@@ -231,8 +233,8 @@ else {
     writeFileSync(join(dir, "packets", `${name}.md`), r.packet || "");
   }
   const got = forcedParagraphLines([{ leg_id: "s1", packet: "packets/forced.md" }], dir);
-  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, Brief Waypoint 1 — PERFORMS IS BARE") || got.some((l) => /fail|finding/i.test(l))) {
-    fails.push(`(i) the Forced paragraphs section does not name Leg s1, Brief Waypoint 1 and PERFORMS IS BARE as a list with no finding: ${JSON.stringify(got)}`);
+  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, paragraph 1 — PERFORMS IS BARE") || got.some((l) => /fail|finding/i.test(l))) {
+    fails.push(`(i) the Forced paragraphs section does not name Leg s1, paragraph 1 and PERFORMS IS BARE as a list with no finding: ${JSON.stringify(got)}`);
   }
   const none = forcedParagraphLines([{ leg_id: "s1", packet: "packets/plain.md" }], dir);
   if (!none.includes("_None._") || none.some((l) => l.startsWith("- "))) fails.push(`(i) a Packet with no mark lists a forced paragraph: ${JSON.stringify(none)}`);
@@ -242,5 +244,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).; review.md closes with a Forced paragraphs list naming each Brief Waypoint a Packet marks and its axes, with no finding (kogaki#1649)");
+console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).; review.md closes with a Forced paragraphs list naming each paragraph a Packet marks and its axes, with no finding (kogaki#1649)");
 JS

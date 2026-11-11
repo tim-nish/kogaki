@@ -107,20 +107,21 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
-    return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint, verdict: "fits", why: "they begin at before and end at after." })) }, "plan");
+    return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.paragraphs.map((p) => ({ paragraph: p.paragraph, verdict: "fits", why: "they begin at before and end at after." })) }, "plan");
   }
-  if (prompt.includes('"leg_waypoint_you_must_plan"')) {
-    const refused = body("leg_waypoint_you_must_plan").refused_here.map((h) => h.entry).filter(Boolean);
+  if (prompt.includes('"paragraph_you_must_plan"')) {
+    const refused = body("paragraph_you_must_plan").refused_here.map((h) => h.entry).filter(Boolean);
     return out(refused[refused.length - 1], "plan");
   }
   if (prompt.includes('"leg_you_must_plan"')) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
     const m = bindable[0];
-    return out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: m.id,
-      materials: [...w.serves], purpose: "PURPOSE-" + w.waypoint + " brings the reader to the point.",
-      depends_on: w.waypoint > 1 ? [w.waypoint - 1] : [], introduces: [], "re-activate": [], rationale: "its before holds the state and its after reaches the next point.",
-      ...(w.waypoint > 1 ? { join: "consequence" } : {}),
-      paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-" + w.waypoint + "-" + (n + 1) + " the paragraph makes its point.", serves: [...w.serves], cast: {} })) })) }, "plan");
+    // THE LEG AS UNIT (kogaki#1777): one Move for the Leg, one paragraph, one Waypoint per Segment.
+    const serves = leg.claims.map((g) => g.strand);
+    return out({ version: "1", leg_id: leg.leg_id, move: m.id, rationale: "its Segments carry the Leg's relation.",
+      paragraphs: [{ paragraph: 1, materials: serves, purpose: "PURPOSE-1 brings the reader to the point.",
+        depends_on: [], introduces: [], "re-activate": [], rationale: "its Segments carry the Leg's relation this far.",
+        paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-1-" + (n + 1) + " the paragraph makes its point.", serves, cast: {} })) }] }, "plan");
   }
   return out(["WRITTEN-1 the crew and its list.", "WRITTEN-2 the room left off.", "WRITTEN-3 what stays dusty."].join("\\n\\n"), "writer");
 });

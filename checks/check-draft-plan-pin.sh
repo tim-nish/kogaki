@@ -39,13 +39,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 `);
 chmodSync(writer, 0o755);
 
-const leg = (id, deps) => ({
-  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`, reader_state_after: `knowledge: after ${id}.`,
-  materials: ["L1"], depends_on: deps, rationale: `rationale for ${id}.`,
-  claims: [{ strand: "L1", proposition: `the claim ${id} carries.` }],
-  waypoints: [{ point: `The waypoint ${id} reaches.`, serves: ["L1"], case: "own" }],
-});
-const legs = [leg("G1", []), leg("G2", ["G1"])];
+// A Leg says its relation's `holds` as its `text` and carries no Brief Waypoint (kogaki#1775).
+const leg = (id) => ({ leg_id: id, text: `The relation ${id} says holds.`,
+  claims: [{ strand: "L1", proposition: `the claim ${id} carries.` }] });
+const legs = [leg("G1"), leg("G2")];
 const briefText = briefRecordText({
   slug: "plan-pin", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
@@ -57,12 +54,13 @@ mkdirSync(dir, { recursive: true });
 const briefPath = join(dir, "brief.yaml");
 writeFileSync(briefPath, briefText);
 const planPath = join(dir, "paragraph-plan.yaml");
-const entry = (id) => ({ move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first",
-  materials: ["L1"], purpose: `purpose of ${id}'s paragraph.`, reader_state_after: `knowledge: after ${id}.`,
+// The Leg binds one Move for its paragraphs (kogaki#1777).
+const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
+const entry = (id) => ({ materials: ["L1"], purpose: `purpose of ${id}'s paragraph.`,
   depends_on: [], rationale: `rationale for ${id}'s paragraph.`, introduces: [], "re-activate": [] });
 const planText = (mark, mapping = null) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText, mapping,
-  legs: legs.map((l) => ({ leg_id: l.leg_id, waypoints: [[{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, serves: ["L1"], cast: {} }]],
-    entries: [entry(l.leg_id)], joins: [null] })) }));
+  legs: legs.map((l) => ({ leg_id: l.leg_id, move: MOVE, paragraphs: [{ ...entry(l.leg_id),
+    paragraph_waypoints: [{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, serves: ["L1"], cast: {} }] }] })) }));
 
 const wsRoot = join(root, "ws");
 const ws = join(wsRoot, "plan-pin");
@@ -151,10 +149,10 @@ const mappingDir = join(dir, "mapping");
 const FIXTURE_STRUCTURE = { roles: [{ id: "gate", context: "A fixed check that admits some things.", attributes: [] }],
   relations: [{ id: "admits", between: ["gate"], holds: "{gate} admits what it was set for." }],
   higher_order: { relates: ["admits"], holds: "{gate} admits nothing else." } };
-const fixtureRecord = (id) => ({ leg_id: id, waypoint: 1, structure: FIXTURE_STRUCTURE,
-  table: { move: entry(id).move, case: id === "G1" ? "apart" : "own", base: { domain: "a turnstile" }, correspondences: [{ role: "gate", expression: "the turnstile" }] } });
+const fixtureRecord = (id) => ({ leg_id: id, structure: FIXTURE_STRUCTURE,
+  table: { move: MOVE, case: id === "G1" ? "apart" : "own", base: { domain: "a turnstile" }, correspondences: [{ role: "gate", expression: "the turnstile" }] } });
 const mapping = writeMappingRecord(mappingDir, legs.map((l) => fixtureRecord(l.leg_id)));
-const tablePath = join(mappingDir, "G1", "1", "table.yaml");
+const tablePath = join(mappingDir, "G1", "table.yaml");
 writeFileSync(planPath, planText("gamma", mapping));
 {
   const r = draft("resolve");
@@ -166,22 +164,22 @@ writeFileSync(planPath, planText("gamma", mapping));
   const table = readFileSync(tablePath, "utf8");
   writeFileSync(tablePath, table.replace("a turnstile", "a toll gate"));
   const e = draft("resolve");
-  if (e.status === 0 || !e.stderr.includes("mapping/G1/1/table.yaml has changed since the ParagraphPlan file")) {
+  if (e.status === 0 || !e.stderr.includes("mapping/G1/table.yaml has changed since the ParagraphPlan file")) {
     fails.push(`(f) resolve over an edited Mapping Record file was not refused naming the file: ${said(e)}`);
   }
   writeFileSync(tablePath, table);
   // The whole family the refusal promises, not only the edit that prompted it: an added file and a gone one.
-  const stray = join(mappingDir, "G3", "1", "table.yaml");
+  const stray = join(mappingDir, "G3", "table.yaml");
   mkdirSync(join(stray, ".."), { recursive: true });
   writeFileSync(stray, table);
   const a = draft("resolve");
-  if (a.status === 0 || !a.stderr.includes("mapping/G3/1/table.yaml is not one the ParagraphPlan file")) fails.push(`(f) resolve over an added record file was not refused naming it: ${said(a)}`);
+  if (a.status === 0 || !a.stderr.includes("mapping/G3/table.yaml is not one the ParagraphPlan file")) fails.push(`(f) resolve over an added record file was not refused naming it: ${said(a)}`);
   rmSync(join(mappingDir, "G3"), { recursive: true });
-  const structurePath = join(mappingDir, "G1", "1", "structure.yaml");
+  const structurePath = join(mappingDir, "G1", "structure.yaml");
   const structure = readFileSync(structurePath, "utf8");
   rmSync(structurePath);
   const g = draft("resolve");
-  if (g.status === 0 || !g.stderr.includes("mapping/G1/1/structure.yaml, which the ParagraphPlan file")) fails.push(`(f) resolve over a removed record file was not refused naming it: ${said(g)}`);
+  if (g.status === 0 || !g.stderr.includes("mapping/G1/structure.yaml, which the ParagraphPlan file")) fails.push(`(f) resolve over a removed record file was not refused naming it: ${said(g)}`);
   writeFileSync(structurePath, structure);
 }
 

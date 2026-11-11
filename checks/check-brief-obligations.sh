@@ -21,6 +21,7 @@ import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, readerTargetLegRefusal, legRecord } = compose;
 const fails = [];
+const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, serves: ["L1"], cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
 
 // (a) a retired record key is refused by name (kogaki#1699).
 {
@@ -140,7 +141,7 @@ const fails = [];
   const sections = sectionsOf(brief.legs);
   const packets = {};
   for (const leg of brief.legs) {
-    const r = renderPacket({ template: split.packet, brief, leg, moveText, priorSections: [],
+    const r = renderPacket({ template: split.packet, brief, leg: planned(leg), moveText, priorSections: [],
       ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
     if (r.error) { fails.push(`(k) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
     packets[leg.leg_id] = r.packet;

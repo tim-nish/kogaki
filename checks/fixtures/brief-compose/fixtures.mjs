@@ -23,7 +23,11 @@ export const recordOf = (legs, keys = {}) => ({
   strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
   ...keys,
 });
-export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);
+// THE DRAFT READS A LEG BY ITS TEXT (kogaki#1775, kogaki#1777): the compose-side fixtures below keep the
+// legacy Waypoint form `validateLegs` still admits without a structure, and a record handed to readBrief
+// is read with each Leg's first point as its text, the form the Draft's reader admits.
+export const legacyLegsToText = (legs) => (legs || []).map(({ waypoints, ...l }) => (l.text != null || !waypoints ? l : { ...l, text: waypoints[0].point }));
+export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText({ ...record, reader_path: legacyLegsToText(record.reader_path) }), path);
 
 export const READER_START = "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
 

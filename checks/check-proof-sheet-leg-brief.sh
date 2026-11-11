@@ -6,8 +6,9 @@
 # WHAT THIS COVERS, driven end to end through `node src/proof-sheet/leg-brief.mjs run` over
 # a three-paragraph Leg, an Extractor run directory this member writes, and a FAKE judge
 # binary (`KOGAKI_JUDGE_CLI`) — never the actual `claude` CLI:
-#   (a) the run writes `brief.yaml` with ONE Leg carrying three Brief Waypoints and three
-#       Claims, and every constant field marked by the constant comment; READER START IS
+#   (a) the run writes `brief.yaml` with ONE Leg carrying three Claims and, as its `text`, the three
+#       composed points in order with no Brief Waypoint, since /paragraph-plan reads a Leg's text alone
+#       (kogaki#1777), and every constant field marked by the constant comment; READER START IS
 #       RETIRED (kogaki#1699): the Brief carries no `reader_start`, `reader_target` or
 #       `obligations`, and its Leg no `reader_state_after` or `reader_state_before`.
 #   (b) the gate the Brief must pass: /paragraph-plan's own `readAdoptedBrief` accepts it,
@@ -151,8 +152,10 @@ else {
   const legs = rec.reader_path || [];
   ok(legs.length === 1, `(a) the Brief carries ${legs.length} Leg(s), not one`);
   const leg = legs[0] || {};
-  ok((leg.waypoints || []).length === 3 && (leg.claims || []).length === 3, "(a) the Leg does not carry three Brief Waypoints and three Claims");
-  ok((leg.waypoints || []).every((w, i) => w.point === `POINT-${i + 1} CLAIM-${i + 1}` && w.serves[0] === `L${i + 1}`), "(a) a Brief Waypoint is not paragraph N's point serving L<N>");
+  // THE LEG AS /paragraph-plan READS IT (kogaki#1777): the composed points, in order, are its `text`, and it
+  // carries no Brief Waypoint.
+  ok(!("waypoints" in leg) && (leg.claims || []).length === 3, "(a) the Leg carries Brief Waypoints, or not three Claims");
+  ok(leg.text === [1, 2, 3].map((i) => `POINT-${i} CLAIM-${i}`).join(" "), `(a) the Leg's text is not paragraph 1 to 3's points in order: ${JSON.stringify(leg.text)}`);
   ok(!("move" in leg) && !("no_move_fits" in leg), "(a) the Brief's Leg carries a Move field");
   for (const k of ["reader_start", "reader_target", "obligations"]) {
     ok(!(k in rec) && !new RegExp(`^${k}:`, "m").test(text), `(a) the Brief carries the retired \`${k}\` (kogaki#1699)`);
@@ -167,14 +170,13 @@ else {
   // (b) /paragraph-plan's own read, and /draft resolve with a plan written by the stage's writer
   const pp = readAdoptedBrief(briefPath);
   ok(!pp.error, `(b) /paragraph-plan refused the Brief: ${pp.error}`);
-  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, waypoints: l.waypoints.map((w, i) => [{ point: `Paragraph ${i + 1}.`, serves: [...w.serves], cast: {} }]),
-    // every entry carries the paragraph's schema, the last one's after-state the Leg's (kogaki#1639).
-    entries: l.waypoints.map((w, i) => ({ move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...w.serves],
-      purpose: `brings the reader to the point of paragraph ${i + 1}.`,
-      reader_state_after: { knowledge: `after paragraph ${i + 1}.` },
-      depends_on: i ? [i] : [], rationale: "its before holds the state the paragraph before leaves.", introduces: [], "re-activate": [] })),
-    // a later Brief Waypoint's join is one relation word (kogaki#1477).
-    joins: l.waypoints.map((w, i) => (i ? "consequence" : null)) }));
+  // ONE MOVE PER LEG and its paragraphs, each carrying the paragraph's schema (kogaki#1639, kogaki#1777); a later
+  // paragraph's join is one relation word (kogaki#1477).
+  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first",
+    paragraphs: [1, 2].map((n) => ({ materials: (l.claims || []).map((g) => g.strand), purpose: `brings the reader to paragraph ${n}'s step.`,
+      depends_on: n > 1 ? [n - 1] : [], rationale: "its Segments carry the Leg's text this far.", introduces: [], "re-activate": [],
+      ...(n > 1 ? { join: "consequence" } : {}),
+      paragraph_waypoints: [{ point: `Paragraph ${n}.`, serves: (l.claims || []).map((g) => g.strand), cast: {} }] })) }));
   writeFileSync(paragraphPlanPathFor(briefPath), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, legs: planLegs })));
   const dr = spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, "ws")], { encoding: "utf8", timeout: 120000 });
   ok(dr.status === 0, `(b) /draft resolve refused the Brief: ${(dr.stderr || dr.stdout || "").slice(0, 600)}`);

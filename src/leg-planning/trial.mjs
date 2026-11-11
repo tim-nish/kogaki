@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // The Leg-Planning Playground's Trial (kogaki#1764): a claims file read into one RelationalStructure, the Legs derived
 // from it as the Brief derives them, one per relation the apex reaches with no Call and no Move (kogaki#1775), and
-// `/paragraph-plan` run over the Legs, every Call recorded and the chain rendered as one sheet. The ParagraphPlan's
-// reading of a Leg with no Waypoint is kogaki#1777's; until it lands, the paragraph-plan stage stops on its refusal.
+// `/paragraph-plan` run over the Legs, every Call recorded and the chain rendered as one sheet. The ParagraphPlan takes
+// each Leg as its unit, binds one Move to it and writes its paragraphs' Waypoints (kogaki#1777).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -25,7 +25,7 @@ import { readReaderPathJob } from "../workflow/detached-job.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../mapping-playground/sme.mjs";
-import { unitCalls, roundsAt, unitStatus, waypointStatus, namedWaypoints } from "../flp/sheet.mjs";
+import { unitCalls, roundsAt, unitStatus, paragraphStatus, namedParagraphs, paragraphCount } from "../flp/sheet.mjs";
 import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
 import { mintStructure, validateReadSet, withReach, structureLegs, pathReachRefusal } from "../compose/structure.mjs";
 import { resolvedRow } from "../workflow/copies.mjs";
@@ -161,35 +161,36 @@ function planCommand(args) {
   return { exit: r.status, stdout: String(r.stdout || ""), line: said.slice(-3).join(" ") || (r.error ? r.error.message : "(no output)") };
 }
 
-// THE BINDING AND THE VERDICT AT EACH WAYPOINT, read from the plan's run as the FLP reads it.
-function planWaypoints(runDir, legs) {
+// THE BINDING AND THE VERDICT AT EACH PARAGRAPH of each Leg, read from the plan's run as the FLP reads it (kogaki#1777).
+function planParagraphs(runDir, legs) {
   const job = readReaderPathJob(runDir) || { units: [] };
   return legs.flatMap((leg, i) => {
     const unitId = `leg-${i + 1}`;
     const unit = (job.units || []).find((u) => u.id === unitId);
     const status = unitStatus(job, unit);
     const calls = unitCalls(runDir, unitId);
+    if (!unit && !calls.length) return [];
     const last = unit && Array.isArray(unit.refusals) && unit.refusals.length ? unit.refusals[unit.refusals.length - 1] : "";
-    return (leg.waypoints || []).map((_, k) => {
+    return Array.from({ length: paragraphCount(calls, unit) }, (_, k) => {
       const n = k + 1;
       const rounds = roundsAt(calls, n, status);
       const r = rounds[rounds.length - 1];
-      const entry = unit && unit.candidate ? unit.candidate.waypoints[k] : r && r.entry;
-      return { leg_id: leg.leg_id, waypoint: n, move: entry && typeof entry.move === "string" ? entry.move : null,
-        verdict: waypointStatus(status, n, namedWaypoints(last), rounds).text,
+      const move = unit && unit.candidate ? unit.candidate.move : r && r.entry ? r.entry.move : null;
+      return { leg_id: leg.leg_id, paragraph: n, move: typeof move === "string" ? move : null,
+        verdict: paragraphStatus(status, n, namedParagraphs(last), rounds).text,
         rounds: rounds.map((x) => ({ round: x.number, call: x.call ? relFromRepo(x.call.dir) : null,
           verdict: x.verdict.kind === "judge" ? x.verdict.record.verdict : x.verdict.kind, comment: x.comment ? x.comment.text : null })) };
     });
   });
 }
 
-// The Leg and Waypoint a unit's last `no_paragraph_move_fits` refusal names, or `null`.
+// The Legs a unit's last `no_paragraph_move_fits` refusal names, or `null`.
 function noFitStop(runDir) {
   const job = readReaderPathJob(runDir) || { units: [] };
   for (const u of job.units || []) {
     const last = Array.isArray(u.refusals) && u.refusals.length ? String(u.refusals[u.refusals.length - 1]) : "";
     if (u.status === "done" || !last.includes(NO_PARAGRAPH_MOVE_FITS)) continue;
-    const at = [...last.matchAll(/^Leg (\S+), Waypoint (\d+) /gm)].map((m) => `Leg ${m[1]}, Waypoint ${m[2]}`);
+    const at = [...last.matchAll(/^Leg (\S+) \(/gm)].map((m) => `Leg ${m[1]}`);
     return `${NO_PARAGRAPH_MOVE_FITS} at ${at.join("; ") || u.id}`;
   }
   return null;
@@ -204,7 +205,7 @@ function paragraphPlanStage({ outDir, legsPath, legsFile, slug, audiencePath, cl
   writeFileSync(briefPath, planBriefText({ slug, audiencePath, claims, thesis, legsFile, structure }));
   const shown = { legs: fileRecord(legsPath), brief: fileRecord(briefPath), run: relFromRepo(runDir) };
   const pp = (cmd, extra = []) => planCommand([cmd, "--brief", briefPath, "--run-dir", runDir, "--moves-dir", libraryDir, ...extra]);
-  const ended = (line) => ({ ...shown, waypoints: planWaypoints(runDir, legsFile.reader_path), stopped: noFitStop(runDir) || line });
+  const ended = (line) => ({ ...shown, paragraphs: planParagraphs(runDir, legsFile.reader_path), stopped: noFitStop(runDir) || line });
   const s = pp("start");
   if (s.exit !== 0) return { ...shown, stopped: `\`paragraph-plan start\` exited ${s.exit}: ${s.line}` };
   for (let i = 0; i < PLAN_AWAITS_MAX; i++) {
@@ -213,7 +214,7 @@ function paragraphPlanStage({ outDir, legsPath, legsFile, slug, audiencePath, cl
     if (a.stdout.includes(PARAGRAPH_PLAN_STILL_RUNNING_LINE)) continue;
     const planPath = join(dir, PARAGRAPH_PLAN_FILE);
     if (!existsSync(planPath)) return ended("the ParagraphPlan job ended and wrote no plan");
-    return { ...shown, plan: fileRecord(planPath), waypoints: planWaypoints(runDir, legsFile.reader_path) };
+    return { ...shown, plan: fileRecord(planPath), paragraphs: planParagraphs(runDir, legsFile.reader_path) };
   }
   return { ...shown, stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s` };
 }

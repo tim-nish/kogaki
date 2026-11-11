@@ -43,11 +43,11 @@
       "names": "the ParagraphPlan record",
       "fields_from": "the keys below, each named by the `paragraph_plan_unit` row's `input_shape` in src/paragraph-plan-workflow.json, where the record's shape is declared",
       "fields": [
-        "version", "leg_id", "waypoints",
-        "waypoints.waypoint", "waypoints.move", "waypoints.materials", "waypoints.purpose",
-        "waypoints.depends_on", "waypoints.rationale", "waypoints.introduces",
-        "waypoints.re-activate", "waypoints.journeys", "waypoints.join",
-        "waypoints.paragraph_waypoints",
+        "version", "leg_id", "move", "rationale", "paragraphs",
+        "paragraphs.paragraph", "paragraphs.materials", "paragraphs.purpose",
+        "paragraphs.depends_on", "paragraphs.rationale", "paragraphs.introduces",
+        "paragraphs.re-activate", "paragraphs.journeys", "paragraphs.join",
+        "paragraphs.paragraph_waypoints",
         "paragraph_waypoints.point", "paragraph_waypoints.serves", "paragraph_waypoints.performs", "paragraph_waypoints.cast"
       ]
     }

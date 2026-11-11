@@ -6,7 +6,7 @@
 #
 
 # WHAT THIS COVERS, each driven end to end through `node src/paragraph-plan.mjs
-# start|await` over a real Brief record of three one-Waypoint Legs, a scratch
+# start|await` over a real Brief record of three Legs, each its relation's text, a scratch
 # Move library and a FAKE judge binary this member writes (`KOGAKI_JUDGE_CLI`)
 # whose behaviour per Leg is read from a mode file -- never the actual `claude`
 # CLI:
@@ -34,24 +34,24 @@
 
 #   (e) THE SELECTION INPUTS ARE A RECORD, AND THE VIEW JOINS THEM
 #       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
-#       per Leg, one `waypoints` row per Brief Waypoint carrying `point`,
-#       `serves`, `next_point`, `stands_to_be_taken_up` (kogaki#1701),
-#       `terms_this_leg_introduces` and the Move ids, each in the prompt; a site call
-#       appends a `site_calls` row carrying `refused_here`, `fixed` and
-#       `moves_rejected_here`; (c) carries the kept Legs' records; `view --plan`
-#       over the plan (c) wrote prints each Brief Waypoint's point, Move `takes`,
-#       Segments table with each Waypoint and Move `leaves`; `--run` adds the
-#       refusals of (b) with the axis they name, each under the Brief Waypoint
-#       it names as its site; and an edited Brief is refused.
+#       per Leg, one `plan_call` row carrying the Leg's `text`, its Claims, what
+#       the Legs before it state (`the_reader_has_been_told`, kogaki#1777), the
+#       paragraph bound, `terms_this_leg_introduces` and the Move ids, each in the
+#       prompt; a site call appends a `site_calls` row carrying `paragraph`,
+#       `refused_here` and the held `bound_move`; (c) carries the kept Legs'
+#       records; `view --plan` over the plan (c) wrote prints each Leg's text, its
+#       one Move's `takes` and `leaves`, and each paragraph's Segments table with
+#       its Waypoints; `--run` adds the refusals of (b) with the axis they name,
+#       each under the paragraph it names as its site; and an edited Brief is refused.
 
 #   (f) THE MAPPER'S CALL RECORDS ARE LISTED (kogaki#1734): a job directory
 #       holding a Leg's plan call and, nested under it, its reading and grounding
 #       calls' records lists each in `src/workflow/job-report.mjs`, under
-#       `leg-1/reading/waypoint-<n>` and `leg-1/grounding/waypoint-<n>`.
+#       `leg-1/reading` and `leg-1/grounding` -- one of each per Leg (kogaki#1777).
 
-# NOT COVERED, stated rather than implied: the retry inside a Leg -- which Brief
-# Waypoint is re-planned, and the refusal of an identical Round -- is its own
-# Issue. The Brief's compose job keeps kogaki#1273's sibling kill, asserted by
+# NOT COVERED, stated rather than implied: the retry inside a Leg -- which
+# paragraph is re-planned, and the refusal of an identical Round -- is
+# checks/check-paragraph-plan-site-retry.sh's. The Brief's compose job keeps kogaki#1273's sibling kill, asserted by
 # checks/check-brief-job-retry.sh (v4). The plan file's shape is
 # checks/check-paragraph-plan.sh's.
 set -u
@@ -68,7 +68,7 @@ import { pathToFileURL } from "node:url";
 process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const repo = resolve(".");
-const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
+const { legRecord, briefRecordText } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
 const { stringifyYaml, parseYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
 const { readReaderPathJob } = await import(pathToFileURL(join(repo, "src", "workflow", "detached-job.mjs")).href);
@@ -93,18 +93,11 @@ writeFileSync(join(moves, "p1.yaml"), stringifyYaml({ id: "p1", description: "a 
   before: { knowledge: "MOVE-BEFORE the reader holds the claim." }, after: { knowledge: "MOVE-AFTER the reader holds the point." },
   breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }],
   takes: [{ kind: "explain", what: "MOVE-TAKES what the copy is." }], leaves: [{ kind: "answer", what: "MOVE-LEAVES whose copy it is?", segment: 1 }] }));
-// The Leg Move every Leg binds (kogaki#1701): the library holds it, so `start` reads what it leaves.
-writeFileSync(join(moves, "a_leg_move.yaml"), stringifyYaml({ id: "a_leg_move", description: "a fixture Leg Move.",
-  breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
 
-// ---- the Brief: three Legs, one Brief Waypoint each ----
+// ---- the Brief: three Legs, each its relation's text and no Brief Waypoint (kogaki#1775) ----
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
-const leg = (id, point) => ({
-  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
-  materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`,
-  claims: [{ strand: "L1", proposition: "the installer copies the kit into the consumer's tree." }],
-  waypoints: [{ point, serves: ["L1"], case: "own" }],
-});
+const leg = (id, text) => ({ leg_id: id, text,
+  claims: [{ strand: "L1", proposition: "the installer copies the kit into the consumer's tree." }] });
 const legs = [
   leg("s1", "The installer writes into a tree the consumer thought was theirs alone."),
   leg("s2", "The next run overwrites any edit made to the copy."),
@@ -134,24 +127,24 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const leg = body("leg_you_must_judge").leg_you_must_judge;
     appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "judge", leg: leg.leg_id }) + "\\n");
     const refuse = modes[leg.leg_id] === "refuse";
-    out({ version: "1", leg_id: leg.leg_id, verdicts: leg.waypoints.map((w) => ({ waypoint: w.waypoint,
+    out({ version: "1", leg_id: leg.leg_id, verdicts: leg.paragraphs.map((p) => ({ paragraph: p.paragraph,
       verdict: refuse ? "does-not-fit" : "fits",
-      why: refuse ? "JUDGE-SENTENCE BREAKS Waypoint 1 never reaches the after state." : "they begin at before and end at after." })) });
+      why: refuse ? "JUDGE-SENTENCE BREAKS the paragraph never reaches the after state." : "they begin at before and end at after." })) });
   }
-  // A site retry (kogaki#1642) answers with the refused entry, its Waypoint rewritten.
-  if (prompt.includes('"leg_waypoint_you_must_plan"')) {
-    const site = body("leg_waypoint_you_must_plan"), e = site.refused_here[site.refused_here.length - 1].entry;
-    appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: site.leg_waypoint_you_must_plan.leg_id }) + "\\n");
-    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.leg_waypoint_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", serves: [...e.paragraph_waypoints[0].serves], cast: {} }] });
+  // A site retry (kogaki#1642) answers with the refused paragraph, its Waypoint rewritten.
+  if (prompt.includes('"paragraph_you_must_plan"')) {
+    const site = body("paragraph_you_must_plan"), e = site.refused_here[site.refused_here.length - 1].entry;
+    appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: site.paragraph_you_must_plan.leg_id }) + "\\n");
+    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.paragraph_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", serves: [...e.paragraph_waypoints[0].serves], cast: {} }] });
   }
   const leg = body("leg_you_must_plan").leg_you_must_plan;
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: leg.leg_id }) + "\\n");
   if (modes[leg.leg_id] === "die") { process.stderr.write("DIED-SENTENCE the planner binary is gone\\n"); process.exit(3); }
-  out({ version: "1", leg_id: leg.leg_id, waypoints: leg.waypoints.map((w) => ({ waypoint: w.waypoint, move: "p1",
-    materials: [...w.serves], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
-    depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
-    introduces: [], "re-activate": [],
-    paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: [...w.serves], cast: {} }] })) });
+  out({ version: "1", leg_id: leg.leg_id, move: "p1", rationale: "the Move carries the Leg's relation.",
+    paragraphs: [{ paragraph: 1, materials: ["L1"], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
+      depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
+      introduces: [], "re-activate": [],
+      paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: ["L1"], cast: {} }] }] });
 });
 `);
 chmodSync(judge, 0o755);
@@ -209,7 +202,7 @@ const stopped = (tag, r) => {
   const kept = ((j.failure || {}).kept_candidates || []).map((k) => k.id).sort();
   if (JSON.stringify(kept) !== JSON.stringify(["leg-1", "leg-3"])) fails.push(`(a) the failure block does not name the two kept candidates: ${JSON.stringify(kept)}`);
   if (!/Kept: Leg s1, s3 finished and are kept in the run directory/.test(r.out)) fails.push(`(a) the stop lines do not name the kept Legs: ${r.out.slice(0, 600)}`);
-  if (!/Leg s2, Waypoint 1: died after 1 round\(s\)/.test(r.out)) fails.push(`(a) the stop lines do not name the died Leg: ${r.out.slice(0, 600)}`);
+  if (!/Leg s2: died after 1 round\(s\)/.test(r.out)) fails.push(`(a) the stop lines do not name the died Leg: ${r.out.slice(0, 600)}`);
   if (!/Next: run \/paragraph-plan on the same Brief again; it plans Leg s2 only and carries the kept Legs/.test(r.out)) fails.push(`(a) the stop lines do not say the next run plans s2 only: ${r.out.slice(0, 600)}`);
 }
 
@@ -282,27 +275,29 @@ if (refusedRun) {
   const prompts = new Map(JSON.parse(readFileSync(join(refusedRun.runDir, "reader-path-job-units.json"), "utf8")).units.map((u) => [u.id, u.prompt]));
   for (const [i, l] of legs.entries()) {
     const id = `leg-${i + 1}`, rec = inputRecord(refusedRun.runDir, id), prompt = prompts.get(id) || "";
-    const row = rec && rec.waypoints && rec.waypoints[0];
-    if (!rec || rec.leg_id !== l.leg_id || rec.waypoints.length !== 1 || !row) { fails.push(`(e) ${id} has no input record of one Brief Waypoint row: ${JSON.stringify(rec)}`); continue; }
-    if (row.point !== l.waypoints[0].point || JSON.stringify(row.serves) !== '["L1"]' || row.next_point !== null) fails.push(`(e) ${id}'s row does not carry the Brief Waypoint's point, serves and next_point: ${JSON.stringify(row)}`);
-    // What stands to be taken up at a Leg's first Waypoint (kogaki#1701): the Persona's prior
-    // knowledge on the first Leg, and on a later one what the previous Leg's Move leaves -- none here.
-    const stands = row.stands_to_be_taken_up;
-    const wantLeftBy = i === 0 ? ["the reader's prior knowledge"] : [];
-    if (!Array.isArray(stands) || JSON.stringify(stands.map((x) => x.left_by)) !== JSON.stringify(wantLeftBy) || !Array.isArray(row.terms_this_leg_introduces)) {
-      fails.push(`(e) ${id}'s row lacks stands_to_be_taken_up (${JSON.stringify(wantLeftBy)}) or terms_this_leg_introduces: ${JSON.stringify(row)}`);
+    const row = rec && rec.plan_call;
+    if (!rec || rec.leg_id !== l.leg_id || !row) { fails.push(`(e) ${id} has no input record of its plan call: ${JSON.stringify(rec)}`); continue; }
+    if (row.text !== l.text || JSON.stringify(row.claims.map((c) => c.strand)) !== '["L1"]' || row.paragraphs_at_most !== settings.brief.paragraphs_per_leg) {
+      fails.push(`(e) ${id}'s row does not carry the Leg's text, Claims and the paragraph bound: ${JSON.stringify(row)}`);
     }
-    if (Object.hasOwn(row, "entry_state")) fails.push(`(e) ${id}'s row still carries the retired entry_state (kogaki#1701)`);
-    if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["a_leg_move","p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
-    for (const v of [row.point, ...row.serves, ...row.paragraph_moves_you_may_bind]) {
+    // What the Legs before it state (kogaki#1777): derived from the Leg order, never a reader state.
+    const told = legs.slice(0, i).map((x) => ({ leg_id: x.leg_id, text: x.text }));
+    if (JSON.stringify(row.the_reader_has_been_told) !== JSON.stringify(told) || !Array.isArray(row.terms_this_leg_introduces)) {
+      fails.push(`(e) ${id}'s row lacks what the Legs before it state (${JSON.stringify(told)}) or terms_this_leg_introduces: ${JSON.stringify(row)}`);
+    }
+    for (const gone of ["entry_state", "waypoints", "stands_to_be_taken_up"]) if (Object.hasOwn(row, gone)) fails.push(`(e) ${id}'s row still carries the retired ${gone}`);
+    if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
+    for (const v of [row.text, ...row.paragraph_moves_you_may_bind]) {
       if (!prompt.includes(JSON.stringify(v))) fails.push(`(e) ${id}'s prompt string does not carry ${JSON.stringify(v)}`);
     }
   }
   const sites = (inputRecord(refusedRun.runDir, "leg-2") || {}).site_calls || [];
   const first = sites[0] || {};
   if (!sites.length) fails.push("(e) the refused Leg's site calls appended no site_calls row");
-  else if (first.waypoint !== 1 || first.retry !== 1 || !first.refused_here || !first.refused_here.length || !Object.hasOwn(first, "fixed")
-    || !Array.isArray(first.moves_rejected_here) || !Array.isArray(first.stands_to_be_taken_up) || Object.hasOwn(first, "entry_state")) fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
+  else if (first.paragraph !== 1 || first.retry !== 1 || !first.refused_here || !first.refused_here.length || first.bound_move !== "p1"
+    || !Array.isArray(first.the_reader_has_been_told) || ["fixed", "moves_rejected_here", "stands_to_be_taken_up", "entry_state"].some((k) => Object.hasOwn(first, k))) {
+    fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
+  }
   if (JSON.stringify((inputRecord(refusedRun.runDir, "leg-1") || {}).site_calls) !== "[]") fails.push("(e) a Leg with no site call does not carry an empty site_calls");
 }
 if (resumedRun && existsSync(resumedRun.planPath)) {
@@ -314,23 +309,23 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   const v = view("--moves-dir", moves);
   const out = v.stdout || "";
   if (v.status !== 0) fails.push(`(e) view failed: ${(v.stderr || "").slice(0, 400)}`);
-  for (const l of legs) if (!out.includes(`## Leg ${l.leg_id}`) || !out.includes(l.waypoints[0].point)) fails.push(`(e) the view does not print Leg ${l.leg_id} with its point`);
+  for (const l of legs) if (!out.includes(`## Leg ${l.leg_id}`) || !out.includes(`- **Text:** ${l.text}`)) fails.push(`(e) the view does not print Leg ${l.leg_id} with its text`);
   const s2 = out.slice(out.indexOf("## Leg s2"), out.indexOf("## Leg s3"));
   const want = ["- **Move:** `p1`", "- **Move takes:** explain: MOVE-TAKES what the copy is.",
     "| 1 | states the point once, plainly. |  |  | PW-s2 the paragraph establishes its point. (serves L1) |",
     "- **Move leaves:** answer: MOVE-LEAVES whose copy it is?"];
   for (const w of want) if (!s2.includes(w)) fails.push(`(e) the view's Leg s2 lacks ${JSON.stringify(w)}: ${s2.slice(0, 900)}`);
-  if (s2.indexOf("Move takes") > s2.indexOf("| 1 |") || s2.indexOf("| 1 |") > s2.indexOf("Move leaves")) fails.push("(e) the view's lines are not in the stated order");
+  if (s2.indexOf("Move takes") > s2.indexOf("Move leaves") || s2.indexOf("Move leaves") > s2.indexOf("### Paragraph 1") || s2.indexOf("### Paragraph 1") > s2.indexOf("| 1 |")) fails.push("(e) the view's lines are not in the stated order");
   for (const gone of ["Entry state", "Move before", "Move after", "reader_state_after"]) if (out.includes(gone)) fails.push(`(e) the view still prints ${JSON.stringify(gone)}, retired (kogaki#1701)`);
   if (out.includes("Refusals in this run")) fails.push("(e) the view without --run printed refusals");
   const r = view("--run", refusedRun.runDir);
   const s2r = (r.stdout || "").slice((r.stdout || "").indexOf("## Leg s2"), (r.stdout || "").indexOf("## Leg s3"));
-  if (r.status !== 0 || !/JUDGE-SENTENCE BREAKS Waypoint 1[^\n]* — axes: BREAKS/.test(s2r)) fails.push(`(e) view --run does not add (b)'s refusal with its axis: ${(r.stderr || "") + s2r.slice(0, 900)}`);
-  if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a Brief Waypoint met no refusal");
+  if (r.status !== 0 || !/JUDGE-SENTENCE BREAKS[^\n]* — axes: BREAKS/.test(s2r)) fails.push(`(e) view --run does not add (b)'s refusal with its axis: ${(r.stderr || "") + s2r.slice(0, 900)}`);
+  if (!/## Leg s1[\s\S]*- \*\*Refusals in this run:\*\* none/.test(r.stdout || "")) fails.push("(e) view --run does not say a paragraph met no refusal");
   const { legRefusals } = await import(pathToFileURL(join(repo, "src", "paragraph-plan.mjs")).href);
   const cited = legRefusals({ units: [{ id: "leg-1", refusals: [
-    "Waypoint 3: its 2 rounds are spent (kogaki#1642); the last refusal: Leg s1, Waypoint 3: the answer binds \"p1\", the Move Brief Waypoint 1 beside it already binds"] }] }, "leg-1", ["BREAKS"]);
-  if (JSON.stringify(cited.map((r) => r.waypoints)) !== "[[3]]") fails.push(`(e) a refusal citing its neighbour is attributed to it: ${JSON.stringify(cited)}`);
+    "paragraph 3: its 2 rounds are spent (kogaki#1642); the last refusal: Leg s1, paragraph 3: the answer's Waypoints restate those of paragraph 1 beside it"] }] }, "leg-1", ["BREAKS"]);
+  if (JSON.stringify(cited.map((r) => r.paragraphs)) !== "[[3]]") fails.push(`(e) a refusal citing its neighbour is attributed to it: ${JSON.stringify(cited)}`);
   writeFileSync(resumedRun.briefPath, briefText("The fixture claim, edited after the plan."));
   const moved = view("--moves-dir", moves);
   if (moved.status === 0 || !/was made from a different Brief/.test(moved.stderr || "")) fails.push(`(e) view did not refuse a plan whose Brief moved: ${(moved.stderr || "") + (moved.stdout || "").slice(0, 300)}`);
@@ -342,11 +337,11 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   const jobDir = join(root, "mapper-report");
   const rec = (refusal) => ({ prompt: "p", argv: {}, cli: {}, input: {}, row: { row: null, tables: [] }, raw: "", answer: {}, refusal });
   writeCallRecord(jobDir, "leg-1", 1, rec(null));
-  writeCallRecord(jobDir, "leg-1/reading/waypoint-1", 1, rec({ group: "context", reach: "part", text: "READING-REFUSED", validator: "validateMapperAnswer" }));
-  writeCallRecord(jobDir, "leg-1/reading/waypoint-1", 2, rec(null));
-  writeCallRecord(jobDir, "leg-1/grounding/waypoint-2", 1, rec(null));
+  writeCallRecord(jobDir, "leg-1/reading", 1, rec({ group: "context", reach: "part", text: "READING-REFUSED", validator: "validateMapperAnswer" }));
+  writeCallRecord(jobDir, "leg-1/reading", 2, rec(null));
+  writeCallRecord(jobDir, "leg-1/grounding", 1, rec(null));
   const out = spawnSync(process.execPath, ["src/workflow/job-report.mjs", jobDir], { cwd: repo, encoding: "utf8" }).stdout || "";
-  const want = ["unit leg-1:", "unit leg-1/reading/waypoint-1:", "context, part: READING-REFUSED", "unit leg-1/grounding/waypoint-2:"];
+  const want = ["unit leg-1:", "unit leg-1/reading:", "context, part: READING-REFUSED", "unit leg-1/grounding:"];
   const missing = want.filter((w) => !out.includes(w));
   if (missing.length || (out.match(/call \d+ —/g) || []).length !== 4) fails.push(`(f) the job report does not list the Leg's reading and grounding Call Records (missing ${missing.join(", ")}): ${out}`);
 }

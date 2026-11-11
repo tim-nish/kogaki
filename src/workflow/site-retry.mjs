@@ -1,8 +1,9 @@
 // The site loop of a Detached Job unit (kogaki#1642, owner decision 2026-10-31).
 // A job that declares `site_retry` keeps a refused Round's record as the unit's standing
-// record and repairs it at the Brief Waypoint the refusal named, one call at a time, rather
+// record and repairs it at the site the refusal named, one call at a time, rather
 // than asking the unit's whole call again. This file holds the loop's state and decides
 // the next call; the supervisor (detached-job.mjs) spawns it and hands its answer back.
+// A site is one entry of the standing record's `record_array`, by its 1-based number.
 // Like the supervisor it knows nothing of Legs or Moves: the prompts and the readers of
 // the answers are the declaring module's exports, named in its job table.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): see `src/SPEC-REFERENCES.md`.
@@ -31,11 +32,14 @@ export async function loadSiteRetry(declared) {
     return fn;
   });
   const inputs = declared.inputs || {};
+  const recordArray = typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "waypoints";
   // kogaki#1649: an optional `mark_export` marks the passing record with the judge refusals that forced it.
   const mark = declared.mark_export ? mod[String(declared.mark_export)] : null;
   if (declared.mark_export && typeof mark !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.mark_export)}.`);
   return {
     legRevisions,
+    recordArray,
+    siteLabel: typeof declared.site_label === "string" && declared.site_label ? declared.site_label : null,
     mark: mark ? (record, history, unitId) => mark(record, history, inputs, unitId) : null,
     sitePrompt: (ctx, unitId) => sitePrompt(ctx, inputs, unitId),
     siteAccept: (answer, ctx, unitId) => siteAccept(answer, ctx, inputs, unitId) || {},
@@ -46,8 +50,8 @@ export async function loadSiteRetry(declared) {
 
 // ONE UNIT'S SITE LOOP. Every method returns the next act: `{ kind: "site" | "suffix", prompt }`
 // to ask, `{ kind: "judge", scope }` to judge the entries that changed, `{ done }` with the
-// record every verdict passed, or `{ refused }` naming the Waypoint whose budget is spent.
-// THE BUDGET BELONGS TO THE SITE: `unitRounds` per Brief Waypoint, the unit's first call
+// record every verdict passed, or `{ refused }` naming the site whose budget is spent.
+// THE BUDGET BELONGS TO THE SITE: `unitRounds` per site, the unit's first call
 // counting at each, and `legRevisions` over every retry of the unit together.
 export class SiteLoop {
   constructor(hooks, unitId, unitRounds) {
@@ -64,22 +68,32 @@ export class SiteLoop {
     this.call = null;
   }
 
-  // The refused record becomes the standing record. `failures` are `{ waypoint, refusal }`;
-  // after a judgment every other Brief Waypoint passed.
+  // The standing record's entries, one per site.
+  entries() {
+    return (this.standing && this.standing[this.h.recordArray || "waypoints"]) || [];
+  }
+  // The refused record becomes the standing record. `failures` are `{ site, refusal }`;
+  // after a judgment every other site passed. A failure whose `site` is null refuses the record
+  // whole (kogaki#1777): no site can repair it, and the entries are composed again from the first.
   open(standing, failures, { byJudge }) {
     this.standing = standing;
-    if (byJudge) for (const [i] of (standing.waypoints || []).entries()) this.verdicts.set(i + 1, "fits");
+    if (byJudge) for (const [i] of this.entries().entries()) this.verdicts.set(i + 1, "fits");
     this.refuse(failures, byJudge);
     return this.next();
   }
 
   refuse(failures, byJudge) {
     for (const f of failures) {
-      const n = f.waypoint;
+      const n = f.site;
+      if (n === null || n === undefined) {
+        this.whole = f.refusal;
+        this.at(0).push({ entry: this.standing ?? null, refusal: f.refusal, by_judge: byJudge });
+        continue;
+      }
       this.verdicts.set(n, "does-not-fit");
       this.pending.set(n, f.refusal);
       this.spent.set(n, Math.max(this.spent.get(n) || 0, 1));
-      this.at(n).push({ entry: (this.standing.waypoints || [])[n - 1] ?? null, refusal: f.refusal, by_judge: byJudge });
+      this.at(n).push({ entry: this.entries()[n - 1] ?? null, refusal: f.refusal, by_judge: byJudge });
     }
   }
 
@@ -95,7 +109,7 @@ export class SiteLoop {
     return out;
   }
 
-  // The refusals this loop raised against the last answered call since the last drain, each with its Brief Waypoint,
+  // The refusals this loop raised against the last answered call since the last drain, each with its site,
   // for that call's Call Record (kogaki#1756). A call that returned no answer carries its own refusal already.
   drainRaised() {
     const out = this.raised;
@@ -106,15 +120,27 @@ export class SiteLoop {
   // The site's first refusal and its last, so the stop names why it was opened and where it ended.
   spentRefusal(n, what, why) {
     const first = (this.at(n)[0] || {}).refusal;
-    return { refused: `Waypoint ${n}: ${what} (kogaki#1642); `
+    return { refused: `${this.h.siteLabel || "Waypoint"} ${n}: ${what} (kogaki#1642); `
       + `${first && first !== why ? `the first refusal: ${first}; ` : ""}the last refusal: ${why}` };
   }
 
-  // THE NEXT ACT: the lowest Brief Waypoint still refused, or with none, a judgment of every
+  // THE NEXT ACT: the lowest site still refused, or with none, a judgment of every
   // entry no verdict covers and the join of the entry after each.
   next() {
+    // THE RECORD REFUSED WHOLE IS COMPOSED AGAIN FROM ITS FIRST ENTRY, inside the Leg's retries.
+    if (this.whole) {
+      const why = this.whole;
+      this.whole = null;
+      if (this.retries >= this.h.legRevisions) {
+        return { refused: `every ${this.h.siteLabel || "Waypoint"}: the Leg's ${this.h.legRevisions} site retries are spent (kogaki#1642, kogaki#1777); the last refusal: ${why}` };
+      }
+      this.retries += 1;
+      this.verdicts.clear();
+      this.pending.clear();
+      return this.suffix(1, [{ answer: this.standing ?? null, refusal: why }]);
+    }
     if (!this.pending.size) {
-      const total = this.standing.waypoints.length;
+      const total = this.entries().length;
       const judge = [];
       for (let n = 1; n <= total; n++) if (!this.verdicts.has(n)) judge.push(n);
       if (!judge.length) return { done: this.h.mark ? this.h.mark(this.standing, this.history, this.unitId) : this.standing };
@@ -160,7 +186,7 @@ export class SiteLoop {
       for (const m of [...this.pending.keys()]) if (m >= r.suffixFrom) this.pending.delete(m);
       return this.suffix(r.suffixFrom, []);
     }
-    if (r.sites) this.refuse(r.sites.map((s) => ({ waypoint: s.waypoint, refusal: s.why })), false);
+    if (r.sites) this.refuse(r.sites.map((s) => ({ site: s.site, refusal: s.why })), false);
     return this.next();
   }
 
@@ -180,7 +206,7 @@ export class SiteLoop {
     return this.next();
   }
 
-  // The judge's verdicts on the scope: `failures` as `{ waypoint, refusal }`; `failText` where
+  // The judge's verdicts on the scope: `failures` as `{ site, refusal }`; `failText` where
   // the call returned none, and the same judgment is asked again inside the Leg's retries.
   judged(failures, failText = null) {
     const c = this.call;
@@ -191,7 +217,7 @@ export class SiteLoop {
       this.retries += 1;
       return c;
     }
-    const failed = new Set(failures.map((f) => f.waypoint));
+    const failed = new Set(failures.map((f) => f.site));
     for (const n of [...c.scope.judge, ...c.scope.join_only]) if (!failed.has(n)) this.verdicts.set(n, "fits");
     for (const f of failures) this.log.push(f.refusal);
     this.refuse(failures, true);

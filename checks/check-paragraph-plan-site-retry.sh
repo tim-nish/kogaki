@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# check-paragraph-plan-site-retry — a ParagraphPlan refusal naming a Brief Waypoint is retried
-# at that Brief Waypoint alone (kogaki#1642). A fake judge (`KOGAKI_JUDGE_CLI`) answers each
-# call kind -- Leg, site, suffix, judge -- from a scenario module:
-#   (s1) one site call holds the Move alone and what stands; only the site and next join re-judged;
-#   (s2) a site answer repeating the refused entry is refused by name before any judge call;
-#   (s3) a rebound Move recomposes the entries after it, handed what it leaves (kogaki#1701);
-#   (s4) `move: null` naming only a rejected Move is a repeat; a spent site ends its Leg alone;
-#   (s5) the Leg ceiling `paragraph_plan.leg_revisions` ends a Leg naming the Waypoint;
+# check-paragraph-plan-site-retry — a ParagraphPlan refusal naming a paragraph is retried at that
+# paragraph alone, under the Leg's one Move (kogaki#1642, kogaki#1777). A fake judge
+# (`KOGAKI_JUDGE_CLI`) answers each call kind -- Leg, site, suffix, judge -- from a scenario module:
+#   (s1) one site call holds the Leg's Move and what the Legs before it state; only the site and the next join are re-judged, and the second Leg is handed the first Leg's text;
+#   (s2) a site answer repeating the refused paragraph is refused by name before any judge call;
+#   (s3) a site answer carrying a Move is refused before the judge: the Leg's Move is held;
+#   (s4) a spent site ends its Leg alone, naming the paragraph;
+#   (s5) the Leg ceiling `paragraph_plan.leg_revisions` ends a Leg naming the paragraph;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
-#   (s7)-(s9) a repair-naming `rationale`, a rebind to the neighbour's Move and a restatement
-#   are refused before the judge; (s10) a TAKEN or LEFT refusal holds no endpoint (kogaki#1701).
+#   (s7)-(s9) a repair-naming `rationale`, a Leg over `brief.paragraphs_per_leg` and a restatement are refused; (s10) a TAKEN or LEFT refusal reopens the whole Leg, its Move bound again;
+#   (s11)-(s12) a forced rewrite and a forced rebind carry their axes, and the run counts them.
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
@@ -26,7 +26,7 @@ process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
 const fails = [];
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
-const { legRecord, briefRecordText, readerStateMap } = await imp("src/compose.mjs");
+const { legRecord, briefRecordText } = await imp("src/compose.mjs");
 const { callRows, callsRoot, readCallRecord } = await imp("src/workflow/call-record.mjs");
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, siteRepeatRefusal, siteRestatementRefusal } = await imp("src/paragraph-plan.mjs");
 const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
@@ -37,32 +37,26 @@ const root = mkdtempSync(join(tmpdir(), "paragraph-plan-site-"));
 // checks/check-paragraph-plan.sh case (z) runs the Mapper.
 const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
 noMapper.paragraph_plan.mapper = false;
+noMapper.brief.paragraphs_per_leg = 2;
 process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
 writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 const moves = join(root, "moves");
 mkdirSync(moves);
 writeFileSync(join(moves, "ROLES.json"), readFileSync("moves/ROLES.json"));
-// p2 leaves one entry, so (s3) can see what a rebound Move leaves handed to the suffix call
-// (kogaki#1701); a_leg_move is the Move the Brief binds to every Leg.
-const P2_LEAVES = { kind: "explain", what: "P2-LEAVES the term the rebound paragraph names.", segment: 1 };
-for (const id of ["p1", "p2", "a_leg_move"]) {
+for (const id of ["p1", "p2"]) {
   writeFileSync(join(moves, `${id}.yaml`), stringifyYaml({ id, description: "a fixture Move.",
-    breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: id === "p2" ? [P2_LEAVES] : [] }));
+    breaks: ["breaks if the point is dropped."], segments: [{ operation: "states the point once, plainly." }], takes: [], leaves: [] }));
 }
 
-// ---- the Brief: Leg s1 of three Brief Waypoints, Leg s2 of one ----
+// ---- the Brief: Leg s1 and Leg s2, each its relation's text and no Brief Waypoint (kogaki#1775) ----
 const lessonCite = (slug) => `coding::lesson/${slug}@${"0".repeat(64)}`;
-const leg = (id, n) => ({
-  leg_id: id, move: "a_leg_move", purpose: `purpose of ${id}`,
-  materials: ["L1"], depends_on: [], rationale: `rationale for ${id}.`, claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
-  waypoints: Array.from({ length: n }, (_, i) => ({ point: `Point ${i + 1} of ${id} is made.`, serves: ["L1"], case: "own" })),
-});
+const leg = (id) => ({ leg_id: id, text: `The relation of ${id} holds.`, claims: [{ strand: "L1", proposition: "the fixture claim holds." }] });
 const briefText = briefRecordText({
   slug: "site-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: lessonCite("first-strand") }],
   thesis: "The fixture claim.",
   // No Reader start, Reader target or Obligations ledger, and no Leg state (kogaki#1699).
-  reader_path: [leg("s1", 3), leg("s2", 1)].map(legRecord),
+  reader_path: [leg("s1"), leg("s2")].map(legRecord),
   strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 });
 
@@ -77,34 +71,34 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const prompt = Buffer.concat(c).toString("utf8");
   const marker = "----- INPUT (JSON) -----\\n";
   const input = JSON.parse(prompt.slice(prompt.lastIndexOf(marker) + marker.length));
-  const kind = input.leg_you_must_judge ? "judge" : input.leg_waypoint_you_must_plan ? "site" : input.paragraphs_that_stand ? "suffix" : "plan";
-  const legId = (input.leg_you_must_judge || input.leg_waypoint_you_must_plan || input.leg_you_must_plan).leg_id;
+  const kind = input.leg_you_must_judge ? "judge" : input.paragraph_you_must_plan ? "site" : input.paragraphs_that_stand ? "suffix" : "plan";
+  const legId = (input.leg_you_must_judge || input.paragraph_you_must_plan || input.leg_you_must_plan).leg_id;
   const counter = dir + "/n-" + kind + "-" + legId;
   const n = (existsSync(counter) ? Number(readFileSync(counter, "utf8")) : 0) + 1;
   writeFileSync(counter, String(n));
-  const head = kind === "suffix" ? prompt.slice(0, prompt.lastIndexOf(marker)) : "";
+  const head = kind === "judge" ? "" : prompt.slice(0, prompt.lastIndexOf(marker));
   appendFileSync(dir + "/calls.jsonl", JSON.stringify({ kind, leg: legId, n, input, head }) + "\\n");
   const scenario = await import(pathToFileURL(process.env.PP_SCENARIO).href);
-  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(scenario[kind](input, n, legId)) }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify((scenario[kind] || scenario[kind + "Default"])(input, n, legId)) }) + "\\n");
 });
 `);
 chmodSync(judge, 0o755);
 
-// THE SCENARIO'S SHARED BUILDERS: one entry of the paragraph schema, tagged where it was
-// rewritten, and a verdict record refusing the Brief Waypoints `bad` names.
+// THE SCENARIO'S SHARED BUILDERS: one paragraph of the schema, tagged where it was rewritten,
+// a Leg's record under its one Move, and a verdict record refusing the paragraphs `bad` names.
 const BUILDERS = `
-export const entry = (w, legId, { move = "p1", tag = "", rationale = null } = {}) => ({
-  waypoint: w, move, materials: ["L1"], purpose: "brings the reader to point " + w + ".",
-  depends_on: w > 1 ? [w - 1] : [], rationale: rationale || "its takes are met by what the paragraph before leaves.",
-  introduces: [], "re-activate": [], ...(w > 1 ? { join: "consequence" } : {}),
-  paragraph_waypoints: move === null ? [] : [{ point: "PW-" + legId + "-" + w + tag + " the paragraph makes its point.", serves: ["L1"], cast: {} }] });
-export const plan = (input) => { const l = input.leg_you_must_plan;
-  return { version: "1", leg_id: l.leg_id, waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id)) }; };
-export const siteEntry = (input, opts = {}) => { const s = input.leg_waypoint_you_must_plan;
-  return entry(s.waypoint, s.leg_id, { ...(input.fixed || {}), ...opts }); };
+export const paragraph = (n, legId, { tag = "", rationale = null, move } = {}) => ({
+  paragraph: n, ...(move !== undefined ? { move } : {}), materials: ["L1"], purpose: "brings the reader to point " + n + ".",
+  depends_on: n > 1 ? [n - 1] : [], rationale: rationale || "its takes are met by what the paragraph before leaves.",
+  introduces: [], "re-activate": [], ...(n > 1 ? { join: "consequence" } : {}),
+  paragraph_waypoints: [{ point: "PW-" + legId + "-" + n + tag + " the paragraph makes its point.", serves: ["L1"], cast: {} }] });
+export const legPlan = (legId, { move = "p1", count = legId === "s1" ? 2 : 1, tag = "" } = {}) => ({ version: "1", leg_id: legId, move,
+  rationale: "the Move carries the relation.", paragraphs: Array.from({ length: count }, (_, i) => paragraph(i + 1, legId, { tag })) });
+export const planDefault = (input) => legPlan(input.leg_you_must_plan.leg_id);
+export const siteEntry = (input, opts = {}) => { const s = input.paragraph_you_must_plan; return paragraph(s.paragraph, s.leg_id, opts); };
 export const verdicts = (input, bad) => { const l = input.leg_you_must_judge;
-  return { version: "1", leg_id: l.leg_id, verdicts: l.waypoints.map((w) => ({ waypoint: w.waypoint,
-    verdict: bad(w.waypoint) ? "does-not-fit" : "fits", why: bad(w.waypoint) ? "REFUSED-AT-" + w.waypoint + " the paragraph misses its step." : "the paragraph performs its step." })) }; };
+  return { version: "1", leg_id: l.leg_id, verdicts: l.paragraphs.map((p) => ({ paragraph: p.paragraph,
+    verdict: bad(p.paragraph) ? "does-not-fit" : "fits", why: bad(p.paragraph) ? "REFUSED-AT-" + p.paragraph + " the paragraph misses its step." : "the paragraph performs its step." })) }; };
 `;
 
 function run(name, scenario, { settings = null } = {}) {
@@ -141,126 +135,110 @@ function run(name, scenario, { settings = null } = {}) {
   const out = `${started.stdout}${started.stderr}${awaited ? awaited.stdout + awaited.stderr : ""}`;
   return { calls, plan, out, runDir, job: readReaderPathJob(runDir), of: (kind, l = "s1") => calls.filter((c) => c.kind === kind && c.leg === l) };
 }
-const pwOf = (plan, l, w) => (plan ? plan.legs.find((x) => x.leg_id === l).waypoints[w - 1] : null);
+const pwOf = (plan, l, n) => (plan ? plan.legs.find((x) => x.leg_id === l).paragraphs[n - 1] : null);
 const point = (e) => (e && e.paragraph_waypoints[0] ? e.paragraph_waypoints[0].point : "");
+const phases = (r, unit = "leg-1") => callRows(callsRoot(r.runDir)).filter((x) => x.unit === unit).map((x) => readCallRecord(x.dir))
+  .filter((x) => x.row).map((x) => x.row.phase);
+const unit = (r, id) => r.job && r.job.units.find((u) => u.id === id);
 
-// (s1) ONE SITE CALL, THE REST STANDING, THE SITE AND THE NEXT JOIN RE-JUDGED.
+// (s1) ONE SITE CALL UNDER THE LEG'S MOVE, THE REST STANDING, THE SITE AND THE NEXT JOIN RE-JUDGED.
 {
   const r = run("s1", `export const site = (i) => siteEntry(i, { tag: "-site" });
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 1);`);
   const sites = r.of("site");
   if (r.of("plan").length !== 1) fails.push(`(s1) Leg s1's Leg call was asked ${r.of("plan").length} times, not once`);
-  if (sites.length !== 1 || sites[0].input.leg_waypoint_you_must_plan.waypoint !== 1) fails.push(`(s1) not one site call at Waypoint 1: ${JSON.stringify(sites.map((c) => c.input.leg_waypoint_you_must_plan.waypoint))}`);
-  const fixed = sites[0] && sites[0].input.fixed;
-  if (!fixed || JSON.stringify(fixed) !== JSON.stringify({ move: "p1" })) {
-    fails.push(`(s1) the site call does not hold the refused entry's move alone: ${JSON.stringify(fixed)}`);
+  const site1 = sites[0] && sites[0].input;
+  if (sites.length !== 1 || site1.paragraph_you_must_plan.paragraph !== 1) fails.push(`(s1) not one site call at paragraph 1: ${JSON.stringify(sites.map((c) => c.input.paragraph_you_must_plan.paragraph))}`);
+  if (!site1 || !site1.bound_move || site1.bound_move.id !== "p1" || "fixed" in site1) {
+    fails.push(`(s1) the site call does not hold the Leg's Move: ${JSON.stringify(site1 && site1.bound_move)}`);
   }
-  const site1 = sites[0] && sites[0].input.leg_waypoint_you_must_plan;
-  if (!site1 || !Array.isArray(site1.stands_to_be_taken_up) || "reader_state_after" in site1 || "reader_state_before" in site1
-    || !Array.isArray(sites[0].input.leaves_for_next_leg)) {
-    fails.push(`(s1) the site call is not handed what stands to be taken up and the Leg's leaves_for_next_leg, with no reader state (kogaki#1701): ${JSON.stringify(site1)}`);
+  if (!site1 || !Array.isArray(site1.paragraph_you_must_plan.the_reader_has_been_told) || "stands_to_be_taken_up" in site1.paragraph_you_must_plan
+    || "reader_state_before" in site1.paragraph_you_must_plan || !Array.isArray(site1.leaves_for_next_leg)) {
+    fails.push(`(s1) the site call is not handed what the Legs before it state and the Leg's leaves_for_next_leg, with no reader state (kogaki#1777): ${JSON.stringify(site1 && site1.paragraph_you_must_plan)}`);
   }
-  if (!sites[0] || !sites[0].input.refused_here.some((h) => h.refusal.includes("REFUSED-AT-1") && point(h.entry).startsWith("PW-s1-1 "))) {
-    fails.push("(s1) the site call is not handed the refused entry beside the judge's sentence");
+  if (!site1 || !site1.refused_here.some((h) => h.refusal.includes("REFUSED-AT-1") && point(h.entry).startsWith("PW-s1-1 "))) {
+    fails.push("(s1) the site call is not handed the refused paragraph beside the judge's sentence");
   }
   const judges = r.of("judge");
-  const second = judges[1] && judges[1].input.leg_you_must_judge.waypoints;
-  if (judges.length !== 2 || !second || JSON.stringify(second.map((w) => w.waypoint)) !== "[1,2]"
+  const second = judges[1] && judges[1].input.leg_you_must_judge.paragraphs;
+  if (judges.length !== 2 || !second || JSON.stringify(second.map((w) => w.paragraph)) !== "[1,2]"
     || second[0].judge_its_join_only || second[1].judge_its_join_only !== true || !Array.isArray(judges[1].input.standing_paragraphs)) {
-    fails.push(`(s1) the second judgment is not Waypoint 1 whole and Waypoint 2's join alone beside the standing record: ${JSON.stringify(second)}`);
+    fails.push(`(s1) the second judgment is not paragraph 1 whole and paragraph 2's join alone beside the standing record: ${JSON.stringify(second)}`);
+  }
+  const told = r.of("plan", "s2")[0] && r.of("plan", "s2")[0].input.leg_you_must_plan.the_reader_has_been_told;
+  if (JSON.stringify(told) !== JSON.stringify([{ leg_id: "s1", text: "The relation of s1 holds." }])
+    || JSON.stringify(r.of("plan")[0].input.leg_you_must_plan.the_reader_has_been_told) !== "[]") {
+    fails.push(`(s1) Leg s2 is not handed what Leg s1 states, derived from the Leg order (kogaki#1777): ${JSON.stringify(told)}`);
   }
   if (!r.plan) fails.push(`(s1) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
-  else if (!point(pwOf(r.plan, "s1", 1)).includes("PW-s1-1-site") || ![2, 3].every((w) => point(pwOf(r.plan, "s1", w)).startsWith(`PW-s1-${w} `))) {
-    fails.push(`(s1) the plan file does not carry the site's rewrite at Waypoint 1 and the Leg call's entries elsewhere: ${[1, 2, 3].map((w) => point(pwOf(r.plan, "s1", w))).join(" / ")}`);
+  else if (!point(pwOf(r.plan, "s1", 1)).includes("PW-s1-1-site") || !point(pwOf(r.plan, "s1", 2)).startsWith("PW-s1-2 ")
+    || r.plan.legs.find((x) => x.leg_id === "s1").move !== "p1") {
+    fails.push(`(s1) the plan file does not carry the site's rewrite at paragraph 1 and the Leg call's paragraph 2 under p1: ${[1, 2].map((w) => point(pwOf(r.plan, "s1", w))).join(" / ")}`);
   }
 }
 
-// (s2) AN ANSWER REPEATING THE REFUSED ENTRY IS REFUSED BEFORE THE JUDGE.
+// (s2) AN ANSWER REPEATING THE REFUSED PARAGRAPH IS REFUSED BEFORE THE JUDGE.
 {
-  const r = run("s2", `export const site = (i, n) => (n === 1 ? i.refused_here[0].entry : siteEntry(i, { move: "p2", tag: "-site" }));
-export const suffix = (i) => { const l = i.leg_you_must_plan; return { version: "1", leg_id: l.leg_id,
-  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id)) }; };
+  const r = run("s2", `export const site = (i, n) => (n === 1 ? i.refused_here[0].entry : siteEntry(i, { tag: "-site" }));
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 1);`);
   const sites = r.of("site");
-  const want = `Leg s1, Waypoint 1: ${siteRepeatRefusal(1)}`;
-  if (siteRepeatRefusal(1) !== "the answer repeats the refused entry at Brief Waypoint 1; the refusal asked for a change at that site") {
+  const want = `Leg s1, paragraph 1: ${siteRepeatRefusal(1)}`;
+  if (siteRepeatRefusal(1) !== "the answer repeats the refused paragraph 1; the refusal asked for a change at that paragraph") {
     fails.push(`(s2) the repeat refusal does not read as the Issue states it: ${siteRepeatRefusal(1)}`);
   }
   if (sites.length !== 2 || !sites[1].input.refused_here.some((h) => h.refusal === want)) {
     fails.push(`(s2) the second site call is not handed the repeat refusal by name: ${JSON.stringify(sites.map((c) => c.input.refused_here.map((h) => h.refusal)))}`);
   }
   if (r.of("judge").length !== 2) fails.push(`(s2) the judge was called ${r.of("judge").length} times, not twice -- a repeat must reach no judge`);
-  const row = r.job && r.job.units.find((u) => u.id === "leg-1");
+  const row = unit(r, "leg-1");
   if (!row || row.status !== "done" || !(row.refusals || []).includes(want)) fails.push(`(s2) the unit row does not end done carrying the repeat refusal: ${JSON.stringify(row && { status: row.status, refusals: row.refusals })}`);
 }
 
-// (s3) A REBOUND MOVE REOPENS THE ENTRIES AFTER IT, AND NONE BEFORE IT; the suffix call's first
-// Brief Waypoint is handed what the rebound Move leaves (kogaki#1701).
+// (s3) A SITE ANSWER BINDS NO MOVE: THE LEG'S MOVE IS HELD AT EVERY PARAGRAPH (kogaki#1777).
 {
-  const r = run("s3", `export const site = (i, n) => (n === 1 ? siteEntry(i, { tag: "-site1" }) : siteEntry(i, { move: "p2", tag: "-site2" }));
-export const suffix = (i, n) => { const l = i.leg_you_must_plan; return { version: "1", leg_id: l.leg_id,
-  waypoints: l.waypoints.map((w) => entry(w.waypoint, l.leg_id, { tag: "-suffix" + n })) }; };
-export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n <= 2 && w === 2);`);
-  const suffixes = r.of("suffix");
-  const first = suffixes[0] && suffixes[0].input;
-  const stands = first && first.leg_you_must_plan.waypoints[0] && first.leg_you_must_plan.waypoints[0].stands_to_be_taken_up;
-  if (suffixes.length !== 1 || JSON.stringify(first.leg_you_must_plan.waypoints.map((w) => w.waypoint)) !== "[3]"
-    || !(stands || []).some((x) => x.what === P2_LEAVES.what && x.kind === "explain" && x.left_by === "Brief Waypoint 2")) {
-    fails.push(`(s3) the entries after Waypoint 2 were not composed again from what the rebound Move leaves: ${JSON.stringify(first && first.leg_you_must_plan)}`);
+  const r = run("s3", `export const site = (i, n) => siteEntry(i, n === 1 ? { move: "p2", tag: "-site1" } : { tag: "-site2" });
+export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 2);`);
+  const sites = r.of("site");
+  const said = sites[1] ? sites[1].input.refused_here.map((h) => h.refusal) : [];
+  if (sites.length !== 2 || !said.some((x) => x.startsWith("Leg s1, paragraph 2: the answer carries `move` — the Leg's Move \"p1\" is held"))) {
+    fails.push(`(s3) the second site call is not handed the refusal of the site's Move: ${JSON.stringify(said)}`);
   }
-  if (!first || first.paragraphs_that_stand.length !== 2 || !point(first.paragraphs_that_stand[0]).startsWith("PW-s1-1 ")) {
-    fails.push("(s3) the suffix call is not handed Waypoint 1 as the Leg call wrote it and the moved Waypoint 2");
-  }
-  const judges = r.of("judge");
-  const last = judges[judges.length - 1];
-  if (!last || JSON.stringify(last.input.leg_you_must_judge.waypoints.map((w) => w.waypoint)) !== "[2,3]") {
-    fails.push(`(s3) the last judgment is not Waypoints 2 and 3: ${JSON.stringify(last && last.input.leg_you_must_judge.waypoints.map((w) => w.waypoint))}`);
-  }
-  if (!r.plan) fails.push(`(s3) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
-  else {
-    const [e1, e2, e3] = [1, 2, 3].map((w) => pwOf(r.plan, "s1", w));
-    if (!point(e1).startsWith("PW-s1-1 ") || e2.move !== "p2" || !point(e2).includes("-site2") || !point(e3).includes("-suffix1")) {
-      fails.push(`(s3) the plan file is not Waypoint 1 unchanged, Waypoint 2 rebound and Waypoint 3 recomposed to the Leg's end: ${JSON.stringify([e1, e2, e3])}`);
-    }
+  if (r.of("judge").length !== 2) fails.push(`(s3) the judge was called ${r.of("judge").length} times for Leg s1, not twice -- a site's Move reaches no judge`);
+  if (!r.plan || r.plan.legs.find((x) => x.leg_id === "s1").move !== "p1" || !point(pwOf(r.plan, "s1", 2)).includes("-site2")) {
+    fails.push(`(s3) the plan file does not hold Leg s1 under p1 with the second site answer at paragraph 2: ${r.plan ? JSON.stringify(r.plan.legs[0]) : r.out.slice(0, 600)}`);
   }
 }
 
-// (s4) A NULL NAMING ONLY A REJECTED MOVE IS A REPEAT; THE SPENT SITE ENDS ITS LEG ALONE.
+// (s4) THE SPENT SITE ENDS ITS LEG ALONE, NAMING THE PARAGRAPH.
 {
-  const r = run("s4", `export const site = (i, n) => (n === 1 ? siteEntry(i, { tag: "-site1" })
-  : siteEntry(i, { move: null, rationale: "NULL-SENTENCE p1 cannot hold the state this paragraph begins in." }));
+  const r = run("s4", `export const site = (i) => i.refused_here[0].entry;
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
-  const sites = r.of("site");
-  if (sites.length !== 2 || JSON.stringify(sites[1].input.moves_rejected_here) !== JSON.stringify(["p1"])) {
-    fails.push(`(s4) the second site call is not handed the Move rejected at the site: ${JSON.stringify(sites.map((c) => c.input.moves_rejected_here))}`);
-  }
-  if (r.of("judge").length !== 2) fails.push(`(s4) the judge was called ${r.of("judge").length} times for Leg s1, not twice -- the null repeat must reach no judge`);
-  const units = (r.job && r.job.units) || [];
-  const s1 = units.find((u) => u.id === "leg-1");
-  const s2 = units.find((u) => u.id === "leg-2");
+  const s1 = unit(r, "leg-1");
+  const s2 = unit(r, "leg-2");
   const last = s1 && s1.refusals ? s1.refusals[s1.refusals.length - 1] : "";
-  if (!s1 || s1.status !== "refused" || !last.includes("Waypoint 1: its 3 rounds are spent") || !last.includes(siteRepeatRefusal(1))) {
-    fails.push(`(s4) Leg s1 does not end refused naming Waypoint 1 and its spent rounds: ${JSON.stringify(s1 && { status: s1.status, last })}`);
+  if (!s1 || s1.status !== "refused" || !/paragraph 1: its \d+ rounds are spent/.test(last) || !last.includes(siteRepeatRefusal(1))) {
+    fails.push(`(s4) Leg s1 does not end refused naming paragraph 1 and its spent rounds: ${JSON.stringify(s1 && { status: s1.status, last })}`);
   }
+  if (r.of("judge").length !== 1) fails.push(`(s4) the judge was called ${r.of("judge").length} times for Leg s1, not once -- a repeat reaches no judge`);
   if (!s2 || s2.status !== "done" || !s2.candidate) fails.push(`(s4) Leg s2 did not finish beside the refused Leg: ${JSON.stringify(s2 && s2.status)}`);
-  // THE SITE LOOP'S REFUSAL IS PINNED TO THE CALL IT REFUSED (kogaki#1756): the second site call's Call Record.
+  // THE SITE LOOP'S REFUSAL IS PINNED TO THE CALL IT REFUSED (kogaki#1756): the first site call's Call Record.
   const siteRecords = callRows(callsRoot(r.runDir)).filter((x) => x.unit === "leg-1")
     .map((x) => readCallRecord(x.dir)).filter((x) => x.row && x.row.phase === "site");
-  const pinned = siteRecords[1] && siteRecords[1].refusal;
+  const pinned = siteRecords[0] && siteRecords[0].refusal;
   if (!pinned || !String(pinned.text).includes(siteRepeatRefusal(1)) || JSON.stringify(pinned.sites) !== "[1]") {
-    fails.push(`(s4) the second site call's Call Record does not hold the site loop's refusal at Waypoint 1: ${JSON.stringify(pinned)}`);
+    fails.push(`(s4) the site call's Call Record does not hold the site loop's refusal at paragraph 1: ${JSON.stringify(pinned)}`);
   }
-  if (!/Leg s1, Waypoint 1\b/.test(r.out) || r.plan) fails.push(`(s4) the stop does not name Leg s1, Waypoint 1, or a plan file was written: ${r.out.slice(0, 600)}`);
+  if (!/Leg s1, paragraph 1\b/.test(r.out) || r.plan) fails.push(`(s4) the stop does not name Leg s1, paragraph 1, or a plan file was written: ${r.out.slice(0, 600)}`);
 }
 
 // (s5) THE LEG CEILING ENDS A LEG WHOSE SITES STILL HAVE ROUNDS.
 {
   const r = run("s5", `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { settings: { leg_revisions: 2 } });
-  const s1 = r.job && r.job.units.find((u) => u.id === "leg-1");
+  const s1 = unit(r, "leg-1");
   const last = s1 && s1.refusals ? s1.refusals[s1.refusals.length - 1] : "";
-  if (r.of("site").length !== 2 || !s1 || s1.status !== "refused" || !last.includes("Waypoint 1: the Leg's 2 site retries are spent")) {
-    fails.push(`(s5) the Leg ceiling did not end Leg s1 after two site retries naming Waypoint 1: ${r.of("site").length} site call(s), ${JSON.stringify(s1 && { status: s1.status, last })}`);
+  if (r.of("site").length !== 2 || !s1 || s1.status !== "refused" || !last.includes("paragraph 1: the Leg's 2 site retries are spent")) {
+    fails.push(`(s5) the Leg ceiling did not end Leg s1 after two site retries naming paragraph 1: ${r.of("site").length} site call(s), ${JSON.stringify(s1 && { status: s1.status, last })}`);
   }
 }
 
@@ -283,30 +261,27 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w <= 2);`, { 
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
   const sites = r.of("site");
   const said = sites[1] ? sites[1].input.refused_here.map((h) => h.refusal) : [];
-  if (sites.length !== 2 || !said.some((t) => t.startsWith("Leg s1, Waypoint 1: the answer's `rationale` carries \"refusal\""))) {
+  if (sites.length !== 2 || !said.some((x) => x.startsWith("Leg s1, paragraph 1: the answer's `rationale` carries \"refusal\""))) {
     fails.push(`(s7) the second site call is not handed the refusal naming \`rationale\` and its word "refusal": ${JSON.stringify(said)}`);
   }
-  const s1 = r.job && r.job.units.find((u) => u.id === "leg-1");
-  if (!s1 || !(s1.refusals || []).some((t) => t.startsWith("Leg s1, Waypoint 1: the answer's `rationale` carries `point`"))) {
+  const s1 = unit(r, "leg-1");
+  if (!s1 || !(s1.refusals || []).some((x) => x.startsWith("Leg s1, paragraph 1: the answer's `rationale` carries `point`"))) {
     fails.push(`(s7) a backticked field name in \`rationale\` was not refused naming the field: ${JSON.stringify(s1 && s1.refusals)}`);
   }
   if (r.of("judge").length !== 1) fails.push(`(s7) the judge was called ${r.of("judge").length} times for Leg s1, not once -- a prose refusal reaches no judge`);
 }
 
-// (s8) A REBOUND PARAGRAPH BINDS NO MOVE OF THE ENTRY BESIDE IT (kogaki#1651).
+// (s8) A LEG ANSWER OVER brief.paragraphs_per_leg IS REFUSED NAMING THE LEG AND THE BOUND (kogaki#1777).
 {
-  const r = run("s8", `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
-export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
-  const sites = r.of("site");
-  if (sites.length !== 2 || JSON.stringify(sites[1].input.moves_bound_beside) !== JSON.stringify([{ waypoint: 2, move: "p1" }])) {
-    fails.push(`(s8) the second site call is not handed the next entry's Move as \`moves_bound_beside\`: ${JSON.stringify(sites.map((c) => c.input.moves_bound_beside))}`);
+  const r = run("s8", `export const plan = (i, n) => legPlan(i.leg_you_must_plan.leg_id, { count: n === 1 && i.leg_you_must_plan.leg_id === "s1" ? 3 : 1 });
+export const judge = (i) => verdicts(i, () => false);`);
+  const s1 = unit(r, "leg-1");
+  const said = (s1 && s1.refusals) || [];
+  if (!said.some((x) => x.includes("Leg s1") && x.includes("3 paragraph") && x.includes("brief.paragraphs_per_leg") && x.includes("2"))) {
+    fails.push(`(s8) a Leg of 3 paragraphs over the bound of 2 is not refused naming the Leg and brief.paragraphs_per_leg: ${JSON.stringify(said)}`);
   }
-  const s1 = r.job && r.job.units.find((u) => u.id === "leg-1");
-  const want = 'Leg s1, Waypoint 1: the answer binds "p1", the Move Brief Waypoint 2 beside it already binds';
-  if (!s1 || s1.status !== "refused" || !(s1.refusals || []).some((t) => t.startsWith(want))) {
-    fails.push(`(s8) the rebinding retry binding the neighbour's Move was not refused naming Brief Waypoint 2: ${JSON.stringify(s1 && s1.refusals)}`);
-  }
-  if (r.of("judge").length !== 2) fails.push(`(s8) the judge was called ${r.of("judge").length} times for Leg s1, not twice -- the neighbour's Move reaches no judge`);
+  if (r.of("plan").length !== 2 || r.of("judge").length !== 1) fails.push(`(s8) the over-bound Leg was not asked again before any judge: ${r.of("plan").length} plan call(s), ${r.of("judge").length} judgment(s)`);
+  if (!r.plan || r.plan.legs.find((x) => x.leg_id === "s1").paragraphs.length !== 1) fails.push(`(s8) the plan file does not carry the Leg's second answer: ${r.out.slice(0, 600)}`);
 }
 
 // (s9) A RESTATEMENT UNDER A CHANGED SHAPE IS REFUSED BEFORE THE JUDGE (kogaki#1651).
@@ -316,23 +291,31 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && w === 1);`);
   return { ...e, paragraph_waypoints: e.paragraph_waypoints.map((p) => ({ performs: p.point })) }; };
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 1);`);
   const sites = r.of("site");
-  const want = `Leg s1, Waypoint 1: ${siteRestatementRefusal(1, ["PW-s1-1 the paragraph makes its point."])}`;
+  const want = `Leg s1, paragraph 1: ${siteRestatementRefusal(1, ["PW-s1-1 the paragraph makes its point."])}`;
   if (!want.includes('"PW-s1-1 the paragraph makes its point."')) fails.push(`(s9) the restatement refusal does not name the unchanged point: ${want}`);
   if (sites.length < 2 || !sites[1].input.refused_here.some((h) => h.refusal === want)) {
     fails.push(`(s9) the second site call is not handed the restatement refusal naming the points: ${JSON.stringify(sites.map((c) => c.input.refused_here.map((h) => h.refusal)))}`);
   }
-  if (r.of("judge").length !== 1) fails.push(`(s9) the judge was called ${r.of("judge").length} times for Leg s1, not once -- a restatement reaches no judge`);
+  if (sites.length !== 2 || r.of("judge").length !== 2) fails.push(`(s9) the judge was called ${r.of("judge").length} times for Leg s1 over ${sites.length} site call(s), not twice over two -- a restatement reaches no judge`);
 }
 
-// (s10) A REFUSAL OF THE BINDING HOLDS NO ENDPOINT; A REFUSAL OF THE POINTS HOLDS BOTH (kogaki#1647).
-for (const [axis, held] of [["TAKEN", false], ["LEFT", false], ["BREAKS", true]]) {
+// (s10) A REFUSAL OF THE BINDING REOPENS THE WHOLE LEG; A REFUSAL OF THE POINTS HOLDS THE MOVE
+// (kogaki#1647, kogaki#1777).
+for (const [axis, whole] of [["TAKEN", true], ["LEFT", true], ["BREAKS", false]]) {
   const r = run(`s10-${axis.toLowerCase()}`, `export const site = (i, n) => siteEntry(i, { tag: "-site" + n });
+export const plan = (i, n) => legPlan(i.leg_you_must_plan.leg_id, n === 1 ? {} : { move: "p2", tag: "-again" });
 export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n === 1 && w === 1);
   for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "${axis} fails at the paragraph's first point.";
   return v; };`);
-  const fixed = r.of("site").length ? r.of("site")[0].input.fixed : undefined;
-  if (held ? !(fixed && fixed.move === "p1") : fixed !== null) {
-    fails.push(`(s10) the first site call after a ${axis} refusal is handed \`fixed\` ${JSON.stringify(fixed)}, ${held ? "not the refused entry's Move" : "not null"}`);
+  const s1 = r.plan && r.plan.legs.find((x) => x.leg_id === "s1");
+  if (whole) {
+    const again = r.of("plan")[1];
+    if (r.of("site").length || r.of("plan").length !== 2 || !phases(r).includes("suffix") || !again || !again.head.includes(`${axis} fails`)) {
+      fails.push(`(s10) a ${axis} refusal did not reopen Leg s1 whole through one suffix call handed the refusal: ${r.of("site").length} site, ${r.of("plan").length} plan call(s), phases ${JSON.stringify(phases(r))}`);
+    }
+    if (!s1 || s1.move !== "p2" || !point(s1.paragraphs[1]).includes("-again")) fails.push(`(s10) after a ${axis} refusal the plan file does not carry the Leg rebound to p2: ${JSON.stringify(s1)}`);
+  } else if (r.of("site").length !== 1 || r.of("site")[0].input.bound_move.id !== "p1" || !s1 || s1.move !== "p1") {
+    fails.push(`(s10) a ${axis} refusal was not repaired at its paragraph under the Leg's Move p1: ${r.of("site").length} site call(s), ${JSON.stringify(s1 && s1.move)}`);
   }
 }
 
@@ -346,12 +329,12 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
   if (!r.plan) fails.push(`(s11) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
   else {
     if (JSON.stringify(marks("s1", 1)) !== JSON.stringify([["PERFORMS IS BARE"]])) {
-      fails.push(`(s11) the rewritten Waypoint at Leg s1, Waypoint 1 does not carry forced_by [PERFORMS IS BARE]: ${JSON.stringify(marks("s1", 1))}`);
+      fails.push(`(s11) the rewritten Waypoint at Leg s1, paragraph 1 does not carry forced_by [PERFORMS IS BARE]: ${JSON.stringify(marks("s1", 1))}`);
     }
-    for (const [l, w] of [["s1", 2], ["s1", 3], ["s2", 1]]) {
-      if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, Waypoint ${w} passed on its first round and carries forced_by: ${JSON.stringify(marks(l, w))}`);
+    for (const [l, w] of [["s1", 2], ["s2", 1]]) {
+      if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, paragraph ${w} passed on its first round and carries forced_by: ${JSON.stringify(marks(l, w))}`);
     }
-    if (Object.hasOwn(pwOf(r.plan, "s1", 1), "move_forced_by")) fails.push("(s11) a site call that held the Move marks the entry's move");
+    if (Object.hasOwn(r.plan.legs.find((x) => x.leg_id === "s1"), "move_forced_by")) fails.push("(s11) a site call that held the Move marks the Leg's move");
   }
   const donePath = join(root, "s11", "run", "paragraph-plan-done.json");
   const c = existsSync(donePath) ? JSON.parse(readFileSync(donePath, "utf8")).collisions : null;
@@ -361,16 +344,16 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
   }
 }
 
-// (s12) A REBIND THE JUDGE FORCED MARKS THE ENTRY'S MOVE WITH THE SAME AXES (kogaki#1649).
+// (s12) A REBIND THE JUDGE FORCED MARKS THE LEG'S MOVE WITH THE SAME AXES (kogaki#1649, kogaki#1777).
 {
-  const r = run("s12", `export const site = (i) => siteEntry(i, { move: "p2", tag: "-site" });
+  const r = run("s12", `export const plan = (i, n) => legPlan(i.leg_you_must_plan.leg_id, n === 1 ? {} : { move: "p2", tag: "-again" });
 export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s2" && n === 1 && w === 1);
-  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "TAKEN fails: the bound Move takes up an answer nothing stands to be taken up for.";
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "TAKEN fails: the bound Move takes up an answer the reader has not been told.";
   return v; };`);
-  const e = pwOf(r.plan, "s2", 1);
-  if (!e || e.move !== "p2" || JSON.stringify(e.move_forced_by) !== JSON.stringify(["TAKEN"])
-    || JSON.stringify(e.paragraph_waypoints.map((p) => p.forced_by)) !== JSON.stringify([["TAKEN"]])) {
-    fails.push(`(s12) the rebound entry at Leg s2, Waypoint 1 does not carry move_forced_by and forced_by [TAKEN]: ${JSON.stringify(e)}`);
+  const l = r.plan && r.plan.legs.find((x) => x.leg_id === "s2");
+  if (!l || l.move !== "p2" || JSON.stringify(l.move_forced_by) !== JSON.stringify(["TAKEN"])
+    || JSON.stringify(l.paragraphs[0].paragraph_waypoints.map((p) => p.forced_by)) !== JSON.stringify([["TAKEN"]])) {
+    fails.push(`(s12) the rebound Leg s2 does not carry move_forced_by and forced_by [TAKEN]: ${JSON.stringify(l) || r.out.slice(0, 600)}`);
   }
 }
 
@@ -378,5 +361,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-site-retry — a refusal naming a Brief Waypoint is retried there alone, holding its Move first and handed what stands to be taken up (kogaki#1701); a repeat is refused before the judge; a rebound Move recomposes only the entries after it, the suffix call handed what it leaves (kogaki#1701); a null naming only rejected Moves is a repeat; a site's rounds or the Leg ceiling end that Leg alone, naming the Waypoint (kogaki#1642); prose naming the repair, the neighbour's Move and a restated round are each refused by name before the judge (kogaki#1651); a TAKEN or LEFT refusal holds no endpoint on the first retry (kogaki#1647, kogaki#1701); a Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
+console.log("ok: check-paragraph-plan-site-retry — a refusal naming a paragraph is retried there alone under the Leg's one Move, handed what the Legs before it state (kogaki#1777); a repeat, a site's own Move, prose naming the repair and a restated round are each refused by name before the judge (kogaki#1651); a site's rounds or the Leg ceiling end that Leg alone, naming the paragraph (kogaki#1642); a Leg over brief.paragraphs_per_leg is asked again whole; a TAKEN or LEFT refusal reopens the whole Leg and binds its Move again (kogaki#1647, kogaki#1777); a Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
 JS

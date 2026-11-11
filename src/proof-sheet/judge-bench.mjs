@@ -137,7 +137,7 @@ export async function bench({ axisIds, draws, out, parallel, registryPath }) {
       for (const kind of ["defect", "clean"]) {
         for (const name of axis.fixtures[kind]) {
           const input = axisRecord(registry, name);
-          const at = registry.records[name].at_waypoint;
+          const at = registry.records[name].at_paragraph;
           const prompt = `${heads[arm]}${JSON.stringify(input, null, 2)}`;
           for (let d = 1; d <= draws; d++) {
             jobs.push(async () => {

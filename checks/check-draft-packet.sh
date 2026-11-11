@@ -19,29 +19,30 @@
 # not copied".
 #
 # WHAT THIS COVERS, over a Packet rendered by `renderPacket` (src/draft.mjs)
-# from a fixture Brief record whose second Brief Waypoint carries the join
-# `consequence`:
+# from a fixture Brief record of one Leg, its `text` and no Brief Waypoint
+# (kogaki#1775), beside the two paragraphs a ParagraphPlan gives it, the second
+# carrying the join `consequence` (kogaki#1777):
 #   (a) the rendered Packet's Opens-from paragraph -- from "An *Opens from*
 #       line" to the blank line -- carries "a connective or clause", "`none`
 #       adds nothing" and "Never state the relation as a proposition of its
 #       own", and does not carry "or a sentence of your choosing", read as word
 #       sequences so a rewrap of the template changes nothing; and nowhere in
 #       the Packet is a sentence offered as the opening's form;
-#   (b) the join renders as its `*Opens from:*` line under the second Brief
-#       Waypoint, so the paragraph (a) reads is the one governing a line the
+#   (b) the join renders as its `*Opens from:*` line under the second
+#       paragraph's line, so the paragraph (a) reads is the one governing a line the
 #       Packet actually carries;
 #   (c) THE COUNTERFACTUALS: the same render over the template as it stood
 #       before kogaki#1447, and as it stood before kogaki#1477, is each refused
 #       by the same predicate, so (a) is not passing vacuously.
 #   (d) A `performs` WAYPOINT RENDERS AS AN OPERATION LINE
-#       (kogaki#1448): in the same Packet, a first Brief Waypoint whose
+#       (kogaki#1448): in the same Packet, a first paragraph whose
 #       Waypoints are a `performs` entry and a `point` entry renders the first
-#       as `1. *<operation>*` under its Brief Waypoint -- italic, with no point
+#       as `1. *<operation>*` under its paragraph's line -- italic, with no point
 #       and no `*Serves:*` -- and the second in the point form; the template's
 #       waypoints block tells the Writer such a line is performed in the
 #       paragraph's own words and states no proposition;
 #   (e) `node src/draft.mjs resolve` over the fixture Brief with a
-#       ParagraphPlan file beside it accepts a Brief Waypoint carrying a
+#       ParagraphPlan file beside it accepts a paragraph carrying a
 #       `performs` entry beside a `point` entry, and refuses one none of whose
 #       Waypoints carries a `point`, by name (kogaki#1448).
 #   (f) THE REGISTER CARRIES NO VOICE RULE (kogaki#1488): the Write block of
@@ -147,23 +148,29 @@ const { writeMappingRecord, mappingDirFor } = await import(pathToFileURL(join(re
 
 const C1 = "the installer copies the kit into the consumer's tree.";
 const JOIN = "consequence";
-// EVERY PLAN ENTRY CARRIES THE PARAGRAPH'S SCHEMA (kogaki#1639): the bound Move's id (any id
-// the library holds -- /draft opens no Move, kogaki#1311), its Brief Waypoint's serves, a purpose,
-// the paragraph before, a rationale, no term and no re-activation, and no reader state
-// (kogaki#1701). The texts are marked so (m) can read their absence from the Packet.
+// EVERY PLAN PARAGRAPH CARRIES ITS SCHEMA (kogaki#1639): its Strands, a purpose, the paragraph
+// before, a rationale, no term and no re-activation, and no reader state (kogaki#1701); the Leg
+// binds the one Move (any id the library holds -- /draft opens no Move, kogaki#1311) for all its
+// paragraphs (kogaki#1777). The texts are marked so (m) can read their absence from the Packet.
+const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
 const ENTRY = (n, total, legId = "s1", serves = ["L1"]) => ({
-  move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first", materials: [...serves],
+  materials: [...serves],
   purpose: `PURPOSE-${n} brings the reader to the point.`,
   depends_on: n > 1 ? [n - 1] : [], rationale: `RATIONALE-${n} its before holds the state the paragraph before leaves.`,
   introduces: [], "re-activate": [],
 });
 const ENTRIES = (total, legId = "s1", serves = ["L1"]) => Array.from({ length: total }, (_, i) => ENTRY(i + 1, total, legId, serves));
-const leg = {
-  leg_id: "s1", move: "a_leg_move", purpose: "purpose of s1",
-  materials: ["L1"], depends_on: [], rationale: "rationale for s1.", claims: [{ strand: "L1", proposition: C1 }],
-  waypoints: [{ point: "The installer writes into the consumer's tree.", serves: ["L1"], case: "own" },
-    { point: "The next run overwrites any edit to the copy.", serves: ["L1"], case: "own" }],
-};
+// ONE LEG OF THE PLAN FILE (kogaki#1777): its Move, and one paragraph per list of Waypoints, each
+// carrying its schema entry and, after the first, its join.
+const planEntry = (legId, pwsList, entries, joins) => ({ leg_id: legId, move: MOVE,
+  paragraphs: pwsList.map((pws, i) => ({ ...entries[i], ...(joins[i] ? { join: joins[i] } : {}), paragraph_waypoints: pws })) });
+// The Leg says its relation's `holds` as its `text` and carries no Brief Waypoint (kogaki#1775).
+const LEG_TEXT = "The installer writes into the consumer's tree, and the next run overwrites any edit to the copy.";
+const leg = { leg_id: "s1", text: LEG_TEXT, claims: [{ strand: "L1", proposition: C1 }] };
+const POINTS = ["The installer writes into the consumer's tree.", "The next run overwrites any edit to the copy."];
+// The Leg as loadBrief hands it to the renderer: its paragraphs beside it.
+const PARAS = planEntry("s1", POINTS.map((p, i) => [{ point: `PW-${i + 1}-1 ${p}`, serves: ["L1"], cast: {} }]), ENTRIES(2), [null, JOIN]).paragraphs;
+const withParas = (l, paragraphs = PARAS) => ({ ...l, paragraphs });
 const text = briefRecordText({
   slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` }],
@@ -172,7 +179,7 @@ const text = briefRecordText({
 });
 const brief = readBrief(text, "theses/packet-brief/brief.yaml");
 const render = (templateText) => {
-  const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 1 ? { ...w, join: JOIN } : w)) };
+  const l = withParas(brief.legs[0]);
   const split = splitPacketTemplate(templateText);
   if (split.error) return { error: split.error };
   return renderPacket({ template: split.packet, brief, leg: l, priorSections: [],
@@ -205,13 +212,13 @@ else {
   // (a) the shipped template.
   const why = realisedInsideFirstSentence(r.packet);
   if (why) fails.push(`(a) ${why}`);
-  // (b) the line the paragraph governs is in the Packet, under the second Brief Waypoint.
+  // (b) the line the paragraph governs is in the Packet, under the second paragraph's line.
   const lines = r.packet.split("\n");
-  const at = lines.findIndex((l) => l.startsWith("2. The next run overwrites any edit to the copy."));
+  const at = lines.findIndex((l) => l.startsWith(`2. ${LEG_TEXT}`));
   if (at === -1 || lines[at + 1] !== `   ${OPENS_FROM_LABEL} ${JOIN}`) {
-    fails.push(`(b) the join does not render as its Opens-from line under the second Brief Waypoint: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 2))}`);
+    fails.push(`(b) the join does not render as its Opens-from line under the second paragraph: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 2))}`);
   }
-  if (lines.filter((l) => l.includes(OPENS_FROM_LABEL)).length !== 1) fails.push("(b) the Packet carries an Opens-from line other than the second Brief Waypoint's");
+  if (lines.filter((l) => l.includes(OPENS_FROM_LABEL)).length !== 1) fails.push("(b) the Packet carries an Opens-from line other than the second paragraph's");
 }
 
 // (c) the counterfactuals: the template as it stood before kogaki#1447, and before kogaki#1477,
@@ -263,17 +270,17 @@ const carriesCriteria = (packet) => {
   return null;
 };
 {
-  const l = { ...brief.legs[0], waypoints: brief.legs[0].waypoints.map((w, i) => (i === 0
-    ? { ...w, paragraph_waypoints: [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], cast: {} }] } : w)) };
+  const l = withParas(brief.legs[0], PARAS.map((p, i) => (i === 0
+    ? { ...p, paragraph_waypoints: [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], cast: {} }] } : p)));
   const split = splitPacketTemplate(template);
   const r2 = split.error ? { error: split.error } : renderPacket({ template: split.packet, brief, leg: l, priorSections: [],
     section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
   if (r2.error) fails.push(`(d) the fixture Packet with a performs Waypoint did not render: ${r2.error}`);
   else {
     const lines = r2.packet.split("\n");
-    const at = lines.findIndex((x) => x.startsWith("1. The installer writes into the consumer's tree."));
+    const at = lines.findIndex((x) => x.startsWith(`1. ${LEG_TEXT}`));
     if (at === -1 || lines[at + 1] !== `   1. *${PERFORMS}*` || !lines[at + 2].startsWith("   2. PW-1-2 the installer writes the copy. *Serves:* ")) {
-      fails.push(`(d) the performs Waypoint does not render as an italic operation line with no Serves under its Brief Waypoint: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 3))}`);
+      fails.push(`(d) the performs Waypoint does not render as an italic operation line with no Serves under its paragraph: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 3))}`);
     }
     if (lines.some((x) => x.includes(PERFORMS) && x.includes("*Serves:*"))) fails.push("(d) the performs line carries a *Serves:*");
     const block = r2.packet.slice(r2.packet.indexOf("## The waypoints this Leg takes the reader through")).split("\n");
@@ -310,14 +317,14 @@ const carriesCriteria = (packet) => {
     if (fixture === template) { fails.push(`(k) the fixture could not write the criterion line ${label}`); continue; }
     const line = fixture.split("\n").indexOf(broken) + 1;
     const split = splitPacketTemplate(fixture);
-    const b = split.error ? { error: split.error } : renderPacket({ template: split.packet, brief, leg: brief.legs[0], priorSections: [],
+    const b = split.error ? { error: split.error } : renderPacket({ template: split.packet, brief, leg: withParas(brief.legs[0]), priorSections: [],
       section: sectionOfLeg(brief.legs).get(brief.legs[0].leg_id), sections: sectionsOf(brief.legs) });
     if (!b.error) fails.push(`(k) the template whose criterion line is ${label} rendered a Packet`);
     else if (!b.error.includes(`line ${line} \`${broken}\``)) fails.push(`(k) the refusal for the criterion line ${label} does not name the line: ${b.error}`);
   }
 }
 
-// (e) resolve reads a performs entry beside a point entry, and refuses a Brief Waypoint with no point entry.
+// (e) resolve reads a performs entry beside a point entry, and refuses a paragraph with no point entry.
 {
   const root = mkdtempSync(join(tmpdir(), "draft-packet-"));
   const resolveWith = (name, first) => {
@@ -326,17 +333,17 @@ const carriesCriteria = (packet) => {
     const briefPath = join(dir, "brief.yaml");
     writeFileSync(briefPath, text);
     writeFileSync(join(dir, "paragraph-plan.yaml"), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-      legs: [{ leg_id: "s1", waypoints: [first, [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]],
-        entries: ENTRIES(2), joins: [null, JOIN] }] })));
+      legs: [planEntry("s1", [first, [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]],
+        ENTRIES(2), [null, JOIN])] })));
     return spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, name, "ws")],
       { encoding: "utf8", timeout: 120000 });
   };
   const ok = resolveWith("mixed", [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], cast: {} }]);
-  if (ok.status !== 0) fails.push(`(e) resolve refused a Brief Waypoint carrying a performs entry beside a point entry: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
+  if (ok.status !== 0) fails.push(`(e) resolve refused a paragraph carrying a performs entry beside a point entry: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
   const none = resolveWith("no-point", [{ performs: PERFORMS }]);
   const rendered = (ws) => existsSync(join(root, ws, "packet-brief", "packets", "s1.md"));
   if (rendered("ws-none") || !(none.stderr || "").includes("none of its Waypoints carries a `point`")) {
-    fails.push(`(e) resolve did not refuse a Brief Waypoint none of whose Waypoints carries a point, by name: ${(none.stderr || none.stdout || "").slice(0, 400)}`);
+    fails.push(`(e) resolve did not refuse a paragraph none of whose Waypoints carries a point, by name: ${(none.stderr || none.stdout || "").slice(0, 400)}`);
   }
 }
 
@@ -351,8 +358,8 @@ const carriesCriteria = (packet) => {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const planText = paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [{ leg_id: "s1", waypoints: [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], manner: MANNER, cast: {} }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], entries: ENTRIES(2), joins: [null, JOIN] }] }));
+    legs: [planEntry("s1", [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], manner: MANNER, cast: {} }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] }));
   writeFileSync(planPath, planText);
   if (/\bmanner\b/.test(planText) || planText.includes(MANNER)) fails.push(`(l) the ParagraphPlan written from manner-bearing Waypoints carries a manner: ${planText}`);
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
@@ -392,14 +399,14 @@ const carriesCriteria = (packet) => {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const plan = (entries) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [{ leg_id: "s1", waypoints: [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"], cast: {} }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], entries, joins: [null, JOIN] }] }));
+    legs: [planEntry("s1", [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"], cast: {} }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], entries, [null, JOIN])] }));
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
     { encoding: "utf8", timeout: 120000 });
   const full = plan(ENTRIES(2));
   writeFileSync(planPath, full);
   for (const k of ["move", "materials", "purpose", "depends_on", "rationale", "introduces", "re-activate"]) {
-    if (!new RegExp(`^ +${k}:`, "m").test(full)) fails.push(`(m) the plan written carries no \`${k}\` on its entries`);
+    if (!new RegExp(`^ +${k}:`, "m").test(full)) fails.push(`(m) the plan written carries no \`${k}\` on its Leg or its paragraphs`);
   }
   const ok = resolveIn("ws");
   const packetPath = join(root, "ws", "packet-brief", "packets", "s1.md");
@@ -417,16 +424,16 @@ const carriesCriteria = (packet) => {
   const dropped = ENTRIES(2).map((e, i) => (i === 1 ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== "rationale")) : e));
   writeFileSync(planPath, plan(dropped));
   const missing = resolveIn("ws-missing");
-  if (missing.status === 0 || !(missing.stderr || "").includes("leg s1") || !(missing.stderr || "").includes("Waypoint 2") || !(missing.stderr || "").includes("carries no `rationale`")) {
-    fails.push(`(m) resolve did not refuse a plan entry missing its rationale naming the Leg and the Waypoint: ${(missing.stderr || missing.stdout || "").slice(0, 400)}`);
+  if (missing.status === 0 || !(missing.stderr || "").includes("leg s1") || !(missing.stderr || "").includes("paragraph 2") || !(missing.stderr || "").includes("carries no `rationale`")) {
+    fails.push(`(m) resolve did not refuse a plan paragraph missing its rationale naming the Leg and the paragraph: ${(missing.stderr || missing.stdout || "").slice(0, 400)}`);
   }
   for (const key of ["reader_state_before", "reader_state_after"]) {
-    const injected = plan(ENTRIES(2)).replace(/^( +)move:/m, `$1${key}:\n$1  knowledge: written.\n$1move:`);
+    const injected = plan(ENTRIES(2)).replace(/^( +)materials:/m, `$1${key}:\n$1  knowledge: written.\n$1materials:`);
     if (!injected.includes(`${key}:`)) fails.push(`(m) the fixture could not write ${key} onto the plan file`);
     writeFileSync(planPath, injected);
     const derived = resolveIn(`ws-${key}`);
-    if (derived.status === 0 || !(derived.stderr || "").includes("Waypoint 1") || !(derived.stderr || "").includes(`carries \`${key}\`, retired from the ParagraphPlan (kogaki#1701)`)) {
-      fails.push(`(m) resolve did not refuse a written ${key} by name naming the Waypoint: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
+    if (derived.status === 0 || !(derived.stderr || "").includes("paragraph 1") || !(derived.stderr || "").includes(`carries \`${key}\`, retired from the ParagraphPlan (kogaki#1701)`)) {
+      fails.push(`(m) resolve did not refuse a written ${key} by name naming the paragraph: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
     }
   }
 }
@@ -459,7 +466,7 @@ if (!r.error) {
   if (voiced.record?.compose_path !== audience) fails.push("(f) the fixture could not point the Brief at the pre-kogaki#1488 Audience");
   else {
     const split = splitPacketTemplate(template);
-    const old = renderPacket({ template: split.packet, brief: voiced, leg: voiced.legs[0], priorSections: [],
+    const old = renderPacket({ template: split.packet, brief: voiced, leg: withParas(voiced.legs[0]), priorSections: [],
       section: sectionOfLeg(voiced.legs).get(voiced.legs[0].leg_id), sections: sectionsOf(voiced.legs) });
     if (old.error) fails.push(`(f) the pre-kogaki#1488 Packet did not render: ${old.error}`);
     else if (carriesNoVoiceRule(old.packet) === null) fails.push("(f) the pre-kogaki#1488 Voice paragraph passed the predicate (f) applies");
@@ -500,7 +507,7 @@ if (!r.error) {
   if (other.record?.compose_path !== audience) fails.push("(h) the fixture could not point the Brief at the one-sentence Audience");
   else {
     const split = splitPacketTemplate(template);
-    const o = renderPacket({ template: split.packet, brief: other, leg: other.legs[0], priorSections: [],
+    const o = renderPacket({ template: split.packet, brief: other, leg: withParas(other.legs[0]), priorSections: [],
       section: sectionOfLeg(other.legs).get(other.legs[0].leg_id), sections: sectionsOf(other.legs) });
     if (o.error) fails.push(`(h) the one-sentence Audience's Packet did not render: ${o.error}`);
     else {
@@ -530,7 +537,7 @@ if (!r.error) {
   const gBrief = readBrief(recordWith({}), "theses/packet-brief/brief.yaml");
   const split = splitPacketTemplate(template);
   const g = (gBrief.refusals || []).length ? { error: JSON.stringify(gBrief.refusals) } : split.error ? { error: split.error }
-    : renderPacket({ template: split.packet, brief: gBrief, leg: gBrief.legs[0], priorSections: [],
+    : renderPacket({ template: split.packet, brief: gBrief, leg: withParas(gBrief.legs[0]), priorSections: [],
       section: sectionOfLeg(gBrief.legs).get(gBrief.legs[0].leg_id), sections: sectionsOf(gBrief.legs) });
   if (g.error) fails.push(`(i) the fixture Packet with no introduced term did not render: ${g.error}`);
   else if (g.packet.includes(`- ${TERM.term} — `)) fails.push("(i) the crossing block carries a term line from no `introduces`");
@@ -556,7 +563,7 @@ if (!r.error) {
   const jRender = (templateText) => {
     const split = splitPacketTemplate(templateText);
     if (split.error) return { error: split.error };
-    return renderPacket({ template: split.packet, brief: jBrief, leg: jBrief.legs[0], priorSections: [],
+    return renderPacket({ template: split.packet, brief: jBrief, leg: withParas(jBrief.legs[0]), priorSections: [],
       section: sectionOfLeg(jBrief.legs).get(jBrief.legs[0].leg_id), sections: sectionsOf(jBrief.legs) });
   };
   // THE PREDICATE the shipped render and the counterfactuals share.
@@ -601,8 +608,8 @@ if (!r.error) {
 // (k) A FORCED WAYPOINT CARRIES ITS MARK ON A LINE OF ITS OWN, AND THE WRITER'S
 // INSTRUCTIONS SAY NOTHING OF IT (kogaki#1649).
 {
-  const block = waypointLines({ claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
-    waypoints: [{ point: "The Brief Waypoint's point.", serves: ["L1"], paragraph_waypoints: [
+  const block = waypointLines({ text: "The Leg's relation holds.", claims: [{ strand: "L1", proposition: "the fixture claim holds." }],
+    paragraphs: [{ materials: ["L1"], paragraph_waypoints: [
       { point: "The forced point.", serves: ["L1"], forced_by: ["PERFORMS IS BARE"] },
       { point: "The unforced point.", serves: ["L1"] }] }] });
   const lines = block.split("\n");
@@ -612,8 +619,8 @@ if (!r.error) {
   }
   if (lines.filter((l) => l.includes("forced by")).length !== 1) fails.push(`(k) not exactly one mark line in the block: ${JSON.stringify(lines)}`);
   if (/forced/i.test(template)) fails.push("(k) the Packet template mentions the mark; the Writer's instructions carry nothing of it");
-  if (JSON.stringify(forcedMarksOf(block)) !== JSON.stringify([{ waypoint: 1, axes: ["PERFORMS IS BARE"] }])) {
-    fails.push(`(k) the mark does not read back as Brief Waypoint 1 forced by PERFORMS IS BARE: ${JSON.stringify(forcedMarksOf(block))}`);
+  if (JSON.stringify(forcedMarksOf(block)) !== JSON.stringify([{ paragraph: 1, axes: ["PERFORMS IS BARE"] }])) {
+    fails.push(`(k) the mark does not read back as paragraph 1 forced by PERFORMS IS BARE: ${JSON.stringify(forcedMarksOf(block))}`);
   }
 }
 
@@ -661,8 +668,8 @@ if (!r.error) {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const plan = (cast) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [{ leg_id: "s1", waypoints: [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"], cast }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], entries: ENTRIES(2), joins: [null, JOIN] }] }));
+    legs: [planEntry("s1", [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"], cast }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] }));
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
     { encoding: "utf8", timeout: 120000 });
   writeFileSync(planPath, plan({ plain: true, terse: true }));
@@ -692,8 +699,9 @@ if (!r.error) {
   }
 }
 
-// (p) a plan with a Mapping Record renders each Brief Waypoint's line as its structure's holds sentences in its
-// table's expressions and carries no word of the point; a Waypoint without a table is refused naming it (kogaki#1735).
+// (p) a plan with a Mapping Record renders each paragraph's line as its Leg's structure's holds sentences in
+// the Leg's table's expressions and carries no word of the Leg's text; a Leg without a table, or a placeholder
+// its table gives no expression, is refused naming the Leg (kogaki#1735, kogaki#1777).
 {
   const root = mkdtempSync(join(tmpdir(), "draft-packet-mapped-"));
   const dir = join(root, "theses", "packet-brief");
@@ -705,37 +713,33 @@ if (!r.error) {
     { id: "sizes", context: "The kinds it was made to hold.", attributes: [] }],
   relations: [{ id: "woven", between: ["net", "sizes"], holds: "{net} was woven against {sizes} alone." }],
   higher_order: { relates: ["woven"], holds: "what {net} holds stops at {sizes}." } };
-  const table = (expressions) => ({ move: ENTRY(1, 2).move, case: "own", base: { domain: "a river weir" },
+  const table = (expressions) => ({ move: MOVE, base: { domain: "a river weir" },
     correspondences: Object.entries(expressions).map(([role, expression]) => ({ role, expression })) });
   const FULL = { net: "the staked net", sizes: "the fish sizes its mesh fits" };
   const resolveWith = (ws, entries) => {
     const mapping = writeMappingRecord(mappingDirFor(planPath), entries);
     writeFileSync(planPath, paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, mapping,
-      legs: [{ leg_id: "s1", waypoints: [[{ point: "PW-1-1 the staked net holds the fish.", serves: ["L1"], cast: {} }],
-        [{ point: "PW-2-1 the net lets the rest pass.", serves: ["L1"], cast: {} }]], entries: ENTRIES(2), joins: [null, JOIN] }] })));
+      legs: [planEntry("s1", [[{ point: "PW-1-1 the staked net holds the fish.", serves: ["L1"], cast: {} }],
+        [{ point: "PW-2-1 the net lets the rest pass.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] })));
     return spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)], { encoding: "utf8", timeout: 120000 });
   };
-  const ok = resolveWith("ws", [{ leg_id: "s1", waypoint: 1, structure, table: table(FULL) },
-    { leg_id: "s1", waypoint: 2, structure, table: table({ net: "the weir's net", sizes: "the sizes it was cut for" }) }]);
+  const ok = resolveWith("ws", [{ leg_id: "s1", structure, table: table(FULL) }]);
   const packetPath = join(root, "ws", "packet-brief", "packets", "s1.md");
   if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(p) resolve did not render the Packet from a plan with a Mapping Record: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
   else {
     const packet = readFileSync(packetPath, "utf8");
-    const want = [`1. The staked net was woven against the fish sizes its mesh fits alone. What the staked net holds stops at the fish sizes its mesh fits. *Serves:* ${C1}`,
-      `2. The weir's net was woven against the sizes it was cut for alone. What the weir's net holds stops at the sizes it was cut for. *Serves:* ${C1}`];
-    for (const w of want) if (!packet.split("\n").includes(w)) fails.push(`(p) the Packet does not carry the Leg line ${JSON.stringify(w)}`);
-    for (const pt of leg.waypoints.map((w) => w.point)) if (packet.includes(pt)) fails.push(`(p) the Packet carries the Brief Waypoint's point ${JSON.stringify(pt)}`);
-    if (/overwrites/i.test(packet)) fails.push("(p) the Packet carries a word of the second Brief Waypoint's point");
+    const line = "The staked net was woven against the fish sizes its mesh fits alone. What the staked net holds stops at the fish sizes its mesh fits.";
+    for (const n of [1, 2]) if (!packet.split("\n").includes(`${n}. ${line} *Serves:* ${C1}`)) fails.push(`(p) the Packet does not carry paragraph ${n}'s line ${JSON.stringify(line)}`);
+    for (const pt of [LEG_TEXT, ...POINTS]) if (packet.includes(pt)) fails.push(`(p) the Packet carries the Leg's text or a planned point ${JSON.stringify(pt)}`);
   }
-  const none = resolveWith("ws-none", [{ leg_id: "s1", waypoint: 1, structure, table: table(FULL) }, { leg_id: "s1", waypoint: 2, structure }]);
+  const none = resolveWith("ws-none", [{ leg_id: "s1", structure }]);
   const rendered = (ws) => existsSync(join(root, ws, "packet-brief", "packets", "s1.md"));
-  if (rendered("ws-none") || !(none.stderr || "").includes("Leg s1, Brief Waypoint 2: the Mapping Record carries no table")) {
-    fails.push(`(p) resolve did not refuse a Waypoint with no table naming the Leg and the Waypoint: ${(none.stderr || none.stdout || "").slice(0, 400)}`);
+  if (rendered("ws-none") || !(none.stderr || "").includes("Leg s1: the Mapping Record carries no table for this Leg")) {
+    fails.push(`(p) resolve did not refuse a Leg with no table naming the Leg: ${(none.stderr || none.stdout || "").slice(0, 400)}`);
   }
-  const bare = resolveWith("ws-bare", [{ leg_id: "s1", waypoint: 1, structure, table: table({ net: "the staked net", sizes: null }) },
-    { leg_id: "s1", waypoint: 2, structure, table: table(FULL) }]);
-  if (rendered("ws-bare") || !(bare.stderr || "").includes("Leg s1, Brief Waypoint 1: the `holds` placeholder {sizes} names a Role its table gives no expression for")) {
-    fails.push(`(p) resolve did not refuse a placeholder with no expression naming the Leg, the Waypoint and the Role: ${(bare.stderr || bare.stdout || "").slice(0, 400)}`);
+  const bare = resolveWith("ws-bare", [{ leg_id: "s1", structure, table: table({ net: "the staked net", sizes: null }) }]);
+  if (rendered("ws-bare") || !(bare.stderr || "").includes("Leg s1: the `holds` placeholder {sizes} names a Role its table gives no expression for")) {
+    fails.push(`(p) resolve did not refuse a placeholder with no expression naming the Leg and the Role: ${(bare.stderr || bare.stdout || "").slice(0, 400)}`);
   }
 }
 
@@ -743,5 +747,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its Brief Waypoint; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Waypoint renders as an italic operation line with no Serves under its Brief Waypoint, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a Brief Waypoint with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the Waypoint (kogaki#1639); a judge-forced Waypoint carries its mark on a line of its own beneath it, the unforced one none, and the template says nothing of it (kogaki#1649); the waypoints header renders each indented line as the sentences it is and adds none, and the pre-kogaki#1694 header is refused (kogaki#1694); a cast renders as its true keys in the set's order on the line beneath its point, an empty cast renders none, the cast paragraph names the nine keys and says a cast is never a sentence or clause of its own, and a key outside the set is refused naming it (kogaki#1695); a plan with a Mapping Record renders each Brief Waypoint's line as its holds sentences in its table's expressions and carries no word of the point, and a Waypoint with no table or a placeholder with no expression is refused naming the Leg and the Waypoint (kogaki#1735).");
+console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its paragraph; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Waypoint renders as an italic operation line with no Serves under its paragraph, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a paragraph with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped template passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the paragraph (kogaki#1639); a judge-forced Waypoint carries its mark on a line of its own beneath it, the unforced one none, and the template says nothing of it (kogaki#1649); the waypoints header renders each indented line as the sentences it is and adds none, and the pre-kogaki#1694 header is refused (kogaki#1694); a cast renders as its true keys in the set's order on the line beneath its point, an empty cast renders none, the cast paragraph names the nine keys and says a cast is never a sentence or clause of its own, and a key outside the set is refused naming it (kogaki#1695); a plan with a Mapping Record renders each paragraph's line as its Leg's holds sentences in the Leg's table's expressions and carries no word of the Leg's text, and a Leg with no table or a placeholder with no expression is refused naming the Leg (kogaki#1735, kogaki#1777).");
 JS

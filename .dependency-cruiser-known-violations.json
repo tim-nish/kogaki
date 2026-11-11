@@ -58,20 +58,6 @@
   {
     "type": "dependency",
     "from": "src/mapping-playground/short.mjs",
-    "to": "src/proof-sheet/leg-brief.mjs",
-    "unresolvedTo": "../proof-sheet/leg-brief.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/mapping-playground/short.mjs",
     "to": "src/proof-sheet/leg-run.mjs",
     "unresolvedTo": "../proof-sheet/leg-run.mjs",
     "dependencyTypes": [
@@ -341,36 +327,6 @@
       },
       {
         "name": "src/compose/leg-schema.mjs",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      }
-    ]
-  },
-  {
-    "type": "cycle",
-    "from": "src/draft/render-packet.mjs",
-    "to": "src/mapping-playground/short.mjs",
-    "unresolvedTo": "../mapping-playground/short.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "no-circular"
-    },
-    "cycle": [
-      {
-        "name": "src/mapping-playground/short.mjs",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
-      },
-      {
-        "name": "src/draft/render-packet.mjs",
         "dependencyTypes": [
           "local",
           "import"

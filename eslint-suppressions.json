@@ -87,7 +87,7 @@
   },
   "src/mapping-playground/short.mjs": {
     "no-unused-vars": {
-      "count": 3
+      "count": 1
     }
   },
   "src/mapping-playground/trial.mjs": {

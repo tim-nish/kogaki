@@ -229,16 +229,18 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
 // run, the Call Records of the Leg's job unit. Reads the plan and the record beside it; writes nothing but `out`.
 const readYamlAt = (path) => (existsSync(path) ? parseYaml(readFileSync(path, "utf8"), relFromRepo(path)) : null);
 
-function legBindingTable(entry, table, number, contracts) {
-  const c = contracts.get(entry.move);
+// THE LEG'S ONE BINDING (kogaki#1777): the Leg binds one Move for all its paragraphs.
+function legBindingTable(leg, table, contracts) {
+  const c = contracts.get(leg.move);
   const absent = [esc("not in the library")];
   const told = table && table.case !== null && table.case !== undefined ? table.case : "none";
-  return `<table><caption>Binding ${number}</caption><tbody>`
-    + labelledRow("Move", [esc(entry.move)])
+  const rationale = (leg.paragraphs || []).map((p) => p && p.rationale).filter((x) => typeof x === "string");
+  return `<table><caption>Binding</caption><tbody>`
+    + labelledRow("Move", [esc(leg.move ?? "none")])
     + labelledRow("Case", [esc(told)])
     + labelledRow("Takes", c ? constraintRows(c.takes) : absent)
     + labelledRow("Leaves", c ? constraintRows(c.leaves) : absent)
-    + labelledRow("Rationale", [esc(entry.rationale ?? "none")])
+    + labelledRow("Rationale", rationale.length ? rationale.map(esc) : [esc("none")])
     + "</tbody></table>";
 }
 
@@ -263,24 +265,16 @@ export function renderLegSheet({ planPath, legId, runDir = null, movesDir = "mov
   const dir = join(mappingDirFor(planPath), String(legId));
   const library = loadMoveContracts(resolve(REPO, movesDir));
   const contracts = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
-  let shared = null;
-  const waypoints = legs[i].waypoints.map((w) => {
-    const at = join(dir, String(w.waypoint));
-    const own = readYamlAt(join(at, STRUCTURE_FILE));
-    if (own) shared = { structure: own, from: w.waypoint };
-    return { w, structure: own || (shared && shared.structure), sharedFrom: own ? null : shared && shared.from, table: readYamlAt(join(at, TABLE_FILE)) };
-  });
-  const body = waypoints.map(({ w, structure, sharedFrom, table }) => {
-    const n = w.waypoint;
-    const structureHtml = structure ? (sharedFrom ? `<p class="meta">shared with Brief Waypoint ${sharedFrom}</p>` : "") + structureSection(structure)
-      : none("No structure was recorded for this Brief Waypoint.");
-    const mapping = table ? mappingTable(structure, table, n) : none("No Mapping Table was recorded for this Brief Waypoint.");
-    return part(`waypoint-${n}`, `Brief Waypoint ${n}`, "")
-      + part(`segments-${n}`, "Segments", segmentsTable({ library: movesDir }, w, n))
-      + part(`bindings-${n}`, "Bindings", legBindingTable(w, table, n, contracts))
-      + part(`mapping-${n}`, "Mapping", mapping)
-      + part(`structure-${n}`, "Structure", structureHtml);
-  }).join("");
+  // THE LEG AS UNIT (kogaki#1777): one structure and one table per Leg, and its paragraphs' Waypoints
+  // under the one Move the Leg binds.
+  const leg = legs[i];
+  const structure = readYamlAt(join(dir, STRUCTURE_FILE));
+  const table = readYamlAt(join(dir, TABLE_FILE));
+  const paragraphs = Array.isArray(leg.paragraphs) ? leg.paragraphs : [];
+  const body = part("bindings", "Binding", legBindingTable(leg, table, contracts))
+    + part("mapping", "Mapping", table ? mappingTable(structure, table, 1) : none("No Mapping Table was recorded for this Leg."))
+    + part("structure", "Structure", structure ? structureSection(structure) : none("No structure was recorded for this Leg."))
+    + paragraphs.map((p, k) => part(`paragraph-${k + 1}`, `Paragraph ${k + 1}`, segmentsTable({ library: movesDir }, { ...p, move: leg.move }, k + 1))).join("");
   const html = `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
     + `<title>Mapping Record ${esc(legId)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>`
     + `<h1>Mapping Record — Leg ${esc(legId)}</h1><p class="meta">plan: ${esc(relFromRepo(planPath))} · record: ${esc(relFromRepo(dir))}</p>`

@@ -414,7 +414,7 @@
       "mode": "per-declared",
       "binds": {
         "leg": {
-          "waypoints.point": "excluded"
+          "text": "excluded"
         }
       },
       "declared_block": "waypoints",
@@ -520,7 +520,7 @@
       "mode": "judged",
       "binds": {
         "leg": {
-          "waypoints.point": "excluded"
+          "text": "excluded"
         }
       },
       "declared_block": "waypoints",
@@ -548,7 +548,7 @@
       "mode": "per-declared",
       "binds": {
         "paragraph_plan": {
-          "waypoints.join": "excluded"
+          "paragraphs.join": "excluded"
         }
       },
       "declared_block": "opens_from",
