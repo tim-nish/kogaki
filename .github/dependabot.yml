@@ -1,0 +1,13 @@
+# Grouped monthly npm updates, merged through the ordinary route
+# (specs/SPEC.md, "The npm advisories", kogaki#1795).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      npm:
+        patterns:
+          - "*"

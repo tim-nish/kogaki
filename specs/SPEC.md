@@ -808,6 +808,16 @@ declared measurement input for that class — never the policy system's
   and nothing in prose restates the predicate. `.heredoc-known-blocks.json` is
   the list of blocks that predate it, each a debt owed its own Issue, and it
   only shrinks.
+- **The npm advisories** (kogaki#1795): every npm dependency is a
+  development tool run on this repository's own input, so an advisory is a
+  report for a sitting and never a stop on a merge. Three carriers hold it:
+  `package-lock.json` carries the fixes `npm audit fix` took without a
+  breaking change; `.github/dependabot.yml` proposes the npm updates monthly
+  in one grouped pull request, which merges through the ordinary route; and
+  the `checks` workflow runs `npm audit --audit-level=high` after `npm ci`
+  with `continue-on-error: true`, so the advisory list is in every log and
+  the job's verdict stays the suite's. The audit gates nothing: a gate on an
+  external database turns a green head red with no change to the tree.
 - **PR gate, split by property type:** the mechanical half (change licensed
   by a named issue; new checks carry admission records; registry
   conformance; **a touched consultation-map boundary has a receipt**) runs
