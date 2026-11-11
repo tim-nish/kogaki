@@ -100,6 +100,7 @@ import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { parseYaml } from "../yaml.mjs";
 import { legParagraphs, sentencesOf, writeJson } from "./extract.mjs";
+import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { buildSheet } from "./leg-sheet.mjs";
 import { audienceLanguage, MOVE_RECORD_EXT } from "../compose.mjs";
 import { TERMS_RETIRED } from "./leg-brief.mjs";
@@ -122,11 +123,8 @@ const REUSE_EXCLUDE = { brief: ["paragraph-plan.yaml"] };
 export const OWN_MOVES_DIR = "own-moves";
 export const LEG_MOVE_DIR = "leg-move";
 export const LEG_MOVE_SLUG_SUFFIX = "-leg-move";
-// THE PLAN STAGE IS PARKED (kogaki#1777, owner decision 2026-11-11): rather than rewrite the two
-// playgrounds inside kogaki#1777, their paragraph stages stop with this line. The Leg-as-unit plan
-// binds one Move per Leg with at most two paragraphs; this run binds one Move per original
-// paragraph. The stage is re-entered by kogaki#1784, which replays one Leg per original paragraph.
-export const PARKED_PLAN_LINE = "parked (kogaki#1777): the Leg-as-unit plan binds one Move per Leg with at most two paragraphs, and this run binds one Move per original paragraph; its replay as one Leg per original paragraph is kogaki#1784";
+const PLAN_AWAIT_S = 60;
+const PLAN_AWAITS_MAX = 60;
 
 function fail(msg) {
   process.stderr.write(`leg-run: ${msg}\n`);
@@ -355,36 +353,42 @@ function runStages(runDir, record, { slug, realPath, audienceArgs, priorStages, 
     return { brief: join(d, "brief.yaml"), leg_brief_run: legBriefRun };
   });
 
-  // 4. /paragraph-plan is PARKED (kogaki#1777, owner decision 2026-11-11; the replay is kogaki#1784):
-  // the stage makes no call and stops with `PARKED_PLAN_LINE`, so the draft and the Leg Move are
-  // recorded as not run and the sheet shows the stop. `brief` is still read here so a stopped Brief
-  // stage keeps its place ahead of this one.
-  stage("paragraph-plan", (d) => {
+  // 4. /paragraph-plan, unchanged, with the run's library and its own run directory, over the
+  // Brief's one Leg per original paragraph (kogaki#1784). Resumed whole rather than re-entered
+  // mid-job (kogaki#1396, out of scope).
+  stage("paragraph-plan", (d, env, log) => {
     const job = join(d, "job");
     mkdirSync(job, { recursive: true });
-    return { stopped: PARKED_PLAN_LINE, job };
+    const pp = (cmd, extra = []) => runCommand(d, `paragraph-plan ${cmd}`, [process.execPath, "src/paragraph-plan.mjs", cmd,
+      "--brief", brief.brief, "--run-dir", job, "--moves-dir", join(runDir, "moves"), ...extra], env, log);
+    const s = pp("start");
+    if (s.exit !== 0) return { stopped: stopLine(s), job };
+    for (let i = 0; i < PLAN_AWAITS_MAX; i++) {
+      const a = pp("await", ["--wait-s", String(PLAN_AWAIT_S)]);
+      if (a.exit !== 0) return { stopped: stopLine(a), job };
+      if (!a.stdout.includes(PARAGRAPH_PLAN_STILL_RUNNING_LINE)) {
+        return { job, plan: join(runDir, "brief", "paragraph-plan.yaml") };
+      }
+    }
+    return { stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s`, job };
   });
 
-  // 5. /draft resolve, then section for each of the Brief's Legs in order. Resumed whole (out of scope).
+  // 5. /draft resolve, then section for each of the Brief's Legs in order -- one per original
+  // paragraph (kogaki#1784), each Leg's Writer calls kept in `draft/calls-<leg_id>.jsonl`. Resumed
+  // whole (out of scope).
   stage("draft", (d, env, log) => {
     const dr = (cmd, extra = [], e = env) => runCommand(d, `draft ${cmd}`, [process.execPath, "src/draft.mjs", cmd,
       "--brief", brief.brief, "--workspace", d, ...extra], e, log);
     const r = dr("resolve");
     if (r.exit !== 0) return { stopped: stopLine(r) };
-    if (record.legs.length > 1) {
-      const legIds = (parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || []).map((l) => l.leg_id);
-      const sections = [];
-      for (const legId of legIds) {
-        const s = dr("section", ["--leg", legId], { ...env, KOGAKI_PROOF_SHEET_CALLS: join(d, `calls-${legId}.jsonl`) });
-        if (s.exit !== 0) return { stopped: stopLine(s), leg_ids: legIds, leg_id: legId, workspace: join(d, slug), sections };
-        sections.push(join(d, slug, "sections", `${legId}.md`));
-      }
-      return { leg_ids: legIds, workspace: join(d, slug), sections };
+    const legIds = (parseYaml(readFileSync(brief.brief, "utf8"), brief.brief).reader_path || []).map((l) => l.leg_id);
+    const sections = [];
+    for (const legId of legIds) {
+      const s = dr("section", ["--leg", legId], { ...env, KOGAKI_PROOF_SHEET_CALLS: join(d, `calls-${legId}.jsonl`) });
+      if (s.exit !== 0) return { stopped: stopLine(s), leg_ids: legIds, leg_id: legId, workspace: join(d, slug), sections };
+      sections.push(join(d, slug, "sections", `${legId}.md`));
     }
-    const legId = (readFileSync(brief.brief, "utf8").match(/^\s*-?\s*leg_id:\s*(\S+)/m) || [])[1];
-    const s = dr("section", ["--leg", legId]);
-    if (s.exit !== 0) return { stopped: stopLine(s), leg_id: legId, workspace: join(d, slug) };
-    return { leg_id: legId, workspace: join(d, slug), section: join(d, slug, "sections", `${legId}.md`) };
+    return { leg_ids: legIds, workspace: join(d, slug), sections };
   });
 
   // 6. The Leg Move (see the header): one nested run per Leg of the Brief, in order. A nested run

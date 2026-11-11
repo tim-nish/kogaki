@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's short Trial (kogaki#1669): one proposition, a Base Paragraph and, where `bind` declares
-// its case apart, an Inference Paragraph, read on a sheet (kogaki#1719); the model route binds the Moves first, then fills one Mapping Table per bound
-// Move under its Segments, then writes each paragraph's Waypoints from its own table (kogaki#1700, kogaki#1709).
+// its case apart, an Inference Paragraph, read on a sheet (kogaki#1719); the model route binds the Moves, fills one Mapping
+// Table per bound Move (kogaki#1700, kogaki#1709), then plans ONE Leg under ONE Move and the Analogy Mapping (kogaki#1784).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -10,7 +10,7 @@
 //   The short Trial
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
@@ -19,10 +19,16 @@ import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts, readMoveRe
 import { judgePrompt, refusalReach, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../proof-sheet/leg-run.mjs";
-import { segmentsForPlanCall } from "../paragraph-plan.mjs";
+import { planLeg, paragraphPlanUnitInput, validateParagraphPlanUnit, segmentsForPlanCall, PARAGRAPH_PLAN_TABLE } from "../paragraph-plan.mjs";
+import { withAnalogy } from "../paragraph-plan-analogy.mjs";
+import { paragraphsPerLeg } from "../compose/record.mjs";
+import { renderPacket } from "../draft/render-packet.mjs";
+import { splitPacketTemplate } from "../draft/packet.mjs";
+import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
+import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseProposition, validateStructure, higherOrderOf } from "./structure.mjs";
-import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf } from "./rbs.mjs";
+import { parseProposition, validateStructure, higherOrderOf, firstPoint } from "./structure.mjs";
+import { validateRbsTable, validateCorrespondenceTable, suppliedEntry, projectionsOf, boundMovesOf, correspondenceVocabularyRefusal } from "./rbs.mjs";
 import { mapperRow, MAPPER_CALLS } from "./sme.mjs";
 import { writeCallRecord, callsRoot, cliRecord, tableRecord } from "../workflow/call-record.mjs";
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
@@ -34,23 +40,24 @@ export const RBS_OWNER = "owner-authored";
 export const RBS_COMPOSED = "composed";
 export const BIND_FILE = "bind.yaml";
 export const PACKET_FILE = "packet.md";
+export const ANALOGY_FILE = "analogy.yaml";
 export const PARAGRAPH_FILE = "paragraph.md";
 export const SHEET_FILE = "sheet.html";
 export const SHORT_STAGES = ["reading", "bind", "grounding", "waypoints", "write"];
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
-// PARKED (kogaki#1777, owner decision 2026-11-11): the composed route's `waypoints` stage stops here until kogaki#1784
-export const PARKED_WAYPOINTS_LINE = "parked (kogaki#1777): the Leg-as-unit plan binds one Move per Leg, and the composed route binds a Base Move and an Inference Move in one Leg; its Leg under the Analogy Mapping is kogaki#1784";
-// ... and the `write` stage of both routes: the Packet renders one Leg's paragraphs under one Move and one point, and the owner's
-// route supplies a Base Paragraph and a projection each under its own Move and point.
-export const PARKED_WRITE_LINE = "parked (kogaki#1777): the Packet renders one Leg's paragraphs under one Move, and this route supplies a Base Paragraph and a projection each under its own Move; its Leg under the Analogy Mapping is kogaki#1784";
+// The `waypoints` stage plans with the production row unchanged (kogaki#1784): `smp_waypoints_unit` is retired.
+const PLAN_ROW = "paragraph_plan_unit";
+const WRITER_UNIT = "writer";
+const DRAFT_TABLE = "src/draft-workflow.json";
 const CARRY = "carry";
 // The Base Paragraph's case (kogaki#1719): the proposition's own, or a case apart from its domain.
 const OWN = "own";
 const APART = "apart";
 export const CASES = [OWN, APART];
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
+const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE = "usage: node src/mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) "
   + "--out <dir under runs/mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]";
 
@@ -64,17 +71,10 @@ const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(pat
 const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
 
 // ---------------------------------------------------------------------------
-// THE ONE LEG (kogaki#1681, kogaki#1685, kogaki#1700, kogaki#1709): its one claim is the proposition, in the Brief's form; one Brief
-// Waypoint per bound Move, each `point` the structure in the expressions of that Move's table: one per projecting binding of the
-// owner's file after the first, and in the model route one where an Inference Move is bound, else none.
-// A Brief Waypoint's point (kogaki#1688). Only the first Waypoint takes the declared case; the owner's file declares none,
-// so `legCase` reads it from the bindings (kogaki#1732).
-export function firstPoint(structure, table) {
-  const base = new Map(table.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
-  return [...structure.relations, ...higherOrderOf(structure)]
-    .map((e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (base.has(id) ? base.get(id) : all)))
-    .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
-}
+// THE ONE LEG (kogaki#1681, kogaki#1700, kogaki#1784): its one claim is the proposition, in the Brief's form, and its `text` the
+// structure in the expressions of the Leg's own table, the last grounded: the subject's under a case apart, whose base is the
+// Analogy Mapping, and the proposition's own under `own`. The Leg binds one Move and carries no Brief Waypoint (kogaki#1775).
+// A table's point is `firstPoint` (structure.mjs, kogaki#1688); the owner's file declares no case, so `legCase` reads it from the bindings (kogaki#1732).
 
 // The case the Leg's first Waypoint takes: the `bind` stage's answer, or on the owner's route, where no case is declared,
 // `apart` when the owner's file binds a Move after the first and `own` when it binds one alone, as `bindMoveRefusal`
@@ -84,12 +84,22 @@ export function legCase(bind) {
   return bind && Array.isArray(bind.inference_moves) && bind.inference_moves.length ? APART : OWN;
 }
 
-export function shortLeg(proposition, tables, persona, structure, told = OWN) {
-  return {
-    leg_id: LEG_ID,
-    claims: [{ strand: "L1", proposition }],
-    waypoints: tables.map((t, i) => ({ point: firstPoint(structure, t), serves: ["L1"], case: i === 0 ? told : OWN })),
-  };
+export function shortLeg(proposition, tables, structure) {
+  return { leg_id: LEG_ID, text: firstPoint(structure, tables[tables.length - 1]), claims: [{ strand: "L1", proposition }] };
+}
+
+// THE TRIAL'S ANALOGY MAPPING (kogaki#1778, kogaki#1784), written before the Leg: under a case apart, the base Move's table is
+// the base domain -- its `base.domain` named, each Role's counterpart its expression and each relation's its `holds` in
+// those expressions -- and under `own` there is none, the record naming why. In the shape `paragraph-plan.yaml` keeps it.
+export const OWN_ANALOGY_REASON = "the Base Paragraph tells the proposition's own case, so no base domain is carried onto the subject.";
+export function shortAnalogy(structure, tables, told) {
+  if (told !== APART) return { none: OWN_ANALOGY_REASON };
+  const t = tables[0];
+  const say = new Map(t.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
+  const holds = (e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (say.has(id) ? say.get(id) : all));
+  return { base_domain: { name: String(t.base.domain).trim(), description: firstPoint(structure, t) },
+    roles: t.correspondences.map((c) => ({ role: c.role, counterpart: say.get(c.role) })),
+    relations: [...structure.relations, ...higherOrderOf(structure)].map((e) => ({ relation: e.id, counterpart: holds(e) })) };
 }
 
 // ONE MODEL CALL through the run's recorder, bounded by `timeoutS`; the answer's text, or the stop, with the call's own
@@ -113,6 +123,9 @@ function oneCall({ env, model, outputFormat, timeoutS, input }) {
 
 // The binary that answered: the recorder hands the call to KOGAKI_PROOF_SHEET_REAL_CLI.
 const cliOfEnv = (env) => cliRecord(env.KOGAKI_PROOF_SHEET_REAL_CLI || env.KOGAKI_JUDGE_CLI);
+
+// The writer's row as its table declares it, without the binary the settings resolved.
+const writerRowOf = (row) => Object.fromEntries(Object.entries(row).filter(([k]) => k !== "binary" && k !== "stubbed"));
 
 
 // Every `calls/` directory a stage wrote, its own and each per-Move call's, in name order (kogaki#1717).
@@ -240,6 +253,80 @@ export function correspondenceRefusal(answer, structure) {
   return v.error ? { group: v.group, text: v.error } : null;
 }
 
+// THE `waypoints` STAGE, COMPOSED (kogaki#1784): one Leg bound to one Move, planned by the production `paragraph_plan_unit`
+// row unchanged, the Leg carrying its structure, its Move and its own table as the plan's Mapper hands a grounded Leg, and an
+// analogy Move handed the Analogy Mapping. The answer is read back by `validateParagraphPlanUnit`; then it keeps the Move
+// bound at `bind`, a case apart is owed two paragraphs, and each paragraph's Waypoints keep to their table (kogaki#1709):
+// the Base Paragraph to the base domain's, the Inference Paragraph to the subject's with the base's beside it.
+export function shortPlanInput({ leg, structure, tables, move, contract, persona, analogy }) {
+  const own = tables[tables.length - 1];
+  const planned = { ...planLeg(leg, { priorKnowledge: personaPriorKnowledgeLine(persona) }), structure, move,
+    table: { base: own.base, correspondences: own.correspondences } };
+  return withAnalogy(paragraphPlanUnitInput(planned, [contract], persona, paragraphsPerLeg()), contract, analogy);
+}
+
+export function shortPlanRefusal(answer, { input, tables, move, told, libraryDir }) {
+  if (isMap(answer) && Object.hasOwn(answer, "move") && answer.move !== null && answer.move !== move) {
+    return { group: "plan", text: `the answer binds ${JSON.stringify(answer.move)}, and the Move bound to the Leg at \`bind\` is "${move}"` };
+  }
+  let v;
+  try { v = validateParagraphPlanUnit(answer, { legs: [input.leg_you_must_plan], movesDir: libraryDir }, "leg-1"); }
+  catch (e) { v = { error: String(e && e.message || e) }; }
+  if (v.error) return { group: "plan", text: v.error.split("\n").join(" "), sites: v.sites };
+  const ps = answer.paragraphs;
+  if (told === APART && ps.length !== 2) {
+    return { group: "plan", text: `the answer writes ${ps.length} paragraph(s), and the case told apart is owed two: the Base Paragraph in the Analogy Mapping's base domain, then the Inference Paragraph carrying it onto the subject` };
+  }
+  for (const [i, e] of ps.entries()) {
+    const at = told === APART ? i : 0;
+    const vocabulary = correspondenceVocabularyRefusal(e.paragraph_waypoints, tables[at], tables.slice(0, at), i + 1);
+    if (vocabulary) return { group: "plan", text: vocabulary, sites: [i + 1] };
+  }
+  return null;
+}
+
+function waypointsStage({ dir, env, cli, leg, structure, tables, move, contract, persona, analogy, told, libraryDir }) {
+  const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+  const input = shortPlanInput({ leg, structure, tables, move, contract, persona, analogy });
+  const r = retriedCall({ dir, env, cli, row: { id: PLAN_ROW, ...plan[PLAN_ROW] }, input, tables: [PARAGRAPH_PLAN_TABLE],
+    refusalOf: (answer) => shortPlanRefusal(answer, { input, tables, move, told, libraryDir }), validator: "shortPlanRefusal" });
+  return r.stopped ? r : { plan: r.answer, refusals: r.refusals };
+}
+
+// THE PARAGRAPHS: one Packet over a one-Leg Brief whose Leg carries its paragraphs, and the writer called once (kogaki#1784).
+export function shortPacket({ leg, paragraphs, audiencePath }) {
+  const split = splitPacketTemplate(readFileSync(PACKET_TEMPLATE, "utf8"));
+  if (split.error) return { error: split.error };
+  const serves = leg.claims.map((g) => g.strand);
+  const packetLeg = { ...leg, move: paragraphs[0].move, paragraphs: paragraphs.map((p, i) => ({ paragraph: i + 1, materials: serves,
+    ...(typeof p.join === "string" ? { join: p.join } : {}), paragraph_waypoints: p.paragraph_waypoints })) };
+  const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [packetLeg], strands: [] };
+  return renderPacket({ template: split.packet, brief, leg: packetLeg, priorSections: [],
+    section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
+}
+
+function writeStage({ dir, env, cli, leg, paragraphs, audiencePath, paragraphPath }) {
+  const p = shortPacket({ leg, paragraphs, audiencePath });
+  if (p.error) return { stopped: p.error };
+  const packetPath = join(dir, PACKET_FILE);
+  writeFileSync(packetPath, p.packet);
+  const w = writerSettings();
+  const call = oneCall({ env, model: w.model, outputFormat: w.output_format, timeoutS: w.timeout_s, input: p.packet });
+  const refused = call.stopped ? null : writerRefusal(call.text);
+  const empty = !call.stopped && !refused && String(call.text).trim() === "";
+  const why = call.stopped ? [call.stopped, "oneCall"] : refused ? [`the writer refused: ${refused}`, "writerRefusal"]
+    : empty ? ["the writer returned no prose", "writeStage"] : null;
+  recordCall(dir, WRITER_UNIT, 1, { env, cli, call, prompt: p.packet, input: { leg, paragraphs, audience: relFromRepo(audiencePath) },
+    row: { id: WRITER_UNIT, ...writerRowOf(w) }, tables: [DRAFT_TABLE], answer: call.stopped ? undefined : String(call.text),
+    refusal: why && { text: why[0], validator: why[1] } });
+  if (why) return { stopped: why[0], packet: relFromRepo(packetPath) };
+  writeFileSync(paragraphPath, String(call.text).trim() + "\n");
+  return { packet: relFromRepo(packetPath) };
+}
+
+// ---------------------------------------------------------------------------
+// THE SHORT TRIAL.
+
 function readProposition(file) {
   let text;
   try { text = readFileSync(file, "utf8"); } catch (e) { fail(`the proposition file cannot be read (${e.message}). Nothing was started.`); }
@@ -315,6 +402,7 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     rbs: { variant: rbsFile ? RBS_OWNER : RBS_COMPOSED, path: null, sha256: null },
     bind: { move: null, case: null, binding_rationale: null, path: null, sha256: null },
+    analogy: { path: null, sha256: null },
     paragraph: { path: null, sha256: null },
     sheet: relFromRepo(sheetPath),
     audience: relFromRepo(audiencePath),
@@ -411,32 +499,48 @@ export function runShortTrial({ proposition: propositionFile, structure: givenSt
     writeRbs(t);
     return { value: t, refusals };
   });
-  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, persona, structure, legCase(record.bind)) : null;
-  // THE WAYPOINTS (kogaki#1700): the owner's points, or one `smp_waypoints_unit` call with each Move fixed.
-  const paragraphs = stage("waypoints", () => {
+  const leg = rbsTables ? shortLeg(proposition.proposition, rbsTables.tables, structure) : null;
+  // THE WAYPOINTS (kogaki#1700, kogaki#1784): the owner's points, or the one Leg planned under its one Move.
+  const paragraphs = stage("waypoints", (d, env) => {
     let listed;
     if (owned) {
-      const serves = leg.waypoints[0].serves;
+      const serves = leg.claims.map((g) => g.strand);
       const all = [suppliedEntry(owned.record, serves), ...projectionsOf(owned.record).map((p) => suppliedEntry(p, serves))];
       const library = loadMoveContracts(libraryDir);
       const owner = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
       listed = all.map((e) => ({ move: e.move, binding_rationale: e.binding_rationale, leaves: bindingLeaves(owner.get(e.move), null, null),
         paragraph_waypoints: e.paragraph_waypoints }));
     } else {
-      // PARKED (kogaki#1777, owner decision 2026-11-11): the composed route binds a Base Move and an
-      // Inference Move in one Leg through `smp_waypoints_unit`, a row derived from the production plan
-      // row, and the Leg-as-unit plan binds one Move per Leg; the owner chose to park this stage rather
-      // than rewrite the playground inside kogaki#1777. Its Leg under the Analogy Mapping is kogaki#1784.
-      // The owner's route (`--rbs-file`) supplies its paragraphs and runs unchanged.
-      return { stopped: PARKED_WAYPOINTS_LINE };
+      // The Analogy Mapping is written before the Leg is planned (kogaki#1778); the Leg's one Move is the last bound.
+      const told = record.bind.case;
+      const analogy = shortAnalogy(structure, rbsTables.tables, told);
+      const analogyPath = join(outDir, ANALOGY_FILE);
+      writeFileSync(analogyPath, stringifyYaml({ analogy }));
+      record.analogy = fileRecord(analogyPath);
+      const move = moves[moves.length - 1];
+      const r = waypointsStage({ dir: d, env, cli, leg, structure, tables: rbsTables.tables, move, contract: contracts.get(move),
+        persona, analogy, told, libraryDir });
+      if (r.stopped) return r;
+      const leaves = bindingLeaves(contracts.get(move), OWN, null);
+      record.bind = { ...record.bind, move, plan_rationale: r.plan.rationale };
+      listed = r.plan.paragraphs.map((e, i) => ({ move, binding_rationale: record.bind.binding_rationale,
+        leaves: i === r.plan.paragraphs.length - 1 ? leaves : [], ...(typeof e.join === "string" ? { join: e.join } : {}),
+        paragraph_waypoints: e.paragraph_waypoints }));
+      writeFileSync(bindPath, stringifyYaml({ move, binding_rationale: record.bind.binding_rationale, paragraphs: listed }));
+      record.bind = { ...record.bind, paragraphs: listed, ...fileRecord(bindPath) };
+      writeRbs({ ...rbsTables, bindings: listed });
+      return { value: listed, refusals: r.refusals };
     }
     writeFileSync(bindPath, stringifyYaml({ move: listed[0].move, binding_rationale: listed[0].binding_rationale, paragraphs: listed }));
     record.bind = { ...record.bind, paragraphs: listed, ...fileRecord(bindPath) };
     writeRbs({ ...rbsTables, bindings: listed });
     return { value: listed };
   });
-  // PARKED (kogaki#1777, owner decision 2026-11-11): see PARKED_WRITE_LINE; the paragraphs stand in bind.yaml and on the sheet.
-  stage("write", () => ({ stopped: PARKED_WRITE_LINE }));
+  stage("write", (d, env) => {
+    const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath });
+    if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
+    return r;
+  });
   record.finished_at = new Date().toISOString();
   save();
   const sheet = renderShortSheet({ outDir, record, proposition, structure, tables: rbsTables ? rbsTables.tables : null, leg, paragraphs, paragraphPath });

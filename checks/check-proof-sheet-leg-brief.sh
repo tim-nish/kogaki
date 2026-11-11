@@ -6,8 +6,9 @@
 # WHAT THIS COVERS, driven end to end through `node src/proof-sheet/leg-brief.mjs run` over
 # a three-paragraph Leg, an Extractor run directory this member writes, and a FAKE judge
 # binary (`KOGAKI_JUDGE_CLI`) — never the actual `claude` CLI:
-#   (a) the run writes `brief.yaml` with ONE Leg carrying three Claims and, as its `text`, the three
-#       composed points in order with no Brief Waypoint, since /paragraph-plan reads a Leg's text alone
+#   (a) the run writes `brief.yaml` with ONE BRIEF LEG PER ORIGINAL PARAGRAPH (kogaki#1784), `<leg_id>-p<k>`
+#       for k = 1..3, each carrying paragraph k's Claim and, as its `text`, paragraph k's composed point with
+#       no Brief Waypoint, since /paragraph-plan reads a Leg's text alone and binds one Move per Leg
 #       (kogaki#1777), and every constant field marked by the constant comment; READER START IS
 #       RETIRED (kogaki#1699): the Brief carries no `reader_start`, `reader_target` or
 #       `obligations`, and its Leg no `reader_state_after` or `reader_state_before`.
@@ -150,17 +151,17 @@ else {
   ok(!p.error, `(a) the Brief does not parse: ${p.error}`);
   const rec = p.record || {};
   const legs = rec.reader_path || [];
-  ok(legs.length === 1, `(a) the Brief carries ${legs.length} Leg(s), not one`);
-  const leg = legs[0] || {};
-  // THE LEG AS /paragraph-plan READS IT (kogaki#1777): the composed points, in order, are its `text`, and it
-  // carries no Brief Waypoint.
-  ok(!("waypoints" in leg) && (leg.claims || []).length === 3, "(a) the Leg carries Brief Waypoints, or not three Claims");
-  ok(leg.text === [1, 2, 3].map((i) => `POINT-${i} CLAIM-${i}`).join(" "), `(a) the Leg's text is not paragraph 1 to 3's points in order: ${JSON.stringify(leg.text)}`);
-  ok(!("move" in leg) && !("no_move_fits" in leg), "(a) the Brief's Leg carries a Move field");
+  ok(legs.length === 3, `(a) the Brief carries ${legs.length} Leg(s), not one per original paragraph`);
+  // ONE BRIEF LEG PER ORIGINAL PARAGRAPH (kogaki#1784), as /paragraph-plan reads it (kogaki#1777): Leg k's `text`
+  // is paragraph k's composed point, its one Claim paragraph k's, and it carries no Brief Waypoint.
+  ok(legs.every((l, k) => String(l.leg_id).endsWith(`-p${k + 1}`) && !("waypoints" in l) && (l.claims || []).length === 1),
+    `(a) the Legs are not <leg_id>-p1..p3 with one Claim each and no Brief Waypoint: ${JSON.stringify(legs.map((l) => [l.leg_id, (l.claims || []).length]))}`);
+  ok(legs.every((l, k) => l.text === `POINT-${k + 1} CLAIM-${k + 1}`), `(a) Leg k's text is not paragraph k's point: ${JSON.stringify(legs.map((l) => l.text))}`);
+  ok(legs.every((l) => !("move" in l) && !("no_move_fits" in l)), "(a) a Brief Leg carries a Move field");
   for (const k of ["reader_start", "reader_target", "obligations"]) {
     ok(!(k in rec) && !new RegExp(`^${k}:`, "m").test(text), `(a) the Brief carries the retired \`${k}\` (kogaki#1699)`);
   }
-  ok(!("reader_state_after" in leg) && !("reader_state_before" in leg) && !/reader_state_(after|before)/.test(text),
+  ok(legs.every((l) => !("reader_state_after" in l) && !("reader_state_before" in l)) && !/reader_state_(after|before)/.test(text),
     "(a) the Brief's Leg carries a retired reader state (kogaki#1699)");
   for (const k of Object.keys(LB.constantFields({ slug: "s", paragraphs: PARAS }))) {
     ok(new RegExp(`^${LB.CONSTANT_COMMENT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n${k}:`, "m").test(text), `(a) the constant field \`${k}\` is not marked`);
@@ -417,7 +418,8 @@ ok(!("validateLegReaderStartUnit" in LB) && !("readerStartUnitInput" in LB), "(f
   ok(lr.status === 0 && !lp.error && !/^obligations:/m.test(brief),
     `(l) a two-Leg run over a paragraph leaving two items did not write a Brief with no \`obligations\` key: ${lr.status} ${lp.error || ""} ${lr.stdout}${lr.stderr}`);
   const lLegs = (lp.record && lp.record.reader_path) || [];
-  ok(lLegs.length === 2 && lLegs[0].opens_section === lLegs[1].claims.at(-1).proposition && lLegs[1].reaches_target === true,
+  // two original Legs of two paragraphs and one compose three Brief Legs (kogaki#1784)
+  ok(lLegs.length === 3 && lLegs[0].opens_section === lLegs[2].claims.at(-1).proposition && lLegs[2].reaches_target === true,
     `(l) the two-Leg Brief's Section heading is not the last Leg's last Claim, or its last Leg does not reach the target: ${JSON.stringify(lLegs.map((l) => [l.opens_section, l.reaches_target]))}`);
   const bj = lRun && existsSync(join(lRun, "brief.json")) ? JSON.parse(readFileSync(join(lRun, "brief.json"), "utf8")) : null;
   ok(bj && !("deferrals" in bj) && !(bj.derived || []).some((d) => d.field === "obligations"),

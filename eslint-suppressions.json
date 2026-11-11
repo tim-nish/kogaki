@@ -85,11 +85,6 @@
       "count": 4
     }
   },
-  "src/mapping-playground/short.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/mapping-playground/trial.mjs": {
     "no-unused-vars": {
       "count": 1
