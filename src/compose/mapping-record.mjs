@@ -74,14 +74,21 @@ export function writeMappingRecord(dir, entries = []) {
 
 // THE SHAPE OF `mapping` ON THE PLAN, refused or null.
 export function mappingShapeRefusal(m, rel) {
-  if (!isMap(m)) return `the ParagraphPlan file ${rel} carries \`mapping\` that is not a \`{ path, sha256, files }\` map (kogaki#1733)`;
+  if (!isMap(m))
+    return `the ParagraphPlan file ${rel} carries \`mapping\` that is not a \`{ path, sha256, files }\` map (kogaki#1733)`;
   const extra = Object.keys(m).find((k) => !MAPPING_KEYS.includes(k));
-  if (extra) return `the ParagraphPlan file ${rel} carries \`mapping.${extra}\`, which a ParagraphPlan record does not declare`;
+  if (extra)
+    return `the ParagraphPlan file ${rel} carries \`mapping.${extra}\`, which a ParagraphPlan record does not declare`;
   if (typeof m.path !== "string" || typeof m.sha256 !== "string" || !Array.isArray(m.files)) {
     return `the ParagraphPlan file ${rel} carries \`mapping\` without its \`path\`, \`sha256\` and \`files\` (kogaki#1733)`;
   }
   for (const [i, f] of m.files.entries()) {
-    if (!isMap(f) || typeof f.path !== "string" || typeof f.sha256 !== "string" || Object.keys(f).some((k) => !FILE_KEYS.includes(k))) {
+    if (
+      !isMap(f) ||
+      typeof f.path !== "string" ||
+      typeof f.sha256 !== "string" ||
+      Object.keys(f).some((k) => !FILE_KEYS.includes(k))
+    ) {
       return `the ParagraphPlan file ${rel} carries \`mapping.files[${i}]\` that is not a \`{ path, sha256 }\` map`;
     }
   }
@@ -97,20 +104,31 @@ export function mappingRecordRefusal(m, planPath, rel) {
   const dir = mappingDirFor(planPath);
   const where = relFromRepo(dir);
   if (m.path !== where) {
-    return { error: `the ParagraphPlan file ${rel} names its Mapping Record at ${m.path}, and the record beside it is ${where} (kogaki#1733)` };
+    return {
+      error: `the ParagraphPlan file ${rel} names its Mapping Record at ${m.path}, and the record beside it is ${where} (kogaki#1733)`,
+    };
   }
   const named = new Map(m.files.map((f) => [f.path, f.sha256]));
   const onDisk = mappingRecordEntries(dir);
   const seen = new Set(onDisk.map((f) => f.path));
   const rerun = "run /paragraph-plan on this Brief again, which writes the record and the plan together";
   for (const f of onDisk) {
-    if (!named.has(f.path)) return { error: `the Mapping Record file ${where}/${f.path} is not one the ParagraphPlan file ${rel} names — ${rerun} (kogaki#1733)` };
+    if (!named.has(f.path))
+      return {
+        error: `the Mapping Record file ${where}/${f.path} is not one the ParagraphPlan file ${rel} names — ${rerun} (kogaki#1733)`,
+      };
     if (named.get(f.path) !== f.sha256) {
-      return { error: `the Mapping Record file ${where}/${f.path} has changed since the ParagraphPlan file ${rel} named it: recorded `
-        + `sha256 ${named.get(f.path).slice(0, 12)}, now ${f.sha256.slice(0, 12)} — ${rerun} (kogaki#1733)` };
+      return {
+        error:
+          `the Mapping Record file ${where}/${f.path} has changed since the ParagraphPlan file ${rel} named it: recorded ` +
+          `sha256 ${named.get(f.path).slice(0, 12)}, now ${f.sha256.slice(0, 12)} — ${rerun} (kogaki#1733)`,
+      };
     }
   }
   const missing = m.files.find((f) => !seen.has(f.path));
-  if (missing) return { error: `the Mapping Record file ${where}/${missing.path}, which the ParagraphPlan file ${rel} names, is gone — ${rerun} (kogaki#1733)` };
+  if (missing)
+    return {
+      error: `the Mapping Record file ${where}/${missing.path}, which the ParagraphPlan file ${rel} names, is gone — ${rerun} (kogaki#1733)`,
+    };
   return { sha256: m.sha256 };
 }

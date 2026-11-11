@@ -9,7 +9,16 @@
 // or `src/draft.mjs` imports, with served material read through the real
 // transport pointed at `checks/fixtures/fake-gateway/`.
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -35,11 +44,16 @@ export const RUN_RECORD_FILE = "run-record.json";
 // runtime by construction; the literal is what an owner reads, so a change to
 // it is a change a case should see.
 export const NO_HEADLINE = "⟨no served Gloss rendering — ABNORMAL, a fault to clear, never substituted⟩";
-export const NO_SHARD_ADDRESSED = "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
-export const NO_SEAM = "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
-export const NO_SHARD_NAME = "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
-export const NO_SHARD_SERVED = "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
-export const NO_TARGET = "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
+export const NO_SHARD_ADDRESSED =
+  "⟨no Gloss shard carries this row — it carries no tag, or its family is outside the namespaces this path reads; a fault to clear, never substituted⟩";
+export const NO_SEAM =
+  "⟨no Gloss shard was read — the served seam was unreachable for this pull; a fault to clear, never substituted⟩";
+export const NO_SHARD_NAME =
+  "⟨the served enumeration names no Gloss shard for this row's tags — the address, not the material, is what is missing; a fault to clear, never substituted⟩";
+export const NO_SHARD_SERVED =
+  "⟨the served enumeration names no Gloss shard at all — the corpus is empty rather than misaddressed; a fault to clear, never substituted⟩";
+export const NO_TARGET =
+  "⟨no Thesis-candidate target on this row — ABNORMAL, a judged row reaching the renderer without one, never substituted⟩";
 export const NO_JUDGE = "none";
 // The display wrap column the judge-pin line and the report notice share
 // (kogaki#919), as the owner surface measures it.
@@ -84,7 +98,10 @@ export function gateway(dir, answers) {
 export function gatewayCalls(dir) {
   const f = join(dir, "gateway-calls.jsonl");
   if (!existsSync(f)) return [];
-  return readFileSync(f, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  return readFileSync(f, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
 }
 // NO QUESTION-SHAPE COMMAND BY DEFAULT (kogaki#1257). That command is
 // machine-local and outside this repository; a case not ABOUT the compose-time
@@ -101,9 +118,17 @@ export const SHAPE_CMD_FROM_ENV = process.env.KOGAKI_QUESTION_SHAPE_CMD;
 Object.assign(process.env, NO_SHAPE_CMD);
 export function terrain(args, { input = "", env = {} } = {}) {
   const r = spawnSync(process.execPath, [TERRAIN_SCRIPT, ...args], {
-    encoding: "utf8", input, cwd: REPO, env: { ...process.env, ...NO_SHAPE_CMD, ...env },
+    encoding: "utf8",
+    input,
+    cwd: REPO,
+    env: { ...process.env, ...NO_SHAPE_CMD, ...env },
   });
-  return { status: r.status, stdout: r.stdout || "", stderr: r.stderr || "", out: `${r.stdout || ""}${r.stderr || ""}` };
+  return {
+    status: r.status,
+    stdout: r.stdout || "",
+    stderr: r.stderr || "",
+    out: `${r.stdout || ""}${r.stderr || ""}`,
+  };
 }
 // One production export, driven in a CHILD process: the runtime caches what it
 // read from the seam per process (the served shard enumeration is read once),
@@ -112,42 +137,69 @@ export function terrain(args, { input = "", env = {} } = {}) {
 // point's, which exports nothing (kogaki#1259) -- and prints its result as the
 // last line of stdout, JSON-encoded.
 export const moduleUrl = (m) => pathToFileURL(join(REPO, "src", `${m}.mjs`)).href;
-export const STAGE_URLS = ["workflow", "terrain"].flatMap((d) => readdirSync(join(REPO, "src", d))
-  .filter((f) => f.endsWith(".mjs")).map((f) => moduleUrl(`${d}/${f.slice(0, -4)}`)));
-export const STAGE_IMPORTS = STAGE_URLS.map((u, i) => `import * as rt${i} from ${JSON.stringify(u)};`).join("\n")
-  + `\nconst rt = Object.assign({}, ${STAGE_URLS.map((_, i) => `rt${i}`).join(", ")});`;
+export const STAGE_URLS = ["workflow", "terrain"].flatMap((d) =>
+  readdirSync(join(REPO, "src", d))
+    .filter((f) => f.endsWith(".mjs"))
+    .map((f) => moduleUrl(`${d}/${f.slice(0, -4)}`)),
+);
+export const STAGE_IMPORTS =
+  STAGE_URLS.map((u, i) => `import * as rt${i} from ${JSON.stringify(u)};`).join("\n") +
+  `\nconst rt = Object.assign({}, ${STAGE_URLS.map((_, i) => `rt${i}`).join(", ")});`;
 // The run record binds no default lane (kogaki#1741): a driven stage runs as a Terrain act.
 const BIND_TERRAIN = `import { TERRAIN_FLOW as __tf } from ${JSON.stringify(moduleUrl("terrain"))};\nimport { bindFlow as __bf } from ${JSON.stringify(moduleUrl("workflow/run-record"))};\n__bf(__tf);`;
 export function drive(body, env = {}) {
-  const r = spawnSync(process.execPath, ["--input-type=module", "-e",
-    `${STAGE_IMPORTS}\n${BIND_TERRAIN}\n${body}`], {
-    encoding: "utf8", cwd: REPO, env: { ...process.env, ...NO_SHAPE_CMD, ...env },
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", `${STAGE_IMPORTS}\n${BIND_TERRAIN}\n${body}`], {
+    encoding: "utf8",
+    cwd: REPO,
+    env: { ...process.env, ...NO_SHAPE_CMD, ...env },
   });
   const last = (r.stdout || "").trim().split("\n").pop();
-  try { return JSON.parse(last); } catch { return { driveFailed: true, status: r.status, stderr: (r.stderr || "").slice(0, 400) }; }
+  try {
+    return JSON.parse(last);
+  } catch {
+    return { driveFailed: true, status: r.status, stderr: (r.stderr || "").slice(0, 400) };
+  }
 }
 // A served element line, in the shape `element_survey` answers with.
-export const servedLine = (rec, i = 0) => ({ text: JSON.stringify(rec), cite: `gloss/ELEMENTS.jsonl:${i + 1}@aaaaaaa` });
+export const servedLine = (rec, i = 0) => ({
+  text: JSON.stringify(rec),
+  cite: `gloss/ELEMENTS.jsonl:${i + 1}@aaaaaaa`,
+});
 // A scratch root for every case below, removed at the end of the pass.
 export const SCRATCH = mkdtempSync(join(tmpdir(), "terrain-cases-"));
 // THE LONE-TAG FIXTURE'S SEAM AND SUBDIVISIONS. Every group of the fixture
 // survey judged empty, keyed by group name as the record is; the seam serves
 // one shard address and no Gloss line, so every row renders its marker.
 export const LONE_ANSWERS = {
-  element_survey: { lines: [servedLine({ kind: "lesson", slug: "alpha", tags: ["testing"] })], pin: "product-lab@aaaaaaa" },
+  element_survey: {
+    lines: [servedLine({ kind: "lesson", slug: "alpha", tags: ["testing"] })],
+    pin: "product-lab@aaaaaaa",
+  },
   surface_names: { lines: [{ text: "lessons/tag=testing,window=2026-08" }] },
   gloss_index: { "*": { lines: [] } },
 };
 export const LONE_SUBDIVISIONS = join(SCRATCH, "lone-subdivisions.json");
-writeFileSync(LONE_SUBDIVISIONS, JSON.stringify(Object.fromEntries(
-  ["testing × (no second served tag)", "testing × architecture", "testing × cost"]
-    .map((g) => [g, { judged: true, subgroups: [] }]))));
+writeFileSync(
+  LONE_SUBDIVISIONS,
+  JSON.stringify(
+    Object.fromEntries(
+      ["testing × (no second served tag)", "testing × architecture", "testing × cost"].map((g) => [
+        g,
+        { judged: true, subgroups: [] },
+      ]),
+    ),
+  ),
+);
 
 // THE CASE COUNTER. Every case file counts its own cases and ends with
 // `finish`, which prints the one count line the runtime member sums.
-let n = 0; const bad = [];
+let n = 0;
+const bad = [];
 const cleanups = [];
-export const ok = (name, cond) => { if (cond) n++; else bad.push(name); };
+export const ok = (name, cond) => {
+  if (cond) n++;
+  else bad.push(name);
+};
 export function finish(file) {
   for (const c of cleanups) c();
   rmSync(SCRATCH, { recursive: true, force: true });
@@ -155,7 +207,11 @@ export function finish(file) {
   if (bad.length) process.exit(1);
 }
 // A value several case blocks read, made by the first block that asks for it.
-export const once = (make) => { let made = false, value; return () => (made ? value : (made = true, value = make())); };
+export const once = (make) => {
+  let made = false,
+    value;
+  return () => (made ? value : ((made = true), (value = make())));
+};
 // THE ANSWERS KEY IS THE QUESTION AS SENT (PR #1048 round 1, finding 1). A
 // fixture answering with the bare declaration question would pass against a
 // pointer that also carries the bare question, and both are wrong together.
@@ -191,21 +247,47 @@ export const tagStopFixture = once(() => {
     CLAUDE_CODE_SESSION_ID: "terrain-selftest-tagstop-session",
   };
   const tp = join(gs, "table.json");
-  writeFileSync(tp, JSON.stringify({ version: 1, states: [
-    { id: "TAG_SELECTION", kind: "wait", owner_supplies: "one tag name, or the standing option",
-      renders_gate_declaration: true, gate_id: "terrain-tag-selection" },
-    { id: "done", kind: "terminal" },
-  ] }));
-  writeFileSync(join(rd, RUN_RECORD_FILE), JSON.stringify({
-    workflow: { path: tp, version: 1 }, survey_record: surveyPath,
-    completed: [], waits_reached: [], conditional_entered: [], conditional_skipped: [],
-    awaiting: null, owner_input: {}, artifacts_written: [], judgments: {},
-    gate_declarations_owed: [], done: false,
-  }));
+  writeFileSync(
+    tp,
+    JSON.stringify({
+      version: 1,
+      states: [
+        {
+          id: "TAG_SELECTION",
+          kind: "wait",
+          owner_supplies: "one tag name, or the standing option",
+          renders_gate_declaration: true,
+          gate_id: "terrain-tag-selection",
+        },
+        { id: "done", kind: "terminal" },
+      ],
+    }),
+  );
+  writeFileSync(
+    join(rd, RUN_RECORD_FILE),
+    JSON.stringify({
+      workflow: { path: tp, version: 1 },
+      survey_record: surveyPath,
+      completed: [],
+      waits_reached: [],
+      conditional_entered: [],
+      conditional_skipped: [],
+      awaiting: null,
+      owner_input: {},
+      artifacts_written: [],
+      judgments: {},
+      gate_declarations_owed: [],
+      done: false,
+    }),
+  );
   // Started by the first case block that reads it, so a case file running
   // none of them pays nothing for it (kogaki#1425).
   const tagRun = once(() => {
-    const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], { input: FIXTURE_PAYLOAD, encoding: "utf8", env: execEnv });
+    const r = spawnSync(process.execPath, [selfPath, "run", "--run-dir", rd, "--workflow", tp], {
+      input: FIXTURE_PAYLOAD,
+      encoding: "utf8",
+      env: execEnv,
+    });
     return { r, out: `${r.stdout || ""}${r.stderr || ""}` };
   });
   // THE ANSWER ARRIVES THROUGH THE HOOK (kogaki#890). The cases used to pass
@@ -249,24 +331,41 @@ export const tagStopFixture = once(() => {
   // and which the executor now refuses by name. Composed here so a case
   // that means to drive an answered gate drives it the way the hook pair
   // does.
-  const payloadAnswering = (toolUseId) => JSON.stringify({
-    hook_event_name: "PostToolUse",
-    session_id: "fixture-session",
-    tool_use_id: toolUseId,
-  });
-  const answerThroughHook = (gatesName, questionText, label, toolUseId) => spawnSync(
-    "python3", [hookPath],
-    { encoding: "utf8", env: envFor(gatesName),
+  const payloadAnswering = (toolUseId) =>
+    JSON.stringify({
+      hook_event_name: "PostToolUse",
+      session_id: "fixture-session",
+      tool_use_id: toolUseId,
+    });
+  const answerThroughHook = (gatesName, questionText, label, toolUseId) =>
+    spawnSync("python3", [hookPath], {
+      encoding: "utf8",
+      env: envFor(gatesName),
       input: JSON.stringify({
         tool_name: "AskUserQuestion",
         session_id: SELF_TEST_SESSION,
         tool_use_id: toolUseId,
         tool_input: { questions: [{ question: questionText, options: [] }] },
         tool_response: { answers: { [questionText]: label } },
-      }) });
+      }),
+    });
   cleanups.push(() => rmSync(gs, { recursive: true, force: true }));
-  return { surveyPath, selfPath, gs, rd, execSidecar, execEnv, tp, tagRun, hookPath, gatesFor,
-    SELF_TEST_SESSION, envFor, payloadAnswering, answerThroughHook };
+  return {
+    surveyPath,
+    selfPath,
+    gs,
+    rd,
+    execSidecar,
+    execEnv,
+    tp,
+    tagRun,
+    hookPath,
+    gatesFor,
+    SELF_TEST_SESSION,
+    envFor,
+    payloadAnswering,
+    answerThroughHook,
+  };
 });
 
 // ---- THE FIX FIXTURE, read by the judgment and neighborhood case files.
@@ -293,36 +392,47 @@ export const fixFixture = once(() => {
     return f ? join(rd, f) : join(rd, "(survey refused)");
   });
   const fixSubgroup = (name, ms) => ({
-    name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms,
+    name,
+    claim: `A fixture claim over ${ms.length} member(s).`,
+    members: ms,
     verdicts: { coherence: "tight", coherence_why: "a fixture reason" },
   });
   const WIDE = [1, 2, 3, 4, 5, 6].map((i) => `lesson:w${i}`);
   const FIX_SUBDIVISIONS = join(SCRATCH, "fix-subdivisions.json");
-  writeFileSync(FIX_SUBDIVISIONS, JSON.stringify({
-    "fix × wide": { judged: true, subgroups: [fixSubgroup("the first half", WIDE.slice(0, 3)), fixSubgroup("the second half", WIDE.slice(3))] },
-    "fix × narrow": { judged: true, subgroups: [] },
-  }));
+  writeFileSync(
+    FIX_SUBDIVISIONS,
+    JSON.stringify({
+      "fix × wide": {
+        judged: true,
+        subgroups: [fixSubgroup("the first half", WIDE.slice(0, 3)), fixSubgroup("the second half", WIDE.slice(3))],
+      },
+      "fix × narrow": { judged: true, subgroups: [] },
+    }),
+  );
   // A RUN SEEDED PAST ITS WAITS, over a table narrowed to the states named.
   // The record is written as the executor writes a fresh one, with the waits'
   // answers already in `owner_input`, so the run starts at the first named
   // state and stops only at the terminal one. The judge is a stub that splits
   // a group of six or more in half and judges a smaller one empty.
   const STUB_JUDGE = join(SCRATCH, "stub-judge.mjs");
-  writeFileSync(STUB_JUDGE, [
-    "#!/usr/bin/env node",
-    'import { readFileSync } from "node:fs";',
-    'if (process.argv.includes("--version")) { console.log("stub-judge 1.0"); process.exit(0); }',
-    'const text = readFileSync(0, "utf8");',
-    'const input = JSON.parse(text.slice(text.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));',
-    'const sg = (name, ms) => ({ name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms, verdicts: { coherence: "tight", coherence_why: "a fixture reason" } });',
-    "const out = {};",
-    "for (const g of input.groups) {",
-    "  const h = Math.floor(g.members.length / 2);",
-    "  out[g.name] = { judged: true, claim: `The fixture claim for ${g.name}.`,",
-    '    subgroups: g.members.length >= 6 ? [sg("the first half", g.members.slice(0, h)), sg("the second half", g.members.slice(h))] : [] };',
-    "}",
-    "process.stdout.write(JSON.stringify({ result: JSON.stringify(out) }));",
-  ].join("\n") + "\n");
+  writeFileSync(
+    STUB_JUDGE,
+    [
+      "#!/usr/bin/env node",
+      'import { readFileSync } from "node:fs";',
+      'if (process.argv.includes("--version")) { console.log("stub-judge 1.0"); process.exit(0); }',
+      'const text = readFileSync(0, "utf8");',
+      'const input = JSON.parse(text.slice(text.indexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));',
+      'const sg = (name, ms) => ({ name, claim: `A fixture claim over ${ms.length} member(s).`, members: ms, verdicts: { coherence: "tight", coherence_why: "a fixture reason" } });',
+      "const out = {};",
+      "for (const g of input.groups) {",
+      "  const h = Math.floor(g.members.length / 2);",
+      "  out[g.name] = { judged: true, claim: `The fixture claim for ${g.name}.`,",
+      '    subgroups: g.members.length >= 6 ? [sg("the first half", g.members.slice(0, h)), sg("the second half", g.members.slice(h))] : [] };',
+      "}",
+      "process.stdout.write(JSON.stringify({ result: JSON.stringify(out) }));",
+    ].join("\n") + "\n",
+  );
   chmodSync(STUB_JUDGE, 0o755);
   const SHIPPED_TABLE = readJson(TERRAIN_WORKFLOW_TABLE);
   return { FIX_GW, fixSurvey, FIX_SUBDIVISIONS, STUB_JUDGE, SHIPPED_TABLE };

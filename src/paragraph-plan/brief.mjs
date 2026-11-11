@@ -15,26 +15,38 @@ import { REPO } from "../workflow/run-record.mjs";
 // Returns `{ text, record, legs }` or `{ error }`.
 export function readAdoptedBrief(briefPath) {
   let text;
-  try { text = readFileSync(briefPath, "utf8"); }
-  catch (e) { return { error: `the Brief at ${briefPath} cannot be read (${e.message})` }; }
+  try {
+    text = readFileSync(briefPath, "utf8");
+  } catch (e) {
+    return { error: `the Brief at ${briefPath} cannot be read (${e.message})` };
+  }
   const parsed = parseBriefRecord(text, briefPath);
   if (parsed.error) return { error: parsed.error };
   const open = unfilledSlots(parsed.record);
   if (open.length) {
-    return { error: `the Brief at ${briefPath} is not adopted: the field "${open[0]}" still awaits composition — `
-      + "/paragraph-plan runs on an adopted Brief (kogaki#1375)" };
+    return {
+      error:
+        `the Brief at ${briefPath} is not adopted: the field "${open[0]}" still awaits composition — ` +
+        "/paragraph-plan runs on an adopted Brief (kogaki#1375)",
+    };
   }
   const legs = briefLegs(parsed.record);
-  if (!legs.length) return { error: `the Brief at ${briefPath} carries no Reader Path legs — there is nothing to plan` };
+  if (!legs.length)
+    return { error: `the Brief at ${briefPath} carries no Reader Path legs — there is nothing to plan` };
   // THE LEG IS THE UNIT (kogaki#1777): a Leg is read by its `text` and never by a Brief Waypoint.
   for (const leg of legs) {
     const at = `the Brief at ${briefPath}, leg ${leg.leg_id}`;
     if (Array.isArray(leg.waypoints) && (leg.waypoints.length || typeof leg.text === "string")) {
-      return { error: `${at} carries \`waypoints\` — /paragraph-plan takes the Leg as its unit and reads its \`text\`, never a `
-        + "Brief Waypoint (kogaki#1777); compose the Brief again with /brief, whose Legs end at their relation's `holds` (kogaki#1775)" };
+      return {
+        error:
+          `${at} carries \`waypoints\` — /paragraph-plan takes the Leg as its unit and reads its \`text\`, never a ` +
+          "Brief Waypoint (kogaki#1777); compose the Brief again with /brief, whose Legs end at their relation's `holds` (kogaki#1775)",
+      };
     }
     if (typeof leg.text !== "string" || leg.text.trim() === "") {
-      return { error: `${at} carries no \`text\` — a Leg says its relation's \`holds\` in its \`text\`, which this stage plans (kogaki#1775, kogaki#1777)` };
+      return {
+        error: `${at} carries no \`text\` — a Leg says its relation's \`holds\` in its \`text\`, which this stage plans (kogaki#1775, kogaki#1777)`,
+      };
     }
   }
   // `relation` BINDS ONLY WHERE THE BRIEF CARRIES A `structure` (kogaki#1768).

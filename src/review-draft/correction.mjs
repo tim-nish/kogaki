@@ -33,14 +33,18 @@ import { writeRun, passPathAt, passReadPath } from "./workspace.mjs";
 // ruling binds the reviewer's reading and not this call.
 function briefOf(draft) {
   if (!draft.brief) {
-    fail(`${draft.path} names no Brief in its frontmatter, and the correction path re-enters the `
-      + "realization lane to render a fresh Packet. Re-emit the Draft "
-      + "(`node src/draft.mjs emit --brief <brief.yaml>`), which writes the field.");
+    fail(
+      `${draft.path} names no Brief in its frontmatter, and the correction path re-enters the ` +
+        "realization lane to render a fresh Packet. Re-emit the Draft " +
+        "(`node src/draft.mjs emit --brief <brief.yaml>`), which writes the field.",
+    );
   }
   const p = resolve(dirname(draft.path), draft.brief);
   if (!existsSync(p)) {
-    fail(`the Brief this Draft names is absent — ${p}. A correction is realized from a Packet `
-      + "rendered against the CURRENT Draft, and the Packet renderer is entered by its Brief.");
+    fail(
+      `the Brief this Draft names is absent — ${p}. A correction is realized from a Packet ` +
+        "rendered against the CURRENT Draft, and the Packet renderer is entered by its Brief.",
+    );
   }
   return p;
 }
@@ -56,8 +60,11 @@ function withReplyFile(text, name, fn) {
   const dir = mkdtempSync(join(tmpdir(), "review-draft-reply-"));
   const p = join(dir, name);
   writeFileSync(p, text);
-  try { return fn(p); }
-  finally { rmSync(dir, { recursive: true, force: true }); }
+  try {
+    return fn(p);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 function draftLane(sub, draft, args, extra) {
@@ -81,8 +88,10 @@ function draftLane(sub, draft, args, extra) {
   }
   const r = spawnSync(process.execPath, argv, { encoding: "utf8" });
   if (r.status !== 0) {
-    fail(`the realization lane refused \`draft.mjs ${sub}\` for this correction, so nothing was `
-      + `changed. Its refusal, verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`);
+    fail(
+      `the realization lane refused \`draft.mjs ${sub}\` for this correction, so nothing was ` +
+        `changed. Its refusal, verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`,
+    );
   }
   return r;
 }
@@ -94,11 +103,16 @@ function draftLane(sub, draft, args, extra) {
 function readJoin(ws) {
   const p = passReadPath(ws, 1, "join.json");
   if (!existsSync(p)) {
-    fail(`no join record at ${p} — \`compare\` writes it, and the correction path is bounded by `
-      + "what pass one found. Run `compare --draft <draft.md>` first.");
+    fail(
+      `no join record at ${p} — \`compare\` writes it, and the correction path is bounded by ` +
+        "what pass one found. Run `compare --draft <draft.md>` first.",
+    );
   }
-  try { return JSON.parse(readFileSync(p, "utf8")); }
-  catch (e) { fail(`the join record at ${p} is not readable (${e.message})`); }
+  try {
+    return JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    fail(`the join record at ${p} is not readable (${e.message})`);
+  }
 }
 
 // THE SEAT-BLIND `correctionOwed` IS DELETED (kogaki#945), not left beside its
@@ -129,8 +143,9 @@ function figureItemIds(items) {
 // passage's.
 function failingSides(run, items, legId) {
   const fig = figureItemIds(items);
-  const rows = (run.findings || [])
-    .filter((f) => f.leg_id === legId && f.verdict === "fails" && f.class === "preserved");
+  const rows = (run.findings || []).filter(
+    (f) => f.leg_id === legId && f.verdict === "fails" && f.class === "preserved",
+  );
   return {
     prose: rows.filter((f) => !fig.has(f.item)).map((f) => f.item),
     figure: rows.filter((f) => fig.has(f.item)).map((f) => f.item),
@@ -157,13 +172,15 @@ function figureCorrectionOwed(run, items) {
 // that owed both seats and received one — PR #906 round 1 finding 1's silence
 // at the seat kogaki#880 introduced.
 function seatsStillOwed(run, items) {
-  const done = (seat) => new Set((run.corrections || [])
-    .filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
+  const done = (seat) =>
+    new Set((run.corrections || []).filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
   const proseDone = done("prose");
   const figureDone = done("figure");
   return [
     ...correctionOwedProse(run, items).filter((id) => !proseDone.has(id)),
-    ...figureCorrectionOwed(run, items).filter((id) => !figureDone.has(id)).map((id) => `${id} (--figure)`),
+    ...figureCorrectionOwed(run, items)
+      .filter((id) => !figureDone.has(id))
+      .map((id) => `${id} (--figure)`),
   ];
 }
 
@@ -191,35 +208,63 @@ function figureCorrectionEvidence(joinRec, items, legId) {
 function pairLines(f) {
   return (f.pairs || [])
     .filter((p) => p.verdict && p.verdict !== "holds")
-    .map((p) => (p.declared !== undefined
-      ? `  - the declared \`${f.item}\` entry \`${p.declared}\` was not recovered — `
-        + `${p.verdict}: ${p.reason}`
-      : `  - pair ${p.pair === null ? "(whole item)" : p.pair} — ${p.verdict}: ${p.reason}`));
+    .map((p) =>
+      p.declared !== undefined
+        ? `  - the declared \`${f.item}\` entry \`${p.declared}\` was not recovered — ` + `${p.verdict}: ${p.reason}`
+        : `  - pair ${p.pair === null ? "(whole item)" : p.pair} — ${p.verdict}: ${p.reason}`,
+    );
 }
 
 function renderFigureCorrectionBlock(leg, evidence, packet) {
   const out = [];
-  out.push("# Correct the figure record — " + leg.leg_id, "",
+  out.push(
+    "# Correct the figure record — " + leg.leg_id,
+    "",
     "This Leg's figure has already been designed once. What you hand back is a",
     "RECORD, not prose: one JSON object, the instance of this Leg's Move form,",
     "validated against `src/figure-schema.json` by the same act that validated",
-    "the first one. The passage itself is not yours to change here.", "");
-  out.push("## The Leg this figure belongs to", "",
+    "the first one. The passage itself is not yours to change here.",
+    "",
+  );
+  out.push(
+    "## The Leg this figure belongs to",
+    "",
     "The Packet below is this Leg's, re-rendered as it now stands. The record's",
     "elements are worded from the claims it declares, and its caption is stated",
-    "in what the Leg says its reader holds afterwards.", "", packet.trim(), "");
-  out.push("## The passage, as it now stands", "",
-    ...numberedProse(leg).split("\n").map((l) => `    ${l}`), "");
-  out.push("## The figure as the reader currently meets it", "",
-    ...numberedFigure(leg).split("\n").map((l) => `    ${l}`), "",
+    "in what the Leg says its reader holds afterwards.",
+    "",
+    packet.trim(),
+    "",
+  );
+  out.push(
+    "## The passage, as it now stands",
+    "",
+    ...numberedProse(leg)
+      .split("\n")
+      .map((l) => `    ${l}`),
+    "",
+  );
+  out.push(
+    "## The figure as the reader currently meets it",
+    "",
+    ...numberedFigure(leg)
+      .split("\n")
+      .map((l) => `    ${l}`),
+    "",
     "Rendered by the Harness from the record below. You do not write this markup",
     "and nothing you hand back may contain any: the renderer re-runs on the",
     "record you return, which is what makes the transcription the same function",
-    "every time.", "");
-  out.push("## The previous record, verbatim", "",
+    "every time.",
+    "",
+  );
+  out.push(
+    "## The previous record, verbatim",
+    "",
     "```json",
     JSON.stringify(leg.figure.record_json, null, 2),
-    "```", "");
+    "```",
+    "",
+  );
   out.push("## What failed", "");
   if (!evidence.failed.length) {
     out.push("_No figure item failed on this Leg._", "");
@@ -233,21 +278,32 @@ function renderFigureCorrectionBlock(leg, evidence, packet) {
     out.push("");
   }
   out.push("## What held, and must go on holding", "");
-  out.push(evidence.held.length
-    ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
-    : "_No preserved figure item holds on this Leg, so this correction breaks nothing by leaving it._");
+  out.push(
+    evidence.held.length
+      ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
+      : "_No preserved figure item holds on this Leg, so this correction breaks nothing by leaving it._",
+  );
   out.push("");
   if (evidence.undecided.length) {
-    out.push("## What the reader could not settle", "",
-      "Listed and never rounded. These are not instructions.", "",
-      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`), "");
+    out.push(
+      "## What the reader could not settle",
+      "",
+      "Listed and never rounded. These are not instructions.",
+      "",
+      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`),
+      "",
+    );
   }
-  out.push("## The instruction", "",
+  out.push(
+    "## The instruction",
+    "",
     "Change what the findings above name and nothing else. Keep the record's",
     "`kind` — it is the Move form's and not a choice made here — and keep every",
     "role the form declares. An element's `claim` names the claim the Brief",
     "bound its role to; reword the element, never the binding, unless a finding",
-    "says the binding itself is wrong.", "");
+    "says the binding itself is wrong.",
+    "",
+  );
   return out.join("\n");
 }
 
@@ -272,15 +328,19 @@ function correctionEvidence(joinRec, legId, items) {
 
 function renderCorrectionBlock(leg, evidence) {
   const out = [];
-  out.push("", "---", "",
-    "## The Correction — what this Leg must change, and what it must not", "",
+  out.push(
+    "",
+    "---",
+    "",
+    "## The Correction — what this Leg must change, and what it must not",
+    "",
     "This Leg has already been realized once. Everything above is the CURRENT",
-    "Packet, re-rendered against the article as it now stands, so the \"article so",
-    "far\" block above holds the preceding prose including any Leg corrected",
+    'Packet, re-rendered against the article as it now stands, so the "article so',
+    'far" block above holds the preceding prose including any Leg corrected',
     "before this one in the same pass. Write from it, not from what you remember.",
-    "");
-  out.push("### The previous realization, verbatim", "",
-    ...leg.prose.split("\n").map((l) => `> ${l}`), "");
+    "",
+  );
+  out.push("### The previous realization, verbatim", "", ...leg.prose.split("\n").map((l) => `> ${l}`), "");
   out.push("### What failed", "");
   if (!evidence.failed.length) {
     out.push("_Nothing failed on this Leg._", "");
@@ -294,20 +354,31 @@ function renderCorrectionBlock(leg, evidence) {
     out.push("");
   }
   out.push("### What held, and must go on holding", "");
-  out.push(evidence.held.length
-    ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
-    : "_No preserved item holds on this Leg, so this correction breaks nothing by leaving it._");
+  out.push(
+    evidence.held.length
+      ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
+      : "_No preserved item holds on this Leg, so this correction breaks nothing by leaving it._",
+  );
   out.push("");
   if (evidence.undecided.length) {
-    out.push("### What the reader could not settle", "",
-      "Listed and never rounded. These are not instructions.", "",
-      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`), "");
+    out.push(
+      "### What the reader could not settle",
+      "",
+      "Listed and never rounded. These are not instructions.",
+      "",
+      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`),
+      "",
+    );
   }
-  out.push("### The instruction", "",
+  out.push(
+    "### The instruction",
+    "",
     "Change what the findings above name and nothing else. Do not restate the",
     "Packet's wording. The preceding prose is the same reader you already had:",
     "continue from it exactly as the write instruction above says, and do not",
-    "re-open what the earlier passages settled.", "");
+    "re-open what the earlier passages settled.",
+    "",
+  );
   return out.join("\n");
 }
 
@@ -317,7 +388,10 @@ function renderCorrectionBlock(leg, evidence) {
 // high change share is what the owner reads as the Leg becoming self-contained,
 // and that reading is the owner's.
 function sentencesOf(text) {
-  return String(text).split(/(?<=[.!?])[\s]+/).map((s) => s.trim()).filter(Boolean);
+  return String(text)
+    .split(/(?<=[.!?])[\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function driftOf(before, after, packetLines, n) {
@@ -335,12 +409,15 @@ function driftOf(before, after, packetLines, n) {
 function driftBlocks(declared, items) {
   const names = (items.pass_two || {}).drift_blocks;
   if (!Array.isArray(names) || !names.length) {
-    fail("the item table declares no `pass_two.drift_blocks`, and the drift measure reports "
-      + "verbatim overlap against the Packet's claim and state lines. A measure with no blocks "
-      + "to read would report zero overlap for every correction, which is a clean number about "
-      + "nothing.");
+    fail(
+      "the item table declares no `pass_two.drift_blocks`, and the drift measure reports " +
+        "verbatim overlap against the Packet's claim and state lines. A measure with no blocks " +
+        "to read would report zero overlap for every correction, which is a clean number about " +
+        "nothing.",
+    );
   }
-  return names.flatMap((b) => (Array.isArray(declared[b]) ? declared[b] : [declared[b]]))
+  return names
+    .flatMap((b) => (Array.isArray(declared[b]) ? declared[b] : [declared[b]]))
     .filter((x) => typeof x === "string" && x !== "");
 }
 
@@ -363,8 +440,10 @@ function correctionInputPath(ws, run, legId) {
 function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId, reply }) {
   const leg = resolveInputs(draft).legs.find((x) => x.leg_id === legId);
   if (!leg.figure) {
-    fail(`leg ${legId} carries no figure in the Draft's trace, so there is no record to `
-      + "correct. A figure enters at composition, on the Brief, and never here");
+    fail(
+      `leg ${legId} carries no figure in the Draft's trace, so there is no record to ` +
+        "correct. A figure enters at composition, on the Brief, and never here",
+    );
   }
 
   // --- phase A: render the correction input ------------------------------
@@ -378,20 +457,27 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
     const prefix = `packet ${legId}: `;
     const line = (r.stderr || "").split("\n").find((l) => l.startsWith(prefix));
     if (!line) {
-      fail("the realization lane rendered a Packet and did not say where it stored it, so this "
-        + "cannot show a reviewer the input the correction is written from. Its output, "
-        + `verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`);
+      fail(
+        "the realization lane rendered a Packet and did not say where it stored it, so this " +
+          "cannot show a reviewer the input the correction is written from. Its output, " +
+          `verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`,
+      );
     }
     const freshPath = line.slice(prefix.length).trim();
     if (!existsSync(freshPath)) fail(`the realization lane named a Packet at ${freshPath} and no file is there`);
     const fresh = readFileSync(freshPath, "utf8");
     const dest = passPathAt(ws, run, 1, "corrections", `${legId}.figure.md`);
-    writeFileSync(dest, renderFigureCorrectionBlock(
-      leg, figureCorrectionEvidence(joinRec, items, legId), fresh) + "\n");
+    writeFileSync(
+      dest,
+      renderFigureCorrectionBlock(leg, figureCorrectionEvidence(joinRec, items, legId), fresh) + "\n",
+    );
     run.correction_inputs = run.correction_inputs || {};
     run.correction_inputs[`${legId}#figure`] = {
-      path: dest, packet: freshPath, packet_sha: sha256(fresh),
-      record: leg.figure.record_path, record_sha: leg.figure.record_sha,
+      path: dest,
+      packet: freshPath,
+      packet_sha: sha256(fresh),
+      record: leg.figure.record_path,
+      record_sha: leg.figure.record_sha,
       // THE RECORD'S OWN BYTES, NOT ONLY ITS PATH AND SHA (kogaki#1135). The
       // file at that path is overwritten by `draft.mjs figure` when the
       // correction is recorded, so the sha afterwards names a document nothing
@@ -399,28 +485,32 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
       // the record the reader met, which is these bytes. The prose seat keeps
       // its previous realization for the same reason, one field over.
       record_text: readFileSync(leg.figure.record_path, "utf8"),
-      rendered: leg.figure.rendered, rendered_at: new Date().toISOString(),
+      rendered: leg.figure.rendered,
+      rendered_at: new Date().toISOString(),
     };
     run.correcting = { leg_id: legId, seat: "figure", input: dest, since: new Date().toISOString() };
     writeRun(ws, run);
     process.stdout.write(
-      `figure correction input: ${dest}\n`
-      + "  It carries this Leg's Packet re-rendered as it now stands, the passage, the figure as\n"
-      + "  the reader currently meets it, the previous record verbatim, what failed and what must\n"
-      + "  go on holding.\n"
-      + "Design the record again from it, then record with\n"
-      + `  <record.json> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure\n`
-      + "You write no markup: `draft.mjs figure` re-validates the record and `emit` re-renders the\n"
-      + "block from it, so the transcription is the same function it was the first time.\n");
+      `figure correction input: ${dest}\n` +
+        "  It carries this Leg's Packet re-rendered as it now stands, the passage, the figure as\n" +
+        "  the reader currently meets it, the previous record verbatim, what failed and what must\n" +
+        "  go on holding.\n" +
+        "Design the record again from it, then record with\n" +
+        `  <record.json> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure\n` +
+        "You write no markup: `draft.mjs figure` re-validates the record and `emit` re-renders the\n" +
+        "block from it, so the transcription is the same function it was the first time.\n",
+    );
     return;
   }
 
   // --- phase B: record the corrected record ------------------------------
   const input = (run.correction_inputs || {})[`${legId}#figure`];
   if (!input) {
-    fail(`leg ${legId} has no rendered FIGURE correction input, so this record was not written `
-      + `against one. Render it first:\n  node src/review-draft.mjs correct --draft `
-      + `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure`);
+    fail(
+      `leg ${legId} has no rendered FIGURE correction input, so this record was not written ` +
+        `against one. Render it first:\n  node src/review-draft.mjs correct --draft ` +
+        `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure`,
+    );
   }
 
   const snapDir = join(ws, "snapshots");
@@ -434,8 +524,7 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
   // pair — and `emit` renders the block from it. Nothing here transcribes
   // anything, which is why a syntax defect in a corrected figure stays a defect
   // of src/render-figure.mjs rather than of the sitting that corrected it.
-  withReplyFile(reply, `${legId}.figure.json`, (p) =>
-    draftLane("figure", draft, args, ["--leg", legId, "--file", p]));
+  withReplyFile(reply, `${legId}.figure.json`, (p) => draftLane("figure", draft, args, ["--leg", legId, "--file", p]));
   draftLane("emit", draft, args, []);
 
   const after = readDraft(draftPath);
@@ -443,8 +532,10 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
   const corrected = afterLegs.find((s) => s.leg_id === legId);
   if (!corrected) fail(`leg ${legId} is absent from the re-emitted Draft's trace`);
   if (!corrected.figure) {
-    fail(`leg ${legId} carries no figure in the re-emitted Draft — the correction was recorded `
-      + "and the block did not come back, which is the drop-with-no-report case the renderer refuses");
+    fail(
+      `leg ${legId} carries no figure in the re-emitted Draft — the correction was recorded ` +
+        "and the block did not come back, which is the drop-with-no-report case the renderer refuses",
+    );
   }
   writeFileSync(join(snapDir, `${seq}-after-${legId}.figure.md`), after.text);
 
@@ -454,10 +545,11 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
     leg_id: legId,
     seat: "figure",
     pass: 1,
-    what: "the figure record re-designed from a Packet re-rendered against the article as it "
-      + `stood, with a Correction block carrying ${ev.failed.length} failed figure item(s) and `
-      + `${ev.held.length} held preserved figure item(s); re-validated by \`draft.mjs figure\` and `
-      + "re-rendered by `emit`",
+    what:
+      "the figure record re-designed from a Packet re-rendered against the article as it " +
+      `stood, with a Correction block carrying ${ev.failed.length} failed figure item(s) and ` +
+      `${ev.held.length} held preserved figure item(s); re-validated by \`draft.mjs figure\` and ` +
+      "re-rendered by `emit`",
     failed_items: ev.failed.map((f) => f.item),
     held_preserved: ev.held.map((h) => h.item),
     input: input.path,
@@ -468,9 +560,10 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
     // can check: whether the rendered block moved at all. A correction that
     // re-validated a record and produced identical bytes changed nothing the
     // reader meets, which is information the owner reads rather than a refusal.
-    block_changed: corrected.figure.rendered !== input.rendered
-      ? "the rendered block differs from the one the reader met"
-      : "the rendered block is byte-identical to the one the reader met",
+    block_changed:
+      corrected.figure.rendered !== input.rendered
+        ? "the rendered block differs from the one the reader met"
+        : "the rendered block is byte-identical to the one the reader met",
     snapshot_before: join(snapDir, `${seq}-before-${legId}.figure.md`),
     snapshot_after: join(snapDir, `${seq}-after-${legId}.figure.md`),
     corrected_at: new Date().toISOString(),
@@ -481,8 +574,12 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
   delete run.pass_open_at;
   delete run.pass_cleared;
   run.legs = afterLegs.map((s) => ({
-    leg_id: s.leg_id, section: s.section, section_title: s.section_title,
-    lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
+    leg_id: s.leg_id,
+    section: s.section,
+    section_title: s.section_title,
+    lines: s.lines,
+    packet: s.packet,
+    packet_sha: s.packet_sha,
   }));
   // THE REVERSE OUTLINE IS DISCARDED for the same reason a prose correction discards
   // it: the blind reviewer read a figure that no longer exists, and keeping the
@@ -493,16 +590,17 @@ function correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId,
 
   const stillOwed = seatsStillOwed(run, items);
   process.stdout.write(
-    `corrected: ${legId} (figure)\n`
-    + `  record  ${input.record_sha}\n`
-    + `       -> ${corrected.figure.record_sha}\n`
-    + `  ${run.corrections[run.corrections.length - 1].block_changed}\n`
-    + "  reported, never gated — what an unchanged block means is the owner's reading\n"
-    + `  snapshots ${join(snapDir, `${seq}-before-${legId}.figure.md`)}\n`
-    + `            ${join(snapDir, `${seq}-after-${legId}.figure.md`)}\n`
-    + (stillOwed.length
-      ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
-      : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
+    `corrected: ${legId} (figure)\n` +
+      `  record  ${input.record_sha}\n` +
+      `       -> ${corrected.figure.record_sha}\n` +
+      `  ${run.corrections[run.corrections.length - 1].block_changed}\n` +
+      "  reported, never gated — what an unchanged block means is the owner's reading\n" +
+      `  snapshots ${join(snapDir, `${seq}-before-${legId}.figure.md`)}\n` +
+      `            ${join(snapDir, `${seq}-after-${legId}.figure.md`)}\n` +
+      (stillOwed.length
+        ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
+        : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"),
+  );
 }
 
 // THE SECOND PASS'S BOUND. Three arms, item ids from the table (`pass_two`):
@@ -522,17 +620,21 @@ function passTwoBound(run, items) {
   // what it now says.
   const declaredSuccessor = (items.pass_two || {}).successor_items;
   if (!Array.isArray(declaredSuccessor) || declaredSuccessor.length === 0) {
-    fail("the item table declares no `pass_two.successor_items`, and the bounded second pass "
-      + "re-checks each corrected Leg's successor on the continuity items it names. A bound with "
-      + "no successor arm would pass two over the corrections alone and report continuity it never "
-      + "looked at.");
+    fail(
+      "the item table declares no `pass_two.successor_items`, and the bounded second pass " +
+        "re-checks each corrected Leg's successor on the continuity items it names. A bound with " +
+        "no successor arm would pass two over the corrections alone and report continuity it never " +
+        "looked at.",
+    );
   }
   const known = new Set(items.items.map((i) => i.id));
   const missing = declaredSuccessor.filter((id) => !known.has(id));
   if (missing.length) {
-    fail(`the item table's \`pass_two.successor_items\` names ${missing.join(", ")}, which the table `
-      + "declares no item for — the bound and the item set disagree, and a successor arm keyed on "
-      + "an item nobody computes re-checks nothing while reporting that it did.");
+    fail(
+      `the item table's \`pass_two.successor_items\` names ${missing.join(", ")}, which the table ` +
+        "declares no item for — the bound and the item set disagree, and a successor arm keyed on " +
+        "an item nobody computes re-checks nothing while reporting that it did.",
+    );
   }
   const mechanical = new Set(items.items.filter((i) => i.mode === "mechanical").map((i) => i.id));
   const order = run.legs.map((s) => s.leg_id);
@@ -548,10 +650,27 @@ function passTwoBound(run, items) {
     for (const it of [...(c.failed_items || []), ...(c.held_preserved || [])]) set.add(it);
     own.set(c.leg_id, set);
   }
-  const inBound = (legId, itemId) => mechanical.has(itemId)
-    || (own.has(legId) && own.get(legId).has(itemId))
-    || (successors.has(legId) && declaredSuccessor.includes(itemId));
+  const inBound = (legId, itemId) =>
+    mechanical.has(itemId) ||
+    (own.has(legId) && own.get(legId).has(itemId)) ||
+    (successors.has(legId) && declaredSuccessor.includes(itemId));
   return { inBound, corrected, successors, mechanical, successorItems: declaredSuccessor };
 }
 
-export { withReplyFile, draftLane, readJoin, figureItemIds, failingSides, correctionOwedProse, figureCorrectionOwed, seatsStillOwed, correctionEvidence, renderCorrectionBlock, driftOf, driftBlocks, correctionInputPath, correctFigure, passTwoBound };
+export {
+  withReplyFile,
+  draftLane,
+  readJoin,
+  figureItemIds,
+  failingSides,
+  correctionOwedProse,
+  figureCorrectionOwed,
+  seatsStillOwed,
+  correctionEvidence,
+  renderCorrectionBlock,
+  driftOf,
+  driftBlocks,
+  correctionInputPath,
+  correctFigure,
+  passTwoBound,
+};

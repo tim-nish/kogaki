@@ -57,7 +57,8 @@ function numberedProse(leg) {
 // keeps a Leg's own listing aligned with itself.
 function numberedRange(text, lines) {
   const width = String(lines[1]).length;
-  return text.split("\n")
+  return text
+    .split("\n")
     .map((l, i) => `${String(lines[0] + i).padStart(width, " ")} | ${l}`)
     .join("\n");
 }
@@ -114,8 +115,21 @@ function reverseOutlineFieldCount() {
   return RECONSTRUCTIBLE_FIELDS.length;
 }
 
-const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
-  "nine", "ten", "eleven", "twelve"];
+const NUMBER_WORDS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+];
 
 // A COUNT WRITTEN AS A WORD, because it lands in the reviewer's instruction and
 // this Harness's own rule is that a review carries no digit but a line number.
@@ -132,7 +146,8 @@ function numberWord(n) {
 // article's own facts rather than the record's declaration of intent — which is
 // exactly the pair `figure-position` exists to lay against each other.
 function renderFigurePassage(leg) {
-  return ["## The figure the reader met with this passage",
+  return [
+    "## The figure the reader met with this passage",
     "",
     "It is rendered in the Draft, not written by the passage's author. Read it as",
     "the reader does — the numbers are its lines in the Draft, and this section",
@@ -140,7 +155,8 @@ function renderFigurePassage(leg) {
     "",
     numberedFigure(leg),
     "",
-    ""].join("\n");
+    "",
+  ].join("\n");
 }
 
 // THE BLIND READER'S INPUT IS THE BRIEF LEG SCHEMA AND THE PROSE (kogaki#1014):
@@ -165,28 +181,30 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
     ? FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`)
     : [];
   const figureAsk = leg.figure
-    ? ["## The figure you met, in its own terms",
-      "",
-      "This passage was rendered with a block beside it, and that block was written from a record",
-      "of its own. Read it as you read the passage — from what is on the page — and answer in the",
-      "record's own fields:",
-      "",
-      ...figureFieldLines,
-      "",
-      "Reply with a SECOND fenced block, after the `leg` block:",
-      "",
-      "````",
-      "```figure",
-      "element: …",
-      "caption: …",
-      `position: <${figurePositions().join("|")}>`,
-      "```",
-      "",
-      "One `element:` line per element you can see, in the order they read. The example shows the",
-      "FORM of the block and not an answer: how many elements there are, and which side the block",
-      "sits on, are what you are being asked.",
-      "````",
-      ""].join("\n")
+    ? [
+        "## The figure you met, in its own terms",
+        "",
+        "This passage was rendered with a block beside it, and that block was written from a record",
+        "of its own. Read it as you read the passage — from what is on the page — and answer in the",
+        "record's own fields:",
+        "",
+        ...figureFieldLines,
+        "",
+        "Reply with a SECOND fenced block, after the `leg` block:",
+        "",
+        "````",
+        "```figure",
+        "element: …",
+        "caption: …",
+        `position: <${figurePositions().join("|")}>`,
+        "```",
+        "",
+        "One `element:` line per element you can see, in the order they read. The example shows the",
+        "FORM of the block and not an answer: how many elements there are, and which side the block",
+        "sits on, are what you are being asked.",
+        "````",
+        "",
+      ].join("\n")
     : "";
 
   const head = [
@@ -259,7 +277,9 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
     "",
     "Every line is numbered with its line number in the Draft.",
     "",
-    numberedProse(leg), "");
+    numberedProse(leg),
+    "",
+  );
   if (!figureFirst && figureBlock) parts.push(figureBlock, "");
 
   const dest = passPath(ws, run, "outline-input", `${leg.leg_id}.md`);
@@ -281,10 +301,16 @@ function renderReverseOutlineInput(ws, run, draft, leg, legs) {
 // `waypoints` joined at kogaki#1311. `opens_section` is on the refused list
 // because it IS a Brief Leg field; `concession` is refused by the closed set.
 const RECONSTRUCTIBLE_FIELDS = [
-  { name: "purpose", kind: "line",
-    definition: "what this passage is for — what it does for the reader, in your words." },
-  { name: "claims", kind: "claim-lines",
-    definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept." },
+  {
+    name: "purpose",
+    kind: "line",
+    definition: "what this passage is for — what it does for the reader, in your words.",
+  },
+  {
+    name: "claims",
+    kind: "claim-lines",
+    definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept.",
+  },
   // THE ROUTE, READ BACK (kogaki#1311, kogaki#1326). The forward Leg carries
   // `waypoints`, each the point one paragraph makes, and the Packet renders
   // them in place of the Move; Reverse Outlining compares the prose's own
@@ -294,9 +320,13 @@ const RECONSTRUCTIBLE_FIELDS = [
   // passage that spent two paragraphs on one step is not refused on the count.
   // The forward form's `(serves …)` is the Brief's address and the reader
   // cannot know it, so the line is bare, the way `claim ` lines are.
-  { name: "waypoints", kind: "waypoint-lines",
-    definition: "one `waypoint ` line per paragraph of the passage, in order — the point that paragraph makes: "
-      + "the one proposition it establishes, in one sentence, in your words; never what it does to you as a reader." },
+  {
+    name: "waypoints",
+    kind: "waypoint-lines",
+    definition:
+      "one `waypoint ` line per paragraph of the passage, in order — the point that paragraph makes: " +
+      "the one proposition it establishes, in one sentence, in your words; never what it does to you as a reader.",
+  },
   // BOTH ARMS, and the bare one first (PR #1022 round 1, finding 3). This read
   // `introduces: <term> — <anchor>`, which is only half of what
   // `parseIntroducesEntry` accepts: a term may be written BARE, and only a
@@ -304,12 +334,16 @@ const RECONSTRUCTIBLE_FIELDS = [
   // for mandatory would supply one for a term the passage anchors nowhere —
   // an invention reaching the comparison through the one field the blind half
   // exists to keep clean.
-  { name: "introduces", kind: "repeated-line",
-    definition: "one `introduces: <term>` line per term this passage introduces to the reader. "
-      + "There are two forms and both are accepted: write the term BARE, or — where the passage "
-      + "also says what the term MEANS — write `introduces: <term> — <anchor>` and let the anchor "
-      + "be that meaning, in the passage's own words. Where the passage anchors nothing, write the "
-      + "term bare rather than inventing an anchor. A passage that introduces nothing carries no line." },
+  {
+    name: "introduces",
+    kind: "repeated-line",
+    definition:
+      "one `introduces: <term>` line per term this passage introduces to the reader. " +
+      "There are two forms and both are accepted: write the term BARE, or — where the passage " +
+      "also says what the term MEANS — write `introduces: <term> — <anchor>` and let the anchor " +
+      "be that meaning, in the passage's own words. Where the passage anchors nothing, write the " +
+      "term bare rather than inventing an anchor. A passage that introduces nothing carries no line.",
+  },
 ];
 
 // Declared NOT reconstructible, and REFUSED in a Reverse Outline rather than
@@ -317,16 +351,33 @@ const RECONSTRUCTIBLE_FIELDS = [
 // an invention that reaches the comparison, and the whole point of the blind
 // half is that what comes back was read rather than inferred.
 const NOT_RECONSTRUCTIBLE_FIELDS = [
-  { name: "move", why: "the Move is the Brief's name for the reader-state transition type, and a reader cannot "
-      + "infer which library entry produced a passage; the Move's effect is carried by the reader states, which ARE compared" },
+  {
+    name: "move",
+    why:
+      "the Move is the Brief's name for the reader-state transition type, and a reader cannot " +
+      "infer which library entry produced a passage; the Move's effect is carried by the reader states, which ARE compared",
+  },
   { name: "materials", why: "which Strands licensed the passage is a fact about the Brief, not about the prose" },
   { name: "rationale", why: "why the Leg was placed where it was is the composer's reasoning, not the reader's" },
-  { name: "depends_on", why: "which earlier Legs this one stands on is the path's structure, not the passage's content" },
-  { name: "bridges", why: "whether this Leg was inserted between two others is a fact about how the Brief was revised" },
-  { name: "figure", why: "the figure's own round trip is a separate comparison against the figure record's own fields" },
-  { name: "opens_section", why: "whether a Leg opens its Section or continues one is rendered by the Harness out "
-      + "of the trace, so it is never information the prose has to carry; the row that compared it left the item table "
-      + "at kogaki#1132 and a line nothing reads is a reading the Blind Reader is charged for and nobody looks at" },
+  {
+    name: "depends_on",
+    why: "which earlier Legs this one stands on is the path's structure, not the passage's content",
+  },
+  {
+    name: "bridges",
+    why: "whether this Leg was inserted between two others is a fact about how the Brief was revised",
+  },
+  {
+    name: "figure",
+    why: "the figure's own round trip is a separate comparison against the figure record's own fields",
+  },
+  {
+    name: "opens_section",
+    why:
+      "whether a Leg opens its Section or continues one is rendered by the Harness out " +
+      "of the trace, so it is never information the prose has to carry; the row that compared it left the item table " +
+      "at kogaki#1132 and a line nothing reads is a reading the Blind Reader is charged for and nobody looks at",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -340,24 +391,46 @@ const NOT_RECONSTRUCTIBLE_FIELDS = [
 // list. THE DISPOSITION RULE IS THE SAME RULE: reconstructible is "a reader
 // who met the rendered block could say this", everything else is REFUSED.
 const FIGURE_RECONSTRUCTIBLE_FIELDS = [
-  { name: "element", kind: "repeated-line",
-    definition: "one `element: <what it is>` line per thing you can name in the block, in your own "
-      + "words. At least one. You are naming what is THERE, never judging how well it is put." },
-  { name: "caption", kind: "line",
-    definition: "what you hold after looking at the block, in your own words — one line." },
-  { name: "position", kind: "line",
-    definition: "`before` where you met the block above this passage, `after` where you met it below." },
+  {
+    name: "element",
+    kind: "repeated-line",
+    definition:
+      "one `element: <what it is>` line per thing you can name in the block, in your own " +
+      "words. At least one. You are naming what is THERE, never judging how well it is put.",
+  },
+  {
+    name: "caption",
+    kind: "line",
+    definition: "what you hold after looking at the block, in your own words — one line.",
+  },
+  {
+    name: "position",
+    kind: "line",
+    definition: "`before` where you met the block above this passage, `after` where you met it below.",
+  },
 ];
 
 // Declared NOT reconstructible, and refused in a figure's Reverse Outline.
 const FIGURE_NOT_RECONSTRUCTIBLE_FIELDS = [
-  { name: "kind", why: "the record's kind is the Move FORM's, and a reader cannot infer the form a "
-      + "structure was produced from — the same ruling that keeps `move` out of the passage's outline" },
-  { name: "relations", why: "the relation a form holds between its roles belongs to the form and is "
-      + "read out of src/figure-kinds.json; a reader naming one would be naming the source rather "
-      + "than the block" },
-  { name: "emphasis", why: "which element the figure leans on is a decision recorded beside the block, "
-      + "and a rendering does not ask its reader to separate that out" },
+  {
+    name: "kind",
+    why:
+      "the record's kind is the Move FORM's, and a reader cannot infer the form a " +
+      "structure was produced from — the same ruling that keeps `move` out of the passage's outline",
+  },
+  {
+    name: "relations",
+    why:
+      "the relation a form holds between its roles belongs to the form and is " +
+      "read out of src/figure-kinds.json; a reader naming one would be naming the source rather " +
+      "than the block",
+  },
+  {
+    name: "emphasis",
+    why:
+      "which element the figure leans on is a decision recorded beside the block, " +
+      "and a rendering does not ask its reader to separate that out",
+  },
 ];
 
 // The record's `position` vocabulary, and it is the RECORD's rather than a
@@ -366,17 +439,24 @@ const FIGURE_NOT_RECONSTRUCTIBLE_FIELDS = [
 function figurePositions() {
   const p = join(dirname(fileURLToPath(import.meta.url)), "..", "figure-schema.json");
   if (!existsSync(p)) {
-    fail(`the figure record's contract is absent — ${p}. The figure Round Trip reads its field `
-      + "vocabulary from that file rather than carrying a copy, so this refuses rather than "
-      + "validating against a vocabulary it invented.");
+    fail(
+      `the figure record's contract is absent — ${p}. The figure Round Trip reads its field ` +
+        "vocabulary from that file rather than carrying a copy, so this refuses rather than " +
+        "validating against a vocabulary it invented.",
+    );
   }
   let schema;
-  try { schema = JSON.parse(readFileSync(p, "utf8")); }
-  catch (e) { fail(`the figure schema at ${p} is not readable JSON (${e.message})`); }
+  try {
+    schema = JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    fail(`the figure schema at ${p} is not readable JSON (${e.message})`);
+  }
   const one = schema.fields?.position?.one_of;
   if (!Array.isArray(one) || one.length === 0) {
-    fail(`the figure schema at ${p} declares no closed set for \`position\`, and the Round Trip `
-      + "reads that set from the record's own contract rather than restating it");
+    fail(
+      `the figure schema at ${p} declares no closed set for \`position\`, and the Round Trip ` +
+        "reads that set from the record's own contract rather than restating it",
+    );
   }
   return one;
 }
@@ -385,12 +465,18 @@ function figurePositions() {
 function parseFigureBlock(text, path) {
   const m = /^```figure\n([\s\S]*?)\n```/m.exec(text);
   if (!m) {
-    return { refusal: `${path} carries no fenced \`figure\` block — this Leg's reader met a figure, so `
-      + "the Round Trip owes a reading of it in the figure record's own field names" };
+    return {
+      refusal:
+        `${path} carries no fenced \`figure\` block — this Leg's reader met a figure, so ` +
+        "the Round Trip owes a reading of it in the figure record's own field names",
+    };
   }
   if (/^```figure\n/m.test(text.slice(m.index + m[0].length))) {
-    return { refusal: `${path} carries more than one fenced \`figure\` block — a Leg renders one figure, `
-      + "and two blocks leave the Harness to pick which one the reader meant" };
+    return {
+      refusal:
+        `${path} carries more than one fenced \`figure\` block — a Leg renders one figure, ` +
+        "and two blocks leave the Harness to pick which one the reader meant",
+    };
   }
   return { body: m[1] };
 }
@@ -412,21 +498,27 @@ function validateFigureOutline(text, leg, file) {
   const positions = figurePositions();
   if (position === null) problems.push("carries no `position:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[2].definition);
   else if (!positions.includes(position)) {
-    problems.push(`\`position:\` reads \`${position}\`, and the record's position is one of `
-      + `${positions.map((x) => `\`${x}\``).join(" or ")} — a third value is a placement the article has no seat for`);
+    problems.push(
+      `\`position:\` reads \`${position}\`, and the record's position is one of ` +
+        `${positions.map((x) => `\`${x}\``).join(" or ")} — a third value is a placement the article has no seat for`,
+    );
   }
 
   const elements = repeatedLines(body, "element");
   if (elements.length === 0) {
-    problems.push("carries no `element:` line — a figure a reader can name nothing in is a figure "
-      + "that showed them nothing, and that is the finding rather than a blank side");
+    problems.push(
+      "carries no `element:` line — a figure a reader can name nothing in is a figure " +
+        "that showed them nothing, and that is the finding rather than a blank side",
+    );
   }
 
   // THE LINE SET IS CLOSED, exactly as the Leg block's is: a name nobody
   // declared carries a judgment the Harness never reads, and admit-by-default is
   // how that arrives with no trace.
-  const declared = new Set([...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name),
-    ...FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name)]);
+  const declared = new Set([
+    ...FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => f.name),
+    ...FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name),
+  ]);
   const refused = new Set(FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.map((f) => f.name));
   for (const ln of body.split("\n")) {
     if (ln.trim() === "") continue;
@@ -436,14 +528,18 @@ function validateFigureOutline(text, leg, file) {
       const why = FIGURE_NOT_RECONSTRUCTIBLE_FIELDS.find((f) => f.name === m[1]).why;
       problems.push(`carries \`${m[1]}:\`, which is declared not reconstructible — ${why}`);
     } else if (!declared.has(m[1])) {
-      problems.push(`carries \`${m[1]}:\`, which is not a figure record field — a field in a figure's `
-        + "Reverse Outline that the record does not declare needs its own ruling, so it is refused rather than read");
+      problems.push(
+        `carries \`${m[1]}:\`, which is not a figure record field — a field in a figure's ` +
+          "Reverse Outline that the record does not declare needs its own ruling, so it is refused rather than read",
+      );
     }
   }
 
   if (problems.length) {
-    fail(`the figure's Reverse Outline for ${leg.leg_id} (${file}) is not a block this Round Trip can read:\n  - `
-      + problems.join("\n  - "));
+    fail(
+      `the figure's Reverse Outline for ${leg.leg_id} (${file}) is not a block this Round Trip can read:\n  - ` +
+        problems.join("\n  - "),
+    );
   }
 
   return {
@@ -458,7 +554,9 @@ const RECONSTRUCTIBLE_NAMES = new Set(RECONSTRUCTIBLE_FIELDS.map((f) => f.name))
 
 // The Reverse Outline's own claim lines, read with the Brief's grammar.
 function outlineClaims(body) {
-  return String(body).split("\n").filter((l) => l.startsWith("claim "));
+  return String(body)
+    .split("\n")
+    .filter((l) => l.startsWith("claim "));
 }
 
 // The Reverse Outline's own waypoint lines (kogaki#1311), in paragraph order.
@@ -466,7 +564,9 @@ function outlineClaims(body) {
 // carries the forward form's `(serves …)`, which addresses a Strand the reader
 // never saw — a line that does carries it as read, and it is compared as text.
 function outlineWaypoints(body) {
-  return String(body).split("\n").filter((l) => /^waypoint\b/.test(l))
+  return String(body)
+    .split("\n")
+    .filter((l) => /^waypoint\b/.test(l))
     .map((l) => l.replace(/^waypoint\b[ \t]*(\([^)]*\))?[ \t]*:?[ \t]*/, "").trim());
 }
 
@@ -489,8 +589,10 @@ function validateReverseOutline(text, leg, file) {
   const problems = [];
 
   if (outline.leg_id !== leg.leg_id) {
-    problems.push(`its \`leg_id\` is \`${outline.leg_id}\` and this pass is reading ${leg.leg_id} — `
-      + "a Reverse Outline is the reading of ONE passage and is filed against it");
+    problems.push(
+      `its \`leg_id\` is \`${outline.leg_id}\` and this pass is reading ${leg.leg_id} — ` +
+        "a Reverse Outline is the reading of ONE passage and is filed against it",
+    );
   }
 
   for (const f of RECONSTRUCTIBLE_FIELDS) {
@@ -505,8 +607,10 @@ function validateReverseOutline(text, leg, file) {
       // that asserts nothing is not a passage, so `claims` is the one
       // reconstructible field with a floor. `introduces` is legitimately absent.
       if (outlineClaims(body).length === 0) {
-        problems.push("carries no `claim ` line — every passage asserts something, and the claims are "
-          + "what the Round Trip judges against what the Forward Artifact licenses");
+        problems.push(
+          "carries no `claim ` line — every passage asserts something, and the claims are " +
+            "what the Round Trip judges against what the Forward Artifact licenses",
+        );
       }
       continue;
     }
@@ -515,8 +619,10 @@ function validateReverseOutline(text, leg, file) {
       // to its reader, so an outline naming no step at all read nothing.
       const ws = outlineWaypoints(body);
       if (ws.length === 0) {
-        problems.push("carries no `waypoint ` line — every paragraph makes a point, and the points are what "
-          + "the Round Trip compares against the waypoints the Leg was written toward");
+        problems.push(
+          "carries no `waypoint ` line — every paragraph makes a point, and the points are what " +
+            "the Round Trip compares against the waypoints the Leg was written toward",
+        );
       }
       for (const [i, v] of ws.entries()) {
         if (v === "") problems.push(`\`waypoint\` line ${i + 1} is blank — ${f.definition}`);
@@ -550,14 +656,18 @@ function validateReverseOutline(text, leg, file) {
     if (ln.startsWith("claim ") || /^waypoint\b/.test(ln) || ln.trim() === "") continue;
     const m = /^([a-z_][a-z0-9_]*):/.exec(ln);
     if (m && !declared.has(m[1])) {
-      problems.push(`carries \`${m[1]}:\`, which is not a Brief Leg field — a field in the Reverse Outline `
-        + "that is not a Brief Leg field needs its own ruling, so it is refused rather than read");
+      problems.push(
+        `carries \`${m[1]}:\`, which is not a Brief Leg field — a field in the Reverse Outline ` +
+          "that is not a Brief Leg field needs its own ruling, so it is refused rather than read",
+      );
     }
   }
 
   if (problems.length) {
-    fail(`the Reverse Outline for ${leg.leg_id} (${file}) is not a Brief Leg block this Round Trip can read:\n  - `
-      + problems.join("\n  - "));
+    fail(
+      `the Reverse Outline for ${leg.leg_id} (${file}) is not a Brief Leg block this Round Trip can read:\n  - ` +
+        problems.join("\n  - "),
+    );
   }
 
   // THE READING, UNDER THE BRIEF'S OWN NAMES. There is no translation left to
@@ -580,4 +690,12 @@ function nextOutlineOwed(run) {
   return run.legs.find((s) => !run.outlineFields[s.leg_id]);
 }
 
-export { quotedPassage, renderReverseOutlineInput, validateFigureOutline, validateReverseOutline, nextOutlineOwed, numberedProse, numberedFigure };
+export {
+  quotedPassage,
+  renderReverseOutlineInput,
+  validateFigureOutline,
+  validateReverseOutline,
+  nextOutlineOwed,
+  numberedProse,
+  numberedFigure,
+};

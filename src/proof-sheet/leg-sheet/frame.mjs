@@ -34,10 +34,36 @@ export const SHEET_CELL_BADGE = {
   runRecord: { type: "production" },
 };
 
-export const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-export const read = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
-export const readJson = (p) => { const t = read(p); if (t === null) return null; try { return JSON.parse(t); } catch { return null; } };
-export const readCalls = (p) => (read(p) || "").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+export const esc = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export const read = (p) => {
+  try {
+    return readFileSync(p, "utf8");
+  } catch {
+    return null;
+  }
+};
+export const readJson = (p) => {
+  const t = read(p);
+  if (t === null) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+};
+export const readCalls = (p) =>
+  (read(p) || "")
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 export const pre = (t) => `<pre>${esc(t)}</pre>`;
 export const json = (o) => JSON.stringify(o, null, 2);
 
@@ -82,16 +108,23 @@ export function againstShown(stdin, shown) {
 // place on the sheet"); a call whose stdin is shown nowhere else is shown whole.
 export function callsBlock(calls, label = "recorded model calls", shown = []) {
   if (!calls.length) return `<p class="muted">No ${esc(label)}.</p>`;
-  return calls.map((c, i) => {
-    const m = againstShown(c.stdin, shown);
-    const prompt = !m ? sub("prompt (stdin)", pre(c.stdin))
-      : m.inserted === null ? `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, byte for byte.</p>`
-        : `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, with this block inserted before its input:</p>${pre(m.inserted)}`;
-    return sub(`${label}: call ${i + 1} of ${calls.length} — exit ${c.exit}, at ${c.at}`,
-      pre(`argv: ${JSON.stringify(c.argv)}`) + prompt
-      + sub("answer (stdout)", pre(c.stdout))
-      + (c.stderr ? sub("stderr", pre(c.stderr)) : ""));
-  }).join("");
+  return calls
+    .map((c, i) => {
+      const m = againstShown(c.stdin, shown);
+      const prompt = !m
+        ? sub("prompt (stdin)", pre(c.stdin))
+        : m.inserted === null
+          ? `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, byte for byte.</p>`
+          : `<p class="muted">prompt (stdin): the prompt shown under ${esc(m.where)}, with this block inserted before its input:</p>${pre(m.inserted)}`;
+      return sub(
+        `${label}: call ${i + 1} of ${calls.length} — exit ${c.exit}, at ${c.at}`,
+        pre(`argv: ${JSON.stringify(c.argv)}`) +
+          prompt +
+          sub("answer (stdout)", pre(c.stdout)) +
+          (c.stderr ? sub("stderr", pre(c.stderr)) : ""),
+      );
+    })
+    .join("");
 }
 
 // THE ANCHORED BRIEF (kogaki#1495). A Brief whose Leg was judged recoverable from the
@@ -135,13 +168,15 @@ export function cardWrap(key, { output, rounds, inputs, prompt, calls, anchored 
   const name = SHEET_TITLES[key];
   const b = SHEET_CELL_BADGE[key];
   const cls = b && b.type === "substitute" ? "pcard substitute" : "pcard";
-  return `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}${copiedBadge(copiedFrom)}</h3>`
-    + `<details class="part out"><summary>Output</summary>${output}</details>`
-    + (rounds !== undefined ? `<details class="part rounds"><summary>Rounds</summary>${rounds}</details>` : "")
-    + `<details class="part in"><summary>Inputs</summary>${inputs}</details>`
-    + `<details class="part prompt"><summary>Prompt</summary>${prompt}</details>`
-    + `<details class="part calls"><summary>Calls</summary>${calls}</details>`
-    + `</section>`;
+  return (
+    `<section class="${cls}" id="card-${idx}-${key}"><h3><b>${esc(name)}</b>${badgeSpan(key, anchored)}${copiedBadge(copiedFrom)}</h3>` +
+    `<details class="part out"><summary>Output</summary>${output}</details>` +
+    (rounds !== undefined ? `<details class="part rounds"><summary>Rounds</summary>${rounds}</details>` : "") +
+    `<details class="part in"><summary>Inputs</summary>${inputs}</details>` +
+    `<details class="part prompt"><summary>Prompt</summary>${prompt}</details>` +
+    `<details class="part calls"><summary>Calls</summary>${calls}</details>` +
+    `</section>`
+  );
 }
 
 // A recorded prompt's two halves: the instruction (above the judge's input marker, or the
@@ -152,9 +187,13 @@ function promptHalves(promptText) {
   const at = promptText.indexOf(JUDGE_INPUT_MARKER);
   const instruction = at >= 0 ? promptText.slice(0, at) : promptText;
   const input = at >= 0 ? promptText.slice(at) : null;
-  return (input !== null ? `<p class="muted">The instruction and the input below are two halves of one recorded prompt file.</p>` : "")
-    + `${subOpen("instruction", pre(instruction))}`
-    + (input !== null ? sub("input", pre(input)) : "");
+  return (
+    (input !== null
+      ? `<p class="muted">The instruction and the input below are two halves of one recorded prompt file.</p>`
+      : "") +
+    `${subOpen("instruction", pre(instruction))}` +
+    (input !== null ? sub("input", pre(input)) : "")
+  );
 }
 
 // A stage's Prompt part: one prompt where the stage made one call (or one per paragraph),
@@ -170,20 +209,32 @@ export function promptPart(named) {
     return { title, text, instruction: at >= 0 ? text.slice(0, at) : null, input: at >= 0 ? text.slice(at) : null };
   });
   if (halves.every((h) => h.instruction !== null && h.instruction === halves[0].instruction)) {
-    return `<p class="muted">Each recorded prompt file is this one instruction followed by its own input.</p>`
-      + subOpen("instruction", pre(halves[0].instruction))
-      + halves.map((h) => sub(`${h.title} — input`, pre(h.input))).join("");
+    return (
+      `<p class="muted">Each recorded prompt file is this one instruction followed by its own input.</p>` +
+      subOpen("instruction", pre(halves[0].instruction)) +
+      halves.map((h) => sub(`${h.title} — input`, pre(h.input))).join("")
+    );
   }
   // Prompts that share an instruction (the judge's Rounds, a site's retries, kogaki#1642) show
   // it once, each input under its own title, so no instruction appears twice on the page.
   const groups = [];
   for (const h of halves) {
     const g = h.instruction !== null ? groups.find((x) => x.instruction === h.instruction) : null;
-    if (g) g.items.push(h); else groups.push({ instruction: h.instruction, items: [h] });
+    if (g) g.items.push(h);
+    else groups.push({ instruction: h.instruction, items: [h] });
   }
-  return groups.map((g) => (g.items.length === 1 ? sub(g.items[0].title, promptHalves(g.items[0].text))
-    : sub(g.items.map((h) => h.title).join(" / "), `<p class="muted">These recorded prompt files are this one instruction, each followed by its own input.</p>`
-      + subOpen("instruction", pre(g.instruction)) + g.items.map((h) => sub(`${h.title} — input`, pre(h.input))).join("")))).join("");
+  return groups
+    .map((g) =>
+      g.items.length === 1
+        ? sub(g.items[0].title, promptHalves(g.items[0].text))
+        : sub(
+            g.items.map((h) => h.title).join(" / "),
+            `<p class="muted">These recorded prompt files are this one instruction, each followed by its own input.</p>` +
+              subOpen("instruction", pre(g.instruction)) +
+              g.items.map((h) => sub(`${h.title} — input`, pre(h.input))).join(""),
+          ),
+    )
+    .join("");
 }
 
 // A Move file's Segments, read off its YAML record (kogaki#1413); none where the file is
@@ -193,9 +244,13 @@ function moveSegments(moveText) {
   try {
     const rec = parseYaml(moveText);
     return rec && Array.isArray(rec.segments) ? rec.segments.map((s) => String((s && s.operation) || "").trim()) : [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
-export function segmentCount(moveText) { return moveSegments(moveText).length; }
+export function segmentCount(moveText) {
+  return moveSegments(moveText).length;
+}
 
 // THE PER-PARAGRAPH ANCHOR IDS a written-paragraph cell links to, and every per-paragraph row
 // carries (kogaki#1402): one id per card per paragraph number, scoped by the sheet's run index
@@ -263,10 +318,16 @@ export function pipelineDiagram(idx) {
     ["Draft", cardHref("draft")],
   ];
   const edges = [
-    ["Passage", "Extraction"], ["Audience", "Extraction"],
-    ["Extraction", "Move"], ["Extraction", "Brief"], ["Audience", "Brief"],
-    ["Move", "ParagraphPlan"], ["Brief", "ParagraphPlan"],
-    ["Brief", "Packet"], ["ParagraphPlan", "Packet"], ["Audience", "Packet"],
+    ["Passage", "Extraction"],
+    ["Audience", "Extraction"],
+    ["Extraction", "Move"],
+    ["Extraction", "Brief"],
+    ["Audience", "Brief"],
+    ["Move", "ParagraphPlan"],
+    ["Brief", "ParagraphPlan"],
+    ["Brief", "Packet"],
+    ["ParagraphPlan", "Packet"],
+    ["Audience", "Packet"],
     ["Packet", "Draft"],
   ];
   const nodeId = (name) => `${name}_${idx}`;
@@ -278,29 +339,44 @@ export function pipelineDiagram(idx) {
   lines.push("  classDef modelWritten fill:#dce8df,stroke:#2f6b45,color:#1d1d1b");
   lines.push("  classDef mechanical fill:#dbe3ef,stroke:#2b4f7a,color:#1d1d1b");
   lines.push("  classDef dashed stroke-dasharray: 5 5");
-  for (const [cls, names] of Object.entries(DIAGRAM_CLASSES)) lines.push(`  class ${names.map(nodeId).join(",")} ${cls}`);
+  for (const [cls, names] of Object.entries(DIAGRAM_CLASSES))
+    lines.push(`  class ${names.map(nodeId).join(",")} ${cls}`);
   lines.push(`  class ${DIAGRAM_DASHED.map(nodeId).join(",")} dashed`);
   const text = lines.join("\n");
   const legend = `<ul class="legend">${Object.entries(DIAGRAM_CLASS_LABELS)
-    .map(([cls, label]) => `<li><span class="swatch ${cls}"></span> ${esc(label)}</li>`).join("")}</ul>`;
-  return `<div class="diagram"><div class="mermaid">${esc(text)}</div>${legend}<p class="muted fold-legend">${esc(FOLD_LEGEND)}</p>`
-    + sub("Diagram text (shown for a sheet without network access to Mermaid)", pre(text))
-    + `</div>`;
+    .map(([cls, label]) => `<li><span class="swatch ${cls}"></span> ${esc(label)}</li>`)
+    .join("")}</ul>`;
+  return (
+    `<div class="diagram"><div class="mermaid">${esc(text)}</div>${legend}<p class="muted fold-legend">${esc(FOLD_LEGEND)}</p>` +
+    sub("Diagram text (shown for a sheet without network access to Mermaid)", pre(text)) +
+    `</div>`
+  );
 }
 
 // A recorded call's answer: the `result` of its last stream-json result line, parsed as JSON,
 // or the text that would not parse (`raw`) -- the whole stdout where no result line is found.
 export function callAnswer(c) {
-  const lines = String((c && c.stdout) || "").split("\n").filter((l) => l.trim() !== "");
+  const lines = String((c && c.stdout) || "")
+    .split("\n")
+    .filter((l) => l.trim() !== "");
   for (let i = lines.length - 1; i >= 0; i--) {
     let obj;
-    try { obj = JSON.parse(lines[i]); } catch { continue; }
+    try {
+      obj = JSON.parse(lines[i]);
+    } catch {
+      continue;
+    }
     if (!obj || typeof obj !== "object" || obj.type !== "result") continue;
-    if (typeof obj.result !== "string") return obj.result && typeof obj.result === "object" ? { record: obj.result } : { raw: JSON.stringify(obj.result) };
+    if (typeof obj.result !== "string")
+      return obj.result && typeof obj.result === "object"
+        ? { record: obj.result }
+        : { raw: JSON.stringify(obj.result) };
     try {
       const rec = JSON.parse(obj.result);
       return rec && typeof rec === "object" && !Array.isArray(rec) ? { record: rec } : { raw: obj.result };
-    } catch { return { raw: obj.result }; }
+    } catch {
+      return { raw: obj.result };
+    }
   }
   return { raw: String((c && c.stdout) || "") };
 }

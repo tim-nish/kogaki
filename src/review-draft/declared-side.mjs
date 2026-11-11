@@ -28,12 +28,17 @@ import { fail } from "./draft-reader.mjs";
 function readItems() {
   const p = join(dirname(fileURLToPath(import.meta.url)), "..", "review-items.json");
   if (!existsSync(p)) {
-    fail(`the item table is absent — ${p}. It is the whole of what the comparison compares, so `
-      + "this refuses rather than joining against a table it invented.");
+    fail(
+      `the item table is absent — ${p}. It is the whole of what the comparison compares, so ` +
+        "this refuses rather than joining against a table it invented.",
+    );
   }
   let t;
-  try { t = JSON.parse(readFileSync(p, "utf8")); }
-  catch (e) { fail(`the item table at ${p} is not readable JSON (${e.message})`); }
+  try {
+    t = JSON.parse(readFileSync(p, "utf8"));
+  } catch (e) {
+    fail(`the item table at ${p} is not readable JSON (${e.message})`);
+  }
   if (!Array.isArray(t.items) || !t.items.length) fail(`the item table at ${p} declares no items`);
   return t;
 }
@@ -91,7 +96,10 @@ function bulletList(value, { termOnly = false } = {}) {
     if (!m) continue;
     let t = m[1];
     if (termOnly) {
-      t = t.split(" — ")[0].replace(/\s*\(introduced at [^)]*\)\s*$/, "").trim();
+      t = t
+        .split(" — ")[0]
+        .replace(/\s*\(introduced at [^)]*\)\s*$/, "")
+        .trim();
     }
     if (t) out.push(t);
   }
@@ -107,12 +115,18 @@ function packetBlock(text, heading, { after = null } = {}) {
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^#+\s+(.*\S)\s*$/);
-    if (m && m[1] === heading) { start = i + 1; break; }
+    if (m && m[1] === heading) {
+      start = i + 1;
+      break;
+    }
   }
   if (start === -1) return null;
   let end = lines.length;
   for (let i = start; i < lines.length; i++) {
-    if (/^#+\s+\S/.test(lines[i])) { end = i; break; }
+    if (/^#+\s+\S/.test(lines[i])) {
+      end = i;
+      break;
+    }
   }
   let body = lines.slice(start, end).join("\n");
   // THE FIXED INSTRUCTION PARAGRAPH IS MATCHED AS A WORD SEQUENCE, never as a
@@ -181,7 +195,10 @@ const PACKET_READERS = {
     let n = null;
     for (const l of block.split("\n")) {
       const top = l.match(/^(\d+)\.\s/);
-      if (top) { n = Number(top[1]); continue; }
+      if (top) {
+        n = Number(top[1]);
+        continue;
+      }
       const line = l.trim();
       if (n !== null && line.startsWith(spec.label)) {
         out.push(spec.entry.split("{n}").join(String(n)).split("{line}").join(line.slice(spec.label.length).trim()));
@@ -200,7 +217,10 @@ const PACKET_READERS = {
     let n = null;
     for (const l of block.split("\n")) {
       const top = l.match(/^(\d+)\.\s/);
-      if (top) { n = Number(top[1]); continue; }
+      if (top) {
+        n = Number(top[1]);
+        continue;
+      }
       const m = l.match(/^\s+\d+\.\s+\*([^*]+)\*\s*$/);
       if (n !== null && m) out.push(spec.entry.split("{n}").join(String(n)).split("{line}").join(m[1].trim()));
     }
@@ -232,14 +252,22 @@ function labelledEntryParagraph(items, blockName, entry) {
 // reads it -- a string fact, so what the judge is shown beside the Opens-from line is the
 // sentence the paragraph actually opens on.
 function legOpeningSentence(leg, n) {
-  const paras = String(leg.prose).split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p && !p.startsWith("#"));
+  const paras = String(leg.prose)
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p && !p.startsWith("#"));
   const p = paras[n - 1];
   return p === undefined ? null : firstSentenceOf(p.replace(/\s+/g, " ")).trim();
 }
 
 function wordSequence(s) {
-  return new RegExp(String(s).trim().split(/\s+/)
-    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
+  return new RegExp(
+    String(s)
+      .trim()
+      .split(/\s+/)
+      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("\\s+"),
+  );
 }
 
 // ONE BLOCK, OUT OF ONE PACKET, refusing BY NAME on a block the Packet does not
@@ -250,18 +278,22 @@ function readPacketBlock(text, name, items, leg, wantedBy) {
   const spec = (items.packet_blocks || {})[name];
   const reader = spec && PACKET_READERS[spec.kind];
   if (!reader) {
-    fail(`the item table names the Packet block \`${name}\`, which this Harness has no reader for `
-      + "— the table and the runtime disagree about the Packet's layout, and a comparison run "
-      + "against a block nobody reads would report agreement it never checked");
+    fail(
+      `the item table names the Packet block \`${name}\`, which this Harness has no reader for ` +
+        "— the table and the runtime disagree about the Packet's layout, and a comparison run " +
+        "against a block nobody reads would report agreement it never checked",
+    );
   }
   const v = reader(text, spec);
   if (v === null) {
-    fail(`leg ${leg.leg_id}: its Packet carries no \`${name}\` block, which the item(s) `
-      + `${wantedBy.join(", ")} compare against.\n  packet  ${leg.packet_path}\n`
-      + "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it "
-      + "against src/packet-template.md. It is never satisfied by reading the Brief, the Move "
-      + "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence "
-      + "the Packet is missing information.");
+    fail(
+      `leg ${leg.leg_id}: its Packet carries no \`${name}\` block, which the item(s) ` +
+        `${wantedBy.join(", ")} compare against.\n  packet  ${leg.packet_path}\n` +
+        "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it " +
+        "against src/packet-template.md. It is never satisfied by reading the Brief, the Move " +
+        "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence " +
+        "the Packet is missing information.",
+    );
   }
   return v;
 }
@@ -282,8 +314,9 @@ function declaredFor(leg, items) {
   }
   const out = {};
   for (const name of need) {
-    const wanted = items.items.filter((i) => i.declared_block === name
-      || (i.also_declared_blocks || []).includes(name)).map((i) => i.id);
+    const wanted = items.items
+      .filter((i) => i.declared_block === name || (i.also_declared_blocks || []).includes(name))
+      .map((i) => i.id);
     out[name] = readPacketBlock(text, name, items, leg, wanted);
   }
   return out;
@@ -301,14 +334,25 @@ function declaredFor(leg, items) {
 // OUT HERE, deliberately: a comment that writes the pattern it exists to avoid
 // becomes the first hit of the reader looking for it, which is the use-versus-
 // mention defect src/packet-template.md's own header records.
-const STOPWORDS = new Set(("a an and are as at be been being but by can could did do does "
-  + "for had has have how in into is it its may might must not of on or should so than the "
-  + "that their from these they this those to was were what when which who will with would you your "
-  + "them then there")
-  .split(" "));
+const STOPWORDS = new Set(
+  (
+    "a an and are as at be been being but by can could did do does " +
+    "for had has have how in into is it its may might must not of on or should so than the " +
+    "that their from these they this those to was were what when which who will with would you your " +
+    "them then there"
+  ).split(" "),
+);
 
-function wordsOf(s) { return (String(s).toLowerCase().match(/[a-z0-9']+/g) || []); }
-function contentWords(s) { return wordsOf(s).filter((w) => !STOPWORDS.has(w)); }
+function wordsOf(s) {
+  return (
+    String(s)
+      .toLowerCase()
+      .match(/[a-z0-9']+/g) || []
+  );
+}
+function contentWords(s) {
+  return wordsOf(s).filter((w) => !STOPWORDS.has(w));
+}
 
 // THE CLAIM MATCHER IS GONE, AND ITS ABSENCE IS THE RULING (owner 2026-09-17;
 // kogaki#1132). `pairClaims` assigned each outlined claim to the declared claim
@@ -344,7 +388,10 @@ function paragraphsOf(draft) {
   let start = null;
   for (let i = bodyStart; i < draft.lines.length; i++) {
     if (draft.lines[i].trim() === "") {
-      if (start !== null) { paras.push({ startLine: start + 1, endLine: i }); start = null; }
+      if (start !== null) {
+        paras.push({ startLine: start + 1, endLine: i });
+        start = null;
+      }
       continue;
     }
     if (start === null) start = i;
@@ -396,13 +443,17 @@ function definedTermOrder(draft) {
   if (DEFINED_TERM_ORDER.has(draft.path)) return DEFINED_TERM_ORDER.get(draft.path);
   const p = resolve(dirname(draft.path), draft.brief);
   let record;
-  try { record = parseYaml(readFileSync(p, "utf8"), p); }
-  catch (e) {
-    fail(`the Brief this Draft names (${p}) cannot be read for its defined terms (${e.message}) — `
-      + "the defined-term-order item reads the Brief's `defined_terms` and nothing else of it (kogaki#1331)");
+  try {
+    record = parseYaml(readFileSync(p, "utf8"), p);
+  } catch (e) {
+    fail(
+      `the Brief this Draft names (${p}) cannot be read for its defined terms (${e.message}) — ` +
+        "the defined-term-order item reads the Brief's `defined_terms` and nothing else of it (kogaki#1331)",
+    );
   }
   const path = Array.isArray(record?.reader_path) ? record.reader_path : [];
-  const termOf = (raw) => (raw && typeof raw === "object" ? String(raw.term ?? "") : String(raw ?? "").split("—")[0]).trim().toLowerCase();
+  const termOf = (raw) =>
+    (raw && typeof raw === "object" ? String(raw.term ?? "") : String(raw ?? "").split("—")[0]).trim().toLowerCase();
   const position = new Map(path.map((s, i) => [s && s.leg_id, i]));
   const terms = (Array.isArray(record?.defined_terms) ? record.defined_terms : [])
     .filter((e) => e && e.class === "defined" && typeof e.term === "string" && e.term.trim() !== "")
@@ -471,10 +522,12 @@ const MECHANICAL = {
         const lineNo = p.startLine + opener.slice(0, openerHit.index).split("\n").length - 1;
         return {
           verdict: "fails",
-          reason: "a paragraph's first sentence names what it refers to in full, and this one "
-            + "reaches into the paragraph before it instead",
-          evidence: [`The word '${word}' on line ${lineNo} opens its paragraph reaching into the `
-            + "paragraph before it"],
+          reason:
+            "a paragraph's first sentence names what it refers to in full, and this one " +
+            "reaches into the paragraph before it instead",
+          evidence: [
+            `The word '${word}' on line ${lineNo} opens its paragraph reaching into the ` + "paragraph before it",
+          ],
           span: leg.lines,
         };
       }
@@ -489,10 +542,12 @@ const MECHANICAL = {
         if (!recoverable) {
           return {
             verdict: "fails",
-            reason: "a demonstrative reference's antecedent is not recoverable within the paragraph "
-              + "it appears in or the one immediately before it",
-            evidence: [`The antecedent of the demonstrative reference '${m[0]}' on line ${lineNo} `
-              + "is not recoverable"],
+            reason:
+              "a demonstrative reference's antecedent is not recoverable within the paragraph " +
+              "it appears in or the one immediately before it",
+            evidence: [
+              `The antecedent of the demonstrative reference '${m[0]}' on line ${lineNo} ` + "is not recoverable",
+            ],
             span: leg.lines,
           };
         }
@@ -500,8 +555,9 @@ const MECHANICAL = {
     }
     return {
       verdict: "holds",
-      reason: "every demonstrative reference's antecedent is recoverable within the paragraph it "
-        + "appears in or the one immediately before it",
+      reason:
+        "every demonstrative reference's antecedent is recoverable within the paragraph it " +
+        "appears in or the one immediately before it",
       span: leg.lines,
     };
   },

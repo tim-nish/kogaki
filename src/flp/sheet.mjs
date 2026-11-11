@@ -26,27 +26,52 @@ import { movePassage, NO_RECORD } from "./provenance.mjs";
 export const START_FILE = "paragraph-plan-start.json";
 export const STATUS_TAGS = ["passed", "refused", "stopped", "not reached"];
 // THE ONLY HEADINGS A TABLE ON THE SHEET STANDS UNDER (specs/spec-draft-pipeline/SPEC.md §"The Feedback-Loop Playground (FLP)").
-export const TABLE_HEADINGS = ["Leg's text", "Structure", "Round n", "Binding", "Submission", "Comment", "Calls",
-  "Candidate <id>", "Leg", "Move", "Purpose", "Brief Waypoints", "Case"];
+export const TABLE_HEADINGS = [
+  "Leg's text",
+  "Structure",
+  "Round n",
+  "Binding",
+  "Submission",
+  "Comment",
+  "Calls",
+  "Candidate <id>",
+  "Leg",
+  "Move",
+  "Purpose",
+  "Brief Waypoints",
+  "Case",
+];
 export const ROUND_BLOCKS = ["Binding", "Submission", "Comment", "Calls"];
 export const CANDIDATE_ROUND_BLOCKS = ["Submission", "Comment", "Calls"];
-export const ROUND_DEFINITION = "A Round is one Submission at one paragraph of the Leg, the Judge's verdict on it and, where the verdict "
-  + "refuses it, the Comment it drew. A Call is one model call under this Leg's unit: bind, write, judge, site retry, "
-  + "suffix, reading or grounding.";
-export const CANDIDATE_ROUND_DEFINITION = "A Round is one Candidate composed by one compose Call, the Judge's fit verdict on each of its "
-  + "Legs and, where a Leg does not fit its Move, the Comment it drew. A Call is one model call under this unit: compose or judge.";
+export const ROUND_DEFINITION =
+  "A Round is one Submission at one paragraph of the Leg, the Judge's verdict on it and, where the verdict " +
+  "refuses it, the Comment it drew. A Call is one model call under this Leg's unit: bind, write, judge, site retry, " +
+  "suffix, reading or grounding.";
+export const CANDIDATE_ROUND_DEFINITION =
+  "A Round is one Candidate composed by one compose Call, the Judge's fit verdict on each of its " +
+  "Legs and, where a Leg does not fit its Move, the Comment it drew. A Call is one model call under this unit: compose or judge.";
 export const NO_TABLE = "no Mapping Table was grounded for this Move";
 export { NO_RECORD };
 // The validator a refusal record names, else the one the declaring module runs at that phase.
-const PHASE_VALIDATORS = { compose: "validateParagraphPlanUnit", site: "validateParagraphPlanSite", suffix: "validateParagraphPlanSuffix" };
-const ACCENT = ':root[data-theme="dark"]{--accent:#e0a458;--off:#3d2c14}h1,h2{color:var(--accent)}'
-  + ".tag{display:inline-block;padding:1px 8px;border-radius:4px;font-weight:600}"
-  + ".tag-passed{background:#1f4d2b}.tag-refused{background:#6b1d1d}.tag-stopped{background:#5a3a12}.tag-not-reached{background:#2a2a2a}"
-  + "tr.named td,td.named{background:#4a3a12}.refusal{white-space:pre-wrap}.line{margin:.15em 0}td p{margin:.1em 0}"
-  + "h3.round{font-size:1.05em;margin:1.4em 0 .3em;border-top:1px solid #444;padding-top:.6em}"
-  + "h4.th{font-size:.8em;text-transform:uppercase;letter-spacing:.05em;margin:.8em 0 .2em;color:#9aa}";
+const PHASE_VALIDATORS = {
+  compose: "validateParagraphPlanUnit",
+  site: "validateParagraphPlanSite",
+  suffix: "validateParagraphPlanSuffix",
+};
+const ACCENT =
+  ':root[data-theme="dark"]{--accent:#e0a458;--off:#3d2c14}h1,h2{color:var(--accent)}' +
+  ".tag{display:inline-block;padding:1px 8px;border-radius:4px;font-weight:600}" +
+  ".tag-passed{background:#1f4d2b}.tag-refused{background:#6b1d1d}.tag-stopped{background:#5a3a12}.tag-not-reached{background:#2a2a2a}" +
+  "tr.named td,td.named{background:#4a3a12}.refusal{white-space:pre-wrap}.line{margin:.15em 0}td p{margin:.1em 0}" +
+  "h3.round{font-size:1.05em;margin:1.4em 0 .3em;border-top:1px solid #444;padding-top:.6em}" +
+  "h4.th{font-size:.8em;text-transform:uppercase;letter-spacing:.05em;margin:.8em 0 .2em;color:#9aa}";
 
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const esc = (s) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 const part = (id, title, body) => `<section class="card" id="${id}"><h2>${esc(title)}</h2>${body}</section>`;
 const none = (what) => `<p class="muted">${esc(what)}</p>`;
 const line = (text, cls = "line") => `<p class="${cls}">${esc(text)}</p>`;
@@ -60,7 +85,12 @@ const link = (outDir, path, text) => `<a href="${esc(relative(outDir, path).spli
 
 function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
-  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
 }
 
 // The unit's status, a `running` unit whose supervisor is gone read as `stopped`.
@@ -92,27 +122,43 @@ const isStopped = (rec) => Boolean(rec.refusal && /\bper-call limit\b/.test(Stri
 // Leg's Move it was written under (kogaki#1777), a judge's verdicts and its refusal record. A suffix Call's
 // paragraphs run from the first after those that stand.
 export function unitCalls(runDir, unitId, { mapped = false } = {}) {
-  return callRows(callsRoot(runDir)).filter((r) => r.unit === unitId).map((r) => {
-    const rec = readCallRecord(r.dir);
-    const phase = rec.row && rec.row.phase;
-    const a = rec.answer;
-    const input = readJudgePrompt(rec.prompt).input || {};
-    const entries = new Map();
-    const verdicts = new Map();
-    const site = input.paragraph_you_must_plan ? Number(input.paragraph_you_must_plan.paragraph) : null;
-    if (phase === "fit") { for (const v of (a && Array.isArray(a.verdicts) ? a.verdicts : [])) verdicts.set(Number(v.paragraph), v); }
-    else if (a && Array.isArray(a.paragraphs)) {
-      const from = phase === "suffix" ? (Array.isArray(input.paragraphs_that_stand) ? input.paragraphs_that_stand.length : 0) + 1 : 1;
-      a.paragraphs.forEach((e, i) => { if (e && typeof e === "object") entries.set(from + i, { ...e, move: a.move ?? null }); });
-    } else if (a && typeof a === "object" && site !== null) {
-      entries.set(site, { ...a, move: (input.bound_move && input.bound_move.id) ?? null });
-    }
-    const tabled = Boolean(input.leg_you_must_plan && Object.hasOwn(input.leg_you_must_plan, "table"));
-    const kind = isStopped(rec) ? "stopped"
-      : phase === "fit" ? "judge" : phase === "site" ? "site retry" : phase === "suffix" ? "suffix"
-        : mapped && !tabled ? "bind" : "write";
-    return { n: r.n, dir: r.dir, phase, kind, site, refusal: rec.refusal, entries, verdicts };
-  });
+  return callRows(callsRoot(runDir))
+    .filter((r) => r.unit === unitId)
+    .map((r) => {
+      const rec = readCallRecord(r.dir);
+      const phase = rec.row && rec.row.phase;
+      const a = rec.answer;
+      const input = readJudgePrompt(rec.prompt).input || {};
+      const entries = new Map();
+      const verdicts = new Map();
+      const site = input.paragraph_you_must_plan ? Number(input.paragraph_you_must_plan.paragraph) : null;
+      if (phase === "fit") {
+        for (const v of a && Array.isArray(a.verdicts) ? a.verdicts : []) verdicts.set(Number(v.paragraph), v);
+      } else if (a && Array.isArray(a.paragraphs)) {
+        const from =
+          phase === "suffix"
+            ? (Array.isArray(input.paragraphs_that_stand) ? input.paragraphs_that_stand.length : 0) + 1
+            : 1;
+        a.paragraphs.forEach((e, i) => {
+          if (e && typeof e === "object") entries.set(from + i, { ...e, move: a.move ?? null });
+        });
+      } else if (a && typeof a === "object" && site !== null) {
+        entries.set(site, { ...a, move: (input.bound_move && input.bound_move.id) ?? null });
+      }
+      const tabled = Boolean(input.leg_you_must_plan && Object.hasOwn(input.leg_you_must_plan, "table"));
+      const kind = isStopped(rec)
+        ? "stopped"
+        : phase === "fit"
+          ? "judge"
+          : phase === "site"
+            ? "site retry"
+            : phase === "suffix"
+              ? "suffix"
+              : mapped && !tabled
+                ? "bind"
+                : "write";
+      return { n: r.n, dir: r.dir, phase, kind, site, refusal: rec.refusal, entries, verdicts };
+    });
 }
 
 // THE ROUNDS AT PARAGRAPH `n`, read from the Call Records alone. A write, site retry or suffix Call whose answer
@@ -128,7 +174,10 @@ export function roundsAt(calls, n, status) {
       if (!v || !open || open.verdict) continue;
       open.verdict = { kind: "judge", record: v };
       open.calls.push({ label: `Call ${c.n}`, kind: c.kind });
-      open.comment = { text: (v.verdict !== "fits" && refusalAt(c.refusal, n)) || String(v.why ?? ""), source: "the Judge" };
+      open.comment = {
+        text: (v.verdict !== "fits" && refusalAt(c.refusal, n)) || String(v.why ?? ""),
+        source: "the Judge",
+      };
       continue;
     }
     if (c.kind !== "write" && c.kind !== "site retry" && c.kind !== "suffix") continue;
@@ -137,28 +186,53 @@ export function roundsAt(calls, n, status) {
     const text = refusalAt(c.refusal, n);
     if (!entry && text === null) continue;
     const prev = rounds[rounds.length - 1];
-    if (prev && !prev.verdict) prev.verdict = { kind: "not judged", reason: `Call ${c.n} wrote the next Submission before the Judge read this one.` };
-    const round = { number: rounds.length + 1, entry, call: c, calls: [{ label: `Call ${c.n}`, kind: c.kind }], verdict: null, comment: null };
+    if (prev && !prev.verdict)
+      prev.verdict = {
+        kind: "not judged",
+        reason: `Call ${c.n} wrote the next Submission before the Judge read this one.`,
+      };
+    const round = {
+      number: rounds.length + 1,
+      entry,
+      call: c,
+      calls: [{ label: `Call ${c.n}`, kind: c.kind }],
+      verdict: null,
+      comment: null,
+    };
     if (text !== null) {
       round.verdict = { kind: "refused before the Judge" };
-      round.comment = { text, source: (c.refusal && c.refusal.validator) || PHASE_VALIDATORS[c.phase] || "the validator" };
+      round.comment = {
+        text,
+        source: (c.refusal && c.refusal.validator) || PHASE_VALIDATORS[c.phase] || "the validator",
+      };
     }
     rounds.push(round);
   }
   const last = rounds[rounds.length - 1];
   if (last && !last.verdict) {
-    last.verdict = { kind: "not judged", reason: status === "done" ? "No judge Call of this unit names this paragraph."
-      : status === "running" ? "The Judge has not read this Submission yet."
-        : "The unit stopped before the Judge read this Submission." };
+    last.verdict = {
+      kind: "not judged",
+      reason:
+        status === "done"
+          ? "No judge Call of this unit names this paragraph."
+          : status === "running"
+            ? "The Judge has not read this Submission yet."
+            : "The unit stopped before the Judge read this Submission.",
+    };
   }
   return rounds;
 }
 
 // The paragraphs of a Leg's unit: as many as any of its Calls or its candidate carries, at least one.
 export function paragraphCount(calls, unit) {
-  const candidate = unit && unit.candidate && Array.isArray(unit.candidate.paragraphs) ? unit.candidate.paragraphs.length : 0;
-  return Math.max(1, candidate, ...calls.flatMap((c) => [...c.entries.keys()]),
-    ...calls.flatMap((c) => (c.refusal ? namedParagraphs(c.refusal.text) : [])));
+  const candidate =
+    unit && unit.candidate && Array.isArray(unit.candidate.paragraphs) ? unit.candidate.paragraphs.length : 0;
+  return Math.max(
+    1,
+    candidate,
+    ...calls.flatMap((c) => [...c.entries.keys()]),
+    ...calls.flatMap((c) => (c.refusal ? namedParagraphs(c.refusal.text) : [])),
+  );
 }
 
 // THE LOCATIONS A COMMENT NAMES: Waypoints, by `Waypoint n`, `point n` or a quotation of one
@@ -169,12 +243,16 @@ export function namedLocations(text, entry) {
   const waypoints = [...nums(/(?<!Brief |[Ll]eg [^,\s]+, )\bWaypoint (\d+)\b/g), ...nums(/\bpoint (\d+)\b/g)];
   const points = (entry && entry.paragraph_waypoints) || [];
   const quoted = [...t.matchAll(/"([^"]{12,})"/g)].map((m) => m[1]);
-  points.forEach((p, i) => { const s = pointText(p).trim(); if (s && quoted.some((q) => q.trim() === s)) waypoints.push(i + 1); });
+  points.forEach((p, i) => {
+    const s = pointText(p).trim();
+    if (s && quoted.some((q) => q.trim() === s)) waypoints.push(i + 1);
+  });
   const sorted = (xs) => [...new Set(xs)].filter((k) => k >= 1).sort((a, b) => a - b);
   return { waypoints: sorted(waypoints), segments: sorted(nums(/\bSegment (\d+)\b/g)) };
 }
 
-const namesLine = ({ waypoints, segments }) => [...waypoints.map((k) => `Waypoint ${k}`), ...segments.map((k) => `Segment ${k}`)].join(", ") || "none named";
+const namesLine = ({ waypoints, segments }) =>
+  [...waypoints.map((k) => `Waypoint ${k}`), ...segments.map((k) => `Segment ${k}`)].join(", ") || "none named";
 
 // The status line of a paragraph, and its tag.
 export function paragraphStatus(status, n, lastNamed, rounds) {
@@ -182,9 +260,11 @@ export function paragraphStatus(status, n, lastNamed, rounds) {
   if (!last) return { tag: "not reached", text: "not reached" };
   const k = last.number;
   const stopped = status === "refused" || status === "died" || status === "stopped";
-  if (last.verdict.kind === "judge" && last.verdict.record.verdict === "fits") return { tag: "passed", text: `passed in Round ${k}` };
+  if (last.verdict.kind === "judge" && last.verdict.record.verdict === "fits")
+    return { tag: "passed", text: `passed in Round ${k}` };
   if (status === "done") return { tag: "passed", text: `passed in Round ${k}` };
-  if (stopped && (lastNamed.includes(n) || last.verdict.kind === "not judged")) return { tag: "stopped", text: `stopped after Round ${k}` };
+  if (stopped && (lastNamed.includes(n) || last.verdict.kind === "not judged"))
+    return { tag: "stopped", text: `stopped after Round ${k}` };
   if (last.verdict.kind === "not judged") return { tag: "not reached", text: `Round ${k} awaits the Judge` };
   return { tag: "refused", text: `refused through Round ${k}` };
 }
@@ -200,12 +280,18 @@ function submissionTable(library, entry, named) {
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   const rows = new Set(named.waypoints);
   const cells = new Set(named.segments);
-  return (c.error ? line(c.error, "stop") : "")
-    + "<table><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th><th>cast</th></tr></thead><tbody>"
-    + Array.from({ length: Math.max(segments.length, points.length) }, (_, i) => `<tr${rows.has(i + 1) ? ' class="named"' : ""}><td>${i + 1}</td>`
-      + `<td${cells.has(i + 1) ? ' class="named"' : ""}>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td><td>${field(segments[i], "manner")}</td>`
-      + `<td>${pointCell(points[i])}</td><td>${points[i] ? esc(castOf(points[i]).join(", ")) : ""}</td></tr>`).join("")
-    + "</tbody></table>";
+  return (
+    (c.error ? line(c.error, "stop") : "") +
+    "<table><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th><th>cast</th></tr></thead><tbody>" +
+    Array.from(
+      { length: Math.max(segments.length, points.length) },
+      (_, i) =>
+        `<tr${rows.has(i + 1) ? ' class="named"' : ""}><td>${i + 1}</td>` +
+        `<td${cells.has(i + 1) ? ' class="named"' : ""}>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td><td>${field(segments[i], "manner")}</td>` +
+        `<td>${pointCell(points[i])}</td><td>${points[i] ? esc(castOf(points[i]).join(", ")) : ""}</td></tr>`,
+    ).join("") +
+    "</tbody></table>"
+  );
 }
 
 // THE MOVE LINE: the id linking to its file in the library, and its Corpus passage where an extraction record on
@@ -214,42 +300,73 @@ function moveLine(move, { library, outDir, corpusDir }) {
   if (!move) return line("Move: none read");
   const file = resolve(REPO, library, `${move}.yaml`);
   const p = movePassage(move, corpusDir ? { corpusDir } : {});
-  const passage = !p ? esc(NO_RECORD)
-    : !p.file ? esc(`passage ${p.passage}, paragraph ${p.paragraph} — no passage file on this machine`)
-      : p.span ? `${link(outDir, p.file, `${relFromRepo(p.file)}:${p.line}`)} ${esc(`lines ${p.span.first}–${p.span.last}`)}`
+  const passage = !p
+    ? esc(NO_RECORD)
+    : !p.file
+      ? esc(`passage ${p.passage}, paragraph ${p.paragraph} — no passage file on this machine`)
+      : p.span
+        ? `${link(outDir, p.file, `${relFromRepo(p.file)}:${p.line}`)} ${esc(`lines ${p.span.first}–${p.span.last}`)}`
         : esc(`${relFromRepo(p.file)} holds no paragraph ${p.paragraph}`);
   return `<p class="line">Move: ${link(outDir, file, move)}</p><p class="line">passage: ${passage}</p>`;
 }
 
 // The Binding of a Round: the Leg's Move, `join`, and the Leg's Mapping Table where it was grounded for that Move.
 function bindingOf(round, n, calls, mapping, groundingCalls) {
-  const move = round.entry ? round.entry.move ?? null : null;
+  const move = round.entry ? (round.entry.move ?? null) : null;
   const table = mapping ? mapping.table || null : null;
   const grounded = Boolean(table && move && table.move === move);
-  const binder = round.call.kind === "write" && !mapping ? null
-    : [...calls].reverse().find((c) => c.kind === "bind" && c.n < round.call.n && [...c.entries.values()].some((e) => e.move === move)) || null;
-  return { move, join: round.entry ? round.entry.join ?? "none" : "none", table: grounded ? table : null,
-    bindCall: binder ? { label: `Call ${binder.n}`, kind: binder.kind } : null, groundedBy: grounded ? groundingCalls : [] };
+  const binder =
+    round.call.kind === "write" && !mapping
+      ? null
+      : [...calls]
+          .reverse()
+          .find(
+            (c) => c.kind === "bind" && c.n < round.call.n && [...c.entries.values()].some((e) => e.move === move),
+          ) || null;
+  return {
+    move,
+    join: round.entry ? (round.entry.join ?? "none") : "none",
+    table: grounded ? table : null,
+    bindCall: binder ? { label: `Call ${binder.n}`, kind: binder.kind } : null,
+    groundedBy: grounded ? groundingCalls : [],
+  };
 }
 
 // ONE STRUCTURE TABLE: Role, Abstract, Attribute, and the Expression the Mapping Table grounds for each Role, under
 // the `Base:` line; the Expression column empty, under the line saying so, where no table was grounded.
 function structureTable(structure, table) {
-  const expr = new Map((table && table.correspondences || []).map((x) => [x.role, x.expression]));
+  const expr = new Map(((table && table.correspondences) || []).map((x) => [x.role, x.expression]));
   const roles = (structure && structure.roles) || [];
-  return (table ? line(`Base: ${(table.base && table.base.domain) ?? ""}`) : line(NO_TABLE, "line stop"))
-    + "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th><th>Expression</th></tr></thead><tbody>"
-    + roles.map((r) => `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td><td>${esc(expr.get(r.id) ?? "")}</td></tr>`).join("")
-    + "</tbody></table>";
+  return (
+    (table ? line(`Base: ${(table.base && table.base.domain) ?? ""}`) : line(NO_TABLE, "line stop")) +
+    "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th><th>Expression</th></tr></thead><tbody>" +
+    roles
+      .map(
+        (r) =>
+          `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td><td>${esc(expr.get(r.id) ?? "")}</td></tr>`,
+      )
+      .join("") +
+    "</tbody></table>"
+  );
 }
 
 const structureAt = (mapping) => (mapping && mapping.structure) || null;
 
 // The Comment block, one labelled line each: the verdict, the text verbatim, its source and the locations it names.
 function commentHtml(verdict, comment, named) {
-  const v = verdict.kind === "judge" ? `verdict: ${verdict.record.verdict}` : verdict.kind === "not judged" ? `not judged: ${verdict.reason}` : "refused before the Judge";
+  const v =
+    verdict.kind === "judge"
+      ? `verdict: ${verdict.record.verdict}`
+      : verdict.kind === "not judged"
+        ? `not judged: ${verdict.reason}`
+        : "refused before the Judge";
   if (!comment) return line(v);
-  return line(v) + line(`why: ${comment.text}`, "line refusal") + line(`source: ${comment.source}`) + line(`names: ${namesLine(named)}`);
+  return (
+    line(v) +
+    line(`why: ${comment.text}`, "line refusal") +
+    line(`source: ${comment.source}`) +
+    line(`names: ${namesLine(named)}`)
+  );
 }
 
 const roundHead = (number) => `<h3 class="round">Round ${number}</h3>`;
@@ -258,34 +375,65 @@ function roundHtml(round, n, ctx) {
   const { library, calls, mapping, groundingCalls, held, outDir, corpusDir } = ctx;
   const b = bindingOf(round, n, calls, mapping, groundingCalls);
   const same = held && held.binding.move === b.move && held.binding.join === b.join && held.binding.table === b.table;
-  const binding = same ? line(`Binding of Round ${held.number} holds`)
-    : moveLine(b.move, { library, outDir, corpusDir }) + line(`join: ${b.join}`) + structureTable(structureAt(mapping), b.table);
+  const binding = same
+    ? line(`Binding of Round ${held.number} holds`)
+    : moveLine(b.move, { library, outDir, corpusDir }) +
+      line(`join: ${b.join}`) +
+      structureTable(structureAt(mapping), b.table);
   const named = round.comment ? namedLocations(round.comment.text, round.entry) : { waypoints: [], segments: [] };
-  const submission = round.entry ? submissionTable(library, round.entry, named)
+  const submission = round.entry
+    ? submissionTable(library, round.entry, named)
     : none(`No Submission was read from Call ${round.call.n}: its answer did not parse.`);
   const roundCalls = [...round.calls, ...(b.bindCall ? [b.bindCall] : []), ...(b.table ? b.groundedBy : [])];
-  return { binding: b, same, html: roundHead(round.number)
-    + heading("Binding") + binding + heading("Submission") + submission
-    + heading("Comment") + commentHtml(round.verdict, round.comment, named)
-    + heading("Calls") + roundCalls.map((c) => line(`${c.label}: ${c.kind}`)).join("") };
+  return {
+    binding: b,
+    same,
+    html:
+      roundHead(round.number) +
+      heading("Binding") +
+      binding +
+      heading("Submission") +
+      submission +
+      heading("Comment") +
+      commentHtml(round.verdict, round.comment, named) +
+      heading("Calls") +
+      roundCalls.map((c) => line(`${c.label}: ${c.kind}`)).join(""),
+  };
 }
 
 function structureHtml(mapping) {
   const structure = structureAt(mapping);
   if (!structure) return none("No structure was read for this Leg.");
-  return heading("Structure") + "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th></tr></thead><tbody>"
-    + (structure.roles || []).map((r) => `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td></tr>`).join("")
-    + "</tbody></table>";
+  return (
+    heading("Structure") +
+    "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th></tr></thead><tbody>" +
+    (structure.roles || [])
+      .map(
+        (r) =>
+          `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td></tr>`,
+      )
+      .join("") +
+    "</tbody></table>"
+  );
 }
 
 function callList(runDir, unitId, outDir, calls) {
   const rows = callRows(callsRoot(runDir)).filter((r) => r.unit === unitId || r.unit.startsWith(`${unitId}/`));
   if (!rows.length) return none(`No Call Record of the unit ${unitId} is under ${relFromRepo(runDir)}.`);
-  const kind = (r) => (r.unit === unitId ? (calls.find((c) => c.n === r.n) || {}).kind || "call" : r.unit.slice(unitId.length + 1));
-  return heading("Calls") + "<table><thead><tr><th>unit</th><th>Call</th><th>kind</th><th>refusal</th><th>files</th></tr></thead><tbody>"
-    + rows.map((r) => `<tr><td>${esc(r.unit)}</td><td>${r.n}</td><td>${esc(kind(r))}</td><td>${r.refusal === null ? "passed" : esc(r.refusal)}</td>`
-      + `<td>${r.files.map((f) => link(outDir, join(r.dir, f), f)).join(" ")}</td></tr>`).join("")
-    + "</tbody></table>";
+  const kind = (r) =>
+    r.unit === unitId ? (calls.find((c) => c.n === r.n) || {}).kind || "call" : r.unit.slice(unitId.length + 1);
+  return (
+    heading("Calls") +
+    "<table><thead><tr><th>unit</th><th>Call</th><th>kind</th><th>refusal</th><th>files</th></tr></thead><tbody>" +
+    rows
+      .map(
+        (r) =>
+          `<tr><td>${esc(r.unit)}</td><td>${r.n}</td><td>${esc(kind(r))}</td><td>${r.refusal === null ? "passed" : esc(r.refusal)}</td>` +
+          `<td>${r.files.map((f) => link(outDir, join(r.dir, f), f)).join(" ")}</td></tr>`,
+      )
+      .join("") +
+    "</tbody></table>"
+  );
 }
 
 // THE BAND a unit's section opens on: its status, its Calls by kind, its first Call's seconds, the Round definition
@@ -294,29 +442,42 @@ function bandHtml({ unitId, status, calls, unit, definition, stop, extra = "" })
   const kinds = [...new Set(calls.map((c) => c.kind))].map((k) => `${k} ${calls.filter((c) => c.kind === k).length}`);
   const firstS = firstCallSecondsOf(unit);
   const chip = status === "done" ? "passed" : status === "refused" || status === "died" ? "refused" : "stopped";
-  return `<p class="line">unit ${esc(unitId)}</p><p class="line">status ${tag(chip, status)}</p>`
-    + line(`${calls.length} Call(s)${kinds.length ? `: ${kinds.join(", ")}` : ""}`)
-    + line(`first Call: ${firstS !== undefined ? `${firstS}s` : "not timed"}`)
-    + line(definition, "meta")
-    + (stop ? line("Stop:") + line(stop, "stop refusal") : "") + extra;
+  return (
+    `<p class="line">unit ${esc(unitId)}</p><p class="line">status ${tag(chip, status)}</p>` +
+    line(`${calls.length} Call(s)${kinds.length ? `: ${kinds.join(", ")}` : ""}`) +
+    line(`first Call: ${firstS !== undefined ? `${firstS}s` : "not timed"}`) +
+    line(definition, "meta") +
+    (stop ? line("Stop:") + line(stop, "stop refusal") : "") +
+    extra
+  );
 }
 
-const unitStop = (unit, status) => (unit && unit.failure && (status === "refused" || status === "died" || status === "stopped")
-  ? String(unit.failure.stderr_tail ?? unit.failure.class ?? "") : null);
+const unitStop = (unit, status) =>
+  unit && unit.failure && (status === "refused" || status === "died" || status === "stopped")
+    ? String(unit.failure.stderr_tail ?? unit.failure.class ?? "")
+    : null;
 
-const page = (title, body) => `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
-  + `<title>Feedback-Loop Playground ${esc(title)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>`
-  + `<h1>Feedback-Loop Playground — ${esc(title)}</h1>${body}</body></html>\n`;
+const page = (title, body) =>
+  `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+  `<title>Feedback-Loop Playground ${esc(title)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>` +
+  `<h1>Feedback-Loop Playground — ${esc(title)}</h1>${body}</body></html>\n`;
 
 export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd(), corpusDir = null }) {
   const startPath = join(runDir, START_FILE);
-  if (!existsSync(startPath)) return { error: `the run directory ${relFromRepo(runDir)} holds no start record ${START_FILE}` };
-  if (!existsSync(readerPathJobPath(runDir))) return { error: `the run directory ${relFromRepo(runDir)} holds no job record ${relative(runDir, readerPathJobPath(runDir))}` };
+  if (!existsSync(startPath))
+    return { error: `the run directory ${relFromRepo(runDir)} holds no start record ${START_FILE}` };
+  if (!existsSync(readerPathJobPath(runDir)))
+    return {
+      error: `the run directory ${relFromRepo(runDir)} holds no job record ${relative(runDir, readerPathJobPath(runDir))}`,
+    };
   const start = JSON.parse(readFileSync(startPath, "utf8"));
   const job = readReaderPathJob(runDir);
   const legs = Array.isArray(start.legs) ? start.legs : [];
   const li = legs.findIndex((l) => l && l.leg_id === legId);
-  if (li === -1) return { error: `the start record of ${relFromRepo(runDir)} carries no Leg ${legId} — it carries ${legs.map((l) => l && l.leg_id).join(", ")}` };
+  if (li === -1)
+    return {
+      error: `the start record of ${relFromRepo(runDir)} carries no Leg ${legId} — it carries ${legs.map((l) => l && l.leg_id).join(", ")}`,
+    };
   const leg = legs[li];
   const unitId = unitIdFor(li);
   const unit = (job.units || []).find((u) => u.id === unitId);
@@ -328,37 +489,82 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
   const count = paragraphCount(calls, unit);
   const numbers = Array.from({ length: count }, (_, k) => k + 1);
   const lastRefused = [...calls].reverse().find((c) => c.refusal);
-  const lastNamed = stop ? namedParagraphs(stop)
-    : lastRefused ? numbers.filter((n) => refusalAt(lastRefused.refusal, n) !== null) : [];
+  const lastNamed = stop
+    ? namedParagraphs(stop)
+    : lastRefused
+      ? numbers.filter((n) => refusalAt(lastRefused.refusal, n) !== null)
+      : [];
   // A refusal only the job record carries — every one, in a run made before kogaki#1756 — is placed on no Call.
-  const onRecords = new Set(calls.flatMap((c) => (c.refusal ? [String(c.refusal.text), ...((c.refusal.sites || []).filter((x) => x && x.refusal).map((x) => String(x.refusal)))] : [])));
+  const onRecords = new Set(
+    calls.flatMap((c) =>
+      c.refusal
+        ? [
+            String(c.refusal.text),
+            ...(c.refusal.sites || []).filter((x) => x && x.refusal).map((x) => String(x.refusal)),
+          ]
+        : [],
+    ),
+  );
   const unplaced = ((unit && unit.refusals) || []).map(String).filter((t) => !onRecords.has(t) && t !== stop);
   const legWide = calls.filter((c) => c.refusal && !numbers.some((n) => refusalAt(c.refusal, n) !== null));
   // THE LEG, once (kogaki#1777): its text, the case its Mapping Table was grounded under, and its structure.
-  const legHead = heading("Leg's text") + line(String(leg.text ?? "")) + line(`case: ${(mapping && mapping.table && mapping.table.case) ?? "none"}`)
-    + structureHtml(mapping);
-  const band = bandHtml({ unitId, status, calls, unit, definition: ROUND_DEFINITION, stop,
-    extra: legHead
-    + (legWide.length ? line("Refusals naming no paragraph:") + legWide.map((c) => line(`Call ${c.n}, ${c.kind}: ${c.refusal.text}`, "stop refusal")).join("") : "")
-    + (unplaced.length ? line("unplaced — on the job record and on no Call Record:") + unplaced.map((t) => line(t, "stop refusal")).join("") : "") });
+  const legHead =
+    heading("Leg's text") +
+    line(String(leg.text ?? "")) +
+    line(`case: ${(mapping && mapping.table && mapping.table.case) ?? "none"}`) +
+    structureHtml(mapping);
+  const band = bandHtml({
+    unitId,
+    status,
+    calls,
+    unit,
+    definition: ROUND_DEFINITION,
+    stop,
+    extra:
+      legHead +
+      (legWide.length
+        ? line("Refusals naming no paragraph:") +
+          legWide.map((c) => line(`Call ${c.n}, ${c.kind}: ${c.refusal.text}`, "stop refusal")).join("")
+        : "") +
+      (unplaced.length
+        ? line("unplaced — on the job record and on no Call Record:") +
+          unplaced.map((t) => line(t, "stop refusal")).join("")
+        : ""),
+  });
   const statuses = [];
-  const groundingCalls = callRows(callsRoot(runDir)).filter((r) => r.unit === `${unitId}/grounding`)
+  const groundingCalls = callRows(callsRoot(runDir))
+    .filter((r) => r.unit === `${unitId}/grounding`)
     .map((r) => ({ label: `grounding Call ${r.n}`, kind: "grounding" }));
-  const body = numbers.map((n) => {
-    const rounds = roundsAt(calls, n, status);
-    const st = paragraphStatus(status, n, lastNamed, rounds);
-    statuses.push(st.tag);
-    let held = null;
-    const roundsHtml = rounds.map((round) => {
-      const r = roundHtml(round, n, { library, calls, mapping, groundingCalls, held, outDir, corpusDir });
-      if (!r.same) held = { number: round.number, binding: r.binding };
-      return r.html;
-    }).join("");
-    return part(`paragraph-${n}`, `Paragraph ${n}`, `<p class="line">${tag(st.tag, st.text)}</p>`
-      + (rounds.length ? roundsHtml : none("No Submission was written for this paragraph.")));
-  }).join("");
-  const html = page(`Leg ${legId}`, line(`run: ${relFromRepo(runDir)}`, "meta") + line(`job: ${job.state}`, "meta") + line(`Brief: ${start.brief}`, "meta")
-    + band + body + part("calls", "Calls", callList(runDir, unitId, outDir, calls)));
+  const body = numbers
+    .map((n) => {
+      const rounds = roundsAt(calls, n, status);
+      const st = paragraphStatus(status, n, lastNamed, rounds);
+      statuses.push(st.tag);
+      let held = null;
+      const roundsHtml = rounds
+        .map((round) => {
+          const r = roundHtml(round, n, { library, calls, mapping, groundingCalls, held, outDir, corpusDir });
+          if (!r.same) held = { number: round.number, binding: r.binding };
+          return r.html;
+        })
+        .join("");
+      return part(
+        `paragraph-${n}`,
+        `Paragraph ${n}`,
+        `<p class="line">${tag(st.tag, st.text)}</p>` +
+          (rounds.length ? roundsHtml : none("No Submission was written for this paragraph.")),
+      );
+    })
+    .join("");
+  const html = page(
+    `Leg ${legId}`,
+    line(`run: ${relFromRepo(runDir)}`, "meta") +
+      line(`job: ${job.state}`, "meta") +
+      line(`Brief: ${start.brief}`, "meta") +
+      band +
+      body +
+      part("calls", "Calls", callList(runDir, unitId, outDir, calls)),
+  );
   return { html, status, tags: statuses, paragraphs: count };
 }
 
@@ -366,11 +572,20 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
 // that follows it gives every Leg its verdict and is the Round's Comment; a compose Call with no fit Call after it
 // is `not judged`.
 export function candidateRounds(runDir, unitId, status) {
-  const calls = callRows(callsRoot(runDir)).filter((r) => r.unit === unitId).map((r) => {
-    const rec = readCallRecord(r.dir);
-    const phase = rec.row && rec.row.phase;
-    return { n: r.n, dir: r.dir, phase, kind: isStopped(rec) ? "stopped" : phase === "fit" ? "judge" : "compose", answer: rec.answer, refusal: rec.refusal };
-  });
+  const calls = callRows(callsRoot(runDir))
+    .filter((r) => r.unit === unitId)
+    .map((r) => {
+      const rec = readCallRecord(r.dir);
+      const phase = rec.row && rec.row.phase;
+      return {
+        n: r.n,
+        dir: r.dir,
+        phase,
+        kind: isStopped(rec) ? "stopped" : phase === "fit" ? "judge" : "compose",
+        answer: rec.answer,
+        refusal: rec.refusal,
+      };
+    });
   const rounds = [];
   for (const c of calls) {
     const open = rounds[rounds.length - 1];
@@ -384,10 +599,16 @@ export function candidateRounds(runDir, unitId, status) {
   }
   for (const r of rounds) {
     if (r.fit) continue;
-    r.notJudged = r.compose.kind === "stopped" || !r.compose.answer ? "No Submission reached the Judge."
-      : r !== rounds[rounds.length - 1] ? `Call ${rounds[r.number].compose.n} composed the next Candidate before the Judge read this one.`
-        : status === "done" ? "No judge Call of this unit follows this compose Call."
-          : status === "running" ? "The Judge has not read this Submission yet." : "The unit stopped before the Judge read this Submission.";
+    r.notJudged =
+      r.compose.kind === "stopped" || !r.compose.answer
+        ? "No Submission reached the Judge."
+        : r !== rounds[rounds.length - 1]
+          ? `Call ${rounds[r.number].compose.n} composed the next Candidate before the Judge read this one.`
+          : status === "done"
+            ? "No judge Call of this unit follows this compose Call."
+            : status === "running"
+              ? "The Judge has not read this Submission yet."
+              : "The unit stopped before the Judge read this Submission.";
   }
   return { calls, rounds };
 }
@@ -396,42 +617,89 @@ function candidateRoundHtml(round, ctx) {
   const { library, outDir, corpusDir } = ctx;
   const candidate = round.compose.answer;
   const legs = candidate && Array.isArray(candidate.legs) ? candidate.legs : null;
-  const verdicts = new Map(round.fit && round.fit.answer && Array.isArray(round.fit.answer.verdicts) ? round.fit.answer.verdicts.map((v) => [String(v.leg_id), v]) : []);
-  const refused = new Set([...verdicts.values()].filter((v) => v.verdict !== "consistent").map((v) => String(v.leg_id)));
-  const submission = !legs ? none(`no Submission: ${round.compose.refusal ? round.compose.refusal.text : "the compose Call's answer did not parse"}`)
-    : "<table><thead><tr><th>Leg</th><th>Move</th><th>Purpose</th><th>Brief Waypoints</th><th>Case</th></tr></thead><tbody>"
-      + legs.map((l) => `<tr${refused.has(String(l.leg_id)) ? ' class="named"' : ""}><td>${esc(l.leg_id)}</td><td>${moveLine(l.move, { library, outDir, corpusDir })}</td>`
-        + `<td>${esc(l.purpose)}</td><td>${(l.waypoints || []).map((w) => `<p>${esc(w.point)}</p>`).join("")}</td>`
-        + `<td>${(l.waypoints || []).map((w) => `<p>${esc(w.case ?? "")}</p>`).join("")}</td></tr>`).join("")
-      + "</tbody></table>";
+  const verdicts = new Map(
+    round.fit && round.fit.answer && Array.isArray(round.fit.answer.verdicts)
+      ? round.fit.answer.verdicts.map((v) => [String(v.leg_id), v])
+      : [],
+  );
+  const refused = new Set(
+    [...verdicts.values()].filter((v) => v.verdict !== "consistent").map((v) => String(v.leg_id)),
+  );
+  const submission = !legs
+    ? none(
+        `no Submission: ${round.compose.refusal ? round.compose.refusal.text : "the compose Call's answer did not parse"}`,
+      )
+    : "<table><thead><tr><th>Leg</th><th>Move</th><th>Purpose</th><th>Brief Waypoints</th><th>Case</th></tr></thead><tbody>" +
+      legs
+        .map(
+          (l) =>
+            `<tr${refused.has(String(l.leg_id)) ? ' class="named"' : ""}><td>${esc(l.leg_id)}</td><td>${moveLine(l.move, { library, outDir, corpusDir })}</td>` +
+            `<td>${esc(l.purpose)}</td><td>${(l.waypoints || []).map((w) => `<p>${esc(w.point)}</p>`).join("")}</td>` +
+            `<td>${(l.waypoints || []).map((w) => `<p>${esc(w.case ?? "")}</p>`).join("")}</td></tr>`,
+        )
+        .join("") +
+      "</tbody></table>";
   const comment = round.fit
-    ? "<table><thead><tr><th>Leg</th><th>verdict</th><th>why</th><th>source</th></tr></thead><tbody>"
-      + [...verdicts.values()].map((v) => `<tr><td>${esc(v.leg_id)}</td><td>${esc(v.verdict)}</td><td class="refusal">${esc(v.why)}</td><td>the Judge</td></tr>`).join("")
-      + "</tbody></table>"
+    ? "<table><thead><tr><th>Leg</th><th>verdict</th><th>why</th><th>source</th></tr></thead><tbody>" +
+      [...verdicts.values()]
+        .map(
+          (v) =>
+            `<tr><td>${esc(v.leg_id)}</td><td>${esc(v.verdict)}</td><td class="refusal">${esc(v.why)}</td><td>the Judge</td></tr>`,
+        )
+        .join("") +
+      "</tbody></table>"
     : line(`not judged: ${round.notJudged}`);
-  return roundHead(round.number) + heading("Submission") + submission + heading("Comment") + comment
-    + heading("Calls") + round.calls.map((c) => line(`${c.label}: ${c.kind}`)).join("");
+  return (
+    roundHead(round.number) +
+    heading("Submission") +
+    submission +
+    heading("Comment") +
+    comment +
+    heading("Calls") +
+    round.calls.map((c) => line(`${c.label}: ${c.kind}`)).join("")
+  );
 }
 
 export function renderCandidate({ runDir, unitId, movesDir = "moves", outDir = process.cwd(), corpusDir = null }) {
-  if (!existsSync(readerPathJobPath(runDir))) return { error: `the run directory ${relFromRepo(runDir)} holds no job record ${relative(runDir, readerPathJobPath(runDir))}` };
+  if (!existsSync(readerPathJobPath(runDir)))
+    return {
+      error: `the run directory ${relFromRepo(runDir)} holds no job record ${relative(runDir, readerPathJobPath(runDir))}`,
+    };
   const job = readReaderPathJob(runDir);
   const units = Array.isArray(job.units) ? job.units : [];
   const unit = units.find((u) => u && u.id === unitId);
-  if (!unit) return { error: `the job record of ${relFromRepo(runDir)} carries no unit ${unitId} — it carries ${units.map((u) => u && u.id).join(", ")}` };
+  if (!unit)
+    return {
+      error: `the job record of ${relFromRepo(runDir)} carries no unit ${unitId} — it carries ${units.map((u) => u && u.id).join(", ")}`,
+    };
   const status = unitStatus(job, unit);
   const { calls, rounds } = candidateRounds(runDir, unitId, status);
-  const band = bandHtml({ unitId, status, calls, unit, definition: CANDIDATE_ROUND_DEFINITION, stop: unitStop(unit, status) });
-  const body = rounds.length ? rounds.map((r) => candidateRoundHtml(r, { library: movesDir, outDir, corpusDir })).join("") : none("No compose Call of this unit left a record.");
-  const html = page(`Candidate ${unitId}`, line(`run: ${relFromRepo(runDir)}`, "meta") + line(`job: ${job.state}`, "meta")
-    + part(unitId, `Candidate ${unitId}`, band + body) + part("calls", "Calls", callList(runDir, unitId, outDir, calls)));
+  const band = bandHtml({
+    unitId,
+    status,
+    calls,
+    unit,
+    definition: CANDIDATE_ROUND_DEFINITION,
+    stop: unitStop(unit, status),
+  });
+  const body = rounds.length
+    ? rounds.map((r) => candidateRoundHtml(r, { library: movesDir, outDir, corpusDir })).join("")
+    : none("No compose Call of this unit left a record.");
+  const html = page(
+    `Candidate ${unitId}`,
+    line(`run: ${relFromRepo(runDir)}`, "meta") +
+      line(`job: ${job.state}`, "meta") +
+      part(unitId, `Candidate ${unitId}`, band + body) +
+      part("calls", "Calls", callList(runDir, unitId, outDir, calls)),
+  );
   return { html, status, rounds: rounds.length };
 }
 
 function argsOf(argv) {
   const args = { _: [] };
   for (let k = 0; k < argv.length; k++) {
-    if (argv[k].startsWith("--") && argv[k + 1] !== undefined && !argv[k + 1].startsWith("--")) args[argv[k].slice(2)] = argv[++k];
+    if (argv[k].startsWith("--") && argv[k + 1] !== undefined && !argv[k + 1].startsWith("--"))
+      args[argv[k].slice(2)] = argv[++k];
     else args._.push(argv[k]);
   }
   return args;
@@ -439,16 +707,31 @@ function argsOf(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = argsOf(process.argv.slice(2));
-  const usage = "usage: node src/flp/sheet.mjs leg --run <ParagraphPlan run directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]\n"
-    + "       node src/flp/sheet.mjs candidate --run <Brief run directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]";
+  const usage =
+    "usage: node src/flp/sheet.mjs leg --run <ParagraphPlan run directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]\n" +
+    "       node src/flp/sheet.mjs candidate --run <Brief run directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]";
   const mode = args._[0];
-  if (!args.run || !((mode === "leg" && args.leg) || (mode === "candidate" && args.unit))) { process.stderr.write(`${usage}\n`); process.exit(2); }
+  if (!args.run || !((mode === "leg" && args.leg) || (mode === "candidate" && args.unit))) {
+    process.stderr.write(`${usage}\n`);
+    process.exit(2);
+  }
   const out = args.out ? resolve(args.out) : null;
   const outDir = out ? resolve(out, "..") : process.cwd();
-  const r = mode === "leg"
-    ? renderFlp({ runDir: resolve(args.run), legId: args.leg, movesDir: args["moves-dir"] || null, outDir })
-    : renderCandidate({ runDir: resolve(args.run), unitId: args.unit, movesDir: args["moves-dir"] || "moves", outDir });
-  if (r.error) { process.stderr.write(`flp: ${r.error}\n`); process.exit(1); }
-  if (out) { writeFileSync(out, r.html); process.stderr.write(`flp: ${relFromRepo(out)}\n`); }
-  else process.stdout.write(r.html);
+  const r =
+    mode === "leg"
+      ? renderFlp({ runDir: resolve(args.run), legId: args.leg, movesDir: args["moves-dir"] || null, outDir })
+      : renderCandidate({
+          runDir: resolve(args.run),
+          unitId: args.unit,
+          movesDir: args["moves-dir"] || "moves",
+          outDir,
+        });
+  if (r.error) {
+    process.stderr.write(`flp: ${r.error}\n`);
+    process.exit(1);
+  }
+  if (out) {
+    writeFileSync(out, r.html);
+    process.stderr.write(`flp: ${relFromRepo(out)}\n`);
+  } else process.stdout.write(r.html);
 }

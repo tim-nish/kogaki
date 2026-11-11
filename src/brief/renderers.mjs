@@ -10,30 +10,72 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { cmdAdoptCandidate, cmdAssemble, selectionOptionIds } from "../assemble.mjs";
 import {
-  audienceLanguage, definedTermsOf, definedTermsRefusal, personaPriorKnowledgeLine,
-  readerPersona, recoverabilityOf, renderingsRefusal, validateLegs,
+  audienceLanguage,
+  definedTermsOf,
+  definedTermsRefusal,
+  personaPriorKnowledgeLine,
+  readerPersona,
+  recoverabilityOf,
+  renderingsRefusal,
+  validateLegs,
 } from "../compose.mjs";
 import { applyLegSections } from "../compose/sections.mjs";
 import {
-  componentsOf, elementLabel, mintStructure, partitionComponents, pathReachRefusal,
-  readHolds, structureLegs, validateApex, validateReadSet,
+  componentsOf,
+  elementLabel,
+  mintStructure,
+  partitionComponents,
+  pathReachRefusal,
+  readHolds,
+  structureLegs,
+  validateApex,
+  validateReadSet,
 } from "../compose/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
-  DetachedJobStarted, READER_PATH_JOB_AWAIT_COMMAND, READER_PATH_JOB_STALL_S, jobHeartbeatMs,
-  readReaderPathJob, readerPathJobPath, startDetachedJobSupervisor,
+  DetachedJobStarted,
+  READER_PATH_JOB_AWAIT_COMMAND,
+  READER_PATH_JOB_STALL_S,
+  jobHeartbeatMs,
+  readReaderPathJob,
+  readerPathJobPath,
+  startDetachedJobSupervisor,
 } from "../workflow/detached-job.mjs";
 import { judgePrompt, judgeSettings, settingValue } from "../workflow/judge.mjs";
 import { JudgmentRefusal, relFromRepo } from "../workflow/run-record.mjs";
 import {
-  classifyHomes, cmdAdopt, cmdEnter, cmdMint, composeThesisCandidates, pendingHomeCollision, thesesDirOf,
-  thesisFreeTextRefusal, thesisGate, thesisWords, unconnectedLines, withThesis,
+  classifyHomes,
+  cmdAdopt,
+  cmdEnter,
+  cmdMint,
+  composeThesisCandidates,
+  pendingHomeCollision,
+  thesesDirOf,
+  thesisFreeTextRefusal,
+  thesisGate,
+  thesisWords,
+  unconnectedLines,
+  withThesis,
 } from "./candidates.mjs";
 import { candidateSelectionExtra, selectedCandidateId } from "./reader-path-unit.mjs";
 import {
-  BRIEF_REPO, REVIEW_PATH_JOB_DIR, briefAudienceFile, briefJobBounds, briefThesis, captureFile,
-  detachedJobFor, entryInputs, fail, judged, needBrief, needRunState, readJson, readMintedBrief,
-  refuseJudgment, strandClaims, writeJudgeInput,
+  BRIEF_REPO,
+  REVIEW_PATH_JOB_DIR,
+  briefAudienceFile,
+  briefJobBounds,
+  briefThesis,
+  captureFile,
+  detachedJobFor,
+  entryInputs,
+  fail,
+  judged,
+  needBrief,
+  needRunState,
+  readJson,
+  readMintedBrief,
+  refuseJudgment,
+  strandClaims,
+  writeJudgeInput,
 } from "./run-state.mjs";
 
 // THE RENDERINGS RECORD'S JUDGMENT (kogaki#1494), asked at the start of the
@@ -41,24 +83,36 @@ import {
 // claims, the Thesis and the Brief's Defined Terms. The record is validated by
 // `renderingsRefusal`, so a re-ask carries its text. Returns the record's path.
 async function judgeRenderings(rec, st, table, args, { record, thesis, language }) {
-  const row = table.renderings_unit
-    || fail(`${st.id}: src/brief-workflow.json declares no renderings_unit row for the Brief's renderings record (kogaki#1494)`);
+  const row =
+    table.renderings_unit ||
+    fail(
+      `${st.id}: src/brief-workflow.json declares no renderings_unit row for the Brief's renderings record (kogaki#1494)`,
+    );
   const claims = strandClaims(readJson(needRunState(rec, st)));
   const validate = (p) => {
     let r;
-    try { r = readJson(p); }
-    catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+    try {
+      r = readJson(p);
+    } catch (e) {
+      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+    }
     if (!r || r.version !== "1") {
-      refuseJudgment(`\`version\` must be "1" (src/candidate-schema.json, \`renderings_record\`); received ${JSON.stringify(r && r.version)}`);
+      refuseJudgment(
+        `\`version\` must be "1" (src/candidate-schema.json, \`renderings_record\`); received ${JSON.stringify(r && r.version)}`,
+      );
     }
     const err = renderingsRefusal(r.renderings, { thesis: thesis || "", claims: claims.map((c) => c.claim) });
     if (err) refuseJudgment(err);
   };
-  const composeInputFor = () => writeJudgeInput(rec, row, {
-    state: st.id, unit: row.id, thesis, strand_claims: claims,
-    defined_terms: Array.isArray(record && record.defined_terms) ? record.defined_terms : [],
-    language,
-  });
+  const composeInputFor = () =>
+    writeJudgeInput(rec, row, {
+      state: st.id,
+      unit: row.id,
+      thesis,
+      strand_claims: claims,
+      defined_terms: Array.isArray(record && record.defined_terms) ? record.defined_terms : [],
+      language,
+    });
   return await judged(rec, row, table, args, "renderings", composeInputFor, validate);
 }
 
@@ -86,7 +140,10 @@ function audienceFor(table, st) {
   if (persona.error) fail(`${st.id}: ${persona.error}`);
   const language = audienceLanguage(file);
   if (language.error) fail(`${st.id}: ${language.error}`);
-  return { persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) }, language: language.language };
+  return {
+    persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
+    language: language.language,
+  };
 }
 
 // Every settled Strand's served claim, or the STATE's refusal naming the Strands
@@ -94,10 +151,14 @@ function audienceFor(table, st) {
 // Strand whose rendering is a marker has no claim to read.
 function everyClaim(state, st) {
   const claims = strandClaims(state);
-  const missing = (state.strands || []).filter((s) => !claims.some((c) => c.id === s.display_id)).map((s) => s.display_id);
+  const missing = (state.strands || [])
+    .filter((s) => !claims.some((c) => c.id === s.display_id))
+    .map((s) => s.display_id);
   if (missing.length) {
-    fail(`${st.id}: the settled Strand${missing.length === 1 ? "" : "s"} ${missing.join(", ")} carr${missing.length === 1 ? "ies" : "y"} no served claim, `
-      + "and the structure is read from every settled Strand's claim (kogaki#1768). Re-settle the set through Terrain. Nothing was written.");
+    fail(
+      `${st.id}: the settled Strand${missing.length === 1 ? "" : "s"} ${missing.join(", ")} carr${missing.length === 1 ? "ies" : "y"} no served claim, ` +
+        "and the structure is read from every settled Strand's claim (kogaki#1768). Re-settle the set through Terrain. Nothing was written.",
+    );
   }
   return claims;
 }
@@ -112,21 +173,28 @@ async function finishReaderPath(rec, st, table, args, { structure, language }) {
   const derived = structureLegs(structure, claims);
   const bad = pathReachRefusal(derived, structure);
   if (bad) fail(`${st.id}: the derived Legs break the path's reach: ${bad}`);
-  const row = table.leg_sections
-    || fail(`${st.id}: src/brief-workflow.json declares no leg_sections row for the Legs' Sections (kogaki#1768)`);
+  const row =
+    table.leg_sections ||
+    fail(`${st.id}: src/brief-workflow.json declares no leg_sections row for the Legs' Sections (kogaki#1768)`);
   let legs = null;
   const validate = (p) => {
     let r;
-    try { r = readJson(p); }
-    catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+    try {
+      r = readJson(p);
+    } catch (e) {
+      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+    }
     const out = applyLegSections(derived, r);
     if (out.error) refuseJudgment(out.error);
     legs = out.legs;
   };
-  const composeInputFor = () => writeJudgeInput(rec, row, {
-    state: st.id, unit: row.id, language,
-    legs: derived.map((l) => ({ leg_id: l.leg_id, relation: l.relation, text: l.text })),
-  });
+  const composeInputFor = () =>
+    writeJudgeInput(rec, row, {
+      state: st.id,
+      unit: row.id,
+      language,
+      legs: derived.map((l) => ({ leg_id: l.leg_id, relation: l.relation, text: l.text })),
+    });
   rec.brief_leg_sections = await judged(rec, row, table, args, "leg-sections", composeInputFor, validate);
   const v = validateLegs(legs, { structure });
   if (v.error) fail(`${st.id}: ${v.error}`);
@@ -134,8 +202,9 @@ async function finishReaderPath(rec, st, table, args, { structure, language }) {
     candidate_id: "reader-path",
     legs: v.legs,
     reasoning: {
-      leg_validity: "The Legs are derived from the structure with no Call, one per relation and higher-order relation "
-        + "the apex reaches, each saying its relation's `holds`; the apex's Leg attains the Thesis.",
+      leg_validity:
+        "The Legs are derived from the structure with no Call, one per relation and higher-order relation " +
+        "the apex reaches, each saying its relation's `holds`; the apex's Leg attains the Thesis.",
     },
   };
   rec.brief_compose_excluded = [];
@@ -153,20 +222,34 @@ async function finishReaderPath(rec, st, table, args, { structure, language }) {
 // the component it attains. A rewrite still over the bound, or one that drops or adds a candidate,
 // refuses and the run stops naming the length; the row declares no re-ask.
 export function thesisBoundRefusal(answer, over, bound) {
-  if (!answer || typeof answer !== "object" || Array.isArray(answer) || !Array.isArray(answer.theses)
-    || Object.keys(answer).some((k) => k !== "theses")) {
+  if (
+    !answer ||
+    typeof answer !== "object" ||
+    Array.isArray(answer) ||
+    !Array.isArray(answer.theses) ||
+    Object.keys(answer).some((k) => k !== "theses")
+  ) {
     return "the answer is not one record carrying exactly `theses`, a list";
   }
   const want = new Set(over.map((c) => c.id));
   const seen = new Set();
   for (const [i, t] of answer.theses.entries()) {
-    if (!t || typeof t !== "object" || typeof t.candidate !== "string" || typeof t.thesis !== "string"
-      || Object.keys(t).some((k) => k !== "candidate" && k !== "thesis")) return `theses[${i}] is not \`{ candidate, thesis }\``;
-    if (!want.has(t.candidate) || seen.has(t.candidate)) return `theses[${i}] names ${JSON.stringify(t.candidate)}, which is not a candidate to rewrite or is named twice`;
+    if (
+      !t ||
+      typeof t !== "object" ||
+      typeof t.candidate !== "string" ||
+      typeof t.thesis !== "string" ||
+      Object.keys(t).some((k) => k !== "candidate" && k !== "thesis")
+    )
+      return `theses[${i}] is not \`{ candidate, thesis }\``;
+    if (!want.has(t.candidate) || seen.has(t.candidate))
+      return `theses[${i}] names ${JSON.stringify(t.candidate)}, which is not a candidate to rewrite or is named twice`;
     seen.add(t.candidate);
-    if (t.thesis.trim() === "" || /\{[^}]+\}/.test(t.thesis)) return `the rewrite of ${t.candidate} is empty or carries a \`{<id>}\``;
+    if (t.thesis.trim() === "" || /\{[^}]+\}/.test(t.thesis))
+      return `the rewrite of ${t.candidate} is empty or carries a \`{<id>}\``;
     const n = thesisWords(t.thesis);
-    if (n > bound) return `the rewrite of ${t.candidate} is ${n} words, and the Thesis is bounded at ${bound} words (brief.thesis_words)`;
+    if (n > bound)
+      return `the rewrite of ${t.candidate} is ${n} words, and the Thesis is bounded at ${bound} words (brief.thesis_words)`;
   }
   const missing = over.find((c) => !seen.has(c.id));
   return missing ? `the answer carries no rewrite of ${missing.id}` : null;
@@ -175,9 +258,12 @@ export function thesisBoundRefusal(answer, over, bound) {
 export function briefThesisWords(table) {
   const row = table && table.thesis_bound_unit;
   const n = Number(row ? settingValue(row.thesis_words) : undefined);
-  return Number.isInteger(n) && n > 0 ? n
-    : fail("src/brief-workflow.json's `thesis_bound_unit` row declares no positive `thesis_words` -- it names "
-      + "`brief.thesis_words` in kogaki.settings.json (kogaki#1773). Nothing was written.");
+  return Number.isInteger(n) && n > 0
+    ? n
+    : fail(
+        "src/brief-workflow.json's `thesis_bound_unit` row declares no positive `thesis_words` -- it names " +
+          "`brief.thesis_words` in kogaki.settings.json (kogaki#1773). Nothing was written.",
+      );
 }
 
 async function boundTheses(rec, table, args, { candidates, connected, language, described }) {
@@ -188,17 +274,28 @@ async function boundTheses(rec, table, args, { candidates, connected, language, 
   let rewrites = null;
   const validate = (p) => {
     let r;
-    try { r = readJson(p); }
-    catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+    try {
+      r = readJson(p);
+    } catch (e) {
+      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+    }
     const bad = thesisBoundRefusal(r, over, bound);
     if (bad) refuseJudgment(bad);
     rewrites = new Map(r.theses.map((t) => [t.candidate, t.thesis]));
   };
-  const composeInputFor = () => writeJudgeInput(rec, row, {
-    state: "apex", unit: row.id, language, thesis_words: bound,
-    theses: over.map((c) => ({ candidate: c.id, thesis: c.thesis, words: thesisWords(c.thesis),
-      attains: described(connected.find((k) => k.component === c.component)) })),
-  });
+  const composeInputFor = () =>
+    writeJudgeInput(rec, row, {
+      state: "apex",
+      unit: row.id,
+      language,
+      thesis_words: bound,
+      theses: over.map((c) => ({
+        candidate: c.id,
+        thesis: c.thesis,
+        words: thesisWords(c.thesis),
+        attains: described(connected.find((k) => k.component === c.component)),
+      })),
+    });
   rec.brief_thesis_bound = await judged(rec, row, table, args, "thesis-bound", composeInputFor, validate);
   return candidates.map((c) => (rewrites.has(c.id) ? withThesis(c, rewrites.get(c.id)) : c));
 }
@@ -239,8 +336,11 @@ export const STATE_WORK = {
     let structure = null;
     const validate = (p) => {
       let r;
-      try { r = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+      try {
+        r = readJson(p);
+      } catch (e) {
+        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`);
+      }
       const m = mintStructure(r);
       if (m.text) refuseJudgment(m.text);
       const v = validateReadSet(m.structure, claims, { thesis: false });
@@ -265,19 +365,26 @@ export const STATE_WORK = {
   apex: async (rec, st, args, table) => {
     const runState = needRunState(rec, st);
     const state = readJson(runState);
-    if (!state.structure) fail(`${st.id}: the run state carries no structure — \`read_structure\` writes it and precedes this state.`);
+    if (!state.structure)
+      fail(`${st.id}: the run state carries no structure — \`read_structure\` writes it and precedes this state.`);
     const claims = everyClaim(state, st);
     const components = componentsOf(state.structure, claims);
     const { connected, unconnected } = partitionComponents(components);
     state.unconnected = unconnected;
     if (!connected.length) {
       writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
-      fail(`${st.id}: no Thesis can be offered — ${unconnectedLines(unconnected).join(" ")} Go back through Terrain and re-settle the set; nothing was written under theses/.`);
+      fail(
+        `${st.id}: no Thesis can be offered — ${unconnectedLines(unconnected).join(" ")} Go back through Terrain and re-settle the set; nothing was written under theses/.`,
+      );
     }
     const multi = connected.filter((k) => k.top.length > 1);
     const { language } = audienceFor(table, st);
-    const element = new Map([...state.structure.relations, ...state.structure.higher_order]
-      .map((x) => [x.id, { id: x.id, name: x.name, holds: readHolds(state.structure, x.holds) }]));
+    const element = new Map(
+      [...state.structure.relations, ...state.structure.higher_order].map((x) => [
+        x.id,
+        { id: x.id, name: x.name, holds: readHolds(state.structure, x.holds) },
+      ]),
+    );
     const described = (k) => ({
       component: k.component,
       relations: k.relations.map((id) => element.get(id)),
@@ -289,13 +396,17 @@ export const STATE_WORK = {
     if (multi.length) {
       const validate = (p) => {
         let r;
-        try { r = readJson(p); }
-        catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`); }
+        try {
+          r = readJson(p);
+        } catch (e) {
+          refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`);
+        }
         const v = validateApex(r, multi, state.structure);
         if (v.text) refuseJudgment(v.text);
         apexes = r.apexes;
       };
-      const composeInputFor = () => writeJudgeInput(rec, st, { state: st.id, language, claims, components: multi.map(described) });
+      const composeInputFor = () =>
+        writeJudgeInput(rec, st, { state: st.id, language, claims, components: multi.map(described) });
       rec.brief_apex = await judged(rec, st, table, args, "apex", composeInputFor, validate);
       rec.judgments[st.id] = rec.brief_apex;
     }
@@ -329,23 +440,32 @@ export const STATE_WORK = {
     const runState = needRunState(rec, st);
     const state = readJson(runState);
     if (state.stage !== "adopted") return { artifact: cmdMint({ ...args, "run-state": runState }) };
-    const row = table.defined_terms_unit
-      || fail(`${st.id}: src/brief-workflow.json declares no defined_terms_unit row for the Brief's Defined Terms (kogaki#1331)`);
+    const row =
+      table.defined_terms_unit ||
+      fail(
+        `${st.id}: src/brief-workflow.json declares no defined_terms_unit row for the Brief's Defined Terms (kogaki#1331)`,
+      );
     const thesis = state.adopted_thesis;
     const claims = strandClaims(state);
     let entries = null;
     const validate = (p) => {
       let r;
-      try { r = readJson(p); }
-      catch (e) { refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`); }
+      try {
+        r = readJson(p);
+      } catch (e) {
+        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+      }
       if (!r || r.version !== "1") {
-        refuseJudgment(`\`version\` must be "1" (src/candidate-schema.json, \`defined_terms_record\`); received ${JSON.stringify(r && r.version)}`);
+        refuseJudgment(
+          `\`version\` must be "1" (src/candidate-schema.json, \`defined_terms_record\`); received ${JSON.stringify(r && r.version)}`,
+        );
       }
       const err = definedTermsRefusal(r.defined_terms, { thesis, claims: claims.map((c) => c.claim) });
       if (err) refuseJudgment(err);
       entries = r.defined_terms;
     };
-    const composeInputFor = () => writeJudgeInput(rec, row, { state: st.id, unit: row.id, thesis, strand_claims: claims });
+    const composeInputFor = () =>
+      writeJudgeInput(rec, row, { state: st.id, unit: row.id, thesis, strand_claims: claims });
     rec.brief_defined_terms = await judged(rec, row, table, args, "defined-terms", composeInputFor, validate);
     return { artifact: cmdMint({ ...args, "run-state": runState, definedTerms: entries }) };
   },
@@ -355,9 +475,12 @@ export const STATE_WORK = {
   // Harness, with no Call but the one `leg_sections` Call that groups them.
   compose_path: async (rec, st, args, table) => {
     const { briefPath, record } = readMintedBrief(rec, st);
-    const structure = record.structure
-      || fail(`${st.id}: the Brief at ${relFromRepo(briefPath)} carries no \`structure\` — the mint writes the adopted `
-        + "structure beside the Thesis, and the Reader Path is derived from it (kogaki#1768). Nothing was started.");
+    const structure =
+      record.structure ||
+      fail(
+        `${st.id}: the Brief at ${relFromRepo(briefPath)} carries no \`structure\` — the mint writes the adopted ` +
+          "structure beside the Thesis, and the Reader Path is derived from it (kogaki#1768). Nothing was started.",
+      );
     const thesis = briefThesis(record);
     const { language } = audienceFor(table, st);
 
@@ -386,8 +509,10 @@ export const STATE_WORK = {
   // (`validateReviewPathUnit`), so a review that would be unattachable is
   // re-asked inside the job rather than refused at the attach.
   review_path: async (rec, st, args, table) => {
-    const cands = readJson(rec.brief_candidates
-      || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`));
+    const cands = readJson(
+      rec.brief_candidates ||
+        fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`),
+    );
     const job = detachedJobFor(rec._dir, st.id);
 
     // RESUMPTION (kogaki#1301). `job await`'s "done" arm re-enters this state
@@ -401,7 +526,8 @@ export const STATE_WORK = {
       const review = result && typeof result.review === "object" && result.review ? result.review : {};
       const unreviewed = Array.isArray(result && result.unreviewed) ? result.unreviewed : [];
       const reviewed = cands.filter((c) => Object.prototype.hasOwnProperty.call(review, c.candidate_id));
-      if (reviewed.length === 0) fail(`${st.id}: the path-review job ended \`done\` and its result carries no reviewed Candidate.`);
+      if (reviewed.length === 0)
+        fail(`${st.id}: the path-review job ended \`done\` and its result carries no reviewed Candidate.`);
       const r = attachReview(reviewed, review, {});
       if (r.error) fail(`${st.id}: ${r.error}`);
       // RECOVERABILITY, THE HARNESS'S OWN ENTRY (kogaki#1494): every claim's
@@ -415,7 +541,10 @@ export const STATE_WORK = {
         const material = Object.fromEntries(served.map((c) => [c.id, c.claim]));
         const renderings = renderingsFor(rec);
         for (const c of reviewed) {
-          review[c.candidate_id] = { ...review[c.candidate_id], recoverability: recoverabilityOf(c.legs, { material, renderings }) };
+          review[c.candidate_id] = {
+            ...review[c.candidate_id],
+            recoverability: recoverabilityOf(c.legs, { material, renderings }),
+          };
         }
       }
       const out = join(rec._dir, "brief-review.json");
@@ -437,9 +566,12 @@ export const STATE_WORK = {
 
     // ALREADY OPEN: polled again by `job await`, never restarted.
     if (readReaderPathJob(job.jobDir)) {
-      throw new DetachedJobStarted(st.id, readerPathJobPath(job.jobDir),
-        `the path-review job at ${readerPathJobPath(job.jobDir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
-        + "to poll it (kogaki#1301).");
+      throw new DetachedJobStarted(
+        st.id,
+        readerPathJobPath(job.jobDir),
+        `the path-review job at ${readerPathJobPath(job.jobDir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` ` +
+          "to poll it (kogaki#1301).",
+      );
     }
 
     // THE BRIEF'S DEFINED TERMS, the claim register's one declared side
@@ -460,9 +592,12 @@ export const STATE_WORK = {
         if (bad) fail(`${st.id}: ${bad}. Nothing was started.`);
       }
     }
-    const unitRow = table.review_path_unit
-      || fail(`${st.id}: src/brief-workflow.json declares no review_path_unit row for the Detached `
-        + "Job's per-Candidate prompt — nothing was started (kogaki#1301).");
+    const unitRow =
+      table.review_path_unit ||
+      fail(
+        `${st.id}: src/brief-workflow.json declares no review_path_unit row for the Detached ` +
+          "Job's per-Candidate prompt — nothing was started (kogaki#1301).",
+      );
     // THE SHARED BASE, DISCLOSED, as `compose_path` writes its own: the fields
     // every unit carries, and the ids of the Candidates the units review.
     writeJudgeInput(rec, st, {
@@ -507,9 +642,12 @@ export const STATE_WORK = {
         inputs: { candidates: Object.fromEntries(units.map((u, i) => [u.id, cands[i]])) },
       },
     });
-    throw new DetachedJobStarted(st.id, readerPathJobPath(job.jobDir),
-      `path-review job started at ${readerPathJobPath(job.jobDir)} (kogaki#1301) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` `
-      + "to poll it.");
+    throw new DetachedJobStarted(
+      st.id,
+      readerPathJobPath(job.jobDir),
+      `path-review job started at ${readerPathJobPath(job.jobDir)} (kogaki#1301) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` ` +
+        "to poll it.",
+    );
   },
 
   attach_review: (rec, st, args) => {
@@ -518,10 +656,14 @@ export const STATE_WORK = {
       ...args,
       // EVERY FINISHED, REVIEWED CANDIDATE (kogaki#1307): Move fit was judged inside the
       // compose job, so a Candidate here already fits its Moves.
-      candidates: rec.brief_candidates_reviewed || rec.brief_candidates
-        || fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`),
-      review: resolve(BRIEF_REPO, rec.brief_review
-        || fail(`${st.id} has no review record — \`review_path\` writes it and precedes this state.`)),
+      candidates:
+        rec.brief_candidates_reviewed ||
+        rec.brief_candidates ||
+        fail(`${st.id} has no composed Candidates — \`compose_path\` writes them and precedes this state.`),
+      review: resolve(
+        BRIEF_REPO,
+        rec.brief_review || fail(`${st.id} has no review record — \`review_path\` writes it and precedes this state.`),
+      ),
       brief: needBrief(rec, st),
       out,
     });
@@ -533,8 +675,9 @@ export const STATE_WORK = {
     const out = join(rec._dir, "brief-selection.json");
     cmdAssemble({
       ...args,
-      reviewed: rec.brief_reviewed
-        || fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`),
+      reviewed:
+        rec.brief_reviewed ||
+        fail(`${st.id} has no reviewed Candidates — \`attach_review\` writes them and precedes this state.`),
       brief: needBrief(rec, st),
       out,
     });
@@ -577,12 +720,16 @@ export const GATE_WORK = {
   // and `adopt` digests over that same list. Recomposing here
   // would be a second answer to what the owner was shown.
   THESIS_ADOPTION: (rec) => {
-    const state = readJson(rec.brief_run_state
-      || fail("THESIS_ADOPTION has no run state to raise a gate from — `enter` writes it and precedes this wait."));
+    const state = readJson(
+      rec.brief_run_state ||
+        fail("THESIS_ADOPTION has no run state to raise a gate from — `enter` writes it and precedes this wait."),
+    );
     const gate = state.gate;
     if (!gate || !Array.isArray(gate.options) || gate.options.length === 0) {
-      fail("the run state carries no thesis-determination gate declaration — `enter` composes it, and an "
-        + "answer is admitted only at the wait that declared it.");
+      fail(
+        "the run state carries no thesis-determination gate declaration — `enter` composes it, and an " +
+          "answer is admitted only at the wait that declared it.",
+      );
     }
     // THE SETTLED SET IS SHOWN ABOVE THE QUESTION (PR #1109 round 1).
     // `settled_set_provenance` is one of `GATE_CALL_READING_KEYS`, so
@@ -595,7 +742,8 @@ export const GATE_WORK = {
     // A THESIS KEPT AT THE HOME-COLLISION GATE IS NAMED, NOT OFFERED (kogaki#1742):
     // its option is already gone from `state.gate`, so this line is the one
     // place the owner sees why.
-    const kept = (state.thesis_candidates || []).filter((c) => (state.home_answers || {})[c.id] === "keep")
+    const kept = (state.thesis_candidates || [])
+      .filter((c) => (state.home_answers || {})[c.id] === "keep")
       .map((c) => `Not offered: "${c.claim}" — you kept the existing Brief ${c.slug}.`);
     // NO SURVEY IS NAMED (kogaki#1121). Since #1116 the set is entered on the
     // command line and there is no survey behind it, so what is rendered is the
@@ -606,9 +754,7 @@ export const GATE_WORK = {
       ...unconnectedLines(state.unconnected || []),
     ];
     return {
-      options: gate.options
-        .filter((o) => o.id !== "back-to-terrain")
-        .map((o) => ({ id: o.id, label: o.label })),
+      options: gate.options.filter((o) => o.id !== "back-to-terrain").map((o) => ({ id: o.id, label: o.label })),
       extra: provenance.length ? { settled_set_provenance: provenance.join("\n") } : {},
     };
   },
@@ -617,10 +763,13 @@ export const GATE_WORK = {
   // holds the same Thesis, in candidate order. The three options are the
   // registry's own; the reading is the classification `enter` recorded.
   HOME_COLLISION: (rec) => {
-    const state = readJson(rec.brief_run_state
-      || fail("HOME_COLLISION has no run state to raise a gate from — `enter` writes it and precedes this wait."));
-    const c = pendingHomeCollision(state)
-      || fail("HOME_COLLISION was entered with no candidate whose home holds the same Thesis left to answer.");
+    const state = readJson(
+      rec.brief_run_state ||
+        fail("HOME_COLLISION has no run state to raise a gate from — `enter` writes it and precedes this wait."),
+    );
+    const c =
+      pendingHomeCollision(state) ||
+      fail("HOME_COLLISION was entered with no candidate whose home holds the same Thesis left to answer.");
     return { options: [], extra: { home_collision: homeCollisionReading(c) } };
   },
 
@@ -629,13 +778,19 @@ export const GATE_WORK = {
   // `adoptCandidate` still calls, so the set the owner is shown, the set the
   // digest is taken over, and the set adoption re-derives are one computation.
   CANDIDATE_SELECTION: (rec) => {
-    const reviewed = readJson(rec.brief_reviewed
-      || fail("CANDIDATE_SELECTION has no reviewed Candidates to offer — `attach_review` writes them and precedes this wait."));
+    const reviewed = readJson(
+      rec.brief_reviewed ||
+        fail(
+          "CANDIDATE_SELECTION has no reviewed Candidates to offer — `attach_review` writes them and precedes this wait.",
+        ),
+    );
     const { record } = readMintedBrief(rec, { id: "CANDIDATE_SELECTION" });
     const offered = selectionOptionIds(reviewed, record);
     if (offered.error) {
-      fail(`${offered.error}\n\nNo gate is raised: the Candidates cannot be presented, so there is nothing `
-        + "to choose between. Repair the Candidates, not the gate.");
+      fail(
+        `${offered.error}\n\nNo gate is raised: the Candidates cannot be presented, so there is nothing ` +
+          "to choose between. Repair the Candidates, not the gate.",
+      );
     }
     return {
       // THE DESCRIPTION TRAVELS WITH THE OPTION (kogaki#1126). This mapping used
@@ -651,8 +806,10 @@ export const GATE_WORK = {
       // THE READER PATH IS SHOWN ABOVE THE QUESTION (kogaki#1768, kogaki#1775):
       // its Legs, each with the relation it serves and its text. That reading is
       // the owner's reading of the Brief's sheet.
-      extra: { ...candidateSelectionExtra(rec.brief_excluded || []),
-        reader_path: readerPathReading(reviewed.candidates || [], record.structure || null) },
+      extra: {
+        ...candidateSelectionExtra(rec.brief_excluded || []),
+        reader_path: readerPathReading(reviewed.candidates || [], record.structure || null),
+      },
     };
   },
 };
@@ -667,7 +824,9 @@ export function readerPathReading(candidates, structure) {
     lines.push(`The Reader Path: ${(c.legs || []).length} Leg(s).`);
     for (const l of c.legs || []) {
       if (typeof l.opens_section === "string") lines.push(`Section: ${l.opens_section}`);
-      lines.push(`${l.leg_id}${l.relation ? ` — ${elementLabel(structure, l.relation)}` : ""}${l.reaches_target ? " (attains the Thesis)" : ""}`);
+      lines.push(
+        `${l.leg_id}${l.relation ? ` — ${elementLabel(structure, l.relation)}` : ""}${l.reaches_target ? " (attains the Thesis)" : ""}`,
+      );
       if (typeof l.text === "string") lines.push(`  ${l.text}`);
     }
   }
@@ -679,15 +838,19 @@ export function readerPathReading(candidates, structure) {
 // else its folder holds.
 export function homeCollisionReading(c) {
   const h = c.home;
-  const lines = [`A Brief named ${c.slug} already exists at ${relFromRepo(h.path)}/, with the same Thesis as this option:`,
-    `"${c.claim}"`];
+  const lines = [
+    `A Brief named ${c.slug} already exists at ${relFromRepo(h.path)}/, with the same Thesis as this option:`,
+    `"${c.claim}"`,
+  ];
   if (h.same_pins) lines.push("Every Strand is at the same hash as in this run.");
   if (h.moved.length) lines.push(`These Strands are at a different hash now: ${h.moved.join(", ")}.`);
   if (h.added.length) lines.push(`This run adds Strands it did not use: ${h.added.join(", ")}.`);
   if (h.removed.length) lines.push(`It used Strands this run does not: ${h.removed.join(", ")}.`);
-  lines.push(h.downstream.length
-    ? `Its folder also holds later work: ${h.downstream.join(", ")}.`
-    : "Its folder holds the Brief and nothing else.");
+  lines.push(
+    h.downstream.length
+      ? `Its folder also holds later work: ${h.downstream.join(", ")}.`
+      : "Its folder holds the Brief and nothing else.",
+  );
   return lines.join("\n");
 }
 
@@ -696,8 +859,9 @@ export function homeCollisionReading(c) {
 export const CONDITIONS = {
   HOME_COLLISION: (rec) => {
     if (!rec.brief_run_state || !existsSync(rec.brief_run_state)) return false;
-    return (readJson(rec.brief_run_state).thesis_candidates || [])
-      .some((c) => c.home && c.home.exists && c.home.same_thesis);
+    return (readJson(rec.brief_run_state).thesis_candidates || []).some(
+      (c) => c.home && c.home.exists && c.home.same_thesis,
+    );
   },
 };
 
@@ -712,7 +876,9 @@ export const ANSWER_WORK = {
     if (!c) return undefined;
     if (answer === "back-to-terrain") return "end";
     if (answer !== "replace" && answer !== "keep") {
-      fail(`the answer at the home-collision gate is ${JSON.stringify(answer)}, and the gate offers replace, keep and back-to-terrain alone.`);
+      fail(
+        `the answer at the home-collision gate is ${JSON.stringify(answer)}, and the gate offers replace, keep and back-to-terrain alone.`,
+      );
     }
     state.home_answers = { ...(state.home_answers || {}), [c.id]: answer };
     if (answer === "keep") state.gate.options = state.gate.options.filter((o) => o.id !== c.id);
@@ -722,11 +888,15 @@ export const ANSWER_WORK = {
   // TYPED TEXT IS NOT A THESIS (kogaki#1749): the wait stays open and the gate
   // is raised again, so `adopt` never sees the answer.
   THESIS_ADOPTION: (rec, answer) => {
-    const gate = readJson(rec.brief_run_state
-      || fail("THESIS_ADOPTION has no run state to read the answer against — `enter` writes it and precedes this wait.")).gate;
+    const gate = readJson(
+      rec.brief_run_state ||
+        fail("THESIS_ADOPTION has no run state to read the answer against — `enter` writes it and precedes this wait."),
+    ).gate;
     if (!gate || !Array.isArray(gate.options) || gate.options.length === 0) {
-      fail("the run state carries no thesis-determination gate declaration — `enter` composes it, and an "
-        + "answer is admitted only at the wait that declared it.");
+      fail(
+        "the run state carries no thesis-determination gate declaration — `enter` composes it, and an " +
+          "answer is admitted only at the wait that declared it.",
+      );
     }
     if (gate.options.some((o) => o.id === answer)) return undefined;
     console.error(`refused: ${thesisFreeTextRefusal(gate.gate_id)}`);

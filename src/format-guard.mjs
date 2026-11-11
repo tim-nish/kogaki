@@ -230,8 +230,10 @@ function violation(surface, rule, line, lineNo, detail) {
     detail,
     toString() {
       const where = lineNo === null ? "" : ` (line ${lineNo})`;
-      return `${surface} / ${rule}${where}: ${detail}`
-        + (line === null ? "" : `\n      offending line: ${JSON.stringify(line)}`);
+      return (
+        `${surface} / ${rule}${where}: ${detail}` +
+        (line === null ? "" : `\n      offending line: ${JSON.stringify(line)}`)
+      );
     },
   };
 }
@@ -239,9 +241,16 @@ function violation(surface, rule, line, lineNo, detail) {
 export function validateSurface(surfaceName, text, grammar) {
   const surface = (grammar.surfaces || {})[surfaceName];
   if (!surface) {
-    return [violation(surfaceName, "surface_declared", null, null,
-      `no surface ${JSON.stringify(surfaceName)} in the grammar — the grammar covers `
-      + `${Object.keys(grammar.surfaces || {}).join(", ")} and nothing else`)];
+    return [
+      violation(
+        surfaceName,
+        "surface_declared",
+        null,
+        null,
+        `no surface ${JSON.stringify(surfaceName)} in the grammar — the grammar covers ` +
+          `${Object.keys(grammar.surfaces || {}).join(", ")} and nothing else`,
+      ),
+    ];
   }
   const v = [];
   const lines = String(text).split("\n");
@@ -264,11 +273,18 @@ export function validateSurface(surfaceName, text, grammar) {
   // nothing admits is not silently ignored on its way to a token check.
   classified.forEach((id, i) => {
     if (id === null) {
-      v.push(violation(surfaceName, "line_class_allowlist", lines[i], i + 1,
-        `no line class in ${surfaceName}.line_classes admits this line, and the surface's `
-        + `non_member_fallback is ${JSON.stringify(surface.non_member_fallback || "REFUSE")}. `
-        + "Either the emitter changed shape, or the grammar owes a new class — "
-        + "src/report-format.json wins on divergence, so the grammar is amended deliberately, never to make a refusal go away"));
+      v.push(
+        violation(
+          surfaceName,
+          "line_class_allowlist",
+          lines[i],
+          i + 1,
+          `no line class in ${surfaceName}.line_classes admits this line, and the surface's ` +
+            `non_member_fallback is ${JSON.stringify(surface.non_member_fallback || "REFUSE")}. ` +
+            "Either the emitter changed shape, or the grammar owes a new class — " +
+            "src/report-format.json wins on divergence, so the grammar is amended deliberately, never to make a refusal go away",
+        ),
+      );
     }
   });
 
@@ -278,10 +294,17 @@ export function validateSurface(surfaceName, text, grammar) {
   // a cite is an address — so the predicate looks for element names only.
   lines.forEach((line, i) => {
     if (/\blesson:[a-z0-9-]/.test(line)) {
-      v.push(violation(surfaceName, "no_element_names", line, i + 1,
-        "an element name (`lesson:<slug>`) reached an owner surface. No owner surface renders an element name — the display ID does: "
-        + "no owner surface renders an element name; the rendered token is the display_id, "
-        + "resolved from the survey record"));
+      v.push(
+        violation(
+          surfaceName,
+          "no_element_names",
+          line,
+          i + 1,
+          "an element name (`lesson:<slug>`) reached an owner surface. No owner surface renders an element name — the display ID does: " +
+            "no owner surface renders an element name; the rendered token is the display_id, " +
+            "resolved from the survey record",
+        ),
+      );
     }
   });
 
@@ -291,9 +314,16 @@ export function validateSurface(surfaceName, text, grammar) {
     if (rule.id === "pin_once_per_file") {
       const n = classified.filter((id) => id === "substrate_pin").length;
       if (n !== 1) {
-        v.push(violation(surfaceName, "pin_once_per_file", null, null,
-          `${n} \`substrate_pin\` line(s); the grammar entry requires exactly 1 `
-          + "(the report renders the shared substrate pin ONCE, in its identity)"));
+        v.push(
+          violation(
+            surfaceName,
+            "pin_once_per_file",
+            null,
+            null,
+            `${n} \`substrate_pin\` line(s); the grammar entry requires exactly 1 ` +
+              "(the report renders the shared substrate pin ONCE, in its identity)",
+          ),
+        );
       }
     }
     if (rule.id === "subdivision_required_at_ten") {
@@ -305,7 +335,6 @@ export function validateSurface(surfaceName, text, grammar) {
   }
   return v;
 }
-
 
 // NO PREDICATE FOR `group_subgroup_id_grammar`, AND THE ENTRY SAYS SO.
 //
@@ -419,15 +448,26 @@ const countIn = (s) => {
 // case that rule deliberately declines to examine.
 function sumToParentRule(surfaceName, lines, classified) {
   const v = [];
-  let parent = null, parentLine = null, parentNo = null, sum = 0, seen = 0;
+  let parent = null,
+    parentLine = null,
+    parentNo = null,
+    sum = 0,
+    seen = 0;
   const close = () => {
     if (parent === null || seen === 0) return;
     if (sum !== parent) {
-      v.push(violation(surfaceName, "subgroup_members_sum_to_parent", parentLine, parentNo,
-        `the group heading names ${parent} member Lesson(s) and its ${seen} SubGroup heading(s) sum to ${sum} `
-        + "— every member is placed and nothing is silently dropped. The placement refusal in "
-        + "`cmdCotags` reads the record and this rule reads the rendered text, so a disagreement here means the "
-        + "RENDERER lost or miscounted a `subgroup_heading` line on a record that placed correctly"));
+      v.push(
+        violation(
+          surfaceName,
+          "subgroup_members_sum_to_parent",
+          parentLine,
+          parentNo,
+          `the group heading names ${parent} member Lesson(s) and its ${seen} SubGroup heading(s) sum to ${sum} ` +
+            "— every member is placed and nothing is silently dropped. The placement refusal in " +
+            "`cmdCotags` reads the record and this rule reads the rendered text, so a disagreement here means the " +
+            "RENDERER lost or miscounted a `subgroup_heading` line on a record that placed correctly",
+        ),
+      );
     }
   };
   classified.forEach((id, i) => {
@@ -438,10 +478,16 @@ function sumToParentRule(surfaceName, lines, classified) {
       // as `null` rather than skipping it is what stops a flat group's absent
       // SubGroups from being attributed to the subdivided group above it.
       parent = id === "group_heading_subdivided" ? countIn(lines[i]) : null;
-      parentLine = lines[i]; parentNo = i + 1; sum = 0; seen = 0;
+      parentLine = lines[i];
+      parentNo = i + 1;
+      sum = 0;
+      seen = 0;
     } else if (id === "subgroup_heading") {
       const n = countIn(lines[i]);
-      if (n !== null) { sum += n; seen += 1; }
+      if (n !== null) {
+        sum += n;
+        seen += 1;
+      }
     }
   });
   close();
@@ -484,19 +530,36 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
     // and guessing one here would be this file inventing the boundary the
     // owner set. Reported as a violation of the GRAMMAR rather than of the
     // text, so it cannot pass silently.
-    v.push(violation(surfaceName, rule.id, null, null,
-      "the grammar entry declares no numeric `threshold_members`, so this rule cannot be evaluated; "
-      + "a threshold guessed in the guard would be the guard inventing the boundary the owner set"));
+    v.push(
+      violation(
+        surfaceName,
+        rule.id,
+        null,
+        null,
+        "the grammar entry declares no numeric `threshold_members`, so this rule cannot be evaluated; " +
+          "a threshold guessed in the guard would be the guard inventing the boundary the owner set",
+      ),
+    );
     return v;
   }
-  let parent = null, parentLine = null, parentNo = null, sawSubgroup = false;
+  let parent = null,
+    parentLine = null,
+    parentNo = null,
+    sawSubgroup = false;
   const close = () => {
     if (parent === null || parent < at || sawSubgroup) return;
-    v.push(violation(surfaceName, rule.id, parentLine, parentNo,
-      `the group holds ${parent} member Lessons and renders NO SubGroup — at ${at} or more, serving SubGroups is the `
-      + "engine's requirement rather than the judge's discretion (kogaki#683). "
-      + `Recompose the subdivision for ${JSON.stringify(parentLine)}: the split decision is not the judge's at this size, `
-      + "and a judged-empty outcome for such a group does not render."));
+    v.push(
+      violation(
+        surfaceName,
+        rule.id,
+        parentLine,
+        parentNo,
+        `the group holds ${parent} member Lessons and renders NO SubGroup — at ${at} or more, serving SubGroups is the ` +
+          "engine's requirement rather than the judge's discretion (kogaki#683). " +
+          `Recompose the subdivision for ${JSON.stringify(parentLine)}: the split decision is not the judge's at this size, ` +
+          "and a judged-empty outcome for such a group does not render.",
+      ),
+    );
   };
   classified.forEach((id, i) => {
     if (id === "group_heading_subdivided" || id === "group_heading_flat") {
@@ -527,7 +590,9 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
       // would need its own issue and a matching amendment to the entry's rule
       // text — both, or the divergence returns.
       parent = id === "group_heading_flat" ? countIn(lines[i]) : null;
-      parentLine = lines[i]; parentNo = i + 1; sawSubgroup = false;
+      parentLine = lines[i];
+      parentNo = i + 1;
+      sawSubgroup = false;
     } else if (id === "subgroup_heading") {
       sawSubgroup = true;
     }
@@ -546,11 +611,13 @@ function subdivisionRequiredRule(surfaceName, lines, classified, rule) {
 // 2026-08-06 defect specimen from the other side.
 export class FormatRefusal extends Error {
   constructor(surfaceName, violations) {
-    super(`refusing to emit ${surfaceName}: the rendered text violates src/report-format.json`
-      + ` (the refusal is generation-time)\n  `
-      + violations.map((x) => `- ${x}`).join("\n  ")
-      + "\n  The grammar is authoritative over the rendered form. Fix the emitter, "
-      + "or amend the grammar deliberately on its own licensing issue — never to make this refusal go away.");
+    super(
+      `refusing to emit ${surfaceName}: the rendered text violates src/report-format.json` +
+        ` (the refusal is generation-time)\n  ` +
+        violations.map((x) => `- ${x}`).join("\n  ") +
+        "\n  The grammar is authoritative over the rendered form. Fix the emitter, " +
+        "or amend the grammar deliberately on its own licensing issue — never to make this refusal go away.",
+    );
     this.name = "FormatRefusal";
     this.surface = surfaceName;
     this.violations = violations;

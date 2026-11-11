@@ -19,7 +19,10 @@ import { GATES_REGISTRY, GATE_SCHEMA, fail, flow, readJson } from "./run-record.
 // manifest item 4's carrier, never an affordance of Terrain's own.
 export function emitGateDeclaration(dir, gateId, dynamicOptions, extra = {}) {
   const registered = (GATES_REGISTRY.gates || []).find((g) => g.id === gateId);
-  if (!registered) fail(`${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`);
+  if (!registered)
+    fail(
+      `${gateId} is not declared in src/gate-registry.json — an unregistered gate is the uncovered-by-default shape`,
+    );
   const seen = new Set(dynamicOptions.map((o) => o.id));
   const declaration = {
     ...registered,
@@ -122,7 +125,17 @@ const ASK_MAX_OPTIONS = 4;
 // THE READING KEYS, one enumeration the composer reads (kogaki#1087): the first key found
 // on a declaration is rendered above the question line. Add a key here, never a branch.
 // Members added at PR #1109, kogaki#1172 (`judgment_refusal`), kogaki#1740 (`state_refusal`) and kogaki#1742 (`home_collision`), spread from `extra`.
-const GATE_CALL_READING_KEYS = ["tag_listing", "groups_listing", "settled_set_provenance", "judgment_refusal", "state_refusal", "reader_path_unit_refusal", "excluded_candidates", "home_collision", "reader_path"];
+const GATE_CALL_READING_KEYS = [
+  "tag_listing",
+  "groups_listing",
+  "settled_set_provenance",
+  "judgment_refusal",
+  "state_refusal",
+  "reader_path_unit_refusal",
+  "excluded_candidates",
+  "home_collision",
+  "reader_path",
+];
 
 // THE DECLARED BYTE BOUND (kogaki#1090). Read from `src/gate-registry.json`
 // rather than written here: the number has a measured ground, the ground is
@@ -138,9 +151,10 @@ const GATE_CALL_MAX_BYTES = (() => {
   const declared = GATES_REGISTRY.gate_call_max_bytes;
   if (!Number.isInteger(declared) || declared <= 0) {
     throw new Error(
-      "src/gate-registry.json declares no usable `gate_call_max_bytes` — a composed gate call is delivered "
-      + "on a channel with a cap (kogaki#1081, kogaki#1090) and an undeclared bound is the state that wedged "
-      + "the 2026-09-11 run, not a permissive one");
+      "src/gate-registry.json declares no usable `gate_call_max_bytes` — a composed gate call is delivered " +
+        "on a channel with a cap (kogaki#1081, kogaki#1090) and an undeclared bound is the state that wedged " +
+        "the 2026-09-11 run, not a permissive one",
+    );
   }
   return declared;
 })();
@@ -154,8 +168,8 @@ function gateCallBytes(toolInput) {
 
 const GATE_CALL_FREE_TEXT_LABEL = "Answer in your own words instead";
 const GATE_CALL_FREE_TEXT_DESCRIPTION =
-  "This gate offers free text. Choose this row and type the answer; the harness "
-  + "records what you type, and the executor reads it from the capture.";
+  "This gate offers free text. Choose this row and type the answer; the harness " +
+  "records what you type, and the executor reads it from the capture.";
 
 // The chip label, at most 12 characters, DERIVED rather than composed: the last
 // hyphen-separated segment of the gate id. `terrain-tag-selection` -> `selection`.
@@ -163,7 +177,9 @@ const GATE_CALL_FREE_TEXT_DESCRIPTION =
 function gateCallHeader(declaration) {
   const declared = declaration.header;
   if (typeof declared === "string" && declared.trim()) return declared.trim().slice(0, 12);
-  const segments = String(declaration.id || "gate").split("-").filter(Boolean);
+  const segments = String(declaration.id || "gate")
+    .split("-")
+    .filter(Boolean);
   return (segments[segments.length - 1] || "gate").slice(0, 12);
 }
 
@@ -180,8 +196,7 @@ const QUESTION_SHAPE_VERB = "lint-question";
 // lint-pr-merge.py` -- a committed name for a machine-local artifact, which is
 // what an external-dependency declaration is.
 function questionShapeCommand() {
-  return process.env.KOGAKI_QUESTION_SHAPE_CMD
-    || join(homedir(), ".claude", "tools", "issue-sync");
+  return process.env.KOGAKI_QUESTION_SHAPE_CMD || join(homedir(), ".claude", "tools", "issue-sync");
 }
 
 // null when the payload is admissible OR when the rule could not be applied;
@@ -242,12 +257,15 @@ function composeGateCall(declaration) {
     ? declared.filter((o) => typeof o.description !== "string" || o.description.trim() === "")
     : [];
   if (undescribed.length) {
-    return { unavailable: `${declaration.id} declares \`option_descriptions_required\`, and `
-      + `${undescribed.length} of its option(s) carry no description: `
-      + `${undescribed.map((o) => JSON.stringify(o.id)).join(", ")}. An option's id is the join key the `
-      + `owner's answer resolves through and is never shown as content, so no payload is written and `
-      + `nothing here invents a sentence about an option (kogaki#1126). Compose the description where the `
-      + `option is composed, or give the standing option one in src/gate-registry.json.` };
+    return {
+      unavailable:
+        `${declaration.id} declares \`option_descriptions_required\`, and ` +
+        `${undescribed.length} of its option(s) carry no description: ` +
+        `${undescribed.map((o) => JSON.stringify(o.id)).join(", ")}. An option's id is the join key the ` +
+        `owner's answer resolves through and is never shown as content, so no payload is written and ` +
+        `nothing here invents a sentence about an option (kogaki#1126). Compose the description where the ` +
+        `option is composed, or give the standing option one in src/gate-registry.json.`,
+    };
   }
   const options = declared.map((o) => ({
     label: String(o.label),
@@ -257,11 +275,15 @@ function composeGateCall(declaration) {
     description: String(o.description || o.id || ""),
   }));
   if (options.length === 0) {
-    return { unavailable: `${declaration.id} declares no option, and a question with no arm is not a gate — the free-text row alone would leave the owner one way to answer where the declaration promises none` };
+    return {
+      unavailable: `${declaration.id} declares no option, and a question with no arm is not a gate — the free-text row alone would leave the owner one way to answer where the declaration promises none`,
+    };
   }
   if (options.length < ASK_MIN_OPTIONS) {
     if (!declaration.free_text_offered) {
-      return { unavailable: `${declaration.id} declares ${options.length} option(s) and no free text, and AskUserQuestion admits at least ${ASK_MIN_OPTIONS} — there is no row to compose from, so none is invented` };
+      return {
+        unavailable: `${declaration.id} declares ${options.length} option(s) and no free text, and AskUserQuestion admits at least ${ASK_MIN_OPTIONS} — there is no row to compose from, so none is invented`,
+      };
     }
     options.push({
       label: String(declaration.free_text_label || GATE_CALL_FREE_TEXT_LABEL),
@@ -269,21 +291,24 @@ function composeGateCall(declaration) {
     });
   }
   if (options.length > ASK_MAX_OPTIONS) {
-    return { unavailable: `${declaration.id} composes ${options.length} options and AskUserQuestion admits at most ${ASK_MAX_OPTIONS} — no payload is written, and nothing here drops an option the declaration offered` };
+    return {
+      unavailable: `${declaration.id} composes ${options.length} options and AskUserQuestion admits at most ${ASK_MAX_OPTIONS} — no payload is written, and nothing here drops an option the declaration offered`,
+    };
   }
-  const reading = GATE_CALL_READING_KEYS
-    .map((k) => (typeof declaration[k] === "string" && declaration[k].trim() ? declaration[k] : null))
-    .find(Boolean) || null;
-  const question = reading
-    ? `${reading}\n\n${String(declaration.question)}`
-    : String(declaration.question);
+  const reading =
+    GATE_CALL_READING_KEYS.map((k) =>
+      typeof declaration[k] === "string" && declaration[k].trim() ? declaration[k] : null,
+    ).find(Boolean) || null;
+  const question = reading ? `${reading}\n\n${String(declaration.question)}` : String(declaration.question);
   const tool_input = {
-    questions: [{
-      question,
-      header: gateCallHeader(declaration),
-      multiSelect: false,
-      options,
-    }],
+    questions: [
+      {
+        question,
+        header: gateCallHeader(declaration),
+        multiSelect: false,
+        options,
+      },
+    ],
   };
   // THE BOUND, CHECKED OVER THE WHOLE COMPOSED CALL (kogaki#1090). Over the
   // reading alone it would miss a question or an option set that grew, and the
@@ -298,14 +323,15 @@ function composeGateCall(declaration) {
       // rendering of an oversized payload, so this writes nothing and ends the
       // run. A refusal at compose is loud; a truncated payload at render is the
       // silent failure the 2026-09-11 run showed.
-      over_bound: `${declaration.id} composes a ${bytes}-byte gate call and `
-        + `src/gate-registry.json declares a bound of ${GATE_CALL_MAX_BYTES} bytes. `
-        + "No declaration, no gate-call.json and no open-gate pointer were written, and no gate is open. "
-        + "The call is delivered on a PostToolUse hook's additionalContext, which truncates above the "
-        + "bound, and the open-gate interval refuses the Read that would fetch the remainder — so an "
-        + "oversized call reaches the owner as a fragment nothing in the session can complete "
-        + "(kogaki#1028, kogaki#1081, kogaki#1090). The reading this gate carries belongs in its written "
-        + "artifact, which the question names, rather than inside the question text.",
+      over_bound:
+        `${declaration.id} composes a ${bytes}-byte gate call and ` +
+        `src/gate-registry.json declares a bound of ${GATE_CALL_MAX_BYTES} bytes. ` +
+        "No declaration, no gate-call.json and no open-gate pointer were written, and no gate is open. " +
+        "The call is delivered on a PostToolUse hook's additionalContext, which truncates above the " +
+        "bound, and the open-gate interval refuses the Read that would fetch the remainder — so an " +
+        "oversized call reaches the owner as a fragment nothing in the session can complete " +
+        "(kogaki#1028, kogaki#1081, kogaki#1090). The reading this gate carries belongs in its written " +
+        "artifact, which the question names, rather than inside the question text.",
     };
   }
   // THE SHAPE CHECK IS THE LAST THING COMPOSE DOES, and it is checked over the
@@ -320,12 +346,13 @@ function composeGateCall(declaration) {
   if (refused) {
     return {
       bytes,
-      refused: `${declaration.id} composes a gate call the shared question-shape check refuses, `
-        + `and ${QUESTION_SHAPE_VERB} is the one home of that rule (claude-toolkit#1077, kogaki#1118). `
-        + "No declaration, no gate-call.json and no open-gate pointer were written, and no gate is open — "
-        + "the refusal arrives here rather than as a session with an unshowable question open and no "
-        + "admissible tool. The command's own refusal follows verbatim:\n\n"
-        + refused,
+      refused:
+        `${declaration.id} composes a gate call the shared question-shape check refuses, ` +
+        `and ${QUESTION_SHAPE_VERB} is the one home of that rule (claude-toolkit#1077, kogaki#1118). ` +
+        "No declaration, no gate-call.json and no open-gate pointer were written, and no gate is open — " +
+        "the refusal arrives here rather than as a session with an unshowable question open and no " +
+        "admissible tool. The command's own refusal follows verbatim:\n\n" +
+        refused,
     };
   }
   return { tool_input, bytes };
@@ -358,8 +385,9 @@ export function refreshWrittenGateCall(dir, gateId) {
   const legacy = !Array.isArray(declaration.run_composed_option_ids);
   const refreshed = {
     ...declaration,
-    options: (declaration.options || []).map((o) => (
-      standing.has(o.id) && !runComposed.has(o.id) ? { ...o, ...standing.get(o.id) } : o)),
+    options: (declaration.options || []).map((o) =>
+      standing.has(o.id) && !runComposed.has(o.id) ? { ...o, ...standing.get(o.id) } : o,
+    ),
   };
   const recomposed = composeGateCall(refreshed);
   if (!recomposed.tool_input) {
@@ -368,16 +396,18 @@ export function refreshWrittenGateCall(dir, gateId) {
     // option is only one of them; naming that one unconditionally printed the
     // ORIGINAL refusal under a cause it had not established.
     const why = recomposed.refused
-      ? "the refusal survives the refresh, so the refused label is a run-time option composed from "
-        + "material a re-entry does not hold and there is nothing here to repair"
+      ? "the refusal survives the refresh, so the refused label is a run-time option composed from " +
+        "material a re-entry does not hold and there is nothing here to repair"
       : recomposed.over_bound
         ? "the refreshed call is over the declared byte bound"
         : "the refreshed declaration composes no call at all";
-    fail(`${gateId} has a written gate call the shared question-shape check refuses, and refreshing its `
-      + `standing options from src/gate-registry.json does not clear it: ${why}. No payload is printed. `
-      + "Start the run again rather than re-entering this one (kogaki#1118). What the refresh met "
-      + "follows verbatim:\n\n"
-      + (recomposed.refused || recomposed.over_bound || recomposed.unavailable || refused));
+    fail(
+      `${gateId} has a written gate call the shared question-shape check refuses, and refreshing its ` +
+        `standing options from src/gate-registry.json does not clear it: ${why}. No payload is printed. ` +
+        "Start the run again rather than re-entering this one (kogaki#1118). What the refresh met " +
+        "follows verbatim:\n\n" +
+        (recomposed.refused || recomposed.over_bound || recomposed.unavailable || refused),
+    );
   }
   writeFileSync(declPath, JSON.stringify(refreshed, null, 2) + "\n");
   writeFileSync(callPath, JSON.stringify(recomposed.tool_input, null, 2) + "\n");
@@ -393,8 +423,7 @@ export function openGateDir() {
 // open-gate pointer exists. `GATE_DECLARATION_SIDECAR_DIR` mirrors the hook's override,
 // copied because a Python hook and a Node executor share no module.
 function gateDeclarationSidecarDir() {
-  return process.env.GATE_DECLARATION_SIDECAR_DIR
-    || join(homedir(), ".claude", "gate-declarations");
+  return process.env.GATE_DECLARATION_SIDECAR_DIR || join(homedir(), ".claude", "gate-declarations");
 }
 
 // Every composed gate has exactly ONE question, so the sidecar keys index 1, and the
@@ -408,7 +437,9 @@ function writeGateDeclarationSidecar(sessionId) {
   try {
     mkdirSync(dir, { recursive: true });
     writeFileSync(path, JSON.stringify({ 1: "gate-declaration (question 1):\ngate: mechanical" }, null, 2) + "\n");
-  } catch { /* the transcript scan is the fallback carrier this write is racing to make unnecessary, not the only one */ }
+  } catch {
+    /* the transcript scan is the fallback carrier this write is racing to make unnecessary, not the only one */
+  }
 }
 
 // THE POINTER NAMES ITS SESSION (kogaki#1028 item 5; PR #1043).
@@ -432,7 +463,9 @@ function sentQuestion(declaration, callPath) {
       const q = readJson(callPath);
       const text = q && q.questions && q.questions[0] && q.questions[0].question;
       if (typeof text === "string" && text) return text;
-    } catch { /* an unreadable call is the composer's fault and is reported at its write */ }
+    } catch {
+      /* an unreadable call is the composer's fault and is reported at its write */
+    }
   }
   return declaration.question;
 }
@@ -455,28 +488,37 @@ function writeOpenGatePointer(dir, declaration, declPath, callPath = null, callU
       if (prev.gate_id === declaration.id && prev.capture_path === resolve(capPath)) {
         rmSync(join(gd, f), { force: true });
       }
-    } catch { /* an unreadable pointer is the hook's to report, not this writer's to repair */ }
+    } catch {
+      /* an unreadable pointer is the hook's to report, not this writer's to repair */
+    }
   }
-  writeFileSync(join(gd, `${declaration.gate_instance_id}.json`), JSON.stringify({
-    gate_instance_id: declaration.gate_instance_id,
-    gate_id: declaration.id,
-    // THE QUESTION AS SENT, never the bare declaration's (PR #1048 round 1,
-    // finding 1). `write-gate-capture.py` joins the harness's `answers` key to
-    // this field by exact equality, and the key is the question text the
-    // session sent -- which, where the composed call prepends `tag_listing`,
-    // differs from `declaration.question` by the whole table. A pointer
-    // carrying the bare text matches nothing, no row is written, and under the
-    // exclusivity hook the session then has no admissible act at all.
-    question: sentQuestion(declaration, callPath),
-    declaration_path: resolve(declPath),
-    capture_path: resolve(capPath),
-    // The byte-fixed call the session must send, or the stated reason there is
-    // none. Exactly one of the two is non-null, always.
-    gate_call_path: callPath ? resolve(callPath) : null,
-    gate_call_unavailable: callUnavailable,
-    session_id: sessionId(),
-    opened_at: declaration.declared_at,
-  }, null, 2) + "\n");
+  writeFileSync(
+    join(gd, `${declaration.gate_instance_id}.json`),
+    JSON.stringify(
+      {
+        gate_instance_id: declaration.gate_instance_id,
+        gate_id: declaration.id,
+        // THE QUESTION AS SENT, never the bare declaration's (PR #1048 round 1,
+        // finding 1). `write-gate-capture.py` joins the harness's `answers` key to
+        // this field by exact equality, and the key is the question text the
+        // session sent -- which, where the composed call prepends `tag_listing`,
+        // differs from `declaration.question` by the whole table. A pointer
+        // carrying the bare text matches nothing, no row is written, and under the
+        // exclusivity hook the session then has no admissible act at all.
+        question: sentQuestion(declaration, callPath),
+        declaration_path: resolve(declPath),
+        capture_path: resolve(capPath),
+        // The byte-fixed call the session must send, or the stated reason there is
+        // none. Exactly one of the two is non-null, always.
+        gate_call_path: callPath ? resolve(callPath) : null,
+        gate_call_unavailable: callUnavailable,
+        session_id: sessionId(),
+        opened_at: declaration.declared_at,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
 }
 
 // A RE-PRINT THAT FINDS NO LIVE POINTER WRITES ONE AGAIN (kogaki#1313). The
@@ -511,8 +553,10 @@ export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   const capPath = join(dir, `${flow().lane}${GATE_SCHEMA.capture.suffix}`);
   const instance = decl.gate_instance_id;
   if (!instance) {
-    fail(`the declaration for gate ${decl.id} carries no gate_instance_id, so no captured answer can be joined to it. `
-      + `It was written before kogaki#890 — re-enter the wait to raise the gate again, which mints one.`);
+    fail(
+      `the declaration for gate ${decl.id} carries no gate_instance_id, so no captured answer can be joined to it. ` +
+        `It was written before kogaki#890 — re-enter the wait to raise the gate again, which mints one.`,
+    );
   }
   if (!existsSync(capPath)) {
     fail(noAnswerRefusal(decl, capPath, "no capture file exists beside this run"));
@@ -524,8 +568,13 @@ export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   // set, which two runs over one input share exactly.
   const mine = rows.filter((r) => r && r.gate_instance_id === instance);
   if (mine.length === 0) {
-    fail(noAnswerRefusal(decl, capPath,
-      `the capture holds ${rows.length} row(s) and none carries this raising's instance id ${JSON.stringify(instance)}`));
+    fail(
+      noAnswerRefusal(
+        decl,
+        capPath,
+        `the capture holds ${rows.length} row(s) and none carries this raising's instance id ${JSON.stringify(instance)}`,
+      ),
+    );
   }
   // THE ADVANCE IS THE ANSWER'S OWN — second reader of the guard in
   // `.claude/hooks/advance-terrain.py` (kogaki#1075).
@@ -535,11 +584,13 @@ export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   if (typeof payloadToolUseId === "string" && payloadToolUseId !== "") {
     const answered = mine.filter((r) => (r.evidence || {}).tool_use_id === payloadToolUseId);
     if (answered.length === 0) {
-      fail(`this advance was driven by AskUserQuestion ${JSON.stringify(payloadToolUseId)}, and no captured row for gate ${decl.id} `
-        + `(raising ${JSON.stringify(instance)}) carries that id — the ${mine.length} row(s) here answer `
-        + `${JSON.stringify([...new Set(mine.map((r) => (r.evidence || {}).tool_use_id))])}. `
-        + `A question that did not answer this gate does not advance it, however open the run is (kogaki#1075). `
-        + `Nothing was advanced, and the wait is still outstanding: the gate is re-offered at its next raising.`);
+      fail(
+        `this advance was driven by AskUserQuestion ${JSON.stringify(payloadToolUseId)}, and no captured row for gate ${decl.id} ` +
+          `(raising ${JSON.stringify(instance)}) carries that id — the ${mine.length} row(s) here answer ` +
+          `${JSON.stringify([...new Set(mine.map((r) => (r.evidence || {}).tool_use_id))])}. ` +
+          `A question that did not answer this gate does not advance it, however open the run is (kogaki#1075). ` +
+          `Nothing was advanced, and the wait is still outstanding: the gate is re-offered at its next raising.`,
+      );
     }
     mine.length = 0;
     mine.push(...answered);
@@ -549,18 +600,27 @@ export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   const row = mine[mine.length - 1];
   const ev = row.evidence;
   if (!ev || ev.tool !== "AskUserQuestion") {
-    fail(`the captured row for gate ${decl.id} records evidence.tool ${JSON.stringify(ev && ev.tool)} — this is an OWNER act at the question UI, `
-      + `and SPEC-gate-carrier binds this repository's gate medium to AskUserQuestion. A row recording any other tool records a session's own act.`);
+    fail(
+      `the captured row for gate ${decl.id} records evidence.tool ${JSON.stringify(ev && ev.tool)} — this is an OWNER act at the question UI, ` +
+        `and SPEC-gate-carrier binds this repository's gate medium to AskUserQuestion. A row recording any other tool records a session's own act.`,
+    );
   }
   if (typeof ev.tool_use_id !== "string" || ev.tool_use_id === "") {
-    fail(`the captured row for gate ${decl.id} carries no evidence.tool_use_id — the one field tying it to a question the harness actually asked.`);
+    fail(
+      `the captured row for gate ${decl.id} carries no evidence.tool_use_id — the one field tying it to a question the harness actually asked.`,
+    );
   }
-  const digest = ownerGateDigest(decl.id, (decl.options || []).map((o) => o.id));
+  const digest = ownerGateDigest(
+    decl.id,
+    (decl.options || []).map((o) => o.id),
+  );
   const bound = row.answers_over || {};
   if (bound.option_set_digest !== digest) {
-    fail(`the captured answer for gate ${decl.id} answers the option set digesting ${JSON.stringify(bound.option_set_digest)}, `
-      + `but this declaration's options digest ${JSON.stringify(digest)} — the option set CHANGED after the gate was rendered, so the owner chose among alternatives other than these. `
-      + `Re-render the gate. Nothing was advanced.`);
+    fail(
+      `the captured answer for gate ${decl.id} answers the option set digesting ${JSON.stringify(bound.option_set_digest)}, ` +
+        `but this declaration's options digest ${JSON.stringify(digest)} — the option set CHANGED after the gate was rendered, so the owner chose among alternatives other than these. ` +
+        `Re-render the gate. Nothing was advanced.`,
+    );
   }
   const answer = (row.payload || {}).answer || {};
   // AN UNRESOLVED LABEL IS REFUSED, NEVER READ AS FREE TEXT (PR #917 round 1,
@@ -572,14 +632,18 @@ export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
   // cannot tell a mangled label from genuine free text, so the honest act is to
   // stop rather than to pick the reading that happens to advance.
   if (answer.label_unresolved) {
-    fail(`the captured answer for gate ${decl.id} could not be resolved to an option or to free text: the harness reported ${JSON.stringify(answer.raw)}, `
-      + `which resembles the declared option ${JSON.stringify(answer.resembles_option)} without matching it. `
-      + `A near-miss is indistinguishable from free text on the payload alone, so it is refused rather than read as either. Re-render the gate, options verbatim.`);
+    fail(
+      `the captured answer for gate ${decl.id} could not be resolved to an option or to free text: the harness reported ${JSON.stringify(answer.raw)}, ` +
+        `which resembles the declared option ${JSON.stringify(answer.resembles_option)} without matching it. ` +
+        `A near-miss is indistinguishable from free text on the payload alone, so it is refused rather than read as either. Re-render the gate, options verbatim.`,
+    );
   }
   const option = typeof answer.option === "string" && answer.option !== "" ? answer.option : null;
   const freeText = typeof answer.free_text === "string" && answer.free_text.trim() !== "" ? answer.free_text : null;
   if (!option && !freeText) {
-    fail(`the captured row for gate ${decl.id} carries neither an option nor free text — an empty answer is not an answer.`);
+    fail(
+      `the captured row for gate ${decl.id} carries neither an option nor free text — an empty answer is not an answer.`,
+    );
   }
   // KEPT FROM THE RETIRED WRITER, and it is the one bound that was already
   // real: an option the declaration did not offer is refused. It now guards a
@@ -598,13 +662,15 @@ export function readCapturedAnswer(dir, decl, payloadToolUseId = null) {
 // sends the owner round that loop forever is worse than the channel it
 // replaced.
 function noAnswerRefusal(decl, capPath, why) {
-  return `gate ${decl.id} was declared for this run and the harness has recorded no answer to it: ${why}.\n`
-    + `The answer to a declared gate is written by .claude/hooks/write-gate-capture.py when the owner answers the question, and by nothing else — `
-    + `there is no argument that supplies one (kogaki#890).\n`
-    + `  capture expected at: ${capPath}\n`
-    + `  open-gate pointer:   ${join(openGateDir(), `${decl.gate_instance_id}.json`)}\n`
-    + `If the question has not been rendered yet, render it now, options verbatim, free text on. `
-    + `If it HAS been answered and this refusal persists, the hook is not installed on this machine — that wiring is machine-local and never committed, so a fresh clone reads as uncaptured until it is installed.`;
+  return (
+    `gate ${decl.id} was declared for this run and the harness has recorded no answer to it: ${why}.\n` +
+    `The answer to a declared gate is written by .claude/hooks/write-gate-capture.py when the owner answers the question, and by nothing else — ` +
+    `there is no argument that supplies one (kogaki#890).\n` +
+    `  capture expected at: ${capPath}\n` +
+    `  open-gate pointer:   ${join(openGateDir(), `${decl.gate_instance_id}.json`)}\n` +
+    `If the question has not been rendered yet, render it now, options verbatim, free text on. ` +
+    `If it HAS been answered and this refusal persists, the hook is not installed on this machine — that wiring is machine-local and never committed, so a fresh clone reads as uncaptured until it is installed.`
+  );
 }
 
 // The option-set digest, over [gate_id, [option ids]]. A capture certifies an
@@ -615,5 +681,7 @@ function noAnswerRefusal(decl, capPath, why) {
 // canonical form; `checks/check-gate-capture-hook.sh` compares the two rather
 // than trusting them to agree by reading.
 function ownerGateDigest(gateId, optionIds) {
-  return createHash("sha256").update(JSON.stringify([gateId, [...optionIds]])).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify([gateId, [...optionIds]]))
+    .digest("hex");
 }

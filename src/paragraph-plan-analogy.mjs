@@ -22,16 +22,24 @@ export const ANALOGY_INPUT_KEY = "analogy_you_must_draw_from";
 
 const isMap = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
-const oneLine = (s) => String(s).replace(/\s*\n\s*/g, " ").trim();
+const oneLine = (s) =>
+  String(s)
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
 
 // AN ANALOGY MOVE carries a `carry` entry among its `takes` or `leaves` (moves/ROLES.json).
-export const isAnalogyMove = (contract) => [...((contract && contract.takes) || []), ...((contract && contract.leaves) || [])]
-  .some((x) => isMap(x) && x.kind === "carry");
+export const isAnalogyMove = (contract) =>
+  [...((contract && contract.takes) || []), ...((contract && contract.leaves) || [])].some(
+    (x) => isMap(x) && x.kind === "carry",
+  );
 
 // The apex, and every relation and higher-order relation the structure reaches, in declared order.
 export function reachedRelations(structure) {
   const s = isMap(structure) ? structure : {};
-  const reach = new Set([...(Array.isArray(s.reach) ? s.reach : []), ...(isText(s.attains_thesis) ? [s.attains_thesis] : [])]);
+  const reach = new Set([
+    ...(Array.isArray(s.reach) ? s.reach : []),
+    ...(isText(s.attains_thesis) ? [s.attains_thesis] : []),
+  ]);
   return [...(s.relations || []), ...(s.higher_order || [])].filter((r) => isMap(r) && reach.has(r.id));
 }
 
@@ -41,8 +49,12 @@ export function analogyMappingInput(structure, persona) {
   return {
     structure: {
       roles: (structure.roles || []).map((r) => pick(r, ["id", "name", "context", "attributes"])),
-      relations: (structure.relations || []).filter((r) => reached.has(r.id)).map((r) => pick(r, ["id", "name", "between", "holds"])),
-      higher_order: (structure.higher_order || []).filter((r) => reached.has(r.id)).map((r) => pick(r, ["id", "name", "relates", "holds"])),
+      relations: (structure.relations || [])
+        .filter((r) => reached.has(r.id))
+        .map((r) => pick(r, ["id", "name", "between", "holds"])),
+      higher_order: (structure.higher_order || [])
+        .filter((r) => reached.has(r.id))
+        .map((r) => pick(r, ["id", "name", "relates", "holds"])),
       apex: structure.attains_thesis,
     },
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
@@ -56,22 +68,34 @@ const NONE_KEYS = ["version", "none"];
 export function validateAnalogyMapping(record, inputs) {
   const structure = (inputs && inputs.structure) || {};
   if (!isMap(record)) return { error: "the Analogy Mapping is not one record" };
-  if (String(record.version) !== "1") return { error: `the Analogy Mapping's version is ${JSON.stringify(record.version)}, not "1"` };
+  if (String(record.version) !== "1")
+    return { error: `the Analogy Mapping's version is ${JSON.stringify(record.version)}, not "1"` };
   if (Object.hasOwn(record, "none")) {
     const extra = Object.keys(record).find((k) => !NONE_KEYS.includes(k));
-    if (extra) return { error: `the Analogy Mapping answers \`none\` and carries \`${extra}\` — \`none\` carries its reason and nothing else` };
-    return isText(record.none) ? {} : { error: "the Analogy Mapping answers `none` with no reason no base domain fits" };
+    if (extra)
+      return {
+        error: `the Analogy Mapping answers \`none\` and carries \`${extra}\` — \`none\` carries its reason and nothing else`,
+      };
+    return isText(record.none)
+      ? {}
+      : { error: "the Analogy Mapping answers `none` with no reason no base domain fits" };
   }
   const extra = Object.keys(record).find((k) => !MAPPING_KEYS.includes(k));
-  if (extra) return { error: `the Analogy Mapping carries \`${extra}\`, which it does not declare — it carries ${MAPPING_KEYS.slice(1).join(", ")}, or \`none\`` };
+  if (extra)
+    return {
+      error: `the Analogy Mapping carries \`${extra}\`, which it does not declare — it carries ${MAPPING_KEYS.slice(1).join(", ")}, or \`none\``,
+    };
   const b = record.base_domain;
-  if (!isMap(b) || !isText(b.name) || !isText(b.description)) return { error: "the Analogy Mapping's `base_domain` is not a `{ name, description }` pair of texts" };
+  if (!isMap(b) || !isText(b.name) || !isText(b.description))
+    return { error: "the Analogy Mapping's `base_domain` is not a `{ name, description }` pair of texts" };
   const pairs = (list, key, ids, what) => {
     if (!Array.isArray(list)) return `the Analogy Mapping carries no \`${key}\` list`;
     const seen = new Set();
     for (const x of list) {
-      if (!isMap(x) || !isText(x[what]) || !isText(x.counterpart)) return `an entry of \`${key}\` is not a \`{ ${what}, counterpart }\` pair of texts`;
-      if (!ids.includes(x[what])) return `\`${key}\` names ${JSON.stringify(x[what])}, which is not a ${what === "role" ? "Role" : "reached relation"} of the structure`;
+      if (!isMap(x) || !isText(x[what]) || !isText(x.counterpart))
+        return `an entry of \`${key}\` is not a \`{ ${what}, counterpart }\` pair of texts`;
+      if (!ids.includes(x[what]))
+        return `\`${key}\` names ${JSON.stringify(x[what])}, which is not a ${what === "role" ? "Role" : "reached relation"} of the structure`;
       if (seen.has(x[what])) return `\`${key}\` maps ${x[what]} twice`;
       seen.add(x[what]);
     }
@@ -81,23 +105,30 @@ export function validateAnalogyMapping(record, inputs) {
   const roles = pairs(record.roles, "roles", roleIds, "role");
   if (typeof roles === "string") return { error: roles };
   const missingRole = roleIds.find((id) => !roles.has(id));
-  if (missingRole) return { error: `the Analogy Mapping leaves the Role ${missingRole} without a counterpart in the base domain` };
+  if (missingRole)
+    return { error: `the Analogy Mapping leaves the Role ${missingRole} without a counterpart in the base domain` };
   const relIds = reachedRelations(structure).map((r) => r.id);
   const rels = pairs(record.relations, "relations", relIds, "relation");
   if (typeof rels === "string") return { error: rels };
   const apex = structure.attains_thesis;
-  if (isText(apex) && !rels.has(apex)) return { error: `the Analogy Mapping leaves the apex ${apex} without a counterpart in the base domain` };
+  if (isText(apex) && !rels.has(apex))
+    return { error: `the Analogy Mapping leaves the apex ${apex} without a counterpart in the base domain` };
   const missingRel = relIds.find((id) => !rels.has(id));
-  if (missingRel) return { error: `the Analogy Mapping leaves the reached relation ${missingRel} without a counterpart in the base domain` };
+  if (missingRel)
+    return {
+      error: `the Analogy Mapping leaves the reached relation ${missingRel} without a counterpart in the base domain`,
+    };
   return {};
 }
 
 // The mapping as `paragraph-plan.yaml` writes it under `analogy`.
 export function analogyRecord(record) {
   if (Object.hasOwn(record, "none")) return { none: oneLine(record.none) };
-  return { base_domain: { name: oneLine(record.base_domain.name), description: oneLine(record.base_domain.description) },
+  return {
+    base_domain: { name: oneLine(record.base_domain.name), description: oneLine(record.base_domain.description) },
     roles: record.roles.map((x) => ({ role: x.role, counterpart: oneLine(x.counterpart) })),
-    relations: record.relations.map((x) => ({ relation: x.relation, counterpart: oneLine(x.counterpart) })) };
+    relations: record.relations.map((x) => ({ relation: x.relation, counterpart: oneLine(x.counterpart) })),
+  };
 }
 
 // The run directory's mapping, once resolved; null while the opening step runs.
@@ -122,7 +153,10 @@ export const withAnalogy = (obj, contract, analogy) => {
 // A Mapping Table grounded for an analogy Move names the article's base domain; a string to refuse with, or null.
 export function groundedBaseRefusal(table, analogy) {
   const name = oneLine(analogy.base_domain.name).toLowerCase();
-  const domain = isMap(table && table.base) && isText(table.base.domain) ? oneLine(table.base.domain).toLowerCase() : "";
-  return domain.includes(name) ? null : `the table's base.domain ${JSON.stringify(domain)} is not the article's base domain `
-    + `${JSON.stringify(analogy.base_domain.name)} — every analogy Move draws from the one Analogy Mapping, \`${ANALOGY_INPUT_KEY}\` in the input`;
+  const domain =
+    isMap(table && table.base) && isText(table.base.domain) ? oneLine(table.base.domain).toLowerCase() : "";
+  return domain.includes(name)
+    ? null
+    : `the table's base.domain ${JSON.stringify(domain)} is not the article's base domain ` +
+        `${JSON.stringify(analogy.base_domain.name)} — every analogy Move draws from the one Analogy Mapping, \`${ANALOGY_INPUT_KEY}\` in the input`;
 }

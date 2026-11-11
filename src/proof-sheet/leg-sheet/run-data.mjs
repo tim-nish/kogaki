@@ -26,7 +26,9 @@ export const SHEET_CELLS = {
 };
 
 export function contentHash(text) {
-  return text === null || text === undefined ? "none" : createHash("sha256").update(String(text)).digest("hex").slice(0, 12);
+  return text === null || text === undefined
+    ? "none"
+    : createHash("sha256").update(String(text)).digest("hex").slice(0, 12);
 }
 
 // The map's Leg card table: cell name -> the row, as written.
@@ -38,7 +40,10 @@ export function provenanceRows(mapText) {
   for (const l of lines.slice(at + 1)) {
     if (l.startsWith("## ")) break;
     if (!l.startsWith("|") || /^\|[\s|:-]+\|$/.test(l.trim())) continue;
-    const cols = l.split("|").slice(1, -1).map((c) => c.trim());
+    const cols = l
+      .split("|")
+      .slice(1, -1)
+      .map((c) => c.trim());
     if (cols[0] && cols[0] !== "cell") rows.set(cols[0].replace(/\*/g, ""), l.trim());
   }
   return rows;
@@ -55,21 +60,38 @@ export function readRun(runDir) {
   const briefPath = join(runDir, "brief", "brief.yaml");
   const briefText = read(briefPath);
   let briefRecord = null;
-  try { briefRecord = briefText ? parseYaml(briefText, briefPath) : null; } catch { briefRecord = null; }
+  try {
+    briefRecord = briefText ? parseYaml(briefText, briefPath) : null;
+  } catch {
+    briefRecord = null;
+  }
   const ingest = readJson(join(runDir, "ingest", "ingest.json"));
   const jobDir = join(runDir, "paragraph-plan", "job");
   const ws = draft.workspace || join(runDir, "draft", run.passage || "");
   const legIds = ((briefRecord && briefRecord.reader_path) || []).map((l) => l && l.leg_id).filter(Boolean);
   const legId = legIds[0] || null;
   return {
-    runDir, run, stage, legText, paragraphs: legParagraphs(legText),
-    extractorRun: ex.extractor_run || null, extractions: ex.extractions || [],
+    runDir,
+    run,
+    stage,
+    legText,
+    paragraphs: legParagraphs(legText),
+    extractorRun: ex.extractor_run || null,
+    extractions: ex.extractions || [],
     extractCalls: readCalls(join(runDir, "extract", "calls.jsonl")),
-    ingest, briefPath, briefText, briefRecord, legBriefRun: brief.leg_brief_run || null,
+    ingest,
+    briefPath,
+    briefText,
+    briefRecord,
+    legBriefRun: brief.leg_brief_run || null,
     briefCalls: readCalls(join(runDir, "brief", "calls.jsonl")),
-    jobDir, planCalls: readCalls(join(runDir, "paragraph-plan", "calls.jsonl")),
+    jobDir,
+    planCalls: readCalls(join(runDir, "paragraph-plan", "calls.jsonl")),
     planPath: join(runDir, "brief", "paragraph-plan.yaml"),
-    ws, legId, legIds, draftCalls: legIds.flatMap((id) => readCalls(join(runDir, "draft", `calls-${id}.jsonl`))),
+    ws,
+    legId,
+    legIds,
+    draftCalls: legIds.flatMap((id) => readCalls(join(runDir, "draft", `calls-${id}.jsonl`))),
   };
 }
 
@@ -84,7 +106,13 @@ export function legView(r, k) {
   const legIds = r.legIds.slice(offset, offset + n);
   const ids = new Set(legIds);
   return {
-    ...r, legText, legCopy: legs[k].copy, paragraphs: legParagraphs(legText), offset, legId: legIds[0] || null, legIds,
+    ...r,
+    legText,
+    legCopy: legs[k].copy,
+    paragraphs: legParagraphs(legText),
+    offset,
+    legId: legIds[0] || null,
+    legIds,
     extractions: r.extractions.slice(offset, offset + n),
     ingest: r.ingest ? { ...r.ingest, entries: (r.ingest.entries || []).slice(offset, offset + n) } : r.ingest,
     planCalls: r.planCalls.filter((c) => ids.has(planLegId(String(c.stdin)))),
@@ -98,14 +126,31 @@ export function legView(r, k) {
 export function planLeg(r) {
   const planText = read(r.planPath);
   let plan = null;
-  if (planText) { try { plan = parseYaml(planText, r.planPath); } catch { plan = null; } }
+  if (planText) {
+    try {
+      plan = parseYaml(planText, r.planPath);
+    } catch {
+      plan = null;
+    }
+  }
   if (!plan || !Array.isArray(plan.legs)) return { planText, pl: null };
-  const waypoints = (r.legIds || []).map((id, i) => {
-    const l = plan.legs.find((x) => x && x.leg_id === id);
-    return l ? { waypoint: i + 1, leg_id: id, move: l.move,
-      rationale: (l.paragraphs || []).map((p) => p && p.rationale).filter((x) => typeof x === "string").join(" "),
-      paragraph_waypoints: (l.paragraphs || []).flatMap((p) => (p && p.paragraph_waypoints) || []) } : null;
-  }).filter(Boolean);
+  const waypoints = (r.legIds || [])
+    .map((id, i) => {
+      const l = plan.legs.find((x) => x && x.leg_id === id);
+      return l
+        ? {
+            waypoint: i + 1,
+            leg_id: id,
+            move: l.move,
+            rationale: (l.paragraphs || [])
+              .map((p) => p && p.rationale)
+              .filter((x) => typeof x === "string")
+              .join(" "),
+            paragraph_waypoints: (l.paragraphs || []).flatMap((p) => (p && p.paragraph_waypoints) || []),
+          }
+        : null;
+    })
+    .filter(Boolean);
   return { planText, pl: { waypoints } };
 }
 
@@ -114,7 +159,9 @@ export function planLeg(r) {
 // view, `{ leg_id, waypoint, move, rationale }`, `waypoint` its original paragraph's number.
 export function planBindings(r) {
   const { pl } = planLeg(r);
-  return pl ? pl.waypoints.map((w) => ({ leg_id: w.leg_id, waypoint: w.waypoint, move: w.move, rationale: w.rationale })) : [];
+  return pl
+    ? pl.waypoints.map((w) => ({ leg_id: w.leg_id, waypoint: w.waypoint, move: w.move, rationale: w.rationale }))
+    : [];
 }
 
 // EACH LEG'S PACKET AND SECTION (kogaki#1784), one per original paragraph, in order.
@@ -124,7 +171,12 @@ export function writtenLegs(r) {
   const texts = sectionPaths.map((p) => read(p));
   const writtenParas = texts.map((t) => (t === null ? "" : t.trim()));
   const written = texts.every((t) => t === null) ? null : writtenParas.join("\n\n");
-  return { sectionPath: r.legIds && r.legIds.length ? join(r.ws, "sections") : null, sectionPaths, written, writtenParas };
+  return {
+    sectionPath: r.legIds && r.legIds.length ? join(r.ws, "sections") : null,
+    sectionPaths,
+    written,
+    writtenParas,
+  };
 }
 export function extractionParagraphs(r) {
   const n = r.paragraphs.length;
@@ -146,8 +198,20 @@ export function extractionParagraphs(r) {
     // what the owner edits (kogaki#1512); the Extractor's answer stands in where it is unreadable.
     let rendered = null;
     let rec = null;
-    if (text) { try { rec = parseYaml(text, file); rendered = extractionMarkdown(rec); } catch { rendered = null; } }
-    const segs = rec && Array.isArray(rec.segments) ? rec.segments : answer && Array.isArray(answer.segments) ? answer.segments : [];
+    if (text) {
+      try {
+        rec = parseYaml(text, file);
+        rendered = extractionMarkdown(rec);
+      } catch {
+        rendered = null;
+      }
+    }
+    const segs =
+      rec && Array.isArray(rec.segments)
+        ? rec.segments
+        : answer && Array.isArray(answer.segments)
+          ? answer.segments
+          : [];
     per.push({ i, file, text, rendered, promptText, calls, rounds, segs, rec });
   }
   return per;

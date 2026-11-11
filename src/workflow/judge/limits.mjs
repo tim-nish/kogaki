@@ -32,16 +32,21 @@ export function subdivisionLimits(grammarPath = REPORT_FORMAT) {
   // oversized `loose` SubGroup admitted and indistinguishable from the residual
   // convention. That is the outcome this function's header says it exists to
   // prevent, reachable through the one case the block-level guard missed.
-  const missingCap = caps ? CAPPED_LABELS.filter(
-    (l) => !Object.prototype.hasOwnProperty.call(caps, l)) : [];
-  if (!caps || missingCap.length || limits.min_subgroup_members === undefined
-      || limits.max_residual_members === undefined) {
-    fail("report-format.json declares no complete `limits` block, so semantic subdivision's subdivision limits "
-      + "cannot be read (kogaki#738 ruling 5, owner amendment 2)"
-      + (missingCap.length ? `; no cap is declared for ${missingCap.join(", ")}` : "")
-      + ". The five keys live in the carrier by design — a cap for each of "
-      + `${CAPPED_LABELS.join(", ")}, plus \`min_subgroup_members\` and \`max_residual_members\` — `
-      + "and defaulting any of them here would silently delete a ruled refusal.");
+  const missingCap = caps ? CAPPED_LABELS.filter((l) => !Object.prototype.hasOwnProperty.call(caps, l)) : [];
+  if (
+    !caps ||
+    missingCap.length ||
+    limits.min_subgroup_members === undefined ||
+    limits.max_residual_members === undefined
+  ) {
+    fail(
+      "report-format.json declares no complete `limits` block, so semantic subdivision's subdivision limits " +
+        "cannot be read (kogaki#738 ruling 5, owner amendment 2)" +
+        (missingCap.length ? `; no cap is declared for ${missingCap.join(", ")}` : "") +
+        ". The five keys live in the carrier by design — a cap for each of " +
+        `${CAPPED_LABELS.join(", ")}, plus \`min_subgroup_members\` and \`max_residual_members\` — ` +
+        "and defaulting any of them here would silently delete a ruled refusal.",
+    );
   }
   return {
     caps,
@@ -71,10 +76,14 @@ export function judgeLimits(st) {
   if (st.limits === undefined || st.limits === null) return null;
   const key = String(st.limits);
   if (!Object.prototype.hasOwnProperty.call(JUDGE_LIMIT_BLOCKS, key)) {
-    fail(`${st.id}: the workflow table declares \`limits\` ${JSON.stringify(key)}, which names no known limit `
-      + `block. The known one is ${Object.keys(JUDGE_LIMIT_BLOCKS).map((k) => JSON.stringify(k)).join(", ")}; `
-      + "a second is added by ruling rather than by spelling, exactly as `record_example`'s directives are "
-      + "(kogaki#1068).");
+    fail(
+      `${st.id}: the workflow table declares \`limits\` ${JSON.stringify(key)}, which names no known limit ` +
+        `block. The known one is ${Object.keys(JUDGE_LIMIT_BLOCKS)
+          .map((k) => JSON.stringify(k))
+          .join(", ")}; ` +
+        "a second is added by ruling rather than by spelling, exactly as `record_example`'s directives are " +
+        "(kogaki#1068).",
+    );
   }
   return JUDGE_LIMIT_BLOCKS[key]();
 }

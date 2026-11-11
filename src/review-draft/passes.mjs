@@ -7,13 +7,40 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { chosenJudged, evidenceLines, findingEvidencePaths, forcedParagraphLines } from "./close.mjs";
-import { correctFigure, correctionEvidence, correctionInputPath, correctionOwedProse, draftLane, driftBlocks, driftOf, failingSides, figureCorrectionOwed, figureItemIds, passTwoBound, readJoin, renderCorrectionBlock, seatsStillOwed, withReplyFile } from "./correction.mjs";
+import {
+  correctFigure,
+  correctionEvidence,
+  correctionInputPath,
+  correctionOwedProse,
+  draftLane,
+  driftBlocks,
+  driftOf,
+  failingSides,
+  figureCorrectionOwed,
+  figureItemIds,
+  passTwoBound,
+  readJoin,
+  renderCorrectionBlock,
+  seatsStillOwed,
+  withReplyFile,
+} from "./correction.mjs";
 import { declaredFor, readItems } from "./declared-side.mjs";
 import { argString, fail, readDraft, readReply, resolveInputs, sha256 } from "./draft-reader.mjs";
 import { buildJoin, comparisonLine, judgedByLine, recordVerdicts, verdictKey } from "./join.mjs";
 import { PASS_OUTCOMES, buildPasses, regressedPairs, restoreRegressedLeg } from "./regression.mjs";
 import { renderReverseOutlineInput } from "./reverse-outline.mjs";
-import { REVIEWED_BASENAME, currentPass, passPath, passPathAt, passReadPath, readRun, requireCurrent, slugOf, workspaceFor, writeRun } from "./workspace.mjs";
+import {
+  REVIEWED_BASENAME,
+  currentPass,
+  passPath,
+  passPathAt,
+  passReadPath,
+  readRun,
+  requireCurrent,
+  slugOf,
+  workspaceFor,
+  writeRun,
+} from "./workspace.mjs";
 
 // What `compare` is missing, computed once and rendered as the refusal's whole
 // content: a reviewer told "something is missing" has to go looking, and the
@@ -37,7 +64,11 @@ export function missingFor(run) {
 // own report to the person running it, and `comparisonLine` is the whole of it.
 
 export function cmdCompare(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft compare --draft <draft.md>   (verdicts on standard input record them)");
+  const draftPath = argString(
+    args,
+    "draft",
+    "usage: review-draft compare --draft <draft.md>   (verdicts on standard input record them)",
+  );
   // BOTH PHASES ARE ONE COMMAND, AND THE STREAM IS WHAT SELECTS ONE
   // (kogaki#1100). With nothing piped in, `compare` renders what it owes; with
   // a verdicts reply piped in, it records. The flag that used to say which is
@@ -59,20 +90,24 @@ export function cmdCompare(args) {
   // it: pass one writing over its own files is a permitted write. The pass over
   // a corrected Draft is `check`, and the refusal names it.
   if ((run.corrections || []).length) {
-    fail(`this run has ${run.corrections.length} correction(s) recorded, so pass one is over: `
-      + "`compare` would re-render pass one's join inputs from the corrected article, over the "
-      + "inputs its verdicts were given on, and pass one's reading of the original would be lost.\n"
-      + "The pass over a corrected Draft is `check`:\n"
-      + `  node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}`);
+    fail(
+      `this run has ${run.corrections.length} correction(s) recorded, so pass one is over: ` +
+        "`compare` would re-render pass one's join inputs from the corrected article, over the " +
+        "inputs its verdicts were given on, and pass one's reading of the original would be lost.\n" +
+        "The pass over a corrected Draft is `check`:\n" +
+        `  node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}`,
+    );
   }
 
   // EVERY MISSING INPUT IS NAMED IN ONE REFUSAL, BY LEG. A reviewer sent back
   // for "a missing outline" has to work out which; the Harness already knows.
   const missing = missingFor(run);
   if (missing.legs.length) {
-    fail(`the join has inputs missing, so it would compare a partial review against a whole Draft `
-      + `and report the gaps as agreement.\n  leg outline`
-      + `${missing.legs.length === 1 ? "" : "s"}: ${missing.legs.join(", ")}`);
+    fail(
+      `the join has inputs missing, so it would compare a partial review against a whole Draft ` +
+        `and report the gaps as agreement.\n  leg outline` +
+        `${missing.legs.length === 1 ? "" : "s"}: ${missing.legs.join(", ")}`,
+    );
   }
 
   const items = readItems();
@@ -92,8 +127,7 @@ export function cmdCompare(args) {
   const complete = owed.length === 0;
   run.join_complete = complete;
   run.compared_at = complete ? new Date().toISOString() : null;
-  run.join_state = complete ? null
-    : `${owed.length} pair(s) await a verdict — the join is unfilled, not clean`;
+  run.join_state = complete ? null : `${owed.length} pair(s) await a verdict — the join is unfilled, not clean`;
   run.findings = complete ? results.filter((r) => r.verdict !== "holds") : [];
   writeRun(ws, run);
 
@@ -102,19 +136,28 @@ export function cmdCompare(args) {
   // this unbounded join is never rebuilt over a corrected Draft — so the
   // record lands in `pass-1/` whatever pass the run has since reached.
   const joinPath = passPathAt(ws, run, 1, "join.json");
-  writeFileSync(joinPath, JSON.stringify({
-    draft: run.draft, body_sha: run.body_sha, compared_at: run.compared_at,
-    item_table_version: items.version,
-    complete,
-    results,
-    owed,
-    // WHICH ITEMS COST A MODEL CALL AND WHICH DID NOT, per pair. This is the
-    // record that makes "decided mechanically" checkable rather than claimed —
-    // a mechanical item appears in `mechanical` and in no `model_calls` entry,
-    // for every Leg.
-    model_calls: modelCalls,
-    mechanical: mechanicalLog,
-  }, null, 2) + "\n");
+  writeFileSync(
+    joinPath,
+    JSON.stringify(
+      {
+        draft: run.draft,
+        body_sha: run.body_sha,
+        compared_at: run.compared_at,
+        item_table_version: items.version,
+        complete,
+        results,
+        owed,
+        // WHICH ITEMS COST A MODEL CALL AND WHICH DID NOT, per pair. This is the
+        // record that makes "decided mechanically" checkable rather than claimed —
+        // a mechanical item appears in `mechanical` and in no `model_calls` entry,
+        // for every Leg.
+        model_calls: modelCalls,
+        mechanical: mechanicalLog,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
 
   if (recorded) process.stdout.write(`recorded: ${recorded} verdict(s)\n`);
 
@@ -124,14 +167,16 @@ export function cmdCompare(args) {
     // round an absence into an answer — the one rounding the three-valued
     // verdict exists to refuse.
     process.stdout.write(
-      `compare: every input present — ${run.legs.length} outlined Leg(s).\n`
-      + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
-      + judgedByLine(modelCalls)
-      + `${owed.length} pair(s) await a verdict — one join Packet each, under ${passReadPath(ws, 1, "join")}:\n`
-      + owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
-      + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
-      + `  <verdicts.json> | node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path}\n`
-      + `join record: ${joinPath}\n`);
+      `compare: every input present — ${run.legs.length} outlined Leg(s).\n` +
+        `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n` +
+        judgedByLine(modelCalls) +
+        `${owed.length} pair(s) await a verdict — one join Packet each, under ${passReadPath(ws, 1, "join")}:\n` +
+        owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") +
+        "\n" +
+        "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n" +
+        `  <verdicts.json> | node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path}\n` +
+        `join record: ${joinPath}\n`,
+    );
     return;
   }
 
@@ -146,26 +191,30 @@ export function cmdCompare(args) {
   const preserved = fails.filter((r) => r.class === "preserved");
   const undecided = results.filter((r) => r.verdict === "cannot-decide");
   process.stdout.write(
-    results.map(comparisonLine).join("\n") + "\n\n"
-    + `compare: ${results.length} (Leg, item) pair(s) joined, `
-    + `${mechanicalLog.length} decided mechanically and ${modelCalls.length} judged.\n`
-    + judgedByLine(modelCalls)
-    + (preserved.length
-      ? `Legs sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.leg_id))].join(", ")}\n`
-      : "No preserved item fails, so no Leg is sent to correction.\n")
-    + (undecided.length
-      ? "cannot-decide, listed with its pair and never rounded: "
-        + undecided.map((r) => `${r.leg_id}/${r.item}`).join(", ") + "\n"
-      : "")
-    + `join record: ${joinPath}\n`
-    + (fails.length
-      ? "`check --draft <draft.md>` is pass two.\n"
-      : "`close --draft <draft.md>` writes the owner record.\n"));
+    results.map(comparisonLine).join("\n") +
+      "\n\n" +
+      `compare: ${results.length} (Leg, item) pair(s) joined, ` +
+      `${mechanicalLog.length} decided mechanically and ${modelCalls.length} judged.\n` +
+      judgedByLine(modelCalls) +
+      (preserved.length
+        ? `Legs sent to correction — a preserved item fails: ${[...new Set(preserved.map((r) => r.leg_id))].join(", ")}\n`
+        : "No preserved item fails, so no Leg is sent to correction.\n") +
+      (undecided.length
+        ? "cannot-decide, listed with its pair and never rounded: " +
+          undecided.map((r) => `${r.leg_id}/${r.item}`).join(", ") +
+          "\n"
+        : "") +
+      `join record: ${joinPath}\n` +
+      (fails.length
+        ? "`check --draft <draft.md>` is pass two.\n"
+        : "`close --draft <draft.md>` writes the owner record.\n"),
+  );
 }
 
 export function cmdCorrect(args) {
-  const usage = "usage: review-draft correct --draft <draft.md> --leg <id> [--figure]\n"
-    + "       (the corrected prose, or the corrected figure record, on standard input records it)";
+  const usage =
+    "usage: review-draft correct --draft <draft.md> --leg <id> [--figure]\n" +
+    "       (the corrected prose, or the corrected figure record, on standard input records it)";
   const draftPath = argString(args, "draft", usage);
   const legId = argString(args, "leg", usage);
   // THE STREAM SELECTS THE PHASE, as it does in `compare` and `check`
@@ -183,9 +232,11 @@ export function cmdCorrect(args) {
   requireCurrent(run, draft, legId);
 
   if (!run.compared_at) {
-    fail("`correct` is what pass one sends a Leg to, and pass one has not completed — run "
-      + "`compare --draft <draft.md>` first. A correction composed before the join has answered "
-      + "would be a rewrite against findings nobody recorded.");
+    fail(
+      "`correct` is what pass one sends a Leg to, and pass one has not completed — run " +
+        "`compare --draft <draft.md>` first. A correction composed before the join has answered " +
+        "would be a rewrite against findings nobody recorded.",
+    );
   }
   const known = run.legs.map((s) => s.leg_id);
   if (!known.includes(legId)) fail(`unknown leg \`${legId}\` — this Draft's Legs are ${known.join(", ")}`);
@@ -199,18 +250,24 @@ export function cmdCorrect(args) {
     // nothing owed, and reporting it as one would send a session looking for a
     // finding that is recorded and readable.
     if (!figureMode && sides.figure.length) {
-      fail(`leg ${legId} carries no failing PRESERVED item of the PASSAGE, and it does carry one `
-        + `of the FIGURE (${sides.figure.join(", ")}). What is re-realized there is the figure `
-        + `record, not the prose:\n  node src/review-draft.mjs correct --draft `
-        + `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure`);
+      fail(
+        `leg ${legId} carries no failing PRESERVED item of the PASSAGE, and it does carry one ` +
+          `of the FIGURE (${sides.figure.join(", ")}). What is re-realized there is the figure ` +
+          `record, not the prose:\n  node src/review-draft.mjs correct --draft ` +
+          `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId} --figure`,
+      );
     }
     if (figureMode && sides.prose.length) {
-      fail(`leg ${legId} carries no failing PRESERVED FIGURE item, and it does carry one of the `
-        + `passage (${sides.prose.join(", ")}). Drop --figure to correct the prose.`);
+      fail(
+        `leg ${legId} carries no failing PRESERVED FIGURE item, and it does carry one of the ` +
+          `passage (${sides.prose.join(", ")}). Drop --figure to correct the prose.`,
+      );
     }
-    fail(`leg ${legId} carries no failing PRESERVED ${figureMode ? "figure " : ""}item, so pass `
-      + "one did not send it to correction. A best-effort fail rides along when its Leg is "
-      + `re-realized anyway and never sends one here.\n  owed: ${owed.length ? owed.join(", ") : "(none — no Leg is owed a correction)"}`);
+    fail(
+      `leg ${legId} carries no failing PRESERVED ${figureMode ? "figure " : ""}item, so pass ` +
+        "one did not send it to correction. A best-effort fail rides along when its Leg is " +
+        `re-realized anyway and never sends one here.\n  owed: ${owed.length ? owed.join(", ") : "(none — no Leg is owed a correction)"}`,
+    );
   }
   // PATH ORDER IS ENFORCED, not requested. Corrections run in path order so
   // each later one sees the earlier ones in its own "article so far" block —
@@ -222,14 +279,15 @@ export function cmdCorrect(args) {
   // does not discharge the prose correction owed on an earlier Leg, and the
   // seat a record carries is what says which it discharged.
   const seat = figureMode ? "figure" : "prose";
-  const already = new Set((run.corrections || [])
-    .filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
+  const already = new Set((run.corrections || []).filter((c) => (c.seat || "prose") === seat).map((c) => c.leg_id));
   const earlier = owed.slice(0, owed.indexOf(legId)).filter((id) => !already.has(id));
   if (earlier.length) {
-    fail(`corrections run in path order and leg ${legId} is not next — ${earlier.join(", ")} `
-      + `${earlier.length === 1 ? "is" : "are"} owed a ${seat} correction first. Each correction `
-      + "re-renders the next Leg's Packet against the article as it then stands, so correcting out "
-      + "of order realizes a Leg against prose that is about to move under it.");
+    fail(
+      `corrections run in path order and leg ${legId} is not next — ${earlier.join(", ")} ` +
+        `${earlier.length === 1 ? "is" : "are"} owed a ${seat} correction first. Each correction ` +
+        "re-renders the next Leg's Packet against the article as it then stands, so correcting out " +
+        "of order realizes a Leg against prose that is about to move under it.",
+    );
   }
   // THE PASSAGE IS CORRECTED BEFORE THE FIGURE IT CARRIES, and this is the
   // figure record's
@@ -242,15 +300,20 @@ export function cmdCorrect(args) {
     const proseOwed = correctionOwedProse(run, items).includes(legId);
     const proseDone = (run.corrections || []).some((c) => c.leg_id === legId && (c.seat || "prose") === "prose");
     if (proseOwed && !proseDone) {
-      fail(`leg ${legId} owes a correction on its PASSAGE as well, and the passage is corrected `
-        + "first: the record's caption is stated in what the reader holds after reading this "
-        + "passage, and its elements are worded from prose that must already exist.\n"
-        + `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}`);
+      fail(
+        `leg ${legId} owes a correction on its PASSAGE as well, and the passage is corrected ` +
+          "first: the record's caption is stated in what the reader holds after reading this " +
+          "passage, and its elements are worded from prose that must already exist.\n" +
+          `  node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}`,
+      );
     }
   }
 
   const joinRec = readJoin(ws);
-  if (figureMode) { correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId, reply }); return; }
+  if (figureMode) {
+    correctFigure(args, { draft, draftPath, ws, run, items, joinRec, legId, reply });
+    return;
+  }
 
   // --- phase A: render the correction input ------------------------------
   if (reply.trim() === "") {
@@ -268,9 +331,11 @@ export function cmdCorrect(args) {
     const prefix = `packet ${legId}: `;
     const line = (r.stderr || "").split("\n").find((l) => l.startsWith(prefix));
     if (!line) {
-      fail("the realization lane rendered a Packet and did not say where it stored it, so this "
-        + "cannot show a reviewer the input the correction is written from. Its output, "
-        + `verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`);
+      fail(
+        "the realization lane rendered a Packet and did not say where it stored it, so this " +
+          "cannot show a reviewer the input the correction is written from. Its output, " +
+          `verbatim:\n${(r.stderr || r.stdout || "(no output)").trim()}`,
+      );
     }
     const freshPath = line.slice(prefix.length).trim();
     if (!existsSync(freshPath)) fail(`the realization lane named a Packet at ${freshPath} and no file is there`);
@@ -280,22 +345,26 @@ export function cmdCorrect(args) {
     writeFileSync(dest, (fresh.endsWith("\n") ? fresh : fresh + "\n") + block);
     run.correction_inputs = run.correction_inputs || {};
     run.correction_inputs[legId] = {
-      path: dest, packet: freshPath, packet_sha: sha256(fresh),
-      prose: leg.prose, rendered_at: new Date().toISOString(),
+      path: dest,
+      packet: freshPath,
+      packet_sha: sha256(fresh),
+      prose: leg.prose,
+      rendered_at: new Date().toISOString(),
     };
     run.correcting = { leg_id: legId, input: dest, since: new Date().toISOString() };
     writeRun(ws, run);
     process.stdout.write(
-      `correction input: ${dest}\n`
-      + "  It is the Packet re-rendered against the article AS IT NOW STANDS — the \"article so\n"
-      + "  far\" block holds the current preceding prose, corrections included — with one\n"
-      + "  Correction block appended carrying the previous realization, what failed, and what\n"
-      + "  must go on holding.\n"
-      + `Realize the Leg from it, then record with\n`
-      + `  <the corrected prose> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}\n`
-      + "Until then this run is MID-CORRECTION on this Leg: its Packet is the freshly rendered\n"
-      + "one and its prose is still the old realization, so every other act refuses by name\n"
-      + "rather than reporting a comparison between prose and an input that did not produce it.\n");
+      `correction input: ${dest}\n` +
+        '  It is the Packet re-rendered against the article AS IT NOW STANDS — the "article so\n' +
+        '  far" block holds the current preceding prose, corrections included — with one\n' +
+        "  Correction block appended carrying the previous realization, what failed, and what\n" +
+        "  must go on holding.\n" +
+        `Realize the Leg from it, then record with\n` +
+        `  <the corrected prose> | node src/review-draft.mjs correct --draft ${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}\n` +
+        "Until then this run is MID-CORRECTION on this Leg: its Packet is the freshly rendered\n" +
+        "one and its prose is still the old realization, so every other act refuses by name\n" +
+        "rather than reporting a comparison between prose and an input that did not produce it.\n",
+    );
     return;
   }
 
@@ -306,9 +375,11 @@ export function cmdCorrect(args) {
   // rendered was written against something else — the old Packet, or the
   // finding text alone — and afterwards there is no way to tell which.
   if (!input) {
-    fail(`leg ${legId} has no rendered correction input, so this prose was not written against `
-      + `one. Render it first:\n  node src/review-draft.mjs correct --draft `
-      + `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}`);
+    fail(
+      `leg ${legId} has no rendered correction input, so this prose was not written against ` +
+        `one. Render it first:\n  node src/review-draft.mjs correct --draft ` +
+        `${relative(process.cwd(), draft.path) || draft.path} --leg ${legId}`,
+    );
   }
 
   // THE PREVIOUS PROSE AND THE FRESH PACKET COME FROM THE PHASE-A RECORD, not
@@ -328,8 +399,7 @@ export function cmdCorrect(args) {
   const seq = String((run.corrections || []).length + 1).padStart(2, "0");
   writeFileSync(join(snapDir, `${seq}-before-${legId}.md`), draft.text);
 
-  withReplyFile(reply, `${legId}.prose.md`, (p) =>
-    draftLane("section", draft, args, ["--leg", legId, "--file", p]));
+  withReplyFile(reply, `${legId}.prose.md`, (p) => draftLane("section", draft, args, ["--leg", legId, "--file", p]));
   draftLane("emit", draft, args, []);
 
   // The Draft is a different document now: new prose, new line ranges, and a
@@ -351,8 +421,9 @@ export function cmdCorrect(args) {
     // than whichever pass the run has reached — the same reading
     // `correctionInputPath` files the input under.
     pass: 1,
-    what: `re-realized from a Packet re-rendered against the article as it stood, with a Correction `
-      + `block carrying ${ev.failed.length} failed item(s) and ${ev.held.length} held preserved item(s)`,
+    what:
+      `re-realized from a Packet re-rendered against the article as it stood, with a Correction ` +
+      `block carrying ${ev.failed.length} failed item(s) and ${ev.held.length} held preserved item(s)`,
     failed_items: ev.failed.map((f) => f.item),
     held_preserved: ev.held.map((h) => h.item),
     input: input.path,
@@ -375,8 +446,12 @@ export function cmdCorrect(args) {
   delete run.pass_open_at;
   delete run.pass_cleared;
   run.legs = afterLegs.map((s) => ({
-    leg_id: s.leg_id, section: s.section, section_title: s.section_title,
-    lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
+    leg_id: s.leg_id,
+    section: s.section,
+    section_title: s.section_title,
+    lines: s.lines,
+    packet: s.packet,
+    packet_sha: s.packet_sha,
   }));
   delete run.outlineFields[legId];
   delete run.rendered[legId];
@@ -384,19 +459,24 @@ export function cmdCorrect(args) {
 
   const stillOwed = seatsStillOwed(run, items);
   process.stdout.write(
-    `corrected: ${legId}\n`
-    + `  drift   ${drift.change_share}\n`
-    + `          ${drift.packet_overlap}\n`
-    + `  reported, never gated — what a high share means is the owner's reading\n`
-    + `  snapshots ${join(snapDir, `${seq}-before-${legId}.md`)}\n`
-    + `            ${join(snapDir, `${seq}-after-${legId}.md`)}\n`
-    + (stillOwed.length
-      ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
-      : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"));
+    `corrected: ${legId}\n` +
+      `  drift   ${drift.change_share}\n` +
+      `          ${drift.packet_overlap}\n` +
+      `  reported, never gated — what a high share means is the owner's reading\n` +
+      `  snapshots ${join(snapDir, `${seq}-before-${legId}.md`)}\n` +
+      `            ${join(snapDir, `${seq}-after-${legId}.md`)}\n` +
+      (stillOwed.length
+        ? `still owed a correction, in path order: ${stillOwed.join(", ")}\n`
+        : "every Leg pass one sent to correction has been corrected. `check --draft <draft.md>` is pass two.\n"),
+  );
 }
 
 export function cmdCheck(args) {
-  const draftPath = argString(args, "draft", "usage: review-draft check --draft <draft.md>   (verdicts on standard input record them)");
+  const draftPath = argString(
+    args,
+    "draft",
+    "usage: review-draft check --draft <draft.md>   (verdicts on standard input record them)",
+  );
   // The same two-phase selection `compare` makes, and read at the same point
   // and for the same reason (kogaki#1100).
   const reply = readReply();
@@ -413,9 +493,11 @@ export function cmdCheck(args) {
   // property of the flow rather than of the second pass: pass two re-checks
   // what pass one found, and there is nothing to re-check before `compare`.
   if (!run.compared_at) {
-    fail("`check` is pass two and there is no pass one — run `compare --draft <draft.md>` first. "
-      + "Pass two re-runs outline and the join only for the corrected Legs, their successors' "
-      + "continuity items and the mechanical items, so it has nothing to narrow to until the join has run.");
+    fail(
+      "`check` is pass two and there is no pass one — run `compare --draft <draft.md>` first. " +
+        "Pass two re-runs outline and the join only for the corrected Legs, their successors' " +
+        "continuity items and the mechanical items, so it has nothing to narrow to until the join has run.",
+    );
   }
 
   const items = readItems();
@@ -435,7 +517,10 @@ export function cmdCheck(args) {
     let cleared = 0;
     for (const key of Object.keys(verdicts)) {
       const call = (priorJoin.model_calls || []).find((c) => verdictKey(c.leg_id, c.item, c.pair) === key);
-      if (call && bound.inBound(call.leg_id, call.item)) { delete verdicts[key]; cleared++; }
+      if (call && bound.inBound(call.leg_id, call.item)) {
+        delete verdicts[key];
+        cleared++;
+      }
     }
     run.verdicts = verdicts;
     run.pass = 2;
@@ -456,16 +541,25 @@ export function cmdCheck(args) {
     owedOutline.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     for (const id of owedOutline) {
       if (run.rendered[id]) continue;
-      run.rendered[id] = renderReverseOutlineInput(ws, run, draft, legs.find((s) => s.leg_id === id), legs);
+      run.rendered[id] = renderReverseOutlineInput(
+        ws,
+        run,
+        draft,
+        legs.find((s) => s.leg_id === id),
+        legs,
+      );
     }
     writeRun(ws, run);
-    fail(`pass two re-runs Reverse Outlining for every corrected Leg, and `
-      + `${owedOutline.length} ${owedOutline.length === 1 ? "is" : "are"} outstanding. The prose `
-      + "these Legs carry now is not the prose the first Reverse Outline read, so the recorded reading is "
-      + `about text that is gone.\n`
-      + owedOutline.map((id) => `  ${id}  ${run.rendered[id]}`).join("\n") + "\n"
-      + "Read each blind and record it with `<reverse outline> | outline --draft <draft.md> --leg <id>`, "
-      + "then run `check` again.");
+    fail(
+      `pass two re-runs Reverse Outlining for every corrected Leg, and ` +
+        `${owedOutline.length} ${owedOutline.length === 1 ? "is" : "are"} outstanding. The prose ` +
+        "these Legs carry now is not the prose the first Reverse Outline read, so the recorded reading is " +
+        `about text that is gone.\n` +
+        owedOutline.map((id) => `  ${id}  ${run.rendered[id]}`).join("\n") +
+        "\n" +
+        "Read each blind and record it with `<reverse outline> | outline --draft <draft.md> --leg <id>`, " +
+        "then run `check` again.",
+    );
   }
 
   // PASS TWO ANSWERS ITS OWN OWED SET, through `check`'s own stream and never
@@ -474,13 +568,19 @@ export function cmdCheck(args) {
   // every pair, overwriting the pass-one record this pass carries from, and
   // resetting `compared_at` to a comparison nobody made. The two passes have
   // different owed sets by construction, so they need different doors.
-  let pass = buildJoin(draft, run, items, ws,
-    { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
+  let pass = buildJoin(draft, run, items, ws, {
+    pass: currentPass(run),
+    bound: bound.inBound,
+    carry: priorJoin.results || [],
+  });
   let recorded = 0;
   if (reply.trim() !== "") {
     recorded = recordVerdicts(run, reply, pass.owed, items);
-    pass = buildJoin(draft, run, items, ws,
-      { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
+    pass = buildJoin(draft, run, items, ws, {
+      pass: currentPass(run),
+      bound: bound.inBound,
+      carry: priorJoin.results || [],
+    });
   }
   // --- THE REGRESSION GUARD (kogaki#1135) ---------------------------------
   // It fires only on a COMPLETE pass: a pair still owed has no pass-two answer,
@@ -495,15 +595,18 @@ export function cmdCheck(args) {
   const restoredAlready = new Set((run.restores || []).map((r) => r.leg_id));
   let restoredNow = [];
   if (pass.owed.length === 0) {
-    const regressed = regressedPairs(run, priorJoin, pass.results)
-      .filter((r) => !restoredAlready.has(r.leg_id));
+    const regressed = regressedPairs(run, priorJoin, pass.results).filter((r) => !restoredAlready.has(r.leg_id));
     // IN PATH ORDER, the order every act that moves prose runs in.
     const order = run.legs.map((s) => s.leg_id);
-    const legs = [...new Set(regressed.map((r) => r.leg_id))]
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const legs = [...new Set(regressed.map((r) => r.leg_id))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
     for (const legId of legs) {
       draft = restoreRegressedLeg(args, {
-        draft, draftPath, ws, run, legId, priorJoin,
+        draft,
+        draftPath,
+        ws,
+        run,
+        legId,
+        priorJoin,
         regressed: regressed.filter((r) => r.leg_id === legId),
         passTwoRows: pass.results.filter((r) => r.leg_id === legId),
       });
@@ -516,8 +619,11 @@ export function cmdCheck(args) {
       // that no longer exists: the pair inputs are re-rendered from the prose
       // the reader now meets, and the verdicts they carry are the ones pass one
       // gave on exactly that prose.
-      pass = buildJoin(draft, run, items, ws,
-        { pass: currentPass(run), bound: bound.inBound, carry: priorJoin.results || [] });
+      pass = buildJoin(draft, run, items, ws, {
+        pass: currentPass(run),
+        bound: bound.inBound,
+        carry: priorJoin.results || [],
+      });
     }
   }
   const restoredLegs = new Set((run.restores || []).map((r) => r.leg_id));
@@ -533,49 +639,62 @@ export function cmdCheck(args) {
   if (recorded) process.stdout.write(`recorded: ${recorded} verdict(s)\n`);
 
   const joinPath = passPath(ws, run, "check.json");
-  writeFileSync(joinPath, JSON.stringify({
-    draft: run.draft, body_sha: run.body_sha,
-    checked_at: complete ? new Date().toISOString() : null,
-    item_table_version: items.version,
-    complete,
-    // THE BOUND IS RECORDED, not only applied. A reader of this file can see
-    // which Legs and items pass two actually re-judged, which is what makes
-    // "bounded" checkable rather than claimed — the same move the pass-one
-    // record makes for "decided mechanically".
-    bound: {
-      corrected: [...bound.corrected],
-      successors: [...bound.successors],
-      successor_items: bound.successorItems,
-      mechanical_items: [...bound.mechanical],
-      verdicts_cleared: cleared,
-    },
-    // WHAT PASS TWO PUT BACK (kogaki#1135), on the pass's own record rather
-    // than only in `run.json`: a reader of this file sees rows carrying pass
-    // one's verdicts on a corrected Leg, and without this line the only
-    // reading of that is a second pass that agreed with the first.
-    restores: (run.restores || []).map((r) => ({
-      leg_id: r.leg_id, seats: r.seats, regressed: r.regressed,
-      snapshot_before: r.snapshot_before, snapshot_after: r.snapshot_after,
-      restored_at: r.restored_at,
-    })),
-    results,
-    owed,
-    model_calls: modelCalls,
-    mechanical: mechanicalLog,
-  }, null, 2) + "\n");
+  writeFileSync(
+    joinPath,
+    JSON.stringify(
+      {
+        draft: run.draft,
+        body_sha: run.body_sha,
+        checked_at: complete ? new Date().toISOString() : null,
+        item_table_version: items.version,
+        complete,
+        // THE BOUND IS RECORDED, not only applied. A reader of this file can see
+        // which Legs and items pass two actually re-judged, which is what makes
+        // "bounded" checkable rather than claimed — the same move the pass-one
+        // record makes for "decided mechanically".
+        bound: {
+          corrected: [...bound.corrected],
+          successors: [...bound.successors],
+          successor_items: bound.successorItems,
+          mechanical_items: [...bound.mechanical],
+          verdicts_cleared: cleared,
+        },
+        // WHAT PASS TWO PUT BACK (kogaki#1135), on the pass's own record rather
+        // than only in `run.json`: a reader of this file sees rows carrying pass
+        // one's verdicts on a corrected Leg, and without this line the only
+        // reading of that is a second pass that agreed with the first.
+        restores: (run.restores || []).map((r) => ({
+          leg_id: r.leg_id,
+          seats: r.seats,
+          regressed: r.regressed,
+          snapshot_before: r.snapshot_before,
+          snapshot_after: r.snapshot_after,
+          restored_at: r.restored_at,
+        })),
+        results,
+        owed,
+        model_calls: modelCalls,
+        mechanical: mechanicalLog,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
 
   if (!complete) {
     process.stdout.write(
-      `check: pass two, bounded — ${bound.corrected.size} corrected Leg(s), `
-      + `${bound.successors.size} successor(s), ${bound.mechanical.size} mechanical item(s) over the whole Draft.\n`
-      + `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n`
-      + `${owed.length} pair(s) await a verdict — one join Packet each:\n`
-      + owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") + "\n"
-      + "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n"
-      + `  <verdicts.json> | node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}\n`
-      + `check record: ${joinPath}\n`
-      + "The regression guard and `passes.json` land when the pass is complete: a pair with no\n"
-      + "answer yet has no pass-two verdict to compare against pass one's.\n");
+      `check: pass two, bounded — ${bound.corrected.size} corrected Leg(s), ` +
+        `${bound.successors.size} successor(s), ${bound.mechanical.size} mechanical item(s) over the whole Draft.\n` +
+        `${mechanicalLog.length} pair(s) decided mechanically, no model call.\n` +
+        `${owed.length} pair(s) await a verdict — one join Packet each:\n` +
+        owed.map((o) => `  ${o.key}  ${o.packet}`).join("\n") +
+        "\n" +
+        "Answer each with one of holds / fails / cannot-decide plus one sentence, then\n" +
+        `  <verdicts.json> | node src/review-draft.mjs check --draft ${relative(process.cwd(), draft.path) || draft.path}\n` +
+        `check record: ${joinPath}\n` +
+        "The regression guard and `passes.json` land when the pass is complete: a pair with no\n" +
+        "answer yet has no pass-two verdict to compare against pass one's.\n",
+    );
     // THE RUN RECORD IS WRITTEN ON THIS EXIT TOO (PR #1004 round 1, finding 3).
     // `buildJoin` registered pass two's join inputs in `run.pass_files` and
     // `recordVerdicts` may have taken answers into `run.verdicts`; a return
@@ -602,11 +721,14 @@ export function cmdCheck(args) {
   run.residue = run.findings
     .filter((f) => f.verdict === "fails" && f.class === "preserved")
     .map((f) => ({
-      leg_id: f.leg_id, item: f.item,
+      leg_id: f.leg_id,
+      item: f.item,
       // WHAT THE OWNER RECORD'S POINTERS ARE COMPOSED FROM, kept on the row: the
       // pass that read it (a carried row is pass one's whatever pass the run
       // reached) and whether a judge was handed a Packet for the chosen pair.
-      pair: f.pair, carried: Boolean(f.carried), judged: chosenJudged(f),
+      pair: f.pair,
+      carried: Boolean(f.carried),
+      judged: chosenJudged(f),
       // A RESTORED LEG'S RESIDUE SAYS WHICH PROSE IT IS ABOUT (kogaki#1135).
       // Its Leg was corrected and the correction was UNDONE, so "still failing
       // after pass two" is true of the item and silent about the article: the
@@ -614,13 +736,13 @@ export function cmdCheck(args) {
       // meant to fix this item is not in it.
       ...(f.restored ? { restored: true } : {}),
       why: f.carried
-        ? `${f.reason} — carried from pass one and NOT re-judged: this Leg was not corrected, `
-          + "so nothing in pass two read it again"
-        : (f.restored
-          ? `${f.reason} — still failing, and the correction made for it was UNDONE: pass two `
-            + "failed an item this Leg had held, so the Leg was restored to its pass-one prose "
-            + "and this is that prose's own finding, unchanged"
-          : `${f.reason} — still failing after pass two`),
+        ? `${f.reason} — carried from pass one and NOT re-judged: this Leg was not corrected, ` +
+          "so nothing in pass two read it again"
+        : f.restored
+          ? `${f.reason} — still failing, and the correction made for it was UNDONE: pass two ` +
+            "failed an item this Leg had held, so the Leg was restored to its pass-one prose " +
+            "and this is that prose's own finding, unchanged"
+          : `${f.reason} — still failing after pass two`,
     }));
   run.checked_at = new Date().toISOString();
 
@@ -637,16 +759,25 @@ export function cmdCheck(args) {
   // reading in pass one's own vocabulary.
   const passesPath = join(ws, "passes.json");
   const passes = buildPasses(run, priorJoin, results);
-  writeFileSync(passesPath, JSON.stringify({
-    draft: run.draft, body_sha: run.body_sha, written_at: run.checked_at,
-    outcomes: passes.counts,
-    // A key pass two produced that pass one never answered. Empty on every run
-    // this Harness can currently produce, and named rather than dropped: the
-    // five outcome words are all about a pair with two readings, and a pair
-    // with one is a disagreement between the passes about what exists.
-    pass_two_only: passes.pass_two_only,
-    rows: passes.rows,
-  }, null, 2) + "\n");
+  writeFileSync(
+    passesPath,
+    JSON.stringify(
+      {
+        draft: run.draft,
+        body_sha: run.body_sha,
+        written_at: run.checked_at,
+        outcomes: passes.counts,
+        // A key pass two produced that pass one never answered. Empty on every run
+        // this Harness can currently produce, and named rather than dropped: the
+        // five outcome words are all about a pair with two readings, and a pair
+        // with one is a disagreement between the passes about what exists.
+        pass_two_only: passes.pass_two_only,
+        rows: passes.rows,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
   run.passes_file = passesPath;
 
   writeRun(ws, run);
@@ -663,43 +794,53 @@ export function cmdCheck(args) {
   // unnamed while its preserved fails were carried as residue.
   const uncorrected = seatsStillOwed(run, items);
   process.stdout.write(
-    results.filter((r) => !r.carried).map(comparisonLine).join("\n") + "\n\n"
-    + `check: pass two over ${results.filter((r) => !r.carried).length} re-judged (Leg, item) pair(s); `
-    + `${results.filter((r) => r.carried).length} carried unchanged from pass one.\n`
-    + `  corrected Legs      ${[...bound.corrected].join(", ") || "(none)"}\n`
-    + `  successors re-checked ${[...bound.successors].join(", ") || "(none)"} on ${bound.successorItems.join(", ")}\n`
-    + `  mechanical items      re-run over every Leg\n`
-    + `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n`
-    + judgedByLine(modelCalls)
-    + (uncorrected.length
-      ? `UNCORRECTED — pass one sent these to correction and they are still owed: ${uncorrected.join(", ")}.\n`
-        + "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Leg can\n"
-        + "  appear on both, and a Leg that received one seat still appears for the other.\n"
-        + "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n"
-        + "  the owner record says so per line. `correct --leg <id> [--figure]` is the act that changes that.\n"
-      : "")
-    + (restoredNow.length
-      ? `RESTORED — pass two failed an item these Legs had HELD in pass one, so each is back at `
-        + `its pass-one prose: ${restoredNow.join(", ")}.\n`
-        + "  The correction was undone, not adjusted, and the item it was made for is residue\n"
-        + "  again. Only the regressed Leg moved: a later corrected Leg keeps its corrected\n"
-        + "  prose and carries no mark, because Leg-to-Leg continuity is the Reader Path's and\n"
-        + "  not this Harness's.\n"
-        + (run.restores || []).filter((r) => restoredNow.includes(r.leg_id))
-          .map((r) => `  ${r.leg_id}  held then failed: `
-            + `${r.regressed.map((x) => x.item).join(", ")}\n`
-            + `          snapshots ${r.snapshot_before}\n`
-            + `                    ${r.snapshot_after}\n`).join("")
-      : "")
-    + (run.residue.length
-      ? `residue — preserved item(s) reaching the owner to classify: `
-        + `${run.residue.map((r) => `${r.leg_id}/${r.item}`).join(", ")}\n`
-      : "no preserved item fails after pass two, so the residue is empty.\n")
-    + `check record: ${joinPath}\n`
-    + `both passes:  ${passesPath} — one row per Leg, item and pair, with each pass's\n`
-    + "              verdict and one outcome word: "
-    + `${PASS_OUTCOMES.join(", ")}.\n`
-    + "`close --draft <draft.md>` writes the owner record.\n");
+    results
+      .filter((r) => !r.carried)
+      .map(comparisonLine)
+      .join("\n") +
+      "\n\n" +
+      `check: pass two over ${results.filter((r) => !r.carried).length} re-judged (Leg, item) pair(s); ` +
+      `${results.filter((r) => r.carried).length} carried unchanged from pass one.\n` +
+      `  corrected Legs      ${[...bound.corrected].join(", ") || "(none)"}\n` +
+      `  successors re-checked ${[...bound.successors].join(", ") || "(none)"} on ${bound.successorItems.join(", ")}\n` +
+      `  mechanical items      re-run over every Leg\n` +
+      `${mechanicalLog.length} pair(s) decided mechanically and ${judged} judged.\n` +
+      judgedByLine(modelCalls) +
+      (uncorrected.length
+        ? `UNCORRECTED — pass one sent these to correction and they are still owed: ${uncorrected.join(", ")}.\n` +
+          "  An entry marked `(--figure)` is the figure seat; the rest are the passage. A Leg can\n" +
+          "  appear on both, and a Leg that received one seat still appears for the other.\n" +
+          "  Their preserved fails are residue CARRIED from pass one, not re-judged by this pass;\n" +
+          "  the owner record says so per line. `correct --leg <id> [--figure]` is the act that changes that.\n"
+        : "") +
+      (restoredNow.length
+        ? `RESTORED — pass two failed an item these Legs had HELD in pass one, so each is back at ` +
+          `its pass-one prose: ${restoredNow.join(", ")}.\n` +
+          "  The correction was undone, not adjusted, and the item it was made for is residue\n" +
+          "  again. Only the regressed Leg moved: a later corrected Leg keeps its corrected\n" +
+          "  prose and carries no mark, because Leg-to-Leg continuity is the Reader Path's and\n" +
+          "  not this Harness's.\n" +
+          (run.restores || [])
+            .filter((r) => restoredNow.includes(r.leg_id))
+            .map(
+              (r) =>
+                `  ${r.leg_id}  held then failed: ` +
+                `${r.regressed.map((x) => x.item).join(", ")}\n` +
+                `          snapshots ${r.snapshot_before}\n` +
+                `                    ${r.snapshot_after}\n`,
+            )
+            .join("")
+        : "") +
+      (run.residue.length
+        ? `residue — preserved item(s) reaching the owner to classify: ` +
+          `${run.residue.map((r) => `${r.leg_id}/${r.item}`).join(", ")}\n`
+        : "no preserved item fails after pass two, so the residue is empty.\n") +
+      `check record: ${joinPath}\n` +
+      `both passes:  ${passesPath} — one row per Leg, item and pair, with each pass's\n` +
+      "              verdict and one outcome word: " +
+      `${PASS_OUTCOMES.join(", ")}.\n` +
+      "`close --draft <draft.md>` writes the owner record.\n",
+  );
 }
 
 export function cmdClose(args) {
@@ -723,11 +864,13 @@ export function cmdClose(args) {
   // and overwritten on re-run, which is a contract this refusal must not take
   // away to buy a guard against a write that cannot happen.
   if (run0.restored_from) {
-    fail(`this run is closed. The reviewed Draft was written to ${run0.reviewed_draft}, and `
-      + `${resolve(draftPath)} was restored to the Draft that was reviewed. Running \`close\` again `
-      + "would copy that restored original over the reviewed Draft.\n"
-      + `  record  ${join(dirname(resolve(draftPath)), "review.md")}\n`
-      + "To review the corrected article, `open` a new run on it.");
+    fail(
+      `this run is closed. The reviewed Draft was written to ${run0.reviewed_draft}, and ` +
+        `${resolve(draftPath)} was restored to the Draft that was reviewed. Running \`close\` again ` +
+        "would copy that restored original over the reviewed Draft.\n" +
+        `  record  ${join(dirname(resolve(draftPath)), "review.md")}\n` +
+        "To review the corrected article, `open` a new run on it.",
+    );
   }
   const draft = readDraft(draftPath);
   const run = run0;
@@ -740,13 +883,17 @@ export function cmdClose(args) {
     // would send a reviewer who has already compared back to the act they just
     // performed.
     if (run.join_state) {
-      fail(`the join has run and is UNFILLED — ${run.join_state}. \`close\` writes the owner `
-        + "record, and a record written over unanswered pairs would render them as no findings, "
-        + "which reads as a clean review. Answer the join Packets under the workspace's `join/` "
-        + "directory and record them with `<verdicts.json> | compare --draft <draft.md>`.");
+      fail(
+        `the join has run and is UNFILLED — ${run.join_state}. \`close\` writes the owner ` +
+          "record, and a record written over unanswered pairs would render them as no findings, " +
+          "which reads as a clean review. Answer the join Packets under the workspace's `join/` " +
+          "directory and record them with `<verdicts.json> | compare --draft <draft.md>`.",
+      );
     }
-    fail("`close` is reachable from `compare` with zero fails, or from `check` in every state — "
-      + "and neither has run. Run `compare --draft <draft.md>` first.");
+    fail(
+      "`close` is reachable from `compare` with zero fails, or from `check` in every state — " +
+        "and neither has run. Run `compare --draft <draft.md>` first.",
+    );
   }
   // ONLY A **PRESERVED** ITEM'S FAIL WITHHOLDS `close` (kogaki#872). The item
   // table makes the class the CONSEQUENCE: a preserved fail sends its Leg to
@@ -761,10 +908,12 @@ export function cmdClose(args) {
   // LEG item is now the whole of what withholds this record.
   const fails = (run.findings || []).filter((f) => f.verdict === "fails" && f.class === "preserved");
   if (fails.length && !run.checked_at) {
-    fail(`the join found ${fails.length} failing PRESERVED item(s), so \`close\` is reachable only `
-      + "through `check` — pass two is what turns a failing preserved item into a correction or into "
-      + `residue. A best-effort fail does not withhold the record; it rides along. Failing: `
-      + `${fails.map((f) => `${f.leg_id}/${f.item}`).join(", ")}`);
+    fail(
+      `the join found ${fails.length} failing PRESERVED item(s), so \`close\` is reachable only ` +
+        "through `check` — pass two is what turns a failing preserved item into a correction or into " +
+        `residue. A best-effort fail does not withhold the record; it rides along. Failing: ` +
+        `${fails.map((f) => `${f.leg_id}/${f.item}`).join(", ")}`,
+    );
   }
 
   const out = join(dirname(resolve(draftPath)), "review.md");
@@ -776,10 +925,12 @@ export function cmdClose(args) {
   // true report rather than a missing file the reader has to interpret.
   const firstSnapshot = (run.corrections || [])[0]?.snapshot_before ?? null;
   if (firstSnapshot && !existsSync(firstSnapshot)) {
-    fail(`the first correction's snapshot is gone — ${firstSnapshot}. It is the Draft this run `
-      + `reviewed, and \`close\` restores ${resolve(draftPath)} from it. Without it the reviewed `
-      + "article and the reviewed Draft cannot both be produced, so this refuses rather than "
-      + "leaving the corrected article at the path the record calls the original.");
+    fail(
+      `the first correction's snapshot is gone — ${firstSnapshot}. It is the Draft this run ` +
+        `reviewed, and \`close\` restores ${resolve(draftPath)} from it. Without it the reviewed ` +
+        "article and the reviewed Draft cannot both be produced, so this refuses rather than " +
+        "leaving the corrected article at the path the record calls the original.",
+    );
   }
   const now = new Date().toISOString();
   const lines = [
@@ -795,17 +946,17 @@ export function cmdClose(args) {
     // BOTH FILES ARE NAMED (kogaki#994). The record's reader is looking for
     // the review's product, and a record naming only the path it restored
     // would send them to the article the review started from.
-    `- **Draft reviewed.** \`${relative(dirname(out), resolve(draftPath)) || basename(draftPath)}\``
-      + " — restored to the article this run read, byte for byte.",
-    `- **Reviewed Draft.** \`${relative(dirname(out), reviewedPath) || REVIEWED_BASENAME}\``
-      + (firstSnapshot
-        ? ` — the article with this run's ${run.corrections.length} correction(s) in it`
+    `- **Draft reviewed.** \`${relative(dirname(out), resolve(draftPath)) || basename(draftPath)}\`` +
+      " — restored to the article this run read, byte for byte.",
+    `- **Reviewed Draft.** \`${relative(dirname(out), reviewedPath) || REVIEWED_BASENAME}\`` +
+      (firstSnapshot
+        ? ` — the article with this run's ${run.corrections.length} correction(s) in it` +
           // A RESTORED LEG'S CORRECTION IS NOT IN IT (kogaki#1135), and the
           // count above is of corrections MADE. Saying only the count would
           // describe a document that does not exist.
-          + ((run.restores || []).length
-            ? `, less the ${run.restores.length} undone by pass two `
-              + `(${run.restores.map((r) => r.leg_id).join(", ")}).`
+          ((run.restores || []).length
+            ? `, less the ${run.restores.length} undone by pass two ` +
+              `(${run.restores.map((r) => r.leg_id).join(", ")}).`
             : ".")
         : " — no correction was made, so it is byte-identical to the Draft above."),
     `- **Body sha.** \`${run.body_sha}\``,
@@ -835,9 +986,10 @@ export function cmdClose(args) {
     "",
   ];
   if (!run.findings.length) {
-    lines.push(run.join_state
-      ? `_None recorded — ${run.join_state}. This is an unfilled join, not a clean review._`
-      : "_None._", "");
+    lines.push(
+      run.join_state ? `_None recorded — ${run.join_state}. This is an unfilled join, not a clean review._` : "_None._",
+      "",
+    );
   } else {
     // EVERY FINDING CARRIES ITS CLASS, because the class is the consequence:
     // a preserved item's `fails` sends the Leg to correction and a
@@ -866,9 +1018,12 @@ export function cmdClose(args) {
 
   lines.push("## Corrections", "");
   if (!run.corrections.length) {
-    lines.push(run.checked_at
-      ? "_None made — pass two ran over the mechanical items and carried the rest._"
-      : "_None — `correct` is the act that makes one, and it has not run._", "");
+    lines.push(
+      run.checked_at
+        ? "_None made — pass two ran over the mechanical items and carried the rest._"
+        : "_None — `correct` is the act that makes one, and it has not run._",
+      "",
+    );
   } else {
     for (const c of run.corrections) {
       lines.push(`- **${c.leg_id}** (pass ${c.pass}) — ${c.what}`);
@@ -879,22 +1034,32 @@ export function cmdClose(args) {
       // reading here is what happened to this Leg, and a correction whose
       // effect was removed is not a correction the article carries.
       for (const r of (run.restores || []).filter((x) => x.leg_id === c.leg_id)) {
-        lines.push(`  - **RESTORED in pass two.** ${r.what}. The corrected prose is not in the `
-          + "article; this Leg carries the prose it carried in pass one.");
+        lines.push(
+          `  - **RESTORED in pass two.** ${r.what}. The corrected prose is not in the ` +
+            "article; this Leg carries the prose it carried in pass one.",
+        );
         for (const g of r.regressed) {
-          lines.push(`    - \`${g.item}\`${g.pair === null || g.pair === undefined ? "" : ` pair ${g.pair}`}`
-            + ` — held in pass one, failed in pass two: ${g.reason}`);
+          lines.push(
+            `    - \`${g.item}\`${g.pair === null || g.pair === undefined ? "" : ` pair ${g.pair}`}` +
+              ` — held in pass one, failed in pass two: ${g.reason}`,
+          );
         }
-        lines.push(`    - before: \`${relative(dirname(out), r.snapshot_before) || r.snapshot_before}\``,
-          `    - after: \`${relative(dirname(out), r.snapshot_after) || r.snapshot_after}\``);
+        lines.push(
+          `    - before: \`${relative(dirname(out), r.snapshot_before) || r.snapshot_before}\``,
+          `    - after: \`${relative(dirname(out), r.snapshot_after) || r.snapshot_after}\``,
+        );
       }
     }
     lines.push("");
   }
 
-  lines.push("## Residue", "",
+  lines.push(
+    "## Residue",
+    "",
     "Each line is an item that survived every pass this run made. Fill",
-    "`classified:` with `packet` or `reviewdraft`.", "");
+    "`classified:` with `packet` or `reviewdraft`.",
+    "",
+  );
   if (!run.residue.length) {
     lines.push("_None._", "");
   } else {
@@ -928,9 +1093,10 @@ export function cmdClose(args) {
   run.closed_at = now;
   writeRun(ws, run);
   process.stdout.write(
-    `review record:  ${out}\n`
-    + `reviewed Draft: ${reviewedPath}\n`
-    + (firstSnapshot
-      ? `restored:       ${resolve(draftPath)} — the Draft this run reviewed, from ${firstSnapshot}\n`
-      : `unchanged:      ${resolve(draftPath)} — no correction was made\n`));
+    `review record:  ${out}\n` +
+      `reviewed Draft: ${reviewedPath}\n` +
+      (firstSnapshot
+        ? `restored:       ${resolve(draftPath)} — the Draft this run reviewed, from ${firstSnapshot}\n`
+        : `unchanged:      ${resolve(draftPath)} — no correction was made\n`),
+  );
 }

@@ -28,14 +28,17 @@ export async function loadSiteRetry(declared) {
   const mod = await import(pathToFileURL(resolve(REPO, modulePath)).href);
   const [sitePrompt, siteAccept, suffixPrompt, suffixAccept] = SITE_EXPORTS.map((k) => {
     const fn = mod[String(declared[k])];
-    if (typeof fn !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared[k])}.`);
+    if (typeof fn !== "function")
+      throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared[k])}.`);
     return fn;
   });
   const inputs = declared.inputs || {};
-  const recordArray = typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "waypoints";
+  const recordArray =
+    typeof declared.record_array === "string" && declared.record_array ? declared.record_array : "waypoints";
   // kogaki#1649: an optional `mark_export` marks the passing record with the judge refusals that forced it.
   const mark = declared.mark_export ? mod[String(declared.mark_export)] : null;
-  if (declared.mark_export && typeof mark !== "function") throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.mark_export)}.`);
+  if (declared.mark_export && typeof mark !== "function")
+    throw new Error(`${modulePath} exports no function named ${JSON.stringify(declared.mark_export)}.`);
   return {
     legRevisions,
     recordArray,
@@ -120,8 +123,11 @@ export class SiteLoop {
   // The site's first refusal and its last, so the stop names why it was opened and where it ended.
   spentRefusal(n, what, why) {
     const first = (this.at(n)[0] || {}).refusal;
-    return { refused: `${this.h.siteLabel || "Waypoint"} ${n}: ${what} (kogaki#1642); `
-      + `${first && first !== why ? `the first refusal: ${first}; ` : ""}the last refusal: ${why}` };
+    return {
+      refused:
+        `${this.h.siteLabel || "Waypoint"} ${n}: ${what} (kogaki#1642); ` +
+        `${first && first !== why ? `the first refusal: ${first}; ` : ""}the last refusal: ${why}`,
+    };
   }
 
   // THE NEXT ACT: the lowest site still refused, or with none, a judgment of every
@@ -132,7 +138,9 @@ export class SiteLoop {
       const why = this.whole;
       this.whole = null;
       if (this.retries >= this.h.legRevisions) {
-        return { refused: `every ${this.h.siteLabel || "Waypoint"}: the Leg's ${this.h.legRevisions} site retries are spent (kogaki#1642, kogaki#1777); the last refusal: ${why}` };
+        return {
+          refused: `every ${this.h.siteLabel || "Waypoint"}: the Leg's ${this.h.legRevisions} site retries are spent (kogaki#1642, kogaki#1777); the last refusal: ${why}`,
+        };
       }
       this.retries += 1;
       this.verdicts.clear();
@@ -143,15 +151,18 @@ export class SiteLoop {
       const total = this.entries().length;
       const judge = [];
       for (let n = 1; n <= total; n++) if (!this.verdicts.has(n)) judge.push(n);
-      if (!judge.length) return { done: this.h.mark ? this.h.mark(this.standing, this.history, this.unitId) : this.standing };
+      if (!judge.length)
+        return { done: this.h.mark ? this.h.mark(this.standing, this.history, this.unitId) : this.standing };
       const joinOnly = judge.map((n) => n + 1).filter((m) => m <= total && !judge.includes(m));
       this.call = { kind: "judge", scope: { judge, join_only: joinOnly } };
       return this.call;
     }
     const n = Math.min(...this.pending.keys());
     const why = this.pending.get(n);
-    if (this.spent.get(n) >= this.unitRounds) return this.spentRefusal(n, `its ${this.unitRounds} rounds are spent`, why);
-    if (this.retries >= this.h.legRevisions) return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, why);
+    if (this.spent.get(n) >= this.unitRounds)
+      return this.spentRefusal(n, `its ${this.unitRounds} rounds are spent`, why);
+    if (this.retries >= this.h.legRevisions)
+      return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, why);
     this.spent.set(n, this.spent.get(n) + 1);
     this.retries += 1;
     const ctx = { standing: this.standing, site: n, retry: this.spent.get(n) - 1, history: this.at(n) };
@@ -186,7 +197,11 @@ export class SiteLoop {
       for (const m of [...this.pending.keys()]) if (m >= r.suffixFrom) this.pending.delete(m);
       return this.suffix(r.suffixFrom, []);
     }
-    if (r.sites) this.refuse(r.sites.map((s) => ({ site: s.site, refusal: s.why })), false);
+    if (r.sites)
+      this.refuse(
+        r.sites.map((s) => ({ site: s.site, refusal: s.why })),
+        false,
+      );
     return this.next();
   }
 
@@ -196,7 +211,11 @@ export class SiteLoop {
       this.log.push(r.error);
       if (!failText) this.raised.push({ text: r.error, sites: [c.ctx.from] });
       if (this.retries >= this.h.legRevisions) {
-        return this.spentRefusal(c.ctx.from, `the Leg's ${this.h.legRevisions} site retries are spent while the entries from it were composed again`, r.error);
+        return this.spentRefusal(
+          c.ctx.from,
+          `the Leg's ${this.h.legRevisions} site retries are spent while the entries from it were composed again`,
+          r.error,
+        );
       }
       this.retries += 1;
       return this.suffix(c.ctx.from, [...c.ctx.history, { answer: answer ?? null, refusal: r.error }]);
@@ -213,7 +232,8 @@ export class SiteLoop {
     if (failText) {
       this.log.push(failText);
       const n = c.scope.judge[0];
-      if (this.retries >= this.h.legRevisions) return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, failText);
+      if (this.retries >= this.h.legRevisions)
+        return this.spentRefusal(n, `the Leg's ${this.h.legRevisions} site retries are spent`, failText);
       this.retries += 1;
       return c;
     }

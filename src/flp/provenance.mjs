@@ -26,11 +26,16 @@ const cache = new Map();
 // Every record under `corpusDir`: `extractions.json` under an `extract/<run>/` or an `extractor-run-*/` directory.
 function recordPaths(dir, out = []) {
   let entries;
-  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
   for (const e of entries) {
     const p = join(dir, e.name);
     if (e.isDirectory()) recordPaths(p, out);
-    else if (e.name === RECORD_FILE && (/^extractor-run-/.test(basename(dir)) || basename(dirname(dir)) === "extract")) out.push(p);
+    else if (e.name === RECORD_FILE && (/^extractor-run-/.test(basename(dir)) || basename(dirname(dir)) === "extract"))
+      out.push(p);
   }
   return out;
 }
@@ -41,7 +46,11 @@ const moveIdOf = (written) => basename(String(written)).replace(/\.(yaml|yml|md)
 // `paragraphs` count) is split along `written` in order, one record per leg.
 function recordsIn(path) {
   let doc;
-  try { doc = JSON.parse(readFileSync(path, "utf8")); } catch { return []; }
+  try {
+    doc = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return [];
+  }
   const written = Array.isArray(doc && doc.written) ? doc.written : [];
   if (doc && typeof doc.passage === "string") return [{ passage: doc.passage, leg: doc.leg ?? null, written }];
   if (!doc || !Array.isArray(doc.legs)) return [];
@@ -91,8 +100,15 @@ export function passageParagraphs(text) {
   const spans = [];
   let open = null;
   for (let i = from; i < to; i++) {
-    if (lines[i].trim() === "") { if (open) { spans.push(open); open = null; } continue; }
-    if (!open) open = { first: i + 1, last: i + 1 }; else open.last = i + 1;
+    if (lines[i].trim() === "") {
+      if (open) {
+        spans.push(open);
+        open = null;
+      }
+      continue;
+    }
+    if (!open) open = { first: i + 1, last: i + 1 };
+    else open.last = i + 1;
   }
   if (open) spans.push(open);
   return spans;
@@ -107,8 +123,16 @@ export function movePassage(moveId, { corpusDir = resolve(REPO, "corpus") } = {}
   const hit = hits[0];
   const legsFile = join(resolve(corpusDir), LEGS_DIR, `${hit.passage}.md`);
   const file = existsSync(legsFile) ? legsFile : hit.leg && existsSync(hit.leg) ? hit.leg : null;
-  if (!file) return { passage: hit.passage, paragraph: hit.paragraph, record: hit.record, file: null, line: null, span: null };
+  if (!file)
+    return { passage: hit.passage, paragraph: hit.paragraph, record: hit.record, file: null, line: null, span: null };
   const spans = passageParagraphs(readFileSync(file, "utf8"));
   const span = spans[hit.paragraph - 1] || null;
-  return { passage: hit.passage, paragraph: hit.paragraph, record: hit.record, file, line: span ? span.first : null, span };
+  return {
+    passage: hit.passage,
+    paragraph: hit.paragraph,
+    record: hit.record,
+    file,
+    line: span ? span.first : null,
+    span,
+  };
 }

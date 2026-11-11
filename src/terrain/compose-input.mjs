@@ -9,19 +9,33 @@ import { loadGrammar } from "../format-guard.mjs";
 import { laneDir } from "../runs.mjs";
 import { NO_CLAIM, cotagGroups, emitOrRefuse } from "./cotags.mjs";
 import {
-  neighborhoodDisplaySet, neighborhoodForTargets, neighborhoodSection, orFail,
-  readNeighborhoodJudgments, refuseTargetsOutsideCandidates,
+  neighborhoodDisplaySet,
+  neighborhoodForTargets,
+  neighborhoodSection,
+  orFail,
+  readNeighborhoodJudgments,
+  refuseTargetsOutsideCandidates,
 } from "./neighborhood.mjs";
 import {
-  NO_JUDGE, fetchGlossBodies, judgedEmptyNoticeLines, judgmentProvenance, provenanceOf,
-  readClaimsRecord, reportJudgeLine,
+  NO_JUDGE,
+  fetchGlossBodies,
+  judgedEmptyNoticeLines,
+  judgmentProvenance,
+  provenanceOf,
+  readClaimsRecord,
+  reportJudgeLine,
 } from "./report.mjs";
+import { SUBDIVISION_REQUIRED_AT, judgeSubgroup, resolveReportTargets, subgroupPlacement } from "./subdivide.mjs";
 import {
-  SUBDIVISION_REQUIRED_AT, judgeSubgroup, resolveReportTargets, subgroupPlacement,
-} from "./subdivide.mjs";
-import {
-  NEIGHBORHOOD_GLOSS_NAMESPACES, NO_DISPLAY_ID, SURVEY_SCHEMA, compareDisplayIds, denominator,
-  displayIdOf, familySplit, sectionFigure, strandFigure,
+  NEIGHBORHOOD_GLOSS_NAMESPACES,
+  NO_DISPLAY_ID,
+  SURVEY_SCHEMA,
+  compareDisplayIds,
+  denominator,
+  displayIdOf,
+  familySplit,
+  sectionFigure,
+  strandFigure,
 } from "./survey.mjs";
 import { WRITING_STATE } from "../workflow/executor.mjs";
 import { COMPOSITION_INPUT_BOUND, composeInput } from "../workflow/judge.mjs";
@@ -33,7 +47,10 @@ export function cmdComposeInput(args) {
   const record = readJson(String(args.survey || fail("compose-input needs --survey <file>")));
   const tag = String(args.tag || fail("compose-input needs --tag <selected tag>"));
   const members = record.candidates.filter((c) => (c.tags || []).includes(tag));
-  if (members.length === 0) fail(`no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`);
+  if (members.length === 0)
+    fail(
+      `no candidate carries the served tag ${JSON.stringify(tag)} — nothing is hidden here, the tag is simply not in the survey's vocabulary`,
+    );
   const groups = cotagGroups(members, tag);
 
   // Memoized per kind, so the "fetched once for the run" half of the rendering rule's bound is
@@ -57,15 +74,32 @@ export function cmdComposeInput(args) {
   const a = input.accounting;
   console.log(`Composition input (bounded): ${out}`);
   console.log(`Bound: ${COMPOSITION_INPUT_BOUND}.`);
-  console.log(`Reads: ${a.shard_fetches} served-material fetch(es) for ${a.candidates} candidate(s) across ${a.placements} placement(s) in ${input.groups.length} group(s) — the read count is bounded by the CANDIDATES and does not grow with the placements.`);
-  console.log(`${denominator(a.candidates, record.candidates.length)} carry ${tag}; ${strandFigure(familySplit(members.map((c) => c.id), record.candidates))}.`);
+  console.log(
+    `Reads: ${a.shard_fetches} served-material fetch(es) for ${a.candidates} candidate(s) across ${a.placements} placement(s) in ${input.groups.length} group(s) — the read count is bounded by the CANDIDATES and does not grow with the placements.`,
+  );
+  console.log(
+    `${denominator(a.candidates, record.candidates.length)} carry ${tag}; ${strandFigure(
+      familySplit(
+        members.map((c) => c.id),
+        record.candidates,
+      ),
+    )}.`,
+  );
   if (a.abnormal) {
-    console.log(`ABNORMAL: ${a.abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md, the rendering rule).`);
+    console.log(
+      `ABNORMAL: ${a.abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md, the rendering rule).`,
+    );
   }
-  console.log(`Compose EVERY GroupClaim and EVERY SubGroupClaim from this one artifact: \`material\` is keyed by member id and \`groups\` carry ids only, so a member in several groups is read once, and no group has per-group material to re-read.`);
-  console.log(`Classification: REPORT (SPEC.md, the second-proposer boundary) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges nothing: the claim wording stays the composer's (GroupClaim-first rendering) and the coherence label the judge's (semantic subdivision).`);
+  console.log(
+    `Compose EVERY GroupClaim and EVERY SubGroupClaim from this one artifact: \`material\` is keyed by member id and \`groups\` carry ids only, so a member in several groups is read once, and no group has per-group material to re-read.`,
+  );
+  console.log(
+    `Classification: REPORT (SPEC.md, the second-proposer boundary) — it ranks nothing, narrows nothing and hides nothing. It composes no claim and judges nothing: the claim wording stays the composer's (GroupClaim-first rendering) and the coherence label the judge's (semantic subdivision).`,
+  );
   console.log(`Machine-local run workspace, never committed (founding spec rider 3).`);
-  console.log(`\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`);
+  console.log(
+    `\nNext: cotags --survey ${String(args.survey)} --tag ${tag} --claims <F> [--subdivisions <F> --judge-model M --judge-effort E]`,
+  );
   return composedInputPath;
 }
 
@@ -80,8 +114,7 @@ export function cmdComposeInput(args) {
 // to know WHERE the record store is must not create it, and a fixture case
 // asserting the default must not leave a directory behind in the tree.
 function reportsDestination(args) {
-  return args["report-dir"] || process.env.KOGAKI_RUN_DIR
-    || join(laneDir("terrain"), "reports");
+  return args["report-dir"] || process.env.KOGAKI_RUN_DIR || join(laneDir("terrain"), "reports");
 }
 
 function reportsDir(args) {
@@ -109,9 +142,11 @@ function retireLegacyReportsDir() {
   if (!existsSync(legacy)) return;
   const n = readdirSync(legacy).length;
   rmSync(legacy, { recursive: true, force: true });
-  console.log(`retired the invalid reports location (kogaki#234): removed ${n} regenerable `
-    + "report(s) from the machine-local directory the owner ruling struck. Reports are "
-    + "idempotent (SPEC-terrain, the report identity) — rerun to regenerate at the new locations.");
+  console.log(
+    `retired the invalid reports location (kogaki#234): removed ${n} regenerable ` +
+      "report(s) from the machine-local directory the owner ruling struck. Reports are " +
+      "idempotent (SPEC-terrain, the report identity) — rerun to regenerate at the new locations.",
+  );
 }
 
 // Where the OWNER RENDERING lives (location and naming v11, kogaki#234; `specs/SPEC.md`,
@@ -120,8 +155,7 @@ function retireLegacyReportsDir() {
 // Resolution is PURE (PR #702 round 1): `renderingsDir` also mkdirs and retires owner-tree files,
 // so a guard must call this, never `renderingsDir`, to learn where a write would land.
 function renderingDestination(args) {
-  return args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR
-    || join(repoRoot(), "reports");
+  return args["rendering-dir"] || process.env.KOGAKI_REPORTS_DIR || join(repoRoot(), "reports");
 }
 
 function renderingsDir(args) {
@@ -136,13 +170,14 @@ function renderingsDir(args) {
 // one line saying so (as `retireLegacyReportsDir`: never silently); a rerun regenerates it.
 // EXPORTED so the retirement is asserted seam-free (PR #436 round 1, finding 4).
 function retireIdentityNamedRenderings(dir) {
-  const stale = readdirSync(dir)
-    .filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
+  const stale = readdirSync(dir).filter((f) => f.startsWith("terrain-full-report-") && f.endsWith(".md"));
   if (!stale.length) return;
   for (const f of stale) rmSync(join(dir, f), { force: true });
-  console.log(`retired ${stale.length} identity-named rendering(s) (SPEC-terrain, location and naming v12): `
-    + "the tree holds ONE owner rendering, FullReport.md — identity lives in the machine "
-    + "record, and reports are idempotently regenerable (the report identity).");
+  console.log(
+    `retired ${stale.length} identity-named rendering(s) (SPEC-terrain, location and naming v12): ` +
+      "the tree holds ONE owner rendering, FullReport.md — identity lives in the machine " +
+      "record, and reports are idempotently regenerable (the report identity).",
+  );
 }
 
 // THE OWNER SURFACE'S ARTIFACT LINES, IN ONE PLACE (no-hidden-path rule; location and naming v11).
@@ -150,9 +185,13 @@ function retireIdentityNamedRenderings(dir) {
 // artifact lines inline on one branch (PR #240 round 1 finding 2).
 function announceArtifacts(rendered, recordPath) {
   if (rendered) {
-    console.log(`Full Report — READ THIS ONE (owner rendering, SPEC.md, location and naming): ${relFromRepo(rendered)}`);
-    console.log("ONE rendering file, overwritten per pull (SPEC-terrain, location and naming v12) — identity "
-      + "and coexistence live in the machine record, never in the tree.");
+    console.log(
+      `Full Report — READ THIS ONE (owner rendering, SPEC.md, location and naming): ${relFromRepo(rendered)}`,
+    );
+    console.log(
+      "ONE rendering file, overwritten per pull (SPEC-terrain, location and naming v12) — identity " +
+        "and coexistence live in the machine record, never in the tree.",
+    );
   }
   // The record is machine-facing, so the owner surface names its FILENAME and
   // says where the class of thing lives; the full path is debugging output and
@@ -160,8 +199,10 @@ function announceArtifacts(rendered, recordPath) {
   if (process.env.KOGAKI_DEBUG) {
     console.log(`machine record (JSON, identity + idempotence; SPEC.md, the report identity): ${recordPath}`);
   } else {
-    console.log("machine record written (JSON, identity + idempotence; SPEC.md, the report identity) "
-      + `as ${basename(recordPath)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`);
+    console.log(
+      "machine record written (JSON, identity + idempotence; SPEC.md, the report identity) " +
+        `as ${basename(recordPath)} in the run workspace. Set KOGAKI_DEBUG=1 for its path.`,
+    );
   }
 }
 
@@ -179,10 +220,12 @@ function ownerRenderingLocation() {
 function refuseUnauthorizedOwnerWrite(dir, artifact) {
   if (WRITING_STATE !== null) return;
   if (resolve(dir) !== resolve(ownerRenderingLocation())) return;
-  fail(`${artifact} is an OWNER ARTIFACT and is written only from a writing state of the workflow table (SPEC-terrain, write authority, kogaki#681). `
-    + `This call reaches ${relFromRepo(resolve(dir))} from outside the executor, so it would land an owner surface belonging to no run record. `
-    + "Drive it through the executor — `run --run-dir <D> …` — which reaches the same renderer from the state the table binds it to. "
-    + "The composition itself is not refused: render into a run-scoped location and the write proceeds, because a rendering whose lifetime is the run is not an owner artifact.");
+  fail(
+    `${artifact} is an OWNER ARTIFACT and is written only from a writing state of the workflow table (SPEC-terrain, write authority, kogaki#681). ` +
+      `This call reaches ${relFromRepo(resolve(dir))} from outside the executor, so it would land an owner surface belonging to no run record. ` +
+      "Drive it through the executor — `run --run-dir <D> …` — which reaches the same renderer from the state the table binds it to. " +
+      "The composition itself is not refused: render into a run-scoped location and the write proceeds, because a rendering whose lifetime is the run is not an owner artifact.",
+  );
 }
 
 function writeDisplay(args, text) {
@@ -251,7 +294,9 @@ function thesisCandidatesSection(candidates) {
     // that reader fixed. A candidate arriving here without one is a caller that
     // bypassed the reader, and re-minting from the index would silently paper
     // over exactly the ordering question the move exists to settle.
-    L.push(`- ${c.id || fail("a Thesis candidate reached the Thesis candidates section with no minted id. Ids are fixed by readThesisCandidates before J3_neighborhood judges (kogaki#861); a candidate composed past that reader has an id nothing checked a neighborhood target against.")} — ${c.claim}`);
+    L.push(
+      `- ${c.id || fail("a Thesis candidate reached the Thesis candidates section with no minted id. Ids are fixed by readThesisCandidates before J3_neighborhood judges (kogaki#861); a candidate composed past that reader has an id nothing checked a neighborhood target against.")} — ${c.claim}`,
+    );
     L.push(`  strands: ${c.strands.join(", ")}`);
   });
   L.push("");
@@ -262,8 +307,7 @@ function thesisCandidatesSection(candidates) {
 // A record stored before kogaki#861 carries thesis candidates with no `id`; such a record is
 // RECOMPUTED (the reader mints the ids), never replayed into `thesisCandidatesSection`.
 function priorPredatesCandidateIds(prior) {
-  return Array.isArray(prior && prior.thesis_candidates)
-    && prior.thesis_candidates.some((c) => !c || !c.id);
+  return Array.isArray(prior && prior.thesis_candidates) && prior.thesis_candidates.some((c) => !c || !c.id);
 }
 
 // THE WHOLE REPLAY DECISION lives here, and `cmdReport` asks it rather than composing it, so a
@@ -271,11 +315,8 @@ function priorPredatesCandidateIds(prior) {
 // Rule: a stored record that cannot be shown idempotent is RECOMPUTED — never replayed, never
 // refused.
 function shouldReplayPrior(prior, identity, sameIdentityFn = sameIdentity) {
-  const predatesJudgmentKey = !!(prior && prior.identity
-    && prior.identity.neighborhood_judgment === undefined);
-  return sameIdentityFn(prior && prior.identity, identity)
-    && !predatesJudgmentKey
-    && !priorPredatesCandidateIds(prior);
+  const predatesJudgmentKey = !!(prior && prior.identity && prior.identity.neighborhood_judgment === undefined);
+  return sameIdentityFn(prior && prior.identity, identity) && !predatesJudgmentKey && !priorPredatesCandidateIds(prior);
 }
 
 function renderReportMarkdown(report, tag) {
@@ -394,7 +435,10 @@ function servedLinesBlock(report) {
     const key = m.display_id || m.id || String(rows.length);
     if (seen.has(key)) return;
     seen.add(key);
-    rows.push([m.display_id || NO_DISPLAY_ID, bareCite(m.cite) || "⟨no served line recorded — ABNORMAL, never substituted⟩"]);
+    rows.push([
+      m.display_id || NO_DISPLAY_ID,
+      bareCite(m.cite) || "⟨no served line recorded — ABNORMAL, never substituted⟩",
+    ]);
   };
   // MERGED ACROSS SECTIONS AND DEDUPED (the Full Report v7, kogaki#314). The map is sited
   // ONCE for the file, so a member entered under both `G5` and `G5-1` appears
@@ -453,16 +497,27 @@ function memberBlock(m, level) {
   // location and naming v11, widened at kogaki#741), which is where a reader who needs the address goes. The Gloss cite
   // rows below are a different thing — they address the served GLOSS rendering
   // rather than naming the element — and they stay.
-  L.push(m.gloss_cite ? `**Lesson Gloss** — \`${bareCite(m.gloss_cite)}\`` : "**Lesson Gloss** — *no served cite recorded*");
+  L.push(
+    m.gloss_cite ? `**Lesson Gloss** — \`${bareCite(m.gloss_cite)}\`` : "**Lesson Gloss** — *no served cite recorded*",
+  );
   L.push("");
-  L.push(m.gloss !== undefined && m.gloss !== null ? String(m.gloss)
-    : (m.claim !== undefined && m.claim !== null ? String(m.claim) : NO_GLOSS_BODY));
+  L.push(
+    m.gloss !== undefined && m.gloss !== null
+      ? String(m.gloss)
+      : m.claim !== undefined && m.claim !== null
+        ? String(m.claim)
+        : NO_GLOSS_BODY,
+  );
   L.push("");
   if (m.journey_gloss === undefined || m.journey_gloss === null) {
     L.push("**Journey Gloss** — *this member carries no Journey.*");
     L.push("");
   } else {
-    L.push(m.journey_cite ? `**Journey Gloss** — \`${bareCite(m.journey_cite)}\`` : "**Journey Gloss** — *no served cite recorded*");
+    L.push(
+      m.journey_cite
+        ? `**Journey Gloss** — \`${bareCite(m.journey_cite)}\``
+        : "**Journey Gloss** — *no served cite recorded*",
+    );
     L.push("");
     L.push(String(m.journey_gloss));
     L.push("");
@@ -500,7 +555,8 @@ function reportIdentity(pin, tag, ids, judgePin, neighborhoodJudgment) {
 function identityDigest(identity) {
   return createHash("sha256")
     .update(JSON.stringify(reportIdentityKey(identity)))
-    .digest("hex").slice(0, 16);
+    .digest("hex")
+    .slice(0, 16);
 }
 
 // THE COMPOSED-INPUT DIGEST (the report identity, kogaki#700). Composed inputs are RECORDED,
@@ -516,7 +572,10 @@ function composedInputDigests(args) {
   for (const flag of COMPOSED_INPUT_FLAGS) {
     const path = args[flag];
     out[flag] = path
-      ? createHash("sha256").update(readFileSync(String(path))).digest("hex").slice(0, 16)
+      ? createHash("sha256")
+          .update(readFileSync(String(path)))
+          .digest("hex")
+          .slice(0, 16)
       : NO_JUDGE;
   }
   return out;
@@ -540,7 +599,10 @@ function sameIdentity(a, b) {
   return JSON.stringify(reportIdentityKey(a)) === JSON.stringify(reportIdentityKey(b));
 }
 function reportIdentityKey(i) {
-  return [i.pin, i.query.tag, i.query.ids,
+  return [
+    i.pin,
+    i.query.tag,
+    i.query.ids,
     // THE BINARY IS IN THE KEY (kogaki#1076 item 3), and that is the whole point
     // of putting it on the pin: two runs with equal model and effort had run
     // different executables, and an identity that cannot tell them apart is the
@@ -548,14 +610,18 @@ function reportIdentityKey(i) {
     // field existed carries `undefined` and keys as `NO_JUDGE`, which is what it
     // meant -- no binary entered its identity -- on the fourth component's own
     // precedent one line below.
-    i.judge_pin === NO_JUDGE ? NO_JUDGE
+    i.judge_pin === NO_JUDGE
+      ? NO_JUDGE
       : `${i.judge_pin.model_id}/${i.judge_pin.effort_tier}/${
-        i.judge_pin.binary_version === undefined || i.judge_pin.binary_version === null
-          ? NO_JUDGE : i.judge_pin.binary_version}`,
+          i.judge_pin.binary_version === undefined || i.judge_pin.binary_version === null
+            ? NO_JUDGE
+            : i.judge_pin.binary_version
+        }`,
     // the report identity's fourth component (kogaki#741). A record written before the field
     // existed carries `undefined` here and hashes as `NO_JUDGE`, which is what
     // it meant: no neighborhood judgment entered its identity.
-    i.neighborhood_judgment === undefined ? NO_JUDGE : i.neighborhood_judgment];
+    i.neighborhood_judgment === undefined ? NO_JUDGE : i.neighborhood_judgment,
+  ];
 }
 
 // THE ENTERED ID SET, RESOLVED AND CANONICALISED (the Full Report v6, kogaki#314).
@@ -570,7 +636,8 @@ function idSortKey(id) {
 
 function canonicalIds(ids) {
   return [...new Set(ids)].sort((a, b) => {
-    const ka = idSortKey(a), kb = idSortKey(b);
+    const ka = idSortKey(a),
+      kb = idSortKey(b);
     return ka[0] - kb[0] || ka[1] - kb[1] || String(ka[2]).localeCompare(String(kb[2]));
   });
 }
@@ -603,9 +670,11 @@ export function resolveEnteredIds(entered, groups, subOf) {
   if (missing.length) {
     // AC5 — a refusal that does not say what WAS available sends the owner
     // back to re-read a display they already read.
-    fail(`report --ids names ${missing.join(", ")}, which resolve to no Group or SubGroup on this display. `
-      + `The ids that do resolve are: ${canonicalIds(known).join(", ")}. `
-      + "Ids are valid for the run that printed them (story 1.56 AC11): a pin advance may renumber, so re-read the display rather than reusing an older list.");
+    fail(
+      `report --ids names ${missing.join(", ")}, which resolve to no Group or SubGroup on this display. ` +
+        `The ids that do resolve are: ${canonicalIds(known).join(", ")}. ` +
+        "Ids are valid for the run that printed them (story 1.56 AC11): a pin advance may renumber, so re-read the display rather than reusing an older list.",
+    );
   }
   return { canonical: canon, targets: canon.map((id) => byId.get(id)) };
 }
@@ -625,15 +694,21 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
   if (!Number.isFinite(want)) {
     // A bound the grammar does not carry cannot be evaluated, and guessing one
     // here would be this file inventing a number the owner sets.
-    fail("report-format.json declares no numeric `limits.thesis_candidates`, so the Thesis-candidate "
-      + "count cannot be evaluated; a count guessed in the runtime would be the runtime inventing the "
-      + "boundary the owner set");
+    fail(
+      "report-format.json declares no numeric `limits.thesis_candidates`, so the Thesis-candidate " +
+        "count cannot be evaluated; a count guessed in the runtime would be the runtime inventing the " +
+        "boundary the owner set",
+    );
   }
   if (raw.length !== want) {
-    fail(`--thesis-candidates carries ${raw.length} candidate(s) and \`limits.thesis_candidates\` is ${want}. `
-      + "The count is EXACT rather than a maximum (SPEC.md, the Thesis candidates): a section whose length varies run to run "
-      + "cannot be read as a fixed early image. Compose exactly " + want + ", or amend the limit in "
-      + "src/report-format.json on its own licensing issue.");
+    fail(
+      `--thesis-candidates carries ${raw.length} candidate(s) and \`limits.thesis_candidates\` is ${want}. ` +
+        "The count is EXACT rather than a maximum (SPEC.md, the Thesis candidates): a section whose length varies run to run " +
+        "cannot be read as a fixed early image. Compose exactly " +
+        want +
+        ", or amend the limit in " +
+        "src/report-format.json on its own licensing issue.",
+    );
   }
   const members = new Set(memberDisplayIds);
   return raw.map((c, i) => {
@@ -649,26 +724,34 @@ export function readThesisCandidates(raw, memberDisplayIds, limits) {
       // One RENDERED line per claim: a newline would emit a line no class
       // admits, and the emit-time refusal would then report the surface rather
       // than the input that caused it.
-      fail(`${at}'s claim spans more than one line. The Thesis candidates renders one line per candidate, so a `
-        + "multi-line claim would emit a line no grammar class admits and the refusal would name the "
-        + "surface rather than this input.");
+      fail(
+        `${at}'s claim spans more than one line. The Thesis candidates renders one line per candidate, so a ` +
+          "multi-line claim would emit a line no grammar class admits and the refusal would name the " +
+          "surface rather than this input.",
+      );
     }
     const strands = c.strands;
     if (!Array.isArray(strands) || strands.length < 2 || strands.length > 8) {
-      fail(`${at} carries ${Array.isArray(strands) ? strands.length : "no"} strand(s); the Thesis candidates requires 2 to 8. `
-        + "One strand is not a combination and nine is not an early image.");
+      fail(
+        `${at} carries ${Array.isArray(strands) ? strands.length : "no"} strand(s); the Thesis candidates requires 2 to 8. ` +
+          "One strand is not a combination and nine is not an early image.",
+      );
     }
     const unknown = strands.filter((x) => !members.has(x));
     if (unknown.length) {
-      fail(`${at} names ${unknown.join(", ")}, which ${unknown.length === 1 ? "is" : "are"} not a member of THIS report. `
-        + `The display ids this report carries are: ${[...members].join(", ")}. `
-        + "A candidate may only combine Strands the owner is reading in this file (SPEC.md, the Thesis candidates) — an id that "
-        + "resolves elsewhere in the survey record is still refused here.");
+      fail(
+        `${at} names ${unknown.join(", ")}, which ${unknown.length === 1 ? "is" : "are"} not a member of THIS report. ` +
+          `The display ids this report carries are: ${[...members].join(", ")}. ` +
+          "A candidate may only combine Strands the owner is reading in this file (SPEC.md, the Thesis candidates) — an id that " +
+          "resolves elsewhere in the survey record is still refused here.",
+      );
     }
     const dup = strands.filter((x, j) => strands.indexOf(x) !== j);
     if (dup.length) {
-      fail(`${at} names ${[...new Set(dup)].join(", ")} more than once. A repeated strand inflates the `
-        + "combination without adding to it.");
+      fail(
+        `${at} names ${[...new Set(dup)].join(", ")} more than once. A repeated strand inflates the ` +
+          "combination without adding to it.",
+      );
     }
     // THE ID IS MINTED HERE, POSITIONALLY, BEFORE THE NEIGHBORHOOD IS JUDGED (kogaki#861, owner
     // ruling 2026-09-05): J3's targets are checked against this set, so it must be fixed first.
@@ -689,16 +772,28 @@ export function cmdReport(args) {
   // decision removes one argument away, on precisely the 11-group display that
   // filed the issue.
   if (args["all-groups"] !== undefined || args.group !== undefined) {
-    fail("report no longer takes --all-groups or --group. SPEC.md, the open questions v5 (kogaki#314) supersedes eager per-group generation: enter the Group/SubGroup IDs you want, e.g. `report --tag <T> --ids G10,G5-1,G5-2`, and ONE report covers exactly those.");
+    fail(
+      "report no longer takes --all-groups or --group. SPEC.md, the open questions v5 (kogaki#314) supersedes eager per-group generation: enter the Group/SubGroup IDs you want, e.g. `report --tag <T> --ids G10,G5-1,G5-2`, and ONE report covers exactly those.",
+    );
   }
-  const idsArg = String(args.ids || fail("report needs --ids <G/SG list>, e.g. --ids G10,G5-1 (SPEC.md, the Full Report v6: one report over the entered ID set)"));
-  const enteredIds = idsArg.split(",").map((x) => x.trim()).filter(Boolean);
+  const idsArg = String(
+    args.ids ||
+      fail(
+        "report needs --ids <G/SG list>, e.g. --ids G10,G5-1 (SPEC.md, the Full Report v6: one report over the entered ID set)",
+      ),
+  );
+  const enteredIds = idsArg
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
   if (enteredIds.length === 0) {
     // SQ3, answered: an empty set REFUSES rather than producing an empty
     // report. "The owner entered nothing" and "the owner wants a report of
     // nothing" are different, and the second is not a thing the Full Report can render —
     // a report with no material has no identity worth colliding on.
-    fail("report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the display.");
+    fail(
+      "report --ids was empty. An empty ID set is not a report of nothing: enter at least one Group or SubGroup ID from the display.",
+    );
   }
 
   const { groups, targets, resolved, subOf } = resolveReportTargets(record, tag, enteredIds, args);
@@ -709,8 +804,7 @@ export function cmdReport(args) {
   // one change. `report` does not re-run the subset check (that is the display's
   // gate, and it has already refused there) but it MUST read the same shape, or
   // a typed record would silently render every group's claim as absent.
-  const { claims } = readClaimsRecord(
-    args.claims ? readJson(String(args.claims)) : null, record);
+  const { claims } = readClaimsRecord(args.claims ? readJson(String(args.claims)) : null, record);
   // `subOf` comes back from the resolver rather than being rebuilt here: it
   // already parsed `--subdivisions` to resolve SubGroup ids, and a second parse
   // with a second closure is the duplication the extraction exists to remove
@@ -729,10 +823,12 @@ export function cmdReport(args) {
   const m = args["judge-model"];
   const e = args["judge-effort"];
   if (!m || !e) {
-    fail("--judge-model and --judge-effort are required for EVERY report invocation "
-      + "(SPEC.md, the report identity v9). A co-tag-generated Full Report may never mint a judge pin "
-      + "of `none`: judged-with-no-split and never-judged are different states, and a "
-      + "report carrying `none` is indistinguishable from a run that never asked");
+    fail(
+      "--judge-model and --judge-effort are required for EVERY report invocation " +
+        "(SPEC.md, the report identity v9). A co-tag-generated Full Report may never mint a judge pin " +
+        "of `none`: judged-with-no-split and never-judged are different states, and a " +
+        "report carrying `none` is indistinguishable from a run that never asked",
+    );
   }
   // THE PIN'S BINARY COMPONENT (kogaki#1076 item 3). PRESENT-AND-NULL where
   // nothing observed a binary, on `judge_pin`'s own uniform-arity ground: a
@@ -740,9 +836,12 @@ export function cmdReport(args) {
   // executable behind it to name. The executor's own path supplies it, which is
   // the path every judged surface this repository mints comes through.
   const suppliedJudge = {
-    model_id: String(m), effort_tier: String(e),
-    binary_version: args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
-      ? null : String(args["judge-binary-version"]),
+    model_id: String(m),
+    effort_tier: String(e),
+    binary_version:
+      args["judge-binary-version"] === undefined || args["judge-binary-version"] === null
+        ? null
+        : String(args["judge-binary-version"]),
   };
 
   // EVERY TARGET MUST BE JUDGED. An absent entry is `not judged`, and the
@@ -750,17 +849,18 @@ export function cmdReport(args) {
   // what the report identity v9 forbids.
   const unjudged = targetGroups.filter((g) => subOf(g) === null).map((g) => g.name);
   if (unjudged.length) {
-    fail(`--subdivisions carries no entry for ${unjudged.join(", ")}. On the co-tag path `
-      + `every group is judged (the SubGroup threshold), so a missing entry cannot be recorded: write `
-      + `{"judged": true, "subgroups": []} for a group whose judgment found no subdivision`);
+    fail(
+      `--subdivisions carries no entry for ${unjudged.join(", ")}. On the co-tag path ` +
+        `every group is judged (the SubGroup threshold), so a missing entry cannot be recorded: write ` +
+        `{"judged": true, "subgroups": []} for a group whose judgment found no subdivision`,
+    );
   }
 
   // the Thesis candidates (kogaki#760) — READ AND REFUSED HERE, before anything is written.
   // The member set is THIS report's rendered display ids, computed from the resolved targets.
   // Key on `t.kind` (the SubGroup is on `t.sg`), like the other readers of this shape (PR #763
   // round 1).
-  const reportMemberIds = [...new Set(
-    targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
+  const reportMemberIds = [...new Set(targets.flatMap((t) => (t.kind === "subgroup" ? t.sg.members : t.group.members)))]
     // `displayIdOf` returns the ABNORMAL sentinel rather than a falsy value
     // for a record predating the display-ID rule, so it is excluded by NAME. A `filter(Boolean)`
     // would keep it and the sentinel would then read as an admissible strand id.
@@ -768,7 +868,9 @@ export function cmdReport(args) {
     .filter((d) => d && d !== NO_DISPLAY_ID);
   const thesisCandidates = readThesisCandidates(
     args["thesis-candidates"] ? readJson(String(args["thesis-candidates"])) : null,
-    reportMemberIds, loadGrammar(REPORT_FORMAT).limits || {});
+    reportMemberIds,
+    loadGrammar(REPORT_FORMAT).limits || {},
+  );
 
   // One shard fetch for the whole invocation — tag-scoped and bounded (the rendering rule),
   // shared across every target group.
@@ -776,8 +878,11 @@ export function cmdReport(args) {
   const fetchBodies = () => {
     if (bodies) return bodies;
     const lessonBodies = fetchGlossBodies("lessons", tag);
-    const journeyBodies = targetGroups.some((g) => g.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey))
-      ? fetchGlossBodies("journeys", tag) : new Map();
+    const journeyBodies = targetGroups.some((g) =>
+      g.members.some((id) => (record.candidates.find((c) => c.id === id) || {}).journey),
+    )
+      ? fetchGlossBodies("journeys", tag)
+      : new Map();
     bodies = { lessonBodies, journeyBodies };
     return bodies;
   };
@@ -796,434 +901,499 @@ export function cmdReport(args) {
   return generateReport(targets);
 
   function generateReport(entered) {
-  // the Full Report v7 — ONE report over the entered set; one SECTION per entered id.
-  // The neighbourhood judgment is the FOURTH identity component (the report identity, kogaki#741),
-  // hashed from the record's file bytes, as `composedInputDigests` reads it.
-  // A missing record-joined judgment path refuses BY NAME here, ahead of the digest read
-  // (the neighborhood section's shape, kogaki#741 acceptance 2).
-  if (args.neighborhood && !existsSync(String(args.neighborhood))) {
-    fail(`the neighborhood judgment record this pull joins is gone: ${String(args.neighborhood)} `
-      + "does not exist. The run record names it, so J3_neighborhood ran and its file was removed "
-      + "afterwards. Re-enter J3_neighborhood rather than re-rendering — the neighborhood section's shape has no path to an "
-      + "unjudged neighborhood rendering, and joining nothing here would be one.");
-  }
-  const neighborhoodJudgmentDigest = args.neighborhood
-    ? createHash("sha256").update(readFileSync(String(args.neighborhood))).digest("hex").slice(0, 16)
-    : NO_JUDGE;
-  const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge,
-    neighborhoodJudgmentDigest);
-  // Computed BESIDE the identity and never inside it (the report identity, kogaki#700): the
-  // claims and subdivisions ride the record. The neighborhood judgment no
-  // longer does — it moved into the key above.
-  const composedInputs = composedInputDigests(args);
-  // WHAT THE HARNESS OBSERVED of the judgment this report is served on
-  // (kogaki#892). Recorded BESIDE the identity and never inside it, exactly as
-  // `composed_inputs` is: the identity's third component is the PIN, and a
-  // provenance folded into the key would make two runs over one record under
-  // one pin two different reports the moment a judge-invoking act existed.
-  const judgmentProv = judgmentProvenance(args.subdivisions ? String(args.subdivisions) : null);
-  const sectionsOut = [];
-  let abnormalTotal = 0;
-  const allMemberIds = [];
-
-  function buildSection(t) {
-  const group = t.group;
-  const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
-  const sub = subOf(group);
-  // Unconditional now: `sub` is non-null for every target (refused above), and
-  // NO_JUDGE is never minted here. It stays exported and valid in the identity
-  // triple — the report identity's uniform arity is untouched and `(pin, query, none)` is
-  // still constructible by a requester who does not hold the report.
-  const { lessonBodies, journeyBodies } = fetchBodies();
-
-  let abnormal = 0;
-  const renderMembers = (ids) => ids.map((id) => {
-    const c = record.candidates.find((x) => x.id === id) || {};
-    const lg = lessonBodies.get(c.slug);
-    const jg = c.journey ? journeyBodies.get(c.slug) : null;
-    if (!lg) abnormal++;
-    if (c.journey && !jg) abnormal++;
-    return {
-      id, cite: c.cite || null,
-      // the display-ID rule — resolved from `record.candidates` AT RENDER TIME. The record
-      // is the map (AC3); this is a projection of it onto the member being
-      // rendered, not a second map written beside it, and nothing reads it
-      // back. `null` when the record predates the display-ID rule, which `memberBlock`
-      // renders as the stated abnormality rather than as the slug (AC7).
-      display_id: c.display_id || null,
-      gloss: lg ? lg.body : NO_GLOSS_BODY,
-      gloss_cite: lg ? lg.cite : null,
-      journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
-      journey_cite: c.journey && jg ? jg.cite : null,
-    };
-  });
-
-  // JUDGED-EMPTY IS ZERO SubGroupClaims, and it is still handled before
-  // `subgroupPlacement` (the report identity v9). The reason CHANGED at kogaki#738 and the
-  // branch did not: the placement used to sweep every member into a catch-all on
-  // an empty list, manufacturing a SubGroup the judgment never made; now it
-  // REFUSES on an empty list, naming every member of the group. Judged-empty is
-  // a legitimate outcome and must reach neither, so the guard stays exactly
-  // where it was.
-  let subgroups = null;
-  // the SubGroup threshold v7 / the report identity v9's THIRD state. Set where the suppression is decided and
-  // read by the renderer — PR #356 round 1 finding 2 found the read with no
-  // writer, so the branch was unreachable and a suppressed section rendered
-  // "the judgment produced NO split", which is false of it. That is the
-  // carrier-with-no-input shape, and it read as fixed.
-  let suppressedSplitHere = false;
-  if (sub && sub.subgroups.length === 0) {
-    subgroups = [];
-  } else if (sub) {
-    const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
-    // the SubGroup threshold v7 RULE 3 binds this surface too (PR #355 round 1; kogaki#317):
-    // both owner surfaces must show the same structure under a G-id.
-    // Judge HERE with the same `judgeSubgroup`; never read the display's verdict.
-    for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim, group.members.length);
-    // EVERY SubGroup IS NAMED BY THE JUDGE (kogaki#738): the catch-all filter
-    // that stood here excluded a bucket the engine composed, and that bucket is
-    // deleted.
-    const namedSg = placed.subgroups;
-    // The record half of the SubGroup threshold v7 rule 3, re-keyed and bounded exactly as the
-    // display's is — same input, same conclusion, one rule (kogaki#683, #738).
-    if (namedSg.length === 1 && namedSg[0].verdicts
-        && namedSg[0].verdicts.coherence === "other"
-        && group.members.length < SUBDIVISION_REQUIRED_AT) {
-      // Rendered as judged-empty in SHAPE, and flagged so the renderer can
-      // tell it from a genuine no-split. `[]` and not `null` — the report identity v9 keeps
-      // judged-empty distinguishable from unjudged, and this group WAS judged.
-      subgroups = [];
-      suppressedSplitHere = true;
-    } else {
-    // the SubGroup threshold v6 — the SubGroupID is derived the same way the display derives it:
-    // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
-    // output in the same order. That is what makes AC4 hold — an owner copying
-    // `G2-1` off the display finds `G2-1` in the report — without either surface
-    // reading an id the other stored, which would be the second carrier.
-    subgroups = placed.subgroups.map((sg, i) => ({
-      name: sg.name,
-      sgid: `${group.gid}-${i + 1}`,
-      claim: sg.claim || NO_CLAIM,
-      members: renderMembers(sg.members),
-    }));
+    // the Full Report v7 — ONE report over the entered set; one SECTION per entered id.
+    // The neighbourhood judgment is the FOURTH identity component (the report identity, kogaki#741),
+    // hashed from the record's file bytes, as `composedInputDigests` reads it.
+    // A missing record-joined judgment path refuses BY NAME here, ahead of the digest read
+    // (the neighborhood section's shape, kogaki#741 acceptance 2).
+    if (args.neighborhood && !existsSync(String(args.neighborhood))) {
+      fail(
+        `the neighborhood judgment record this pull joins is gone: ${String(args.neighborhood)} ` +
+          "does not exist. The run record names it, so J3_neighborhood ran and its file was removed " +
+          "afterwards. Re-enter J3_neighborhood rather than re-rendering — the neighborhood section's shape has no path to an " +
+          "unjudged neighborhood rendering, and joining nothing here would be one.",
+      );
     }
-  }
+    const neighborhoodJudgmentDigest = args.neighborhood
+      ? createHash("sha256")
+          .update(readFileSync(String(args.neighborhood)))
+          .digest("hex")
+          .slice(0, 16)
+      : NO_JUDGE;
+    const identity = reportIdentity(record.pin, tag, resolved.canonical, suppliedJudge, neighborhoodJudgmentDigest);
+    // Computed BESIDE the identity and never inside it (the report identity, kogaki#700): the
+    // claims and subdivisions ride the record. The neighborhood judgment no
+    // longer does — it moved into the key above.
+    const composedInputs = composedInputDigests(args);
+    // WHAT THE HARNESS OBSERVED of the judgment this report is served on
+    // (kogaki#892). Recorded BESIDE the identity and never inside it, exactly as
+    // `composed_inputs` is: the identity's third component is the PIN, and a
+    // provenance folded into the key would make two runs over one record under
+    // one pin two different reports the moment a judge-invoking act existed.
+    const judgmentProv = judgmentProvenance(args.subdivisions ? String(args.subdivisions) : null);
+    const sectionsOut = [];
+    let abnormalTotal = 0;
+    const allMemberIds = [];
 
-  const sectionMembers = t.kind === "subgroup" ? t.sg.members : group.members;
-  allMemberIds.push(...sectionMembers);
-  abnormalTotal += abnormal;
-  return {
-    // the Full Report v7 — one section per entered id, KEYED BY THE ID so an owner can
-    // match a section to what they typed.
-    id: t.gid,
-    name: t.kind === "subgroup" ? t.sg.name : group.name,
-    kind: t.kind,
-    claim: t.kind === "subgroup"
-      ? (t.sg.claim || NO_CLAIM)
-      : (groupClaim !== undefined && String(groupClaim).trim() !== "" ? groupClaim : NO_CLAIM),
-    // A SubGroup section carries ITS members (AC7), never its parent's.
-    subgroups: t.kind === "subgroup" ? null : subgroups,
-    // The field the renderer reads to pick the third-state notice.
-    suppressed_split: t.kind === "subgroup" ? false : suppressedSplitHere,
-    members: t.kind === "subgroup"
-      ? renderMembers(t.sg.members)
-      : (subgroups && subgroups.length ? null : renderMembers(group.members)),
-    counted: familySplit(sectionMembers, record.candidates),
-  };
-  }
+    function buildSection(t) {
+      const group = t.group;
+      const groupClaim = claims[group.name] !== undefined ? claims[group.name] : claims[group.cotag];
+      const sub = subOf(group);
+      // Unconditional now: `sub` is non-null for every target (refused above), and
+      // NO_JUDGE is never minted here. It stays exported and valid in the identity
+      // triple — the report identity's uniform arity is untouched and `(pin, query, none)` is
+      // still constructible by a requester who does not hold the report.
+      const { lessonBodies, journeyBodies } = fetchBodies();
 
-  for (const t of entered) sectionsOut.push(buildSection(t));
+      let abnormal = 0;
+      const renderMembers = (ids) =>
+        ids.map((id) => {
+          const c = record.candidates.find((x) => x.id === id) || {};
+          const lg = lessonBodies.get(c.slug);
+          const jg = c.journey ? journeyBodies.get(c.slug) : null;
+          if (!lg) abnormal++;
+          if (c.journey && !jg) abnormal++;
+          return {
+            id,
+            cite: c.cite || null,
+            // the display-ID rule — resolved from `record.candidates` AT RENDER TIME. The record
+            // is the map (AC3); this is a projection of it onto the member being
+            // rendered, not a second map written beside it, and nothing reads it
+            // back. `null` when the record predates the display-ID rule, which `memberBlock`
+            // renders as the stated abnormality rather than as the slug (AC7).
+            display_id: c.display_id || null,
+            gloss: lg ? lg.body : NO_GLOSS_BODY,
+            gloss_cite: lg ? lg.cite : null,
+            journey_gloss: c.journey ? (jg ? jg.body : NO_GLOSS_BODY) : null,
+            journey_cite: c.journey && jg ? jg.cite : null,
+          };
+        });
 
-  // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (semantic subdivision v30, kogaki#683; PR #705
-  // round 1). `full_report`'s allowlist is inert, so the carrier is this PRE-RENDER refusal.
-  // Scoped to GROUP sections: only a judged group reaches the empty-array `subgroups` state;
-  // SubGroup sections carry `subgroups: null`.
-  for (const sec of sectionsOut) {
-    if (sec.subgroups && sec.subgroups.length === 0 && !sec.suppressed_split
-        && (sec.members || []).length >= SUBDIVISION_REQUIRED_AT) {
-      fail(`${sec.id} — ${sec.name} holds ${(sec.members || []).length} member Lessons and its judgment produced NO split. `
-        + `At ${SUBDIVISION_REQUIRED_AT} or more, serving SubGroups is the engine's requirement rather than the judge's `
-        + "discretion (kogaki#683), so a judged-empty outcome for such a group does not render. "
-        + "Recompose the subdivision for this group and pull the report again.");
-    }
-  }
-
-  // the report identity case 1: same identity, run twice -> ONE report. The rerun is
-  // idempotent, not a duplicate, so an existing report with THIS identity is
-  // returned rather than rewritten.
-  const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
-  if (existsSync(out)) {
-    const prior = readJson(out);
-    // A PRE-#741 RECORD IS NEVER REPLAYED (PR #756 round 1): an absent fourth component hashes as
-    // `NO_JUDGE`, so falling through RECOMPUTES and reaches the refuse-unjudged guard below.
-    // A PRE-#861 RECORD IS NEVER REPLAYED EITHER. Both guards and the identity comparison live in
-    // `shouldReplayPrior`, pure and exported; never compose the condition here.
-    if (shouldReplayPrior(prior, identity)) {
-      // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (the report identity, kogaki#700).
-      // Same identity is not the same artifact when the inputs it was rendered
-      // from differ: the CLAIMS and SUBDIVISIONS stay recorded rather than keyed
-      // (the neighborhood judgment left this list at kogaki#741 and is now part
-      // of the identity), so their mismatch surfaces here rather than by
-      // widening the key further.
-      const delta = composedInputDelta(prior.composed_inputs, composedInputs);
-      if (delta === null) {
-        // A RECORD WRITTEN BEFORE THIS FIELD EXISTED CANNOT BE SHOWN IDEMPOTENT,
-        // so it is RECOMPUTED rather than replayed or refused. Replaying would
-        // be the defect this clause removes, on exactly the records most likely
-        // to predate the inputs in hand; refusing would fail a rerun that has
-        // done nothing wrong. Recomputing is safe because the report identity case 1 is a
-        // claim about the report, not about the write: one identity, one file,
-        // rewritten in place.
-      } else if (delta.length) {
-        fail(`COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input(s): `
-          + `${delta.join(", ")}. The identity is the substrate pin, the query, the judge pin and the neighborhood `
-          + "judgment record (SPEC-terrain, the report identity, widened at kogaki#741), "
-
-          + "and the composed inputs are NOT part of it — so replaying the stored rendering would render material this "
-          + "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new "
-          + "inputs as their own report, or restore the inputs this identity was reported from.");
-      } else {
-        // IDEMPOTENT ON THE RECORD; THE RENDERING IS STILL WRITTEN (location and naming v11).
-        // Rewriting it makes a rerun self-healing (deleted, stale, or `--no-render` first run).
-        // The rerun refuses on the same emit-time grammar as the fresh path, and validates
-        // OUTSIDE the `--no-render` branch, symmetrically with the fresh path (PR #352 round 1).
-        const priorText = renderReportMarkdown(prior, tag);
-        let priorRendered = null;
-        if (!args["no-render"]) {
-          // write authority v28 — THE RERUN IS A WRITE, so it carries the write authority
-          // (PR #702 round 1, finding 1). This branch's own header already warns
-          // that it "is the path a SECOND look always takes, and it is the path
-          // that shipped the last two clause-3 defects; a guard installed on the
-          // fresh write alone would be the same half-fix again" — and the first
-          // cut of #681 installed exactly that half-fix, one clause below the
-          // sentence saying not to. A standalone `report` repeated for an
-          // identity already on disk landed reports/FullReport.md from outside
-          // any writing state, which is #680's specimen at the artifact this
-          // amendment claims to have closed.
-          refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
-          // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
-          // pull. Identity stays in the record alone; the filename carries none.
-          priorRendered = join(renderingsDir(args), "FullReport.md");
+      // JUDGED-EMPTY IS ZERO SubGroupClaims, and it is still handled before
+      // `subgroupPlacement` (the report identity v9). The reason CHANGED at kogaki#738 and the
+      // branch did not: the placement used to sweep every member into a catch-all on
+      // an empty list, manufacturing a SubGroup the judgment never made; now it
+      // REFUSES on an empty list, naming every member of the group. Judged-empty is
+      // a legitimate outcome and must reach neither, so the guard stays exactly
+      // where it was.
+      let subgroups = null;
+      // the SubGroup threshold v7 / the report identity v9's THIRD state. Set where the suppression is decided and
+      // read by the renderer — PR #356 round 1 finding 2 found the read with no
+      // writer, so the branch was unreachable and a suppressed section rendered
+      // "the judgment produced NO split", which is false of it. That is the
+      // carrier-with-no-input shape, and it read as fixed.
+      let suppressedSplitHere = false;
+      if (sub && sub.subgroups.length === 0) {
+        subgroups = [];
+      } else if (sub) {
+        const placed = subgroupPlacement(group, sub.subgroups, SURVEY_SCHEMA.subdivision);
+        // the SubGroup threshold v7 RULE 3 binds this surface too (PR #355 round 1; kogaki#317):
+        // both owner surfaces must show the same structure under a G-id.
+        // Judge HERE with the same `judgeSubgroup`; never read the display's verdict.
+        for (const sg of placed.subgroups) judgeSubgroup(sg, groupClaim, group.members.length);
+        // EVERY SubGroup IS NAMED BY THE JUDGE (kogaki#738): the catch-all filter
+        // that stood here excluded a bucket the engine composed, and that bucket is
+        // deleted.
+        const namedSg = placed.subgroups;
+        // The record half of the SubGroup threshold v7 rule 3, re-keyed and bounded exactly as the
+        // display's is — same input, same conclusion, one rule (kogaki#683, #738).
+        if (
+          namedSg.length === 1 &&
+          namedSg[0].verdicts &&
+          namedSg[0].verdicts.coherence === "other" &&
+          group.members.length < SUBDIVISION_REQUIRED_AT
+        ) {
+          // Rendered as judged-empty in SHAPE, and flagged so the renderer can
+          // tell it from a genuine no-split. `[]` and not `null` — the report identity v9 keeps
+          // judged-empty distinguishable from unjudged, and this group WAS judged.
+          subgroups = [];
+          suppressedSplitHere = true;
+        } else {
+          // the SubGroup threshold v6 — the SubGroupID is derived the same way the display derives it:
+          // the parent's GroupID plus a 1-based index over the SAME `subgroupPlacement`
+          // output in the same order. That is what makes AC4 hold — an owner copying
+          // `G2-1` off the display finds `G2-1` in the report — without either surface
+          // reading an id the other stored, which would be the second carrier.
+          subgroups = placed.subgroups.map((sg, i) => ({
+            name: sg.name,
+            sgid: `${group.gid}-${i + 1}`,
+            claim: sg.claim || NO_CLAIM,
+            members: renderMembers(sg.members),
+          }));
         }
-        emitOrRefuse("full_report", priorText,
-          (text) => { if (priorRendered) writeFileSync(priorRendered, text); });
-        console.log("Full Report already exists for this identity — the rerun is IDEMPOTENT, "
-          + "not a duplicate (SPEC.md, the report identity).");
-        announceArtifacts(priorRendered, out);
-        console.log(`Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`);
-        // RETURNS WHAT THIS BRANCH WROTE (PR #667 round 2, carried to kogaki#625).
-        // It `return`ed undefined after writing `reports/FullReport.md`, so the
-        // executor's `written || null` mapped a real owner artifact to
-        // `{ artifact: null }` and `classifyWriteOutcome` reported `wrote-nothing`
-        // — the run record skipped its `artifacts_written` push for a state that
-        // did write. The report identity's idempotence is a claim about the RECORD, and the
-        // branch's own text says so ("the rendering is STILL WRITTEN IN THIS
-        // ACT"); under-reporting the write is the same defect as asserting one,
-        // facing the other way. Under `--no-render` `priorRendered` is null, which
-        // is the genuine wrote-nothing case and still reports as one.
-        return priorRendered;
+      }
+
+      const sectionMembers = t.kind === "subgroup" ? t.sg.members : group.members;
+      allMemberIds.push(...sectionMembers);
+      abnormalTotal += abnormal;
+      return {
+        // the Full Report v7 — one section per entered id, KEYED BY THE ID so an owner can
+        // match a section to what they typed.
+        id: t.gid,
+        name: t.kind === "subgroup" ? t.sg.name : group.name,
+        kind: t.kind,
+        claim:
+          t.kind === "subgroup"
+            ? t.sg.claim || NO_CLAIM
+            : groupClaim !== undefined && String(groupClaim).trim() !== ""
+              ? groupClaim
+              : NO_CLAIM,
+        // A SubGroup section carries ITS members (AC7), never its parent's.
+        subgroups: t.kind === "subgroup" ? null : subgroups,
+        // The field the renderer reads to pick the third-state notice.
+        suppressed_split: t.kind === "subgroup" ? false : suppressedSplitHere,
+        members:
+          t.kind === "subgroup"
+            ? renderMembers(t.sg.members)
+            : subgroups && subgroups.length
+              ? null
+              : renderMembers(group.members),
+        counted: familySplit(sectionMembers, record.candidates),
+      };
+    }
+
+    for (const t of entered) sectionsOut.push(buildSection(t));
+
+    // THE SPLIT REQUIREMENT REACHES THIS SURFACE TOO (semantic subdivision v30, kogaki#683; PR #705
+    // round 1). `full_report`'s allowlist is inert, so the carrier is this PRE-RENDER refusal.
+    // Scoped to GROUP sections: only a judged group reaches the empty-array `subgroups` state;
+    // SubGroup sections carry `subgroups: null`.
+    for (const sec of sectionsOut) {
+      if (
+        sec.subgroups &&
+        sec.subgroups.length === 0 &&
+        !sec.suppressed_split &&
+        (sec.members || []).length >= SUBDIVISION_REQUIRED_AT
+      ) {
+        fail(
+          `${sec.id} — ${sec.name} holds ${(sec.members || []).length} member Lessons and its judgment produced NO split. ` +
+            `At ${SUBDIVISION_REQUIRED_AT} or more, serving SubGroups is the engine's requirement rather than the judge's ` +
+            "discretion (kogaki#683), so a judged-empty outcome for such a group does not render. " +
+            "Recompose the subdivision for this group and pull the report again.",
+        );
       }
     }
-  }
 
-
-  // THE PROVENANCE NEIGHBORHOOD — ONE ENUMERATION (kogaki#700).
-  // Where `neighborhood_input` persisted the enumeration, the pull CONSUMES it: it is what J3
-  // admitted judgment keys against, and a second live read can silently drop an admitted key.
-  // Only a pull with no emitted enumeration computes fresh, after every refusal above.
-  // Either way the result is stored IN THE RECORD, so rendering stays a pure function of it.
-  const candPath = args["neighborhood-candidates"];
-  const neighborhood = candPath
-    ? (readJson(String(candPath)).neighborhood
-        || fail("the candidate record at " + String(candPath) + " predates the full-enumeration "
-          + "field (kogaki#700) and cannot supply the pull's mechanical layer. Re-enter "
-          + "neighborhood_input so the emitter writes the enumeration the pull consumes; "
-          + "recomputing here would be the second enumeration this field exists to remove."))
-    : neighborhoodForTargets(record, targets);
-  // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
-  // candidate with no judgment keeps none — `neighborhoodDisplay` counts it as
-  // unjudged and says so, rather than defaulting it to a level nobody assigned.
-  // `full_report` REFUSES AN UNJUDGED NEIGHBORHOOD (the neighborhood section's shape, kogaki#741 ruling 2).
-  // Scoped to a NON-EMPTY enumeration, mirroring the orphan refusal below: where
-  // the mechanical layer returned no candidate there is nothing to judge, and
-  // refusing would turn a legitimate empty neighborhood into an error.
-  if (!args.neighborhood && (neighborhood.suggestions || []).length) {
-    fail("full_report refuses: this pull carries "
-      + `${(neighborhood.suggestions || []).length} mechanical candidate(s) and no neighborhood `
-      + "judgment record. The neighborhood section's shape makes the judgment pass UNCONDITIONAL and the Report REQUIRES it "
-      + "by design — there is no path to an unjudged neighborhood rendering. Enter J3_neighborhood "
-      + "so the run record names the judgment this pull joins.");
-  }
-  const judgments = readNeighborhoodJudgments(args.neighborhood);
-  // A KEY MATCHING NO CANDIDATE IS REFUSED, NOT DROPPED. A typo, a stale file,
-  // or a slug from another Group would otherwise vanish — and where NO key
-  // matched, the display took its all-unjudged arm and printed "the mechanical
-  // layer ran; the judgment layer did not", which is the one fact the reader is
-  // owed and the one fact that is false: the layer ran and joined nothing. The
-  // reader is careful about a level it cannot recognise and was silent about a
-  // slug it cannot place; both are the same class of unrecognised input.
-  // SCOPED TO A NON-EMPTY ENUMERATION. Where the mechanical layer returned no
-  // candidate at all, a judgment file has nothing to join and the section's
-  // empty-enumeration lines are already the honest report — refusing the whole
-  // pull there would turn a legitimate empty neighborhood into an error.
-  if (judgments.size && (neighborhood.suggestions || []).length) {
-    const have = new Set((neighborhood.suggestions || []).map((x) => x.slug));
-    const orphans = [...judgments.keys()].filter((k) => !have.has(k));
-    if (orphans.length) {
-      fail(`neighborhood judgment(s) name ${orphans.length} slug(s) no mechanical candidate carries: `
-        + `${orphans.join(", ")}. A judgment that joins nothing is silently dropped and the section `
-        + "then reports that the judgment layer did not run, which is false. Check the file is for "
-        + "this Group and this settled set.");
+    // the report identity case 1: same identity, run twice -> ONE report. The rerun is
+    // idempotent, not a duplicate, so an existing report with THIS identity is
+    // returned rather than rewritten.
+    const out = join(dir, `terrain-full-report-${identityDigest(identity)}.json`);
+    if (existsSync(out)) {
+      const prior = readJson(out);
+      // A PRE-#741 RECORD IS NEVER REPLAYED (PR #756 round 1): an absent fourth component hashes as
+      // `NO_JUDGE`, so falling through RECOMPUTES and reaches the refuse-unjudged guard below.
+      // A PRE-#861 RECORD IS NEVER REPLAYED EITHER. Both guards and the identity comparison live in
+      // `shouldReplayPrior`, pure and exported; never compose the condition here.
+      if (shouldReplayPrior(prior, identity)) {
+        // THE COMPOSED INPUTS ARE COMPARED BEFORE THE REPLAY (the report identity, kogaki#700).
+        // Same identity is not the same artifact when the inputs it was rendered
+        // from differ: the CLAIMS and SUBDIVISIONS stay recorded rather than keyed
+        // (the neighborhood judgment left this list at kogaki#741 and is now part
+        // of the identity), so their mismatch surfaces here rather than by
+        // widening the key further.
+        const delta = composedInputDelta(prior.composed_inputs, composedInputs);
+        if (delta === null) {
+          // A RECORD WRITTEN BEFORE THIS FIELD EXISTED CANNOT BE SHOWN IDEMPOTENT,
+          // so it is RECOMPUTED rather than replayed or refused. Replaying would
+          // be the defect this clause removes, on exactly the records most likely
+          // to predate the inputs in hand; refusing would fail a rerun that has
+          // done nothing wrong. Recomputing is safe because the report identity case 1 is a
+          // claim about the report, not about the write: one identity, one file,
+          // rewritten in place.
+        } else if (delta.length) {
+          fail(
+            `COMPOSED_INPUT_MISMATCH — this identity was already reported from different composed input(s): ` +
+              `${delta.join(", ")}. The identity is the substrate pin, the query, the judge pin and the neighborhood ` +
+              "judgment record (SPEC-terrain, the report identity, widened at kogaki#741), " +
+              "and the composed inputs are NOT part of it — so replaying the stored rendering would render material this " +
+              "invocation did not supply, while reporting success. Re-run against a fresh --report-dir to render the new " +
+              "inputs as their own report, or restore the inputs this identity was reported from.",
+          );
+        } else {
+          // IDEMPOTENT ON THE RECORD; THE RENDERING IS STILL WRITTEN (location and naming v11).
+          // Rewriting it makes a rerun self-healing (deleted, stale, or `--no-render` first run).
+          // The rerun refuses on the same emit-time grammar as the fresh path, and validates
+          // OUTSIDE the `--no-render` branch, symmetrically with the fresh path (PR #352 round 1).
+          const priorText = renderReportMarkdown(prior, tag);
+          let priorRendered = null;
+          if (!args["no-render"]) {
+            // write authority v28 — THE RERUN IS A WRITE, so it carries the write authority
+            // (PR #702 round 1, finding 1). This branch's own header already warns
+            // that it "is the path a SECOND look always takes, and it is the path
+            // that shipped the last two clause-3 defects; a guard installed on the
+            // fresh write alone would be the same half-fix again" — and the first
+            // cut of #681 installed exactly that half-fix, one clause below the
+            // sentence saying not to. A standalone `report` repeated for an
+            // identity already on disk landed reports/FullReport.md from outside
+            // any writing state, which is #680's specimen at the artifact this
+            // amendment claims to have closed.
+            refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
+            // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
+            // pull. Identity stays in the record alone; the filename carries none.
+            priorRendered = join(renderingsDir(args), "FullReport.md");
+          }
+          emitOrRefuse("full_report", priorText, (text) => {
+            if (priorRendered) writeFileSync(priorRendered, text);
+          });
+          console.log(
+            "Full Report already exists for this identity — the rerun is IDEMPOTENT, " +
+              "not a duplicate (SPEC.md, the report identity).",
+          );
+          announceArtifacts(priorRendered, out);
+          console.log(
+            `Identity: pin=${identity.pin} query=(${tag}, ${identity.query.ids.join(", ")}) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`}`,
+          );
+          // RETURNS WHAT THIS BRANCH WROTE (PR #667 round 2, carried to kogaki#625).
+          // It `return`ed undefined after writing `reports/FullReport.md`, so the
+          // executor's `written || null` mapped a real owner artifact to
+          // `{ artifact: null }` and `classifyWriteOutcome` reported `wrote-nothing`
+          // — the run record skipped its `artifacts_written` push for a state that
+          // did write. The report identity's idempotence is a claim about the RECORD, and the
+          // branch's own text says so ("the rendering is STILL WRITTEN IN THIS
+          // ACT"); under-reporting the write is the same defect as asserting one,
+          // facing the other way. Under `--no-render` `priorRendered` is null, which
+          // is the genuine wrote-nothing case and still reports as one.
+          return priorRendered;
+        }
+      }
     }
-  }
-  // THE TARGETS JOIN TO THE THESIS-CANDIDATES SECTION OF THIS SAME FILE (kogaki#861), and
-  // the absent-candidates fallback STOPS APPLYING to a judged neighborhood.
-  // `--thesis-candidates` was optional and an absent list rendered the Thesis candidates's
-  // empty notice; that is still the answer for an unjudged or empty
-  // neighborhood, and it cannot be the answer here — every row about to render
-  // names a candidate, so a pull with no candidates would put TC ids on the
-  // owner's surface with no section for them to point at.
-  if (judgments.size && (neighborhood.suggestions || []).length) {
-    if (!thesisCandidates.length) {
-      fail("this pull carries a neighborhood judgment and no --thesis-candidates. Every judged row names "
-        + "the Thesis candidate it serves (kogaki#861), so the candidates must be composed for this pull: "
-        + "an absent list would render TC ids against the Thesis candidates's empty notice. Compose them and pass "
-        + "--thesis-candidates, or run the pull with no neighborhood judgment.");
+
+    // THE PROVENANCE NEIGHBORHOOD — ONE ENUMERATION (kogaki#700).
+    // Where `neighborhood_input` persisted the enumeration, the pull CONSUMES it: it is what J3
+    // admitted judgment keys against, and a second live read can silently drop an admitted key.
+    // Only a pull with no emitted enumeration computes fresh, after every refusal above.
+    // Either way the result is stored IN THE RECORD, so rendering stays a pure function of it.
+    const candPath = args["neighborhood-candidates"];
+    const neighborhood = candPath
+      ? readJson(String(candPath)).neighborhood ||
+        fail(
+          "the candidate record at " +
+            String(candPath) +
+            " predates the full-enumeration " +
+            "field (kogaki#700) and cannot supply the pull's mechanical layer. Re-enter " +
+            "neighborhood_input so the emitter writes the enumeration the pull consumes; " +
+            "recomputing here would be the second enumeration this field exists to remove.",
+        )
+      : neighborhoodForTargets(record, targets);
+    // THE JUDGMENT LAYER, joined onto the mechanical candidates by slug. A
+    // candidate with no judgment keeps none — `neighborhoodDisplay` counts it as
+    // unjudged and says so, rather than defaulting it to a level nobody assigned.
+    // `full_report` REFUSES AN UNJUDGED NEIGHBORHOOD (the neighborhood section's shape, kogaki#741 ruling 2).
+    // Scoped to a NON-EMPTY enumeration, mirroring the orphan refusal below: where
+    // the mechanical layer returned no candidate there is nothing to judge, and
+    // refusing would turn a legitimate empty neighborhood into an error.
+    if (!args.neighborhood && (neighborhood.suggestions || []).length) {
+      fail(
+        "full_report refuses: this pull carries " +
+          `${(neighborhood.suggestions || []).length} mechanical candidate(s) and no neighborhood ` +
+          "judgment record. The neighborhood section's shape makes the judgment pass UNCONDITIONAL and the Report REQUIRES it " +
+          "by design — there is no path to an unjudged neighborhood rendering. Enter J3_neighborhood " +
+          "so the run record names the judgment this pull joins.",
+      );
     }
-    orFail(() => refuseTargetsOutsideCandidates(judgments, thesisCandidates.map((c) => c.id), "full_report"));
-  }
-  for (const sug of neighborhood.suggestions || []) {
-    const j = judgments.get(sug.slug);
-    if (j) { sug.level = j.level; sug.claim = j.claim; sug.target = j.target; }
-    // The relation IN PLAIN WORDS (kogaki#686 disposition 3, field 2). With
-    // exploration fixed to one substrate this is always Batch membership, so
-    // the row names the batch rather than a substrate token a reader would
-    // have to decode.
-    //
-    // IT NAMES THE SETTLED MEMBER, NOT THE BATCH INSTANCE (kogaki#689, carried
-    // from PR #692 round 2). Disposition 3's own example is "from the same
-    // Batch as L88 (2026-08-13)" — a member the owner can recognise, with the
-    // batch beside it. The row used to render the batch key in the member's
-    // place, which is the substrate-internal token this field exists to spare
-    // the reader. Seeds are named by their DISPLAY ID where the record carries
-    // one, because that is the identifier every other owner surface uses.
-    const batch = (sug.reached_by || []).find((r) => r.substrate === "source_batch");
-    // Resolved BY SLUG, because that is the key the enumerator works in;
-    // `displayIdOf` addresses by candidate id and would match nothing here. A
-    // seed whose record carries no display_id renders `NO_DISPLAY_ID` rather
-    // than being dropped: omitting one of three named members would misname the
-    // relation, which is worse than disclosing the fault.
-    const named = (sug.seeds || []).map((sl) => {
-      const c = (record.candidates || []).find((x) => x && x.slug === sl);
-      return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
-    }).sort(compareDisplayIds);
-    // Sorted by the identifier the row PRINTS, not by the slug it was reached
-    // under: the seed list is a set and its order carries no meaning, so the
-    // one the reader sees is the one that is stable across runs — and ordered
-    // NUMERICALLY, because a display id's number is its meaning. A bare `.sort()`
-    // put L10 before L2 and the ruling's own example id L88 before L9 (PR #693
-    // round 1); the two-member specimen could not show it.
-    // An unnamed seed set is a STATED absence, never a silent fallback to the
-    // old wording: "the settled set" is what the row says when it can name no
-    // member at all, and the reader can tell the two apart.
-    const who = named.length ? named.join(", ") : "the settled set";
-    sug.relation = batch && batch.instance
-      ? `from the same Batch as ${who} (${batch.instance})`
-      : `from the same Batch as ${who}`;
-  }
-
-  // THE BOUNDED GLOSS FETCH (kogaki#689; kogaki#686 disposition 3; kogaki#741; kogaki#528).
-  // Bounded by the rows that render (`neighborhoodDisplaySet`, at most
-  // `NEIGHBORHOOD_DISPLAY_CAP`), never by the candidate set; `resolveHeadlines` bounds it
-  // again to those rows' own tags.
-  // A miss renders `NO_HEADLINE` and is never substituted.
-  // The headline is a served rendering: it travels with its address (#686).
-  const shownRows = neighborhoodDisplaySet(neighborhood.suggestions || []).shown || [];
-  if (shownRows.length) {
-    const { headlines: heads, seam, namespaces: ns, unaddressable } = resolveHeadlines(
-      shownRows.map((x) => ({ slug: x.slug, tags: x.tags || [] })),
-      { namespaces: NEIGHBORHOOD_GLOSS_NAMESPACES });
-    for (const sug of shownRows) {
-      const h = heads.get(sug.slug);
-      sug.gloss = glossFor(sug, h, seam, ns, unaddressable);
-      sug.gloss_cite = h ? h.cite : null;
+    const judgments = readNeighborhoodJudgments(args.neighborhood);
+    // A KEY MATCHING NO CANDIDATE IS REFUSED, NOT DROPPED. A typo, a stale file,
+    // or a slug from another Group would otherwise vanish — and where NO key
+    // matched, the display took its all-unjudged arm and printed "the mechanical
+    // layer ran; the judgment layer did not", which is the one fact the reader is
+    // owed and the one fact that is false: the layer ran and joined nothing. The
+    // reader is careful about a level it cannot recognise and was silent about a
+    // slug it cannot place; both are the same class of unrecognised input.
+    // SCOPED TO A NON-EMPTY ENUMERATION. Where the mechanical layer returned no
+    // candidate at all, a judgment file has nothing to join and the section's
+    // empty-enumeration lines are already the honest report — refusing the whole
+    // pull there would turn a legitimate empty neighborhood into an error.
+    if (judgments.size && (neighborhood.suggestions || []).length) {
+      const have = new Set((neighborhood.suggestions || []).map((x) => x.slug));
+      const orphans = [...judgments.keys()].filter((k) => !have.has(k));
+      if (orphans.length) {
+        fail(
+          `neighborhood judgment(s) name ${orphans.length} slug(s) no mechanical candidate carries: ` +
+            `${orphans.join(", ")}. A judgment that joins nothing is silently dropped and the section ` +
+            "then reports that the judgment layer did not run, which is false. Check the file is for " +
+            "this Group and this settled set.",
+        );
+      }
     }
-  }
+    // THE TARGETS JOIN TO THE THESIS-CANDIDATES SECTION OF THIS SAME FILE (kogaki#861), and
+    // the absent-candidates fallback STOPS APPLYING to a judged neighborhood.
+    // `--thesis-candidates` was optional and an absent list rendered the Thesis candidates's
+    // empty notice; that is still the answer for an unjudged or empty
+    // neighborhood, and it cannot be the answer here — every row about to render
+    // names a candidate, so a pull with no candidates would put TC ids on the
+    // owner's surface with no section for them to point at.
+    if (judgments.size && (neighborhood.suggestions || []).length) {
+      if (!thesisCandidates.length) {
+        fail(
+          "this pull carries a neighborhood judgment and no --thesis-candidates. Every judged row names " +
+            "the Thesis candidate it serves (kogaki#861), so the candidates must be composed for this pull: " +
+            "an absent list would render TC ids against the Thesis candidates's empty notice. Compose them and pass " +
+            "--thesis-candidates, or run the pull with no neighborhood judgment.",
+        );
+      }
+      orFail(() =>
+        refuseTargetsOutsideCandidates(
+          judgments,
+          thesisCandidates.map((c) => c.id),
+          "full_report",
+        ),
+      );
+    }
+    for (const sug of neighborhood.suggestions || []) {
+      const j = judgments.get(sug.slug);
+      if (j) {
+        sug.level = j.level;
+        sug.claim = j.claim;
+        sug.target = j.target;
+      }
+      // The relation IN PLAIN WORDS (kogaki#686 disposition 3, field 2). With
+      // exploration fixed to one substrate this is always Batch membership, so
+      // the row names the batch rather than a substrate token a reader would
+      // have to decode.
+      //
+      // IT NAMES THE SETTLED MEMBER, NOT THE BATCH INSTANCE (kogaki#689, carried
+      // from PR #692 round 2). Disposition 3's own example is "from the same
+      // Batch as L88 (2026-08-13)" — a member the owner can recognise, with the
+      // batch beside it. The row used to render the batch key in the member's
+      // place, which is the substrate-internal token this field exists to spare
+      // the reader. Seeds are named by their DISPLAY ID where the record carries
+      // one, because that is the identifier every other owner surface uses.
+      const batch = (sug.reached_by || []).find((r) => r.substrate === "source_batch");
+      // Resolved BY SLUG, because that is the key the enumerator works in;
+      // `displayIdOf` addresses by candidate id and would match nothing here. A
+      // seed whose record carries no display_id renders `NO_DISPLAY_ID` rather
+      // than being dropped: omitting one of three named members would misname the
+      // relation, which is worse than disclosing the fault.
+      const named = (sug.seeds || [])
+        .map((sl) => {
+          const c = (record.candidates || []).find((x) => x && x.slug === sl);
+          return c && c.display_id ? c.display_id : NO_DISPLAY_ID;
+        })
+        .sort(compareDisplayIds);
+      // Sorted by the identifier the row PRINTS, not by the slug it was reached
+      // under: the seed list is a set and its order carries no meaning, so the
+      // one the reader sees is the one that is stable across runs — and ordered
+      // NUMERICALLY, because a display id's number is its meaning. A bare `.sort()`
+      // put L10 before L2 and the ruling's own example id L88 before L9 (PR #693
+      // round 1); the two-member specimen could not show it.
+      // An unnamed seed set is a STATED absence, never a silent fallback to the
+      // old wording: "the settled set" is what the row says when it can name no
+      // member at all, and the reader can tell the two apart.
+      const who = named.length ? named.join(", ") : "the settled set";
+      sug.relation =
+        batch && batch.instance ? `from the same Batch as ${who} (${batch.instance})` : `from the same Batch as ${who}`;
+    }
 
-  const report = {
-    id: `terrain-full-report-${identityDigest(identity)}`,
-    // RECORDED BESIDE THE IDENTITY, never inside it (the report identity, kogaki#700).
-    composed_inputs: composedInputs,
-    // The same siting, for the same reason (kogaki#892) — see `judgmentProv`.
-    judgment_provenance: judgmentProv,
-    kind: "full-report",
-    identity,
-    // the Full Report v7 — the entered set, canonical, recorded in the identity block.
-    selections: identity.query.ids,
-    classification: "report",
-    narrows: false,
-    truncated: false,
-    // ONE section per entered id; the identity block, Counted and Served
-    // lines are once-per-file and live beside this rather than inside it.
-    sections: sectionsOut,
-    // AGGREGATED over the whole set, deduped by member id — a member entered
-    // under both G5 and G5-1 is one Lesson, not two.
-    counted: familySplit([...new Set(allMemberIds)], record.candidates),
-    lessons_served: record.candidates.length,
-    // the Thesis candidates (kogaki#760) — validated ABOVE, before this object exists, so a
-    // refusal precedes both writes exactly as the emit-time refusal requires of the emit-time
-    // guard. An empty array is the DISCLOSED absence and not a missing field.
-    thesis_candidates: thesisCandidates,
-    // the neighborhood as a report v20 — ONCE per file, rendered LAST by `renderReportMarkdown`.
-    neighborhood,
-  };
-  const abnormal = abnormalTotal;
-  // THE REFUSAL PRECEDES BOTH WRITES (story 1.54 AC2; location and naming v11).
-  // The record is written BELOW this line, and validation runs under `--no-render` too.
-  // It goes through `emitOrRefuse` like the other two sites (PR #352): the write handed over
-  // is empty and the two real writes follow.
-  const renderedText = renderReportMarkdown(report, tag);
-  emitOrRefuse("full_report", renderedText, () => {});
+    // THE BOUNDED GLOSS FETCH (kogaki#689; kogaki#686 disposition 3; kogaki#741; kogaki#528).
+    // Bounded by the rows that render (`neighborhoodDisplaySet`, at most
+    // `NEIGHBORHOOD_DISPLAY_CAP`), never by the candidate set; `resolveHeadlines` bounds it
+    // again to those rows' own tags.
+    // A miss renders `NO_HEADLINE` and is never substituted.
+    // The headline is a served rendering: it travels with its address (#686).
+    const shownRows = neighborhoodDisplaySet(neighborhood.suggestions || []).shown || [];
+    if (shownRows.length) {
+      const {
+        headlines: heads,
+        seam,
+        namespaces: ns,
+        unaddressable,
+      } = resolveHeadlines(
+        shownRows.map((x) => ({ slug: x.slug, tags: x.tags || [] })),
+        { namespaces: NEIGHBORHOOD_GLOSS_NAMESPACES },
+      );
+      for (const sug of shownRows) {
+        const h = heads.get(sug.slug);
+        sug.gloss = glossFor(sug, h, seam, ns, unaddressable);
+        sug.gloss_cite = h ? h.cite : null;
+      }
+    }
 
-  writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
+    const report = {
+      id: `terrain-full-report-${identityDigest(identity)}`,
+      // RECORDED BESIDE THE IDENTITY, never inside it (the report identity, kogaki#700).
+      composed_inputs: composedInputs,
+      // The same siting, for the same reason (kogaki#892) — see `judgmentProv`.
+      judgment_provenance: judgmentProv,
+      kind: "full-report",
+      identity,
+      // the Full Report v7 — the entered set, canonical, recorded in the identity block.
+      selections: identity.query.ids,
+      classification: "report",
+      narrows: false,
+      truncated: false,
+      // ONE section per entered id; the identity block, Counted and Served
+      // lines are once-per-file and live beside this rather than inside it.
+      sections: sectionsOut,
+      // AGGREGATED over the whole set, deduped by member id — a member entered
+      // under both G5 and G5-1 is one Lesson, not two.
+      counted: familySplit([...new Set(allMemberIds)], record.candidates),
+      lessons_served: record.candidates.length,
+      // the Thesis candidates (kogaki#760) — validated ABOVE, before this object exists, so a
+      // refusal precedes both writes exactly as the emit-time refusal requires of the emit-time
+      // guard. An empty array is the DISCLOSED absence and not a missing field.
+      thesis_candidates: thesisCandidates,
+      // the neighborhood as a report v20 — ONCE per file, rendered LAST by `renderReportMarkdown`.
+      neighborhood,
+    };
+    const abnormal = abnormalTotal;
+    // THE REFUSAL PRECEDES BOTH WRITES (story 1.54 AC2; location and naming v11).
+    // The record is written BELOW this line, and validation runs under `--no-render` too.
+    // It goes through `emitOrRefuse` like the other two sites (PR #352): the write handed over
+    // is empty and the two real writes follow.
+    const renderedText = renderReportMarkdown(report, tag);
+    emitOrRefuse("full_report", renderedText, () => {});
 
-  // THE OWNER RENDERING, in the SAME ACT (location and naming v11, kogaki#234). A run that
-  // wrote the record and not the rendering would leave the owner exactly where
-  // the ruling found them, so this is not conditional on a flag: `--no-render`
-  // is the opt-out and its absence is the default.
-  let rendered = null;
-  if (!args["no-render"]) {
-    // write authority v28 (kogaki#681; PR #702) — the write-authority refusal, BEFORE the
-    // destination is prepared. The rerun branch also WRITES the rendering, so the guard sits
-    // on BOTH branches.
-    refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
-    const rdir = renderingsDir(args);
-    // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
-    // pull. Identity stays in the record alone; the filename carries none.
-    rendered = join(rdir, "FullReport.md");
-    writeFileSync(rendered, renderedText);
-  }
+    writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
 
-  // The no-hidden-path owner-surface rule binds BOTH artifact lines (PR #240 review round 1, finding
-  // 2), on this path and on the rerun path alike — see `announceArtifacts`,
-  // which is where the contract now lives so that neither path can drift from
-  // the other again.
-  announceArtifacts(rendered, out);
-  console.log(`Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, [${identity.query.ids.join(", ")}]) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`} judge-provenance=${judgmentProv.state}${judgmentProv.artifact_sha ? ` (subdivisions sha ${judgmentProv.artifact_sha})` : ""}`);
-  console.log(`${sectionFigure({ name: `${tag} — ${identity.query.ids.length} selection(s)`, members: [...new Set(allMemberIds)], by_family: report.counted }, record.candidates.length)}`);
-  if (abnormal) {
-    console.log(`ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md, the rendering rule, the Full Report).`);
-  }
-  console.log("Classification: REPORT (SPEC.md, the second-proposer boundary, the Full Report) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.");
-  console.log("A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md, the Full Report).");
-  console.log("The RENDERING is repo-visible and NOT committed; the RECORD is "
-    + "machine-local — visibility is decided explicitly, never by storage location, and location and naming holds v11. Two artifacts, two rules — "
-    + "visibility and publication are separate decisions.");
+    // THE OWNER RENDERING, in the SAME ACT (location and naming v11, kogaki#234). A run that
+    // wrote the record and not the rendering would leave the owner exactly where
+    // the ruling found them, so this is not conditional on a flag: `--no-render`
+    // is the opt-out and its absence is the default.
+    let rendered = null;
+    if (!args["no-render"]) {
+      // write authority v28 (kogaki#681; PR #702) — the write-authority refusal, BEFORE the
+      // destination is prepared. The rerun branch also WRITES the rendering, so the guard sits
+      // on BOTH branches.
+      refuseUnauthorizedOwnerWrite(renderingDestination(args), "FullReport.md");
+      const rdir = renderingsDir(args);
+      // location and naming v12 — ONE owner rendering, a fixed human name, overwritten per
+      // pull. Identity stays in the record alone; the filename carries none.
+      rendered = join(rdir, "FullReport.md");
+      writeFileSync(rendered, renderedText);
+    }
 
-  // RETURNS WHAT IT WROTE, so the control plane executor can OBSERVE the artifact
-  // rather than assert one (PR #655 round 1, carried to kogaki#665). Under
-  // `--no-render` nothing is written and `rendered` stays null — which is
-  // exactly the case that used to record a write that never happened.
-  return rendered;
+    // The no-hidden-path owner-surface rule binds BOTH artifact lines (PR #240 review round 1, finding
+    // 2), on this path and on the rerun path alike — see `announceArtifacts`,
+    // which is where the contract now lives so that neither path can drift from
+    // the other again.
+    announceArtifacts(rendered, out);
+    console.log(
+      `Identity RECORDED in the report: pin=${identity.pin} query=(${tag}, [${identity.query.ids.join(", ")}]) judge=${identity.judge_pin === NO_JUDGE ? NO_JUDGE : `${identity.judge_pin.model_id}/${identity.judge_pin.effort_tier}`} judge-provenance=${judgmentProv.state}${judgmentProv.artifact_sha ? ` (subdivisions sha ${judgmentProv.artifact_sha})` : ""}`,
+    );
+    console.log(
+      `${sectionFigure({ name: `${tag} — ${identity.query.ids.length} selection(s)`, members: [...new Set(allMemberIds)], by_family: report.counted }, record.candidates.length)}`,
+    );
+    if (abnormal) {
+      console.log(
+        `ABNORMAL: ${abnormal} served Gloss rendering(s) are missing. This is a fault to clear on the served surface, not a tolerated gap, and nothing was substituted for it (SPEC.md, the rendering rule, the Full Report).`,
+      );
+    }
+    console.log(
+      "Classification: REPORT (SPEC.md, the second-proposer boundary, the Full Report) — it ranks nothing, narrows nothing and hides nothing, so it sits in neither act list.",
+    );
+    console.log(
+      "A RENDERING, not an address: nothing downstream resolves a report id, and a Brief records members and pins (SPEC.md, the Full Report).",
+    );
+    console.log(
+      "The RENDERING is repo-visible and NOT committed; the RECORD is " +
+        "machine-local — visibility is decided explicitly, never by storage location, and location and naming holds v11. Two artifacts, two rules — " +
+        "visibility and publication are separate decisions.",
+    );
+
+    // RETURNS WHAT IT WROTE, so the control plane executor can OBSERVE the artifact
+    // rather than assert one (PR #655 round 1, carried to kogaki#665). Under
+    // `--no-render` nothing is written and `rendered` stays null — which is
+    // exactly the case that used to record a write that never happened.
+    return rendered;
   }
 }

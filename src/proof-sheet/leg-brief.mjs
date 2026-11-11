@@ -75,8 +75,20 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { pathToFileURL } from "node:url";
-import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, validateLegs, pathRule, RETIRED_LEG_STATE_FIELDS,
-  legRecord, briefRecordText, recoverabilityOf, FUNCTION_WORDS, wordsOf, wordForms } from "../compose.mjs";
+import {
+  readerPersona,
+  personaPriorKnowledgeLine,
+  audienceLanguage,
+  validateLegs,
+  pathRule,
+  RETIRED_LEG_STATE_FIELDS,
+  legRecord,
+  briefRecordText,
+  recoverabilityOf,
+  FUNCTION_WORDS,
+  wordsOf,
+  wordForms,
+} from "../compose.mjs";
 import { resolvedRow } from "../workflow/copies.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
@@ -100,13 +112,20 @@ function fail(msg) {
 function sourceRow(copyOf, at) {
   const file = resolve(REPO, String(copyOf.file));
   let table;
-  try { table = JSON.parse(readFileSync(file, "utf8")); }
-  catch (e) { return { error: `${at}: the production table ${copyOf.file} cannot be read (${e.message})` }; }
+  try {
+    table = JSON.parse(readFileSync(file, "utf8"));
+  } catch (e) {
+    return { error: `${at}: the production table ${copyOf.file} cannot be read (${e.message})` };
+  }
   const row = copyOf.state
     ? (Array.isArray(table.states) ? table.states : []).find((s) => s && s.id === copyOf.state)
     : table[copyOf.row];
-  if (!row) return { error: `${at}: ${copyOf.file} declares no ${copyOf.state ? `state \`${copyOf.state}\`` : `row \`${copyOf.row}\``}` };
-  if (typeof row[copyOf.field] !== "string") return { error: `${at}: ${copyOf.file}'s row carries no \`${copyOf.field}\` text` };
+  if (!row)
+    return {
+      error: `${at}: ${copyOf.file} declares no ${copyOf.state ? `state \`${copyOf.state}\`` : `row \`${copyOf.row}\``}`,
+    };
+  if (typeof row[copyOf.field] !== "string")
+    return { error: `${at}: ${copyOf.file}'s row carries no \`${copyOf.field}\` text` };
   return { text: row[copyOf.field] };
 }
 
@@ -120,11 +139,18 @@ export function applySubstitutions(text, substitutions, at) {
     const span = typeof s.cut_from === "string" ? s.cut_from : s.from;
     if (typeof span !== "string" || span === "") return { error: `${nth} names no \`from\` or \`cut_from\` text` };
     const first = out.indexOf(span);
-    if (first < 0) return { error: `${nth}: the production text no longer carries ${JSON.stringify(span)} — the row it copies has moved; restate the substitution against it` };
-    if (out.indexOf(span, first + 1) >= 0) return { error: `${nth}: the production text carries ${JSON.stringify(span)} more than once — a substitution names one span` };
-    out = typeof s.cut_from === "string"
-      ? out.slice(0, first)
-      : out.slice(0, first) + String(s.to ?? "") + out.slice(first + span.length);
+    if (first < 0)
+      return {
+        error: `${nth}: the production text no longer carries ${JSON.stringify(span)} — the row it copies has moved; restate the substitution against it`,
+      };
+    if (out.indexOf(span, first + 1) >= 0)
+      return {
+        error: `${nth}: the production text carries ${JSON.stringify(span)} more than once — a substitution names one span`,
+      };
+    out =
+      typeof s.cut_from === "string"
+        ? out.slice(0, first)
+        : out.slice(0, first) + String(s.to ?? "") + out.slice(first + span.length);
   }
   return { text: out };
 }
@@ -166,29 +192,46 @@ export function legCallExtraction(x) {
 // a Strand id names its paragraph across the whole Brief. `legIdsAlreadyCarried` is the earlier
 // Legs' ids, the list the duplicate-id refusal reads (kogaki#1560). `priorKnowledge` is the
 // Persona's prior-knowledge line, what the Leg opens from (kogaki#1699).
-export function legPathUnitInput({ paragraphs, extractions, priorKnowledge, language, strandOffset = 0, legIdsAlreadyCarried = [] }) {
+export function legPathUnitInput({
+  paragraphs,
+  extractions,
+  priorKnowledge,
+  language,
+  strandOffset = 0,
+  legIdsAlreadyCarried = [],
+}) {
   return {
     persona_prior_knowledge: priorKnowledge,
     language,
     leg_ids_already_carried: legIdsAlreadyCarried,
-    paragraphs: paragraphs.map((text, i) => ({ paragraph: i + 1, claim_strand: `L${strandOffset + i + 1}`, text,
-      extraction: legCallExtraction(extractions[i]) })),
+    paragraphs: paragraphs.map((text, i) => ({
+      paragraph: i + 1,
+      claim_strand: `L${strandOffset + i + 1}`,
+      text,
+      extraction: legCallExtraction(extractions[i]),
+    })),
   };
 }
 
 // ---------------------------------------------------------------------------
 // THE TERMS FILE, RETIRED (see the header).
-export const TERMS_RETIRED = "`--terms` is retired (kogaki#1529): it fixed an `introduces` entry's `kind`, and an "
-  + "introduced term carries `term` and `meaning` and no `kind`. Leave the flag off. Nothing was started.";
+export const TERMS_RETIRED =
+  "`--terms` is retired (kogaki#1529): it fixed an `introduces` entry's `kind`, and an " +
+  "introduced term carries `term` and `meaning` and no `kind`. Leave the flag off. Nothing was started.";
 
 // THE MOVE DIRECTORY AND THE INGEST RECORD, RETIRED (kogaki#1582): they fed the Obligation rows,
 // and the Brief's Obligations ledger is retired (kogaki#1699), so the Proof Sheet Brief carries none.
-export const MOVES_RETIRED = "`--moves` and `--ingest` are retired (kogaki#1582): the Obligations ledger is the Planner's, "
-  + "and this builder writes no Obligation row. Leave the flags off. Nothing was started.";
+export const MOVES_RETIRED =
+  "`--moves` and `--ingest` are retired (kogaki#1582): the Obligations ledger is the Planner's, " +
+  "and this builder writes no Obligation row. Leave the flags off. Nothing was started.";
 
 function unitPrompt(row, input) {
   const held = bindFlow(FLOW);
-  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); } finally { bindFlow(held); }
+  try {
+    return judgePrompt(row, JSON.stringify(input, null, 2), input, null);
+  } finally {
+    bindFlow(held);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -214,7 +257,9 @@ export function completedLeg(leg) {
 // Each paragraph's Segment `content` clauses, in order: the material the Leg's words are
 // recovered from.
 export function segmentContents(extractions) {
-  return extractions.map((x) => (Array.isArray(x && x.segments) ? x.segments : []).map((g) => String((g && g.content) ?? "")));
+  return extractions.map((x) =>
+    (Array.isArray(x && x.segments) ? x.segments : []).map((g) => String((g && g.content) ?? "")),
+  );
 }
 
 // THE RECOVERABILITY CRITERION over the one Leg (see the header). `segments` is
@@ -222,8 +267,10 @@ export function segmentContents(extractions) {
 // material never reads as one whose Leg held. Returns the refusal, or null.
 export function anchoredRefusal(leg, segments, n, offset = 0) {
   if (!Array.isArray(segments) || segments.length !== n || !segments.every(Array.isArray)) {
-    return `the Leg's validator was handed ${Array.isArray(segments) ? segments.length : "no"} paragraph(s) of Segment content for the original Leg's ${n} — `
-      + "the recoverability criterion reads every paragraph's Segment content (kogaki#1495)";
+    return (
+      `the Leg's validator was handed ${Array.isArray(segments) ? segments.length : "no"} paragraph(s) of Segment content for the original Leg's ${n} — ` +
+      "the recoverability criterion reads every paragraph's Segment content (kogaki#1495)"
+    );
   }
   const material = Object.fromEntries(segments.map((cs, i) => [`L${offset + i + 1}`, cs.join("\n")]));
   const [v] = recoverabilityOf([leg], { material, renderings: [] });
@@ -231,29 +278,42 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
   const m = /^(claims|waypoints)\[(\d+)\]/.exec(v.field) || [];
   const item = m[1] ? leg[m[1]][Number(m[2])] : null;
   const ids = !item ? [] : m[1] === "claims" ? [item.strand] : item.serves;
-  const where = ids.map((id) => Number(String(id).replace(/^L/, "")) - offset).filter((k) => k >= 1 && k <= n).map((k) => {
-    const count = segments[k - 1].length;
-    return `paragraph ${k}'s ${count === 1 ? "Segment 1" : `Segments 1–${count}`}`;
-  }).join(" and ");
-  return `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: \`${v.field}\` carries "${v.word}", which is in no Segment \`content\` of ${where || "the paragraph it serves"}, `
-    + "and is not a function word — a Claim's proposition and a Brief Waypoint's point are written in "
-    + "the words of the Segment content they serve, and this Brief composes no renderings record, since the Extraction's "
-    + "content is already the article's own rendering (kogaki#1495)";
+  const where = ids
+    .map((id) => Number(String(id).replace(/^L/, "")) - offset)
+    .filter((k) => k >= 1 && k <= n)
+    .map((k) => {
+      const count = segments[k - 1].length;
+      return `paragraph ${k}'s ${count === 1 ? "Segment 1" : `Segments 1–${count}`}`;
+    })
+    .join(" and ");
+  return (
+    `leg 1${leg.leg_id ? ` (${leg.leg_id})` : ""}: \`${v.field}\` carries "${v.word}", which is in no Segment \`content\` of ${where || "the paragraph it serves"}, ` +
+    "and is not a function word — a Claim's proposition and a Brief Waypoint's point are written in " +
+    "the words of the Segment content they serve, and this Brief composes no renderings record, since the Extraction's " +
+    "content is already the article's own rendering (kogaki#1495)"
+  );
 }
 
 // THE CLAIM'S WORDS IN ITS POINTS (see the header). Returns the refusal, or null.
 export function claimCoverageRefusal(leg, at = "leg 1") {
   const formsOf = (texts) => new Set(texts.flatMap((t) => wordsOf(t)).flatMap((w) => [...wordForms(w)]));
   for (const [i, g] of leg.claims.entries()) {
-    const serving = leg.waypoints.map((w, j) => [j + 1, w]).filter(([, w]) => isMap(w) && Array.isArray(w.serves) && w.serves.includes(g.strand));
+    const serving = leg.waypoints
+      .map((w, j) => [j + 1, w])
+      .filter(([, w]) => isMap(w) && Array.isArray(w.serves) && w.serves.includes(g.strand));
     const allowed = formsOf(serving.map(([, w]) => String(w.point ?? "")));
-    const word = wordsOf(g.proposition).find((w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w)
-      && ![...wordForms(w)].some((f) => allowed.has(f)));
+    const word = wordsOf(g.proposition).find(
+      (w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w) && ![...wordForms(w)].some((f) => allowed.has(f)),
+    );
     if (!word) continue;
-    const read = serving.length ? serving.map(([j]) => `waypoint ${j}`).join(" and ") : "no Brief Waypoint, since none serves it";
-    return `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Brief Waypoints `
-      + `serving ${g.strand} (read: ${read}) — a Brief Waypoint's point carries every content word of `
-      + "the Claim it serves, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)";
+    const read = serving.length
+      ? serving.map(([j]) => `waypoint ${j}`).join(" and ")
+      : "no Brief Waypoint, since none serves it";
+    return (
+      `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Brief Waypoints ` +
+      `serving ${g.strand} (read: ${read}) — a Brief Waypoint's point carries every content word of ` +
+      "the Claim it serves, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)"
+    );
   }
   return null;
 }
@@ -264,7 +324,9 @@ export function validateLegPathUnit(record, inputs) {
   const bad = keysRefusal(record, ["legs"], "the record");
   if (bad) return { error: bad };
   if (!Array.isArray(record.legs) || record.legs.length !== 1) {
-    return { error: `the record carries ${Array.isArray(record.legs) ? record.legs.length : "no"} Leg(s) — the Proof Sheet's Brief is ONE Leg (kogaki#1385)` };
+    return {
+      error: `the record carries ${Array.isArray(record.legs) ? record.legs.length : "no"} Leg(s) — the Proof Sheet's Brief is ONE Leg (kogaki#1385)`,
+    };
   }
   const leg = record.legs[0];
   const at = `leg 1${isMap(leg) && leg.leg_id ? ` (${leg.leg_id})` : ""}`;
@@ -276,27 +338,40 @@ export function validateLegPathUnit(record, inputs) {
   }
   const badLeg = keysRefusal(leg, LEG_KEYS, at);
   if (badLeg) {
-    return { error: `${badLeg}. A Leg binds no Move, so no \`move\`, \`materials\`, \`purpose\`, \`rationale\`, \`depends_on\`, `
-      + "`introduces`, `opens_section`, `reaches_target` or `journeys` is composed, and a Leg carries no reader state (kogaki#1385, kogaki#1699, kogaki#1768)" };
+    return {
+      error:
+        `${badLeg}. A Leg binds no Move, so no \`move\`, \`materials\`, \`purpose\`, \`rationale\`, \`depends_on\`, ` +
+        "`introduces`, `opens_section`, `reaches_target` or `journeys` is composed, and a Leg carries no reader state (kogaki#1385, kogaki#1699, kogaki#1768)",
+    };
   }
   if (!Array.isArray(leg.claims) || leg.claims.length !== n) {
-    return { error: `${at}: carries ${Array.isArray(leg.claims) ? leg.claims.length : "no"} Claim(s) for the original Leg's ${n} paragraph(s) — one Claim per paragraph, in order` };
+    return {
+      error: `${at}: carries ${Array.isArray(leg.claims) ? leg.claims.length : "no"} Claim(s) for the original Leg's ${n} paragraph(s) — one Claim per paragraph, in order`,
+    };
   }
   for (const [i, g] of leg.claims.entries()) {
     if (!isMap(g) || g.strand !== `L${o + i + 1}`) {
-      return { error: `${at}: Claim ${i + 1} names ${JSON.stringify(isMap(g) ? g.strand : g)}, not L${o + i + 1} — Claim N is paragraph N's, addressed by its \`claim_strand\`` };
+      return {
+        error: `${at}: Claim ${i + 1} names ${JSON.stringify(isMap(g) ? g.strand : g)}, not L${o + i + 1} — Claim N is paragraph N's, addressed by its \`claim_strand\``,
+      };
     }
   }
   if (!Array.isArray(leg.waypoints) || leg.waypoints.length !== n) {
-    return { error: `${at}: carries ${Array.isArray(leg.waypoints) ? leg.waypoints.length : "no"} Brief Waypoint(s) for the original Leg's ${n} paragraph(s) — one Brief Waypoint per paragraph, in order` };
+    return {
+      error: `${at}: carries ${Array.isArray(leg.waypoints) ? leg.waypoints.length : "no"} Brief Waypoint(s) for the original Leg's ${n} paragraph(s) — one Brief Waypoint per paragraph, in order`,
+    };
   }
   for (const [i, w] of leg.waypoints.entries()) {
     if (isMap(w) && Array.isArray(w.serves) && !w.serves.includes(`L${o + i + 1}`)) {
-      return { error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${o + i + 1} — Brief Waypoint N serves the Claim of paragraph N` };
+      return {
+        error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${o + i + 1} — Brief Waypoint N serves the Claim of paragraph N`,
+      };
     }
   }
   if ((inputs.taken_leg_ids || []).includes(leg.leg_id)) {
-    return { error: `${at}: the leg_id ${JSON.stringify(leg.leg_id)} is already carried by an earlier Leg of this Brief — every Leg of the Brief has its own id (kogaki#1532)` };
+    return {
+      error: `${at}: the leg_id ${JSON.stringify(leg.leg_id)} is already carried by an earlier Leg of this Brief — every Leg of the Brief has its own id (kogaki#1532)`,
+    };
   }
   const full = completedLeg(leg);
   const r = validateLegs([full], []);
@@ -315,7 +390,10 @@ export function validateLegPathUnit(record, inputs) {
   if (inputs.path) {
     const cross = crossLegPath([...inputs.path.prior_legs, leg], inputs.path.counts, inputs.path.segments);
     const r2 = validateLegs(cross.legs, []);
-    if (r2.error) return { error: `the whole path, with this Leg last and its cross-Leg fields derived (kogaki#1532): ${r2.error}` };
+    if (r2.error)
+      return {
+        error: `the whole path, with this Leg last and its cross-Leg fields derived (kogaki#1532): ${r2.error}`,
+      };
   }
   return {};
 }
@@ -356,7 +434,13 @@ export function crossLegPath(legs) {
 export function legAsText(leg) {
   if (!Array.isArray(leg.waypoints)) return leg;
   const { waypoints, ...rest } = leg;
-  return { ...rest, text: waypoints.map((w) => String(w.point ?? "").trim()).filter(Boolean).join(" ") };
+  return {
+    ...rest,
+    text: waypoints
+      .map((w) => String(w.point ?? "").trim())
+      .filter(Boolean)
+      .join(" "),
+  };
 }
 
 // ONE LEG PER ORIGINAL PARAGRAPH (see the header): the composed Leg's paragraph k is the Brief Leg
@@ -364,8 +448,13 @@ export function legAsText(leg) {
 export const PARAGRAPH_LEG_SUFFIX = "-p";
 export function legsPerParagraph(leg) {
   if (!Array.isArray(leg.waypoints)) return [leg];
-  return leg.waypoints.map((w, k) => ({ leg_id: `${leg.leg_id}${PARAGRAPH_LEG_SUFFIX}${k + 1}`,
-    text: String(w.point ?? "").replace(/\s*\n\s*/g, " ").trim(), claims: [leg.claims[k]] }));
+  return leg.waypoints.map((w, k) => ({
+    leg_id: `${leg.leg_id}${PARAGRAPH_LEG_SUFFIX}${k + 1}`,
+    text: String(w.point ?? "")
+      .replace(/\s*\n\s*/g, " ")
+      .trim(),
+    claims: [leg.claims[k]],
+  }));
 }
 
 // Every field the Brief parser requires that this composition does not compose, with the
@@ -373,8 +462,11 @@ export function legsPerParagraph(leg) {
 // anything it composes from.
 export function constantFields({ slug, paragraphs }) {
   return {
-    strands: paragraphs.map((_, i) => ({ id: `L${i + 1}`, slug: `${slug}-paragraph-${i + 1}`,
-      cite: `proof-sheet::paragraph/${slug}-paragraph-${i + 1}` })),
+    strands: paragraphs.map((_, i) => ({
+      id: `L${i + 1}`,
+      slug: `${slug}-paragraph-${i + 1}`,
+      cite: `proof-sheet::paragraph/${slug}-paragraph-${i + 1}`,
+    })),
     thesis: `The original Leg ${slug}.`,
     strand_coverage: [],
     journey_coverage: [],
@@ -394,15 +486,20 @@ export function legBriefText({ slug, composePath, paragraphs, leg, legs = null }
   const path = paragraphLegPath({ leg, legs }).legs;
   const constants = constantFields({ slug, paragraphs });
   const text = briefRecordText({
-    slug, compose_path: composePath, ...constants,
+    slug,
+    compose_path: composePath,
+    ...constants,
     reader_path: path.map(legRecord),
   });
   // Mark each constant above its key; a comment is never read back.
   const keys = new Set(Object.keys(constants));
-  return text.split("\n").flatMap((line) => {
-    const m = /^([a-z_]+):/.exec(line);
-    return m && keys.has(m[1]) ? [CONSTANT_COMMENT, line] : [line];
-  }).join("\n");
+  return text
+    .split("\n")
+    .flatMap((line) => {
+      const m = /^([a-z_]+):/.exec(line);
+      return m && keys.has(m[1]) ? [CONSTANT_COMMENT, line] : [line];
+    })
+    .join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -410,8 +507,11 @@ export function legBriefText({ slug, composePath, paragraphs, leg, legs = null }
 
 function positiveSetting(job, key) {
   const n = Number(settingValue(job && job[key]));
-  return Number.isInteger(n) && n > 0 ? n
-    : fail(`src/proof-sheet/extraction-workflow.json's \`job\` declares no positive \`${key}\` — it names a setting in kogaki.settings.json. Nothing was started.`);
+  return Number.isInteger(n) && n > 0
+    ? n
+    : fail(
+        `src/proof-sheet/extraction-workflow.json's \`job\` declares no positive \`${key}\` — it names a setting in kogaki.settings.json. Nothing was started.`,
+      );
 }
 
 // Read the Extractor run: its `extractions.json` names the Leg and the files written, and
@@ -424,16 +524,25 @@ function positiveSetting(job, key) {
 export function readExtractorRun(runDir, legOverride = null) {
   const idx = join(runDir, "extractions.json");
   let doc;
-  try { doc = JSON.parse(readFileSync(idx, "utf8")); }
-  catch (e) { return { error: `the Extractor run at ${runDir} carries no readable extractions.json (${e.message}) — run src/proof-sheet/extract.mjs to completion first` }; }
-  if (Array.isArray(doc.legs) && legOverride) return { error: `the Extractor run at ${runDir} ran several Legs, which it names itself — leave --leg off` };
+  try {
+    doc = JSON.parse(readFileSync(idx, "utf8"));
+  } catch (e) {
+    return {
+      error: `the Extractor run at ${runDir} carries no readable extractions.json (${e.message}) — run src/proof-sheet/extract.mjs to completion first`,
+    };
+  }
+  if (Array.isArray(doc.legs) && legOverride)
+    return { error: `the Extractor run at ${runDir} ran several Legs, which it names itself — leave --leg off` };
   const legPaths = Array.isArray(doc.legs) ? doc.legs.map((l) => l.leg) : [legOverride || doc.leg];
   const paragraphs = [];
   const legs = [];
   for (const legPath of legPaths) {
     let text;
-    try { text = readFileSync(legPath, "utf8"); }
-    catch (e) { return { error: `the Leg at ${legPath} cannot be read (${e.message}); name it with --leg` }; }
+    try {
+      text = readFileSync(legPath, "utf8");
+    } catch (e) {
+      return { error: `the Leg at ${legPath} cannot be read (${e.message}); name it with --leg` };
+    }
     const ps = legParagraphs(text);
     legs.push({ passage: basename(legPath).replace(/\.[^.]*$/, ""), paragraphs: ps.length });
     paragraphs.push(...ps);
@@ -441,14 +550,26 @@ export function readExtractorRun(runDir, legOverride = null) {
   const legPath = legPaths[0];
   const written = Array.isArray(doc.written) ? doc.written : [];
   if (written.length !== paragraphs.length) {
-    return { error: `the Extractor run at ${runDir} wrote ${written.length} Extraction(s) for the Leg's ${paragraphs.length} paragraph(s)` };
+    return {
+      error: `the Extractor run at ${runDir} wrote ${written.length} Extraction(s) for the Leg's ${paragraphs.length} paragraph(s)`,
+    };
   }
   const extractions = [];
   for (let i = 0; i < paragraphs.length; i++) {
-    try { extractions.push(JSON.parse(readFileSync(join(runDir, `p${i + 1}`, "answer.json"), "utf8"))); }
-    catch (e) { return { error: `paragraph ${i + 1}'s Extraction cannot be read from ${join(runDir, `p${i + 1}`, "answer.json")} (${e.message})` }; }
+    try {
+      extractions.push(JSON.parse(readFileSync(join(runDir, `p${i + 1}`, "answer.json"), "utf8")));
+    } catch (e) {
+      return {
+        error: `paragraph ${i + 1}'s Extraction cannot be read from ${join(runDir, `p${i + 1}`, "answer.json")} (${e.message})`,
+      };
+    }
   }
-  return { paragraphs, extractions, passage: doc.passage || basename(legPath), ...(Array.isArray(doc.legs) ? { legs } : {}) };
+  return {
+    paragraphs,
+    extractions,
+    passage: doc.passage || basename(legPath),
+    ...(Array.isArray(doc.legs) ? { legs } : {}),
+  };
 }
 
 // One row as one job: render, run on the supervisor, wait, record the Rounds.
@@ -457,16 +578,27 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
   const prompt = unitPrompt(row, input);
   writeFileSync(join(dir, "prompt.md"), prompt);
   startDetachedJobSupervisor(dir, {
-    units: [{ id: unitId, prompt }], ...bounds, recordArray,
+    units: [{ id: unitId, prompt }],
+    ...bounds,
+    recordArray,
     validator: { module: "src/proof-sheet/leg-brief.mjs", export: validatorExport, inputs },
   });
   const job = awaitJob(dir, bounds.heartbeatMs);
   const u = (job.units || [])[0] || {};
-  writeJson(join(dir, "rounds.json"), { row: row.id, state: job.state, status: u.status || null,
-    rounds: u.rounds || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+  writeJson(join(dir, "rounds.json"), {
+    row: row.id,
+    state: job.state,
+    status: u.status || null,
+    rounds: u.rounds || 1,
+    refusals: u.refusals || [],
+    ...(u.timed_out ? { timed_out: u.timed_out } : {}),
+  });
   if (job.state !== "done" || u.status !== "done" || !u.candidate) {
-    return { stopped: `the Leg Brief composer stopped at \`${row.id}\`: the job ended ${job.state} after ${u.rounds || 1} round(s) — `
-      + String(lastRefusal(job)).split("\n").join(" ") };
+    return {
+      stopped:
+        `the Leg Brief composer stopped at \`${row.id}\`: the job ended ${job.state} after ${u.rounds || 1} round(s) — ` +
+        String(lastRefusal(job)).split("\n").join(" "),
+    };
   }
   writeJson(join(dir, "answer.json"), u.candidate);
   return { record: u.candidate };
@@ -474,7 +606,16 @@ function runRow({ dir, unitId, row, input, recordArray, validatorExport, inputs,
 
 // COMPOSE the Leg's Brief. Writes `<out>/brief.yaml` and returns `{ brief, runDir }`, or
 // `{ stopped, runDir }`.
-export function runLegBrief({ extractions: extractorRun, out, leg = null, slug = null, audience = null, terms = null, moves = null, ingest = null }) {
+export function runLegBrief({
+  extractions: extractorRun,
+  out,
+  leg = null,
+  slug = null,
+  audience = null,
+  terms = null,
+  moves = null,
+  ingest = null,
+}) {
   if (moves || ingest) fail(MOVES_RETIRED);
   const material = readExtractorRun(resolve(extractorRun), leg);
   if (material.error) fail(material.error);
@@ -498,29 +639,60 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
   const briefPath = join(outDir, "brief.yaml");
   // NEVER OVER AN EARLIER BRIEF: /paragraph-plan and /draft record its hash, so a Brief
   // replaced under them is a plan made from a different Brief.
-  if (existsSync(briefPath)) fail(`a Brief already exists at ${briefPath}, and nothing was written over it. Nothing was started.`);
+  if (existsSync(briefPath))
+    fail(`a Brief already exists at ${briefPath}, and nothing was written over it. Nothing was started.`);
   const bounds = {
     command: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH).path,
-    model: String(settingValue(table.judge.model)), outputFormat: String(table.judge.output_format || "json"),
-    callLimitS: positiveSetting(table.job, "call_limit_s"), unitRounds: positiveSetting(table.job, "unit_rounds"),
-    stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S, heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
+    model: String(settingValue(table.judge.model)),
+    outputFormat: String(table.judge.output_format || "json"),
+    callLimitS: positiveSetting(table.job, "call_limit_s"),
+    unitRounds: positiveSetting(table.job, "unit_rounds"),
+    stallS: Number(table.job.stall_s) || READER_PATH_JOB_STALL_S,
+    heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms),
   };
   const runDir = join(outDir, `leg-brief-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
 
   const priorKnowledge = personaPriorKnowledgeLine(persona);
 
-  if (material.legs) return composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, priorKnowledge, extractorRun, bounds });
-  const lp = runRow({ dir: join(runDir, "leg-path"), unitId: "leg-path", row: rows.leg_path_unit,
-    input: legPathUnitInput({ paragraphs, extractions, priorKnowledge, language }), recordArray: "legs",
-    validatorExport: "validateLegPathUnit", bounds,
-    inputs: { paragraph_count: paragraphs.length, segments: segmentContents(extractions) } });
+  if (material.legs)
+    return composeLegs({
+      material,
+      rows,
+      runDir,
+      outDir,
+      briefPath,
+      name,
+      audiencePath,
+      language,
+      priorKnowledge,
+      extractorRun,
+      bounds,
+    });
+  const lp = runRow({
+    dir: join(runDir, "leg-path"),
+    unitId: "leg-path",
+    row: rows.leg_path_unit,
+    input: legPathUnitInput({ paragraphs, extractions, priorKnowledge, language }),
+    recordArray: "legs",
+    validatorExport: "validateLegPathUnit",
+    bounds,
+    inputs: { paragraph_count: paragraphs.length, segments: segmentContents(extractions) },
+  });
   if (lp.stopped) return { stopped: lp.stopped, runDir };
 
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, leg: lp.record.legs[0] }));
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    leg_ids: legsPerParagraph(lp.record.legs[0]).map((l) => l.leg_id) });
+  writeFileSync(
+    briefPath,
+    legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, leg: lp.record.legs[0] }),
+  );
+  writeJson(join(runDir, "brief.json"), {
+    extractor_run: resolve(extractorRun),
+    brief: briefPath,
+    language,
+    anchored: true,
+    leg_ids: legsPerParagraph(lp.record.legs[0]).map((l) => l.leg_id),
+  });
   return { brief: briefPath, runDir };
 }
 
@@ -528,7 +700,19 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 // handed the Persona's prior knowledge (no after-state is chained, kogaki#1699), and the last one validated with
 // the whole path (`validateLegPathUnit`'s `path`). `brief.json` records the Legs and the derived
 // cross-Leg fields, which the sheet marks.
-function composeLegs({ material, rows, runDir, outDir, briefPath, name, audiencePath, language, priorKnowledge, extractorRun, bounds }) {
+function composeLegs({
+  material,
+  rows,
+  runDir,
+  outDir,
+  briefPath,
+  name,
+  audiencePath,
+  language,
+  priorKnowledge,
+  extractorRun,
+  bounds,
+}) {
   const counts = material.legs.map((l) => l.paragraphs);
   const segments = [];
   const composed = [];
@@ -538,23 +722,57 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
     const extractions = material.extractions.slice(o, o + n);
     segments.push(segmentContents(extractions));
     const last = k === counts.length - 1;
-    const lp = runRow({ dir: join(runDir, `leg-path-${k + 1}`), unitId: `leg-path-${k + 1}`, row: rows.leg_path_unit,
-      input: legPathUnitInput({ paragraphs, extractions, priorKnowledge, language, strandOffset: o,
-        legIdsAlreadyCarried: composed.map((l) => l.leg_id) }), recordArray: "legs",
-      validatorExport: "validateLegPathUnit", bounds,
-      inputs: { paragraph_count: n, strand_offset: o, segments: segments[k],
+    const lp = runRow({
+      dir: join(runDir, `leg-path-${k + 1}`),
+      unitId: `leg-path-${k + 1}`,
+      row: rows.leg_path_unit,
+      input: legPathUnitInput({
+        paragraphs,
+        extractions,
+        priorKnowledge,
+        language,
+        strandOffset: o,
+        legIdsAlreadyCarried: composed.map((l) => l.leg_id),
+      }),
+      recordArray: "legs",
+      validatorExport: "validateLegPathUnit",
+      bounds,
+      inputs: {
+        paragraph_count: n,
+        strand_offset: o,
+        segments: segments[k],
         taken_leg_ids: composed.map((l) => l.leg_id),
-        ...(last ? { path: { prior_legs: composed, counts, segments } } : {}) } });
-    if (lp.stopped) return { stopped: `Leg ${k + 1} of ${counts.length} (${material.legs[k].passage}): ${lp.stopped}`, runDir };
+        ...(last ? { path: { prior_legs: composed, counts, segments } } : {}),
+      },
+    });
+    if (lp.stopped)
+      return { stopped: `Leg ${k + 1} of ${counts.length} (${material.legs[k].passage}): ${lp.stopped}`, runDir };
     composed.push(lp.record.legs[0]);
   }
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs: material.paragraphs,
-    legs: composed }));
+  writeFileSync(
+    briefPath,
+    legBriefText({
+      slug: name,
+      composePath: relFromRepo(audiencePath),
+      paragraphs: material.paragraphs,
+      legs: composed,
+    }),
+  );
   const { derived } = paragraphLegPath({ legs: composed });
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: composed[k].leg_id,
-      leg_ids: legsPerParagraph(composed[k]).map((x) => x.leg_id) })), derived });
+  writeJson(join(runDir, "brief.json"), {
+    extractor_run: resolve(extractorRun),
+    brief: briefPath,
+    language,
+    anchored: true,
+    legs: material.legs.map((l, k) => ({
+      passage: l.passage,
+      paragraphs: l.paragraphs,
+      leg_id: composed[k].leg_id,
+      leg_ids: legsPerParagraph(composed[k]).map((x) => x.leg_id),
+    })),
+    derived,
+  });
   return { brief: briefPath, runDir };
 }
 
@@ -566,7 +784,9 @@ export function rowsDiffText(table) {
     const row = table[key] || {};
     L.push(`${key} — authored here, its copies resolved from production`);
     for (const [name, c] of Object.entries(row.copies || {})) {
-      L.push(`  {{copy:${name}}} — ${c.file} row ${c.row}, field ${c.field}, from ${JSON.stringify(c.opens)} through ${JSON.stringify(c.closes)}`);
+      L.push(
+        `  {{copy:${name}}} — ${c.file} row ${c.row}, field ${c.field}, from ${JSON.stringify(c.opens)} through ${JSON.stringify(c.closes)}`,
+      );
     }
     const d = resolvedRow(table, key);
     L.push(d.error ? `  REFUSED: ${d.error}` : "  every copy resolves against the production text");
@@ -583,7 +803,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -599,13 +822,24 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.stdout.write(`${text}\n`);
     if (text.includes("REFUSED:")) process.exitCode = 1;
   } else if (args._cmd === "run" && str("extractions") && str("out")) {
-    const r = runLegBrief({ extractions: str("extractions"), out: str("out"), leg: str("leg"), slug: str("slug"), audience: str("audience") });
+    const r = runLegBrief({
+      extractions: str("extractions"),
+      out: str("out"),
+      leg: str("leg"),
+      slug: str("slug"),
+      audience: str("audience"),
+    });
     if (r.brief) console.log(`Brief written: ${r.brief}`);
     console.log(`run directory: ${r.runDir}`);
-    if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
+    if (r.stopped) {
+      console.log(r.stopped);
+      process.exitCode = 1;
+    }
   } else {
-    fail("usage: node src/proof-sheet/leg-brief.mjs run --extractions <an Extractor run directory> --out <dir> "
-      + "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>]\n"
-      + "       node src/proof-sheet/leg-brief.mjs diff");
+    fail(
+      "usage: node src/proof-sheet/leg-brief.mjs run --extractions <an Extractor run directory> --out <dir> " +
+        "[--leg <the Leg's file>] [--slug <slug>] [--audience <audiences/<name>.md>]\n" +
+        "       node src/proof-sheet/leg-brief.mjs diff",
+    );
   }
 }

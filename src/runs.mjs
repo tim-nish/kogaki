@@ -90,7 +90,13 @@ export const LANES = Object.freeze(["terrain", "brief", "draft", "review", "proo
 // abandoned. Under one budget, ten entries — the front door, and the cheapest
 // command to re-run after an abandoned start — evict every Brief's snapshot
 // trace (PR #783 round 1, finding 3).
-const ALWAYS_EXEMPT = Object.freeze({ terrain: ["reports"], brief: ["entries"], draft: [], review: [], "proof-sheet": [] });
+const ALWAYS_EXEMPT = Object.freeze({
+  terrain: ["reports"],
+  brief: ["entries"],
+  draft: [],
+  review: [],
+  "proof-sheet": [],
+});
 
 // The one sub-directory carrying its own bound, named here rather than passed
 // by a caller: a caller that could name any sub-directory could exempt any
@@ -123,9 +129,11 @@ export function isLane(lane) {
 
 function requireLane(lane) {
   if (!isLane(lane)) {
-    refuse(`\`${lane}\` is not a lane — the lanes are ${LANES.join(", ")} `
-      + "(kogaki#750). A lane is added by naming it here, never by a caller "
-      + "passing a new string: an unlisted lane would be a directory nothing prunes.");
+    refuse(
+      `\`${lane}\` is not a lane — the lanes are ${LANES.join(", ")} ` +
+        "(kogaki#750). A lane is added by naming it here, never by a caller " +
+        "passing a new string: an unlisted lane would be a directory nothing prunes.",
+    );
   }
   return lane;
 }
@@ -157,8 +165,14 @@ export function runDestination(lane, entry, root = RUNS_ROOT) {
 // and a draft slug is validated by SLUG_RE before it arrives — which is exactly
 // the condition under which a guard's absence leaves no trace.
 function requireEntryName(entry) {
-  if (typeof entry !== "string" || entry === "" || entry === "." || entry === ".."
-      || entry.includes("/") || entry.includes("\\")) {
+  if (
+    typeof entry !== "string" ||
+    entry === "" ||
+    entry === "." ||
+    entry === ".." ||
+    entry.includes("/") ||
+    entry.includes("\\")
+  ) {
     refuse(`a run entry name must be a single path segment — got \`${entry}\``);
   }
   return entry;
@@ -184,18 +198,23 @@ export function keepLast(lane, configPath = CONFIG) {
   try {
     cfg = JSON.parse(readFileSync(configPath, "utf8"));
   } catch (e) {
-    refuse(`src/runs.json cannot be read (${e && e.message ? e.message : e}) — it carries `
-      + "the keep-last bound for every lane (kogaki#750) and there is no default.");
+    refuse(
+      `src/runs.json cannot be read (${e && e.message ? e.message : e}) — it carries ` +
+        "the keep-last bound for every lane (kogaki#750) and there is no default.",
+    );
   }
   const lanes = cfg && cfg.lanes;
-  const missing = LANES.filter((l) => !lanes || !lanes[l]
-    || !Number.isInteger(lanes[l].keep_last) || lanes[l].keep_last < 1);
+  const missing = LANES.filter(
+    (l) => !lanes || !lanes[l] || !Number.isInteger(lanes[l].keep_last) || lanes[l].keep_last < 1,
+  );
   if (missing.length) {
-    refuse("src/runs.json declares no complete `lanes` block, so the keep-last bound cannot "
-      + `be read (kogaki#750); ${missing.join(", ")} carries no positive integer \`keep_last\`. `
-      + "EVERY lane is checked rather than the one being asked for, because a lane whose bound "
-      + "is deleted prunes nothing and grows without limit, and the run that would notice is "
-      + "the one that never reads this key.");
+    refuse(
+      "src/runs.json declares no complete `lanes` block, so the keep-last bound cannot " +
+        `be read (kogaki#750); ${missing.join(", ")} carries no positive integer \`keep_last\`. ` +
+        "EVERY lane is checked rather than the one being asked for, because a lane whose bound " +
+        "is deleted prunes nothing and grows without limit, and the run that would notice is " +
+        "the one that never reads this key.",
+    );
   }
   return lanes[lane].keep_last;
 }
@@ -209,16 +228,22 @@ export function prepareLane(lane, root = RUNS_ROOT) {
 
 function entriesByAge(dir) {
   if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => {
-      let mtime = 0;
-      try { mtime = statSync(join(dir, d.name)).mtimeMs; } catch { mtime = 0; }
-      return { name: d.name, mtime };
-    })
-    // Newest first, name as the tiebreak so the order is total and a run that
-    // mints two entries in the same millisecond still prunes deterministically.
-    .sort((a, b) => (b.mtime - a.mtime) || a.name.localeCompare(b.name));
+  return (
+    readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => {
+        let mtime = 0;
+        try {
+          mtime = statSync(join(dir, d.name)).mtimeMs;
+        } catch {
+          mtime = 0;
+        }
+        return { name: d.name, mtime };
+      })
+      // Newest first, name as the tiebreak so the order is total and a run that
+      // mints two entries in the same millisecond still prunes deterministically.
+      .sort((a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name))
+  );
 }
 
 // A LANE NEVER PRUNES ANOTHER LANE, and that is asserted rather than argued
@@ -240,8 +265,10 @@ export function removeWithin(laneRoot, name) {
   // lane root itself already fails `startsWith(root + sep)`. A clause a
   // mutation cannot reach is a clause the next reader must re-derive.
   if (!target.startsWith(root + sep)) {
-    refuse(`refusing to prune \`${name}\` — it resolves outside the lane directory ${root}. `
-      + "A lane prunes its own runs and nothing else (kogaki#750 acceptance 3).");
+    refuse(
+      `refusing to prune \`${name}\` — it resolves outside the lane directory ${root}. ` +
+        "A lane prunes its own runs and nothing else (kogaki#750 acceptance 3).",
+    );
   }
   rmSync(target, { recursive: true, force: true });
 }
@@ -288,8 +315,10 @@ export function enterRun(lane, entry, opts = {}) {
     // The DIRECTORY, not the string `runs/<lane>/`: a fixture pass drives this
     // against a scratch root, and a message naming the repository path while
     // deleting somewhere else is a true-sounding line about the wrong place.
-    process.stderr.write(`runs: pruned ${removed.length} run(s) beyond keep-last from `
-      + `${laneDir(lane, opts.root || RUNS_ROOT)} (${removed.join(", ")})\n`);
+    process.stderr.write(
+      `runs: pruned ${removed.length} run(s) beyond keep-last from ` +
+        `${laneDir(lane, opts.root || RUNS_ROOT)} (${removed.join(", ")})\n`,
+    );
   }
   const dest = runDestination(lane, entry, opts.root || RUNS_ROOT);
   mkdirSync(dest, { recursive: true });
@@ -304,18 +333,20 @@ export function enterSubRun(lane, sub, entry, opts = {}) {
   requireLane(lane);
   requireEntryName(entry);
   if (!ALWAYS_EXEMPT[lane].includes(sub)) {
-    refuse(`\`${sub}\` is not a bounded sub-directory of the ${lane} lane — `
-      + `the declared ones are ${ALWAYS_EXEMPT[lane].join(", ") || "(none)"}`);
+    refuse(
+      `\`${sub}\` is not a bounded sub-directory of the ${lane} lane — ` +
+        `the declared ones are ${ALWAYS_EXEMPT[lane].join(", ") || "(none)"}`,
+    );
   }
   const root = opts.root || RUNS_ROOT;
   const dir = join(laneDir(lane, root), sub);
   mkdirSync(dir, { recursive: true });
-  const k = opts.keep === undefined || opts.keep === null
-    ? keepLast(lane, opts.configPath || CONFIG) : opts.keep;
+  const k = opts.keep === undefined || opts.keep === null ? keepLast(lane, opts.configPath || CONFIG) : opts.keep;
   const removed = pruneWithin(dir, entry, k);
   if (removed.length) {
-    process.stderr.write(`runs: pruned ${removed.length} run(s) beyond keep-last from `
-      + `${dir} (${removed.join(", ")})\n`);
+    process.stderr.write(
+      `runs: pruned ${removed.length} run(s) beyond keep-last from ` + `${dir} (${removed.join(", ")})\n`,
+    );
   }
   const dest = join(dir, entry);
   mkdirSync(dest, { recursive: true });

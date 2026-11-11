@@ -25,13 +25,19 @@ import { createHash } from "node:crypto";
 function parseLegBlock(text, path = "<reverse-outline>") {
   const m = /^```leg\n([\s\S]*?)\n```/m.exec(text);
   if (!m) {
-    return { refusal: `${path} carries no fenced \`leg\` block — a Reverse Outline is written in the Brief `
-      + "Leg's own field names, so there is nothing here to compare against the Forward Artifact" };
+    return {
+      refusal:
+        `${path} carries no fenced \`leg\` block — a Reverse Outline is written in the Brief ` +
+        "Leg's own field names, so there is nothing here to compare against the Forward Artifact",
+    };
   }
   const rest = text.slice(m.index + m[0].length);
   if (/^```leg\n/m.test(rest)) {
-    return { refusal: `${path} carries more than one fenced \`leg\` block — a Reverse Outline is the reading of ONE passage, `
-      + "and two blocks leave the Harness to pick which one the reader meant" };
+    return {
+      refusal:
+        `${path} carries more than one fenced \`leg\` block — a Reverse Outline is the reading of ONE passage, ` +
+        "and two blocks leave the Harness to pick which one the reader meant",
+    };
   }
   const body = m[1];
   const idM = body.match(/^leg_id:\s*(\S+)\s*$/m);
@@ -47,7 +53,10 @@ function legField(body, field) {
     const inline = body.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
     return inline ? inline[1].trim() : null;
   }
-  const rest = m[2].split("\n").filter((l) => l !== "").map((l) => l.slice(2));
+  const rest = m[2]
+    .split("\n")
+    .filter((l) => l !== "")
+    .map((l) => l.slice(2));
   return [m[1].trim(), ...rest].join("\n");
 }
 
@@ -79,13 +88,16 @@ const STDIN_LABEL = "standard input";
 
 function readReply() {
   if (process.stdin.isTTY) return "";
-  try { return readFileSync(0, "utf8"); }
-  catch (e) {
+  try {
+    return readFileSync(0, "utf8");
+  } catch (e) {
     if (e.code === "EOF") return "";
     if (e.code === "EAGAIN") {
-      fail("standard input could not be read (EAGAIN) — the reply is piped into this act, and a "
-        + "non-blocking stream with nothing on it yet is not an absent reply. Pipe the reply in, or "
-        + "run the act with standard input closed to mean there is none.");
+      fail(
+        "standard input could not be read (EAGAIN) — the reply is piped into this act, and a " +
+          "non-blocking stream with nothing on it yet is not an absent reply. Pipe the reply in, or " +
+          "run the act with standard input closed to mean there is none.",
+      );
     }
     throw e;
   }
@@ -116,12 +128,17 @@ function readDraft(draftPath) {
   const text = readFileSync(draftPath, "utf8");
   const lines = text.split("\n");
   if (lines[0] !== "---") {
-    fail(`${draftPath} opens with no frontmatter — a CanonicalDraft carries its record half in `
-      + "frontmatter, and without it there is no trace to review against");
+    fail(
+      `${draftPath} opens with no frontmatter — a CanonicalDraft carries its record half in ` +
+        "frontmatter, and without it there is no trace to review against",
+    );
   }
   let end = -1;
   for (let i = 1; i < lines.length; i++) {
-    if (lines[i] === "---") { end = i; break; }
+    if (lines[i] === "---") {
+      end = i;
+      break;
+    }
   }
   if (end === -1) fail(`${draftPath} has an unterminated frontmatter block`);
 
@@ -136,7 +153,10 @@ function readDraft(draftPath) {
   let brief = null;
   for (let i = 1; i < end; i++) {
     const m = lines[i].match(/^brief: (.+?)\s*$/);
-    if (m) { brief = m[1]; break; }
+    if (m) {
+      brief = m[1];
+      break;
+    }
   }
   // THE LANGUAGE THE DRAFT WAS REALIZED AT (kogaki#1160): `draft.mjs emit`
   // writes `lang:` only for a non-English realization, so no `lang:` is
@@ -152,12 +172,14 @@ function readDraft(draftPath) {
     const m = lines[i].match(/^lang: (.+?)\s*$/);
     if (m) {
       if (!LANG_FORM.test(m[1])) {
-        fail(`${draftPath} carries \`lang: ${m[1]}\`, which is not a language tag — the value is `
-          + "threaded to the realization lane as `--lang`, where it becomes a directory segment, a "
-          + "run-record key and part of the emitted Draft's filename, so a value outside "
-          + "`aa`/`aaa` with optional `-subtag` parts would write outside the track it names. "
-          + "Re-emit the Draft (`node src/draft.mjs emit --brief <brief.yaml> --lang <tag>`), which "
-          + "writes the field.");
+        fail(
+          `${draftPath} carries \`lang: ${m[1]}\`, which is not a language tag — the value is ` +
+            "threaded to the realization lane as `--lang`, where it becomes a directory segment, a " +
+            "run-record key and part of the emitted Draft's filename, so a value outside " +
+            "`aa`/`aaa` with optional `-subtag` parts would write outside the track it names. " +
+            "Re-emit the Draft (`node src/draft.mjs emit --brief <brief.yaml> --lang <tag>`), which " +
+            "writes the field.",
+        );
       }
       lang = m[1];
       break;
@@ -165,12 +187,18 @@ function readDraft(draftPath) {
   }
   for (let i = 1; i < end; i++) {
     const l = lines[i];
-    if (l === "trace:") { inTrace = true; continue; }
+    if (l === "trace:") {
+      inTrace = true;
+      continue;
+    }
     if (inTrace) {
       const m = l.match(/^ {2}- (\{.*\})\s*$/);
       if (m) {
-        try { trace.push(JSON.parse(m[1])); }
-        catch (e) { fail(`trace entry ${trace.length + 1} in ${draftPath} is not readable JSON (${e.message})`); }
+        try {
+          trace.push(JSON.parse(m[1]));
+        } catch (e) {
+          fail(`trace entry ${trace.length + 1} in ${draftPath} is not readable JSON (${e.message})`);
+        }
         continue;
       }
       // A non-entry line ends the block: `emit` writes the trace last, so
@@ -179,8 +207,10 @@ function readDraft(draftPath) {
     }
   }
   if (!trace.length) {
-    fail(`${draftPath} carries no trace entries — ReviewDraft reviews the Draft against the `
-      + "Packets its trace names, and a Draft with no trace names none");
+    fail(
+      `${draftPath} carries no trace entries — ReviewDraft reviews the Draft against the ` +
+        "Packets its trace names, and a Draft with no trace names none",
+    );
   }
 
   // The body is everything after the closing `---` and the blank line the
@@ -206,29 +236,43 @@ function resolveInputs(draft) {
   const legs = [];
   for (const t of draft.trace) {
     const id = typeof t.leg_id === "string" ? t.leg_id : "(unnamed)";
-    if (!Array.isArray(t.lines) || t.lines.length !== 2
-        || !Number.isInteger(t.lines[0]) || !Number.isInteger(t.lines[1])) {
-      fail(`leg ${id} carries no line range in the trace — ReviewDraft locates each Leg's prose `
-        + "by the range kogaki#868 writes, and a Draft emitted before that lands must be re-emitted "
-        + "(node src/draft.mjs emit --brief <brief.yaml>)");
+    if (
+      !Array.isArray(t.lines) ||
+      t.lines.length !== 2 ||
+      !Number.isInteger(t.lines[0]) ||
+      !Number.isInteger(t.lines[1])
+    ) {
+      fail(
+        `leg ${id} carries no line range in the trace — ReviewDraft locates each Leg's prose ` +
+          "by the range kogaki#868 writes, and a Draft emitted before that lands must be re-emitted " +
+          "(node src/draft.mjs emit --brief <brief.yaml>)",
+      );
     }
     if (typeof t.packet !== "string" || typeof t.packet_sha !== "string") {
-      fail(`leg ${id} names no Packet in the trace — the Packet is the only source ReviewDraft `
-        + "compares against, so a Leg without one cannot be reviewed; re-emit the Draft after "
-        + "rendering its Packets");
+      fail(
+        `leg ${id} names no Packet in the trace — the Packet is the only source ReviewDraft ` +
+          "compares against, so a Leg without one cannot be reviewed; re-emit the Draft after " +
+          "rendering its Packets",
+      );
     }
     const packetPath = resolve(dir, t.packet);
     if (!existsSync(packetPath)) {
-      fail(`leg ${id}: the Packet the trace names is absent — ${packetPath}. The run workspace is `
-        + "machine state and is pruned; re-render it with "
-        + "`node src/draft.mjs packet --brief <brief.yaml> --leg " + id + "`");
+      fail(
+        `leg ${id}: the Packet the trace names is absent — ${packetPath}. The run workspace is ` +
+          "machine state and is pruned; re-render it with " +
+          "`node src/draft.mjs packet --brief <brief.yaml> --leg " +
+          id +
+          "`",
+      );
     }
     const actual = sha256(readFileSync(packetPath, "utf8"));
     if (actual !== t.packet_sha) {
-      fail(`leg ${id}: the Packet's sha differs from the trace's — the Draft was not produced from `
-        + `this Packet.\n  trace  ${t.packet_sha}\n  file   ${actual}\n  at     ${packetPath}\n`
-        + "Reviewing prose against an input that did not produce it compares two unrelated things, "
-        + "so this refuses rather than reporting findings nobody can act on.");
+      fail(
+        `leg ${id}: the Packet's sha differs from the trace's — the Draft was not produced from ` +
+          `this Packet.\n  trace  ${t.packet_sha}\n  file   ${actual}\n  at     ${packetPath}\n` +
+          "Reviewing prose against an input that did not produce it compares two unrelated things, " +
+          "so this refuses rather than reporting findings nobody can act on.",
+      );
     }
     // The range is 1-based over the file; slice is 0-based and end-exclusive.
     const prose = draft.lines.slice(t.lines[0] - 1, t.lines[1]).join("\n");
@@ -246,37 +290,52 @@ function resolveInputs(draft) {
     let figure = null;
     if (t.figure !== undefined && t.figure !== null) {
       const f = t.figure;
-      if (!Array.isArray(f.lines) || f.lines.length !== 2
-          || !Number.isInteger(f.lines[0]) || !Number.isInteger(f.lines[1])) {
-        fail(`leg ${id}: its trace entry carries a figure with no line range — the renderer records the `
-          + "figure's own range beside the Leg's prose range, and without it Reverse Outlining "
-          + "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.yaml>)");
+      if (
+        !Array.isArray(f.lines) ||
+        f.lines.length !== 2 ||
+        !Number.isInteger(f.lines[0]) ||
+        !Number.isInteger(f.lines[1])
+      ) {
+        fail(
+          `leg ${id}: its trace entry carries a figure with no line range — the renderer records the ` +
+            "figure's own range beside the Leg's prose range, and without it Reverse Outlining " +
+            "has no block to quote; re-emit the Draft (node src/draft.mjs emit --brief <brief.yaml>)",
+        );
       }
       if (typeof f.record !== "string" || typeof f.record_sha !== "string") {
-        fail(`leg ${id}: its trace entry carries a figure naming no record — the record is the `
-          + "declared side of every figure item, so a figure without one cannot be reviewed");
+        fail(
+          `leg ${id}: its trace entry carries a figure naming no record — the record is the ` +
+            "declared side of every figure item, so a figure without one cannot be reviewed",
+        );
       }
       const recordPath = resolve(dir, f.record);
       if (!existsSync(recordPath)) {
-        fail(`leg ${id}: the figure record the trace names is absent — ${recordPath}. The run `
-          + "workspace is machine state and is pruned; re-record it with "
-          + `\`node src/draft.mjs figure --brief <brief.yaml> --leg ${id} --file <record.json>\``);
+        fail(
+          `leg ${id}: the figure record the trace names is absent — ${recordPath}. The run ` +
+            "workspace is machine state and is pruned; re-record it with " +
+            `\`node src/draft.mjs figure --brief <brief.yaml> --leg ${id} --file <record.json>\``,
+        );
       }
       const recordText = readFileSync(recordPath, "utf8");
       const recordActual = sha256(recordText);
       if (recordActual !== f.record_sha) {
-        fail(`leg ${id}: the figure record's sha differs from the trace's — the Draft was not `
-          + `emitted from this record.\n  trace  ${f.record_sha}\n  file   ${recordActual}\n`
-          + `  at     ${recordPath}\n`
-          + "The rendered block the reader met came from the record as it stood at emit; comparing "
-          + "it against a record edited since compares two unrelated things.");
+        fail(
+          `leg ${id}: the figure record's sha differs from the trace's — the Draft was not ` +
+            `emitted from this record.\n  trace  ${f.record_sha}\n  file   ${recordActual}\n` +
+            `  at     ${recordPath}\n` +
+            "The rendered block the reader met came from the record as it stood at emit; comparing " +
+            "it against a record edited since compares two unrelated things.",
+        );
       }
       let record;
-      try { record = JSON.parse(recordText); }
-      catch (e) {
-        fail(`leg ${id}: the figure record at ${recordPath} is not readable JSON (${e.message}) `
-          + "— it was written by `draft.mjs figure` and validated then, so a record unreadable now "
-          + "was edited outside the Harness");
+      try {
+        record = JSON.parse(recordText);
+      } catch (e) {
+        fail(
+          `leg ${id}: the figure record at ${recordPath} is not readable JSON (${e.message}) ` +
+            "— it was written by `draft.mjs figure` and validated then, so a record unreadable now " +
+            "was edited outside the Harness",
+        );
       }
       figure = {
         position: f.position,
@@ -306,7 +365,10 @@ function resolveInputs(draft) {
   const sections = [];
   for (const s of legs) {
     let sec = sections.find((x) => x.index === s.section);
-    if (!sec) { sec = { index: s.section, title: s.section_title, legs: [] }; sections.push(sec); }
+    if (!sec) {
+      sec = { index: s.section, title: s.section_title, legs: [] };
+      sections.push(sec);
+    }
     sec.legs.push(s.leg_id);
   }
   sections.sort((a, b) => a.index - b.index);
@@ -330,22 +392,42 @@ const TERMS_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "te
 function checkJaTermsFreshness(draftPath) {
   if (!draftPath.endsWith(".ja.md")) return;
   let text;
-  try { text = readFileSync(draftPath, "utf8"); }
-  catch { return; } // the ordinary "no Draft" refusal is readDraft's, next
+  try {
+    text = readFileSync(draftPath, "utf8");
+  } catch {
+    return;
+  } // the ordinary "no Draft" refusal is readDraft's, next
   let currentSha;
-  try { currentSha = sha256(readFileSync(TERMS_PATH, "utf8")); }
-  catch (e) {
-    fail(`the term list at ${TERMS_PATH} cannot be read (${e.message}) — a Japanese Draft's terms_sha_at_lint cannot be checked for staleness without it`);
+  try {
+    currentSha = sha256(readFileSync(TERMS_PATH, "utf8"));
+  } catch (e) {
+    fail(
+      `the term list at ${TERMS_PATH} cannot be read (${e.message}) — a Japanese Draft's terms_sha_at_lint cannot be checked for staleness without it`,
+    );
   }
   const m = text.match(/^terms_sha_at_lint:\s*(\S+)\s*$/m);
   const recorded = m ? m[1] : "(absent)";
   if (!m || m[1] !== currentSha) {
-    fail(`${draftPath} refuses to start: terms_sha_at_lint is ${recorded} and the current term list's hash is ${currentSha} (${TERMS_PATH}) — `
-      + `Lint runs before the Round Trip on a Japanese Draft (the Terminology List Decision), so run \`node src/lint-ja.mjs lint --draft ${draftPath}\` first. `
-      + "A term-list change is a correction, never a whole-Draft re-derivation: run "
-      + `\`node src/lint-ja.mjs correct-terms --draft ${draftPath}\` to name the Legs still owed after the `
-      + `mechanical fix, then re-enter ReviewDraft with \`open --draft ${draftPath} --only-legs <those Legs>\``);
+    fail(
+      `${draftPath} refuses to start: terms_sha_at_lint is ${recorded} and the current term list's hash is ${currentSha} (${TERMS_PATH}) — ` +
+        `Lint runs before the Round Trip on a Japanese Draft (the Terminology List Decision), so run \`node src/lint-ja.mjs lint --draft ${draftPath}\` first. ` +
+        "A term-list change is a correction, never a whole-Draft re-derivation: run " +
+        `\`node src/lint-ja.mjs correct-terms --draft ${draftPath}\` to name the Legs still owed after the ` +
+        `mechanical fix, then re-enter ReviewDraft with \`open --draft ${draftPath} --only-legs <those Legs>\``,
+    );
   }
 }
 
-export { parseLegBlock, legField, fail, sha256, argString, STDIN_LABEL, readReply, requireReply, readDraft, resolveInputs, checkJaTermsFreshness };
+export {
+  parseLegBlock,
+  legField,
+  fail,
+  sha256,
+  argString,
+  STDIN_LABEL,
+  readReply,
+  requireReply,
+  readDraft,
+  resolveInputs,
+  checkJaTermsFreshness,
+};

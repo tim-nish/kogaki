@@ -54,15 +54,36 @@ import { MOVE_CONSTRAINT_KINDS, moveConstraintsRefusal } from "../move-validate.
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
 import { enterRun, RUNS_ROOT } from "../runs.mjs";
-import { startDetachedJobSupervisor, readReaderPathJob, READER_PATH_JOB_STALL_S,
-  jobHeartbeatMs } from "../workflow/detached-job.mjs";
+import {
+  startDetachedJobSupervisor,
+  readReaderPathJob,
+  READER_PATH_JOB_STALL_S,
+  jobHeartbeatMs,
+} from "../workflow/detached-job.mjs";
 
 export const EXTRACTION_TABLE = join(REPO, "src", "proof-sheet", "extraction-workflow.json");
 export const STATUS_LINE = "status: unreviewed model draft (m2)";
 // An Extraction file is its YAML record (kogaki#1413).
 export const EXTRACTION_EXT = ".yaml";
-const RECORD_KEYS = ["version", "paragraph", "source", "prior_text", "language", "subject_nouns", "answers",
-  "what_it_does", "segments", "takes", "leaves", "why_this_order", "presupposes", "breaks", "description", "name", "notes"];
+const RECORD_KEYS = [
+  "version",
+  "paragraph",
+  "source",
+  "prior_text",
+  "language",
+  "subject_nouns",
+  "answers",
+  "what_it_does",
+  "segments",
+  "takes",
+  "leaves",
+  "why_this_order",
+  "presupposes",
+  "breaks",
+  "description",
+  "name",
+  "notes",
+];
 // `description` replaces the retired `technique` (kogaki#1412): one or two sentences for a
 // person reading the library, with no machine role, bounded at the ingest's own limit
 // (`DESCRIPTION_MAX` in tools/move_ingest.py) so an over-long one is asked again here rather
@@ -81,7 +102,8 @@ const OPTIONAL_RECORD_KEYS = ["content_bound"];
 // A verdict's `why` is at most this many words (kogaki#1590).
 export const OBLIGATION_WORDS_MAX = 12;
 // kogaki#1604: the match is the instructing mood, `must` or `should` before the dash.
-export const WORDING = /\b(?:must|should)\b[^—]*?\b(?:(?:open|begin|end|close) (?:with|on)|in (?:one|a single) sentence)\b/i;
+export const WORDING =
+  /\b(?:must|should)\b[^—]*?\b(?:(?:open|begin|end|close) (?:with|on)|in (?:one|a single) sentence)\b/i;
 // A Segment is three prose fields beside its content clause, and `breaks` is a list of prose
 // tests (kogaki#1414): no label set is offered to the model or read back from it. `operation`
 // was `does` until kogaki#1510; `manner` is empty unless the Segment's technique is one
@@ -106,7 +128,10 @@ const ANNOUNCED_BLOCK = /^(>|[-*+]\s|\d+[.)]\s|:\s)/;
 
 export function legParagraphs(text) {
   const out = [];
-  for (const block of String(text).split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean)) {
+  for (const block of String(text)
+    .split(/\n[ \t]*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)) {
     if (out.length && ANNOUNCED_BLOCK.test(block)) out[out.length - 1] += `\n\n${block}`;
     else out.push(block);
   }
@@ -125,7 +150,10 @@ export function sentencesOf(paragraph) {
     cur += ch;
     if (!/[.!?。！？]/.test(ch)) continue;
     while (i + 1 < t.length && /[.!?。！？"'”’」』)）\]]/.test(t[i + 1])) cur += t[++i];
-    if (i + 1 >= t.length || t[i + 1] === " " || /[。！？]/.test(ch)) { out.push(cur.trim()); cur = ""; }
+    if (i + 1 >= t.length || t[i + 1] === " " || /[。！？]/.test(ch)) {
+      out.push(cur.trim());
+      cur = "";
+    }
   }
   if (cur.trim()) out.push(cur.trim());
   return out;
@@ -148,7 +176,11 @@ export function openingWords(sentence) {
 export function extractionUnitInput({ passage, paragraphs, index, namesTaken, persona }) {
   return {
     paragraph_you_must_extract: {
-      passage, number: index + 1, of: paragraphs.length, text: paragraphs[index], sentences: sentencesOf(paragraphs[index]),
+      passage,
+      number: index + 1,
+      of: paragraphs.length,
+      text: paragraphs[index],
+      sentences: sentencesOf(paragraphs[index]),
     },
     earlier_paragraphs: paragraphs.slice(0, index),
     names_taken: namesTaken,
@@ -164,20 +196,39 @@ export function extractionUnitInput({ passage, paragraphs, index, namesTaken, pe
 function extractionRecordSkeleton(input) {
   const p = input.paragraph_you_must_extract;
   return {
-    version: "1", paragraph: p.number, source: "<one line>", prior_text: "<one line>", language: "<one line>",
+    version: "1",
+    paragraph: p.number,
+    source: "<one line>",
+    prior_text: "<one line>",
+    language: "<one line>",
     subject_nouns: ["<a noun, or omit for none>"],
     answers: { q1: "<one sentence>", q2: "<one sentence>", q3: "<one sentence>" },
     what_it_does: "<one sentence>",
-    segments: p.sentences.map((_, i) => ({ content: "<one clause, about this paragraph's own content>",
+    segments: p.sentences.map((_, i) => ({
+      content: "<one clause, about this paragraph's own content>",
       operation: "<the step's operation in one clause, subject-free, never its effect on the reader>",
       relation: i === 0 ? "" : "<in prose, how it relates to the Segment before it>",
-      manner: "" })),
-    takes: [{ kind: "<one of the kinds, or leave the list empty>", what: "<what Segment 1 takes up, one subject-free line>" }],
-    leaves: [{ kind: "<one of the kinds, or leave the list empty>", what: "<what is left for later, one subject-free line>",
-      segment: "<the number of the Segment that leaves it>" }],
-    why_this_order: "<one sentence>", presupposes: "<two or three lines, as one string>",
-    breaks: ["<one change a careful writer might make — what the reader loses>", "<another, naming a different change>"],
-    description: `<one or two sentences, at most ${DESCRIPTION_MAX} characters>`, name: "<snake_case_verb_phrase>", notes: "",
+      manner: "",
+    })),
+    takes: [
+      { kind: "<one of the kinds, or leave the list empty>", what: "<what Segment 1 takes up, one subject-free line>" },
+    ],
+    leaves: [
+      {
+        kind: "<one of the kinds, or leave the list empty>",
+        what: "<what is left for later, one subject-free line>",
+        segment: "<the number of the Segment that leaves it>",
+      },
+    ],
+    why_this_order: "<one sentence>",
+    presupposes: "<two or three lines, as one string>",
+    breaks: [
+      "<one change a careful writer might make — what the reader loses>",
+      "<another, naming a different change>",
+    ],
+    description: `<one or two sentences, at most ${DESCRIPTION_MAX} characters>`,
+    name: "<snake_case_verb_phrase>",
+    notes: "",
   };
 }
 
@@ -188,9 +239,12 @@ function withExtractionRecordSkeleton(prompt, input) {
   const marker = "\nREQUIRED RECORD SHAPE:";
   const at = prompt.indexOf(marker);
   const lineEnd = at < 0 ? -1 : prompt.indexOf("\n", at + 1);
-  const skeleton = ["", "THE RECORD'S SHAPE AS JSON, with this paragraph's number filled as a number and `answers`",
+  const skeleton = [
+    "",
+    "THE RECORD'S SHAPE AS JSON, with this paragraph's number filled as a number and `answers`",
     "holding exactly q1 to q3 -- every other value is a placeholder naming what belongs there:",
-    JSON.stringify(extractionRecordSkeleton(input), null, 2)].join("\n");
+    JSON.stringify(extractionRecordSkeleton(input), null, 2),
+  ].join("\n");
   if (lineEnd < 0) return `${prompt}\n${skeleton}`;
   return `${prompt.slice(0, lineEnd)}\n${skeleton}${prompt.slice(lineEnd)}`;
 }
@@ -199,8 +253,11 @@ function withExtractionRecordSkeleton(prompt, input) {
 // `judgeRefusalBlock` takes them; the first ask carries none.
 export function extractionUnitPrompt(row, input, history = null) {
   const held = bindFlow(FLOW);
-  try { return withExtractionRecordSkeleton(judgePrompt(row, JSON.stringify(input, null, 2), input, history), input); }
-  finally { bindFlow(held); }
+  try {
+    return withExtractionRecordSkeleton(judgePrompt(row, JSON.stringify(input, null, 2), input, history), input);
+  } finally {
+    bindFlow(held);
+  }
 }
 
 // THE CONTENT-BOUND CALL'S INPUT (kogaki#1614): each Segment's `content` clause beside its
@@ -215,8 +272,11 @@ export function contentBoundUnitInput(record, input) {
 
 export function contentBoundUnitPrompt(row, input) {
   const held = bindFlow(FLOW);
-  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); }
-  finally { bindFlow(held); }
+  try {
+    return judgePrompt(row, JSON.stringify(input, null, 2), input, null);
+  } finally {
+    bindFlow(held);
+  }
 }
 
 // THE CONSTRAINTS CALL'S INPUT (kogaki#1698): the four kinds with their definitions, the
@@ -228,7 +288,11 @@ export function constraintsUnitInput(record) {
     kinds: { ...MOVE_CONSTRAINT_KINDS },
     segments: record.segments.map((s) => ({ operation: s.operation.trim(), relation: s.relation.trim() })),
     takes: record.takes.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim() })),
-    leaves: record.leaves.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim(), segment: Number(x.segment) })),
+    leaves: record.leaves.map((x) => ({
+      kind: String(x.kind).trim(),
+      what: x.what.trim(),
+      segment: Number(x.segment),
+    })),
     obligation: null,
   };
 }
@@ -236,16 +300,23 @@ export function constraintsUnitInput(record) {
 export function constraintsMoveInput(record) {
   return {
     kinds: { ...MOVE_CONSTRAINT_KINDS },
-    segments: record.segments.map((s) => ({ operation: String((s && s.operation) || "").trim(), relation: String((s && s.relation) || "").trim() })),
-    takes: null, leaves: null,
+    segments: record.segments.map((s) => ({
+      operation: String((s && s.operation) || "").trim(),
+      relation: String((s && s.relation) || "").trim(),
+    })),
+    takes: null,
+    leaves: null,
     obligation: Array.isArray(record.obligation) ? record.obligation : null,
   };
 }
 
 export function constraintsUnitPrompt(row, input) {
   const held = bindFlow(FLOW);
-  try { return judgePrompt(row, JSON.stringify(input, null, 2), input, null); }
-  finally { bindFlow(held); }
+  try {
+    return judgePrompt(row, JSON.stringify(input, null, 2), input, null);
+  } finally {
+    bindFlow(held);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +340,12 @@ function lineRefusal(v, at, { empty = false } = {}) {
   return null;
 }
 const wordCount = (s) => String(s).trim().split(/\s+/).filter(Boolean).length;
-const wordsOf = (s) => new Set(String(s).toLowerCase().match(/[\p{L}\p{N}_]+/gu) || []);
+const wordsOf = (s) =>
+  new Set(
+    String(s)
+      .toLowerCase()
+      .match(/[\p{L}\p{N}_]+/gu) || [],
+  );
 // A `manner` RESTATES the `operation` when it adds no word of its own: every word of it longer
 // than three letters is already in the operation (kogaki#1510). Short words -- "a", "the",
 // "its", "one" -- are the clause's grammar and decide nothing.
@@ -292,14 +368,18 @@ const FOREIGN_RUN = /(?:(?!\p{Script=Latin})\p{L}|[\u3000-\u303F\uFF00-\uFFEF])+
 function wordingRefusal(text, at) {
   if (typeof text !== "string") return null;
   const phrase = (text.match(WORDING) || [])[0];
-  return phrase ? `${at} carries "${phrase}", a wording instruction — \`breaks\` informs the Composer and shape no sentence (FORMAT "Where each field goes")` : null;
+  return phrase
+    ? `${at} carries "${phrase}", a wording instruction — \`breaks\` informs the Composer and shape no sentence (FORMAT "Where each field goes")`
+    : null;
 }
 function generalRefusal(nouns, text, at) {
   if (typeof text !== "string") return null;
   const noun = nounIn(nouns, text);
-  if (noun) return `${at} names "${noun}", one of your subject_nouns — it names no term of the original (FORMAT "The paragraph unit", rule 7)`;
+  if (noun)
+    return `${at} names "${noun}", one of your subject_nouns — it names no term of the original (FORMAT "The paragraph unit", rule 7)`;
   const run = text.match(FOREIGN_RUN);
-  if (run) return `${at} carries "${run[0]}", a word outside the Latin script — it names no word of the original's language (FORMAT "The paragraph unit", rule 7)`;
+  if (run)
+    return `${at} carries "${run[0]}", a word outside the Latin script — it names no word of the original's language (FORMAT "The paragraph unit", rule 7)`;
   return null;
 }
 
@@ -318,31 +398,58 @@ export function validateExtractionUnit(record, input) {
   if (bad) return { error: bad };
   const errors = [];
   if (String(r.version) !== "1") errors.push(`${at}: the record's version is ${JSON.stringify(r.version)}, not "1"`);
-  if (r.paragraph !== p.number) errors.push(`${at}: the record names paragraph ${JSON.stringify(r.paragraph)}, not ${p.number}`);
-  for (const k of ["source", "prior_text", "language", "what_it_does", "why_this_order", "presupposes", "description", "name"]) {
+  if (r.paragraph !== p.number)
+    errors.push(`${at}: the record names paragraph ${JSON.stringify(r.paragraph)}, not ${p.number}`);
+  for (const k of [
+    "source",
+    "prior_text",
+    "language",
+    "what_it_does",
+    "why_this_order",
+    "presupposes",
+    "description",
+    "name",
+  ]) {
     const e = lineRefusal(r[k], `${at}: \`${k}\``);
     if (e) errors.push(e);
   }
-  { const e = lineRefusal(r.notes, `${at}: \`notes\``, { empty: true }); if (e) errors.push(e); }
+  {
+    const e = lineRefusal(r.notes, `${at}: \`notes\``, { empty: true });
+    if (e) errors.push(e);
+  }
   if (typeof r.notes === "string" && /(^|\s)split:/.test(r.notes)) {
-    errors.push(`${at}: \`notes\` carries a \`split:\` line — the paragraph's boundary is the source's own, and the ingest refuses an undismissed split note`);
+    errors.push(
+      `${at}: \`notes\` carries a \`split:\` line — the paragraph's boundary is the source's own, and the ingest refuses an undismissed split note`,
+    );
   }
   if (!Array.isArray(r.subject_nouns) || r.subject_nouns.some((n) => lineRefusal(n, "noun") || n.includes(","))) {
     errors.push(`${at}: \`subject_nouns\` is not an array of one-line strings without commas`);
   }
   const nouns = Array.isArray(r.subject_nouns)
-    ? r.subject_nouns.filter((s) => typeof s === "string").map((s) => s.trim().toLowerCase()).filter(Boolean) : [];
+    ? r.subject_nouns
+        .filter((s) => typeof s === "string")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+    : [];
 
   const answersBad = keysRefusal(r.answers, ANSWER_KEYS, `${at}: \`answers\``);
   if (answersBad) errors.push(answersBad);
-  else for (const k of ANSWER_KEYS) { const e = lineRefusal(r.answers[k], `${at}: answer ${k.toUpperCase()}`); if (e) errors.push(e); }
+  else
+    for (const k of ANSWER_KEYS) {
+      const e = lineRefusal(r.answers[k], `${at}: answer ${k.toUpperCase()}`);
+      if (e) errors.push(e);
+    }
 
   if (!Array.isArray(r.breaks) || !r.breaks.length) {
-    errors.push(`${at}: \`breaks\` is not a list of prose tests — one or more one-line strings, each a change and what the reader loses`);
+    errors.push(
+      `${at}: \`breaks\` is not a list of prose tests — one or more one-line strings, each a change and what the reader loses`,
+    );
   } else {
     for (const [i, t] of r.breaks.entries()) {
-      const e = lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`) || generalRefusal(nouns, t, `${at}: \`breaks\` test ${i + 1}`)
-        || wordingRefusal(t, `${at}: \`breaks\` test ${i + 1}`);
+      const e =
+        lineRefusal(t, `${at}: \`breaks\` test ${i + 1}`) ||
+        generalRefusal(nouns, t, `${at}: \`breaks\` test ${i + 1}`) ||
+        wordingRefusal(t, `${at}: \`breaks\` test ${i + 1}`);
       if (e) errors.push(e);
     }
   }
@@ -351,41 +458,63 @@ export function validateExtractionUnit(record, input) {
   const n = p.sentences.length;
   const segmentsOk = Array.isArray(r.segments) && r.segments.length === n;
   if (!segmentsOk) {
-    errors.push(`${at}: \`segments\` carries ${Array.isArray(r.segments) ? r.segments.length : "no"} entr(ies) for the paragraph's ${n} sentence(s) — one Segment per sentence, in order`);
+    errors.push(
+      `${at}: \`segments\` carries ${Array.isArray(r.segments) ? r.segments.length : "no"} entr(ies) for the paragraph's ${n} sentence(s) — one Segment per sentence, in order`,
+    );
   }
   if (Array.isArray(r.segments)) {
     for (const [i, s] of r.segments.entries()) {
       const atS = `${at}, Segment ${i + 1}`;
       const e = keysRefusal(s, SEGMENT_KEYS, atS);
-      if (e) { errors.push(e); continue; }
+      if (e) {
+        errors.push(e);
+        continue;
+      }
       for (const k of ["content", "operation"]) {
         const e2 = lineRefusal(s[k], `${atS}: the \`${k}\` clause`);
         if (e2) errors.push(e2);
       }
       // The clause's opening verb states what it is about (FORMAT "The paragraph unit", rule 7).
       if (typeof s.content === "string") {
-        const e2 = methodWordRefusal((s.content.trim().match(/^[A-Za-z]+/) || [""])[0], `${atS}: the \`content\` clause opens on`);
+        const e2 = methodWordRefusal(
+          (s.content.trim().match(/^[A-Za-z]+/) || [""])[0],
+          `${atS}: the \`content\` clause opens on`,
+        );
         if (e2) errors.push(e2);
       }
       // Segment 1 carries no `relation` (FORMAT "The paragraph unit", rule 5, kogaki#1510):
       // nothing downstream read the one it carried to the previous paragraph.
-      { const e2 = lineRefusal(s.relation, `${atS}: the \`relation\` clause`, { empty: i === 0 }); if (e2) errors.push(e2); }
+      {
+        const e2 = lineRefusal(s.relation, `${atS}: the \`relation\` clause`, { empty: i === 0 });
+        if (e2) errors.push(e2);
+      }
       if (i === 0 && typeof s.relation === "string" && s.relation.trim()) {
         errors.push(`${atS}: carries a \`relation\` — Segment 1 carries none; leave it empty`);
       }
-      { const e2 = lineRefusal(s.manner, `${atS}: the \`manner\` clause`, { empty: true }); if (e2) errors.push(e2); }
+      {
+        const e2 = lineRefusal(s.manner, `${atS}: the \`manner\` clause`, { empty: true });
+        if (e2) errors.push(e2);
+      }
       for (const k of SEGMENT_KEYS) {
         if (typeof s[k] === "string" && /—\s*(operation|relation|manner):/.test(s[k])) {
-          errors.push(`${atS}: the \`${k}\` clause carries \`— operation:\`, \`— relation:\` or \`— manner:\`; the clauses are separate fields`);
+          errors.push(
+            `${atS}: the \`${k}\` clause carries \`— operation:\`, \`— relation:\` or \`— manner:\`; the clauses are separate fields`,
+          );
         }
       }
       for (const k of ["operation", "relation", "manner"]) {
         const e2 = generalRefusal(nouns, s[k], `${atS}: the \`${k}\` clause`);
         if (e2) errors.push(e2);
       }
-      if (typeof s.manner === "string" && s.manner.trim() && typeof s.operation === "string"
-          && mannerRestatesOperation(s.manner, s.operation)) {
-        errors.push(`${atS}: the \`manner\` clause restates the \`operation\` — it names a local realisation the operation cannot, or it is empty`);
+      if (
+        typeof s.manner === "string" &&
+        s.manner.trim() &&
+        typeof s.operation === "string" &&
+        mannerRestatesOperation(s.manner, s.operation)
+      ) {
+        errors.push(
+          `${atS}: the \`manner\` clause restates the \`operation\` — it names a local realisation the operation cannot, or it is empty`,
+        );
       }
     }
   }
@@ -394,20 +523,32 @@ export function validateExtractionUnit(record, input) {
   }
 
   // The Move's constraints (kogaki#1698): the shape is the Move's own, and every `what` is general.
-  { const e = moveConstraintsRefusal(r, n, at); if (e) errors.push(e); }
+  {
+    const e = moveConstraintsRefusal(r, n, at);
+    if (e) errors.push(e);
+  }
   for (const field of ["takes", "leaves"]) {
     for (const [i, x] of (Array.isArray(r[field]) ? r[field] : []).entries()) {
-      const e = isMap(x) && typeof x.what === "string" ? generalRefusal(nouns, x.what, `${at}: \`${field}\` entry ${i + 1}'s \`what\``) : null;
+      const e =
+        isMap(x) && typeof x.what === "string"
+          ? generalRefusal(nouns, x.what, `${at}: \`${field}\` entry ${i + 1}'s \`what\``)
+          : null;
       if (e) errors.push(e);
     }
   }
 
   if (r.content_bound !== undefined) {
-    errors.push(...verdictsRefusals(r.content_bound, Array.isArray(r.segments) ? r.segments : [], `${at}: \`content_bound\``));
+    errors.push(
+      ...verdictsRefusals(r.content_bound, Array.isArray(r.segments) ? r.segments : [], `${at}: \`content_bound\``),
+    );
   }
 
-  if (!MOVE_ID.test(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`);
-  else if (input.names_taken.includes(r.name)) errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
+  if (!MOVE_ID.test(r.name))
+    errors.push(
+      `${at}: \`name\` ${JSON.stringify(r.name)} is not in the library's id form — lower-case letters, digits and underscores`,
+    );
+  else if (input.names_taken.includes(r.name))
+    errors.push(`${at}: \`name\` ${JSON.stringify(r.name)} is already taken by an earlier paragraph of this Leg`);
 
   return errors.length ? { error: errors.join("\n") } : {};
 }
@@ -418,8 +559,14 @@ export function validateExtractionAnswer(record, input) {
   const has = (x) => record && typeof record === "object" && Object.hasOwn(record, x);
   const at = `paragraph ${input.paragraph_you_must_extract.number}`;
   const k = RETIRED_OBLIGATION_KEYS.find(has);
-  if (k) return { error: `${at}: the record carries \`${k}\`, which is retired — \`leaves\` names what the paragraph leaves for later (kogaki#1698)` };
-  if (has("content_bound")) return { error: `${at}: the record carries \`content_bound\` — the Harness judges each \`content\` clause in a call of its own (kogaki#1614)` };
+  if (k)
+    return {
+      error: `${at}: the record carries \`${k}\`, which is retired — \`leaves\` names what the paragraph leaves for later (kogaki#1698)`,
+    };
+  if (has("content_bound"))
+    return {
+      error: `${at}: the record carries \`content_bound\` — the Harness judges each \`content\` clause in a call of its own (kogaki#1614)`,
+    };
   return validateExtractionUnit(record, input);
 }
 
@@ -428,19 +575,33 @@ export function validateExtractionAnswer(record, input) {
 // clause -- the unresolved reference the refusal names. `at` names the list's place.
 function verdictsRefusals(v, segments, at) {
   if (!Array.isArray(v) || v.length !== segments.length) {
-    return [`${at} carries ${Array.isArray(v) ? v.length : "no"} verdict(s) for ${segments.length} Segment(s) — one per Segment, in order`];
+    return [
+      `${at} carries ${Array.isArray(v) ? v.length : "no"} verdict(s) for ${segments.length} Segment(s) — one per Segment, in order`,
+    ];
   }
   const errors = [];
   for (const [i, x] of v.entries()) {
     const atV = `${at}, Segment ${i + 1}`;
     const bad = keysRefusal(x, ["bound", "why"], atV);
-    if (bad) { errors.push(bad); continue; }
-    if (typeof x.bound !== "boolean") errors.push(`${atV}: \`bound\` is ${JSON.stringify(x.bound)} — it is true or false`);
+    if (bad) {
+      errors.push(bad);
+      continue;
+    }
+    if (typeof x.bound !== "boolean")
+      errors.push(`${atV}: \`bound\` is ${JSON.stringify(x.bound)} — it is true or false`);
     const line = lineRefusal(x.why, `${atV}: \`why\``);
-    if (line) { errors.push(line); continue; }
-    if (wordCount(x.why) > OBLIGATION_WORDS_MAX) errors.push(`${atV}: \`why\` is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`);
+    if (line) {
+      errors.push(line);
+      continue;
+    }
+    if (wordCount(x.why) > OBLIGATION_WORDS_MAX)
+      errors.push(
+        `${atV}: \`why\` is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`,
+      );
     if (x.bound === false && !unresolvedReference(x.why, segments[i])) {
-      errors.push(`${atV}: \`bound\` is false and \`why\` quotes no phrase of the \`content\` clause in double quotes — it names the unresolved reference`);
+      errors.push(
+        `${atV}: \`bound\` is false and \`why\` quotes no phrase of the \`content\` clause in double quotes — it names the unresolved reference`,
+      );
     }
   }
   return errors;
@@ -449,7 +610,11 @@ function verdictsRefusals(v, segments, at) {
 // The phrase a `why` quotes that stands in the Segment's `content` clause, or null.
 function unresolvedReference(why, segment) {
   const clause = String((segment && segment.content) || "").toLowerCase();
-  return [...String(why).matchAll(/["“]([^"”]+)["”]/g)].map((m) => m[1].trim()).find((q) => q && clause.includes(q.toLowerCase())) || null;
+  return (
+    [...String(why).matchAll(/["“]([^"”]+)["”]/g)]
+      .map((m) => m[1].trim())
+      .find((q) => q && clause.includes(q.toLowerCase())) || null
+  );
 }
 
 // THE CONTENT-BOUND CALL'S ANSWER, READ BACK (kogaki#1614): `{ verdicts: [...] }`. Only the
@@ -459,7 +624,8 @@ export function validateContentBoundUnit(answer, { record, input }) {
   const at = `paragraph ${input.paragraph_you_must_extract.number}, the content-bound verdicts`;
   if (!isMap(answer)) return { error: `${at}: the answer is not a map` };
   const extra = Object.keys(answer).find((k) => k !== "verdicts");
-  if (extra) return { error: `${at}: the answer carries \`${extra}\`, which it does not declare — it carries \`verdicts\`` };
+  if (extra)
+    return { error: `${at}: the answer carries \`${extra}\`, which it does not declare — it carries \`verdicts\`` };
   const errors = verdictsRefusals(answer.verdicts, record.segments, `${at}: \`verdicts\``);
   return errors.length ? { error: errors.join("\n") } : {};
 }
@@ -468,9 +634,13 @@ export function validateContentBoundUnit(answer, { record, input }) {
 // unbound, naming the Segment and the reference, or null where every clause is bound.
 export function contentBoundRefusal(verdicts, record, input) {
   const at = `paragraph ${input.paragraph_you_must_extract.number}`;
-  const lines = verdicts.map((v, i) => (v.bound ? null
-    : `${at}, Segment ${i + 1}: the \`content\` clause leaves "${unresolvedReference(v.why, record.segments[i])}" unresolved — `
-      + `${v.why.trim()}; the clause states the sentence's proposition, every definite reference resolving to a subject noun or to words of the sentence (kogaki#1614)`))
+  const lines = verdicts
+    .map((v, i) =>
+      v.bound
+        ? null
+        : `${at}, Segment ${i + 1}: the \`content\` clause leaves "${unresolvedReference(v.why, record.segments[i])}" unresolved — ` +
+          `${v.why.trim()}; the clause states the sentence's proposition, every definite reference resolving to a subject noun or to words of the sentence (kogaki#1614)`,
+    )
     .filter(Boolean);
   return lines.length ? lines.join("\n") : null;
 }
@@ -496,18 +666,29 @@ export function constraintsAnswerRefusal(answer, input) {
   const lists = {};
   for (const field of ["takes", "leaves"]) {
     const v = answer[field];
-    if (!Array.isArray(v)) { errors.push(`\`${field}\` is not a list`); continue; }
+    if (!Array.isArray(v)) {
+      errors.push(`\`${field}\` is not a list`);
+      continue;
+    }
     const base = field === "leaves" ? ["kind", "what", "segment"] : ["kind", "what"];
     lists[field] = [];
     for (const [i, x] of v.entries()) {
       const atE = `\`${field}\` entry ${i + 1}`;
       const bad = keysRefusal(x, [...base, ...VERDICT_KEYS], atE);
-      if (bad) { errors.push(bad); continue; }
-      if (typeof x.supported !== "boolean") errors.push(`${atE}.supported is ${JSON.stringify(x.supported)} — it is true or false`);
+      if (bad) {
+        errors.push(bad);
+        continue;
+      }
+      if (typeof x.supported !== "boolean")
+        errors.push(`${atE}.supported is ${JSON.stringify(x.supported)} — it is true or false`);
       const line = lineRefusal(x.why, `${atE}.why`);
       if (line) errors.push(line);
-      else if (wordCount(x.why) > OBLIGATION_WORDS_MAX) errors.push(`${atE}.why is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`);
-      if (derive && x.supported === false) errors.push(`${atE} is judged unsupported in a list you derived — derive only entries the Segments support`);
+      else if (wordCount(x.why) > OBLIGATION_WORDS_MAX)
+        errors.push(
+          `${atE}.why is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`,
+        );
+      if (derive && x.supported === false)
+        errors.push(`${atE} is judged unsupported in a list you derived — derive only entries the Segments support`);
       lists[field].push(Object.fromEntries(base.map((k) => [k, x[k]])));
     }
   }
@@ -518,23 +699,43 @@ export function constraintsAnswerRefusal(answer, input) {
     for (const field of ["takes", "leaves"]) {
       const given = input[field];
       const got = lists[field];
-      const same = got.length === given.length && got.every((x, i) => String(x.kind).trim() === given[i].kind && x.what.trim() === given[i].what
-        && (field === "takes" || Number(x.segment) === given[i].segment));
-      if (!same) errors.push(`\`${field}\` does not repeat the input's ${given.length} entr(ies) in order — judge each given entry, adding and changing none`);
+      const same =
+        got.length === given.length &&
+        got.every(
+          (x, i) =>
+            String(x.kind).trim() === given[i].kind &&
+            x.what.trim() === given[i].what &&
+            (field === "takes" || Number(x.segment) === given[i].segment),
+        );
+      if (!same)
+        errors.push(
+          `\`${field}\` does not repeat the input's ${given.length} entr(ies) in order — judge each given entry, adding and changing none`,
+        );
     }
   }
   if (!Array.isArray(answer.unnamed)) errors.push("`unnamed` is not a list");
-  else if (derive && answer.unnamed.length) errors.push("`unnamed` is not empty in a list you derived — name every such thing in `leaves`");
+  else if (derive && answer.unnamed.length)
+    errors.push("`unnamed` is not empty in a list you derived — name every such thing in `leaves`");
   else {
     for (const [i, x] of answer.unnamed.entries()) {
       const atE = `\`unnamed\` entry ${i + 1}`;
       const bad = keysRefusal(x, ["kind", "what", "segment", "why"], atE);
-      if (bad) { errors.push(bad); continue; }
-      const e = moveConstraintsRefusal({ takes: [], leaves: [{ kind: x.kind, what: x.what, segment: x.segment }] }, n, atE);
+      if (bad) {
+        errors.push(bad);
+        continue;
+      }
+      const e = moveConstraintsRefusal(
+        { takes: [], leaves: [{ kind: x.kind, what: x.what, segment: x.segment }] },
+        n,
+        atE,
+      );
       if (e) errors.push(e);
       const line = lineRefusal(x.why, `${atE}.why`);
       if (line) errors.push(line);
-      else if (wordCount(x.why) > OBLIGATION_WORDS_MAX) errors.push(`${atE}.why is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`);
+      else if (wordCount(x.why) > OBLIGATION_WORDS_MAX)
+        errors.push(
+          `${atE}.why is ${wordCount(x.why)} words — it is one line of at most ${OBLIGATION_WORDS_MAX} words`,
+        );
     }
   }
   return errors.length ? errors.join("\n") : null;
@@ -553,12 +754,16 @@ export function constraintsRefusal(answer, at) {
     for (const [i, x] of answer[field].entries()) {
       if (x.supported) continue;
       const seg = field === "takes" ? "Segment 1" : `Segment ${x.segment}`;
-      lines.push(`${at}: the \`${field}\` entry ${i + 1} (${x.kind}: ${JSON.stringify(x.what.trim())}) is not supported by ${seg} — ${x.why.trim()}`);
+      lines.push(
+        `${at}: the \`${field}\` entry ${i + 1} (${x.kind}: ${JSON.stringify(x.what.trim())}) is not supported by ${seg} — ${x.why.trim()}`,
+      );
     }
   }
   for (const x of answer.unnamed) {
-    lines.push(`${at}, Segment ${x.segment}: leaves ${LEFT_THING[String(x.kind).trim()] || "a thing"}`
-      + ` no \`leaves\` entry names (${x.kind}: ${JSON.stringify(x.what.trim())}) — ${x.why.trim()}`);
+    lines.push(
+      `${at}, Segment ${x.segment}: leaves ${LEFT_THING[String(x.kind).trim()] || "a thing"}` +
+        ` no \`leaves\` entry names (${x.kind}: ${JSON.stringify(x.what.trim())}) — ${x.why.trim()}`,
+    );
   }
   return lines.length ? lines.join("\n") : null;
 }
@@ -570,7 +775,11 @@ const LEFT_THING = { answer: "a question", explain: "a term", carry: "a base", a
 export function constraintLists(answer) {
   return {
     takes: answer.takes.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim() })),
-    leaves: answer.leaves.map((x) => ({ kind: String(x.kind).trim(), what: x.what.trim(), segment: Number(x.segment) })),
+    leaves: answer.leaves.map((x) => ({
+      kind: String(x.kind).trim(),
+      what: x.what.trim(),
+      segment: Number(x.segment),
+    })),
   };
 }
 
@@ -596,12 +805,19 @@ export function extractionRecord(record, input, runRel) {
     passage: p.text,
     answers: Object.fromEntries(ANSWER_KEYS.map((k) => [k, { answer: `model — ${record.answers[k].trim()}` }])),
     what_it_does: record.what_it_does.trim(),
-    segments: record.segments.map((s, i) => ({ opening: openingWords(p.sentences[i]), content: s.content.trim(), operation: s.operation.trim(),
-      ...(s.relation.trim() ? { relation: s.relation.trim() } : {}), ...(s.manner.trim() ? { manner: s.manner.trim() } : {}) })),
+    segments: record.segments.map((s, i) => ({
+      opening: openingWords(p.sentences[i]),
+      content: s.content.trim(),
+      operation: s.operation.trim(),
+      ...(s.relation.trim() ? { relation: s.relation.trim() } : {}),
+      ...(s.manner.trim() ? { manner: s.manner.trim() } : {}),
+    })),
     why_this_order: record.why_this_order.trim(),
     presupposes: record.presupposes.trim(),
     breaks: record.breaks.map((x) => x.trim()),
-    ...(record.content_bound ? { content_bound: record.content_bound.map((v) => ({ bound: v.bound, why: v.why.trim() })) } : {}),
+    ...(record.content_bound
+      ? { content_bound: record.content_bound.map((v) => ({ bound: v.bound, why: v.why.trim() })) }
+      : {}),
     ...constraintLists({ takes: record.takes, leaves: record.leaves }),
     description: record.description.trim(),
     notes: record.notes.trim(),
@@ -622,27 +838,80 @@ export function extractionMarkdown(rec) {
   const head = ["source", "subject_nouns", "prior_text", "length", "language", "unit", "contains"]
     .filter((k) => r[k] !== undefined && r[k] !== null && !(Array.isArray(r[k]) && !r[k].length))
     .map((k) => `${k.replace(/_/g, " ")}: ${Array.isArray(r[k]) ? r[k].join(", ") : line(r[k])}`);
-  const answers = Object.entries(r.answers || {}).flatMap(([k, a]) => [ANSWER_TITLES[k] || k,
-    ...((a && a.candidates) || []).map((c, i) => `  ${i + 1}. ${line(c)}`), `  answer: ${line(a && a.answer)}`, ""]);
+  const answers = Object.entries(r.answers || {}).flatMap(([k, a]) => [
+    ANSWER_TITLES[k] || k,
+    ...((a && a.candidates) || []).map((c, i) => `  ${i + 1}. ${line(c)}`),
+    `  answer: ${line(a && a.answer)}`,
+    "",
+  ]);
   // A clause judged unbound carries its verdict's reason (kogaki#1614); a bound one, nothing.
-  const unbound = (i) => { const v = (r.content_bound || [])[i]; return v && v.bound === false ? ` — not bound: ${line(v.why)}` : ""; };
-  const segs = (r.segments || []).map((s, i) => `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)} — operation: ${line(s.operation)}`
-    + (line(s.relation) ? ` — relation: ${line(s.relation)}` : "") + (line(s.manner) ? ` — manner: ${line(s.manner)}` : ""));
-  const splits = (r.split_notes || []).flatMap((n) => [`split: ${line(n.note)}`, ...(n.dismissed ? [`dismissed: ${line(n.dismissed)}`] : [])]);
+  const unbound = (i) => {
+    const v = (r.content_bound || [])[i];
+    return v && v.bound === false ? ` — not bound: ${line(v.why)}` : "";
+  };
+  const segs = (r.segments || []).map(
+    (s, i) =>
+      `${i + 1}. "${line(s.opening)}" — ${line(s.content)}${unbound(i)} — operation: ${line(s.operation)}` +
+      (line(s.relation) ? ` — relation: ${line(s.relation)}` : "") +
+      (line(s.manner) ? ` — manner: ${line(s.manner)}` : ""),
+  );
+  const splits = (r.split_notes || []).flatMap((n) => [
+    `split: ${line(n.note)}`,
+    ...(n.dismissed ? [`dismissed: ${line(n.dismissed)}`] : []),
+  ]);
   return [
     ...(r.status ? [`status: ${line(r.status)}`, ""] : []),
-    `# Extraction: ${line(r.name)}`, "", ...head, "",
-    "## Passage", "", line(r.passage), "",
-    "## Answers", "", ...answers,
-    "## 1. What the Passage does", "", line(r.what_it_does), "",
-    "## 3. The order inside the Passage", "", ...segs, "", line(r.why_this_order), "",
-    "## 4. What the Passage presupposes", "", line(r.presupposes), "",
-    "## 5. Where it would break", "", ...(r.breaks || []).map((x) => `- ${line(x)}`), "",
-    ...(Array.isArray(r.takes) ? [`takes: ${r.takes.map((x) => `${line(x.kind)}: ${line(x.what)}`).join("; ") || "nothing"}`] : []),
-    ...(Array.isArray(r.leaves) ? [`leaves: ${r.leaves.map((x) => `${line(x.kind)}: ${line(x.what)} (Segment ${line(x.segment)})`).join("; ") || "nothing"}`, ""] : []),
-    "## 6. Description", "", line(r.description), "",
-    "## 7. Candidate name", "", line(r.name), "",
-    "## 8. Notes", "", line(r.notes) || "nothing", ...splits, "",
+    `# Extraction: ${line(r.name)}`,
+    "",
+    ...head,
+    "",
+    "## Passage",
+    "",
+    line(r.passage),
+    "",
+    "## Answers",
+    "",
+    ...answers,
+    "## 1. What the Passage does",
+    "",
+    line(r.what_it_does),
+    "",
+    "## 3. The order inside the Passage",
+    "",
+    ...segs,
+    "",
+    line(r.why_this_order),
+    "",
+    "## 4. What the Passage presupposes",
+    "",
+    line(r.presupposes),
+    "",
+    "## 5. Where it would break",
+    "",
+    ...(r.breaks || []).map((x) => `- ${line(x)}`),
+    "",
+    ...(Array.isArray(r.takes)
+      ? [`takes: ${r.takes.map((x) => `${line(x.kind)}: ${line(x.what)}`).join("; ") || "nothing"}`]
+      : []),
+    ...(Array.isArray(r.leaves)
+      ? [
+          `leaves: ${r.leaves.map((x) => `${line(x.kind)}: ${line(x.what)} (Segment ${line(x.segment)})`).join("; ") || "nothing"}`,
+          "",
+        ]
+      : []),
+    "## 6. Description",
+    "",
+    line(r.description),
+    "",
+    "## 7. Candidate name",
+    "",
+    line(r.name),
+    "",
+    "## 8. Notes",
+    "",
+    line(r.notes) || "nothing",
+    ...splits,
+    "",
   ].join("\n");
 }
 
@@ -657,13 +926,21 @@ export function writeJson(path, doc) {
 
 function positiveSetting(row, key) {
   const n = Number(settingValue(row && row[key]));
-  return Number.isInteger(n) && n > 0 ? n
-    : fail(`src/proof-sheet/extraction-workflow.json's \`job\` declares no positive \`${key}\` — it names a setting in kogaki.settings.json. Nothing was started.`);
+  return Number.isInteger(n) && n > 0
+    ? n
+    : fail(
+        `src/proof-sheet/extraction-workflow.json's \`job\` declares no positive \`${key}\` — it names a setting in kogaki.settings.json. Nothing was started.`,
+      );
 }
 
 function supervisorAlive(pid) {
   if (!Number.isInteger(pid)) return false;
-  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
 }
 
 function sleepSync(ms) {
@@ -681,7 +958,11 @@ export function awaitJob(dir, heartbeatMs) {
       sleepSync(200);
       const again = readReaderPathJob(dir);
       if (again && again.state !== "running") return again;
-      return { ...again, state: "died", failure: { note: `the supervisor (pid ${job.supervisor_pid}) is gone while its record still reads running` } };
+      return {
+        ...again,
+        state: "died",
+        failure: { note: `the supervisor (pid ${job.supervisor_pid}) is gone while its record still reads running` },
+      };
     }
     sleepSync(Math.min(heartbeatMs, 1000));
   }
@@ -690,7 +971,12 @@ export function awaitJob(dir, heartbeatMs) {
 export function lastRefusal(job) {
   const u = (job.units || [])[0] || {};
   if (Array.isArray(u.refusals) && u.refusals.length) return u.refusals[u.refusals.length - 1];
-  return (u.failure && (u.failure.result || u.failure.stderr_tail)) || (job.failure && job.failure.note) || u.status || job.state;
+  return (
+    (u.failure && (u.failure.result || u.failure.stderr_tail)) ||
+    (job.failure && job.failure.note) ||
+    u.status ||
+    job.state
+  );
 }
 
 // THE JUDGE AND THE JOB BOUNDS, read once per run from the workflow table (kogaki#1618: the
@@ -712,13 +998,27 @@ function judgeSetup(table) {
 // returns `{ job, u }`, with `failed: true` where the job or the unit did not end `done`.
 function runUnit(jobDir, setup, { id, prompt, recordArray, validator, rounds = setup.unitRounds, label = {} }) {
   startDetachedJobSupervisor(jobDir, {
-    units: [{ id, prompt }], command: setup.binary.path, model: setup.model, outputFormat: setup.outputFormat,
-    callLimitS: setup.callLimitS, unitRounds: rounds, stallS: setup.stallS, heartbeatMs: setup.heartbeatMs, recordArray, validator,
+    units: [{ id, prompt }],
+    command: setup.binary.path,
+    model: setup.model,
+    outputFormat: setup.outputFormat,
+    callLimitS: setup.callLimitS,
+    unitRounds: rounds,
+    stallS: setup.stallS,
+    heartbeatMs: setup.heartbeatMs,
+    recordArray,
+    validator,
   });
   const job = awaitJob(jobDir, setup.heartbeatMs);
   const u = (job.units || [])[0] || {};
-  writeJson(join(jobDir, "rounds.json"), { ...label, state: job.state, status: u.status || null,
-    rounds: u.rounds || 1, refusals: u.refusals || [], ...(u.timed_out ? { timed_out: u.timed_out } : {}) });
+  writeJson(join(jobDir, "rounds.json"), {
+    ...label,
+    state: job.state,
+    status: u.status || null,
+    rounds: u.rounds || 1,
+    refusals: u.refusals || [],
+    ...(u.timed_out ? { timed_out: u.timed_out } : {}),
+  });
   return job.state !== "done" || u.status !== "done" || !u.candidate ? { job, u, failed: true } : { job, u };
 }
 
@@ -731,7 +1031,11 @@ function runUnit(jobDir, setup, { id, prompt, recordArray, validator, rounds = s
 function legsOf(paths, passage) {
   return paths.map((legPath) => {
     let text;
-    try { text = readFileSync(legPath, "utf8"); } catch (e) { fail(`the Leg at ${legPath} cannot be read (${e.message})`); }
+    try {
+      text = readFileSync(legPath, "utf8");
+    } catch (e) {
+      fail(`the Leg at ${legPath} cannot be read (${e.message})`);
+    }
     const paragraphs = legParagraphs(text);
     if (!paragraphs.length) fail(`the Leg at ${legPath} carries no paragraph — there is nothing to extract`);
     return { legPath, paragraphs, slug: (paths.length === 1 && passage) || basename(legPath, extname(legPath)) };
@@ -748,15 +1052,23 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const units = legs.flatMap((leg, k) => leg.paragraphs.map((_, i) => ({ leg, k, i })));
   const total = units.length;
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
-  const row = table.extraction_unit || fail("src/proof-sheet/extraction-workflow.json declares no extraction_unit row. Nothing was started.");
-  const boundRow = table.content_bound_unit || fail("src/proof-sheet/extraction-workflow.json declares no content_bound_unit row. Nothing was started.");
-  const constraintsRow = table.constraints_unit || fail("src/proof-sheet/extraction-workflow.json declares no constraints_unit row. Nothing was started.");
+  const row =
+    table.extraction_unit ||
+    fail("src/proof-sheet/extraction-workflow.json declares no extraction_unit row. Nothing was started.");
+  const boundRow =
+    table.content_bound_unit ||
+    fail("src/proof-sheet/extraction-workflow.json declares no content_bound_unit row. Nothing was started.");
+  const constraintsRow =
+    table.constraints_unit ||
+    fail("src/proof-sheet/extraction-workflow.json declares no constraints_unit row. Nothing was started.");
   const persona = readerPersona(resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" }))));
   if (persona.error) fail(persona.error);
   const setup = judgeSetup(table);
   const { unitRounds } = setup;
   const outDir = resolve(out);
-  const runDir = resume ? resolve(resume) : join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  const runDir = resume
+    ? resolve(resume)
+    : join(outDir, `extractor-run-${new Date().toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync(runDir, { recursive: true });
   const runRel = relFromRepo(runDir, outDir);
   const written = [];
@@ -766,7 +1078,11 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     for (let i = 0; i < total; i++) {
       const dir = join(runDir, `p${i + 1}`);
       let answer = null;
-      try { answer = JSON.parse(readFileSync(join(dir, "answer.json"), "utf8")); } catch { answer = null; }
+      try {
+        answer = JSON.parse(readFileSync(join(dir, "answer.json"), "utf8"));
+      } catch {
+        answer = null;
+      }
       const file = answer ? join(outDir, `${answer.name}${EXTRACTION_EXT}`) : null;
       if (!answer || !file || !existsSync(file)) break;
       written.push(file);
@@ -778,7 +1094,13 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     const dir = join(runDir, `p${i + 1}`);
     mkdirSync(dir, { recursive: true });
     const u0 = units[i];
-    const input = extractionUnitInput({ passage: u0.leg.slug, paragraphs: u0.leg.paragraphs, index: u0.i, namesTaken: [...namesTaken], persona });
+    const input = extractionUnitInput({
+      passage: u0.leg.slug,
+      paragraphs: u0.leg.paragraphs,
+      index: u0.i,
+      namesTaken: [...namesTaken],
+      persona,
+    });
     if (u0.k > 0 && u0.i === 0) input.earlier_paragraphs = [legs[u0.k - 1].paragraphs.at(-1)];
     const prompt = extractionUnitPrompt(row, input);
     writeFileSync(join(dir, "prompt.md"), prompt);
@@ -800,25 +1122,44 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       const xdir = k === 1 ? dir : join(dir, `extract-${k}`);
       mkdirSync(xdir, { recursive: true });
       const xPrompt = k === 1 ? prompt : extractionUnitPrompt(row, input, history);
-      ex = unitJob(xdir, `p${i + 1}`, xPrompt, "segments",
-        { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input }, unitRounds - spent);
+      ex = unitJob(
+        xdir,
+        `p${i + 1}`,
+        xPrompt,
+        "segments",
+        { module: "src/proof-sheet/extract.mjs", export: "validateExtractionAnswer", inputs: input },
+        unitRounds - spent,
+      );
       spent += ex.u.rounds || 1;
       refusals.push(...(ex.u.refusals || []));
       if (ex.failed) {
-        return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${ex.job.state}`
-          + ` after ${spent} round(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}` };
+        return {
+          written,
+          runDir,
+          stopped:
+            `the Extractor stopped at paragraph ${i + 1} of ${total}: the job ended ${ex.job.state}` +
+            ` after ${spent} round(s) — ${String(lastRefusal(ex.job)).split("\n").join(" ")}`,
+        };
       }
       const cdir = join(dir, k === 1 ? "content-bound" : `content-bound-${k}`);
       mkdirSync(cdir, { recursive: true });
       const cInput = contentBoundUnitInput(ex.u.candidate, input);
       const cPrompt = contentBoundUnitPrompt(boundRow, cInput);
       writeFileSync(join(cdir, "prompt.md"), cPrompt);
-      const cb = unitJob(cdir, `p${i + 1}-content-bound`, cPrompt, "verdicts",
-        { module: "src/proof-sheet/extract.mjs", export: "validateContentBoundUnit", inputs: { record: ex.u.candidate, input } });
+      const cb = unitJob(cdir, `p${i + 1}-content-bound`, cPrompt, "verdicts", {
+        module: "src/proof-sheet/extract.mjs",
+        export: "validateContentBoundUnit",
+        inputs: { record: ex.u.candidate, input },
+      });
       boundRounds += cb.u.rounds || 1;
       if (cb.failed) {
-        return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the content-bound job ended ${cb.job.state}`
-          + ` after ${cb.u.rounds || 1} round(s) — ${String(lastRefusal(cb.job)).split("\n").join(" ")}` };
+        return {
+          written,
+          runDir,
+          stopped:
+            `the Extractor stopped at paragraph ${i + 1} of ${total}: the content-bound job ended ${cb.job.state}` +
+            ` after ${cb.u.rounds || 1} round(s) — ${String(lastRefusal(cb.job)).split("\n").join(" ")}`,
+        };
       }
       verdicts = cb.u.candidate.verdicts;
       let refusal = contentBoundRefusal(verdicts, ex.u.candidate, input);
@@ -833,12 +1174,20 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
         const tInput = constraintsUnitInput(ex.u.candidate);
         const tPrompt = constraintsUnitPrompt(constraintsRow, tInput);
         writeFileSync(join(tdir, "prompt.md"), tPrompt);
-        const tb = unitJob(tdir, `p${i + 1}-constraints`, tPrompt, false,
-          { module: "src/proof-sheet/extract.mjs", export: "validateConstraintsUnit", inputs: { input: tInput, at: `paragraph ${i + 1}` } });
+        const tb = unitJob(tdir, `p${i + 1}-constraints`, tPrompt, false, {
+          module: "src/proof-sheet/extract.mjs",
+          export: "validateConstraintsUnit",
+          inputs: { input: tInput, at: `paragraph ${i + 1}` },
+        });
         constraintsRounds += tb.u.rounds || 1;
         if (tb.failed) {
-          return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the constraints job ended ${tb.job.state}`
-            + ` after ${tb.u.rounds || 1} round(s) — ${String(lastRefusal(tb.job)).split("\n").join(" ")}` };
+          return {
+            written,
+            runDir,
+            stopped:
+              `the Extractor stopped at paragraph ${i + 1} of ${total}: the constraints job ended ${tb.job.state}` +
+              ` after ${tb.u.rounds || 1} round(s) — ${String(lastRefusal(tb.job)).split("\n").join(" ")}`,
+          };
         }
         refusal = constraintsRefusal(tb.u.candidate, `paragraph ${i + 1}`);
         refusedBy = "constraints";
@@ -847,15 +1196,26 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
       refusals.push(refusal);
       history.push({ answer: ex.u.candidate, refusal });
       if (spent >= unitRounds) {
-        return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: the ${refusedBy} call refused`
-          + ` the Extraction after ${spent} round(s) — ${refusal.split("\n").join(" ")}` };
+        return {
+          written,
+          runDir,
+          stopped:
+            `the Extractor stopped at paragraph ${i + 1} of ${total}: the ${refusedBy} call refused` +
+            ` the Extraction after ${spent} round(s) — ${refusal.split("\n").join(" ")}`,
+        };
       }
     }
     // THE RUN RECORD NAMES EVERY CALL'S ROUNDS (kogaki#1614, kogaki#1698): the
     // Extractor's across every round, with every refusal in order, beside the judging calls'.
-    writeJson(join(dir, "rounds.json"), { paragraph: i + 1, state: ex.job.state, status: ex.u.status || null,
-      rounds: spent, refusals, content_bound_rounds: boundRounds,
-      constraints_rounds: constraintsRounds });
+    writeJson(join(dir, "rounds.json"), {
+      paragraph: i + 1,
+      state: ex.job.state,
+      status: ex.u.status || null,
+      rounds: spent,
+      refusals,
+      content_bound_rounds: boundRounds,
+      constraints_rounds: constraintsRounds,
+    });
     ex = { ...ex, u: { ...ex.u, candidate: withContentBound(ex.u.candidate, verdicts) } };
     const u = { candidate: ex.u.candidate };
     writeJson(join(dir, "answer.json"), u.candidate);
@@ -863,17 +1223,28 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
     // NEVER OVER AN EARLIER FILE: an Extraction the owner has already reviewed carries no
     // status line and nothing here could tell it from a draft.
     if (existsSync(file)) {
-      return { written, runDir, stopped: `the Extractor stopped at paragraph ${i + 1} of ${total}: an Extraction named `
-        + `${u.candidate.name} already exists at ${file}, and nothing was written over it — the answer is in ${join(dir, "answer.json")}` };
+      return {
+        written,
+        runDir,
+        stopped:
+          `the Extractor stopped at paragraph ${i + 1} of ${total}: an Extraction named ` +
+          `${u.candidate.name} already exists at ${file}, and nothing was written over it — the answer is in ${join(dir, "answer.json")}`,
+      };
     }
     writeFileSync(file, extractionFileText(u.candidate, input, runRel));
     written.push(file);
     namesTaken.push(u.candidate.name);
   }
   const names = written.map((f) => basename(f));
-  writeJson(join(runDir, "extractions.json"), legs.length === 1
-    ? { leg: legs[0].legPath, passage: legs[0].slug, written: names }
-    : { legs: legs.map((l) => ({ leg: l.legPath, passage: l.slug, paragraphs: l.paragraphs.length })), written: names });
+  writeJson(
+    join(runDir, "extractions.json"),
+    legs.length === 1
+      ? { leg: legs[0].legPath, passage: legs[0].slug, written: names }
+      : {
+          legs: legs.map((l) => ({ leg: l.legPath, passage: l.slug, paragraphs: l.paragraphs.length })),
+          written: names,
+        },
+  );
   return { written, runDir };
 }
 
@@ -890,50 +1261,98 @@ const RECORD_BLOCK = (key) => new RegExp(`^${key}:[^\\n]*\\n(?:(?:[ \\t]+[^\\n]*
 export const RETIRED_STATE_KEYS = ["before", "after", "after_segment"];
 export function spliceConstraints(text, { takes, leaves }, { retireState = false, retireObligation = false } = {}) {
   let out = text;
-  const cut = ["takes", "leaves", ...(retireState ? RETIRED_STATE_KEYS : []), ...(retireObligation ? RETIRED_OBLIGATION_KEYS : [])];
+  const cut = [
+    "takes",
+    "leaves",
+    ...(retireState ? RETIRED_STATE_KEYS : []),
+    ...(retireObligation ? RETIRED_OBLIGATION_KEYS : []),
+  ];
   for (const key of cut) out = out.replace(RECORD_BLOCK(key), "");
   out = out.replace(/\s*$/, "\n");
   return `${out}${stringifyYaml({ takes, leaves }, { width: 100 }).replace(/\s*$/, "\n")}`;
 }
 
-export function runConstraintsRejudge(library, { write = false, retireState = false, retireObligation = false, runsRoot = RUNS_ROOT } = {}) {
+export function runConstraintsRejudge(
+  library,
+  { write = false, retireState = false, retireObligation = false, runsRoot = RUNS_ROOT } = {},
+) {
   const dir = resolve(library);
   let names;
-  try { names = readdirSync(dir).filter((f) => f.endsWith(".yaml")).sort(); } catch (e) { fail(`the library at ${dir} cannot be read (${e.message})`); }
+  try {
+    names = readdirSync(dir)
+      .filter((f) => f.endsWith(".yaml"))
+      .sort();
+  } catch (e) {
+    fail(`the library at ${dir} cannot be read (${e.message})`);
+  }
   if (!names.length) fail(`the library at ${dir} carries no .yaml record — there is nothing to re-judge`);
   const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
-  const row = table.constraints_unit || fail("src/proof-sheet/extraction-workflow.json declares no constraints_unit row. Nothing was started.");
+  const row =
+    table.constraints_unit ||
+    fail("src/proof-sheet/extraction-workflow.json declares no constraints_unit row. Nothing was started.");
   const setup = judgeSetup(table);
-  const runDir = enterRun("proof-sheet", `rejudge-${new Date().toISOString().replace(/[:.]/g, "-")}`, { root: resolve(runsRoot) });
+  const runDir = enterRun("proof-sheet", `rejudge-${new Date().toISOString().replace(/[:.]/g, "-")}`, {
+    root: resolve(runsRoot),
+  });
   const derived = [];
   const written = [];
   const skipped = [];
   const report = (extra = {}) => {
-    writeJson(join(runDir, "constraints.json"), { library: dir, write, retire_state: retireState, retire_obligation: retireObligation, derived, written, skipped });
+    writeJson(join(runDir, "constraints.json"), {
+      library: dir,
+      write,
+      retire_state: retireState,
+      retire_obligation: retireObligation,
+      derived,
+      written,
+      skipped,
+    });
     return { derived, written, skipped, runDir, ...extra };
   };
   for (const name of names) {
     const file = join(dir, name);
     const text = readFileSync(file, "utf8");
     let record;
-    try { record = parseYaml(text, file); } catch (e) { return report({ stopped: `the re-judge stopped at ${name}: ${e.message}` }); }
-    if (!record || !Array.isArray(record.segments) || !record.segments.length) { skipped.push(name); continue; }
+    try {
+      record = parseYaml(text, file);
+    } catch (e) {
+      return report({ stopped: `the re-judge stopped at ${name}: ${e.message}` });
+    }
+    if (!record || !Array.isArray(record.segments) || !record.segments.length) {
+      skipped.push(name);
+      continue;
+    }
     const id = typeof record.id === "string" && record.id ? record.id : basename(name, ".yaml");
     const jobDir = join(runDir, id);
     mkdirSync(jobDir, { recursive: true });
     const input = constraintsMoveInput(record);
     const prompt = constraintsUnitPrompt(row, input);
     writeFileSync(join(jobDir, "prompt.md"), prompt);
-    const tb = runUnit(jobDir, setup, { id: `${id}-constraints`, prompt, recordArray: false,
-      validator: { module: "src/proof-sheet/extract.mjs", export: "validateConstraintsUnit", inputs: { input, at: `move ${id}` } }, label: { move: id } });
+    const tb = runUnit(jobDir, setup, {
+      id: `${id}-constraints`,
+      prompt,
+      recordArray: false,
+      validator: {
+        module: "src/proof-sheet/extract.mjs",
+        export: "validateConstraintsUnit",
+        inputs: { input, at: `move ${id}` },
+      },
+      label: { move: id },
+    });
     if (tb.failed) {
-      return report({ stopped: `the re-judge stopped at ${name}: the constraints job ended ${tb.job.state} after ${tb.u.rounds || 1} round(s) — `
-        + `${String(lastRefusal(tb.job)).split("\n").join(" ")}` });
+      return report({
+        stopped:
+          `the re-judge stopped at ${name}: the constraints job ended ${tb.job.state} after ${tb.u.rounds || 1} round(s) — ` +
+          `${String(lastRefusal(tb.job)).split("\n").join(" ")}`,
+      });
     }
     const lists = constraintLists(tb.u.candidate);
     writeJson(join(jobDir, "answer.json"), lists);
     derived.push(name);
-    if (write) { writeFileSync(file, spliceConstraints(text, lists, { retireState, retireObligation })); written.push(name); }
+    if (write) {
+      writeFileSync(file, spliceConstraints(text, lists, { retireState, retireObligation }));
+      written.push(name);
+    }
   }
   return report();
 }
@@ -946,8 +1365,13 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else if (key === "leg") { args.leg = [...(args.leg || []), next]; i++; }
-      else { args[key] = next; i++; }
+      else if (key === "leg") {
+        args.leg = [...(args.leg || []), next];
+        i++;
+      } else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
   }
   return args;
@@ -959,28 +1383,60 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // `--state` is deleted (kogaki#1699); `--retire-state` and `--retire-obligation` (kogaki#1701) ride `--write` alone.
     const retireState = args["retire-state"] === true;
     const retireObligation = args["retire-obligation"] === true;
-    if (typeof args.library !== "string" || args.constraints !== true || args.state !== undefined
-      || (args["runs-root"] !== undefined && typeof args["runs-root"] !== "string")
-      || ((retireState || retireObligation) && args.write !== true)) {
-      fail("usage: node src/proof-sheet/extract.mjs rejudge --constraints --library <directory of Move records> [--runs-root <dir>] [--write [--retire-state] [--retire-obligation]]");
+    if (
+      typeof args.library !== "string" ||
+      args.constraints !== true ||
+      args.state !== undefined ||
+      (args["runs-root"] !== undefined && typeof args["runs-root"] !== "string") ||
+      ((retireState || retireObligation) && args.write !== true)
+    ) {
+      fail(
+        "usage: node src/proof-sheet/extract.mjs rejudge --constraints --library <directory of Move records> [--runs-root <dir>] [--write [--retire-state] [--retire-obligation]]",
+      );
     }
-    const r = runConstraintsRejudge(args.library, { write: args.write === true, retireState, retireObligation,
-      runsRoot: typeof args["runs-root"] === "string" ? args["runs-root"] : RUNS_ROOT });
+    const r = runConstraintsRejudge(args.library, {
+      write: args.write === true,
+      retireState,
+      retireObligation,
+      runsRoot: typeof args["runs-root"] === "string" ? args["runs-root"] : RUNS_ROOT,
+    });
     const removed = [...(retireState ? RETIRED_STATE_KEYS : []), ...(retireObligation ? RETIRED_OBLIGATION_KEYS : [])];
-    for (const f of r.written) console.log(`Move rewritten with takes and leaves${removed.length ? `, ${removed.join(", ")} removed` : ""}: ${f}`);
+    for (const f of r.written)
+      console.log(
+        `Move rewritten with takes and leaves${removed.length ? `, ${removed.join(", ")} removed` : ""}: ${f}`,
+      );
     for (const f of r.skipped) console.log(`Move left as it was (no segments): ${f}`);
-    console.log(`Moves derived: ${r.derived.length}; ${args.write === true ? `written: ${r.written.length}` : "no record was changed (no --write)"}`);
+    console.log(
+      `Moves derived: ${r.derived.length}; ${args.write === true ? `written: ${r.written.length}` : "no record was changed (no --write)"}`,
+    );
     console.log(`run directory: ${r.runDir}`);
-    if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
+    if (r.stopped) {
+      console.log(r.stopped);
+      process.exitCode = 1;
+    }
     process.exit();
   }
-  if (args._cmd !== "run" || !Array.isArray(args.leg) || typeof args.out !== "string" || (args.leg.length > 1 && args.passage !== undefined)) {
-    fail("usage: node src/proof-sheet/extract.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> "
-      + "[--passage <slug>, with one Leg] [--audience <audiences/<name>.md>] [--resume <earlier Extractor run directory>]");
+  if (
+    args._cmd !== "run" ||
+    !Array.isArray(args.leg) ||
+    typeof args.out !== "string" ||
+    (args.leg.length > 1 && args.passage !== undefined)
+  ) {
+    fail(
+      "usage: node src/proof-sheet/extract.mjs run --leg <file of the Leg's paragraphs, blank-line separated> [--leg <the next Leg's file> ...] --out <dir> " +
+        "[--passage <slug>, with one Leg] [--audience <audiences/<name>.md>] [--resume <earlier Extractor run directory>]",
+    );
   }
-  const r = runExtractor(args.leg.length === 1 ? args.leg[0] : args.leg, { out: args.out, passage: typeof args.passage === "string" ? args.passage : null,
-    audience: typeof args.audience === "string" ? args.audience : null, resume: typeof args.resume === "string" ? args.resume : null });
+  const r = runExtractor(args.leg.length === 1 ? args.leg[0] : args.leg, {
+    out: args.out,
+    passage: typeof args.passage === "string" ? args.passage : null,
+    audience: typeof args.audience === "string" ? args.audience : null,
+    resume: typeof args.resume === "string" ? args.resume : null,
+  });
   for (const f of r.written) console.log(`Extraction written: ${f}`);
   console.log(`run directory: ${r.runDir}`);
-  if (r.stopped) { console.log(r.stopped); process.exitCode = 1; }
+  if (r.stopped) {
+    console.log(r.stopped);
+    process.exitCode = 1;
+  }
 }

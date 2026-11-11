@@ -30,17 +30,27 @@ export const WAIT_SCALE = Number(process.env.KOGAKI_CHECK_WAIT_SCALE || "1");
 export function noToolsSentenceAsWritten(units) {
   const d = mkdtempSync(join(tmpdir(), "kogaki-1307-units-"));
   const started = startDetachedJobSupervisor(d, {
-    units, command: "/bin/false", model: "m", outputFormat: "json", callLimitS: 5, unitRounds: 2, stallS: 5, heartbeatMs: 100,
+    units,
+    command: "/bin/false",
+    model: "m",
+    outputFormat: "json",
+    callLimitS: 5,
+    unitRounds: 2,
+    stallS: 5,
+    heartbeatMs: 100,
     validator: { module: "src/brief.mjs", export: "validateReaderPathUnit", inputs: {} },
   });
-  try { process.kill(started.supervisorPid); } catch { /* already gone */ }
+  try {
+    process.kill(started.supervisorPid);
+  } catch {
+    /* already gone */
+  }
   return JSON.parse(readFileSync(started.unitsPath, "utf8")).units;
 }
 export const JOB_UNIT_NO_TOOLS_SENTENCE = (() => {
   const p = noToolsSentenceAsWritten([{ id: "u", prompt: "UNIT" }])[0].prompt;
   return p.endsWith("\n\nUNIT") ? p.slice(0, -"\n\nUNIT".length) : "";
 })();
-
 
 // THE FAKE JUDGE: its behaviour is selected by the PROMPT it reads on stdin,
 // never by argv, since the supervisor hands every unit the same argv; the
@@ -54,7 +64,9 @@ export const JOB_UNIT_NO_TOOLS_SENTENCE = (() => {
 // streams eight small lines 300ms apart, then its result (kogaki#1193 PR #1195).
 export const scratch = mkdtempSync(join(tmpdir(), "kogaki-rpjob-fakejudge-"));
 export const fakeJudge = join(scratch, "fake-judge.mjs");
-writeFileSync(fakeJudge, `#!/usr/bin/env node
+writeFileSync(
+  fakeJudge,
+  `#!/usr/bin/env node
 import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 const NO_TOOLS = ${JSON.stringify(JOB_UNIT_NO_TOOLS_SENTENCE)};
 // A SCHEMA REFUSAL: a well-formed record the pass-through validator refuses.
@@ -195,7 +207,8 @@ process.stdin.on("end", () => {
   process.stdout.write(JSON.stringify({ type: "system", subtype: "init" }) + "\\n");
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ legs: [{ id: "s1" }] }) }) + "\\n");
 });
-`);
+`,
+);
 chmodSync(fakeJudge, 0o755);
 
 // THE PASS-THROUGH VALIDATOR (kogaki#1240). `job-supervise` now refuses to
@@ -209,11 +222,20 @@ chmodSync(fakeJudge, 0o755);
 export const passthroughValidatorModule = join(scratch, "passthrough-validator.mjs");
 // It refuses one shape only -- a record carrying the fake judge's own `refuse`
 // sentence -- so a SCHEMA REFUSAL is reachable without a Brief rule (kogaki#1307).
-writeFileSync(passthroughValidatorModule, `export function passthrough(c) { return c && c.refuse ? { error: c.refuse } : null; }\n`);
+writeFileSync(
+  passthroughValidatorModule,
+  `export function passthrough(c) { return c && c.refuse ? { error: c.refuse } : null; }\n`,
+);
 export const passthroughValidator = { module: passthroughValidatorModule, export: "passthrough" };
 
-export function mkNewScratch() { const d = mkdtempSync(join(tmpdir(), "kogaki-rpjob-")); return d; }
-export function mkNewRun() { const d = mkNewScratch(); return d; }
+export function mkNewScratch() {
+  const d = mkdtempSync(join(tmpdir(), "kogaki-rpjob-"));
+  return d;
+}
+export function mkNewRun() {
+  const d = mkNewScratch();
+  return d;
+}
 
 // `units` is either the bare array the whole suite wrote before kogaki#1240,
 // or already a `{units, validator}` declaration for a caller that wants its
@@ -227,12 +249,33 @@ export function declareUnits(units) {
 export function superviseSync(dir, units, opts = {}) {
   const unitsPath = join(dir, "units.json");
   writeFileSync(unitsPath, JSON.stringify(declareUnits(units), null, 2));
-  const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
-    "--command", fakeJudge, "--model", "m", "--output-format", "json",
-    "--call-limit-s", String(opts.callLimitS ?? 100), "--unit-rounds", String(opts.unitRounds ?? 2),
-    "--stall-s", String(opts.stallS ?? 100), "--heartbeat-ms", String(opts.heartbeatMs ?? 50)];
-  return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8",
-    env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), ...(opts.env || {}) } });
+  const args = [
+    "src/workflow/job-supervise.mjs",
+    "--run",
+    dir,
+    "--units",
+    unitsPath,
+    "--command",
+    fakeJudge,
+    "--model",
+    "m",
+    "--output-format",
+    "json",
+    "--call-limit-s",
+    String(opts.callLimitS ?? 100),
+    "--unit-rounds",
+    String(opts.unitRounds ?? 2),
+    "--stall-s",
+    String(opts.stallS ?? 100),
+    "--heartbeat-ms",
+    String(opts.heartbeatMs ?? 50),
+  ];
+  return spawnSync(process.execPath, args, {
+    cwd: root,
+    timeout: 15000,
+    encoding: "utf8",
+    env: { ...process.env, KOGAKI_FAKE_JUDGE_COUNTER: join(dir, "fake-judge-counter.json"), ...(opts.env || {}) },
+  });
 }
 
 // EVERY TERMINAL STATE A FIXTURE'S JOB RECORD REACHES, gathered as the records
@@ -256,7 +299,9 @@ export function unitStdoutFile(dir, unitId) {
 }
 
 // POLLING HELPERS for the fixtures below that watch a live supervisor.
-export function sleepSyncMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+export function sleepSyncMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 export function pollUntil(dir, pred, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   let rec = readRecord(dir);

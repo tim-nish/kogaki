@@ -52,15 +52,21 @@ function writerSettingsRefusal(table) {
   }
   for (const act of WRITER_ACTS) {
     const n = w.retries[act];
-    if (!Number.isInteger(n) || n < 0) return `${at}'s writer block declares no non-negative integer \`retries.${act}\` — how many times a refused response is re-asked before the act fails naming the Leg`;
+    if (!Number.isInteger(n) || n < 0)
+      return `${at}'s writer block declares no non-negative integer \`retries.${act}\` — how many times a refused response is re-asked before the act fails naming the Leg`;
   }
   return null;
 }
 
 export function writerSettings() {
   let table;
-  try { table = JSON.parse(readFileSync(DRAFT_TABLE, "utf8")); }
-  catch (e) { fail(`the draft workflow table at ${DRAFT_TABLE} cannot be read (${e.message}) — it is a runtime-read carrier and the act has no built-in fallback, deliberately: a fallback writer would be a second copy nobody maintains`); }
+  try {
+    table = JSON.parse(readFileSync(DRAFT_TABLE, "utf8"));
+  } catch (e) {
+    fail(
+      `the draft workflow table at ${DRAFT_TABLE} cannot be read (${e.message}) — it is a runtime-read carrier and the act has no built-in fallback, deliberately: a fallback writer would be a second copy nobody maintains`,
+    );
+  }
   const bad = writerSettingsRefusal(table);
   if (bad) fail(bad);
   const w = table.writer;
@@ -77,7 +83,11 @@ export function writerSettings() {
 function writerText(stdout, outputFormat) {
   if (outputFormat !== "json") return String(stdout);
   let env;
-  try { env = JSON.parse(stdout); } catch (e) { return { error: `the writer's json response does not parse (${e.message})` }; }
+  try {
+    env = JSON.parse(stdout);
+  } catch (e) {
+    return { error: `the writer's json response does not parse (${e.message})` };
+  }
   if (typeof env === "string") return env;
   if (env && typeof env === "object" && typeof env.result === "string") return env.result;
   return { error: "the writer's json response carries no string `result`" };
@@ -93,17 +103,37 @@ export function callWriter({ settings, act, legId, input, refuse }) {
   const calls = 1 + settings.retries[act];
   const refused = [];
   for (let n = 1; n <= calls; n++) {
-    const r = spawnSync(settings.binary.path,
-      ["-p", "--model", settings.model, "--output-format", settings.output_format,
-        "--tools", "", "--disable-slash-commands", "--strict-mcp-config",
-        "--setting-sources", "", "--no-session-persistence"],
-      { input, encoding: "utf8", timeout: 1000 * settings.timeout_s, maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync(
+      settings.binary.path,
+      [
+        "-p",
+        "--model",
+        settings.model,
+        "--output-format",
+        settings.output_format,
+        "--tools",
+        "",
+        "--disable-slash-commands",
+        "--strict-mcp-config",
+        "--setting-sources",
+        "",
+        "--no-session-persistence",
+      ],
+      { input, encoding: "utf8", timeout: 1000 * settings.timeout_s, maxBuffer: 64 * 1024 * 1024 },
+    );
     if (r.error) {
-      fail(`leg ${legId}: the writer (${settings.binary.path}) could not be run for \`${act}\` (${r.error.code || "spawn failed"}: ${r.error.message}) — call ${n} of ${calls}`);
+      fail(
+        `leg ${legId}: the writer (${settings.binary.path}) could not be run for \`${act}\` (${r.error.code || "spawn failed"}: ${r.error.message}) — call ${n} of ${calls}`,
+      );
     }
     if (r.status !== 0) {
-      const said = String(r.stderr || "").trim().split("\n")[0] || "(no stderr)";
-      fail(`leg ${legId}: the writer exited ${r.status === null ? `on ${r.signal}` : r.status} for \`${act}\` — ${said}`);
+      const said =
+        String(r.stderr || "")
+          .trim()
+          .split("\n")[0] || "(no stderr)";
+      fail(
+        `leg ${legId}: the writer exited ${r.status === null ? `on ${r.signal}` : r.status} for \`${act}\` — ${said}`,
+      );
     }
     const text = writerText(r.stdout, settings.output_format);
     // THE WRITER'S OWN REFUSAL (kogaki#1250, owner ruling 2026-10-04). A
@@ -117,13 +147,17 @@ export function callWriter({ settings, act, legId, input, refuse }) {
     // turn a refusal into prose.
     const declaredRefusal = writerRefusal(text);
     if (declaredRefusal) {
-      fail(`leg ${legId}: the writer refused \`${act}\` — ${declaredRefusal} — no ${act} is recorded, and this is not re-asked`);
+      fail(
+        `leg ${legId}: the writer refused \`${act}\` — ${declaredRefusal} — no ${act} is recorded, and this is not re-asked`,
+      );
     }
-    const bad = (text && typeof text === "object" && text.error) ? text.error : refuse(text);
+    const bad = text && typeof text === "object" && text.error ? text.error : refuse(text);
     if (!bad) return { text, calls: n, refused };
     refused.push(bad);
   }
-  fail(`leg ${legId}: the writer's \`${act}\` response was refused ${calls} time(s) and the declared retries.${act}=${settings.retries[act]} are spent — the Leg is not recorded. Last refusal: ${refused[refused.length - 1]}`);
+  fail(
+    `leg ${legId}: the writer's \`${act}\` response was refused ${calls} time(s) and the declared retries.${act}=${settings.retries[act]} are spent — the Leg is not recorded. Last refusal: ${refused[refused.length - 1]}`,
+  );
 }
 
 // THE DECLARED FORM, pure: a response whose FIRST LINE is `refusal: <reason>`
@@ -147,21 +181,28 @@ export function sectionProseRefusal(content, id, brief) {
   }
   const foreign = scanForeignStrands(content, brief.strands);
   if (foreign.length) return foreignStrandRefusal(foreign[0], brief.strands);
-  const structural = findTraceStructure(content, brief.legs.map((s) => s.leg_id));
+  const structural = findTraceStructure(
+    content,
+    brief.legs.map((s) => s.leg_id),
+  );
   if (structural.length) {
     return `the section for ${id} renders record as structure: ${structural[0]} — the per-Leg trace is frontmatter record, never visible structure in the body (SPEC-draft-command, the Brief's centre and its obligations ledger)`;
   }
   const quotable = content.replace(/^`{4,}[\s\S]*?^`{4,}[ \t]*$/gm, "");
   const drawn = quotable.match(new RegExp("^```[ \\t]*" + MERMAID_FENCE + "\\b", "mi"));
   if (drawn) {
-    return `the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after the renderer and the anchor a figure's markup is rendered by the Harness from the record \`figure --leg ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (the Section grouping). `
-      + `If this Leg should carry a figure, it is declared with \`figure:\` on the Brief (the figure decision) and designed after this prose; if it should not, remove the fence`;
+    return (
+      `the section for ${id} draws its own figure (a \`\`\`${MERMAID_FENCE} fence) — after the renderer and the anchor a figure's markup is rendered by the Harness from the record \`figure --leg ${id}\` validated, and prose that draws one is a second author on a seat the Brief owns, exactly as a heading in the prose is (the Section grouping). ` +
+      `If this Leg should carry a figure, it is declared with \`figure:\` on the Brief (the figure decision) and designed after this prose; if it should not, remove the fence`
+    );
   }
   const unfenced = content.replace(/^```[\s\S]*?^```[ \t]*$/gm, "");
   const heading = unfenced.match(/^(#{1,6})[ \t]+(\S.*?)[ \t]*$/m);
   if (heading) {
-    return `the section for ${id} carries its own heading (${heading[0].trim()}) — after the Section grouping the heading is the Harness's, rendered once per Section at the Leg that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. `
-      + `Remove it: the Packet's write instruction says "No heading" for this reason`;
+    return (
+      `the section for ${id} carries its own heading (${heading[0].trim()}) — after the Section grouping the heading is the Harness's, rendered once per Section at the Leg that declares opens_section, and prose that writes its own produces a second heading the Brief never declared. ` +
+      `Remove it: the Packet's write instruction says "No heading" for this reason`
+    );
   }
   return null;
 }
@@ -170,7 +211,15 @@ export function sectionProseRefusal(content, id, brief) {
 // reason it is not one. The mechanical validation (`figureRecordRefusal`) runs
 // on what this returns.
 export function parseWriterRecord(text) {
-  const stripped = String(text).trim().replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "");
-  try { return { record: JSON.parse(stripped) }; }
-  catch (e) { return { error: `the figure record is not readable JSON (${e.message}) — the record is one JSON object, the instance of the Leg's figure form` }; }
+  const stripped = String(text)
+    .trim()
+    .replace(/^```(?:json)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/, "");
+  try {
+    return { record: JSON.parse(stripped) };
+  } catch (e) {
+    return {
+      error: `the figure record is not readable JSON (${e.message}) — the record is one JSON object, the instance of the Leg's figure form`,
+    };
+  }
 }

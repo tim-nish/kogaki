@@ -22,11 +22,15 @@ export function jobCallsReport(jobDir) {
   const lines = [`Calls at ${relFromRepo(jobDir)}:`];
   let unit = null;
   for (const r of rows) {
-    if (r.unit !== unit) { unit = r.unit; lines.push(`  unit ${unit}:`); }
+    if (r.unit !== unit) {
+      unit = r.unit;
+      lines.push(`  unit ${unit}:`);
+    }
     const judged = r.refusal === null ? "passed" : `${r.group ?? "-"}, ${r.reach ?? "-"}: ${r.refusal}`;
     lines.push(`    call ${r.n} — ${judged}`);
     lines.push(`      files: ${relFromRepo(r.dir)}/{${r.files.join(",")}}`);
-    for (const x of r.replays) lines.push(`      replay ${x.mode}: ${x.verdict} — ${relFromRepo(join(x.dir, "result.json"))}`);
+    for (const x of r.replays)
+      lines.push(`      replay ${x.mode}: ${x.verdict} — ${relFromRepo(join(x.dir, "result.json"))}`);
   }
   return lines;
 }

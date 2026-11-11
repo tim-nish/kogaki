@@ -58,15 +58,23 @@ function regressedPairs(run, priorJoin, results) {
   const out = [];
   for (const r of results) {
     if (r.carried || r.owed || !corrected.has(r.leg_id) || r.class !== "preserved") continue;
-    const pairs = Array.isArray(r.pairs) && r.pairs.length
-      ? r.pairs
-      : [{ pair: r.pair === undefined ? null : r.pair, verdict: r.verdict, reason: r.reason }];
+    const pairs =
+      Array.isArray(r.pairs) && r.pairs.length
+        ? r.pairs
+        : [{ pair: r.pair === undefined ? null : r.pair, verdict: r.verdict, reason: r.reason }];
     for (const p of pairs) {
       const key = verdictKey(r.leg_id, r.item, p.pair);
       const before = one.get(key);
       if (!before || before.verdict !== "holds" || p.verdict !== "fails") continue;
-      out.push({ key, leg_id: r.leg_id, item: r.item, pair: p.pair === undefined ? null : p.pair,
-        pass_1: "holds", pass_2: "fails", reason: p.reason });
+      out.push({
+        key,
+        leg_id: r.leg_id,
+        item: r.item,
+        pair: p.pair === undefined ? null : p.pair,
+        pass_1: "holds",
+        pass_2: "fails",
+        reason: p.reason,
+      });
     }
   }
   return out;
@@ -82,8 +90,7 @@ function regressedPairs(run, priorJoin, results) {
 // reading about text that is gone.
 function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed, passTwoRows, priorJoin }) {
   const inputs = run.correction_inputs || {};
-  const seats = (run.corrections || []).filter((c) => c.leg_id === legId)
-    .map((c) => c.seat || "prose");
+  const seats = (run.corrections || []).filter((c) => c.leg_id === legId).map((c) => c.seat || "prose");
   const ordered = [...new Set(["prose", "figure"].filter((s) => seats.includes(s)))];
   const snapDir = join(ws, "snapshots");
   mkdirSync(snapDir, { recursive: true });
@@ -100,23 +107,29 @@ function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed
       // would leave the regressed prose in the article under a record saying
       // it was restored.
       if (!rec || typeof rec.prose !== "string") {
-        fail(`leg ${legId} failed in pass two an item it held in pass one, and this run's record `
-          + "carries no copy of the prose it held that item on, so there is nothing to restore it "
-          + "to. `correct` records the previous realization when it renders the correction input; a "
-          + "run whose record predates that cannot be restored, and re-opening the review on the "
-          + "current article is what starts one that can.");
+        fail(
+          `leg ${legId} failed in pass two an item it held in pass one, and this run's record ` +
+            "carries no copy of the prose it held that item on, so there is nothing to restore it " +
+            "to. `correct` records the previous realization when it renders the correction input; a " +
+            "run whose record predates that cannot be restored, and re-opening the review on the " +
+            "current article is what starts one that can.",
+        );
       }
-      withReplyFile(rec.prose.endsWith("\n") ? rec.prose : rec.prose + "\n", `${legId}.prose.md`,
-        (p) => draftLane("section", draft, args, ["--leg", legId, "--file", p]));
+      withReplyFile(rec.prose.endsWith("\n") ? rec.prose : rec.prose + "\n", `${legId}.prose.md`, (p) =>
+        draftLane("section", draft, args, ["--leg", legId, "--file", p]),
+      );
     } else {
       const rec = inputs[`${legId}#figure`];
       if (!rec || typeof rec.record_text !== "string") {
-        fail(`leg ${legId}'s FIGURE was corrected and regressed in pass two, and this run's `
-          + "record carries no copy of the figure record the reader met, so there is nothing to "
-          + "restore it to. Re-open the review on the current article.");
+        fail(
+          `leg ${legId}'s FIGURE was corrected and regressed in pass two, and this run's ` +
+            "record carries no copy of the figure record the reader met, so there is nothing to " +
+            "restore it to. Re-open the review on the current article.",
+        );
       }
-      withReplyFile(rec.record_text, `${legId}.figure.json`,
-        (p) => draftLane("figure", draft, args, ["--leg", legId, "--file", p]));
+      withReplyFile(rec.record_text, `${legId}.figure.json`, (p) =>
+        draftLane("figure", draft, args, ["--leg", legId, "--file", p]),
+      );
     }
   }
   draftLane("emit", draft, args, []);
@@ -131,16 +144,22 @@ function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed
   // be allowed to make quietly, since everything downstream now reads pass
   // one's verdicts against it.
   if (ordered.includes("prose") && restored.prose.trim() !== String(inputs[legId].prose).trim()) {
-    fail(`leg ${legId} was handed its pass-one prose and the re-emitted Draft carries something `
-      + "else, so the restore did not land. Nothing further is recorded: pass one's verdicts would "
-      + "otherwise be read against prose they were not given on.");
+    fail(
+      `leg ${legId} was handed its pass-one prose and the re-emitted Draft carries something ` +
+        "else, so the restore did not land. Nothing further is recorded: pass one's verdicts would " +
+        "otherwise be read against prose they were not given on.",
+    );
   }
   writeFileSync(join(snapDir, `r${seq}-after-restore-${legId}.md`), after.text);
 
   run.body_sha = after.body_sha;
   run.legs = afterLegs.map((s) => ({
-    leg_id: s.leg_id, section: s.section, section_title: s.section_title,
-    lines: s.lines, packet: s.packet, packet_sha: s.packet_sha,
+    leg_id: s.leg_id,
+    section: s.section,
+    section_title: s.section_title,
+    lines: s.lines,
+    packet: s.packet,
+    packet_sha: s.packet_sha,
   }));
   run.outlineFields[legId] = passReadPath(ws, 1, "outline", `${legId}.json`);
   if ((run.figureOutlineFields || {})[legId]) {
@@ -158,8 +177,15 @@ function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed
     // taken at another time — which `recordVerdicts` refuses by name when a
     // session tries it.
     if (v.judged !== true) continue;
-    run.verdicts[key] = { key, leg_id: legId, item: v.item, pair: v.pair === undefined ? null : v.pair,
-      verdict: v.verdict, reason: v.reason, model: v.model ?? null };
+    run.verdicts[key] = {
+      key,
+      leg_id: legId,
+      item: v.item,
+      pair: v.pair === undefined ? null : v.pair,
+      verdict: v.verdict,
+      reason: v.reason,
+      model: v.model ?? null,
+    };
     reinstated++;
   }
 
@@ -168,10 +194,16 @@ function restoreRegressedLeg(args, { draft, draftPath, ws, run, legId, regressed
     leg_id: legId,
     seats: ordered,
     pass: 2,
-    what: `restored to the prose this Leg carried in pass one, through the realization lane, `
-      + `because pass two failed ${regressed.length} item pair(s) it had held`,
-    regressed: regressed.map((r) => ({ item: r.item, pair: r.pair, pass_1: r.pass_1,
-      pass_2: r.pass_2, reason: r.reason })),
+    what:
+      `restored to the prose this Leg carried in pass one, through the realization lane, ` +
+      `because pass two failed ${regressed.length} item pair(s) it had held`,
+    regressed: regressed.map((r) => ({
+      item: r.item,
+      pair: r.pair,
+      pass_1: r.pass_1,
+      pass_2: r.pass_2,
+      reason: r.reason,
+    })),
     // PASS TWO'S OWN ANSWERS FOR THIS LEG, KEPT. They are not the run's
     // reading any more — the prose they were given on is gone — and they are
     // the evidence that the restore happened at all, which is what `passes.json`
@@ -217,7 +249,10 @@ function buildPasses(run, priorJoin, results) {
   // to be able to show, and showing `holds`/`holds` for a pair that regressed
   // would erase the very event the guard fired on.
   for (const rec of run.restores || []) {
-    for (const [key, p] of rowsOf(rec.pass_two_rows || [])) { two.set(key, p); carried.delete(key); }
+    for (const [key, p] of rowsOf(rec.pass_two_rows || [])) {
+      two.set(key, p);
+      carried.delete(key);
+    }
   }
 
   const rows = [];
@@ -229,13 +264,23 @@ function buildPasses(run, priorJoin, results) {
     const p2 = reJudged ? after.verdict : null;
     const outcome = !reJudged
       ? "carried"
-      : (p1 === "holds"
-        ? (p2 === "holds" ? "held" : "regressed")
-        : (p2 === "holds" ? "fixed" : "still-failing"));
+      : p1 === "holds"
+        ? p2 === "holds"
+          ? "held"
+          : "regressed"
+        : p2 === "holds"
+          ? "fixed"
+          : "still-failing";
     counts[outcome]++;
-    rows.push({ leg_id: before.leg_id ?? key.split("/")[0], item: before.item,
+    rows.push({
+      leg_id: before.leg_id ?? key.split("/")[0],
+      item: before.item,
       pair: before.pair === undefined ? null : before.pair,
-      class: before.class ?? null, pass_1: p1, pass_2: p2, outcome });
+      class: before.class ?? null,
+      pass_1: p1,
+      pass_2: p2,
+      outcome,
+    });
   }
   const passTwoOnly = [...two.keys()].filter((k) => !one.has(k));
   return { rows, counts, pass_two_only: passTwoOnly };

@@ -17,22 +17,30 @@ import { cmdAdopt, cmdEnter, cmdMint } from "./brief/candidates.mjs";
 import { BRIEF_FLOW } from "./brief/job-verbs.mjs";
 import { fail } from "./brief/run-state.mjs";
 import { runWorkflow } from "./workflow/executor.mjs";
-import {
-  START_ACT_EXECUTOR, advancedByFromPayload, readHookPayload,
-} from "./workflow/run-record.mjs";
+import { START_ACT_EXECUTOR, advancedByFromPayload, readHookPayload } from "./workflow/run-record.mjs";
 export {
-  composeBrief, composeThesisCandidates, deriveSlugCandidate, thesisGate, thesisGateOptions, unreachedCoverage,
+  composeBrief,
+  composeThesisCandidates,
+  deriveSlugCandidate,
+  thesisGate,
+  thesisGateOptions,
+  unreachedCoverage,
 } from "./brief/candidates.mjs";
 export {
-  strandClaims, briefAudienceFile, briefJobBounds, briefThesis, validateReviewPathUnit,
+  strandClaims,
+  briefAudienceFile,
+  briefJobBounds,
+  briefThesis,
+  validateReviewPathUnit,
 } from "./brief/run-state.mjs";
-export {
-  candidateSelectionExtra, excludedCandidateLines,
-} from "./brief/reader-path-unit.mjs";
+export { candidateSelectionExtra, excludedCandidateLines } from "./brief/reader-path-unit.mjs";
 export { readerPathReading } from "./brief/renderers.mjs";
 export {
-  readerPathJobStatusLines, READER_PATH_JOB_AWAIT_S, jobAwaitS,
-  READER_PATH_JOB_STILL_RUNNING_LINE, REVIEW_PATH_JOB_STILL_RUNNING_LINE,
+  readerPathJobStatusLines,
+  READER_PATH_JOB_AWAIT_S,
+  jobAwaitS,
+  READER_PATH_JOB_STILL_RUNNING_LINE,
+  REVIEW_PATH_JOB_STILL_RUNNING_LINE,
 } from "./brief/job-verbs.mjs";
 
 function parseArgs(argv) {
@@ -43,7 +51,10 @@ function parseArgs(argv) {
       const key = a.slice(2);
       const next = argv[i + 1];
       if (next === undefined || next.startsWith("--")) args[key] = true;
-      else { args[key] = next; i++; }
+      else {
+        args[key] = next;
+        i++;
+      }
     } else if (!args._cmd) args._cmd = a;
     // EVERY POSITIONAL AFTER THE VERB IS KEPT (kogaki#1116). The settled Strand
     // set arrives on the command line as served addresses, so a parser that read
@@ -61,9 +72,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // The standalone `enter` takes its addresses POSITIONALLY, exactly as
     // `start` does, so the fixture path and the started path spell the set the
     // same way (kogaki#1116).
-    case "enter": cmdEnter({ ...args, addresses: args.addresses ?? args._rest }); break;
-    case "adopt": cmdAdopt(args); break;
-    case "mint": cmdMint(args); break;
+    case "enter":
+      cmdEnter({ ...args, addresses: args.addresses ?? args._rest });
+      break;
+    case "adopt":
+      cmdAdopt(args);
+      break;
+    case "mint":
+      cmdMint(args);
+      break;
     // ---- THE CONTROL PLANE'S ONE ADVANCE (kogaki#1108), entered once per act.
     //
     // THE PAYLOAD GATE, BEFORE ANY WRITE, is every lane's entry point's own and
@@ -72,15 +89,20 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // directory is opened, and the dispatcher is the only place before it.
     // `--status` is read-only and is exempt.
     case "run": {
-      if (args.status) { runWorkflow(BRIEF_FLOW, args, null); break; }
+      if (args.status) {
+        runWorkflow(BRIEF_FLOW, args, null);
+        break;
+      }
       const advancedBy = advancedByFromPayload(readHookPayload());
       if (!advancedBy) {
-        fail("the executor advances only inside a harness hook event, and no hook payload carrying "
-          + "hook_event_name, session_id and tool_use_id was readable on stdin. Nothing was written. "
-          + "A Brief run is STARTED by the brief skill's own `!` line (`node src/brief.mjs start`) and "
-          + "ADVANCED inside the PostToolUse hook for the AskUserQuestion that answered its gate "
-          + "(.claude/hooks/advance-brief.py); `run --status` is the only verb reachable from a Bash "
-          + "command, and it is read-only.");
+        fail(
+          "the executor advances only inside a harness hook event, and no hook payload carrying " +
+            "hook_event_name, session_id and tool_use_id was readable on stdin. Nothing was written. " +
+            "A Brief run is STARTED by the brief skill's own `!` line (`node src/brief.mjs start`) and " +
+            "ADVANCED inside the PostToolUse hook for the AskUserQuestion that answered its gate " +
+            "(.claude/hooks/advance-brief.py); `run --status` is the only verb reachable from a Bash " +
+            "command, and it is read-only.",
+        );
       }
       runWorkflow(BRIEF_FLOW, args, advancedBy);
       break;
@@ -91,7 +113,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // existing run record, so it never resumes one. Its transitions carry the
     // `start-act` executor kind and no hook fields, because no hook event
     // produced them and inventing one would be a fabricated attribution.
-    case "start": runWorkflow(BRIEF_FLOW, args, START_ACT_EXECUTOR, { stopAtFirstWait: true }); break;
-    default: fail("usage: brief.mjs start <served Lesson address> ... | run [--status] | enter <served Lesson address> ... [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>] [--reader-file <path, defaults to src/brief-workflow.json's compose_path row>] [--external-authority on|off, defaults on]");
+    case "start":
+      runWorkflow(BRIEF_FLOW, args, START_ACT_EXECUTOR, { stopAtFirstWait: true });
+      break;
+    default:
+      fail(
+        "usage: brief.mjs start <served Lesson address> ... | run [--status] | enter <served Lesson address> ... [--run-state <path>] | adopt --run-state <path> --capture <gate capture> | mint --run-state <path> [--theses-dir <dir>] [--slug <caller-supplied home, never an owner question>] [--reader-file <path, defaults to src/brief-workflow.json's compose_path row>] [--external-authority on|off, defaults on]",
+      );
   }
 }

@@ -12,7 +12,9 @@ import { FLOW } from "./stage.mjs";
 // ONE UNIT PER LEG. The unit's id is `leg-<n>`, its place in the Reader Path, so a file
 // name never carries a Leg id; `inputs.legs` is the Legs in that order.
 
-export function unitIdFor(i) { return `leg-${i + 1}`; }
+export function unitIdFor(i) {
+  return `leg-${i + 1}`;
+}
 export function legForUnit(inputs, unitId) {
   const m = /^leg-(\d+)$/.exec(String(unitId));
   const leg = m ? (inputs.legs || [])[Number(m[1]) - 1] : null;
@@ -38,7 +40,9 @@ export function planLeg(leg, opts = {}) {
     prior_knowledge: typeof opts.priorKnowledge === "string" ? opts.priorKnowledge.trim() : "",
     the_reader_has_been_told: (opts.told || []).map((x) => ({ ...x })),
     leaves_for_next_leg: (opts.leaves || []).map((x) => ({ kind: x.kind, what: x.what })),
-    journeys: (leg.journeys || []).filter((j) => j && typeof j === "object").map((j) => ({ strand: j.strand, use: j.use })),
+    journeys: (leg.journeys || [])
+      .filter((j) => j && typeof j === "object")
+      .map((j) => ({ strand: j.strand, use: j.use })),
     introduces: introducedTerms(leg.introduces),
   };
 }
@@ -47,8 +51,11 @@ export function planLeg(leg, opts = {}) {
 // states, in Leg order, as `{ leg_id, relation, text }`. Derived from the order alone; the Brief
 // carries no reader state (kogaki#1699), and nothing here reads or writes one. `n` is 0-based.
 export function toldBefore(legs, n) {
-  return legs.slice(0, n).map((l) => ({ leg_id: l.leg_id, ...(typeof l.relation === "string" ? { relation: l.relation } : {}),
-    text: String(l.text ?? "").trim() }));
+  return legs.slice(0, n).map((l) => ({
+    leg_id: l.leg_id,
+    ...(typeof l.relation === "string" ? { relation: l.relation } : {}),
+    text: String(l.text ?? "").trim(),
+  }));
 }
 
 // THE ROLES A LEG'S RELATION STANDS BETWEEN (kogaki#1777): an ordinary relation's `between`, and for a
@@ -67,14 +74,20 @@ export function legRoles(structure, relationId) {
     else if (higher.has(id)) (higher.get(id).relates || []).forEach(walk);
   };
   walk(relationId);
-  return (structure.roles || []).filter((r) => ids.has(r.id))
+  return (structure.roles || [])
+    .filter((r) => ids.has(r.id))
     .map((r) => ({ id: r.id, ...(typeof r.name === "string" ? { name: r.name } : {}), context: r.context ?? "" }));
 }
 
 // The planLeg options for every Leg of a Brief: what the Legs before it state, the Roles of its
 // relation and the Persona's prior-knowledge line.
 export function planLegOptions(legs, structure, priorKnowledge) {
-  return legs.map((leg, i) => ({ told: toldBefore(legs, i), roles: legRoles(structure, leg.relation), leaves: [], priorKnowledge }));
+  return legs.map((leg, i) => ({
+    told: toldBefore(legs, i),
+    roles: legRoles(structure, leg.relation),
+    leaves: [],
+    priorKnowledge,
+  }));
 }
 
 // THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497): the reader-knowledge ledger,
@@ -84,7 +97,9 @@ export function planLegOptions(legs, structure, priorKnowledge) {
 // entry's `meaning`, a legacy anchored entry's anchor, and for a bare term with neither,
 // `null`, for the planner to give in its own words.
 export function introducedTerms(entries) {
-  return (entries || []).map((raw) => parseIntroducesEntry(raw)).filter((p) => !p.error && p.term)
+  return (entries || [])
+    .map((raw) => parseIntroducesEntry(raw))
+    .filter((p) => !p.error && p.term)
     .map((p) => ({ term: p.term, meaning: introducedMeaning(p) }));
 }
 
@@ -102,8 +117,12 @@ export function introducedTerms(entries) {
 // by blinding the planner (kogaki#1414). `before`, `after` and `breaks` are untouched.
 export function segmentsForPlanCall(segments) {
   if (!Array.isArray(segments) || !segments.length) return segments;
-  return segments.map((s, i) => ({ segment: i + 1, operation: String(s.operation).trim(),
-    relation: String(s.relation ?? "").trim(), manner: String(s.manner ?? "").trim() }));
+  return segments.map((s, i) => ({
+    segment: i + 1,
+    operation: String(s.operation).trim(),
+    relation: String(s.relation ?? "").trim(),
+    manner: String(s.manner ?? "").trim(),
+  }));
 }
 
 // The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
@@ -123,5 +142,9 @@ export function paragraphPlanUnitInput(leg, moves, persona, bound) {
 
 export function renderRowHead(row) {
   const held = bindFlow(FLOW);
-  try { return judgePrompt(row, "", null, null); } finally { bindFlow(held); }
+  try {
+    return judgePrompt(row, "", null, null);
+  } finally {
+    bindFlow(held);
+  }
 }
