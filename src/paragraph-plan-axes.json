@@ -395,6 +395,121 @@
           }
         ]
       }
+    },
+    "cast-terse-clean": {
+      "source": "runs/brief/paragraph-plan-action-kind-rule-set-guard-2026-11-11T05-37-31-928Z, call leg-1/3, the planner's paragraph with its first-paragraph `join` dropped, judged under the Leg's bound Move; Waypoint 2 is cut to its one clause before the colon, Waypoint 3 to its first clause and Waypoint 5 to its ranking, so that no other axis refuses it (kogaki#1816)",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "L1",
+          "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
+          "prior_knowledge": "(the Persona declares no prior_knowledge)",
+          "the_reader_has_been_told": [],
+          "leaves_for_next_leg": [],
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "poses a direct question asking which single element of a domain matters most."
+              },
+              {
+                "operation": "answers the question with the position taken here.",
+                "relation": "gives directly the answer the step before asked for.",
+                "manner": "a brief direct statement, given at once and taking no elaboration."
+              },
+              {
+                "operation": "lays down a fact about the domain too plain to dispute.",
+                "relation": "widens the answer into a footing the reader cannot refuse."
+              },
+              {
+                "operation": "draws from it a second fact the reader must equally grant, carrying the first onto the members of the domain.",
+                "relation": "stacks a second assent on the first."
+              },
+              {
+                "operation": "asserts, on the two facts just granted, that the distinction they establish holds the highest importance in the subject.",
+                "relation": "spends the two assents on the claim they were gathered for.",
+                "manner": "one flat sentence ranking the distinction, with neither fact restated as its ground."
+              }
+            ],
+            "breaks": [
+              "cut the opening question and begin from the answer — the reader receives a division with no sense of what it resolves, and reads it as a bare assertion",
+              "delay the answer behind a paragraph of background — the pull of the question dissipates, and the eventual answer arrives as one option among several",
+              "make the main claim before the two plain facts — the reader meets it with nothing yet granted, and weighs it instead of accepting it",
+              "argue either plain fact instead of laying it down — the assent it was there to win is turned into a dispute, and the stack never forms",
+              "drop the sentence ranking the distinction — the reader has a division but no reason to treat it as the one that organizes the rest",
+              "append instances of the kinds after the ranking — the argument is already closed, and the reader takes the instances as a promise nothing keeps"
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
+              "paragraph_waypoints": [
+                {
+                  "point": "Which single thing decides whether a standing set of automatic rules does anything at all about something that happens?",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "asked": true
+                  }
+                },
+                {
+                  "point": "It is the kind the happening belongs to.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "terse": true
+                  }
+                },
+                {
+                  "point": "A home burglar alarm is wired against certain kinds of opening at an entry point of the house.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "So every kind of opening at an entry point of the house falls on one side of that wiring or the other, and an upstairs window of an unwired kind can stand open the whole night with the alarm quiet, because that opening fits none of the patterns the alarm was given and is therefore no concern of its.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "Of everything that could be said about such an arrangement, the line between the kinds it was signed up against and the kinds it was not is the most important thing about it.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {
+                    "plain": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "cast-terse-elaborates": {
+      "source": "the record above with Waypoint 2 the run's point verbatim, cast `terse` and elaborating after its colon (kogaki#1816)",
+      "from": "cast-terse-clean",
+      "at_paragraph": 1,
+      "edit": {
+        "paragraph": 1,
+        "waypoint": 2,
+        "to": {
+          "point": "It is the kind the happening belongs to: such rules act on a happening only when it falls under a kind they were signed up against.",
+          "serves": [
+            "L1"
+          ],
+          "cast": {
+            "terse": true
+          }
+        }
+      }
     }
   },
   "axes": [
@@ -517,6 +632,29 @@
         }
       },
       "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
+    },
+    {
+      "id": "CAST",
+      "sentence": "Every key a `point` Waypoint's `cast` sets true holds of its point as the key's definition states it, which a refusal names by the Waypoint, the key, its definition and the quoted clause that breaks it.",
+      "fixtures": {
+        "defect": [
+          "cast-terse-elaborates"
+        ],
+        "clean": [
+          "cast-terse-clean"
+        ]
+      },
+      "justified_by": {
+        "date": "2026-11-11",
+        "run": "runs/judge-bench/2026-11-11-cast-5b",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
     }
   ]
 }
