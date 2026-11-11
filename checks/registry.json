@@ -599,6 +599,27 @@
       }
     },
     {
+      "id": "paragraph-plan-every-failure",
+      "file": "checks/check-paragraph-plan-every-failure.mjs",
+      "covers": [
+        "src/paragraph-plan/axes.mjs",
+        "src/paragraph-plan/site-retry.mjs",
+        "src/mapping-playground/rbs.mjs",
+        "src/flp/sheet.mjs"
+      ],
+      "admission": {
+        "contract": "A ParagraphPlan refusal names every failure the program finds over the paragraph, not the first (kogaki#1813). Over one fixture paragraph carrying both a `join` on the first paragraph and a Role id in a point, under a grounded Mapping Table: `validateParagraphPlanUnit` refuses naming both, one line each, each naming paragraph 1, and carries both in `failures` with paragraph 1 as the one site (a); the site call's `refused_here`, built from that refusal by `paragraphPlanSiteInput`, carries both (b); a site answer carrying both again is refused by `validateParagraphPlanSite` naming both (c); `correspondenceVocabularyFailures` names every Role whose expression is missing, not the first (d); and the page's `commentHtml` renders each failure as its own `why:` line of the Round's Comment (e). Declared limit: whether a live planner repairs every failure it is handed is the model's.",
+        "license": "kogaki#1813",
+        "tier": "pre-push",
+        "runtime_ms": 1000,
+        "runtime_ms_note": "Measured at authoring (2026-11-11, kogaki#1813 worktree): 140-230 ms over three plain runs of the file; the cost is one node process and no subprocess. 1000 leaves room for peer-session load on this machine.",
+        "efficacy": "case: checks/check-paragraph-plan-every-failure.mjs::(a) the unit refusal does not name both the join and the Role id, one line each",
+        "efficacy_note": "mutation-verified at authoring: making `validateParagraphPlanUnit` return only its first failure as `error` failed (a), (b) and (e), each naming the join refusal alone -- the named defect, a validator returning on its first failure while a second stands in the same paragraph, constructed rather than a neighbour.",
+        "removal_signal": "a ruling moves the ParagraphPlan's countable checks out of the program, or retires the site retry, so no program refusal over a paragraph remains to carry more than one failure",
+        "removal_instrument": "probe: ! test -f src/paragraph-plan/axes.mjs"
+      }
+    },
+    {
       "id": "draft-packet",
       "file": "checks/check-draft-packet.sh",
       "covers": ["src/packet-template.md", "src/draft.mjs"],

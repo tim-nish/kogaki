@@ -245,29 +245,33 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
     return {
       error: `${at}: the site answer is numbered ${JSON.stringify(answer.paragraph)} — it is paragraph ${n} alone`,
     };
-  if (Object.hasOwn(answer, "move")) {
-    return {
-      error: `${at}: the answer carries \`move\` — the Leg's Move ${JSON.stringify(ctx.standing.move)} is held at every paragraph, and a paragraph names none (kogaki#1777)`,
-    };
-  }
   if ((ctx.history || []).some((h) => repeatsRefusedEntry(answer, h.entry, h.by_judge)))
     return { error: `${at}: ${siteRepeatRefusal(n)}` };
+  // EVERY FAILURE AT THE SITE (kogaki#1813): the site's own rules and the Leg call's over the paragraph.
+  const failures = [];
+  if (Object.hasOwn(answer, "move"))
+    failures.push(
+      `${at}: the answer carries \`move\` — the Leg's Move ${JSON.stringify(ctx.standing.move)} is held at every paragraph, and a paragraph names none (kogaki#1777)`,
+    );
   const restated = restatedPoints(answer, ctx.history);
-  if (restated) return { error: `${at}: ${siteRestatementRefusal(n, restated)}` };
+  if (restated) failures.push(`${at}: ${siteRestatementRefusal(n, restated)}`);
   const prose = repairProse(answer);
-  if (prose) {
-    return {
-      error: `${at}: the answer's \`${prose.field}\` carries ${prose.said} — it describes the paragraph and its reader, and carries no word of the refusal, the attempt, the shape of the record or any rule by name`,
-    };
-  }
+  if (prose)
+    failures.push(
+      `${at}: the answer's \`${prose.field}\` carries ${prose.said} — it describes the paragraph and its reader, and carries no word of the refusal, the attempt, the shape of the record or any rule by name`,
+    );
+  const entry = Object.fromEntries(Object.entries(answer).filter(([k]) => k !== "move"));
   const standing = ctx.standing.paragraphs;
-  const merged = { ...ctx.standing, paragraphs: standing.map((e, i) => (i === n - 1 ? answer : e)) };
+  const merged = { ...ctx.standing, paragraphs: standing.map((e, i) => (i === n - 1 ? entry : e)) };
   const r = validateParagraphPlanUnit(merged, inputs, unitId);
-  if (!r.error) return { record: merged, changed: [n] };
-  if (r.sites && r.sites.length && r.sites.every((m) => m > n)) {
-    return { record: merged, changed: [n], sites: r.sites.map((m) => ({ site: m, why: r.error })) };
-  }
-  return { error: r.error };
+  // A refusal naming only later paragraphs leaves the site taken and those paragraphs as sites.
+  const here = r.failures ? r.failures.filter((f) => f.site <= n).map((f) => f.text) : r.error ? [r.error] : [];
+  const later = r.failures ? r.failures.filter((f) => f.site > n) : [];
+  const all = [...failures, ...here];
+  if (all.length) return { error: all.join("\n") };
+  if (!later.length) return { record: merged, changed: [n] };
+  const why = later.map((f) => f.text).join("\n");
+  return { record: merged, changed: [n], sites: [...new Set(later.map((f) => f.site))].map((m) => ({ site: m, why })) };
 }
 
 // THE SUFFIX CALL'S INPUT: the Leg call's own input, with the paragraphs before `ctx.from` standing
