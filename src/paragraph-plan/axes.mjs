@@ -16,8 +16,13 @@ import {
   retiredPlanKeyRefusal,
   undeclaredKey,
 } from "../compose.mjs";
-import { PLAN_SCHEMA_KEYS, paragraphLegRefusal, paragraphSchemaRefusal } from "../compose/record.mjs";
-import { correspondenceVocabularyRefusal } from "../mapping-playground/rbs.mjs";
+import {
+  PLAN_SCHEMA_KEYS,
+  RETIRED_PLAN_KEYS,
+  paragraphLegRefusal,
+  paragraphSchemaRefusal,
+} from "../compose/record.mjs";
+import { correspondenceVocabularyFailures } from "../mapping-playground/rbs.mjs";
 import { judgePrompt } from "../workflow/judge.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
@@ -230,7 +235,8 @@ export const boundOf = (inputs) => (Number.isInteger(inputs && inputs.bound) ? i
 // refusal of the Round, put verbatim into the next — or `{}`. A Leg no Move fits is the
 // refusal `no_paragraph_move_fits`, naming the Leg. A refusal that names its paragraph
 // carries it as `sites`, the place the retry is scoped to (kogaki#1642); a refusal of the
-// whole Leg -- its Move, its paragraph count, its Leg-wide rules -- carries none.
+// whole Leg -- its Move, its paragraph count, its Leg-wide rules -- carries none. A paragraph
+// refusal carries every failure of every paragraph as `failures`, each `{ site, text }`, one line each in `error` (kogaki#1813).
 export function validateParagraphPlanUnit(record, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   const r = record || {};
@@ -270,12 +276,25 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
   const count = paragraphCountRefusal(r.paragraphs.length, boundOf(inputs), at);
   if (count) return { error: count };
   const contract = boundMoveContract(r.move, inputs.movesDir);
-  for (const [i, e] of r.paragraphs.entries()) {
-    const bad = paragraphRefusal(e, i, leg, r.paragraphs.slice(0, i), contract, r.move, `${at}, paragraph ${i + 1}`);
-    if (bad) return { error: bad, sites: [i + 1] };
+  const table = groundedTable(inputs, unitId);
+  if (table && r.move !== table.move) {
+    return {
+      error: `${at}: the plan binds ${JSON.stringify(r.move)}, and the Leg's Mapping Table was grounded for "${table.move}" — the Move is bound before grounding and kept after it`,
+    };
   }
-  const mapped = mappingVocabularyRefusal(r, inputs, unitId, at);
-  if (mapped) return mapped;
+  const failures = r.paragraphs.flatMap((e, i) =>
+    [
+      ...paragraphFailures(e, i, leg, r.paragraphs.slice(0, i), contract, r.move, `${at}, paragraph ${i + 1}`),
+      ...(table && isMapEntry(e) ? vocabularyFailures(e, i, table, `${at}, paragraph ${i + 1}`) : []),
+    ].map((text) => ({ site: i + 1, text })),
+  );
+  if (failures.length) {
+    return {
+      error: failures.map((f) => f.text).join("\n"),
+      failures,
+      sites: [...new Set(failures.map((f) => f.site))],
+    };
+  }
   // THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639), by the plan reader's own rule: each
   // introduced term assigned to at most one paragraph.
   const legRule = paragraphLegRefusal(r.paragraphs, leg, at);
@@ -300,59 +319,73 @@ export function readMappingState(runDir, unitId) {
 
 // ONCE GROUNDED, the Leg keeps the Move its table was grounded for, and every paragraph's Waypoints
 // carry that table's expressions and no Role id outside it (kogaki#1734).
-function mappingVocabularyRefusal(record, inputs, unitId, at) {
-  const t = inputs.mapping ? (readMappingState(inputs.runDir, unitId) || {}).table : null;
-  if (!t) return null;
-  if (record.move !== t.move) {
-    return {
-      error: `${at}: the plan binds ${JSON.stringify(record.move)}, and the Leg's Mapping Table was grounded for "${t.move}" — the Move is bound before grounding and kept after it`,
-    };
-  }
-  for (const [i, e] of record.paragraphs.entries()) {
-    const v = correspondenceVocabularyRefusal(e.paragraph_waypoints, t, [], i + 1);
-    if (v) {
-      const id = (/carries the Role id "([^"]+)"/.exec(v) || [])[1];
-      const c = id && t.correspondences.find((x) => x.role === id);
-      return {
-        error: `${at}, paragraph ${i + 1}: ${v}${c ? `; the Role "${id}" reads "${c.expression}" in the Leg's Mapping Table` : ""}`,
-        sites: [i + 1],
-      };
-    }
-  }
-  return null;
+function groundedTable(inputs, unitId) {
+  return inputs.mapping ? (readMappingState(inputs.runDir, unitId) || {}).table || null : null;
 }
 
+function vocabularyFailures(e, i, table, atP) {
+  const points = Array.isArray(e.paragraph_waypoints) ? e.paragraph_waypoints : [];
+  return correspondenceVocabularyFailures(points, table, [], i + 1).map((v) => {
+    const id = (/carries the Role id "([^"]+)"/.exec(v) || [])[1];
+    const c = id && table.correspondences.find((x) => x.role === id);
+    return `${atP}: ${v}${c ? `; the Role "${id}" reads "${c.expression}" in the Leg's Mapping Table` : ""}`;
+  });
+}
+
+const isMapEntry = (e) => Boolean(e) && typeof e === "object" && !Array.isArray(e);
+
 // ONE PARAGRAPH'S RULES, against the paragraphs before it: the Leg call's validator and the site
-// validator read a paragraph by this one function (kogaki#1642). `null` where it passes.
-function paragraphRefusal(e, i, leg, prior, contract, moveId, atP) {
-  if (!e || typeof e !== "object" || Array.isArray(e)) return `${atP}: the paragraph is not a map`;
+// validator read a paragraph by this one function (kogaki#1642). Every failure, `[]` where it passes (kogaki#1813).
+function paragraphFailures(e, i, leg, prior, contract, moveId, atP) {
+  if (!isMapEntry(e)) return [`${atP}: the paragraph is not a map`];
+  const out = [];
+  const add = (why) => {
+    if (why) out.push(why);
+  };
+  // EACH KEY IS NAMED ONCE (kogaki#1813): the schema rule reads the paragraph without the keys named here.
+  const named = new Set();
   const retired = retiredPlanKeyRefusal(e, `${atP}: the paragraph`);
-  if (retired) return retired;
-  if (Object.hasOwn(e, "why"))
-    return `${atP}: the paragraph carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\``;
-  if (Object.hasOwn(e, "move"))
-    return `${atP}: the paragraph carries \`move\` — the Leg binds one Move for all its paragraphs (kogaki#1777)`;
-  const k = undeclaredKey(e, UNIT_PARAGRAPH_KEYS);
+  if (retired) {
+    add(retired);
+    for (const k of RETIRED_PLAN_KEYS) named.add(k);
+  }
+  if (Object.hasOwn(e, "why")) {
+    add(
+      `${atP}: the paragraph carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\``,
+    );
+    named.add("why");
+  }
+  if (Object.hasOwn(e, "move")) {
+    add(`${atP}: the paragraph carries \`move\` — the Leg binds one Move for all its paragraphs (kogaki#1777)`);
+    named.add("move");
+  }
+  const rest = Object.fromEntries(Object.entries(e).filter(([key]) => !named.has(key)));
+  const k = undeclaredKey(rest, UNIT_PARAGRAPH_KEYS);
   if (k)
-    return `${atP}: the paragraph carries \`${k}\`, which it does not declare — it carries paragraph, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every paragraph after the first) and paragraph_waypoints`;
+    add(
+      `${atP}: the paragraph carries \`${k}\`, which it does not declare — it carries paragraph, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every paragraph after the first) and paragraph_waypoints`,
+    );
   if (e.paragraph !== i + 1)
-    return `${atP}: the paragraph is numbered ${JSON.stringify(e.paragraph)} — paragraphs are numbered in order from 1`;
-  if (typeof e.rationale !== "string" || words(e.rationale) < 4) return `${atP}: \`rationale\` is under four words`;
+    add(`${atP}: the paragraph is numbered ${JSON.stringify(e.paragraph)} — paragraphs are numbered in order from 1`);
   // THE PARAGRAPH'S SCHEMA, BY THE PLAN READER'S OWN RULE (kogaki#1639): so the record this
   // stage writes is one every later read accepts, and a refusal names the field here first.
-  const schema = paragraphSchemaRefusal(e, i, leg, prior, atP);
-  if (schema) return schema;
+  const schema = paragraphSchemaRefusal(rest, i, leg, prior, atP);
+  add(schema);
+  if (!(schema && schema.includes("`rationale`")) && (typeof e.rationale !== "string" || words(e.rationale) < 4))
+    add(`${atP}: \`rationale\` is under four words`);
   // ONE PER SEGMENT, COUNTED HERE AND NOT JUDGED (kogaki#1533).
   const n = Array.isArray(e.paragraph_waypoints) ? e.paragraph_waypoints.length : 0;
   if (n !== contract.segments.length) {
-    return (
+    add(
       `${atP}: carries ${n} Waypoint(s) for the ${contract.segments.length} Segment(s) of the Leg's bound Move ` +
-      `"${moveId}" — one Waypoint per Segment, in the Move's order`
+        `"${moveId}" — one Waypoint per Segment, in the Move's order`,
     );
   }
   // THE JOIN, BY THE PLAN READER'S OWN RULE (kogaki#1411): so the file this stage writes is
   // one /draft reads. Whether it takes up what the previous paragraph left is the judge's.
-  return joinRefusal(e, i, atP) || paragraphWaypointsRefusal(e.paragraph_waypoints, e.materials, atP) || null;
+  add(joinRefusal(e, i, atP));
+  add(paragraphWaypointsRefusal(e.paragraph_waypoints, e.materials, atP));
+  return out;
 }
 
 export function noParagraphMoveFitsRefusal(failures) {

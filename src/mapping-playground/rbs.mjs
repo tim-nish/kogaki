@@ -206,16 +206,17 @@ export function suppliedEntry(record, serves) {
 
 // THE CORRESPONDENCE VOCABULARY (kogaki#1700, kogaki#1709): each paragraph's points say the structure in its own table's
 // expressions, so every expression of that table appears in one of them, and a Role id appears in none outside an expression
-// of that table or of `priorTables`, the tables of the cases already told.
+// of that table or of `priorTables`, the tables of the cases already told. Every failure is returned, never the first (kogaki#1813).
 const lower = (t) => String(t).toLowerCase();
 const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-export function correspondenceVocabularyRefusal(points, table, priorTables = [], paragraph = 1) {
+export function correspondenceVocabularyFailures(points, table, priorTables = [], paragraph = 1) {
   const texts = (points || []).map((p) => (p && typeof p.point === "string" ? p.point : ""));
-  for (const c of table.correspondences) {
-    if (!texts.some((t) => lower(t).includes(lower(String(c.expression).trim())))) {
-      return `Paragraph ${paragraph}'s points carry the Correspondence expression of the Role "${c.role}", "${c.expression}", in none of them`;
-    }
-  }
+  const failures = table.correspondences
+    .filter((c) => !texts.some((t) => lower(t).includes(lower(String(c.expression).trim()))))
+    .map(
+      (c) =>
+        `Paragraph ${paragraph}'s points carry the Correspondence expression of the Role "${c.role}", "${c.expression}", in none of them`,
+    );
   const expressions = [table, ...priorTables]
     .flatMap((t) => t.correspondences)
     .map((c) => lower(String(c.expression).trim()))
@@ -223,11 +224,18 @@ export function correspondenceVocabularyRefusal(points, table, priorTables = [],
   for (const [i, t] of texts.entries()) {
     let rest = lower(t);
     for (const e of expressions) rest = rest.split(e).join(" ");
-    const id = table.correspondences
-      .map((c) => String(c.role))
-      .find((r) => new RegExp(`(^|[^a-z0-9_])${escapeRe(lower(r))}($|[^a-z0-9_])`).test(rest));
-    if (id)
-      return `Paragraph ${paragraph}'s point ${i + 1} carries the Role id "${id}" — a point says the structure in the Correspondence expressions`;
+    for (const id of table.correspondences.map((c) => String(c.role))) {
+      if (new RegExp(`(^|[^a-z0-9_])${escapeRe(lower(id))}($|[^a-z0-9_])`).test(rest))
+        failures.push(
+          `Paragraph ${paragraph}'s point ${i + 1} carries the Role id "${id}" — a point says the structure in the Correspondence expressions`,
+        );
+    }
   }
-  return null;
+  return failures;
+}
+
+// The same failures as one refusal, one line each, or null where there are none.
+export function correspondenceVocabularyRefusal(points, table, priorTables = [], paragraph = 1) {
+  const failures = correspondenceVocabularyFailures(points, table, priorTables, paragraph);
+  return failures.length ? failures.join("\n") : null;
 }

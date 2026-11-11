@@ -378,8 +378,9 @@ function structureTable(structure, table) {
 
 const structureAt = (mapping) => (mapping && mapping.structure) || null;
 
-// The Comment block, one labelled line each: the verdict, the text verbatim, its source and the locations it names.
-function commentHtml(verdict, comment, named) {
+// The Comment block, one labelled line each: the verdict, each failure of the text verbatim (kogaki#1813), its source
+// and the locations it names.
+export function commentHtml(verdict, comment, named) {
   const v =
     verdict.kind === "judge"
       ? `verdict: ${verdict.record.verdict}`
@@ -389,7 +390,11 @@ function commentHtml(verdict, comment, named) {
   if (!comment) return line(v);
   return (
     line(v) +
-    line(`why: ${comment.text}`, "line refusal") +
+    String(comment.text)
+      .split("\n")
+      .filter((t) => t.trim() !== "")
+      .map((t) => line(`why: ${t}`, "line refusal"))
+      .join("") +
     line(`source: ${comment.source}`) +
     line(`names: ${namesLine(named)}`)
   );

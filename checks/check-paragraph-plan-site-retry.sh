@@ -293,7 +293,7 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
   const sites = r.of("site");
   const want = `Leg s1, paragraph 1: ${siteRestatementRefusal(1, ["PW-s1-1 the paragraph makes its point."])}`;
   if (!want.includes('"PW-s1-1 the paragraph makes its point."')) fails.push(`(s9) the restatement refusal does not name the unchanged point: ${want}`);
-  if (sites.length < 2 || !sites[1].input.refused_here.some((h) => h.refusal === want)) {
+  if (sites.length < 2 || !sites[1].input.refused_here.some((h) => h.refusal.split("\n").includes(want))) {
     fails.push(`(s9) the second site call is not handed the restatement refusal naming the points: ${JSON.stringify(sites.map((c) => c.input.refused_here.map((h) => h.refusal)))}`);
   }
   if (sites.length !== 2 || r.of("judge").length !== 2) fails.push(`(s9) the judge was called ${r.of("judge").length} times for Leg s1 over ${sites.length} site call(s), not twice over two -- a restatement reaches no judge`);
