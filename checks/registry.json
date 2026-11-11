@@ -530,7 +530,7 @@
     },
     {
       "id": "paragraph-plan-analogy",
-      "file": "checks/check-paragraph-plan-analogy.sh",
+      "file": "checks/check-paragraph-plan-analogy.mjs",
       "covers": ["src/paragraph-plan-analogy.mjs", "src/paragraph-plan.mjs", "src/paragraph-plan-mapper.mjs", "src/paragraph-plan-workflow.json", "src/compose/record.mjs"],
       "admission": {
         "contract": "The ParagraphPlan chooses one Analogy Mapping from the Brief's structure before its first Leg, and every Leg draws its examples from it (kogaki#1778, owner decision 2026-11-10; kogaki#1812). Driven end to end through `node src/paragraph-plan.mjs start|await` over a structure Brief, a scratch Move library and a fake judge binary: (a) one `analogy_mapping` call runs before any Leg's, handed the Roles, the reached relations and the apex, and the plan file carries `analogy` after `brief` and before the Legs, one counterpart per Role and per reached relation; (b) every Leg, whatever Move it binds, is judged with the same base domain under `analogy_you_must_draw_from`, the judge row carrying the axis `ANALOGUE`, while no bind call is handed it; (c) a paragraph naming another analogue is refused by the fit judge and its site retry is handed the mapping; (d) a mapping leaving the apex without a counterpart is refused naming it on every round, the stage stopping before any Leg and writing nothing; (e) a Brief with no structure records `analogy: none` with its reason and makes no call; (f) the validator refuses a missing Role, reached relation or apex by name, an id the structure lacks, and a `none` without its reason or beside a mapping, the plan reader refuses a malformed `analogy`, and `legTable` writes the base domain and the counterpart of each of a Leg's Roles under its Move, and nothing from a `none` mapping or from Roles it does not name; (g) with `paragraph_plan.mapper` true no grounding call is made and no `calls/leg-N/grounding/` directory written, each Leg's Waypoints call carries the mapping's counterparts for the Roles that Leg carries, and a Waypoint carrying a Role id is refused naming the paragraph, the Role and its counterpart.",
@@ -538,7 +538,7 @@
         "tier": "pre-push",
         "runtime_ms": 3500,
         "runtime_ms_note": "Measured 2026-11-11 in the kogaki#1778 worktree: 3.25 s and 3.12 s for two serial runs, four fixture jobs of one to seven fake-judge calls each.",
-        "efficacy": "case: checks/check-paragraph-plan-analogy.sh::(f) refusal ${JSON.stringify(says)} not given: ${v(rec)}",
+        "efficacy": "case: checks/check-paragraph-plan-analogy.mjs::(f) refusal ${JSON.stringify(says)} not given: ${v(rec)}",
         "efficacy_note": "mutation-verified at authoring (kogaki#1778): disabling the apex refusal in `validateAnalogyMapping` and exempting the apex from the reached-relation refusal failed (d) -- a Leg planned, one analogy call, a plan file written -- and (f) naming the apex refusal; restored, the member passed.",
         "removal_signal": "a ruling retires the Analogy Mapping, or lets each Leg choose its own analogue again",
         "removal_instrument": "probe: ! test -f src/paragraph-plan-analogy.mjs"

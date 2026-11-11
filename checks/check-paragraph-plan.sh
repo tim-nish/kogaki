@@ -71,7 +71,7 @@
 #       call is made; under a Brief with no structure the mapping is `none`, so the
 #       Leg carries no table and its bind call's Waypoints stand; the plan names one
 #       structure; the job report lists the reading Call Record, and `replay` re-runs
-#       it. The table projected from a mapping is check-paragraph-plan-analogy.sh's (g).
+#       it. The table projected from a mapping is check-paragraph-plan-analogy.mjs's (g).
 #
 # NOT COVERED, stated rather than implied: the retry inside a Leg is
 # checks/check-paragraph-plan-site-retry.sh's; the `--tools ""` environment and the

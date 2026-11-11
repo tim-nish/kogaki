@@ -114,20 +114,6 @@
   {
     "type": "dependency",
     "from": "src/paragraph-plan-mapper.mjs",
-    "to": "src/mapping-playground/short.mjs",
-    "unresolvedTo": "./mapping-playground/short.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/paragraph-plan-mapper.mjs",
     "to": "src/mapping-playground/sme.mjs",
     "unresolvedTo": "./mapping-playground/sme.mjs",
     "dependencyTypes": [

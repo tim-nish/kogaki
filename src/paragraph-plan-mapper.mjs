@@ -1,7 +1,5 @@
-// The Mapper in ParagraphPlan (kogaki#1734): inside one Leg's job unit, structure reading on the Leg's relation
-// before the bind call, and after it the Waypoints call, the Move fixed and its table in the input. The Leg is the
-// unit (kogaki#1777): one reading per Leg. The table is the Analogy Mapping's projection onto the Leg's Roles,
-// written by the program, and no grounding call is made (kogaki#1812).
+// The Mapper in ParagraphPlan (kogaki#1734, kogaki#1777, kogaki#1812): inside one Leg's job unit, one structure
+// reading before the bind call, then the Waypoints call over the table the program projects from the Analogy Mapping.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
