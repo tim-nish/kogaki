@@ -116,12 +116,22 @@
       "count": 2
     }
   },
-  "src/proof-sheet/leg-sheet.mjs": {
+  "src/proof-sheet/leg-sheet/frame.mjs": {
     "no-unused-vars": {
-      "count": 2
+      "count": 1
+    }
+  },
+  "src/proof-sheet/leg-sheet/plan-card.mjs": {
+    "no-unused-vars": {
+      "count": 1
     },
     "no-useless-assignment": {
-      "count": 2
+      "count": 1
+    }
+  },
+  "src/proof-sheet/leg-sheet/run-data.mjs": {
+    "no-useless-assignment": {
+      "count": 1
     }
   },
   "src/review-draft/join.mjs": {
@@ -162,7 +172,7 @@
       "count": 1
     }
   },
-  "src/workflow/judge.mjs": {
+  "src/workflow/judge/prompt.mjs": {
     "no-unused-vars": {
       "count": 1
     }
