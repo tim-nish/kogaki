@@ -799,6 +799,12 @@ declared measurement input for that class — never the policy system's
   `checks/check-eslint.sh`, by the edit hook and in CI, and nothing in prose
   restates a rule. `eslint-suppressions.json` is the list of findings that
   predate the lint, each a debt owed its own Issue, and it only shrinks.
+- **The type check** (kogaki#1791): TypeScript's `checkJs` over `src/`,
+  configured in `jsconfig.json` with `strict` off and run by
+  `checks/check-types.py`, by the edit hook and in CI, and nothing in prose
+  restates a rule. `tsc-baseline.json` counts the findings that predate the
+  check per file and code, each a debt owed its own Issue, and it only
+  shrinks: a count above its row fails, and a row above its count fails too.
 - **The language of a check** (kogaki#1790): a registered member runs by its
   extension — `.sh` with bash, `.mjs` with node, `.py` with python3 — and a
   shell or Python file carries at most 20 lines of another language in a

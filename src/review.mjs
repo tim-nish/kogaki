@@ -46,6 +46,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/** @returns {never} */
 function fail(msg) {
   process.stderr.write(`review: ${msg}\n`);
   process.exit(1);

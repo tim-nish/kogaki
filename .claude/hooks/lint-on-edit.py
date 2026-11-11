@@ -2,9 +2,10 @@
 """PostToolUse on Edit|Write: an edited src/**/*.mjs file is cruised against
 the lane rule at once, so a new crossing edge reaches the session in the same
 turn (kogaki#1746), and an edited src/ or checks/ .mjs file is linted with
-ESLint, so a new finding does too (kogaki#1747), and an edited .sh or .py
-file is measured against the heredoc bound (kogaki#1790). The rules are
-`.dependency-cruiser.cjs`, `eslint.config.mjs` and
+ESLint, so a new finding does too (kogaki#1747), an edited src/ .mjs file is
+type-checked against its `tsc-baseline.json` row (kogaki#1791), and an edited
+.sh or .py file is measured against the heredoc bound (kogaki#1790). The rules
+are `.dependency-cruiser.cjs`, `eslint.config.mjs`, `jsconfig.json` and
 `checks/check-heredoc-bound.py`; this hook runs each over the one file with
 its baseline and exits 2 with the findings on stderr. Any other path returns
 0 without running anything."""
@@ -17,6 +18,7 @@ CONFIG = ".dependency-cruiser.cjs"
 BASELINE = ".dependency-cruiser-known-violations.json"
 SUPPRESSIONS = "eslint-suppressions.json"
 HEREDOC_BOUND = "checks/check-heredoc-bound.py"
+TYPES = "checks/check-types.py"
 
 
 def run(root, tool, args):
@@ -26,6 +28,14 @@ def run(root, tool, args):
             binary, root)
     ran = subprocess.run([str(binary), *args], cwd=root, capture_output=True,
                          text=True)
+    return "" if ran.returncode == 0 else ran.stdout + ran.stderr
+
+
+def types(root, rel):
+    if not (root / TYPES).is_file():
+        return ""
+    ran = subprocess.run([sys.executable, str(root / TYPES), "--file", rel],
+                         cwd=root, capture_output=True, text=True)
     return "" if ran.returncode == 0 else ran.stdout + ran.stderr
 
 
@@ -67,6 +77,7 @@ def main():
         found += run(root, "depcruise",
                      [rel, "--config", CONFIG, "--ignore-known", BASELINE,
                       "--output-type", "err"])
+        found += types(root, rel)
     if not found:
         return 0
     print(found, file=sys.stderr)

@@ -950,6 +950,29 @@
       }
     },
     {
+      "id": "types",
+      "file": "checks/check-types.py",
+      "covers": [
+        "src/",
+        "jsconfig.json",
+        "tsc-baseline.json",
+        "package.json",
+        ".claude/hooks/lint-on-edit.py",
+        ".claude/rules/src-lanes.md"
+      ],
+      "admission": {
+        "contract": "No TypeScript `checkJs` finding under `src/` exceeds its file's count in `tsc-baseline.json`, and the baseline holds no count the tree no longer reaches. The rule set is `jsconfig.json` (`checkJs` with `strict` off over `src/**/*.mjs`); the member runs `tsc -p jsconfig.json --pretty false`, counts findings per file and code, and fails on a count above its row naming file, code and the first message, and on a row above its count naming the row to lower, so the baseline only shrinks. THE NAMED DEFECT: nothing checked types anywhere in the tree, and 103 findings of the classes `checkJs` reports — a null read, a dropped argument, a field read a record never carries — sat in `src/` unseen (kogaki#1791). The fixture pass runs on every invocation: (c1) a property read a value does not carry, added under `src/`, fails naming file, code and message; (c2) the edit hook `.claude/hooks/lint-on-edit.py` returns that finding; (c3) a baseline count raised above what the tree reaches fails naming the row; (c4) a baseline row naming a file tsc does not reach fails naming it; (c5) `.claude/rules/src-lanes.md` names this member.",
+        "license": "kogaki#1791",
+        "tier": "pre-push",
+        "runtime_ms": 9700,
+        "runtime_ms_note": "Measured 2026-11-11 in the kogaki#1791 worktree: 9657 ms for one plain run; the cost is two full tsc runs over src/ (the tree and the fixture copy) and one cold incremental run through the edit hook.",
+        "removal_signal": "no `.mjs` file is left under src/, so there is no JavaScript to type-check.",
+        "removal_instrument": "probe: ! git ls-files -- 'src/*.mjs' | grep -q .",
+        "efficacy": "case: checks/check-types.py::(c1) a property read a value does not carry, added under src/, fails naming file, code and message",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-11 at 2b7941d plus this change). Appending `const kogakiTypeProbe = (1).nothing;` to `src/yaml.mjs` FAILED naming `src/yaml.mjs TS2339: 1 finding(s) where the baseline allows 0; first: src/yaml.mjs(647,29): error TS2339: Property 'nothing' does not exist on type '1'.`, and the edit hook returned the same line with exit 2 in 1976 to 2102 ms warm and 3990 ms cold; restoring the file restored PASS with 103 findings over 25 files in the baseline."
+      }
+    },
+    {
       "id": "heredoc-bound",
       "file": "checks/check-heredoc-bound.py",
       "covers": [

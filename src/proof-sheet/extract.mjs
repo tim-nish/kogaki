@@ -91,6 +91,7 @@ const SEGMENT_KEYS = ["content", "operation", "relation", "manner"];
 const MOVE_ID = /^[a-z0-9_]+$/;
 const FLOW = { lane: "brief", label: "Extractor" };
 
+/** @returns {never} */
 function fail(msg) {
   process.stderr.write(`extract: ${msg}\n`);
   process.exit(1);

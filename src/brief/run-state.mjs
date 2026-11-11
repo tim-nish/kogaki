@@ -22,6 +22,7 @@ import {
   JudgmentRefusal, TerminalJudgmentRefusal, persistPendingRun, readRunRecord, throwIfStateWindow,
 } from "../workflow/run-record.mjs";
 
+/** @returns {never} */
 export function fail(msg) {
   // THE PENDING RUN RECORD IS PERSISTED FIRST (kogaki#1108, carrying kogaki#808).
   // Every state of the Brief table runs inside the shared executor, which arms a
