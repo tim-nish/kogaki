@@ -19,6 +19,7 @@ import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./mapping-playg
 import { correspondenceInput, correspondenceRefusal } from "./mapping-playground/short.mjs";
 import { PLAYGROUND_TABLE } from "./mapping-playground/trial.mjs";
 import { boundMoveContract, mappingStatePath } from "./paragraph-plan.mjs";
+import { analogyFor, withAnalogy, groundedBaseRefusal } from "./paragraph-plan-analogy.mjs";
 
 const FLOW = { lane: "paragraph-plan", label: "ParagraphPlan" };
 export const READING_ROW = "sme_map_roles";
@@ -81,6 +82,7 @@ export class ParagraphPlanMapper {
     }
     u.stage = GROUNDING;
     u.candidate = candidate;
+    u.contract = null;
     u.pending_calls = 1;
     u.history = [];
     u.calls = 0;
@@ -106,7 +108,8 @@ export class ParagraphPlanMapper {
     const t = u.table;
     const planned = { ...leg, ...(u.structure ? { structure: structureForPlan(u.structure) } : {}),
       ...(confined && t ? { move: t.move, table: { base: t.base, correspondences: t.correspondences } } : {}) };
-    const input = { ...u.input, leg_you_must_plan: planned };
+    const input = confined && t ? withAnalogy({ ...u.input, leg_you_must_plan: planned }, this.contractOf(u), this.inputs.analogy)
+      : { ...u.input, leg_you_must_plan: planned };
     return { prompt: `${this.inputs.planHead}${JSON.stringify(input, null, 2)}`, input };
   }
 
@@ -129,8 +132,24 @@ export class ParagraphPlanMapper {
       return { row: rowOf(this.table, READING_ROW), input: mapperInput({ cite: u.strand, proposition: this.proposition(u.leg) }, this.inputs.persona) };
     }
     const move = u.candidate.move;
+    const contract = boundMoveContract(move, this.inputs.movesDir);
     return { row: rowOf(this.table, GROUNDING_ROW),
-      input: correspondenceInput(u.structure, this.inputs.persona, boundMoveContract(move, this.inputs.movesDir), undefined, []), move };
+      input: withAnalogy(correspondenceInput(u.structure, this.inputs.persona, contract, undefined, []), contract, this.inputs.analogy), move };
+  }
+
+  // The bound Move's contract, read once per unit.
+  contractOf(u) {
+    if (!u.contract) u.contract = boundMoveContract(u.candidate.move, this.inputs.movesDir);
+    return u.contract;
+  }
+
+  // A GROUNDING FOR AN ANALOGY MOVE NAMES THE ARTICLE'S BASE DOMAIN (kogaki#1778).
+  groundingRefusal(record, u) {
+    const r = correspondenceRefusal(record, u.structure);
+    if (r) return r;
+    const a = analogyFor(this.contractOf(u), this.inputs.analogy);
+    const off = a ? groundedBaseRefusal(record, a) : null;
+    return off ? { group: "base", text: off } : null;
   }
 
   call(unitId) {
@@ -151,7 +170,7 @@ export class ParagraphPlanMapper {
     const { row, input, prompt } = u.pending;
     const validator = u.stage === READING ? "validateMapperAnswer" : "correspondenceRefusal";
     const raw = out.died ? { group: null, text: out.died } : out.unread ? { group: "shape", text: out.unread }
-      : u.stage === READING ? this.readingRefusal(out.record, u) : correspondenceRefusal(out.record, u.structure);
+      : u.stage === READING ? this.readingRefusal(out.record, u) : this.groundingRefusal(out.record, u);
     const r = raw && raw.text ? (raw.group ? refusalReach(row, raw) : { ...raw, reach: null }) : null;
     writeCallRecord(this.ctx.runDir, `${unitId}/${u.stage}`, u.calls, { prompt, argv: this.ctx.callArgv, cli: this.ctx.cli, input,
       row: { row, tables: [tableRecord(PLAYGROUND_TABLE)] }, raw: out.raw, answer: out.record ?? undefined,

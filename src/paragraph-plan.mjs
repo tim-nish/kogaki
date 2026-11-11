@@ -68,6 +68,8 @@ import { REPO, relFromRepo, bindFlow } from "./workflow/run-record.mjs";
 import { startDetachedJobSupervisor, readReaderPathJob, readerPathJobPath, readerPathJobBounds,
   jobStallS, jobHeartbeatMs, readerPathUnitCandidatePath, readerPathUnitSpecializationPath } from "./workflow/detached-job.mjs";
 import { enterRun, laneDir } from "./runs.mjs";
+import { ANALOGY_ROW, ANALOGY_UNIT, ANALOGY_DIR, ANALOGY_FILE, NO_STRUCTURE_REASON, analogyMappingInput, analogyRecord,
+  readAnalogy, writeAnalogy, withAnalogy } from "./paragraph-plan-analogy.mjs";
 
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
 export const PARAGRAPH_PLAN_AXES = join(REPO, "src", "paragraph-plan-axes.json");
@@ -82,6 +84,8 @@ export const PARAGRAPH_MOVE_ROLES = ["segments", "breaks"];
 // (kogaki#1639): the plan file carries each paragraph's bound Move id and `rationale`, so the
 // run directory holds no `paragraph-plan-bindings.json`.
 const START_FILE = "paragraph-plan-start.json";
+// THE LEG JOB, held while the Analogy Mapping runs (kogaki#1778): the supervisor's options, started once it is resolved.
+const LEG_JOB_FILE = "paragraph-plan-leg-job.json";
 const DONE_FILE = "paragraph-plan-done.json";
 // THE AWAIT'S OWN BOUND, the Brief's (kogaki#1271): `await` returns after at most this
 // long with the status lines, and the skill runs it again.
@@ -560,7 +564,7 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
       prior_knowledge: leg.prior_knowledge || "",
       the_reader_has_been_told: leg.the_reader_has_been_told || [],
       leaves_for_next_leg: leg.leaves_for_next_leg || [],
-      bound_move: { takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks },
+      bound_move: withAnalogy({ takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks }, c, inputs.analogy),
       paragraphs: judged.map((n) => {
         const e = record.paragraphs[n - 1];
         return { paragraph: n, ...(joinOnly.has(n) ? { judge_its_join_only: true } : {}),
@@ -770,7 +774,8 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
       ...siteMapping(inputs, unitId),
     },
     leaves_for_next_leg: leg.leaves_for_next_leg || [],
-    bound_move: { id: ctx.standing.move, takes: c.takes, leaves: c.leaves, segments: segmentsForPlanCall(c.segments), breaks: c.breaks },
+    bound_move: withAnalogy({ id: ctx.standing.move, takes: c.takes, leaves: c.leaves, segments: segmentsForPlanCall(c.segments), breaks: c.breaks },
+      c, inputs.analogy),
     paragraphs_beside: paragraphsBeside(entries, n),
     persona: inputs.persona,
     terms_this_paragraph_introduces: entry.introduces || [],
@@ -955,6 +960,8 @@ function carriedUnits(source, dir, { briefSha, movesDir, legs }) {
   let start;
   try { start = JSON.parse(readFileSync(join(source, START_FILE), "utf8")); } catch { return []; }
   if (start.brief_sha256 !== briefSha || start.moves_dir !== movesDir) return [];
+  // A KEPT LEG WAS PLANNED UNDER ITS RUN'S ANALOGY MAPPING (kogaki#1778), so the mapping is carried with it.
+  if (!existsSync(join(source, ANALOGY_FILE))) return [];
   const ids = new Set(legs.map((_, i) => unitIdFor(i)));
   const copy = (from, to) => { if (from && existsSync(from)) { copyFileSync(from, to); return to; } return undefined; };
   return job.units.filter((u) => u.status === "done" && u.candidate && ids.has(u.id)).map((u) => {
@@ -981,10 +988,11 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
   if (brief.error) fail(brief.error);
   const slug = slugOf(brief.record, briefPath);
   const latest = priorRun !== undefined ? (priorRun || null) : latestRunDir(slug);
-  const prior = runDir ? (existsSync(readerPathJobPath(runDir)) ? runDir : null) : latest;
+  const prior = runDir ? ([runDir, analogyDir(runDir)].some((d) => existsSync(readerPathJobPath(d))) ? runDir : null) : latest;
   if (prior) {
     const job = readReaderPathJob(prior);
-    if (job && job.state === "running" && supervisorAlive(job.supervisor_pid)) {
+    const opening = readReaderPathJob(analogyDir(prior));
+    if ([job, opening].some((j) => j && j.state === "running" && supervisorAlive(j.supervisor_pid))) {
       fail(`a ParagraphPlan job for this Brief is still running at ${relFromRepo(prior)} — run `
         + `\`node src/paragraph-plan.mjs await --brief ${relFromRepo(resolve(briefPath))}\` to poll it. Nothing was started.`);
     }
@@ -1035,7 +1043,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     .filter((u) => !carriedIds.has(u.id));
   const planned = { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) };
   const planHead = renderRowHead({ id: "paragraph_plan_unit", ...row });
-  startDetachedJobSupervisor(dir, {
+  const legJob = {
     units, carried, command: binary.path, commandVersion: binary.version, model, outputFormat: String(table.judge.output_format || "json"),
     rows: Object.fromEntries([["compose", "paragraph_plan_unit"], ["fit", "paragraph_plan_judge_unit"], ["site", "paragraph_plan_site_unit"],
       ["suffix", "paragraph_plan_unit"]].map(([phase, id]) => [phase, { id, table: relFromRepo(PARAGRAPH_PLAN_TABLE) }])),
@@ -1057,8 +1065,59 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
       record_array: "paragraphs", site_label: "paragraph",
       inputs: { legs, movesDir, runDir: dir, mapping, bound, persona: planned, axes: readAxes().axes.map((a) => String(a.id)), siteHead: renderRowHead({ id: "paragraph_plan_site_unit", ...siteRow }),
         planHead } },
-  });
+  };
+  const bounds = { binary, model, outputFormat: String(table.judge.output_format || "json"), callLimitS, unitRounds,
+    stallS: jobStallS(table.job.stall_s), heartbeatMs: jobHeartbeatMs(table.job.heartbeat_ms) };
+  // THE ANALOGY MAPPING COMES FIRST (kogaki#1778): carried with the kept Legs, `none` for a Brief with no
+  // structure, or one judgment run before the Leg job, which `await` starts once it is resolved.
+  if (carried.length) copyFileSync(join(latest, ANALOGY_FILE), join(dir, ANALOGY_FILE));
+  else if (!brief.record.structure) writeAnalogy(dir, { none: NO_STRUCTURE_REASON });
+  if (readAnalogy(dir)) startLegJob(dir, legJob);
+  else {
+    writeJson(join(dir, LEG_JOB_FILE), legJob);
+    startAnalogyJob(dir, table, brief.record.structure, persona, bounds);
+  }
   return dir;
+}
+
+// The Leg job, every reader handed the run's Analogy Mapping.
+function startLegJob(dir, legJob) {
+  const analogy = readAnalogy(dir);
+  const add = (o) => (o ? { ...o, inputs: { ...o.inputs, analogy } } : o);
+  startDetachedJobSupervisor(dir, { ...legJob, mapper: add(legJob.mapper), fitJudge: add(legJob.fitJudge), siteRetry: add(legJob.siteRetry) });
+}
+
+// THE OPENING STEP (kogaki#1778): one unit, `analogy_mapping`, in the run directory's `analogy/`.
+export const analogyDir = (dir) => join(dir, ANALOGY_DIR);
+function startAnalogyJob(dir, table, structure, persona, b) {
+  const row = table[ANALOGY_ROW] || fail(`src/paragraph-plan-workflow.json declares no ${ANALOGY_ROW} row. Nothing was started.`);
+  const input = analogyMappingInput(structure, persona);
+  mkdirSync(analogyDir(dir), { recursive: true });
+  startDetachedJobSupervisor(analogyDir(dir), {
+    units: [{ id: ANALOGY_UNIT, prompt: paragraphPlanUnitPrompt(row, input), input }],
+    command: b.binary.path, commandVersion: b.binary.version, model: b.model, outputFormat: b.outputFormat,
+    rows: { compose: { id: ANALOGY_ROW, table: relFromRepo(PARAGRAPH_PLAN_TABLE) } },
+    callLimitS: b.callLimitS, unitRounds: b.unitRounds, stallS: b.stallS, heartbeatMs: b.heartbeatMs, recordArray: false,
+    validator: { module: "src/paragraph-plan-analogy.mjs", export: "validateAnalogyMapping", inputs: { structure } },
+  });
+}
+
+// The opening step's end: the mapping written and the Leg job started, or `{ stopped: lines }`.
+function finishAnalogyJob(dir) {
+  const job = readReaderPathJob(analogyDir(dir));
+  const u = job && (job.units || [])[0];
+  if (!job || job.state !== "done" || !u || u.status !== "done" || !u.candidate) {
+    const last = u && Array.isArray(u.refusals) && u.refusals.length ? u.refusals[u.refusals.length - 1]
+      : (u && u.failure && u.failure.stderr_tail) || (job && job.failure && job.failure.note) || (u ? u.status : "no unit");
+    const start = JSON.parse(readFileSync(join(dir, START_FILE), "utf8"));
+    return { stopped: [`ParagraphPlan stopped: the Analogy Mapping ended ${job ? job.state : "with no job record"} before any Leg `
+      + `was planned, and the Brief at ${start.brief} is unchanged — nothing was written beside it.`,
+      `  Analogy Mapping: ${String(last).split("\n").join(" ")}`,
+      "  Next: run /paragraph-plan on the same Brief again; it chooses the Analogy Mapping first."] };
+  }
+  writeAnalogy(dir, analogyRecord(u.candidate));
+  startLegJob(dir, JSON.parse(readFileSync(join(dir, LEG_JOB_FILE), "utf8")));
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -1157,7 +1216,7 @@ export function finishParagraphPlan(dir) {
   // digest: each Leg's structure read and table grounded (kogaki#1734).
   const planPath = paragraphPlanPathFor(briefPath);
   const mapping = writeMappingRecord(mappingDirFor(planPath), mappingEntries(dir, start.legs));
-  const record = paragraphPlanRecord({ briefPath, briefText, legs, mapping });
+  const record = paragraphPlanRecord({ briefPath, briefText, analogy: readAnalogy(dir), legs, mapping });
   writeFileSync(planPath, paragraphPlanRecordText(record));
   writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString(),
     collisions: paragraphPlanCollisions(record.legs, readAxes().axes.map((a) => String(a.id))) });
@@ -1273,6 +1332,25 @@ export function awaitParagraphPlan(dir, waitS = PARAGRAPH_PLAN_AWAIT_S) {
     return 0;
   }
   const until = Date.now() + waitS * 1000;
+  // THE OPENING STEP FIRST (kogaki#1778): while the Analogy Mapping runs there is no Leg job to poll.
+  while (!readAnalogy(dir)) {
+    const a = readReaderPathJob(analogyDir(dir));
+    if (a && a.state === "running") {
+      if (!supervisorAlive(a.supervisor_pid)) {
+        console.log(`ParagraphPlan stopped: the Analogy Mapping's supervisor (pid ${a.supervisor_pid}) is gone while its record still reads running.`);
+        return 1;
+      }
+      if (Date.now() >= until) {
+        console.log(`ParagraphPlan job at ${relFromRepo(dir)} — choosing the Analogy Mapping before the first Leg, round ${(a.units[0] || {}).rounds || 1}.`);
+        console.log(PARAGRAPH_PLAN_STILL_RUNNING_LINE);
+        return 0;
+      }
+      sleepSync(Math.min(jobHeartbeatMs(), Math.max(0, until - Date.now())));
+      continue;
+    }
+    const r = finishAnalogyJob(dir);
+    if (r.stopped) { for (const l of r.stopped) console.log(l); return 1; }
+  }
   let job = readReaderPathJob(dir);
   for (;;) {
     if (!job) { console.log(`ParagraphPlan: no job record at ${relFromRepo(dir)}`); return 1; }
@@ -1333,13 +1411,16 @@ function runStageCommand(args) {
         // `--prior-run <dir>` names the run whose finished Legs are carried (kogaki#1641); an
         // empty value carries nothing; absent, the latest run of the same Brief is read.
         ...(typeof args["prior-run"] === "string" ? { priorRun: args["prior-run"] === "" ? null : resolve(args["prior-run"]) } : {}) });
-      console.log(`ParagraphPlan job started at ${relFromRepo(readerPathJobPath(dir))}, one unit per Leg — run `
+      console.log(`ParagraphPlan job started at ${relFromRepo(readerPathJobPath(dir))}, `
+        + `${readAnalogy(dir) ? "" : "the Analogy Mapping first, then "}one unit per Leg — run `
         + `\`node src/paragraph-plan.mjs await --brief ${briefPath}\` to poll it.`);
       break;
     }
     case "status": {
       const dir = runDirFor(args, briefPath);
       const job = readReaderPathJob(dir);
+      const opening = readAnalogy(dir) ? null : readReaderPathJob(analogyDir(dir));
+      if (opening) { console.log(`ParagraphPlan job at ${relFromRepo(dir)} — the Analogy Mapping, ${opening.state}, before the first Leg.`); break; }
       if (!job) fail(`no job record at ${relFromRepo(dir)}`);
       for (const l of jobStatusLines(dir, job)) console.log(l);
       break;

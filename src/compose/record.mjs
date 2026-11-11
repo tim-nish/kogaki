@@ -124,7 +124,8 @@ const PLAN_HEADER = [
   "Strands it stands on, what it does to the reader, the earlier paragraphs it stands on, why it comes here, the",
   "terms it introduces, what it re-activates, and its Waypoints -- the points the paragraph makes, in order, each",
   "with the Claims it serves, one per Segment of the bound Move. What a Leg takes up and leaves is its bound Move's",
-  "`takes` and `leaves`, never written here.",
+  "`takes` and `leaves`, never written here. Above the Legs, the one base domain every analogy in the article draws",
+  "from, with a counterpart for each Role and relation, or none and why.",
   "/paragraph-plan writes it from the Brief; /draft reads it beside the Brief and refuses it when the Brief has",
   "changed since.",
 ].join(" ");
@@ -175,10 +176,12 @@ function paragraphRecord(e, n) {
 }
 
 // `mapping`, where given, is the Mapping Record the plan names by path and digest (kogaki#1733).
-export function paragraphPlanRecord({ briefPath, briefText, legs, mapping = null }) {
+// `analogy` is the run's Analogy Mapping, or `{ none }`, written before the Legs (kogaki#1778).
+export function paragraphPlanRecord({ briefPath, briefText, legs, mapping = null, analogy = null }) {
   return {
     version: "1",
     brief: { path: relFromRepo(resolve(briefPath)), sha256: sha256(briefText) },
+    ...(analogy ? { analogy } : {}),
     ...(mapping ? { mapping } : {}),
     legs: legs.map((l) => ({
       leg_id: l.leg_id,
@@ -193,7 +196,7 @@ export function paragraphPlanRecordText(record) {
   return stringifyYaml(record, { width: 120, header: PLAN_HEADER });
 }
 
-const PLAN_KEYS = ["version", "brief", "mapping", "legs"];
+const PLAN_KEYS = ["version", "brief", "analogy", "mapping", "legs"];
 const PLAN_BRIEF_KEYS = ["path", "sha256"];
 const PLAN_LEG_KEYS = ["leg_id", "move", "move_forced_by", "paragraphs"];
 // THE PARAGRAPH'S SCHEMA (kogaki#1639): the Leg schema minus `opens_section`, `reaches_target`,
@@ -223,6 +226,26 @@ export function retiredPlanKeyRefusal(obj, at) {
   const k = obj && typeof obj === "object" && !Array.isArray(obj) ? RETIRED_PLAN_KEYS.find((x) => Object.hasOwn(obj, x)) : undefined;
   return k === undefined ? null : `${at} carries \`${k}\`, ${RETIRED_PLAN_REASON}`;
 }
+// THE ANALOGY MAPPING AS THE FILE CARRIES IT (kogaki#1778): a base domain with its Role and relation
+// counterparts, or `none` with its reason. A string to refuse with, or null.
+const ANALOGY_KEYS = ["base_domain", "roles", "relations"];
+export function analogyShapeRefusal(analogy, at) {
+  const text = (v) => typeof v === "string" && v.trim() !== "";
+  const map = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+  if (!map(analogy)) return `${at} carries an \`analogy\` that is not a record (kogaki#1778)`;
+  if (Object.hasOwn(analogy, "none")) {
+    return Object.keys(analogy).length === 1 && text(analogy.none) ? null : `${at}'s \`analogy\` answers \`none\` with no reason, or beside a mapping (kogaki#1778)`;
+  }
+  const extra = undeclaredKey(analogy, ANALOGY_KEYS);
+  if (extra) return `${at}'s \`analogy\` carries \`${extra}\`, which it does not declare (kogaki#1778)`;
+  const b = analogy.base_domain;
+  if (!map(b) || !text(b.name) || !text(b.description)) return `${at}'s \`analogy.base_domain\` is not a \`{ name, description }\` pair (kogaki#1778)`;
+  const pairs = (list, k) => Array.isArray(list) && list.every((x) => map(x) && text(x[k]) && text(x.counterpart));
+  if (!pairs(analogy.roles, "role")) return `${at}'s \`analogy.roles\` are not \`{ role, counterpart }\` pairs (kogaki#1778)`;
+  if (!pairs(analogy.relations, "relation")) return `${at}'s \`analogy.relations\` are not \`{ relation, counterpart }\` pairs (kogaki#1778)`;
+  return null;
+}
+
 const PARAGRAPH_WAYPOINT_KEYS = ["point", "serves", "cast"];
 // THE PERFORMS FORM (kogaki#1448, owner decision 2026-10-19): a Waypoint for a
 // Segment that acts on the reader's reading -- announce, flag, concede difficulty, signal a
@@ -403,6 +426,10 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, b
   }
   const kb = undeclaredKey(b, PLAN_BRIEF_KEYS);
   if (kb) return `the ParagraphPlan file ${rel} carries \`brief.${kb}\`, which a ParagraphPlan record does not declare`;
+  if (Object.hasOwn(record, "analogy")) {
+    const a = analogyShapeRefusal(record.analogy, `the ParagraphPlan file ${rel}`);
+    if (a) return a;
+  }
   if (Object.hasOwn(record, "mapping")) {
     const m = mappingShapeRefusal(record.mapping, rel);
     if (m) return m;

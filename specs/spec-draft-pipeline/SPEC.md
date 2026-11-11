@@ -2502,6 +2502,10 @@ Brief Waypoint, so no `case` rides on the plan call's input; a case, where one
 is recorded, is the Leg's Mapping Table's (§4.19.2). The Packet never renders it
 to the Writer.
 
+**The Analogy Mapping comes first (kogaki#1778).** Before the first Leg unit the
+stage chooses one base domain for the whole article from the Brief's `structure`;
+§4.19.5 states the step, its record and the constraint it puts on analogy Moves.
+
 **The loop.** One Detached Job unit per Leg, in Reader Path order, on the shared
 supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
 `judgePrompt`. Each Round makes two Calls (§4.19.4 names the loop's parts):
@@ -2693,6 +2697,7 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Constraint kinds | paragraph only | — | `takes_and_leaves` | the four kinds are written once for the paragraph rows, which read `takes` and `leaves` beside the Segments (kogaki#1701) | wording |
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through the relations their texts state (kogaki#1699, kogaki#1768, kogaki#1777) | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Waypoint's field | wording |
+| One analogy | paragraph only | — | `analogue_is_the_mapping` | an analogy Move draws from the one Analogy Mapping chosen before the first Leg, and only a Leg the ParagraphPlan binds to an analogy Move is handed it (kogaki#1778) | wording |
 
 `checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
 Paragraph cell is an axis or a shared criterion the judge row names, every
@@ -3281,6 +3286,55 @@ other: `Leg's text`, `Structure`, `Round n`, `Binding`, `Submission`,
 `Comment`, `Calls`, `Candidate <id>`, `Leg`, `Move`, `Purpose`,
 `Brief Waypoints`, `Case`. The list is `TABLE_HEADINGS` in the sheet, and
 `checks/check-flp.sh` reads it.
+
+#### 4.19.5 The Analogy Mapping (kogaki#1778)
+
+**One analogy per article (owner decision 2026-11-10).** An analogy chosen
+inside one Leg's unit is invisible to the next, so an article could liken
+its subject to one thing in its first paragraph and to another in its third.
+Before its first Leg unit the stage therefore runs one judgment,
+`analogy_mapping` (`src/paragraph-plan-workflow.json`), handed the Brief's
+`structure` and the Persona: its Roles, the relations and higher-order
+relations the structure reaches, and the apex (`attains_thesis`). It answers
+one base domain — a short `name` and a one-sentence `description` — with a
+counterpart in the base domain for every Role id and for every reached
+relation and higher-order relation, or `none` with one sentence saying why no
+base domain the reader holds fits. The systematicity criterion is that the
+base domain carries the apex's higher-order relation and not only a Leg's.
+
+**The step is a one-unit Detached Job** in the run directory's `analogy/`, on
+the shared supervisor, and `validateAnalogyMapping`
+(`src/paragraph-plan-analogy.mjs`) reads the answer back. A mapping leaving a
+Role, a reached relation or the apex without a counterpart is refused naming
+it, and the refusal is put into the next round verbatim until
+`brief.unit_rounds` is spent; a mapping still refused then stops the stage
+before any Leg is planned, naming the refusal, and writes nothing. `start`
+launches the step and `await` starts the Leg job once the mapping is
+resolved. A Brief carrying no `structure` has no system to map: its mapping
+is `none` with that reason, and no call is made. A Leg a prior run kept is
+carried only with that run's mapping, which is carried with it.
+
+**The record.** `paragraph-plan.yaml` carries the mapping under `analogy`,
+after `brief` and before the Legs: `base_domain`, `roles` (one
+`{ role, counterpart }` per Role) and `relations` (one
+`{ relation, counterpart }` per reached relation and higher-order relation),
+or `none` alone. The Brief carries nothing of it: correcting an analogy that
+reads badly is this stage's work and never rewrites the Brief.
+
+**Every analogy Move draws from it.** An analogy Move is a Move whose `takes`
+or `leaves` carries a `carry` entry — a base's structure to be carried onto
+the subject, the kind the library already records (`moves/ROLES.json`). For a
+Leg bound to one, the Mapper's grounding call and its Waypoints call, the fit
+judge and the site call are each handed the mapping as
+`analogy_you_must_draw_from`; a grounded table whose `base.domain` does not
+name the mapping's base domain is refused in group `base`; and the fit judge's
+shared criterion `analogue_is_the_mapping` refuses a paragraph naming any
+analogue but the base domain and its counterparts. A literal similarity is
+unconstrained, a mapping recorded `none` constrains nothing, and a Leg bound
+to no analogy Move reads nothing of the mapping.
+
+**Not scheduled.** A Judge over the choice of base domain is noted here and
+not scheduled.
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 
