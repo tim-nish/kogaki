@@ -9,8 +9,7 @@
 //   (d) the vocabulary check names every Role whose expression is missing, not the first;
 //   (e) the page renders each failure as its own `why:` line of the Round's Comment;
 //   (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it;
-//   (g) a paragraph carrying `journeys` is refused once naming the key, the validator returning (kogaki#1818);
-//   (h) every `legschema().<key>` in src/compose/leg-schema.mjs is a key src/leg-schema.json declares (kogaki#1818).
+//   (g) a paragraph carrying `journeys` is refused once by name, and (h) no `legschema().<key>` names an undeclared key (kogaki#1818).
 // Declared limit: whether a live planner repairs every failure it is handed is the model's.
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
