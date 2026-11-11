@@ -278,6 +278,7 @@ policy/shape.md
 !.claude/rules/
 .claude/rules/*
 !.claude/rules/src-lanes.md
+!.claude/rules/checks-language.md
 
 # check-terrain-workflow.sh mints ONE run workspace at the repository root, on
 # purpose: it is the only place an in-repo `--run-dir` can be driven from a

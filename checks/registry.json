@@ -809,7 +809,7 @@
     },
     {
       "id": "passage-intake",
-      "file": "checks/check-passage-intake.sh",
+      "file": "checks/check-passage-intake.mjs",
       "covers": [
         "src/proof-sheet/passage-intake.mjs",
         "src/proof-sheet/extract.mjs"
@@ -820,7 +820,7 @@
         "tier": "pre-push",
         "runtime_ms": 500,
         "runtime_ms_note": "Measured at authoring (2026-10-23, kogaki#1535 worktree): 340, 370 and 380 ms over three plain runs of the file; the cost is one node process for the cases and five short intake processes.",
-        "efficacy": "case: checks/check-passage-intake.sh::(b) --before did not insert before the named slug",
+        "efficacy": "case: checks/check-passage-intake.mjs::(b) --before did not insert before the named slug",
         "efficacy_note": "mutation-verified at authoring: making the intake ignore `--before` (always appending) failed (b) three times and (e), naming the order ORDER.md held -- the named defect, a Passage entered out of order landing at the end of the book's sequence, constructed rather than a neighbour.",
         "removal_signal": "a ruling retires the Passage store, or moves source Passages into a tracked carrier with its own check -- either way the intake this check drives is gone",
         "removal_instrument": "probe: ! test -f src/proof-sheet/passage-intake.mjs"
@@ -947,6 +947,27 @@
         "removal_instrument": "probe: ! git ls-files -- 'src/*.mjs' 'checks/*.mjs' | grep -q .",
         "efficacy": "case: checks/check-eslint.sh::(c1) a reference to an undeclared identifier under src/ fails naming file, line and rule",
         "efficacy_note": "MUTATION EVIDENCE (run 2026-11-08 at 239f66a plus this change). Appending `export const probe = undeclaredProbe;` to `src/yaml.mjs` FAILED naming `src/yaml.mjs 647:22 'undeclaredProbe' is not defined no-undef`; restoring the file restored PASS with 35 files in the suppressions baseline."
+      }
+    },
+    {
+      "id": "heredoc-bound",
+      "file": "checks/check-heredoc-bound.py",
+      "covers": [
+        ".heredoc-known-blocks.json",
+        "tools/run-registered-checks.sh",
+        ".claude/hooks/lint-on-edit.py",
+        ".claude/rules/checks-language.md"
+      ],
+      "admission": {
+        "contract": "No interpreter heredoc in a tracked `.sh` or `.py` file is longer than 20 lines outside `.heredoc-known-blocks.json`, and the baseline names no block that is gone or has grown. A block is `node`, `python3`, `python`, `bash` or `sh` on one line with `<<` and a tag, up to the tag's own line; the member scans `git ls-files` and fails on a block outside the baseline, on a listed block that grew and on a row whose block is gone, naming the file, the interpreter and the count. THE NAMED DEFECT: 15,000 lines of check code sat in shell heredocs that no linter, type checker, formatter or dead-code tool could reach, and the runner could execute a member only as `bash <file>` (kogaki#1790). The fixture pass runs on every full scan: (c1) a 21-line node heredoc in a shell file fails naming file, interpreter and count; (c2) the same heredoc at 20 lines passes; (c3) a listed block that grew by one line fails; (c4) a baseline row whose block is gone fails; (c5) a listed block at its count passes, and a herestring or a non-interpreter heredoc is not a block; (c6) a single-file judgment ignores rows for other files; (c7) the edit hook `.claude/hooks/lint-on-edit.py` returns the finding for an edited shell file; (c8) the hook passes the same file at 20 lines; (c9) `.claude/rules/checks-language.md` names this member. Declared limit: the client kit's installed files are untracked and are not scanned.",
+        "license": "kogaki#1790",
+        "tier": "pre-push",
+        "runtime_ms": 400,
+        "runtime_ms_note": "Measured 2026-11-11 in the kogaki#1790 worktree: 236 ms for one plain run; the cost is one read of the 65 tracked .sh and .py files and two short hook processes.",
+        "removal_signal": "no tracked .sh or .py file carries an interpreter heredoc over 20 lines and the baseline is empty, so the bound has nothing left to hold",
+        "removal_instrument": "probe: test \"$(cat .heredoc-known-blocks.json)\" = \"[]\"",
+        "efficacy": "case: checks/check-heredoc-bound.py::(c1) a 21-line node heredoc in a shell file fails naming file, interpreter and count",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-11 at b2af732 plus this change). Adding one line inside the node heredoc of `checks/check-loop-vocabulary.sh` FAILED naming `checks/check-loop-vocabulary.sh: a node heredoc grew from 91 to 92 lines`, and the edit hook returned the same line with exit 2; restoring the file restored PASS with 39 known blocks."
       }
     }
   ]
