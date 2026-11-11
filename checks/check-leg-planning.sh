@@ -38,6 +38,13 @@
 #       <root>/runs/leg-planning/brief-sheets/<slug>/sheet.html beside brief.sha256 and prints its file:// URL, the skill
 #       .claude/skills/brief-sheet/SKILL.md runs that command, and a Leg carrying `waypoints`, `move` or no `text` is
 #       refused naming the Leg and the key, with nothing written.
+#   (m) the connections the Brief's read weighed (kogaki#1817): under `considered: true` a read carrying a `considered` row
+#       per weighed connection passes with its names minted to ids, and a missing `considered`, a higher-order relation
+#       with no `connected` row, a relation in no row, a `connected` row no higher-order relation relates, a
+#       `not_connected` row one does, a verdict outside the two and a criterion naming no claim are refused naming each;
+#       the Brief sheet renders each connected row's why beside its higher-order relation and a "Not connected" table
+#       naming the relations, the claims read and the why, and a Brief carrying no `considered` renders neither. Its
+#       cases are checks/leg-planning-considered-cases.mjs.
 # Cases (e) and (i), the GROUNDED re-ask and the no-fit stop, went with the Waypoint Call (kogaki#1775).
 set -u
 cd "$(dirname "$0")/.."
@@ -396,3 +403,6 @@ if (!fails.length) rmSync(outDir, { recursive: true, force: true });
 if (fails.length) { for (const f of fails) console.log(`FAIL: ${f}`); console.log(`kept: ${outDir}`); process.exit(1); }
 console.log("check-leg-planning: ok");
 JS
+main=$?
+node checks/leg-planning-considered-cases.mjs || exit 1
+exit "$main"

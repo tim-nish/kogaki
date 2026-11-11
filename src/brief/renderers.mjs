@@ -343,7 +343,7 @@ export const STATE_WORK = {
       }
       const m = mintStructure(r);
       if (m.text) refuseJudgment(m.text);
-      const v = validateReadSet(m.structure, claims, { thesis: false });
+      const v = validateReadSet(m.structure, claims, { thesis: false, considered: true });
       if (v.text) refuseJudgment(v.text);
       structure = m.structure;
     };

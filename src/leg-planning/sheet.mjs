@@ -31,6 +31,7 @@ export const LPP_HEADINGS = [
   "Roles",
   "Relations",
   "Higher-order relations",
+  "Not connected",
   "Leg <id>",
   "Stage <name>",
   "Round n",
@@ -62,6 +63,9 @@ export const LPP_COLUMNS = [
   "Leg",
   "The Brief",
   "This run",
+  "relations",
+  "claims",
+  "why",
 ];
 // THE WORDS THE BRIEF SHEET NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
 export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round", "Waypoint"];
@@ -416,11 +420,36 @@ export function renderBriefSheet({ brief, claims }) {
   const cls = (id) => (left.has(id) ? "unreached" : "");
   const holds = (h) => esc(readHolds(structure, h));
   const nameOf = (id) => esc(elementLabel(structure, id, claims));
-  const elements = (list, holdsOf, fromOf) =>
+  const elements = (list, holdsOf, fromOf, whyOf = null) =>
     table(
-      ["id", "name", "holds", "from"],
-      list.map((x) => row([esc(x.id), esc(x.name ?? ""), holdsOf(x), fromOf(x)], cls(x.id))),
+      ["id", "name", "holds", "from", ...(whyOf ? ["why"] : [])],
+      list.map((x) =>
+        row([esc(x.id), esc(x.name ?? ""), holdsOf(x), fromOf(x), ...(whyOf ? [whyOf(x)] : [])], cls(x.id)),
+      ),
     );
+  // THE CONNECTIONS THE READ WEIGHED (kogaki#1817): a Brief read before it carries none, and its sheet is unchanged.
+  const considered = Array.isArray(structure.considered) ? structure.considered : null;
+  const claimText = new Map(claims.map((c) => [c.id, c.claim]));
+  const criterion = (c) =>
+    c.criterion.map((id) => esc(`${id}: ${claimText.get(id) ?? "no claim sentence recorded"}`)).join("<br>");
+  const connectedWhy = (h) => {
+    const c = (considered || []).find(
+      (x) =>
+        x.verdict === "connected" &&
+        x.relations.length === h.relates.length &&
+        x.relations.every((id) => h.relates.includes(id)),
+    );
+    return c ? esc(c.why) : "";
+  };
+  const notConnected = considered
+    ? heading(3, "Not connected") +
+      table(
+        ["relations", "claims", "why"],
+        considered
+          .filter((c) => c.verdict === "not_connected")
+          .map((c) => row([c.relations.map(nameOf).join(", "), criterion(c), esc(c.why)])),
+      )
+    : "";
   const parts = [
     part("Thesis", line(brief.thesis)),
     part(
@@ -459,7 +488,9 @@ export function renderBriefSheet({ brief, claims }) {
           structure.higher_order,
           (h) => holds(h.holds),
           (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))),
-        ),
+          considered ? connectedWhy : null,
+        ) +
+        notConnected,
     ),
     part(
       "Legs",
