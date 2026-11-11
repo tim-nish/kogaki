@@ -102,27 +102,10 @@ def ci_verdict(sha):
     """A completed, successful `checks` workflow run that CHECKED OUT this
     exact commit.
 
-    PUSH EVENTS ONLY, and that restriction is the whole soundness of this
-    lookup (PR #797 round 1). A workflow run's `head_sha` is the PR HEAD for a
-    `pull_request` run, so `gh run list --commit <pr head>` matches it — but
-    that run checked out `refs/pull/N/merge`, the merge of the PR head into
-    the base, which is a DIFFERENT TREE whenever the base has moved. Trusting
-    it would let a local run at the PR head skip the suite on evidence from a
-    tree that included commits the PR head does not have, breaking the premise
-    the whole key rests on: that the SHA describes the tree being checked.
-    On a `push` run the checkout IS the keyed commit, so the key and the tree
-    agree by construction.
-
-    The cost is stated rather than discovered: a PR head can never reuse a CI
-    verdict, only a local one. That is the sound half of what #769 measured —
-    the duplication it targets is the review lane and repeated local runs
-    sharing the local store, and #769's own body already records that CI-side
-    reuse is bounded at the ~1% of runs that are same-SHA reruns, which live
-    on the push path where this lookup still hits.
-
-    `gh` absent, unauthenticated or offline degrades to None — a full run —
-    and says nothing, because a lookup that cannot be made is not evidence
-    either way.
+    Push events only (PR #797 round 1): a `pull_request` run checked out the
+    merge of the PR head into the base, a different tree from the keyed
+    commit, so a PR head reuses only a local verdict (kogaki#769).
+    `gh` absent, unauthenticated or offline degrades to None, a full run.
     """
     try:
         out = subprocess.run(
