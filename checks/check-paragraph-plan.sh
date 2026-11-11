@@ -66,9 +66,6 @@
 #       Leg over `brief.paragraphs_per_leg`, a Leg carrying `waypoints`, and every
 #       schema field out of its paragraph's place.
 #   (y) the cast is a closed map (kogaki#1695).
-#   (aa) a paragraph carrying `journeys` is refused naming the key at every read, and the
-#       validator returns rather than throws; no `legschema().<key>` in
-#       src/compose/leg-schema.mjs names a key src/leg-schema.json does not declare (kogaki#1818).
 #   (z) THE MAPPER (kogaki#1734, kogaki#1777): with `paragraph_plan.mapper` true, a
 #       Leg reads one structure on its relation, binds, grounds one table for its
 #       one Move and writes its Waypoints in that table's expressions; a Waypoint
@@ -1071,34 +1068,6 @@ for (const [label, bad, want] of [
   if (!twiceRef.includes("\"installer\"") || !twiceRef.includes("introduced by paragraphs 1 and 2")) fails.push(`(x) a Leg term introduced by two paragraphs was not refused by name: ${twiceRef || "no refusal"}`);
 }
 
-// (aa) A READER GOES WITH ITS SCHEMA KEY (kogaki#1818): `journeys` is refused by name at both reads,
-// and every `legschema().<key>` the schema reader names is a key src/leg-schema.json declares.
-{
-  const s1 = { ...legs[0], introduces: [TERM] };
-  const L = [s1, legs[1]];
-  const carrying = (extra) => {
-    const P = (n, over = {}) => ({ ...fillParagraph({ ...(n > 1 ? { join: "contrast" } : {}),
-      paragraph_waypoints: [{ point: "a point.", serves: n === 1 ? ["L1"] : ["L1", "L2"], cast: {} }] }, n - 1, s1), ...over });
-    return { leg_id: "s1", move: "p1", paragraphs: [P(1), P(2, extra)] };
-  };
-  const J = { journeys: [{ strand: "L1", use: "illustrate", meaning: "a scene." }] };
-  const rec = { version: "1", brief: { path: "theses/plan-brief/brief.yaml", sha256: "0".repeat(64) },
-    legs: [carrying(J), { leg_id: "s2", move: "p1", paragraphs: [fillParagraph({ paragraph_waypoints: [{ point: "a point.", serves: ["L2"], cast: {} }] }, 0, legs[1])] }] };
-  let read = "", valid = "";
-  try { read = rawPlanShapeRefusal(rec, "plan.yaml", L, { bound: BOUND, library: new Set(["p1"]) }) || ""; } catch (e) { read = `threw: ${e.message}`; }
-  try { valid = rawValidateUnit({ version: "1", rationale: "the Move carries the Leg's relation.", ...carrying(J) }, inputs(L), "leg-1").error || ""; } catch (e) { valid = `threw: ${e.message}`; }
-  for (const [reader, got] of [["plan reader", read], ["validator", valid]]) {
-    if (!got.includes("paragraph 2") || !got.includes("carries `journeys`") || !got.includes("no longer declares") || got.startsWith("threw")) {
-      fails.push(`(aa) the ${reader} did not refuse a paragraph carrying \`journeys\` by name: ${got || "no refusal"}`);
-    }
-  }
-  const declared = new Set(Object.keys(JSON.parse(readFileSync("src/leg-schema.json", "utf8"))));
-  const named = [...readFileSync("src/compose/leg-schema.mjs", "utf8").matchAll(/legschema\(\)\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]);
-  const undeclared = [...new Set(named.filter((k) => !declared.has(k)))];
-  if (!named.length) fails.push("(aa) src/compose/leg-schema.mjs names no `legschema().<key>`, so the reader scan reads nothing");
-  if (undeclared.length) fails.push(`(aa) src/compose/leg-schema.mjs reads legschema().${undeclared.join(", legschema().")}, which src/leg-schema.json does not declare`);
-}
-
 // (z) THE MAPPER IN PARAGRAPHPLAN (kogaki#1734, kogaki#1777): one reading on the Leg's relation, the
 // bind, one grounding for its one Move, the Waypoints call in the table's expressions.
 {
@@ -1151,5 +1120,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; a paragraph carrying `journeys` is refused naming the key, and no schema reader names a key src/leg-schema.json does not declare (kogaki#1818); and with the Mapper on, a Leg reads one structure, grounds one table for its one Move and writes its Waypoints in its expressions (kogaki#1734); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure, grounds one table for its one Move and writes its Waypoints in its expressions (kogaki#1734); the skill names only entry points the Harness has.");
 JS
