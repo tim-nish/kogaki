@@ -14,6 +14,7 @@ import {
   readMappingState,
   validateParagraphPlanUnit,
 } from "./axes.mjs";
+import { MODEL_ARMS, refusalFindings, repairOf, shapeFindings, withoutShape, writeRepair } from "./findings.mjs";
 import { appendSiteCallInput, siteCallInputRow } from "./selection-input.mjs";
 import { legForUnit, segmentsForPlanCall } from "./units.mjs";
 
@@ -176,6 +177,35 @@ export function paragraphPlanCollisions(legs, axes) {
   return { rows, total: rows.reduce((n, r) => n + r.entries, 0) };
 }
 
+// THE REPAIR BEFORE A RETRY (kogaki#1815): the refusal's Findings, with every shape Finding the program reads from the
+// refused paragraph itself, and the Arm they fix, written to the run before the retry. Only shape Findings: the program
+// answers the site with the paragraph less the keys they name, and no call is made. A Leg reopened whole changes its Move.
+export function paragraphPlanSiteRepair(ctx, inputs, unitId) {
+  const axes = (inputs && inputs.axes) || [];
+  if (!ctx.site) {
+    const findings = refusalFindings(ctx.refusal, { axes }).map((f) => ({ ...f, class: "binding" }));
+    const repair = { ...repairOf(findings), arm: "change_move" };
+    writeRepair(inputs.runDir, unitId, { from: ctx.from, refusal: ctx.refusal, chosen_by: "program", ...repair });
+    return { repair };
+  }
+  const n = ctx.site;
+  const base = refusedBase(ctx);
+  const read = refusalFindings(ctx.refusal, { paragraph: n, axes });
+  const findings = [...read, ...shapeFindings(base, n).filter((f) => !read.some((r) => r.key === f.key))];
+  const repair = repairOf(findings);
+  writeRepair(inputs.runDir, unitId, { site: n, refusal: ctx.refusal, chosen_by: "program", ...repair });
+  if (repair.arm === "keep_points" && isMap(base)) return { repair, answer: withoutShape(base, findings) };
+  return { repair };
+}
+
+// The paragraph a retry repairs: the last one refused at the site, else the standing record's.
+function refusedBase(ctx) {
+  const h = (ctx.history || []).filter((x) => isMap(x.entry));
+  if (h.length) return h[h.length - 1].entry;
+  const entries = (ctx.standing && ctx.standing.paragraphs) || [];
+  return entries[ctx.site - 1];
+}
+
 // THE SITE CALL'S INPUT. `ctx` is `{ standing, site, retry, history }`: the Leg's standing
 // record, the paragraph's number, the site retry this is (1 for the first), and every
 // refused paragraph at the site beside its refusal, oldest first.
@@ -212,7 +242,25 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
     terms_this_paragraph_introduces: entry.introduces || [],
     re_activations_this_paragraph_carries: entry["re-activate"] || [],
     refused_here: (ctx.history || []).map((h) => ({ entry: h.entry ?? null, refusal: h.refusal })),
+    ...(ctx.repair ? siteRepairInput(ctx) : {}),
   };
+}
+
+// The Repair the call is made under, and the paragraph as it stands with the program's shape repair applied.
+function siteRepairInput(ctx) {
+  const { arm, waypoints, grounds, findings } = ctx.repair;
+  return {
+    repair: { arm, ...(waypoints ? { waypoints } : {}), grounds, findings },
+    paragraph_as_it_stands: withoutShape(refusedBase(ctx), findings),
+  };
+}
+
+// UNDER `modify_points` ONLY THE NAMED WAYPOINTS CHANGE (kogaki#1815): the numbers of the others the answer changed.
+function unnamedChanged(answer, ctx, waypoints) {
+  const was = (isMap(refusedBase(ctx)) && refusedBase(ctx).paragraph_waypoints) || [];
+  const now = Array.isArray(answer.paragraph_waypoints) ? answer.paragraph_waypoints : [];
+  const keep = new Set(waypoints);
+  return was.map((p, i) => i + 1).filter((k) => !keep.has(k) && canonical(now[k - 1]) !== canonical(was[k - 1]));
 }
 
 // The Leg's structure and Mapping Table, once the unit is grounded (kogaki#1734).
@@ -235,16 +283,22 @@ export function paragraphPlanSitePrompt(ctx, inputs, unitId) {
 // THE SITE CALL'S ANSWER, READ BACK. Returns `{ error }`, a refusal at the site that spends its
 // Round, or `{ record, changed, sites? }`: the standing record with the paragraph in place, the
 // paragraphs to judge again, and later sites an unvalidated standing record still fails.
-export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
+export function validateParagraphPlanSite(given, ctx, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   const n = ctx.site;
   const at = `Leg ${leg.leg_id}, paragraph ${n}`;
-  if (!isMap(answer)) return { error: `${at}: the site answer is not one paragraph` };
+  if (!isMap(given)) return { error: `${at}: the site answer is not one paragraph` };
+  const chosen = chosenArm(given, ctx, inputs, unitId, at);
+  if (chosen.error) return chosen;
+  const answer = chosen.answer;
+  const arm = chosen.arm;
   if (answer.paragraph !== n)
     return {
       error: `${at}: the site answer is numbered ${JSON.stringify(answer.paragraph)} — it is paragraph ${n} alone`,
     };
-  if ((ctx.history || []).some((h) => repeatsRefusedEntry(answer, h.entry, h.by_judge)))
+  // THE PROGRAM'S keep_points ANSWER KEEPS THE POINTS BY DESIGN; the judge reads it again.
+  const kept = arm === "keep_points";
+  if (!kept && (ctx.history || []).some((h) => repeatsRefusedEntry(answer, h.entry, h.by_judge)))
     return { error: `${at}: ${siteRepeatRefusal(n)}` };
   // EVERY FAILURE AT THE SITE (kogaki#1813): the site's own rules and the Leg call's over the paragraph.
   const failures = [];
@@ -252,8 +306,16 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
     failures.push(
       `${at}: the answer carries \`move\` — the Leg's Move ${JSON.stringify(ctx.standing.move)} is held at every paragraph, and a paragraph names none (kogaki#1777)`,
     );
-  const restated = restatedPoints(answer, ctx.history);
+  const restated = kept ? null : restatedPoints(answer, ctx.history);
   if (restated) failures.push(`${at}: ${siteRestatementRefusal(n, restated)}`);
+  // UNDER `modify_points` ONLY THE NAMED WAYPOINTS CHANGE (kogaki#1815).
+  if (arm === "modify_points") {
+    const changed = unnamedChanged(answer, ctx, ctx.repair.waypoints || []);
+    if (changed.length)
+      failures.push(
+        `${at}: the answer changes Waypoint ${changed.join(", ")} — the Repair is modify_points and names Waypoint ${(ctx.repair.waypoints || []).join(", ")} alone, so every other point is kept as it stands`,
+      );
+  }
   const prose = repairProse(answer);
   if (prose)
     failures.push(
@@ -271,6 +333,32 @@ export function validateParagraphPlanSite(answer, ctx, inputs, unitId) {
   if (!later.length) return { record: merged, changed: [n] };
   const why = later.map((f) => f.text).join("\n");
   return { record: merged, changed: [n], sites: [...new Set(later.map((f) => f.site))].map((m) => ({ site: m, why })) };
+}
+
+// THE ARM A SITE ANSWER NAMES FOR ITSELF (kogaki#1815): where the Repair took `modify_points` or `rewrite_all_points`,
+// the answer may carry `arm`, one of those two, and the choice is written to the run before the answer is applied.
+function chosenArm(given, ctx, inputs, unitId, at) {
+  const governing = ctx.repair ? ctx.repair.arm : null;
+  if (!Object.hasOwn(given, "arm")) return { answer: given, arm: governing };
+  const { arm, ...answer } = given;
+  if (!MODEL_ARMS.includes(governing) || !MODEL_ARMS.includes(arm)) {
+    return {
+      error: `${at}: the answer names the arm ${JSON.stringify(arm)} — an answer names ${MODEL_ARMS.join(" or ")} only where the Repair took one of them, and this one took ${JSON.stringify(governing)}`,
+    };
+  }
+  if (arm !== governing) {
+    const rest = Object.fromEntries(Object.entries(ctx.repair).filter(([k]) => k !== "waypoints"));
+    const grounds = `the answer chose ${arm} over ${governing}; the program's grounds were: ${ctx.repair.grounds}`;
+    writeRepair(inputs.runDir, unitId, {
+      site: ctx.site,
+      refusal: ctx.refusal,
+      chosen_by: "model",
+      ...rest,
+      arm,
+      grounds,
+    });
+  }
+  return { answer, arm };
 }
 
 // THE SUFFIX CALL'S INPUT: the Leg call's own input, with the paragraphs before `ctx.from` standing
