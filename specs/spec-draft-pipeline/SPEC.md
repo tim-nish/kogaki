@@ -4032,6 +4032,17 @@ rule with its own list (`LPP_HEADINGS`), in this order:
 6. With `--brief`, `The Brief's Legs`: that Brief's Legs and their Waypoints
    beside the Trial's, by Leg number, read only.
 
+**The Brief sheet, and its owner act** (kogaki#1776, kogaki#1788). The Brief
+sheet is one page over one adopted Brief file, rendered with no model call;
+the owner names it the BriefPlanPlayground. Its one owner act is
+`/brief-sheet theses/<slug>/brief.yaml`, which runs
+`node src/leg-planning/sheet.mjs show --brief <file>`, writes
+`runs/leg-planning/brief-sheets/<slug>/sheet.html` beside `brief.sha256`
+naming the file it rendered, and prints the sheet's `file://` URL as its one
+line. A Brief of the shape before kogaki#1775 — a Leg carrying `waypoints` or
+`move`, or no `text` — is refused naming the Leg and the key, and nothing is
+written.
+
 **Out of the Playground.** Rebuilding the Brief, which §4.22 does in the Playground's order; grounding, the base choice
 and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
 sections, `introduces`, `opens_section` and renderings, which are the

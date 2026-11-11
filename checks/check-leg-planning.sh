@@ -33,13 +33,18 @@
 #   (k) the Brief sheet (kogaki#1776): `sheet.mjs brief` over a Brief of that structure and its Legs renders with no model
 #       call, the graph first labelled by name, the Legs last, no retired word, every table under a <thead> of one
 #       heading per column, the Claims table id, claim and reached with no cite, and the apex's `from` empty.
+
+#   (l) the Brief sheet's owner act (kogaki#1788): `sheet.mjs show` over the Brief of (k) writes
+#       <root>/runs/leg-planning/brief-sheets/<slug>/sheet.html beside brief.sha256 and prints its file:// URL, the skill
+#       .claude/skills/brief-sheet/SKILL.md runs that command, and a Leg carrying `waypoints`, `move` or no `text` is
+#       refused naming the Leg and the key, with nothing written.
 # Cases (e) and (i), the GROUNDED re-ask and the no-fit stop, went with the Waypoint Call (kogaki#1775).
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync, statSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -350,6 +355,38 @@ ok(/<tr><td>h_2<\/td><td>h2<\/td><td>[^<]*<\/td><td><\/td><\/tr>/.test(kHigher),
 const kLegs = kSheet.slice(kSheet.indexOf("<h2>Legs</h2>"));
 ok(kLegs.includes("<th>id</th><th>relation</th><th>text</th>") && WANT.every(([id, , text]) => kLegs.includes(`<td>${id}</td>`) && kLegs.includes(text)),
   "(k) the Legs part does not list the five Legs with id, relation and text");
+
+// (l) the Brief sheet's owner act: `show` writes the sheet at the home read from the Brief's path; a retired Leg is refused
+const lHome = join(kRoot, "runs", "leg-planning", "brief-sheets", "fixture");
+const sheetCmd = (args) => spawnSync(process.execPath, ["src/leg-planning/sheet.mjs", ...args],
+  { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: join(root, "no-model") }, timeout: 60000 });
+const l = sheetCmd(["show", "--brief", kBrief]);
+const lSheet = existsSync(join(lHome, "sheet.html")) ? readFileSync(join(lHome, "sheet.html"), "utf8") : "";
+const lSha = existsSync(join(lHome, "brief.sha256")) ? readFileSync(join(lHome, "brief.sha256"), "utf8") : "";
+ok(l.status === 0 && l.stdout === `${pathToFileURL(join(lHome, "sheet.html")).href}\n`,
+  `(l) show did not print the sheet's file:// URL as its one line: ${l.status} ${l.stdout} ${l.stderr}`);
+ok(lSheet === kSheet, "(l) show's sheet is not the sheet the brief command renders over the same Brief");
+ok(lSha === `${createHash("sha256").update(readFileSync(kBrief)).digest("hex")}  theses/fixture/brief.yaml\n`,
+  `(l) brief.sha256 does not name the Brief it rendered: ${JSON.stringify(lSha)}`);
+const lSkill = existsSync(".claude/skills/brief-sheet/SKILL.md") ? readFileSync(".claude/skills/brief-sheet/SKILL.md", "utf8") : "";
+ok(/^name: brief-sheet$/m.test(lSkill) && lSkill.includes("BriefPlanPlayground")
+  && lSkill.includes("!`node src/leg-planning/sheet.mjs show --brief $ARGUMENTS`"),
+  "(l) .claude/skills/brief-sheet/SKILL.md does not run `sheet.mjs show` over its argument");
+const kParsed = parseYaml(readFileSync(kBrief, "utf8"), "brief.yaml");
+for (const [key, retire] of [["waypoints", (g) => ({ ...g, waypoints: [] })], ["move", (g) => ({ ...g, move: "m" })],
+  ["text", ({ text, ...g }) => g]]) {
+  const rRoot = join(root, `retired-${key}`);
+  const rBrief = join(rRoot, "theses", "old", "brief.yaml");
+  mkdirSync(dirname(rBrief), { recursive: true });
+  writeFileSync(rBrief, stringifyYaml({ ...kParsed, slug: "old", reader_path: kParsed.reader_path.map((g, i) => (i === 1 ? retire(g) : g)) }));
+  const leg = kParsed.reader_path[1].leg_id;
+  for (const args of [["show", "--brief", rBrief], ["brief", "--brief", rBrief, "--out", join(rRoot, "out")]]) {
+    const r = sheetCmd(args);
+    ok(r.status === 1 && r.stderr.includes(`Leg ${leg} `) && r.stderr.includes(`\`${key}\``) && r.stderr.includes("kogaki#1775"),
+      `(l) ${args[0]} over a Leg retired by \`${key}\` is not refused naming ${leg} and the key: ${r.status} ${r.stderr}`);
+  }
+  ok(!existsSync(join(rRoot, "runs")) && !existsSync(join(rRoot, "out")), `(l) a Brief retired by \`${key}\` wrote a sheet`);
+}
 
 // (h) nothing under the repository's moves/ or theses/ changed
 ok(snapshot() === before, "(h) the run changed the repository's moves/ or theses/");
