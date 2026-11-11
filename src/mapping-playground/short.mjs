@@ -429,7 +429,7 @@ export function shortPlanInput({ leg, structure, tables, move, contract, persona
     move,
     table: { base: own.base, correspondences: own.correspondences },
   };
-  return withAnalogy(paragraphPlanUnitInput(planned, [contract], persona, paragraphsPerLeg()), contract, analogy);
+  return withAnalogy(paragraphPlanUnitInput(planned, [contract], persona, paragraphsPerLeg()), analogy);
 }
 
 export function shortPlanRefusal(answer, { input, tables, move, told, libraryDir }) {

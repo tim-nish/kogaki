@@ -114,16 +114,7 @@
       }
     },
     "binds_unread": {
-      "move": [
-        "id",
-        "figure",
-        "continues_from",
-        "description",
-        "evidence",
-        "before",
-        "after",
-        "after_segment"
-      ],
+      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
       "leg": [
         "reaches_target",
         "opens_section",
@@ -165,16 +156,7 @@
       }
     },
     "binds_unread": {
-      "move": [
-        "id",
-        "figure",
-        "continues_from",
-        "description",
-        "evidence",
-        "before",
-        "after",
-        "after_segment"
-      ],
+      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
       "leg": [
         "reaches_target",
         "claims",
@@ -206,7 +188,7 @@
     "shared_text_file": "src/paragraph-plan-workflow.json",
     "axes_file": "src/paragraph-plan-axes.json",
     "note": "The second call of every round (kogaki#1375), run by the supervisor's judge phase once `validateParagraphPlanUnit` has passed the first call's record. `src/paragraph-plan.mjs` renders this row through `judgePrompt` up to the input marker; `paragraphPlanJudgePrompt` appends the Leg's input and `paragraphPlanJudgeVerdict` reads the answer. A `does-not-fit` on any paragraph is a refusal of the round, and its sentence is put into the next round's first call.",
-    "judgment_point": "judge the Waypoints of ONE Leg, `leg_you_must_judge` in the input, one verdict per paragraph against the paragraph Move bound to the Leg, whose `takes`, `leaves`, `segments` and `breaks` ride on the Leg as `bound_move` beside its `text`, its `prior_knowledge` and `the_reader_has_been_told`, by these criteria:\n{{axes}}\n{{shared:operation_is_performed}} {{shared:manner_is_not_content}} {{shared:join_is_a_type}} {{shared:cast_is_a_set}} {{shared:takes_and_leaves}} {{shared:analogue_is_the_mapping}} Verdict `fits` only where every criterion holds and `does-not-fit` where any does not, with one sentence `why` naming the criterion and the Waypoint, term or join it fails. The Move's `takes`, `leaves`, `breaks` and `segments`, each Segment's `operation` and `relation`, the Leg's `text`, `the_reader_has_been_told`, `leaves_for_next_leg` and `introduces`, and each paragraph's `join`, `point`, `performs` and `cast` are what you judge, never what your record states.",
+    "judgment_point": "judge the Waypoints of ONE Leg, `leg_you_must_judge` in the input, one verdict per paragraph against the paragraph Move bound to the Leg, whose `takes`, `leaves`, `segments` and `breaks` ride on the Leg as `bound_move` beside its `text`, its `prior_knowledge` and `the_reader_has_been_told`, by these criteria:\n{{axes}}\n{{shared:operation_is_performed}} {{shared:manner_is_not_content}} {{shared:join_is_a_type}} {{shared:cast_is_a_set}} {{shared:takes_and_leaves}} Verdict `fits` only where every criterion holds and `does-not-fit` where any does not, with one sentence `why` naming the criterion and the Waypoint, term or join it fails. The Move's `takes`, `leaves`, `breaks` and `segments`, each Segment's `operation` and `relation`, the Leg's `text`, `the_reader_has_been_told`, `leaves_for_next_leg` and `introduces`, and each paragraph's `join`, `point`, `performs` and `cast` are what you judge, never what your record states.",
     "input_shape": "ONE verdict record AT THE RECORD'S OWN ROOT -- `version` \"1\", the `leg_id` of the Leg in the input, and `verdicts`, one per paragraph in order: `{ \"paragraph\": <its 1-based number>, \"verdict\": \"fits\" | \"does-not-fit\", \"why\": <one sentence> }`",
     "refusal": "a record carrying no `verdicts` array, or naming another leg_id; a verdict outside the closed set; a paragraph carrying no verdict, or two, or verdicts out of order; a `why` under four words -- each of these is this judge's own malformed output, and the same prompt is asked again. `does-not-fit` is a verdict, not malformed output: the round is refused with it and the plan is generated again. The next round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
     "governing": "SPEC-draft-pipeline, the ParagraphPlan stage; kogaki#1375"

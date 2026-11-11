@@ -20,7 +20,6 @@
   {"file": "checks/check-mapping-playground-short.sh", "interpreter": "node", "lines": 827},
   {"file": "checks/check-mapping-playground.sh", "interpreter": "node", "lines": 288},
   {"file": "checks/check-move-library.sh", "interpreter": "node", "lines": 230},
-  {"file": "checks/check-paragraph-plan-analogy.sh", "interpreter": "node", "lines": 233},
   {"file": "checks/check-paragraph-plan-axes.sh", "interpreter": "node", "lines": 223},
   {"file": "checks/check-paragraph-plan-job.sh", "interpreter": "node", "lines": 303},
   {"file": "checks/check-paragraph-plan-site-retry.sh", "interpreter": "node", "lines": 347},

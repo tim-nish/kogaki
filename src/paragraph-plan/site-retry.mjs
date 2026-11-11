@@ -205,7 +205,6 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
         segments: segmentsForPlanCall(c.segments),
         breaks: c.breaks,
       },
-      c,
       inputs.analogy,
     ),
     paragraphs_beside: paragraphsBeside(entries, n),
