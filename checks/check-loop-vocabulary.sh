@@ -43,8 +43,8 @@ const ALLOWED = [
   ["src/workflow/call-record.mjs", 'dir: "attempts", records: "attempt_records", firstCallS: "attempt_1_s", unitBound: "unit_attempts", count: "attempts", roundsFile: "attempts.json"'],
   ["src/workflow/judge.mjs", '"brief.unit_attempts": "brief.unit_rounds", "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions"'],
   // The word the ParagraphPlan's prose validator refuses in a model's answer, and the instruction naming it.
-  ["src/paragraph-plan.mjs", "/\\w*attempt\\w*/i"],
-  ["src/paragraph-plan.mjs", "carries no word of the refusal, the attempt,"],
+  ["src/paragraph-plan/site-retry.mjs", "/\\w*attempt\\w*/i"],
+  ["src/paragraph-plan/site-retry.mjs", "carries no word of the refusal, the attempt,"],
   ["src/paragraph-plan-workflow.json", "carrying `refus`, `attempt`, `kogaki#`"],
   ["src/paragraph-plan-workflow.json", "carry no word of the refusal, the attempt, the shape"],
   // The run history quoted in Terrain's judge note: the attempts of runs, never the loop's own names.

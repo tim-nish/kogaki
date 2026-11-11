@@ -90,10 +90,7 @@
       "count": 1
     }
   },
-  "src/paragraph-plan.mjs": {
-    "no-unused-vars": {
-      "count": 3
-    },
+  "src/paragraph-plan/job-end.mjs": {
     "no-useless-assignment": {
       "count": 1
     }
