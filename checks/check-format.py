@@ -5,6 +5,7 @@
 # admission record in checks/registry.json.
 import argparse
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -26,10 +27,10 @@ def fix_line(rel):
     return "FAIL %s is not formatted as %s says; fix it with `npx prettier --write %s`" % (rel, CONFIG, rel)
 
 
-def differing(tree, paths):
+def differing(tree, paths, env=None):
     """The repository-relative files `prettier --check` reports as differing."""
-    ran = subprocess.run([str(tree / PRETTIER), "--check", *paths], cwd=tree,
-                         capture_output=True, text=True)
+    ran = subprocess.run([str(tree / PRETTIER), "--check", "--no-color", *paths], cwd=tree,
+                         capture_output=True, text=True, env=env)
     files = [m["file"] for m in map(DIFFERS.match, (ran.stdout + ran.stderr).splitlines()) if m]
     if ran.returncode not in (0, 1) or (ran.returncode == 1 and not files):
         sys.exit("format: prettier did not run cleanly:\n" + ran.stdout + ran.stderr)
@@ -62,8 +63,9 @@ def fixtures():
         case("(c0) a formatted .mjs file passes", differing(tree, [PROBE_FILE]) == [])
         target = tree / PROBE_FILE
         target.write_text(join_two_lines(target.read_text()))
+        coloured = dict(os.environ, CI="true", FORCE_COLOR="1")
         case("(c1) a formatted .mjs file with two lines joined fails naming the file",
-             differing(tree, [PROBE_FILE]) == [PROBE_FILE])
+             differing(tree, [PROBE_FILE], env=coloured) == [PROBE_FILE])
         payload = {"tool_name": "Edit", "tool_input": {"file_path": str(target)}}
         ran = subprocess.run([sys.executable, str(tree / HOOK)], input=json.dumps(payload),
                              capture_output=True, text=True)
