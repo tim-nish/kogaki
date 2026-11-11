@@ -77,6 +77,13 @@ export function mintStructure(answer) {
     ...(Object.hasOwn(answer, "attains_thesis")
       ? { attains_thesis: ids.higher_order.get(answer.attains_thesis) ?? answer.attains_thesis }
       : {}),
+    ...(Array.isArray(answer.considered)
+      ? {
+          considered: answer.considered.map((c) =>
+            isMap(c) && Array.isArray(c.relations) ? { ...c, relations: c.relations.map(related) } : c,
+          ),
+        }
+      : {}),
   };
   return { structure };
 }
@@ -100,14 +107,20 @@ function idNameRefusal(kind, x, i, names) {
 // THE STRUCTURE READ OVER THE CLAIM SET, refused `{ group, text }` or `{}`. `claims` is `parseClaims`'s list.
 // `thesis: false` is the Brief's read (kogaki#1768): no Thesis is adopted yet, so the record carries no `attains_thesis`
 // and every higher-order relation names the claims that state it. The apex — the higher-order relation `attains_thesis`
-// names — carries no `from` (kogaki#1772).
-export function validateReadSet(record, claims, { thesis = true } = {}) {
+// names — carries no `from` (kogaki#1772). `considered: true` is the Brief's read too (kogaki#1817).
+export function validateReadSet(record, claims, { thesis = true, considered = false } = {}) {
   const derived = isMap(record) ? ["reach", "unreached"].find((k) => Object.hasOwn(record, k)) : undefined;
   if (derived)
     return shape(`the structure carries \`${derived}\` — it is derived from \`attains_thesis\`, never written`);
   const bad = keysRefusal(
     record,
-    ["roles", "relations", "higher_order", ...(thesis ? ["attains_thesis"] : [])],
+    [
+      "roles",
+      "relations",
+      "higher_order",
+      ...(thesis ? ["attains_thesis"] : []),
+      ...(considered ? ["considered"] : []),
+    ],
     "the structure",
   );
   if (bad) return shape(bad);
@@ -196,7 +209,46 @@ export function validateReadSet(record, claims, { thesis = true } = {}) {
   const used = new Set(relations.flatMap((r) => r.between));
   const idle = roles.find((r) => !used.has(r.id));
   if (idle) return { group: "coverage", text: `${named("roles", idle)} is in no relation` };
+  if (considered) {
+    const text = consideredRefusal(record.considered, relations, higher, claimIds);
+    if (text) return shape(text);
+  }
   return {};
+}
+
+// THE VERDICTS A CONSIDERED ROW CARRIES (kogaki#1817).
+export const CONSIDERED_VERDICTS = Object.freeze(["connected", "not_connected"]);
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+
+// THE CONNECTIONS THE READ WEIGHED (kogaki#1817), refused naming the row or the element, or `null`.
+function consideredRefusal(rows, relations, higher, claimIds) {
+  if (!Array.isArray(rows)) return "the structure's `considered` is not a list";
+  const known = new Map([...relations, ...higher].map((x) => [x.id, x]));
+  const nameOf = (id) => JSON.stringify(known.get(id)?.name ?? id);
+  for (const [i, c] of rows.entries()) {
+    const at = `considered[${i}]`;
+    const bad = keysRefusal(c, ["relations", "criterion", "verdict", "why"], at);
+    if (bad) return bad;
+    if (!Array.isArray(c.relations) || c.relations.length < 2) return `${at} names fewer than two relations`;
+    const stray = c.relations.find((x) => !known.has(x));
+    if (stray !== undefined)
+      return `${at} names ${JSON.stringify(stray)}, which names no relation or higher-order relation`;
+    if (!listOf(c.criterion) || c.criterion.some((x) => !claimIds.has(x)))
+      return `${at}'s \`criterion\` is not a non-empty list of claim ids`;
+    if (!CONSIDERED_VERDICTS.includes(c.verdict))
+      return `${at}'s \`verdict\` ${JSON.stringify(c.verdict)} is not ${CONSIDERED_VERDICTS.join(" or ")}`;
+    if (!isText(c.why)) return `${at}'s \`why\` is empty`;
+    const written = higher.find((h) => sameSet(h.relates, c.relations));
+    if (c.verdict === "connected" && !written)
+      return `${at} is \`connected\` and no higher-order relation relates ${c.relations.map(nameOf).join(", ")}`;
+    if (c.verdict === "not_connected" && written)
+      return `${at} is \`not_connected\` and ${named("higher_order", written)} relates exactly those`;
+  }
+  const unrowed = higher.find((h) => !rows.some((c) => c.verdict === "connected" && sameSet(h.relates, c.relations)));
+  if (unrowed) return `${named("higher_order", unrowed)} carries no \`connected\` row under \`considered\``;
+  const absent = relations.find((r) => !rows.some((c) => c.relations.includes(r.id)));
+  if (absent) return `${named("relations", absent)} stands in no row under \`considered\``;
+  return null;
 }
 
 // A `holds` AS A READER READS IT (kogaki#1772): each `{<Role id>}` written as that Role's `name`.
