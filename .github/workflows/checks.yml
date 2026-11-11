@@ -56,6 +56,10 @@ jobs:
       # `node_modules`, and `npm ci` is what `.gitignore` names as its source.
       - name: Install npm devDependencies
         run: npm ci
+      # Reported, never gated (specs/SPEC.md, "The npm advisories", kogaki#1795).
+      - name: Report npm advisories at high
+        continue-on-error: true
+        run: npm audit --audit-level=high
       - name: Run registered checks
         env:
           # Supplied for checks that read the branch's own git-resident text
