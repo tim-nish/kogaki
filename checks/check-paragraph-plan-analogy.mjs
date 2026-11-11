@@ -183,7 +183,9 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const stray = (p) => a && p.paragraph_waypoints.some((w) => String(w.point).includes("fishing net"));
     out({ version: "1", leg_id: leg.leg_id, verdicts: leg.paragraphs.map((p) => ({ paragraph: p.paragraph,
       verdict: stray(p) ? "does-not-fit" : "fits",
-      why: stray(p) ? "ANALOGUE-SENTENCE the paragraph names a fishing net, not the base domain." : "the Waypoints carry the Leg's relation." })) });
+      why: stray(p) ? "ANALOGUE-SENTENCE the paragraph names a fishing net, not the base domain." : "the Waypoints carry the Leg's relation.",
+      ...(leg.mapping ? { expressed: [...leg.mapping.roles.map((x) => ({ role: x.role, waypoint: 1 })),
+        ...leg.mapping.relations.map((x) => ({ relation: x.relation, waypoint: 1 }))] } : {}) })) });
   }
   if (input.paragraph_you_must_plan) {
     const legId = input.paragraph_you_must_plan.leg_id;
