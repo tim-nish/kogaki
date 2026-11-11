@@ -4041,7 +4041,10 @@ the owner names it the BriefPlanPlayground. Its one owner act is
 naming the file it rendered, and prints the sheet's `file://` URL as its one
 line. A Brief of the shape before kogaki#1775 — a Leg carrying `waypoints` or
 `move`, or no `text` — is refused naming the Leg and the key, and nothing is
-written.
+written. The sheet renders four parts in order: `Thesis`, `Claims`,
+`Structure Mapping` and `Legs` (kogaki#1805). `Structure Mapping` holds the
+structure: the graph first, then the `Roles`, `Relations` and
+`Higher-order relations` tables, each under its own heading.
 
 **Out of the Playground.** Rebuilding the Brief, which §4.22 does in the Playground's order; grounding, the base choice
 and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,

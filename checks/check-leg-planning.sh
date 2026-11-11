@@ -332,9 +332,9 @@ const k = spawnSync(process.execPath, ["src/leg-planning/sheet.mjs", "brief", "-
 const kSheet = existsSync(join(kRoot, "out", "sheet.html")) ? readFileSync(join(kRoot, "out", "sheet.html"), "utf8") : "";
 ok(k.status === 0 && kSheet, `(k) the brief command did not render a sheet: ${k.stderr}`);
 const kH2 = [...kSheet.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1]);
-ok(JSON.stringify(kH2) === JSON.stringify(BRIEF_PARTS) && BRIEF_PARTS[0] === "Structure" && BRIEF_PARTS.at(-1) === "Legs",
-  `(k) the Brief sheet's parts are not the graph first and the Legs last: ${JSON.stringify(kH2)}`);
-const kGraph = kSheet.slice(kSheet.indexOf("<h2>Structure</h2>"), kSheet.indexOf("<h2>Thesis</h2>"));
+ok(JSON.stringify(kH2) === JSON.stringify(BRIEF_PARTS) && JSON.stringify(BRIEF_PARTS) === JSON.stringify(["Thesis", "Claims", "Structure Mapping", "Legs"]), `(k) the Brief sheet's parts are not Thesis, Claims, Structure Mapping and Legs: ${JSON.stringify(kH2)}`);
+const kMap = kSheet.slice(kSheet.indexOf("<h2>Structure Mapping</h2>"), kSheet.indexOf("<h2>Legs</h2>")), kH3 = (s) => [...s.matchAll(/<h3>([^<]*)<\/h3>/g)].map((m) => m[1]), kGraph = kMap.slice(0, kMap.indexOf("<h3>Roles</h3>"));
+ok(JSON.stringify(kH3(kMap)) === JSON.stringify(["Roles", "Relations", "Higher-order relations"]) && kH3(kSheet.replace(kMap, "")).length === 0, `(k) the Roles, Relations and Higher-order relations tables do not stand under Structure Mapping and nowhere else: ${JSON.stringify(kH3(kSheet))}`);
 ok(kGraph.includes('class="mermaid"') && kGraph.includes("rules (c1, c2)") && kGraph.includes("h_2 ==&gt; h_1")
   && kGraph.includes("class h_2 apex") && /class [^\n]*c_4[^\n]* unreached/.test(kGraph) && !/\d+ Roles?,/.test(kSheet),
   "(k) the graph does not label nodes by name, draw higher-order edges thick, the apex blue and the unreached red, with no counts line");
@@ -346,11 +346,11 @@ ok(kTables.length === 5 && kTables.every((t) => {
   const cols = head ? head[1].split("<th>").length - 1 : 0;
   return head && [...t.matchAll(/<tr[^>]*>((?:<td>[\s\S]*?<\/td>)+)<\/tr>/g)].every((r) => r[1].split("<td>").length - 1 === cols);
 }), "(k) a table of the Brief sheet carries no <thead> with one heading per column");
-const kClaims = kSheet.slice(kSheet.indexOf("<h2>Claims</h2>"), kSheet.indexOf("<h2>Roles</h2>"));
+const kClaims = kSheet.slice(kSheet.indexOf("<h2>Claims</h2>"), kSheet.indexOf("<h2>Structure Mapping</h2>"));
 ok(kClaims.includes("<thead><tr><th>id</th><th>claim</th><th>reached</th></tr></thead>") && !kClaims.includes("cite")
   && kClaims.includes(CLAIMS[0]) && /<tr class="unreached"><td>c4<\/td>/.test(kClaims),
   "(k) the Claims table is not id, claim and reached with the unreached claim marked");
-const kHigher = kSheet.slice(kSheet.indexOf("<h2>Higher-order relations</h2>"), kSheet.indexOf("<h2>Legs</h2>"));
+const kHigher = kMap.slice(kMap.indexOf("<h3>Higher-order relations</h3>"));
 ok(/<tr><td>h_2<\/td><td>h2<\/td><td>[^<]*<\/td><td><\/td><\/tr>/.test(kHigher), "(k) the apex's from column is not empty");
 const kLegs = kSheet.slice(kSheet.indexOf("<h2>Legs</h2>"));
 ok(kLegs.includes("<th>id</th><th>relation</th><th>text</th>") && WANT.every(([id, , text]) => kLegs.includes(`<td>${id}</td>`) && kLegs.includes(text)),

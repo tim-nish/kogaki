@@ -27,8 +27,8 @@ export const LPP_PARTS = ["Claims", "Structure", "Legs", "Rounds", "The Brief's 
 // THE ONLY HEADINGS THE SHEET CARRIES: the parts, and these.
 export const LPP_HEADINGS = [...LPP_PARTS, "Unreached claims", "Roles", "Relations", "Higher-order relations", "Leg <id>", "Stage <name>",
   "Round n", ...CANDIDATE_ROUND_BLOCKS];
-// THE BRIEF SHEET'S PARTS, in order (kogaki#1776), and every column heading either sheet's tables carry.
-export const BRIEF_PARTS = ["Structure", "Thesis", "Claims", "Roles", "Relations", "Higher-order relations", "Legs"];
+// THE BRIEF SHEET'S PARTS, in order (kogaki#1776, kogaki#1805), and every column heading either sheet's tables carry.
+export const BRIEF_PARTS = ["Thesis", "Claims", "Structure Mapping", "Legs"];
 export const LPP_COLUMNS = ["id", "name", "claim", "reached", "holds", "from", "relation", "text", "Role", "Abstract", "Attribute",
   "between", "higher-order relation", "relates", "cite", "stated by", "paragraph", "paragraph Move", "Waypoints", "verdict", "Leg",
   "The Brief", "This run"];
@@ -249,14 +249,14 @@ export function renderBriefSheet({ brief, claims }) {
   const nameOf = (id) => esc(elementLabel(structure, id, claims));
   const elements = (list, holdsOf, fromOf) => table(["id", "name", "holds", "from"], list.map((x) => row([esc(x.id), esc(x.name ?? ""), holdsOf(x), fromOf(x)], cls(x.id))));
   const parts = [
-    part("Structure", structureGraph(structure, claims)),
     part("Thesis", line(brief.thesis)),
     part("Claims", table(["id", "claim", "reached"], claims.map((c) => row([esc(c.id), c.claim === null ? none("no claim sentence recorded") : esc(c.claim),
       esc(leftClaims.has(c.id) ? UNREACHED : "reached")], leftClaims.has(c.id) ? "unreached" : "")))),
-    part("Roles", elements(structure.roles, (r) => esc(r.context ?? ""), (r) => esc((r.claims || []).join(", ")))),
-    part("Relations", elements(structure.relations, (r) => holds(r.holds), (r) => esc(r.from ?? ""))),
-    part("Higher-order relations", elements(structure.higher_order, (h) => holds(h.holds),
-      (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))))),
+    part("Structure Mapping", structureGraph(structure, claims)
+      + heading(3, "Roles") + elements(structure.roles, (r) => esc(r.context ?? ""), (r) => esc((r.claims || []).join(", ")))
+      + heading(3, "Relations") + elements(structure.relations, (r) => holds(r.holds), (r) => esc(r.from ?? ""))
+      + heading(3, "Higher-order relations") + elements(structure.higher_order, (h) => holds(h.holds),
+        (h) => (h.id === structure.attains_thesis ? "" : esc([].concat(h.from ?? []).join(", "))))),
     part("Legs", table(["id", "relation", "text"], (brief.reader_path || []).map((l) => row([esc(l.leg_id), nameOf(l.relation),
       esc(l.text)])))),
   ];
