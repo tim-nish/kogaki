@@ -1,7 +1,7 @@
 {
   "name": "kogaki",
   "private": true,
-  "description": "The Japanese-realization Lint (kogaki#1158, kogaki#1162) depends on textlint, its technical-writing preset, and textlint-rule-prh; the src/ lane rule (kogaki#1746) depends on dependency-cruiser; the JavaScript lint (kogaki#1747) depends on eslint, @eslint/js, eslint-plugin-import-x and globals; the coverage digest (kogaki#1793) depends on c8; the type check (kogaki#1791) depends on typescript and @types/node; nothing else in this repository carries an npm dependency.",
+  "description": "The Japanese-realization Lint (kogaki#1158, kogaki#1162) depends on textlint, its technical-writing preset, and textlint-rule-prh; the src/ lane rule (kogaki#1746) depends on dependency-cruiser; the JavaScript lint (kogaki#1747) depends on eslint, @eslint/js, eslint-plugin-import-x and globals; the coverage digest (kogaki#1793) depends on c8; the type check (kogaki#1791) depends on typescript and @types/node; the formatter (kogaki#1792) depends on prettier; nothing else in this repository carries an npm dependency.",
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.19.2",
@@ -10,6 +10,7 @@
     "eslint": "10.14.0",
     "eslint-plugin-import-x": "4.17.1",
     "globals": "17.14.0",
+    "prettier": "3.6.2",
     "textlint": "15.8.0",
     "textlint-rule-preset-ja-technical-writing": "12.0.2",
     "textlint-rule-prh": "6.1.0",

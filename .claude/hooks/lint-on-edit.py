@@ -3,9 +3,11 @@
 the lane rule at once, so a new crossing edge reaches the session in the same
 turn (kogaki#1746), and an edited src/ or checks/ .mjs file is linted with
 ESLint, so a new finding does too (kogaki#1747), an edited src/ .mjs file is
-type-checked against its `tsc-baseline.json` row (kogaki#1791), and an edited
-.sh or .py file is measured against the heredoc bound (kogaki#1790). The rules
-are `.dependency-cruiser.cjs`, `eslint.config.mjs`, `jsconfig.json` and
+type-checked against its `tsc-baseline.json` row (kogaki#1791), an edited
+src/ or checks/ .mjs file is checked against `.prettierrc.json` and never
+rewritten (kogaki#1792), and an edited .sh or .py file is measured against the
+heredoc bound (kogaki#1790). The rules are `.dependency-cruiser.cjs`,
+`eslint.config.mjs`, `jsconfig.json`, `.prettierrc.json` and
 `checks/check-heredoc-bound.py`; this hook runs each over the one file with
 its baseline and exits 2 with the findings on stderr. Any other path returns
 0 without running anything."""
@@ -19,6 +21,7 @@ BASELINE = ".dependency-cruiser-known-violations.json"
 SUPPRESSIONS = "eslint-suppressions.json"
 HEREDOC_BOUND = "checks/check-heredoc-bound.py"
 TYPES = "checks/check-types.py"
+FORMAT = "checks/check-format.py"
 
 
 def run(root, tool, args):
@@ -31,10 +34,10 @@ def run(root, tool, args):
     return "" if ran.returncode == 0 else ran.stdout + ran.stderr
 
 
-def types(root, rel):
-    if not (root / TYPES).is_file():
+def member(root, check, rel):
+    if not (root / check).is_file():
         return ""
-    ran = subprocess.run([sys.executable, str(root / TYPES), "--file", rel],
+    ran = subprocess.run([sys.executable, str(root / check), "--file", rel],
                          cwd=root, capture_output=True, text=True)
     return "" if ran.returncode == 0 else ran.stdout + ran.stderr
 
@@ -73,11 +76,12 @@ def main():
     found = run(root, "eslint", ["--max-warnings", "0",
                                  "--suppressions-location", SUPPRESSIONS,
                                  rel])
+    found += member(root, FORMAT, rel)
     if rel.startswith("src/"):
         found += run(root, "depcruise",
                      [rel, "--config", CONFIG, "--ignore-known", BASELINE,
                       "--output-type", "err"])
-        found += types(root, rel)
+        found += member(root, TYPES, rel)
     if not found:
         return 0
     print(found, file=sys.stderr)

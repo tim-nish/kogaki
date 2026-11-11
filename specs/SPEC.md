@@ -805,6 +805,11 @@ declared measurement input for that class — never the policy system's
   restates a rule. `tsc-baseline.json` counts the findings that predate the
   check per file and code, each a debt owed its own Issue, and it only
   shrinks: a count above its row fails, and a row above its count fails too.
+- **The formatter** (kogaki#1792): Prettier at `printWidth` 120 over the
+  `.mjs` files under `src/` and `checks/`, configured in `.prettierrc.json`
+  and run by `checks/check-format.py`, by the edit hook and in CI. The hook
+  names a file that differs and never rewrites it, and the one commit that
+  formatted the tree is listed in `.git-blame-ignore-revs`.
 - **The language of a check** (kogaki#1790): a registered member runs by its
   extension — `.sh` with bash, `.mjs` with node, `.py` with python3 — and a
   shell or Python file carries at most 20 lines of another language in a
