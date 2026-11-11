@@ -1,0 +1,4 @@
+# The commits `git blame` skips, read with `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+# or by GitHub on its own: each one changes formatting and nothing else.
+# The formatting of src/ and checks/ .mjs by Prettier (kogaki#1792).
+00bdd04b8e77e514ba455f42c195f4bb85473bbe
