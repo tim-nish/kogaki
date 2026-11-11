@@ -3210,6 +3210,14 @@ the per-Call limit; `judge`, `site retry` and `suffix` from the row's phase;
 and, for the Leg Call, `write` where its input carries a Mapping Table, or
 the Mapper is off, and `bind` where it does not.
 
+**The Analogy Mapping part** opens the sheet (kogaki#1814): the base domain
+the run's opening Call chose, as `Base domain: <name>` and its description; a
+`Roles` table of Role, name and counterpart; a `Relations` table of relation
+and counterpart; the Call's input, its structure and persona, under a
+disclosure; and that Call with its files and rationale as a Round's `Calls`
+lists them. A run with no Analogy Call reads `No Analogy Mapping was written
+for this run.`
+
 **The Leg band.** Each field on its own line: the unit's status (`done`,
 `refused`, `died`, or `running`, read as `stopped` when its supervisor is
 gone), the Call count by kind, the first Call's seconds, and the definition
@@ -3234,12 +3242,16 @@ another on one line:
    - `Binding`: `Move: <id>`, the id linking to `moves/<id>.yaml` and, where
      an extraction record names the Move, to its Corpus passage at
      `<path>:<line>` with the span `lines a–b` (else `no extraction record on
-     this machine names this Move`); `join: <word>`; then one `Structure`
+     this machine names this Move`), the id followed by `(unchanged)` in a
+     later Round whose Move is the first Round's; `join key: present|absent`;
+     `join: <word>`, or `join: absent` where the paragraph carries no `join`
+     key, so a key valued `none` and an absent key read apart (kogaki#1814);
+     then one `Structure`
      table headed `Role`, `Abstract`, `Attribute`, `Expression` under a
      `Base: <domain>` line, the last column and the line read from the Mapping
      Table grounded for this Move, or empty under `no Mapping Table was
-     grounded for this Move`. `Binding of Round m holds` in a later Round that
-     keeps it.
+     grounded for this Move`. A later Round that keeps it reads its `Move:`
+     line and then `Binding of Round m holds`.
    - `Submission`: the Segments table (operation, relation, manner, point,
      cast), with no caption. The Move's name appears in the Binding block
      only.
@@ -3247,7 +3259,10 @@ another on one line:
      `refused before the Judge`; `why`; `source`; `names`. It is shown once,
      here, and never again under Round n+1 as what that Round answered.
    - `Calls`: the write, site retry or suffix Call, the judge Call, the bind
-     Call and the grounding Call this Round is read from.
+     Call and the grounding Call this Round is read from, each followed by
+     `files:`, linking its `prompt.md`, `input.json` and `answer.json` as
+     `file://` paths, and by `rationale:`, the rationale its answer carries
+     or `the answer carries none` (kogaki#1814).
 
 **The Move's Corpus passage** is read by `src/flp/provenance.mjs` from the
 extraction records on this machine — every `extractions.json` under
@@ -3284,8 +3299,8 @@ first line and links to its files.
 **Headings.** Every table stands under one heading from this list, and no
 other: `Leg's text`, `Structure`, `Round n`, `Binding`, `Submission`,
 `Comment`, `Calls`, `Candidate <id>`, `Leg`, `Move`, `Purpose`,
-`Brief Waypoints`, `Case`. The list is `TABLE_HEADINGS` in the sheet, and
-`checks/check-flp.sh` reads it.
+`Brief Waypoints`, `Case`, `Roles`, `Relations`. The list is
+`TABLE_HEADINGS` in the sheet, and `checks/check-flp.mjs` reads it.
 
 #### 4.19.5 The Analogy Mapping (kogaki#1778)
 

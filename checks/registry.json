@@ -744,7 +744,7 @@
     },
     {
       "id": "flp",
-      "file": "checks/check-flp.sh",
+      "file": "checks/check-flp.mjs",
       "covers": [
         "src/flp/sheet.mjs",
         "src/flp/provenance.mjs"
@@ -755,7 +755,7 @@
         "tier": "pre-push",
         "runtime_ms": 1300,
         "runtime_ms_note": "MEASURED AT AUTHORING (kogaki#1756, 2026-11-09): three plain runs of the file took 340 ms each; the fixture is written in a temporary directory and no model is called. Unchanged in kind at kogaki#1758, which adds one Call Record to the fixture. RE-MEASURED AT kogaki#1762 (2026-11-09): three plain runs took 730-760 ms, the Candidate cases spawning four CLI processes over a second fixture run. RE-MEASURED AT kogaki#1814 (2026-11-11): three plain runs took 970-1240 ms, each Round now reading its Calls' answers for the rationale line.",
-        "efficacy": "case: checks/check-flp.sh::(d) paragraph 2's Rounds are",
+        "efficacy": "case: checks/check-flp.mjs::(d) paragraph 2's Rounds are",
         "efficacy_note": "mutation-verified at kogaki#1814: rendering an absent `join` key as `none` again failed (w) by name, the named defect of kogaki#1814 -- an absent key and a key valued none read alike. mutation-verified at kogaki#1762: dropping the `Segment n` form from the Comment's location reader failed both (q) cases, the named defect of kogaki#1762 -- a Comment's named Segment highlighted nowhere. mutation-verified at kogaki#1758: letting a bind Call open a Round (adding `bind` to the kinds `roundsAt` reads as a Submission) failed (c) and both (d) Round-count cases, the named defect of kogaki#1758 -- a bind Call rendered as a unit of the loop. At kogaki#1752: restoring the Leg sheet's exact unit-name filter in the call list failed the call-list case, now (l).",
         "removal_signal": "a ruling retires the FLP or folds it into the Structure-Mapping Playground's sheet -- either way src/flp/sheet.mjs is gone",
         "removal_instrument": "probe: ! test -f src/flp/sheet.mjs"
