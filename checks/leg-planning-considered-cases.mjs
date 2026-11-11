@@ -4,7 +4,9 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const fails = [];
+let cases = 0;
 const ok = (cond, msg) => {
+  cases += 1;
   if (!cond) fails.push(msg);
 };
 const load = (p) => import(pathToFileURL(join(resolve("."), p)).href);
@@ -129,4 +131,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("check-leg-planning (m): ok");
+console.log(`check-leg-planning (m): ok, ${cases} case(s)`);

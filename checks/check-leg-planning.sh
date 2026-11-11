@@ -404,5 +404,11 @@ if (fails.length) { for (const f of fails) console.log(`FAIL: ${f}`); console.lo
 console.log("check-leg-planning: ok");
 JS
 main=$?
-node checks/leg-planning-considered-cases.mjs || exit 1
+# Case (m)'s pass is held to this member's `case_floor` in checks/registry.json, in both directions (kogaki#661, kogaki#970).
+FLOOR=$(node -e 'const r = require("./checks/registry.json"); console.log(r.checks.find((t) => t.id === "leg-planning").admission.case_floor)')
+out=$(node checks/leg-planning-considered-cases.mjs) || { echo "$out"; exit 1; }
+echo "$out"
+n=$(printf '%s\n' "$out" | sed -n 's/^check-leg-planning (m): ok, \([0-9][0-9]*\) case(s)$/\1/p')
+if [ -z "$n" ] || (( n < FLOOR )); then echo "FAIL: (m) ran ${n:-no} case(s), below its case_floor of $FLOOR — cases were lost"; exit 1; fi
+if (( n > FLOOR )); then echo "FAIL: (m) ran $n case(s), above its case_floor of $FLOOR — set case_floor to $n in checks/registry.json"; exit 1; fi
 exit "$main"
