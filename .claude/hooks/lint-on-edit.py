@@ -2,10 +2,12 @@
 """PostToolUse on Edit|Write: an edited src/**/*.mjs file is cruised against
 the lane rule at once, so a new crossing edge reaches the session in the same
 turn (kogaki#1746), and an edited src/ or checks/ .mjs file is linted with
-ESLint, so a new finding does too (kogaki#1747). The rules are
-`.dependency-cruiser.cjs` and `eslint.config.mjs`; this hook runs each over
-the one file with its baseline and exits 2 with the findings on stderr. Any
-other path returns 0 without running anything."""
+ESLint, so a new finding does too (kogaki#1747), and an edited .sh or .py
+file is measured against the heredoc bound (kogaki#1790). The rules are
+`.dependency-cruiser.cjs`, `eslint.config.mjs` and
+`checks/check-heredoc-bound.py`; this hook runs each over the one file with
+its baseline and exits 2 with the findings on stderr. Any other path returns
+0 without running anything."""
 import json
 import pathlib
 import subprocess
@@ -14,6 +16,7 @@ import sys
 CONFIG = ".dependency-cruiser.cjs"
 BASELINE = ".dependency-cruiser-known-violations.json"
 SUPPRESSIONS = "eslint-suppressions.json"
+HEREDOC_BOUND = "checks/check-heredoc-bound.py"
 
 
 def run(root, tool, args):
@@ -26,12 +29,28 @@ def run(root, tool, args):
     return "" if ran.returncode == 0 else ran.stdout + ran.stderr
 
 
+def heredoc_bound(edited):
+    root = next((p for p in edited.parents if (p / HEREDOC_BOUND).is_file()),
+                None)
+    if root is None:
+        return 0
+    ran = subprocess.run([sys.executable, str(root / HEREDOC_BOUND), "--file",
+                          edited.relative_to(root).as_posix()], cwd=root,
+                         capture_output=True, text=True)
+    if ran.returncode == 0:
+        return 0
+    print(ran.stdout + ran.stderr, file=sys.stderr)
+    return 2
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
     except ValueError:
         return 0
     path = (payload.get("tool_input") or {}).get("file_path") or ""
+    if path.endswith((".sh", ".py")):
+        return heredoc_bound(pathlib.Path(path).resolve())
     if not path.endswith(".mjs"):
         return 0
     edited = pathlib.Path(path).resolve()

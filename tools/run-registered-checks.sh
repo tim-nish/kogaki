@@ -389,6 +389,24 @@ def member_path(entry):
             else pathlib.Path("checks") / entry["file"])
 
 
+# A member runs by its extension (kogaki#1790).
+MEMBER_INTERPRETERS = {".sh": "bash", ".mjs": "node", ".py": "python3"}
+
+
+def member_argv(entry):
+    path = member_path(entry)
+    return [MEMBER_INTERPRETERS[path.suffix], str(path)]
+
+
+unrunnable = [member_path(e).as_posix() for e in registry["checks"]
+              if member_path(e).suffix not in MEMBER_INTERPRETERS]
+if unrunnable:
+    print("run-registered-checks.sh: a registered member must be a .sh, "
+          ".mjs or .py file; refused: " + ", ".join(unrunnable),
+          file=sys.stderr)
+    sys.exit(2)
+
+
 def run_member(entry):
     """Run one member, returning its captured output, status and cost.
 
@@ -398,7 +416,7 @@ def run_member(entry):
     members happen to finish in.
     """
     started = time.monotonic()
-    result = subprocess.run(["bash", str(member_path(entry))],
+    result = subprocess.run(member_argv(entry),
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     return {
         "entry": entry,
@@ -659,7 +677,7 @@ if failed:
                                 new_failures.append(check_id)
                                 continue
                             base_result = subprocess.run(
-                                ["bash", str(member_path(entry))],
+                                member_argv(entry),
                                 cwd=wt_dir, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
                             # THE KIT'S DEGRADE EXIT AT THE BASE IS ALSO A NEW

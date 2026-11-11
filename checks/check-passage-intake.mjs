@@ -1,25 +1,22 @@
-#!/usr/bin/env bash
-# check-passage-intake — the Passage intake puts a source Passage into the store, keeps the
-# book's order in ORDER.md and regenerates INDEX.md (kogaki#1535, owner decision 2026-10-23).
-# Driven through `node src/proof-sheet/passage-intake.mjs` on a fixture store under a
-# temporary directory, never the real `corpus/passages/`:
-#   (a) a new file writes `<slug>.md` (three header lines, the text verbatim), appends the
-#       slug to ORDER.md and prints the Extractor's paragraph and sentence counts;
-#   (b) `--before <slug>` inserts before the named slug; earlier files are unchanged;
-#   (c) a slug already in the store is refused by name, the store unchanged;
-#   (d) a `--before` slug absent from the order is refused by name, the store unchanged;
-#   (e) INDEX.md holds one row per slug in ORDER.md's order, with position and counts;
-#   (f) `passageBody` strips the header, so the counts are over the Passage text alone.
-set -euo pipefail
-repo="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$repo"
-exec node --input-type=module - "$repo" <<'JS'
+#!/usr/bin/env node
+// check-passage-intake — the Passage intake puts a source Passage into the store, keeps the
+// book's order in ORDER.md and regenerates INDEX.md (kogaki#1535, owner decision 2026-10-23).
+// Driven through `node src/proof-sheet/passage-intake.mjs` on a fixture store under a
+// temporary directory, never the real `corpus/passages/`:
+//   (a) a new file writes `<slug>.md` (three header lines, the text verbatim), appends the
+//       slug to ORDER.md and prints the Extractor's paragraph and sentence counts;
+//   (b) `--before <slug>` inserts before the named slug; earlier files are unchanged;
+//   (c) a slug already in the store is refused by name, the store unchanged;
+//   (d) a `--before` slug absent from the order is refused by name, the store unchanged;
+//   (e) INDEX.md holds one row per slug in ORDER.md's order, with position and counts;
+//   (f) `passageBody` strips the header, so the counts are over the Passage text alone.
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-const repo = process.argv[2];
-const { passageBody, passageCounts } = await import(join(repo, "src/proof-sheet/passage-intake.mjs"));
+import { fileURLToPath } from "node:url";
+import { passageBody, passageCounts } from "../src/proof-sheet/passage-intake.mjs";
+const repo = fileURLToPath(new URL("..", import.meta.url));
 const fails = [];
 const ok = (cond, label) => { if (!cond) fails.push(label); };
 const root = mkdtempSync(join(tmpdir(), "passage-intake-"));
@@ -78,4 +75,3 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("check-passage-intake: PASS (6 cases)");
-JS

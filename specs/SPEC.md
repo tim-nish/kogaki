@@ -799,6 +799,15 @@ declared measurement input for that class — never the policy system's
   `checks/check-eslint.sh`, by the edit hook and in CI, and nothing in prose
   restates a rule. `eslint-suppressions.json` is the list of findings that
   predate the lint, each a debt owed its own Issue, and it only shrinks.
+- **The language of a check** (kogaki#1790): a registered member runs by its
+  extension — `.sh` with bash, `.mjs` with node, `.py` with python3 — and a
+  shell or Python file carries at most 20 lines of another language in a
+  heredoc. On 2026-11-11, 37 of 42 shell members carried their whole program
+  in one, about 15,000 lines no language tool reached. The bound is
+  `checks/check-heredoc-bound.py`, run by the registry and by the edit hook,
+  and nothing in prose restates the predicate. `.heredoc-known-blocks.json` is
+  the list of blocks that predate it, each a debt owed its own Issue, and it
+  only shrinks.
 - **PR gate, split by property type:** the mechanical half (change licensed
   by a named issue; new checks carry admission records; registry
   conformance; **a touched consultation-map boundary has a receipt**) runs
