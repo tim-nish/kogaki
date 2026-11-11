@@ -975,6 +975,29 @@
       }
     },
     {
+      "id": "format",
+      "file": "checks/check-format.py",
+      "covers": [
+        "src/",
+        "checks/",
+        ".prettierrc.json",
+        "package.json",
+        ".claude/hooks/lint-on-edit.py",
+        ".claude/rules/src-lanes.md"
+      ],
+      "admission": {
+        "contract": "Every `.mjs` file under `src/` and `checks/` is formatted as `.prettierrc.json` says (Prettier at `printWidth` 120, otherwise its defaults); the member runs `prettier --check` over the two globs and fails naming each file that differs with the one command that fixes it. THE NAMED DEFECT: no formatter existed, Prettier in check mode reported style differences in all 99 `.mjs` files under `src/` and `checks/` on 2026-11-11, and formatting differences reached review rounds with nothing to settle them (kogaki#1792). The tree was formatted in one commit, listed in `.git-blame-ignore-revs`. The fixture pass runs on every invocation: (c0) a formatted `.mjs` file passes; (c1) the same file with two lines joined fails naming the file; (c2) the edit hook `.claude/hooks/lint-on-edit.py` returns the file's name and the fixing command and does not rewrite the file; (c3) `.claude/rules/src-lanes.md` names this member.",
+        "license": "kogaki#1792",
+        "tier": "pre-push",
+        "runtime_ms": 3800,
+        "runtime_ms_note": "Measured 2026-11-11 at 8141847 plus this change, formatted: 3785, 3797 and 3841 ms over three runs; the cost is one `prettier --check` over 121 files and three single-file checks in a copied tree, one of them through the edit hook.",
+        "removal_signal": "no `.mjs` file is left under src/ or checks/, so there is no JavaScript to format.",
+        "removal_instrument": "probe: ! git ls-files -- 'src/*.mjs' 'checks/*.mjs' | grep -q .",
+        "efficacy": "case: checks/check-format.py::(c1) a formatted .mjs file with two lines joined fails naming the file",
+        "efficacy_note": "MUTATION EVIDENCE (run 2026-11-11 at 8141847 plus this change, formatted). Joining lines 25 and 26 of `src/yaml.mjs` (`import { readFileSync } from \"node:fs\"; import { pathToFileURL } from \"node:url\";`) FAILED naming `src/yaml.mjs` with the fixing command `npx prettier --write src/yaml.mjs`; restoring the file restored PASS over 121 files."
+      }
+    },
+    {
       "id": "heredoc-bound",
       "file": "checks/check-heredoc-bound.py",
       "covers": [
