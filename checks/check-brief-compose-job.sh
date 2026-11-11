@@ -158,7 +158,7 @@ const LEGS = structureLegs(STRUCTURE, CLAIMS);
   if (/Waypoint/.test(extra)) fails.push(`(ak) the not-offered line still names a Waypoint: ${extra}`);
   const sel = table.states.find((x) => x.id === "CANDIDATE_SELECTION");
   if (sel.renders_above_question !== "reader_path") fails.push(`(ak) CANDIDATE_SELECTION renders ${JSON.stringify(sel.renders_above_question)} above the question, not the Reader Path`);
-  const keys = readFileSync("src/workflow/gate.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = .*/)[0];
+  const keys = readFileSync("src/workflow/gate.mjs", "utf8").match(/const GATE_CALL_READING_KEYS = [^\]]*\]/)[0];
   if (!/"excluded_candidates"/.test(keys) || !/"reader_path"/.test(keys)) fails.push("(ak) excluded_candidates or reader_path is not a gate-call reading key");
 }
 
