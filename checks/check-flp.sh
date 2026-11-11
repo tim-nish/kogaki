@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-flp -- the Feedback-Loop Playground (kogaki#1756, kogaki#1758, kogaki#1762) renders one Leg of a ParagraphPlan
 # run, or one Candidate of a Brief compose run, from the run directory alone, one Round per Submission. Its cases
-# (a)-(t) are the `flp` entry's contract in checks/registry.json.
+# (a)-(x) are the `flp` entry's contract in checks/registry.json.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -19,7 +19,7 @@ const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { writeCallRecord, pinCallRefusal, callDir } = await imp("src/workflow/call-record.mjs");
 const { SiteLoop } = await imp("src/workflow/site-retry.mjs");
 const { renderRowHead } = await imp("src/paragraph-plan.mjs");
-const { renderFlp, unitStatus, namedLocations, TABLE_HEADINGS, ROUND_BLOCKS, CANDIDATE_ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE, NO_RECORD } = await imp("src/flp/sheet.mjs");
+const { renderFlp, unitStatus, namedLocations, TABLE_HEADINGS, ROUND_BLOCKS, CANDIDATE_ROUND_BLOCKS, ROUND_DEFINITION, NO_TABLE, NO_RECORD, NO_ANALOGY, CALL_LINKS } = await imp("src/flp/sheet.mjs");
 const root = mkdtempSync(join(tmpdir(), "flp-"));
 const run = join(root, "run");
 mkdirSync(join(run, "mapping"), { recursive: true });
@@ -40,7 +40,7 @@ const record = (unit, n, phase, answer, refusal = null, prompt = "p") => writeCa
 // leg1, with no Mapper: Call 1 refused at paragraph 1 by the Leg validator, Call 2 passed.
 const L1_REFUSAL = "Leg leg1, paragraph 1 carries `join` — the first paragraph of a Leg carries no join";
 const l1b = plan("leg1", M1, [para(1, ["Alpha one."]), para(2, ["Alpha two."])]);
-record("leg-1", 1, "compose", plan("leg1", M1, [para(1, ["Alpha one."], { join: "consequence" }), para(2, ["Alpha two."])]), { text: L1_REFUSAL, sites: [1] });
+record("leg-1", 1, "compose", plan("leg1", M1, [para(1, ["Alpha one."], { join: "none" }), para(2, ["Alpha two."])]), { text: L1_REFUSAL, sites: [1] });
 record("leg-1", 2, "compose", l1b);
 // leg2.
 const STOPPED = "the compose call ran past the 900s per-call limit";
@@ -99,6 +99,13 @@ writeFileSync(join(run, "reader-path-job.json"), JSON.stringify({ state: "refuse
     refusals: [STOPPED, `THE PARAGRAPHS WERE JUDGED:\n${J2}`, J2, S2, LEGACY, STOP] },
   { id: "leg-3", status: "done", rounds: 5, call_1_s: 10 }] }));
 writeFileSync(join(run, "paragraph-plan-start.json"), JSON.stringify({ brief: "theses/fixture/brief.yaml", brief_sha256: "0", moves_dir: "moves", legs: [leg("leg1"), leg("leg2"), leg("leg3")] }));
+
+// THE RUN'S OPENING ANALOGY CALL (kogaki#1814): its accepted mapping beside the start record, and its Call Record.
+const ANALOGY = { base_domain: { name: "A night doorman", description: "A doorman follows a sheet of instructions." },
+  roles: [{ role: "rule", counterpart: "the instruction sheet" }], relations: [{ relation: "c_1", counterpart: "he acts on named callers only" }] };
+writeFileSync(join(run, "paragraph-plan-analogy.json"), JSON.stringify({ analogy: ANALOGY }));
+writeCallRecord(join(run, "analogy"), "analogy", 1, { prompt: "p", argv: [], cli: null, row: { phase: "analogy" }, raw: "", refusal: null,
+  input: { structure: { roles: [{ id: "rule", name: "rule_set" }] }, persona: { prior_knowledge: "none" } }, answer: { version: "1", ...ANALOGY } });
 
 const corpus = join(root, "corpus");
 mkdirSync(join(corpus, "batch", "legs"), { recursive: true });
@@ -241,7 +248,8 @@ for (const t of html.split("<table>").slice(0, -1)) {
     const now = renderFlp({ runDir: run, legId, outDir: root });
     const was = renderFlp({ runDir: old, legId, outDir: root });
     // The record links name the directory they point into, so they are the one difference allowed.
-    const same = (was.html || "").split(old).join(run).split(`run-old/${RETIRED_NAMES.dir}/`).join("run/calls/");
+    const same = (was.html || "").split(old).join(run).split(`run-old/${RETIRED_NAMES.dir}/`).join("run/calls/")
+      .split(`${run}/${RETIRED_NAMES.dir}/`).join(`${run}/calls/`);
     ok(!was.error && was.html && same === now.html,
       `(o) ${legId} of a run written under the retired names did not render as the same run under the new names: ${was.error || ""}`);
   }
@@ -303,6 +311,47 @@ ok(listing(corpus) === corpusBefore && listing(join(repo, "moves")) === movesBef
   ok(noJob.status === 1 && /reader-path-job\.json/.test(noJob.stderr), `(s) a directory with no job record is not refused naming the file: ${noJob.stderr.trim()}`);
 }
 
+// (u) THE ANALOGY MAPPING OPENS THE PAGE (kogaki#1814): the base domain, a counterpart per Role and per relation,
+// and the Call's input under a disclosure; a run with no Analogy Call says so.
+{
+  const analogy = (html.split('id="analogy"')[1] || "").split("</section>")[0];
+  ok(html.indexOf('id="analogy"') !== -1 && html.indexOf('id="analogy"') < html.indexOf("unit leg-2"), "(u) the Analogy Mapping part does not open the page");
+  ok(analogy.includes(">Base domain: A night doorman<") && /<td>rule<\/td><td>rule_set<\/td><td>the instruction sheet<\/td>/.test(analogy)
+    && analogy.includes("<td>c_1</td><td>he acts on named callers only</td>"), `(u) the Analogy Mapping lacks its base domain or a counterpart: ${analogy.slice(0, 300)}`);
+  ok(/<details><summary>[^<]*input[^<]*<\/summary><pre>[^<]*prior_knowledge/.test(analogy), "(u) the Analogy Call's input is not under a disclosure");
+  const bareRun = join(root, "run-no-analogy");
+  cpSync(run, bareRun, { recursive: true });
+  rmSync(join(bareRun, "analogy"), { recursive: true });
+  rmSync(join(bareRun, "paragraph-plan-analogy.json"));
+  ok((renderFlp({ runDir: bareRun, legId: "leg2", outDir: root }).html || "").includes(NO_ANALOGY), "(u) a run with no Analogy Call does not say so");
+}
+// (v) EACH ROUND LINKS ITS CALLS' THREE FILES as file:// paths, and renders each answer's rationale.
+for (const r of [...roundsOf(w1), ...roundsOf(w2)]) {
+  const callsBlock = block(r, "Calls");
+  const listed = count(callsBlock, '<p class="line">Call ') + count(callsBlock, '<p class="line">grounding Call ');
+  ok(listed > 0 && CALL_LINKS.every((f) => count(callsBlock, `">${f}</a>`) + count(callsBlock, `no ${f}`) === listed)
+    && count(callsBlock, 'href="file:///') >= listed, `(v) ${r.split("</h3>")[0]} does not link each Call's three files: ${callsBlock.slice(0, 300)}`);
+  ok(count(callsBlock, ">rationale: ") === listed, `(v) ${r.split("</h3>")[0]} does not render a rationale line per Call`);
+}
+ok(block(round(w2, 1), "Calls").includes(">rationale: the Move carries the Leg.<") && block(round(w2, 1), "Calls").includes(">rationale: the answer carries none<"),
+  "(v) a write Call's rationale, or a judge Call's absent one, is not rendered");
+// (w) THE JOIN KEY'S PRESENCE: a key valued `none` and an absent key render apart.
+{
+  const l1p1 = waypointHtml(r1.html, 1);
+  const j1 = block(round(l1p1, 1), "Binding");
+  const j2 = block(round(l1p1, 2), "Binding");
+  ok(j1.includes(">join key: present<") && j1.indexOf(">join key: present<") < j1.indexOf(">join: none<"), `(w) a join key valued none does not read \`join key: present\` above \`join: none\`: ${j1.slice(0, 300)}`);
+  ok(j2.includes(">join key: absent<") && j2.includes(">join: absent<") && !j2.includes("holds"), `(w) an absent join key does not read \`join key: absent\`, or is folded into the held Binding: ${j2.slice(0, 300)}`);
+}
+// (x) EVERY ROUND NAMES ITS MOVE, `(unchanged)` where it is the first Round's.
+for (const r of roundsOf(w2)) ok(block(r, "Binding").includes(`>${M1}</a>`), `(x) ${r.split("</h3>")[0]} does not name its Move`);
+ok(!block(round(w2, 1), "Binding").includes("(unchanged)") && block(round(w2, 2), "Binding").includes(`>${M1}</a> (unchanged)<`)
+  && block(round(w2, 3), "Binding").includes(`>${M1}</a> (unchanged)<`), "(x) a later Round under the first Round's Move does not read `(unchanged)`");
+{
+  const p31 = waypointHtml(renderFlp({ runDir: run, legId: "leg3", outDir: root }).html || "", 1);
+  ok(block(round(p31, 3), "Binding").includes(`>${M2}</a><`) && !block(round(p31, 3), "Binding").includes("(unchanged)"), "(x) a Round holding a rebound Move reads `(unchanged)`");
+}
+
 rmSync(root, { recursive: true, force: true });
 // (t) kogaki#1775: a Comment's bare `Waypoint n` names a Waypoint of the paragraph, and the retired Brief Waypoint
 // forms `Brief Waypoint n` and `leg <id>, Waypoint n` name none of them.
@@ -313,5 +362,5 @@ rmSync(root, { recursive: true, force: true });
 }
 
 if (fails.length) { for (const f of fails) console.log(`FAIL ${f}`); process.exit(1); }
-console.log("flp: 19 cases pass, the Leg read per paragraph (kogaki#1777)");
+console.log("flp: 23 cases pass, the Leg read per paragraph (kogaki#1777)");
 JS

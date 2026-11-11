@@ -21,6 +21,7 @@ import { readMappingState, unitIdFor } from "../paragraph-plan.mjs";
 import { moveContract, CAST_KEYS } from "../compose.mjs";
 import { proofSheetCss } from "../mapping-playground/sheet.mjs";
 import { movePassage, NO_RECORD } from "./provenance.mjs";
+import { readAnalogy, ANALOGY_DIR, ANALOGY_UNIT } from "../paragraph-plan-analogy.mjs";
 
 // The run's start record, written by /paragraph-plan beside the job record.
 export const START_FILE = "paragraph-plan-start.json";
@@ -40,6 +41,8 @@ export const TABLE_HEADINGS = [
   "Purpose",
   "Brief Waypoints",
   "Case",
+  "Roles",
+  "Relations",
 ];
 export const ROUND_BLOCKS = ["Binding", "Submission", "Comment", "Calls"];
 export const CANDIDATE_ROUND_BLOCKS = ["Submission", "Comment", "Calls"];
@@ -51,6 +54,9 @@ export const CANDIDATE_ROUND_DEFINITION =
   "A Round is one Candidate composed by one compose Call, the Judge's fit verdict on each of its " +
   "Legs and, where a Leg does not fit its Move, the Comment it drew. A Call is one model call under this unit: compose or judge.";
 export const NO_TABLE = "no Mapping Table was grounded for this Move";
+export const NO_ANALOGY = "No Analogy Mapping was written for this run.";
+// The three files of a Call Record each Round links (kogaki#1814).
+export const CALL_LINKS = ["prompt.md", "input.json", "answer.json"];
 export { NO_RECORD };
 // The validator a refusal record names, else the one the declaring module runs at that phase.
 const PHASE_VALIDATORS = {
@@ -82,6 +88,21 @@ const heading = (name) => {
   return `<h4 class="th">${esc(name)}</h4>`;
 };
 const link = (outDir, path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
+const fileLink = (path, text) => `<a href="${esc(pathToFileURL(path).href)}">${esc(text)}</a>`;
+
+// A CALL'S FILES AND RATIONALE (kogaki#1814): its prompt, input and answer as `file://` links, and the rationale its
+// answer carries, so a defect can be traced to the Call it entered at.
+function callFilesHtml(dir) {
+  if (!dir) return "";
+  const files = CALL_LINKS.map((f) => (existsSync(join(dir, f)) ? fileLink(join(dir, f), f) : esc(`no ${f}`))).join(
+    " ",
+  );
+  const rec = readCallRecord(dir);
+  const a = rec.answer;
+  const why = a && typeof a === "object" && typeof a.rationale === "string" ? a.rationale : null;
+  return `<p class="line">files: ${files}</p>` + line(`rationale: ${why ?? "the answer carries none"}`);
+}
+const callHtml = (c) => line(`${c.label}: ${c.kind}`) + callFilesHtml(c.dir);
 
 function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -173,7 +194,7 @@ export function roundsAt(calls, n, status) {
       const open = rounds[rounds.length - 1];
       if (!v || !open || open.verdict) continue;
       open.verdict = { kind: "judge", record: v };
-      open.calls.push({ label: `Call ${c.n}`, kind: c.kind });
+      open.calls.push({ label: `Call ${c.n}`, kind: c.kind, dir: c.dir });
       open.comment = {
         text: (v.verdict !== "fits" && refusalAt(c.refusal, n)) || String(v.why ?? ""),
         source: "the Judge",
@@ -195,7 +216,7 @@ export function roundsAt(calls, n, status) {
       number: rounds.length + 1,
       entry,
       call: c,
-      calls: [{ label: `Call ${c.n}`, kind: c.kind }],
+      calls: [{ label: `Call ${c.n}`, kind: c.kind, dir: c.dir }],
       verdict: null,
       comment: null,
     };
@@ -296,9 +317,12 @@ function submissionTable(library, entry, named) {
 
 // THE MOVE LINE: the id linking to its file in the library, and its Corpus passage where an extraction record on
 // this machine names the Move (kogaki#1762).
-function moveLine(move, { library, outDir, corpusDir }) {
+const moveHead = (move, { library, outDir }, unchanged) =>
+  !move
+    ? line("Move: none read")
+    : `<p class="line">Move: ${link(outDir, resolve(REPO, library, `${move}.yaml`), move)}${unchanged ? " (unchanged)" : ""}</p>`;
+function moveLine(move, { library, outDir, corpusDir }, unchanged = false) {
   if (!move) return line("Move: none read");
-  const file = resolve(REPO, library, `${move}.yaml`);
   const p = movePassage(move, corpusDir ? { corpusDir } : {});
   const passage = !p
     ? esc(NO_RECORD)
@@ -307,7 +331,7 @@ function moveLine(move, { library, outDir, corpusDir }) {
       : p.span
         ? `${link(outDir, p.file, `${relFromRepo(p.file)}:${p.line}`)} ${esc(`lines ${p.span.first}–${p.span.last}`)}`
         : esc(`${relFromRepo(p.file)} holds no paragraph ${p.paragraph}`);
-  return `<p class="line">Move: ${link(outDir, file, move)}</p><p class="line">passage: ${passage}</p>`;
+  return `${moveHead(move, { library, outDir }, unchanged)}<p class="line">passage: ${passage}</p>`;
 }
 
 // The Binding of a Round: the Leg's Move, `join`, and the Leg's Mapping Table where it was grounded for that Move.
@@ -325,9 +349,11 @@ function bindingOf(round, n, calls, mapping, groundingCalls) {
           ) || null;
   return {
     move,
-    join: round.entry ? (round.entry.join ?? "none") : "none",
+    // THE JOIN KEY'S PRESENCE (kogaki#1814): an absent key and a key valued `none` are two different answers.
+    joinKey: Boolean(round.entry && Object.hasOwn(round.entry, "join")),
+    join: round.entry && Object.hasOwn(round.entry, "join") ? String(round.entry.join) : "absent",
     table: grounded ? table : null,
-    bindCall: binder ? { label: `Call ${binder.n}`, kind: binder.kind } : null,
+    bindCall: binder ? { label: `Call ${binder.n}`, kind: binder.kind, dir: binder.dir } : null,
     groundedBy: grounded ? groundingCalls : [],
   };
 }
@@ -372,12 +398,15 @@ function commentHtml(verdict, comment, named) {
 const roundHead = (number) => `<h3 class="round">Round ${number}</h3>`;
 
 function roundHtml(round, n, ctx) {
-  const { library, calls, mapping, groundingCalls, held, outDir, corpusDir } = ctx;
+  const { library, calls, mapping, groundingCalls, held, firstMove, outDir, corpusDir } = ctx;
   const b = bindingOf(round, n, calls, mapping, groundingCalls);
   const same = held && held.binding.move === b.move && held.binding.join === b.join && held.binding.table === b.table;
+  // EVERY ROUND NAMES ITS MOVE (kogaki#1814), `(unchanged)` where it is the first Round's.
+  const unchanged = round.number > 1 && b.move !== null && b.move === firstMove;
   const binding = same
-    ? line(`Binding of Round ${held.number} holds`)
-    : moveLine(b.move, { library, outDir, corpusDir }) +
+    ? moveHead(b.move, { library, outDir }, unchanged) + line(`Binding of Round ${held.number} holds`)
+    : moveLine(b.move, { library, outDir, corpusDir }, unchanged) +
+      line(`join key: ${b.joinKey ? "present" : "absent"}`) +
       line(`join: ${b.join}`) +
       structureTable(structureAt(mapping), b.table);
   const named = round.comment ? namedLocations(round.comment.text, round.entry) : { waypoints: [], segments: [] };
@@ -397,8 +426,49 @@ function roundHtml(round, n, ctx) {
       heading("Comment") +
       commentHtml(round.verdict, round.comment, named) +
       heading("Calls") +
-      roundCalls.map((c) => line(`${c.label}: ${c.kind}`)).join(""),
+      roundCalls.map(callHtml).join(""),
   };
+}
+
+// THE ANALOGY MAPPING PART (kogaki#1814): the base domain the run's opening Call chose, a counterpart per Role and
+// per relation, and that Call's input and files.
+function analogyHtml(runDir) {
+  const a = readAnalogy(runDir);
+  const rows = callRows(callsRoot(join(runDir, ANALOGY_DIR))).filter((r) => r.unit === ANALOGY_UNIT);
+  if (!a && !rows.length) return none(NO_ANALOGY);
+  const last = rows.length ? rows[rows.length - 1] : null;
+  const input = last ? readCallRecord(last.dir).input : null;
+  const roles = (input && input.structure && input.structure.roles) || [];
+  const nameOf = (id) => (roles.find((r) => r && r.id === id) || {}).name ?? "";
+  const mapped =
+    !a || typeof a !== "object"
+      ? none(NO_ANALOGY)
+      : Object.hasOwn(a, "none")
+        ? line(`none: ${a.none}`)
+        : line(`Base domain: ${(a.base_domain && a.base_domain.name) ?? ""}`) +
+          line(String((a.base_domain && a.base_domain.description) ?? "")) +
+          heading("Roles") +
+          "<table><thead><tr><th>Role</th><th>name</th><th>counterpart</th></tr></thead><tbody>" +
+          (a.roles || [])
+            .map((x) => `<tr><td>${esc(x.role)}</td><td>${esc(nameOf(x.role))}</td><td>${esc(x.counterpart)}</td></tr>`)
+            .join("") +
+          "</tbody></table>" +
+          heading("Relations") +
+          "<table><thead><tr><th>relation</th><th>counterpart</th></tr></thead><tbody>" +
+          (a.relations || [])
+            .map((x) => `<tr><td>${esc(x.relation)}</td><td>${esc(x.counterpart)}</td></tr>`)
+            .join("") +
+          "</tbody></table>";
+  const disclosure = input
+    ? `<details><summary>the Call's input: structure and persona</summary><pre>${esc(
+        JSON.stringify({ structure: input.structure ?? null, persona: input.persona ?? null }, null, 2),
+      )}</pre></details>`
+    : "";
+  return (
+    mapped +
+    disclosure +
+    rows.map((r) => callHtml({ label: `analogy Call ${r.n}`, kind: "analogy", dir: r.dir })).join("")
+  );
 }
 
 function structureHtml(mapping) {
@@ -534,16 +604,26 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
   const statuses = [];
   const groundingCalls = callRows(callsRoot(runDir))
     .filter((r) => r.unit === `${unitId}/grounding`)
-    .map((r) => ({ label: `grounding Call ${r.n}`, kind: "grounding" }));
+    .map((r) => ({ label: `grounding Call ${r.n}`, kind: "grounding", dir: r.dir }));
   const body = numbers
     .map((n) => {
       const rounds = roundsAt(calls, n, status);
       const st = paragraphStatus(status, n, lastNamed, rounds);
       statuses.push(st.tag);
       let held = null;
+      const firstMove = rounds.length && rounds[0].entry ? (rounds[0].entry.move ?? null) : null;
       const roundsHtml = rounds
         .map((round) => {
-          const r = roundHtml(round, n, { library, calls, mapping, groundingCalls, held, outDir, corpusDir });
+          const r = roundHtml(round, n, {
+            library,
+            calls,
+            mapping,
+            groundingCalls,
+            held,
+            firstMove,
+            outDir,
+            corpusDir,
+          });
           if (!r.same) held = { number: round.number, binding: r.binding };
           return r.html;
         })
@@ -561,6 +641,7 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
     line(`run: ${relFromRepo(runDir)}`, "meta") +
       line(`job: ${job.state}`, "meta") +
       line(`Brief: ${start.brief}`, "meta") +
+      part("analogy", "Analogy Mapping", analogyHtml(runDir)) +
       band +
       body +
       part("calls", "Calls", callList(runDir, unitId, outDir, calls)),
