@@ -15,8 +15,7 @@ import { parseTermsYaml, renderLanguageBlock, sha256 as sha256Terms, DEFAULT_TER
 import { sha256, readerTargetLine } from "./brief-reader.mjs";
 import { resolveLegJourneys, packetPersonaPath, introduceLine, introducedMeaning, personaPriorKnowledge } from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
-import { firstPoint } from "../mapping-playground/short.mjs";
-import { higherOrderOf } from "../mapping-playground/structure.mjs";
+import { higherOrderOf, firstPoint } from "../mapping-playground/structure.mjs";
 import { REALIZATION_LANGUAGES, langOf, sectionsDir, packetsDir, packetsRecordKey, sectionsOf, sectionOfLeg } from "./workspace.mjs";
 
 // THE STATED ABSENCE (kogaki#1285 acceptance): rendered in place of

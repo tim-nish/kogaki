@@ -16,7 +16,7 @@
 // span inline and is its origin since the Brief's `lpp_waypoints` row left; the Mapping
 // Playground's `smp_leg_unit` copies it from here (`resolvedRow`, src/workflow/copies.mjs). `diff`
 // prints each copy a row carries and whether it resolves. `derivedRow` stays for a row that still copies a
-// whole production row with `substitutions` (the Mapping Playground's `smp_waypoints_unit`).
+// whole production row with `substitutions`; the Mapping Playground's short Trial plans with the production row unchanged (kogaki#1784).
 //
 // THE VALIDATOR IS PRODUCTION'S, IMPORTED: `validateLegs` — which runs `waypointsRefusal` over
 // the Brief Waypoints — for the Leg. READER START IS RETIRED (kogaki#1699): no row authors one, the
@@ -47,6 +47,11 @@
 //
 // THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it), and a Leg carries no
 // `introduces` (kogaki#1768): `--terms` is refused by name and `brief.json` carries no `terms`.
+//
+// ONE LEG PER ORIGINAL PARAGRAPH (kogaki#1784). The Leg row still answers one Leg per original Leg,
+// one Claim and one Brief Waypoint per paragraph, validated as above; the record splits it into one
+// Brief Leg per paragraph (`legsPerParagraph`), its `text` that paragraph's point and its `claims`
+// that paragraph's Claim, so `/paragraph-plan` binds one Move per original paragraph.
 //
 // THE RECORD. Written by the production `briefRecordText` writer: the composed fields and,
 // for every field the parser requires that this composition does not compose, a fixed
@@ -354,6 +359,15 @@ export function legAsText(leg) {
   return { ...rest, text: waypoints.map((w) => String(w.point ?? "").trim()).filter(Boolean).join(" ") };
 }
 
+// ONE LEG PER ORIGINAL PARAGRAPH (see the header): the composed Leg's paragraph k is the Brief Leg
+// `<leg_id>-p<k>`, carrying Brief Waypoint k's point as its `text` and Claim k as its one Claim.
+export const PARAGRAPH_LEG_SUFFIX = "-p";
+export function legsPerParagraph(leg) {
+  if (!Array.isArray(leg.waypoints)) return [leg];
+  return leg.waypoints.map((w, k) => ({ leg_id: `${leg.leg_id}${PARAGRAPH_LEG_SUFFIX}${k + 1}`,
+    text: String(w.point ?? "").replace(/\s*\n\s*/g, " ").trim(), claims: [leg.claims[k]] }));
+}
+
 // Every field the Brief parser requires that this composition does not compose, with the
 // fixed value it carries, and why. No downstream stage of the Proof Sheet reads them for
 // anything it composes from.
@@ -370,14 +384,18 @@ export function constantFields({ slug, paragraphs }) {
 }
 export const CONSTANT_COMMENT = "# PROOF SHEET CONSTANT (kogaki#1385): not composed — the parser requires it.";
 
-// `legs`, in place of `leg`, is a several-Leg Brief's composed Legs with `counts` and `segments`
-// for `crossLegPath` (kogaki#1532); the last Leg then reaches the target.
-export function legBriefText({ slug, composePath, paragraphs, leg, legs = null, counts = null, segments = null }) {
-  const path = legs ? crossLegPath(legs, counts, segments).legs : [completedLeg(leg)];
+// `legs`, in place of `leg`, is a several-Leg Brief's composed Legs (kogaki#1532). Every composed
+// Leg is split into one Brief Leg per paragraph (kogaki#1784), and the cross-Leg fields are derived
+// over the split path; the last Brief Leg then reaches the target.
+export function paragraphLegPath({ leg = null, legs = null }) {
+  return crossLegPath((legs || [leg]).flatMap(legsPerParagraph));
+}
+export function legBriefText({ slug, composePath, paragraphs, leg, legs = null }) {
+  const path = paragraphLegPath({ leg, legs }).legs;
   const constants = constantFields({ slug, paragraphs });
   const text = briefRecordText({
     slug, compose_path: composePath, ...constants,
-    reader_path: path.map(legAsText).map(legRecord),
+    reader_path: path.map(legRecord),
   });
   // Mark each constant above its key; a comment is never read back.
   const keys = new Set(Object.keys(constants));
@@ -501,7 +519,8 @@ export function runLegBrief({ extractions: extractorRun, out, leg = null, slug =
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs, leg: lp.record.legs[0] }));
-  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true });
+  writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
+    leg_ids: legsPerParagraph(lp.record.legs[0]).map((l) => l.leg_id) });
   return { brief: briefPath, runDir };
 }
 
@@ -531,10 +550,11 @@ function composeLegs({ material, rows, runDir, outDir, briefPath, name, audience
   }
   mkdirSync(outDir, { recursive: true });
   writeFileSync(briefPath, legBriefText({ slug: name, composePath: relFromRepo(audiencePath), paragraphs: material.paragraphs,
-    legs: composed, counts, segments }));
-  const { legs, derived } = crossLegPath(composed, counts, segments);
+    legs: composed }));
+  const { derived } = paragraphLegPath({ legs: composed });
   writeJson(join(runDir, "brief.json"), { extractor_run: resolve(extractorRun), brief: briefPath, language, anchored: true,
-    legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: legs[k].leg_id })), derived });
+    legs: material.legs.map((l, k) => ({ passage: l.passage, paragraphs: l.paragraphs, leg_id: composed[k].leg_id,
+      leg_ids: legsPerParagraph(composed[k]).map((x) => x.leg_id) })), derived });
   return { brief: briefPath, runDir };
 }
 

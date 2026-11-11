@@ -58,6 +58,15 @@ export function higherOrderOf(record) {
   return isMap(h) ? [{ id: "h1", ...h }] : null;
 }
 
+// A TABLE'S POINT (kogaki#1688): the structure's `holds` in order, each `{<Role id>}` replaced by its expression; the
+// short Trial's Leg `text` and the Packet's mapped line read it here, so neither reaches the other (kogaki#1784).
+export function firstPoint(structure, table) {
+  const base = new Map(table.correspondences.map((c) => [c.role, c.expression === null ? c.role : String(c.expression).trim()]));
+  return [...structure.relations, ...higherOrderOf(structure)]
+    .map((e) => String(e.holds).trim().replace(/\{([^{}\s]+)\}/g, (all, id) => (base.has(id) ? base.get(id) : all)))
+    .map((h) => h.charAt(0).toUpperCase() + h.slice(1)).join(" ");
+}
+
 // The RelationalStructure record, refused or `{}`. `proposition` is `parseProposition`'s answer.
 // Each refusal carries its group (kogaki#1708): `shape`, `strand`, `attributes` or `context` (kogaki#1720).
 export function validateStructure(record, proposition) {

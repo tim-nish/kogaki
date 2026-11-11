@@ -198,6 +198,20 @@ function callRecordsSection(outDir, record) {
     + "</tbody></table>").join("");
 }
 
+// THE TRIAL'S ANALOGY MAPPING (kogaki#1784), as the run wrote it before the Leg: the base domain and each counterpart, or
+// the reason there is none.
+function analogySection(record) {
+  const path = record.analogy && record.analogy.path ? resolve(REPO, record.analogy.path) : null;
+  if (!path || !existsSync(path)) return none("No Analogy Mapping was written.");
+  const a = (parseYaml(readFileSync(path, "utf8"), record.analogy.path) || {}).analogy || {};
+  if (Object.hasOwn(a, "none")) return `<p>none — ${esc(a.none)}</p>`;
+  return `<p>${esc(a.base_domain.name)} — ${esc(a.base_domain.description)}</p>`
+    + "<table><thead><tr><th>element</th><th>counterpart</th></tr></thead><tbody>"
+    + [...a.roles.map((x) => [x.role, x.counterpart]), ...a.relations.map((x) => [x.relation, x.counterpart])]
+      .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")
+    + "</tbody></table>";
+}
+
 export function renderShortSheet({ outDir, record, proposition, structure, tables, paragraphs, paragraphPath }) {
   const propositionParagraph = `<p>${esc(proposition.proposition)}</p><p class="meta">cite: ${esc(proposition.cite)}</p>`
     + paragraphHtml(paragraphPath, record);
@@ -218,6 +232,7 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
     + part("segments", "Segments", segmentsSection(record, paragraphs))
     + part("bindings", "Bindings", bindingsSection(record, paragraphs))
     + part("mapping", "Mapping", mapping)
+    + part("analogy", "Analogy Mapping", analogySection(record))
     + part("structure", "Structure", structureHtml)
     + part("call-records", "Call Records", callRecordsSection(outDir, record))
     + part("calls", "Model calls", callsHtml)

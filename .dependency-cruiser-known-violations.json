@@ -2,20 +2,6 @@
   {
     "type": "dependency",
     "from": "src/draft/render-packet.mjs",
-    "to": "src/mapping-playground/short.mjs",
-    "unresolvedTo": "../mapping-playground/short.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/draft/render-packet.mjs",
     "to": "src/mapping-playground/structure.mjs",
     "unresolvedTo": "../mapping-playground/structure.mjs",
     "dependencyTypes": [
