@@ -209,19 +209,6 @@ export const anchorId = (card, n, idx) => `${card}-p${n}-${idx}`;
 export const prowBlock = (card, n, idx, summary, body, cls = "") =>
   `<details class="prow${cls ? ` ${cls}` : ""}"${n === 1 ? " open" : ""}><summary>${esc(summary)}</summary><div id="${anchorId(card, n, idx)}">${body}</div></details>`;
 
-// THE PIPELINE DIAGRAM (kogaki#1402, redrawn at kogaki#1410): one left-to-right flowchart, opening
-// the run's section, laid out in two rows -- Extraction, Move, ParagraphPlan, Packet, Draft on the
-// first, Brief under Move, fed by Extraction and Audience and feeding ParagraphPlan and Packet, on
-// the second. Passage and Audience are the only sources; Segments and Persona are not drawn as
-// nodes (Segments is section 3 of the Extraction, and Persona is a key of the Audience file).
-// Audience also feeds Packet, for the Packet's prose rules. Every node is a link to where that
-// material sits on the page, and carries one of three provenance classes -- owner-authored input,
-// model-written or mechanically derived with no model call -- with the production/substitute
-// distinction (kogaki#1400) riding a dashed border on Extraction and Brief. The artifact node names
-// are the pipeline nouns SHEET_TITLES carries and nothing else (kogaki#1400). Mermaid is loaded
-// from a pinned CDN; the diagram's own text is also written as a `<pre>` fallback inside a closed
-// details element, so a sheet opened offline still shows the graph as text, collapsed by default.
-export const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
 // The sheet's legend sentence (kogaki#1559): every stage card is folded on load, and a link into a
 // card opens it.
 export const FOLD_LEGEND = "Stage cards are folded; a link opens the card it points into.";
@@ -251,6 +238,18 @@ const DIAGRAM_CLASS_LABELS = {
 // Brief only -- ParagraphPlan and Draft are production and stay solid.
 const DIAGRAM_DASHED = ["Extraction", "Brief"];
 
+// THE PIPELINE DIAGRAM (kogaki#1402, redrawn at kogaki#1410): one left-to-right flowchart, opening
+// the run's section, laid out in two rows -- Extraction, Move, ParagraphPlan, Packet, Draft on the
+// first, Brief under Move, fed by Extraction and Audience and feeding ParagraphPlan and Packet, on
+// the second. Passage and Audience are the only sources; Segments and Persona are not drawn as
+// nodes (Segments is section 3 of the Extraction, and Persona is a key of the Audience file).
+// Audience also feeds Packet, for the Packet's prose rules. Every node is a link to where that
+// material sits on the page, and carries one of three provenance classes -- owner-authored input,
+// model-written or mechanically derived with no model call -- with the production/substitute
+// distinction (kogaki#1400) riding a dashed border on Extraction and Brief. The artifact node names
+// are the pipeline nouns SHEET_TITLES carries and nothing else (kogaki#1400). Mermaid is loaded
+// from a pinned CDN; the diagram's own text is also written as a `<pre>` fallback inside a closed
+// details element, so a sheet opened offline still shows the graph as text, collapsed by default.
 export function pipelineDiagram(idx) {
   const cardHref = (key) => `#card-${idx}-${key}`;
   const nodes = [
@@ -305,33 +304,3 @@ export function callAnswer(c) {
   }
   return { raw: String((c && c.stdout) || "") };
 }
-
-export const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--accent:#8a3b12;--off:#fbe3d6}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}}
-:root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
-body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
-.takes,.leaves{color:var(--accent);font-size:13px}
-.card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
-.run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
-.pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
-.pair td{width:33%;white-space:pre-wrap}.pair td.pws{white-space:normal}.copy-table{margin-left:8px;font-size:11px}
-.review{border:2px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.review>h3{font-size:16px;margin:10px 0 4px}.review h4{font-size:14px;margin:10px 0 4px}
-.pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
-details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
-details.sub{margin:4px 0 4px 8px}
-.move-breaks .caption{margin:6px 0 2px;font-weight:bold;font-size:13px}.move-states{margin:6px 0}.move-states caption{text-align:left;font-weight:bold;font-size:13px}details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
-details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
-details.prow.off{background:var(--off)}
-pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
-table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}.stop{color:var(--accent)}
-.badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
-.unbound{color:var(--accent);font-size:12px}.badge.copied,.badge.edited,.badge.source{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
-.pcard.substitute{border-left:4px solid var(--accent)}
-.diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
-.legend{list-style:none;display:flex;gap:14px;flex-wrap:wrap;margin:4px 0;padding:0;font-size:12px;color:var(--muted)}
-.legend li{display:flex;align-items:center;gap:4px}
-.swatch{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--line)}
-.swatch.ownerInput{background:#e9e4d8}.swatch.modelWritten{background:#dce8df}.swatch.mechanical{background:#dbe3ef}
-.anchors{margin:4px 0 0;font-size:12px}
-.leg-block{border:2px solid var(--line);border-radius:6px;padding:8px;margin:16px 0}.leg-block>h3{font-size:17px;margin:4px 0}
-.badge.derived{color:var(--accent)}.derived{margin:6px 0}.derived caption{text-align:left;font-weight:bold;font-size:13px}`;

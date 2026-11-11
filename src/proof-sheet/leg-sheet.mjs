@@ -79,7 +79,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { PROVENANCE_SECTION, SHEET_CELLS, contentHash, legView, provenanceRows, readRun, writtenLegs } from "./leg-sheet/run-data.mjs";
-import { ANCHOR_SCRIPT, COPY_SCRIPT, CSS, MERMAID_CDN, SHEET_TITLES, esc, pipelineDiagram, read } from "./leg-sheet/frame.mjs";
+import { ANCHOR_SCRIPT, COPY_SCRIPT, SHEET_TITLES, esc, pipelineDiagram, read } from "./leg-sheet/frame.mjs";
 import { briefCard, comparisonTable, draftCard, extractionCard, moveCard, packetCard, reviewBlock, runConditionsLine, runRecordCard } from "./leg-sheet/stage-cards.mjs";
 import { paragraphPlanCard } from "./leg-sheet/plan-card.mjs";
 import { libraryLine } from "./leg-sheet/move-blocks.mjs";
@@ -112,6 +112,37 @@ export {
   moveConstraintLines,
   moveSource,
 } from "./leg-sheet/move-blocks.mjs";
+const MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+
+const CSS = `:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a65;--line:#d9d6cf;--accent:#8a3b12;--off:#fbe3d6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}}
+:root[data-theme="dark"]{--bg:#1a1a18;--fg:#e9e7e2;--muted:#a19f98;--line:#3a3935;--accent:#f0a070;--off:#4a2a1c}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;margin:0 auto;max-width:1400px;padding:16px}
+.takes,.leaves{color:var(--accent);font-size:13px}
+.card{border-top:2px solid var(--line);padding-top:12px;margin-bottom:40px}.meta,.muted,.prov{color:var(--muted);font-size:12px;font-weight:normal}
+.run-conditions{border:1px solid var(--line);border-radius:4px;padding:8px;margin:10px 0}.run-conditions ul{margin:4px 0;padding-left:18px}
+.pair{width:100%;border-collapse:collapse;margin-bottom:16px}.pair td,.pair th{border:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
+.pair td{width:33%;white-space:pre-wrap}.pair td.pws{white-space:normal}.copy-table{margin-left:8px;font-size:11px}
+.review{border:2px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.review>h3{font-size:16px;margin:10px 0 4px}.review h4{font-size:14px;margin:10px 0 4px}
+.pcard{border:1px solid var(--line);border-radius:6px;padding:8px;margin:10px 0}.pcard>h3{font-size:16px;margin:4px 0}
+details.part{margin:6px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.part>summary{font-weight:bold;cursor:pointer}
+details.sub{margin:4px 0 4px 8px}
+.move-breaks .caption{margin:6px 0 2px;font-weight:bold;font-size:13px}.move-states{margin:6px 0}.move-states caption{text-align:left;font-weight:bold;font-size:13px}details.states{margin:4px 0}details.states>summary{cursor:pointer;color:var(--muted)}
+details.prow{margin:4px 0;padding:4px 8px;border:1px solid var(--line);border-radius:4px}details.prow>summary{font-weight:bold;cursor:pointer}
+details.prow.off{background:var(--off)}
+pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:color-mix(in srgb,var(--line) 25%,transparent);padding:6px;max-height:480px;overflow:auto}
+table{border-collapse:collapse;font-size:13px}td,th{border:1px solid var(--line);padding:3px 6px;vertical-align:top}.stop{color:var(--accent)}
+.badge{display:inline-block;font-size:11px;border-radius:3px;padding:1px 6px;margin-left:4px;border:1px solid var(--line)}
+.unbound{color:var(--accent);font-size:12px}.badge.copied,.badge.edited,.badge.source{color:var(--accent)}.badge.production{color:var(--muted)}.badge.substitute{color:var(--accent);border-color:var(--accent)}
+.pcard.substitute{border-left:4px solid var(--accent)}
+.diagram{margin-bottom:16px}.diagram .mermaid{max-height:220px}
+.legend{list-style:none;display:flex;gap:14px;flex-wrap:wrap;margin:4px 0;padding:0;font-size:12px;color:var(--muted)}
+.legend li{display:flex;align-items:center;gap:4px}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--line)}
+.swatch.ownerInput{background:#e9e4d8}.swatch.modelWritten{background:#dce8df}.swatch.mechanical{background:#dbe3ef}
+.anchors{margin:4px 0 0;font-size:12px}
+.leg-block{border:2px solid var(--line);border-radius:6px;padding:8px;margin:16px 0}.leg-block>h3{font-size:17px;margin:4px 0}
+.badge.derived{color:var(--accent)}.derived{margin:6px 0}.derived caption{text-align:left;font-weight:bold;font-size:13px}`;
 
 // THE LEG MOVE BLOCKS (see the header). The nested run draws no Brief card, so its cards name
 // the Brief they read without a link.
