@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { relFromRepo } from "../workflow/run-record.mjs";
 import { settingValue } from "../workflow/judge.mjs";
-import { READER_STATE_DIMENSIONS, journeyUses, readerStateDimensionLine, waypointsRefusal } from "./leg-schema.mjs";
+import { READER_STATE_DIMENSIONS, readerStateDimensionLine, waypointsRefusal } from "./leg-schema.mjs";
 import { parseIntroducesEntry, parseReactivateEntry } from "./sections.mjs";
 import { mappingShapeRefusal, mappingRecordRefusal } from "./mapping-record.mjs";
 
@@ -126,7 +126,7 @@ export function paragraphPlanPathFor(briefPath) {
 // entry carries the one Move bound to the Leg (`move`, an id and nothing else of the Move)
 // and its `paragraphs`, at most `brief.paragraphs_per_leg`. Each paragraph carries the Leg
 // schema at the paragraph scale -- `materials`, `purpose`, `depends_on`, `rationale`,
-// `introduces`, `re-activate`, optional `journeys` -- beside its `join` and its Waypoints
+// `introduces`, `re-activate` -- beside its `join` and its Waypoints
 // (`point` and `serves`, or `performs` alone, kogaki#1448), one per Segment of the Leg's
 // Move. It carries no reader state and no Obligations ledger (kogaki#1701): what a Leg takes
 // up and leaves is its bound Move's `takes` and `leaves`.
@@ -151,7 +151,6 @@ export const oneLine = (s) =>
     .replace(/\s*\n\s*/g, " ")
     .trim();
 const PLAN_INTRODUCES_KEYS = ["term", "meaning"];
-const PLAN_JOURNEY_KEYS = ["strand", "use", "meaning"];
 // kogaki#1649: a judge-forced mark is a non-empty list of axis ids, written by the site loop and never by a planner.
 const marked = (v) => Array.isArray(v) && v.length > 0;
 const FORCED_MARK_KEYS = ["forced_by", "move_forced_by"];
@@ -184,13 +183,6 @@ function paragraphRecord(e, n) {
     );
   }
   if (Array.isArray(e["re-activate"])) schema["re-activate"] = strings(e["re-activate"]);
-  if (Array.isArray(e.journeys) && e.journeys.length) {
-    schema.journeys = e.journeys.map((j) =>
-      j && typeof j === "object"
-        ? Object.fromEntries(PLAN_JOURNEY_KEYS.filter((k) => typeof j[k] === "string").map((k) => [k, j[k]]))
-        : j,
-    );
-  }
   return {
     paragraph: n,
     ...schema,
@@ -235,15 +227,7 @@ const PLAN_LEG_KEYS = ["leg_id", "move", "move_forced_by", "paragraphs"];
 // THE PARAGRAPH'S SCHEMA (kogaki#1639): the Leg schema minus `opens_section`, `reaches_target`,
 // `names`, `figure`, `figure_roles` and `bridges`, which have no paragraph counterpart, and minus
 // `move`, which the Leg binds once for all its paragraphs (kogaki#1777).
-export const PLAN_SCHEMA_KEYS = [
-  "materials",
-  "purpose",
-  "depends_on",
-  "rationale",
-  "introduces",
-  "re-activate",
-  "journeys",
-];
+export const PLAN_SCHEMA_KEYS = ["materials", "purpose", "depends_on", "rationale", "introduces", "re-activate"];
 const PLAN_PARAGRAPH_KEYS = ["paragraph", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints"];
 // THE BOUND ON A LEG'S PARAGRAPHS (kogaki#1777): `brief.paragraphs_per_leg` in kogaki.settings.json.
 export const PARAGRAPHS_PER_LEG_SETTING = "brief.paragraphs_per_leg";
@@ -265,18 +249,23 @@ export function paragraphCountRefusal(count, bound, at) {
 const RETIRED_PLAN_REASON =
   "retired from the ParagraphPlan (kogaki#1701): what a paragraph takes up and leaves is its " +
   "bound Move's `takes` and `leaves`, and the record carries no reader state and no Obligations ledger";
+// `journeys` (kogaki#1818): src/leg-schema.json declares no `journey` since kogaki#1768.
+const RETIRED_JOURNEYS_REASON =
+  "a key src/leg-schema.json no longer declares (kogaki#1768, kogaki#1818): a Leg draws on no Journey, so no paragraph places one";
 export const RETIRED_PLAN_KEYS = Object.freeze([
   "reader_state_before",
   "reader_state_after",
   "obligations",
   "discharges",
+  "journeys",
 ]);
 export function retiredPlanKeyRefusal(obj, at) {
   const k =
     obj && typeof obj === "object" && !Array.isArray(obj)
       ? RETIRED_PLAN_KEYS.find((x) => Object.hasOwn(obj, x))
       : undefined;
-  return k === undefined ? null : `${at} carries \`${k}\`, ${RETIRED_PLAN_REASON}`;
+  if (k === undefined) return null;
+  return `${at} carries \`${k}\`, ${k === "journeys" ? RETIRED_JOURNEYS_REASON : RETIRED_PLAN_REASON}`;
 }
 // THE ANALOGY MAPPING AS THE FILE CARRIES IT (kogaki#1778): a base domain with its Role and relation
 // counterparts, or `none` with its reason. A string to refuse with, or null.
@@ -383,7 +372,7 @@ export function legIntroducedTerms(leg) {
 
 // ONE PARAGRAPH'S SCHEMA, by the Leg schema's own rules at the paragraph scale (kogaki#1639).
 // `w` is the entry, `j` its 0-based place in the Leg, `leg` the Brief's Leg (its `claims`,
-// `introduces`, `journeys`) and `entries` the Leg's paragraphs so far. The Move is the Leg's,
+// `introduces`) and `entries` the Leg's paragraphs so far. The Move is the Leg's,
 // bound once for every paragraph (kogaki#1777), so a paragraph names none. Shared by the plan
 // reader and the plan call's validator, so the record the stage writes is the record every read
 // refuses alike. Returns a string to refuse with, or null.
@@ -454,24 +443,6 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at) {
         return `${at} re-activates ${JSON.stringify(raw.trim())}, but paragraph ${ref} does not introduce ${JSON.stringify(e.value)} — a re-activated term matches, verbatim, a term that paragraph's \`introduces\` carries (kogaki#1639)`;
     } else if (!(Array.isArray(source.materials) ? source.materials : []).includes(e.value)) {
       return `${at} re-activates ${JSON.stringify(raw.trim())}, but paragraph ${ref} does not stand on ${JSON.stringify(e.value)} — a re-activated claim names a Strand that paragraph's \`materials\` carries (kogaki#1639)`;
-    }
-  }
-  if (Object.hasOwn(w, "journeys")) {
-    if (!Array.isArray(w.journeys))
-      return `${at} carries \`journeys\` that is not a list — the Leg's Journey this paragraph places, \`{strand, use, meaning}\` as the Leg carries it (kogaki#1639)`;
-    const legJourneys = Array.isArray(leg.journeys) ? leg.journeys : [];
-    const uses = journeyUses();
-    for (const jny of w.journeys) {
-      const k =
-        jny && typeof jny === "object" && !Array.isArray(jny) ? undeclaredKey(jny, PLAN_JOURNEY_KEYS) : "(not a map)";
-      if (k || typeof jny.strand !== "string" || typeof jny.use !== "string") {
-        return `${at} places a Journey ${JSON.stringify(jny)} — each is \`{strand, use, meaning}\` as the Leg carries it (kogaki#1639)`;
-      }
-      if (!uses.has(jny.use))
-        return `${at} places the Journey of ${jny.strand} with use ${JSON.stringify(jny.use)}, which is not a Journey use (kogaki#1639)`;
-      if (!legJourneys.some((lj) => lj && lj.strand === jny.strand)) {
-        return `${at} places the Journey of ${jny.strand}, which the Leg ${leg.leg_id} does not carry (kogaki#1639)`;
-      }
     }
   }
   return null;
