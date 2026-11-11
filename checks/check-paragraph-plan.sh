@@ -66,12 +66,12 @@
 #       Leg over `brief.paragraphs_per_leg`, a Leg carrying `waypoints`, and every
 #       schema field out of its paragraph's place.
 #   (y) the cast is a closed map (kogaki#1695).
-#   (z) THE MAPPER (kogaki#1734, kogaki#1777): with `paragraph_plan.mapper` true, a
-#       Leg reads one structure on its relation, binds, grounds one table for its
-#       one Move and writes its Waypoints in that table's expressions; a Waypoint
-#       carrying a Role id is refused naming the paragraph, the Role and its
-#       expression; the plan names one structure and one table; the job report lists
-#       the reading and grounding Call Records, and `replay` re-runs one.
+#   (z) THE MAPPER (kogaki#1734, kogaki#1777, kogaki#1812): with `paragraph_plan.mapper`
+#       true, a Leg reads one structure on its relation and binds, and no grounding
+#       call is made; under a Brief with no structure the mapping is `none`, so the
+#       Leg carries no table and its bind call's Waypoints stand; the plan names one
+#       structure; the job report lists the reading Call Record, and `replay` re-runs
+#       it. The table projected from a mapping is check-paragraph-plan-analogy.sh's (g).
 #
 # NOT COVERED, stated rather than implied: the retry inside a Leg is
 # checks/check-paragraph-plan-site-retry.sh's; the `--tools ""` environment and the
@@ -252,7 +252,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   // The judge row's named criteria, each read off its own \`- <NAME>: <sentence>\` line (kogaki#1511).
   const crit = (name) => { const at = prompt.indexOf("\\n- " + name + ": "); return at < 0 ? "" : prompt.slice(at + name.length + 5, prompt.indexOf("\\n", at + 1)); };
   const planning = ["leg_you_must_plan", "leg_you_must_judge", "paragraph_you_must_plan"].some((k) => prompt.includes('"' + k + '"'));
-  // THE MAPPER'S CALLS (kogaki#1734): a reading answers one structure, a grounding one table.
+  // THE MAPPER'S CALL (kogaki#1734): a reading answers one structure; no grounding call is made (kogaki#1812).
   if (!planning && prompt.includes('"proposition"')) {
     const i = callInput();
     out({ strand: i.strand, roles: [{ id: "gate", context: "A fixed check that lets some things through.", attributes: [] },
@@ -260,10 +260,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       relations: [{ id: "r1", between: ["gate", "crowd"], holds: "{gate} lets part of {crowd} through." },
         { id: "r2", between: ["gate", "crowd"], holds: "{gate} sees only the part of {crowd} at its opening." }],
       higher_order: { relates: ["r1", "r2"], holds: "{gate} lets through only what of {crowd} reaches it." } });
-  }
-  if (!planning && prompt.includes('"segments"')) {
-    out({ base: { domain: "the installer's tree" },
-      correspondences: [{ role: "gate", expression: "the installer" }, { role: "crowd", expression: "the consumer's edits" }] });
   }
   const input = callInput();
   if (input.leg_you_must_judge) {
@@ -1068,8 +1064,8 @@ for (const [label, bad, want] of [
   if (!twiceRef.includes("\"installer\"") || !twiceRef.includes("introduced by paragraphs 1 and 2")) fails.push(`(x) a Leg term introduced by two paragraphs was not refused by name: ${twiceRef || "no refusal"}`);
 }
 
-// (z) THE MAPPER IN PARAGRAPHPLAN (kogaki#1734, kogaki#1777): one reading on the Leg's relation, the
-// bind, one grounding for its one Move, the Waypoints call in the table's expressions.
+// (z) THE MAPPER IN PARAGRAPHPLAN (kogaki#1734, kogaki#1777, kogaki#1812): one reading on the Leg's relation
+// and the bind, and no grounding call; with the mapping `none` the Leg carries no table.
 {
   stageSettings = settingsWith(true);
   const mapLegs = [leg("m1", "A gate only lets through what of the crowd reaches it.", [{ strand: "L1", proposition: C1 }], [
@@ -1079,37 +1075,25 @@ for (const [label, bad, want] of [
   stageSettings = settingsWith(false);
   const planning = (p) => isPlan(p) || isJudge(p) || isSite(p);
   const readings = r.prompts.filter((p) => !planning(p) && p.includes('"proposition"'));
-  const groundings = r.prompts.filter((p) => !planning(p) && !p.includes('"proposition"') && p.includes('"segments"'));
+  const others = r.prompts.filter((p) => !planning(p) && !p.includes('"proposition"'));
   const plans = r.prompts.filter(isPlan);
   if (!existsSync(r.planPath)) fails.push(`(z) the Mapper job wrote no plan file: ${r.said.slice(0, 800)}`);
   if (readings.length !== 1 || !String(inputOf(readings[0]).proposition).startsWith(mapLegs[0].text) || !String(inputOf(readings[0]).proposition).includes(C1)) {
     fails.push(`(z) the Leg was read ${readings.length} time(s), not once on its text and its Claims`);
   }
-  if (groundings.length !== 1 || !inputOf(groundings[0]).structure || !Array.isArray(inputOf(groundings[0]).segments)) {
-    fails.push(`(z) ${groundings.length} grounding call(s), not one for the Leg's one bound Move over its structure`);
-  }
+  if (others.some((p) => p.includes('"segments"')) || existsSync(join(r.runDir, "calls", "leg-1", "grounding"))) fails.push("(z) a grounding call was made");
   const bind = plans[0] ? inputOf(plans[0]).leg_you_must_plan : {};
   if (!bind.structure || !Array.isArray(bind.structure.roles) || bind.table) fails.push(`(z) the bind call's Leg does not carry its structure alone: ${JSON.stringify(bind).slice(0, 300)}`);
-  const confined = plans[1] ? inputOf(plans[1]).leg_you_must_plan : {};
-  if (confined.move !== "p1" || !confined.table || !confined.structure) fails.push(`(z) the Waypoints call does not carry the Leg's Move, table and structure: ${JSON.stringify(confined).slice(0, 300)}`);
+  if (plans.some((p) => inputOf(p).leg_you_must_plan.table)) fails.push("(z) a plan call carries a table under a mapping recorded none");
   if (!critOf(plans[0] || "", "MAP").includes("higher-order relation")) fails.push("(z) the plan row carries no MAP criterion naming the structure's relations");
-  const job = JSON.parse(readFileSync(join(r.runDir, "reader-path-job.json"), "utf8"));
-  const refusals = (job.units[0].refusals || []).join("\n");
-  if (!/Leg m1, paragraph 2: .*Role id "gate".*"the installer"/.test(refusals)) {
-    fails.push(`(z) a Waypoint carrying a Role id was not refused naming the paragraph, the Role and its expression: ${refusals || "no refusal"}`);
-  }
   if (existsSync(r.planPath)) {
     const plan = parseYaml(readFileSync(r.planPath, "utf8"));
     const files = (plan.mapping && plan.mapping.files || []).map((f) => f.path);
-    if (JSON.stringify(files) !== JSON.stringify(["m1/structure.yaml", "m1/table.yaml"])) fails.push(`(z) the plan's Mapping Record is not one structure and one table: ${JSON.stringify(files)}`);
-    const t1 = parseYaml(readFileSync(join(r.planPath, "..", "mapping", "m1", "table.yaml"), "utf8"));
-    if (t1.move !== "p1" || t1.base.domain !== "the installer's tree") fails.push(`(z) table.yaml is not the Leg's table under its Move: ${JSON.stringify(t1)}`);
-    const pws = plan.legs[0].paragraphs.map((e) => e.paragraph_waypoints.map((p) => p.point).join(" "));
-    if (!pws[1] || !pws[1].includes("the installer") || /\bgate\b/.test(pws[1])) fails.push(`(z) the written Waypoints are not the table's expressions: ${JSON.stringify(pws)}`);
+    if (JSON.stringify(files) !== JSON.stringify(["m1/structure.yaml"])) fails.push(`(z) the plan's Mapping Record is not one structure: ${JSON.stringify(files)}`);
   }
   const report = spawnSync(process.execPath, ["src/workflow/job-report.mjs", r.runDir], { cwd: repo, encoding: "utf8" });
-  for (const unit of ["leg-1/reading", "leg-1/grounding"]) {
-    if (!(report.stdout || "").includes(`unit ${unit}:`)) fails.push(`(z) the job report does not list the Call Records of ${unit}: ${report.stdout}${report.stderr}`);
+  if (!(report.stdout || "").includes("unit leg-1/reading:") || (report.stdout || "").includes("unit leg-1/grounding:")) {
+    fails.push(`(z) the job report does not list the reading Call Record alone: ${report.stdout}${report.stderr}`);
   }
   const replay = spawnSync(process.execPath, ["src/workflow/replay.mjs", join(r.runDir, "calls", "leg-1", "reading", "1"), "--mode", "model"],
     { cwd: repo, encoding: "utf8", env: { ...process.env, PP_FIXTURE_DIR: r.dir } });
@@ -1120,5 +1104,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure, grounds one table for its one Move and writes its Waypoints in its expressions (kogaki#1734); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure and makes no grounding call (kogaki#1734, kogaki#1812); the skill names only entry points the Harness has.");
 JS

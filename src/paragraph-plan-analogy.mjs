@@ -1,6 +1,6 @@
 // The Analogy Mapping (kogaki#1778, owner decision 2026-11-10): before its first Leg unit the ParagraphPlan
 // runs one judgment, `analogy_mapping`, over the Brief's `structure` and the Persona, and the article keeps the
-// one base domain it names; every Leg bound to an analogy Move draws from it. [see: SPEC-draft-pipeline "the Analogy Mapping"]
+// one base domain it names; every example a paragraph of any Leg draws comes from it (kogaki#1812). [see: SPEC-draft-pipeline "the Analogy Mapping"]
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -26,12 +26,6 @@ const oneLine = (s) =>
   String(s)
     .replace(/\s*\n\s*/g, " ")
     .trim();
-
-// AN ANALOGY MOVE carries a `carry` entry among its `takes` or `leaves` (moves/ROLES.json).
-export const isAnalogyMove = (contract) =>
-  [...((contract && contract.takes) || []), ...((contract && contract.leaves) || [])].some(
-    (x) => isMap(x) && x.kind === "carry",
-  );
 
 // The apex, and every relation and higher-order relation the structure reaches, in declared order.
 export function reachedRelations(structure) {
@@ -141,22 +135,21 @@ export function writeAnalogy(dir, analogy) {
   writeFileSync(analogyPath(dir), `${JSON.stringify({ analogy }, null, 2)}\n`);
 }
 
-// The mapping a call for a Leg bound to `contract` is handed: the base domain for an analogy Move, nothing otherwise.
-export function analogyFor(contract, analogy) {
-  return isAnalogyMove(contract) && isMap(analogy) && isMap(analogy.base_domain) ? analogy : null;
-}
-export const withAnalogy = (obj, contract, analogy) => {
-  const a = analogyFor(contract, analogy);
+// The mapping every Leg's calls are handed (kogaki#1812): the base domain, or nothing where it is recorded `none`.
+export const analogyOf = (analogy) => (isMap(analogy) && isMap(analogy.base_domain) ? analogy : null);
+export const withAnalogy = (obj, analogy) => {
+  const a = analogyOf(analogy);
   return a ? { ...obj, [ANALOGY_INPUT_KEY]: a } : obj;
 };
 
-// A Mapping Table grounded for an analogy Move names the article's base domain; a string to refuse with, or null.
-export function groundedBaseRefusal(table, analogy) {
-  const name = oneLine(analogy.base_domain.name).toLowerCase();
-  const domain =
-    isMap(table && table.base) && isText(table.base.domain) ? oneLine(table.base.domain).toLowerCase() : "";
-  return domain.includes(name)
-    ? null
-    : `the table's base.domain ${JSON.stringify(domain)} is not the article's base domain ` +
-        `${JSON.stringify(analogy.base_domain.name)} — every analogy Move draws from the one Analogy Mapping, \`${ANALOGY_INPUT_KEY}\` in the input`;
+// THE LEG'S TABLE IS THE MAPPING'S PROJECTION (kogaki#1812): the base domain, and the counterpart of each Role
+// the Leg carries, under the Leg's bound Move; null where the mapping is `none` or names none of its Roles.
+export function legTable(move, roles, analogy) {
+  const a = analogyOf(analogy);
+  if (!a) return null;
+  const counterpart = new Map(a.roles.map((x) => [x.role, x.counterpart]));
+  const correspondences = (roles || [])
+    .filter((r) => isMap(r) && counterpart.has(r.id))
+    .map((r) => ({ role: r.id, expression: counterpart.get(r.id) }));
+  return correspondences.length ? { move, base: { domain: a.base_domain.name }, correspondences } : null;
 }

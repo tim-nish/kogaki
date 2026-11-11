@@ -294,7 +294,7 @@ export async function cmdJobSupervise(args) {
     const spawnMapperCall = (u, flag) =>
       spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     unitsRunning = new Map();
-    // THE MAPPER'S ACT, CARRIED OUT: a reading or grounding call spawned, the plan call spawned over the
+    // THE MAPPER'S ACT, CARRIED OUT: a reading call spawned, the plan call spawned over the
     // input the Mapper composed, or the unit ended naming the Leg, the Brief Waypoint and the stage.
     const mapperAct = (u, act, flag, bytes = 0, stdoutPath = readerPathUnitStdoutPath(dir, u.id)) => {
       const st = S.get(u.id);
@@ -326,7 +326,8 @@ export async function cmdJobSupervise(args) {
         return { row: runningRow(u, 0), progressed: true };
       }
       // THE PLAN CALL OVER THE MAPPER'S INPUT: its refusals and Rounds are counted from here.
-      if (st.phase === "grounding") beginNextRound(st, Date.now());
+      // The Waypoints call after the bind call opens the next Round (kogaki#1812).
+      if (st.phase === "compose") beginNextRound(st, Date.now());
       st.roundBase = st.rounds - 1;
       st.refusalBase = st.refusals.length;
       u.prompt = act.compose.prompt;

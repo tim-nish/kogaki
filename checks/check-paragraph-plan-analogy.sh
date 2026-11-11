@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # check-paragraph-plan-analogy — the ParagraphPlan chooses one Analogy Mapping from the Brief's
 # structure before its first Leg, writes it at the top of `paragraph-plan.yaml`, and every Leg
-# bound to an analogy Move draws from it (kogaki#1778, owner decision 2026-11-10).
+# draws its examples from it (kogaki#1778, owner decision 2026-11-10; kogaki#1812).
 #
-# Cases (a)-(e) drive `node src/paragraph-plan.mjs start|await` over a structure Brief, a scratch
-# Move library and a FAKE judge binary (`KOGAKI_JUDGE_CLI`), never the real `claude` CLI; (f) calls
-# the validator, the plan reader and the Mapper's grounding directly. Each case is stated in this
+# Cases (a)-(e) and (g) drive `node src/paragraph-plan.mjs start|await` over a structure Brief, a
+# scratch Move library and a FAKE judge binary (`KOGAKI_JUDGE_CLI`), never the real `claude` CLI;
+# (f) calls the validator, the plan reader and the projection directly. Each case is stated in this
 # member's `contract` in checks/registry.json. Whether a live model's base domain is apt is the
 # judgment's own, never linted here.
 set -u
@@ -24,8 +24,7 @@ const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { legRecord, briefRecordText } = await imp("src/compose.mjs");
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, paragraphPlanShapeRefusal } = await imp("src/paragraph-plan.mjs");
-const { validateAnalogyMapping, isAnalogyMove, analogyFor, groundedBaseRefusal, NO_STRUCTURE_REASON, ANALOGY_INPUT_KEY } = await imp("src/paragraph-plan-analogy.mjs");
-const { ParagraphPlanMapper } = await imp("src/paragraph-plan-mapper.mjs");
+const { validateAnalogyMapping, analogyOf, legTable, NO_STRUCTURE_REASON, ANALOGY_INPUT_KEY } = await imp("src/paragraph-plan-analogy.mjs");
 const { parseYaml, stringifyYaml } = await imp("src/yaml.mjs");
 const { JUDGE_INPUT_MARKER } = await imp("src/workflow/judge.mjs");
 
@@ -36,7 +35,10 @@ settings.brief.paragraphs_per_leg = 2;
 const settingsFile = join(root, "settings.json");
 writeFileSync(settingsFile, JSON.stringify(settings));
 process.env.KOGAKI_SETTINGS = settingsFile;
-const SHARED = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8")).shared_text.analogue_is_the_mapping;
+// (g) runs with the Mapper on (kogaki#1812).
+const mapperSettings = join(root, "settings-mapper.json");
+writeFileSync(mapperSettings, JSON.stringify({ ...settings, paragraph_plan: { ...settings.paragraph_plan, mapper: true } }));
+const ANALOGUE = JSON.parse(readFileSync("src/paragraph-plan-axes.json", "utf8")).axes.find((a) => a.id === "ANALOGUE");
 
 // ---- the Move library: pa leaves a carry, pb takes one, p1 carries none ----
 const moves = join(root, "moves");
@@ -90,6 +92,17 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (input.structure && input.structure.apex) {
     out(mode === "noapex" ? { ...mapping, relations: mapping.relations.filter((r) => r.relation !== "h_1") } : mapping);
   }
+  // THE MAPPER'S READING (kogaki#1734): one structure; no grounding call is made (kogaki#1812).
+  if (input.proposition) {
+    out({ strand: input.strand, roles: [{ id: "lender", context: "One who hands a thing out for a while.", attributes: [] },
+      { id: "thing", context: "What is handed out and comes back.", attributes: [] }],
+      relations: [{ id: "q1", between: ["lender", "thing"], holds: "{lender} hands out {thing}." },
+        { id: "q2", between: ["lender", "thing"], holds: "{lender} takes back {thing}." }],
+      higher_order: { relates: ["q1", "q2"], holds: "{thing} stays the {lender}'s." } });
+  }
+  // A table's expressions, once the Leg carries one; the first Waypoints call of Leg s1 also names a Role id.
+  const expressions = (t) => (t ? t.correspondences.map((c) => c.expression).join(", ") : "");
+  const once = (name) => { const f = dir + "/" + name; const n = existsSync(f) ? Number(readFileSync(f, "utf8")) : 0; writeFileSync(f, String(n + 1)); return n === 0; };
   const MOVES = { s1: "pa", s2: "pb", s3: "p1" };
   const paragraph = (legId, point) => ({ paragraph: 1, materials: [legId === "s2" ? "L2" : "L1"], purpose: "brings the reader to the point.",
     depends_on: [], rationale: "its Segment carries the Leg's relation.", introduces: [], "re-activate": [],
@@ -104,10 +117,14 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   }
   if (input.paragraph_you_must_plan) {
     const legId = input.paragraph_you_must_plan.leg_id;
-    out(paragraph(legId, "SITE-" + legId + " the lending library takes the book back, and the margin note goes."));
+    const t = input.paragraph_you_must_plan.table;
+    out(paragraph(legId, "SITE-" + legId + " the lending library takes the book back, and the margin note goes." + (t ? " " + expressions(t) + "." : "")));
   }
   const legId = input.leg_you_must_plan.leg_id;
-  const point = mode === "stray" && legId === "s2" ? "PLAN-s2 a fishing net lets the edit slip away." : "PLAN-" + legId + " the lending library shows the point.";
+  const t = input.leg_you_must_plan.table;
+  const point = mode === "stray" && legId === "s2" ? "PLAN-s2 a fishing net lets the edit slip away."
+    : t ? "PLAN-" + legId + " " + expressions(t) + (legId === "s1" && once("roleid") ? ", as r_1 does." : ".")
+    : "PLAN-" + legId + " the lending library shows the point.";
   out({ version: "1", leg_id: legId, move: MOVES[legId], rationale: "the bound Move's Segment carries the Leg's relation.", paragraphs: [paragraph(legId, point)] });
 });
 `);
@@ -117,7 +134,7 @@ const inputOf = (p) => JSON.parse(p.slice(p.lastIndexOf(JUDGE_INPUT_MARKER) + JU
 const isAnalogyCall = (p) => { const i = inputOf(p); return Boolean(i.structure && i.structure.apex); };
 const keyOf = (p) => ["leg_you_must_plan", "leg_you_must_judge", "paragraph_you_must_plan"].find((k) => inputOf(p)[k]);
 
-function runStage(name, mode, structure = STRUCTURE) {
+function runStage(name, mode, structure = STRUCTURE, stageSettings = settingsFile) {
   const dir = join(root, name);
   const briefDir = join(dir, "theses", "plan-brief");
   const runDir = join(dir, "run");
@@ -126,7 +143,7 @@ function runStage(name, mode, structure = STRUCTURE) {
   writeFileSync(join(dir, "mode"), mode);
   const briefPath = join(briefDir, "brief.yaml");
   writeFileSync(briefPath, briefText(structure));
-  const env = { ...process.env, KOGAKI_JUDGE_CLI: judge, PP_FIXTURE_DIR: dir, KOGAKI_SETTINGS: settingsFile };
+  const env = { ...process.env, KOGAKI_JUDGE_CLI: judge, PP_FIXTURE_DIR: dir, KOGAKI_SETTINGS: stageSettings };
   const cli = (args) => spawnSync(process.execPath, [join(repo, "src", "paragraph-plan.mjs"), ...args, "--brief", briefPath,
     "--run-dir", runDir, "--moves-dir", moves], { cwd: repo, encoding: "utf8", env, timeout: 180000 });
   const started = cli(["start"]);
@@ -141,7 +158,7 @@ function runStage(name, mode, structure = STRUCTURE) {
     ? readFileSync(join(dir, "prompts.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
   const planPath = join(briefDir, PARAGRAPH_PLAN_FILE);
   const plan = existsSync(planPath) ? parseYaml(readFileSync(planPath, "utf8"), planPath) : null;
-  return { started, awaited, prompts, plan, said: `${started.stdout}${started.stderr}${awaited ? awaited.stdout + awaited.stderr : ""}` };
+  return { runDir, started, awaited, prompts, plan, said: `${started.stdout}${started.stderr}${awaited ? awaited.stdout + awaited.stderr : ""}` };
 }
 const finished = (tag, r) => {
   if (r.started.status !== 0) fails.push(`${tag} start failed: ${(r.started.stderr || "").slice(0, 400)}`);
@@ -172,11 +189,10 @@ const finished = (tag, r) => {
   }
   const judged = Object.fromEntries(r.prompts.filter((p) => keyOf(p) === "leg_you_must_judge").map((p) => [inputOf(p).leg_you_must_judge.leg_id, p]));
   const drawn = (id) => judged[id] && inputOf(judged[id]).leg_you_must_judge.bound_move[ANALOGY_INPUT_KEY];
-  for (const id of ["s1", "s2"]) {
+  for (const id of ["s1", "s2", "s3"]) {
     if (!drawn(id) || drawn(id).base_domain.name !== "a lending library") fails.push(`(b) Leg ${id}'s judge is not handed the base domain under ${ANALOGY_INPUT_KEY}`);
   }
-  if (!judged.s3 || drawn("s3")) fails.push("(b) Leg s3, bound to a Move with no carry entry, is judged with the mapping or not judged");
-  if (!judged.s1 || !judged.s1.includes(SHARED)) fails.push("(b) the judge row does not carry the shared criterion analogue_is_the_mapping");
+  if (!ANALOGUE || !judged.s3 || !judged.s3.includes(`\n- ANALOGUE: ${ANALOGUE.sentence}`)) fails.push("(b) the judge row does not carry the ANALOGUE axis on every Leg");
   if (r.prompts.filter((p) => keyOf(p) === "leg_you_must_plan").some((p) => p.includes(`"${ANALOGY_INPUT_KEY}"`))) fails.push("(b) a plan call is handed the mapping before its Move is bound");
 }
 
@@ -210,7 +226,7 @@ const finished = (tag, r) => {
   if (!r.plan || JSON.stringify(r.plan.analogy) !== JSON.stringify({ none: NO_STRUCTURE_REASON })) fails.push(`(e) the plan's analogy is not none with its reason: ${JSON.stringify(r.plan && r.plan.analogy)}`);
 }
 
-// (f) the validator, the plan reader and the Mapper's grounding.
+// (f) the validator, the plan reader and the projection.
 {
   const v = (rec) => validateAnalogyMapping(rec, { structure: STRUCTURE }).error || null;
   if (v(MAPPING)) fails.push(`(f) the whole mapping is refused: ${v(MAPPING)}`);
@@ -221,28 +237,51 @@ const finished = (tag, r) => {
     [{ version: "1", none: "" }, "no reason"], [{ ...MAPPING, none: "no domain fits." }, "`none` carries its reason and nothing else"]];
   for (const [rec, says] of want) if (!String(v(rec)).includes(says)) fails.push(`(f) refusal ${JSON.stringify(says)} not given: ${v(rec)}`);
   if (v({ version: "1", none: "no domain the reader holds carries the system." })) fails.push("(f) a reasoned none is refused");
-  const contract = (k) => ({ takes: [], leaves: [], [k]: [{ kind: "carry", what: "x" }] });
-  if (!isAnalogyMove(contract("takes")) || !isAnalogyMove(contract("leaves")) || isAnalogyMove({ takes: [{ kind: "apply", what: "x" }], leaves: [] })) {
-    fails.push("(f) an analogy Move is not read off a carry entry in takes or leaves");
-  }
-  if (analogyFor(contract("leaves"), { none: "x." })) fails.push("(f) a mapping recorded none is handed to an analogy Move");
+  if (analogyOf({ none: "x." }) || analogyOf(MAPPING) !== MAPPING) fails.push("(f) a mapping recorded none is handed to a Leg, or a mapping is not");
   const plan = { version: "1", brief: { path: "b", sha256: "s" }, analogy: { base_domain: { name: "x" } }, legs: [] };
   if (!String(paragraphPlanShapeRefusal(plan, "p", [])).includes("analogy.base_domain")) fails.push("(f) the plan reader does not refuse a malformed analogy");
-  const table = (domain) => ({ base: { domain }, correspondences: [{ role: "a", expression: "x" }] });
-  if (!groundedBaseRefusal(table("a fishing net"), MAPPING) || groundedBaseRefusal(table("a lending library downtown"), MAPPING)) {
-    fails.push("(f) groundedBaseRefusal does not hold a table to the mapping's base domain");
+  const t = legTable("pa", [{ id: "r_3" }, { id: "r_1" }, { id: "r_9" }], MAPPING);
+  if (JSON.stringify(t) !== JSON.stringify({ move: "pa", base: { domain: "a lending library" },
+    correspondences: [{ role: "r_3", expression: "a reader's margin note" }, { role: "r_1", expression: "the librarian" }] })) {
+    fails.push(`(f) legTable is not the mapping's counterparts for the Leg's Roles under its Move: ${JSON.stringify(t)}`);
   }
-  const mapper = new ParagraphPlanMapper({ movesDir: moves, analogy: MAPPING, legs: [] }, { runDir: root });
-  const u = { candidate: { move: "pa" }, structure: { roles: [{ id: "a", context: "x.", attributes: [] }], relations: [], higher_order: [] } };
-  const g = mapper.groundingRefusal(table("a fishing net"), u);
-  if (!g || g.group !== "base" || !g.text.includes("a lending library")) fails.push(`(f) the Mapper grounds an analogy Move off the base domain: ${JSON.stringify(g)}`);
-  const plain = mapper.groundingRefusal(table("a fishing net"), { ...u, candidate: { move: "p1" }, contract: undefined });
-  if (plain && plain.group === "base" && plain.text.includes("lending library")) fails.push("(f) the Mapper holds a Move with no carry entry to the mapping");
+  if (legTable("pa", [{ id: "r_1" }], { none: "x." }) || legTable("pa", [{ id: "r_9" }], MAPPING)) fails.push("(f) legTable writes a table from a none mapping or from no Role it names");
+}
+
+// (g) THE MAPPER ON (kogaki#1812): no grounding call; each Leg's table is the mapping's projection onto its Roles.
+{
+  const r = runStage("mapper", "mapper", STRUCTURE, mapperSettings);
+  finished("(g)", r);
+  const planning = (p) => Boolean(keyOf(p));
+  const groundings = r.prompts.filter((p) => !planning(p) && !isAnalogyCall(p) && !inputOf(p).proposition);
+  if (groundings.length) fails.push(`(g) ${groundings.length} call(s) beside the reading, the plan, the judge and the site calls`);
+  for (const id of ["leg-1", "leg-2", "leg-3"]) {
+    if (existsSync(join(r.runDir, "calls", id, "grounding"))) fails.push(`(g) the run wrote calls/${id}/grounding/`);
+  }
+  const want = { s1: [["r_1", "the librarian"], ["r_2", "the lent book"]], s2: [["r_2", "the lent book"], ["r_3", "a reader's margin note"]],
+    s3: [["r_1", "the librarian"], ["r_2", "the lent book"], ["r_3", "a reader's margin note"]] };
+  const tables = {};
+  for (const p of r.prompts.filter((x) => keyOf(x) === "leg_you_must_plan")) {
+    const l = inputOf(p).leg_you_must_plan;
+    if (l.table && !tables[l.leg_id]) tables[l.leg_id] = l.table;
+  }
+  for (const [id, pairs] of Object.entries(want)) {
+    const t = tables[id];
+    const got = t ? t.correspondences.map((c) => [c.role, c.expression]).sort() : null;
+    if (!t || t.base.domain !== "a lending library" || JSON.stringify(got) !== JSON.stringify(pairs.slice().sort())) {
+      fails.push(`(g) Leg ${id}'s Waypoints call does not carry the mapping's counterparts for its Roles: ${JSON.stringify(t)}`);
+    }
+  }
+  const job = existsSync(join(r.runDir, "reader-path-job.json")) ? JSON.parse(readFileSync(join(r.runDir, "reader-path-job.json"), "utf8")) : { units: [] };
+  const refusals = ((job.units.find((u) => u.id === "leg-1") || {}).refusals || []).join("\n");
+  if (!/Leg s1, paragraph 1: .*Role id "r_1".*"the librarian"/.test(refusals)) {
+    fails.push(`(g) a Waypoint carrying a Role id was not refused naming the paragraph, the Role and its counterpart: ${refusals || "no refusal"}`);
+  }
 }
 
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-analogy — one analogy_mapping call over the Brief's structure runs before the first Leg and is written at the top of paragraph-plan.yaml, one counterpart per Role and per reached relation, or none with its reason (kogaki#1778); every Leg bound to an analogy Move is judged with the same base domain, a paragraph naming another analogue is refused and repaired at its site with the mapping, a Leg bound to no analogy Move reads nothing of it, and a mapping leaving the apex without a counterpart stops the stage before any Leg.");
+console.log("ok: check-paragraph-plan-analogy — one analogy_mapping call over the Brief's structure runs before the first Leg and is written at the top of paragraph-plan.yaml, one counterpart per Role and per reached relation, or none with its reason (kogaki#1778); every Leg is judged with the same base domain under the ANALOGUE axis, a paragraph naming another analogue is refused and repaired at its site with the mapping, a mapping leaving the apex without a counterpart stops the stage before any Leg, and with the Mapper on each Leg's table is the mapping's projection onto its Roles with no grounding call (kogaki#1812).");
 JS
