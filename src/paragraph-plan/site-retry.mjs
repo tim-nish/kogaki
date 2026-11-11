@@ -14,7 +14,15 @@ import {
   readMappingState,
   validateParagraphPlanUnit,
 } from "./axes.mjs";
-import { MODEL_ARMS, refusalFindings, repairOf, shapeFindings, withoutShape, writeRepair } from "./findings.mjs";
+import {
+  MODEL_ARMS,
+  MODEL_WIDENING,
+  refusalFindings,
+  repairOf,
+  shapeFindings,
+  withoutShape,
+  writeRepair,
+} from "./findings.mjs";
 import { appendSiteCallInput, siteCallInputRow } from "./selection-input.mjs";
 import { legForUnit, segmentsForPlanCall } from "./units.mjs";
 
@@ -183,8 +191,15 @@ export function paragraphPlanCollisions(legs, axes) {
 export function paragraphPlanSiteRepair(ctx, inputs, unitId) {
   const axes = (inputs && inputs.axes) || [];
   if (!ctx.site) {
-    const findings = refusalFindings(ctx.refusal, { axes }).map((f) => ({ ...f, class: "binding" }));
-    const repair = { ...repairOf(findings), arm: "change_move" };
+    // THE LEG REFUSED WHOLE IS COMPOSED AGAIN FROM PARAGRAPH 1, AND ITS MOVE MAY CHANGE: the act is change_move
+    // whatever each Finding's class, which stays the class of what failed.
+    const findings = refusalFindings(ctx.refusal, { axes });
+    const read = repairOf(findings);
+    const repair = {
+      ...read,
+      arm: "change_move",
+      grounds: `the Leg was refused whole, so it is composed again from paragraph 1 and may bind another Move; ${read.grounds}`,
+    };
     writeRepair(inputs.runDir, unitId, { from: ctx.from, refusal: ctx.refusal, chosen_by: "program", ...repair });
     return { repair };
   }
@@ -341,9 +356,9 @@ function chosenArm(given, ctx, inputs, unitId, at) {
   const governing = ctx.repair ? ctx.repair.arm : null;
   if (!Object.hasOwn(given, "arm")) return { answer: given, arm: governing };
   const { arm, ...answer } = given;
-  if (!MODEL_ARMS.includes(governing) || !MODEL_ARMS.includes(arm)) {
+  if (!MODEL_ARMS.includes(governing) || (arm !== governing && MODEL_WIDENING[governing] !== arm)) {
     return {
-      error: `${at}: the answer names the arm ${JSON.stringify(arm)} — an answer names ${MODEL_ARMS.join(" or ")} only where the Repair took one of them, and this one took ${JSON.stringify(governing)}`,
+      error: `${at}: the answer names the arm ${JSON.stringify(arm)} — an answer may name rewrite_all_points only where the Repair took modify_points, and this one took ${JSON.stringify(governing)}`,
     };
   }
   if (arm !== governing) {

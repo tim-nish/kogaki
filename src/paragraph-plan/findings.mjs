@@ -10,8 +10,10 @@ import { BINDING_AXES, UNIT_PARAGRAPH_KEYS } from "./axes.mjs";
 export const FINDING_CLASSES = ["shape", "vocabulary", "cast", "fit", "binding"];
 // Widest first: where Findings disagree the widest Arm governs.
 export const REPAIR_ARMS = ["change_move", "rewrite_all_points", "modify_points", "keep_points"];
-// The Arms a site answer may name for itself, where no Finding fixed a wider or narrower one.
+// The one widening a site answer may name for itself: a `modify_points` Repair names its Waypoints, and its answer
+// may rewrite every point instead; the narrowing has no Waypoints to name, so it is not offered.
 export const MODEL_ARMS = ["rewrite_all_points", "modify_points"];
+export const MODEL_WIDENING = { modify_points: "rewrite_all_points" };
 export const PARAGRAPH_PLAN_REPAIRS_FILE = "paragraph-plan-repairs.jsonl";
 export const repairsPath = (runDir) => join(runDir, PARAGRAPH_PLAN_REPAIRS_FILE);
 
@@ -101,7 +103,7 @@ const armOf = (f) =>
         : "rewrite_all_points";
 
 const findingLine = (f) =>
-  `the ${f.class} Finding at paragraph ${f.site.paragraph}${f.site.waypoint ? `, Waypoint ${f.site.waypoint}` : ""} (${f.criterion}): ${f.evidence}`;
+  `the ${f.class} Finding ${f.site.paragraph ? `at paragraph ${f.site.paragraph}` : "at the Leg"}${f.site.waypoint ? `, Waypoint ${f.site.waypoint}` : ""} (${f.criterion}): ${f.evidence}`;
 
 // THE REPAIR: the widest Arm the Findings fix, the Waypoints a `modify_points` names, and the one sentence naming the
 // Finding that fixed the Arm. The narrower Findings ride the same retry.

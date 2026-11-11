@@ -345,5 +345,43 @@ export function repairHookCases(fails) {
         `(s13) an answer naming rewrite_all_points was not written as the model's Repair before it was taken: ${JSON.stringify({ chose, last })}`,
       );
     }
+    // (s13) A NARROWING IS NOT OFFERED: under rewrite_all_points an answer naming modify_points is refused by name; and a
+    // Leg refused whole keeps each Finding's own class, its grounds naming the Leg rather than a paragraph (PR #1821 round 1).
+    const wide = { ...ctx, repair: { arm: "rewrite_all_points", grounds: "g.", findings: [] } };
+    const narrowed = validateParagraphPlanSite(
+      { ...kept, arm: "modify_points", paragraph_waypoints: [pw(1, "-b"), pw(2), pw(3)] },
+      wide,
+      inputs,
+      "leg-1",
+    );
+    if (
+      !narrowed.error ||
+      !narrowed.error.includes("may name rewrite_all_points only where the Repair took modify_points")
+    ) {
+      fails.push(
+        `(s13) an answer narrowing a rewrite_all_points Repair to modify_points was not refused by name: ${JSON.stringify(narrowed)}`,
+      );
+    }
+    const whole = paragraphPlanSiteRepair(
+      {
+        standing: ctx.standing,
+        from: 1,
+        history: [],
+        refusal: "Leg s1: the plan record carries `waypoints` — the Leg is the unit",
+      },
+      inputs,
+      "leg-1",
+    ).repair;
+    if (
+      !whole ||
+      whole.arm !== "change_move" ||
+      whole.findings.map((f) => f.class).join() !== "shape" ||
+      /paragraph null/.test(whole.grounds) ||
+      !whole.grounds.includes("at the Leg")
+    ) {
+      fails.push(
+        `(s13) the Repair of a Leg refused whole does not keep the shape class and name the Leg: ${JSON.stringify(whole)}`,
+      );
+    }
   }
 }
