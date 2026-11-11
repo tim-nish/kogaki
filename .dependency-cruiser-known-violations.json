@@ -155,9 +155,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/paragraph-plan.mjs",
+    "from": "src/paragraph-plan/axes.mjs",
     "to": "src/mapping-playground/rbs.mjs",
-    "unresolvedTo": "./mapping-playground/rbs.mjs",
+    "unresolvedTo": "../mapping-playground/rbs.mjs",
     "dependencyTypes": [
       "local",
       "import"
