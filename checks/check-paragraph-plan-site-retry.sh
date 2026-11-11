@@ -4,12 +4,12 @@
 # (`KOGAKI_JUDGE_CLI`) answers each call kind -- Leg, site, suffix, judge -- from a scenario module:
 #   (s1) one site call holds the Leg's Move and what the Legs before it state; only the site and the next join are re-judged, and the second Leg is handed the first Leg's text;
 #   (s2) a site answer repeating the refused paragraph is refused by name before any judge call;
-#   (s3) a site answer carrying a Move is refused before the judge: the Leg's Move is held;
+#   (s3) a site answer carrying a Move is repaired by the program, the Leg's Move held;
 #   (s4) a spent site ends its Leg alone, naming the paragraph;
 #   (s5) the Leg ceiling `paragraph_plan.leg_revisions` ends a Leg naming the paragraph;
 #   (s6) only the ParagraphPlan job declares the site loop, never the Brief's compose job;
 #   (s7)-(s9) a repair-naming `rationale`, a Leg over `brief.paragraphs_per_leg` and a restatement are refused; (s10) a TAKEN or LEFT refusal reopens the whole Leg, its Move bound again;
-#   (s11)-(s12) a forced rewrite and a forced rebind carry their axes, and the run counts them.
+#   (s11)-(s12) a forced rewrite and a forced rebind carry their axes, and the run counts them; (s13)-(s14) Repairs (kogaki#1815).
 # NOT COVERED: whether a live planner repairs what the refusal names is the model's.
 set -u
 cd "$(dirname "$0")/.."
@@ -194,21 +194,6 @@ export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w 
   if (!row || row.status !== "done" || !(row.refusals || []).includes(want)) fails.push(`(s2) the unit row does not end done carrying the repeat refusal: ${JSON.stringify(row && { status: row.status, refusals: row.refusals })}`);
 }
 
-// (s3) A SITE ANSWER BINDS NO MOVE: THE LEG'S MOVE IS HELD AT EVERY PARAGRAPH (kogaki#1777).
-{
-  const r = run("s3", `export const site = (i, n) => siteEntry(i, n === 1 ? { move: "p2", tag: "-site1" } : { tag: "-site2" });
-export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 2);`);
-  const sites = r.of("site");
-  const said = sites[1] ? sites[1].input.refused_here.map((h) => h.refusal) : [];
-  if (sites.length !== 2 || !said.some((x) => x.startsWith("Leg s1, paragraph 2: the answer carries `move` — the Leg's Move \"p1\" is held"))) {
-    fails.push(`(s3) the second site call is not handed the refusal of the site's Move: ${JSON.stringify(said)}`);
-  }
-  if (r.of("judge").length !== 2) fails.push(`(s3) the judge was called ${r.of("judge").length} times for Leg s1, not twice -- a site's Move reaches no judge`);
-  if (!r.plan || r.plan.legs.find((x) => x.leg_id === "s1").move !== "p1" || !point(pwOf(r.plan, "s1", 2)).includes("-site2")) {
-    fails.push(`(s3) the plan file does not hold Leg s1 under p1 with the second site answer at paragraph 2: ${r.plan ? JSON.stringify(r.plan.legs[0]) : r.out.slice(0, 600)}`);
-  }
-}
-
 // (s4) THE SPENT SITE ENDS ITS LEG ALONE, NAMING THE PARAGRAPH.
 {
   const r = run("s4", `export const site = (i) => i.refused_here[0].entry;
@@ -357,9 +342,11 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s2" && n
   }
 }
 
+const repairCases = await imp("checks/fixtures/paragraph-plan-repair/cases.mjs"); // (s3), (s13)-(s14), (u), kogaki#1815
+repairCases.repairHookCases(fails); repairCases.flpRepairCase(fails); await repairCases.siteRepairCases({ run, pwOf, point, fails });
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-site-retry — a refusal naming a paragraph is retried there alone under the Leg's one Move, handed what the Legs before it state (kogaki#1777); a repeat, a site's own Move, prose naming the repair and a restated round are each refused by name before the judge (kogaki#1651); a site's rounds or the Leg ceiling end that Leg alone, naming the paragraph (kogaki#1642); a Leg over brief.paragraphs_per_leg is asked again whole; a TAKEN or LEFT refusal reopens the whole Leg and binds its Move again (kogaki#1647, kogaki#1777); a Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649).");
+console.log("ok: check-paragraph-plan-site-retry — a refusal naming a paragraph is retried there alone under the Leg's one Move, handed what the Legs before it state (kogaki#1777); a repeat, a site's own Move, prose naming the repair and a restated round are each refused by name before the judge (kogaki#1651); a site's rounds or the Leg ceiling end that Leg alone, naming the paragraph (kogaki#1642); a Leg over brief.paragraphs_per_leg is asked again whole; a TAKEN or LEFT refusal reopens the whole Leg and binds its Move again (kogaki#1647, kogaki#1777); a Waypoint the judge forced carries forced_by naming the axis, one passing first carries none, a forced rebind carries move_forced_by, and paragraph-plan-done.json counts the collisions per axis and in total (kogaki#1649); a refusal is read as classed Findings and a Repair naming its Arm and grounds is written before each retry, a shape Finding repaired by the program with no model call and modify_points keeping every point it does not name (kogaki#1815).");
 JS

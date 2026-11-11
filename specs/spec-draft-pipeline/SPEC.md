@@ -2697,7 +2697,7 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Constraint kinds | paragraph only | — | `takes_and_leaves` | the four kinds are written once for the paragraph rows, which read `takes` and `leaves` beside the Segments (kogaki#1701) | wording |
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through the relations their texts state (kogaki#1699, kogaki#1768, kogaki#1777) | wording |
 | Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Waypoint's field | wording |
-| One analogy | paragraph only | — | `analogue_is_the_mapping` | an analogy Move draws from the one Analogy Mapping chosen before the first Leg, and only a Leg the ParagraphPlan binds to an analogy Move is handed it (kogaki#1778) | wording |
+| One analogy | paragraph only | — | `ANALOGUE` | every example a paragraph draws comes from the one Analogy Mapping chosen before the first Leg, and only the ParagraphPlan's Legs are handed it (kogaki#1778, kogaki#1812) | criterion |
 | Cast held | paragraph only | — | `CAST` | a `cast` is set on a Waypoint, and only a Waypoint realises a Segment's `manner`, so each key it sets is held to its definition there (kogaki#1695, kogaki#1816) | criterion |
 | Cast is a set | paragraph only | — | `cast_is_a_set` | the closed set of cast keys and their definitions is written once for the paragraph rows, the planner's that sets them and the judge's that holds a point to them (kogaki#1695, kogaki#1816) | wording |
 | Counterparts expressed | paragraph only | — | `EXPRESSED` | a Waypoint names a Role's counterpart or states a relation in its own wording, which only a judge reads by sense, and only a Leg the Mapper grounded carries a table (kogaki#1811) | criterion |
@@ -3100,10 +3100,10 @@ HTML to stdout, or writes `--out`, and writes nothing else.
 
 #### 4.19.3 The Mapper in ParagraphPlan (kogaki#1734)
 
-**What it is.** The Mapper is one component with two processes, structure
-reading and grounding (kogaki#1721). Inside each Leg's job unit,
-`/paragraph-plan` runs them in this order: reading, bind, grounding, then the
-Waypoints, once per Leg (kogaki#1777). ParagraphPlan binds the Leg's Move and
+**What it is.** The Mapper reads the Leg's structure (kogaki#1721). Inside
+each Leg's job unit, `/paragraph-plan` runs reading, bind, then the Waypoints,
+once per Leg (kogaki#1777). The Leg's table is written by the program, and no
+grounding call is made (kogaki#1812). ParagraphPlan binds the Leg's Move and
 writes the Waypoints. The setting `paragraph_plan.mapper` in
 `kogaki.settings.json` turns the Mapper on; it is `true`.
 
@@ -3118,18 +3118,20 @@ serve are its strand.
 its input carries its structure: the Roles with their `context` and
 `attributes`, the relations and the higher-order relation. The row's MAP
 criterion says the Move's Segments carry the structure's relations and then its
-higher-order relation. Its Waypoints are not kept.
+higher-order relation. Its Waypoints are kept only where the Leg has no table.
 
-**Grounding.** The unit then runs the `smp_correspondence` row once, for the
-Leg's bound Move. Its input is the structure, the Move's Segments and the
-Persona.
+**The table.** The Leg's table is the Analogy Mapping's projection onto the
+Roles the Leg carries: the base domain, and the counterpart of each of those
+Roles as its expression, under the Leg's bound Move. A mapping recorded `none`,
+or one naming none of the Leg's Roles, gives the Leg no table, and the bind
+call's Waypoints stand.
 
 **The Waypoints.** A second `paragraph_plan_unit` call writes the Leg's
 paragraphs. The Leg in its input carries its bound Move, its table and its
 structure, and the MAP criterion says to keep that Move and name each Role's
 counterpart, by the sense of its expression in any wording, with no Role id in
 any Waypoint. `validateParagraphPlanUnit` then refuses a plan whose Move is not
-the one the table was grounded for, and runs `correspondenceVocabularyRefusal`
+the one the table was written for, and runs `correspondenceVocabularyRefusal`
 over each paragraph's Waypoints against the Leg's table, which refuses a Role id
 outside an expression, naming the Leg, the paragraph, the Role and the Role's
 expression. Whether a Waypoint names a counterpart is a sense judgment, never a
@@ -3140,10 +3142,10 @@ relation naming the Waypoint that carries it. A row naming no Waypoint refuses
 the paragraph, naming the Role or relation and its expression, and the site
 retry runs as before.
 
-**Bounds and records.** Reading and grounding keep the Trial's call bound,
+**Bounds and records.** Reading keeps the Trial's call bound,
 `MAPPER_CALLS`, and its refusal groups and reaches (kogaki#1708). Each Call
 writes its Call Record (§4.12.2) under the Leg's unit, in
-`calls/<unit>/reading/` or `calls/<unit>/grounding/`. The job report lists
+`calls/<unit>/reading/`. The job report lists
 them, and `replay` re-runs one. A refusal past the bound stops the unit, naming
 the Leg and the stage. The structure and table settled are written to the
 Mapping Record (§4.19.2) with the plan.
@@ -3345,17 +3347,19 @@ after `brief` and before the Legs: `base_domain`, `roles` (one
 or `none` alone. The Brief carries nothing of it: correcting an analogy that
 reads badly is this stage's work and never rewrites the Brief.
 
-**Every analogy Move draws from it.** An analogy Move is a Move whose `takes`
-or `leaves` carries a `carry` entry — a base's structure to be carried onto
-the subject, the kind the library already records (`moves/ROLES.json`). For a
-Leg bound to one, the Mapper's grounding call and its Waypoints call, the fit
-judge and the site call are each handed the mapping as
-`analogy_you_must_draw_from`; a grounded table whose `base.domain` does not
-name the mapping's base domain is refused in group `base`; and the fit judge's
-shared criterion `analogue_is_the_mapping` refuses a paragraph naming any
-analogue but the base domain and its counterparts. A literal similarity is
-unconstrained, a mapping recorded `none` constrains nothing, and a Leg bound
-to no analogy Move reads nothing of the mapping.
+**Every example draws from it** (kogaki#1812). Every example a paragraph
+draws, an analogy or a literal similarity alike, draws from the mapping: its
+base domain, its Role counterparts and its relation counterparts. Every Leg's
+Waypoints call, fit judge and site call is handed the mapping as
+`analogy_you_must_draw_from`, whatever Move the Leg binds, and the fit judge's
+axis `ANALOGUE` refuses a paragraph naming any analogue but the base domain
+and its counterparts, naming the Waypoint and the analogue. A Role's own
+`attributes` stay what a paragraph says of the subject itself, since the
+mapping governs examples only. A mapping recorded `none` constrains nothing.
+
+**Open, and not decided here.** Whether an example is later classified as an
+analogy or a literal similarity is left open. While every example draws from
+the one mapping, no classification is needed.
 
 **Not scheduled.** A Judge over the choice of base domain is noted here and
 not scheduled.

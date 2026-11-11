@@ -7,7 +7,8 @@
 //   (b) the site call's `refused_here`, built from that refusal, carries both;
 //   (c) a site answer carrying both again is refused naming both;
 //   (e) the page renders each failure as its own `why:` line of the Round's Comment;
-//   (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it.
+//   (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it;
+//   (g) a paragraph carrying `journeys` is refused once by name, and (h) no `legschema().<key>` names an undeclared key (kogaki#1818).
 // Its (d), the missing expressions, went with the program's substring match (kogaki#1811).
 // Declared limit: whether a live planner repairs every failure it is handed is the model's.
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -124,6 +125,36 @@ for (const [key, value] of [
   );
 }
 
+// (g) `journeys`, a key src/leg-schema.json no longer declares, is refused once by name and never read (kogaki#1818).
+let journeys;
+try {
+  const clean = { ...paragraph, paragraph_waypoints: pws.map((p) => ({ ...p, point: "The night watchman goes on." })) };
+  delete clean.join;
+  const carrying = { ...clean, journeys: [{ strand: "L1", use: "illustrate", meaning: "a scene." }] };
+  journeys = validateParagraphPlanUnit({ ...record, paragraphs: [carrying] }, inputs, "leg-1");
+} catch (e) {
+  journeys = { error: `threw: ${e.message}` };
+}
+ok(
+  Array.isArray(journeys.failures) &&
+    journeys.failures.length === 1 &&
+    journeys.failures[0].text.includes("carries `journeys`, a key src/leg-schema.json no longer declares"),
+  `(g) a paragraph carrying \`journeys\` is not refused once by name: ${journeys.error || "no refusal"}`,
+);
+
+// (h) no reader of the Leg schema names a key the schema does not declare.
+const declared = new Set(Object.keys(JSON.parse(readFileSync(join(repo, "src", "leg-schema.json"), "utf8"))));
+const named = [
+  ...readFileSync(join(repo, "src", "compose", "leg-schema.mjs"), "utf8").matchAll(
+    /legschema\(\)\.([A-Za-z_$][\w$]*)/g,
+  ),
+].map((m) => m[1]);
+const undeclared = [...new Set(named.filter((k) => !declared.has(k)))];
+ok(
+  named.length > 0 && undeclared.length === 0,
+  `(h) src/compose/leg-schema.mjs reads ${named.length ? `legschema().${undeclared.join(", legschema().")}` : "no legschema() key"}, which src/leg-schema.json does not declare`,
+);
+
 // (e) the Comment renders one `why:` line per failure.
 const html = commentHtml(
   { kind: "refused" },
@@ -141,5 +172,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `ok: check-paragraph-plan-every-failure — ${cases} cases: a refusal names every failure over the paragraph, the site call is handed all of them, and the page renders each as its own Comment line (kogaki#1813)`,
+  `ok: check-paragraph-plan-every-failure — ${cases} cases: a refusal names every failure over the paragraph, the site call is handed all of them, and the page renders each as its own Comment line (kogaki#1813); a paragraph carrying journeys is refused once by name, and no Leg schema reader names an undeclared key (kogaki#1818)`,
 );

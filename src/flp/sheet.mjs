@@ -22,6 +22,7 @@ import { moveContract, CAST_KEYS } from "../compose.mjs";
 import { proofSheetCss } from "../mapping-playground/sheet.mjs";
 import { movePassage, NO_RECORD } from "./provenance.mjs";
 import { readAnalogy, ANALOGY_DIR, ANALOGY_UNIT } from "../paragraph-plan-analogy.mjs";
+import { refusalFindings, repairsPath } from "../paragraph-plan/findings.mjs";
 
 // The run's start record, written by /paragraph-plan beside the job record.
 export const START_FILE = "paragraph-plan-start.json";
@@ -400,10 +401,44 @@ export function commentHtml(verdict, comment, named) {
   );
 }
 
+// THE REPAIRS OF ONE UNIT (kogaki#1815), as the site loop wrote them before each retry, oldest first.
+export function unitRepairs(runDir, unitId) {
+  const path = repairsPath(runDir);
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l))
+    .filter((r) => r.unit === unitId);
+}
+
+// A REFUSED ROUND'S FINDINGS, EACH WITH ITS CLASS, AND THE REPAIR ITS RETRY WAS MADE UNDER, WITH ITS ARM AND GROUNDS.
+export function repairHtml(round, n, repairs) {
+  if (!round.comment || (round.verdict.kind === "judge" && round.verdict.record.verdict === "fits")) return "";
+  const text = String(round.comment.text);
+  const rows = (repairs || []).filter(
+    (r) => r.site === n && r.refusal && (text.includes(String(r.refusal)) || String(r.refusal).includes(text)),
+  );
+  const findings = rows.length ? rows[0].findings || [] : refusalFindings(text, { paragraph: n });
+  const where = (f) => (f.site && f.site.waypoint ? `Waypoint ${f.site.waypoint}, ` : "");
+  return (
+    findings.map((f) => line(`finding: ${f.class} — ${where(f)}${f.criterion}: ${f.evidence}`)).join("") +
+    (rows.length
+      ? rows
+          .map((r) =>
+            line(
+              `repair: ${r.arm}${r.waypoints ? ` (Waypoint ${r.waypoints.join(", ")})` : ""}, chosen by the ${r.chosen_by} — ${r.grounds}`,
+            ),
+          )
+          .join("")
+      : line("repair: none written — no retry followed this Round, or it ran before Repairs were recorded"))
+  );
+}
+
 const roundHead = (number) => `<h3 class="round">Round ${number}</h3>`;
 
 function roundHtml(round, n, ctx) {
-  const { library, calls, mapping, groundingCalls, held, firstMove, outDir, corpusDir } = ctx;
+  const { library, calls, mapping, groundingCalls, held, firstMove, outDir, corpusDir, repairs } = ctx;
   const b = bindingOf(round, n, calls, mapping, groundingCalls);
   const same = held && held.binding.move === b.move && held.binding.join === b.join && held.binding.table === b.table;
   // EVERY ROUND NAMES ITS MOVE (kogaki#1814), `(unchanged)` where it is the first Round's.
@@ -430,6 +465,7 @@ function roundHtml(round, n, ctx) {
       submission +
       heading("Comment") +
       commentHtml(round.verdict, round.comment, named) +
+      repairHtml(round, n, repairs) +
       heading("Calls") +
       roundCalls.map(callHtml).join(""),
   };
@@ -560,6 +596,7 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
   const library = movesDir || start.moves_dir || "moves";
   const mapping = readMappingState(runDir, unitId);
   const calls = unitCalls(runDir, unitId, { mapped: Boolean(mapping) });
+  const repairs = unitRepairs(runDir, unitId);
   const stop = unitStop(unit, status);
   const count = paragraphCount(calls, unit);
   const numbers = Array.from({ length: count }, (_, k) => k + 1);
@@ -628,6 +665,7 @@ export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd
             firstMove,
             outDir,
             corpusDir,
+            repairs,
           });
           if (!r.same) held = { number: round.number, binding: r.binding };
           return r.html;

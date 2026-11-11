@@ -78,27 +78,19 @@
               "paragraph_waypoints": [
                 {
                   "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not.",
-                  "serves": [
-                    "L2"
-                  ]
+                  "serves": ["L2"]
                 },
                 {
                   "point": "The same arms buildup is feared in one situation and not feared in another.",
-                  "serves": [
-                    "L2"
-                  ]
+                  "serves": ["L2"]
                 },
                 {
                   "point": "The split matters for understanding where the strongest power stands in the world.",
-                  "serves": [
-                    "L2"
-                  ]
+                  "serves": ["L2"]
                 },
                 {
                   "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
-                  "serves": [
-                    "L2"
-                  ]
+                  "serves": ["L2"]
                 }
               ]
             }
@@ -173,15 +165,11 @@
                 },
                 {
                   "point": "Mainly two factors decide how readily the security dilemma arises.",
-                  "serves": [
-                    "L3"
-                  ]
+                  "serves": ["L3"]
                 },
                 {
                   "point": "The two factors are offense-defense advantage and offense-defense distinguishability.",
-                  "serves": [
-                    "L3"
-                  ]
+                  "serves": ["L3"]
                 }
               ]
             }
@@ -240,21 +228,15 @@
               "paragraph_waypoints": [
                 {
                   "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all, grades cases between those in which that intent is plain and those in which it cannot be made out.",
-                  "serves": [
-                    "L15"
-                  ]
+                  "serves": ["L15"]
                 },
                 {
                   "point": "Put plainly, the measure is simply how clear the other side's intent is.",
-                  "serves": [
-                    "L15"
-                  ]
+                  "serves": ["L15"]
                 },
                 {
                   "point": "The clearer the other side's intent, the less likely war becomes, and the vaguer it is, the likelier war becomes.",
-                  "serves": [
-                    "L15"
-                  ]
+                  "serves": ["L15"]
                 }
               ]
             }
@@ -271,9 +253,7 @@
         "waypoint": 1,
         "to": {
           "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, grades cases between those in which that intent is plain and those in which it cannot be made out.",
-          "serves": [
-            "L15"
-          ]
+          "serves": ["L15"]
         }
       }
     },
@@ -323,27 +303,19 @@
               "paragraph_waypoints": [
                 {
                   "point": "A set of automatic rules can be written with every care and still never act on an entire kind of action.",
-                  "serves": [
-                    "L1"
-                  ]
+                  "serves": ["L1"]
                 },
                 {
                   "point": "The instance that makes this plainest is a set of rules that runs on every write to a record and not once on that record's deletion, such a set being a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and a write and a deletion each being an action, one thing done in a system of a kind that can be named.",
-                  "serves": [
-                    "L1"
-                  ]
+                  "serves": ["L1"]
                 },
                 {
                   "point": "That instance is put together out of nothing unusual, an ordinary set of rules and two ordinary actions, and what it makes plain is that the care taken in writing the rules decided nothing about the kind of action they passed over.",
-                  "serves": [
-                    "L1"
-                  ]
+                  "serves": ["L1"]
                 },
                 {
                   "point": "The same instance also accounts for a second matter, why deleting that record raises no warning at all, since nothing in the set was ever set up to notice a deletion.",
-                  "serves": [
-                    "L1"
-                  ]
+                  "serves": ["L1"]
                 }
               ]
             }
@@ -360,9 +332,7 @@
         "waypoint": 1,
         "to": {
           "point": "A set of automatic rules is a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and such a set can be written with every care and still never act on an entire kind of action.",
-          "serves": [
-            "L1"
-          ]
+          "serves": ["L1"]
         }
       }
     },
@@ -446,43 +416,31 @@
               "paragraph_waypoints": [
                 {
                   "point": "Which single thing decides whether a standing set of automatic rules does anything at all about something that happens?",
-                  "serves": [
-                    "L1"
-                  ],
+                  "serves": ["L1"],
                   "cast": {
                     "asked": true
                   }
                 },
                 {
                   "point": "It is the kind the happening belongs to.",
-                  "serves": [
-                    "L1"
-                  ],
+                  "serves": ["L1"],
                   "cast": {
                     "terse": true
                   }
                 },
                 {
                   "point": "A home burglar alarm is wired against certain kinds of opening at an entry point of the house.",
-                  "serves": [
-                    "L1"
-                  ],
+                  "serves": ["L1"],
                   "cast": {}
                 },
                 {
                   "point": "So every kind of opening at an entry point of the house falls on one side of that wiring or the other, and an upstairs window of an unwired kind can stand open the whole night with the alarm quiet, because that opening fits none of the patterns the alarm was given and is therefore no concern of its.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
+                  "serves": ["L1", "L2"],
                   "cast": {}
                 },
                 {
                   "point": "Of everything that could be said about such an arrangement, the line between the kinds it was signed up against and the kinds it was not is the most important thing about it.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
+                  "serves": ["L1", "L2"],
                   "cast": {
                     "plain": true
                   }
@@ -502,9 +460,7 @@
         "waypoint": 2,
         "to": {
           "point": "It is the kind the happening belongs to: such rules act on a happening only when it falls under a kind they were signed up against.",
-          "serves": [
-            "L1"
-          ],
+          "serves": ["L1"],
           "cast": {
             "terse": true
           }
@@ -999,6 +955,129 @@
           ]
         }
       }
+    },
+    "analogue-clean": {
+      "source": "leg3-clean with the bound Move handed an Analogy Mapping under `analogy_you_must_draw_from` and Waypoint 2 drawing its example from that base domain, written for kogaki#1812",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "leg-1",
+          "text": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
+          "prior_knowledge": "no specialized grasp of the subject, only loose impressions picked up from the news",
+          "the_reader_has_been_told": [
+            {
+              "leg_id": "L1",
+              "text": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up."
+            }
+          ],
+          "leaves_for_next_leg": [
+            {
+              "kind": "answer",
+              "what": "what puts one position where the effect arises readily and another where it does not"
+            }
+          ],
+          "bound_move": {
+            "takes": [
+              {
+                "kind": "answer",
+                "what": "how two parties who each act only protectively end up in a spiral, and where that leaves them"
+              }
+            ],
+            "leaves": [
+              {
+                "kind": "answer",
+                "what": "what puts one position where the effect arises readily and another where it does not",
+                "segment": 4
+              }
+            ],
+            "segments": [
+              {
+                "operation": "divides a general principle's scope into conditions where it holds strongly and conditions where it does not"
+              },
+              {
+                "operation": "restates the division in operational terms, holding the action fixed and letting only the surrounding conditions vary",
+                "relation": "unpacks the division the step before named, saying in plain terms what it amounts to in practice"
+              },
+              {
+                "operation": "claims the distinction just drawn is needed to understand one particular case, without yet saying why",
+                "relation": "turns from stating the distinction to asserting its importance, holding back the ground for the assertion"
+              },
+              {
+                "operation": "supplies the withheld ground by contrasting two positions under the distinction, one of them cutting against what sheer strength would predict",
+                "relation": "delivers the ground the previous step deferred, in the form of a paired contrast"
+              }
+            ],
+            "breaks": [
+              "drop the restatement that holds the action fixed — the division stays a pair of names and the reader cannot test any case against it",
+              "give the ground before claiming the distinction matters — the contrast lands as one more fact, and the reader never feels a tool being used",
+              "add a full account of what places a party in each condition — the paragraph answers the question it exists to open, and the step after it has nothing left to do",
+              "replace the counterintuitive half of the contrast with an expected one — the distinction looks decorative, since strength alone would predict the same outcome",
+              "cut the assertion of importance and move straight to the contrast — the reader has no reason to hold the two positions together and reads them as separate reports"
+            ],
+            "analogy_you_must_draw_from": {
+              "base_domain": {
+                "name": "neighbours putting up fences",
+                "description": "Householders on one street each put up a fence, and a neighbour reads the new fence as a guard against thieves or as a line drawn against them."
+              },
+              "roles": [
+                {
+                  "role": "r_state",
+                  "counterpart": "a householder"
+                },
+                {
+                  "role": "r_buildup",
+                  "counterpart": "a new fence"
+                },
+                {
+                  "role": "r_fear",
+                  "counterpart": "the neighbour's alarm"
+                }
+              ],
+              "relations": [
+                {
+                  "relation": "c_fear",
+                  "counterpart": "a new fence alarms the neighbour"
+                }
+              ]
+            }
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
+              "paragraph_waypoints": [
+                {
+                  "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not.",
+                  "serves": ["L2"]
+                },
+                {
+                  "point": "Like a new fence, read as a guard against thieves on a quiet street and as a line drawn against the neighbour on a feuding one, the same arms buildup is feared in one situation and not feared in another.",
+                  "serves": ["L2"]
+                },
+                {
+                  "point": "The split matters for understanding where the strongest power stands in the world.",
+                  "serves": ["L2"]
+                },
+                {
+                  "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
+                  "serves": ["L2"]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "analogue-outside": {
+      "source": "analogue-clean with Waypoint 2 drawing its example from a domain the Analogy Mapping does not name, written for kogaki#1812",
+      "from": "analogue-clean",
+      "at_paragraph": 1,
+      "edit": {
+        "paragraph": 1,
+        "waypoint": 2,
+        "to": {
+          "point": "Like a chess opening, read as solid play by one player and as an attack by another, the same arms buildup is feared in one situation and not feared in another.",
+          "serves": ["L2"]
+        }
+      }
     }
   },
   "axes": [
@@ -1006,12 +1085,8 @@
       "id": "PERFORMS IS BARE",
       "sentence": "A `performs` line carries the operation alone and no clause stating the reader's resulting reading.",
       "fixtures": {
-        "defect": [
-          "performs-states-reading"
-        ],
-        "clean": [
-          "leg3-wp3-clean"
-        ]
+        "defect": ["performs-states-reading"],
+        "clean": ["leg3-wp3-clean"]
       },
       "justified_by": {
         "date": "2026-10-23",
@@ -1030,12 +1105,8 @@
       "id": "OWN STEP",
       "sentence": "A Waypoint carries nothing a later Segment's `operation` produces, not even in apposition or as a `that is` restatement of its own content, which a refusal names by both Waypoints and that Segment.",
       "fixtures": {
-        "defect": [
-          "leg4-run"
-        ],
-        "clean": [
-          "leg4-own-step"
-        ]
+        "defect": ["leg4-run"],
+        "clean": ["leg4-own-step"]
       },
       "justified_by": {
         "date": "2026-10-25",
@@ -1054,12 +1125,8 @@
       "id": "TAKEN",
       "sentence": "Every `takes` entry of the bound Move is met by the Leg's `prior_knowledge` or by a relation of `the_reader_has_been_told`, which a refusal names by its kind and `what`.",
       "fixtures": {
-        "defect": [
-          "taken-unmet"
-        ],
-        "clean": [
-          "leg3-clean"
-        ]
+        "defect": ["taken-unmet"],
+        "clean": ["leg3-clean"]
       },
       "justified_by": {
         "date": "2026-11-06",
@@ -1078,12 +1145,8 @@
       "id": "LEFT",
       "sentence": "Every `leaves` entry of the bound Move is taken up by a later paragraph of this Leg or is among the Leg's `leaves_for_next_leg`, which a refusal names by its kind and `what`.",
       "fixtures": {
-        "defect": [
-          "left-not-taken"
-        ],
-        "clean": [
-          "leg3-clean"
-        ]
+        "defect": ["left-not-taken"],
+        "clean": ["leg3-clean"]
       },
       "justified_by": {
         "date": "2026-11-06",
@@ -1102,12 +1165,8 @@
       "id": "BREAKS",
       "sentence": "The Waypoints, read in order, survive each test in the Move's `breaks`, no test naming a change the Waypoints have made.",
       "fixtures": {
-        "defect": [
-          "g1-defines-first"
-        ],
-        "clean": [
-          "g1-clean"
-        ]
+        "defect": ["g1-defines-first"],
+        "clean": ["g1-clean"]
       },
       "justified_by": {
         "date": "2026-11-02",
@@ -1126,12 +1185,8 @@
       "id": "CAST",
       "sentence": "Every key a `point` Waypoint's `cast` sets true holds of its point as the key's definition states it, which a refusal names by the Waypoint, the key, its definition and the quoted clause that breaks it.",
       "fixtures": {
-        "defect": [
-          "cast-terse-elaborates"
-        ],
-        "clean": [
-          "cast-terse-clean"
-        ]
+        "defect": ["cast-terse-elaborates"],
+        "clean": ["cast-terse-clean"]
       },
       "justified_by": {
         "date": "2026-11-11",
@@ -1166,6 +1221,25 @@
           "defect_refused_with": 1,
           "defect_refused_without": 0,
           "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
+    },
+    {
+      "id": "ANALOGUE",
+      "sentence": "Where the bound Move carries `analogy_you_must_draw_from`, every analogue a paragraph names is its base domain or one of its counterparts, which a refusal names by the Waypoint and the analogue.",
+      "fixtures": {
+        "defect": ["analogue-outside"],
+        "clean": ["analogue-clean"]
+      },
+      "justified_by": {
+        "date": "2026-11-11",
+        "run": "runs/judge-bench/2026-11-11-analogue-5",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 0.8,
           "clean_passed_without": 1
         }
       }

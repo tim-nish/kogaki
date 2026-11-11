@@ -422,7 +422,6 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
       leaves_for_next_leg: leg.leaves_for_next_leg || [],
       bound_move: withAnalogy(
         { takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks },
-        c,
         inputs.analogy,
       ),
       ...(mapping ? { mapping } : {}),

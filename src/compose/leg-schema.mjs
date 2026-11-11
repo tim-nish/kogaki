@@ -85,13 +85,6 @@ function claimTypes() {
 function retiredClaimTypes() {
   return new Map(Object.entries(legschema().claim.retired_types || {}));
 }
-// The Journey use vocabulary, read from the schema for the reason the claim
-// types are (kogaki#1111): the schema is rendered into the composition prompt
-// and read back here, so the set the composer is shown and the set the refusal
-// enforces are one file and cannot disagree.
-export function journeyUses() {
-  return new Map(Object.entries(legschema().journey.uses));
-}
 const SLOT = "*(awaiting composition)*";
 
 // ---- THE RULES OVER THE WHOLE PATH, READ FROM THE SCHEMA (kogaki#1147) ----
@@ -159,51 +152,13 @@ function legFieldPresent(decl, v) {
   }
 }
 
-// ---- the Journey a Leg draws on (kogaki#1111) ----
+// ---- `journeys`, a key the schema no longer declares (kogaki#1768, kogaki#1818) ----
 //
-// A Journey is MATERIAL with an ADDRESS and a USE, and no text. What the Leg
-// alone can show is checked here: the shape, the closed use set, and that
-// the Journey's Strand is in this Leg's `materials`. Whether the Strand's
-// served record carries Journey material needs the Brief's `strands` list
-// and is checked in `fillBrief`. PURE; `src/draft.mjs` imports this rather
-// than re-expressing it.
+// src/leg-schema.json carries no `journey` since kogaki#1768, so an answer carrying `journeys`
+// is refused naming the key rather than read against the schema.
 export function journeysRefusal(journeys, materials, at) {
   if (journeys === undefined) return null;
-  if (!Array.isArray(journeys)) {
-    return `${at}: journeys, when present, is an array of Journey references — each naming the Strand whose Journey this Leg draws on and what it uses it for (src/leg-schema.json, \`journey\`)`;
-  }
-  const uses = journeyUses();
-  // The Strand ids this Leg carries, with a `.journey` suffix stripped: a
-  // composer may name the Strand bare, or as the `<L-id>.journey` form, and
-  // both are the Leg carrying that Strand. Neither spelling decides
-  // placement — since kogaki#1131 the coverage count reads THIS field.
-  const carried = new Set((Array.isArray(materials) ? materials : []).map((m) => String(m).replace(/\.journey$/, "")));
-  for (const [i, j] of journeys.entries()) {
-    const nth = `journey ${i + 1}`;
-    if (!j || typeof j !== "object" || Array.isArray(j)) {
-      return `${at}: ${nth} is not a Journey reference — each entry names a \`strand\` and a \`use\` (src/leg-schema.json, \`journey\`)`;
-    }
-    if (typeof j.strand !== "string" || j.strand === "") {
-      return `${at}: ${nth} names no strand — a Journey reference addresses the Strand whose Journey this Leg draws on, as a LessonDisplayID (L<n>)`;
-    }
-    if (typeof j.use !== "string" || j.use === "") {
-      return `${at}: ${nth} (strand ${j.strand}) names no use — a Journey is material the Leg EDITS, and the use is what the Leg edits it for: ${[...uses.keys()].join(", ")}`;
-    }
-    if (!uses.has(j.use)) {
-      // NAMES THE SET AND WHAT EACH MEMBER MEANS, not just the set. The use
-      // is the composer's one decision on this field, and a bare list of
-      // three words is the refusal that sends them back to the schema to
-      // find out which one they wanted.
-      return (
-        `${at}: ${nth} (strand ${j.strand}) declares use ${JSON.stringify(j.use)} — the set is closed (src/leg-schema.json, \`journey.uses\`): ` +
-        [...uses.entries()].map(([k, v]) => `${k} — ${v}`).join("; ")
-      );
-    }
-    if (!carried.has(j.strand)) {
-      return `${at}: ${nth} draws on ${j.strand}'s Journey, but this Leg does not carry ${j.strand} in \`materials\` (${(materials || []).join(", ") || "none"}) — a Leg edits material it stands on, so the Journey's Strand is one of the Leg's own materials`;
-    }
-  }
-  return null;
+  return `${at} carries \`journeys\`, a key src/leg-schema.json no longer declares (kogaki#1768, kogaki#1818): a Leg draws on no Journey`;
 }
 
 // `budget` — OPTIONAL, the word bound this Leg's realized prose may spend.
