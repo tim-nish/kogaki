@@ -261,9 +261,10 @@ def validate_entries(entries, opener=None):
         if not (str(admission.get("contract", "")).strip()
                 or str(admission.get("defect", "")).strip()):
             missing.append("contract-or-defect")
-        for field in ("license", "tier", "removal_signal"):
-            if not str(admission.get(field, "")).strip():
-                missing.append(field)
+        missing += [f for f in ("license", "removal_signal")
+                    if not str(admission.get(f, "")).strip()]
+        if admission.get("tier") not in ("fast", "pre-push"):
+            missing.append("tier (`fast` or `pre-push`, kogaki#1794)")
         if missing:
             failures.append(
                 f"FAIL admission record incomplete: {entry_path(entry)} "
@@ -826,7 +827,7 @@ def run_probes(entries, runner=None):
 def fixture_pass():
     """Synthetic registries through the same functions the live path uses."""
     def entry(instrument, id_="fx", **admission):
-        base = {"contract": "c", "license": "l", "tier": "ci",
+        base = {"contract": "c", "license": "l", "tier": "pre-push",
                 "removal_signal": "s", "efficacy": "none: fixture entry"}
         base.update(admission)
         if instrument is not None:
@@ -860,6 +861,9 @@ def fixture_pass():
     f = validate_entries([entry("someday maybe")])
     cases.append(("malformed prefix fails",
                   any("malformed" in x for x in f)))
+    cases.append(("a tier other than fast or pre-push fails naming the entry",
+                  any("fx" in x and "tier" in x for x in validate_entries(
+                      [entry("act: x", tier="ci")]))))
     cases.append(("act accepted", not validate_entries([entry("act: x")])))
     cases.append(("none accepted", not validate_entries([entry("none: y")])))
     cases.append(("probe accepted", not validate_entries([entry("probe: z")])))
@@ -920,7 +924,7 @@ def fixture_pass():
     # Also initially uncaught: every fixture SET the key, so `.get`'s default
     # was the sole guard for an entry omitting `efficacy` altogether.
     absent = {"id": "fx", "file": "check-fx.sh",
-              "admission": {"contract": "c", "license": "l", "tier": "ci",
+              "admission": {"contract": "c", "license": "l", "tier": "pre-push",
                             "removal_signal": "s",
                             "removal_instrument": "act: x"}}
     cases.append(("the efficacy KEY entirely absent fails, not only an empty "
@@ -929,10 +933,6 @@ def fixture_pass():
                                                        opener=fake_open))))
     cases.append(("the split is on the FIRST `::`, so a label carrying `:` "
                   "survives", not eff("case: colon.sh::x: y")))
-    # Derived from the diff and initially UNCAUGHT: the live registry holds no
-    # label containing `::`, so first-vs-last split was unobservable and a
-    # `rpartition` mutant survived the pass. The case is authored rather than
-    # the mutant dropped.
     cases.append(("the split is on the FIRST `::` even when the LABEL carries "
                   "`::` too", not eff("case: double.sh::x::y")))
     # Also initially uncaught: an empty reason passes the non-empty test

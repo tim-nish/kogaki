@@ -36,6 +36,5 @@
   {"file": "checks/check-section-numbers.sh", "interpreter": "python3", "lines": 89},
   {"file": "checks/check-spec-headings.sh", "interpreter": "python3", "lines": 97},
   {"file": "tools/digest-check-catches.sh", "interpreter": "python3", "lines": 104},
-  {"file": "tools/mine-receipt-absence.sh", "interpreter": "python3", "lines": 206},
-  {"file": "tools/run-registered-checks.sh", "interpreter": "python3", "lines": 507}
+  {"file": "tools/mine-receipt-absence.sh", "interpreter": "python3", "lines": 206}
 ]
