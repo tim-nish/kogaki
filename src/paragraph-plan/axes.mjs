@@ -16,7 +16,12 @@ import {
   retiredPlanKeyRefusal,
   undeclaredKey,
 } from "../compose.mjs";
-import { PLAN_SCHEMA_KEYS, paragraphLegRefusal, paragraphSchemaRefusal } from "../compose/record.mjs";
+import {
+  PLAN_SCHEMA_KEYS,
+  RETIRED_PLAN_KEYS,
+  paragraphLegRefusal,
+  paragraphSchemaRefusal,
+} from "../compose/record.mjs";
 import { correspondenceVocabularyFailures } from "../mapping-playground/rbs.mjs";
 import { judgePrompt } from "../workflow/judge.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
@@ -337,24 +342,37 @@ function paragraphFailures(e, i, leg, prior, contract, moveId, atP) {
   const add = (why) => {
     if (why) out.push(why);
   };
-  add(retiredPlanKeyRefusal(e, `${atP}: the paragraph`));
-  if (Object.hasOwn(e, "why"))
+  // EACH KEY IS NAMED ONCE (kogaki#1813): the schema rule reads the paragraph without the keys named here.
+  const named = new Set();
+  const retired = retiredPlanKeyRefusal(e, `${atP}: the paragraph`);
+  if (retired) {
+    add(retired);
+    for (const k of RETIRED_PLAN_KEYS) named.add(k);
+  }
+  if (Object.hasOwn(e, "why")) {
     add(
       `${atP}: the paragraph carries \`why\`, retired (kogaki#1639) — why this paragraph comes here is its \`rationale\``,
     );
-  if (Object.hasOwn(e, "move"))
+    named.add("why");
+  }
+  if (Object.hasOwn(e, "move")) {
     add(`${atP}: the paragraph carries \`move\` — the Leg binds one Move for all its paragraphs (kogaki#1777)`);
-  const k = undeclaredKey(e, UNIT_PARAGRAPH_KEYS);
+    named.add("move");
+  }
+  const rest = Object.fromEntries(Object.entries(e).filter(([key]) => !named.has(key)));
+  const k = undeclaredKey(rest, UNIT_PARAGRAPH_KEYS);
   if (k)
     add(
       `${atP}: the paragraph carries \`${k}\`, which it does not declare — it carries paragraph, ${PLAN_SCHEMA_KEYS.join(", ")}, join (on every paragraph after the first) and paragraph_waypoints`,
     );
   if (e.paragraph !== i + 1)
     add(`${atP}: the paragraph is numbered ${JSON.stringify(e.paragraph)} — paragraphs are numbered in order from 1`);
-  if (typeof e.rationale !== "string" || words(e.rationale) < 4) add(`${atP}: \`rationale\` is under four words`);
   // THE PARAGRAPH'S SCHEMA, BY THE PLAN READER'S OWN RULE (kogaki#1639): so the record this
   // stage writes is one every later read accepts, and a refusal names the field here first.
-  add(paragraphSchemaRefusal(e, i, leg, prior, atP));
+  const schema = paragraphSchemaRefusal(rest, i, leg, prior, atP);
+  add(schema);
+  if (!(schema && schema.includes("`rationale`")) && (typeof e.rationale !== "string" || words(e.rationale) < 4))
+    add(`${atP}: \`rationale\` is under four words`);
   // ONE PER SEGMENT, COUNTED HERE AND NOT JUDGED (kogaki#1533).
   const n = Array.isArray(e.paragraph_waypoints) ? e.paragraph_waypoints.length : 0;
   if (n !== contract.segments.length) {

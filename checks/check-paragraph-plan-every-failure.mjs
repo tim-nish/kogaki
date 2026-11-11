@@ -7,7 +7,8 @@
 //   (b) the site call's `refused_here`, built from that refusal, carries both;
 //   (c) a site answer carrying both again is refused naming both;
 //   (d) the vocabulary check names every Role whose expression is missing, not the first;
-//   (e) the page renders each failure as its own `why:` line of the Round's Comment.
+//   (e) the page renders each failure as its own `why:` line of the Round's Comment;
+//   (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it.
 // Declared limit: whether a live planner repairs every failure it is handed is the model's.
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -117,6 +118,20 @@ ok(
   missing.length === 2 && missing[0].includes('"sentry"') && missing[1].includes('"gate"'),
   `(d) the vocabulary check does not name every missing expression: ${JSON.stringify(missing)}`,
 );
+
+// (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it.
+for (const [key, value] of [
+  ["move", moveId],
+  ["obligations", []],
+]) {
+  const clean = { ...paragraph, paragraph_waypoints: pws.map((p) => ({ ...p, point: "The night watchman goes on." })) };
+  delete clean.join;
+  const once = validateParagraphPlanUnit({ ...record, paragraphs: [{ ...clean, [key]: value }] }, inputs, "leg-1");
+  ok(
+    Array.isArray(once.failures) && once.failures.length === 1 && once.failures[0].text.includes(`\`${key}\``),
+    `(f) a paragraph carrying \`${key}\` is not refused in one line: ${once.error || "no refusal"}`,
+  );
+}
 
 // (e) the Comment renders one `why:` line per failure.
 const html = commentHtml(
