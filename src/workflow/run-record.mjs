@@ -85,6 +85,7 @@ export function throwIfStateWindow(msg) {
   if (STATE_REFUSAL_DEPTH > 0) throw new StateRefusal(msg);
 }
 
+/** @returns {never} */
 export function fail(msg) {
   // The window is the judge re-ask's and nothing else's; `JudgmentRefusal` is
   // the existing carrier for "a refusal that has not exited yet", declared with

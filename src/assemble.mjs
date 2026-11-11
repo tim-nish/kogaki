@@ -30,6 +30,7 @@ import { fillBrief, fillSlot, briefStrandIds, placements,
 import { REVIEW_AREAS } from "./review.mjs";
 import { disclosureFieldsPresent, disclosureSurface, validateDisclosureTable } from "./disclosure.mjs";
 
+/** @returns {never} */
 function fail(msg) {
   process.stderr.write(`assemble: ${msg}\n`);
   process.exit(1);
