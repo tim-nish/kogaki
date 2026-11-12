@@ -3201,10 +3201,16 @@ Binding → Submission (Round 1) → Judge → Verdict
   Binding, and where no grounding Call ran for that Move, the Binding reads `no
   Mapping Table was grounded for this Move`, inside that Round and nowhere else
   (kogaki#1777).
-- The bind, reading and grounding Calls, and a Call stopped at the per-Call
-  limit, are Calls and never numbered Rounds. They appear in the Calls list
-  and, for the bind and grounding Calls, in the Calls block of the Round whose
+- The reading and grounding Calls, and a Call stopped at the per-Call limit,
+  are Calls and never numbered Rounds. A bind Call followed by a Call that
+  writes inside a Mapping Table is one too. They appear in the Calls list and,
+  for the bind and grounding Calls, in the Calls block of the Round whose
   Binding they produced.
+- A bind Call whose paragraphs the Judge read opens a Round at each paragraph
+  it carries, as a write Call does (kogaki#1837). That is the bind Call the
+  next Call of the same unit judges: the bound Move took no Mapping Table, so
+  no second Call wrote the Waypoints and the bind Call's own are the Leg's
+  first Submission.
 - Every Round renders the same blocks in the same order, each filled or
   carrying the reason it is empty.
 
