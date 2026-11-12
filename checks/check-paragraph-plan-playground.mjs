@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-paragraph-plan-playground — the ParagraphPlanPlayground (kogaki#1756, kogaki#1758, kogaki#1762) renders one Leg of a ParagraphPlan
 // run, or one Candidate of a Brief compose run, from the run directory alone, one Round per Submission. Its cases
-// (a)-(x) are the `paragraph-plan-playground` entry's contract in checks/registry.json.
+// (a)-(y) are the `paragraph-plan-playground` entry's contract in checks/registry.json.
 import {
   mkdtempSync,
   mkdirSync,
@@ -858,8 +858,114 @@ rmSync(root, { recursive: true, force: true });
   );
 }
 
+// (y) THE FIRST SUBMISSION IS ROUND 1 (kogaki#1837): a bind Call whose paragraphs the Judge read opens a Round, so a
+// refused first Submission renders with its Finding and its Repair, and a Leg passed at once renders one Round.
+{
+  const { repairsPath } = await imp("src/paragraph-plan/findings.mjs");
+  const yRun = join(root, "run-first-submission");
+  mkdirSync(join(yRun, "mapping"), { recursive: true });
+  const yRecord = (unit, n, phase, answer, refusal, input) =>
+    writeCallRecord(yRun, unit, n, {
+      prompt: head("paragraph_plan_unit", "plan the Leg.") + JSON.stringify(input),
+      argv: [],
+      cli: null,
+      input: null,
+      row: { phase },
+      raw: "",
+      answer,
+      refusal,
+    });
+  const five = (last) => ["One.", "Two.", "Three.", "Four.", last];
+  const verdict = (legId, v, why) => ({ version: "1", leg_id: legId, verdicts: [{ paragraph: 1, verdict: v, why }] });
+  const untabled = (legId) => ({ leg_you_must_plan: { leg_id: legId, text: `The text of ${legId}.` } });
+  const CAST = 'Leg legA, paragraph 1: the judge wrote: "CAST fails at Waypoint 5, whose `cast` sets `plain` true."';
+  yRecord(
+    "leg-1",
+    1,
+    "compose",
+    plan("legA", M1, [para(1, five("Five, with its ground restated."))]),
+    null,
+    untabled("legA"),
+  );
+  yRecord("leg-1", 2, "fit", verdict("legA", "does-not-fit", "CAST fails at Waypoint 5."), {
+    text: `THE WAYPOINTS WERE JUDGED:\n${CAST}`,
+    sites: [{ site: 1, refusal: CAST }],
+  });
+  yRecord("leg-1", 3, "site", para(1, five("Five, laid down flat.")), null, {
+    paragraph_you_must_plan: { leg_id: "legA", paragraph: 1 },
+    bound_move: { id: M1 },
+  });
+  yRecord("leg-1", 4, "fit", verdict("legA", "fits", "It fits."), null);
+  yRecord("leg-2", 1, "compose", plan("legB", M1, [para(1, five("Five, at once."))]), null, untabled("legB"));
+  yRecord("leg-2", 2, "fit", verdict("legB", "fits", "It fits."), null);
+  for (const u of ["leg-1", "leg-2"])
+    writeFileSync(join(yRun, "mapping", `${u}.json`), JSON.stringify({ structure, table: null }));
+  writeFileSync(
+    repairsPath(yRun),
+    `${JSON.stringify({
+      unit: "leg-1",
+      site: 1,
+      refusal: CAST,
+      chosen_by: "program",
+      arm: "modify_points",
+      waypoints: [5],
+      grounds: "the cast Finding at paragraph 1, Waypoint 5 fixed the Arm.",
+      findings: [{ criterion: "CAST", class: "cast", site: { paragraph: 1, waypoint: 5 }, evidence: "plain" }],
+    })}\n`,
+  );
+  writeFileSync(
+    join(yRun, "reader-path-job.json"),
+    JSON.stringify({
+      state: "done",
+      supervisor_pid: 0,
+      units: [
+        { id: "leg-1", status: "done", rounds: 4, call_1_s: 1 },
+        { id: "leg-2", status: "done", rounds: 2, call_1_s: 1 },
+      ],
+    }),
+  );
+  writeFileSync(
+    join(yRun, "paragraph-plan-start.json"),
+    JSON.stringify({
+      brief: "theses/fixture/brief.yaml",
+      brief_sha256: "0",
+      moves_dir: "moves",
+      legs: [leg("legA"), leg("legB")],
+    }),
+  );
+  const yA = waypointHtml(renderFlp({ runDir: yRun, legId: "legA", outDir: root }).html || "", 1);
+  const yB = waypointHtml(renderFlp({ runDir: yRun, legId: "legB", outDir: root }).html || "", 1);
+  ok(
+    JSON.stringify(roundsOf(yA).map((r) => r.split("</h3>")[0])) === JSON.stringify(["Round 1", "Round 2"]),
+    `(y) a Leg refused at its first Submission and passed at its retry renders ${JSON.stringify(roundsOf(yA).map((r) => r.split("</h3>")[0]))}`,
+  );
+  ok(
+    block(round(yA, 1), "Submission").includes("Five, with its ground restated.") &&
+      block(round(yA, 1), "Comment").includes("verdict: does-not-fit"),
+    "(y) Round 1 does not hold the bind Call's Waypoints under the Judge's refusal",
+  );
+  ok(
+    round(yA, 1).includes("finding: cast — Waypoint 5, CAST") &&
+      round(yA, 1).includes("repair: modify_points (Waypoint 5)"),
+    "(y) the refused Round 1 does not render its Finding with its class and its Repair with its Arm",
+  );
+  ok(
+    block(round(yA, 2), "Submission").includes("Five, laid down flat.") &&
+      block(round(yA, 2), "Comment").includes("verdict: fits") &&
+      yA.includes("passed in Round 2"),
+    "(y) Round 2 does not hold the retried Waypoints, the verdict fits and the status passed in Round 2",
+  );
+  ok(count(block(round(yA, 1), "Calls"), "Call 1: bind") === 1, "(y) Round 1 does not list its bind Call once");
+  ok(
+    roundsOf(yB).length === 1 &&
+      block(round(yB, 1), "Submission").includes("Five, at once.") &&
+      yB.includes("passed in Round 1"),
+    `(y) a Leg passed at its first Submission renders ${roundsOf(yB).length} Rounds`,
+  );
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log("paragraph-plan-playground: 23 cases pass, the Leg read per paragraph (kogaki#1777)");
+console.log("paragraph-plan-playground: 24 cases pass, the Leg read per paragraph (kogaki#1777)");

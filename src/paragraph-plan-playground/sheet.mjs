@@ -145,7 +145,7 @@ const isStopped = (rec) => Boolean(rec.refusal && /\bper-call limit\b/.test(Stri
 // Leg's Move it was written under (kogaki#1777), a judge's verdicts and its refusal record. A suffix Call's
 // paragraphs run from the first after those that stand.
 export function unitCalls(runDir, unitId, { mapped = false } = {}) {
-  return callRows(callsRoot(runDir))
+  const calls = callRows(callsRoot(runDir))
     .filter((r) => r.unit === unitId)
     .map((r) => {
       const rec = readCallRecord(r.dir);
@@ -182,12 +182,18 @@ export function unitCalls(runDir, unitId, { mapped = false } = {}) {
                 : "write";
       return { n: r.n, dir: r.dir, phase, kind, site, refusal: rec.refusal, entries, verdicts };
     });
+  // A bind Call whose paragraphs the Judge read (kogaki#1837): the Call after it is the Judge's, no write Call
+  // having written inside a Mapping Table between them.
+  calls.forEach((c, i) => {
+    c.judged = c.kind === "bind" && Boolean(calls[i + 1]) && calls[i + 1].phase === "fit";
+  });
+  return calls;
 }
 
 // THE ROUNDS AT PARAGRAPH `n`, read from the Call Records alone. A write, site retry or suffix Call whose answer
 // carries this paragraph, or whose refusal names it, opens a Round; a validator's refusal is that Round's
-// Comment, and the next judge Call naming this paragraph gives the open Round its verdict. Bind and stopped Calls
-// open none. A suffix Call is the whole Leg's reopening from a paragraph on (kogaki#1777).
+// Comment, and the next judge Call naming this paragraph gives the open Round its verdict. A bind Call opens one
+// only where the Judge read its paragraphs (kogaki#1837), and a stopped Call opens none. A suffix Call is the whole Leg's reopening from a paragraph on (kogaki#1777).
 export function roundsAt(calls, n, status) {
   const rounds = [];
   for (const c of calls) {
@@ -203,7 +209,7 @@ export function roundsAt(calls, n, status) {
       };
       continue;
     }
-    if (c.kind !== "write" && c.kind !== "site retry" && c.kind !== "suffix") continue;
+    if (c.kind !== "write" && c.kind !== "site retry" && c.kind !== "suffix" && !c.judged) continue;
     if (c.kind === "site retry" && c.site !== n) continue;
     const entry = c.entries.get(n) ?? null;
     const text = refusalAt(c.refusal, n);
