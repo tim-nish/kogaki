@@ -829,6 +829,12 @@ declared measurement input for that class — never the policy system's
   with `continue-on-error: true`, so the advisory list is in every log and
   the job's verdict stays the suite's. The audit gates nothing: a gate on an
   external database turns a green head red with no change to the tree.
+- **The held npm majors:** `.github/dependabot.yml` ignores the
+  major-version updates of two packages, and each hold names what lifts it.
+  `@types/node` follows the Node major the `checks` workflow installs, so its
+  major moves in the change that moves `node-version`. `typescript` stays on
+  its major until an Issue re-derives `tsc-baseline.json` under the new one,
+  because a new major changes which findings the type check reports.
 - **PR gate, split by property type:** the mechanical half (change licensed
   by a named issue; new checks carry admission records; registry
   conformance; **a touched consultation-map boundary has a receipt**) runs

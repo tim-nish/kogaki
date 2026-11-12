@@ -5,15 +5,15 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.19.2",
-    "c8": "10.1.3",
+    "c8": "12.0.0",
     "dependency-cruiser": "18.7.2",
     "eslint": "10.14.0",
-    "eslint-plugin-import-x": "4.17.1",
+    "eslint-plugin-import-x": "4.18.1",
     "globals": "17.14.0",
-    "prettier": "3.6.2",
+    "prettier": "3.9.10",
     "textlint": "15.8.0",
     "textlint-rule-preset-ja-technical-writing": "12.0.2",
-    "textlint-rule-prh": "6.1.0",
+    "textlint-rule-prh": "6.1.1",
     "typescript": "5.9.3"
   }
 }

@@ -11,3 +11,10 @@ updates:
       npm:
         patterns:
           - "*"
+    ignore:
+      # Follows the Node major the checks workflow installs.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # Waits for an Issue that re-derives tsc-baseline.json.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
