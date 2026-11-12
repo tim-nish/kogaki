@@ -39,6 +39,7 @@ import {
 import { resolveHeadlines, resolveStrandAddresses } from "../workflow/strands.mjs";
 import { componentsOf, depthOf, holdsInRoleNames, withApex } from "../compose/structure.mjs";
 import { argString, briefComposePathDefault, defaultRunState, fail, readRunState, strandClaims } from "./run-state.mjs";
+import { agreementLine, structureAgreement } from "./structure-readings.mjs";
 
 // The inputs the mint reads, and no others: an input it does not name is
 // refused by name rather than ignored (kogaki#1571 retired the
@@ -51,6 +52,7 @@ const COMPOSE_BRIEF_INPUTS = Object.freeze([
   "definedTerms",
   "claims",
   "structure",
+  "structureAgreement",
 ]);
 
 // One `strand_coverage` entry per claim the adopted structure leaves unreached:
@@ -94,7 +96,16 @@ export function composeBrief(input) {
       `composeBrief: \`${unread}\` is not an input the mint reads (${COMPOSE_BRIEF_INPUTS.join(", ")}) — the Brief header carries \`slug\` and \`compose_path\` only, and an introduced term crosses as \`- <term> — <meaning>\` (kogaki#1571)`,
     );
   }
-  const { slug, strands, thesis, composePath, definedTerms = [], claims = [], structure = null } = input;
+  const {
+    slug,
+    strands,
+    thesis,
+    composePath,
+    definedTerms = [],
+    claims = [],
+    structure = null,
+    structureAgreement = null,
+  } = input;
   if (typeof thesis !== "string" || thesis === "") {
     throw new Error(
       "composeBrief: a Brief cannot be composed without an adopted thesis (the durable home and the entry point v9)",
@@ -149,6 +160,8 @@ export function composeBrief(input) {
   // Legs that carry them. A mint with no structure writes neither.
   if (structure) {
     record.structure = structure;
+    // Every reading's part, grouped by the Strands it reaches (kogaki#1833).
+    if (structureAgreement) record.structure_agreement = structureAgreement;
     record.strand_coverage = unreachedCoverage(structure);
   } else record.strand_coverage = [];
   for (const key of briefSlotKeys()) record[key] = null;
@@ -441,7 +454,9 @@ export function classifyHomes(candidates, strands, thesesDir) {
 export function thesisGateOptions(candidates) {
   return candidates.map((c) => ({
     id: c.id,
-    label: `${c.thesis} — ${depthLine(c)}; leaves ${c.leaves.length ? c.leaves.join(", ") : "none"} — Brief: ${c.slug}`,
+    label: `${c.thesis} — ${depthLine(c)}; leaves ${c.leaves.length ? c.leaves.join(", ") : "none"}${
+      c.agreement ? `; ${agreementLine(c.agreement.readings, c.agreement.of)}` : ""
+    } — Brief: ${c.slug}`,
   }));
 }
 
@@ -677,6 +692,8 @@ export function cmdAdopt(args) {
   // THE ADOPTED STRUCTURE (kogaki#1768): the adopted component's apex appended to
   // `higher_order` and named `attains_thesis`, the other apexes discarded, and
   // `reach` and `unreached` derived from it.
+  // THE READING THE ADOPTED CANDIDATE'S STANDING PART COMES FROM IS THE RUN'S STRUCTURE (kogaki#1833).
+  if (Array.isArray(state.readings) && Number.isInteger(hit.reading)) state.structure = state.readings[hit.reading - 1];
   if (!state.structure || !hit.apex || typeof hit.apex.name !== "string") {
     fail(
       `candidate ${hit.id} carries no apex, or the run state carries no structure — the \`apex\` state composes ` +
@@ -684,6 +701,19 @@ export function cmdAdopt(args) {
     );
   }
   state.adopted_structure = withApex(state.structure, hit.apex, strandClaims(state));
+  if (Array.isArray(state.readings) && Array.isArray(state.reading_groups)) {
+    state.structure_agreement = structureAgreement({
+      asked: Number(state.readings_asked) || state.readings.length,
+      readings: state.readings,
+      groups: state.reading_groups,
+      adoptedKey: hit.component,
+      holdsOf: (structure, id) =>
+        holdsInRoleNames(
+          structure,
+          ([...structure.higher_order, ...structure.relations].find((x) => x.id === id) || {}).holds,
+        ),
+    });
+  }
   state.stage = "adopted";
   state.adopted_thesis = thesis;
   state.adopted_via = hit.id;
@@ -815,6 +845,7 @@ export function cmdMint(args) {
     definedTerms,
     claims: strandClaims(state).map((c) => c.claim),
     ...(state.adopted_structure ? { structure: state.adopted_structure } : {}),
+    ...(state.structure_agreement ? { structureAgreement: state.structure_agreement } : {}),
   });
   writeFileSync(out, doc);
   // Per-block snapshot (kogaki#523): the mint's before-state is NO FILE —

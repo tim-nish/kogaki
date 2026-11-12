@@ -20,17 +20,7 @@ import {
   validateLegs,
 } from "../compose.mjs";
 import { applyLegSections } from "../compose/sections.mjs";
-import {
-  componentsOf,
-  elementLabel,
-  mintStructure,
-  partitionComponents,
-  pathReachRefusal,
-  readHolds,
-  structureLegs,
-  validateApex,
-  validateReadSet,
-} from "../compose/structure.mjs";
+import { elementLabel, pathReachRefusal, readHolds, structureLegs } from "../compose/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
   DetachedJobStarted,
@@ -54,15 +44,19 @@ import {
   thesisFreeTextRefusal,
   thesisGate,
   thesisWords,
+  UNCONNECTED_REASON,
   unconnectedLines,
   withThesis,
 } from "./candidates.mjs";
 import { candidateSelectionExtra, selectedCandidateId } from "./reader-path-unit.mjs";
+import { groupReadings, readingLines, readingOf, validateApexAcross } from "./structure-readings.mjs";
 import {
   BRIEF_REPO,
   REVIEW_PATH_JOB_DIR,
+  STRUCTURE_JOB_DIR,
   briefAudienceFile,
   briefJobBounds,
+  briefStructureReadings,
   briefThesis,
   captureFile,
   detachedJobFor,
@@ -323,75 +317,103 @@ export const STATE_WORK = {
     return null;
   },
 
-  // ---- JUDGMENT POINT 0. The structure (kogaki#1768): the settled Strands'
-  // served claims read as ONE RelationalStructure under the `read_structure`
-  // row, before any Thesis exists, so no `attains_thesis` is written and every
-  // higher-order relation names the claims that state it. The structure is
-  // written onto the run state, where the `apex` state reads it.
+  // ---- JUDGMENT POINT 0. The structure (kogaki#1768), read `brief.structure_readings` times as a
+  // Detached Job of one unit per reading (kogaki#1833): every unit makes the one Call this state
+  // made, and the validated readings are written onto the run state, where `apex` reads them.
   read_structure: async (rec, st, args, table) => {
     const runState = needRunState(rec, st);
     const state = readJson(runState);
     const claims = everyClaim(state, st);
+    const job = detachedJobFor(rec._dir, st.id);
+    // RESUMPTION: `job await`'s "done" arm re-enters carrying the finished units' records.
+    if (args["structure-result"]) {
+      const result = readJson(String(args["structure-result"]));
+      const readings = (Array.isArray(result && result.records) ? result.records : []).map(readingOf);
+      if (!readings.length)
+        fail(`${st.id}: the structure-reading job ended \`done\` and its result carries no reading.`);
+      state.readings = readings;
+      state.readings_asked = Number(result.asked) || readings.length;
+      delete state.structure;
+      writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
+      rec.brief_structure = relFromRepo(resolve(readerPathJobPath(job.jobDir)));
+      rec.judgments[st.id] = rec.brief_structure;
+      return null;
+    }
+    if (readReaderPathJob(job.jobDir)) {
+      throw new DetachedJobStarted(
+        st.id,
+        readerPathJobPath(job.jobDir),
+        `the structure-reading job at ${readerPathJobPath(job.jobDir)} is already open -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` to poll it (kogaki#1833).`,
+      );
+    }
+    const asked = briefStructureReadings(table);
     const { persona } = audienceFor(table, st);
-    let structure = null;
-    const validate = (p) => {
-      let r;
-      try {
-        r = readJson(p);
-      } catch (e) {
-        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`);
-      }
-      const m = mintStructure(r);
-      if (m.text) refuseJudgment(m.text);
-      const v = validateReadSet(m.structure, claims, { thesis: false, considered: true });
-      if (v.text) refuseJudgment(v.text);
-      structure = m.structure;
-    };
-    const composeInputFor = () => writeJudgeInput(rec, st, { state: st.id, claims, persona });
-    const path = await judged(rec, st, table, args, "structure", composeInputFor, validate);
-    state.structure = structure;
-    writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
-    rec.brief_structure = path;
-    rec.judgments[st.id] = path;
-    return null;
+    const input = { state: st.id, claims, persona };
+    writeJudgeInput(rec, st, input);
+    const prompt = judgePrompt(st, JSON.stringify(input, null, 2), input, null);
+    const units = Array.from({ length: asked }, (_, i) => ({ id: `reading-${i + 1}`, prompt }));
+    rec.detached_job_dirs = { ...(rec.detached_job_dirs || {}), [st.id]: STRUCTURE_JOB_DIR };
+    mkdirSync(job.jobDir, { recursive: true });
+    const cfg = judgeSettings(table, rec);
+    startDetachedJobSupervisor(job.jobDir, {
+      units,
+      command: cfg.command,
+      model: cfg.model,
+      outputFormat: cfg.outputFormat,
+      ...briefJobBounds(table, st.id),
+      stallS: READER_PATH_JOB_STALL_S,
+      heartbeatMs: jobHeartbeatMs(),
+      recordArray: "relations",
+      validator: { module: "src/brief.mjs", export: "validateStructureReadingUnit", inputs: { claims } },
+    });
+    throw new DetachedJobStarted(
+      st.id,
+      readerPathJobPath(job.jobDir),
+      `structure-reading job started at ${readerPathJobPath(job.jobDir)} (kogaki#1833) -- run \`${READER_PATH_JOB_AWAIT_COMMAND}\` to poll it.`,
+    );
   },
 
-  // ---- JUDGMENT POINT 1. The apexes (kogaki#1768, kogaki#1773): the structure's connected
-  // components are computed here (`componentsOf`); only a component a higher-order relation
-  // connects is a candidate, the rest recorded as unconnected material. A component with one
-  // top carries that top as its apex; one Call writes one apex per component with several.
-  // A Thesis over `brief.thesis_words` is rewritten once by the `thesis_bound_unit` Call before
-  // the gate is composed, and every candidate's home is classified before it (kogaki#1742).
+  // ---- JUDGMENT POINT 1. The apexes (kogaki#1768, kogaki#1773), over every reading (kogaki#1833):
+  // the connected parts are grouped by the Strands each reaches and ordered by how many readings
+  // agree (`groupReadings`); one part stands for each of the first three groups. A standing part
+  // with one top carries that top as its apex; one Call writes one apex per standing part with
+  // several. A Thesis over `brief.thesis_words` is rewritten once by the `thesis_bound_unit` Call
+  // before the gate is composed, and every candidate's home is classified before it (kogaki#1742).
   apex: async (rec, st, args, table) => {
     const runState = needRunState(rec, st);
     const state = readJson(runState);
-    if (!state.structure)
+    const readings = state.readings || (state.structure ? [state.structure] : null);
+    if (!readings || !readings.length)
       fail(`${st.id}: the run state carries no structure — \`read_structure\` writes it and precedes this state.`);
     const claims = everyClaim(state, st);
-    const components = componentsOf(state.structure, claims);
-    const { connected, unconnected } = partitionComponents(components);
-    state.unconnected = unconnected;
-    if (!connected.length) {
+    const grouping = groupReadings(readings, claims);
+    if (!grouping.offered.length) {
       writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
       fail(
-        `${st.id}: no Thesis can be offered — ${unconnectedLines(unconnected).join(" ")} Go back through Terrain and re-settle the set; nothing was written under theses/.`,
+        `${st.id}: no Thesis can be offered — ${unconnectedLines([{ claims: claims.map((c) => c.id) }]).join(" ")} Go back through Terrain and re-settle the set; nothing was written under theses/.`,
       );
     }
-    const multi = connected.filter((k) => k.top.length > 1);
+    // A STANDING PART AS A COMPONENT OF ITS OWN READING, named `<reading>-<component>`.
+    const standing = grouping.offered.map((g) => ({ ...g.standing.part, component: g.standing.key }));
+    const readingOfPart = (k) => readings[Number(k.component.split("-")[0]) - 1];
+    const multi = standing.filter((k) => k.top.length > 1);
     const { language } = audienceFor(table, st);
-    const element = new Map(
-      [...state.structure.relations, ...state.structure.higher_order].map((x) => [
-        x.id,
-        { id: x.id, name: x.name, holds: readHolds(state.structure, x.holds) },
-      ]),
-    );
-    const described = (k) => ({
-      component: k.component,
-      relations: k.relations.map((id) => element.get(id)),
-      higher_order: k.higher_order.map((id) => element.get(id)),
-      top: k.top,
-      claims: k.claims,
-    });
+    const described = (k) => {
+      const s = readingOfPart(k);
+      const element = new Map(
+        [...s.relations, ...s.higher_order].map((x) => [
+          x.id,
+          { id: x.id, name: x.name, holds: readHolds(s, x.holds) },
+        ]),
+      );
+      return {
+        component: k.component,
+        relations: k.relations.map((id) => element.get(id)),
+        higher_order: k.higher_order.map((id) => element.get(id)),
+        top: k.top,
+        claims: k.claims,
+      };
+    };
     let apexes = [];
     if (multi.length) {
       const validate = (p) => {
@@ -401,7 +423,7 @@ export const STATE_WORK = {
         } catch (e) {
           refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`);
         }
-        const v = validateApex(r, multi, state.structure);
+        const v = validateApexAcross(r, multi, readingOfPart);
         if (v.text) refuseJudgment(v.text);
         apexes = r.apexes;
       };
@@ -410,10 +432,24 @@ export const STATE_WORK = {
       rec.brief_apex = await judged(rec, st, table, args, "apex", composeInputFor, validate);
       rec.judgments[st.id] = rec.brief_apex;
     }
-    let candidates = composeThesisCandidates(apexes, connected, claims, state.structure);
-    candidates = await boundTheses(rec, table, args, { candidates, connected, language, described });
+    const read = readings.length;
+    let candidates = grouping.offered.map((g, i) => ({
+      ...composeThesisCandidates(apexes, [standing[i]], claims, readingOfPart(standing[i]))[0],
+      reading: g.standing.reading,
+      agreement: { readings: g.readings, of: read },
+    }));
+    candidates = await boundTheses(rec, table, args, { candidates, connected: standing, language, described });
     classifyHomes(candidates, state.strands, thesesDirOf(args));
-    state.components = components;
+    state.reading_groups = grouping.groups;
+    delete state.unconnected;
+    state.reading_lines = readingLines({
+      asked: Number(state.readings_asked) || read,
+      read,
+      further: grouping.further,
+      offered: grouping.offered,
+      claims,
+      reason: UNCONNECTED_REASON,
+    });
     state.thesis_candidates = candidates;
     state.gate = thesisGate(candidates, state.strands);
     writeFileSync(runState, JSON.stringify(state, null, 2) + "\n");
@@ -751,7 +787,7 @@ export const GATE_WORK = {
     const provenance = [
       ...(set ? [`Composed over the settled Strand set ${(set.addresses || []).join(", ")}, entered ${set.via}.`] : []),
       ...kept,
-      ...unconnectedLines(state.unconnected || []),
+      ...(state.reading_lines || unconnectedLines(state.unconnected || [])),
     ];
     return {
       options: gate.options.filter((o) => o.id !== "back-to-terrain").map((o) => ({ id: o.id, label: o.label })),

@@ -329,7 +329,11 @@ export function validateReviewPathUnit(entry, inputs, unitId) {
 // two never overwrite each other's record. `job status` and `job await` read
 // the job of the state the run is waiting at.
 export const REVIEW_PATH_JOB_DIR = "review-path";
+// The structure-reading job's own directory (kogaki#1833).
+export const STRUCTURE_JOB_DIR = "structure-readings";
 export function detachedJobFor(runDir, stateId) {
+  if (stateId === "read_structure")
+    return { runDir, stateId, jobDir: join(runDir, STRUCTURE_JOB_DIR), label: "structure-reading job" };
   const review = stateId === "review_path";
   return {
     runDir,
@@ -337,6 +341,20 @@ export function detachedJobFor(runDir, stateId) {
     jobDir: review ? join(runDir, REVIEW_PATH_JOB_DIR) : runDir,
     label: review ? "path-review job" : "reader-path job",
   };
+}
+
+// HOW MANY READINGS THE STRUCTURE JOB ASKS FOR (kogaki#1833): `brief.structure_readings`,
+// named by the `read_structure` job row, a positive whole number or refused naming it.
+export function briefStructureReadings(table) {
+  const st = ((table && table.states) || []).find((s) => s.id === "read_structure");
+  const v = st && st.job ? settingValue(st.job.structure_readings) : undefined;
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0
+    ? n
+    : fail(
+        `the setting \`brief.structure_readings\` in kogaki.settings.json is ${JSON.stringify(v)}, and it is a positive ` +
+          "whole number: how many times the Brief reads the settled Strands into a structure (kogaki#1833). Nothing was started.",
+      );
 }
 export function detachedJobOfRun(runDir) {
   let rec = null;
