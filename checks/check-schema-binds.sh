@@ -17,7 +17,7 @@
 #   (a) src/binds-schema.json declares the five holds, one sentence each, and
 #       the field sets it leans on are still named where they are declared;
 #       every row of src/brief-workflow.json, src/paragraph-plan-workflow.json
-#       and src/proof-sheet/extraction-workflow.json that carries `binds`
+#       and src/move-extraction-playground/extraction-workflow.json that carries `binds`
 #       declares an entry, or a `binds_unread` name, for every field of each
 #       schema it reads, and a row rendering src/leg-schema.json carries
 #       `binds.leg`; each bound field is named in the text `judgePrompt`
@@ -65,13 +65,13 @@ const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { withSharedText, SHARED_TEXT_FIELDS, SHARED_TEXT_TOKEN, judgePrompt } = await imp("src/workflow/judge.mjs");
 // The run record binds no default lane (kogaki#1741); this check reads row text, not a lane.
 (await imp("src/workflow/run-record.mjs")).bindFlow({ lane: "schema-binds", label: "schema-binds check" });
-const { derivedRow } = await imp("src/proof-sheet/leg-brief.mjs");
+const { derivedRow } = await imp("src/move-extraction-playground/leg-brief.mjs");
 const { MOVE_CARRIED_FIELDS } = await imp("src/compose.mjs");
 
 const TABLES = Object.freeze([
   "src/brief-workflow.json",
   "src/paragraph-plan-workflow.json",
-  "src/proof-sheet/extraction-workflow.json",
+  "src/move-extraction-playground/extraction-workflow.json",
 ]);
 const BINDS_SCHEMA = "src/binds-schema.json";
 const PACKET_TEMPLATE = "src/packet-template.md";

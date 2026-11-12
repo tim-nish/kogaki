@@ -23,7 +23,7 @@ const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const load = (p) => import(pathToFileURL(join(repo, p)).href);
-const { retriedCall } = await load("src/mapping-playground/short.mjs");
+const { retriedCall } = await load("src/structure-mapping-playground/short.mjs");
 const { writeCallRecord } = await load("src/workflow/call-record.mjs");
 const { readerPathUnitRetryPrompt } = await load("src/workflow/detached-job.mjs");
 const { jobCallsReport } = await load("src/workflow/job-report.mjs");
@@ -49,7 +49,7 @@ const NOWHERE = { base_move: "nowhere", case: "own", inference_move: null };
 const FOUND = { base_move: "m-plain", case: "own", inference_move: null };
 writeFileSync(join(root, "answers.json"), JSON.stringify([NOWHERE, FOUND]));
 
-const table = JSON.parse(readFileSync(join(repo, "src/mapping-playground/playground-workflow.json"), "utf8"));
+const table = JSON.parse(readFileSync(join(repo, "src/structure-mapping-playground/playground-workflow.json"), "utf8"));
 const row = { id: "smp_bind_move", ...table.smp_bind_move };
 const input = { structure: { roles: [] }, persona: { reader: "a reader", prior_knowledge: "none" },
   moves: [{ id: "m-plain", description: null, segments: [], takes: [], leaves: [] }] };

@@ -18,7 +18,7 @@ import re
 import sys
 
 # The four modules under tools/move_ingest_modules/ (kogaki#1463). Names the
-# checks and src/proof-sheet/leg-run.mjs read from this module stay bound here.
+# checks and src/move-extraction-playground/leg-run.mjs read from this module stay bound here.
 from move_ingest_modules.records import (
     Refusal, validate_move, yaml_write,
 )

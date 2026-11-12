@@ -19,9 +19,9 @@ import { readCallRecord, CALL_FILES, REPLAYS_DIR, REPLAY_RESULT } from "./call-r
 import { judgePrompt, refusalReach } from "./judge.mjs";
 import { bindFlow } from "./run-record.mjs";
 import { readerPathUnitRetryPrompt, loadReaderPathUnitValidator } from "./detached-job.mjs";
-import { answerRecord, bindMoveRefusal, correspondenceRefusal } from "../mapping-playground/short.mjs";
+import { answerRecord, bindMoveRefusal, correspondenceRefusal } from "../structure-mapping-playground/short.mjs";
 import { writerRefusal } from "../draft/writer.mjs";
-import { validateMapperAnswer } from "../mapping-playground/sme.mjs";
+import { validateMapperAnswer } from "../structure-mapping-playground/sme.mjs";
 
 export const REPLAY_MODES = ["judge", "render", "model"];
 const UNITS_FILE = "reader-path-job-units.json";

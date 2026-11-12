@@ -21,7 +21,7 @@ import {
   personaPriorKnowledge,
 } from "./journeys.mjs";
 import { splitPacketTemplate, sectionPlacement, priorProseInSection } from "./packet.mjs";
-import { higherOrderOf, firstPoint } from "../mapping-playground/structure.mjs";
+import { higherOrderOf, firstPoint } from "../structure-mapping-playground/structure.mjs";
 import {
   REALIZATION_LANGUAGES,
   langOf,

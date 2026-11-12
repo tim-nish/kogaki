@@ -2,7 +2,7 @@
   "note": [
     "WHAT A ROW HOLDS EACH SCHEMA FIELD TO (kogaki#1452, owner decision 2026-10-19).",
     "Every row of src/brief-workflow.json, src/paragraph-plan-workflow.json and",
-    "src/proof-sheet/extraction-workflow.json that renders a field of one of the",
+    "src/move-extraction-playground/extraction-workflow.json that renders a field of one of the",
     "schemas below into a prompt carries `binds`: a map from schema name to a map",
     "from field name to ONE hold of the closed set `holds`, and names every field",
     "of that schema it does not read in `binds_unread`. src/packet-template.md's",

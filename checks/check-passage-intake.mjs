@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-passage-intake — the Passage intake puts a source Passage into the store, keeps the
 // book's order in ORDER.md and regenerates INDEX.md (kogaki#1535, owner decision 2026-10-23).
-// Driven through `node src/proof-sheet/passage-intake.mjs` on a fixture store under a
+// Driven through `node src/move-extraction-playground/passage-intake.mjs` on a fixture store under a
 // temporary directory, never the real `corpus/passages/`:
 //   (a) a new file writes `<slug>.md` (three header lines, the text verbatim), appends the
 //       slug to ORDER.md and prints the Extractor's paragraph and sentence counts;
@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { passageBody, passageCounts } from "../src/proof-sheet/passage-intake.mjs";
+import { passageBody, passageCounts } from "../src/move-extraction-playground/passage-intake.mjs";
 const repo = fileURLToPath(new URL("..", import.meta.url));
 const fails = [];
 const ok = (cond, label) => {
@@ -24,10 +24,14 @@ const ok = (cond, label) => {
 const root = mkdtempSync(join(tmpdir(), "passage-intake-"));
 const store = join(root, "passages");
 const intake = (...args) =>
-  spawnSync(process.execPath, [join(repo, "src/proof-sheet/passage-intake.mjs"), ...args, "--store", store], {
-    cwd: repo,
-    encoding: "utf8",
-  });
+  spawnSync(
+    process.execPath,
+    [join(repo, "src/move-extraction-playground/passage-intake.mjs"), ...args, "--store", store],
+    {
+      cwd: repo,
+      encoding: "utf8",
+    },
+  );
 const input = (name, text) => {
   const p = join(root, name);
   writeFileSync(p, text);

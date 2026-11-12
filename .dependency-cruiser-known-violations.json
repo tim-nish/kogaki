@@ -2,8 +2,8 @@
   {
     "type": "dependency",
     "from": "src/draft/render-packet.mjs",
-    "to": "src/mapping-playground/structure.mjs",
-    "unresolvedTo": "../mapping-playground/structure.mjs",
+    "to": "src/structure-mapping-playground/structure.mjs",
+    "unresolvedTo": "../structure-mapping-playground/structure.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -15,9 +15,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/sheet.mjs",
-    "to": "src/proof-sheet/leg-run.mjs",
-    "unresolvedTo": "../proof-sheet/leg-run.mjs",
+    "from": "src/structure-mapping-playground/sheet.mjs",
+    "to": "src/move-extraction-playground/leg-run.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-run.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -29,9 +29,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/short.mjs",
-    "to": "src/proof-sheet/extract.mjs",
-    "unresolvedTo": "../proof-sheet/extract.mjs",
+    "from": "src/structure-mapping-playground/short.mjs",
+    "to": "src/move-extraction-playground/extract.mjs",
+    "unresolvedTo": "../move-extraction-playground/extract.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -43,9 +43,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/short.mjs",
-    "to": "src/proof-sheet/leg-run.mjs",
-    "unresolvedTo": "../proof-sheet/leg-run.mjs",
+    "from": "src/structure-mapping-playground/short.mjs",
+    "to": "src/move-extraction-playground/leg-run.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-run.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -57,9 +57,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/structure.mjs",
-    "to": "src/proof-sheet/leg-brief.mjs",
-    "unresolvedTo": "../proof-sheet/leg-brief.mjs",
+    "from": "src/structure-mapping-playground/structure.mjs",
+    "to": "src/move-extraction-playground/leg-brief.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-brief.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -71,9 +71,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/trial.mjs",
-    "to": "src/proof-sheet/extract.mjs",
-    "unresolvedTo": "../proof-sheet/extract.mjs",
+    "from": "src/structure-mapping-playground/trial.mjs",
+    "to": "src/move-extraction-playground/extract.mjs",
+    "unresolvedTo": "../move-extraction-playground/extract.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -85,9 +85,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/trial.mjs",
-    "to": "src/proof-sheet/leg-brief.mjs",
-    "unresolvedTo": "../proof-sheet/leg-brief.mjs",
+    "from": "src/structure-mapping-playground/trial.mjs",
+    "to": "src/move-extraction-playground/leg-brief.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-brief.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -99,23 +99,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/mapping-playground/trial.mjs",
-    "to": "src/proof-sheet/leg-run.mjs",
-    "unresolvedTo": "../proof-sheet/leg-run.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/paragraph-plan-mapper.mjs",
-    "to": "src/mapping-playground/sme.mjs",
-    "unresolvedTo": "./mapping-playground/sme.mjs",
+    "from": "src/structure-mapping-playground/trial.mjs",
+    "to": "src/move-extraction-playground/leg-run.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-run.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -128,8 +114,22 @@
   {
     "type": "dependency",
     "from": "src/paragraph-plan-mapper.mjs",
-    "to": "src/mapping-playground/trial.mjs",
-    "unresolvedTo": "./mapping-playground/trial.mjs",
+    "to": "src/structure-mapping-playground/sme.mjs",
+    "unresolvedTo": "./structure-mapping-playground/sme.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/paragraph-plan-mapper.mjs",
+    "to": "src/structure-mapping-playground/trial.mjs",
+    "unresolvedTo": "./structure-mapping-playground/trial.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -142,8 +142,8 @@
   {
     "type": "dependency",
     "from": "src/paragraph-plan/axes.mjs",
-    "to": "src/mapping-playground/rbs.mjs",
-    "unresolvedTo": "../mapping-playground/rbs.mjs",
+    "to": "src/structure-mapping-playground/rbs.mjs",
+    "unresolvedTo": "../structure-mapping-playground/rbs.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -156,8 +156,8 @@
   {
     "type": "dependency",
     "from": "src/workflow/replay.mjs",
-    "to": "src/mapping-playground/short.mjs",
-    "unresolvedTo": "../mapping-playground/short.mjs",
+    "to": "src/structure-mapping-playground/short.mjs",
+    "unresolvedTo": "../structure-mapping-playground/short.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -170,8 +170,8 @@
   {
     "type": "dependency",
     "from": "src/workflow/replay.mjs",
-    "to": "src/mapping-playground/sme.mjs",
-    "unresolvedTo": "../mapping-playground/sme.mjs",
+    "to": "src/structure-mapping-playground/sme.mjs",
+    "unresolvedTo": "../structure-mapping-playground/sme.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -598,8 +598,8 @@
   {
     "type": "dependency",
     "from": "src/workflow/replay.mjs",
-    "to": "src/mapping-playground/short.mjs",
-    "unresolvedTo": "../mapping-playground/short.mjs",
+    "to": "src/structure-mapping-playground/short.mjs",
+    "unresolvedTo": "../structure-mapping-playground/short.mjs",
     "dependencyTypes": [
       "local",
       "import"
@@ -612,8 +612,8 @@
   {
     "type": "dependency",
     "from": "src/workflow/replay.mjs",
-    "to": "src/mapping-playground/sme.mjs",
-    "unresolvedTo": "../mapping-playground/sme.mjs",
+    "to": "src/structure-mapping-playground/sme.mjs",
+    "unresolvedTo": "../structure-mapping-playground/sme.mjs",
     "dependencyTypes": [
       "local",
       "import"

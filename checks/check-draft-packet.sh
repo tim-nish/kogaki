@@ -6,14 +6,14 @@
 #
 # THE OWNER'S DECISION THIS NOW HOLDS (2026-10-20, kogaki#1477): "I think
 # redefining Join as a relationship type is probably the right direction." On
-# the 2026-10-19 Proof Sheet run every paragraph after the first opened on its
+# the 2026-10-19 Move-Extraction Playground run every paragraph after the first opened on its
 # join sentence paraphrased as a clause, because a sentence the Writer must
 # realise in its own text is content to the Writer.
 #
 # THE DECISION IT HELD BEFORE (2026-10-19, kogaki#1447): "A join is a connection and
 # nothing more ... the Writer realises it inside the first sentence rather than
 # as a sentence of its own." On 2026-10-19 paragraph 2 of the attack-defense
-# Proof Sheet run opened on its plan's join rendered nearly whole, because
+# Move-Extraction Playground run opened on its plan's join rendered nearly whole, because
 # `src/packet-template.md` said the opening realises the line "in a
 # connective, a clause or a sentence of your choosing", guarded only by "it is
 # not copied".

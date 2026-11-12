@@ -65,7 +65,7 @@ export const RUNS_ROOT = join(REPO, "runs");
 // The closed lane set. A lane outside it refuses BY NAME rather than minting a
 // directory: `runs/` is enumerated by a human, and a typo that silently
 // creates `runs/terain/` produces a lane nothing prunes.
-export const LANES = Object.freeze(["terrain", "brief", "draft", "review", "proof-sheet"]);
+export const LANES = Object.freeze(["terrain", "brief", "draft", "review", "move-extraction-playground"]);
 
 // Entries a lane's pruning never removes, by name. `runs/terrain/reports/` is
 // the report RECORD store, and its home is stable because identity and
@@ -95,7 +95,7 @@ const ALWAYS_EXEMPT = Object.freeze({
   brief: ["entries"],
   draft: [],
   review: [],
-  "proof-sheet": [],
+  "move-extraction-playground": [],
 });
 
 // The one sub-directory carrying its own bound, named here rather than passed

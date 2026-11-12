@@ -40,7 +40,7 @@ it does not read, and empty where the stage does not read the schema at all.
 
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
-- `extraction_unit` is src/proof-sheet/extraction-workflow.json `extraction_unit`.
+- `extraction_unit` is src/move-extraction-playground/extraction-workflow.json `extraction_unit`.
 
 ## leg -- the Brief's Leg
 
@@ -64,7 +64,7 @@ it does not read, and empty where the stage does not read the schema at all.
 - `renderings_unit` is src/brief-workflow.json `renderings_unit`.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
-- `leg_path_unit` is src/proof-sheet/extraction-workflow.json `leg_path_unit`.
+- `leg_path_unit` is src/move-extraction-playground/extraction-workflow.json `leg_path_unit`.
 - `packet:waypoints` is src/packet-template.md block `{{waypoints}}`.
 - `packet:claims` is src/packet-template.md block `{{claims}}`.
 - `packet:section_placement` is src/packet-template.md block `{{section_placement}}`.

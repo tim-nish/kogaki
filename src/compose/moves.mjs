@@ -121,7 +121,7 @@ export const MOVE_CARRIED_FIELDS = ["description", "evidence"];
 
 // `description` is human-facing and maps no role (kogaki#1412): no prompt
 // renders it, and nothing reads it beyond its presence and this bound, which
-// `src/proof-sheet/extract.mjs`'s `DESCRIPTION_MAX` asks the Extractor to keep.
+// `src/move-extraction-playground/extract.mjs`'s `DESCRIPTION_MAX` asks the Extractor to keep.
 export const MOVE_DESCRIPTION_MAX = 200;
 
 function moveRecordContract(record, moveId, path, movesDir) {
