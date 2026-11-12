@@ -3877,6 +3877,30 @@ and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),
 `paragraphs`, as `bind.yaml` does, and in the composed route `base_move`,
 `case` and `inference_move` (kogaki#1700, kogaki#1719).
 
+**A Leg of a Brief and a named Move** (kogaki#1830). A second route,
+`node src/mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id>
+--move <Move id> --out <dir under runs/mapping-playground/> [--audience <file>]
+[--library <dir>]`, holds the Move fixed and reads the Leg from an adopted
+Brief. The three flags are given together, and with them `--proposition`,
+`--structure`, `--mapper`, `--compose` and `--rbs-file` are refused by name.
+The proposition is the Leg's `text`, and the Leg's structure is read from the
+Brief with no model call: the relation its `relation` names with the Roles of
+its `between`, or, for a higher-order relation, that relation, the relations
+it `relates` and their Roles. Its stages are `move-reading`, `pairing`,
+`grounding`, `waypoints` and `write`. `move-reading` (`smp_read_move`) reads
+the whole Move into Roles, each marked `source: target` or `source: base`,
+relations and higher-order relations, and only then records, per Segment in
+order, which of them that Segment `states`; nothing is created from one
+Segment. `pairing` (`smp_pair_roles`) pairs each `target` Role and each
+relation of the Move with one of the Leg's, or null, and the Harness writes
+what is left `unmatched`; nothing fills a null. `grounding` fills the Mapping
+Table for the named Move under case `own`, and no Analogy Mapping is written.
+`waypoints` is the production plan call handed `move_structure` and `pairing`,
+with the one sentence of the Playground's `smp_paired_plan` row appended to
+its judgment point. The sheet opens with `Move structure` and `Segments`: per
+Segment its operation, what it states and what each is paired with or
+`unmatched`, and the Waypoints written for it.
+
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.
 
