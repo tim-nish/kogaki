@@ -3,8 +3,8 @@
 # against the Packet's Opens-from line, and an opening that narrates its
 # connection fails naming its paragraph (kogaki#1447, kogaki#1477).
 #
-# THE DEFECT THIS HOLDS: on 2026-10-19 paragraph 2 of the attack-defense Proof
-# Sheet run opened on its plan's join rendered nearly whole, and no review item
+# THE DEFECT THIS HOLDS: on 2026-10-19 paragraph 2 of the attack-defense
+# Move-Extraction Playground run opened on its plan's join rendered nearly whole, and no review item
 # read the opening against the line: the Packet's "it is not copied" was the
 # only guard, and nothing checked it. The item `opens-from-copied`
 # (src/review-items.json) is that check, judged and best-effort. Since

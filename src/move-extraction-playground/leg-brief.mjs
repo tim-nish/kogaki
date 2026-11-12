@@ -474,7 +474,8 @@ export function constantFields({ slug, paragraphs }) {
     bridged: {},
   };
 }
-export const CONSTANT_COMMENT = "# PROOF SHEET CONSTANT (kogaki#1385): not composed — the parser requires it.";
+export const CONSTANT_COMMENT =
+  "# MOVE-EXTRACTION PLAYGROUND CONSTANT (kogaki#1385): not composed — the parser requires it.";
 
 // `legs`, in place of `leg`, is a several-Leg Brief's composed Legs (kogaki#1532). Every composed
 // Leg is split into one Brief Leg per paragraph (kogaki#1784), and the cross-Leg fields are derived

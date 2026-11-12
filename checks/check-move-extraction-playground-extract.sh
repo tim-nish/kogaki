@@ -268,7 +268,7 @@ sys.exit(1 if bad else 0)
 `, legacy, ...files], { encoding: "utf8", cwd: repo });
 ok(py.status === 0, `(b) the ingest refused an Extraction, or read a Markdown one: ${py.stdout}${py.stderr}`);
 
-// (b2) THE PROOF SHEET'S INGEST STAGE IS THE SAME GATE (kogaki#1418). `run_from_extraction`
+// (b2) THE MOVE-EXTRACTION PLAYGROUND'S INGEST STAGE IS THE SAME GATE (kogaki#1418). `run_from_extraction`
 // -- the call `src/move-extraction-playground/leg-run.mjs`'s ingest stage makes -- validates each candidate
 // through the Adapter's own validator (src/move-validate.mjs): the Moves it admits from
 // these Extractions are read by `moveContract`, the production Adapter, without refusal,
