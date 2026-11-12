@@ -708,7 +708,10 @@ export function cmdAdopt(args) {
       groups: state.reading_groups,
       adoptedKey: hit.component,
       holdsOf: (structure, id) =>
-        holdsInRoleNames(structure, (structure.higher_order.find((h) => h.id === id) || {}).holds),
+        holdsInRoleNames(
+          structure,
+          ([...structure.higher_order, ...structure.relations].find((x) => x.id === id) || {}).holds,
+        ),
     });
   }
   state.stage = "adopted";
