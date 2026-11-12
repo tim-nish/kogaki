@@ -417,22 +417,6 @@
       }
     },
     {
-      "id": "brief-structure-job",
-      "file": "checks/check-brief-structure-job.sh",
-      "covers": ["src/brief/structure-readings.mjs", "src/brief/renderers.mjs", "src/brief/candidates.mjs", "src/brief/job-verbs.mjs", "src/brief/run-state.mjs", "src/brief-workflow.json", "kogaki.settings.json", "checks/fixtures/brief-structure-job/check.mjs"],
-      "admission": {
-        "contract": "The structure read several times (kogaki#1833): `read_structure` is a Detached Job of `brief.structure_readings` units, one per reading, driven from a run standing after `enter` by one advance and then `job await` alone, against a fake model binary that answers each call the record its slot names. (s1) five readings, three reaching L1 and L2 -- two under one pattern and one under a deeper one -- and two reaching L1 to L3: the Thesis question offers the L1 and L2 candidate first, labelled `3 of 5 readings`, its standing part the most common pattern rather than the deeper one, and the other second, labelled `2 of 5 readings`; (s2) the setting at 1 offers what one reading yields, labelled `1 of 1 readings`; (s3) a unit refused in both its Rounds yields no reading: the label reads `2 of 2 readings`, one line above the question says `3 readings were asked for and 2 were read.`, and the Strand no candidate reaches is named there; (s4) four groups offer three candidates, most readings first and the deeper standing part next, and the fourth is named above the question once; (s5) adopting the second candidate of (s1) mints a Brief whose `structure` is its standing part's reading and whose `structure_agreement` lists the five parts with their patterns, the adopted group marked; (s6) `loadWorkflowTable` accepts src/brief-workflow.json, so no advance sums past `advance_timeout_s`. Runs under the fixture-isolation prelude of check-brief-path-review-job.sh.",
-        "license": "kogaki#1833, under SPEC-draft-pipeline §4.22.1",
-        "tier": "pre-push",
-        "runtime_ms": 3000,
-        "removal_signal": "the Brief reading the settled Strands into a structure once, with no ordering of Thesis candidates by agreement",
-        "removal_instrument": "act: the PR that returns `read_structure` to a synchronous judgment state in src/brief-workflow.json owes this member's removal row in the same act",
-        "efficacy": "case: checks/fixtures/brief-structure-job/check.mjs::(s1) the first candidate is not the L1 and L2 one labelled 3 of 5 readings",
-        "efficacy_note": "MUTATION EVIDENCE (assert-by-breaking-once, kogaki#1833, applied once and restored): reversing the group order in src/brief/structure-readings.mjs `groupParts` (`b.readings - a.readings` to `a.readings - b.readings`) turned cases (s1), (s4) and (s5) red. Reverted, and the member returned to passing.",
-        "runtime_ms_note": "Two serial runs, 2026-11-12, on the development machine: 1770, 1710 ms. 3000 leaves room for the four jobs' supervisors under a 100 ms heartbeat on a loaded machine."
-      }
-    },
-    {
       "id": "brief-compose",
       "file": "checks/check-brief-compose.sh",
       "covers": ["src/compose.mjs", "audiences/dev-to-zenn.md", "src/brief-workflow.json", "checks/fixtures/brief-compose/fixtures.mjs", "src/compose/renderings.mjs", "src/brief/renderers.mjs", "src/candidate-schema.json"],

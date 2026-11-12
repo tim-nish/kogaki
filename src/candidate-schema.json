@@ -202,12 +202,6 @@
         "caption": "How the settled Strands' claims relate: the parts each claim plays, the relations among them, the relations among those relations, and the one connection none of them states, which is the Thesis.",
         "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations`, `higher_order` with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Brief Waypoint of a Brief carrying it names in `carries` the relations its point states, and every Leg names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
       },
-      "structure_agreement": {
-        "required": false,
-        "filled_at": "mint",
-        "caption": "How often the structure was read, and which parts each reading found: the parts reaching the same Strands are grouped, with how many readings produced them and which one this Brief adopted.",
-        "description": "The agreement record (kogaki#1833): `asked` and `read`, the readings asked for and validated, and `groups`, each `{ reaches, readings, adopted, parts }`, `parts` listing every part of the group with its `reading`, its `pattern` (src/brief/structure-readings.mjs, `partPattern`), its `depth` and, for a part with one top, that top's `holds` with its Roles named. Written at mint beside `structure`, which is the adopted group's standing part's reading closed under its apex. A Brief minted before the field carries none."
-      },
       "reader_path": {
         "required": true,
         "filled_at": "adoption",
