@@ -19,6 +19,7 @@ import { moveContract, loadMoveContracts, CAST_KEYS } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
 import { callRows, callsRoot, callRecordsOf } from "../workflow/call-record.mjs";
 import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
+import { pairedWith } from "./move-structure.mjs";
 
 const LEG_SHEET = join(REPO, "src", "proof-sheet", "leg-sheet.mjs");
 // The Proof Sheet's stylesheet is its renderer's `CSS` constant, read from the source rather than copied.
@@ -312,7 +313,84 @@ function analogySection(record) {
   );
 }
 
-export function renderShortSheet({ outDir, record, proposition, structure, tables, paragraphs, paragraphPath }) {
+// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1830): the Move's structure, then per Segment what it states, what each is paired
+// with, and the Waypoints the plan wrote for it.
+function moveStructureSection(ms) {
+  if (!ms) return none("The Move was not read.");
+  const list = (xs) => esc((xs || []).join(", "));
+  const table = (caption, head, rows) =>
+    `<table><caption>${caption}</caption><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
+    (rows.length ? rows.join("") : `<tr><td colspan="${head.length}">none</td></tr>`) +
+    "</tbody></table>";
+  return (
+    table(
+      "Roles",
+      ["id", "source", "context", "attributes"],
+      ms.roles.map(
+        (r) =>
+          `<tr><td>${esc(r.id)}</td><td>${esc(r.source)}</td><td>${esc(r.context)}</td><td>${list(r.attributes)}</td></tr>`,
+      ),
+    ) +
+    table(
+      "Relations",
+      ["id", "between", "holds"],
+      ms.relations.map((r) => `<tr><td>${esc(r.id)}</td><td>${list(r.between)}</td><td>${esc(r.holds)}</td></tr>`),
+    ) +
+    table(
+      "Higher-order relations",
+      ["id", "relates", "holds"],
+      ms.higher_order.map((h) => `<tr><td>${esc(h.id)}</td><td>${list(h.relates)}</td><td>${esc(h.holds)}</td></tr>`),
+    )
+  );
+}
+
+function moveSegmentsSection(record, route, paragraphs) {
+  const { move, moveStructure: ms, pairing } = route;
+  const c = moveContract(move, resolve(REPO, record.library));
+  if (c.error) return `<p class="stop">${esc(c.error)}</p>`;
+  if (!ms || !pairing) return none("The Move was not read and paired, so no Segment is shown.");
+  const ps = paragraphs || [];
+  const rows = c.segments.map((sg, i) => {
+    const states = ((ms.segments[i] || {}).states || []).map((id) => {
+      const to = pairedWith(id, ms, pairing);
+      return `${esc(id)} → ${to === "unmatched" ? '<span class="stop">unmatched</span>' : esc(to)}`;
+    });
+    const points = ps
+      .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
+      .filter(([, w]) => w)
+      .map(([k, w]) => `Paragraph ${k}: ${esc(Object.hasOwn(w, "performs") ? w.performs : w.point)}`);
+    return (
+      `<tr><td>${i + 1}</td><td>${esc(sg.operation || "")}</td><td>${states.join("<br>") || "none"}</td>` +
+      `<td>${points.length ? points.join("<br>") : '<span class="muted">the plan wrote no Waypoint for this Segment</span>'}</td></tr>`
+    );
+  });
+  const u = pairing.unmatched || {};
+  const unmatched = [
+    ["Move Roles", u.move_roles],
+    ["Move relations", u.move_relations],
+    ["Leg Roles", u.leg_roles],
+    ["Leg relations", u.leg_relations],
+  ]
+    .map(([k, v]) => `<tr><th>${k}</th><td>${esc((v || []).length ? v.join(", ") : "none")}</td></tr>`)
+    .join("");
+  return (
+    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>operation</th><th>states → paired with</th><th>Waypoints</th></tr></thead><tbody>` +
+    rows.join("") +
+    "</tbody></table>" +
+    `<table><caption>Unmatched</caption><tbody>${unmatched}</tbody></table>`
+  );
+}
+
+export function renderShortSheet({
+  outDir,
+  record,
+  proposition,
+  structure,
+  tables,
+  paragraphs,
+  paragraphPath,
+  moveRoute = null,
+}) {
   const propositionParagraph =
     `<p>${esc(proposition.proposition)}</p><p class="meta">cite: ${esc(proposition.cite)}</p>` +
     paragraphHtml(paragraphPath, record);
@@ -340,8 +418,12 @@ export function renderShortSheet({ outDir, record, proposition, structure, table
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>` +
     `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}` +
+    (moveRoute
+      ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
+        part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))
+      : "") +
     part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph) +
-    part("segments", "Segments", segmentsSection(record, paragraphs)) +
+    (moveRoute ? "" : part("segments", "Segments", segmentsSection(record, paragraphs))) +
     part("bindings", "Bindings", bindingsSection(record, paragraphs)) +
     part("mapping", "Mapping", mapping) +
     part("analogy", "Analogy Mapping", analogySection(record)) +

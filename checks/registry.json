@@ -748,6 +748,23 @@
       }
     },
     {
+      "id": "mapping-playground-move",
+      "file": "checks/check-mapping-playground-move.sh",
+      "covers": ["src/mapping-playground/move-structure.mjs"],
+      "admission": {
+        "contract": "The short Trial's second route (kogaki#1830): a Leg of an adopted Brief and a named Move, the Move read whole into Roles marked target or base, relations and higher-order relations, then per Segment what it states, paired with the Leg's structure read from the Brief, grounded under case own and planned by the production row handed the move structure and the pairing, shown on the sheet per Segment. Driven through `node src/mapping-playground/short.mjs run --brief --leg --move` with one fake model binary, its cases in `checks/mapping-playground-move-cases.mjs`: (a) the stages and files, case own and no Analogy Mapping, a refused reading retried once; (b) the sheet's Segments rows, `unmatched`, `base`, the Unmatched table and a Segment with no Waypoint; (c) the flags; (d) the Brief, Leg and Move refusals with nothing written; (e) the move-reading validator; (f) the pairing validator; (g) the Leg's structure; (h) the plan call's inputs, an unchanged production plan row and an unchanged moves/ and theses/.",
+        "license": "kogaki#1830",
+        "tier": "pre-push",
+        "case_floor": 62,
+        "runtime_ms": 2400,
+        "runtime_ms_note": "MEASURED AT AUTHORING (kogaki#1830, 2026-11-12): three plain serial runs of the file, 1840, 1840 and 1820 ms; 2400 is within 25% above the slowest plus headroom for peer-session load. The fake model answers at once.",
+        "efficacy": "case: checks/mapping-playground-move-cases.mjs::(b) the Segment stating t3 does not read it unmatched",
+        "efficacy_note": "mutation-verified at kogaki#1830: rendering a null-paired element by its pairing word without the `unmatched` mark failed (b), naming Segment 2's row.",
+        "removal_signal": "a ruling retires the short Trial's Brief-Leg route, or folds the move reading into `/paragraph-plan` -- either way the route this check drives is gone",
+        "removal_instrument": "probe: ! test -f src/mapping-playground/move-structure.mjs"
+      }
+    },
+    {
       "id": "leg-planning",
       "file": "checks/check-leg-planning.sh",
       "covers": ["src/compose/structure.mjs", "src/leg-planning/read-set.mjs", "src/leg-planning/sheet.mjs", "src/leg-planning/trial.mjs", "src/leg-planning/workflow.json"],

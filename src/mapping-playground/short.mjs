@@ -47,6 +47,8 @@ import { writeCallRecord, callsRoot, cliRecord, tableRecord } from "../workflow/
 import { EXTRACTION_TABLE } from "../proof-sheet/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
+import { audiencePathOf } from "../paragraph-plan/brief.mjs";
+import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
 
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
@@ -57,6 +59,15 @@ export const ANALOGY_FILE = "analogy.yaml";
 export const PARAGRAPH_FILE = "paragraph.md";
 export const SHEET_FILE = "sheet.html";
 export const SHORT_STAGES = ["reading", "bind", "grounding", "waypoints", "write"];
+// The Brief-Leg route (kogaki#1830): a Leg of an adopted Brief under a named Move.
+export const MOVE_STAGES = ["move-reading", "pairing", "grounding", "waypoints", "write"];
+export const MOVE_ROUTE_FLAGS = ["brief", "leg", "move"];
+export const MOVE_STRUCTURE_FILE = "move-structure.yaml";
+export const PAIRING_FILE = "pairing.yaml";
+export const LEG_STRUCTURE_FILE = "leg-structure.yaml";
+const READ_MOVE_ROW = "smp_read_move";
+const PAIR_ROW = "smp_pair_roles";
+const PAIRED_PLAN_ROW = "smp_paired_plan";
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
@@ -73,7 +84,9 @@ const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE =
   "usage: node src/mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
-  "--out <dir under runs/mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]";
+  "--out <dir under runs/mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
+  "   or: node src/mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> " +
+  "--out <dir under runs/mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
   process.stderr.write(`short: ${msg}\n`);
@@ -900,6 +913,249 @@ export function runShortTrial({
   return { outDir, stopped: record.stopped || null };
 }
 
+// ---------------------------------------------------------------------------
+// THE BRIEF-LEG ROUTE (kogaki#1830): a Leg of an adopted Brief under a named Move, the Move read whole, then paired with
+// the Leg, grounded under `own` and planned; specs/spec-draft-pipeline/SPEC.md, The short Trial.
+
+export function moveReadingInput(contract, libraryDir) {
+  const r = readMoveRecord(contract.id, libraryDir);
+  return {
+    move: {
+      id: contract.id,
+      description: r.error ? null : (r.record.description ?? null),
+      segments: segmentsForPlanCall(contract.segments),
+      takes: contract.takes,
+      leaves: contract.leaves,
+    },
+  };
+}
+
+// The production plan row with the Playground's one sentence appended; the production table is read, never written.
+export function pairedPlanRow(plan, table) {
+  const row = plan[PLAN_ROW];
+  return { id: PLAN_ROW, ...row, judgment_point: `${row.judgment_point} ${table[PAIRED_PLAN_ROW].judgment_point}` };
+}
+
+export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = null, library = null }) {
+  const outDir = resolve(out);
+  const rel = relative(resolve(REPO, TRIALS_DIR), outDir);
+  if (rel === "" || rel.startsWith("..") || rel.startsWith(sep))
+    fail(`--out ${out} is not a directory under ${TRIALS_DIR}/. Nothing was started.`);
+  if (existsSync(join(outDir, TRIAL_FILE)))
+    fail(`a Trial already exists at ${outDir}, and nothing was written over it. Nothing was started.`);
+  const briefPath = resolve(brief);
+  const b = readBriefLeg(briefPath, legId);
+  if (b.error) fail(`${b.error}. Nothing was started.`);
+  const libraryDir = resolve(REPO, library || "moves");
+  const lib = loadMoveContracts(libraryDir);
+  if (lib.error) fail(`${lib.error}. Nothing was started.`);
+  const contract = lib.moves.find((m) => m.id === moveId);
+  if (!contract)
+    fail(
+      `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
+    );
+  const table = readTable();
+  const audiencePath = audience ? resolve(REPO, audience) : audiencePathOf(b.record);
+  const persona = readerPersona(audiencePath);
+  if (persona.error) fail(`${persona.error}. Nothing was started.`);
+  const judge = resolveJudgeBinary(String(declaredCommand()), process.env.PATH);
+  const cli = cliRecord(judge.path, judge.version);
+  const slug =
+    basename(outDir)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "trial";
+  mkdirSync(outDir, { recursive: true });
+  installRecorder(outDir);
+  const reading = join(outDir, READING_FILE);
+  writeFileSync(reading, `# Reading of Trial ${slug}\n`);
+  const structure = b.structure;
+  const structurePath = join(outDir, LEG_STRUCTURE_FILE);
+  writeFileSync(structurePath, stringifyYaml(structure));
+  const leg = { leg_id: b.leg.leg_id, text: b.leg.text, claims: b.leg.claims };
+  const proposition = { proposition: leg.text, cite: `${relFromRepo(briefPath)}, Leg ${leg.leg_id}` };
+  const rbsPath = join(outDir, RBS_FILE);
+  const bindPath = join(outDir, BIND_FILE);
+  const paragraphPath = join(outDir, PARAGRAPH_FILE);
+  const sheetPath = join(outDir, SHEET_FILE);
+  const record = {
+    trial: slug,
+    kind: "short",
+    route: "brief-leg",
+    brief: { ...fileRecord(briefPath), leg: leg.leg_id, relation: b.leg.relation },
+    proposition: { proposition: leg.text },
+    structure: { ...fileRecord(structurePath), author: "brief" },
+    move_structure: { path: null, sha256: null },
+    pairing: { path: null, sha256: null },
+    rbs: { variant: RBS_COMPOSED, path: null, sha256: null },
+    bind: {
+      author: "owner",
+      move: moveId,
+      base_move: moveId,
+      case: OWN,
+      inference_move: null,
+      binding_rationale: bindingRationale({ base_move: moveId, case: OWN, inference_move: null }),
+    },
+    analogy: { path: null, sha256: null },
+    paragraph: { path: null, sha256: null },
+    sheet: relFromRepo(sheetPath),
+    audience: relFromRepo(audiencePath),
+    library: relFromRepo(libraryDir),
+    model_command: judge.path,
+    started_at: new Date().toISOString(),
+    stages: [],
+    reading: relFromRepo(reading),
+  };
+  const save = () => writeFileSync(join(outDir, TRIAL_FILE), JSON.stringify(record, null, 2) + "\n");
+  const stage = (name, body) => {
+    if (record.stopped) {
+      record.stages.push({ stage: name, state: "not run" });
+      save();
+      return null;
+    }
+    const d = join(outDir, name);
+    mkdirSync(d, { recursive: true });
+    let r;
+    try {
+      r = body(d, stageEnv(outDir, d, judge.path));
+    } catch (e) {
+      r = { stopped: `the stage threw: ${String((e && e.message) || e).split("\n")[0]}` };
+    }
+    const calls = join(d, CALLS_FILE);
+    const { value, ...shown } = r;
+    record.stages.push({
+      stage: name,
+      state: r.stopped ? "stopped" : "done",
+      calls: existsSync(calls) ? relFromRepo(calls) : null,
+      call_records: callRootsUnder(d),
+      ...shown,
+    });
+    if (r.stopped) record.stopped = `${name}: ${r.stopped}`;
+    save();
+    return r.stopped ? null : (value ?? {});
+  };
+  const writeYaml = (file, key, value) => {
+    const p = join(outDir, file);
+    writeFileSync(p, stringifyYaml(value));
+    record[key] = fileRecord(p);
+  };
+  save();
+  const segmentCount = contract.segments.length;
+  const moveStructure = stage(MOVE_STAGES[0], (d, env) => {
+    const r = retriedCall({
+      dir: d,
+      env,
+      cli,
+      row: playgroundRow(table, READ_MOVE_ROW),
+      input: moveReadingInput(contract, libraryDir),
+      refusalOf: (answer) => validateMoveStructure(answer, segmentCount),
+      validator: "validateMoveStructure",
+    });
+    if (r.stopped) return r;
+    writeYaml(MOVE_STRUCTURE_FILE, "move_structure", r.answer);
+    return { value: r.answer, refusals: r.refusals };
+  });
+  const pairing = stage(MOVE_STAGES[1], (d, env) => {
+    const r = retriedCall({
+      dir: d,
+      env,
+      cli,
+      row: playgroundRow(table, PAIR_ROW),
+      input: { move_structure: moveStructure, leg_structure: structure },
+      refusalOf: (answer) => validatePairing(answer, moveStructure, structure),
+      validator: "validatePairing",
+    });
+    if (r.stopped) return r;
+    const written = { ...r.answer, unmatched: unmatchedOf(r.answer, structure) };
+    writeYaml(PAIRING_FILE, "pairing", written);
+    return { value: written, refusals: r.refusals };
+  });
+  const tables = stage("grounding", (d, env) => {
+    const r = retriedCall({
+      dir: d,
+      env,
+      cli,
+      row: playgroundRow(table, CORRESPONDENCE_ROW),
+      input: correspondenceInput(structure, persona, contract, OWN),
+      refusalOf: (answer) => correspondenceRefusal(answer, structure),
+      validator: "correspondenceRefusal",
+    });
+    if (r.stopped) return r;
+    const t = {
+      variant: RBS_COMPOSED,
+      tables: [{ move: moveId, base: r.answer.base, correspondences: r.answer.correspondences }],
+    };
+    writeFileSync(rbsPath, stringifyYaml(t));
+    record.rbs = { variant: RBS_COMPOSED, ...fileRecord(rbsPath) };
+    return { value: t, refusals: r.refusals };
+  });
+  const paragraphs = stage("waypoints", (d, env) => {
+    const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+    const input = {
+      ...shortPlanInput({
+        leg,
+        structure,
+        tables: tables.tables,
+        move: moveId,
+        contract,
+        persona,
+        analogy: { none: OWN_ANALOGY_REASON },
+      }),
+      move_structure: moveStructure,
+      pairing,
+    };
+    const r = retriedCall({
+      dir: d,
+      env,
+      cli,
+      row: pairedPlanRow(plan, table),
+      input,
+      tables: [PARAGRAPH_PLAN_TABLE, PLAYGROUND_TABLE],
+      refusalOf: (answer) =>
+        shortPlanRefusal(answer, { input, tables: tables.tables, move: moveId, told: OWN, libraryDir }),
+      validator: "shortPlanRefusal",
+    });
+    if (r.stopped) return r;
+    const leaves = bindingLeaves(contract, OWN, null);
+    const listed = r.answer.paragraphs.map((e, i) => ({
+      move: moveId,
+      binding_rationale: record.bind.binding_rationale,
+      leaves: i === r.answer.paragraphs.length - 1 ? leaves : [],
+      ...(typeof e.join === "string" ? { join: e.join } : {}),
+      paragraph_waypoints: e.paragraph_waypoints,
+    }));
+    writeFileSync(
+      bindPath,
+      stringifyYaml({ move: moveId, binding_rationale: record.bind.binding_rationale, paragraphs: listed }),
+    );
+    record.bind = { ...record.bind, plan_rationale: r.answer.rationale, paragraphs: listed, ...fileRecord(bindPath) };
+    writeFileSync(rbsPath, stringifyYaml({ ...tables, bindings: listed }));
+    record.rbs = { variant: RBS_COMPOSED, ...fileRecord(rbsPath) };
+    return { value: listed, refusals: r.refusals };
+  });
+  stage("write", (d, env) => {
+    const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath });
+    if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
+    return r;
+  });
+  record.finished_at = new Date().toISOString();
+  save();
+  writeFileSync(
+    sheetPath,
+    renderShortSheet({
+      outDir,
+      record,
+      proposition,
+      structure,
+      tables: tables ? tables.tables : null,
+      paragraphs,
+      paragraphPath,
+      moveRoute: { move: moveId, moveStructure, pairing },
+    }),
+  );
+  return { outDir, stopped: record.stopped || null };
+}
+
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
@@ -920,43 +1176,72 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const args = parseArgs(process.argv.slice(2));
   const str = (k) => (typeof args[k] === "string" ? args[k] : null);
   if (args._cmd !== "run") fail(USAGE);
-  if (Object.hasOwn(args, "rbs"))
-    fail(
-      `\`--rbs\` is retired with the \`rbs_<variant>\` family: the model route is \`--compose\` and the owner's table is \`--rbs-file\` (kogaki#1700). Nothing was started. ${USAGE}`,
-    );
-  if (Object.hasOwn(args, "compose") && args.compose !== true)
-    fail(`\`--compose\` takes no value. Nothing was started. ${USAGE}`);
-  if (args.compose === true && str("rbs-file"))
-    fail(
-      `\`--compose\` and \`--rbs-file\` are given together: a Trial's Moves, Correspondence column and Waypoints are composed or the owner's file, never both. Nothing was started. ${USAGE}`,
-    );
-  if (args.compose !== true && !str("rbs-file"))
-    fail(
-      `neither \`--compose\` nor \`--rbs-file\` is given: a Trial composes its Moves, Correspondence column and Waypoints, or reads them from the owner's file (kogaki#1700). Nothing was started. ${USAGE}`,
-    );
-  if (str("structure") && str("mapper"))
-    fail(
-      `\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`,
-    );
-  if (Object.hasOwn(args, "strand"))
-    fail(
-      `\`--strand\` is no flag of the short Trial: its input is \`--proposition <file>\` (kogaki#1685). Nothing was started. ${USAGE}`,
-    );
-  for (const k of ["proposition", ...(str("mapper") ? [] : ["structure"]), "out"])
-    if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
-  const r = runShortTrial({
-    proposition: str("proposition"),
-    structure: str("structure"),
-    mapper: str("mapper"),
-    out: str("out"),
-    compose: args.compose === true,
-    rbsFile: str("rbs-file"),
-    audience: str("audience"),
-    library: str("library"),
-  });
-  console.log(`trial directory: ${r.outDir}`);
-  if (r.stopped) {
-    console.log(r.stopped);
-    process.exitCode = 1;
+  // THE BRIEF-LEG ROUTE (kogaki#1830): its three flags together, and none of the first route's.
+  const given = MOVE_ROUTE_FLAGS.filter((k) => Object.hasOwn(args, k));
+  if (given.length) {
+    const missing = MOVE_ROUTE_FLAGS.find((k) => !str(k));
+    if (missing)
+      fail(
+        `\`--${missing}\` is required beside \`--${given[0]}\`: the Brief-Leg route takes --brief, --leg and --move together. Nothing was started. ${USAGE}`,
+      );
+    for (const k of ["proposition", "structure", "mapper", "compose", "rbs-file"])
+      if (Object.hasOwn(args, k))
+        fail(
+          `\`--${k}\` is no flag of the Brief-Leg route: it reads its proposition and structure from the Brief's Leg and holds the Move given. Nothing was started. ${USAGE}`,
+        );
+    if (!str("out")) fail(`\`--out\` is required. ${USAGE}`);
+    const r = runMoveTrial({
+      brief: str("brief"),
+      leg: str("leg"),
+      move: str("move"),
+      out: str("out"),
+      audience: str("audience"),
+      library: str("library"),
+    });
+    console.log(`trial directory: ${r.outDir}`);
+    if (r.stopped) {
+      console.log(r.stopped);
+      process.exitCode = 1;
+    }
+  } else {
+    if (Object.hasOwn(args, "rbs"))
+      fail(
+        `\`--rbs\` is retired with the \`rbs_<variant>\` family: the model route is \`--compose\` and the owner's table is \`--rbs-file\` (kogaki#1700). Nothing was started. ${USAGE}`,
+      );
+    if (Object.hasOwn(args, "compose") && args.compose !== true)
+      fail(`\`--compose\` takes no value. Nothing was started. ${USAGE}`);
+    if (args.compose === true && str("rbs-file"))
+      fail(
+        `\`--compose\` and \`--rbs-file\` are given together: a Trial's Moves, Correspondence column and Waypoints are composed or the owner's file, never both. Nothing was started. ${USAGE}`,
+      );
+    if (args.compose !== true && !str("rbs-file"))
+      fail(
+        `neither \`--compose\` nor \`--rbs-file\` is given: a Trial composes its Moves, Correspondence column and Waypoints, or reads them from the owner's file (kogaki#1700). Nothing was started. ${USAGE}`,
+      );
+    if (str("structure") && str("mapper"))
+      fail(
+        `\`--structure\` and \`--mapper\` are given together: a Trial's structure is owner-authored or mapped, never both. Nothing was started. ${USAGE}`,
+      );
+    if (Object.hasOwn(args, "strand"))
+      fail(
+        `\`--strand\` is no flag of the short Trial: its input is \`--proposition <file>\` (kogaki#1685). Nothing was started. ${USAGE}`,
+      );
+    for (const k of ["proposition", ...(str("mapper") ? [] : ["structure"]), "out"])
+      if (!str(k)) fail(`\`--${k}\` is required. ${USAGE}`);
+    const r = runShortTrial({
+      proposition: str("proposition"),
+      structure: str("structure"),
+      mapper: str("mapper"),
+      out: str("out"),
+      compose: args.compose === true,
+      rbsFile: str("rbs-file"),
+      audience: str("audience"),
+      library: str("library"),
+    });
+    console.log(`trial directory: ${r.outDir}`);
+    if (r.stopped) {
+      console.log(r.stopped);
+      process.exitCode = 1;
+    }
   }
 }
