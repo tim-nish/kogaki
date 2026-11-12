@@ -287,7 +287,8 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
       module: "src/paragraph-plan.mjs",
       prompt_export: "paragraphPlanJudgePrompt",
       verdict_export: "paragraphPlanJudgeVerdict",
-      inputs: { legs, movesDir, promptHead: renderRowHead(judgeRow) },
+      // The run directory and the Mapper flag carry the Leg's grounded table to the judge (kogaki#1811).
+      inputs: { legs, movesDir, runDir: dir, mapping, promptHead: renderRowHead(judgeRow) },
     },
     // THE SITE LOOP (kogaki#1642): a refusal naming a paragraph is retried there alone.
     siteRetry: {

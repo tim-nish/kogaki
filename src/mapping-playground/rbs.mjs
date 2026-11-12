@@ -204,19 +204,15 @@ export function suppliedEntry(record, serves) {
   };
 }
 
-// THE CORRESPONDENCE VOCABULARY (kogaki#1700, kogaki#1709): each paragraph's points say the structure in its own table's
-// expressions, so every expression of that table appears in one of them, and a Role id appears in none outside an expression
-// of that table or of `priorTables`, the tables of the cases already told. Every failure is returned, never the first (kogaki#1813).
+// THE CORRESPONDENCE VOCABULARY'S LEXICAL HALF (kogaki#1700, kogaki#1709, kogaki#1811): a Role id appears in no point outside
+// an expression of the paragraph's own table or of `priorTables`, the tables of the cases already told. Whether a point names a
+// Role's counterpart is a sense judgment, the ParagraphPlan judge's EXPRESSED axis (src/paragraph-plan-axes.json). Every
+// failure is returned, never the first (kogaki#1813).
 const lower = (t) => String(t).toLowerCase();
 const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export function correspondenceVocabularyFailures(points, table, priorTables = [], paragraph = 1) {
   const texts = (points || []).map((p) => (p && typeof p.point === "string" ? p.point : ""));
-  const failures = table.correspondences
-    .filter((c) => !texts.some((t) => lower(t).includes(lower(String(c.expression).trim()))))
-    .map(
-      (c) =>
-        `Paragraph ${paragraph}'s points carry the Correspondence expression of the Role "${c.role}", "${c.expression}", in none of them`,
-    );
+  const failures = [];
   const expressions = [table, ...priorTables]
     .flatMap((t) => t.correspondences)
     .map((c) => lower(String(c.expression).trim()))

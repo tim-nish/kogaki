@@ -317,8 +317,9 @@ export function readMappingState(runDir, unitId) {
   return path && existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
 }
 
-// ONCE GROUNDED, the Leg keeps the Move its table was grounded for, and every paragraph's Waypoints
-// carry that table's expressions and no Role id outside it (kogaki#1734).
+// ONCE GROUNDED, the Leg keeps the Move its table was grounded for, and no paragraph's Waypoint carries a
+// Role id outside that table's expressions (kogaki#1734). Whether a Waypoint names each Role's counterpart
+// is the judge's EXPRESSED axis (kogaki#1811).
 function groundedTable(inputs, unitId) {
   return inputs.mapping ? (readMappingState(inputs.runDir, unitId) || {}).table || null : null;
 }
@@ -411,6 +412,7 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
   const c = boundMoveContract(record.move, inputs.movesDir);
   const judged = judgedParagraphs(record, scope);
   const joinOnly = new Set(scope ? scope.join_only || [] : []);
+  const mapping = judgedMapping(inputs, unitId);
   return {
     leg_you_must_judge: {
       leg_id: leg.leg_id,
@@ -422,6 +424,7 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
         { takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks },
         inputs.analogy,
       ),
+      ...(mapping ? { mapping } : {}),
       paragraphs: judged.map((n) => {
         const e = record.paragraphs[n - 1];
         return {
@@ -442,6 +445,44 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
         }
       : {}),
   };
+}
+
+// THE MAPPING THE JUDGE IS HANDED (kogaki#1811): each Role of the Leg's grounded table with its expression,
+// and each relation of its structure, its `holds` naming Roles as `{<id>}`, which the EXPRESSED axis judges.
+export function judgedMapping(inputs, unitId) {
+  const m = inputs.mapping ? readMappingState(inputs.runDir, unitId) : null;
+  if (!m || !m.table || !m.structure) return null;
+  return {
+    roles: m.table.correspondences.map((x) => ({ role: String(x.role), expression: String(x.expression) })),
+    relations: (m.structure.relations || []).map((r) => ({ relation: String(r.id), holds: String(r.holds) })),
+  };
+}
+
+// One verdict's `expressed` rows read back against the mapping: `{ error }` where they are malformed,
+// else the rows whose `waypoint` is null, each with the expression or statement it names.
+function expressedRead(x, mapping, waypoints, n) {
+  const want = [
+    ...mapping.roles.map((r) => ({ key: "role", id: r.role, says: r.expression })),
+    ...mapping.relations.map((r) => ({ key: "relation", id: r.relation, says: r.holds })),
+  ];
+  const rows = x.expressed;
+  if (!Array.isArray(rows) || rows.length !== want.length)
+    return {
+      error: `paragraph ${n}'s verdict carries ${Array.isArray(rows) ? rows.length : "no"} \`expressed\` row(s) for the ${want.length} Role(s) and relation(s) of the Leg's mapping — one per entry, in order`,
+    };
+  const missing = [];
+  for (const [i, w] of want.entries()) {
+    const r = rows[i];
+    if (!r || typeof r !== "object" || r[w.key] !== w.id)
+      return { error: `paragraph ${n}'s \`expressed\` row ${i + 1} does not name the ${w.key} "${w.id}"` };
+    const ok = r.waypoint === null || (Number.isInteger(r.waypoint) && r.waypoint >= 1 && r.waypoint <= waypoints);
+    if (!ok)
+      return {
+        error: `paragraph ${n}'s \`expressed\` row for the ${w.key} "${w.id}" names the Waypoint ${JSON.stringify(r.waypoint)}, which is neither null nor one of its ${waypoints}`,
+      };
+    if (r.waypoint === null) missing.push(w);
+  }
+  return { missing };
 }
 
 // The paragraphs a judgment covers, in order: every one, or the scope's.
@@ -481,6 +522,7 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
         `${want.length} paragraph(s) it judges — one per paragraph, in order`,
     };
   }
+  const mapping = judgedMapping(inputs, unitId);
   const failures = [];
   for (const [i, x] of v.verdicts.entries()) {
     const n = want[i];
@@ -491,9 +533,17 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
         error: `paragraph ${n}'s verdict ${JSON.stringify(x.verdict)} is outside ${PARAGRAPH_PLAN_VERDICTS.join(" | ")}`,
       };
     if (typeof x.why !== "string" || words(x.why) < 4) return { error: `paragraph ${n}'s \`why\` is under four words` };
-    if (x.verdict === "does-not-fit") {
-      const f = { leg_id: leg.leg_id, paragraph: n, why: x.why.trim() };
-      failures.push({ ...f, ...(BINDING_REFUSAL.test(f.why) ? {} : { site: n }), refusal: judgeSiteRefusal(f) });
+    const expressed = mapping
+      ? expressedRead(x, mapping, ((record.paragraphs[n - 1] || {}).paragraph_waypoints || []).length, n)
+      : { missing: [] };
+    if (expressed.error) return { error: expressed.error };
+    // AN UNNAMED ROLE OR RELATION REFUSES THE PARAGRAPH WHATEVER ITS VERDICT, beside the judge's own sentence (kogaki#1811).
+    const own = x.verdict === "does-not-fit" ? [x.why.trim()] : [];
+    const unnamed = expressed.missing.map((w) => `EXPRESSED no Waypoint names the ${w.key} "${w.id}", "${w.says}"`);
+    if (own.length || unnamed.length) {
+      const f = { leg_id: leg.leg_id, paragraph: n, why: [...own, ...unnamed].join("; ") };
+      const binding = own.length && BINDING_REFUSAL.test(own[0]);
+      failures.push({ ...f, ...(binding ? {} : { site: n }), refusal: judgeSiteRefusal(f) });
     }
   }
   if (!failures.length) return {};

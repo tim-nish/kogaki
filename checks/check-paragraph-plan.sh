@@ -72,6 +72,10 @@
 #       Leg carries no table and its bind call's Waypoints stand; the plan names one
 #       structure; the job report lists the reading Call Record, and `replay` re-runs
 #       it. The table projected from a mapping is check-paragraph-plan-analogy.mjs's (g).
+#       Where a Leg carries a table, the judge is handed its Roles and the structure's
+#       relations as `mapping`, and its `expressed` rows are read back: a null row
+#       refuses the paragraph naming the Role or relation and its expression, a missing
+#       or out-of-range row is malformed, and without a mapping no row is read (kogaki#1811).
 #
 # NOT COVERED, stated rather than implied: the retry inside a Leg is
 # checks/check-paragraph-plan-site-retry.sh's; the `--tools ""` environment and the
@@ -81,7 +85,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-node --input-type=module - <<'JS'
+node --input-type=module - <<'JS' || exit 1
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -283,8 +287,8 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         + p.paragraph_waypoints[purposeAt(p)].performs.split(" so that")[1] + "\\\\\\"."
       : restates(p) ? "CONTENT-SENTENCE the Waypoint restates a Segment's does rather than a part of the point."
       : refuse(p) ? "JUDGE-SENTENCE the first waypoint never reaches the after state." : "they begin at before and end at after.";
-    out({ version: "1", leg_id: leg.leg_id, verdicts: leg.paragraphs.map((p) => ({ paragraph: p.paragraph,
-      verdict: refuse(p) ? "does-not-fit" : "fits", why: why(p) })) });
+    out({ version: "1", leg_id: leg.leg_id, verdicts: leg.paragraphs.map((p) => ({ paragraph: p.paragraph, verdict: refuse(p) ? "does-not-fit" : "fits", why: why(p),
+      ...(leg.mapping ? { expressed: [...leg.mapping.roles, ...leg.mapping.relations].map((x) => ({ ...(x.role ? { role: x.role } : { relation: x.relation }), waypoint: 1 })) } : {}) })) });
   }
   // A SITE CALL (kogaki#1642) is answered by the same builder over its one paragraph, its terms carried,
   // its Waypoints marked as rewritten there.
@@ -1104,5 +1108,27 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure and makes no grounding call (kogaki#1734, kogaki#1812); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure and makes no grounding call, and the judge names the Waypoint that carries each Role and relation (kogaki#1734, kogaki#1811, kogaki#1812); the skill names only entry points the Harness has.");
+JS
+# (z) THE EXPRESSED ROWS, READ BACK (kogaki#1811): a null row refuses its paragraph by name, a missing or out-of-range one is malformed, and no mapping asks for none.
+node --input-type=module - <<'JS' || exit 1
+const { paragraphPlanJudgeVerdict: verdict, mappingStatePath } = await import(new URL("../src/paragraph-plan.mjs", `file://${process.cwd()}/checks/`).href);
+const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs"); const { join } = await import("node:path"); const { tmpdir } = await import("node:os");
+const runDir = mkdtempSync(join(tmpdir(), "pp-expressed-")); mkdirSync(join(runDir, "mapping"));
+writeFileSync(mappingStatePath(runDir, "leg-1"), JSON.stringify({ structure: { relations: [{ id: "r1", holds: "{gate} lets part of {crowd} through." }] },
+  table: { correspondences: [{ role: "gate", expression: "the installer" }, { role: "crowd", expression: "the consumer's edits" }] } }));
+const record = { paragraphs: [{ paragraph_waypoints: [{ point: "The installer writes over the consumer's edits." }] }] };
+const rows = (g, c, r) => [{ role: "gate", waypoint: g }, { role: "crowd", waypoint: c }, { relation: "r1", waypoint: r }];
+const judge = (expressed, mapping = true, v = "fits") => verdict({ version: "1", leg_id: "m1", verdicts: [{ paragraph: 1, verdict: v, why: "every criterion holds for it.",
+  ...(expressed ? { expressed } : {}) }] }, record, { legs: [{ leg_id: "m1" }], mapping, runDir }, "leg-1");
+const cases = [["every Role and relation named passes", judge(rows(1, 1, 1)), (v) => !v.error && !v.refusal],
+  ["a Role named by no Waypoint refuses its paragraph naming it and its expression", judge(rows(1, null, 1)), (v) => String(v.refusal).includes('Leg m1, paragraph 1: the judge wrote: "EXPRESSED no Waypoint names the role "crowd", "the consumer\'s edits""') && v.failures[0].site === 1],
+  ["a Role named by no Waypoint is named beside a does-not-fit verdict's own sentence", judge(rows(1, null, 1), true, "does-not-fit"), (v) => String(v.refusal).includes('the judge wrote: "every criterion holds for it.; EXPRESSED no Waypoint names the role "crowd"')],
+  ["a relation stated by no Waypoint is refused naming it", judge(rows(1, 1, null)), (v) => String(v.refusal).includes('the relation "r1", "{gate} lets part of {crowd} through."')],
+  ["a verdict missing a row is malformed", judge(rows(1, 1, 1).slice(0, 2)), (v) => String(v.error).includes("carries 2 `expressed` row(s) for the 3 Role(s) and relation(s)")],
+  ["a verdict carrying no rows is malformed", judge(null), (v) => String(v.error).includes("carries no `expressed` row(s)")],
+  ["a row naming a Waypoint the paragraph lacks is malformed", judge(rows(2, 1, 1)), (v) => String(v.error).includes('the role "gate" names the Waypoint 2, which is neither null nor one of its 1')],
+  ["a verdict with no mapping is asked for no rows", judge(null, false), (v) => !v.error && !v.refusal]];
+const failed = cases.filter(([, v, ok]) => !ok(v)); for (const [what, v] of failed) console.log(`FAIL: (z) ${what}: ${JSON.stringify(v)}`);
+if (failed.length) process.exit(1); console.log(`ok: check-paragraph-plan (z) — ${cases.length} expressed-row cases (kogaki#1811)`);
 JS

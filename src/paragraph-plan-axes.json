@@ -467,6 +467,495 @@
         }
       }
     },
+    "expressed-l1-call-2": {
+      "source": "runs/brief/paragraph-plan-action-kind-rule-set-guard-2026-11-11T05-37-31-928Z Leg L1, call leg-1/2, paragraph 1 verbatim (its `join` dropped, a first paragraph carrying none), judged against the Leg's Mapping Table and structure from that run's mapping/leg-1.json; the program refused it on the retired substring match of the expression \"a kind of opening at an entry point of the house\" (kogaki#1811)",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "L1",
+          "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
+          "prior_knowledge": "(the Persona declares no prior_knowledge)",
+          "the_reader_has_been_told": [],
+          "leaves_for_next_leg": [],
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "poses a direct question asking which single element of a domain matters most."
+              },
+              {
+                "operation": "answers the question with the position taken here.",
+                "relation": "gives directly the answer the step before asked for.",
+                "manner": "a brief direct statement, given at once and taking no elaboration."
+              },
+              {
+                "operation": "lays down a fact about the domain too plain to dispute.",
+                "relation": "widens the answer into a footing the reader cannot refuse."
+              },
+              {
+                "operation": "draws from it a second fact the reader must equally grant, carrying the first onto the members of the domain.",
+                "relation": "stacks a second assent on the first."
+              },
+              {
+                "operation": "asserts, on the two facts just granted, that the distinction they establish holds the highest importance in the subject.",
+                "relation": "spends the two assents on the claim they were gathered for.",
+                "manner": "one flat sentence ranking the distinction, with neither fact restated as its ground."
+              }
+            ],
+            "breaks": [
+              "cut the opening question and begin from the answer — the reader receives a division with no sense of what it resolves, and reads it as a bare assertion",
+              "delay the answer behind a paragraph of background — the pull of the question dissipates, and the eventual answer arrives as one option among several",
+              "make the main claim before the two plain facts — the reader meets it with nothing yet granted, and weighs it instead of accepting it",
+              "argue either plain fact instead of laying it down — the assent it was there to win is turned into a dispute, and the stack never forms",
+              "drop the sentence ranking the distinction — the reader has a division but no reason to treat it as the one that organizes the rest",
+              "append instances of the kinds after the ranking — the argument is already closed, and the reader takes the instances as a promise nothing keeps"
+            ]
+          },
+          "mapping": {
+            "roles": [
+              {
+                "role": "rule_set",
+                "expression": "a home burglar alarm"
+              },
+              {
+                "role": "action_kind",
+                "expression": "a kind of opening at an entry point of the house"
+              }
+            ],
+            "relations": [
+              {
+                "relation": "registration",
+                "holds": "A a home burglar alarm is registered against some a kind of opening at an entry point of the house and not against others."
+              },
+              {
+                "relation": "noticing",
+                "holds": "A a home burglar alarm notices an occurrence only when that occurrence falls under an a kind of opening at an entry point of the house that a home burglar alarm was registered against."
+              },
+              {
+                "relation": "silence",
+                "holds": "A a home burglar alarm does nothing at all about an occurrence of any a kind of opening at an entry point of the house it was never registered against, because such an occurrence does not match its pattern."
+              }
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
+              "paragraph_waypoints": [
+                {
+                  "point": "The question is which single thing settles whether a set of automatic rules responds at all to something that happens.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "The answer is the kind of the occurrence: such a set notices an occurrence only when it falls under a kind that set was registered against.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "terse": true
+                  }
+                },
+                {
+                  "point": "A home burglar alarm is wired against only some kinds of opening at an entry point of the house, and against the rest it is not wired at all.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "An upstairs window of a kind the alarm was never wired against can stand open all night with nothing happening, because that opening matches no pattern the alarm holds and so is none of its business.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "Of everything that could be said about such an arrangement, the division between the kinds it was registered against and the kinds it was not is the one that matters most, since it fixes both what the arrangement notices and what it passes over entirely.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {
+                    "plain": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "expressed-l1-call-3": {
+      "source": "runs/brief/paragraph-plan-action-kind-rule-set-guard-2026-11-11T05-37-31-928Z Leg L1, call leg-1/3, paragraph 1 verbatim (its `join` dropped, a first paragraph carrying none), judged against the Leg's Mapping Table and structure from that run's mapping/leg-1.json; the program refused it on the retired substring match of the expression \"a kind of opening at an entry point of the house\" (kogaki#1811)",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "L1",
+          "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
+          "prior_knowledge": "(the Persona declares no prior_knowledge)",
+          "the_reader_has_been_told": [],
+          "leaves_for_next_leg": [],
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "poses a direct question asking which single element of a domain matters most."
+              },
+              {
+                "operation": "answers the question with the position taken here.",
+                "relation": "gives directly the answer the step before asked for.",
+                "manner": "a brief direct statement, given at once and taking no elaboration."
+              },
+              {
+                "operation": "lays down a fact about the domain too plain to dispute.",
+                "relation": "widens the answer into a footing the reader cannot refuse."
+              },
+              {
+                "operation": "draws from it a second fact the reader must equally grant, carrying the first onto the members of the domain.",
+                "relation": "stacks a second assent on the first."
+              },
+              {
+                "operation": "asserts, on the two facts just granted, that the distinction they establish holds the highest importance in the subject.",
+                "relation": "spends the two assents on the claim they were gathered for.",
+                "manner": "one flat sentence ranking the distinction, with neither fact restated as its ground."
+              }
+            ],
+            "breaks": [
+              "cut the opening question and begin from the answer — the reader receives a division with no sense of what it resolves, and reads it as a bare assertion",
+              "delay the answer behind a paragraph of background — the pull of the question dissipates, and the eventual answer arrives as one option among several",
+              "make the main claim before the two plain facts — the reader meets it with nothing yet granted, and weighs it instead of accepting it",
+              "argue either plain fact instead of laying it down — the assent it was there to win is turned into a dispute, and the stack never forms",
+              "drop the sentence ranking the distinction — the reader has a division but no reason to treat it as the one that organizes the rest",
+              "append instances of the kinds after the ranking — the argument is already closed, and the reader takes the instances as a promise nothing keeps"
+            ]
+          },
+          "mapping": {
+            "roles": [
+              {
+                "role": "rule_set",
+                "expression": "a home burglar alarm"
+              },
+              {
+                "role": "action_kind",
+                "expression": "a kind of opening at an entry point of the house"
+              }
+            ],
+            "relations": [
+              {
+                "relation": "registration",
+                "holds": "A a home burglar alarm is registered against some a kind of opening at an entry point of the house and not against others."
+              },
+              {
+                "relation": "noticing",
+                "holds": "A a home burglar alarm notices an occurrence only when that occurrence falls under an a kind of opening at an entry point of the house that a home burglar alarm was registered against."
+              },
+              {
+                "relation": "silence",
+                "holds": "A a home burglar alarm does nothing at all about an occurrence of any a kind of opening at an entry point of the house it was never registered against, because such an occurrence does not match its pattern."
+              }
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
+              "paragraph_waypoints": [
+                {
+                  "point": "Which single thing decides whether a standing set of automatic rules does anything at all about something that happens?",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "asked": true
+                  }
+                },
+                {
+                  "point": "It is the kind the happening belongs to: such rules act on a happening only when it falls under a kind they were signed up against.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "terse": true
+                  }
+                },
+                {
+                  "point": "A home burglar alarm is wired against certain kinds of opening at an entry point of the house, and against every other kind of opening at an entry point of the house it is not wired at all.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "So every kind of opening at an entry point of the house falls on one side of that wiring or the other, and an upstairs window of an unwired kind can stand open the whole night with the alarm quiet, because that opening fits none of the patterns the alarm was given and is therefore no concern of its.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "Of everything that could be said about such an arrangement, the line between the kinds it was signed up against and the kinds it was not is the most important thing about it, settling alike what it responds to and what it lets pass with no notice taken.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {
+                    "plain": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "expressed-l1-call-4": {
+      "source": "runs/brief/paragraph-plan-action-kind-rule-set-guard-2026-11-11T05-37-31-928Z Leg L1, call leg-1/4, paragraph 1 verbatim (its `join` dropped, a first paragraph carrying none), judged against the Leg's Mapping Table and structure from that run's mapping/leg-1.json; the program refused it on the retired substring match of the expression \"a kind of opening at an entry point of the house\" (kogaki#1811)",
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "L1",
+          "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
+          "prior_knowledge": "(the Persona declares no prior_knowledge)",
+          "the_reader_has_been_told": [],
+          "leaves_for_next_leg": [],
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "poses a direct question asking which single element of a domain matters most."
+              },
+              {
+                "operation": "answers the question with the position taken here.",
+                "relation": "gives directly the answer the step before asked for.",
+                "manner": "a brief direct statement, given at once and taking no elaboration."
+              },
+              {
+                "operation": "lays down a fact about the domain too plain to dispute.",
+                "relation": "widens the answer into a footing the reader cannot refuse."
+              },
+              {
+                "operation": "draws from it a second fact the reader must equally grant, carrying the first onto the members of the domain.",
+                "relation": "stacks a second assent on the first."
+              },
+              {
+                "operation": "asserts, on the two facts just granted, that the distinction they establish holds the highest importance in the subject.",
+                "relation": "spends the two assents on the claim they were gathered for.",
+                "manner": "one flat sentence ranking the distinction, with neither fact restated as its ground."
+              }
+            ],
+            "breaks": [
+              "cut the opening question and begin from the answer — the reader receives a division with no sense of what it resolves, and reads it as a bare assertion",
+              "delay the answer behind a paragraph of background — the pull of the question dissipates, and the eventual answer arrives as one option among several",
+              "make the main claim before the two plain facts — the reader meets it with nothing yet granted, and weighs it instead of accepting it",
+              "argue either plain fact instead of laying it down — the assent it was there to win is turned into a dispute, and the stack never forms",
+              "drop the sentence ranking the distinction — the reader has a division but no reason to treat it as the one that organizes the rest",
+              "append instances of the kinds after the ranking — the argument is already closed, and the reader takes the instances as a promise nothing keeps"
+            ]
+          },
+          "mapping": {
+            "roles": [
+              {
+                "role": "rule_set",
+                "expression": "a home burglar alarm"
+              },
+              {
+                "role": "action_kind",
+                "expression": "a kind of opening at an entry point of the house"
+              }
+            ],
+            "relations": [
+              {
+                "relation": "registration",
+                "holds": "A a home burglar alarm is registered against some a kind of opening at an entry point of the house and not against others."
+              },
+              {
+                "relation": "noticing",
+                "holds": "A a home burglar alarm notices an occurrence only when that occurrence falls under an a kind of opening at an entry point of the house that a home burglar alarm was registered against."
+              },
+              {
+                "relation": "silence",
+                "holds": "A a home burglar alarm does nothing at all about an occurrence of any a kind of opening at an entry point of the house it was never registered against, because such an occurrence does not match its pattern."
+              }
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
+              "paragraph_waypoints": [
+                {
+                  "point": "What is the one thing that settles whether a standing set of automatic rules reacts to a given happening or lets it go by?",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "asked": true
+                  }
+                },
+                {
+                  "point": "The kind the happening belongs to settles it: such rules reach a happening only if its kind is one they were enrolled against.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "terse": true
+                  }
+                },
+                {
+                  "point": "A home burglar alarm is wired against some kinds of opening at an entry point of the house and left unwired against all the others.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "Every kind of opening at an entry point of the house therefore sits on one side of that wiring or the other, and an upstairs window of an unwired kind may stay open till morning with the alarm silent throughout, since that opening answers to no pattern the alarm holds and is nothing to it.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "Among everything there is to say about such an arrangement, the split between the kinds it was enrolled against and the kinds it was not ranks first in importance, fixing what it reacts to and equally what goes by unremarked.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {
+                    "plain": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "expressed-no-counterpart": {
+      "source": "expressed-l1-call-2 with its Waypoints 3 and 4 restated in the subject's own terms, so that no Waypoint names the object of either Role's expression, the home burglar alarm or a kind of opening at an entry point of the house (kogaki#1811)",
+      "at_paragraph": 1,
+      "input": {
+        "leg_you_must_judge": {
+          "leg_id": "L1",
+          "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
+          "prior_knowledge": "(the Persona declares no prior_knowledge)",
+          "the_reader_has_been_told": [],
+          "leaves_for_next_leg": [],
+          "bound_move": {
+            "takes": [],
+            "leaves": [],
+            "segments": [
+              {
+                "operation": "poses a direct question asking which single element of a domain matters most."
+              },
+              {
+                "operation": "answers the question with the position taken here.",
+                "relation": "gives directly the answer the step before asked for.",
+                "manner": "a brief direct statement, given at once and taking no elaboration."
+              },
+              {
+                "operation": "lays down a fact about the domain too plain to dispute.",
+                "relation": "widens the answer into a footing the reader cannot refuse."
+              },
+              {
+                "operation": "draws from it a second fact the reader must equally grant, carrying the first onto the members of the domain.",
+                "relation": "stacks a second assent on the first."
+              },
+              {
+                "operation": "asserts, on the two facts just granted, that the distinction they establish holds the highest importance in the subject.",
+                "relation": "spends the two assents on the claim they were gathered for.",
+                "manner": "one flat sentence ranking the distinction, with neither fact restated as its ground."
+              }
+            ],
+            "breaks": [
+              "cut the opening question and begin from the answer — the reader receives a division with no sense of what it resolves, and reads it as a bare assertion",
+              "delay the answer behind a paragraph of background — the pull of the question dissipates, and the eventual answer arrives as one option among several",
+              "make the main claim before the two plain facts — the reader meets it with nothing yet granted, and weighs it instead of accepting it",
+              "argue either plain fact instead of laying it down — the assent it was there to win is turned into a dispute, and the stack never forms",
+              "drop the sentence ranking the distinction — the reader has a division but no reason to treat it as the one that organizes the rest",
+              "append instances of the kinds after the ranking — the argument is already closed, and the reader takes the instances as a promise nothing keeps"
+            ]
+          },
+          "mapping": {
+            "roles": [
+              {
+                "role": "rule_set",
+                "expression": "a home burglar alarm"
+              },
+              {
+                "role": "action_kind",
+                "expression": "a kind of opening at an entry point of the house"
+              }
+            ],
+            "relations": [
+              {
+                "relation": "registration",
+                "holds": "A a home burglar alarm is registered against some a kind of opening at an entry point of the house and not against others."
+              },
+              {
+                "relation": "noticing",
+                "holds": "A a home burglar alarm notices an occurrence only when that occurrence falls under an a kind of opening at an entry point of the house that a home burglar alarm was registered against."
+              },
+              {
+                "relation": "silence",
+                "holds": "A a home burglar alarm does nothing at all about an occurrence of any a kind of opening at an entry point of the house it was never registered against, because such an occurrence does not match its pattern."
+              }
+            ]
+          },
+          "paragraphs": [
+            {
+              "paragraph": 1,
+              "paragraph_waypoints": [
+                {
+                  "point": "The question is which single thing settles whether a set of automatic rules responds at all to something that happens.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "The answer is the kind of the occurrence: such a set notices an occurrence only when it falls under a kind that set was registered against.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {
+                    "terse": true
+                  }
+                },
+                {
+                  "point": "Such a set of rules is registered against some kinds of happening, and against the rest it is not registered at all.",
+                  "serves": [
+                    "L1"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "A happening of a kind the set was never registered against can go by with nothing done, because it matches no pattern the set holds and so is none of its business.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {}
+                },
+                {
+                  "point": "Of everything that could be said about such an arrangement, the division between the kinds it was registered against and the kinds it was not is the one that matters most, since it fixes both what the arrangement notices and what it passes over entirely.",
+                  "serves": [
+                    "L1",
+                    "L2"
+                  ],
+                  "cast": {
+                    "plain": true
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
     "analogue-clean": {
       "source": "leg3-clean with the bound Move handed an Analogy Mapping under `analogy_you_must_draw_from` and Waypoint 2 drawing its example from that base domain, written for kogaki#1812",
       "input": {
@@ -702,6 +1191,31 @@
       "justified_by": {
         "date": "2026-11-11",
         "run": "runs/judge-bench/2026-11-11-cast-5b",
+        "draws": 5,
+        "rates": {
+          "defect_refused_with": 1,
+          "defect_refused_without": 0,
+          "clean_passed_with": 1,
+          "clean_passed_without": 1
+        }
+      }
+    },
+    {
+      "id": "EXPRESSED",
+      "sentence": "Where the Leg carries `mapping`, every Role and every relation in it has a Waypoint of the paragraph that names the object of the Role's `expression` or states the relation over those objects in any wording, which its `expressed` row gives by number.",
+      "fixtures": {
+        "defect": [
+          "expressed-no-counterpart"
+        ],
+        "clean": [
+          "expressed-l1-call-2",
+          "expressed-l1-call-3",
+          "expressed-l1-call-4"
+        ]
+      },
+      "justified_by": {
+        "date": "2026-11-11",
+        "run": "runs/judge-bench/2026-11-11-expressed-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,
