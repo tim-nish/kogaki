@@ -1,6 +1,6 @@
 // A table row's copies (kogaki#1764): each `{{copy:<name>}}` in a row's `judgment_point` replaced by the span of
 // another table's field its `copies` entry names, so one text keeps one origin. Read by the Brief, the Leg-Planning
-// Playground, the Proof Sheet and the Mapping Playground (kogaki#1768).
+// Playground, the Move-Extraction Playground and the Mapping Playground (kogaki#1768).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.

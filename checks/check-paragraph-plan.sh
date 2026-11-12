@@ -80,7 +80,7 @@
 # NOT COVERED, stated rather than implied: the retry inside a Leg is
 # checks/check-paragraph-plan-site-retry.sh's; the `--tools ""` environment and the
 # call-limit stop are checks/check-brief-reader-path-job.sh's; /draft's read of the
-# file end to end is checks/check-proof-sheet-leg-brief.sh's. Whether the Waypoints
+# file end to end is checks/check-move-extraction-playground-leg-brief.sh's. Whether the Waypoints
 # a live model writes are any good is the judge call's judgment, never linted here.
 set -u
 cd "$(dirname "$0")/.."
@@ -1003,7 +1003,7 @@ for (const [label, bad, want] of [
 }
 
 // (x) EVERY DESIGN REFUSAL, BY NAME, AT EVERY READ (kogaki#1639, kogaki#1777): the plan reader (what
-// /draft and the Proof Sheet open) and the plan call's validator, the raw ones.
+// /draft and the Move-Extraction Playground open) and the plan call's validator, the raw ones.
 {
   const s1 = { ...legs[0], introduces: [TERM] };
   const L = [s1, legs[1]];
@@ -1054,7 +1054,7 @@ for (const [label, bad, want] of [
     }
   }
   // Without a library open, the plan reader checks the id's presence and leaves its existence to a read
-  // that has the library (the validator and the Proof Sheet): /draft opens no Move (kogaki#1311).
+  // that has the library (the validator and the Move-Extraction Playground): /draft opens no Move (kogaki#1311).
   const noLib = rawPlanShapeRefusal(rec({}, {}, { move: "p-nowhere" }), "plan.yaml", L, { bound: BOUND });
   if (noLib !== null) fails.push(`(x) the plan reader with no library open refused a Move id it cannot check: ${noLib}`);
   const ok = read({ introduces: [TERM] }, { introduces: [], "re-activate": ["1 term kit stamp", "1 claim L1 as the installer writes into the tree."] });

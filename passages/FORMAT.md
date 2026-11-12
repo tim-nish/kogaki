@@ -185,9 +185,9 @@ fields; nothing in the copy is judged.
 
 The `answers` (Q1 to Q3), `what_it_does`, `presupposes`, `notes` and the header fields
 fields become no Move field. Of the stages after the Extraction, only the
-Proof Sheet's Leg Brief composer reads them: it hands each paragraph's
+Move-Extraction Playground's Leg Brief composer reads them: it hands each paragraph's
 `what_it_does` and Segment `content` to its Leg call
-(`src/proof-sheet/leg-brief.mjs`; its reader-start call is retired, kogaki#1699). `technique` is retired (kogaki#1412):
+(`src/move-extraction-playground/leg-brief.mjs`; its reader-start call is retired, kogaki#1699). `technique` is retired (kogaki#1412):
 `segments` is the Move's whole structure, and a Move record carrying
 `technique` is refused by name.
 

@@ -85,7 +85,7 @@
       "count": 4
     }
   },
-  "src/mapping-playground/trial.mjs": {
+  "src/structure-mapping-playground/trial.mjs": {
     "no-unused-vars": {
       "count": 1
     }
@@ -100,7 +100,7 @@
       "count": 1
     }
   },
-  "src/proof-sheet/extract.mjs": {
+  "src/move-extraction-playground/extract.mjs": {
     "no-unused-vars": {
       "count": 1
     },
@@ -108,17 +108,17 @@
       "count": 1
     }
   },
-  "src/proof-sheet/leg-run.mjs": {
+  "src/move-extraction-playground/leg-run.mjs": {
     "no-useless-assignment": {
       "count": 2
     }
   },
-  "src/proof-sheet/leg-sheet/frame.mjs": {
+  "src/move-extraction-playground/leg-sheet/frame.mjs": {
     "no-unused-vars": {
       "count": 1
     }
   },
-  "src/proof-sheet/leg-sheet/plan-card.mjs": {
+  "src/move-extraction-playground/leg-sheet/plan-card.mjs": {
     "no-unused-vars": {
       "count": 1
     },
@@ -126,7 +126,7 @@
       "count": 1
     }
   },
-  "src/proof-sheet/leg-sheet/run-data.mjs": {
+  "src/move-extraction-playground/leg-sheet/run-data.mjs": {
     "no-useless-assignment": {
       "count": 1
     }

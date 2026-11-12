@@ -22,7 +22,7 @@ import {
   paragraphLegRefusal,
   paragraphSchemaRefusal,
 } from "../compose/record.mjs";
-import { correspondenceVocabularyFailures } from "../mapping-playground/rbs.mjs";
+import { correspondenceVocabularyFailures } from "../structure-mapping-playground/rbs.mjs";
 import { judgePrompt } from "../workflow/judge.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";

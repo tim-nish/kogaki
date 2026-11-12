@@ -311,7 +311,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // refused naming the Leg, the waypoint and the word, and the same point with the noun named
 // in full passes; "these <noun>" whose noun is in no Claim the waypoint serves is refused,
 // and with the noun in its Claim passes. Without Claim text -- the Waypoints' call
-// and every Brief read -- the rule does not apply. The Proof Sheet's `leg_path_unit` row, which
+// and every Brief read -- the rule does not apply. The Move-Extraction Playground's `leg_path_unit` row, which
 // composes a legacy Leg's waypoints and is the rule's origin since kogaki#1775, states it;
 // `validateLegs` over a Leg carrying waypoints is where it refuses.
 {
@@ -334,9 +334,9 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   if (grounded.error) fails.push(`(az) "these <noun>" whose noun is in the waypoint's Claim was refused: ${grounded.error}`);
   const bare = compose.waypointsRefusal([{ point: "This case follows.", serves: ["L1"] }], ["L1"], "a Waypoint list", null, null, { paragraph: true });
   if (bare) fails.push(`(az) waypointsRefusal without Claim text applied the read-alone rule: ${bare}`);
-  const row = JSON.parse(readFileSync("src/proof-sheet/extraction-workflow.json", "utf8")).leg_path_unit;
+  const row = JSON.parse(readFileSync("src/move-extraction-playground/extraction-workflow.json", "utf8")).leg_path_unit;
   if (!row || !row.judgment_point.includes("A WAYPOINT'S POINT IS READ ALONE (kogaki#1449)")) {
-    fails.push("(az) the Proof Sheet's leg_path_unit row does not state the read-alone rule in its judgment point");
+    fails.push("(az) the Move-Extraction Playground's leg_path_unit row does not state the read-alone rule in its judgment point");
   }
 }
 
@@ -364,13 +364,13 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const bare = compose.waypointsRefusal([{ point: "The defence is explained.", serves: ["L1"] }], ["L1"], "a Waypoint list", null, null, { paragraph: true });
   if (bare) fails.push(`(bb) waypointsRefusal without Claim text applied the method-verb rule: ${bare}`);
   if (!Array.isArray(METHOD_VERBS) || !METHOD_VERBS.includes("explain")) fails.push("(bb) src/compose/leg-schema.mjs exports no METHOD_VERBS list");
-  const extractText = readFileSync("src/proof-sheet/extract.mjs", "utf8");
+  const extractText = readFileSync("src/move-extraction-playground/extract.mjs", "utf8");
   if (!/import \{[^}]*\bmethodWordRefusal\b[^}]*\} from "\.\.\/compose\/leg-schema\.mjs"/.test(extractText)) {
-    fails.push("(bb) src/proof-sheet/extract.mjs does not import methodWordRefusal from src/compose/leg-schema.mjs");
+    fails.push("(bb) src/move-extraction-playground/extract.mjs does not import methodWordRefusal from src/compose/leg-schema.mjs");
   }
   const schemaText = readFileSync("src/compose/leg-schema.mjs", "utf8");
   for (const v of METHOD_VERBS) {
-    if (extractText.includes(`"${v}"`)) fails.push(`(bb) src/proof-sheet/extract.mjs carries a verb list of its own, naming "${v}"`);
+    if (extractText.includes(`"${v}"`)) fails.push(`(bb) src/move-extraction-playground/extract.mjs carries a verb list of its own, naming "${v}"`);
     if (schemaText.split(`"${v}"`).length !== 2) fails.push(`(bb) src/compose/leg-schema.mjs names "${v}" outside METHOD_VERBS`);
   }
 }

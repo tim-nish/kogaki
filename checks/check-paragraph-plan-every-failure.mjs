@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { validateParagraphPlanUnit, boundMoveContract } from "../src/paragraph-plan.mjs";
 import { paragraphPlanSiteInput, validateParagraphPlanSite } from "../src/paragraph-plan/site-retry.mjs";
-import { commentHtml } from "../src/flp/sheet.mjs";
+import { commentHtml } from "../src/paragraph-plan-playground/sheet.mjs";
 
 const repo = fileURLToPath(new URL("..", import.meta.url));
 const fails = [];

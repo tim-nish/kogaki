@@ -314,7 +314,7 @@ export const legStrandIds = (leg) => (Array.isArray(leg && leg.claims) ? leg.cla
 // `{ error }`, naming both files where the two disagree. OPENS NO MOVE FILE AND NO LIBRARY
 // (kogaki#1311): the record carries a Move's id and nothing else of it, and this read holds
 // the id to its shape; whether it names a Move in a library is refused where a library is
-// open -- the plan call's validator and the Proof Sheet.
+// open -- the plan call's validator and the Move-Extraction Playground.
 export function readParagraphPlanBeside(briefPath, briefText, legs) {
   const path = paragraphPlanPathFor(briefPath);
   const rel = relFromRepo(path);

@@ -204,7 +204,7 @@ const benchOnce = (sees, label) => {
   scratch.axes.push({ id: "SCRATCH AXIS", sentence: "The join is judged.", fixtures: { defect: ["scratch-join"], clean: ["scratch-two"] } });
   writeFileSync(reg, JSON.stringify(scratch, null, 2));
   const out = join(tmp, label);
-  const r = spawnSync("node", ["src/proof-sheet/judge-bench.mjs", "--axis", "SCRATCH AXIS", "--draws", "5", "--out", out, "--registry", reg, "--record"],
+  const r = spawnSync("node", ["src/move-extraction-playground/judge-bench.mjs", "--axis", "SCRATCH AXIS", "--draws", "5", "--out", out, "--registry", reg, "--record"],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: fake, FAKE_SEES: sees === "silent" ? "silent" : sees ? "1" : "0" } });
   return { r, bench: existsSync(join(out, "bench.json")) ? JSON.parse(readFileSync(join(out, "bench.json"), "utf8")) : null,
     after: JSON.parse(readFileSync(reg, "utf8")) };

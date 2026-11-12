@@ -14,8 +14,8 @@ import { join, dirname } from "node:path";
 import { judgePrompt, refusalReach } from "./workflow/judge.mjs";
 import { REPO, bindFlow } from "./workflow/run-record.mjs";
 import { writeCallRecord, tableRecord } from "./workflow/call-record.mjs";
-import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./mapping-playground/sme.mjs";
-import { PLAYGROUND_TABLE } from "./mapping-playground/trial.mjs";
+import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./structure-mapping-playground/sme.mjs";
+import { PLAYGROUND_TABLE } from "./structure-mapping-playground/trial.mjs";
 import { mappingStatePath } from "./paragraph-plan.mjs";
 import { withAnalogy, legTable } from "./paragraph-plan-analogy.mjs";
 

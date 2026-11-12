@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { stringifyYaml } from "../../../src/yaml.mjs";
 import { PARAGRAPH_PLAN_REPAIRS_FILE } from "../../../src/paragraph-plan/findings.mjs";
 import { writeCallRecord } from "../../../src/workflow/call-record.mjs";
-import { renderFlp } from "../../../src/flp/sheet.mjs";
+import { renderFlp } from "../../../src/paragraph-plan-playground/sheet.mjs";
 import {
   paragraphPlanSiteInput,
   paragraphPlanSiteRepair,
@@ -100,11 +100,11 @@ export const judge = (i) => verdicts(i, () => false);`,
   }
 }
 
-// (u) kogaki#1815: over a one-Leg run whose first Call the validator refused for a `join` on paragraph 1, the FLP
+// (u) kogaki#1815: over a one-Leg run whose first Call the validator refused for a `join` on paragraph 1, the ParagraphPlanPlayground
 // renders the Round's Finding with its class and, once the run holds the Repair, its Arm and grounds; before, it says
 // none was written.
 export function flpRepairCase(fails) {
-  const run = join(mkdtempSync(join(tmpdir(), "flp-repair-")), "run");
+  const run = join(mkdtempSync(join(tmpdir(), "paragraph-plan-playground-repair-")), "run");
   mkdirSync(run, { recursive: true });
   const refusal = "Leg leg1, paragraph 1 carries `join` — the first paragraph of a Leg carries no join";
   const para = (n, extra = {}) => ({

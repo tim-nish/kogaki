@@ -3,7 +3,7 @@
   "note": [
     "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
     "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, one Leg under its one bound Move (kogaki#1777), or `from` another record with one `edit`: a Waypoint replaced (`paragraph`, `waypoint`, `to`), a `join` replaced (`paragraph`, `join`), or the bound Move's `takes` or `leaves` replaced (`move_takes` or `move_leaves`) (kogaki#1701). `at_paragraph` names the paragraph a defect sits on.",
-    "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/proof-sheet/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
+    "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/move-extraction-playground/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
     "Countable rules are not axes: the Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
   ],
@@ -15,7 +15,7 @@
   },
   "records": {
     "leg3-clean": {
-      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 2 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph, and what its Move leaves left for the next Leg, which Brief Waypoint 3 took up in the run",
+      "source": "corpus/p1329 Leg 3, Move-Extraction Playground run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 2 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph, and what its Move leaves left for the next Leg, which Brief Waypoint 3 took up in the run",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "leg-1",
@@ -99,7 +99,7 @@
       }
     },
     "leg3-wp3-clean": {
-      "source": "corpus/p1329 Leg 3, Proof Sheet run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 3 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph",
+      "source": "corpus/p1329 Leg 3, Move-Extraction Playground run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 3 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph",
       "input": {
         "leg_you_must_judge": {
           "leg_id": "leg-1",

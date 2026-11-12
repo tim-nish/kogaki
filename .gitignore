@@ -141,7 +141,7 @@ policy/shape.md
 # `.claude/skills/paragraph-plan/SKILL.md` names.
 #
 # BRIEF-SHEET JOINS THEM (kogaki#1788), on the identical criterion:
-# `check-leg-planning.sh` asserts the command `.claude/skills/brief-sheet/SKILL.md` names.
+# `check-leg-planning-playground.sh` asserts the command `.claude/skills/brief-sheet/SKILL.md` names.
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/brief/

@@ -691,10 +691,10 @@ model reads. At extraction the constraints call (`constraints_unit`) judges
 each `takes` entry against Segment 1 and each `leaves` entry against the
 Segment it names, and refuses the Extraction for an unsupported entry or a
 question, term, base or principle a Segment leaves that no entry names;
-`src/proof-sheet/extract.mjs rejudge --constraints --library moves --write`
+`src/move-extraction-playground/extract.mjs rejudge --constraints --library moves --write`
 derives both lists for an admitted library from each record's `segments`,
 `before` and `after`. Each re-judge records its calls in `rejudge-<timestamp>`
-under the `proof-sheet` runs lane (`runs/proof-sheet/`, or the `--runs-root
+under the `move-extraction-playground` runs lane (`runs/move-extraction-playground/`, or the `--runs-root
 <dir>` it is given), which is pruned to its three newest runs like every other
 lane (`src/runs.json`, kogaki#1754); nothing is written beside the library.
 The Brief and the ParagraphPlan read `takes` and `leaves`
@@ -1542,7 +1542,7 @@ old names is not resumed.
 
 **A run written under the old names is read, never rewritten** (kogaki#1760). A writer
 writes `calls/`, `call_records`, `call_1_s`, `rounds` and `rounds.json` only. A reader —
-`callRows`, `replay`, the job report, the FLP, the short Trial's sheet and the Proof Sheet's
+`callRows`, `replay`, the job report, the ParagraphPlanPlayground, the short Trial's sheet and the Move-Extraction Playground's
 ParagraphPlan card — reads the name `RETIRED_NAMES` lists for each where the new one is
 absent: `callsRoot` returns `calls/` where it exists and the retired directory where only
 that does, and `callRecordsOf`, `firstCallSecondsOf`, `roundsOf` and `roundsFileIn` do the
@@ -1784,7 +1784,7 @@ spawns the ParagraphPlan and Brief job units with — `--tools ""
 --disable-slash-commands --strict-mcp-config --setting-sources ""
 --no-session-persistence` — beside `--model` and `--output-format`. A
 session with its default tools, run from the repository root, could open the
-Brief, the Move library or, in a Proof Sheet run, the Extraction holding the
+Brief, the Move library or, in a Move-Extraction Playground run, the Extraction holding the
 original paragraph; removing the reach is what makes that unreadable rather
 than merely undocumented. The Packet stays the Writer's whole input; nothing
 is added to it.
@@ -2793,7 +2793,7 @@ unit waits on another's. Three rules follow, and nothing crosses a Leg:
 > written here. Its criteria are the axes `src/paragraph-plan-axes.json`
 > keeps, rendered in order into `paragraph_plan_judge_unit`: one sentence
 > and one responsibility each, an axis kept only where an ablation bench run
-> (`src/proof-sheet/judge-bench.mjs`) shows its defect fixture refused with
+> (`src/move-extraction-playground/judge-bench.mjs`) shows its defect fixture refused with
 > it and rarely without it, and its clean fixture passed, at the rates the
 > file's `retention` names. Two axes were kept then:
 > PERFORMS IS BARE and TERM MEANING, the second retired by kogaki#1663. The
@@ -2873,11 +2873,11 @@ its `paragraph` number, its `join` and its `paragraph_waypoints` (`point`,
 `reader_state_before`, `reader_state_after`, `obligations` or `discharges`, is
 refused naming the key. **No term of the Leg's `introduces` is introduced by
 two of its paragraphs** (kogaki#1663). Every read of the
-file — the stage's own validator, `/draft`'s and the Proof Sheet's — refuses by
+file — the stage's own validator, `/draft`'s and the Move-Extraction Playground's — refuses by
 name, naming the Leg and the paragraph: a key outside the schema; a Leg with
 more paragraphs than `brief.paragraphs_per_leg`; a paragraph carrying `move`; a Leg's `move`
 naming no Move in a library the reader holds open (`/draft` opens no Move,
-kogaki#1311, so that one refusal is the validator's and the Proof Sheet's); a
+kogaki#1311, so that one refusal is the validator's and the Move-Extraction Playground's); a
 term the Leg does not introduce, or a Leg term introduced by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
 later one or another Leg; a material outside the Leg's Claims; a retired
 key. The planner's retired `why` is the entry's `rationale`. The run directory
@@ -2949,7 +2949,7 @@ where the order of the sentences already carries it, never as a proposition of
 its own. **Why a word and not a sentence**: the join was one sentence
 (kogaki#1411), and it is the one plan field whose reader is the Writer; a
 sentence the Writer must realise in its own text is content to the Writer, and
-on the 2026-10-19 Proof Sheet run every paragraph after the first opened on its
+on the 2026-10-19 Move-Extraction Playground run every paragraph after the first opened on its
 join paraphrased as a clause. A Segment's `relation` stays prose, because the
 planner consumes it and it never reaches the Writer.
 
@@ -3089,7 +3089,7 @@ is not current when its `plan_sha256` or its `mapping_sha256` differs. A plan
 written before this record existed names none, and `/draft` reads it as
 before.
 
-**The sheet.** `node src/mapping-playground/sheet.mjs leg --plan
+**The sheet.** `node src/structure-mapping-playground/sheet.mjs leg --plan
 theses/<slug>/paragraph-plan.yaml --leg <leg_id> [--run <dir>] [--moves-dir
 <dir>] [--out <file>]` renders one Leg's record in the Trial sheet's layout:
 the Leg's one binding with its `case`, its Mapping Table and its structure,
@@ -3150,16 +3150,18 @@ them, and `replay` re-runs one. A refusal past the bound stops the unit, naming
 the Leg and the stage. The structure and table settled are written to the
 Mapping Record (§4.19.2) with the plan.
 
-#### 4.19.4 The Feedback-Loop Playground (FLP) (kogaki#1752, kogaki#1756, kogaki#1762)
+#### 4.19.4 The ParagraphPlanPlayground (kogaki#1752, kogaki#1756, kogaki#1762, kogaki#1831)
 
 The owner asked on 2026-11-08 that every Submission's Points stay visible
 whether the Judge passed or refused them, and on 2026-11-09 that the loop be
 read in the owner's own words: Points, then the Judge, then the Comment, then
-the next Points (kogaki#1758). The owner adopted the name Feedback-Loop
-Playground (FLP) the same day.
+the next Points (kogaki#1758). On 2026-11-12 the owner named the page a
+ParagraphPlan run writes per Leg the ParagraphPlanPlayground, and kept the
+feedback loop as the format it displays (kogaki#1831).
 
-**The loop's parts.** Each is defined here, once, and every section of this
-spec, the FLP and `kogaki.settings.json` uses it in this sense.
+**The feedback loop.** Each of its parts is defined here, once, and every
+section of this spec, the ParagraphPlanPlayground and `kogaki.settings.json`
+uses it in this sense.
 
 | Term | Means |
 |---|---|
@@ -3206,14 +3208,15 @@ Binding → Submission (Round 1) → Judge → Verdict
 - Every Round renders the same blocks in the same order, each filled or
   carrying the reason it is empty.
 
-**What it reads.** `node src/flp/sheet.mjs leg --run <ParagraphPlan run
+**What it reads.** `node src/paragraph-plan-playground/sheet.mjs leg --run <ParagraphPlan run
 directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]` reads the run's
 start record, its job record, the Leg unit's mapping state and its Call
 Records. It needs no `paragraph-plan.yaml`, and reads nothing under
 `theses/`. It refuses a directory with no start record or no job record,
 naming the file, and a `--leg` the start record does not carry, naming the
 Legs it does. It prints HTML to stdout, or writes `--out`, and writes nothing
-else. It is a playground: it may import production files and the Trial
+else; a Leg's page is written to
+`<run>/paragraph-plan-playground/<leg_id>.html`. It is a playground: it may import production files and the Trial
 sheet's helpers, and nothing imports it. One Leg per sheet.
 
 **A Call's kind** is read from its Call Record: `stopped` where its refusal is
@@ -3275,7 +3278,7 @@ another on one line:
      `file://` paths, and by `rationale:`, the rationale its answer carries
      or `the answer carries none` (kogaki#1814).
 
-**The Move's Corpus passage** is read by `src/flp/provenance.mjs` from the
+**The Move's Corpus passage** is read by `src/paragraph-plan-playground/provenance.mjs` from the
 extraction records on this machine — every `extractions.json` under
 `corpus/**/extract/*/` and `corpus/**/extractor-run-*/`, whose `written`
 names the Move files in paragraph order — and written nowhere. The passage
@@ -3284,7 +3287,7 @@ paragraphs are the blank-line-separated blocks under `## Passage`, or the
 whole file where it has no such heading. It never reads a Move file, and the
 sheet renders without it where `corpus/` is absent.
 
-**The Candidate sheet.** `node src/flp/sheet.mjs candidate --run <Brief run
+**The Candidate sheet.** `node src/paragraph-plan-playground/sheet.mjs candidate --run <Brief run
 directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]` renders
 one compose unit of a Brief run from its job record and Call Records,
 refusing a directory with no job record and a unit the record does not carry,
@@ -3311,7 +3314,7 @@ first line and links to its files.
 other: `Leg's text`, `Structure`, `Round n`, `Binding`, `Submission`,
 `Comment`, `Calls`, `Candidate <id>`, `Leg`, `Move`, `Purpose`,
 `Brief Waypoints`, `Case`, `Roles`, `Relations`. The list is
-`TABLE_HEADINGS` in the sheet, and `checks/check-flp.mjs` reads it.
+`TABLE_HEADINGS` in the sheet, and `checks/check-paragraph-plan-playground.mjs` reads it.
 
 #### 4.19.5 The Analogy Mapping (kogaki#1778)
 
@@ -3371,7 +3374,7 @@ transform a WriterBasedStrand into a ReaderBasedStrand through Moves, without
 introducing the WriterBasedStrand's compressed vocabulary, and that the
 mechanism for this is found by trials outside the production commands. The
 **Structure-Mapping Playground (SMP)** is where those trials run. One run of it
-is a **Trial**: `node src/mapping-playground/trial.mjs run --strand <file>
+is a **Trial**: `node src/structure-mapping-playground/trial.mjs run --strand <file>
 --structure <file> --out <dir> [--audience <file>] [--library <dir>]`.
 
 **The terms**, as the owner set them on 2026-11-03 and 2026-11-04:
@@ -3446,7 +3449,7 @@ and the owner reads it.
 **How the Brief is made.** The runner composes a one-Leg Brief from the
 structure. No Reader start is composed (kogaki#1699): the Leg call is handed
 the Persona's prior-knowledge line. The Leg comes from the `smp_leg_unit` row of
-`src/mapping-playground/playground-workflow.json`, which is derived from the
+`src/structure-mapping-playground/playground-workflow.json`, which is derived from the
 production `reader_path_unit` row by `copy_of` and `substitutions`. The Leg's
 Claims are the structure's `holds` sentences, word for word. The Leg carries
 no `introduces`, and the Brief's `defined_terms` is empty.
@@ -3455,7 +3458,7 @@ no `introduces`, and the Brief's `defined_terms` is empty.
 the file's sha256), `structure` (its path, its sha256 and `author: owner`),
 `mapper: owner-authored`, the `brief`, `plan` and `draft` files with their
 sha256, each stage's state and its `calls.jsonl`, and `reading`, which names
-`<out>/reading.md`. Every model call goes through the Proof Sheet's recorder.
+`<out>/reading.md`. Every model call goes through the Move-Extraction Playground's recorder.
 The runner writes `reading.md` once, empty under a header naming the Trial,
 and never writes it again: it is the owner's. A stage that stops ends the run
 there, and the record shows the stop.
@@ -3474,7 +3477,7 @@ a table in both places, and a record `table.yaml` carries its `move` and
 
 **What it is.** Structure reading by the Mapper rather than the owner is one
 model call. A Trial runs it with `--mapper <variant>` in place of
-`--structure`: `node src/mapping-playground/trial.mjs run --strand <file>
+`--structure`: `node src/structure-mapping-playground/trial.mjs run --strand <file>
 --mapper sme_map_roles --out <dir>`. Giving both flags is refused, naming
 both. The Mapper's answer is written as `<out>/structure.yaml`, and the
 stages above run over it unchanged.
@@ -3512,7 +3515,7 @@ share the `sme_map_roles` and `smp_correspondence` rows and their validators,
 none.
 
 **A variant is a workflow row.** A variant is a row `sme_map_<variant>` of
-`src/mapping-playground/playground-workflow.json`. A second variant is a
+`src/structure-mapping-playground/playground-workflow.json`. A second variant is a
 second row and a second Trial, never an edit of the first. Comparing two
 variants is the owner's reading of two Trials.
 
@@ -3523,9 +3526,9 @@ the wrong shape for a rig with no correctness criterion. Every Mapper output is
 found by trial and error, and the Draft is read rather than judged, so a cycle
 that costs an hour to reach a reading fails before it finds anything. The
 shortest cycle is one WriterBasedStrand, one Move and one Paragraph, read on a
-sheet. A **short Trial** is `node src/mapping-playground/short.mjs run
+sheet. A **short Trial** is `node src/structure-mapping-playground/short.mjs run
 --proposition <file> (--structure <file> | --mapper sme_map_<variant>) --out
-<dir under runs/mapping-playground/> (--compose | --rbs-file <file>)
+<dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>)
 [--audience <file>] [--library <dir>]`, over the proposition file of §4.20;
 `--strand` is refused naming `--proposition`. It runs in one process with no
 await loop.
@@ -3551,12 +3554,12 @@ is written before the Leg as the Trial's Analogy Mapping (kogaki#1778),
 the Leg makes inside itself; under `own` the Leg is bound to the base Move and
 the mapping is `none`. Its two paragraphs, the Base Paragraph and the Inference
 Paragraph, draw their expressions from the mapping and from the Leg's own table
-(below). The Proof Sheet's Leg run composes ONE BRIEF LEG PER ORIGINAL PARAGRAPH:
+(below). The Move-Extraction Playground's Leg run composes ONE BRIEF LEG PER ORIGINAL PARAGRAPH:
 the Leg Brief composer's one Leg over an N-paragraph original is split into N
 Brief Legs, `<leg_id>-p<k>`, each carrying `text` from paragraph k's point and
 `claims` from paragraph k's Claim, in order, the cross-Leg fields derived over
 the split path (`legsPerParagraph` and `paragraphLegPath` in
-`src/proof-sheet/leg-brief.mjs`); `/paragraph-plan` then binds one Move per Leg
+`src/move-extraction-playground/leg-brief.mjs`); `/paragraph-plan` then binds one Move per Leg
 and `/draft` writes one Packet and one section per Leg, each Leg's Writer calls
 in `draft/calls-<leg_id>.jsonl`. Its sheet keeps one comparison row per original
 paragraph, now against its own Leg, and its Bindings and Packet tables carry one
@@ -3611,7 +3614,7 @@ included, is refused naming the key, and one without `domain` is refused
 naming `domain`. In
 `correspondences`, each `expression` names the base's object and each `role`
 the Role it stands for.
-`src/mapping-playground/rbs.mjs` is the one validator of the table.
+`src/structure-mapping-playground/rbs.mjs` is the one validator of the table.
 
 **The `bind` row** (kogaki#1700, kogaki#1719). The `bind` stage is one model
 call of the row `smp_bind_move` through the run's recorder, under the Mapper's
@@ -3727,7 +3730,7 @@ Paragraph's is the Leg's own; under `own` every paragraph's is the Leg's own.
 The Inference Paragraph may also name the expressions of the base table where
 its Segment likens the subject to the case already told.
 `correspondenceVocabularyRefusal(points, table, priorTables)` in
-`src/mapping-playground/rbs.mjs` runs over every paragraph, `priorTables` the
+`src/structure-mapping-playground/rbs.mjs` runs over every paragraph, `priorTables` the
 tables before its own. It refuses where a point carries a Role id outside an
 expression of those tables, naming the paragraph and the point; it matches no
 expression, whose presence is a sense judgment (kogaki#1811).
@@ -3760,10 +3763,10 @@ with the Persona from the audience file, and calls the writer of
 `src/draft-workflow.json` once with the Packet as its entire stdin. Each
 numbered line is the Leg's `text`. The paragraph is `<out>/paragraph.md`.
 
-**The sheet.** `<out>/sheet.html` reuses the Proof Sheet's CSS and cards, with
+**The sheet.** `<out>/sheet.html` reuses the Move-Extraction Playground's CSS and cards, with
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
-from a Proof Sheet at a glance. It opens on the comparison the owner reads,
-as the Proof Sheet opens on the Passage beside the Draft (kogaki#1673). Its
+from a Move-Extraction Playground at a glance. It opens on the comparison the owner reads,
+as the Move-Extraction Playground opens on the Passage beside the Draft (kogaki#1673). Its
 sections, in order (kogaki#1675, kogaki#1685, kogaki#1687): `Proposition and
 Paragraph`, `Segments`, `Bindings`, `Mapping`, `Analogy Mapping` (the
 Trial's `analogy.yaml`: the base domain and each counterpart, or `none` with its
@@ -3811,7 +3814,7 @@ reason, kogaki#1784), `Structure` and `Model calls`, folded. The runner writes t
   and a relation no higher-order relation's `relates` names, is marked
   `unreached` in its `category` cell: Gentner's systematicity read as a check
   on extraction. Beneath it is a Mermaid `graph BT` with the init line
-  `%%{init: {"flowchart": {"curve": "linear"}}}%%`, loaded as the Proof Sheet
+  `%%{init: {"flowchart": {"curve": "linear"}}}%%`, loaded as the Move-Extraction Playground
   loads Mermaid, so edges are straight and leave the top of a node. Its three
   subgraphs stack as rows, `Higher-order relations` at the top, `Relations`
   in the middle and `Roles` at the bottom. Each node is labelled by the
@@ -3878,8 +3881,8 @@ and `proposition`, its path and sha256) in place of `strand` (kogaki#1685),
 `case` and `inference_move` (kogaki#1700, kogaki#1719).
 
 **A Leg of a Brief and a named Move** (kogaki#1830). A second route,
-`node src/mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id>
---move <Move id> --out <dir under runs/mapping-playground/> [--audience <file>]
+`node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id>
+--move <Move id> --out <dir under runs/structure-mapping-playground/> [--audience <file>]
 [--library <dir>]`, holds the Move fixed and reads the Leg from an adopted
 Brief. The three flags are given together, and with them `--proposition`,
 `--structure`, `--mapper`, `--compose` and `--rbs-file` are refused by name.
@@ -3920,8 +3923,8 @@ ParagraphPlan after (kogaki#1767, owner ruling 2026-11-10: a Move is bound
 once, at the paragraph, after the Brief Waypoints stand).
 It is a playground under §4.20's rule: it may import production files and
 the other playgrounds, nothing imports it, and it never writes under
-`theses/`. One run is a **Trial**: `node src/leg-planning/trial.mjs run
---claims <file> --out <dir under runs/leg-planning/> [--audience <file>]
+`theses/`. One run is a **Trial**: `node src/leg-planning-playground/trial.mjs run
+--claims <file> --out <dir under runs/leg-planning-playground/> [--audience <file>]
 [--library <dir>] [--brief <theses/<slug>/brief.yaml>]`.
 
 **The claims file.** One `thesis:` line, then one or more pairs of a `cite:`
@@ -4038,12 +4041,12 @@ Audience as `compose_path`, the claims as `strands`, the thesis) around
 legs.yaml's `reader_path`, copied unchanged. Each Brief Waypoint becomes one
 paragraph with one Move. `trial.json` records the stage with the plan's path
 and sha256, and, for each Brief Waypoint, the bound Move id and the verdict,
-read from the plan's run as the FLP reads it. A `no_paragraph_move_fits`
+read from the plan's run as the ParagraphPlanPlayground reads it. A `no_paragraph_move_fits`
 refusal stops the Trial as a stage stop, naming the Leg and the Waypoint; it
 does not refuse the Waypoints or the Legs.
 
 **A copy is read, never restated.** A `{{copy:<name>}}` token in a row of
-`src/leg-planning/workflow.json` is replaced at run time by the text its
+`src/leg-planning-playground/workflow.json` is replaced at run time by the text its
 `copies.<name>` entry names in another table, from its `opens` words
 through the first `closes` words after them. A copy whose words that table
 no longer carries refuses the Trial before any Call.
@@ -4059,7 +4062,7 @@ partition with each Leg's higher-order relation, the ParagraphPlan stage's
 plan, Brief and run with each Brief Waypoint's bound Move and verdict, and the
 sheet's path and sha256.
 
-**The sheet.** `<out>/sheet.html`, one page, under the FLP's fixed-heading
+**The sheet.** `<out>/sheet.html`, one page, under the ParagraphPlanPlayground's fixed-heading
 rule with its own list (`LPP_HEADINGS`), in this order:
 
 1. `Claims`: the thesis and each claim with its id and cite, then
@@ -4074,9 +4077,9 @@ rule with its own list (`LPP_HEADINGS`), in this order:
    the phrase and the Round.
 4. `Legs`: per Leg, the higher-order relation it serves. Under it, one row
    for each of its Waypoints: the point, the paragraph Move ParagraphPlan
-   bound (linked to its file and its Corpus passage as the FLP renders them),
+   bound (linked to its file and its Corpus passage as the ParagraphPlanPlayground renders them),
    the Waypoints under it, and the plan judge's verdict.
-5. `Rounds`: per stage, each Round in the FLP's blocks, `Submission`,
+5. `Rounds`: per stage, each Round in the ParagraphPlanPlayground's blocks, `Submission`,
    `Comment` and `Calls`, each Call linked to its Call Record. The Legs stage
    has no Round. `Stage paragraph-plan` gives each Brief Waypoint's Rounds, read
    from the plan's own run.
@@ -4087,8 +4090,8 @@ rule with its own list (`LPP_HEADINGS`), in this order:
 sheet is one page over one adopted Brief file, rendered with no model call;
 the owner names it the BriefPlanPlayground. Its one owner act is
 `/brief-sheet theses/<slug>/brief.yaml`, which runs
-`node src/leg-planning/sheet.mjs show --brief <file>`, writes
-`runs/leg-planning/brief-sheets/<slug>/sheet.html` beside `brief.sha256`
+`node src/brief-plan-playground/sheet.mjs show --brief <file>`, writes
+`runs/brief-plan-playground/<slug>/sheet.html` beside `brief.sha256`
 naming the file it rendered, and prints the sheet's `file://` URL as its one
 line. A Brief of the shape before kogaki#1775 — a Leg carrying `waypoints` or
 `move`, or no `text` — is refused naming the Leg and the key, and nothing is
@@ -4102,7 +4105,7 @@ and the `apart`/`own` case, which stay in ParagraphPlan; thesis adoption,
 sections, `introduces`, `opens_section` and renderings, which are the
 Brief's; and fetching a Strand.
 
-**Its check.** `checks/check-leg-planning.sh`, registered as `leg-planning`,
+**Its check.** `checks/check-leg-planning-playground.sh`, registered as `leg-planning-playground`,
 drives the Trial through one fake model binary.
 
 ### 4.22 The structure-first Brief (kogaki#1768)
@@ -4206,7 +4209,7 @@ carrying a `structure` binds every Leg's `relation` to it and refuses a Leg
 carrying `waypoints` or `move` by name (`legStructureRefusal`); only the
 ParagraphPlan writes Waypoints, and "Waypoint" names its claims alone.
 `validateLegs` refuses a retired Leg field by name. Every reader of the
-Brief — `/paragraph-plan`, `/draft`, the Proof Sheet's Leg Brief composer
+Brief — `/paragraph-plan`, `/draft`, the Move-Extraction Playground's Leg Brief composer
 and the playgrounds — reads this one shape. Until kogaki#1777 rewrites the
 ParagraphPlan's unit, `/paragraph-plan` refuses a Leg carrying no
 `waypoints`, so a Brief composed under this section is planned only after
@@ -4411,7 +4414,7 @@ vocabulary into an article: the Audience and the Strands. A Strand carries the
 source's own technical terms and expressions, and until this record the Brief
 chose which of them the article keeps one claim at a time, in its own words.
 Renaming a term and rewording a proposition were the same act, so neither could
-be judged: on the two 2026-10-20 Proof Sheet runs over one passage, the same
+be judged: on the two 2026-10-20 Move-Extraction Playground runs over one passage, the same
 material produced two Briefs whose points differed in vocabulary alone, a word
 in no served material ("registers") reached the Waypoints, and every
 paragraph of the Draft followed it.
@@ -4483,7 +4486,7 @@ unit of its scale is its Move's `leaves`, taken up by a later Move's `takes`
 no `obligation` and no `obligation_triggers`** (kogaki#1701): `obligation` was
 the authored source of the slot a Move raised, and `obligation_triggers` the
 retired obligation call's verdict per trigger (kogaki#1618); a record carrying
-either is refused naming the field, and `src/proof-sheet/extract.mjs rejudge
+either is refused naming the field, and `src/move-extraction-playground/extract.mjs rejudge
 --constraints --write --retire-obligation` cuts both from an admitted library.
 Every rule this section carried is deleted with the ledger: the record shape,
 the one source, the capacity, the SubItem order, the Section rule and the

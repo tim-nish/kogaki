@@ -55,7 +55,7 @@ export {
   readerPathJobStopFlagPath,
 } from "./detached-job/job-state.mjs";
 
-// The unit row's field holding its first call's seconds; the FLP reads it by this name (kogaki#1758).
+// The unit row's field holding its first call's seconds; the ParagraphPlanPlayground reads it by this name (kogaki#1758).
 export const FIRST_CALL_SECONDS_FIELD = "call_1_s";
 
 // ============ THE DETACHED JOB (kogaki#1193) ============
@@ -406,7 +406,7 @@ export async function cmdJobSupervise(args) {
         ...(st.round1S !== undefined ? { [FIRST_CALL_SECONDS_FIELD]: st.round1S } : {}),
         ...(st.malformed > 0 ? { malformed_output: st.malformed } : {}),
         ...(firstRefusal !== undefined ? { first_refusal: firstRefusal } : {}),
-        // THE RECORD'S `refusals` STAYS AN ARRAY OF STRINGS (kogaki#1438): the Proof Sheet
+        // THE RECORD'S `refusals` STAYS AN ARRAY OF STRINGS (kogaki#1438): the Move-Extraction Playground
         // reads it, and the refused answers live in the unit's own state and its prompts.
         ...(st.refusals.length ? { refusals: st.refusals.map((h) => h.refusal) } : {}),
         // Each refusal's group and reach, where the row declares them (kogaki#1708).
@@ -555,7 +555,7 @@ export async function cmdJobSupervise(args) {
         return { row: runningRow(u, 0), progressed: true };
       }
       // EVERY PLANNING CALL IS A ROUND ON THE ROW: a site or suffix call counts as the whole
-      // call did, so `rounds` is the number of records asked for and the Proof Sheet's blocks.
+      // call did, so `rounds` is the number of records asked for and the Move-Extraction Playground's blocks.
       beginNextRound(st, Date.now());
       st.phase = act.kind;
       st.callPrompt = withNoToolsSentence(act.prompt);

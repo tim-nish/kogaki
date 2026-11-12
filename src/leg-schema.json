@@ -276,7 +276,7 @@
       "ONLY ON A LEG OF A BRIEF WITH NO `structure` (kogaki#1775). A Brief /brief",
       "composes from a structure ends at Legs, and a Leg of it carrying `waypoints` is",
       "refused naming the field; the waypoints below are a Brief's that predates",
-      "kogaki#1768, and the Proof Sheet's and the Mapping Playground's one Leg.",
+      "kogaki#1768, and the Move-Extraction Playground's and the Mapping Playground's one Leg.",
       "",
       "NO MOVE INFORMATION REACHES THE BRIEF. The paragraph Move each waypoint is",
       "planned with is bound AFTER the Brief, by the ParagraphPlan stage",
