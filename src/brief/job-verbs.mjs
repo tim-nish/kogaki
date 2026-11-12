@@ -264,6 +264,11 @@ export function jobAwaitS() {
 }
 export const READER_PATH_JOB_STILL_RUNNING_LINE = "reader-path job still running — call job await again";
 export const REVIEW_PATH_JOB_STILL_RUNNING_LINE = "path-review job still running — call job await again";
+export const STRUCTURE_JOB_STILL_RUNNING_LINE = "structure-reading job still running — call job await again";
+const STILL_RUNNING_LINES = {
+  review_path: REVIEW_PATH_JOB_STILL_RUNNING_LINE,
+  read_structure: STRUCTURE_JOB_STILL_RUNNING_LINE,
+};
 
 async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
   const dir = j.runDir;
@@ -309,9 +314,7 @@ async function awaitReaderPathJob(j, initialJob, table, tablePath, args) {
       // THE HEARTBEAT CARRIES THE ROUNDS AND THE ESTIMATE (kogaki#1355), so the owner
       // waiting on a long job sees which Round each unit is on and how long is left.
       for (const line of readerPathJobStatusLines(j.label, readerPathJobPath(j.jobDir), job)) console.log(line);
-      console.log(
-        `${j.stateId === "review_path" ? REVIEW_PATH_JOB_STILL_RUNNING_LINE : READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`,
-      );
+      console.log(`${STILL_RUNNING_LINES[j.stateId] || READER_PATH_JOB_STILL_RUNNING_LINE} (elapsed ${elapsedS}s).`);
       return;
     }
     console.log(`${j.label} still running at ${elapsedS}s — waiting for the next heartbeat.`);
@@ -448,10 +451,23 @@ async function finishReaderPathJobAwait(j, job, state, table, tablePath, args) {
       );
       return;
     }
+    // THE STRUCTURE-READING JOB'S RESULT (kogaki#1833): every finished unit's record, in unit
+    // order, and the number of readings asked for; `read_structure` re-enters on `--structure-result`.
+    if (j.stateId === "read_structure") {
+      const records = (job.units || []).filter((u) => u.status === "done" && u.candidate).map((u) => u.candidate);
+      const resultPath = join(j.jobDir, "structure-result.json");
+      writeFileSync(resultPath, `${JSON.stringify({ asked: (job.units || []).length, records }, null, 2)}\n`);
+      await runWorkflow(
+        BRIEF_FLOW,
+        { ...args, status: undefined, job: undefined, "structure-result": resultPath, "run-dir": dir },
+        detachedJobExecutor(jobRel),
+      );
+      return;
+    }
     // `compose_path` STARTS NO JOB (kogaki#1775): its Legs are derived with no
     // Call, so a finished job is the path review's and no other's.
     fail(
-      `${j.label} at ${dir} is a \`${j.stateId}\` job, and only \`review_path\` runs one — \`compose_path\` ` +
+      `${j.label} at ${dir} is a \`${j.stateId}\` job, and only \`review_path\` and \`read_structure\` run one — \`compose_path\` ` +
         "derives its Legs with no Call since kogaki#1775. Start the Brief again.",
     );
   }

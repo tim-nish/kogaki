@@ -34,6 +34,7 @@ export {
   validateReviewPathUnit,
 } from "./brief/run-state.mjs";
 export { candidateSelectionExtra, excludedCandidateLines } from "./brief/reader-path-unit.mjs";
+export { validateStructureReadingUnit } from "./brief/structure-readings.mjs";
 export { readerPathReading } from "./brief/renderers.mjs";
 export {
   readerPathJobStatusLines,

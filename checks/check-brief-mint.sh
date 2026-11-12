@@ -368,18 +368,18 @@ const DJ_STRUCTURE = mintStructure({
     writeFileSync(rs, JSON.stringify({ strands: DJ_CLAIMS.map((x) => ({ display_id: x.id, slug: x.id.toLowerCase(), address: `coding::lesson/${x.id}` })),
       strand_renderings: Object.fromEntries(DJ_CLAIMS.map((x) => [x.id.toLowerCase(), { found: true, headline: x.claim }])), structure }) + "\n");
     const apexFile = join(d, "apex.json");
-    writeFileSync(apexFile, JSON.stringify({ apexes: [{ ...written }] }) + "\n");
+    writeFileSync(apexFile, JSON.stringify({ apexes: [{ ...written, component: `1-${written.component}` }] }) + "\n");
     const boundFile = join(d, "bound.json");
-    writeFileSync(boundFile, JSON.stringify({ theses: [{ candidate: "thesis-k1", thesis: rewrite }] }) + "\n");
+    writeFileSync(boundFile, JSON.stringify({ theses: [{ candidate: "thesis-1-k1", thesis: rewrite }] }) + "\n");
     const rec = { _dir: d, judgments: {}, brief_run_state: rs };
     return { d, rs, rec, run: () => STATE_WORK.apex(rec, st, { apex: apexFile, "thesis-bound": boundFile, "theses-dir": join(d, "theses") }, briefTable) };
   };
   const ok1 = runApex("Every guard under the check root reads a feed the root lists.");
   await ok1.run();
   const s1 = JSON.parse(readFileSync(ok1.rs, "utf8"));
-  const t1 = (s1.thesis_candidates || []).find((x) => x.id === "thesis-k1");
+  const t1 = (s1.thesis_candidates || []).find((x) => x.id === "thesis-1-k1");
   if (!t1 || t1.thesis !== "Every guard under the check root reads a feed the root lists." || !ok1.rec.brief_thesis_bound
-    || !s1.gate.options.some((o) => o.label.startsWith(t1.thesis)) || (s1.unconnected || []).length !== 1) {
+    || !s1.gate.options.some((o) => o.label.startsWith(t1.thesis)) || !(s1.reading_lines || []).includes("Not offered: L4 — no higher-order relation connects this Strand's claim to any other.")) {
     fails.push(`(dj) the apex state did not rewrite the over-long Thesis before the gate: ${JSON.stringify(s1.gate && s1.gate.options)}`);
   }
   const bad = runApex(long);

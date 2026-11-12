@@ -11,6 +11,8 @@
     "judge_model_means": "The model every Brief judgment and every job unit is asked with.",
     "audience_file": "audiences/dev-to-zenn.md",
     "audience_file_means": "The Audience file the Brief composes for. Its `persona` key says who the reader is and what they already know; its `register` key says how the prose addresses them.",
+    "structure_readings": 5,
+    "structure_readings_means": "How many times the Brief reads the settled Strands into a structure before a Thesis is offered. Each reading is one job unit. The Thesis question offers the candidates that most readings agree on first and shows beside each how many readings produced it. With 1 the Brief reads once.",
     "thesis_words": 30,
     "thesis_words_means": "The longest a Thesis may be, in words. A Thesis composed longer than this is rewritten once to fit before the Thesis question is shown, and the Brief stops, naming the length, if the rewrite is still too long. Words are counted between spaces.",
     "paragraphs_per_leg": 2,
