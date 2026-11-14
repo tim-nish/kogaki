@@ -4318,8 +4318,8 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
   reader already holds). Written **once, at mint**, from the
   `defined_terms_unit` judgment the `mint` state asks before the file exists,
   and never again; an entry occurring whole-word in neither the Thesis nor a
-  claim is refused naming it. Its readers are composition (§4.1), path
-  review's claim register, and the Draft review's `defined-term-order` item.
+  claim is refused naming it. Its readers are composition (§4.1) and path
+  review's claim register.
   **It lives in the Brief and its boundary ends there**: nothing of it reaches
   `src/packet-template.md` or a rendered Packet — information whose boundary
   is planning is not copied downstream "just a little", because each copy then
