@@ -16,7 +16,7 @@ import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { relFromRepo } from "../workflow/run-record.mjs";
 import { settingValue } from "../workflow/judge.mjs";
 import { READER_STATE_DIMENSIONS, readerStateDimensionLine, waypointsRefusal } from "./leg-schema.mjs";
-import { parseIntroducesEntry, parseReactivateEntry } from "./sections.mjs";
+import { parseReactivateEntry } from "./sections.mjs";
 import { mappingShapeRefusal, mappingRecordRefusal } from "./mapping-record.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
@@ -126,7 +126,7 @@ export function paragraphPlanPathFor(briefPath) {
 // entry carries the one Move bound to the Leg (`move`, an id and nothing else of the Move)
 // and its `paragraphs`, at most `brief.paragraphs_per_leg`. Each paragraph carries the Leg
 // schema at the paragraph scale -- `materials`, `purpose`, `depends_on`, `rationale`,
-// `introduces`, `re-activate` -- beside its `join` and its Waypoints
+// `re-activate` -- beside its `join` and its Waypoints
 // (`point` and `serves`, or `performs` alone, kogaki#1448), one per Segment of the Leg's
 // Move. It carries no reader state and no Obligations ledger (kogaki#1701): what a Leg takes
 // up and leaves is its bound Move's `takes` and `leaves`.
@@ -135,7 +135,7 @@ const PLAN_HEADER = [
   "The paragraph plan for one article: the paragraph-level Reader Path. Under every Leg of the Brief named below,",
   "the one Move bound to the Leg (its id and nothing else of the Move) and the Leg's paragraphs: for each, the",
   "Strands it stands on, what it does to the reader, the earlier paragraphs it stands on, why it comes here, the",
-  "terms it introduces, what it re-activates, and its Waypoints -- the points the paragraph makes, in order, each",
+  "what it re-activates, and its Waypoints -- the points the paragraph makes, in order, each",
   "with the Claims it serves, one per Segment of the bound Move. What a Leg takes up and leaves is its bound Move's",
   "`takes` and `leaves`, never written here. Above the Legs, the one base domain every analogy in the article draws",
   "from, with a counterpart for each Role and relation, or none and why.",
@@ -150,7 +150,6 @@ export const oneLine = (s) =>
   String(s)
     .replace(/\s*\n\s*/g, " ")
     .trim();
-const PLAN_INTRODUCES_KEYS = ["term", "meaning"];
 // kogaki#1649: a judge-forced mark is a non-empty list of axis ids, written by the site loop and never by a planner.
 const marked = (v) => Array.isArray(v) && v.length > 0;
 const FORCED_MARK_KEYS = ["forced_by", "move_forced_by"];
@@ -173,15 +172,6 @@ function paragraphRecord(e, n) {
   if (typeof e.purpose === "string") schema.purpose = oneLine(e.purpose);
   if (Array.isArray(e.depends_on)) schema.depends_on = [...e.depends_on];
   if (typeof e.rationale === "string") schema.rationale = oneLine(e.rationale);
-  if (Array.isArray(e.introduces)) {
-    schema.introduces = e.introduces.map((t) =>
-      t && typeof t === "object"
-        ? Object.fromEntries(
-            PLAN_INTRODUCES_KEYS.filter((k) => typeof t[k] === "string").map((k) => [k, oneLine(t[k])]),
-          )
-        : t,
-    );
-  }
   if (Array.isArray(e["re-activate"])) schema["re-activate"] = strings(e["re-activate"]);
   return {
     paragraph: n,
@@ -227,7 +217,7 @@ const PLAN_LEG_KEYS = ["leg_id", "move", "move_forced_by", "paragraphs"];
 // THE PARAGRAPH'S SCHEMA (kogaki#1639): the Leg schema minus `opens_section`, `reaches_target`,
 // `names`, `figure`, `figure_roles` and `bridges`, which have no paragraph counterpart, and minus
 // `move`, which the Leg binds once for all its paragraphs (kogaki#1777).
-export const PLAN_SCHEMA_KEYS = ["materials", "purpose", "depends_on", "rationale", "introduces", "re-activate"];
+export const PLAN_SCHEMA_KEYS = ["materials", "purpose", "depends_on", "rationale", "re-activate"];
 const PLAN_PARAGRAPH_KEYS = ["paragraph", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints"];
 // THE BOUND ON A LEG'S PARAGRAPHS (kogaki#1777): `brief.paragraphs_per_leg` in kogaki.settings.json.
 export const PARAGRAPHS_PER_LEG_SETTING = "brief.paragraphs_per_leg";
@@ -252,20 +242,25 @@ const RETIRED_PLAN_REASON =
 // `journeys` (kogaki#1818): src/leg-schema.json declares no `journey` since kogaki#1768.
 const RETIRED_JOURNEYS_REASON =
   "a key src/leg-schema.json no longer declares (kogaki#1768, kogaki#1818): a Leg draws on no Journey, so no paragraph places one";
+// `introduces` (kogaki#1841): a Leg introduces no term since kogaki#1768.
+const RETIRED_INTRODUCES_REASON =
+  "retired from the ParagraphPlan (kogaki#1768, kogaki#1841): a Leg introduces no term, so no paragraph introduces one; plan the Leg again";
 export const RETIRED_PLAN_KEYS = Object.freeze([
   "reader_state_before",
   "reader_state_after",
   "obligations",
   "discharges",
   "journeys",
+  "introduces",
 ]);
+const RETIRED_KEY_REASONS = { journeys: RETIRED_JOURNEYS_REASON, introduces: RETIRED_INTRODUCES_REASON };
 export function retiredPlanKeyRefusal(obj, at) {
   const k =
     obj && typeof obj === "object" && !Array.isArray(obj)
       ? RETIRED_PLAN_KEYS.find((x) => Object.hasOwn(obj, x))
       : undefined;
   if (k === undefined) return null;
-  return `${at} carries \`${k}\`, ${k === "journeys" ? RETIRED_JOURNEYS_REASON : RETIRED_PLAN_REASON}`;
+  return `${at} carries \`${k}\`, ${RETIRED_KEY_REASONS[k] ?? RETIRED_PLAN_REASON}`;
 }
 // THE ANALOGY MAPPING AS THE FILE CARRIES IT (kogaki#1778): a base domain with its Role and relation
 // counterparts, or `none` with its reason. A string to refuse with, or null.
@@ -356,23 +351,9 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
   return { path, record, paragraphs, mappingSha };
 }
 
-// The terms a Leg's `introduces` carries, by `term`, from either form the Brief's record
-// holds (a typed `{term, meaning}` item, or the bare / anchored line) and from the plan
-// call's own `{term, meaning}` list, whose `meaning` may be null for a bare term.
-export function legIntroducedTerms(leg) {
-  return (leg && Array.isArray(leg.introduces) ? leg.introduces : [])
-    .map((raw) => {
-      if (raw && typeof raw === "object" && !Array.isArray(raw))
-        return typeof raw.term === "string" ? raw.term.trim() : "";
-      const p = parseIntroducesEntry(raw);
-      return p.error ? "" : p.term;
-    })
-    .filter(Boolean);
-}
-
 // ONE PARAGRAPH'S SCHEMA, by the Leg schema's own rules at the paragraph scale (kogaki#1639).
-// `w` is the entry, `j` its 0-based place in the Leg, `leg` the Brief's Leg (its `claims`,
-// `introduces`) and `entries` the Leg's paragraphs so far. The Move is the Leg's,
+// `w` is the entry, `j` its 0-based place in the Leg, `leg` the Brief's Leg (its `claims`)
+// and `entries` the Leg's paragraphs so far. The Move is the Leg's,
 // bound once for every paragraph (kogaki#1777), so a paragraph names none. Shared by the plan
 // reader and the plan call's validator, so the record the stage writes is the record every read
 // refuses alike. Returns a string to refuse with, or null.
@@ -407,25 +388,14 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at) {
   if (typeof w.rationale !== "string" || w.rationale.trim() === "") {
     return `${at} carries no \`rationale\` — why this paragraph comes here rather than earlier or later (kogaki#1639)`;
   }
-  if (!Array.isArray(w.introduces))
-    return `${at} carries no \`introduces\` — the terms of the Leg's \`introduces\` this paragraph introduces, each \`{term, meaning}\`; may be empty (kogaki#1639)`;
-  const legTerms = legIntroducedTerms(leg);
-  for (const t of w.introduces) {
-    const term = t && typeof t === "object" && !Array.isArray(t) && typeof t.term === "string" ? t.term.trim() : "";
-    if (!term || typeof t.meaning !== "string" || t.meaning.trim() === "" || undeclaredKey(t, PLAN_INTRODUCES_KEYS)) {
-      return `${at} introduces ${JSON.stringify(t)} — each entry is \`{term, meaning}\`, the term one of the Leg's \`introduces\` and the meaning the Brief's or the planner's (kogaki#1639)`;
-    }
-    if (!legTerms.includes(term))
-      return `${at} introduces ${JSON.stringify(term)}, which the Leg ${leg.leg_id} does not introduce (its \`introduces\`: ${legTerms.length ? legTerms.join(", ") : "none"}) (kogaki#1639)`;
-  }
   if (!Array.isArray(w["re-activate"]))
-    return `${at} carries no \`re-activate\` — \`<paragraph> term <term>\` and \`<paragraph> claim <Strand id> as <one plain sentence>\` lines; may be empty (kogaki#1639)`;
+    return `${at} carries no \`re-activate\` — \`<paragraph> claim <Strand id> as <one plain sentence>\` lines; may be empty (kogaki#1639)`;
   for (const raw of w["re-activate"]) {
     if (typeof raw !== "string")
-      return `${at} re-activates a non-string entry — each is one line, \`<paragraph> term <term>\` or \`<paragraph> claim <Strand id> as <one plain sentence>\` (kogaki#1639)`;
+      return `${at} re-activates a non-string entry — each is one line, \`<paragraph> claim <Strand id> as <one plain sentence>\` (kogaki#1639)`;
     const e = parseReactivateEntry(raw);
-    if (e.error || e.kind === "journey") {
-      return `${at} re-activates ${JSON.stringify(raw.trim())} — a paragraph's re-activate line is \`<paragraph> term <term>\` or \`<paragraph> claim <Strand id> as <one plain sentence>\`, a paragraph number of this Leg in place of a Leg id (kogaki#1639)`;
+    if (e.error || e.kind !== "claim") {
+      return `${at} re-activates ${JSON.stringify(raw.trim())} — a paragraph's re-activate line is \`<paragraph> claim <Strand id> as <one plain sentence>\`, a paragraph number of this Leg in place of a Leg id; no paragraph introduces a term to re-activate (kogaki#1639, kogaki#1841)`;
     }
     const ref = /^\d+$/.test(e.leg_id) ? Number(e.leg_id) : NaN;
     if (!Number.isInteger(ref) || ref < 1 || ref >= n) {
@@ -435,32 +405,8 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at) {
       );
     }
     const source = entries[ref - 1] || {};
-    if (e.kind === "term") {
-      const found = (Array.isArray(source.introduces) ? source.introduces : []).some(
-        (t) => t && typeof t === "object" && String(t.term).trim() === e.value,
-      );
-      if (!found)
-        return `${at} re-activates ${JSON.stringify(raw.trim())}, but paragraph ${ref} does not introduce ${JSON.stringify(e.value)} — a re-activated term matches, verbatim, a term that paragraph's \`introduces\` carries (kogaki#1639)`;
-    } else if (!(Array.isArray(source.materials) ? source.materials : []).includes(e.value)) {
+    if (!(Array.isArray(source.materials) ? source.materials : []).includes(e.value)) {
       return `${at} re-activates ${JSON.stringify(raw.trim())}, but paragraph ${ref} does not stand on ${JSON.stringify(e.value)} — a re-activated claim names a Strand that paragraph's \`materials\` carries (kogaki#1639)`;
-    }
-  }
-  return null;
-}
-
-// THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639): no term of the Leg's `introduces` is
-// introduced by two paragraphs (kogaki#1663). `entries` are the Leg's entries, each already passed
-// `paragraphSchemaRefusal`. Returns a string to refuse with, or null.
-export function paragraphLegRefusal(entries, leg, at) {
-  for (const term of legIntroducedTerms(leg)) {
-    const by = entries
-      .map((e, i) => ((e.introduces || []).some((t) => t && String(t.term).trim() === term) ? i + 1 : 0))
-      .filter(Boolean);
-    if (by.length > 1) {
-      return (
-        `${at}: the term ${JSON.stringify(term)} of the Leg's \`introduces\` is introduced by paragraphs ${by.join(" and ")} — ` +
-        "a term of the Leg is introduced by at most one of its paragraphs, named in that paragraph's `introduces` (kogaki#1639, kogaki#1663)"
-      );
     }
   }
   return null;
@@ -468,9 +414,8 @@ export function paragraphLegRefusal(entries, leg, at) {
 
 // The record's shape against the Brief's Legs: every key declared, one entry per Leg in order,
 // each naming its one bound Move and carrying from one paragraph to `brief.paragraphs_per_leg`
-// (kogaki#1777), every paragraph carrying its schema (`paragraphSchemaRefusal`) under the
-// Leg's rules (`paragraphLegRefusal`), and every Waypoint shaped as `paragraphWaypointsRefusal`
-// reads it over the paragraph's `materials`. A key outside those is refused by name: the file
+// (kogaki#1777), every paragraph carrying its schema (`paragraphSchemaRefusal`), and every
+// Waypoint shaped as `paragraphWaypointsRefusal` reads it over the paragraph's `materials`. A key outside those is refused by name: the file
 // holds the bound Move's id and nothing else of the Move (kogaki#1639). `library`, where
 // given, is the Set of Move ids a `move` may name; `bound` is the paragraph bound, the
 // setting's where none is handed.
@@ -556,8 +501,6 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, b
       const bad = paragraphWaypointsRefusal(pws, w.materials, atW);
       if (bad) return bad;
     }
-    const legRule = paragraphLegRefusal(l.paragraphs, leg, at);
-    if (legRule) return legRule;
   }
   return null;
 }

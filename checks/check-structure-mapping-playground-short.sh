@@ -188,7 +188,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       paragraphs: Array.from({ length: count }, (_, i) => ({ paragraph: i + 1, materials: leg.claims.map((g) => g.strand),
         ...(i > 0 ? { join: "consequence" } : {}),
         purpose: "brings the reader to the chart as the bound of the gardener.",
-        depends_on: [], introduces: [], "re-activate": [], rationale: "it is paragraph " + (i + 1) + " of the Trial.",
+        depends_on: [], "re-activate": [], rationale: "it is paragraph " + (i + 1) + " of the Trial.",
         paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({
           point: n === 0 ? "PW-" + (i + 1) + "-1 " + exprs(i).join(" and ") + " hold together." : "PW-" + (i + 1) + "-" + (n + 1) + " the paragraph makes its point.",
           serves: leg.claims.map((g) => g.strand), cast: i === 0 && n === 0 ? { terse: true } : {} })) })) }, "waypoints");

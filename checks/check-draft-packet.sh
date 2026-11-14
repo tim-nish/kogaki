@@ -157,7 +157,7 @@ const ENTRY = (n, total, legId = "s1", serves = ["L1"]) => ({
   materials: [...serves],
   purpose: `PURPOSE-${n} brings the reader to the point.`,
   depends_on: n > 1 ? [n - 1] : [], rationale: `RATIONALE-${n} its before holds the state the paragraph before leaves.`,
-  introduces: [], "re-activate": [],
+  "re-activate": [],
 });
 const ENTRIES = (total, legId = "s1", serves = ["L1"]) => Array.from({ length: total }, (_, i) => ENTRY(i + 1, total, legId, serves));
 // ONE LEG OF THE PLAN FILE (kogaki#1777): its Move, and one paragraph per list of Waypoints, each
@@ -386,11 +386,11 @@ const carriesCriteria = (packet) => {
 }
 
 // (m) THE PACKET CARRIES NOTHING OF THE PARAGRAPH'S SCHEMA (kogaki#1639): a plan whose every
-// entry carries the bound Move's id, `materials`, `purpose`, `depends_on`, `rationale`,
-// `introduces` and `re-activate` renders a Packet with no `move`, `rationale` or `depends_on`
+// entry carries the bound Move's id, `materials`, `purpose`, `depends_on`, `rationale`
+// and `re-activate` renders a Packet with no `move`, `rationale` or `depends_on`
 // text and none of their values; and a plan missing a field, or writing `reader_state_before` or
-// `reader_state_after` (retired, kogaki#1701), is refused by /draft naming the Leg and the
-// Waypoint.
+// `reader_state_after` (retired, kogaki#1701) or `introduces` (retired, kogaki#1841), is refused
+// by /draft naming the Leg and the Waypoint.
 {
   const root = mkdtempSync(join(tmpdir(), "draft-packet-schema-"));
   const dir = join(root, "theses", "packet-brief");
@@ -405,7 +405,7 @@ const carriesCriteria = (packet) => {
     { encoding: "utf8", timeout: 120000 });
   const full = plan(ENTRIES(2));
   writeFileSync(planPath, full);
-  for (const k of ["move", "materials", "purpose", "depends_on", "rationale", "introduces", "re-activate"]) {
+  for (const k of ["move", "materials", "purpose", "depends_on", "rationale", "re-activate"]) {
     if (!new RegExp(`^ +${k}:`, "m").test(full)) fails.push(`(m) the plan written carries no \`${k}\` on its Leg or its paragraphs`);
   }
   const ok = resolveIn("ws");
@@ -435,6 +435,12 @@ const carriesCriteria = (packet) => {
     if (derived.status === 0 || !(derived.stderr || "").includes("paragraph 1") || !(derived.stderr || "").includes(`carries \`${key}\`, retired from the ParagraphPlan (kogaki#1701)`)) {
       fails.push(`(m) resolve did not refuse a written ${key} by name naming the paragraph: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
     }
+  }
+  const introduced = plan(ENTRIES(2)).replace(/^( +)materials:/m, "$1introduces: []\n$1materials:");
+  writeFileSync(planPath, introduced);
+  const retiredIntro = resolveIn("ws-introduces");
+  if (retiredIntro.status === 0 || !(retiredIntro.stderr || "").includes("paragraph 1") || !(retiredIntro.stderr || "").includes("carries `introduces`, retired from the ParagraphPlan (kogaki#1768, kogaki#1841)")) {
+    fails.push(`(m) resolve did not refuse a plan paragraph carrying \`introduces\` by name: ${(retiredIntro.stderr || retiredIntro.stdout || "").slice(0, 400)}`);
   }
 }
 

@@ -110,7 +110,6 @@ const RECORD_FIELD_NAMES = new Set([
   "refused_here",
   "the_reader_has_been_told",
   "leaves_for_next_leg",
-  "terms_this_paragraph_introduces",
   "re_activations_this_paragraph_carries",
   "takes",
   "leaves",
@@ -254,7 +253,6 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
     ),
     paragraphs_beside: paragraphsBeside(entries, n),
     persona: inputs.persona,
-    terms_this_paragraph_introduces: entry.introduces || [],
     re_activations_this_paragraph_carries: entry["re-activate"] || [],
     refused_here: (ctx.history || []).map((h) => ({ entry: h.entry ?? null, refusal: h.refusal })),
     ...(ctx.repair ? siteRepairInput(ctx) : {}),
@@ -378,19 +376,16 @@ function chosenArm(given, ctx, inputs, unitId, at) {
 
 // THE SUFFIX CALL'S INPUT: the Leg call's own input, with the paragraphs before `ctx.from` standing
 // beside it; from paragraph 1, after a refusal of the binding, the whole Leg is planned again and its
-// Move may change. The terms the standing paragraphs already carry are not asked for again.
+// Move may change.
 export function paragraphPlanSuffixInput(ctx, inputs, unitId) {
   const leg = legForUnit(inputs, unitId);
   const stand = ctx.from > 1 ? ctx.standing.paragraphs.slice(0, ctx.from - 1) : [];
-  const introduced = new Set(stand.flatMap((e) => (e.introduces || []).map((t) => String(t.term).trim())));
-  const { introduces, ...planned } = leg;
   return {
-    leg_you_must_plan: planned,
+    leg_you_must_plan: leg,
     paragraphs_at_most: boundOf(inputs),
     ...(ctx.from > 1 ? { move: ctx.standing.move, paragraphs_that_stand: stand } : {}),
     paragraph_moves_you_may_bind: bindableMoves(inputs.movesDir),
     persona: inputs.persona,
-    terms_this_leg_introduces: (introduces || []).filter((t) => !introduced.has(t.term)),
   };
 }
 

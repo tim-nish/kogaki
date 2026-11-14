@@ -92,7 +92,7 @@ writeFileSync(map, mapText(mapRows));
 const PLAN_FAKE = `
   const legNo = (id) => Number((String(id).match(/-p(\\d+)$/) || [])[1]) || 1;
   const paragraphOf = (n, claims, segCount, extra) => ({ paragraph: n, materials: claims.map((g) => g.strand),
-    purpose: "PURPOSE-" + n + " brings the reader to the point.", depends_on: n > 1 ? [n - 1] : [], introduces: [], "re-activate": [],
+    purpose: "PURPOSE-" + n + " brings the reader to the point.", depends_on: n > 1 ? [n - 1] : [], "re-activate": [],
     rationale: "its Segments carry the Leg this far.",
     paragraph_waypoints: Array.from({ length: segCount }, (_, k) => ({ point: "PW-" + k + " the paragraph makes its point." + extra, serves: claims.map((g) => g.strand), cast: {} })) });
   if (prompt.includes('"leg_you_must_judge"')) {

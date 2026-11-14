@@ -23,7 +23,6 @@ export function planCallInputRow(input) {
     claims: leg.claims,
     the_reader_has_been_told: leg.the_reader_has_been_told,
     paragraphs_at_most: input.paragraphs_at_most,
-    terms_this_leg_introduces: input.terms_this_leg_introduces,
     paragraph_moves_you_may_bind: moveIdsOf(input.paragraph_moves_you_may_bind),
   };
 }
@@ -36,7 +35,6 @@ export function siteCallInputRow(input, ctx) {
     text: p.text,
     the_reader_has_been_told: p.the_reader_has_been_told,
     bound_move: input.bound_move.id,
-    terms_this_paragraph_introduces: input.terms_this_paragraph_introduces,
     refused_here: input.refused_here,
   };
 }

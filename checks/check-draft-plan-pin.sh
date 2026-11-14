@@ -57,7 +57,7 @@ const planPath = join(dir, "paragraph-plan.yaml");
 // The Leg binds one Move for its paragraphs (kogaki#1777).
 const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
 const entry = (id) => ({ materials: ["L1"], purpose: `purpose of ${id}'s paragraph.`,
-  depends_on: [], rationale: `rationale for ${id}'s paragraph.`, introduces: [], "re-activate": [] });
+  depends_on: [], rationale: `rationale for ${id}'s paragraph.`, "re-activate": [] });
 const planText = (mark, mapping = null) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText, mapping,
   legs: legs.map((l) => ({ leg_id: l.leg_id, move: MOVE, paragraphs: [{ ...entry(l.leg_id),
     paragraph_waypoints: [{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, serves: ["L1"], cast: {} }] }] })) }));

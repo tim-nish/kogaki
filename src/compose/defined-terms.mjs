@@ -6,7 +6,7 @@
 // rule lives in `src/SPEC-REFERENCES.md`. THE NAMES THIS FILE USES:
 //   none: this file names no spec content beyond its Issue pointers
 //
-import { parseIntroducesEntry, wholeWordMatch } from "./sections.mjs";
+import { wholeWordMatch } from "./sections.mjs";
 
 // ---- THE BRIEF'S DEFINED TERMS (kogaki#1331, owner decision 2026-10-10) ----
 //
@@ -61,50 +61,4 @@ export function definedTermsOf(record) {
   return list
     .filter((e) => e && e.class === "defined" && typeof e.term === "string" && e.term.trim() !== "")
     .map((e) => e.term.trim());
-}
-
-// A `defined` term in a claim's proposition, a waypoint's point or an
-// opens_section of any Leg BEFORE the Leg whose introduces carries it —
-// whole-word and case-insensitive — refuses, naming the Leg, the field and
-// the term. Within the introducing Leg itself the use is the introduction. A
-// defined term no Leg introduces is before every Leg. The Thesis is the
-// title and is not a Leg field, so it is never read here.
-export function definedTermBeforeIntroductionRefusal(legs, definedTerms = []) {
-  if (!Array.isArray(legs) || !Array.isArray(definedTerms) || definedTerms.length === 0) return null;
-  const introducedAt = (term) => {
-    const key = String(term).trim().toLowerCase();
-    for (const [i, s] of legs.entries()) {
-      for (const raw of s && Array.isArray(s.introduces) ? s.introduces : []) {
-        const e = parseIntroducesEntry(raw);
-        if (!e.error && e.term.toLowerCase() === key) return i;
-      }
-    }
-    return legs.length;
-  };
-  for (const term of definedTerms) {
-    const intro = introducedAt(term);
-    for (const [i, s] of legs.entries()) {
-      if (i >= intro) break;
-      if (!s || typeof s !== "object") continue;
-      const at = `leg ${i + 1}${s.leg_id ? ` (${s.leg_id})` : ""}`;
-      const fields = [
-        ...(Array.isArray(s.claims) ? s.claims : []).map((g, j) => [`claims[${j}].proposition`, g && g.proposition]),
-        ...(Array.isArray(s.waypoints) ? s.waypoints : []).map((w, j) => [`waypoints[${j}].point`, w && w.point]),
-        ["opens_section", s.opens_section],
-      ];
-      for (const [field, text] of fields) {
-        if (typeof text !== "string" || !wholeWordMatch(term, text)) continue;
-        const where =
-          intro < legs.length
-            ? `leg ${intro + 1}${legs[intro].leg_id ? ` (${legs[intro].leg_id})` : ""} is the first to introduce it`
-            : "no Leg introduces it";
-        return (
-          `${at}: ${field} uses "${term}", a term the Brief defines, and ${where} — a defined term reaches ` +
-          "the reader only after the Leg whose introduces carries it (kogaki#1331). Add an introduces entry for it " +
-          "on this Leg or an earlier one, or reword"
-        );
-      }
-    }
-  }
-  return null;
 }

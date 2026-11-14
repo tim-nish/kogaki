@@ -90,7 +90,7 @@ const BUILDERS = `
 export const paragraph = (n, legId, { tag = "", rationale = null, move } = {}) => ({
   paragraph: n, ...(move !== undefined ? { move } : {}), materials: ["L1"], purpose: "brings the reader to point " + n + ".",
   depends_on: n > 1 ? [n - 1] : [], rationale: rationale || "its takes are met by what the paragraph before leaves.",
-  introduces: [], "re-activate": [], ...(n > 1 ? { join: "consequence" } : {}),
+  "re-activate": [], ...(n > 1 ? { join: "consequence" } : {}),
   paragraph_waypoints: [{ point: "PW-" + legId + "-" + n + tag + " the paragraph makes its point.", serves: ["L1"], cast: {} }] });
 export const legPlan = (legId, { move = "p1", count = legId === "s1" ? 2 : 1, tag = "" } = {}) => ({ version: "1", leg_id: legId, move,
   rationale: "the Move carries the relation.", paragraphs: Array.from({ length: count }, (_, i) => paragraph(i + 1, legId, { tag })) });

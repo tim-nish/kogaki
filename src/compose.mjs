@@ -123,17 +123,11 @@ export {
   readerKnowledgeLedger,
   introducerOf,
 } from "./compose/sections.mjs";
-export {
-  DEFINED_TERM_CLASSES,
-  definedTermsRefusal,
-  definedTermsOf,
-  definedTermBeforeIntroductionRefusal,
-} from "./compose/defined-terms.mjs";
+export { DEFINED_TERM_CLASSES, definedTermsRefusal, definedTermsOf } from "./compose/defined-terms.mjs";
 export {
   RENDERING_KEYS,
   renderingsRefusal,
   renderingsOf,
-  renderedTermIntroducedRefusal,
   FUNCTION_WORDS,
   wordsOf,
   wordForms,

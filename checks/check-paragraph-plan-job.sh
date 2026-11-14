@@ -36,8 +36,9 @@
 #       (kogaki#1650): the run in (b) writes `paragraph-plan-input-leg-<n>.json`
 #       per Leg, one `plan_call` row carrying the Leg's `text`, its Claims, what
 #       the Legs before it state (`the_reader_has_been_told`, kogaki#1777), the
-#       paragraph bound, `terms_this_leg_introduces` and the Move ids, each in the
-#       prompt; a site call appends a `site_calls` row carrying `paragraph`,
+#       paragraph bound and the Move ids, each in the prompt, and no
+#       `terms_this_leg_introduces` (kogaki#1841); a site call appends a
+#       `site_calls` row carrying `paragraph`,
 #       `refused_here` and the held `bound_move`; (c) carries the kept Legs'
 #       records; `view --plan` over the plan (c) wrote prints each Leg's text, its
 #       one Move's `takes` and `leaves`, and each paragraph's Segments table with
@@ -143,7 +144,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   out({ version: "1", leg_id: leg.leg_id, move: "p1", rationale: "the Move carries the Leg's relation.",
     paragraphs: [{ paragraph: 1, materials: ["L1"], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
       depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
-      introduces: [], "re-activate": [],
+      "re-activate": [],
       paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: ["L1"], cast: {} }] }] });
 });
 `);
@@ -282,10 +283,10 @@ if (refusedRun) {
     }
     // What the Legs before it state (kogaki#1777): derived from the Leg order, never a reader state.
     const told = legs.slice(0, i).map((x) => ({ leg_id: x.leg_id, text: x.text }));
-    if (JSON.stringify(row.the_reader_has_been_told) !== JSON.stringify(told) || !Array.isArray(row.terms_this_leg_introduces)) {
-      fails.push(`(e) ${id}'s row lacks what the Legs before it state (${JSON.stringify(told)}) or terms_this_leg_introduces: ${JSON.stringify(row)}`);
+    if (JSON.stringify(row.the_reader_has_been_told) !== JSON.stringify(told)) {
+      fails.push(`(e) ${id}'s row lacks what the Legs before it state (${JSON.stringify(told)}): ${JSON.stringify(row)}`);
     }
-    for (const gone of ["entry_state", "waypoints", "stands_to_be_taken_up"]) if (Object.hasOwn(row, gone)) fails.push(`(e) ${id}'s row still carries the retired ${gone}`);
+    for (const gone of ["entry_state", "waypoints", "stands_to_be_taken_up", "terms_this_leg_introduces"]) if (Object.hasOwn(row, gone)) fails.push(`(e) ${id}'s row still carries the retired ${gone}`);
     if (JSON.stringify(row.paragraph_moves_you_may_bind) !== '["p1"]') fails.push(`(e) ${id}'s row does not name the library's Move ids: ${JSON.stringify(row.paragraph_moves_you_may_bind)}`);
     for (const v of [row.text, ...row.paragraph_moves_you_may_bind]) {
       if (!prompt.includes(JSON.stringify(v))) fails.push(`(e) ${id}'s prompt string does not carry ${JSON.stringify(v)}`);
@@ -295,7 +296,7 @@ if (refusedRun) {
   const first = sites[0] || {};
   if (!sites.length) fails.push("(e) the refused Leg's site calls appended no site_calls row");
   else if (first.paragraph !== 1 || first.retry !== 1 || !first.refused_here || !first.refused_here.length || first.bound_move !== "p1"
-    || !Array.isArray(first.the_reader_has_been_told) || ["fixed", "moves_rejected_here", "stands_to_be_taken_up", "entry_state"].some((k) => Object.hasOwn(first, k))) {
+    || !Array.isArray(first.the_reader_has_been_told) || ["fixed", "moves_rejected_here", "stands_to_be_taken_up", "entry_state", "terms_this_paragraph_introduces"].some((k) => Object.hasOwn(first, k))) {
     fails.push(`(e) the first site_calls row lacks its fields: ${JSON.stringify(first)}`);
   }
   if (JSON.stringify((inputRecord(refusedRun.runDir, "leg-1") || {}).site_calls) !== "[]") fails.push("(e) a Leg with no site call does not carry an empty site_calls");

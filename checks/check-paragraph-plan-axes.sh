@@ -81,7 +81,7 @@ const segments = boundMoveContract(moveId, lib).segments.length;
 const inputs = { movesDir: lib, bound: 2, legs: [{ leg_id: "v1", text: "A relation holds.", claims: [{ strand: "L1", proposition: "A claim." }] }] };
 // The paragraph carries its schema (kogaki#1639) and no reader state (kogaki#1701); the Move is the Leg's (kogaki#1777).
 const paragraph = (pws, n = 1) => ({ paragraph: n, materials: ["L1"], purpose: "brings the reader to the point.",
-  depends_on: [], rationale: "the Move carries this point", introduces: [], "re-activate": [], ...(n > 1 ? { join: "elaboration" } : {}), paragraph_waypoints: pws });
+  depends_on: [], rationale: "the Move carries this point", "re-activate": [], ...(n > 1 ? { join: "elaboration" } : {}), paragraph_waypoints: pws });
 const plan = (pws) => ({ version: "1", leg_id: "v1", move: moveId, rationale: "the Move carries the relation", paragraphs: [paragraph(pws)] });
 const pw = (i) => ({ point: `Part ${i} of the point.`, serves: ["L1"], cast: {} });
 const parts = (n) => Array.from({ length: n }, (_, i) => pw(i + 1));

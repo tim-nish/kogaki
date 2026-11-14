@@ -75,27 +75,6 @@ export function renderingsOf(record) {
     .map((e) => ({ term: e.term.trim(), as: e.as.trim() }));
 }
 
-// `introduces` carries only terms the article keeps: an introduces entry
-// whose term is the `term` of a renderings entry is refused, naming the Leg,
-// the term and the entry. Case-insensitive, on the whole term.
-export function renderedTermIntroducedRefusal(legs, renderings = []) {
-  if (!Array.isArray(legs) || !Array.isArray(renderings) || renderings.length === 0) return null;
-  for (const [i, s] of legs.entries()) {
-    for (const raw of s && Array.isArray(s.introduces) ? s.introduces : []) {
-      const e = parseIntroducesEntry(raw);
-      if (e.error) continue;
-      const r = renderings.find((x) => x.term.toLowerCase() === e.term.toLowerCase());
-      if (!r) continue;
-      return (
-        `leg ${i + 1}${s.leg_id ? ` (${s.leg_id})` : ""}: introduces "${e.term}", which the renderings record ` +
-        `renders — the entry { term: "${r.term}", as: "${r.as}" } — so the article does not keep it and has ` +
-        "nothing to introduce. Introduce the rendering's words where they need introducing, or drop the entry (kogaki#1494)"
-      );
-    }
-  }
-  return null;
-}
-
 // ---- RECOVERABILITY (kogaki#1494) ----
 //
 // A claim's `proposition` and a waypoint's `point` are recoverable from the

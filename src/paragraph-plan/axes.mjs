@@ -16,12 +16,7 @@ import {
   retiredPlanKeyRefusal,
   undeclaredKey,
 } from "../compose.mjs";
-import {
-  PLAN_SCHEMA_KEYS,
-  RETIRED_PLAN_KEYS,
-  paragraphLegRefusal,
-  paragraphSchemaRefusal,
-} from "../compose/record.mjs";
+import { PLAN_SCHEMA_KEYS, RETIRED_PLAN_KEYS, paragraphSchemaRefusal } from "../compose/record.mjs";
 import { correspondenceVocabularyFailures } from "../structure-mapping-playground/rbs.mjs";
 import { judgePrompt } from "../workflow/judge.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
@@ -295,10 +290,6 @@ export function validateParagraphPlanUnit(record, inputs, unitId) {
       sites: [...new Set(failures.map((f) => f.site))],
     };
   }
-  // THE LEG'S RULES OVER ITS PARAGRAPHS (kogaki#1639), by the plan reader's own rule: each
-  // introduced term assigned to at most one paragraph.
-  const legRule = paragraphLegRefusal(r.paragraphs, leg, at);
-  if (legRule) return { error: legRule };
   return {};
 }
 

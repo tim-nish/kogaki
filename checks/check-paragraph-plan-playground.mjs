@@ -666,7 +666,6 @@ ok(
     purpose: `The purpose of ${id}.`,
     waypoints: [{ point: `The point of ${id}.`, serves: ["L1"], case: "own" }],
     claims: [],
-    introduces: [],
   });
   const cand = (move2) => ({ candidate_id: "B", legs: [bleg("leg1", M1), bleg("leg2", move2)] });
   const fit = (v2) => ({
