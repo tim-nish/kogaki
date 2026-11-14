@@ -427,20 +427,14 @@ const carriesCriteria = (packet) => {
   if (missing.status === 0 || !(missing.stderr || "").includes("leg s1") || !(missing.stderr || "").includes("paragraph 2") || !(missing.stderr || "").includes("carries no `rationale`")) {
     fails.push(`(m) resolve did not refuse a plan paragraph missing its rationale naming the Leg and the paragraph: ${(missing.stderr || missing.stdout || "").slice(0, 400)}`);
   }
-  for (const key of ["reader_state_before", "reader_state_after"]) {
-    const injected = plan(ENTRIES(2)).replace(/^( +)materials:/m, `$1${key}:\n$1  knowledge: written.\n$1materials:`);
+  for (const [key, body, why] of [["reader_state_before", "\n$1  knowledge: written.", "kogaki#1701"], ["reader_state_after", "\n$1  knowledge: written.", "kogaki#1701"], ["introduces", " []", "kogaki#1768, kogaki#1841"]]) {
+    const injected = plan(ENTRIES(2)).replace(/^( +)materials:/m, `$1${key}:${body}\n$1materials:`);
     if (!injected.includes(`${key}:`)) fails.push(`(m) the fixture could not write ${key} onto the plan file`);
     writeFileSync(planPath, injected);
     const derived = resolveIn(`ws-${key}`);
-    if (derived.status === 0 || !(derived.stderr || "").includes("paragraph 1") || !(derived.stderr || "").includes(`carries \`${key}\`, retired from the ParagraphPlan (kogaki#1701)`)) {
+    if (derived.status === 0 || !(derived.stderr || "").includes("paragraph 1") || !(derived.stderr || "").includes(`carries \`${key}\`, retired from the ParagraphPlan (${why})`)) {
       fails.push(`(m) resolve did not refuse a written ${key} by name naming the paragraph: ${(derived.stderr || derived.stdout || "").slice(0, 400)}`);
     }
-  }
-  const introduced = plan(ENTRIES(2)).replace(/^( +)materials:/m, "$1introduces: []\n$1materials:");
-  writeFileSync(planPath, introduced);
-  const retiredIntro = resolveIn("ws-introduces");
-  if (retiredIntro.status === 0 || !(retiredIntro.stderr || "").includes("paragraph 1") || !(retiredIntro.stderr || "").includes("carries `introduces`, retired from the ParagraphPlan (kogaki#1768, kogaki#1841)")) {
-    fails.push(`(m) resolve did not refuse a plan paragraph carrying \`introduces\` by name: ${(retiredIntro.stderr || retiredIntro.stdout || "").slice(0, 400)}`);
   }
 }
 
