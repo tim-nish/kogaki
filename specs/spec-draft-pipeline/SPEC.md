@@ -3910,6 +3910,35 @@ its judgment point. The sheet opens with `Move structure` and `Segments`: per
 Segment its operation, what it states and what each is paired with or
 `unmatched`, and the Waypoints written for it.
 
+**A Move written as a table** (kogaki#1840). The Brief-Leg route takes one
+more flag, `--move-table <file>`, given only beside `--brief`, `--leg` and
+`--move`; alone it is refused naming the flag. The file is written by hand for
+the named Move and carries exactly `roles`, how many Roles the Move needs,
+`relations`, how many Relations it states, and `segments`, one entry per
+Segment of the named Move in order, each with `states` (Relation numbers from
+1 to `relations`), `domain` (`own` and `apart`, each true or false),
+`genericity` (`generic` or `particular`), `discourse_relation` (null, or a
+`label` and `to`, earlier Segment numbers) and, where it has one, `manner`.
+Before anything is started the table is refused naming the place for a key it
+does not declare or a missing one, a `segments` list that is not one entry per
+Segment, a `states` number out of range or a Relation no Segment states, a
+`discourse_relation` naming its own or a later Segment, `domain.apart` true or
+`genericity` `particular`, and a `relations` or `roles` count other than the
+Leg structure's, naming both numbers. With a table, `move-reading` and
+`pairing` make no model call: the move structure is the Relations `R1` to `Rn`
+with no `holds`, the number of Roles and what each Segment `states`, and the
+Leg's relations, then its higher-order relations, are given to `R1` to `Rn` in
+order, no Role paired. `grounding` is handed the table's Segments in place of
+their `operation`, `relation` and `manner`. `waypoints` appends the sentence
+of the Playground row `smp_table_plan` in place of `smp_paired_plan`'s and
+offers the plan call one Move, `{ id: "move", takes: [], leaves: [], before:
+null, after: null, breaks: [], segments }`, so no Move name, `breaks` or
+`operation` reaches it; the Harness writes the named Move's id back into the
+answer's `move` before it is validated and recorded. The sheet's `Segments`
+table then shows per Segment each Relation beside the Leg relation it was
+given, its `domain`, `genericity`, `discourse relation`, `manner` and
+Waypoints, with no operation column and no Unmatched table.
+
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.
 

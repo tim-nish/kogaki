@@ -381,6 +381,40 @@ function moveSegmentsSection(record, route, paragraphs) {
   );
 }
 
+// UNDER A MOVE TABLE (kogaki#1840): the move structure is a count of Roles and the Relations R1 to Rn, and per Segment the
+// table's own fields, each Relation beside the Leg relation the Harness gave it; no operation and no Unmatched table.
+function tableStructureSection(ms) {
+  if (!ms) return none("The Move table was not read.");
+  return `<p>${esc(ms.roles)} Roles; Relations ${esc(ms.relations.map((r) => r.id).join(", "))}</p>`;
+}
+
+function tableSegmentsSection(route, paragraphs) {
+  const { move, table, pairing } = route;
+  if (!pairing) return none("The Move table was not paired, so no Segment is shown.");
+  const given = new Map(pairing.relation_pairs.map((p) => [p.move_relation, p.leg_relation]));
+  const ps = paragraphs || [];
+  const rows = table.segments.map((sg, i) => {
+    const states = sg.states.map((n) => `R${n} → ${esc(given.get(`R${n}`))}`);
+    const dr = sg.discourse_relation;
+    const points = ps
+      .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
+      .filter(([, w]) => w)
+      .map(([k, w]) => `Paragraph ${k}: ${esc(Object.hasOwn(w, "performs") ? w.performs : w.point)}`);
+    return (
+      `<tr><td>${i + 1}</td><td>${states.join("<br>") || "none"}</td>` +
+      `<td>own ${esc(sg.domain.own)} · apart ${esc(sg.domain.apart)}</td><td>${esc(sg.genericity)}</td>` +
+      `<td>${dr ? `${esc(dr.label)} → ${esc(dr.to.join(", "))}` : "none"}</td><td>${esc(sg.manner || "")}</td>` +
+      `<td>${points.length ? points.join("<br>") : '<span class="muted">the plan wrote no Waypoint for this Segment</span>'}</td></tr>`
+    );
+  });
+  return (
+    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>states</th><th>domain</th><th>genericity</th>` +
+    `<th>discourse relation</th><th>manner</th><th>Waypoints</th></tr></thead><tbody>` +
+    rows.join("") +
+    "</tbody></table>"
+  );
+}
+
 export function renderShortSheet({
   outDir,
   record,
@@ -418,10 +452,13 @@ export function renderShortSheet({
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>` +
     `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}` +
-    (moveRoute
-      ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
-        part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))
-      : "") +
+    (moveRoute && moveRoute.table
+      ? part("move-structure", "Move structure", tableStructureSection(moveRoute.moveStructure)) +
+        part("segments", "Segments", tableSegmentsSection(moveRoute, paragraphs))
+      : moveRoute
+        ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
+          part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))
+        : "") +
     part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph) +
     (moveRoute ? "" : part("segments", "Segments", segmentsSection(record, paragraphs))) +
     part("bindings", "Bindings", bindingsSection(record, paragraphs)) +

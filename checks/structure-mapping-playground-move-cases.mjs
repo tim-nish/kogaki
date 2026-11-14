@@ -4,7 +4,8 @@
 //   (b) the sheet's Segments rows: `unmatched`, `base`, the Unmatched table and a Segment with no Waypoint;
 //   (c) the flags; (d) the Brief, Leg and Move refused by value with nothing written;
 //   (e) `validateMoveStructure` and (f) `validatePairing`, each refusal by name, a null not refused;
-//   (g) the Leg's structure; (h) the plan call's inputs, an unchanged production row, moves/ and theses/.
+//   (g) the Leg's structure; (h) the plan call's inputs, an unchanged production row, moves/ and theses/;
+//   (i) the Move table route (kogaki#1840) run to the end; (j) the table and its flag refused by name, nothing written.
 import {
   mkdtempSync,
   mkdirSync,
@@ -514,8 +515,209 @@ ok(
 ok(sha(PLAN_TABLE) === planTableSha, `(h) ${PLAN_TABLE} changed`);
 ok(snapshot() === before, "(h) a file under moves/ or theses/ changed");
 
+// (i) the Move table (kogaki#1840): read by hand-written table, paired in order by the Harness, planned with no name
+const { callDir, CALL_FILES } = await imp("src/workflow/call-record.mjs");
+const TABLE_FIXTURE = "checks/fixtures/move-table/grant_the_rule_then_withdraw_its_enforcer.yaml";
+const TABLE_SENTENCE = JSON.parse(readFileSync("src/structure-mapping-playground/playground-workflow.json", "utf8"))
+  .smp_table_plan.judgment_point;
+const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
+const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
+const TABLE_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", MOVE, "--library", library];
+const TABLE_H1 = { ...TABLE, correspondences: [...TABLE.correspondences, { role: "r_3", expression: "an edit" }] };
+const ti = run("table", [...TABLE_ROUTE, "--move-table", TABLE_FIXTURE], { SMP_TABLE: JSON.stringify(TABLE_H1) });
+const trec = ti.rec || {};
+const tYaml = (f) => (existsSync(join(ti.o, f)) ? parseYaml(readFileSync(join(ti.o, f), "utf8"), f) : null);
+ok(ti.res.status === 0, `(i) the table run exited ${ti.res.status}: ${ti.said}`);
+ok(
+  JSON.stringify((trec.stages || []).map((s) => `${s.stage}:${s.state}`)) ===
+    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "waypoints:done", "write:done"]),
+  `(i) the table run's stages are not the route's five, all done: ${JSON.stringify(trec.stages)}`,
+);
+ok(
+  JSON.stringify(ti.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "waypoints", "writer"]),
+  `(i) the table run called the model at move-reading or pairing: ${ti.seen.map((x) => x.stage)}`,
+);
+ok(
+  (trec.stages || [])
+    .filter((s) => s.stage === "move-reading" || s.stage === "pairing")
+    .every((s) => s.calls === null && s.call_records.length === 0),
+  `(i) the record shows a model call at move-reading or pairing: ${JSON.stringify(trec.stages)}`,
+);
+ok(
+  JSON.stringify(tYaml("move-structure.yaml")) ===
+    JSON.stringify({
+      roles: 3,
+      relations: [{ id: "R1" }, { id: "R2" }, { id: "R3" }],
+      segments: [
+        { segment: 1, states: ["R1"] },
+        { segment: 2, states: ["R2"] },
+        { segment: 3, states: ["R3"] },
+      ],
+    }),
+  `(i) move-structure.yaml is not the table's: ${JSON.stringify(tYaml("move-structure.yaml"))}`,
+);
+ok(
+  JSON.stringify(tYaml("pairing.yaml")) ===
+    JSON.stringify({
+      role_pairs: [],
+      relation_pairs: [
+        { move_relation: "R1", leg_relation: "c_1" },
+        { move_relation: "R2", leg_relation: "c_2" },
+        { move_relation: "R3", leg_relation: "h_1" },
+      ],
+    }),
+  `(i) pairing.yaml is not the Leg's relations then its higher-order relation, in order: ${JSON.stringify(tYaml("pairing.yaml"))}`,
+);
+ok(
+  trec.move_table && trec.move_table.sha256 === sha(TABLE_FIXTURE),
+  `(i) trial.json does not name the table: ${JSON.stringify(trec.move_table)}`,
+);
+ok(
+  ["rbs.yaml", "bind.yaml", "paragraph.md", "sheet.html"].every((f) => existsSync(join(ti.o, f))),
+  "(i) the table run did not write its Mapping Table, Waypoints, paragraph and sheet",
+);
+const tPlan = ti.seen.find((x) => x.stage === "waypoints");
+const tPrompt = (tPlan && tPlan.prompt) || "";
+ok(tPrompt.includes(TABLE_SENTENCE), "(i) the plan call does not carry the smp_table_plan sentence");
+ok(!tPrompt.includes(PAIRED_SENTENCE), "(i) the plan call carries the smp_paired_plan sentence beside the table's");
+const tInputPath = join(callDir(join(ti.o, "waypoints"), "paragraph_plan_unit", 1), CALL_FILES.input);
+const tInput = existsSync(tInputPath) ? JSON.parse(readFileSync(tInputPath, "utf8")) : {};
+const offered = (tInput.paragraph_moves_you_may_bind || [])[0] || {};
+ok(
+  (tInput.paragraph_moves_you_may_bind || []).length === 1 &&
+    offered.id === "move" &&
+    JSON.stringify(offered.breaks) === "[]" &&
+    tInput.leg_you_must_plan.move === "move",
+  `(i) the plan call's recorded input does not offer the one Move as \`move\` with empty breaks: ${JSON.stringify(offered)}`,
+);
+ok(
+  Array.isArray(offered.segments) &&
+    offered.segments.length === 3 &&
+    offered.segments.every((s) => !Object.hasOwn(s, "operation") && !Object.hasOwn(s, "relation")),
+  `(i) a Segment of the plan call carries an operation or relation: ${JSON.stringify(offered.segments)}`,
+);
+for (const [label, text] of [
+  ["the Move's name", MOVE],
+  ["`breaks` prose", "breaks if the point is dropped"],
+  ["`operation` prose", "names the two parts"],
+  ["`relation` prose", "follows from the step before"],
+])
+  ok(
+    !JSON.stringify(tInput).includes(text) && !tPrompt.includes(`"${text}`),
+    `(i) the plan call's input carries ${label}`,
+  );
+const tAnswerPath = join(callDir(join(ti.o, "waypoints"), "paragraph_plan_unit", 1), CALL_FILES.answer);
+ok(
+  existsSync(tAnswerPath) &&
+    JSON.parse(readFileSync(tAnswerPath, "utf8")).move === MOVE &&
+    trec.bind &&
+    (trec.bind.paragraphs || [])[0] &&
+    trec.bind.paragraphs[0].move === MOVE,
+  "(i) the named Move's id was not written back into the plan answer's `move` before it was recorded",
+);
+const tGround = ti.seen.find((x) => x.stage === "grounding");
+ok(
+  tGround && tGround.prompt.includes('"genericity"') && !tGround.prompt.includes("names the two parts"),
+  "(i) the grounding call is not handed the table's Segments in place of their operation",
+);
+const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
+const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
+ok(
+  /<th>#<\/th><th>states<\/th><th>domain<\/th><th>genericity<\/th><th>discourse relation<\/th><th>manner<\/th><th>Waypoints<\/th>/.test(
+    tSegs,
+  ) &&
+    !tSegs.includes("operation") &&
+    !tSegs.includes("Unmatched"),
+  "(i) the sheet's Segments table is not the table route's columns, with no operation and no Unmatched table",
+);
+const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
+ok(
+  tRows.length === 3 &&
+    tRows[0].includes("R1 → c_1") &&
+    tRows[2].includes("R3 → h_1") &&
+    tRows[1].includes("Concession → 1") &&
+    tRows[2].includes("own words") &&
+    tRows[0].includes("PW-1"),
+  `(i) the Segments rows do not show each Relation beside its Leg relation, the table's fields and the Waypoints: ${tRows.join(" | ")}`,
+);
+
+// (j) the table refused before anything is started, by name, nothing written
+const fixtureTable = parseYaml(readFileSync(TABLE_FIXTURE, "utf8"), TABLE_FIXTURE);
+const tableFile = (name, f) => {
+  const x = structuredClone(fixtureTable);
+  f(x);
+  const p = join(root, `table-${name}.yaml`);
+  writeFileSync(p, stringifyYaml(x));
+  return p;
+};
+for (const [name, file, args, want] of [
+  ["t-key", tableFile("key", (x) => (x.extra = 1)), TABLE_ROUTE, "`extra`, which the table does not declare"],
+  [
+    "t-missing",
+    tableFile("missing", (x) => delete x.segments[1].genericity),
+    TABLE_ROUTE,
+    "Segment 2 carries no `genericity`",
+  ],
+  ["t-count", tableFile("count", (x) => x.segments.pop()), TABLE_ROUTE, "carries 2 entries, and the named Move has 3"],
+  [
+    "t-range",
+    tableFile("range", (x) => (x.segments[0].states = [4])),
+    TABLE_ROUTE,
+    "names 4, outside the Relations 1 to 3",
+  ],
+  [
+    "t-unstated",
+    tableFile("unstated", (x) => (x.segments[2].states = [2])),
+    TABLE_ROUTE,
+    "Relation 3 is stated by no Segment",
+  ],
+  [
+    "t-to-self",
+    tableFile("self", (x) => (x.segments[1].discourse_relation.to = [2])),
+    TABLE_ROUTE,
+    "names 2, which is not a Segment before it",
+  ],
+  [
+    "t-to-later",
+    tableFile("later", (x) => (x.segments[1].discourse_relation.to = [3])),
+    TABLE_ROUTE,
+    "names 3, which is not a Segment before it",
+  ],
+  ["t-apart", tableFile("apart", (x) => (x.segments[0].domain.apart = true)), TABLE_ROUTE, "`domain.apart` is true"],
+  [
+    "t-particular",
+    tableFile("particular", (x) => (x.segments[2].genericity = "particular")),
+    TABLE_ROUTE,
+    "`genericity` is `particular`",
+  ],
+  [
+    "t-roles",
+    tableFile("roles", (x) => (x.roles = 2)),
+    TABLE_ROUTE,
+    "needs 2 Roles, and the Leg s2's structure holds 3 Roles",
+  ],
+  ["t-relations", TABLE_FIXTURE, ROUTE, "states 3 Relations, and the Leg s1's structure holds 1 relations"],
+]) {
+  const r = run(name, [...args, "--move-table", file]);
+  ok(
+    r.res.status !== 0 && r.said.includes(want) && noWrite(r, name) && r.seen.length === 0,
+    `(j) ${name} was not refused naming ${want}: ${r.said}`,
+  );
+}
+for (const [name, args, want] of [
+  ["t-alone", ["--move-table", TABLE_FIXTURE], "`--move-table` is a flag of the Brief-Leg route"],
+  ["t-empty", [...TABLE_ROUTE, "--move-table"], "`--move-table` takes a file"],
+]) {
+  const r = run(name, args);
+  ok(
+    r.res.status !== 0 && r.said.includes(want) && noWrite(r, name),
+    `(j) ${name} was not refused naming ${want}: ${r.said}`,
+  );
+}
+ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(h)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j)`);

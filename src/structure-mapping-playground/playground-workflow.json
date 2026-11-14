@@ -88,5 +88,11 @@
     "note": "The Brief-Leg route's `waypoints` stage (kogaki#1830): this row's one sentence is appended to the production `paragraph_plan_unit` row's judgment point on that route alone, the production row unchanged; the call is handed `move_structure` and `pairing` beside the row's own inputs.",
     "judgment_point": "Where the input carries `move_structure` and `pairing`, a Waypoint written for a Segment uses the Leg Roles paired with the Roles that Segment `states` in `move_structure.segments`, and writes nothing for a Role or relation the `pairing` leaves unmatched.",
     "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1830"
+  },
+  "smp_table_plan": {
+    "id": "smp_table_plan",
+    "note": "The Brief-Leg route's `waypoints` stage under a Move table (kogaki#1840): this row's one sentence is appended to the production `paragraph_plan_unit` row's judgment point in place of `smp_paired_plan`'s, the production row unchanged; the call is offered the Move as `move`, with no `breaks`, and each Segment as the table gives it, and is handed `move_structure` and `pairing` as the Harness wrote them.",
+    "judgment_point": "Where a Segment of the bound Move carries `states`, write its Waypoint from the Segment's own fields and from no `operation`: the Waypoint says the Leg relation that `pairing` gives each Relation in `states`; under `domain.own` it says that relation of the subject itself; under `genericity` `generic` it says it as holding in general; and its `discourse_relation`, a label and the Segments it attaches to, is carried by the order of the Waypoints and stated in none.",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, The short Trial; kogaki#1840"
   }
 }

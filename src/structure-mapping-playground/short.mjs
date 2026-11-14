@@ -49,6 +49,14 @@ import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE 
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
+import {
+  readMoveTable,
+  tableMoveStructure,
+  pairInOrder,
+  tablePlanMove,
+  tableSegments,
+  TABLE_MOVE_ID,
+} from "./move-table.mjs";
 
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
@@ -62,12 +70,14 @@ export const SHORT_STAGES = ["reading", "bind", "grounding", "waypoints", "write
 // The Brief-Leg route (kogaki#1830): a Leg of an adopted Brief under a named Move.
 export const MOVE_STAGES = ["move-reading", "pairing", "grounding", "waypoints", "write"];
 export const MOVE_ROUTE_FLAGS = ["brief", "leg", "move"];
+export const MOVE_TABLE_FLAG = "move-table";
 export const MOVE_STRUCTURE_FILE = "move-structure.yaml";
 export const PAIRING_FILE = "pairing.yaml";
 export const LEG_STRUCTURE_FILE = "leg-structure.yaml";
 const READ_MOVE_ROW = "smp_read_move";
 const PAIR_ROW = "smp_pair_roles";
 const PAIRED_PLAN_ROW = "smp_paired_plan";
+const TABLE_PLAN_ROW = "smp_table_plan";
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
@@ -85,7 +95,7 @@ const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE =
   "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
-  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> " +
+  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-table <file>] " +
   "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
@@ -931,12 +941,33 @@ export function moveReadingInput(contract, libraryDir) {
 }
 
 // The production plan row with the Playground's one sentence appended; the production table is read, never written.
-export function pairedPlanRow(plan, table) {
+export function pairedPlanRow(plan, table, rowId = PAIRED_PLAN_ROW) {
   const row = plan[PLAN_ROW];
-  return { id: PLAN_ROW, ...row, judgment_point: `${row.judgment_point} ${table[PAIRED_PLAN_ROW].judgment_point}` };
+  return { id: PLAN_ROW, ...row, judgment_point: `${row.judgment_point} ${table[rowId].judgment_point}` };
 }
 
-export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = null, library = null }) {
+// Under a Move table the plan call is offered the Move as `move`; the Harness writes the named Move's id back (kogaki#1840).
+function tablePlanRefusal(answer, moveId, refusalOf) {
+  if (isMap(answer) && typeof answer.move === "string") {
+    if (answer.move !== TABLE_MOVE_ID)
+      return {
+        group: "plan",
+        text: `the answer binds ${JSON.stringify(answer.move)}, and the one Move offered is "${TABLE_MOVE_ID}"`,
+      };
+    answer.move = moveId;
+  }
+  return refusalOf(answer);
+}
+
+export function runMoveTrial({
+  brief,
+  leg: legId,
+  move: moveId,
+  moveTable = null,
+  out,
+  audience = null,
+  library = null,
+}) {
   const outDir = resolve(out);
   const rel = relative(resolve(REPO, TRIALS_DIR), outDir);
   if (rel === "" || rel.startsWith("..") || rel.startsWith(sep))
@@ -954,6 +985,10 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
     fail(
       `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
     );
+  const tablePath = moveTable ? resolve(moveTable) : null;
+  const t = tablePath ? readMoveTable(tablePath, contract.segments.length, b.structure, legId) : null;
+  if (t && t.error) fail(`${t.error}. Nothing was started.`);
+  const moveTableRecord = t ? t.table : null;
   const table = readTable();
   const audiencePath = audience ? resolve(REPO, audience) : audiencePathOf(b.record);
   const persona = readerPersona(audiencePath);
@@ -985,6 +1020,7 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
     brief: { ...fileRecord(briefPath), leg: leg.leg_id, relation: b.leg.relation },
     proposition: { proposition: leg.text },
     structure: { ...fileRecord(structurePath), author: "brief" },
+    move_table: tablePath ? fileRecord(tablePath) : null,
     move_structure: { path: null, sha256: null },
     pairing: { path: null, sha256: null },
     rbs: { variant: RBS_COMPOSED, path: null, sha256: null },
@@ -1041,7 +1077,13 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
   };
   save();
   const segmentCount = contract.segments.length;
+  // Under a Move table the Harness writes the move structure and the pairing, and neither stage calls the model (kogaki#1840).
   const moveStructure = stage(MOVE_STAGES[0], (d, env) => {
+    if (moveTableRecord) {
+      const written = tableMoveStructure(moveTableRecord);
+      writeYaml(MOVE_STRUCTURE_FILE, "move_structure", written);
+      return { value: written };
+    }
     const r = retriedCall({
       dir: d,
       env,
@@ -1056,6 +1098,11 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
     return { value: r.answer, refusals: r.refusals };
   });
   const pairing = stage(MOVE_STAGES[1], (d, env) => {
+    if (moveTableRecord) {
+      const written = pairInOrder(moveTableRecord, structure);
+      writeYaml(PAIRING_FILE, "pairing", written);
+      return { value: written };
+    }
     const r = retriedCall({
       dir: d,
       env,
@@ -1076,7 +1123,9 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
       env,
       cli,
       row: playgroundRow(table, CORRESPONDENCE_ROW),
-      input: correspondenceInput(structure, persona, contract, OWN),
+      input: moveTableRecord
+        ? { ...correspondenceInput(structure, persona, contract, OWN), segments: tableSegments(moveTableRecord) }
+        : correspondenceInput(structure, persona, contract, OWN),
       refusalOf: (answer) => correspondenceRefusal(answer, structure),
       validator: "correspondenceRefusal",
     });
@@ -1091,29 +1140,32 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
   });
   const paragraphs = stage("waypoints", (d, env) => {
     const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+    const composed = shortPlanInput({
+      leg,
+      structure,
+      tables: tables.tables,
+      move: moveTableRecord ? TABLE_MOVE_ID : moveId,
+      contract,
+      persona,
+      analogy: { none: OWN_ANALOGY_REASON },
+    });
     const input = {
-      ...shortPlanInput({
-        leg,
-        structure,
-        tables: tables.tables,
-        move: moveId,
-        contract,
-        persona,
-        analogy: { none: OWN_ANALOGY_REASON },
-      }),
+      ...composed,
+      ...(moveTableRecord ? { paragraph_moves_you_may_bind: [tablePlanMove(moveTableRecord)] } : {}),
       move_structure: moveStructure,
       pairing,
     };
+    const refusalOf = (answer) =>
+      shortPlanRefusal(answer, { input, tables: tables.tables, move: moveId, told: OWN, libraryDir });
     const r = retriedCall({
       dir: d,
       env,
       cli,
-      row: pairedPlanRow(plan, table),
+      row: pairedPlanRow(plan, table, moveTableRecord ? TABLE_PLAN_ROW : PAIRED_PLAN_ROW),
       input,
       tables: [PARAGRAPH_PLAN_TABLE, PLAYGROUND_TABLE],
-      refusalOf: (answer) =>
-        shortPlanRefusal(answer, { input, tables: tables.tables, move: moveId, told: OWN, libraryDir }),
-      validator: "shortPlanRefusal",
+      refusalOf: moveTableRecord ? (answer) => tablePlanRefusal(answer, moveId, refusalOf) : refusalOf,
+      validator: moveTableRecord ? "tablePlanRefusal" : "shortPlanRefusal",
     });
     if (r.stopped) return r;
     const leaves = bindingLeaves(contract, OWN, null);
@@ -1150,7 +1202,7 @@ export function runMoveTrial({ brief, leg: legId, move: moveId, out, audience = 
       tables: tables ? tables.tables : null,
       paragraphs,
       paragraphPath,
-      moveRoute: { move: moveId, moveStructure, pairing },
+      moveRoute: { move: moveId, moveStructure, pairing, table: moveTableRecord },
     }),
   );
   return { outDir, stopped: record.stopped || null };
@@ -1178,6 +1230,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (args._cmd !== "run") fail(USAGE);
   // THE BRIEF-LEG ROUTE (kogaki#1830): its three flags together, and none of the first route's.
   const given = MOVE_ROUTE_FLAGS.filter((k) => Object.hasOwn(args, k));
+  // The Move table (kogaki#1840) is a flag of the Brief-Leg route alone, and takes a file.
+  if (Object.hasOwn(args, MOVE_TABLE_FLAG) && !given.length)
+    fail(
+      `\`--${MOVE_TABLE_FLAG}\` is a flag of the Brief-Leg route: it is given with --brief, --leg and --move. Nothing was started. ${USAGE}`,
+    );
+  if (Object.hasOwn(args, MOVE_TABLE_FLAG) && !str(MOVE_TABLE_FLAG))
+    fail(`\`--${MOVE_TABLE_FLAG}\` takes a file. Nothing was started. ${USAGE}`);
   if (given.length) {
     const missing = MOVE_ROUTE_FLAGS.find((k) => !str(k));
     if (missing)
@@ -1194,6 +1253,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       brief: str("brief"),
       leg: str("leg"),
       move: str("move"),
+      moveTable: str(MOVE_TABLE_FLAG),
       out: str("out"),
       audience: str("audience"),
       library: str("library"),
