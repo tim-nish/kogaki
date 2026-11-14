@@ -45,6 +45,9 @@
 #   (h) a Leg with no italic line holds by `when_declared_absent`.
 # AND (i) review.md's closing Forced paragraphs list names the paragraph and axis a Packet
 #   marks, with no finding, and `_None._` where no Packet carries a mark (kogaki#1649).
+# AND (j) the `defined-term-order` item is retired (kogaki#1842): a Draft whose
+#   Brief classes a term `defined` and whose prose uses it is reviewed with no
+#   `defined-term-order` row, by checks/fixtures/review-draft/defined-term-order.mjs.
 #
 # NOT COVERED, stated rather than implied: whether a LIVE judge answers
 # `fails` on a copied opening is the model's judgment, never asserted here;
@@ -246,3 +249,6 @@ if (fails.length) {
 }
 console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).; review.md closes with a Forced paragraphs list naming each paragraph a Packet marks and its axes, with no finding (kogaki#1649)");
 JS
+status=$?
+node checks/fixtures/review-draft/defined-term-order.mjs || status=1
+exit "$status"
