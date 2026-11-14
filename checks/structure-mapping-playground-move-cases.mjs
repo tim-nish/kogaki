@@ -225,7 +225,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const m = bindable.find((x) => x.id === leg.move);
     const serves = leg.claims.map((g) => g.strand);
     return out({ version: "1", leg_id: leg.leg_id, move: leg.move, rationale: "the Move's Segments carry the Leg.",
-      paragraphs: [{ paragraph: 1, materials: serves, purpose: "states the Leg.", depends_on: [], introduces: [], "re-activate": [],
+      paragraphs: [{ paragraph: 1, materials: serves, purpose: "states the Leg.", depends_on: [], "re-activate": [],
         rationale: "it is the one paragraph of this Leg.",
         paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", serves, cast: {} })) }] }, "waypoints");
   }

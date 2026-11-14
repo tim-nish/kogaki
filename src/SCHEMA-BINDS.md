@@ -89,7 +89,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `paragraphs.purpose` | content | unread |  |  |  |
 | `paragraphs.depends_on` | content | unread |  |  |  |
 | `paragraphs.rationale` | content | unread |  |  |  |
-| `paragraphs.introduces` | content | unread |  |  |  |
 | `paragraphs.re-activate` | content | unread |  |  |  |
 | `paragraphs.journeys` | copied | unread |  |  |  |
 | `paragraphs.join` | content | excluded | operation | excluded |  |

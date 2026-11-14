@@ -236,7 +236,6 @@ export function repairHookCases(fails) {
       purpose: "brings the reader to the first step.",
       depends_on: [],
       rationale: "its takes are met by what the Leg is told.",
-      introduces: [],
       "re-activate": [],
       join: "consequence",
       paragraph_waypoints: [pw(1), pw(2), pw(3)],

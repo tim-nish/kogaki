@@ -2788,6 +2788,12 @@ unit waits on another's. Three rules follow, and nothing crosses a Leg:
 > alone, and a paragraph names a term in its `introduces` only where it gives
 > the meaning, no term in two.
 
+> **Status (kogaki#1841, owner decision 2026-11-13):** since kogaki#1768 a
+> Leg introduces no term, so the plan call is handed no
+> `terms_this_leg_introduces`, the TERMS step is deleted, a plan paragraph
+> carries no `introduces` and one carrying it is refused by name, and a
+> paragraph's `re-activate` takes the claim form alone.
+
 > **Status (kogaki#1533, owner decision 2026-10-23):** the judge no longer
 > judges the four things above, the FIFTH, the SEVENTH, or any criterion
 > written here. Its criteria are the axes `src/paragraph-plan-axes.json`
@@ -3034,11 +3040,10 @@ rendered prompt as one string, the run directory holds one
 `paragraph-plan-input-<unit>.json` per Leg, `<unit>` being the Leg's unit id
 (`leg-1`, `leg-2`, ...). It carries `leg_id`, `unit`, `plan_call` and
 `site_calls` (kogaki#1777). `plan_call` is the Leg as the plan call was handed
-it: `text`, `claims`, `the_reader_has_been_told`, `paragraphs_at_most`,
-`terms_this_leg_introduces` and `paragraph_moves_you_may_bind`, the last as Move
-ids. Each `site_calls` row is one site call, appended when the call is asked:
+it: `text`, `claims`, `the_reader_has_been_told`, `paragraphs_at_most` and
+`paragraph_moves_you_may_bind`, the last as Move ids. Each `site_calls` row is one site call, appended when the call is asked:
 `paragraph`, `retry`, `text`, `the_reader_has_been_told`, `bound_move` (the
-Leg's Move id), `terms_this_paragraph_introduces` and `refused_here`. The prompt
+Leg's Move id) and `refused_here`. The prompt
 string is unchanged and carries the same values; the record is what a reader
 addresses. A Leg carried from a prior run carries that run's record.
 
@@ -4254,8 +4259,9 @@ that Issue lands.
 leaves anything for the next Leg: `planLegOptions` hands no
 `leaves_for_next_leg` and no `stands_to_be_taken_up` across a Leg boundary,
 and the paragraph Moves bound per Brief Waypoint (§4.19) are the only Moves of
-the article. A Leg introduces no term, so the plan's
-`terms_this_leg_introduces` is empty. Where the Brief carries a `structure`,
+the article. A Leg introduces no term, so the plan call is handed no list
+of terms, and a plan paragraph carrying `introduces` is refused by name
+(kogaki#1841). Where the Brief carries a `structure`,
 each Brief Waypoint's `carries` rides into the plan input, and the Mapper reads
 the carried relations' `holds` beside the point.
 

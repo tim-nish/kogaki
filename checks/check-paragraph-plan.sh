@@ -51,7 +51,8 @@
 #   (p) a Segment acting on the reading carries a `performs` Waypoint, which the
 #       file and the judge carry (kogaki#1448); a purpose clause is refused and the
 #       bare operation fits (kogaki#1485); a paragraph with no `point` is refused.
-#   (r) a Leg introduces no term (kogaki#1768): the ledger is empty; BIND binds by
+#   (r) a Leg introduces no term (kogaki#1768): the plan call is handed no list of
+#       terms and the row carries no TERMS step (kogaki#1841); BIND binds by
 #       `takes` against what the reader has been told (kogaki#1701, kogaki#1777).
 #   (s) both rows are named one-sentence criteria under the workflow file's bound,
 #       the judge's from the axis registry (kogaki#1511, kogaki#1533).
@@ -99,10 +100,10 @@ const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { legRecord, briefRecordText, waypointsRefusal } = await imp("src/compose.mjs");
 const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS, paragraphPlanShapeRefusal: rawPlanShapeRefusal,
-  validateParagraphPlanUnit: rawValidateUnit, planLeg, introducedTerms, criteriaOf, criteriaFailures, readAxes,
+  validateParagraphPlanUnit: rawValidateUnit, planLeg, criteriaOf, criteriaFailures, readAxes,
   segmentsForPlanCall, toldBefore, legRoles, planLegOptions } = await imp("src/paragraph-plan.mjs");
 const { parseYaml, stringifyYaml } = await imp("src/yaml.mjs");
-const { JOIN_TYPES, CAST_KEYS, PLAN_SCHEMA_KEYS, legIntroducedTerms } = await imp("src/compose/record.mjs");
+const { JOIN_TYPES, CAST_KEYS, PLAN_SCHEMA_KEYS } = await imp("src/compose/record.mjs");
 const { waypointLines } = await imp("src/draft.mjs");
 const { JUDGE_INPUT_MARKER } = await imp("src/workflow/judge.mjs");
 const BOUND = 2;
@@ -110,26 +111,23 @@ const BOUND = 2;
 // EVERY PARAGRAPH CARRIES ITS SCHEMA (kogaki#1639): the fixtures below that read a hand-built
 // record or planner answer are about joins, manners, casts and the like, so each paragraph they
 // build is filled with a well-formed schema before the read -- `materials` the Strands its
-// Waypoints serve, a purpose, `depends_on` the paragraph before, a rationale, no term and no
+// Waypoints serve, a purpose, `depends_on` the paragraph before, a rationale and no
 // re-activation -- and each Leg binds p1 unless given. The schema's own refusals are read raw,
 // in case (x), against the unfilled readers.
-const fillParagraph = (e, j, leg) => {
+const fillParagraph = (e, j) => {
   if (!e || typeof e !== "object" || Array.isArray(e)) return e;
   const n = j + 1;
   const served = [...new Set((e.paragraph_waypoints || []).flatMap((p) => (p && Array.isArray(p.serves) ? p.serves : [])))];
-  const terms = legIntroducedTerms(leg);
-  const meaningOf = (term) => { const t = (leg.introduces || []).find((x) => x && typeof x === "object" && x.term === term); return (t && t.meaning) || `the meaning of ${term}.`; };
   const defaults = {
     materials: served.length ? served : ["L1"], purpose: `brings the reader to the point of paragraph ${n}.`,
-    depends_on: n > 1 ? [n - 1] : [], rationale: "its Segments carry the Leg's relation this far.",
-    introduces: n === 1 ? terms.map((term) => ({ term, meaning: meaningOf(term) })) : [], "re-activate": [],
+    depends_on: n > 1 ? [n - 1] : [], rationale: "its Segments carry the Leg's relation this far.", "re-activate": [],
   };
   const out = { paragraph: n, ...e };
   for (const k of PLAN_SCHEMA_KEYS) if (!Object.hasOwn(out, k)) out[k] = defaults[k];
   return out;
 };
 const fillLeg = (l, leg) => (l && leg && Array.isArray(l.paragraphs)
-  ? { move: "p1", ...l, paragraphs: l.paragraphs.map((e, j) => fillParagraph(e, j, leg)) } : l);
+  ? { move: "p1", ...l, paragraphs: l.paragraphs.map((e, j) => fillParagraph(e, j)) } : l);
 const paragraphPlanShapeRefusal = (record, rel, ls, opts = {}) => rawPlanShapeRefusal(record && Array.isArray(record.legs)
   ? { ...record, legs: record.legs.map((l, i) => fillLeg(l, ls[i])) } : record, rel, ls, { bound: BOUND, ...opts });
 const validateParagraphPlanUnit = (unit, inputs, unitId) => {
@@ -308,14 +306,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     const restated = mode === "content" && leg.leg_id === "s1" && n === 1 && planN === 1;
     const join = n === 1 ? undefined : mode === "join-sentence" && planN === 1 ? "The overwrite takes up the edit the installer's write left open." : "consequence";
     const carried = mode === "relation" && leg.leg_id === "s1" && n === 1 && planN === 1;
-    // A term is named only where the paragraph gives its meaning, which this planner does for TERM alone.
-    const terms = site ? [] : (input.terms_this_leg_introduces || []).filter((t) => t.term === ${JSON.stringify(TERM.term)});
-    const introduces = site ? input.terms_this_paragraph_introduces : terms.filter((t) => String(w.point).includes(t.term) && !plan.slice(0, n - 1).some((o) => String(o.point).includes(t.term)))
-      .map((t) => ({ term: t.term, meaning: t.meaning || "MEANING-" + t.term }));
     return { paragraph: n, materials: [...w.serves],
       purpose: "PURPOSE-" + leg.leg_id + "-" + n + " brings the reader to the point.",
       depends_on: n > 1 ? [n - 1] : [], rationale: "its Segments carry the Leg's relation this far.",
-      introduces, "re-activate": [], ...(join ? { join } : {}),
+      "re-activate": [], ...(join ? { join } : {}),
       // (z): written in the table's expressions; the first such call breaks it at paragraph 2 with a Role id.
       paragraph_waypoints: table ? [{ point: table.correspondences.map((x) => x.expression).join(" and ") + " hold together"
         + (mode === "mapper" && n === 2 && planN === 2 ? ", and the gate stays." : "."), serves: [...w.serves], cast: {} }]
@@ -410,12 +404,12 @@ let okPrompts = [];
         fails.push(`(a) Leg ${l.leg_id} does not carry exactly its id, its one bound Move p1 and its paragraphs: ${JSON.stringify(Object.keys(l))} ${JSON.stringify(l.move)}`);
       }
       for (const p of l.paragraphs) {
-        const want = ["paragraph", "materials", "purpose", "depends_on", "rationale", "introduces", "re-activate", ...(p.paragraph > 1 ? ["join"] : []), "paragraph_waypoints"];
+        const want = ["paragraph", "materials", "purpose", "depends_on", "rationale", "re-activate", ...(p.paragraph > 1 ? ["join"] : []), "paragraph_waypoints"];
         if (JSON.stringify(Object.keys(p)) !== JSON.stringify(want)) {
           fails.push(`(a) Leg ${l.leg_id}, paragraph ${p.paragraph} carries ${Object.keys(p).join(", ")}, not ${want.join(", ")}`);
         }
-        if (!/^PURPOSE-/.test(p.purpose) || !/^its Segments carry/.test(p.rationale) || JSON.stringify(p.introduces) !== "[]" || JSON.stringify(p["re-activate"]) !== "[]") {
-          fails.push(`(a) Leg ${l.leg_id}, paragraph ${p.paragraph} does not carry the planner's purpose, rationale, introduces and re-activate as written: ${JSON.stringify(p)}`);
+        if (!/^PURPOSE-/.test(p.purpose) || !/^its Segments carry/.test(p.rationale) || JSON.stringify(p["re-activate"]) !== "[]") {
+          fails.push(`(a) Leg ${l.leg_id}, paragraph ${p.paragraph} does not carry the planner's purpose, rationale and re-activate as written: ${JSON.stringify(p)}`);
         }
       }
     }
@@ -622,7 +616,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
 
 // (r) A PARAGRAPH MOVE IS BOUND BY WHAT IT TAKES UP (kogaki#1663, kogaki#1701, kogaki#1777): the
 // fixture hands Leg s1 three terms the Brief record does not carry (a Leg introduces no term,
-// kogaki#1768); the plan call is handed an empty ledger; BIND binds by `takes` against what the
+// kogaki#1768); the plan call is handed no list of terms (kogaki#1841); BIND binds by `takes` against what the
 // reader has been told; the Leg binds p1, whose one Segment defines nothing, and the plan is written.
 {
   const r = runStage("introduces", termLegs, "introduces", moves, DEFINED);
@@ -631,13 +625,12 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const judges = r.prompts.filter(isJudge);
   const s1Plans = plans.filter((p) => legOf(p) === "s1");
   const s2Plans = plans.filter((p) => legOf(p) === "s2");
-  if (!s1Plans.length || !s1Plans.every((p) => JSON.stringify(inputOf(p).terms_this_leg_introduces) === "[]")) {
-    fails.push(`(r) Leg s1's plan input carries a ledger of terms though a Leg introduces none: ${s1Plans.length ? JSON.stringify(inputOf(s1Plans[0]).terms_this_leg_introduces) : "no plan prompt"}`);
+  for (const [id, ps] of [["s1", s1Plans], ["s2", s2Plans]]) {
+    if (!ps.length || ps.some((p) => Object.hasOwn(inputOf(p), "terms_this_leg_introduces") || Object.hasOwn(inputOf(p).leg_you_must_plan, "introduces"))) {
+      fails.push(`(r) Leg ${id}'s plan input carries a list of terms though a Leg introduces none: ${ps.length ? JSON.stringify(Object.keys(inputOf(ps[0]))) : "no plan prompt"}`);
+    }
   }
-  if (s1Plans.length && (!inputOf(s1Plans[0]).persona || Object.hasOwn(inputOf(s1Plans[0]).leg_you_must_plan, "introduces"))) {
-    fails.push("(r) the introduced terms do not ride beside the persona, outside the Leg");
-  }
-  if (!s2Plans.length || JSON.stringify(inputOf(s2Plans[0]).terms_this_leg_introduces) !== "[]") fails.push("(r) Leg s2 is not handed an empty list of introduced terms");
+  if (!s1Plans.length || !inputOf(s1Plans[0]).persona) fails.push("(r) Leg s1's plan input carries no persona");
   for (const phrase of ["whose `takes` entries are each met", "the `what` by sense", "`the_reader_has_been_told`", "`prior_knowledge`", "for the whole Leg"]) {
     if (!plans.length || !plans.every((p) => critOf(p, "BIND").includes(phrase))) fails.push(`(r) a plan prompt's BIND row does not carry "${phrase}"`);
   }
@@ -648,19 +641,15 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!judges.length || judges.some((p) => Object.hasOwn(inputOf(p), "terms_this_leg_coins") || critOf(p, "TERM MEANING") !== "")) {
     fails.push("(r) a judge prompt still carries `terms_this_leg_coins` or the TERM MEANING axis");
   }
-  for (const phrase of ["at most one paragraph, the first in the Leg to use it", "or yours where it is `null`"]) {
-    if (!plans.length || !plans.every((p) => critOf(p, "TERMS").includes(phrase))) fails.push(`(r) a plan prompt's TERMS row does not carry "${phrase}"`);
+  if (!plans.length || plans.some((p) => critOf(p, "TERMS") !== "" || p.includes("terms_this_leg_introduces"))) {
+    fails.push("(r) a plan prompt still carries the TERMS step or `terms_this_leg_introduces`");
   }
   const written = readPlan(r);
   const l1 = written ? written.legs[0] : null;
-  if (!l1 || l1.move !== "p1" || JSON.stringify(l1.paragraphs[0].introduces) !== "[]") {
-    fails.push(`(r) the ParagraphPlan file does not bind p1 on Leg s1 with nothing in its first paragraph's \`introduces\`: ${JSON.stringify(l1)}`);
+  if (!l1 || l1.move !== "p1" || Object.hasOwn(l1.paragraphs[0], "introduces")) {
+    fails.push(`(r) the ParagraphPlan file does not bind p1 on Leg s1 with no \`introduces\` on its first paragraph: ${JSON.stringify(l1)}`);
   }
   if (/^(define|defines|name|names|ground|grounds)\b/i.test(PSEG_OPERATION)) fails.push("(r) p1's one Segment defines, names or grounds, so the case proves nothing");
-  // The meaning is read by the Packet's own rule (kogaki#1529).
-  const read = introducedTerms(["stamp file — the file the hash is written to", { term: "fork", meaning: "a copy of a repository" }, "bare term"]);
-  const wantRead = [{ term: "stamp file", meaning: "the file the hash is written to" }, { term: "fork", meaning: "a copy of a repository" }, { term: "bare term", meaning: null }];
-  if (JSON.stringify(read) !== JSON.stringify(wantRead)) fails.push(`(r) the introduced terms are not read by the Packet's meaning rule: ${JSON.stringify(read)}`);
 }
 
 // (w) A WAYPOINT PERFORMS ITS OWN SEGMENT'S OPERATION ALONE (kogaki#1605): bound to p7, the first
@@ -1005,13 +994,13 @@ for (const [label, bad, want] of [
 // (x) EVERY DESIGN REFUSAL, BY NAME, AT EVERY READ (kogaki#1639, kogaki#1777): the plan reader (what
 // /draft and the Move-Extraction Playground open) and the plan call's validator, the raw ones.
 {
-  const s1 = { ...legs[0], introduces: [TERM] };
+  const s1 = legs[0];
   const L = [s1, legs[1]];
   const P = (n, over = {}) => ({ ...fillParagraph({ ...(n > 1 ? { join: "contrast" } : {}),
-    paragraph_waypoints: [{ point: "a point.", serves: n === 1 ? ["L1"] : ["L1", "L2"], cast: {} }] }, n - 1, s1), ...over });
+    paragraph_waypoints: [{ point: "a point.", serves: n === 1 ? ["L1"] : ["L1", "L2"], cast: {} }] }, n - 1), ...over });
   const leg1 = (w1, w2, top = {}) => ({ leg_id: "s1", move: "p1", ...top, paragraphs: [P(1, w1), P(2, w2)] });
   const rec = (w1, w2, top) => ({ version: "1", brief: { path: "theses/plan-brief/brief.yaml", sha256: "0".repeat(64) },
-    legs: [leg1(w1, w2, top), { leg_id: "s2", move: "p1", paragraphs: [fillParagraph({ paragraph_waypoints: [{ point: "a point.", serves: ["L2"], cast: {} }] }, 0, legs[1])] }] });
+    legs: [leg1(w1, w2, top), { leg_id: "s2", move: "p1", paragraphs: [fillParagraph({ paragraph_waypoints: [{ point: "a point.", serves: ["L2"], cast: {} }] }, 0)] }] });
   const unit = (w1, w2, top) => ({ version: "1", rationale: "the Move carries the Leg's relation.", ...leg1(w1, w2, top) });
   const planned = inputs(L);
   const read = (w1, w2, top, opts = {}) => rawPlanShapeRefusal(rec(w1, w2, top), "plan.yaml", L, { bound: BOUND, library: new Set(["p1", "p4"]), ...opts }) || "";
@@ -1026,14 +1015,14 @@ for (const [label, bad, want] of [
     ["a written `reader_state_before`", {}, { reader_state_before: { knowledge: "after 1." } }, {}, ["paragraph 2", "carries `reader_state_before`, retired from the ParagraphPlan (kogaki#1701)"]],
     ["an undeclared key", {}, { segments: [] }, {}, ["paragraph 2", "carries `segments`"]],
     ["a Move field beside the id", {}, { before: "knowledge: x." }, {}, ["paragraph 2", "carries `before`"]],
-    ["a term the Leg does not introduce", {}, { introduces: [{ term: "other", meaning: "a meaning." }] }, {}, ["paragraph 2", "introduces \"other\"", "does not introduce"]],
-    ["a Leg term introduced by two paragraphs", {}, { introduces: [TERM] }, {}, ["\"kit stamp\"", "introduced by paragraphs 1 and 2"]],
+    ["a paragraph carrying the retired `introduces`", {}, { introduces: [] }, {}, ["paragraph 2", "carries `introduces`", "kogaki#1841"]],
+    ["a first paragraph carrying the retired `introduces`", { introduces: [TERM] }, {}, {}, ["paragraph 1", "carries `introduces`", "kogaki#1841"]],
     ["a dependency on this paragraph", {}, { depends_on: [2] }, {}, ["paragraph 2", "depends on 2", "only on an earlier paragraph"]],
     ["a dependency on a later paragraph", { depends_on: [2] }, {}, {}, ["paragraph 1", "depends on 2", "none before this one"]],
     ["a dependency on another Leg", {}, { depends_on: ["s2"] }, {}, ["paragraph 2", "depends on \"s2\"", "another Leg"]],
-    ["a re-activation of this paragraph", {}, { "re-activate": ["2 term kit stamp"] }, {}, ["paragraph 2", "re-activates \"2 term kit stamp\"", "earlier paragraph"]],
+    ["a re-activation of this paragraph", {}, { "re-activate": ["2 claim L1 as the installer writes into the tree."] }, {}, ["paragraph 2", "re-activates \"2 claim L1 as the installer writes into the tree.\"", "earlier paragraph"]],
     ["a re-activation from another Leg", {}, { "re-activate": ["s2 claim L2 as the copy is the installer's."] }, {}, ["paragraph 2", "names \"s2\"", "another Leg"]],
-    ["a re-activated term the paragraph does not introduce", { introduces: [TERM] }, { "re-activate": ["1 term other"] }, {}, ["paragraph 2", "paragraph 1 does not introduce \"other\""]],
+    ["a re-activation of the term form", {}, { "re-activate": ["1 term kit stamp"] }, {}, ["paragraph 2", "re-activates \"1 term kit stamp\"", "no paragraph introduces a term"]],
     ["a re-activated claim the paragraph does not stand on", {}, { "re-activate": ["1 claim L2 as the copy is refreshed."] }, {}, ["paragraph 2", "paragraph 1 does not stand on \"L2\""]],
     ["a material no Claim of its Leg names", { materials: ["L9"] }, {}, {}, ["paragraph 1", "names \"L9\" in `materials`", "no Claim of its Leg names"]],
     ["a written `reader_state_after`", {}, { reader_state_after: { knowledge: "after 2." } }, {}, ["paragraph 2", "carries `reader_state_after`, retired from the ParagraphPlan (kogaki#1701)"]],
@@ -1057,15 +1046,8 @@ for (const [label, bad, want] of [
   // that has the library (the validator and the Move-Extraction Playground): /draft opens no Move (kogaki#1311).
   const noLib = rawPlanShapeRefusal(rec({}, {}, { move: "p-nowhere" }), "plan.yaml", L, { bound: BOUND });
   if (noLib !== null) fails.push(`(x) the plan reader with no library open refused a Move id it cannot check: ${noLib}`);
-  const ok = read({ introduces: [TERM] }, { introduces: [], "re-activate": ["1 term kit stamp", "1 claim L1 as the installer writes into the tree."] });
+  const ok = read({}, { "re-activate": ["1 claim L1 as the installer writes into the tree."] });
   if (ok !== "") fails.push(`(x) the plan reader refused a well-formed re-activation: ${ok}`);
-  // A LEG TERM MAY BE PLACED NOWHERE (kogaki#1663); one introduced by two paragraphs is refused.
-  const R = [{ ...s1, introduces: [TERM, ...REFERENTS] }, legs[1]];
-  const bare = rawPlanShapeRefusal(rec({ introduces: [] }, {}), "plan.yaml", R, { bound: BOUND });
-  const bareUnit = rawValidateUnit(unit({ introduces: [] }, {}), inputs(R), "leg-1").error;
-  if (bare !== null || bareUnit) fails.push(`(x) a Leg term introduced by no paragraph was refused: ${bare || bareUnit}`);
-  const twiceRef = rawValidateUnit(unit({ introduces: [TERM, REFERENTS[0]] }, { introduces: [REFERENTS[0]] }), inputs(R), "leg-1").error || "";
-  if (!twiceRef.includes("\"installer\"") || !twiceRef.includes("introduced by paragraphs 1 and 2")) fails.push(`(x) a Leg term introduced by two paragraphs was not refused by name: ${twiceRef || "no refusal"}`);
 }
 
 // (z) THE MAPPER IN PARAGRAPHPLAN (kogaki#1734, kogaki#1777, kogaki#1812): one reading on the Leg's relation

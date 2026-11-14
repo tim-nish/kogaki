@@ -175,7 +175,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const once = (name) => { const f = dir + "/" + name; const n = existsSync(f) ? Number(readFileSync(f, "utf8")) : 0; writeFileSync(f, String(n + 1)); return n === 0; };
   const MOVES = { s1: "pa", s2: "pb", s3: "p1" };
   const paragraph = (legId, point) => ({ paragraph: 1, materials: [legId === "s2" ? "L2" : "L1"], purpose: "brings the reader to the point.",
-    depends_on: [], rationale: "its Segment carries the Leg's relation.", introduces: [], "re-activate": [],
+    depends_on: [], rationale: "its Segment carries the Leg's relation.", "re-activate": [],
     paragraph_waypoints: [{ point, serves: [legId === "s2" ? "L2" : "L1"], cast: {} }] });
   if (input.leg_you_must_judge) {
     const leg = input.leg_you_must_judge;

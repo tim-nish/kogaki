@@ -65,7 +65,6 @@ const paragraph = {
   purpose: "brings the reader to the point.",
   depends_on: [],
   rationale: "the Move carries this point",
-  introduces: [],
   "re-activate": [],
   join: "elaboration",
   paragraph_waypoints: pws,

@@ -14,7 +14,7 @@
 // THE MOVE BOUNDARY. Move information may be used up to Waypoint generation and nowhere after
 // it. Each Leg entry of the file carries the bound Move's id (`move`, an id and nothing else of
 // the Move) and its paragraphs, each the paragraph-level Leg schema (kogaki#1639) -- `materials`,
-// `purpose`, `depends_on`, `rationale`, `introduces`, `re-activate` -- beside its `join`
+// `purpose`, `depends_on`, `rationale`, `re-activate` -- beside its `join`
 // (kogaki#1411, kogaki#1477) and its Waypoints, each `point` and `serves` or `performs` alone
 // (kogaki#1448). No Segment and no Move field reaches the file, it carries no reader state and no
 // Obligations ledger (kogaki#1701), and the plan file is the record of the binding. The stage never
@@ -58,7 +58,7 @@ import {
   readParagraphPlanBeside,
   sha256,
 } from "./compose.mjs";
-import { paragraphLegRefusal, paragraphSchemaRefusal } from "./compose/record.mjs";
+import { paragraphSchemaRefusal } from "./compose/record.mjs";
 import { relFromRepo } from "./workflow/run-record.mjs";
 import { jobHeartbeatMs, readReaderPathJob, readerPathJobPath } from "./workflow/detached-job.mjs";
 import { readAnalogy } from "./paragraph-plan-analogy.mjs";
@@ -89,7 +89,6 @@ export {
   toldBefore,
   legRoles,
   planLegOptions,
-  introducedTerms,
   segmentsForPlanCall,
   paragraphPlanUnitInput,
   renderRowHead,
@@ -161,7 +160,6 @@ export {
   paragraphPlanShapeRefusal,
   paragraphWaypointsRefusal,
   paragraphSchemaRefusal,
-  paragraphLegRefusal,
 };
 
 function sleepSync(ms) {

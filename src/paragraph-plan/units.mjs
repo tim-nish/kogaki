@@ -3,7 +3,7 @@
 // block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
-import { introducedMeaning, parseIntroducesEntry, personaPriorKnowledgeLine } from "../compose.mjs";
+import { personaPriorKnowledgeLine } from "../compose.mjs";
 import { judgePrompt } from "../workflow/judge.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
 import { FLOW } from "./stage.mjs";
@@ -43,7 +43,6 @@ export function planLeg(leg, opts = {}) {
     journeys: (leg.journeys || [])
       .filter((j) => j && typeof j === "object")
       .map((j) => ({ strand: j.strand, use: j.use })),
-    introduces: introducedTerms(leg.introduces),
   };
 }
 
@@ -90,19 +89,6 @@ export function planLegOptions(legs, structure, priorKnowledge) {
   }));
 }
 
-// THE TERMS THE LEG INTRODUCES, AS TERM AND MEANING (kogaki#1497): the reader-knowledge ledger,
-// handed to the plan call with each term's meaning and nothing else; a paragraph names a term in
-// its `introduces` only where it gives the meaning (kogaki#1663) (an item carries no `kind` since kogaki#1529).
-// The meaning is `introducedMeaning`'s, the rule the Packet's crossing line reads: a typed
-// entry's `meaning`, a legacy anchored entry's anchor, and for a bare term with neither,
-// `null`, for the planner to give in its own words.
-export function introducedTerms(entries) {
-  return (entries || [])
-    .map((raw) => parseIntroducesEntry(raw))
-    .filter((p) => !p.error && p.term)
-    .map((p) => ({ term: p.term, meaning: introducedMeaning(p) }));
-}
-
 // EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS THREE FIELDS (kogaki#1414, reverting the
 // withholding of kogaki#1403; `manner` from kogaki#1510, which reaches this call and nothing
 // written from it, kogaki#1585). A Segment is `operation`, the step's
@@ -125,18 +111,15 @@ export function segmentsForPlanCall(segments) {
   }));
 }
 
-// The Leg's introduced terms ride beside the persona rather than inside the Leg (kogaki#1497):
-// like the persona, they say what the reader does not yet hold, never what a point says.
 // Each bindable Move carries its `takes` and `leaves` on its contract (kogaki#1701), and the
-// input names the bound on the Leg's paragraphs (kogaki#1777).
+// input names the bound on the Leg's paragraphs (kogaki#1777). A Leg introduces no term
+// (kogaki#1768), so the input carries no list of terms (kogaki#1841).
 export function paragraphPlanUnitInput(leg, moves, persona, bound) {
-  const { introduces, ...planned } = leg;
   return {
-    leg_you_must_plan: planned,
+    leg_you_must_plan: leg,
     paragraphs_at_most: bound,
     paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
     persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
-    terms_this_leg_introduces: introduces || [],
   };
 }
 
