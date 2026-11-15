@@ -3947,6 +3947,52 @@ Waypoints, with no operation column and no Unmatched table.
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.
 
+#### 4.20.3 A Move's Senses (kogaki#1847)
+
+**What it reads.** A Move is taken from one paragraph of a source text, its
+Segments following that paragraph's sentences in order. The tie between two
+neighbouring Segments is named by a *Sense* of the Penn Discourse Treebank 3
+list, and an *Edge* is that tie written on one Segment as `discourse_relation`.
+The owner ruled on 2026-11-15 that a Move's Senses are read from the paragraph
+it was taken from, by reading several times and counting, and that the Sense
+most often placed first is kept. This is the Playground step: nothing in
+production and no file under `moves/` changes.
+
+**The command.** `node src/structure-mapping-playground/move-senses.mjs read
+--move <Move id> --source <file> --paragraph <n> --out <dir under
+runs/structure-mapping-playground/> [--library <dir>]`. The source's
+paragraphs are cut by `legParagraphs` and the paragraph's sentences by
+`sentencesOf`, both of `src/move-extraction-playground/extract.mjs`. Before any
+model call it refuses, writing nothing: a missing flag or one with no value, a
+Move id naming no Move of the library, a source that is no file, a paragraph
+number that is not a whole number from 1 to the number of paragraphs, a Move of
+one Segment, a paragraph whose sentence count is not the Move's Segment count,
+and an `--out` outside the Playground's runs or already holding a run.
+
+**The readings.** The 22 Senses, each with its meaning and its part words, are
+`src/structure-mapping-playground/pdtb3-senses.json`. Five calls of the
+Playground row `smp_rank_senses`, each handed the numbered sentences and that
+list, give per pair the three Senses that fit best, best first, each with
+`played_by` and `holds`; an answer is refused naming the place, and a reading
+refused twice stops the run with nothing counted. Code then counts: a reason or
+result part of `Asynchronous`, `Cause`, `Cause+Belief` or `Cause+SpeechAct`
+played by the earlier sentence is counted as its opposite played by the later
+one; a pair's answers are ordered by how many readings name them, then the
+lower sum of places, then the list's order; and the answer most often in place
+1 is kept. Its Edge is carried by the Segment playing its part, or the later
+Segment where it has none, as `{ sense, rel_type: null, to: [<the other>] }`;
+a Segment carrying none is `discourse_relation: null`. A tie for the most first
+places, or a Segment given two Edges, writes no Edges and is named on the
+sheet. One call of the row `smp_join_senses` then writes, for each pair's first
+three answers, a joining word and the second sentence; it decides nothing.
+
+**What a run writes.** The Call Record of each call, `senses-run.json` naming
+the Move and source files with their digests, the paragraph and its sentences
+and where the run stopped, `counts.json`, and `sheet.html`: the paragraph, one
+table per pair of at most three Senses with each meaning beside it, the counts
+and the two sentences joined, the Segments with their Edges, a picture of them,
+and, folded, every answer as given and the two instructions as sent.
+
 ### 4.21 The Leg-Planning Playground (kogaki#1764)
 
 **SUPERSEDED IN PART BY §4.22 (kogaki#1775, owner design 2026-11-10).** A Trial's stages are `structure`, `legs` and `paragraph-plan`: the Legs are derived from the structure with no Call, one per relation and higher-order relation the apex reaches, each carrying its relation's `holds` as `text`, and the `lpp_waypoints` and `lpp_grounded` Calls, `waypoints.yaml` and the sheet's Waypoints part are retired. The paragraph-plan stage stops on `/paragraph-plan`'s refusal of a Leg carrying no `waypoints` until kogaki#1777. The text below is kept as the record of the Trial before.

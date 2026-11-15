@@ -765,6 +765,28 @@
       }
     },
     {
+      "id": "structure-mapping-playground-senses",
+      "file": "checks/check-structure-mapping-playground-senses.sh",
+      "covers": [
+        "src/structure-mapping-playground/move-senses.mjs",
+        "src/structure-mapping-playground/senses-sheet.mjs",
+        "src/structure-mapping-playground/pdtb3-senses.json",
+        "src/structure-mapping-playground/playground-workflow.json"
+      ],
+      "admission": {
+        "contract": "A Move's Senses (kogaki#1847): `node src/structure-mapping-playground/move-senses.mjs read --move --source --paragraph --out` reads the paragraph a Move was taken from five times for the three Senses of the PDTB 3 list that fit each pair of neighbouring sentences best, counts the answers by code, keeps per pair the Sense most often placed first as an Edge, joins each shown Sense's two sentences by one more call, and writes a run record, a counts file and a sheet. Driven with one fake model binary, its cases in `checks/structure-mapping-playground-senses-cases.mjs`: (a) a run to the end with five reading calls and one joining call, the run record naming the Move and source files with their digests, the paragraph and its sentences, and a Call Record per call; (b) each refusal before any model call by name with nothing written -- a missing flag or one with no value, an unknown Move, an absent source, a paragraph number out of range naming both numbers, a sentence count other than the Move's Segments naming both, a Move of one Segment, an `--out` outside the Playground's runs or already holding a run; (c) each refusal of `rankRefusal` and `joinRefusal` by name; (d) a reading refused twice stopping the run with no counts and no sheet; (e) a reason part played by the earlier sentence counted as the result part played by the later one; (f) the order of a pair's answers and the Sense kept; (g) the Edges, each carrying exactly `sense`, `rel_type` null and `to`, one carried by the earlier Segment where it plays the part, and a tie or a Segment given two Edges writing none and naming the place on the sheet; (h) the sheet's tables of at most three rows with each Sense's meaning in its cell and the two sentences joined; (i) nothing under `moves/` and no byte of `src/paragraph-plan-workflow.json` changes.",
+        "license": "kogaki#1847",
+        "tier": "pre-push",
+        "case_floor": 82,
+        "runtime_ms": 3600,
+        "runtime_ms_note": "MEASURED AT kogaki#1847, 2026-11-15: three plain serial runs of the cases, 2836, 2804 and 2835 ms; 3600 is within 25% above the slowest plus headroom for peer-session load. The fake model answers at once.",
+        "efficacy": "case: checks/structure-mapping-playground-senses-cases.mjs::(e) Cause.Reason by 2 and Cause.Result by 3 are not counted as one answer",
+        "efficacy_note": "mutation-verified at kogaki#1847: turning off the rewriting of an opposite part word in `canonicalAnswer` failed (e), counting Cause.Result by 3 in 3 readings and Cause.Reason by 2 in 2 as two answers.",
+        "removal_signal": "a ruling retires the Move's Senses reading, or moves it into production -- either way the command this check drives is gone from the Playground",
+        "removal_instrument": "probe: ! test -f src/structure-mapping-playground/move-senses.mjs"
+      }
+    },
+    {
       "id": "leg-planning-playground",
       "file": "checks/check-leg-planning-playground.sh",
       "covers": ["src/compose/structure.mjs", "src/leg-planning-playground/read-set.mjs", "src/brief-plan-playground/sheet.mjs", "src/leg-planning-playground/trial.mjs", "src/leg-planning-playground/workflow.json"],
