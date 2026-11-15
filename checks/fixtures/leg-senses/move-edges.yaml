@@ -1,12 +1,12 @@
 segments:
-  - bind: Arg1
+  - bind: 1
     discourse_relation: null
-  - bind: Arg2
+  - bind: 2
     discourse_relation:
       sense: Concession.Denier
       rel_type: null
       to: [1]
-  - bind: CentralClaim
+  - bind: 3
     discourse_relation:
       sense: Cause.Result
       rel_type: null
