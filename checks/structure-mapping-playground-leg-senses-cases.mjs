@@ -452,7 +452,11 @@ const edgeCases = [
   ["a missing key", (f) => delete f.segments, "the file carries no `segments`"],
   ["an undeclared Segment key", (f) => (f.segments[0].domain = "x"), "segments[0] carries `domain`"],
   ["a missing Segment key", (f) => delete f.segments[1].bind, "segments[1] carries no `bind`"],
-  ["the bind Arg1", (f) => (f.segments[0].bind = "Arg1"), 'segments[0].bind is "Arg1", and a bind is a whole number from 1, or null'],
+  [
+    "the bind Arg1",
+    (f) => (f.segments[0].bind = "Arg1"),
+    'segments[0].bind is "Arg1", and a bind is a whole number from 1, or null',
+  ],
   ["the bind CentralClaim", (f) => (f.segments[2].bind = "CentralClaim"), 'segments[2].bind is "CentralClaim"'],
   ["an unknown bind", (f) => (f.segments[0].bind = "Topic"), 'segments[0].bind is "Topic"'],
   ["a bind of 0", (f) => (f.segments[0].bind = 0), "segments[0].bind is 0, and a bind is a whole number from 1"],
@@ -646,13 +650,18 @@ const nsheet = n.text(L.SHEET_FILE);
 const nPart = nsheet.slice(nsheet.indexOf('id="comparison"'));
 ok(
   nPart.indexOf(COMPARISON_ASKS) >= 0 &&
-    nPart.indexOf(COMPARISON_ASKS) < nPart.indexOf("Every way of giving the Leg's 3 sentences, its Arguments and its CentralClaim, to the Move's 3 bound Segments") &&
+    nPart.indexOf(COMPARISON_ASKS) <
+      nPart.indexOf(
+        "Every way of giving the Leg's 3 sentences, its Arguments and its CentralClaim, to the Move's 3 bound Segments",
+      ) &&
     nsheet.includes("The Move cannot be chosen for this Leg") &&
     nsheet.includes("not met"),
   "(i) the comparison is not opened by what it asks, then by every way of giving the Leg's sentences to the bound Segments, or does not say whether the Move can be chosen",
 );
 ok(
-  nsheet.includes("<td>Segment 1 = sentence 3, Segment 2 = sentence 1, Segment 3 = sentence 2; Segment 1 states the CentralClaim</td>"),
+  nsheet.includes(
+    "<td>Segment 1 = sentence 3, Segment 2 = sentence 1, Segment 3 = sentence 2; Segment 1 states the CentralClaim</td>",
+  ),
   "(i) a filling's column does not name the sentence each bound Segment is given and the Segment stating the CentralClaim",
 );
 ok(m.text(L.SHEET_FILE).includes("The Move can be chosen for this Leg"), "(i) a chosen Move is not reported so");
@@ -677,7 +686,9 @@ const sheetOf = (comparison, moveEdges) =>
     readingCount: 5,
   });
 ok(
-  sheetOf(more, { segments: [...fixture().segments, { bind: 4, discourse_relation: null }] }).includes("so there is no filling"),
+  sheetOf(more, { segments: [...fixture().segments, { bind: 4, discourse_relation: null }] }).includes(
+    "so there is no filling",
+  ),
   "(i) a Move with no filling is not reported on the sheet",
 );
 ok(

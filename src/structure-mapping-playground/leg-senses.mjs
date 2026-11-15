@@ -1,8 +1,7 @@
-// A Leg's Senses (kogaki#1849): the sentences of one Leg of a Brief, its Arguments and its CentralClaim, read five
-// times for every Sense that holds between each pair of them, counted by code into each pair's Edge candidates, the
-// candidates' two sentences joined by one more call, and, where a Move's Edges file is given, every filling of the
-// Move's bound Segments by the Leg's sentences compared with those candidates (kogaki#1851); written to a run
-// directory and a sheet.
+// A Leg's Senses (kogaki#1849, kogaki#1851): a Leg's Arguments and CentralClaim read five times for every Sense that
+// holds between each pair, counted by code into each pair's Edge candidates, the candidates' two sentences joined by
+// one more call, and, where a Move's Edges file is given, every filling of the Move's bound Segments by the Leg's
+// sentences compared with those candidates; written to a run directory and a sheet.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.

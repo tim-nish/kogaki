@@ -67,7 +67,9 @@ function fillingText(f, segments) {
     .map((s, k) => (s.bind === null ? null : `Segment ${k + 1} = sentence ${f.filling[s.bind]}`))
     .filter(Boolean);
   const central =
-    f.central_claim === null ? "no Segment states the CentralClaim" : `Segment ${f.central_claim} states the CentralClaim`;
+    f.central_claim === null
+      ? "no Segment states the CentralClaim"
+      : `Segment ${f.central_claim} states the CentralClaim`;
   return `${given.length ? `${given.join(", ")}; ` : ""}${central}`;
 }
 
@@ -79,7 +81,10 @@ function notComparedList(comparison, segments) {
       .map((k) => `Segment ${k}`)
       .join(" and ");
   const lines = comparison.not_compared
-    .map((e) => `<li>Segment ${e.segment}: ${esc(e.sense)} to Segment ${e.to.join(", ")} — ${unbound(e)} has nothing bound</li>`)
+    .map(
+      (e) =>
+        `<li>Segment ${e.segment}: ${esc(e.sense)} to Segment ${e.to.join(", ")} — ${unbound(e)} has nothing bound</li>`,
+    )
     .join("");
   return `<p>Edges not compared, under any filling:</p><ul>${lines}</ul>`;
 }
