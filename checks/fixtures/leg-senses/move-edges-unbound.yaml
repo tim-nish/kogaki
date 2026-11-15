@@ -1,0 +1,13 @@
+segments:
+  - bind: null
+    discourse_relation: null
+  - bind: 1
+    discourse_relation:
+      sense: Conjunction
+      rel_type: null
+      to: [1]
+  - bind: 2
+    discourse_relation:
+      sense: Cause.Result
+      rel_type: null
+      to: [2]

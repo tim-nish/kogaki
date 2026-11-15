@@ -4026,16 +4026,28 @@ them, then the lower sum of places, then the list's order, and the first
 candidates. One call of the row `smp_join_senses` then joins each candidate's
 two sentences; it decides nothing.
 
-**The comparison.** A Move's Edges file is written by hand: `segments`, one
-per Segment in order, each with `bind` (`Arg1`, `Arg2` and so on, or
-`CentralClaim`) and `discourse_relation` (null, or `{ sense, rel_type: null,
-to: [<one other Segment>] }`). A *filling* gives each Arg a different Argument
-and `CentralClaim` the CentralClaim; every filling is tried. An Edge falls on
-the pair of its own Segment's sentence and the sentence of the Segment in
-`to`, the Segment carrying it playing its part, and is met when that pair's
-Edge candidates hold the same answer in the one spelling. The Move can be
-chosen when one filling meets every Edge; a Move with more Args than the Leg
-has Arguments has no filling.
+**The comparison** (kogaki#1851, owner design 2026-11-16: a Move does not say
+which Segment carries the CentralClaim, and a Segment may have nothing bound).
+A Move's Edges file is written by hand: `segments`, one per Segment in order,
+each with `bind` and `discourse_relation` (null, or `{ sense, rel_type: null,
+to: [<one other Segment>] }`). A `bind` is a whole number from 1 naming a Bind
+target of the Move, or null for a Segment with nothing bound; the bound
+Segments are numbered 1, 2 and so on in Segment order, so no two share a Bind
+target, and any other `bind` is refused naming the place. A *filling* gives
+each bound Segment a different one of the Leg's sentences, an Argument or the
+CentralClaim; every filling is tried, so the CentralClaim is tried on each
+bound Segment and on none. An Edge between two bound Segments falls on the
+pair of its own Segment's sentence and the sentence of the Segment in `to`,
+the Segment carrying it playing its part, and is met when that pair's Edge
+candidates hold the same answer in the one spelling. An Edge with a Segment
+with nothing bound at either end is compared under no filling and is listed
+once as not compared. The Move can be chosen when one filling meets every
+compared Edge; a Move none of whose Edges is compared cannot be chosen, and
+the comparison says why; a Move with more bound Segments than the Leg has
+sentences has no filling. `comparison.json` holds per filling `filling` (each
+Bind target with the number of the sentence it is given), `central_claim`
+(the Segment given the CentralClaim, or null), `edges` and `met`, and the
+Edges not compared under `not_compared`, each `{ segment, sense, to }`.
 
 **What a run writes.** The Call Record of each call, `leg-senses-run.json`
 naming the Brief, the Leg and the Move's Edges file with their digests, the
@@ -4044,7 +4056,11 @@ sentences, the setting and where the run stopped, `counts.json`,
 sentences marked Argument or CentralClaim, one table per pair headed by the
 one thing it asks, whether each Sense shown holds, with each meaning, its part,
 its count and the two sentences joined, then the comparison, which asks
-nothing and only reports, and, folded, every answer and the two instructions.
+nothing and only reports, one row per Edge under each filling, the filling
+named by the sentence each bound Segment is given and the Segment stating the
+CentralClaim or none, the Edges not compared listed under the table with the
+Segment that has nothing bound, and, folded, every answer and the two
+instructions.
 
 ### 4.21 The Leg-Planning Playground (kogaki#1764)
 

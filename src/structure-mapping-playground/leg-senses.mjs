@@ -1,7 +1,7 @@
-// A Leg's Senses (kogaki#1849): the sentences of one Leg of a Brief, its Arguments and its CentralClaim, read five
-// times for every Sense that holds between each pair of them, counted by code into each pair's Edge candidates, the
-// candidates' two sentences joined by one more call, and, where a Move's Edges file is given, every filling of the
-// Move's Segments by the Leg's sentences compared with those candidates; written to a run directory and a sheet.
+// A Leg's Senses (kogaki#1849, kogaki#1851): a Leg's Arguments and CentralClaim read five times for every Sense that
+// holds between each pair, counted by code into each pair's Edge candidates, the candidates' two sentences joined by
+// one more call, and, where a Move's Edges file is given, every filling of the Move's bound Segments by the Leg's
+// sentences compared with those candidates; written to a run directory and a sheet.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -144,21 +144,22 @@ export function nameRefusal(answer, sentenceCount, names) {
   return null;
 }
 
-// The Move's Edges file, written by hand for one Move: refused naming the place, or null.
+// The Move's Edges file, written by hand for one Move: refused naming the place, or null. A `bind` is a whole number
+// from 1 naming a Bind target, or null for a Segment with nothing bound.
 export function moveEdgesRefusal(doc, names) {
   const top = keysRefusal(doc, ["segments"], "the file");
   if (top) return top;
   if (!Array.isArray(doc.segments) || !doc.segments.length) return "the file's `segments` is not a list of Segments";
   const count = doc.segments.length;
-  const binds = new Map();
+  let bound = 0;
   for (const [k, s] of doc.segments.entries()) {
     const at = `segments[${k}]`;
     const bad = keysRefusal(s, ["bind", "discourse_relation"], at);
     if (bad) return bad;
-    if (typeof s.bind !== "string" || !(s.bind === CENTRAL || /^Arg[1-9][0-9]*$/.test(s.bind)))
-      return `${at}.bind is ${JSON.stringify(s.bind)}, and a bind is Arg1, Arg2 and so on, or ${CENTRAL}`;
-    if (binds.has(s.bind)) return `${at}.bind is ${s.bind}, which segments[${binds.get(s.bind)}].bind already is`;
-    binds.set(s.bind, k);
+    if (s.bind !== null && !(Number.isInteger(s.bind) && s.bind >= 1))
+      return `${at}.bind is ${JSON.stringify(s.bind)}, and a bind is a whole number from 1, or null`;
+    if (s.bind !== null && s.bind !== ++bound)
+      return `${at}.bind is ${s.bind}, and the bound Segments are numbered 1, 2 and so on in Segment order: this one is ${bound}`;
     const r = s.discourse_relation;
     if (r === null) continue;
     const rb = keysRefusal(r, ["sense", "rel_type", "to"], `${at}.discourse_relation`);
@@ -176,10 +177,6 @@ export function moveEdgesRefusal(doc, names) {
     if (!ok)
       return `${at}.discourse_relation.to is ${JSON.stringify(r.to)}, and it is one Segment number from 1 to ${count} other than the Segment's own, ${k + 1}`;
   }
-  const args = [...binds.keys()].filter((b) => b !== CENTRAL).map((b) => Number(b.slice(3)));
-  args.sort((a, b) => a - b);
-  const gap = args.findIndex((n, k) => n !== k + 1);
-  if (gap >= 0) return `the binds run ${args.map((n) => `Arg${n}`).join(", ")}, and Arg numbers run from 1 with no gap`;
   return null;
 }
 
@@ -218,52 +215,67 @@ const candidatesOf = (p) =>
 export const joinRows = (counted) => counted.flatMap((p) => candidatesOf(p).map((a) => ({ pair: p.pair, ...a })));
 
 // ---------------------------------------------------------------------------
-// THE COMPARISON, by code with no model call: every filling of the Move's Args by the Leg's Arguments.
+// THE COMPARISON, by code with no model call: every filling of the Move's bound Segments by the Leg's sentences.
 
-function fillingsOf(argCount, legArgs) {
+// Every way of giving `bound` Bind targets different sentences of `sentenceCount`, in order.
+function fillingsOf(bound, sentenceCount) {
   const out = [];
   const walk = (taken) => {
-    if (taken.length === argCount) return out.push([...taken]);
-    for (let n = 1; n <= legArgs; n++) if (!taken.includes(n)) walk([...taken, n]);
+    if (taken.length === bound) return out.push([...taken]);
+    for (let n = 1; n <= sentenceCount; n++) if (!taken.includes(n)) walk([...taken, n]);
   };
   walk([]);
   return out;
 }
 
 export function compareMove(moveEdges, counted, sentenceCount, names) {
-  const legArgs = sentenceCount - 1;
   const segments = moveEdges.segments;
-  const argCount = segments.filter((s) => s.bind !== CENTRAL).length;
-  if (argCount > legArgs)
+  const boundCount = segments.filter((s) => s.bind !== null).length;
+  const isBound = (k) => segments[k - 1].bind !== null;
+  const related = segments.flatMap((s, k) =>
+    s.discourse_relation ? [{ segment: k + 1, sense: s.discourse_relation.sense, to: s.discourse_relation.to }] : [],
+  );
+  const compared = related.filter((e) => isBound(e.segment) && isBound(e.to[0]));
+  const not_compared = related.filter((e) => !(isBound(e.segment) && isBound(e.to[0])));
+  if (boundCount > sentenceCount)
     return {
       chosen: false,
       fillings: [],
-      none: `the Move has ${argCount} Args and the Leg has ${legArgs} Arguments, so there is no filling`,
+      none: `the Move has ${boundCount} bound Segments and the Leg has ${sentenceCount} sentences, so there is no filling`,
+      not_compared,
     };
-  const fillings = fillingsOf(argCount, legArgs).map((taken) => {
-    const sentenceOf = (k) => {
-      const b = segments[k - 1].bind;
-      return b === CENTRAL ? sentenceCount : taken[Number(b.slice(3)) - 1];
-    };
-    const fill = Object.fromEntries(segments.map((s, k) => [s.bind, sentenceOf(k + 1)]));
-    const edges = segments.flatMap((s, k) => {
-      const r = s.discourse_relation;
-      if (!r) return [];
-      const carrier = sentenceOf(k + 1);
-      const other = sentenceOf(r.to[0]);
+  const fillings = fillingsOf(boundCount, sentenceCount).map((taken) => {
+    const sentenceOf = (k) => taken[segments[k - 1].bind - 1];
+    const filling = Object.fromEntries(taken.map((n, b) => [b + 1, n]));
+    const centralAt = segments.findIndex((s) => s.bind !== null && taken[s.bind - 1] === sentenceCount);
+    const edges = compared.map((e) => {
+      const carrier = sentenceOf(e.segment);
+      const other = sentenceOf(e.to[0]);
       const pair = [Math.min(carrier, other), Math.max(carrier, other)];
       const wanted = canonicalAnswer(
-        { sense: r.sense, played_by: names.get(r.sense).part ? carrier : null },
+        { sense: e.sense, played_by: names.get(e.sense).part ? carrier : null },
         pair,
         names,
       );
       const candidates = candidatesOf(counted.find((p) => p.pair[0] === pair[0] && p.pair[1] === pair[1]));
       const met = candidates.some((c) => answerKey(c) === answerKey(wanted));
-      return [{ segment: k + 1, sense: r.sense, to: r.to, pair, wanted, candidates, met }];
+      return { ...e, pair, wanted, candidates, met };
     });
-    return { filling: fill, edges, met: edges.every((e) => e.met) };
+    return {
+      filling,
+      central_claim: centralAt < 0 ? null : centralAt + 1,
+      edges,
+      met: edges.length > 0 && edges.every((x) => x.met),
+    };
   });
-  return { chosen: fillings.some((f) => f.met), fillings, none: null };
+  if (!compared.length)
+    return {
+      chosen: false,
+      fillings,
+      none: "none of the Move's Edges is compared, because each has a Segment with nothing bound at one end",
+      not_compared,
+    };
+  return { chosen: fillings.some((f) => f.met), fillings, none: null, not_compared };
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +416,7 @@ export function readLegSenses(flags) {
       sentences,
       counted,
       comparison,
+      moveEdges: inputs.edges,
       joins: j.answer.rows,
       readings,
       prompts: [namePrompt, j.prompt],

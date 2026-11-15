@@ -1,5 +1,6 @@
 // The sheet of a Leg's Senses (kogaki#1849): one page in plain words, asking the reader whether each Edge candidate
-// holds between its two sentences, and, where a Move's Edges file was given, reporting whether the Move's Edges are met.
+// holds between its two sentences, and, where a Move's Edges file was given, reporting whether the Move's Edges are met
+// under each filling of its bound Segments (kogaki#1851).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -60,22 +61,50 @@ function pairTable(p, { names, joins, sentences, readingCount }) {
 
 const answerText = (a) => (a.played_by === null ? a.sense : `${a.sense}, played by sentence ${a.played_by}`);
 
-function comparisonSection(comparison, sentences) {
-  const legArgs = sentences.length - 1;
+// Which sentence each bound Segment is given, and which Segment states the CentralClaim.
+function fillingText(f, segments) {
+  const given = segments
+    .map((s, k) => (s.bind === null ? null : `Segment ${k + 1} = sentence ${f.filling[s.bind]}`))
+    .filter(Boolean);
+  const central =
+    f.central_claim === null
+      ? "no Segment states the CentralClaim"
+      : `Segment ${f.central_claim} states the CentralClaim`;
+  return `${given.length ? `${given.join(", ")}; ` : ""}${central}`;
+}
+
+function notComparedList(comparison, segments) {
+  if (!comparison.not_compared.length) return "";
+  const unbound = (e) =>
+    [e.segment, e.to[0]]
+      .filter((k) => segments[k - 1].bind === null)
+      .map((k) => `Segment ${k}`)
+      .join(" and ");
+  const lines = comparison.not_compared
+    .map(
+      (e) =>
+        `<li>Segment ${e.segment}: ${esc(e.sense)} to Segment ${e.to.join(", ")} — ${unbound(e)} has nothing bound</li>`,
+    )
+    .join("");
+  return `<p>Edges not compared, under any filling:</p><ul>${lines}</ul>`;
+}
+
+function comparisonSection(comparison, sentences, moveEdges) {
+  const segments = moveEdges.segments;
+  const bound = segments.filter((s) => s.bind !== null).length;
   const verdict = comparison.chosen
-    ? "The Move can be chosen for this Leg: at least one filling meets every Edge."
-    : "The Move cannot be chosen for this Leg: no filling meets every Edge.";
+    ? "The Move can be chosen for this Leg: at least one filling meets every Edge compared."
+    : comparison.none
+      ? `The Move cannot be chosen for this Leg: ${comparison.none}.`
+      : "The Move cannot be chosen for this Leg: no filling meets every Edge compared.";
   const opening =
-    `<p>${COMPARISON_ASKS}</p><p>The Move's Edges are compared with the Edge candidates of the Leg's sentences, ` +
-    `under every way of giving the Move's Args the Leg's ${legArgs} Arguments.</p>` +
-    "<p>A row is one Edge of the Move under one filling.</p>" +
+    `<p>${COMPARISON_ASKS}</p><p>Every way of giving the Leg's ${sentences.length} sentences, its Arguments and its ` +
+    `CentralClaim, to the Move's ${bound} bound Segments, no sentence twice, is tried.</p>` +
+    "<p>A row is one Edge of the Move under one filling, compared with the Edge candidates of the pair of sentences it falls on.</p>" +
     `<p>${esc(verdict)}</p>`;
-  if (!comparison.fillings.length) return `${opening}<p class="stop">${esc(comparison.none)}.</p>`;
   const rows = comparison.fillings
     .flatMap((f) => {
-      const fill = Object.entries(f.filling)
-        .map(([bind, n]) => `${esc(bind)} = sentence ${n}`)
-        .join(", ");
+      const fill = esc(fillingText(f, segments));
       return f.edges.map(
         (e) =>
           `<tr><td>${fill}</td><td>Segment ${e.segment}: ${esc(e.sense)} to Segment ${e.to.join(", ")}</td>` +
@@ -85,10 +114,11 @@ function comparisonSection(comparison, sentences) {
       );
     })
     .join("");
-  return (
-    `${opening}<table><thead><tr><th>Filling</th><th>Edge</th><th>Pair it falls on</th><th>That pair's Edge candidates</th>` +
-    `<th>Met</th></tr></thead><tbody>${rows}</tbody></table>`
-  );
+  const table = rows
+    ? `<table><thead><tr><th>Filling</th><th>Edge</th><th>Pair it falls on</th><th>That pair's Edge candidates</th>` +
+      `<th>Met</th></tr></thead><tbody>${rows}</tbody></table>`
+    : "";
+  return `${opening}${table}${notComparedList(comparison, segments)}`;
 }
 
 function foldedSection(readings, prompts) {
@@ -112,6 +142,7 @@ export function renderLegSensesSheet({
   sentences,
   counted,
   comparison,
+  moveEdges,
   joins,
   readings,
   prompts,
@@ -129,7 +160,7 @@ export function renderLegSensesSheet({
     `<h1>A Leg's Senses — ${esc(legId)}</h1>${opening}` +
     part("sentences", "The sentences", `<table><tbody>${sentenceRows}</tbody></table>`) +
     part("pairs", "Senses per pair of sentences", counted.map((p) => pairTable(p, ctx)).join("")) +
-    (comparison ? part("comparison", "The Move's Edges", comparisonSection(comparison, sentences)) : "") +
+    (comparison ? part("comparison", "The Move's Edges", comparisonSection(comparison, sentences, moveEdges)) : "") +
     part("folded", "Readings", foldedSection(readings, prompts)) +
     "</body></html>\n"
   );
