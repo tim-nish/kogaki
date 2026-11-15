@@ -1,0 +1,122 @@
+{
+  "version": "1",
+  "licensed_by": "kogaki#1847",
+  "note": "The 22 Senses of the Penn Discourse Treebank 3 annotation manual, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847).",
+  "senses": [
+    {
+      "sense": "Synchronous",
+      "meaning": "there is some overlap in time between the events the two describe.",
+      "parts": []
+    },
+    {
+      "sense": "Asynchronous",
+      "meaning": "one event is described as coming before the other.",
+      "parts": [
+        { "part": "Precedence", "plays": "this sentence's event comes first." },
+        { "part": "Succession", "plays": "this sentence's event comes after." }
+      ],
+      "opposite": ["Precedence", "Succession"]
+    },
+    {
+      "sense": "Cause",
+      "meaning": "the situations the two describe are causally tied, and not as a condition.",
+      "parts": [
+        { "part": "Reason", "plays": "this sentence gives the reason." },
+        { "part": "Result", "plays": "this sentence gives the effect." },
+        { "part": "NegResult", "plays": "this sentence gives an effect that the other's reason prevents." }
+      ],
+      "opposite": ["Reason", "Result"]
+    },
+    {
+      "sense": "Cause+Belief",
+      "meaning": "evidence is provided to cause the hearer to believe a claim.",
+      "parts": [
+        { "part": "Reason", "plays": "this sentence gives the evidence." },
+        { "part": "Result", "plays": "this sentence gives the claim." }
+      ],
+      "opposite": ["Reason", "Result"]
+    },
+    {
+      "sense": "Cause+SpeechAct",
+      "meaning": "a reason is provided for the speaker saying something.",
+      "parts": [
+        { "part": "Reason", "plays": "this sentence gives the reason for saying." },
+        { "part": "Result", "plays": "this sentence is what is said." }
+      ],
+      "opposite": ["Reason", "Result"]
+    },
+    {
+      "sense": "Condition",
+      "meaning": "one presents a situation as not yet real which, once real, would lead to the situation the other describes.",
+      "parts": [{ "part": "Cond", "plays": "this sentence is the condition." }]
+    },
+    {
+      "sense": "Condition+SpeechAct",
+      "meaning": "the same, where what follows from the condition is an act of saying.",
+      "parts": [{ "part": "Cond", "plays": "this sentence is the condition." }]
+    },
+    {
+      "sense": "Negative-condition",
+      "meaning": "one presents a situation as not yet real which, if it does not occur, would lead to the situation the other describes.",
+      "parts": [{ "part": "NegCond", "plays": "this sentence is that situation." }]
+    },
+    { "sense": "Negative-condition+SpeechAct", "meaning": "the same, with an act of saying.", "parts": [] },
+    {
+      "sense": "Purpose",
+      "meaning": "one presents an action undertaken so that the goal the other conveys is achieved.",
+      "parts": [{ "part": "Goal", "plays": "this sentence is the goal." }]
+    },
+    {
+      "sense": "Concession",
+      "meaning": "a causal relation expected on the basis of one is cancelled or denied by the situation the other describes.",
+      "parts": [{ "part": "Denier", "plays": "this sentence denies the expectation." }]
+    },
+    {
+      "sense": "Concession+SpeechAct",
+      "meaning": "the act of saying tied to one is cancelled or denied by the other.",
+      "parts": [{ "part": "Denier", "plays": "this sentence denies." }]
+    },
+    { "sense": "Contrast", "meaning": "at least two differences between the two are brought out.", "parts": [] },
+    { "sense": "Similarity", "meaning": "one or more likenesses between the two are brought out.", "parts": [] },
+    {
+      "sense": "Conjunction",
+      "meaning": "both bear the same relation to some other situation in the text, or contribute to it together.",
+      "parts": []
+    },
+    {
+      "sense": "Disjunction",
+      "meaning": "the two are presented as alternatives, with either or both holding.",
+      "parts": []
+    },
+    {
+      "sense": "Equivalence",
+      "meaning": "both describe the same situation, from different perspectives.",
+      "parts": []
+    },
+    {
+      "sense": "Exception",
+      "meaning": "one evokes circumstances in which a situation holds, and the other gives cases where it does not.",
+      "parts": [{ "part": "Excpt", "plays": "this sentence gives the exception." }]
+    },
+    {
+      "sense": "Instantiation",
+      "meaning": "one describes a situation as holding in a set of circumstances, and the other describes one or more of those circumstances.",
+      "parts": [{ "part": "Instance", "plays": "this sentence gives the instance." }]
+    },
+    {
+      "sense": "Level-of-detail",
+      "meaning": "both describe the same situation, in less or more detail.",
+      "parts": [{ "part": "Detail", "plays": "this sentence is the more detailed." }]
+    },
+    {
+      "sense": "Manner",
+      "meaning": "one presents the manner in which the other's situation happened or was done.",
+      "parts": [{ "part": "Manner", "plays": "this sentence gives the manner." }]
+    },
+    {
+      "sense": "Substitution",
+      "meaning": "the two are presented as exclusive alternatives, one being ruled out.",
+      "parts": [{ "part": "Subst", "plays": "this sentence is the alternative that is left." }]
+    }
+  ]
+}
