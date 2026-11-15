@@ -29,6 +29,34 @@
   },
   {
     "type": "dependency",
+    "from": "src/structure-mapping-playground/move-senses.mjs",
+    "to": "src/move-extraction-playground/extract.mjs",
+    "unresolvedTo": "../move-extraction-playground/extract.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/structure-mapping-playground/move-senses.mjs",
+    "to": "src/move-extraction-playground/leg-run.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-run.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
     "from": "src/structure-mapping-playground/short.mjs",
     "to": "src/move-extraction-playground/extract.mjs",
     "unresolvedTo": "../move-extraction-playground/extract.mjs",
