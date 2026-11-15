@@ -802,7 +802,7 @@
         "tier": "pre-push",
         "case_floor": 105,
         "runtime_ms": 5800,
-        "runtime_ms_note": "MEASURED AT kogaki#1849, 2026-11-15: three plain serial runs of the cases, 4562, 4460 and 4469 ms; 5800 is within 30% above the slowest plus headroom for peer-session load. The fake model answers at once.",
+        "runtime_ms_note": "RE-MEASURED AT kogaki#1851, 2026-11-16, with the floor raised from 90 to 105: three plain serial runs of the cases, 4659, 4620 and 4901 ms; 5800 stays within 30% above the slowest plus headroom for peer-session load. First measured at kogaki#1849 (4562, 4460 and 4469 ms). The fake model answers at once.",
         "efficacy": "case: checks/structure-mapping-playground-leg-senses-cases.mjs::(e) the lower sum of places does not come first before the list's order",
         "efficacy_note": "mutation-verified at kogaki#1849: dropping the sum of places from the order of a pair's answers in `countPairs` failed (e), ordering Contrast before Similarity by the list alone.",
         "removal_signal": "a ruling retires the Leg's Senses reading, or moves it into production -- either way the command this check drives is gone from the Playground",
