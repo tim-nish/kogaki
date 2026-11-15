@@ -43,6 +43,20 @@
   },
   {
     "type": "dependency",
+    "from": "src/structure-mapping-playground/leg-senses.mjs",
+    "to": "src/move-extraction-playground/leg-run.mjs",
+    "unresolvedTo": "../move-extraction-playground/leg-run.mjs",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "bench-reached-from-outside"
+    }
+  },
+  {
+    "type": "dependency",
     "from": "src/structure-mapping-playground/move-senses.mjs",
     "to": "src/move-extraction-playground/leg-run.mjs",
     "unresolvedTo": "../move-extraction-playground/leg-run.mjs",

@@ -3993,6 +3993,59 @@ table per pair of at most three Senses with each meaning beside it, the counts
 and the two sentences joined, the Segments with their Edges, a picture of them,
 and, folded, every answer as given and the two instructions as sent.
 
+#### 4.20.4 A Leg's Senses (kogaki#1849)
+
+**What it reads.** A Leg of a Brief names one relation of the Brief's
+structure. That relation is the Leg's *CentralClaim*, and what it is directly
+about are its *Arguments*: the relations in its `relates`, or the Roles in its
+`between`. The owner ruled on 2026-11-15 that a Leg's Senses are read by
+naming every Sense that holds between each pair of its sentences, five times,
+and that the Senses named most often are the pair's *Edge candidates*. A Move
+can be chosen for the Leg where its Edges are met by them. This is the
+Playground step: nothing in production and no file under `moves/` changes.
+
+**The command.** `node src/structure-mapping-playground/leg-senses.mjs read
+--brief <Brief file> --leg <leg_id> [--move-edges <file>] --out <dir under
+runs/structure-mapping-playground/>`. The Leg and its structure are read by
+`readBriefLeg` of `move-structure.mjs`. The sentences are the Arguments in the
+order the relation lists them, then the CentralClaim, numbered from 1. A
+relation gives its `holds`, each `{<Role id>}` written as the Role's `name`; a
+Role gives its `context`. Before any model call it refuses, writing nothing: a
+missing flag or one with no value, a Brief or Leg `readBriefLeg` refuses, a
+Move's Edges file that is absent or refused, and an `--out` outside the
+Playground's runs or already holding a run.
+
+**The readings.** Five calls of the Playground row `smp_name_senses`, each
+handed the numbered sentences and the list of Senses of §4.20.3, name per
+pair, in the order (1, 2), (1, 3) and so on, every Sense that holds, the
+clearest first; an answer is refused naming the place, and a reading refused
+twice stops the run with nothing counted. Code then counts, spelling each
+answer as §4.20.3 does: a pair's answers are ordered by how many readings name
+them, then the lower sum of places, then the list's order, and the first
+`paragraph_plan.leg_edge_candidates` of `kogaki.settings.json` are its Edge
+candidates. One call of the row `smp_join_senses` then joins each candidate's
+two sentences; it decides nothing.
+
+**The comparison.** A Move's Edges file is written by hand: `segments`, one
+per Segment in order, each with `bind` (`Arg1`, `Arg2` and so on, or
+`CentralClaim`) and `discourse_relation` (null, or `{ sense, rel_type: null,
+to: [<one other Segment>] }`). A *filling* gives each Arg a different Argument
+and `CentralClaim` the CentralClaim; every filling is tried. An Edge falls on
+the pair of its own Segment's sentence and the sentence of the Segment in
+`to`, the Segment carrying it playing its part, and is met when that pair's
+Edge candidates hold the same answer in the one spelling. The Move can be
+chosen when one filling meets every Edge; a Move with more Args than the Leg
+has Arguments has no filling.
+
+**What a run writes.** The Call Record of each call, `leg-senses-run.json`
+naming the Brief, the Leg and the Move's Edges file with their digests, the
+sentences, the setting and where the run stopped, `counts.json`,
+`comparison.json` where a Move's Edges file is given, and `sheet.html`: the
+sentences marked Argument or CentralClaim, one table per pair headed by the
+one thing it asks, whether each Sense shown holds, with each meaning, its part,
+its count and the two sentences joined, then the comparison, which asks
+nothing and only reports, and, folded, every answer and the two instructions.
+
 ### 4.21 The Leg-Planning Playground (kogaki#1764)
 
 **SUPERSEDED IN PART BY §4.22 (kogaki#1775, owner design 2026-11-10).** A Trial's stages are `structure`, `legs` and `paragraph-plan`: the Legs are derived from the structure with no Call, one per relation and higher-order relation the apex reaches, each carrying its relation's `holds` as `text`, and the `lpp_waypoints` and `lpp_grounded` Calls, `waypoints.yaml` and the sheet's Waypoints part are retired. The paragraph-plan stage stops on `/paragraph-plan`'s refusal of a Leg carrying no `waypoints` until kogaki#1777. The text below is kept as the record of the Trial before.
