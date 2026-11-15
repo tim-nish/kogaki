@@ -787,6 +787,28 @@
       }
     },
     {
+      "id": "structure-mapping-playground-leg-senses",
+      "file": "checks/check-structure-mapping-playground-leg-senses.sh",
+      "covers": [
+        "src/structure-mapping-playground/leg-senses.mjs",
+        "src/structure-mapping-playground/leg-senses-sheet.mjs",
+        "src/structure-mapping-playground/playground-workflow.json",
+        "checks/fixtures/leg-senses/move-edges.yaml"
+      ],
+      "admission": {
+        "contract": "A Leg's Senses (kogaki#1849): `node src/structure-mapping-playground/leg-senses.mjs read --brief --leg [--move-edges] --out` reads a Leg's Arguments and its CentralClaim five times for every Sense of the PDTB 3 list that holds between each pair of them, counts the answers by code, keeps per pair as Edge candidates the first `paragraph_plan.leg_edge_candidates` answers in order, joins each candidate's two sentences by one more call, compares a hand-written Move's Edges file with the candidates under every filling where one is given, and writes a run record, a counts file, the comparison and a sheet. Driven with one fake model binary, its cases in `checks/structure-mapping-playground-leg-senses-cases.mjs`: (a) a run to the end with five reading calls and one joining call, the run record naming the Brief, the Leg and the setting, the Arguments numbered before the CentralClaim with each Role written by its name, a Leg whose Arguments are Roles read by their definitions, and no comparison without `--move-edges`; (b) each refusal before any model call by name with nothing written -- a missing flag or one with no value, an unknown Leg, a Brief with no structure, an absent or refused Move's Edges file, an `--out` outside the Playground's runs or already holding a run; (c) each refusal of `nameRefusal` by name; (d) a reading refused twice stopping the run with no counts and no sheet; (e) the order of a pair's answers, a reason part played by the lower-numbered sentence counted as the result part played by the higher-numbered one, and a pair with no answer; (f) a setting of 3 keeping three of five answers and a setting of 5 keeping all; (g) each refusal of `moveEdgesRefusal` by name; (h) a comparison in which one filling meets every Edge, one in which none does naming the Edge not met under each filling, and a Move with more Args than the Leg has Arguments; (i) the sheet's pair tables and its comparison each headed by the sentence saying what it asks; (j) nothing under `moves/` and no byte of `src/paragraph-plan-workflow.json` changes.",
+        "license": "kogaki#1849",
+        "tier": "pre-push",
+        "case_floor": 90,
+        "runtime_ms": 5800,
+        "runtime_ms_note": "MEASURED AT kogaki#1849, 2026-11-15: three plain serial runs of the cases, 4562, 4460 and 4469 ms; 5800 is within 30% above the slowest plus headroom for peer-session load. The fake model answers at once.",
+        "efficacy": "case: checks/structure-mapping-playground-leg-senses-cases.mjs::(e) the lower sum of places does not come first before the list's order",
+        "efficacy_note": "mutation-verified at kogaki#1849: dropping the sum of places from the order of a pair's answers in `countPairs` failed (e), ordering Contrast before Similarity by the list alone.",
+        "removal_signal": "a ruling retires the Leg's Senses reading, or moves it into production -- either way the command this check drives is gone from the Playground",
+        "removal_instrument": "probe: ! test -f src/structure-mapping-playground/leg-senses.mjs"
+      }
+    },
+    {
       "id": "leg-planning-playground",
       "file": "checks/check-leg-planning-playground.sh",
       "covers": ["src/compose/structure.mjs", "src/leg-planning-playground/read-set.mjs", "src/brief-plan-playground/sheet.mjs", "src/leg-planning-playground/trial.mjs", "src/leg-planning-playground/workflow.json"],

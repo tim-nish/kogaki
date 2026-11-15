@@ -20,6 +20,8 @@
     "leg_revisions": 2,
     "leg_revisions_means": "How many Revisions one Leg of a /paragraph-plan job gets in total, across all of its paragraphs. A Revision is the next Submission at one paragraph, written to answer the Comment its last Submission drew, and it is written at that paragraph alone, under the Leg's bound Move. Each paragraph gets brief.unit_rounds Rounds, the Leg's first counting; this number ends a Leg whose Revisions keep reopening the paragraph after the one being repaired.",
     "mapper": true,
-    "mapper_means": "Whether /paragraph-plan runs the Mapper inside each Leg's job unit: it reads the Leg's relation into a structure before the Move is bound, grounds one Mapping Table for the bound Move after, and writes the Leg's Waypoints from that table. With false, the stage binds and writes the Waypoints in one call and the Mapping Record holds no file."
+    "mapper_means": "Whether /paragraph-plan runs the Mapper inside each Leg's job unit: it reads the Leg's relation into a structure before the Move is bound, grounds one Mapping Table for the bound Move after, and writes the Leg's Waypoints from that table. With false, the stage binds and writes the Waypoints in one call and the Mapping Record holds no file.",
+    "leg_edge_candidates": 3,
+    "leg_edge_candidates_means": "How many Senses are kept as Edge candidates for each pair of a Leg's sentences."
   }
 }
