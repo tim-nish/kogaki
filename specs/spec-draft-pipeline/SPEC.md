@@ -811,7 +811,7 @@ because a role's *reader* is prose this file states and the JSON does not:
 | `state-after` | `after` | nothing downstream since the ParagraphPlan judges by `leaves` (kogaki#1701); kept until `--retire-state` |
 | `state-after-segments` | `after_segment` | nothing downstream since the state-bound re-judge was retired (kogaki#1699); kept until `--retire-state` |
 | `takes` | `takes` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699); the ParagraphPlan's binding and its TAKEN axis (§4.19, kogaki#1701) |
-| `leaves` | `leaves` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699); the ParagraphPlan's LEAVE line and its LEFT axis (§4.19, kogaki#1701) |
+| `leaves` | `leaves` | the constraints call at extraction (kogaki#1698); the Brief's composer and Move-fit judgment (§4.12.2, kogaki#1699); the ParagraphPlan's LEAVE line (§4.19, kogaki#1701, kogaki#1853) |
 | `specialized-by-the-Leg` | `technique` | the composer and the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage, as the Waypoints' order where the Move carries no `segments`, and as a criterion of its judge (§4.19, kogaki#1378) |
 | `tests` | `breaks` | the per-unit Move-fit judgment, against the Leg's `waypoints` (§4.12.2); for a paragraph Move, the ParagraphPlan stage's judge, against the Waypoints (§4.19, kogaki#1378) |
 | `segments` | `segments` | the composer and the per-unit Move-fit judgment, as the waypoints' order where the Move carries it (§4.12.2, kogaki#1320); for a paragraph Move, the ParagraphPlan stage, as the Waypoints' order (§4.19, kogaki#1375); no stage after it |
@@ -2431,7 +2431,7 @@ lines are recorded beside the prose's rather than inside them.
 
 ### 4.19 The ParagraphPlan stage — Waypoints, after the Brief (kogaki#1375)
 
-**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** No Leg's Move leaves anything for the next Leg, and a Leg introduces no term: `leaves_for_next_leg` and the ledger `terms_this_leg_introduces` are empty, and a Brief Waypoint's `carries` rides into the plan input where the Brief carries a `structure`. The text below is kept as the record of the Brief before the structure-first rebuild. **THE LEG IS THE UNIT (kogaki#1777, owner design 2026-11-10).** The Brief ends at Legs and carries no Waypoint (§4.22, kogaki#1775), so this stage takes one Brief Leg as its unit: it binds ONE paragraph Move to the Leg and writes the Leg's paragraphs, at most `brief.paragraphs_per_leg` of them (`kogaki.settings.json`, 2), each a list of Waypoints one per Segment of that Move. What the Legs before a Leg state is derived from the Leg order, never read from a reader state. `/paragraph-plan` refuses a Brief whose Leg carries `waypoints` or no `text`, naming the Leg. Where a passage below still speaks of a Brief Waypoint's binding, its site or its point, read the Leg's binding, the paragraph, and the Leg's `text`; the paragraphs this rewrite replaces say so.
+**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** What a Leg's Move leaves and no later paragraph of the Leg takes up is left for the next Leg, and nothing checks whether a later Leg takes it up (kogaki#1853). A Leg introduces no term: the ledger `terms_this_leg_introduces` is empty, and a Brief Waypoint's `carries` rides into the plan input where the Brief carries a `structure`. The text below is kept as the record of the Brief before the structure-first rebuild. **THE LEG IS THE UNIT (kogaki#1777, owner design 2026-11-10).** The Brief ends at Legs and carries no Waypoint (§4.22, kogaki#1775), so this stage takes one Brief Leg as its unit: it binds ONE paragraph Move to the Leg and writes the Leg's paragraphs, at most `brief.paragraphs_per_leg` of them (`kogaki.settings.json`, 2), each a list of Waypoints one per Segment of that Move. What the Legs before a Leg state is derived from the Leg order, never read from a reader state. `/paragraph-plan` refuses a Brief whose Leg carries `waypoints` or no `text`, naming the Leg. Where a passage below still speaks of a Brief Waypoint's binding, its site or its point, read the Leg's binding, the paragraph, and the Leg's `text`; the paragraphs this rewrite replaces say so.
 
 **What it is.** The Brief's Reader Path plans an article down to Legs, each
 saying its relation's `holds` as its `text` (§4.22). **ParagraphPlan** refines
@@ -2689,7 +2689,6 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | criterion | standing | Leg | Paragraph | reason | binds |
 |---|---|---|---|---|---|
 | Takes met | paragraph only | — | `TAKEN` | the Move the ParagraphPlan binds to the Leg has its `takes` met by the Leg's `prior_knowledge` or a relation of `the_reader_has_been_told`, what the Legs before it state, derived from the Leg order; the Brief binds no Move, so the Brief's Leg has no `takes` (kogaki#1699, kogaki#1701, kogaki#1768, kogaki#1777) | criterion |
-| Leaves taken up | paragraph only | — | `LEFT` | the bound Move's `leaves` are taken up by a later paragraph of the Leg or left among what the Leg carries; the Brief binds no Move, so the Brief's Leg has no `leaves` (kogaki#1699, kogaki#1701, kogaki#1768, kogaki#1777) | criterion |
 | Segment order | paragraph only | — | `OWN STEP` | a Waypoint is one Segment of the Leg's bound Move, so it carries nothing a later Segment produces; a Leg's `text` is its relation's `holds` and follows no Move's order (kogaki#1768, kogaki#1777) | wording |
 | Breaks | paragraph only | — | `BREAKS` | a test names a change to a Move's points, and only the ParagraphPlan binds a Move (kogaki#1768, kogaki#1777) | criterion |
 | Operation performed | paragraph only | — | `operation_is_performed` | a Segment's operation is performed only where a Waypoint is that Segment, and a Leg's `text` is no Segment | wording |
@@ -2998,22 +2997,20 @@ became one word (kogaki#1477). The key is `terse`, not `brief`, which collides
 with the Brief. No judge axis reads `cast`; the owner's reading is the
 judgment, as for the join since kogaki#1533.
 
-**What has been told, and what a Leg leaves** (kogaki#1701, kogaki#1777). The
+**What has been told, and what a Leg leaves** (kogaki#1701, kogaki#1777, kogaki#1853). The
 plan call is handed, beside the Leg, what the reader has been told when it
 begins: `the_reader_has_been_told`, one `{ leg_id, text }` per earlier Leg in
 Reader Path order, derived from the Leg order and never read from a reader
 state, with the Persona's prior-knowledge line as `prior_knowledge`; the site
-and suffix calls and the judge are handed the same. For the whole Leg the call
-is handed `leaves_for_next_leg`, the `leaves` of the Move the Brief bound to the
-Leg: what this Leg's paragraphs leave for the next Leg. The LEAVE line holds the
-bound Move's `leaves` to that list: every entry is taken up by a later paragraph
-of the Leg or is among `leaves_for_next_leg`, and a `carry` one paragraph leaves
-is taken up by the next. Whether an entry is met or taken up is judged by sense,
-never compared verbatim, and is the judge's TAKEN and LEFT; the plan file
-records none of it. A Leg with no `move` is read as leaving nothing for the next
-Leg, which is every Leg since the Brief binds no Move (§4.22); a Leg naming a
-Move the library does not hold stops the stage at `start`, naming the Leg and
-the Move. The Obligations ledger this replaced is retired (§5.2).
+and suffix calls and the judge are handed the same. The LEAVE line lets the
+bound Move's `leaves` pass on: an entry is taken up by a later paragraph of the
+Leg or left for the next Leg, and a `carry` one paragraph leaves is taken up by
+the next. What a Leg's Move leaves and no later paragraph of the Leg takes up is
+left for the next Leg, and nothing checks whether a later Leg takes it up; no
+call is handed a list of it. Whether a `takes` entry is met is judged by sense,
+never compared verbatim, and is the judge's TAKEN; the plan file records none of
+it. A Leg naming a Move the library does not hold stops the stage at `start`,
+naming the Leg and the Move. The Obligations ledger this replaced is retired (§5.2).
 
 **The Audience.** Waypoint generation reads the Audience's `persona`;
 the Packet reads its `register`, which says nothing about paragraph structure.
@@ -4370,11 +4367,12 @@ ParagraphPlan's unit, `/paragraph-plan` refuses a Leg carrying no
 `waypoints`, so a Brief composed under this section is planned only after
 that Issue lands.
 
-**ParagraphPlan after the Brief.** A Leg binds no Move, so no Leg's Move
-leaves anything for the next Leg: `planLegOptions` hands no
-`leaves_for_next_leg` and no `stands_to_be_taken_up` across a Leg boundary,
-and the paragraph Moves bound per Brief Waypoint (§4.19) are the only Moves of
-the article. A Leg introduces no term, so the plan call is handed no list
+**ParagraphPlan after the Brief.** The Brief binds no Move to a Leg, so the
+paragraph Moves the ParagraphPlan binds (§4.19) are the only Moves of the
+article. What a Leg's Move leaves and no later paragraph of the Leg takes up is
+left for the next Leg, and nothing checks whether a later Leg takes it up:
+`planLegOptions` hands no list of it and no `stands_to_be_taken_up` across a
+Leg boundary (kogaki#1853). A Leg introduces no term, so the plan call is handed no list
 of terms, and a plan paragraph carrying `introduces` is refused by name
 (kogaki#1841). Where the Brief carries a `structure`,
 each Brief Waypoint's `carries` rides into the plan input, and the Mapper reads

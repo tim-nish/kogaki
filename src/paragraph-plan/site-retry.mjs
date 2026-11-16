@@ -109,7 +109,6 @@ const RECORD_FIELD_NAMES = new Set([
   "paragraphs_beside",
   "refused_here",
   "the_reader_has_been_told",
-  "leaves_for_next_leg",
   "re_activations_this_paragraph_carries",
   "takes",
   "leaves",
@@ -240,7 +239,6 @@ export function paragraphPlanSiteInput(ctx, inputs, unitId) {
       the_reader_has_been_told: leg.the_reader_has_been_told || [],
       ...siteMapping(inputs, unitId),
     },
-    leaves_for_next_leg: leg.leaves_for_next_leg || [],
     bound_move: withAnalogy(
       {
         id: ctx.standing.move,

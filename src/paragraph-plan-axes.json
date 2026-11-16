@@ -27,12 +27,6 @@
               "text": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up."
             }
           ],
-          "leaves_for_next_leg": [
-            {
-              "kind": "answer",
-              "what": "what puts one position where the effect arises readily and another where it does not"
-            }
-          ],
           "bound_move": {
             "takes": [
               {
@@ -115,12 +109,6 @@
               "text": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not."
             }
           ],
-          "leaves_for_next_leg": [
-            {
-              "kind": "explain",
-              "what": "what each of the named causes means and how it does its deciding"
-            }
-          ],
           "bound_move": {
             "takes": [
               {
@@ -197,7 +185,6 @@
           "text": "Attack-defence distinguishability is how clearly the other side's action can be told to intend attack rather than defence, and the clearer the other side's intent, the less likely war becomes, the vaguer the likelier.",
           "prior_knowledge": "",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -265,7 +252,6 @@
           "text": "A set of automatic rules can be written carefully and still never act on an entire kind of action, so what bounds the reach of such a set is not how well it was written.",
           "prior_knowledge": "",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -348,24 +334,6 @@
         ]
       }
     },
-    "left-not-taken": {
-      "from": "leg3-clean",
-      "at_paragraph": 1,
-      "edit": {
-        "move_leaves": [
-          {
-            "kind": "answer",
-            "what": "what puts one position where the effect arises readily and another where it does not",
-            "segment": 4
-          },
-          {
-            "kind": "carry",
-            "what": "the two-condition division, carried onto the alliances the strongest power keeps",
-            "segment": 3
-          }
-        ]
-      }
-    },
     "cast-terse-clean": {
       "source": "runs/brief/paragraph-plan-action-kind-rule-set-guard-2026-11-11T05-37-31-928Z, call leg-1/3, the planner's paragraph with its first-paragraph `join` dropped, judged under the Leg's bound Move; Waypoint 2 is cut to its one clause before the colon, Waypoint 3 to its first clause and Waypoint 5 to its ranking, so that no other axis refuses it (kogaki#1816)",
       "input": {
@@ -374,7 +342,6 @@
           "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
           "prior_knowledge": "(the Persona declares no prior_knowledge)",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -475,7 +442,6 @@
           "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
           "prior_knowledge": "(the Persona declares no prior_knowledge)",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -596,7 +562,6 @@
           "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
           "prior_knowledge": "(the Persona declares no prior_knowledge)",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -719,7 +684,6 @@
           "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
           "prior_knowledge": "(the Persona declares no prior_knowledge)",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -843,7 +807,6 @@
           "text": "A rule_set notices an occurrence only when it falls under an action_kind that set was registered against.",
           "prior_knowledge": "(the Persona declares no prior_knowledge)",
           "the_reader_has_been_told": [],
-          "leaves_for_next_leg": [],
           "bound_move": {
             "takes": [],
             "leaves": [],
@@ -967,12 +930,6 @@
             {
               "leg_id": "L1",
               "text": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up."
-            }
-          ],
-          "leaves_for_next_leg": [
-            {
-              "kind": "answer",
-              "what": "what puts one position where the effect arises readily and another where it does not"
             }
           ],
           "bound_move": {
@@ -1131,26 +1088,6 @@
       "justified_by": {
         "date": "2026-11-06",
         "run": "runs/judge-bench/2026-11-06-taken-5",
-        "draws": 5,
-        "rates": {
-          "defect_refused_with": 1,
-          "defect_refused_without": 0,
-          "clean_passed_with": 1,
-          "clean_passed_without": 1
-        }
-      },
-      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
-    },
-    {
-      "id": "LEFT",
-      "sentence": "Every `leaves` entry of the bound Move is taken up by a later paragraph of this Leg or is among the Leg's `leaves_for_next_leg`, which a refusal names by its kind and `what`.",
-      "fixtures": {
-        "defect": ["left-not-taken"],
-        "clean": ["leg3-clean"]
-      },
-      "justified_by": {
-        "date": "2026-11-06",
-        "run": "runs/judge-bench/2026-11-06-left-5",
         "draws": 5,
         "rates": {
           "defect_refused_with": 1,

@@ -26,10 +26,10 @@ export function legForUnit(inputs, unitId) {
 // Role named; its relation's id; its Claims, each Strand id beside the proposition it is `from`; the Roles
 // the relation stands between, each with its `context`; the Persona's prior-knowledge line; and what the
 // Legs before it state, `the_reader_has_been_told` (`toldBefore`). Its Journeys, `{strand, use}`, ride for
-// a paragraph to place (kogaki#1639). No Leg binds a Move of the Brief's (kogaki#1768), so no Leg leaves
-// anything for the next and `leaves_for_next_leg` is empty unless a caller hands one. Kept small and plain
+// a paragraph to place (kogaki#1639). What its Move leaves and no later paragraph takes up is left for the
+// next Leg, and nothing hands the Leg a list of it (kogaki#1853). Kept small and plain
 // so the validator and the judge read the same Leg the prompt showed. `opts` is
-// `{ told, roles, leaves, priorKnowledge }`.
+// `{ told, roles, priorKnowledge }`.
 export function planLeg(leg, opts = {}) {
   return {
     leg_id: leg.leg_id,
@@ -39,7 +39,6 @@ export function planLeg(leg, opts = {}) {
     roles: (opts.roles || []).map((r) => ({ ...r })),
     prior_knowledge: typeof opts.priorKnowledge === "string" ? opts.priorKnowledge.trim() : "",
     the_reader_has_been_told: (opts.told || []).map((x) => ({ ...x })),
-    leaves_for_next_leg: (opts.leaves || []).map((x) => ({ kind: x.kind, what: x.what })),
     journeys: (leg.journeys || [])
       .filter((j) => j && typeof j === "object")
       .map((j) => ({ strand: j.strand, use: j.use })),
@@ -84,7 +83,6 @@ export function planLegOptions(legs, structure, priorKnowledge) {
   return legs.map((leg, i) => ({
     told: toldBefore(legs, i),
     roles: legRoles(structure, leg.relation),
-    leaves: [],
     priorKnowledge,
   }));
 }
