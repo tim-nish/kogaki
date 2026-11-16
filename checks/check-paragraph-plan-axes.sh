@@ -154,9 +154,8 @@ for (const [label, text, ids, list, want] of tableRefusals) {
   const why = tableFailures(text, ids, list).join("; ");
   if (!why.includes(want)) fails.push(`${label} is not refused naming it: ${why || "no refusal"}`);
 }
-// (e5) the judge is handed the Leg's one bound Move's `takes` and `leaves`, its text, and what the Legs
-// before it state (kogaki#1701, kogaki#1777), and each paragraph's Waypoints beside its join; it is handed
-// no `leaves_for_next_leg` (kogaki#1853).
+// (e5) the judge is handed the Leg's one bound Move's `takes` and `leaves`, its text, what the Legs before
+// it state and each paragraph's Waypoints beside its join, and no `leaves_for_next_leg` (kogaki#1853).
 cases++;
 {
   const scratch = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-left-"));
