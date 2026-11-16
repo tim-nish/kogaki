@@ -154,8 +154,8 @@ for (const [label, text, ids, list, want] of tableRefusals) {
   const why = tableFailures(text, ids, list).join("; ");
   if (!why.includes(want)) fails.push(`${label} is not refused naming it: ${why || "no refusal"}`);
 }
-// (e5) the judge is handed the Leg's one bound Move's `takes` and `leaves`, its text, and what the Legs
-// before it state (kogaki#1701, kogaki#1777), and each paragraph's Waypoints beside its join.
+// (e5) the judge is handed the Leg's one bound Move's `takes` and `leaves`, its text, what the Legs before
+// it state and each paragraph's Waypoints beside its join, and no `leaves_for_next_leg` (kogaki#1853).
 cases++;
 {
   const scratch = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-left-"));
@@ -165,11 +165,11 @@ cases++;
   writeFileSync(join(scratch, `${moveId}.yaml`), text);
   const told = [{ leg_id: "v0", text: "An earlier relation holds." }];
   const two = { movesDir: scratch, legs: [{ leg_id: "v1", text: "A relation holds.", prior_knowledge: "holds what a definition is",
-    the_reader_has_been_told: told, leaves_for_next_leg: [{ kind: "explain", what: "the instance's one named part" }] }] };
+    the_reader_has_been_told: told }] };
   const judged = paragraphPlanJudgeInput({ version: "1", leg_id: "v1", move: moveId, rationale: "the Move carries the relation",
     paragraphs: [paragraph(parts(segments)), paragraph(parts(segments), 2)] }, two, "leg-1").leg_you_must_judge;
   if (JSON.stringify(judged.the_reader_has_been_told) !== JSON.stringify(told) || judged.text !== "A relation holds."
-      || !Array.isArray(judged.bound_move.takes) || judged.bound_move.leaves.length !== 1 || JSON.stringify(judged.leaves_for_next_leg) !== JSON.stringify(two.legs[0].leaves_for_next_leg)
+      || !Array.isArray(judged.bound_move.takes) || judged.bound_move.leaves.length !== 1 || "leaves_for_next_leg" in judged
       || judged.paragraphs.length !== 2 || judged.paragraphs[1].join !== "elaboration" || "join" in judged.paragraphs[0]
       || "stands_to_be_taken_up" in judged || "before" in judged.bound_move || "after" in judged.bound_move) {
     fails.push(`(e5) the judge is not handed the Leg's bound Move's takes and leaves beside what the Legs before it state: ${JSON.stringify(judged)}`);

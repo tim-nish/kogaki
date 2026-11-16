@@ -392,8 +392,7 @@ export function noParagraphMoveFitsRefusal(failures) {
 // THE SECOND CALL — the judge. Its input carries the Leg's text, what the reader has been told when it
 // begins (kogaki#1777), the bound Move's takes, leaves, segments and breaks, and each paragraph's
 // Waypoints, judged on the axes src/paragraph-plan-axes.json keeps (kogaki#1533, kogaki#1701); every
-// paragraph after the first also carries its `join` (kogaki#1411, kogaki#1477), and the Leg carries
-// what its paragraphs leave for the next Leg.
+// paragraph after the first also carries its `join` (kogaki#1411, kogaki#1477).
 //
 // A SCOPED JUDGMENT (kogaki#1642): after a site retry `scope` names the paragraphs to judge, `judge`
 // whole and `join_only` for its join alone, and the judge is handed those paragraphs with every
@@ -410,7 +409,6 @@ export function paragraphPlanJudgeInput(record, inputs, unitId, scope = null) {
       text: leg.text,
       prior_knowledge: leg.prior_knowledge || "",
       the_reader_has_been_told: leg.the_reader_has_been_told || [],
-      leaves_for_next_leg: leg.leaves_for_next_leg || [],
       bound_move: withAnalogy(
         { takes: c.takes, leaves: c.leaves, segments: c.segments, breaks: c.breaks },
         inputs.analogy,
@@ -488,10 +486,10 @@ export function paragraphPlanJudgePrompt(record, inputs, unitId, scope = null) {
 
 export const PARAGRAPH_PLAN_VERDICTS = ["fits", "does-not-fit"];
 
-// THE AXES THAT JUDGE THE BINDING ITSELF (kogaki#1647, kogaki#1701): a refusal on one of them is a
+// THE AXES THAT JUDGE THE BINDING ITSELF (kogaki#1647, kogaki#1701, kogaki#1853): a refusal on one of them is a
 // refusal of the Leg's Move, which no paragraph can repair under it (kogaki#1777), so it reopens the
 // whole Leg and the Move is bound again.
-export const BINDING_AXES = ["TAKEN", "LEFT"];
+export const BINDING_AXES = ["TAKEN"];
 const BINDING_REFUSAL = new RegExp(`\\b(?:${BINDING_AXES.join("|")})\\b`);
 
 // The judge's answer, read back: `{ error }` is its own malformed output, asked again
@@ -542,7 +540,7 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
     "THE WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG:",
     ...failures.map((f) => f.refusal),
     "Generate the Waypoints again so that the bound Move's takes are each met by what the reader has been told " +
-      "when the Leg begins, its leaves are each taken up by a later paragraph or left for the next Leg, they follow the " +
+      "when the Leg begins, they follow the " +
       "Move's order (its segments), " +
       "each perform its own Segment's operation and stand in that Segment's relation, " +
       "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the " +

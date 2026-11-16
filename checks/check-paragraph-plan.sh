@@ -459,8 +459,11 @@ let okPrompts = [];
     || typeof s1In.leg_you_must_plan.prior_knowledge !== "string" || !s1In.leg_you_must_plan.prior_knowledge || s1In.paragraphs_at_most !== BOUND) {
     fails.push(`(a) the plan call is not handed the Leg's text, its Claims, the Persona's prior knowledge and the paragraph bound: ${JSON.stringify(s1In)}`.slice(0, 900));
   }
-  if (!s1In || JSON.stringify(s1In.leg_you_must_plan.leaves_for_next_leg) !== "[]" || "waypoints" in s1In.leg_you_must_plan) {
-    fails.push("(a) the plan call is handed a Brief Waypoint or a `leaves_for_next_leg` though no Leg binds a Move of the Brief's (kogaki#1768)");
+  if (!s1In || "waypoints" in s1In.leg_you_must_plan) {
+    fails.push("(a) the plan call is handed a Brief Waypoint though no Leg binds a Move of the Brief's (kogaki#1768)");
+  }
+  if (r.prompts.some((p) => p.includes('"leaves_for_next_leg"'))) {
+    fails.push("(a) a call's input still carries `leaves_for_next_leg`, retired (kogaki#1853)");
   }
   if (r.prompts.some((p) => /"(reader_state_(before|after)|entry_state|stands_to_be_taken_up|obligations_this_leg_owes|deferred_slots|next_point)"/.test(p))) {
     fails.push("(a) a prompt still carries a reader state, what stands to be taken up, an owed Brief row or a Brief Waypoint's next_point (kogaki#1701, kogaki#1777)");
@@ -482,7 +485,7 @@ let okPrompts = [];
     fails.push("(a) a plan prompt is not handed the Moves' segments (each Segment's operation and relation) and breaks beside the persona");
   }
   const judges = r.prompts.filter(isJudge);
-  if (!judges.length || !judges.every((p) => ["takes", "leaves", "the_reader_has_been_told", "leaves_for_next_leg", "breaks", "segments", "bound_move", "text"].every((k) => p.includes(`"${k}"`)))) {
+  if (!judges.length || !judges.every((p) => ["takes", "leaves", "the_reader_has_been_told", "breaks", "segments", "bound_move", "text"].every((k) => p.includes(`"${k}"`)))) {
     fails.push("(a) a judge prompt is not handed the Leg's text and bound Move's takes, leaves, segments and breaks beside what the Legs before it state (kogaki#1701, kogaki#1777)");
   }
   if ([...plans, ...judges].some((p) => p.includes('"technique"'))) fails.push("(a) a plan or judge prompt is handed a `technique` (kogaki#1412)");
@@ -858,7 +861,8 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
 
 // (u) WHAT A LEG'S MOVE TAKES UP IS MET BY WHAT THE LEGS BEFORE IT STATE (kogaki#1701, kogaki#1777):
 // the plan row binds a Move by its `takes` against `the_reader_has_been_told` and `prior_knowledge`
-// and holds it to its `leaves`; the judge judges TAKEN and LEFT; the retired reader state and ledger
+// and lets what its `leaves` leaves untaken pass to the next Leg (kogaki#1853); the judge judges TAKEN
+// and no axis LEFT; the retired reader state and ledger
 // keys are refused by name at every read; and what the reader has been told is derived from the Leg
 // order alone, each Leg's Roles from the Brief's structure.
 {
@@ -866,14 +870,15 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!planPrompts.length || !planPrompts.every((p) => critOf(p, "BIND").includes("`takes`") && critOf(p, "BIND").includes("`the_reader_has_been_told`"))) {
     fails.push("(u) a plan prompt's BIND does not bind a Move by its `takes` against what the reader has been told (kogaki#1777)");
   }
-  if (!planPrompts.every((p) => critOf(p, "LEAVE").includes("`leaves`") && critOf(p, "LEAVE").includes("`leaves_for_next_leg`"))) {
-    fails.push("(u) a plan prompt carries no LEAVE holding a bound Move's `leaves` to a later paragraph or the Leg's `leaves_for_next_leg` (kogaki#1701)");
+  const LEAVE_TEXT = "A `leaves` entry of the bound Move is taken up by a later paragraph of this Leg or left for the next Leg, and a `carry` is taken up by the next paragraph.";
+  if (!planPrompts.every((p) => critOf(p, "LEAVE") === LEAVE_TEXT)) {
+    fails.push(`(u) a plan prompt's LEAVE does not let a bound Move's \`leaves\` pass to the next Leg (kogaki#1853): ${JSON.stringify(planPrompts.map((p) => critOf(p, "LEAVE")))}`);
   }
   if (!planPrompts.every((p) => critOf(p, "PARAGRAPHS").includes("`paragraphs_at_most`"))) fails.push("(u) a plan prompt carries no PARAGRAPHS bounding the Leg's paragraphs (kogaki#1777)");
   if (planPrompts.some((p) => critOf(p, "OWE"))) fails.push("(u) a plan prompt still carries the OWE criterion, retired (kogaki#1701)");
   const judgePrompts = okPrompts.filter(isJudge);
-  if (!judgePrompts.length || !judgePrompts.every((p) => critOf(p, "TAKEN") && critOf(p, "LEFT"))) fails.push("(u) a judge prompt does not judge TAKEN and LEFT (kogaki#1701)");
-  for (const gone of ["PRECONDITION", "POSTCONDITION", "PROMISE KEPT"]) {
+  if (!judgePrompts.length || !judgePrompts.every((p) => critOf(p, "TAKEN"))) fails.push("(u) a judge prompt does not judge TAKEN (kogaki#1701)");
+  for (const gone of ["PRECONDITION", "POSTCONDITION", "PROMISE KEPT", "LEFT"]) {
     if (judgePrompts.some((p) => critOf(p, gone))) fails.push(`(u) a judge prompt still judges ${gone}, retired (kogaki#1701)`);
   }
   // THE RETIRED KEYS, REFUSED BY NAME AT EVERY READ.
@@ -910,9 +915,9 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
   const opts = planLegOptions(legs.map((l) => ({ ...l, move: "absent_leg_move" })), null, "knows what an installer is.");
   const pl = planLeg(legs[1], opts[1]);
-  if (opts.some((o) => o.error || o.leaves.length) || JSON.stringify(pl.the_reader_has_been_told) !== JSON.stringify([{ leg_id: "s1", text: S1_TEXT }])
-    || pl.prior_knowledge !== "knows what an installer is." || "waypoints" in pl || "stands_to_be_taken_up" in pl) {
-    fails.push(`(u) planLeg does not hand a Leg what the Legs before it state and the Persona's prior knowledge, reading no Move of a Leg's: ${JSON.stringify(pl)}`);
+  if (opts.some((o) => o.error || "leaves" in o) || JSON.stringify(pl.the_reader_has_been_told) !== JSON.stringify([{ leg_id: "s1", text: S1_TEXT }])
+    || pl.prior_knowledge !== "knows what an installer is." || "waypoints" in pl || "stands_to_be_taken_up" in pl || "leaves_for_next_leg" in pl) {
+    fails.push(`(u) planLeg does not hand a Leg what the Legs before it state and the Persona's prior knowledge, reading no Move of a Leg's and handing no leaves_for_next_leg (kogaki#1853): ${JSON.stringify(pl)}`);
   }
   // NO RECORD REACHES THE PACKET (kogaki#1584): the template's waypoints block names no Promise or Keeps line.
   const t = readFileSync("src/packet-template.md", "utf8");
