@@ -248,7 +248,9 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const rec = compose.legRecord({ ...leg1276("s1"), waypoints: [{ point: "a point", case: "own", move: "p", segments: "1. x" }] });
   if (rec.waypoints.some((w) => Object.keys(w).sort().join() !== "case,point")) fails.push(`(ax) legRecord wrote a waypoint field other than point and case: ${JSON.stringify(rec.waypoints)}`);
   const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  for (const f of ["move", "segments"]) {
+  const sv = compose.validateLegs(legsWith({ serves: ["L1"] }), []).error || ""; // kogaki#1861: `serves` is retired by name
+  if (!/leg 1 \(s1\): waypoint 1 carries `serves`, which is retired/.test(sv)) fails.push(`(ax) a waypoint carrying \`serves\` was not refused by name: ${sv}`);
+  for (const f of ["move", "segments", "serves"]) {
     if (schema.waypoint.fields[f]) fails.push(`(ax) src/leg-schema.json's waypoint still declares \`${f}\``);
   }
   if (JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).paragraph_move_unit) fails.push("(ax) src/brief-workflow.json still carries the paragraph_move_unit row");
@@ -464,21 +466,6 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   if (!c || c.required !== true || JSON.stringify(c.values) !== JSON.stringify(["own", "apart"])) {
     fails.push(`(bd) src/leg-schema.json's waypoint does not declare a required \`case\` whose values are the validator's: ${JSON.stringify(c)}`);
   }
-}
-
-// (be) kogaki#1861 -- SERVES IS RETIRED FROM THE BRIEF WAYPOINT. A Brief Waypoint carrying
-// `serves` is refused by `validateLegs`, naming the Leg, the waypoint and the key, and the
-// Leg schema's waypoint declares no `serves`.
-{
-  const legs = [leg1276("s1", { opens_section: "Intro", waypoints: [{ point: "the term is defined", serves: ["L1"], case: "own" }] }),
-    leg1276("s2", { reaches_target: true })];
-  const r = compose.validateLegs(legs, []);
-  if (!r.error) fails.push("(be) a Brief Waypoint carrying `serves` was not refused");
-  else if (!/leg 1 \(s1\): waypoint 1 carries `serves`, which is retired/.test(r.error) || !r.error.includes("kogaki#1861")) {
-    fails.push(`(be) a Brief Waypoint carrying \`serves\` was refused without naming the Leg, the waypoint and the key: ${r.error}`);
-  }
-  const schema = JSON.parse(readFileSync("src/leg-schema.json", "utf8"));
-  if (schema.waypoint.fields.serves) fails.push("(be) src/leg-schema.json's waypoint still declares `serves`");
 }
 
 if (fails.length > 0) {

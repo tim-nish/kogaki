@@ -182,13 +182,7 @@ export function budgetRefusal(budget, at) {
 // rule and the method-verb rule, for Brief Waypoints at composition only
 // (kogaki#1449, kogaki#1554). `paragraph` marks a Waypoint list, which
 // carries no `case` (kogaki#1732). PURE, re-run by `src/draft.mjs` over a parsed Brief.
-export function waypointsRefusal(
-  waypoints,
-  at,
-  ordinals = null,
-  claimText = null,
-  { paragraph = false } = {},
-) {
+export function waypointsRefusal(waypoints, at, ordinals = null, claimText = null, { paragraph = false } = {}) {
   const def =
     "a waypoint is a point its paragraph makes, carrying a `point` " +
     "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on " +
@@ -236,9 +230,7 @@ export function waypointsRefusal(
     // one is refused here, at every read, the way `move` and `segments` are.
     // SERVES IS RETIRED FROM THE WAYPOINT BY NAME (kogaki#1861, owner decision 2026-11-18).
     if (Object.hasOwn(w, "serves")) {
-      return (
-        `${at}: ${nth} carries \`serves\`, which is retired — a waypoint names no Strand (kogaki#1861). ${def}`
-      );
+      return `${at}: ${nth} carries \`serves\`, which is retired — a waypoint names no Strand (kogaki#1861). ${def}`;
     }
     if (Object.hasOwn(w, "join")) {
       return (

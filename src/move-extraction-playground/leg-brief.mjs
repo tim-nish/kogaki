@@ -278,7 +278,10 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
   const waypoints = Array.isArray(leg.waypoints) ? leg.waypoints : [];
   const parts = [
     { leg: { ...leg, waypoints: [] }, place: null },
-    ...waypoints.map((w, j) => ({ leg: { leg_id: leg.leg_id, waypoints: [w], materials: [`L${offset + j + 1}`] }, place: j })),
+    ...waypoints.map((w, j) => ({
+      leg: { leg_id: leg.leg_id, waypoints: [w], materials: [`L${offset + j + 1}`] },
+      place: j,
+    })),
   ];
   let v = null;
   let place = null;
@@ -314,9 +317,7 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
 export function claimCoverageRefusal(leg, at = "leg 1") {
   const formsOf = (texts) => new Set(texts.flatMap((t) => wordsOf(t)).flatMap((w) => [...wordForms(w)]));
   for (const [i, g] of leg.claims.entries()) {
-    const serving = leg.waypoints
-      .map((w, j) => [j + 1, w])
-      .filter(([j, w]) => isMap(w) && j === i + 1);
+    const serving = leg.waypoints.map((w, j) => [j + 1, w]).filter(([j, w]) => isMap(w) && j === i + 1);
     const allowed = formsOf(serving.map(([, w]) => String(w.point ?? "")));
     const word = wordsOf(g.proposition).find(
       (w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w) && ![...wordForms(w)].some((f) => allowed.has(f)),

@@ -837,10 +837,7 @@ export function runShortTrial({
   const paragraphs = stage("waypoints", (d, env) => {
     let listed;
     if (owned) {
-      const all = [
-        suppliedEntry(owned.record),
-        ...projectionsOf(owned.record).map((p) => suppliedEntry(p)),
-      ];
+      const all = [suppliedEntry(owned.record), ...projectionsOf(owned.record).map((p) => suppliedEntry(p))];
       const library = loadMoveContracts(libraryDir);
       const owner = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
       listed = all.map((e) => ({
