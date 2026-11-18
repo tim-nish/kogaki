@@ -18,9 +18,11 @@ node --input-type=module - <<'JS'
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg,
+import { readBrief, renderPacket, sectionsOf, sectionOfLeg,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal,
-  journeyProseFromShardLines, READER_OWN_WORLD_ABSENT } from "./src/draft.mjs";
+  journeyProseFromShardLines } from "./src/draft.mjs";
+// The stated absence prompts/draft/write-leg.prompt renders for a Persona with no prior knowledge (kogaki#1855).
+const READER_OWN_WORLD_ABSENT = "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, legRecord } = compose;
@@ -48,11 +50,10 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
   const brief = briefOfRecord(recordOf(path()), "n.yaml");
   if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(n) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
-  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   const sections = sectionsOf(brief.legs);
   const packets = {};
   for (const leg of brief.legs) {
-    const r = renderPacket({ template: split.packet, brief, leg: planned(leg), priorSections: [],
+    const r = renderPacket({ brief, leg: planned(leg), priorSections: [],
       section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
     if (r.error) { fails.push(`(n) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
     packets[leg.leg_id] = r.packet;
@@ -80,13 +81,11 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const brief = briefOfRecord(recordOf(legs), "o.yaml");
   if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(o) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
   else {
-    const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
-    if (split.error) fails.push(`(o) the Packet template did not split: ${split.error}`);
-    else {
+    {
       const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
         "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
       const sections = sectionsOf(brief.legs);
-      const r = renderPacket({ template: split.packet, brief, leg: planned(brief.legs[0]), moveText, priorSections: [],
+      const r = renderPacket({ brief, leg: planned(brief.legs[0]), moveText, priorSections: [],
         ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
       if (r.error) fails.push(`(o) the Packet for s1 did not render: ${r.error}`);
       else {
@@ -128,11 +127,9 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
     strands: [{ id: "L1", slug: "first-strand",
       cites: [{ kind: "journey cite", cite: "product-lab::journey/first-journey@0011223344556677" }] }],
   };
-  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
-  if (split.error) fails.push(`(p) the Packet template did not split: ${split.error}`);
-  else {
+  {
     const sections = sectionsOf(brief.legs);
-    const r = renderPacket({ template: split.packet, brief, leg: planned(leg), priorSections: [],
+    const r = renderPacket({ brief, leg: planned(leg), priorSections: [],
       ledgerRow: undefined, section: sectionOfLeg(brief.legs).get("s1"), sections });
     if (r.error) fails.push(`(p) the Packet for s1 did not render: ${r.error}`);
     else {
@@ -147,7 +144,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
     waypoints: [{ point: "the paragraph establishes what s2 claims", serves: ["L1"], case: "own" }],
     journeys: [{ strand: "L1", use: "an example to retell" }] };
   const sections2 = sectionsOf([legUnresolved]);
-  const r2 = renderPacket({ template: split.packet, brief: { ...brief, legs: [legUnresolved] }, leg: planned(legUnresolved),
+  const r2 = renderPacket({ brief: { ...brief, legs: [legUnresolved] }, leg: planned(legUnresolved),
     priorSections: [], ledgerRow: undefined, section: sectionOfLeg([legUnresolved]).get("s2"), sections: sections2 });
   if (!r2.error) fails.push("(p) a Journey entry with no resolvedText rendered a Packet instead of refusing");
   else if (!/s2's Journey text/.test(r2.error)) fails.push(`(p) the unresolved-Journey refusal does not name the Leg's Journey text: ${r2.error}`);
@@ -331,7 +328,6 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   // refusing (kogaki#1285 acceptance), and an absent `prior_knowledge` grants
   // no extra word to a claim line while refusing nothing (kogaki#1281).
   writeFileSync(personaNoKnowledge, "id: fixture\nlanguage: English\npersona:\n  reader: >-\n    A fixture reader.\nregister: |\n  **Register C.** Persona C's rule, verbatim.\n");
-  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
   const legOf = (leg_id, extra = {}) => ({
@@ -350,7 +346,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
     rec.reader_path[0][field] = value;
     return briefOfRecord(rec, "carrying.yaml");
   };
-  const render = (brief, leg) => renderPacket({ template: split.packet, brief, leg: planned(leg), moveText, priorSections: [],
+  const render = (brief, leg) => renderPacket({ brief, leg: planned(leg), moveText, priorSections: [],
     ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
   const writeBlock = (packet) => packet.slice(packet.indexOf("\n## Write\n"));
   const block = (packet, from, to) => {
@@ -498,7 +494,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
       const sectionOf = sectionOfLeg(brief.legs);
       const s1Prose = "Section One's own prose, as written.";
       const renderWithPrior = (leg, priorSections) => renderPacket({
-        template: split.packet, brief, leg: planned(leg), moveText, priorSections,
+        brief, leg: planned(leg), moveText, priorSections,
         section: sectionOf.get(leg.leg_id), sections,
       });
       const ARTICLE = "## The article so far, up to this Leg:";

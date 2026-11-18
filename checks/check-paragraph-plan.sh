@@ -104,7 +104,20 @@ const { PARAGRAPH_PLAN_FILE, PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOV
   segmentsForPlanCall, toldBefore, legRoles, planLegOptions } = await imp("src/paragraph-plan.mjs");
 const { parseYaml, stringifyYaml } = await imp("src/yaml.mjs");
 const { JOIN_TYPES, CAST_KEYS, PLAN_SCHEMA_KEYS } = await imp("src/compose/record.mjs");
-const { waypointLines } = await imp("src/draft.mjs");
+const { renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
+const { treeWith, removeTrees } = await imp("checks/fixtures/tree-copy.mjs");
+// THE WAYPOINT LINES THE WRITER IS SHOWN (kogaki#1855): the numbered lines of the Packet's waypoints block,
+// rendered through prompts/draft/write-leg.prompt over a one-Leg Brief.
+const WRITER_PROMPT_FILE = "prompts/draft/write-leg.prompt";
+const waypointLines = (leg) => {
+  const l = { leg_id: "s1", ...leg };
+  const brief = { record: { compose_path: "audiences/dev-to-zenn.md" }, legs: [l], strands: [] };
+  const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  if (r.error) return `(no Packet: ${r.error})`;
+  const block = r.packet.slice(r.packet.indexOf("## The waypoints this Leg takes the reader through"), r.packet.indexOf("\n## The claims this Leg asserts"));
+  const lines = block.split("\n");
+  return lines.slice(lines.findIndex((x) => /^1\. /.test(x))).join("\n").replace(/\n+$/, "");
+};
 const { JUDGE_INPUT_MARKER } = await imp("src/workflow/judge.mjs");
 const BOUND = 2;
 
@@ -563,12 +576,12 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
       fails.push(`(g) the rendered Packet does not carry the paragraph's line and three indented Waypoints under it: ${JSON.stringify(rendered)}`);
     }
   }
-  const flatHeader = readFileSync("src/packet-template.md", "utf8").replace(/\s+/g, " ");
+  const flatHeader = readFileSync(WRITER_PROMPT_FILE, "utf8").replace(/\s+/g, " ");
   if (!flatHeader.includes("rendered as the sentences it is") || !flatHeader.includes("adds no sentence that no indented line carries")) {
-    fails.push("(g) src/packet-template.md's waypoints header does not state that each line is rendered as the sentences it is and none is added");
+    fails.push("(g) prompts/draft/write-leg.prompt's waypoints header does not state that each line is rendered as the sentences it is and none is added");
   }
   for (const retired of ["as many sentences as it needs", "its wording is yours"]) {
-    if (flatHeader.includes(retired)) fails.push(`(g) src/packet-template.md's waypoints header still carries the retired "${retired}"`);
+    if (flatHeader.includes(retired)) fails.push(`(g) prompts/draft/write-leg.prompt's waypoints header still carries the retired "${retired}"`);
   }
 }
 
@@ -802,15 +815,15 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (lines.length !== want.length || !want.every((w, i) => lines[i].startsWith(w))) {
     fails.push(`(n) waypointLines does not render one line per paragraph, its Opens-from line under it and before its Waypoints: ${JSON.stringify(rendered)}`);
   }
-  const t = readFileSync("src/packet-template.md", "utf8");
-  const block = t.slice(t.indexOf("## The waypoints this Leg takes the reader through"), t.indexOf("{{waypoints}}"));
+  const t = readFileSync(WRITER_PROMPT_FILE, "utf8");
+  const block = t.slice(t.indexOf("## The waypoints this Leg takes the reader through"), t.indexOf("{{#each waypoints.paragraphs}}"));
   if (!block.includes("An *Opens from* line under a numbered line carries one word")
     || !block.includes("`none` adds nothing.") || !block.includes("The word is not copied and not announced.")) {
-    fails.push("(n) src/packet-template.md's waypoints block does not carry the Opens-from instruction");
+    fails.push("(n) prompts/draft/write-leg.prompt's waypoints block does not carry the Opens-from instruction");
   }
-  const comment = t.slice(t.indexOf("NO MOVE REACHES THE PACKET"), t.indexOf("-->", t.indexOf("NO MOVE REACHES THE PACKET")));
+  const comment = t.slice(t.indexOf("NO MOVE REACHES THE PACKET"), t.indexOf("--}}", t.indexOf("NO MOVE REACHES THE PACKET")));
   if (!comment.includes("is the ParagraphPlan's join, one word of a closed set of")) {
-    fails.push("(n) src/packet-template.md's Move-boundary comment does not say the join is a ParagraphPlan relation word carrying nothing of a Move");
+    fails.push("(n) prompts/draft/write-leg.prompt's Move-boundary comment does not say the join is a ParagraphPlan relation word carrying nothing of a Move");
   }
 }
 
@@ -920,9 +933,9 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     fails.push(`(u) planLeg does not hand a Leg what the Legs before it state and the Persona's prior knowledge, reading no Move of a Leg's and handing no leaves_for_next_leg (kogaki#1853): ${JSON.stringify(pl)}`);
   }
   // NO RECORD REACHES THE PACKET (kogaki#1584): the template's waypoints block names no Promise or Keeps line.
-  const t = readFileSync("src/packet-template.md", "utf8");
-  const block = t.slice(t.indexOf("## The waypoints this Leg takes the reader through"), t.indexOf("{{waypoints}}"));
-  if (block.includes("*Promise:*") || block.includes("*Keeps:*")) fails.push("(u) src/packet-template.md's waypoints block still names a Promise or Keeps line");
+  const t = readFileSync(WRITER_PROMPT_FILE, "utf8");
+  const block = t.slice(t.indexOf("## The waypoints this Leg takes the reader through"), t.indexOf("\n## The claims this Leg asserts"));
+  if (block.includes("*Promise:*") || block.includes("*Keeps:*")) fails.push("(u) prompts/draft/write-leg.prompt's waypoints block still names a Promise or Keeps line");
 }
 
 // (d) A Brief whose Leg carries `waypoints`, or no `text`, is refused at start by name (kogaki#1777).
@@ -989,10 +1002,18 @@ for (const [label, bad, want] of [
     ["an Issue number", (t) => line(t, axes[axes.length - 1].id, (l) => l.replace(/[.]$/, " (kogaki#1477).")), `${axes[axes.length - 1].id} carries an Issue number`],
     ["a word over the bound", (t) => { t.criteria.words_max = 20; }, "over the bound of 20"],
     ["a criterion the registry does not name", (t) => line(t, axes[axes.length - 1].id, (l) => `${l}\n- SEVENTH: The join is judged.`), '"SEVENTH"]'],
-    ["text around the criteria", (t) => { t.paragraph_plan_judge_unit.judgment_point += " Judge carefully.".repeat(300); }, "rendered judgment point runs"],
-    ["a second sentence in a shared block", (t) => { t.shared_text.operation_is_performed += " It is never content."; }, "shared text operation_is_performed is not one sentence"]]) {
+    ["text around the criteria", (t) => { t.paragraph_plan_judge_unit.judgment_point += " Judge carefully.".repeat(300); }, "rendered judgment point runs"]]) {
     const why = grown(edit);
     if (!why.includes(want)) fails.push(`(s) a judge row grown by ${what} is not refused naming it: ${why || "no refusal"}`);
+  }
+  // A SHARED PASSAGE IS A FILE UNDER prompts/paragraph-plan/ (kogaki#1855): grown in a copy of src/ and prompts/.
+  {
+    const f = "prompts/paragraph-plan/_operation-is-performed.prompt";
+    const tree = treeWith(repo, { [f]: readFileSync(f, "utf8").replace(/\n$/, "") + " It is never content.\n" });
+    const copied = await tree("src/paragraph-plan.mjs");
+    const why = copied.criteriaFailures(table).join("; ");
+    if (!why.includes("shared text operation_is_performed is not one sentence")) fails.push(`(s) a judge row grown by a second sentence in a shared passage is not refused naming it: ${why || "no refusal"}`);
+    removeTrees();
   }
 }
 

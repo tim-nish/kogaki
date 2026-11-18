@@ -1,0 +1,17 @@
+{{#each history}}
+----- YOUR PREVIOUS ANSWER (call {{call}}) -----
+{{#if answer}}{{answer}}{{else}}(no record was read){{/if}}
+----- IT WAS REFUSED -----
+{{refusal}}
+
+{{/each}}
+{{#if whole_new_record}}
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with a whole new record. Keep nothing of the previous one: the refusal names what the new
+record cannot contain. The input below is unchanged.
+{{else}}
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+{{/if}}
+

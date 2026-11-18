@@ -44,7 +44,7 @@ enumeration is deliberate:
    reader states are consistent specializations of its Move's contract
    (`src/specialization-schema.json`).
 4. **Section realization** — the model writes one Section's prose from one
-   Packet (`src/packet-template.md`).
+   Packet (`prompts/draft/write-leg.prompt`).
 
 Judgment sits **between** deterministic parts and never around them: at each of
 the four, the order of what happens next is already fixed, and the model
@@ -155,7 +155,7 @@ its own carrier, not the block's aggregate:
   prose. Heading authorship was *unowned*, which is why the repair needed a
   second act — `section` refuses realized prose carrying a heading of its own.
 - **BUILT, #825** — the vocabulary collision this ruling creates inside the
-  Packet is reconciled. `src/packet-template.md`'s block headers are rewritten
+  Packet is reconciled. `prompts/draft/write-leg.prompt`'s block headers are rewritten
   to the Leg (`# Write one Leg`, `## The Move this Leg performs — its
   contract`, `## This Leg`), and it gains `## The Section this Leg sits in`,
   so the two words name two units inside the realizer's entire input.
@@ -170,7 +170,7 @@ its own carrier, not the block's aggregate:
 
 **THE VOCABULARY COLLISION IS DISCLOSED HERE RATHER THAN LEFT TO ITS CARRIER,**
 because this record is what creates it, **and it was wider than the Packet
-template.** `src/packet-template.md` shipped block headers reading `# Write one
+template.** `prompts/draft/write-leg.prompt` shipped block headers reading `# Write one
 Section`, `## The Move this Section performs` and `## This Section's Leg` — all
 using *Section* for what this section calls a **Leg**. After this ruling
 `This Section's Leg` was a category error and `Write one Section` instructed the
@@ -216,7 +216,7 @@ two names rather than treating the collision as one:
 - **The proper noun renames completely.** *Section Packet* → **Leg Packet**, at
   every site carrying it in one act: `specs/spec-draft-pipeline/SPEC.md` §4.14,
   this file's §2.1 and §3, `checks/registry.json`'s `draft-runtime` contract,
-  `src/draft.mjs`, and `src/packet-template.md`. No subset.
+  `src/draft.mjs`, and `prompts/draft/write-leg.prompt`. No subset.
 - **The ordinary-word misuses are fixed**, the template's block headers and the
   trace sentence included.
 - **The `section` subcommand is RETAINED, with the retention recorded** at
@@ -405,7 +405,7 @@ condescension rather than a constraint anything can hold.
 
 **The three controls are named here and their TEXT is not.** Two of them —
 the operational definition and the round-trip test — are **operational**, so
-their carrier is `src/packet-template.md`, which the model reads at generation.
+their carrier is `prompts/draft/write-leg.prompt`, which the model reads at generation.
 The third, candidates rather than a single rendering, is discharged by the
 selection gate that already exists.
 
@@ -447,7 +447,7 @@ assertion and left the rest. Between that removal and kogaki#752 the rule was
 live — the composer emitted concessions and the gate registry required them —
 and nothing refused a missing one.
 
-**The one-relation-per-sentence clause left `src/packet-template.md` on
+**The one-relation-per-sentence clause left `prompts/draft/write-leg.prompt` on
 2026-09-30 (kogaki#1230)**, along with the "explain this for beginners"
 sentence and the "three tests" reference to it. Applied literally, the clause
 produced the fragment runs the owner found hard to read; no instruction
@@ -576,7 +576,7 @@ satisfied most cheaply by removing behaviour.
 
 | held | fate |
 |---|---|
-| §4 clauses 1–2 (the operational definition, the round-trip test) | `src/packet-template.md` — operational, read at generation |
+| §4 clauses 1–2 (the operational definition, the round-trip test) | `prompts/draft/write-leg.prompt` — operational, read at generation |
 | §4's ground + its pinned served quote | §4 above |
 | §3's prohibition + its pinned served quote | §5 prohibition 2 above |
 | §1's no-per-run-style-questions, the no-second-artifact rule | §5 prohibitions 1 and 3 above |

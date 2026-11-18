@@ -7,7 +7,7 @@ of the article pipeline and the one artifact it creates; it implements nothing.
 ## What this file is for, and what it is not
 
 No runtime reads this file. `/draft`'s behaviour is carried by `src/draft.mjs`,
-`src/packet-template.md`, `src/cite-check.mjs` and the registered checks, and
+`prompts/draft/write-leg.prompt`, `src/cite-check.mjs` and the registered checks, and
 where one of those decides a question this file points at it.
 
 **Every section carries a `necessity:` line** — the one reason it cannot live in
@@ -227,7 +227,7 @@ the reason it was always given.
 
 **LLM — judgment, contract-bound, unharnessed.** The prose: realizing each
 Leg's `waypoints` and claims (the state fields are retired, kogaki#1699),
-written from that Leg's stated grounds. Register per `src/packet-template.md`, grounded
+written from that Leg's stated grounds. Register per `prompts/draft/write-leg.prompt`, grounded
 at `specs/spec-brief-draft-design/DESIGN.md` §4. **A claim widened beyond its
 quoted scope is the author's judgment and is attributed as such.**
 
@@ -264,7 +264,7 @@ against it is an argument rather than a configuration.
   `/variant`**, which gets its own carrier when demanded.
 - **It creates no Move and mandates none.**
 - **It adds no second Register artifact.** Register is **operational text in
-  `src/packet-template.md`**, which the model reads at generation; its ground is
+  `prompts/draft/write-leg.prompt`**, which the model reads at generation; its ground is
   `specs/spec-brief-draft-design/DESIGN.md` §4. This spec neither restates nor
   supplements either.
 - **It does not amend `specs/spec-draft-pipeline/SPEC.md`.**

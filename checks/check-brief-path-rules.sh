@@ -28,7 +28,7 @@ import { BRIEF_FLOW } from "./src/brief/job-verbs.mjs";
 bindFlow(BRIEF_FLOW);
 import * as compose from "./src/compose.mjs";
 import { attachReview, REVIEW_AREAS } from "./src/review.mjs";
-import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
+import { readBrief, renderPacket, sectionsOf, sectionOfLeg } from "./src/draft.mjs";
 import { recordOf, briefOfRecord, legacyLegsToText, leg1276, cand1276 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 import { METHOD_VERBS } from "./src/compose/leg-schema.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
@@ -66,10 +66,8 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const brief = briefOfRecord(recordOf([leg]), "am.yaml");
   if (brief.refusals.length || brief.legs.length !== 1) fails.push(`(am) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
   else {
-    const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
-    if (split.error) fails.push(`(am) the Packet template did not split: ${split.error}`);
-    else {
-      const r = renderPacket({ template: split.packet, brief, leg: planned(brief.legs[0]), priorSections: [],
+    {
+      const r = renderPacket({ brief, leg: planned(brief.legs[0]), priorSections: [],
         section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
       if (r.error) fails.push(`(am) the Packet for s1 did not render: ${r.error}`);
       else {

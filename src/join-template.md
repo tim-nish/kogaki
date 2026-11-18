@@ -2,7 +2,7 @@
 The JOIN PACKET template (kogaki#872) — the judging model's ENTIRE input for
 ONE (Leg, item) pair.
 
-Runtime-read, like src/packet-template.md:
+Runtime-read, like prompts/draft/write-leg.prompt:
 `review-draft compare` fills the {{...}} slots and writes the result into the
 run workspace, and the written result is everything the judging model reads.
 

@@ -5159,7 +5159,7 @@ subsystem per PR through the gate above:
    generation. **The carrier SPLIT at kogaki#749 and kogaki#752** and this row
    names all three halves rather than the one it used to: the two OPERATIONAL
    clauses (plain register's definition, the round-trip test) live in
-   `src/packet-template.md`, which the model reads at generation; their GROUND
+   `prompts/draft/write-leg.prompt`, which the model reads at generation; their GROUND
    and the three standing prohibitions live in
    `specs/spec-brief-draft-design/DESIGN.md`; and
    `specs/spec-style-contract/SPEC.md` (v1, kogaki#426) is **DELETED** at

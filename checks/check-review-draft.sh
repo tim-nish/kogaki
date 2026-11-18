@@ -66,7 +66,7 @@ import { pathToFileURL } from "node:url";
 const fails = [];
 const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
-const { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
+const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 const { readDraft, readItems, buildJoin } = await import(pathToFileURL(join(repo, "src", "review-draft.mjs")).href);
 const { forcedParagraphLines } = await import(pathToFileURL(join(repo, "src", "review-draft", "close.mjs")).href);
 const sha = (s) => createHash("sha256").update(s).digest("hex");
@@ -90,11 +90,10 @@ const brief = readBrief(briefRecordText({
   thesis: "The fixture claim.", reader_path: [legRecord({ leg_id: "s1", text: LEG_TEXT, claims: [{ strand: "L1", proposition: C1 }] })],
   strand_coverage: [], journey_coverage: [], tradeoffs: {}, bridged: {},
 }), "theses/review-brief/brief.yaml");
-const template = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8")).packet;
 const packetFor = (join_) => {
   const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"], ...(i === 1 && join_ ? { join: join_ } : {}),
     paragraph_waypoints: [{ point, serves: ["L1"], cast: {} }] })) };
-  const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
   return r.packet || "";
 };
@@ -177,7 +176,7 @@ const packetWith = ({ performs = false } = {}) => {
   const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
     paragraph_waypoints: [{ point, serves: ["L1"], cast: {} },
       ...(i === 0 && performs ? [{ performs: OPERATION }] : [])] })) };
-  const r = renderPacket({ template, brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
   return r.packet || "";
 };
@@ -231,7 +230,7 @@ else {
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
   for (const [name, forced] of [["forced", true], ["plain", false]]) {
-    const r = renderPacket({ template, brief, leg: leg(forced), priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+    const r = renderPacket({ brief, leg: leg(forced), priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
     if (r.error) fails.push(`(i) the ${name} fixture Packet did not render: ${r.error}`);
     writeFileSync(join(dir, "packets", `${name}.md`), r.packet || "");
   }

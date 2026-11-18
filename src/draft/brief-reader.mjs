@@ -180,19 +180,15 @@ function legRecordRefusal(raw, declared, at) {
 // renders nothing here, and so does every Leg of a Brief composed before
 // the mark existed: the empty string is a filled slot, and the absence is
 // deliberate — the earlier Legs owe nothing on this ground, so no line tells
-// them so. Exported for the check.
-export const REACHES_TARGET_LINE = "This Leg reaches the Reader target.";
-export const CLOSING_LEG_LINE =
-  "This Leg follows the Reader target: introduce nothing, raise nothing, " +
-  "and move only what the reader asks, expects or trusts.";
-export function readerTargetLine(legs, legId) {
+// them so. Its two sentences stand in prompts/draft/write-leg.prompt under these cases (kogaki#1855).
+export function readerTargetCase(legs, legId) {
   const list = Array.isArray(legs) ? legs : [];
   const targetIdx = list.findIndex((s) => s && s.reaches_target === true);
-  if (targetIdx < 0) return "";
+  if (targetIdx < 0) return {};
   const idx = list.findIndex((s) => s && s.leg_id === legId);
-  if (idx === targetIdx) return REACHES_TARGET_LINE;
-  if (idx > targetIdx) return CLOSING_LEG_LINE;
-  return "";
+  if (idx === targetIdx) return { reaches: true };
+  if (idx > targetIdx) return { closing: true };
+  return {};
 }
 
 // The closed-set refusal, in `fillBrief`'s own shape: name the foreign id AND
@@ -205,7 +201,7 @@ export function foreignStrandRefusal(id, strands) {
 // Scan LLM-authored prose for Strand tokens outside the closed set (AC2's
 // assertion shape: a run whose material names a foreign Strand refuses by
 // name). In-set tokens pass — whether internal vocabulary belongs in reader
-// prose at all is a register question — carried by src/packet-template.md and
+// prose at all is a register question — carried by prompts/draft/write-leg.prompt and
 // grounded at specs/spec-brief-draft-design/DESIGN.md, "Plain register, and the round trip" — not the closed set's.
 export function scanForeignStrands(content, strands) {
   const set = new Set(strands.map((s) => s.id));

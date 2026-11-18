@@ -5,7 +5,7 @@
 // trace, the Packets the trace names, and of the Brief only its `defined_terms`
 // (kogaki#1331). No code path under src/review-draft/ opens a Move or a
 // Strand; a check that needs one is a PACKET GAP filed against
-// `src/packet-template.md`. THE HARNESS OWNS THE ORDERING of the commands, the
+// `prompts/draft/write-leg.prompt`. THE HARNESS OWNS THE ORDERING of the commands, the
 // item table (`src/review-items.json`, kogaki#872) holds every consequence a
 // verdict has, and the run ends at `review.md` after at most two passes. The
 // cold reader is gone by ruling (kogaki#1133); figures landed at kogaki#880.
@@ -413,7 +413,7 @@ that no longer exists.
 
 It reads the Draft, its trace and the Packets that trace names — no Brief, no
 Move file, no Strand. A check that needs anything else is a Packet gap and is
-filed against src/packet-template.md.
+filed against prompts/draft/write-leg.prompt.
 `;
 
 async function main() {
