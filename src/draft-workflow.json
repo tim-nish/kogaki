@@ -19,16 +19,9 @@
     "words_max": 20
   },
   "binds": {
-    "waypoints": {
+    "plan": {
       "leg": {
-        "text": "content",
-        "claims": "content"
-      },
-      "paragraph_plan": {
-        "paragraphs.join": "operation",
-        "paragraph_waypoints.point": "content",
-        "paragraph_waypoints.performs": "operation",
-        "paragraph_waypoints.cast": "operation"
+        "relation": "content"
       }
     },
     "claims": {

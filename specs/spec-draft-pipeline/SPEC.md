@@ -1817,22 +1817,25 @@ Reader writes the point each paragraph makes, and the `waypoints` row asks
 whether each declared point is among them. `draft.mjs` opens no
 Move file to render it.
 
-**Where the ParagraphPlan names a Mapping Record, a Brief Waypoint's line is its
-structure in the reader's material, never its `point`** (kogaki#1735). The
-numbered line renders the structure's relation `holds` sentences in
-`relations` order, then the higher-order `holds`, each `{<id>}` replaced by
-that Role's expression in the Waypoint's `table.yaml` (§4.19.2), by the short
-Trial's own function (§4.20.2); a Waypoint after an `apart` one reads its
-predecessor's structure and its own table. The `*Serves:*` tail is unchanged.
-The `point` stays in the Brief as the composer's statement and the judge's
-reading, and the Packet carries none of it, so the Writer never reads the
-Waypoint in the WriterBasedStrand's vocabulary above Waypoints
-confined to the reader's (§4.20). A Packet is refused naming the Leg and the
-Waypoint where the record carries no structure or no table for a Waypoint, or
-where a `holds` placeholder names a Role the table gives no expression; a plan
-naming no Mapping Record, or a record holding no file, renders the `point` as
-before.
-`checks/check-draft-packet.sh` carries both.
+**The waypoints block is retired, and the plan block takes its place**
+(kogaki#1859, owner decision 2026-11-18: "Points must not be passed to the
+Writer. Points are for debugging."). The Packet's first block is headed "The
+plan of this paragraph". It opens with six fixed sentences saying the block is
+a plan and not a draft, that none of its wording is kept, and that one thing
+keeps one name through the paragraph. Where the Brief carries a `structure`
+and the Leg names a `relation`, it then lists the Leg's Arguments and its
+CentralClaim, each as the one sentence `legSentences` gives
+(`src/structure-mapping-playground/move-structure.mjs`). Where the Leg carries
+`segments` (the short Trial under a Move table, §4.20), it lists one part per
+Segment: `Argument <k>`, `CentralClaim` or `Neither`, and the Segment's Sense
+with the earlier parts it names. Otherwise it says the claims below are the
+whole plan. No Point, no `*Serves:*` tail, no join, no cast and no operation
+line renders, and a Mapping Record no longer changes any line: two plans that
+differ only in their Points render one Packet byte for byte. The ParagraphPlan
+is still read and still holds the Points. What this section says of the
+waypoints block, its Waypoints and their *Opens from*, *Cast* and italic lines
+describes the Packet before kogaki#1859. `checks/check-draft-packet.sh`
+carries the plan block.
 
 **Under each point, its Waypoints — and nothing of a Move**
 (kogaki#1375, owner decision 2026-10-14). `draft.mjs` reads the ParagraphPlan
@@ -2489,7 +2492,7 @@ Every block of the Leg Packet (§4.14), sorted under that rule:
 
 | Packet block | sorted as |
 |---|---|
-| the waypoints, with their Waypoints, *Opens from*, *Cast* and italic lines | **structure** — the plan; the only lines that fix what a paragraph says and in what order; a Brief Waypoint's line is its structure in its table's expressions where the plan names a Mapping Record (§4.14, kogaki#1735) |
+| the plan of this paragraph: the Leg's Arguments and CentralClaim, and one part per Segment under a Move table | **structure** — the plan; the only lines that fix what a paragraph says and in what order; no Point of the ParagraphPlan renders (§4.14, kogaki#1859) |
 | the claims this Leg asserts | material — each claim as its proposition |
 | the Journey material | material — the served text, edited, never a claim to recover |
 | the Section, and the reader-target line | material — where the Leg sits and whether it may still introduce anything |
@@ -2954,11 +2957,10 @@ Waypoint bears, and admits `none` and `contrast` where the paragraph defers
 what the `after` leaves open — a paragraph may answer a question later than
 the reader raised it. The plan reader and the plan call's validator
 (`joinRefusal`) refuse a sentence, an empty value and a word outside the set by
-name. The Packet renders the word as `*Opens from:* <type>`, and the Writer
-realises it with a connective or clause of the register's own, or with nothing
-where the order of the sentences already carries it, never as a proposition of
-its own. **Why a word and not a sentence**: the join was one sentence
-(kogaki#1411), and it is the one plan field whose reader is the Writer; a
+name. The join stays in the ParagraphPlan and reaches no Packet (kogaki#1859);
+until then the Packet rendered it as one word beneath its paragraph's line.
+**Why a word and not a sentence**: the join was one sentence
+(kogaki#1411), and it was then the one plan field whose reader was the Writer; a
 sentence the Writer must realise in its own text is content to the Writer, and
 on the 2026-10-19 Move-Extraction Playground run every paragraph after the first opened on its
 join paraphrased as a clause. A Segment's `relation` stays prose, because the

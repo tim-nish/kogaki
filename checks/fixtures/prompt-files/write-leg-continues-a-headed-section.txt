@@ -1,50 +1,15 @@
 # Write one Leg
 
-## The waypoints this Leg takes the reader through
+## The plan of this paragraph
 
-Each numbered line below is a point this Leg makes, in order, and the claim
-it serves — one paragraph, carrying that point. Under it, the indented
-numbered lines are the points that paragraph makes, in order, each with the
-claim it serves. Each indented line is rendered as the sentences it is, in
-their order, and the paragraph is those sentences joined: the register may
-change a connective or a reference between them, and changes nothing else.
-The paragraph adds no sentence that no indented line carries. No line is
-announced to the reader.
+This block is a plan.
+It is not a draft of the paragraph.
+Each sentence in it only says what is meant.
+None of its wording is kept.
+You choose every word of the paragraph.
+One thing keeps one name through the whole paragraph.
 
-- ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.
-- NOT A POINT: An italic line states no point.
-- IN PLACE: The paragraph performs it at the italic line's place among the points.
-- OWN WORDS: The paragraph performs it in its own words.
-- NO CLAIM: The sentence that performs it states no proposition.
-- NO VERDICT: The sentence that performs it passes no judgment on the material.
-- NO ANTICIPATION: The sentence that performs it names nothing of what follows.
-- NO REASON: The sentence that performs it gives no reason for the operation.
-
-An *Opens from* line under a numbered line carries one word -- consequence,
-grounds, contrast, elaboration, summary or none -- naming how that paragraph's
-first point stands to the paragraph before it. Realise it with a connective or
-clause of the register's own, or with nothing where the order of the sentences
-already carries it; `none` adds nothing. Never state the relation as a
-proposition of its own: the opening does not say that something was left open,
-is owed, or is now taken up. The word is not copied and not announced.
-
-A *Cast* line under an indented line names, from a fixed set, the shape the
-sentences of the line above it take. It is realised in those sentences' form
-and never as a sentence or clause of its own; nothing of it is copied or
-announced. The set:
-
-- terse: one short statement given at once, taking no elaboration after it.
-- plain: laid down without support, ground or qualification.
-- hedged: offered as a guess or forecast rather than asserted.
-- chained: a run of parallel items or alternatives inside one sentence.
-- asked: put as a question that takes no lead-in.
-- voiced: spoken in a named voice, the first person, an invitation, or words reported as another's.
-- instanced: one recognisable instance named and left without comment.
-- dated: each instance placed in time.
-- figured: asserted as a likeness or a figurative identification.
-
-1. An edit to the copy is lost on the next run. *Serves:* the next run overwrites an edit to the copy.
-   1. The next run overwrites the edit. *Serves:* the next run overwrites an edit to the copy.
+The claims below are the whole plan of this paragraph.
 
 ## The claims this Leg asserts
 
@@ -57,9 +22,9 @@ Leg may assert.
 
 ## The Journey material this Leg edits — NOT a claim to recover
 
-Material for a concrete example serving this Leg's waypoints — use as much or as little of it as the waypoints need, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
+Material for a concrete example serving this Leg — use as much or as little of it as the Leg needs, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
 
-Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg's waypoints**: cut it, compress it, use as much or as little as they need.
+Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg**: cut it, compress it, use as much or as little as it needs.
 
 Nothing here is a claim. The claims above are the whole of what this Leg asserts, and the round trip asks for those back and never for a fragment of a Journey. A Journey you use well may leave almost none of its original wording on the page.
 
@@ -111,11 +76,10 @@ Prose that writes its own heading is refused when the Leg is recorded.
 
 **The reader's own world.** The reader has installed a program from a package manager.
 
-**What the register below governs.** The register governs how sentences read
-inside the structure the numbered, italic and *Cast* lines above give: it
-adds, removes and reorders no point and no operation. Where a register rule
-and one of those lines conflict, the line holds and the
-rule yields for that sentence. Do not return a refusal for such a conflict.
+**What the register below governs.** The register governs how sentences read.
+It changes nothing the plan above says.
+Where a register rule and the plan conflict, the plan holds and the rule yields for that sentence.
+Do not return a refusal for such a conflict.
 
 **Sentences:** classic register, full clauses, a concrete subject acting,
 no unexplained term of art; not fragments, not runs of short sentences, not
@@ -136,9 +100,9 @@ it explains a term once, and nothing later points back to it.
 **The round trip — claims only.** Each claim above must be recoverable from
 what you write. A silent omission is not a simplification, it is a loss.
 Where making a claim plain loses something you cannot restore, answer it
-below, as a refusal — never as a sentence the waypoints do not carry.
+below, as a refusal.
 
-**When a step cannot be performed.** If a waypoint cannot be reached from
+**When a step cannot be performed.** If a part of the plan cannot be written from
 the material this Packet gives you, or material it should carry is
 missing, do not write around it and do not write a sentence telling the
 reader so. Return exactly this instead, as the whole of your response:

@@ -23,11 +23,9 @@
 #       the waypoints stage, the program matching no expression (kogaki#1811); an Inference Paragraph's points may name the base
 #       table's expressions, and a Role id in them is refused naming the paragraph (kogaki#1709).
 
-#   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet's first numbered line is the Leg's `text`, each
-#       `holds` in order with every `{<Role id>}` replaced by the Leg's own table's `expression` and no Role id (kogaki#1688,
-#       kogaki#1693, kogaki#1784); the fake
-#       waypoints answer sets `cast: { terse: true }` on the first Waypoint alone, and the Packet carries `*Cast:* terse`
-#       on the line beneath it and no other `*Cast:*` line (kogaki#1695).
+#   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet carries no Waypoint, no `*Serves:*` and no
+#       `*Cast:*` line, though the fake waypoints answer sets `cast: { terse: true }` on the first Waypoint, and says the claims
+#       are the whole plan, since this route hands no Brief `structure` (kogaki#1859).
 
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
@@ -48,7 +46,8 @@
 
 #   (j) the `--rbs-file` route with `tables`, one per binding (kogaki#1709), `move`, `waypoints` and `projection`, giving each Role id
 #       the expression `the crew's list` in the first table, exits 0 with
-#       one call, `bind.state: supplied`, `rbs.variant: owner-authored` and `rbs.source` the file (kogaki#1671, kogaki#1700); a file
+#       one call, `bind.state: supplied`, `rbs.variant: owner-authored` and `rbs.source` the file (kogaki#1671, kogaki#1700), and
+#       its Packet carries none of the supplied points (kogaki#1859); a file
 #       without `projection` is refused naming `projection` (kogaki#1689).
 #   (k) `--rbs-file` with `--compose` is refused naming both flags.
 #   (l) a `base` carrying `kind` or without `domain`, a table carrying `pairs`, an unknown `move` and a wrong-length `waypoints`
@@ -63,8 +62,8 @@
 #       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682, kogaki#1687, kogaki#1700).
 
 #   (o) a `projection` map and a list of one each exit 0 with one writer call, `bind.yaml`'s `paragraphs` has two entries, and
-#       the writer's stdin carries two numbered lines with their points indented, each the Leg's `text`, the structure in the
-#       projecting table's expressions (kogaki#1709, kogaki#1784), one claim line equal to the proposition,
+#       the writer's stdin carries none of either binding's points and no `*Serves:*` line (kogaki#1859), one claim line equal to
+#       the proposition,
 #       no `{` left, and no article-so-far prose; a list of two
 #       writes three Segments tables (kogaki#1681, kogaki#1688).
 #   (p) a projecting point carrying a claim word passes, and `attribute_hits` and `Attribute words` appear in no file of the run.
@@ -336,19 +335,13 @@ ok(a1.res.status === 0 && stagesOf(a1.rec) === STAGES && a1Leg && a1Leg.move ===
   && (a1Sheet.match(/<caption>Paragraph \d+ <span class="meta">[^<]*<\/span><\/caption><thead><tr><th>#/g) || []).length === 1 && (a1Sheet.match(/<caption>Binding \d+<\/caption>/g) || []).length === 1,
   `(a) a base Move leaving no carry did not write one paragraph under it, one binding and no Analogy Mapping: ${a1.res.status} ${stagesOf(a1.rec)} ${JSON.stringify(a1Leg)} ${a1.res.stderr}`);
 
-// (e) the writer's stdin is the Packet; its first numbered line is the structure in the Correspondence expressions
+// (e) the writer's stdin is the Packet; it carries no Waypoint, no Serves and no Cast line (kogaki#1859)
 const w = a.calls("write");
 const packet = existsSync(join(a.o, "write", "packet.md")) ? readFileSync(join(a.o, "write", "packet.md"), "utf8") : null;
 ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(e) the writer's recorded stdin is not the Packet byte for byte");
-const pLines = (packet || "").split("\n");
-const castAt = pLines.findIndex((l) => l.includes("PW-1-1 the gardener and the planting chart and a flower bed hold together."));
-ok(castAt !== -1 && pLines[castAt + 1] === "      *Cast:* terse" && pLines.filter((l) => l.includes("*Cast:*")).length === 1,
-  `(e) the Packet does not carry \`*Cast:* terse\` beneath the first Waypoint alone: ${JSON.stringify(pLines.slice(castAt, castAt + 2))}`);
-const aTop = pLines.find((l) => /^1\. .* \*Serves:\* /.test(l)) || "";
-const byBase = new Map(GARDEN.correspondences.map((c) => [c.role, c.expression]));
-// The Packet's numbered line is the Leg's `text` (kogaki#1784): the subject's structure in the Leg's own table.
-ok(aTop === `1. ${SECOND} *Serves:* ${PROPOSITION}` && !ROLE_IDS.some((id) => new RegExp(`\\b${id}\\b`, "i").test(aTop.split(" *Serves:* ")[0])),
-  `(e) the Packet's first numbered line is not the holds with the Correspondence expressions substituted and no Role id: ${JSON.stringify(aTop)}`);
+ok(packet !== null && !packet.includes("PW-1-1") && !packet.includes("*Serves:*") && !packet.includes("*Cast:*")
+  && packet.includes("\nThe claims below are the whole plan of this paragraph.\n"),
+  "(e) the Packet carries a Waypoint, a Serves or a Cast line, or does not say the claims are the whole plan");
 
 // (b) the Mapper route
 writeFileSync(join(root, "answer.json"), JSON.stringify(mapped));
@@ -494,7 +487,7 @@ ok(j.res.status === 0 && stagesOf(j.rec) === STAGES && jCalls.length === 1 && j.
   && j.rec.rbs.variant === "owner-authored" && fileOk(j.rec.rbs) && j.rec.rbs.source && j.rec.rbs.source.sha256 === sha(ownedFile),
   `(j) the --rbs-file run did not make one call with bind.state supplied: ${j.res.status} ${stagesOf(j.rec)} ${jCalls.length} ${JSON.stringify(j.rec && j.rec.bind)} ${j.res.stderr}`);
 const jPacket = existsSync(join(j.o, "write", "packet.md")) ? readFileSync(join(j.o, "write", "packet.md"), "utf8") : "";
-ok(jPacket.includes("OWNED-1 the crew") && jPacket.includes(`OWNED-${SEGMENTS} the crew`), "(j) the Packet does not carry the supplied points as its Waypoints");
+ok(jPacket !== "" && !jPacket.includes("OWNED-1 the crew") && !jPacket.includes(`OWNED-${SEGMENTS} the crew`), "(j) the Packet carries a supplied point");
 const jNo = run("owned-unprojected", ["--structure", wide, "--rbs-file", unprojectedFile]);
 ok(jNo.res.status !== 0 && jNo.res.stderr.includes("`projection`") && jNo.seen.length === 0 && !existsSync(jNo.o),
   `(j) an owner's file without projection was not refused naming projection: ${jNo.res.status} ${jNo.res.stderr}`);
@@ -677,7 +670,6 @@ writeFileSync(projFile, stringifyYaml({ ...byId, tables: tablesFor(1), projectio
 const listFile = join(root, "rbs-projected-list.yaml");
 writeFileSync(listFile, stringifyYaml({ ...byId, tables: tablesFor(1), projection: [PROJ] }));
 const blockOf = (packet, heading) => { const at = packet.indexOf(heading); if (at < 0) return null; const rest = packet.slice(at + heading.length); const nx = rest.indexOf("\n## "); return nx < 0 ? rest : rest.slice(0, nx); };
-const PROJ_POINT = pointOf([...mapped.relations, PASSED, ...HIGHER].map((x) => x.holds), () => "the walker's file list");
 const SO_FAR = "## The article so far, up to this Leg:";
 for (const [name, file] of [["projected", projFile], ["projected-list", listFile]]) {
   const o = run(name, ["--structure", wide, "--rbs-file", file]);
@@ -693,11 +685,8 @@ for (const [name, file] of [["projected", projFile], ["projected-list", listFile
   const pk = existsSync(join(o.o, "write", "packet.md")) ? readFileSync(join(o.o, "write", "packet.md"), "utf8") : "";
   const w1 = o.calls("write");
   ok(w1.length === 1 && w1[0].stdin === pk, `(o) ${name}: the writer's stdin is not the Packet`);
-  const tops = pk.split("\n").filter((l) => /^\d+\. .* \*Serves:\* /.test(l));
-  ok(tops.length === 2 && tops[0] === `1. ${PROJ_POINT} *Serves:* ${PROPOSITION}` && tops[1] === `2. ${PROJ_POINT} *Serves:* ${PROPOSITION}`
-    && pk.includes(`\n   1. ${owned.waypoints[0].point} *Serves:* ${PROPOSITION}\n`) && pk.includes(`\n   1. ${PROJ.waypoints[0].point} *Serves:* ${PROPOSITION}\n`)
-    && pk.indexOf(owned.waypoints[0].point) < pk.indexOf(tops[1]) && pk.indexOf(tops[1]) < pk.indexOf(PROJ.waypoints[0].point),
-    `(o) ${name}: the Packet does not carry two numbered lines with their points indented: ${JSON.stringify(tops)}`);
+  ok(pk !== "" && !pk.includes("*Serves:*") && !pk.includes(owned.waypoints[0].point) && !pk.includes(PROJ.waypoints[0].point),
+    `(o) ${name}: the Packet carries a Serves line or a binding's point`);
   const claimLines = (blockOf(pk, "## The claims this Leg asserts") || "").split("\n").filter((l) => l.startsWith("- "));
   ok(JSON.stringify(claimLines) === JSON.stringify([`- ${PROPOSITION}`]), `(o) ${name}: the claims block is not the proposition alone: ${JSON.stringify(claimLines)}`);
   ok(!pk.includes("{"), `(o) ${name}: the Packet carries a Role id in braces`);

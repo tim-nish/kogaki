@@ -32,18 +32,11 @@ point at material the Packet actually carries.
 key, rendered as one line, so the writer is told the article's language rather
 than inferring it from the words its input happens to carry.
 
-THE PARAGRAPH PLAN OWNS PARAGRAPH STRUCTURE, THE AUDIENCE'S REGISTER OWNS
-WORD CHOICE (kogaki#1350, owner ruling 2026-10-12; kogaki#1375): where a
-paragraph opens and what it establishes arrive as the Waypoints the
-ParagraphPlan stage generated from a paragraph Move; the register carries no
-rule that dictates either.
-
 THE REGISTER YIELDS TO THE PLAN (kogaki#1493, owner ruling 2026-10-21). The
 paragraph directly before `{{register}}` sits outside the rendered register,
-so no edit to an Audience file removes it: where a register rule and a
-numbered or italic line conflict, the line holds for that
-sentence, and the conflict is the Writer's to settle, never a refusal or a
-judge's stop.
+so no edit to an Audience file removes it: where a register rule and the plan
+conflict, the plan holds for that sentence, and the conflict is the Writer's
+to settle, never a refusal or a judge's stop.
 
 LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
 the Brief's `introduces` and `re-activate` explicitly admit crosses into this
@@ -57,7 +50,7 @@ bans becomes the first hit of any check grepping for it, which is the
 use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
-Block order is fixed: the waypoints, the Leg's claims, the Journey material,
+Block order is fixed: the plan, the Leg's claims, the Journey material,
 the Leg's Section, ledger, the article so far, instruction. Heavy prose late,
 instruction last. Every block opens with a fixed usage header saying what the
 block is FOR, because a block whose use is not stated gets used for whatever
@@ -70,7 +63,7 @@ rendered into the Packet only where a sentence-level decision of the writer
 depends on it. The fixed-points block (Thesis, Reader start, Reader target)
 and the This Leg block (`purpose`, `reader_state_before`,
 `reader_state_after`) are retired on that ground — their operational content
-for the writer is already carried by the waypoints and the crossing block,
+for the writer is already carried by the plan and the crossing block,
 and review of the prose reads the reader states from the
 Brief, never the Packet. The reader-target line is the one piece of that
 retired block with a live sentence-level use — it says whether this Leg may
@@ -86,27 +79,11 @@ under a bulleted field label. Where the realization of a whole schema category i
 fixed — Journey material — that behaviour is stated once,
 where the category's own block opens, never as a label attached to each item.
 
-NO MOVE REACHES THE PACKET (kogaki#1311, owner decision 2026-10-09;
-kogaki#1375, owner decision 2026-10-14). The Leg's Move's responsibility ends
-when the Candidate is composed; what the writer needs from it arrives as this
-Leg's waypoints, which the Brief composed as the Leg's own specialization of
-the Move and judged there. A paragraph Move's responsibility ends when the
-ParagraphPlan stage has generated the Waypoints from it; what the
-writer needs from THAT arrives as the Waypoints, read from the
-ParagraphPlan file beside the Brief and rendered under each waypoint -- and
-nothing of the Move itself. No Move file is opened here. The *Opens from* line
-under a waypoint is the ParagraphPlan's join, one word of a closed set of
-relations the stage chose from the reader state the previous paragraph leaves,
-and carries nothing of a Move (kogaki#1411, kogaki#1477). A *Cast* line under
-a Waypoint is the ParagraphPlan's cast, keys of a closed set the stage
-set from the Segment's manner, and is not the manner (kogaki#1695).
-No Segment field is copied onto a Waypoint, `manner` included
-(kogaki#1585, owner decision 2026-10-25, reverting kogaki#1510's copy).
-NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25):
-the Obligations ledger is the Plan's, at both scales, and the Writer is given
-the Waypoints alone.
-
-THE PERFORMS CRITERIA ARE BOUNDED: kogaki#1555.
+THE PLAN BLOCK HOLDS THE LEG'S ARGUMENTS AND CENTRALCLAIM (kogaki#1859, owner
+decision 2026-11-18), read from the Brief's `structure` at the Leg's
+`relation`, and, under a Move table, one part per Segment. No Point of the
+ParagraphPlan reaches the Packet, and no Move file is opened here.
+NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25).
 
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
@@ -116,68 +93,44 @@ src/SCHEMA-BINDS.md renders it beside the workflow rows.
 --}}
 # Write one Leg
 
-## The waypoints this Leg takes the reader through
+## The plan of this paragraph
 
-Each numbered line below is a point this Leg makes, in order, and the claim
-it serves — one paragraph, carrying that point. Under it, the indented
-numbered lines are the points that paragraph makes, in order, each with the
-claim it serves. Each indented line is rendered as the sentences it is, in
-their order, and the paragraph is those sentences joined: the register may
-change a connective or a reference between them, and changes nothing else.
-The paragraph adds no sentence that no indented line carries. No line is
-announced to the reader.
+This block is a plan.
+It is not a draft of the paragraph.
+Each sentence in it only says what is meant.
+None of its wording is kept.
+You choose every word of the paragraph.
+One thing keeps one name through the whole paragraph.
+{{#if plan}}
 
-- ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.
-- NOT A POINT: An italic line states no point.
-- IN PLACE: The paragraph performs it at the italic line's place among the points.
-- OWN WORDS: The paragraph performs it in its own words.
-- NO CLAIM: The sentence that performs it states no proposition.
-- NO VERDICT: The sentence that performs it passes no judgment on the material.
-- NO ANTICIPATION: The sentence that performs it names nothing of what follows.
-- NO REASON: The sentence that performs it gives no reason for the operation.
+### What the paragraph says
 
-An *Opens from* line under a numbered line carries one word -- consequence,
-grounds, contrast, elaboration, summary or none -- naming how that paragraph's
-first point stands to the paragraph before it. Realise it with a connective or
-clause of the register's own, or with nothing where the order of the sentences
-already carries it; `none` adds nothing. Never state the relation as a
-proposition of its own: the opening does not say that something was left open,
-is owed, or is now taken up. The word is not copied and not announced.
+{{#each plan.arguments}}
+- Argument {{number}}. {{sentence}}
+{{/each}}
+- CentralClaim. {{plan.central_claim}}
 
-A *Cast* line under an indented line names, from a fixed set, the shape the
-sentences of the line above it take. It is realised in those sentences' form
-and never as a sentence or clause of its own; nothing of it is copied or
-announced. The set:
+The reader must be able to recover every Argument from the paragraph.
+The reader must be able to recover the CentralClaim from the paragraph.
+{{#if plan.segments}}
 
-- terse: one short statement given at once, taking no elaboration after it.
-- plain: laid down without support, ground or qualification.
-- hedged: offered as a guess or forecast rather than asserted.
-- chained: a run of parallel items or alternatives inside one sentence.
-- asked: put as a question that takes no lead-in.
-- voiced: spoken in a named voice, the first person, an invitation, or words reported as another's.
-- instanced: one recognisable instance named and left without comment.
-- dated: each instance placed in time.
-- figured: asserted as a likeness or a figurative identification.
+### The parts of the paragraph, in order
 
-{{#each waypoints.paragraphs}}
-{{number}}. {{head}} *Serves:* {{#each serves}}{{text}}{{#if more}}; {{/if}}{{/each}}
-{{#if join}}
-   *Opens from:* {{join}}
+Each part is about one sentence.
+A part that names an Argument says that Argument.
+A part that names the CentralClaim says the CentralClaim.
+A part that names neither adds no fact.
+A part's Sense names how the part stands to the earlier parts listed after it.
+No Sense is named to the reader.
+
+{{#each plan.segments}}
+{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#if sense}} Sense {{sense}}, to {{#each to}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
+{{/each}}
 {{/if}}
-{{#each points}}
-{{#if operation}}
-   {{number}}. *{{performs}}*
 {{else}}
-   {{number}}. {{point}} *Serves:* {{#each serves}}{{text}}{{#if more}}; {{/if}}{{/each}}
+
+The claims below are the whole plan of this paragraph.
 {{/if}}
-{{#if cast}}
-      *Cast:* {{#each cast}}{{key}}{{#if more}}, {{/if}}{{/each}}
-{{/if}}
-{{#if forced_by}}
-      <!-- forced by: {{#each forced_by}}{{axis}}{{#if more}}, {{/if}}{{/each}} -->
-{{/if}}
-{{/each}}
-{{/each}}
 
 ## The claims this Leg asserts
 
@@ -197,9 +150,9 @@ Leg may assert.
 ## The Journey material this Leg edits — NOT a claim to recover
 
 {{#if journeys.entries}}
-Material for a concrete example serving this Leg's waypoints — use as much or as little of it as the waypoints need, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
+Material for a concrete example serving this Leg — use as much or as little of it as the Leg needs, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
 
-Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg's waypoints**: cut it, compress it, use as much or as little as they need.
+Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg**: cut it, compress it, use as much or as little as it needs.
 
 Nothing here is a claim. The claims above are the whole of what this Leg asserts, and the round trip asks for those back and never for a fragment of a Journey. A Journey you use well may leave almost none of its original wording on the page.
 
@@ -319,20 +272,19 @@ Prose that writes its own heading is refused when the Leg is recorded.
 
 **The reader's own world.** {{#if reader_own_world}}{{reader_own_world}}{{else}}(the Persona declares no prior knowledge; a referent comes from the Journey block alone){{/if}}
 
-**What the register below governs.** The register governs how sentences read
-inside the structure the numbered, italic and *Cast* lines above give: it
-adds, removes and reorders no point and no operation. Where a register rule
-and one of those lines conflict, the line holds and the
-rule yields for that sentence. Do not return a refusal for such a conflict.
+**What the register below governs.** The register governs how sentences read.
+It changes nothing the plan above says.
+Where a register rule and the plan conflict, the plan holds and the rule yields for that sentence.
+Do not return a refusal for such a conflict.
 
 {{register}}
 
 **The round trip — claims only.** Each claim above must be recoverable from
 what you write. A silent omission is not a simplification, it is a loss.
 Where making a claim plain loses something you cannot restore, answer it
-below, as a refusal — never as a sentence the waypoints do not carry.
+below, as a refusal.
 
-**When a step cannot be performed.** If a waypoint cannot be reached from
+**When a step cannot be performed.** If a part of the plan cannot be written from
 the material this Packet gives you, or material it should carry is
 missing, do not write around it and do not write a sentence telling the
 reader so. Return exactly this instead, as the whole of your response:
