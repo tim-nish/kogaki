@@ -15,5 +15,8 @@
     "textlint-rule-preset-ja-technical-writing": "12.0.2",
     "textlint-rule-prh": "6.1.1",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "handlebars": "4.7.10"
   }
 }

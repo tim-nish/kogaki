@@ -86,6 +86,22 @@ export function tableRecord(path) {
   return { path: relFromRepo(abs), sha256: fileSha256(abs) };
 }
 
+// A row carrying `prompt_file` (kogaki#1855): one entry for that file and one for each shared passage it renders.
+export function promptFileTables(name) {
+  const seen = [];
+  const visit = (n) => {
+    const at = n.lastIndexOf("/");
+    const passage = seen.length > 0;
+    const path = `prompts/${n.slice(0, at + 1)}${passage ? "_" : ""}${n.slice(at + 1)}.prompt`;
+    if (seen.includes(path)) return;
+    seen.push(path);
+    const text = readFileSync(resolve(REPO, path), "utf8");
+    for (const m of text.matchAll(/\{\{> ([\w/-]+)\}\}/g)) visit(m[1]);
+  };
+  visit(String(name));
+  return seen.map(tableRecord);
+}
+
 export function refusalRecord({ group = null, reach = null, text, validator = null, sites = null }) {
   return { group, reach, text: String(text), validator, sites: Array.isArray(sites) && sites.length ? sites : null };
 }
@@ -100,7 +116,11 @@ export function writeCallRecord(runDir, unit, n, { prompt, argv, cli, input, row
   writeFileSync(join(dir, CALL_FILES.argv), json(argv));
   writeFileSync(join(dir, CALL_FILES.cli), json(cli));
   writeFileSync(join(dir, CALL_FILES.input), json(input));
-  writeFileSync(join(dir, CALL_FILES.row), json(row));
+  const promptFile = row && row.row && row.row.prompt_file;
+  writeFileSync(
+    join(dir, CALL_FILES.row),
+    json(promptFile ? { ...row, tables: [...(row.tables || []), ...promptFileTables(promptFile)] } : row),
+  );
   writeFileSync(join(dir, CALL_FILES.raw), raw == null ? "" : raw);
   if (answer !== undefined) writeFileSync(join(dir, CALL_FILES.answer), json(answer));
   writeFileSync(join(dir, CALL_FILES.refusal), json(refusal ? refusalRecord(refusal) : null));

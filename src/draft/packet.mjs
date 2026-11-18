@@ -8,6 +8,7 @@
 //       decision; the figure record; the judgment rule
 //
 import { figureKinds } from "../compose.mjs";
+import { renderPromptFile } from "../prompt-file.mjs";
 
 // ---------------------------------------------------------------------------
 // THE SECTION PACKET (the Leg Packet, kogaki#749; owner rulings 2026-09-01).
@@ -33,32 +34,14 @@ import { figureKinds } from "../compose.mjs";
 // THE PACKET IS THE MODEL'S ENTIRE INPUT, AND THE FIGURE INPUT IS THAT PACKET
 // PLUS ONE BLOCK. The block is appended only for a Leg carrying `figure:`,
 // and only AFTER that Leg's prose is recorded — the hub's third moment,
-// concrete design after the text. It travels in the same template file as the
-// Packet, behind a marker the Packet render splits away, because a second
-// template file would be a second carrier for one model-facing surface.
-
-const FIGURE_INPUT_MARKER = "<!-- FIGURE-INPUT -->";
-
-// ONE SPLIT, TWO CONSUMERS. `renderPacket` takes the first half and would
-// otherwise refuse on the figure block's unfilled slots; `renderFigureInput`
-// takes the second. Both read the same file, so the marker cannot drift out
-// from under one of them.
-export function splitPacketTemplate(text) {
-  const at = text.indexOf(FIGURE_INPUT_MARKER);
-  if (at === -1) {
-    return {
-      error: `the Packet template carries no ${FIGURE_INPUT_MARKER} marker — the figure block lives behind it (the figure record), and a template without it cannot say where the Packet ends`,
-    };
-  }
-  return { packet: text.slice(0, at).trimEnd() + "\n", figure: text.slice(at + FIGURE_INPUT_MARKER.length) };
-}
+// concrete design after the text. Its text is prompts/draft/_figure-block.prompt (kogaki#1855).
 
 // The Leg's claim lines, in the order they are declared. `g<n>` addresses
 // this list 1-based (the figure decision), and the address space is THIS Leg's claims —
 // which is what makes a role bound to another Leg's claim unreachable rather
 // than refused by a rule.
 function claimLines(leg) {
-  return (leg.claims || []).map((g) => `claim (strand ${g.strand}): ${g.proposition}`);
+  return leg.claims || [];
 }
 // VERBATIM, THE WHOLE LINE. The binding block quotes what the Brief recorded,
 // including which Strand or Leg effect licensed it: an element is that claim
@@ -104,7 +87,7 @@ export function figureFormFor(leg) {
 // Packet is passed in as the BYTES THAT WERE SERVED rather than re-rendered,
 // for the reason `cmdSection`'s backstop already gives — the record is what the
 // prose was realized from, and a fresh render answers for the file as it stands.
-export function renderFigureInput({ figureTemplate, packetText, leg, form, prose }) {
+export function renderFigureInput({ packetText, leg, form, prose }) {
   const missing = form.roles.filter((r) => !form.lines[r]);
   if (missing.length) {
     return {
@@ -120,23 +103,15 @@ export function renderFigureInput({ figureTemplate, packetText, leg, form, prose
         error: `leg ${leg.leg_id}: figure_roles binds "${role}" to ${JSON.stringify(addr ?? null)} and this Leg has no such claim — composition refuses this (the figure decision), so the Brief has been edited since it was adopted`,
       };
     }
-    binding.push(`- **${role}** — bound to \`${addr}\`:\n\n  ${g}`);
+    binding.push({ role, address: addr, strand: g.strand, proposition: g.proposition });
   }
-  const fields = {
+  const out = renderPromptFile("draft/_figure-block", {
     figure_kind: form.kind,
-    figure_form_roles:
-      form.roles.map((r) => `- **${r}**`).join("\n") + `\n\nWhat holds between them: ${form.relation}.`,
-    figure_binding: binding.join("\n"),
+    figure_form_roles: { roles: form.roles.map((role) => ({ role })), relation: form.relation },
+    figure_binding: binding,
     figure_reason: leg.figure,
     figure_prose: prose.trim(),
-  };
-  let out = figureTemplate;
-  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
-  const left = out.match(/\{\{(\w+)\}\}/);
-  if (left)
-    return {
-      error: `the figure block's slot {{${left[1]}}} was not filled — the renderer and the template disagree about the slot set, which is the round trip failing silently (the figure record)`,
-    };
+  });
   return { input: packetText.trimEnd() + "\n" + out };
 }
 
@@ -232,39 +207,18 @@ export function figureRecordRefusal(record, leg, form, schema) {
 // absence in this renderer is stated — a hole in the model's whole world is not
 // a gap the model notices, it is a hole the model fills by invention.
 export function sectionPlacement(sec) {
-  // DEFENSIVE ONLY, and said so rather than advertised as a rendered form (PR
-  // #844 round 1, finding 3). No Packet render reaches it: `sectionsOf` derives
-  // one untitled Section for a path declaring nothing, and
-  // `renderAndStorePacket` refuses an unknown Leg before the lookup. It is
-  // kept so the function is total and removed from the assertions and from the
-  // admission record, because a contract field claiming unreachable behaviour
-  // is re-read at every later judgment on the member.
-  if (sec === undefined) return "(no Section could be derived for this Leg.)";
-  if (sec.title === undefined) {
-    // The untitled form STILL SAYS WHICH (finding 3, second half): the block
-    // above it promises "the line below says which", and a form that says
-    // neither breaks that promise for the whole pre-Section-grouping corpus, which is the
-    // only corpus that reaches it.
-    // NO ORDINAL HERE (PR #847 round 1, nit 2). The arm that built one was
-    // dead: `sectionsOf` pushes a new Section only where `opens_section` is
-    // declared or where none exists yet, so an UNTITLED Section is always the
-    // first and only one — the "th" branch was unreachable, would have rendered
-    // "2th" if it ran, and told a later reader that untitled Sections beyond
-    // the first exist. The single Section is named as such instead.
-    return sec.opens
-      ? "- **This Leg OPENS the article's one Section.** This Brief declares no Section titles, so no heading is rendered above your prose."
-      : "- **This Leg CONTINUES the article's one Section.** This Brief declares no Section titles, so no heading is rendered, and prose you are writing further into sits above.";
-  }
+  // DEFENSIVE ONLY (PR #844 round 1, finding 3): no Packet render reaches an underived Section.
+  if (sec === undefined) return {};
+  const opens = sec.opens ? { opens: true } : {};
+  // The untitled Section is always the first and only one (PR #847 round 1, nit 2).
+  if (sec.title === undefined) return { derived: true, untitled: true, ...opens };
   const others = sec.leg_ids.length - 1;
-  return sec.opens
-    ? `- **This Leg OPENS a Section.** Its heading is **"${sec.title}"**, rendered by the Harness immediately above your prose.\n` +
-        `- **Your prose is what the heading promises.** ${
-          others === 0
-            ? "This Leg is the whole Section."
-            : `${others} further Leg${others === 1 ? "" : "s"} continue${others === 1 ? "s" : ""} under it, so open the question rather than closing it.`
-        }`
-    : `- **This Leg CONTINUES the Section headed "${sec.title}".** That heading is already on the page, above prose you are writing further into.\n` +
-        `- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.`;
+  return {
+    derived: true,
+    title: sec.title,
+    ...opens,
+    ...(others === 0 ? { whole: true } : others === 1 ? { one_further: true } : { further: String(others) }),
+  };
 }
 
 // PRIOR PROSE, SCOPED TO THE CURRENT SECTION ONLY (kogaki#1282, owner ruling
@@ -275,18 +229,11 @@ export function sectionPlacement(sec) {
 // Section's prose so far, and nothing from before it.
 export function priorProseInSection(priorSections, sections, currentIndex, currentLegId) {
   const sec = (sections || []).find((s) => s.index === currentIndex);
-  if (!sec) return null;
+  if (!sec) return {};
   const have = new Map(priorSections.map((p) => [p.leg_id, p.text]));
-  const parts = sec.leg_ids.filter((id) => have.has(id)).map((id) => have.get(id));
-  // AN EMPTY SECTION DOES NOT MEAN THIS LEG OPENS IT (PR #847 round 1,
-  // finding 1). It means the Legs above it in that Section are not realized
-  // yet, and the two states are distinguished by the Section's own recorded
-  // path — which is what stops the Packet contradicting its own
-  // `section_placement` block, where a continuing Leg is told the heading is
-  // already on the page above prose it is writing further into.
-  const opensIt = sec.leg_ids[0] === currentLegId;
-  if (parts.length) return parts.join("\n\n");
-  return opensIt
-    ? "(nothing yet — this Leg opens the Section, so its prose is the first in it.)"
-    : "(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)";
+  const parts = sec.leg_ids.filter((id) => have.has(id)).map((id) => ({ text: have.get(id) }));
+  // AN EMPTY SECTION DOES NOT MEAN THIS LEG OPENS IT (PR #847 round 1, finding 1): the Section's own
+  // recorded path says which.
+  if (parts.length) return { texts: parts.map((p, i) => (i < parts.length - 1 ? { ...p, more: true } : p)) };
+  return sec.leg_ids[0] === currentLegId ? {} : { continues: true };
 }

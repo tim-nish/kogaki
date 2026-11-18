@@ -15,12 +15,13 @@ cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
 import { readFileSync } from "node:fs";
-import { readBrief, renderPacket, splitPacketTemplate, sectionsOf, sectionOfLeg, readerTargetLine,
-  REACHES_TARGET_LINE, CLOSING_LEG_LINE } from "./src/draft.mjs";
+import { readBrief, renderPacket, sectionsOf, sectionOfLeg, readerTargetCase } from "./src/draft.mjs";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, readerTargetLegRefusal, legRecord } = compose;
 const fails = [];
+const REACHES_TARGET_LINE = "This Leg reaches the Reader target.";
+const CLOSING_LEG_LINE = "This Leg follows the Reader target: introduce nothing, raise nothing, and move only what the reader asks, expects or trusts.";
 const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, serves: ["L1"], cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
 
 // (a) a retired record key is refused by name (kogaki#1699).
@@ -125,15 +126,14 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   if (!half.refusals.some((r) => /leg s2/.test(r) && /reaches_target/.test(r))) fails.push(`(k) a reaches_target value other than true was not refused naming the Leg: ${JSON.stringify(half.refusals)}`);
 
   const legs = [legOf("s1"), legOf("s2"), legOf("s3", { reaches_target: true })];
-  if (readerTargetLine(legs, "s1") !== "" || readerTargetLine(legs, "s2") !== "") fails.push("(k) readerTargetLine rendered a line on a Leg before the mark");
-  if (readerTargetLine(legs, "s3") !== REACHES_TARGET_LINE) fails.push("(k) readerTargetLine did not render the target line on the marked Leg");
-  if (readerTargetLine([legOf("s1"), legOf("s2")], "s2") !== "") fails.push("(k) readerTargetLine rendered a line on a path carrying no mark");
+  const none = (c) => JSON.stringify(c) === "{}";
+  if (!none(readerTargetCase(legs, "s1")) || !none(readerTargetCase(legs, "s2"))) fails.push("(k) readerTargetCase named a case on a Leg before the mark");
+  if (readerTargetCase(legs, "s3").reaches !== true) fails.push("(k) readerTargetCase did not name the target case on the marked Leg");
+  if (!none(readerTargetCase([legOf("s1"), legOf("s2")], "s2"))) fails.push("(k) readerTargetCase named a case on a path carrying no mark");
 
   // THE RENDERED PACKET, over the real template and a Brief read back from its own record.
   const brief = briefOfRecord(recordOf(legs), "k.yaml");
   if (brief.refusals.length || brief.legs.length !== 3) fails.push(`(k) the fixture Brief did not parse: ${JSON.stringify(brief.refusals)} legs=${brief.legs.length}`);
-  const split = splitPacketTemplate(readFileSync("src/packet-template.md", "utf8"));
-  if (split.error) fails.push(`(k) the Packet template did not split: ${split.error}`);
   const moveText = [
     "id: open_the_claim", "technique: >-", "  what the move does.", "question: >-", "  holds: none",
     "breaks: >-", "  what a correct performance must not do.", "",
@@ -141,7 +141,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const sections = sectionsOf(brief.legs);
   const packets = {};
   for (const leg of brief.legs) {
-    const r = renderPacket({ template: split.packet, brief, leg: planned(leg), moveText, priorSections: [],
+    const r = renderPacket({ brief, leg: planned(leg), moveText, priorSections: [],
       ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections });
     if (r.error) { fails.push(`(k) the Packet for ${leg.leg_id} did not render: ${r.error}`); continue; }
     packets[leg.leg_id] = r.packet;

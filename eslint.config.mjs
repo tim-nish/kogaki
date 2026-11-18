@@ -20,6 +20,17 @@ export default [
       "import-x/no-unresolved": "error",
       "import-x/no-duplicates": "error",
       "import-x/no-cycle": "off",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.name='renderPromptFile'] ObjectExpression Literal[value=/.{40,}/]",
+          message: "a value handed to a prompt file comes from a record; a sentence belongs in a file under prompts/",
+        },
+        {
+          selector: "CallExpression[callee.name='renderPromptFile'] ObjectExpression TemplateElement[value.raw=/.{40,}/]",
+          message: "a value handed to a prompt file comes from a record; a sentence belongs in a file under prompts/",
+        },
+      ],
     },
   },
 ];

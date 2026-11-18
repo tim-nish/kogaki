@@ -2,9 +2,10 @@
 // its text. Cut from src/workflow/judge.mjs along its headed sections (kogaki#1800); the design and
 // its rulings are stated at the entry and in the Issues each block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): see `src/SPEC-REFERENCES.md`.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { REPO, fail, flow } from "../run-record.mjs";
+import { renderPromptFile } from "../../prompt-file.mjs";
 
 // Everything after this line in a judge prompt is the input file, verbatim.
 export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
@@ -13,32 +14,12 @@ export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
 // verbatim (kogaki#1059, the answer since kogaki#1438). They appear only on a re-ask, and
 // BEFORE the input marker, because the input marker's own contract is that everything
 // after it is the input file — a refusal appended past it would be read as input by any
-// reader keying on position, which is the one thing that marker promises.
-const JUDGE_ANSWER_MARKER = (i) => `----- YOUR PREVIOUS ANSWER (call ${i}) -----`;
+// reader keying on position, which is the one thing that marker promises. The block's text is
+// prompts/_judge-reask.prompt; these stay here so `readJudgePrompt` can read a prompt back.
 const JUDGE_REFUSAL_MARKER = "----- IT WAS REFUSED -----";
-// A refusal raised before any record was read (kogaki#1438): the present classification
-// cannot produce one, and the renderer does not assume it.
-const JUDGE_NO_ANSWER = "(no record was read)";
-
-// THE FIXED REPAIR SENTENCE, NAMED ONCE (kogaki#1203; asks for a repair of content since
-// kogaki#1438, because a fresh session shown its refused answer can keep what passed and
-// change what was named). Since kogaki#1395 it is rendered only by `judgeRefusalBlock`
-// below, which both the synchronous judge's re-ask and the detached unit's retry
-// (`readerPathUnitRetryPrompt`) call, so neither the sentence nor the markers are
-// exported: the one exported renderer is what keeps the two ends of "the same refusal
-// block" from drifting.
-const JUDGE_REFUSAL_REPAIR_SENTENCE =
-  "Those are your previous answers and the refusal each one raised, verbatim. Answer again\n" +
-  "with the whole record. Keep every part the refusal did not name, and change the parts it\n" +
-  "did. The input below is unchanged.";
 
 // The reach of a refusal: kogaki#1708.
 export const REFUSAL_REACHES = ["part", "record", "stop"];
-const JUDGE_REFUSAL_RECORD_SENTENCE =
-  "Those are your previous answers and the refusal each one raised, verbatim. Answer again\n" +
-  "with a whole new record. Keep nothing of the previous one: the refusal names what the new\n" +
-  "record cannot contain. The input below is unchanged.";
-const REACH_SENTENCE = { part: JUDGE_REFUSAL_REPAIR_SENTENCE, record: JUDGE_REFUSAL_RECORD_SENTENCE };
 
 // A refusal's group and reach under its row: kogaki#1708.
 export function refusalReach(row, refusal) {
@@ -65,6 +46,10 @@ export function refusalReach(row, refusal) {
 // keeps a unit's retry and a synchronous judge's own re-ask byte-identical over the same
 // row, input and history (`checks/check-brief-reader-path-job.sh` assertion (k)).
 export function judgeRefusalBlock(history) {
+  return `\n${withoutLineEnd(renderPromptFile("_judge-reask", reaskValues(historyList(history))))}`;
+}
+
+function historyList(history) {
   const list = Array.isArray(history) ? history : [history];
   const bare = list.findIndex((h) => !h || typeof h !== "object" || Array.isArray(h) || typeof h.refusal !== "string");
   if (bare >= 0) {
@@ -74,26 +59,30 @@ export function judgeRefusalBlock(history) {
         "a bare refusal string is the retired shape and is refused rather than rendered without its answer.",
     );
   }
-  // The sentence follows the latest refusal's reach (kogaki#1708); an entry with no reach is `part`.
+  return list;
+}
+
+// The values of prompts/_judge-reask.prompt: each call's answer and refusal, and which sentence follows them.
+// The sentence follows the latest refusal's reach (kogaki#1708); an entry with no reach is `part`.
+function reaskValues(list) {
   const reach = list[list.length - 1].reach ?? "part";
-  if (!Object.hasOwn(REACH_SENTENCE, reach)) {
+  if (reach !== "part" && reach !== "record") {
     throw new Error(
       `judgeRefusalBlock: the latest refusal's reach is ${JSON.stringify(reach)}; a retry renders only ` +
         "`part` or `record`, and a `stop` refusal is never put back (kogaki#1708).",
     );
   }
-  return [
-    "",
-    ...list.flatMap((h, i) => [
-      JUDGE_ANSWER_MARKER(i + 1),
-      h.answer === undefined || h.answer === null ? JUDGE_NO_ANSWER : JSON.stringify(h.answer, null, 2),
-      JUDGE_REFUSAL_MARKER,
-      h.refusal,
-      "",
-    ]),
-    REACH_SENTENCE[reach],
-  ].join("\n");
+  return {
+    history: list.map((h, i) => ({
+      call: i + 1,
+      answer: h.answer === undefined || h.answer === null ? null : JSON.stringify(h.answer, null, 2),
+      refusal: h.refusal,
+    })),
+    ...(reach === "record" ? { whole_new_record: true } : {}),
+  };
 }
+
+const withoutLineEnd = (text) => (text.endsWith("\n") ? text.slice(0, -1) : text);
 
 // A JUDGE PROMPT, READ BACK (kogaki#1756): its judgment point, its input, and on a re-ask each refusal it was
 // handed and the sentence appended after them, all verbatim. `null` for a part the prompt does not carry.
@@ -111,7 +100,7 @@ export function readJudgePrompt(prompt) {
   const head = at >= 0 ? p.slice(0, at) : p;
   const jp = /^JUDGMENT POINT: ([\s\S]*?)\nREQUIRED RECORD SHAPE: /m.exec(head);
   const parts = head.split(`\n${JUDGE_REFUSAL_MARKER}\n`);
-  const instruction = Object.values(REACH_SENTENCE).find((s) => head.includes(`\n\n${s}`)) ?? null;
+  const instruction = parts.length < 2 ? null : (head.trimEnd().split("\n\n").pop() ?? null);
   const ends = [/\n\n----- YOUR PREVIOUS ANSWER \(call \d+\) -----\n/, ...(instruction ? [`\n\n${instruction}`] : [])];
   const refusals =
     parts.length < 2
@@ -223,6 +212,16 @@ export function sharedTextOf(st) {
   const sp = join(REPO, String(st.shared_text_file));
   if (!existsSync(sp))
     fail(`${st.id}: \`shared_text_file\` ${JSON.stringify(st.shared_text_file)} names no file (kogaki#1452).`);
+  // A FOLDER UNDER prompts/ (kogaki#1855): `{{shared:<name>}}` is its file `_<name>.prompt`, underscores as hyphens.
+  if (String(st.shared_text_file).startsWith("prompts/") && statSync(sp).isDirectory()) {
+    const passages = readdirSync(sp).filter((f) => f.startsWith("_") && f.endsWith(".prompt"));
+    return Object.fromEntries(
+      passages.map((f) => [
+        f.slice(1, -".prompt".length).replace(/-/g, "_"),
+        readFileSync(join(sp, f), "utf8").replace(/\n$/, ""),
+      ]),
+    );
+  }
   const shared = JSON.parse(readFileSync(sp, "utf8")).shared_text;
   if (!shared || typeof shared !== "object") {
     fail(`${st.id}: ${st.shared_text_file} declares no \`shared_text\` block (kogaki#1452).`);
@@ -265,6 +264,7 @@ function withAxes(st) {
 // replaced by the text the table declares once. Exported so a check reads the same text the
 // model is shown.
 export function withSharedText(row) {
+  if (row.prompt_file) return withPromptFileText(row);
   const st = withAxes(row);
   const shared = sharedTextOf(st);
   if (!shared) return st;
@@ -283,14 +283,45 @@ export function withSharedText(row) {
   return out;
 }
 
+// A row carrying `prompt_file` (kogaki#1855): its three texts read from that file, each shared passage written in --
+// each the text after its label up to the next label, and the refusal up to the shared passage `judge-closing`.
+const PROMPT_FILE_LABELS = [
+  ["judgment_point", "JUDGMENT POINT: "],
+  ["input_shape", "\nREQUIRED RECORD SHAPE: "],
+  ["refusal", "\nWHAT IS REFUSED: "],
+];
+function withPromptFileText(row) {
+  const text = renderPromptFile(String(row.prompt_file), { flow_label: "", row_id: String(row.id), input: "" });
+  const closing = text.lastIndexOf(`\n\n${renderPromptFile("_judge-closing", {})}`);
+  const at = PROMPT_FILE_LABELS.map(([field, label]) => {
+    const i = text.indexOf(label);
+    if (i < 0)
+      fail(
+        `${row.id}: prompts/${row.prompt_file}.prompt carries no label ${JSON.stringify(label.trim())} for \`${field}\` (kogaki#1855).`,
+      );
+    return i + label.length;
+  });
+  if (closing < 0)
+    fail(`${row.id}: prompts/${row.prompt_file}.prompt does not name the shared passage judge-closing (kogaki#1855).`);
+  const ends = [at[1] - PROMPT_FILE_LABELS[1][1].length, at[2] - PROMPT_FILE_LABELS[2][1].length, closing];
+  return { ...row, ...Object.fromEntries(PROMPT_FILE_LABELS.map(([field], i) => [field, text.slice(at[i], ends[i])])) };
+}
+
 // The prompt is composed FROM THE TABLE (judgment point, input shape, refusal text).
 // COMPOSED PER CALL (kogaki#1059): `lastRefusal` -- the Call history, as
 // `judgeRefusalBlock` takes it -- makes each re-ask a different ask.
 // EXPORTED FOR THE DETACHED JOB (kogaki#1193): unit prompts use this one renderer.
 export function judgePrompt(row, inputText, input, lastRefusal) {
+  const asked = Array.isArray(lastRefusal) ? lastRefusal.length : lastRefusal;
+  const head = { flow_label: flow().label, row_id: row.id };
+  // A ROW CARRYING `prompt_file` IS THAT FILE (kogaki#1855): rendered through it and nothing else.
+  if (row.prompt_file) {
+    const reask = asked ? reaskValues(historyList(lastRefusal)) : {};
+    return renderPromptFile(String(row.prompt_file), { ...head, ...reask, input: inputText });
+  }
   const st = withSharedText(row);
   const L = [];
-  L.push(`You are the judge at the ${flow().label} workflow's \`${st.id}\` judgment point.`);
+  L.push(withoutLineEnd(renderPromptFile("_judge-opening", head)));
   L.push("");
   L.push(`JUDGMENT POINT: ${st.judgment_point || st.id}`);
   L.push(`REQUIRED RECORD SHAPE: ${st.input_shape || "the typed record this state declares"}`);
@@ -352,9 +383,8 @@ export function judgePrompt(row, inputText, input, lastRefusal) {
     L.push(JSON.stringify(example, null, 2));
   }
   L.push("");
-  L.push("Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.");
-  L.push("Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.");
-  if (Array.isArray(lastRefusal) ? lastRefusal.length : lastRefusal) {
+  L.push(withoutLineEnd(renderPromptFile("_judge-closing", {})));
+  if (asked) {
     L.push(judgeRefusalBlock(lastRefusal));
   }
   L.push("");

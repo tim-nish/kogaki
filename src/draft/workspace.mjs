@@ -128,7 +128,7 @@ export function loadBrief(args) {
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
   // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH LEG'S STRUCTURE AND TABLE (kogaki#1735, kogaki#1777),
-  // which `waypointLines` renders in place of the Leg's text. A plan naming none, or a record holding no
+  // which `waypointValues` hands the Writer prompt in place of the Leg's text. A plan naming none, or a record holding no
   // file, renders the text as before.
   const mapped = plan.mappingSha !== null && plan.record.mapping.files.length ? mappingDirFor(plan.path) : null;
   const legs = brief.legs.map((leg) => {

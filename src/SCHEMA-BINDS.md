@@ -65,10 +65,10 @@ it does not read, and empty where the stage does not read the schema at all.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `leg_path_unit` is src/move-extraction-playground/extraction-workflow.json `leg_path_unit`.
-- `packet:waypoints` is src/packet-template.md block `{{waypoints}}`.
-- `packet:claims` is src/packet-template.md block `{{claims}}`.
-- `packet:section_placement` is src/packet-template.md block `{{section_placement}}`.
-- `packet:reader_target_line` is src/packet-template.md block `{{reader_target_line}}`.
+- `packet:waypoints` is prompts/draft/write-leg.prompt value `waypoints`.
+- `packet:claims` is prompts/draft/write-leg.prompt value `claims`.
+- `packet:section_placement` is prompts/draft/write-leg.prompt value `section_placement`.
+- `packet:reader_target_line` is prompts/draft/write-leg.prompt value `reader_target_line`.
 - `review:claims` is src/review-items.json item `claims`.
 - `review:waypoints` is src/review-items.json item `waypoints`.
 - `review:introduces` is src/review-items.json item `introduces`.
@@ -100,6 +100,6 @@ it does not read, and empty where the stage does not read the schema at all.
 
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
-- `packet:waypoints` is src/packet-template.md block `{{waypoints}}`.
+- `packet:waypoints` is prompts/draft/write-leg.prompt value `waypoints`.
 - `review:opens-from-copied` is src/review-items.json item `opens-from-copied`.
 - `review:performs` is src/review-items.json item `performs`.

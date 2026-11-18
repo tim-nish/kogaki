@@ -17,7 +17,7 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { readCallRecord, CALL_FILES, REPLAYS_DIR, REPLAY_RESULT } from "./call-record.mjs";
 import { judgePrompt, refusalReach } from "./judge.mjs";
-import { bindFlow } from "./run-record.mjs";
+import { bindFlow, REPO } from "./run-record.mjs";
 import { readerPathUnitRetryPrompt, loadReaderPathUnitValidator } from "./detached-job.mjs";
 import { answerRecord, bindMoveRefusal, correspondenceRefusal } from "../structure-mapping-playground/short.mjs";
 import { writerRefusal } from "../draft/writer.mjs";
@@ -197,6 +197,15 @@ function renderedNext(rec, earlier) {
   }
   const row = rowOf(rec);
   if (!row) refuse(`${rec.dir}: row.json carries no row to render a prompt from`);
+  // A row carrying `prompt_file` renders from the files as they stand, each the file its record names (kogaki#1855).
+  for (const t of row.prompt_file ? rec.row.tables || [] : []) {
+    if (!String(t.path).startsWith("prompts/")) continue;
+    const at = resolve(REPO, String(t.path));
+    if (!existsSync(at) || sha256(at) !== t.sha256)
+      refuse(
+        `${t.path} is not the file call ${basename(rec.dir)} was rendered from: its record names sha256 ${t.sha256}`,
+      );
+  }
   const label = flowLabelOf(earlier[0].prompt);
   if (!label)
     refuse(`${earlier[0].dir}: the recorded prompt names no judge flow, so it was not rendered by judgePrompt`);

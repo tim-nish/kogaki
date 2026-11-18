@@ -279,11 +279,11 @@ export function packetPersonaPath(brief) {
 // prescribing an act of naming is a second structural authority beside the
 // bound Move's Segments and the Waypoints. Every typed item renders
 // `- <term> — <meaning>` (kogaki#1571). A bare or anchored term renders as it
-// always did.
-export function introduceLine(raw) {
+// always did. The line's words stand in prompts/draft/write-leg.prompt (kogaki#1855).
+export function introducedEntry(raw) {
   const p = parseIntroducesEntry(raw);
-  if (p.error || !p.typed) return `- ${typeof raw === "string" ? raw : JSON.stringify(raw)}`;
-  return `- ${p.term}${p.meaning ? ` — ${p.meaning}` : ""}`;
+  if (p.error || !p.typed) return { unread: typeof raw === "string" ? raw : JSON.stringify(raw) };
+  return { introduced: true, term: p.term, ...(p.meaning ? { meaning: p.meaning } : {}) };
 }
 
 // THE READER'S OWN WORLD (kogaki#1285, owner ruling 2026-10-06): the

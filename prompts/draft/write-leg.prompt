@@ -1,4 +1,4 @@
-<!--
+{{!--
 The Leg Packet template (kogaki#749; owner rulings 2026-09-01; renamed at
 kogaki#825).
 
@@ -112,9 +112,8 @@ WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
 rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
 field it renders is held to; checks/check-schema-binds.sh reads it and
 src/SCHEMA-BINDS.md renders it beside the workflow rows.
-BINDS (kogaki#1452): {"waypoints": {"leg": {"text": "content", "claims": "content"}, "paragraph_plan": {"paragraphs.join": "operation", "paragraph_waypoints.point": "content", "paragraph_waypoints.performs": "operation", "paragraph_waypoints.cast": "operation"}}, "claims": {"leg": {"claims": "content"}}, "section_placement": {"leg": {"opens_section": "structural"}}, "reader_target_line": {"leg": {"reaches_target": "structural"}}}
--->
 
+--}}
 # Write one Leg
 
 ## The waypoints this Leg takes the reader through
@@ -160,7 +159,25 @@ announced. The set:
 - dated: each instance placed in time.
 - figured: asserted as a likeness or a figurative identification.
 
-{{waypoints}}
+{{#each waypoints.paragraphs}}
+{{number}}. {{head}} *Serves:* {{#each serves}}{{text}}{{#if more}}; {{/if}}{{/each}}
+{{#if join}}
+   *Opens from:* {{join}}
+{{/if}}
+{{#each points}}
+{{#if operation}}
+   {{number}}. *{{performs}}*
+{{else}}
+   {{number}}. {{point}} *Serves:* {{#each serves}}{{text}}{{#if more}}; {{/if}}{{/each}}
+{{/if}}
+{{#if cast}}
+      *Cast:* {{#each cast}}{{key}}{{#if more}}, {{/if}}{{/each}}
+{{/if}}
+{{#if forced_by}}
+      <!-- forced by: {{#each forced_by}}{{axis}}{{#if more}}, {{/if}}{{/each}} -->
+{{/if}}
+{{/each}}
+{{/each}}
 
 ## The claims this Leg asserts
 
@@ -169,11 +186,34 @@ subordinate to another. Your prose must make every one of them recoverable,
 and must assert nothing beyond them: these lines are the whole of what this
 Leg may assert.
 
-{{claims}}
+{{#if claims.lines}}
+{{#each claims.lines}}
+- {{text}}
+{{/each}}
+{{else}}
+(none recorded)
+{{/if}}
 
 ## The Journey material this Leg edits — NOT a claim to recover
 
-{{journeys}}
+{{#if journeys.entries}}
+Material for a concrete example serving this Leg's waypoints — use as much or as little of it as the waypoints need, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
+
+Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg's waypoints**: cut it, compress it, use as much or as little as they need.
+
+Nothing here is a claim. The claims above are the whole of what this Leg asserts, and the round trip asks for those back and never for a fragment of a Journey. A Journey you use well may leave almost none of its original wording on the page.
+
+{{#each journeys.entries}}
+- **{{strand}}'s Journey**. Served at `{{#if cite}}{{cite}}{{else}}(no journey cite recorded in the Brief){{/if}}`:
+
+{{text}}
+{{#if more}}
+
+{{/if}}
+{{/each}}
+{{else}}
+(none — this Leg draws on no Journey material, and nothing here asks for any.)
+{{/if}}
 
 ## The Section this Leg sits in
 
@@ -183,9 +223,35 @@ one, and the line below says which. Where it continues, the heading is already
 on the page and you are writing further into it: do not restate the heading's
 claim, and do not open a new subject.
 
-{{section_placement}}
+{{#if section_placement.derived}}
+{{#if section_placement.untitled}}
+{{#if section_placement.opens}}
+- **This Leg OPENS the article's one Section.** This Brief declares no Section titles, so no heading is rendered above your prose.
+{{else}}
+- **This Leg CONTINUES the article's one Section.** This Brief declares no Section titles, so no heading is rendered, and prose you are writing further into sits above.
+{{/if}}
+{{else}}
+{{#if section_placement.opens}}
+- **This Leg OPENS a Section.** Its heading is **"{{section_placement.title}}"**, rendered by the Harness immediately above your prose.
+- **Your prose is what the heading promises.** {{#if section_placement.whole}}This Leg is the whole Section.{{else}}{{#if section_placement.one_further}}1 further Leg continues under it, so open the question rather than closing it.{{else}}{{section_placement.further}} further Legs continue under it, so open the question rather than closing it.{{/if}}{{/if}}
+{{else}}
+- **This Leg CONTINUES the Section headed "{{section_placement.title}}".** That heading is already on the page, above prose you are writing further into.
+- **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.
+{{/if}}
+{{/if}}
+{{else}}
+(no Section could be derived for this Leg.)
+{{/if}}
 
-{{reader_target_line}}
+{{#if reader_target_line.reaches}}
+This Leg reaches the Reader target.
+{{else}}
+{{#if reader_target_line.closing}}
+This Leg follows the Reader target: introduce nothing, raise nothing, and move only what the reader asks, expects or trusts.
+{{else}}
+
+{{/if}}
+{{/if}}
 
 ## What crosses into this Leg
 
@@ -197,26 +263,61 @@ Where a term comes from is the Brief's own record, not material for the prose.
 Nothing not listed here is material for this Leg: the reader may hold more, but what they
 hold and do not see below is not yours to speak of or rely on.
 
-{{crosses_here}}
+{{#if crosses_here.entries}}
+{{#each crosses_here.entries}}
+{{#if unread}}
+- {{unread}}
+{{/if}}
+{{#if introduced}}
+- {{term}}{{#if meaning}} — {{meaning}}{{/if}}
+{{/if}}
+{{#if reactivated_term}}
+- {{term}}{{#if meaning}} — meaning: {{meaning}}{{/if}} (re-activated from {{from}})
+{{/if}}
+{{#if reactivated_claim}}
+- {{as}} (re-activated from {{from}}, strand {{strand}})
+{{/if}}
+{{#if reactivated_journey}}
+- **{{strand}}'s Journey** (re-activated from {{from}}){{#if use}} — used there for: {{use}}{{/if}}. Its scene, served at `{{#if cite}}{{cite}}{{else}}(no journey cite recorded in the Brief){{/if}}`:
+
+{{text}}
+{{/if}}
+{{/each}}
+{{else}}
+(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)
+{{/if}}
 
 ## The article so far, up to this Leg:
 
-{{prior_sections}}
+{{#if prior_sections.texts}}
+{{#each prior_sections.texts}}
+{{text}}
+{{#if more}}
+
+{{/if}}
+{{/each}}
+{{else}}
+{{#if prior_sections.continues}}
+(nothing yet — the Legs that open this Section are not realized, so no prose stands under this heading. You are NOT opening it: write as the Section's heading and your own Leg promise.)
+{{else}}
+(nothing yet — this Leg opens the Section, so its prose is the first in it.)
+{{/if}}
+{{/if}}
 
 ## Write
 
 Write the prose for this Leg and nothing else. No heading, no leg id, no
 label, no commentary about what you are doing.
 
-**Budget.** {{budget}}
+**Budget.** {{#if budget}}{{budget}} words. This is a ceiling, not a target — write what this Leg needs, up to it.{{else}}(none declared — no word bound applies to this Leg.){{/if}}
 
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
 
-**Language.** {{language}}
+**Language.** Write this Leg in {{language}}.
 
-**The reader's own world.** {{reader_own_world}}
+**The reader's own world.** {{#if reader_own_world}}{{reader_own_world}}{{else}}(the Persona declares no prior knowledge; a referent comes from the Journey block alone){{/if}}
 
 **What the register below governs.** The register governs how sentences read
 inside the structure the numbered, italic and *Cast* lines above give: it
@@ -241,56 +342,26 @@ reader so. Return exactly this instead, as the whole of your response:
 This ends the act as a refusal to the Harness, not as content: the Leg is not
 recorded, and it is not re-asked, because the input you were given would not
 change.
+{{#if language_block}}
 
-<!-- FIGURE-INPUT -->
+## Language block (lang: {{language_block.lang}})
 
-The block below is NOT part of a Leg Packet. It is appended, filled, to the
-Packet of a Leg that carries `figure:` — and only after that Leg's prose is
-recorded, which is the whole reason it is separated here rather than rendered
-inline: the figure is designed from the text, never before it. `draft.mjs`
-splits this file at the marker above; the Packet render never sees what
-follows.
+This Leg is realized in Japanese. The term list below is the ONLY term carrier (terms/prh.yml) — 
+for each concept, the prescribed Japanese form and the variants that are forbidden in this Draft.
 
-## The figure this Leg carries
+_terms_sha: {{language_block.terms_sha}}_
 
-The Leg's prose is written and recorded. Design its figure now, from the text
-above and the material below, and from nothing else.
+Plain, formal technical-writing register: declarative sentences, no colloquial contraction, and the term list below is prescriptive — every concept it covers is written in its `expected` form and never in a listed forbidden variant.
 
-The **form** is the kind's, not yours: the Brief bound its roles. It names the
-positions a figure of this kind has; it carries no subject matter and nothing
-here is a word the reader sees.
+| expected | forbidden variants |
+|---|---|
+{{#each language_block.rows}}
+| {{expected}} | {{#if forbidden}}{{#each forbidden}}{{text}}{{#if more}}, {{/if}}{{/each}}{{else}}(none recorded){{/if}} |
+{{/each}}
+{{#if language_block.fluency}}
 
-- **kind.** {{figure_kind}}
-- **roles.**
+## Fluency notes (read-only reference — theses/{{language_block.fluency.slug}}/fluency-notes.md; never graded by any automated pass)
 
-{{figure_form_roles}}
-
-The **binding** is the Brief's. Each role above is bound to one of this Leg's
-claims, quoted verbatim. An element is that claim worded for the reader — not
-a new claim, and not a claim from anywhere else on the page.
-
-{{figure_binding}}
-
-**What the figure is for**, as the Brief stated it: {{figure_reason}}
-
-### This Leg's prose, as recorded — verbatim
-
-{{figure_prose}}
-
-### Write the record
-
-Return one JSON object and nothing else:
-
-- `kind` — exactly the kind named above.
-- `elements` — one entry per role above, `{"text": ..., "claim": "g<n>"}`.
-  `text` is the bound claim worded for the reader. `claim` is the address the
-  binding gives that role: do not move a role to a different claim.
-- `relations` — what holds between the elements, one entry per relation the
-  figure asserts. The kind's own relation line is what these instantiate.
-- `emphasis` — optional; the role the figure leans on, if one does.
-- `caption` — one line: what the reader holds after looking at the figure.
-- `position` — `before` or `after`: whether the reader meets the figure before
-  this Leg's prose or after it.
-
-Assert nothing the claims above do not carry. You are not writing diagram
-syntax: the markup is the Harness's, rendered from this record.
+{{language_block.fluency.notes}}
+{{/if}}
+{{/if}}

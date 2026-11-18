@@ -24,11 +24,14 @@
 #       renders for the row; and an `operation`, `structural` or `excluded`
 #       hold has a sentence of that text naming the field as not stated;
 #   (b) no `judgment_point` carries a sentence another row of the same table
-#       carries with words changed -- such a criterion is written once under
-#       the table's `shared_text`, and every `{{shared:<name>}}` is proven to
-#       reach the prompt by rendering the row through `judgePrompt`;
-#   (c) the Packet template's BINDS line and the review items' `binds` name
-#       known fields and holds, and the template renders each block named;
+#       carries with words changed -- such a criterion is written once as a
+#       shared passage under prompts/, and every `{{shared:<name>}}` and every
+#       passage mark of a prompt file is proven to reach the prompt by
+#       rendering the row through `judgePrompt` (a row carrying `prompt_file`
+#       is read through `withSharedText`, kogaki#1855);
+#   (c) src/draft-workflow.json's `binds` and the review items' `binds` name
+#       known fields and holds, and prompts/draft/write-leg.prompt uses a value
+#       under each name `binds` declares (kogaki#1855);
 #   (d) src/SCHEMA-BINDS.md is byte-for-byte `renderView()` of the declarations.
 #
 # THE FIXTURE PASS RUNS ON EVERY INVOCATION: (f1) a judge row reading the Move
@@ -62,7 +65,7 @@ import { pathToFileURL } from "node:url";
 
 const REPO = resolve(".");
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
-const { withSharedText, SHARED_TEXT_FIELDS, SHARED_TEXT_TOKEN, judgePrompt } = await imp("src/workflow/judge.mjs");
+const { withSharedText, sharedTextOf, SHARED_TEXT_FIELDS, SHARED_TEXT_TOKEN, judgePrompt } = await imp("src/workflow/judge.mjs");
 // The run record binds no default lane (kogaki#1741); this check reads row text, not a lane.
 (await imp("src/workflow/run-record.mjs")).bindFlow({ lane: "schema-binds", label: "schema-binds check" });
 const { derivedRow } = await imp("src/move-extraction-playground/leg-brief.mjs");
@@ -74,7 +77,7 @@ const TABLES = Object.freeze([
   "src/move-extraction-playground/extraction-workflow.json",
 ]);
 const BINDS_SCHEMA = "src/binds-schema.json";
-const PACKET_TEMPLATE = "src/packet-template.md";
+const [DRAFT_TABLE, WRITER_PROMPT] = ["src/draft-workflow.json", "prompts/draft/write-leg.prompt"];
 const REVIEW_ITEMS = "src/review-items.json";
 const VIEW = "src/SCHEMA-BINDS.md";
 // A row declaring this schema file renders the Leg schema verbatim, so it owes `binds.leg`.
@@ -114,7 +117,7 @@ function schemaDeclarationFailures(decl = readJson(BINDS_SCHEMA)) {
   for (const k of decl.schemas.move.list_fields.segments.keys) {
     if (!shape.includes(`\`${k}\``)) fails.push(`${BINDS_SCHEMA}: Segment key \`${k}\` is not named by moves/ROLES.json \`shapes.segments\``);
   }
-  const planShape = String(readJson("src/paragraph-plan-workflow.json").paragraph_plan_unit.input_shape);
+  const planShape = String(withSharedText({ id: "paragraph_plan_unit", ...readJson("src/paragraph-plan-workflow.json").paragraph_plan_unit }).input_shape);
   for (const f of decl.schemas.paragraph_plan.fields) {
     const leaf = f.split(".").pop();
     if (!planShape.includes(`\`${leaf}\``) && !planShape.includes(`"${leaf}"`)) {
@@ -128,13 +131,13 @@ function schemaDeclarationFailures(decl = readJson(BINDS_SCHEMA)) {
 function rowsOf(table) {
   const out = [];
   for (const s of Array.isArray(table.states) ? table.states : []) {
-    if (s && (typeof s.judgment_point === "string" || s.copy_of)) out.push({ key: s.id, row: s });
+    if (s && (typeof s.judgment_point === "string" || s.copy_of || s.prompt_file)) out.push({ key: s.id, row: s });
   }
   for (const [k, v] of Object.entries(table)) {
     // A row outside `states` names what governs it; a block such as `field_semantics`
     // describes the fields and governs nothing, so it is no row.
     if (k === "states" || !v || typeof v !== "object" || Array.isArray(v) || !v.governing) continue;
-    if (typeof v.judgment_point === "string" || v.copy_of) out.push({ key: k, row: v });
+    if (typeof v.judgment_point === "string" || v.copy_of || v.prompt_file) out.push({ key: k, row: v });
   }
   return out;
 }
@@ -242,7 +245,7 @@ function restatedFailures(path, table) {
   const per = [];
   for (const { key, row } of rowsOf(table)) {
     let r;
-    try { r = row.copy_of ? renderedRow(table, key, { ...row, shared_text_file: undefined }) : row; }
+    try { r = row.copy_of ? renderedRow(table, key, { ...row, shared_text_file: undefined }) : row.prompt_file ? withSharedText({ id: key, ...row }) : row; }
     catch (e) { fails.push(`${path}: \`${key}\`: its text cannot be rendered (${e.message})`); continue; }
     const jp = typeof r.judgment_point === "string" ? r.judgment_point : "";
     per.push({ key, list: sentences(jp.replace(SHARED_TEXT_TOKEN, ". ")).map((s) => ({ s, w: words(s) })).filter((x) => x.w.length >= RESTATED_MIN_WORDS) });
@@ -255,7 +258,7 @@ function restatedFailures(path, table) {
           if (Math.abs(a.w.length - b.w.length) > n * RESTATED_MAX_SHARE) continue;
           const d = wordDistance(a.w, b.w);
           if (d > 0 && d <= Math.max(1, Math.floor(n * RESTATED_MAX_SHARE))) {
-            fails.push(`${path}: \`${per[i].key}\` and \`${per[j].key}\` carry one sentence with ${d} word(s) changed -- write it once under \`shared_text\`: ${JSON.stringify(a.s.slice(0, 120))}`);
+            fails.push(`${path}: \`${per[i].key}\` and \`${per[j].key}\` carry one sentence with ${d} word(s) changed -- write it once as a shared passage under prompts/: ${JSON.stringify(a.s.slice(0, 120))}`);
           }
         }
       }
@@ -264,13 +267,9 @@ function restatedFailures(path, table) {
   return fails;
 }
 
-// ---- (3) the Packet template's and the review items' declarations ----
-const PACKET_BINDS_LINE = /^BINDS \(kogaki#1452\): (\{.*\})$/m;
-function packetBinds(text = readFileSync(join(REPO, PACKET_TEMPLATE), "utf8")) {
-  const head = (text.match(/^<!--[\s\S]*?-->/) || [""])[0];
-  const m = head.match(PACKET_BINDS_LINE);
-  return m ? JSON.parse(m[1]) : null;
-}
+// ---- (3) src/draft-workflow.json's `binds`, one name per value the Writer prompt reads (kogaki#1855), and the review items' ----
+const packetBinds = () => readJson(DRAFT_TABLE).binds || null;
+const usesValue = (text, name) => new RegExp(`\\{\\{(?:#(?:if|each) )?${escapeRe(name)}(?:\\.|\\}\\})`).test(text);
 
 function declaredOnlyFailures({ fields = schemaFields(), holds = Object.keys(readJson(BINDS_SCHEMA).holds) } = {}) {
   const fails = [];
@@ -283,12 +282,12 @@ function declaredOnlyFailures({ fields = schemaFields(), holds = Object.keys(rea
       }
     }
   };
-  const text = readFileSync(join(REPO, PACKET_TEMPLATE), "utf8");
-  const pb = packetBinds(text);
-  if (!pb) fails.push(`${PACKET_TEMPLATE}: its header comment carries no \`BINDS (kogaki#1452):\` line`);
+  const text = readFileSync(join(REPO, WRITER_PROMPT), "utf8");
+  const pb = packetBinds();
+  if (!pb) fails.push(`${DRAFT_TABLE}: it declares no \`binds\``);
   for (const [slot, binds] of Object.entries(pb || {})) {
-    if (!text.includes(`{{${slot}}}`)) fails.push(`${PACKET_TEMPLATE}: BINDS names block \`${slot}\`, which the template renders no \`{{${slot}}}\` for`);
-    one(`${PACKET_TEMPLATE}: block \`${slot}\``, binds);
+    if (!usesValue(text, slot)) fails.push(`${DRAFT_TABLE}: \`binds\` names \`${slot}\`, for which ${WRITER_PROMPT} uses no value`);
+    one(`${DRAFT_TABLE}: \`binds.${slot}\``, binds);
   }
   for (const it of readJson(REVIEW_ITEMS).items) {
     if (it.binds) one(`${REVIEW_ITEMS}: item \`${it.id}\``, it.binds);
@@ -306,13 +305,17 @@ function sharedRenderFailures(path, table) {
     for (const f of SHARED_TEXT_FIELDS) {
       for (const m of String(row[f] || "").matchAll(SHARED_TEXT_TOKEN)) names.add(m[1]);
     }
-    if (!names.size) continue;
+    const marks = row.prompt_file ? [...readFileSync(join(REPO, "prompts", `${row.prompt_file}.prompt`), "utf8").matchAll(/\{\{> ([\w/-]+)\}\}/g)].map((m) => m[1]) : [];
+    if (!names.size && !marks.length) continue;
     let prompt;
     try { prompt = judgePrompt({ id: key, ...row }, "", null, null); }
     catch (e) { fails.push(`${path}: \`${key}\` names shared text and does not render (${e.message})`); continue; }
     for (const n of names) {
-      if (!prompt.includes(table.shared_text?.[n] ?? "\u0000")) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry shared text \`${n}\``);
+      if (!prompt.includes((sharedTextOf({ id: key, ...row }) || {})[n] ?? String.fromCharCode(0))) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry shared text \`${n}\``);
     }
+    for (const m of marks) { // a passage with no value of its own stands in the prompt verbatim (kogaki#1855)
+      const p = readFileSync(join(REPO, "prompts", m.replace(/([^/]+)$/, "_$1.prompt")), "utf8").replace(/\n$/, "");
+      if (!p.includes("{{") && !prompt.includes(p)) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry the shared passage \`${m}\``); }
     if (new RegExp(SHARED_TEXT_TOKEN.source).test(prompt)) fails.push(`${path}: \`${key}\`'s rendered prompt still carries a \`{{shared:...}}\` token`);
   }
   return fails;
@@ -328,7 +331,7 @@ function renderView(fields = schemaFields(), decl = readJson(BINDS_SCHEMA)) {
     }
   }
   for (const [slot, binds] of Object.entries(packetBinds() || {})) {
-    stages.push({ label: `packet:${slot}`, where: `${PACKET_TEMPLATE} block \`{{${slot}}}\``, binds, unread: {} });
+    stages.push({ label: `packet:${slot}`, where: `${WRITER_PROMPT} value \`${slot}\``, binds, unread: {} });
   }
   for (const it of readJson(REVIEW_ITEMS).items) {
     if (it.binds) stages.push({ label: `review:${it.id}`, where: `${REVIEW_ITEMS} item \`${it.id}\``, binds: it.binds, unread: {} });

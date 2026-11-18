@@ -29,7 +29,6 @@ import {
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
 import { paragraphsPerLeg } from "../compose/record.mjs";
 import { renderPacket } from "../draft/render-packet.mjs";
-import { splitPacketTemplate } from "../draft/packet.mjs";
 import { sectionsOf, sectionOfLeg } from "../draft/workspace.mjs";
 import { writerSettings, writerRefusal } from "../draft/writer.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
@@ -76,8 +75,8 @@ export const PAIRING_FILE = "pairing.yaml";
 export const LEG_STRUCTURE_FILE = "leg-structure.yaml";
 const READ_MOVE_ROW = "smp_read_move";
 const PAIR_ROW = "smp_pair_roles";
-const PAIRED_PLAN_ROW = "smp_paired_plan";
-const TABLE_PLAN_ROW = "smp_table_plan";
+const PAIRED_PLAN_FILE = "structure-mapping-playground/plan-leg-paired";
+const TABLE_PLAN_FILE = "structure-mapping-playground/plan-leg-under-a-move-table";
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
@@ -91,7 +90,6 @@ const OWN = "own";
 const APART = "apart";
 export const CASES = [OWN, APART];
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
-const PACKET_TEMPLATE = join(REPO, "src", "packet-template.md");
 const USAGE =
   "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
@@ -502,8 +500,6 @@ function waypointsStage({ dir, env, cli, leg, structure, tables, move, contract,
 
 // THE PARAGRAPHS: one Packet over a one-Leg Brief whose Leg carries its paragraphs, and the writer called once (kogaki#1784).
 export function shortPacket({ leg, paragraphs, audiencePath }) {
-  const split = splitPacketTemplate(readFileSync(PACKET_TEMPLATE, "utf8"));
-  if (split.error) return { error: split.error };
   const serves = leg.claims.map((g) => g.strand);
   const packetLeg = {
     ...leg,
@@ -517,7 +513,6 @@ export function shortPacket({ leg, paragraphs, audiencePath }) {
   };
   const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [packetLeg], strands: [] };
   return renderPacket({
-    template: split.packet,
     brief,
     leg: packetLeg,
     priorSections: [],
@@ -940,10 +935,9 @@ export function moveReadingInput(contract, libraryDir) {
   };
 }
 
-// The production plan row with the Playground's one sentence appended; the production table is read, never written.
-export function pairedPlanRow(plan, table, rowId = PAIRED_PLAN_ROW) {
-  const row = plan[PLAN_ROW];
-  return { id: PLAN_ROW, ...row, judgment_point: `${row.judgment_point} ${table[rowId].judgment_point}` };
+// The production plan row rendered from the Playground's own prompt file (kogaki#1855); the production table is read, never written.
+export function pairedPlanRow(plan, promptFile = PAIRED_PLAN_FILE) {
+  return { id: PLAN_ROW, ...plan[PLAN_ROW], prompt_file: promptFile };
 }
 
 // Under a Move table the plan call is offered the Move as `move`; the Harness writes the named Move's id back (kogaki#1840).
@@ -1161,7 +1155,7 @@ export function runMoveTrial({
       dir: d,
       env,
       cli,
-      row: pairedPlanRow(plan, table, moveTableRecord ? TABLE_PLAN_ROW : PAIRED_PLAN_ROW),
+      row: pairedPlanRow(plan, moveTableRecord ? TABLE_PLAN_FILE : PAIRED_PLAN_FILE),
       input,
       tables: [PARAGRAPH_PLAN_TABLE, PLAYGROUND_TABLE],
       refusalOf: moveTableRecord ? (answer) => tablePlanRefusal(answer, moveId, refusalOf) : refusalOf,

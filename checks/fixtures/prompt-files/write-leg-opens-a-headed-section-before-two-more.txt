@@ -1,0 +1,142 @@
+# Write one Leg
+
+## The waypoints this Leg takes the reader through
+
+Each numbered line below is a point this Leg makes, in order, and the claim
+it serves — one paragraph, carrying that point. Under it, the indented
+numbered lines are the points that paragraph makes, in order, each with the
+claim it serves. Each indented line is rendered as the sentences it is, in
+their order, and the paragraph is those sentences joined: the register may
+change a connective or a reference between them, and changes nothing else.
+The paragraph adds no sentence that no indented line carries. No line is
+announced to the reader.
+
+- ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.
+- NOT A POINT: An italic line states no point.
+- IN PLACE: The paragraph performs it at the italic line's place among the points.
+- OWN WORDS: The paragraph performs it in its own words.
+- NO CLAIM: The sentence that performs it states no proposition.
+- NO VERDICT: The sentence that performs it passes no judgment on the material.
+- NO ANTICIPATION: The sentence that performs it names nothing of what follows.
+- NO REASON: The sentence that performs it gives no reason for the operation.
+
+An *Opens from* line under a numbered line carries one word -- consequence,
+grounds, contrast, elaboration, summary or none -- naming how that paragraph's
+first point stands to the paragraph before it. Realise it with a connective or
+clause of the register's own, or with nothing where the order of the sentences
+already carries it; `none` adds nothing. Never state the relation as a
+proposition of its own: the opening does not say that something was left open,
+is owed, or is now taken up. The word is not copied and not announced.
+
+A *Cast* line under an indented line names, from a fixed set, the shape the
+sentences of the line above it take. It is realised in those sentences' form
+and never as a sentence or clause of its own; nothing of it is copied or
+announced. The set:
+
+- terse: one short statement given at once, taking no elaboration after it.
+- plain: laid down without support, ground or qualification.
+- hedged: offered as a guess or forecast rather than asserted.
+- chained: a run of parallel items or alternatives inside one sentence.
+- asked: put as a question that takes no lead-in.
+- voiced: spoken in a named voice, the first person, an invitation, or words reported as another's.
+- instanced: one recognisable instance named and left without comment.
+- dated: each instance placed in time.
+- figured: asserted as a likeness or a figurative identification.
+
+1. The installer copies the kit. *Serves:* the installer copies the kit.
+   1. The installer copies the kit. *Serves:* the installer copies the kit.
+
+## The claims this Leg asserts
+
+Each line below is one claim, and every line is a claim of this Leg: none is
+subordinate to another. Your prose must make every one of them recoverable,
+and must assert nothing beyond them: these lines are the whole of what this
+Leg may assert.
+
+- the installer copies the kit.
+
+## The Journey material this Leg edits — NOT a claim to recover
+
+(none — this Leg draws on no Journey material, and nothing here asks for any.)
+
+## The Section this Leg sits in
+
+A Section is a grouping of Legs under one heading — one promise to the reader
+that the question changes here. This Leg either opens a Section or continues
+one, and the line below says which. Where it continues, the heading is already
+on the page and you are writing further into it: do not restate the heading's
+claim, and do not open a new subject.
+
+- **This Leg OPENS a Section.** Its heading is **"Where the copy lives"**, rendered by the Harness immediately above your prose.
+- **Your prose is what the heading promises.** 2 further Legs continue under it, so open the question rather than closing it.
+
+
+
+## What crosses into this Leg
+
+This is the whole of what you may speak of as already available: a term you
+introduce here, a term or claim re-activated from a Leg you depend on, or a
+re-activated Journey. Each line carries what crosses with it — a term with
+its meaning where the Brief gives one, a claim as a plain restatement, a Journey as its served text.
+Where a term comes from is the Brief's own record, not material for the prose.
+Nothing not listed here is material for this Leg: the reader may hold more, but what they
+hold and do not see below is not yours to speak of or rely on.
+
+(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)
+
+## The article so far, up to this Leg:
+
+(nothing yet — this Leg opens the Section, so its prose is the first in it.)
+
+## Write
+
+Write the prose for this Leg and nothing else. No heading, no leg id, no
+label, no commentary about what you are doing.
+
+**Budget.** (none declared — no word bound applies to this Leg.)
+
+**The heading is not yours.** One heading is rendered per Section, by the
+Harness, from the title the Brief declared — never per Leg and never by you.
+Prose that writes its own heading is refused when the Leg is recorded.
+
+**Language.** Write this Leg in English.
+
+**The reader's own world.** The reader has installed a program from a package manager.
+
+**What the register below governs.** The register governs how sentences read
+inside the structure the numbered, italic and *Cast* lines above give: it
+adds, removes and reorders no point and no operation. Where a register rule
+and one of those lines conflict, the line holds and the
+rule yields for that sentence. Do not return a refusal for such a conflict.
+
+**Sentences:** classic register, full clauses, a concrete subject acting,
+no unexplained term of art; not fragments, not runs of short sentences, not
+triads, not "not X, not Y" runs.
+
+**Paragraphs.** A paragraph's
+first sentence names what it refers to in full: no "this", "that", "it",
+"these", "those" or a bare definite noun such as "the result" reaching
+back into an earlier paragraph. Inside a paragraph, reference is free.
+
+**Referents.** A referent is a case, example, file or person introduced in
+the Journey block; it may be named again, by name, in a later paragraph.
+Anything else the prose names — including something from the reader's own
+world — does not carry across a paragraph boundary and does not exist for
+later Legs. A comparison is not a referent:
+it explains a term once, and nothing later points back to it.
+
+**The round trip — claims only.** Each claim above must be recoverable from
+what you write. A silent omission is not a simplification, it is a loss.
+Where making a claim plain loses something you cannot restore, answer it
+below, as a refusal — never as a sentence the waypoints do not carry.
+
+**When a step cannot be performed.** If a waypoint cannot be reached from
+the material this Packet gives you, or material it should carry is
+missing, do not write around it and do not write a sentence telling the
+reader so. Return exactly this instead, as the whole of your response:
+
+    refusal: <reason>
+
+This ends the act as a refusal to the Harness, not as content: the Leg is not
+recorded, and it is not re-asked, because the input you were given would not
+change.

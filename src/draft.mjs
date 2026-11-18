@@ -33,31 +33,15 @@ import { join, relative, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readerKnowledgeLedger, figureLegs } from "./compose.mjs";
 import { sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "./lint-ja.mjs";
-import {
-  fail,
-  argString,
-  sha256,
-  readBrief,
-  REACHES_TARGET_LINE,
-  CLOSING_LEG_LINE,
-  readerTargetLine,
-  foreignStrandRefusal,
-} from "./draft/brief-reader.mjs";
+import { fail, argString, sha256, readBrief, readerTargetCase, foreignStrandRefusal } from "./draft/brief-reader.mjs";
 import {
   journeyIdentityKey,
   journeyTextFromSurvey,
   journeyResolutionRefusal,
   journeyProseFromShardLines,
 } from "./draft/journeys.mjs";
-import { splitPacketTemplate, figureFormFor, renderFigureInput, figureRecordRefusal } from "./draft/packet.mjs";
-import {
-  READER_OWN_WORLD_ABSENT,
-  OPENS_FROM_LABEL,
-  CAST_LABEL,
-  waypointLines,
-  renderPacket,
-  renderAndStorePacket,
-} from "./draft/render-packet.mjs";
+import { figureFormFor, renderFigureInput, figureRecordRefusal } from "./draft/packet.mjs";
+import { waypointValues, renderPacket, renderAndStorePacket } from "./draft/render-packet.mjs";
 import {
   workspaceFor,
   enterWorkspace,
@@ -77,21 +61,15 @@ import { writerSettings, callWriter, writerRefusal, sectionProseRefusal, parseWr
 // re-exported so no importer and no check changes when the modules move.
 export {
   readBrief,
-  readerTargetLine,
-  REACHES_TARGET_LINE,
-  CLOSING_LEG_LINE,
+  readerTargetCase,
   sectionsOf,
   sectionOfLeg,
   writerRefusal,
-  splitPacketTemplate,
   journeyIdentityKey,
   journeyTextFromSurvey,
   journeyResolutionRefusal,
   journeyProseFromShardLines,
-  READER_OWN_WORLD_ABSENT,
-  OPENS_FROM_LABEL,
-  CAST_LABEL,
-  waypointLines,
+  waypointValues,
   renderPacket,
 };
 
@@ -382,21 +360,10 @@ function cmdSection(args) {
   if (leg.figure !== undefined && leg.figure !== null) {
     const form = figureFormFor(leg);
     if (form.error) fail(form.error);
-    const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
-    let template;
-    try {
-      template = readFileSync(tplPath, "utf8");
-    } catch (e) {
-      fail(
-        `the Packet template at ${tplPath} cannot be read (${e.message}) — the figure block lives in it and the command has no built-in fallback`,
-      );
-    }
-    const split = splitPacketTemplate(template);
-    if (split.error) fail(split.error);
     // THE FIGURE INPUT IS RENDERED HERE ONLY TO REFUSE EARLY: it is not
     // printed. `figure --leg <id>` renders the same input from the same stored
     // Packet and prose and hands it to the writer; nothing reaches the session.
-    const r = renderFigureInput({ figureTemplate: split.figure, packetText, leg, form, prose: content });
+    const r = renderFigureInput({ packetText, leg, form, prose: content });
     if (r.error) fail(r.error);
     process.stdout.write(
       `leg ${id} carries a figure — record it with \`figure --leg ${id}\`; the next Leg's Packet follows that\n`,
@@ -468,18 +435,7 @@ function cmdFigure(args) {
   }
   const packetText = readFileSync(packetPath, "utf8");
   const prose = readFileSync(sectionFile, "utf8");
-  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "packet-template.md");
-  let template;
-  try {
-    template = readFileSync(tplPath, "utf8");
-  } catch (e) {
-    fail(
-      `the Packet template at ${tplPath} cannot be read (${e.message}) — the figure block lives in it and the command has no built-in fallback`,
-    );
-  }
-  const split = splitPacketTemplate(template);
-  if (split.error) fail(split.error);
-  const rendered = renderFigureInput({ figureTemplate: split.figure, packetText, leg, form, prose });
+  const rendered = renderFigureInput({ packetText, leg, form, prose });
   if (rendered.error) fail(rendered.error);
 
   const settings = writerSettings();

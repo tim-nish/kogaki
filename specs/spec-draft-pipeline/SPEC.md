@@ -10,7 +10,7 @@ structure a Move provides but must not modify or extend that structure, and
 the judge is not to stop on each conflict. So the Packet template states,
 directly before `{{register}}` and outside it, that the line holds and the rule
 yields for that sentence, with no refusal raised for the conflict; no judge or
-check reads the conflict (§4.14). Carriers: `src/packet-template.md`,
+check reads the conflict (§4.14). Carriers: `prompts/draft/write-leg.prompt`,
 `checks/check-draft-packet.sh`.
 **deferred slots minted by this amendment: none.**
 
@@ -40,7 +40,7 @@ the Register is the **Audience**, with a key for each. So the file moves to
 `{{prose_rules}}` slot becomes `{{register}}`; and the Register's rules are
 moved, none edited. Persona stays the name of the `persona` key. Carriers:
 `audiences/dev-to-zenn.md`, `kogaki.settings.json`, `src/brief-workflow.json`,
-`src/compose.mjs`, `src/draft.mjs`, `src/brief.mjs`, `src/packet-template.md`.
+`src/compose.mjs`, `src/draft.mjs`, `src/brief.mjs`, `prompts/draft/write-leg.prompt`.
 **deferred slots minted by this amendment: none.**
 
 **Status:** v44, amended 2026-10-13 (kogaki#1355) — **A JOB UNIT IS BOUNDED
@@ -76,7 +76,7 @@ Candidate opens a Move file: `draft.mjs` takes no `--moves-dir`, adoption
 resolves no Move (§4.12.1), and the figure stage reads its kind off the Leg's
 own `figure_roles` (§4.17). Carriers: `src/leg-schema.json`,
 `src/compose.mjs`, `src/brief.mjs`, `src/brief-workflow.json`,
-`src/draft.mjs`, `src/packet-template.md`, `src/review-draft.mjs`,
+`src/draft.mjs`, `prompts/draft/write-leg.prompt`, `src/review-draft.mjs`,
 `src/review-items.json`, `src/assemble.mjs`. **deferred slots minted by this
 amendment: none.**
 
@@ -128,7 +128,7 @@ lists under `introduces:` is refused at adoption naming the term and the Leg.
 Carriers: `readers/dev-to-zenn.md`, `src/differentiation-schema.json`,
 `src/leg-schema.json`, `src/candidate-schema.json`, `src/brief-workflow.json`,
 `src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`, `src/draft.mjs`,
-`src/packet-template.md`, `checks/check-brief-compose.sh`.
+`prompts/draft/write-leg.prompt`, `checks/check-brief-compose.sh`.
 
 **Status:** v40, amended 2026-09-29 (kogaki#1216) — **§5.1.1: READER START IS
 A COLD READ FROM THE PERSONA AND THE THESIS, THE FIRST LEG BINDS A MOVE THAT
@@ -330,7 +330,7 @@ item 2 — its structure half.
 
 No runtime reads this file. The Brief and Draft lanes are driven by their own
 carriers — `src/compose.mjs`, `src/brief.mjs`, `src/assemble.mjs`,
-`src/draft.mjs`, `src/packet-template.md`, `src/specialization-schema.json`,
+`src/draft.mjs`, `prompts/draft/write-leg.prompt`, `src/specialization-schema.json`,
 `src/gate-registry.json`, `src/figure-kinds.json`, `src/figure-schema.json`,
 `specs/move-extraction-contract.md` and the registered
 checks — and where one of those decides a question, this file points at it and
@@ -390,7 +390,7 @@ a later sitting widens by convenience if nothing states it.
 | thesis | **bound** — §3 |
 | journey incorporation | **bound** — Journeys are admissible leg materials (§4), §4.8 binds arc integrity, and the register choice rides Candidate differentiation (§6.1). **No incorporation gate is registered, and none is owed.** |
 | structure composed from the Brief's own state | **bound** — §4, §5, §6 |
-| plain register with round-trip concessions | **bound** — `src/packet-template.md` carries the operational instruction the model reads at generation; `specs/spec-brief-draft-design/DESIGN.md` §4 carries its ground. The surface-shape half is §5.1.3. |
+| plain register with round-trip concessions | **bound** — `prompts/draft/write-leg.prompt` carries the operational instruction the model reads at generation; `specs/spec-brief-draft-design/DESIGN.md` §4 carries its ground. The surface-shape half is §5.1.3. |
 
 The Brief's **durable home** is decided at §5.3, and so is resume: a refusal
 inside an advance is a wait at a gate, and a Brief run has two exits, `done` and
@@ -1754,7 +1754,7 @@ registered member's admission record, and at the top of the template the model
 reads. The rename lands at **every** site carrying the proper noun in one act:
 this heading, `specs/spec-brief-draft-design/DESIGN.md` §2.1 and §3,
 `checks/registry.json`'s `draft-runtime` contract, `src/draft.mjs`, and
-`src/packet-template.md`. **A subset was refused**: renaming the served heading
+`prompts/draft/write-leg.prompt`. **A subset was refused**: renaming the served heading
 without the registry contract that quotes it would put two names on one artifact,
 which is the defect one level worse than the one being fixed.
 
@@ -1928,7 +1928,7 @@ absence must refuse rather than render.
 
 #### 4.14.1 The template is a runtime-read carrier, and it points at no spec
 
-`src/packet-template.md`, read at generation like `report-format.json` and
+`prompts/draft/write-leg.prompt`, read at generation like `report-format.json` and
 `terrain-workflow.json`. **Template content is operational text only** — rules that
 change model behaviour at generation, kept minimal, a rule entering only with
 demonstrated runtime effect.
@@ -1941,6 +1941,14 @@ Design principles about the template live in
 **Two clauses live in the template rather than in a spec** — the operational
 plain-register definition and the round-trip instruction. Both are operational,
 so the file the model reads is where they belong.
+
+**The text of a call is one prompt file** (kogaki#1855). For the Writer call
+and the `/paragraph-plan` plan call, the text the model receives is the text of
+one file under `prompts/`, the shared passages that file names, and values
+taken from the Brief, the plan, the Audience and the run. A program writes no
+sentence, label or separator into such a prompt. A sentence used in one case
+only stands in the file under the condition of its case, and a line written
+once per item stands in the file once.
 
 `necessity:` the template is the carrier and this section does not restate it.
 What no carrier holds: why the Packet is the entire input, why an absence must
@@ -2229,12 +2237,10 @@ served, plus a block carrying
   reader; the caption says what the reader holds after looking, in the terms of
   this Leg's claims; no element the claims do not carry.
 
-**The block lives in `src/packet-template.md` behind a marker the Packet render
-splits away.** One model-facing template file, two consumers: a second file
-would be a second carrier for one surface, and the marker is what keeps the
-figure block out of every ordinary Packet. A template with no marker is refused
-rather than treated as having none — a template that cannot say where the Packet
-ends is one whose two halves nothing distinguishes.
+**The block lives in `prompts/draft/_figure-block.prompt`** (kogaki#1855). The
+figure call is its own model call, so its fixed text is its own file; the
+Packet's file holds none of it, which is what keeps the figure block out of
+every ordinary Packet.
 
 **The Packet stays the only input.** Nothing the model reads at realization is
 outside it: the form and the binding travel in the appended block, which the
@@ -3907,8 +3913,9 @@ relation of the Move with one of the Leg's, or null, and the Harness writes
 what is left `unmatched`; nothing fills a null. `grounding` fills the Mapping
 Table for the named Move under case `own`, and no Analogy Mapping is written.
 `waypoints` is the production plan call handed `move_structure` and `pairing`,
-with the one sentence of the Playground's `smp_paired_plan` row appended to
-its judgment point. The sheet opens with `Move structure` and `Segments`: per
+rendered from `prompts/structure-mapping-playground/plan-leg-paired.prompt`,
+which holds one sentence more than production's file (kogaki#1855). The sheet
+opens with `Move structure` and `Segments`: per
 Segment its operation, what it states and what each is paired with or
 `unmatched`, and the Waypoints written for it.
 
@@ -3931,8 +3938,8 @@ Leg structure's, naming both numbers. With a table, `move-reading` and
 with no `holds`, the number of Roles and what each Segment `states`, and the
 Leg's relations, then its higher-order relations, are given to `R1` to `Rn` in
 order, no Role paired. `grounding` is handed the table's Segments in place of
-their `operation`, `relation` and `manner`. `waypoints` appends the sentence
-of the Playground row `smp_table_plan` in place of `smp_paired_plan`'s and
+their `operation`, `relation` and `manner`. `waypoints` is rendered from
+`prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt` and
 offers the plan call one Move, `{ id: "move", takes: [], leaves: [], before:
 null, after: null, breaks: [], segments }`, so no Move name, `breaks` or
 `operation` reaches it; the Harness writes the named Move's id back into the
@@ -4385,7 +4392,7 @@ specialization record at `adopt_candidate`; `characteristic` and
 `reader_experience` on a Candidate (`src/candidate-schema.json` records them
 as retired fields); and the Leg fields named above. The Draft Packet's
 `journeys`, `crosses_here`, `budget` and figure blocks bind no Brief field
-any more (`src/packet-template.md`), so they render their absent forms.
+any more (`prompts/draft/write-leg.prompt`), so they render their absent forms.
 
 **Its acceptance.** The owner's reading of the rebuilt Brief's sheet for
 `theses/set-automatic-rules-only-sees/brief.yaml` is recorded on kogaki#1768
@@ -4440,7 +4447,7 @@ as lists of maps, each reader state as a five-key map, `introduces` as a list
   claim is refused naming it. Its readers are composition (§4.1) and path
   review's claim register.
   **It lives in the Brief and its boundary ends there**: nothing of it reaches
-  `src/packet-template.md` or a rendered Packet — information whose boundary
+  `prompts/draft/write-leg.prompt` or a rendered Packet — information whose boundary
   is planning is not copied downstream "just a little", because each copy then
   needs its own assessment. A Brief minted before the field carries none and
   defines nothing.

@@ -39,7 +39,7 @@ trace names: the Packets, and each figure record. **It reads no Brief, no Move
 file and no Strand**, by the owner's 2026-09-04 ruling: the Packet was designed
 to be the only source a Leg needs, so a check that turns out to need anything
 else is evidence the **Packet** is missing information. File that against
-`src/packet-template.md`; never satisfy it with a side read here.
+`prompts/draft/write-leg.prompt`; never satisfy it with a side read here.
 
 ## Entry points
 
@@ -238,7 +238,7 @@ There is no fourth token for "not asked yet", and an unfilled join says it is
 unfilled rather than rendering an empty findings list; `close` refuses over one.
 
 A Packet block the Round Trip needs and a Packet does not carry is a **Packet
-gap**: it refuses by name and is filed against `src/packet-template.md`, never
+gap**: it refuses by name and is filed against `prompts/draft/write-leg.prompt`, never
 satisfied by a side read.
 
 ## The figure's own Round Trip

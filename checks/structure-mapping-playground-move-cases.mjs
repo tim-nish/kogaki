@@ -44,8 +44,15 @@ const trials = join(repo, "runs", "structure-mapping-playground");
 mkdirSync(trials, { recursive: true });
 const PLAN_TABLE = "src/paragraph-plan-workflow.json";
 const planTableSha = sha(PLAN_TABLE);
-const PAIRED_SENTENCE = JSON.parse(readFileSync("src/structure-mapping-playground/playground-workflow.json", "utf8"))
-  .smp_paired_plan.judgment_point;
+// THE SENTENCE EACH PLAYGROUND PLAN PROMPT ADDS (kogaki#1855): the last sentence of its prompt file's
+// rule paragraph, the one the two files do not share.
+const lastSentenceOf = (file) => {
+  const line = readFileSync(file, "utf8")
+    .split("\n")
+    .find((l) => l.startsWith("{{> paragraph-plan/"));
+  return line.slice(line.lastIndexOf(" they stay with the Writer. ") + " they stay with the Writer. ".length);
+};
+const PAIRED_SENTENCE = lastSentenceOf("prompts/structure-mapping-playground/plan-leg-paired.prompt");
 
 const snapshot = () => {
   const rows = [];
@@ -518,8 +525,7 @@ ok(snapshot() === before, "(h) a file under moves/ or theses/ changed");
 // (i) the Move table (kogaki#1840): read by hand-written table, paired in order by the Harness, planned with no name
 const { callDir, CALL_FILES } = await imp("src/workflow/call-record.mjs");
 const TABLE_FIXTURE = "checks/fixtures/move-table/grant_the_rule_then_withdraw_its_enforcer.yaml";
-const TABLE_SENTENCE = JSON.parse(readFileSync("src/structure-mapping-playground/playground-workflow.json", "utf8"))
-  .smp_table_plan.judgment_point;
+const TABLE_SENTENCE = lastSentenceOf("prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt");
 const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
 const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
 const TABLE_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", MOVE, "--library", library];

@@ -18,6 +18,35 @@
     "note": "kogaki#1555",
     "words_max": 20
   },
+  "binds": {
+    "waypoints": {
+      "leg": {
+        "text": "content",
+        "claims": "content"
+      },
+      "paragraph_plan": {
+        "paragraphs.join": "operation",
+        "paragraph_waypoints.point": "content",
+        "paragraph_waypoints.performs": "operation",
+        "paragraph_waypoints.cast": "operation"
+      }
+    },
+    "claims": {
+      "leg": {
+        "claims": "content"
+      }
+    },
+    "section_placement": {
+      "leg": {
+        "opens_section": "structural"
+      }
+    },
+    "reader_target_line": {
+      "leg": {
+        "reaches_target": "structural"
+      }
+    }
+  },
   "writer": {
     "command": "claude",
     "model": "claude-opus-5",

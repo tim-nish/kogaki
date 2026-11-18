@@ -18,7 +18,7 @@ import { fail } from "./draft-reader.mjs";
 // what the Blind Reader read out of the prose it produced.
 // THE ITEM TABLE IS FIXED IN THE HARNESS AND READ FROM `src/review-items.json`
 // — classes, preserved or best-effort, mechanical or judged; amending it is
-// one edit, the arrangement `src/packet-template.md` has with `src/draft.mjs`.
+// one edit, the arrangement `prompts/draft/write-leg.prompt` has with `src/draft.mjs`.
 // THE MODEL NEVER ASSIGNS SEVERITY: it sees ONE pair, answers ONE question,
 // returns one of three tokens with one sentence, and what a `fails` COSTS is
 // the table's. `cannot-decide` IS NEVER ROUNDED — it is a third answer,
@@ -48,7 +48,7 @@ function readItems() {
 // THE PACKET IS PARSED AS THE TEMPLATE WRITES IT, never as general markdown —
 // the same reading `readDraft` gives the trace, and for the same reason: a
 // second grammar can disagree with the writer about what was written. Every
-// block below is a form `src/packet-template.md` renders, and a block that is
+// block below is a form `prompts/draft/write-leg.prompt` renders, and a block that is
 // absent is a PACKET GAP rather than something to work around, per the owner's
 // 2026-09-04 closed-input ruling. The refusal names the block, the item that
 // needed it, and the file the gap is filed against.
@@ -289,7 +289,7 @@ function readPacketBlock(text, name, items, leg, wantedBy) {
       `leg ${leg.leg_id}: its Packet carries no \`${name}\` block, which the item(s) ` +
         `${wantedBy.join(", ")} compare against.\n  packet  ${leg.packet_path}\n` +
         "A block the comparison needs and the Packet does not carry is a PACKET GAP: file it " +
-        "against src/packet-template.md. It is never satisfied by reading the Brief, the Move " +
+        "against prompts/draft/write-leg.prompt. It is never satisfied by reading the Brief, the Move " +
         "or the Strand — the owner's 2026-09-04 ruling is that a need for those is evidence " +
         "the Packet is missing information.",
     );
@@ -332,7 +332,7 @@ function declaredFor(leg, items) {
 // import forms, and a stopword list is not an import. THE FORM IS NOT SPELLED
 // OUT HERE, deliberately: a comment that writes the pattern it exists to avoid
 // becomes the first hit of the reader looking for it, which is the use-versus-
-// mention defect src/packet-template.md's own header records.
+// mention defect prompts/draft/write-leg.prompt's own header records.
 const STOPWORDS = new Set(
   (
     "a an and are as at be been being but by can could did do does " +

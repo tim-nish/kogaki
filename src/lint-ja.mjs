@@ -66,7 +66,7 @@ import { execFileSync } from "node:child_process";
 // textlint, its kernel and the markdown/prh packages are LOADED LAZILY, by
 // dynamic import inside the functions that need them, rather than statically
 // at module top: src/draft.mjs imports THIS module for parseTermsYaml/
-// renderLanguageBlock/sha256/DEFAULT_TERMS_PATH alone, and src/review-draft.mjs
+// sha256/DEFAULT_TERMS_PATH alone, and src/review-draft.mjs
 // imports src/draft.mjs in turn — so a static top-level import here would put
 // three npm packages on the load path of every review-draft.mjs invocation,
 // including the `soloWithout` self-test fixtures that run a COPY of `src/`
@@ -194,32 +194,6 @@ export function parseTermsYaml(text) {
     if (!r.expected) return { error: "a rule carries no `expected` form" };
   }
   return { rules };
-}
-
-// The language block's own register statement — nothing but the term list
-// and the register, until a Round Trip failure names what is missing (the
-// owner's 2026-09-19 ruling).
-const REGISTER_NOTE =
-  "Plain, formal technical-writing register: declarative sentences, no colloquial contraction, " +
-  "and the term list below is prescriptive — every concept it covers is written in its `expected` form and never " +
-  "in a listed forbidden variant.";
-
-export function renderLanguageBlock(rules, terms_sha, lang) {
-  const lines = [
-    `## Language block (lang: ${lang})`,
-    "",
-    "This Leg is realized in Japanese. The term list below is the ONLY term carrier (terms/prh.yml) — ",
-    "for each concept, the prescribed Japanese form and the variants that are forbidden in this Draft.",
-    "",
-    `_terms_sha: ${terms_sha}_`,
-    "",
-    REGISTER_NOTE,
-    "",
-    "| expected | forbidden variants |",
-    "|---|---|",
-    ...rules.map((r) => `| ${r.expected} | ${r.patterns.join(", ") || "(none recorded)"} |`),
-  ];
-  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------

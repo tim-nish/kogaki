@@ -18,7 +18,7 @@ import {
 } from "../compose.mjs";
 import { PLAN_SCHEMA_KEYS, RETIRED_PLAN_KEYS, paragraphSchemaRefusal } from "../compose/record.mjs";
 import { correspondenceVocabularyFailures } from "../structure-mapping-playground/rbs.mjs";
-import { judgePrompt } from "../workflow/judge.mjs";
+import { judgePrompt, sharedTextOf } from "../workflow/judge.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
 import { FLOW, NO_PARAGRAPH_MOVE_FITS, PARAGRAPH_MOVE_ROLES, PARAGRAPH_PLAN_AXES } from "./stage.mjs";
@@ -68,7 +68,9 @@ export function criteriaFailures(table) {
   if (!Number.isInteger(pointMax) || pointMax <= 0)
     return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `point_words_max`"];
   const fails = [];
-  for (const [name, text] of Object.entries(table.shared_text || {})) {
+  for (const [name, text] of Object.entries(
+    sharedTextOf({ id: "criteria", ...table.paragraph_plan_judge_unit }) || {},
+  )) {
     if (!oneSentence(String(text))) fails.push(`shared text ${name} is not one sentence`);
   }
   const named = {
