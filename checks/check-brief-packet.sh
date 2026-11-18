@@ -105,9 +105,8 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
         for (const rule of rules) {
           if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);
         }
-        // THE WAYPOINTS BLOCK REPLACED THE MOVE BLOCK (kogaki#1311): its header
-        // renders each line as the sentences it is (kogaki#1694).
-        if (!/rendered as the sentences it is/.test(packet.replace(/\s+/g, " "))) fails.push("(o) the Packet's waypoints block header does not carry \"rendered as the sentences it is\"");
+        // THE PLAN BLOCK REPLACED THE WAYPOINTS BLOCK (kogaki#1859): it says its wording is not kept.
+        if (!packet.includes("## The plan of this paragraph\n") || !packet.includes("\nNone of its wording is kept.\n")) fails.push("(o) the Packet's plan block does not say none of its wording is kept");
       }
     }
   }

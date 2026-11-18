@@ -1217,7 +1217,9 @@ export function runMoveTrial({
       structure,
       relation: b.leg.relation,
       ...(moveTableRecord
-        ? { segments: moveTableRecord.segments.map((g) => ({ bind: g.bind, discourse_relation: g.discourse_relation })) }
+        ? {
+            segments: moveTableRecord.segments.map((g) => ({ bind: g.bind, discourse_relation: g.discourse_relation })),
+          }
         : {}),
     };
     const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath, plan });

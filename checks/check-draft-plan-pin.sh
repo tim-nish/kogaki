@@ -28,13 +28,15 @@ const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragra
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "draft-plan-pin-"));
 
-// The stub writer answers with the plan marker the Packet carries, so the Draft says which plan.
+// The stub writer answers with the plan the check last wrote, read from a file beside it: the Packet carries
+// no Point since kogaki#1859, so the Draft says which plan was current when each paragraph was written.
 const writer = join(root, "stub-writer.mjs");
+const phasePath = join(root, "phase");
 writeFileSync(writer, `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("stub-writer 1.0"); process.exit(0); }
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
-  const m = Buffer.concat(c).toString("utf8").match(/PLANMARK-(\\w+)/);
-  process.stdout.write("This paragraph was written from planmark " + (m ? m[1] : "missing") + ".\\n");
+  process.stdout.write("This paragraph was written from planmark " + readFileSync(${JSON.stringify(phasePath)}, "utf8").trim() + ".\\n");
 });
 `);
 chmodSync(writer, 0o755);
@@ -69,7 +71,6 @@ const draft = (...a) => spawnSync(process.execPath, ["src/draft.mjs", ...a, "--b
   { encoding: "utf8", env, timeout: 120000 });
 const said = (r) => `${r.stdout || ""}${r.stderr || ""}`.slice(0, 600);
 const runJson = () => JSON.parse(readFileSync(join(ws, "run.json"), "utf8"));
-const packet = (id) => readFileSync(join(ws, "packets", `${id}.md`), "utf8");
 const draftText = () => readFileSync(join(dir, "draft.md"), "utf8");
 const traceRows = (t) => t.split("\n").filter((l) => l.startsWith("  - {\"leg_id\"")).map((l) => JSON.parse(l.slice(4)));
 const ok = (label, r) => { if (r.status !== 0) fails.push(`${label} exited ${r.status}: ${said(r)}`); return r.status === 0; };
@@ -77,6 +78,7 @@ const ok = (label, r) => { if (r.status !== 0) fails.push(`${label} exited ${r.s
 // (a) a first run over plan alpha records the plan everywhere it is owed.
 const alpha = planText("alpha");
 writeFileSync(planPath, alpha);
+writeFileSync(phasePath, "alpha");
 const A = sha(alpha);
 if (ok("(a) resolve", draft("resolve")) && ok("(a) section G1", draft("section", "--leg", "G1"))
   && ok("(a) section G2", draft("section", "--leg", "G2")) && ok("(a) emit", draft("emit"))) {
@@ -104,6 +106,7 @@ if (ok("(a) resolve", draft("resolve")) && ok("(a) section G1", draft("section",
 // (c) the plan is rewritten under the same Brief; section before resolve is refused.
 const beta = planText("beta");
 writeFileSync(planPath, beta);
+writeFileSync(phasePath, "beta");
 const B = sha(beta);
 {
   const r = draft("section", "--leg", "G1");
@@ -123,10 +126,9 @@ const B = sha(beta);
     const rec = runJson();
     if (rec.plan?.sha256 !== B) fails.push("(d) run.json does not name the new plan");
     if (Object.keys(rec.packets || {}).join(",") !== "G1" || rec.packets.G1.plan_sha256 !== B) fails.push(`(d) resolve did not drop the carried entries and render G1 alone: ${JSON.stringify(rec.packets)}`);
-    if (!packet("G1").includes("PLANMARK-beta")) fails.push("(d) G1's Packet was not rendered from the new plan");
     const s1 = draft("section", "--leg", "G1");
     if (ok("(d) section G1", s1) && !s1.stdout.includes("next: G2")) fails.push(`(d) section G1 did not render the next Leg's Packet: ${said(s1)}`);
-    if (!packet("G2").includes("PLANMARK-beta")) fails.push("(d) G2's Packet was not rendered from the new plan");
+    if (runJson().packets?.G2?.plan_sha256 !== B) fails.push("(d) G2's Packet was not rendered from the new plan");
     if (ok("(d) section G2", draft("section", "--leg", "G2")) && ok("(d) emit", draft("emit"))) {
       const t = draftText();
       if ((t.match(/planmark beta/g) || []).length !== 2 || t.includes("planmark alpha")) fails.push(`(d) the emitted Draft's paragraphs are not the new plan's: ${t.split("---\n").pop()}`);
