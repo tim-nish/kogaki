@@ -19,6 +19,7 @@ import { verbatimWindow } from "./declared-side.mjs";
 import { numberedProse, numberedFigure } from "./reverse-outline.mjs";
 import { fail, sha256, readDraft, resolveInputs } from "./draft-reader.mjs";
 import { writeRun, passPathAt, passReadPath } from "./workspace.mjs";
+import { renderPromptFile } from "../prompt-file.mjs";
 
 // ---------------------------------------------------------------------------
 // THE CORRECTION PATH (kogaki#874): what a corrected Leg receives, the bounded
@@ -204,107 +205,46 @@ function figureCorrectionEvidence(joinRec, items, legId) {
 // the corrector is owed the entry's own text: "the claims item failed" does not
 // say which of a Leg's claims went missing, and on a Leg declaring two it is
 // half the instruction. A row whose pairs carry no declared text — every judged
-// row, and the figure's — reads as it always did.
-function pairLines(f) {
-  return (f.pairs || [])
-    .filter((p) => p.verdict && p.verdict !== "holds")
-    .map((p) =>
-      p.declared !== undefined
-        ? `  - the declared \`${f.item}\` entry \`${p.declared}\` was not recovered — ` + `${p.verdict}: ${p.reason}`
-        : `  - pair ${p.pair === null ? "(whole item)" : p.pair} — ${p.verdict}: ${p.reason}`,
-    );
+// row, and the figure's — reads as it always did. The block's text is
+// prompts/review-draft/_what-failed.prompt (kogaki#1863).
+function evidenceValues(evidence) {
+  return {
+    failed: evidence.failed.map((f) => ({
+      item: f.item,
+      class: f.class,
+      reason: f.reason,
+      span_first: f.span[0],
+      span_last: f.span[1],
+      evidence: [].concat(f.evidence ?? []).map((text) => ({ text })),
+      pairs: (f.pairs || [])
+        .filter((p) => p.verdict && p.verdict !== "holds")
+        .map((p) => ({
+          item: f.item,
+          has_declared: p.declared !== undefined,
+          declared: p.declared,
+          whole: p.pair === null,
+          pair: p.pair,
+          verdict: p.verdict,
+          reason: p.reason,
+        })),
+    })),
+    held: evidence.held.map((h) => ({ item: h.item, reason: h.reason })),
+    undecided: evidence.undecided.map((u) => ({ item: u.item, reason: u.reason })),
+  };
 }
 
+const linesOf = (text) => text.split("\n").map((line) => ({ line }));
+
+// A figure's Correction block: its text is prompts/review-draft/_figure-correction.prompt (kogaki#1863).
 function renderFigureCorrectionBlock(leg, evidence, packet) {
-  const out = [];
-  out.push(
-    "# Correct the figure record — " + leg.leg_id,
-    "",
-    "This Leg's figure has already been designed once. What you hand back is a",
-    "RECORD, not prose: one JSON object, the instance of this Leg's Move form,",
-    "validated against `src/figure-schema.json` by the same act that validated",
-    "the first one. The passage itself is not yours to change here.",
-    "",
-  );
-  out.push(
-    "## The Leg this figure belongs to",
-    "",
-    "The Packet below is this Leg's, re-rendered as it now stands. The record's",
-    "elements are worded from the claims it declares, and its caption is stated",
-    "in what the Leg says its reader holds afterwards.",
-    "",
-    packet.trim(),
-    "",
-  );
-  out.push(
-    "## The passage, as it now stands",
-    "",
-    ...numberedProse(leg)
-      .split("\n")
-      .map((l) => `    ${l}`),
-    "",
-  );
-  out.push(
-    "## The figure as the reader currently meets it",
-    "",
-    ...numberedFigure(leg)
-      .split("\n")
-      .map((l) => `    ${l}`),
-    "",
-    "Rendered by the Harness from the record below. You do not write this markup",
-    "and nothing you hand back may contain any: the renderer re-runs on the",
-    "record you return, which is what makes the transcription the same function",
-    "every time.",
-    "",
-  );
-  out.push(
-    "## The previous record, verbatim",
-    "",
-    "```json",
-    JSON.stringify(leg.figure.record_json, null, 2),
-    "```",
-    "",
-  );
-  out.push("## What failed", "");
-  if (!evidence.failed.length) {
-    out.push("_No figure item failed on this Leg._", "");
-  } else {
-    for (const f of evidence.failed) {
-      out.push(`- **${f.item}** (${f.class}) — ${f.reason}`);
-      out.push(`  - span: lines ${f.span[0]}–${f.span[1]} of the Draft as it stood`);
-      for (const e of [].concat(f.evidence ?? [])) out.push(`  - evidence: ${e}`);
-      out.push(...pairLines(f));
-    }
-    out.push("");
-  }
-  out.push("## What held, and must go on holding", "");
-  out.push(
-    evidence.held.length
-      ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
-      : "_No preserved figure item holds on this Leg, so this correction breaks nothing by leaving it._",
-  );
-  out.push("");
-  if (evidence.undecided.length) {
-    out.push(
-      "## What the reader could not settle",
-      "",
-      "Listed and never rounded. These are not instructions.",
-      "",
-      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`),
-      "",
-    );
-  }
-  out.push(
-    "## The instruction",
-    "",
-    "Change what the findings above name and nothing else. Keep the record's",
-    "`kind` — it is the Move form's and not a choice made here — and keep every",
-    "role the form declares. An element's `claim` names the claim the Brief",
-    "bound its role to; reword the element, never the binding, unless a finding",
-    "says the binding itself is wrong.",
-    "",
-  );
-  return out.join("\n");
+  return renderPromptFile("review-draft/_figure-correction", {
+    leg_id: leg.leg_id,
+    packet: packet.trim(),
+    passage_lines: linesOf(numberedProse(leg)),
+    figure_lines: linesOf(numberedFigure(leg)),
+    record_json: JSON.stringify(leg.figure.record_json, null, 2),
+    ...evidenceValues(evidence),
+  });
 }
 
 // The two sides of the Correction block's evidence, from the pass-one record:
@@ -326,60 +266,9 @@ function correctionEvidence(joinRec, legId, items) {
   };
 }
 
+// A passage's Correction block: its text is prompts/review-draft/_correction.prompt (kogaki#1863).
 function renderCorrectionBlock(leg, evidence) {
-  const out = [];
-  out.push(
-    "",
-    "---",
-    "",
-    "## The Correction — what this Leg must change, and what it must not",
-    "",
-    "This Leg has already been realized once. Everything above is the CURRENT",
-    'Packet, re-rendered against the article as it now stands, so the "article so',
-    'far" block above holds the preceding prose including any Leg corrected',
-    "before this one in the same pass. Write from it, not from what you remember.",
-    "",
-  );
-  out.push("### The previous realization, verbatim", "", ...leg.prose.split("\n").map((l) => `> ${l}`), "");
-  out.push("### What failed", "");
-  if (!evidence.failed.length) {
-    out.push("_Nothing failed on this Leg._", "");
-  } else {
-    for (const f of evidence.failed) {
-      out.push(`- **${f.item}** (${f.class}) — ${f.reason}`);
-      out.push(`  - span: lines ${f.span[0]}–${f.span[1]} of the Draft as it stood`);
-      for (const e of [].concat(f.evidence ?? [])) out.push(`  - evidence: ${e}`);
-      out.push(...pairLines(f));
-    }
-    out.push("");
-  }
-  out.push("### What held, and must go on holding", "");
-  out.push(
-    evidence.held.length
-      ? evidence.held.map((h) => `- **${h.item}** — ${h.reason}`).join("\n")
-      : "_No preserved item holds on this Leg, so this correction breaks nothing by leaving it._",
-  );
-  out.push("");
-  if (evidence.undecided.length) {
-    out.push(
-      "### What the reader could not settle",
-      "",
-      "Listed and never rounded. These are not instructions.",
-      "",
-      ...evidence.undecided.map((u) => `- **${u.item}** — ${u.reason}`),
-      "",
-    );
-  }
-  out.push(
-    "### The instruction",
-    "",
-    "Change what the findings above name and nothing else. Do not restate the",
-    "Packet's wording. The preceding prose is the same reader you already had:",
-    "continue from it exactly as the write instruction above says, and do not",
-    "re-open what the earlier passages settled.",
-    "",
-  );
-  return out.join("\n");
+  return renderPromptFile("review-draft/_correction", { prose_lines: linesOf(leg.prose), ...evidenceValues(evidence) });
 }
 
 // DRIFT IS MEASURED AND REPORTED, NEVER GATED. Both figures answer the owner's
@@ -668,6 +557,7 @@ export {
   seatsStillOwed,
   correctionEvidence,
   renderCorrectionBlock,
+  renderFigureCorrectionBlock,
   driftOf,
   driftBlocks,
   correctionInputPath,

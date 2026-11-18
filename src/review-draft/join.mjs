@@ -13,12 +13,12 @@
 //       SPEC-draft-pipeline "The renderer and the anchor — markup from the record, at the Leg"
 //
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join, resolve, dirname, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { relative } from "node:path";
 import { labelledEntryParagraph, legOpeningSentence, declaredFor, contentWords, MECHANICAL } from "./declared-side.mjs";
 import { fail, STDIN_LABEL, resolveInputs } from "./draft-reader.mjs";
 import { quotedPassage } from "./reverse-outline.mjs";
 import { requirePass, passPathAt } from "./workspace.mjs";
+import { renderPromptFile } from "../prompt-file.mjs";
 
 // ---------------------------------------------------------------------------
 // Rendering one join Packet, and recording the verdict that comes back.
@@ -144,16 +144,7 @@ const MECHANICAL_FIGURE = {
 // the inputs pass two was judging, and the ledger could not refuse it because
 // the writing pass read as the owning one.
 function renderJoinPacket(ws, run, pass, draft, leg, item, pair, declaredText, outlineText) {
-  const tplPath = join(dirname(fileURLToPath(import.meta.url)), "..", "join-template.md");
-  if (!existsSync(tplPath)) {
-    fail(
-      `the join template is absent — ${tplPath}. It is the judging model's entire input, so a ` +
-        "missing template is a hole the model fills by invention; this refuses rather than asking " +
-        "a question with no form.",
-    );
-  }
-  let out = readFileSync(tplPath, "utf8").replace(/^<!--[\s\S]*?-->\n*/, "");
-  const fields = {
+  const out = renderPromptFile("review-draft/judge-pair", {
     leg_id: leg.leg_id,
     item: item.id,
     item_class: item.class,
@@ -166,20 +157,12 @@ function renderJoinPacket(ws, run, pass, draft, leg, item, pair, declaredText, o
     // every finding a reader of the join record goes on to repair.
     declared_source: item.declared_source ?? "Packet",
     quoted: quotedPassage(leg),
-    question: item.question,
-    record_command: `<verdicts.json> | node src/review-draft.mjs compare --draft ${relative(process.cwd(), draft.path) || draft.path}`,
-  };
-  for (const [k, v] of Object.entries(fields)) out = out.split(`{{${k}}}`).join(v);
-  const left = out.match(/\{\{(\w+)\}\}/);
-  if (left) {
-    fail(
-      `the join template's slot {{${left[1]}}} was not filled — the renderer and the template ` +
-        "disagree about the slot set, which is the round trip failing silently",
-    );
-  }
+    question: renderPromptFile(`review-draft/_question-${item.id}`, {}),
+    draft_path: relative(process.cwd(), draft.path) || draft.path,
+  });
   const name = pair === null ? `${leg.leg_id}.${item.id}.md` : `${leg.leg_id}.${item.id}.${pair}.md`;
   const dest = passPathAt(ws, run, pass, "join", name);
-  writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
+  writeFileSync(dest, `${out}\n`);
   return dest;
 }
 
@@ -383,7 +366,7 @@ function reverseSide(item, rec, figRec) {
     return renderSide(outlineField(figRec, item.figure_field));
   }
   if (item.field) return renderSide(outlineField(rec, item.field));
-  return "(the passage itself, quoted below — this item asks whether something is ABSENT from it)";
+  return renderPromptFile("review-draft/_passage-quoted-below", {});
 }
 
 // The declared side of one judged row, rendered. THREE CARRIERS, and the row
@@ -411,7 +394,7 @@ function declaredSide(leg, item, declared, items) {
       : renderSide(declared[item.declared_block]);
   }
   if (item.declared_source === "passage") {
-    return "(the passage and the figure beside it, quoted below — both sides of this pair were " + "read from them)";
+    return renderPromptFile("review-draft/_passage-and-figure-quoted-below", {});
   }
   return renderSide(null);
 }
@@ -823,4 +806,13 @@ function comparisonLine(r) {
   return `${w(r.leg_id, 8)}${w(r.item, 26)}${w(r.verdict, 14)}` + `${w(`[${r.span[0]}-${r.span[1]}]`, 14)}${r.reason}`;
 }
 
-export { verdictKey, judgedByLine, recordVerdicts, buildJoin, comparisonLine };
+export {
+  verdictKey,
+  judgedByLine,
+  recordVerdicts,
+  buildJoin,
+  comparisonLine,
+  renderJoinPacket,
+  reverseSide,
+  declaredSide,
+};

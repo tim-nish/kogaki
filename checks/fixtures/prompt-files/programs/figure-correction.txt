@@ -1,0 +1,73 @@
+# Correct the figure record — s2
+
+This Leg's figure has already been designed once. What you hand back is a
+RECORD, not prose: one JSON object, the instance of this Leg's Move form,
+validated against `src/figure-schema.json` by the same act that validated
+the first one. The passage itself is not yours to change here.
+
+## The Leg this figure belongs to
+
+The Packet below is this Leg's, re-rendered as it now stands. The record's
+elements are worded from the claims it declares, and its caption is stated
+in what the Leg says its reader holds afterwards.
+
+THE PACKET.
+
+## The passage, as it now stands
+
+    13 | The installer copies the kit into the tree.
+    14 | 
+    15 | The next run overwrites any edit to the copy.
+
+## The figure as the reader currently meets it
+
+     9 | ```
+    10 | installer -> tree
+    11 | ```
+
+Rendered by the Harness from the record below. You do not write this markup
+and nothing you hand back may contain any: the renderer re-runs on the
+record you return, which is what makes the transcription the same function
+every time.
+
+## The previous record, verbatim
+
+```json
+{
+  "kind": "chain",
+  "elements": {
+    "source": {
+      "text": "the installer",
+      "claim": "L1"
+    }
+  },
+  "caption": "the copy is the installer's",
+  "position": "before"
+}
+```
+
+## What failed
+
+- **claims** (preserved) — the passage asserts no claim about the copy
+  - span: lines 13–15 of the Draft as it stood
+  - evidence: line thirteen names the tree only
+  - the declared `claims` entry `the next run overwrites the copy` was not recovered — fails: it is not stated
+  - pair (whole item) — cannot-decide: the passage is ambiguous
+
+## What held, and must go on holding
+
+- **introduces** — the term is introduced
+
+## What the reader could not settle
+
+Listed and never rounded. These are not instructions.
+
+- **prose-style** — the reader could not tell
+
+## The instruction
+
+Change what the findings above name and nothing else. Keep the record's
+`kind` — it is the Move form's and not a choice made here — and keep every
+role the form declares. An element's `claim` names the claim the Brief
+bound its role to; reword the element, never the binding, unless a finding
+says the binding itself is wrong.

@@ -1,0 +1,90 @@
+# Reverse Outline — {{leg_id}}
+
+You are reading one passage of an article, and the article that came before it. You have
+not seen the outline the article was written from, and you must not go looking for it:
+your reading is the other half of a comparison, and it is worth nothing if it was told the
+answer.
+
+Write the outline entry this passage would have been written from — what it is FOR, what a
+reader holds arriving at it and leaving it, and what it asks the reader to accept. Write it
+in the form below. Answer from the passage alone; where the passage does not settle a field,
+say what the passage does say rather than what would make it come out well.
+
+Your outline is evidence about **this prose**. Do not reason about what the
+author was probably told — an outline that guessed at what produced the passage measures
+nothing.
+
+Write no verdicts and no advice. Nothing here asks whether the passage is good.
+
+## The {{field_count}} fields
+
+- `purpose` — {{> review-draft/field-purpose}}
+- `claims` — {{> review-draft/field-claims}}
+- `introduces` — {{> review-draft/field-introduces}}
+
+`introduces` is legitimately absent — a passage that introduces nothing carries no such
+line. `claims` is not: every passage asserts something.
+
+## The form
+
+Reply with ONE fenced `leg` block and nothing else:
+
+````
+```leg
+leg_id: {{leg_id}}
+purpose: …
+claim …
+claim …
+introduces: <term>
+introduces: <term> — <where the passage anchors it, only if it does>
+```
+````
+
+{{#if figure}}
+## The figure you met, in its own terms
+
+This passage was rendered with a block beside it, and that block was written from a record
+of its own. Read it as you read the passage — from what is on the page — and answer in the
+record's own fields:
+
+- `element` — {{> review-draft/field-element}}
+- `caption` — {{> review-draft/field-caption}}
+- `position` — {{> review-draft/field-position}}
+
+Reply with a SECOND fenced block, after the `leg` block:
+
+````
+```figure
+element: …
+caption: …
+position: <{{positions}}>
+```
+
+One `element:` line per element you can see, in the order they read. The example shows the
+FORM of the block and not an answer: how many elements there are, and which side the block
+sits on, are what you are being asked.
+````
+{{/if}}
+
+## The article before this passage
+
+Everything already written, in order, under the Section headings it was written into. It
+ends with this passage's own Section so far — the prose immediately above where the passage
+begins. Read it as the reader arriving at the passage has read it: it is what they already
+know.
+
+{{article_before}}
+
+{{#if figure_first}}
+{{figure_block}}
+
+{{/if}}
+## The passage — {{leg_id}}, draft lines {{first_line}}–{{last_line}}
+
+Every line is numbered with its line number in the Draft.
+
+{{numbered_prose}}
+{{#if figure_after}}
+
+{{figure_block}}
+{{/if}}

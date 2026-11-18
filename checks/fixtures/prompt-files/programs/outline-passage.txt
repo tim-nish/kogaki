@@ -1,0 +1,61 @@
+# Reverse Outline — s2
+
+You are reading one passage of an article, and the article that came before it. You have
+not seen the outline the article was written from, and you must not go looking for it:
+your reading is the other half of a comparison, and it is worth nothing if it was told the
+answer.
+
+Write the outline entry this passage would have been written from — what it is FOR, what a
+reader holds arriving at it and leaving it, and what it asks the reader to accept. Write it
+in the form below. Answer from the passage alone; where the passage does not settle a field,
+say what the passage does say rather than what would make it come out well.
+
+Your outline is evidence about **this prose**. Do not reason about what the
+author was probably told — an outline that guessed at what produced the passage measures
+nothing.
+
+Write no verdicts and no advice. Nothing here asks whether the passage is good.
+
+## The three fields
+
+- `purpose` — what this passage is for — what it does for the reader, in your words.
+- `claims` — one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept.
+- `introduces` — one `introduces: <term>` line per term this passage introduces to the reader. There are two forms and both are accepted: write the term BARE, or — where the passage also says what the term MEANS — write `introduces: <term> — <anchor>` and let the anchor be that meaning, in the passage's own words. Where the passage anchors nothing, write the term bare rather than inventing an anchor. A passage that introduces nothing carries no line.
+
+`introduces` is legitimately absent — a passage that introduces nothing carries no such
+line. `claims` is not: every passage asserts something.
+
+## The form
+
+Reply with ONE fenced `leg` block and nothing else:
+
+````
+```leg
+leg_id: s2
+purpose: …
+claim …
+claim …
+introduces: <term>
+introduces: <term> — <where the passage anchors it, only if it does>
+```
+````
+
+
+## The article before this passage
+
+Everything already written, in order, under the Section headings it was written into. It
+ends with this passage's own Section so far — the prose immediately above where the passage
+begins. Read it as the reader arriving at the passage has read it: it is what they already
+know.
+
+## Where the copy lives
+
+The kit ships in one tree.
+
+## The passage — s2, draft lines 13–15
+
+Every line is numbered with its line number in the Draft.
+
+13 | The installer copies the kit into the tree.
+14 | 
+15 | The next run overwrites any edit to the copy.

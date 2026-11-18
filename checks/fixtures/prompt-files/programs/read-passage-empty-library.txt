@@ -1,0 +1,11 @@
+THE CONTRACT.
+
+## The Passage
+
+THE PASSAGE.
+
+## The existing library (moves/INDEX.md)
+
+(empty — no Move has been saved yet)
+
+Return exactly one record in the format the contract above states, and nothing else — no prose before or after it, no fence.

@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { openSync, closeSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { JUDGE_INPUT_MARKER, judgeRefusalBlock } from "../judge.mjs";
+import { renderPromptFile } from "../../prompt-file.mjs";
 
 // ONE FILE PER UNIT, NAMED BY ITS ID (kogaki#1203 acceptance 2). Every
 // Round of a retried unit lands in this same path -- the first Round's
@@ -43,16 +44,6 @@ export function readerPathUnitRetryPrompt(firstPrompt, history) {
   return firstPrompt.slice(0, at) + block + "\n" + firstPrompt.slice(at);
 }
 
-// THE SENTENCE AT THE HEAD OF EVERY JOB UNIT PROMPT (kogaki#1307). A headless session
-// spawned with `--tools ""` that reads a repository path in its prompt may answer with a
-// tool call written as text -- the malformed output of run brief-2026-10-08T02-55-02-626Z.
-// `startDetachedJobSupervisor` puts this first in every unit prompt it writes, and the
-// supervisor puts it first in every Move-fit prompt it builds, so no caller can omit it.
-const JOB_UNIT_NO_TOOLS_SENTENCE =
-  "You are running with no tools and cannot open files. Every file path " +
-  "in this prompt is a citation for a human reader, not something to open; everything you need is in this " +
-  "prompt. Answer with the record alone.";
-
 // A JUDGE'S REFUSAL, AS THE SITE LOOP READS IT (kogaki#1642, kogaki#1777): one failure per site it
 // names, or, where it names none, one failure refusing the record whole.
 export function judgedSites(failure) {
@@ -64,9 +55,16 @@ export function judgedSites(failure) {
   return named.length ? named : [{ site: null, refusal: failure.stderr_tail }];
 }
 
+// THE SENTENCE AT THE HEAD OF EVERY JOB UNIT PROMPT (kogaki#1307). A headless session
+// spawned with `--tools ""` that reads a repository path in its prompt may answer with a
+// tool call written as text -- the malformed output of run brief-2026-10-08T02-55-02-626Z.
+// `startDetachedJobSupervisor` puts this first in every unit prompt it writes, and the
+// supervisor puts it first in every Move-fit prompt it builds, so no caller can omit it. Its text is
+// prompts/_job-unit-no-tools.prompt (kogaki#1863).
 export function withNoToolsSentence(prompt) {
   const p = String(prompt);
-  return p.startsWith(JOB_UNIT_NO_TOOLS_SENTENCE) ? p : `${JOB_UNIT_NO_TOOLS_SENTENCE}\n\n${p}`;
+  const sentence = renderPromptFile("_job-unit-no-tools", {});
+  return p.startsWith(sentence) ? p : `${sentence}\n\n${p}`;
 }
 
 // THE MOVE-FIT CALL'S OWN FILES (kogaki#1307): its raw output, and the specialization

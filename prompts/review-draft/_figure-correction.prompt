@@ -1,0 +1,74 @@
+# Correct the figure record — {{leg_id}}
+
+This Leg's figure has already been designed once. What you hand back is a
+RECORD, not prose: one JSON object, the instance of this Leg's Move form,
+validated against `src/figure-schema.json` by the same act that validated
+the first one. The passage itself is not yours to change here.
+
+## The Leg this figure belongs to
+
+The Packet below is this Leg's, re-rendered as it now stands. The record's
+elements are worded from the claims it declares, and its caption is stated
+in what the Leg says its reader holds afterwards.
+
+{{packet}}
+
+## The passage, as it now stands
+
+{{#each passage_lines}}
+    {{line}}
+{{/each}}
+
+## The figure as the reader currently meets it
+
+{{#each figure_lines}}
+    {{line}}
+{{/each}}
+
+Rendered by the Harness from the record below. You do not write this markup
+and nothing you hand back may contain any: the renderer re-runs on the
+record you return, which is what makes the transcription the same function
+every time.
+
+## The previous record, verbatim
+
+```json
+{{record_json}}
+```
+
+## What failed
+
+{{#if failed}}
+{{> review-draft/what-failed}}
+{{else}}
+_No figure item failed on this Leg._
+{{/if}}
+
+## What held, and must go on holding
+
+{{#if held}}
+{{#each held}}
+- **{{item}}** — {{reason}}
+{{/each}}
+{{else}}
+_No preserved figure item holds on this Leg, so this correction breaks nothing by leaving it._
+{{/if}}
+
+{{#if undecided}}
+## What the reader could not settle
+
+Listed and never rounded. These are not instructions.
+
+{{#each undecided}}
+- **{{item}}** — {{reason}}
+{{/each}}
+
+{{/if}}
+## The instruction
+
+Change what the findings above name and nothing else. Keep the record's
+`kind` — it is the Move form's and not a choice made here — and keep every
+role the form declares. An element's `claim` names the claim the Brief
+bound its role to; reword the element, never the binding, unless a finding
+says the binding itself is wrong.
+

@@ -1,0 +1,51 @@
+
+---
+
+## The Correction — what this Leg must change, and what it must not
+
+This Leg has already been realized once. Everything above is the CURRENT
+Packet, re-rendered against the article as it now stands, so the "article so
+far" block above holds the preceding prose including any Leg corrected
+before this one in the same pass. Write from it, not from what you remember.
+
+### The previous realization, verbatim
+
+{{#each prose_lines}}
+> {{line}}
+{{/each}}
+
+### What failed
+
+{{#if failed}}
+{{> review-draft/what-failed}}
+{{else}}
+_Nothing failed on this Leg._
+{{/if}}
+
+### What held, and must go on holding
+
+{{#if held}}
+{{#each held}}
+- **{{item}}** — {{reason}}
+{{/each}}
+{{else}}
+_No preserved item holds on this Leg, so this correction breaks nothing by leaving it._
+{{/if}}
+
+{{#if undecided}}
+### What the reader could not settle
+
+Listed and never rounded. These are not instructions.
+
+{{#each undecided}}
+- **{{item}}** — {{reason}}
+{{/each}}
+
+{{/if}}
+### The instruction
+
+Change what the findings above name and nothing else. Do not restate the
+Packet's wording. The preceding prose is the same reader you already had:
+continue from it exactly as the write instruction above says, and do not
+re-open what the earlier passages settled.
+

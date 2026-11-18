@@ -1,0 +1,30 @@
+
+---
+
+## The Correction — what this Leg must change, and what it must not
+
+This Leg has already been realized once. Everything above is the CURRENT
+Packet, re-rendered against the article as it now stands, so the "article so
+far" block above holds the preceding prose including any Leg corrected
+before this one in the same pass. Write from it, not from what you remember.
+
+### The previous realization, verbatim
+
+> The installer copies the kit into the tree.
+> 
+> The next run overwrites any edit to the copy.
+
+### What failed
+
+_Nothing failed on this Leg._
+
+### What held, and must go on holding
+
+_No preserved item holds on this Leg, so this correction breaks nothing by leaving it._
+
+### The instruction
+
+Change what the findings above name and nothing else. Do not restate the
+Packet's wording. The preceding prose is the same reader you already had:
+continue from it exactly as the write instruction above says, and do not
+re-open what the earlier passages settled.

@@ -1,0 +1,14 @@
+{{#each failed}}
+- **{{item}}** ({{class}}) — {{reason}}
+  - span: lines {{span_first}}–{{span_last}} of the Draft as it stood
+{{#each evidence}}
+  - evidence: {{text}}
+{{/each}}
+{{#each pairs}}
+{{#if has_declared}}
+  - the declared `{{item}}` entry `{{declared}}` was not recovered — {{verdict}}: {{reason}}
+{{else}}
+  - pair {{#if whole}}(whole item){{else}}{{pair}}{{/if}} — {{verdict}}: {{reason}}
+{{/if}}
+{{/each}}
+{{/each}}

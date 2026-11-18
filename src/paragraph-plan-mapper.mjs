@@ -18,6 +18,7 @@ import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./structure-map
 import { PLAYGROUND_TABLE } from "./structure-mapping-playground/trial.mjs";
 import { mappingStatePath } from "./paragraph-plan.mjs";
 import { withAnalogy, legTable } from "./paragraph-plan-analogy.mjs";
+import { renderPromptFile } from "./prompt-file.mjs";
 
 const FLOW = { lane: "paragraph-plan", label: "ParagraphPlan" };
 export const READING_ROW = "sme_map_roles";
@@ -134,20 +135,15 @@ export class ParagraphPlanMapper {
   // THE PROPOSITION THE MAPPER READS (kogaki#1777): the Leg's `text`, its relation's `holds` with each
   // Role named (kogaki#1772); the Claims it is `from`; the Roles it stands between, each with its
   // `context`; and what the Legs before it state, as what the reader has been told. It reads no
-  // reader-state field: the last is derived from the Leg order (`toldBefore`).
+  // reader-state field: the last is derived from the Leg order (`toldBefore`). Its headings are
+  // prompts/paragraph-plan/_proposition.prompt (kogaki#1863).
   proposition(leg) {
-    const lines = [String(leg.text)];
-    if ((leg.claims || []).length)
-      lines.push("The Claims it is read from:", ...leg.claims.map((g) => `- ${g.strand}: ${g.proposition}`));
-    if ((leg.roles || []).length)
-      lines.push("The Roles it stands between:", ...leg.roles.map((r) => `- ${r.name || r.id}: ${r.context}`));
-    if ((leg.the_reader_has_been_told || []).length) {
-      lines.push(
-        "What the Legs before it state:",
-        ...leg.the_reader_has_been_told.map((x) => `- ${x.leg_id}: ${x.text}`),
-      );
-    }
-    return lines.join("\n");
+    return renderPromptFile("paragraph-plan/_proposition", {
+      text: String(leg.text),
+      claims: (leg.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition })),
+      roles: (leg.roles || []).map((r) => ({ name: r.name || r.id, context: r.context })),
+      told: (leg.the_reader_has_been_told || []).map((x) => ({ leg_id: x.leg_id, text: x.text })),
+    });
   }
 
   callInput(u) {

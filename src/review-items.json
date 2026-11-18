@@ -373,8 +373,7 @@
       "when_declared_absent": {
         "verdict": "holds",
         "sentence": "this Leg declares no claim, so there is nothing for the reader to have recovered and the question below quantifies over nothing; what the passage asserts is judged by the Leg's other items"
-      },
-      "question": "The declared claim is above, in the words the Leg declares it in, and below it is every claim this reader wrote down after reading the passage blind. Is that declared claim among them? Answer `holds` where one of the claims the reader wrote says it — a paraphrase counts, and the wording need not match; answer `fails` where no claim they wrote carries it, which means the passage did not put it in front of the reader. What the reader wrote BEYOND the declared claim is not yours to judge here: the Leg is told to retell material it asserts nothing about, so surplus is expected and this question is about recovery alone."
+      }
     },
     {
       "id": "introduces",
@@ -388,8 +387,7 @@
       "when_declared_absent": {
         "verdict": "holds",
         "sentence": "this Leg's Packet crosses in no term and re-activates nothing, so the question below quantifies over nothing, and a passage that introduces nothing carries no `introduces:` line to read against it"
-      },
-      "question": "Is every term the Packet says to introduce here — the entries above that carry no `(re-activated from …)` marker, never a re-activated one — actually introduced in this passage, usable by the reader afterwards? Answer `fails` if a declared term is used without being made usable, or is not present at all."
+      }
     },
     {
       "id": "already-knows",
@@ -406,8 +404,7 @@
       "when_declared_absent": {
         "verdict": "holds",
         "sentence": "this Leg's Packet crosses nothing into it, so there is no crossed-in material for the question below to quantify over; what the passage relies on beyond its own claims is judged by the Leg's other items"
-      },
-      "question": "Above is the whole of what crosses into this Leg — each term and claim it may speak of as already available — beside this Leg's own claims. Does the passage rely on a term, claim or case that is in neither list, treating it as if it were already available to the reader? Answer `fails` if it does. Using material that IS crossed in, or that is one of this Leg's own claims, is the intended behaviour and never fails."
+      }
     },
     {
       "id": "figure-elements",
@@ -416,8 +413,7 @@
       "figure_only": true,
       "declared_source": "figure record",
       "record_field": "elements",
-      "figure_field": "element",
-      "question": "Every element the record declares is above, with the wording it was given. Can a reader name each of them from the figure as it was rendered? Answer `fails` if an element the record declares is not among the ones the reader named. This asks about presence, never about how well an element is worded."
+      "figure_field": "element"
     },
     {
       "id": "figure-caption",
@@ -426,8 +422,7 @@
       "figure_only": true,
       "declared_source": "figure record",
       "record_field": "caption",
-      "figure_field": "caption",
-      "question": "The declared side carries the record's caption. Does what the reader holds after looking at the figure agree with it? Answer `fails` if it does not."
+      "figure_field": "caption"
     },
     {
       "id": "figure-element-claim",
@@ -446,8 +441,7 @@
       "mode": "judged",
       "figure_only": true,
       "declared_source": "passage",
-      "figure_field": "element",
-      "question": "Both sides here were read blind, from the passage and the figure the reader met beside it. Do the figure and the prose of this Leg say the same thing? Answer `fails` if the figure asserts something the passage does not, or the other way about."
+      "figure_field": "element"
     },
     {
       "id": "figure-position",
@@ -456,14 +450,12 @@
       "figure_only": true,
       "declared_source": "figure record",
       "record_field": "position",
-      "figure_field": "position",
-      "question": "The declared side says whether the figure was designed to set the passage up or to discharge it, and the reverse side is where the reader says they met it. The figure's draft line numbers in the prose below say where it actually sits. Did the reader meet it where the prose needed it? Answer `fails` if the passage had already done the work the figure was meant to set up, or still needed the figure it had not yet been given."
+      "figure_field": "position"
     },
     {
       "id": "prose-style",
       "class": "best-effort",
-      "mode": "judged",
-      "question": "Does the passage below use fragments, runs of short sentences, triads, or \"not X, not Y\" runs — the patterns the register's Sentences rule names as not classic register? Answer `fails` if it does."
+      "mode": "judged"
     },
     {
       "id": "referents",
@@ -472,14 +464,12 @@
       "declared_block": "journey",
       "also_declared_blocks": [
         "reader_own_world"
-      ],
-      "question": "Above is the Journey material this Leg was given to draw on, and the reader's own world as the Persona declares it. Does the passage below name a case, example, file, person or named thing that neither of those carries? Answer `fails` if it does — a referent neither source carries does not exist for a later Leg to rely on."
+      ]
     },
     {
       "id": "unsupported-sentence",
       "class": "best-effort",
-      "mode": "judged",
-      "question": "Each paragraph in the passage below should open on the sentence that states its point, with every later sentence in that paragraph supporting it. Is there a sentence that supports neither its paragraph's opening sentence nor one of this Leg's claims? Answer `fails` if there is."
+      "mode": "judged"
     },
     {
       "id": "demonstrative-reference",
