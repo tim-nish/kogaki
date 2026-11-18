@@ -777,9 +777,16 @@ const pt = (f) => {
   f(x);
   return x;
 };
-ok(tablePointsRefusal(POINTS, 3) === null, `(k) a whole Points answer was refused: ${JSON.stringify(tablePointsRefusal(POINTS, 3))}`);
+ok(
+  tablePointsRefusal(POINTS, 3) === null,
+  `(k) a whole Points answer was refused: ${JSON.stringify(tablePointsRefusal(POINTS, 3))}`,
+);
 for (const [label, answer, want] of [
-  ["a key beside points", pt((x) => (x.paragraphs = [])), "carries `paragraphs`, and it holds `points` and no other key"],
+  [
+    "a key beside points",
+    pt((x) => (x.paragraphs = [])),
+    "carries `paragraphs`, and it holds `points` and no other key",
+  ],
   ["a short list", pt((x) => x.points.pop()), "`points` carries 2 entries, and the Move has 3 Segments"],
   ["a Segment out of place", pt((x) => (x.points[1].segment = 3)), "points[1]'s `segment` is 3, and its place is 2"],
   ["an empty point", pt((x) => (x.points[2].point = " ")), "points[2]'s `point` is not one non-empty text"],

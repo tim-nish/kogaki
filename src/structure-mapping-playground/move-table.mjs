@@ -10,7 +10,7 @@
 //
 import { readFileSync } from "node:fs";
 import { parseYaml } from "../yaml.mjs";
-import { legSentences } from "./leg-senses.mjs";
+import { legSentences } from "./move-structure.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -87,7 +87,8 @@ export function validateMoveTable(table, segmentCount) {
     if (Object.hasOwn(s, "manner") && !isText(s.manner)) return `${at}'s \`manner\` is not one non-empty sentence`;
   }
   for (let k = 1; k <= table.binds; k++)
-    if (!given.has(k)) return `Bind target ${k} is given to no Segment — every Bind target of the table is given to one`;
+    if (!given.has(k))
+      return `Bind target ${k} is given to no Segment — every Bind target of the table is given to one`;
   return null;
 }
 

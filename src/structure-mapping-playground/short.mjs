@@ -48,13 +48,7 @@ import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE 
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
-import {
-  readMoveTable,
-  tableMoveStructure,
-  pairInOrder,
-  tablePointsInput,
-  tableSegments,
-} from "./move-table.mjs";
+import { readMoveTable, tableMoveStructure, pairInOrder, tablePointsInput, tableSegments } from "./move-table.mjs";
 
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
@@ -955,8 +949,10 @@ export function tablePointsRefusal(answer, segmentCount) {
     const at = `points[${i}]`;
     if (!isMap(p)) return refuse(`${at} is not a map`);
     const third = Object.keys(p).find((k) => k !== "segment" && k !== "point");
-    if (third !== undefined) return refuse(`${at} carries \`${third}\`, and an entry holds \`segment\` and \`point\` alone`);
-    if (p.segment !== i + 1) return refuse(`${at}'s \`segment\` is ${JSON.stringify(p.segment)}, and its place is ${i + 1}`);
+    if (third !== undefined)
+      return refuse(`${at} carries \`${third}\`, and an entry holds \`segment\` and \`point\` alone`);
+    if (p.segment !== i + 1)
+      return refuse(`${at}'s \`segment\` is ${JSON.stringify(p.segment)}, and its place is ${i + 1}`);
     if (typeof p.point !== "string" || !p.point.trim()) return refuse(`${at}'s \`point\` is not one non-empty text`);
   }
   return null;
@@ -989,9 +985,7 @@ export function runMoveTrial({
       `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
     );
   const tablePath = moveTable ? resolve(moveTable) : null;
-  const t = tablePath
-    ? readMoveTable(tablePath, contract.segments.length, b.structure, legId, b.leg.relation)
-    : null;
+  const t = tablePath ? readMoveTable(tablePath, contract.segments.length, b.structure, legId, b.leg.relation) : null;
   if (t && t.error) fail(`${t.error}. Nothing was started.`);
   const moveTableRecord = t ? t.table : null;
   const table = readTable();
