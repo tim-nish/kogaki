@@ -15,6 +15,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLegBlock, legField, fail } from "./draft-reader.mjs";
 import { passPath } from "./workspace.mjs";
+import { renderPromptFile } from "../prompt-file.mjs";
 
 // ---------------------------------------------------------------------------
 // Rendering a Reverse Outline input. The reviewer is BLIND: it sees the prose
@@ -146,141 +147,45 @@ function numberWord(n) {
 // article's own facts rather than the record's declaration of intent — which is
 // exactly the pair `figure-position` exists to lay against each other.
 function renderFigurePassage(leg) {
-  return [
-    "## The figure the reader met with this passage",
-    "",
-    "It is rendered in the Draft, not written by the passage's author. Read it as",
-    "the reader does — the numbers are its lines in the Draft, and this section",
-    "sits on the side of the passage the reader met it on.",
-    "",
-    numberedFigure(leg),
-    "",
-    "",
-  ].join("\n");
+  return renderPromptFile("review-draft/_figure-passage", { numbered_figure: numberedFigure(leg) });
 }
 
 // THE BLIND READER'S INPUT IS THE BRIEF LEG SCHEMA AND THE PROSE (kogaki#1014):
 // the reader writes the outline entry the passage would have been written
 // from, in the SAME FORM as the forward outline, so the input carries the
-// Brief's own field list and definitions and no template file. WHAT IS
+// Brief's own field list and definitions; its text is
+// prompts/review-draft/outline-passage.prompt (kogaki#1863). WHAT IS
 // WITHHELD IS WITHHELD DELIBERATELY: the Forward Artifact, the Move, its
 // candidates and every not-reconstructible field, whose effect is carried by
 // the reader states, which ARE compared. THE ARTICLE'S OWN TEXT GOES IN LAST,
 // because an article about this pipeline can quote a field name or a fence as
 // its subject matter — nothing below substitutes into it.
 function renderReverseOutlineInput(ws, run, draft, leg, legs) {
-  const figureBlock = leg.figure ? renderFigurePassage(leg) : "";
   const figureFirst = leg.figure ? figureBeforePassage(leg) : false;
-  const fieldLines = RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`);
-
   // THE FIGURE'S ASK RIDES THE SAME INPUT AND IS OWED ONLY WHERE THE READER MET
   // ONE. A figureless Leg is not asked for a figure block and is refused one:
   // a reader inventing a reading of a block that was never rendered is not
   // annotating harmlessly, it is a reading of nothing reaching the comparison.
-  const figureFieldLines = leg.figure
-    ? FIGURE_RECONSTRUCTIBLE_FIELDS.map((f) => `- \`${f.name}\` — ${f.definition}`)
-    : [];
-  const figureAsk = leg.figure
-    ? [
-        "## The figure you met, in its own terms",
-        "",
-        "This passage was rendered with a block beside it, and that block was written from a record",
-        "of its own. Read it as you read the passage — from what is on the page — and answer in the",
-        "record's own fields:",
-        "",
-        ...figureFieldLines,
-        "",
-        "Reply with a SECOND fenced block, after the `leg` block:",
-        "",
-        "````",
-        "```figure",
-        "element: …",
-        "caption: …",
-        `position: <${figurePositions().join("|")}>`,
-        "```",
-        "",
-        "One `element:` line per element you can see, in the order they read. The example shows the",
-        "FORM of the block and not an answer: how many elements there are, and which side the block",
-        "sits on, are what you are being asked.",
-        "````",
-        "",
-      ].join("\n")
-    : "";
-
-  const head = [
-    `# Reverse Outline — ${leg.leg_id}`,
-    "",
-    "You are reading one passage of an article, and the article that came before it. You have",
-    "not seen the outline the article was written from, and you must not go looking for it:",
-    "your reading is the other half of a comparison, and it is worth nothing if it was told the",
-    "answer.",
-    "",
-    "Write the outline entry this passage would have been written from — what it is FOR, what a",
-    "reader holds arriving at it and leaving it, and what it asks the reader to accept. Write it",
-    `in the form below. Answer from the passage alone; where the passage does not settle a field,`,
-    "say what the passage does say rather than what would make it come out well.",
-    "",
-    "Your outline is evidence about **this prose**. Do not reason about what the",
-    "author was probably told — an outline that guessed at what produced the passage measures",
-    "nothing.",
-    "",
-    "Write no verdicts and no advice. Nothing here asks whether the passage is good.",
-    "",
-    `## The ${numberWord(reverseOutlineFieldCount())} fields`,
-    "",
-    ...fieldLines,
-    "",
-    "`introduces` is legitimately absent — a passage that introduces nothing carries no such",
-    "line. `claims` is not: every passage asserts something.",
-    "",
-    "## The form",
-    "",
-    "Reply with ONE fenced `leg` block and nothing else:",
-    "",
-    "````",
-    "```leg",
-    `leg_id: ${leg.leg_id}`,
-    "purpose: …",
-    "claim …",
-    "claim …",
-    "introduces: <term>",
-    "introduces: <term> — <where the passage anchors it, only if it does>",
-    "```",
-    "````",
-    "",
-    figureAsk,
-    "## The article before this passage",
-    "",
-    "Everything already written, in order, under the Section headings it was written into. It",
-    "ends with this passage's own Section so far — the prose immediately above where the passage",
-    "begins. Read it as the reader arriving at the passage has read it: it is what they already",
-    "know.",
-    "",
-  ].join("\n");
-
-  // THE ARTICLE'S OWN TEXT GOES IN LAST, and the passage comes after the
-  // article that precedes it — the order the reader meets them in, and the
-  // order the section prose above describes.
   //
-  // THE FIGURE SITS ON THE SIDE OF THE PASSAGE THE READER MET IT ON, and a
-  // figure met ABOVE the prose goes above the passage's own HEADING rather
-  // than under it: a block the reader met first, rendered below the heading
-  // that announces the passage, is the inverted arrangement kogaki#945 removed,
-  // one line further down the page.
-  const parts = [head, articleBefore(legs, leg.leg_id), ""];
-  if (figureFirst && figureBlock) parts.push(figureBlock, "");
-  parts.push(
-    `## The passage — ${leg.leg_id}, draft lines ${leg.lines[0]}–${leg.lines[1]}`,
-    "",
-    "Every line is numbered with its line number in the Draft.",
-    "",
-    numberedProse(leg),
-    "",
-  );
-  if (!figureFirst && figureBlock) parts.push(figureBlock, "");
-
+  // THE ARTICLE'S OWN TEXT GOES IN LAST, and the passage comes after the
+  // article that precedes it — the order the reader meets them in. THE FIGURE
+  // SITS ON THE SIDE OF THE PASSAGE THE READER MET IT ON, and a figure met ABOVE
+  // the prose goes above the passage's own HEADING rather than under it
+  // (kogaki#945).
+  const out = renderPromptFile("review-draft/outline-passage", {
+    leg_id: leg.leg_id,
+    field_count: numberWord(reverseOutlineFieldCount()),
+    figure: Boolean(leg.figure),
+    positions: leg.figure ? figurePositions().join("|") : "",
+    article_before: articleBefore(legs, leg.leg_id),
+    figure_first: Boolean(leg.figure) && figureFirst,
+    figure_after: Boolean(leg.figure) && !figureFirst,
+    figure_block: leg.figure ? renderFigurePassage(leg) : "",
+    first_line: leg.lines[0],
+    last_line: leg.lines[1],
+    numbered_prose: numberedProse(leg),
+  });
   const dest = passPath(ws, run, "outline-input", `${leg.leg_id}.md`);
-  const out = parts.join("\n");
   writeFileSync(dest, out.endsWith("\n") ? out : out + "\n");
   return dest;
 }
@@ -301,12 +206,10 @@ const RECONSTRUCTIBLE_FIELDS = [
   {
     name: "purpose",
     kind: "line",
-    definition: "what this passage is for — what it does for the reader, in your words.",
   },
   {
     name: "claims",
     kind: "claim-lines",
-    definition: "one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept.",
   },
   // BOTH ARMS, and the bare one first (PR #1022 round 1, finding 3). This read
   // `introduces: <term> — <anchor>`, which is only half of what
@@ -318,14 +221,14 @@ const RECONSTRUCTIBLE_FIELDS = [
   {
     name: "introduces",
     kind: "repeated-line",
-    definition:
-      "one `introduces: <term>` line per term this passage introduces to the reader. " +
-      "There are two forms and both are accepted: write the term BARE, or — where the passage " +
-      "also says what the term MEANS — write `introduces: <term> — <anchor>` and let the anchor " +
-      "be that meaning, in the passage's own words. Where the passage anchors nothing, write the " +
-      "term bare rather than inventing an anchor. A passage that introduces nothing carries no line.",
   },
 ];
+
+// A field's definition, the line the Blind Reader is handed for it and the one a refusal of it repeats: its text is
+// prompts/review-draft/_field-<name>.prompt (kogaki#1863).
+function fieldDefinition(name) {
+  return renderPromptFile(`review-draft/_field-${name}`, {});
+}
 
 // Declared NOT reconstructible, and REFUSED in a Reverse Outline rather than
 // merely unasked. The two differ: an unasked field a reader supplies anyway is
@@ -375,19 +278,14 @@ const FIGURE_RECONSTRUCTIBLE_FIELDS = [
   {
     name: "element",
     kind: "repeated-line",
-    definition:
-      "one `element: <what it is>` line per thing you can name in the block, in your own " +
-      "words. At least one. You are naming what is THERE, never judging how well it is put.",
   },
   {
     name: "caption",
     kind: "line",
-    definition: "what you hold after looking at the block, in your own words — one line.",
   },
   {
     name: "position",
     kind: "line",
-    definition: "`before` where you met the block above this passage, `after` where you met it below.",
   },
 ];
 
@@ -472,12 +370,12 @@ function validateFigureOutline(text, leg, file) {
   const problems = [];
 
   const caption = legField(body, "caption");
-  if (caption === null) problems.push("carries no `caption:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[1].definition);
-  else if (caption === "") problems.push("`caption:` is blank — " + FIGURE_RECONSTRUCTIBLE_FIELDS[1].definition);
+  if (caption === null) problems.push("carries no `caption:` line — " + fieldDefinition("caption"));
+  else if (caption === "") problems.push("`caption:` is blank — " + fieldDefinition("caption"));
 
   const position = legField(body, "position");
   const positions = figurePositions();
-  if (position === null) problems.push("carries no `position:` line — " + FIGURE_RECONSTRUCTIBLE_FIELDS[2].definition);
+  if (position === null) problems.push("carries no `position:` line — " + fieldDefinition("position"));
   else if (!positions.includes(position)) {
     problems.push(
       `\`position:\` reads \`${position}\`, and the record's position is one of ` +
@@ -568,8 +466,8 @@ function validateReverseOutline(text, leg, file) {
   for (const f of RECONSTRUCTIBLE_FIELDS) {
     if (f.kind === "line") {
       const v = legField(body, f.name);
-      if (v === null) problems.push(`carries no \`${f.name}:\` line — ${f.definition}`);
-      else if (v === "") problems.push(`\`${f.name}:\` is blank — ${f.definition}`);
+      if (v === null) problems.push(`carries no \`${f.name}:\` line — ${fieldDefinition(f.name)}`);
+      else if (v === "") problems.push(`\`${f.name}:\` is blank — ${fieldDefinition(f.name)}`);
       continue;
     }
     if (f.kind === "claim-lines") {
@@ -586,7 +484,7 @@ function validateReverseOutline(text, leg, file) {
     }
     if (f.kind === "repeated-line") {
       for (const [i, v] of repeatedLines(body, f.name).entries()) {
-        if (v === "") problems.push(`\`${f.name}:\` entry ${i + 1} is blank — ${f.definition}`);
+        if (v === "") problems.push(`\`${f.name}:\` entry ${i + 1} is blank — ${fieldDefinition(f.name)}`);
       }
       continue;
     }

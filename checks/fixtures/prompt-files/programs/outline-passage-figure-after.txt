@@ -1,0 +1,96 @@
+# Reverse Outline — s2
+
+You are reading one passage of an article, and the article that came before it. You have
+not seen the outline the article was written from, and you must not go looking for it:
+your reading is the other half of a comparison, and it is worth nothing if it was told the
+answer.
+
+Write the outline entry this passage would have been written from — what it is FOR, what a
+reader holds arriving at it and leaving it, and what it asks the reader to accept. Write it
+in the form below. Answer from the passage alone; where the passage does not settle a field,
+say what the passage does say rather than what would make it come out well.
+
+Your outline is evidence about **this prose**. Do not reason about what the
+author was probably told — an outline that guessed at what produced the passage measures
+nothing.
+
+Write no verdicts and no advice. Nothing here asks whether the passage is good.
+
+## The three fields
+
+- `purpose` — what this passage is for — what it does for the reader, in your words.
+- `claims` — one `claim ` line per thing the passage ASSERTS — what it asks the reader to accept.
+- `introduces` — one `introduces: <term>` line per term this passage introduces to the reader. There are two forms and both are accepted: write the term BARE, or — where the passage also says what the term MEANS — write `introduces: <term> — <anchor>` and let the anchor be that meaning, in the passage's own words. Where the passage anchors nothing, write the term bare rather than inventing an anchor. A passage that introduces nothing carries no line.
+
+`introduces` is legitimately absent — a passage that introduces nothing carries no such
+line. `claims` is not: every passage asserts something.
+
+## The form
+
+Reply with ONE fenced `leg` block and nothing else:
+
+````
+```leg
+leg_id: s2
+purpose: …
+claim …
+claim …
+introduces: <term>
+introduces: <term> — <where the passage anchors it, only if it does>
+```
+````
+
+## The figure you met, in its own terms
+
+This passage was rendered with a block beside it, and that block was written from a record
+of its own. Read it as you read the passage — from what is on the page — and answer in the
+record's own fields:
+
+- `element` — one `element: <what it is>` line per thing you can name in the block, in your own words. At least one. You are naming what is THERE, never judging how well it is put.
+- `caption` — what you hold after looking at the block, in your own words — one line.
+- `position` — `before` where you met the block above this passage, `after` where you met it below.
+
+Reply with a SECOND fenced block, after the `leg` block:
+
+````
+```figure
+element: …
+caption: …
+position: <before|after>
+```
+
+One `element:` line per element you can see, in the order they read. The example shows the
+FORM of the block and not an answer: how many elements there are, and which side the block
+sits on, are what you are being asked.
+````
+
+## The article before this passage
+
+Everything already written, in order, under the Section headings it was written into. It
+ends with this passage's own Section so far — the prose immediately above where the passage
+begins. Read it as the reader arriving at the passage has read it: it is what they already
+know.
+
+## Where the copy lives
+
+The kit ships in one tree.
+
+## The passage — s2, draft lines 13–15
+
+Every line is numbered with its line number in the Draft.
+
+13 | The installer copies the kit into the tree.
+14 | 
+15 | The next run overwrites any edit to the copy.
+
+## The figure the reader met with this passage
+
+It is rendered in the Draft, not written by the passage's author. Read it as
+the reader does — the numbers are its lines in the Draft, and this section
+sits on the side of the passage the reader met it on.
+
+17 | ```
+18 | installer -> tree
+19 | ```
+
+

@@ -19,7 +19,7 @@ import {
 import { PLAN_SCHEMA_KEYS, RETIRED_PLAN_KEYS, paragraphSchemaRefusal } from "../compose/record.mjs";
 import { correspondenceVocabularyFailures } from "../structure-mapping-playground/rbs.mjs";
 import { judgePrompt, passagesOf } from "../workflow/judge.mjs";
-import { promptFileSource } from "../prompt-file.mjs";
+import { promptFileSource, renderPromptFile } from "../prompt-file.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
 import { FLOW, NO_PARAGRAPH_MOVE_FITS, PARAGRAPH_MOVE_ROLES, PARAGRAPH_PLAN_AXES } from "./stage.mjs";
@@ -553,18 +553,9 @@ export function paragraphPlanJudgeVerdict(verdict, record, inputs, unitId, scope
     }
   }
   if (!failures.length) return {};
-  const refusal = [
-    "THE WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG:",
-    ...failures.map((f) => f.refusal),
-    "Generate the Waypoints again so that the bound Move's takes are each met by what the reader has been told " +
-      "when the Leg begins, they follow the " +
-      "Move's order (its segments), " +
-      "each perform its own Segment's operation and stand in that Segment's relation, " +
-      "and survive each of its breaks, or bind another Move; and write each join so that it takes up what the " +
-      "previous paragraph leaves, restates no Waypoint, names no noun phrase " +
-      "of either paragraph's Waypoints, brings no case, example or term of its own and states no effect " +
-      "on the reader.",
-  ].join("\n");
+  const refusal = renderPromptFile("paragraph-plan/_waypoints-were-judged", {
+    failures: failures.map((f) => ({ refusal: f.refusal })),
+  });
   // A BINDING REFUSAL REOPENS THE LEG: the Round is refused whole, and no site is named.
   return { refusal, failures: failures.some((f) => f.site === undefined) ? [] : failures };
 }

@@ -36,12 +36,19 @@ const srcFiles = walk(join(REPO, "src"), () => true).map((f) => ({
   path: posix(relative(REPO, f)),
   text: readFileSync(f, "utf8"),
 }));
-const programs = srcFiles.filter((s) => /\.(mjs|json)$/.test(s.path));
+// A Python tool names its prompt file as a program does (kogaki#1863), and a question of the Draft review is named by
+// its item's id in src/review-items.json.
+const programs = [
+  ...srcFiles.filter((s) => /\.(mjs|json)$/.test(s.path)),
+  ...walk(join(REPO, "tools"), (n) => n.endsWith(".py")).map((f) => ({ text: readFileSync(f, "utf8") })),
+];
+const itemIds = JSON.parse(readFileSync("src/review-items.json", "utf8")).items.map((i) => i.id);
 for (const f of files) {
   cases++;
   const byProgram = programs.some((s) => s.text.includes(`"${f.name}"`) || s.text.includes(`"prompts/${f.name}"`));
   const byPrompt = f.passage !== null && files.some((o) => o.text.includes(`{{> ${f.passage}}}`));
-  if (!byProgram && !byPrompt) fails.push(`(b) ${f.path} is named by no row, no prompt file and no program`);
+  const byItem = itemIds.some((id) => f.name === `review-draft/_question-${id}`);
+  if (!byProgram && !byPrompt && !byItem) fails.push(`(b) ${f.path} is named by no row, no prompt file and no program`);
 }
 
 const MIN_LINE = 40;
@@ -130,6 +137,34 @@ for (const r of C.ROWS) {
   fails.push(
     `(d) the ${r.file} row differs from its saved text at byte ${i}: saved ${JSON.stringify(want.slice(i, i + 60))}, rendered ${JSON.stringify(got.slice(i, i + 60))}`,
   );
+}
+
+// (h) EVERY PROGRAM'S CALL TEXT RENDERS AS SAVED BEFORE ITS SENTENCES MOVED (kogaki#1863): four programs, the Draft
+// review and the two Python tools, from the fixed inputs of checks/fixtures/prompt-files/programs.mjs.
+let programCases = 0;
+{
+  const P = await imp("checks/fixtures/prompt-files/programs.mjs");
+  const texts = await P.programTexts(imp);
+  programCases = texts.size;
+  const saved = readdirSync(P.PROGRAMS_DIR).filter((n) => n.endsWith(".txt"));
+  if (saved.length !== texts.size)
+    fails.push(`(h) ${saved.length} saved program text(s) for ${texts.size} case(s) -- each case has one saved file`);
+  for (const [name, got] of texts) {
+    cases++;
+    let want;
+    try {
+      want = P.savedProgram(name);
+    } catch {
+      fails.push(`(h) the ${name} case has no saved text under ${P.PROGRAMS_DIR}`);
+      continue;
+    }
+    if (got === want) continue;
+    let i = 0;
+    while (got[i] === want[i]) i++;
+    fails.push(
+      `(h) the ${name} text differs from its saved text at byte ${i}: saved ${JSON.stringify(want.slice(i, i + 60))}, rendered ${JSON.stringify(String(got).slice(i, i + 60))}`,
+    );
+  }
 }
 
 // (f) A TABLE WHOSE ROW CARRIES ITS INSTRUCTION IS REFUSED WHEN READ (kogaki#1862), naming the row and the key; the six
@@ -242,5 +277,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6 + C.ROWS.length} saved cases`,
+  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6 + C.ROWS.length + programCases} saved cases`,
 );

@@ -1,0 +1,52 @@
+# Judge one pair
+
+You are judging **one** pair — one declared line against one line outlined from
+the prose. Answer the question below and nothing else. Do not look for other
+problems, do not rank this against anything, and do not weigh how bad it is.
+
+## The pair
+
+- **Leg.** s2
+- **Item.** figure-position (best-effort)
+
+### What the figure record DECLARED
+
+before
+
+### What the REVERSE OUTLINE says
+
+before
+
+### The prose itself — draft lines 13–15
+
+ 9 | ```
+10 | installer -> tree
+11 | ```
+
+13 | The installer copies the kit into the tree.
+14 | 
+15 | The next run overwrites any edit to the copy.
+
+## The question
+
+The declared side says whether the figure was designed to set the passage up or to discharge it, and the reverse side is where the reader says they met it. The figure's draft line numbers in the prose below say where it actually sits. Did the reader meet it where the prose needed it? Answer `fails` if the passage had already done the work the figure was meant to set up, or still needed the figure it had not yet been given.
+
+## How to answer
+
+Return one JSON object:
+
+    {"verdict": "holds" | "fails" | "cannot-decide", "reason": "one sentence"}
+
+- **`holds`** — the pair agrees.
+- **`fails`** — it does not. Say in one sentence what does not agree.
+- **`cannot-decide`** — you cannot tell from what is above. This is a real
+  answer and it is never rounded to either neighbour; it is listed with its
+  pair so a person can look.
+
+**One sentence, and no digits in it.** Write any number as a word. Line numbers
+are the Harness's and are already rendered above; every other number in a
+review is a score, and this comparison has none.
+
+Record it with:
+
+    <verdicts.json> | node src/review-draft.mjs compare --draft theses/fixture/draft.md

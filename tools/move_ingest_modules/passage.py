@@ -1,6 +1,7 @@
 """The passage step of the Move ingest (kogaki#1463): the authorship prompt,
 the model call, Segment text, the near-duplicate check and the one screen."""
 
+import json
 import os
 import re
 import subprocess
@@ -28,15 +29,23 @@ from .library import (
 def build_passage_prompt(contract_text, passage_text, index_text):
     """The whole authorship input: the contract, the Passage, and the
     existing library — nothing else, per the contract's own opening line
-    ("no other context is needed or permitted")."""
-    return (
-        contract_text.strip() + "\n\n"
-        "## The Passage\n\n" + passage_text.strip() + "\n\n"
-        "## The existing library (moves/INDEX.md)\n\n"
-        + (index_text.strip() or "(empty — no Move has been saved yet)") + "\n\n"
-        "Return exactly one record in the format the contract above states, "
-        "and nothing else — no prose before or after it, no fence.\n"
-    )
+    ("no other context is needed or permitted"). Its text is
+    prompts/move-ingest/read-passage.prompt (kogaki#1863)."""
+    return render_prompt_file("move-ingest/read-passage", {
+        "contract": contract_text.strip(),
+        "passage": passage_text.strip(),
+        "library": index_text.strip(),
+    })
+
+
+def render_prompt_file(name, values):
+    """A file under prompts/, rendered by src/prompt-file-cli.mjs."""
+    cli = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                       "src", "prompt-file-cli.mjs")
+    r = subprocess.run(["node", cli, name], input=json.dumps(values), capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Refusal("passage", "the prompt file %s did not render: %s" % (name, (r.stderr or "").strip()))
+    return r.stdout
 
 
 def spawn_model(command, model, prompt, timeout_s, cwd=None):

@@ -1,0 +1,17 @@
+THE DERIVATION.
+
+---
+
+## The Corpus (2 Extractions, cited by slug)
+
+### first-slug
+
+FIRST TEXT.
+
+### second-slug
+
+SECOND TEXT.
+
+---
+
+Return exactly two blocks. First a line reading exactly `=== WORKING.MD ===`, then the whole working file. Then a line reading exactly `=== QUESTIONS.MD ===`, then the whole owner-facing file. Nothing before the first marker and nothing after the second block.

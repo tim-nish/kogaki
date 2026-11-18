@@ -54,6 +54,7 @@ import { MOVE_CONSTRAINT_KINDS, moveConstraintsRefusal } from "../move-validate.
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { enterRun, RUNS_ROOT } from "../runs.mjs";
+import { renderPromptFile } from "../prompt-file.mjs";
 import {
   startDetachedJobSupervisor,
   readReaderPathJob,
@@ -239,12 +240,9 @@ function withExtractionRecordSkeleton(prompt, input) {
   const marker = "\nREQUIRED RECORD SHAPE:";
   const at = prompt.indexOf(marker);
   const lineEnd = at < 0 ? -1 : prompt.indexOf("\n", at + 1);
-  const skeleton = [
-    "",
-    "THE RECORD'S SHAPE AS JSON, with this paragraph's number filled as a number and `answers`",
-    "holding exactly q1 to q3 -- every other value is a placeholder naming what belongs there:",
-    JSON.stringify(extractionRecordSkeleton(input), null, 2),
-  ].join("\n");
+  const skeleton = `\n${renderPromptFile("move-extraction-playground/_record-skeleton", {
+    record_shape: JSON.stringify(extractionRecordSkeleton(input), null, 2),
+  })}`;
   if (lineEnd < 0) return `${prompt}\n${skeleton}`;
   return `${prompt.slice(0, lineEnd)}\n${skeleton}${prompt.slice(lineEnd)}`;
 }

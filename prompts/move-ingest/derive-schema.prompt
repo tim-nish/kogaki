@@ -1,0 +1,15 @@
+{{derivation}}
+
+---
+
+## The Corpus ({{count}} Extractions, cited by slug)
+
+{{#each extractions}}
+### {{slug}}
+
+{{text}}
+
+{{/each}}
+---
+
+Return exactly two blocks. First a line reading exactly `{{working_marker}}`, then the whole working file. Then a line reading exactly `{{questions_marker}}`, then the whole owner-facing file. Nothing before the first marker and nothing after the second block.

@@ -22,6 +22,7 @@ meaning.
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -247,21 +248,24 @@ def load_and_strip(paths):
 # --------------------------------------------------------------------------
 
 def assemble_prompt(derivation_text, extractions):
-    parts = [derivation_text, "", "---", "",
-             "## The Corpus (%d Extractions, cited by slug)" % len(extractions), ""]
-    for slug, text in extractions:
-        parts.append("### %s" % slug)
-        parts.append("")
-        parts.append(text)
-        parts.append("")
-    parts.append("---")
-    parts.append("")
-    parts.append(
-        "Return exactly two blocks. First a line reading exactly `%s`, then "
-        "the whole working file. Then a line reading exactly `%s`, then the "
-        "whole owner-facing file. Nothing before the first marker and "
-        "nothing after the second block." % (WORKING_MARKER, QUESTIONS_MARKER))
-    return "\n".join(parts)
+    """The whole derivation input; its text is
+    prompts/move-ingest/derive-schema.prompt (kogaki#1863)."""
+    return render_prompt_file("move-ingest/derive-schema", {
+        "derivation": derivation_text,
+        "count": len(extractions),
+        "extractions": [{"slug": slug, "text": text} for slug, text in extractions],
+        "working_marker": WORKING_MARKER,
+        "questions_marker": QUESTIONS_MARKER,
+    })
+
+
+def render_prompt_file(name, values):
+    """A file under prompts/, rendered by src/prompt-file-cli.mjs."""
+    cli = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "prompt-file-cli.mjs")
+    r = subprocess.run(["node", cli, name], input=json.dumps(values), capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Refusal("the prompt file %s did not render: %s" % (name, (r.stderr or "").strip()))
+    return r.stdout
 
 
 def check_no_leak(text, stripped_lines):

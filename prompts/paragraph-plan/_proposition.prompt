@@ -1,0 +1,7 @@
+{{text}}{{#if claims}}
+The Claims it is read from:{{#each claims}}
+- {{strand}}: {{proposition}}{{/each}}{{/if}}{{#if roles}}
+The Roles it stands between:{{#each roles}}
+- {{name}}: {{context}}{{/each}}{{/if}}{{#if told}}
+What the Legs before it state:{{#each told}}
+- {{leg_id}}: {{text}}{{/each}}{{/if}}

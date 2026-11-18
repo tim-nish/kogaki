@@ -1,10 +1,12 @@
-<!--
+{{!--
 The JOIN PACKET template (kogaki#872) — the judging model's ENTIRE input for
 ONE (Leg, item) pair.
 
 Runtime-read, like prompts/draft/write-leg.prompt:
-`review-draft compare` fills the {{...}} slots and writes the result into the
-run workspace, and the written result is everything the judging model reads.
+`review-draft compare` renders it and writes the result into the run
+workspace, and the written result is everything the judging model reads. It
+left src/join-template.md at kogaki#1863; the question is the item's own
+prompts/review-draft/_question-<item id>.prompt.
 
 ONE PAIR, ONE QUESTION, THREE TOKENS. The item table decides which pairs exist
 and what each one asks; this file decides only how a pair is put in front of a
@@ -27,8 +29,7 @@ cannot rank, weigh or aggregate across a Leg.
 NO NUMBERS BUT LINE NUMBERS. The reason sentence is refused when it carries a
 digit: line numbers belong in the span the Harness already renders, and every
 other number in a review is a score by another name.
--->
-
+--}}
 # Judge one pair
 
 You are judging **one** pair — one declared line against one line outlined from
@@ -74,4 +75,4 @@ review is a score, and this comparison has none.
 
 Record it with:
 
-    {{record_command}}
+    <verdicts.json> | node src/review-draft.mjs compare --draft {{draft_path}}
