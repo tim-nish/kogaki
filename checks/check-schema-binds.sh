@@ -311,7 +311,7 @@ function sharedRenderFailures(path, table) {
     try { prompt = judgePrompt({ id: key, ...row }, "", null, null); }
     catch (e) { fails.push(`${path}: \`${key}\` names shared text and does not render (${e.message})`); continue; }
     for (const n of names) {
-      if (!prompt.includes((sharedTextOf({ id: key, ...row }) || {})[n] ?? "\u0000")) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry shared text \`${n}\``);
+      if (!prompt.includes((sharedTextOf({ id: key, ...row }) || {})[n] ?? String.fromCharCode(0))) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry shared text \`${n}\``);
     }
     for (const m of marks) { // a passage with no value of its own stands in the prompt verbatim (kogaki#1855)
       const p = readFileSync(join(REPO, "prompts", m.replace(/([^/]+)$/, "_$1.prompt")), "utf8").replace(/\n$/, "");
