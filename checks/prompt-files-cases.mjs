@@ -114,11 +114,30 @@ same("plan-leg-paired", () => judgePrompt(pairedPlanRow(plan), inputText, C.PLAN
 same("plan-leg-under-a-move-table", () =>
   judgePrompt(
     pairedPlanRow(plan, "structure-mapping-playground/plan-leg-under-a-move-table"),
-    inputText,
-    C.PLAN_INPUT,
+    JSON.stringify(C.POINTS_INPUT, null, 2),
+    C.POINTS_INPUT,
     null,
   ),
 );
+
+// (e) ONE SENTENCE, ONE JOB (kogaki#1858): every sentence line of each listed prompt file passes `axisSentenceRefusal`.
+// A file joins the list when an Issue rewrites it.
+const ONE_SENTENCE_FILES = ["prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt"];
+const LABEL = /^(JUDGMENT POINT|REQUIRED RECORD SHAPE|WHAT IS REFUSED): /;
+const { axisSentenceRefusal } = await imp("src/paragraph-plan/axes.mjs");
+for (const path of ONE_SENTENCE_FILES) {
+  cases++;
+  const lines = readFileSync(path, "utf8").split("\n");
+  const end = lines.findIndex((l) => l.startsWith("----- INPUT"));
+  for (const [i, raw] of lines.slice(0, end < 0 ? lines.length : end).entries()) {
+    const line = raw.trim();
+    const mark = /^\{\{[^{}]*\}\}$/.test(line);
+    const heading = /^[A-Z ]+$/.test(line);
+    if (!line || mark || heading) continue;
+    const why = axisSentenceRefusal(line.replace(LABEL, ""));
+    if (why) fails.push(`(e) ${path} line ${i + 1} ${why}: ${JSON.stringify(line)}`);
+  }
+}
 
 const briefPath = join(REPO, "checks", "fixtures", "prompt-files", "brief.yaml");
 const scratch = mkdtempSync(join(tmpdir(), "prompt-files-"));
