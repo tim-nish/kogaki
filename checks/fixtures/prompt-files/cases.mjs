@@ -1,4 +1,4 @@
-// The saved cases of checks/check-prompt-files.sh (kogaki#1855): the values each saved prompt is rendered from.
+// The values checks/prompt-files-cases.mjs renders each saved prompt from (kogaki#1855).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
