@@ -76,7 +76,7 @@ export function readerStateText(map) {
 
 // One Leg as the record carries it: its fields in the schema's order (kogaki#1768: a Leg binds no Move, so no field
 // written for a Leg Move's binding is carried). A Leg of a Brief composed from a structure carries its `relation` and
-// `text` and no `waypoints` (kogaki#1775); a Leg that predates it keeps its waypoints, each `point`, `serves` and `case`.
+// `text` and no `waypoints` (kogaki#1775); a Leg that predates it keeps its waypoints, each `point` and `case`.
 export function legRecord(s) {
   const out = { leg_id: s.leg_id };
   if (typeof s.relation === "string") out.relation = s.relation;
@@ -84,7 +84,6 @@ export function legRecord(s) {
   out.claims = (s.claims || []).map((g) => ({ strand: g.strand, proposition: g.proposition }));
   if (Array.isArray(s.waypoints)) {
     out.waypoints = s.waypoints.map((w) => ({
-      serves: [...w.serves],
       point: String(w.point)
         .replace(/\s*\n\s*/g, " ")
         .trim(),
@@ -127,7 +126,7 @@ export function paragraphPlanPathFor(briefPath) {
 // and its `paragraphs`, at most `brief.paragraphs_per_leg`. Each paragraph carries the Leg
 // schema at the paragraph scale -- `materials`, `purpose`, `depends_on`, `rationale`,
 // `re-activate` -- beside its `join` and its Waypoints
-// (`point` and `serves`, or `performs` alone, kogaki#1448), one per Segment of the Leg's
+// (`point` and `cast`, or `performs` alone, kogaki#1448), one per Segment of the Leg's
 // Move. It carries no reader state and no Obligations ledger (kogaki#1701): what a Leg takes
 // up and leaves is its bound Move's `takes` and `leaves`.
 
@@ -136,7 +135,7 @@ const PLAN_HEADER = [
   "the one Move bound to the Leg (its id and nothing else of the Move) and the Leg's paragraphs: for each, the",
   "Strands it stands on, what it does to the reader, the earlier paragraphs it stands on, why it comes here, the",
   "what it re-activates, and its Waypoints -- the points the paragraph makes, in order, each",
-  "with the Claims it serves, one per Segment of the bound Move. What a Leg takes up and leaves is its bound Move's",
+  "one per Segment of the bound Move. What a Leg takes up and leaves is its bound Move's",
   "`takes` and `leaves`, never written here. Above the Legs, the one base domain every analogy in the article draws",
   "from, with a counterpart for each Role and relation, or none and why.",
   "/paragraph-plan writes it from the Brief; /draft reads it beside the Brief and refuses it when the Brief has",
@@ -182,7 +181,6 @@ function paragraphRecord(e, n) {
         ? { performs: oneLine(p.performs) }
         : {
             point: oneLine(p.point),
-            serves: [...p.serves],
             ...(p.cast && typeof p.cast === "object" ? { cast: { ...p.cast } } : {}),
           }),
       ...(marked(p.forced_by) ? { forced_by: p.forced_by.map(String) } : {}),
@@ -287,11 +285,11 @@ export function analogyShapeRefusal(analogy, at) {
   return null;
 }
 
-const PARAGRAPH_WAYPOINT_KEYS = ["point", "serves", "cast"];
+const PARAGRAPH_WAYPOINT_KEYS = ["point", "cast"];
 // THE PERFORMS FORM (kogaki#1448, owner decision 2026-10-19): a Waypoint for a
 // Segment that acts on the reader's reading -- announce, flag, concede difficulty, signal a
-// turn -- carries `performs`, the operation in the planner's words, in place of `point` and
-// `serves`: such a Segment carries no part of the Leg's relation, and a point written for it
+// turn -- carries `performs`, the operation in the planner's words, in place of `point`:
+// such a Segment carries no part of the Leg's relation, and a point written for it
 // is invented content.
 const PERFORMS_WAYPOINT_KEYS = ["performs"];
 
@@ -358,7 +356,7 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
 // reader and the plan call's validator, so the record the stage writes is the record every read
 // refuses alike. Returns a string to refuse with, or null.
 export function paragraphSchemaRefusal(w, j, leg, entries, at) {
-  const serves = legStrandIds(leg);
+  const strands = legStrandIds(leg);
   const n = j + 1;
   const retired = retiredPlanKeyRefusal(w, at);
   if (retired) return retired;
@@ -368,9 +366,9 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at) {
   if (!Array.isArray(w.materials) || !w.materials.length || w.materials.some((m) => typeof m !== "string")) {
     return `${at} carries no \`materials\` — the Strand ids the paragraph stands on, from its Leg's Claims (kogaki#1639)`;
   }
-  const outside = w.materials.find((m) => !serves.includes(m));
+  const outside = w.materials.find((m) => !strands.includes(m));
   if (outside !== undefined) {
-    return `${at} names ${JSON.stringify(outside)} in \`materials\`, which no Claim of its Leg names — a paragraph stands on its Leg's Claims (${serves.join(", ")}) (kogaki#1639)`;
+    return `${at} names ${JSON.stringify(outside)} in \`materials\`, which no Claim of its Leg names — a paragraph stands on its Leg's Claims (${strands.join(", ")}) (kogaki#1639)`;
   }
   if (typeof w.purpose !== "string" || w.purpose.trim() === "") {
     return `${at} carries no \`purpose\` — what the paragraph does to the reader, a verb about the reader (kogaki#1639)`;
@@ -415,7 +413,7 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at) {
 // The record's shape against the Brief's Legs: every key declared, one entry per Leg in order,
 // each naming its one bound Move and carrying from one paragraph to `brief.paragraphs_per_leg`
 // (kogaki#1777), every paragraph carrying its schema (`paragraphSchemaRefusal`), and every
-// Waypoint shaped as `paragraphWaypointsRefusal` reads it over the paragraph's `materials`. A key outside those is refused by name: the file
+// Waypoint shaped as `paragraphWaypointsRefusal` reads it. A key outside those is refused by name: the file
 // holds the bound Move's id and nothing else of the Move (kogaki#1639). `library`, where
 // given, is the Set of Move ids a `move` may name; `bound` is the paragraph bound, the
 // setting's where none is handed.
@@ -498,7 +496,7 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, b
         .find(Boolean);
       if (badMark) return badMark;
       const pws = Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints.map(unmarked) : w.paragraph_waypoints;
-      const bad = paragraphWaypointsRefusal(pws, w.materials, atW);
+      const bad = paragraphWaypointsRefusal(pws, atW);
       if (bad) return bad;
     }
   }
@@ -595,12 +593,10 @@ export function joinRefusal(w, j, at) {
   return null;
 }
 
-// ONE PARAGRAPH'S WAYPOINTS, by the Waypoints' own rule (every Strand the paragraph's
-// `materials` names is served by at least one of them) and
-// with `point`, `serves` and `cast` as their only keys -- or `performs` alone (kogaki#1448), which
-// the Claim-coverage rule does not count: the `point` Waypoints carry it, and a
-// paragraph none of whose Waypoints carries a `point` is refused.
-export function paragraphWaypointsRefusal(pws, parentServes, at) {
+// ONE PARAGRAPH'S WAYPOINTS, by the Waypoints' own rule and with `point` and `cast` as their
+// only keys -- or `performs` alone (kogaki#1448); a paragraph none of whose Waypoints carries a
+// `point` is refused.
+export function paragraphWaypointsRefusal(pws, at) {
   if (Array.isArray(pws)) {
     for (const [i, p] of pws.entries()) {
       if (p && typeof p === "object" && !Array.isArray(p)) {
@@ -611,7 +607,7 @@ export function paragraphWaypointsRefusal(pws, parentServes, at) {
           if (k) {
             return (
               `${at}: Waypoint ${i + 1} carries \`performs\` beside \`${k}\` — a \`performs\` Waypoint ` +
-              "carries its Segment's operation on the reader's reading in place of `point` and `serves`, and nothing else (kogaki#1448)"
+              "carries its Segment's operation on the reader's reading in place of `point`, and nothing else (kogaki#1448)"
             );
           }
           if (typeof p.performs !== "string" || p.performs.trim() === "") {
@@ -625,7 +621,7 @@ export function paragraphWaypointsRefusal(pws, parentServes, at) {
         const k = undeclaredKey(p, PARAGRAPH_WAYPOINT_KEYS);
         if (k) {
           return (
-            `${at}: Waypoint ${i + 1} carries \`${k}\` — a Waypoint carries \`point\`, \`serves\` and \`cast\`, ` +
+            `${at}: Waypoint ${i + 1} carries \`${k}\` — a Waypoint carries \`point\` and \`cast\`, ` +
             "or `performs` alone, and nothing of a Move reaches past Waypoint generation (kogaki#1375, kogaki#1448)"
           );
         }
@@ -637,12 +633,12 @@ export function paragraphWaypointsRefusal(pws, parentServes, at) {
     if (pws.length && !points.length) {
       return (
         `${at}: none of its Waypoints carries a \`point\` — a \`performs\` Waypoint carries no part ` +
-        "of the Leg's relation, so every Claim the paragraph stands on is served by at least one `point` Waypoint (kogaki#1448)"
+        "of the Leg's relation, so a paragraph carries at least one `point` Waypoint (kogaki#1448)"
       );
     }
-    return waypointsRefusal(points, parentServes, `${at}'s Waypoints`, ordinals, null, { paragraph: true });
+    return waypointsRefusal(points, `${at}'s Waypoints`, ordinals, null, { paragraph: true });
   }
-  return waypointsRefusal(pws, parentServes, `${at}'s Waypoints`, null, null, { paragraph: true });
+  return waypointsRefusal(pws, `${at}'s Waypoints`, null, null, { paragraph: true });
 }
 
 // The Strand ids of the closed set, in the order the mint wrote them; and the

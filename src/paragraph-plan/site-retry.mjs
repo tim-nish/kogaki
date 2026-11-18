@@ -102,7 +102,6 @@ const RECORD_FIELD_NAMES = new Set([
   ...UNIT_KEYS,
   ...UNIT_PARAGRAPH_KEYS,
   "point",
-  "serves",
   "performs",
   "paragraph_you_must_plan",
   "bound_move",

@@ -32,7 +32,7 @@ const paragraphWaypointText = (p) =>
     ? ""
     : Object.hasOwn(p, "performs")
       ? `performs: ${p.performs}`
-      : `${p.point} (serves ${(p.serves || []).join(", ")})`;
+      : p.point;
 
 function viewRun(runDir, briefSha) {
   let start;

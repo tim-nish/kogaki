@@ -37,7 +37,7 @@ const ANSWER = {
     {
       paragraph: 1,
       materials: ["L1"],
-      paragraph_waypoints: [{ point: "The installer copies the kit.", serves: ["L1"] }],
+      paragraph_waypoints: [{ point: "The installer copies the kit." }],
     },
   ],
 };
@@ -83,7 +83,7 @@ const STRANDS = [
   },
 ];
 const claim = (strand, proposition) => ({ strand, proposition });
-const point = (text, serves, extra = {}) => ({ point: text, serves, cast: {}, ...extra });
+const point = (text, extra = {}) => ({ point: text, cast: {}, ...extra });
 const paragraph = (n, materials, waypoints, join = null) => ({
   materials,
   purpose: `PURPOSE-${n} brings the reader to the point.`,
@@ -102,7 +102,7 @@ export const WRITER_CASES = {
     ],
     leg: "s1",
     extra: {
-      paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit into the tree.", ["L1"])])],
+      paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit into the tree.")])],
       budget: 120,
     },
     prior: [],
@@ -129,7 +129,7 @@ export const WRITER_CASES = {
     ],
     leg: "s2",
     extra: {
-      paragraphs: [paragraph(1, ["L2"], [point("The next run overwrites the edit.", ["L2"])])],
+      paragraphs: [paragraph(1, ["L2"], [point("The next run overwrites the edit.")])],
       journeys: [
         { strand: "L2", resolvedText: "A maintainer edited the copy on Monday and lost the edit on Tuesday." },
       ],
@@ -152,7 +152,7 @@ export const WRITER_CASES = {
       },
     ],
     leg: "s2",
-    extra: { paragraphs: [paragraph(1, ["L1"], [point("The kit is edited at its source.", ["L1"])])] },
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The kit is edited at its source.")])] },
     prior: [],
   },
   "write-leg-opens-a-headed-section-alone": {
@@ -171,7 +171,7 @@ export const WRITER_CASES = {
       },
     ],
     leg: "s1",
-    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.")])] },
     prior: [],
   },
   "write-leg-opens-a-headed-section-before-one-more": {
@@ -189,7 +189,7 @@ export const WRITER_CASES = {
       },
     ],
     leg: "s1",
-    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.")])] },
     prior: [],
   },
   "write-leg-opens-a-headed-section-before-two-more": {
@@ -212,7 +212,7 @@ export const WRITER_CASES = {
       },
     ],
     leg: "s1",
-    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.")])] },
     prior: [],
   },
   "write-leg-japanese": {
@@ -220,7 +220,7 @@ export const WRITER_CASES = {
       { leg_id: "s1", text: "The installer copies the kit.", claims: [claim("L1", "the installer copies the kit.")] },
     ],
     leg: "s1",
-    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.")])] },
     prior: [],
     lang: "ja",
   },

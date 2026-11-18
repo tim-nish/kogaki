@@ -479,7 +479,7 @@ those paths into.
 - **`waypoints`** — **required** (kogaki#1311). The ordered route from
   what the Move takes to what it leaves: this Leg's own
   specialization of its Move's `technique`, written when the Leg is composed.
-  Each waypoint carries a `point` and the claims it `serves`, by Strand id.
+  Each waypoint carries a `point` and names no Strand (kogaki#1861).
   - **A point, never an effect** (kogaki#1326, owner decision 2026-10-10:
     "Let us revise the boundary so that a Waypoint describes what should be
     written rather than being a Move itself"). `point` is the proposition the
@@ -493,10 +493,9 @@ those paths into.
     point is a sentence written for the reader, so the Packet renders each
     indented line as the sentences it is, joined in order, and the paragraph
     adds no sentence no line carries (kogaki#1694).
-  - **It serves a claim.** A point need not restate the claim; it is
-    obtainable from the claim it serves, and a reinforcing point — an
-    example, a consequence, an answer to an objection — names the claim it
-    reinforces.
+  - **It is obtainable from the Leg's claims.** A point need not restate a
+    claim; a reinforcing point — an example, a consequence, an answer to an
+    objection — reinforces a claim of its Leg.
   - **The composer writes the points from the Move's Segments** where the
     Move carries them, and from its `technique` until it does.
 
@@ -505,14 +504,12 @@ those paths into.
   element, even where the Move describes a fixed number. One waypoint per
   paragraph is "a strong tendency rather than a guarantee", and no mechanism
   refuses a mismatch. `validateLegs` refuses an empty list, a waypoint with an
-  empty `point` or `serves`, a waypoint still carrying `effect` (by name), a
-  `serves` entry naming a Strand the Leg carries
-  no claim for, and a claim no waypoint serves — each naming the Leg and the
-  waypoint; `draft.mjs resolve` refuses a Brief Leg carrying none, by name. **No
+  empty `point`, and a waypoint still carrying `effect` or `serves` (each by
+  name, kogaki#1861) — each naming the Leg and the waypoint; `draft.mjs resolve` refuses a Brief Leg carrying none, by name. **No
   information of the Leg's Move is copied onto the Leg**: `breaks` is part of
   the Move and its responsibility ends when the Candidate is produced, and no
   paragraph Move reaches the waypoint at all.
-  - **A Brief Waypoint carries `point`, `serves` and `case`, and nothing else**
+  - **A Brief Waypoint carries `point` and `case`, and nothing else**
     (kogaki#1375, owner decision 2026-10-14: "Move information may be used up
     to Waypoint generation and nowhere after it"). The paragraph
     Move is bound after the Brief, by the ParagraphPlan stage (§4.19), and
@@ -2820,11 +2817,11 @@ unit waits on another's. Three rules follow, and nothing crosses a Leg:
 **A Leg is at most `brief.paragraphs_per_leg` paragraphs, and a Waypoint is one
 Segment of the Leg's bound Move (kogaki#1777, replacing "a Brief Waypoint is one
 paragraph").** A Waypoint has the shape of a claim: `point`, the proposition its
-paragraph makes, and `serves`, the Strand ids of the Claims it serves, every one
-a Strand of its paragraph's `materials`. Each paragraph writes one Waypoint per
-Segment of the bound Move, in the Move's order, or, where the Move carries no
-Segments, the points its `technique` gives; every Strand of the paragraph's
-`materials` is served by at least one of them. A Segment's `operation`,
+paragraph makes, and `cast`; it names no Strand, and a Waypoint carrying
+`serves` is refused by name (kogaki#1861) — the Strands a paragraph stands on
+are its `materials`. Each paragraph writes one Waypoint per Segment of the
+bound Move, in the Move's order, or, where the Move carries no Segments, the
+points its `technique` gives. A Segment's `operation`,
 `relation` and `manner` are inputs to the ParagraphPlan call and are copied onto
 no Waypoint; a Move is an input to the Composer and to nothing else
 (kogaki#1585, owner decision 2026-10-25).
@@ -2868,8 +2865,8 @@ Leg in order, each carrying `leg_id`, `move` — the id of the paragraph Move th
 Leg binds, and nothing else of the Move — `move_forced_by` where the judge
 forced a rebinding, and `paragraphs`, at most `brief.paragraphs_per_leg`, in
 order. **Every paragraph carries the Leg schema at the paragraph scale**, beside
-its `paragraph` number, its `join` and its `paragraph_waypoints` (`point`,
-`serves`, `cast`, or `performs` alone), and carries no `move`:
+its `paragraph` number, its `join` and its `paragraph_waypoints` (`point` and
+`cast`, or `performs` alone), and carries no `move`:
 
 | field | the paragraph's |
 |---|---|
@@ -3769,9 +3766,8 @@ Leg's `rationale` standing with the Move's name deleted. A table carrying
 `grounds` is refused naming `binding_rationale`. `<out>/bind.yaml` and the
 record's `bind` carry `binding_rationale` in both routes: the owner's text in the supplied route, and in the
 composed route the sentence the Harness writes from the `bind` answer's `case` and Moves, on every binding
-(kogaki#1700, kogaki#1719). `bind.yaml` keeps
-`serves` because the ParagraphPlan unit shape requires it, and the sheet
-renders it nowhere.
+(kogaki#1700, kogaki#1719). `bind.yaml` carries no
+`serves`, which the ParagraphPlan unit shape refuses (kogaki#1861).
 
 **The paragraph.** The `write` stage renders one Section Packet over a
 one-Leg Brief whose Leg carries its paragraphs, on both routes (kogaki#1784),

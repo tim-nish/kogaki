@@ -94,7 +94,7 @@ const PLAN_FAKE = `
   const paragraphOf = (n, claims, segCount, extra) => ({ paragraph: n, materials: claims.map((g) => g.strand),
     purpose: "PURPOSE-" + n + " brings the reader to the point.", depends_on: n > 1 ? [n - 1] : [], "re-activate": [],
     rationale: "its Segments carry the Leg this far.",
-    paragraph_waypoints: Array.from({ length: segCount }, (_, k) => ({ point: "PW-" + k + " the paragraph makes its point." + extra, serves: claims.map((g) => g.strand), cast: {} })) });
+    paragraph_waypoints: Array.from({ length: segCount }, (_, k) => ({ point: "PW-" + k + " the paragraph makes its point." + extra, cast: {} })) });
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
     const counter = dir + "/judge-" + leg.leg_id;
@@ -193,7 +193,7 @@ ${PLAN_FAKE}
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
       // (t) PSR_LEG_DROP=first: the first Leg answer's point 2 drops its Claim's language word (kogaki#1547).
       waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph
-        + (process.env.PSR_LEG_DROP === "first" && !retried && p.paragraph === 2 ? "" : " in " + input.language), serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
+        + (process.env.PSR_LEG_DROP === "first" && !retried && p.paragraph === 2 ? "" : " in " + input.language), case: "own" })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
   // read from what the Writer was told rather than from anything the fixture assumes.
@@ -421,7 +421,7 @@ ${PLAN_FAKE}
     const ps = input.paragraphs;
     return out({ legs: [{ leg_id: "copy-leg", 
       claims: ps.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + " (in " + input.language + ")." })),
-      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
+      waypoints: ps.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph + " in " + input.language, case: "own" })) }] }, "brief-leg-path");
   }
   // THE WRITER WRITES IN THE LANGUAGE ITS PACKET NAMES (kogaki#1417), so a Draft's language is
   // read from what the Writer was told rather than from anything the fixture assumes.
@@ -724,7 +724,7 @@ ${PLAN_FAKE}
     const id = { L1: "leg-a", L3: "leg-b", L5: "leg-c", L7: "leg-d" }[x.paragraphs[0].claim_strand];
     return out({ legs: [{ leg_id: id,
       claims: x.paragraphs.map((p) => ({ type: "strand", strand: p.claim_strand, proposition: "CLAIM-" + p.paragraph + "." })),
-      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, serves: [p.claim_strand], case: "own" })) }] }, "brief-leg-path");
+      waypoints: x.paragraphs.map((p) => ({ point: "POINT-" + p.paragraph + " names CLAIM-" + p.paragraph, case: "own" })) }] }, "brief-leg-path");
   }
 ${WRITER_FAKE}
   return out("WRITTEN-unknown", "writer");
@@ -1038,7 +1038,7 @@ writeSync(1, r.stdout || ""); writeSync(2, r.stderr || ""); process.exit(r.statu
     const ap = lb.length === 1 ? join(tRunDir, "brief", lb[0], "leg-path", "rounds.json") : "";
     const a = ap && existsSync(ap) ? JSON.parse(readFileSync(ap, "utf8")) : {};
     ok(a.rounds === 2 && Array.isArray(a.refusals) && a.refusals.length === 1
-      && /Claim 2 \(L2\) carries "english" in its `proposition`, which is in no `point` of the Brief Waypoints serving L2 \(read: waypoint 2\)/.test(a.refusals[0]),
+      && /Claim 2 \(L2\) carries "english" in its `proposition`, which is in no `point` of the Brief Waypoint standing for it by its place \(read: waypoint 2\)/.test(a.refusals[0]),
       `(t) leg-path/rounds.json does not record one refusal naming Claim 2 and the word: ${JSON.stringify(a)}`);
     const brief = readOr(join(tRunDir, "brief", "brief.yaml"), "");
     ok(brief.includes("POINT-2 names CLAIM-2 in English"), "(t) the Brief does not carry the second Leg answer's full point");

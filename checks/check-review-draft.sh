@@ -70,7 +70,7 @@ const brief = readBrief(briefRecordText({
 }), "theses/review-brief/brief.yaml");
 const packetFor = (join_) => {
   const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"], ...(i === 1 && join_ ? { join: join_ } : {}),
-    paragraph_waypoints: [{ point, serves: ["L1"], cast: {} }] })) };
+    paragraph_waypoints: [{ point, cast: {} }] })) };
   const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
   return r.packet || "";
@@ -114,7 +114,7 @@ if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.pack
 // (b) the whole table over a Packet rendered from a plan carrying a join and a performs entry.
 {
   const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"], ...(i === 1 ? { join: JOIN } : {}),
-    paragraph_waypoints: [...(i === 0 ? [{ performs: "announce that a definition follows" }] : []), { point, serves: ["L1"], cast: {} }] })) };
+    paragraph_waypoints: [...(i === 0 ? [{ performs: "announce that a definition follows" }] : []), { point, cast: {} }] })) };
   const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`(b) the fixture Packet did not render: ${r.error}`);
   else {
@@ -136,7 +136,7 @@ if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.pack
 // (i) review.md's Forced paragraphs list reads `_None._`: the Packet carries no Point, so no mark (kogaki#1649, kogaki#1859).
 {
   const leg = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
-    paragraph_waypoints: [{ point, serves: ["L1"], ...(i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) };
+    paragraph_waypoints: [{ point, ...(i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) };
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
   const r = renderPacket({ brief, leg, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });

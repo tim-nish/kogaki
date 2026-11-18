@@ -111,7 +111,7 @@ export function flpRepairCase(fails) {
     paragraph: n,
     materials: ["L1"],
     ...(n > 1 ? { join: "elaboration" } : {}),
-    paragraph_waypoints: [{ point: `Alpha ${n}.`, serves: ["L1"], cast: {} }],
+    paragraph_waypoints: [{ point: `Alpha ${n}.`, cast: {} }],
     ...extra,
   });
   const plan = (paragraphs) => ({
@@ -229,7 +229,7 @@ export function repairHookCases(fails) {
         leaves: [],
       }),
     );
-    const pw = (k, tag = "") => ({ point: `PW-${k}${tag} the paragraph makes step ${k}.`, serves: ["L1"], cast: {} });
+    const pw = (k, tag = "") => ({ point: `PW-${k}${tag} the paragraph makes step ${k}.`, cast: {} });
     const entry = {
       paragraph: 1,
       materials: ["L1"],

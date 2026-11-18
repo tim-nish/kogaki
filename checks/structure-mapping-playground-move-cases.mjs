@@ -239,7 +239,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, move: leg.move, rationale: "the Move's Segments carry the Leg.",
       paragraphs: [{ paragraph: 1, materials: serves, purpose: "states the Leg.", depends_on: [], "re-activate": [],
         rationale: "it is the one paragraph of this Leg.",
-        paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", serves, cast: {} })) }] }, "waypoints");
+        paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", cast: {} })) }] }, "waypoints");
   }
   return out("WRITTEN the installer and the copied kit.", "writer");
 });
@@ -404,7 +404,7 @@ const flat = writeBrief(
 );
 const wp = writeBrief(
   "waypoints",
-  briefOf(STRUCTURE, [{ ...LEGS[0], waypoints: [{ point: "a point.", serves: ["L1"] }] }, LEGS[1]]),
+  briefOf(STRUCTURE, [{ ...LEGS[0], waypoints: [{ point: "a point." }] }, LEGS[1]]),
 );
 for (const [name, args, want] of [
   ["no-structure", ["--brief", flat, "--leg", "s1", "--move", MOVE, "--library", library], "carries no `structure`"],

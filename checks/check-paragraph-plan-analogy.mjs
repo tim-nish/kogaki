@@ -176,7 +176,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const MOVES = { s1: "pa", s2: "pb", s3: "p1" };
   const paragraph = (legId, point) => ({ paragraph: 1, materials: [legId === "s2" ? "L2" : "L1"], purpose: "brings the reader to the point.",
     depends_on: [], rationale: "its Segment carries the Leg's relation.", "re-activate": [],
-    paragraph_waypoints: [{ point, serves: [legId === "s2" ? "L2" : "L1"], cast: {} }] });
+    paragraph_waypoints: [{ point, cast: {} }] });
   if (input.leg_you_must_judge) {
     const leg = input.leg_you_must_judge;
     const a = leg.bound_move && leg.bound_move.analogy_you_must_draw_from;

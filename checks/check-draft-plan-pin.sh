@@ -60,7 +60,7 @@ const entry = (id) => ({ materials: ["L1"], purpose: `purpose of ${id}'s paragra
   depends_on: [], rationale: `rationale for ${id}'s paragraph.`, "re-activate": [] });
 const planText = (mark, mapping = null) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText, mapping,
   legs: legs.map((l) => ({ leg_id: l.leg_id, move: MOVE, paragraphs: [{ ...entry(l.leg_id),
-    paragraph_waypoints: [{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, serves: ["L1"], cast: {} }] }] })) }));
+    paragraph_waypoints: [{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, cast: {} }] }] })) }));
 
 const wsRoot = join(root, "ws");
 const ws = join(wsRoot, "plan-pin");

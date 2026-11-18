@@ -130,7 +130,7 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   }
   // THE RECORD REQUIRES IT (kogaki#1328): a Brief record carrying no
   // compose_path is refused by the Draft's reader, naming the key.
-  const bare = recordOf([{ leg_id: "s1", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w", serves: ["L1"] }] }]);
+  const bare = recordOf([{ leg_id: "s1", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w" }] }]);
   delete bare.compose_path;
   const noPath = briefOfRecord(bare, "bb.yaml");
   if (!noPath.refusals.some((r) => /`compose_path`/.test(r))) fails.push(`(bb) a Brief record with no compose_path was not refused naming the key: ${JSON.stringify(noPath.refusals)}`);

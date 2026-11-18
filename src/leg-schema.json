@@ -105,7 +105,7 @@
       "required": false,
       "type": "array of waypoint",
       "min_length": 1,
-      "description": "ONLY ON A LEG OF A BRIEF THAT CARRIES NO `structure`, which predates kogaki#1768, and refused naming the field on a Leg of a Brief that carries one (kogaki#1775): the Brief ends at Legs, and only the ParagraphPlan writes Waypoints. There, the points the Leg's paragraphs make, as an ORDERED list, each a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326). Each names the claim or claims of this Leg it serves, and every claim of this Leg is served by at least one. See `waypoint` below.",
+      "description": "ONLY ON A LEG OF A BRIEF THAT CARRIES NO `structure`, which predates kogaki#1768, and refused naming the field on a Leg of a Brief that carries one (kogaki#1775): the Brief ends at Legs, and only the ParagraphPlan writes Waypoints. There, the points the Leg's paragraphs make, as an ORDERED list, each a POINT: the proposition its paragraph makes, in the article's subject, one sentence (kogaki#1326). See `waypoint` below.",
       "see": "waypoint"
     },
     "opens_section": {
@@ -289,24 +289,16 @@
       "after an `apart` one carries that structure onto the subject.",
       "",
       "WHAT IS REFUSED IS SHAPE, AND THE COUNT IS NOT. `validateLegs` refuses an",
-      "empty list, a waypoint with an empty `point` or an empty `serves`, a waypoint",
-      "with no `case` or a `case` other than `own` and `apart`, a Leg whose last",
-      "waypoint is `apart`, a waypoint carrying the retired `effect`, `move`,",
-      "`segments` or `carries`, a `serves` entry naming a Strand this Leg carries no",
-      "claim for, and a claim of this Leg that no waypoint serves -- each naming the",
-      "Leg and the waypoint."
+      "empty list, a waypoint with an empty `point`, a waypoint with no `case` or",
+      "a `case` other than `own` and `apart`, a Leg whose last waypoint is `apart`,",
+      "and a waypoint carrying the retired `effect`, `move`, `segments`, `carries`",
+      "or `serves` (kogaki#1861) -- each naming the Leg and the waypoint."
     ],
     "fields": {
       "point": {
         "required": true,
         "type": "string",
         "description": "The proposition this paragraph makes, in the article's subject, in one sentence -- what the paragraph establishes. Never how the reader is to feel or what they are handed, and never a sentence for the writer to copy: its wording is the writer's."
-      },
-      "serves": {
-        "required": true,
-        "type": "array of string",
-        "min_length": 1,
-        "description": "The claim or claims of this Leg this step serves, each named by the Strand id its claim names (`L<n>`). Every entry is a Strand this Leg carries a claim for."
       },
       "case": {
         "required": true,

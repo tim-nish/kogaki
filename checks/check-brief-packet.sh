@@ -27,7 +27,7 @@ import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260 } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { validateLegs, legRecord } = compose;
 const fails = [];
-const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, serves: ["L1"], cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
+const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
 
 // (n) `re-activate` (kogaki#1237, re-ruled default-deny at kogaki#1282), RETIRED AT THE LEG
 // (kogaki#1768): a Leg binds no Move, introduces no term and re-activates nothing, so a Leg
@@ -36,7 +36,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // retired crossing headings reach no Packet.
 {
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
     ...extra,
   });
   const path = (s2extra = {}) => [legOf("s1", { opens_section: "A Section" }), legOf("s2", s2extra), legOf("s3", { reaches_target: true })];
@@ -74,7 +74,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // attribute-only use (kogaki#1247, owner ruling 2026-10-02/04).
 {
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
     ...extra,
   });
   const legs = [legOf("s1")];
@@ -118,7 +118,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 {
   const leg = {
     leg_id: "s1", move: "open_the_claim", body: "claim (strand L1): claim of s1",
-    waypoints: [{ point: "the paragraph establishes what s1 claims", serves: ["L1"], case: "own" }],
+    waypoints: [{ point: "the paragraph establishes what s1 claims", case: "own" }],
     journeys: [{ strand: "L1", use: "an example to retell", resolvedText: "The served Journey's own prose, verbatim." }],
   };
   const brief = {
@@ -140,7 +140,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   // resolution) refuses the SAME WAY an absent block does anywhere else in
   // the Packet — never a hole the model fills by invention.
   const legUnresolved = { leg_id: "s2", move: "open_the_claim", body: "claim (strand L1): claim of s2",
-    waypoints: [{ point: "the paragraph establishes what s2 claims", serves: ["L1"], case: "own" }],
+    waypoints: [{ point: "the paragraph establishes what s2 claims", case: "own" }],
     journeys: [{ strand: "L1", use: "an example to retell" }] };
   const sections2 = sectionsOf([legUnresolved]);
   const r2 = renderPacket({ brief: { ...brief, legs: [legUnresolved] }, leg: planned(legUnresolved),
@@ -330,7 +330,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const moveText = ["id: open_the_claim", "technique: >-", "  what the move does.", "question: >-",
     "  holds: none", "breaks: >-", "  what a correct performance must not do.", ""].join("\n");
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
     ...extra,
   });
   const briefOf = (legs, keys = {}) => briefOfRecord(recordOf(legs, {

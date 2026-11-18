@@ -56,7 +56,6 @@ const inputs = {
 const pws = Array.from({ length: segments }, (_, i) => ({
   point:
     i === 0 ? "The night watchman walks the round the sentry keeps." : `The night watchman goes on, part ${i + 1}.`,
-  serves: ["L1"],
   cast: {},
 }));
 const paragraph = {
