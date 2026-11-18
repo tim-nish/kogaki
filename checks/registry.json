@@ -641,10 +641,10 @@
       "file": "checks/check-prompt-files.sh",
       "covers": ["prompts/", "src/prompt-file.mjs", "checks/fixtures/prompt-files/", "checks/prompt-files-cases.mjs"],
       "admission": {
-        "contract": "kogaki#1855 (the text of the /paragraph-plan plan call and the /draft Writer call is one file per model call under prompts/, rendered by src/prompt-file.mjs). Fails when (a) a file under prompts/ does not parse with the template library's parser, uses a mark other than the six, or names a shared passage that is no file; (b) a file under prompts/ is named by no row, no prompt file and no program; (c) a line of 40 or more characters of a file under prompts/, notes left out, also stands in a file under src/; (d) a prompt rendered for one of the ten saved cases under checks/fixtures/prompt-files/ differs by one byte from its saved text.",
+        "contract": "kogaki#1855 (the text of the /paragraph-plan plan call and the /draft Writer call is one file per model call under prompts/, rendered by src/prompt-file.mjs). Fails when (a) a file under prompts/ does not parse with the template library's parser, uses a mark other than the six, or names a shared passage that is no file; (b) a file under prompts/ is named by no row, no prompt file and no program; (c) a line of 40 or more characters of a file under prompts/, notes left out, also stands in a file under src/; (d) a prompt rendered for one of the fourteen saved cases under checks/fixtures/prompt-files/ differs by one byte from its saved text.",
         "license": "kogaki#1855",
         "tier": "pre-push",
-        "case_floor": 52,
+        "case_floor": 56,
         "runtime_ms": 600,
         "runtime_ms_note": "Measured 2026-11-18 in the kogaki#1855 worktree: 1008, 525 and 435 ms over three runs; one node process rendering every prompt file and the ten saved cases, no subprocess and no gateway.",
         "efficacy": "case: checks/prompt-files-cases.mjs::(d) the ${name} prompt differs from its saved text",
