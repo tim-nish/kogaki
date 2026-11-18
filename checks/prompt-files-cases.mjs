@@ -37,12 +37,15 @@ const srcFiles = walk(join(REPO, "src"), () => true).map((f) => ({
   text: readFileSync(f, "utf8"),
 }));
 // A Python tool names its prompt file as a program does (kogaki#1863), and a question of the Draft review is named by
-// its item's id in src/review-items.json.
+// the id of an item src/review-items.json does not answer by the Harness (`mode: mechanical`), since only the other items
+// reach the judge.
 const programs = [
   ...srcFiles.filter((s) => /\.(mjs|json)$/.test(s.path)),
   ...walk(join(REPO, "tools"), (n) => n.endsWith(".py")).map((f) => ({ text: readFileSync(f, "utf8") })),
 ];
-const itemIds = JSON.parse(readFileSync("src/review-items.json", "utf8")).items.map((i) => i.id);
+const itemIds = JSON.parse(readFileSync("src/review-items.json", "utf8"))
+  .items.filter((i) => i.mode !== "mechanical")
+  .map((i) => i.id);
 for (const f of files) {
   cases++;
   const byProgram = programs.some((s) => s.text.includes(`"${f.name}"`) || s.text.includes(`"prompts/${f.name}"`));
