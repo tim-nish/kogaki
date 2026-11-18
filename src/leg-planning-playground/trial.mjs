@@ -19,7 +19,7 @@ import { spawnSync } from "node:child_process";
 import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts } from "../compose.mjs";
 import { briefLegs, briefRecordText, PARAGRAPH_PLAN_FILE } from "../compose/record.mjs";
 import { judgePrompt, refusalReach, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { writeCallRecord, cliRecord, tableRecord } from "../workflow/call-record.mjs";
 import { readReaderPathJob } from "../workflow/detached-job.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } from "../paragraph-plan.mjs";
@@ -35,7 +35,6 @@ import {
 } from "../paragraph-plan-playground/sheet.mjs";
 import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
 import { mintStructure, validateReadSet, withReach, structureLegs, pathReachRefusal } from "../compose/structure.mjs";
-import { resolvedRow } from "../workflow/copies.mjs";
 import { renderLppSheet } from "../brief-plan-playground/sheet.mjs";
 
 export const LPP_TABLE = "src/leg-planning-playground/workflow.json";
@@ -147,13 +146,12 @@ function caller({ outDir, binary, cli, model, timeoutS }) {
     const a = call.stopped ? null : answerRecord(call.text);
     const raw = call.stopped ? null : a.error ? { group: "shape", text: a.error } : check(a.record);
     const r = raw ? refusalReach(row, raw) : null;
-    const { judgment_point: jp, ...rowRecord } = row;
     writeCallRecord(outDir, row.id, n, {
       prompt,
       argv: call.argv,
       cli,
       input,
-      row: { row: { ...rowRecord, judgment_point: jp, phase }, tables: tables.map(tableRecord) },
+      row: { row: { ...row, phase }, tables: tables.map(tableRecord) },
       raw: call.raw,
       answer: a && !a.error ? a.record : undefined,
       refusal: call.stopped
@@ -365,12 +363,11 @@ export function runLegPlanningTrial({ claims: claimsFile, out, audience = null, 
   if (existsSync(join(outDir, TRIAL_FILE)))
     fail(`a Trial already exists at ${outDir}, and nothing was written over it.`);
   const { thesis, claims } = readClaims(claimsFile);
-  const table = readJson(LPP_TABLE);
+  const table = readRowTable(join(REPO, LPP_TABLE));
   const rows = {};
   for (const id of ["sme_read_set"]) {
-    const r = resolvedRow(table, id);
-    if (r.error) fail(`${r.error}. Nothing was written.`);
-    rows[id] = r.row;
+    if (!table[id]) fail(`the table declares no \`${id}\` row. Nothing was written.`);
+    rows[id] = { id, ...table[id] };
   }
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
   const persona = readerPersona(audiencePath);

@@ -135,31 +135,3 @@ export function groundedRefusal(sites) {
     "Compose the Waypoints again so that every assertion a point makes is stated by a relation it carries.",
   ].join("\n");
 }
-
-// THE TWO ROWS THE RETIRED UNIT ASKED, as src/brief-workflow.json carried them before kogaki#1775.
-export const WAYPOINT_ROW = Object.freeze({
-  id: "lpp_waypoints",
-  judgment_point:
-    'THE ARTICLE\'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record\'s shape fixes. compose the Leg Waypoints of ONE article from the RelationalStructure in the input, `structure`, for the Persona in `persona`, ending on `thesis` in the input: an ordered list of Waypoints, each one paragraph\'s point. EACH WAYPOINT IS A POINT (kogaki#1326): its `point` is the proposition its paragraph makes, in the article\'s subject, one sentence -- it names what the paragraph establishes, never how the reader is to feel or what they are handed or receive, and it is never the Move\'s specialized-by-the-Leg role with the subject filled in. A WAYPOINT\'S POINT IS READ ALONE (kogaki#1449): a later stage reads each waypoint\'s `point` by itself, never beside the other waypoints, so the point names what it refers to in full -- it carries no "this", "that", "these", "those", "it" or bare definite noun whose referent is another waypoint -- and uses no term that is not in its Claim\'s served material or the Persona\'s prior knowledge, since a Leg introduces no term (kogaki#1768); a point opening with one of those words, or carrying "this <noun>" or "these <noun>" whose noun is in no Claim it serves, is refused. Each Waypoint names in `carries` the ids of the relations or higher-order relations of `structure` its `point` states, one or more, and its `point` states only what those relations\' `holds`, and their Roles\' `context` and `attributes`, state. Every id of `structure.reach` is carried by some Waypoint, no Waypoint carries an id `structure.unreached` lists, and the last Waypoint carries `structure.attains_thesis`. Write no `serves`: it is derived from `carries`.',
-  input_shape:
-    'ONE record AT THE RECORD\'S OWN ROOT: `waypoints` -- an ordered, non-empty list of `{ "point": <one sentence>, "carries": [<one or more relation or higher-order relation ids>] }`.',
-  refusal:
-    "a key the record or a Waypoint does not declare, or a declared key missing; a `serves` written on a Waypoint; an empty `carries`, or a `carries` id that names no relation or higher-order relation of `structure`; a `carries` id outside `structure.reach`, refused naming the Waypoint and the id; a relation or higher-order relation of `structure.reach` no Waypoint carries; and a last Waypoint not carrying `structure.attains_thesis` -- each refused naming the Waypoint or the relation. The refusal is put back into your next round verbatim with your answer.",
-  refusal_reach: {
-    shape: "part",
-    carries: "part",
-    coverage: "part",
-  },
-});
-export const GROUNDED_ROW = Object.freeze({
-  id: "lpp_grounded",
-  judgment_point:
-    "judge the Leg Waypoints in the input, `waypoints`, each a `point` beside the ids it `carries`, against the RelationalStructure in the input, `structure`, on ONE criterion. GROUNDED: every assertion a Waypoint's `point` makes is stated by a relation or higher-order relation it carries, read in that relation's `holds` and in its Roles' `context` and `attributes`. An assertion stated by none of them -- a comparison, a kind, a history, a quantity or a consequence no carried relation states -- is not grounded, whatever else the structure states. Answer `fits` where every Waypoint is grounded, with `sites` empty. Answer `does-not-fit` otherwise, with one site per Waypoint not grounded: its `waypoint` number, its `phrase`, the words of its `point` that assert what no carried relation states, quoted verbatim, and `why`, one sentence naming what the carried relations state instead.",
-  input_shape:
-    'ONE record AT THE RECORD\'S OWN ROOT carrying exactly these keys: `verdict` -- `fits` or `does-not-fit`; and `sites` -- a list of `{ "waypoint": <a Waypoint number>, "phrase": <words of its point, verbatim>, "why": <one sentence> }`, empty under `fits` and non-empty under `does-not-fit`.',
-  refusal:
-    "a key the record or a site does not declare, or a declared key missing; a `verdict` other than `fits` or `does-not-fit`; `sites` non-empty under `fits` or empty under `does-not-fit`; and a site naming no Waypoint of the input, or whose `phrase` is not words of that Waypoint's `point`, refused naming the site. A malformed verdict is asked again with the same input.",
-  refusal_reach: {
-    shape: "part",
-  },
-});

@@ -27,7 +27,7 @@ process.chdir(repo);
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const { writeCallRecord, pinCallRefusal, callDir } = await imp("src/workflow/call-record.mjs");
 const { SiteLoop } = await imp("src/workflow/site-retry.mjs");
-const { renderRowHead } = await imp("src/paragraph-plan.mjs");
+const { JUDGE_INPUT_MARKER } = await imp("src/workflow/judge.mjs");
 const {
   renderFlp,
   unitStatus,
@@ -74,7 +74,10 @@ writeFileSync(
   }),
 );
 
-const head = (id, jp) => renderRowHead({ id, judgment_point: jp, input_shape: "one record" });
+// A Call's prompt as the sheet reads it: its judgment point, then the input after the marker (kogaki#1862: no row carries a
+// judgment point of its own, so the fixture writes the prompt's text).
+const head = (id, jp) =>
+  `You are the judge at the ParagraphPlan workflow's \`${id}\` judgment point.\n\nJUDGMENT POINT: ${jp}\nREQUIRED RECORD SHAPE: one record\n\n${JUDGE_INPUT_MARKER}\n`;
 const planInput = (tabled) => ({
   leg_you_must_plan: { leg_id: "leg2", text: "The text of leg2.", ...(tabled ? { move: M1, table: {} } : {}) },
 });

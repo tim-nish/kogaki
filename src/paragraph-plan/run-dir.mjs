@@ -7,7 +7,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "
 import { basename, dirname, join, resolve } from "node:path";
 import { loadMoveContracts, paragraphsPerLeg, personaPriorKnowledgeLine, readerPersona, sha256 } from "../compose.mjs";
 import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { relFromRepo } from "../workflow/run-record.mjs";
+import { relFromRepo, readRowTable } from "../workflow/run-record.mjs";
 import {
   jobHeartbeatMs,
   jobStallS,
@@ -73,7 +73,7 @@ export function slugOf(record, briefPath) {
 }
 
 function loadTable() {
-  return JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+  return readRowTable(PARAGRAPH_PLAN_TABLE);
 }
 
 function positiveSetting(row, key) {

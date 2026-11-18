@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: choose ONE Move of `moves` in the input for the Base Paragraph: a Move whose `segments`, in order, can carry the relations and then the higher-order relation of `structure`, and every entry of whose `takes` the reader in `persona` meets from `persona.prior_knowledge`. Answer its id as `base_move`. Then declare the Base Paragraph's case as `case`: `own` where it tells the proposition's own case, `apart` where it tells a case apart from the proposition's domain. A Move is neutral to the case: choose the case the reader's `persona.prior_knowledge` and the Move's `segments` make tellable, never one read from the Move's `leaves`. Where `case` is `apart`, the reader is owed the case carried onto the subject: choose ONE Move of `moves` for the Inference Paragraph whose `takes` holds an entry of kind `carry`, and answer its id as `inference_move`; where `case` is `own`, answer `inference_move` null. Choose no base domain and no wording: they are named after this call, under the Move you bind and the case you declare.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `base_move` -- one Move id of `moves`; `case` -- `own` or `apart`; and `inference_move` -- one Move id of `moves` under `apart`, null under `own`.
+WHAT IS REFUSED: a key the record does not declare, or a declared key missing; a `case` other than `own` or `apart`; a `base_move` or `inference_move` naming no Move of `moves`, refused naming the id; an `inference_move` null where `case` is `apart`, or given where `case` is `own`, refused naming the case; and an `inference_move` whose `takes` holds no `carry`, refused naming the Move. The first refusal is put back into your next round verbatim with your answer; a second ends the Trial at `bind`.
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

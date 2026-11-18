@@ -20,7 +20,7 @@ export const MAPPER_CALLS = 2;
 // The variant's row, or a refusal naming the rows the table declares.
 export function mapperRow(table, variant) {
   const rows = Object.keys(table).filter((k) => k.startsWith(MAPPER_ROW_PREFIX));
-  if (!String(variant).startsWith(MAPPER_ROW_PREFIX) || !table[variant] || !table[variant].judgment_point) {
+  if (!String(variant).startsWith(MAPPER_ROW_PREFIX) || !table[variant] || !table[variant].prompt_file) {
     return {
       error: `--mapper ${JSON.stringify(variant)} names no \`${MAPPER_ROW_PREFIX}<variant>\` row of the Playground's table — it declares ${rows.join(", ") || "none"}`,
     };

@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: name ONE domain the reader in `persona` already holds, from `persona.prior_knowledge`, in which the Roles, the relations and the higher-order relation of `structure` hold as stated and in which the `segments` in the input, the Segments of the Move bound to the paragraph this table serves, can be performed in order. Name the domain in one phrase as `base.domain`. Then name, for EVERY Role of `structure`, in the structure's order, one Correspondence expression as its `expression`: a noun phrase of that domain naming the object that plays the Role, written so that it reads in place of `{<id>}` in each `holds` sentence, where `{<id>}` stands for the Role of that id. Where `case` in the input is `apart`, `base.domain` is a domain apart from the proposition's, and no expression names the proposition's object or an entry of a Role's `attributes`; where `case` is `own`, `base.domain` is the proposition's, and each expression is the proposition's own noun phrase for the Role, its `attributes` included. Where the input carries `prior_tables`, they are the tables of the cases already told, the Base Paragraph's first; where a Segment likens the subject to a case already told, that case is `prior_tables` and its expressions may be named.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `base` -- `{ "domain": <one phrase> }`; and `correspondences` -- one `{ "role": <the Role's id>, "expression": <one noun phrase> }` per Role of `structure`, in the structure's order.
+WHAT IS REFUSED: a key the record does not declare; a `base` that is not `{ domain }`, refused naming the key; an `expression` that is not one non-empty text, refused naming `correspondences[<i>].expression`; a `role` naming no Role of `structure`, refused naming the id; and a Role with other than one correspondence, refused naming the Role. The first refusal is put back into your next round verbatim with your answer; a second ends the Trial at `grounding`.
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

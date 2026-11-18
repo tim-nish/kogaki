@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: read the sentences in the input, `sentences`, numbered from 1. For EACH pair of them, name EVERY Sense of `senses` that holds between the two sentences as they are written. A pair may have one Sense, several, or none. List the Senses of a pair in order, the one that holds most clearly first. Name a Sense only if you judge that it really holds; do not fill the list up. Where a Sense name ends in a part word, say which of the two sentences plays that part (`played_by`: that sentence's number); where a Sense has no part word, answer `played_by`: null. Judge only from the sentences as written, including their joining words. Add no fact.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly one key: `pairs` -- one entry per pair of sentences, in the order (1, 2), (1, 3) and so on, each `{ "pair": [i, j], "senses": [ any number of { "sense": <a name of `senses`, with its part word where it has one>, "played_by": <i or j, or null> } ] }`.
+WHAT IS REFUSED: a key the record, a pair or a Sense does not declare, or a declared key missing; a `pairs` list that is not one entry per pair in order; a `sense` that is not a name of `senses`, written with its part word where it has one; a `played_by` that is not one of the pair's two numbers where the Sense has a part word, or not null where it has none; and two answers of one pair that are the same once a reason or result part played by the lower-numbered sentence is read as its opposite played by the higher-numbered one. Each refusal names the place. The first refusal is put back into your next round verbatim with your answer; a second stops the run.
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

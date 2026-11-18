@@ -28,7 +28,7 @@
 #       shared passage under prompts/, and every `{{shared:<name>}}` and every
 #       passage mark of a prompt file is proven to reach the prompt by
 #       rendering the row through `judgePrompt` (a row carrying `prompt_file`
-#       is read through `withSharedText`, kogaki#1855);
+#       is read through `withPromptText`, kogaki#1855, kogaki#1862);
 #   (c) src/draft-workflow.json's `binds` and the review items' `binds` name
 #       known fields and holds, and prompts/draft/write-leg.prompt uses a value
 #       under each name `binds` declares (kogaki#1855);
@@ -65,7 +65,7 @@ import { pathToFileURL } from "node:url";
 
 const REPO = resolve(".");
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
-const { withSharedText, sharedTextOf, SHARED_TEXT_FIELDS, SHARED_TEXT_TOKEN, judgePrompt } = await imp("src/workflow/judge.mjs");
+const { withPromptText, passagesOf, judgePrompt } = await imp("src/workflow/judge.mjs");
 // The run record binds no default lane (kogaki#1741); this check reads row text, not a lane.
 (await imp("src/workflow/run-record.mjs")).bindFlow({ lane: "schema-binds", label: "schema-binds check" });
 const { derivedRow } = await imp("src/move-extraction-playground/leg-brief.mjs");
@@ -117,7 +117,7 @@ function schemaDeclarationFailures(decl = readJson(BINDS_SCHEMA)) {
   for (const k of decl.schemas.move.list_fields.segments.keys) {
     if (!shape.includes(`\`${k}\``)) fails.push(`${BINDS_SCHEMA}: Segment key \`${k}\` is not named by moves/ROLES.json \`shapes.segments\``);
   }
-  const planShape = String(withSharedText({ id: "paragraph_plan_unit", ...readJson("src/paragraph-plan-workflow.json").paragraph_plan_unit }).input_shape);
+  const planShape = String(withPromptText({ id: "paragraph_plan_unit", ...readJson("src/paragraph-plan-workflow.json").paragraph_plan_unit }).input_shape);
   for (const f of decl.schemas.paragraph_plan.fields) {
     const leaf = f.split(".").pop();
     if (!planShape.includes(`\`${leaf}\``) && !planShape.includes(`"${leaf}"`)) {
@@ -149,13 +149,14 @@ function renderedRow(table, key, row) {
     if (d.error) throw new Error(d.error);
     r = d.row;
   }
-  return withSharedText({ id: key, ...r });
+  return r.prompt_file ? withPromptText({ id: key, ...r }) : { id: key, ...r };
 }
 
 // What the model call reads: the row rendered by `judgePrompt` up to the input marker, so
 // a schema file the row renders verbatim is part of its instruction, as it is the model's.
-function rowText(rendered) {
-  return judgePrompt(rendered, "", null, null);
+function rowText(rendered) { // a fixture table's row carries its text itself; a workflow table's is its prompt file (kogaki#1862)
+  const { judgment_point: jp, input_shape: shape, refusal, ...row } = rendered;
+  return row.prompt_file ? judgePrompt(row, "", null, null) : [jp, shape, refusal].join("\n");
 }
 
 const sentences = (text) => String(text).split(/(?<=[.;!?])\s+|\s--\s/).map((s) => s.trim()).filter(Boolean);
@@ -223,7 +224,7 @@ function bindsFailures(path, table, { fields = schemaFields(), holds = Object.ke
 }
 
 // ---- (2) a sentence one row restates from another, words changed ----
-const words = (s) => s.replace(SHARED_TEXT_TOKEN, " ").toLowerCase().match(/[a-z0-9_#]+/g) || [];
+const words = (s) => s.toLowerCase().match(/[a-z0-9_#]+/g) || [];
 function wordDistance(a, b) {
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -245,10 +246,10 @@ function restatedFailures(path, table) {
   const per = [];
   for (const { key, row } of rowsOf(table)) {
     let r;
-    try { r = row.copy_of ? renderedRow(table, key, { ...row, shared_text_file: undefined }) : row.prompt_file ? withSharedText({ id: key, ...row }) : row; }
+    try { r = renderedRow(table, key, row); }
     catch (e) { fails.push(`${path}: \`${key}\`: its text cannot be rendered (${e.message})`); continue; }
-    const jp = typeof r.judgment_point === "string" ? r.judgment_point : "";
-    per.push({ key, list: sentences(jp.replace(SHARED_TEXT_TOKEN, ". ")).map((s) => ({ s, w: words(s) })).filter((x) => x.w.length >= RESTATED_MIN_WORDS) });
+    const jp = (row.prompt_file ? Object.values(passagesOf({ id: key, ...row })) : []).reduce((t, p) => t.split(p).join(". "), typeof r.judgment_point === "string" ? r.judgment_point : "");
+    per.push({ key, list: sentences(jp).map((s) => ({ s, w: words(s) })).filter((x) => x.w.length >= RESTATED_MIN_WORDS) });
   }
   for (let i = 0; i < per.length; i++) {
     for (let j = i + 1; j < per.length; j++) {
@@ -301,22 +302,14 @@ function declaredOnlyFailures({ fields = schemaFields(), holds = Object.keys(rea
 function sharedRenderFailures(path, table) {
   const fails = [];
   for (const { key, row } of rowsOf(table)) {
-    const names = new Set();
-    for (const f of SHARED_TEXT_FIELDS) {
-      for (const m of String(row[f] || "").matchAll(SHARED_TEXT_TOKEN)) names.add(m[1]);
-    }
     const marks = row.prompt_file ? [...readFileSync(join(REPO, "prompts", `${row.prompt_file}.prompt`), "utf8").matchAll(/\{\{> ([\w/-]+)\}\}/g)].map((m) => m[1]) : [];
-    if (!names.size && !marks.length) continue;
+    if (!marks.length) continue;
     let prompt;
     try { prompt = judgePrompt({ id: key, ...row }, "", null, null); }
     catch (e) { fails.push(`${path}: \`${key}\` names shared text and does not render (${e.message})`); continue; }
-    for (const n of names) {
-      if (!prompt.includes((sharedTextOf({ id: key, ...row }) || {})[n] ?? String.fromCharCode(0))) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry shared text \`${n}\``);
-    }
     for (const m of marks) { // a passage with no value of its own stands in the prompt verbatim (kogaki#1855)
       const p = readFileSync(join(REPO, "prompts", m.replace(/([^/]+)$/, "_$1.prompt")), "utf8").replace(/\n$/, "");
       if (!p.includes("{{") && !prompt.includes(p)) fails.push(`${path}: \`${key}\`'s rendered prompt does not carry the shared passage \`${m}\``); }
-    if (new RegExp(SHARED_TEXT_TOKEN.source).test(prompt)) fails.push(`${path}: \`${key}\`'s rendered prompt still carries a \`{{shared:...}}\` token`);
   }
   return fails;
 }

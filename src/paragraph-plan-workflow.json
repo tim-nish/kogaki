@@ -3,7 +3,7 @@
   "governing_text": "ParagraphPlan refines the document plan down to paragraphs: after the Brief, the Composer binds one Move to each Leg and generates the Leg's paragraphs and their Waypoints through the same kind of feedback loop as the Brief's, and hands them to the Packet through a planning record, never directly. Move information may be used up to Waypoint generation and nowhere after it. It is not Reiter and Dale's microplanning: word choice, reference and sentence shape stay inside the one Writer call. [implemented-against: specs/spec-draft-pipeline/SPEC.md \"The ParagraphPlan stage\", copied 2026-11-11]",
   "licensed_by": "kogaki#1375 -- owner decision 2026-10-14: Waypoint generation is its own stage after the Brief, named ParagraphPlan, with its own file and command; the ParagraphPlan file names the Brief it was made from and the Brief names nothing downstream; retries and limits follow the Brief's rules, `brief.call_limit_s` per call and `brief.unit_rounds` per unit, with no limit on the whole job. The Leg is the unit, with at most `brief.paragraphs_per_leg` paragraphs per Leg (kogaki#1777, owner decision 2026-11-10).",
   "criteria": {
-    "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's `judgment_point` is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict, each shared block one sentence; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. The judge row's criteria are not written here: they are the axes of src/paragraph-plan-axes.json, rendered by its `{{axes}}` token and named in the registry's order (kogaki#1533). `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names, `words_max` per criterion and `point_words_max` over the whole rendered judgment point, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
+    "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's judgment point, in its prompt file, is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict, each shared block one sentence; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. The judge row's criteria are not written here: they are the axes of src/paragraph-plan-axes.json, written as lines of its prompt file in the registry's order (kogaki#1533, kogaki#1862). `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names, `words_max` per criterion and `point_words_max` over the whole rendered judgment point, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
     "paragraph_plan_unit": [
       "BIND",
       "PARAGRAPHS",
@@ -60,10 +60,8 @@
   "analogy_mapping": {
     "id": "analogy_mapping",
     "note": "THE OPENING STEP (kogaki#1778, owner decision 2026-11-10): one call before the first Leg unit, over the Brief's `structure` and the Persona, run as a one-unit Detached Job in the run directory's `analogy/`; `validateAnalogyMapping` (src/paragraph-plan-analogy.mjs) reads the answer back, a refusal is put into the next round verbatim until `brief.unit_rounds` is spent, and the mapping is written at the top of `paragraph-plan.yaml` under `analogy`. Every Leg bound to an analogy Move (one whose `takes` or `leaves` carries a `carry` entry) is handed it; a Leg bound to no analogy Move reads nothing of it.",
-    "judgment_point": "choose ONE base domain for the whole article, a domain the reader in `persona` already holds from `persona.prior_knowledge`, in which the system of `structure` holds: map EVERY Role of `structure.roles` to its counterpart in the base domain, and EVERY relation of `structure.relations` and every higher-order relation of `structure.higher_order`, `structure.apex` among them, to the base-domain relation it corresponds to, each counterpart one noun phrase or one sentence of the base domain. Prefer the domain that carries the apex's higher-order relation and not only one relation. Where no domain the reader holds carries the system, answer `none` with one sentence saying why no base domain fits.",
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT -- `version` \"1\" and either `base_domain` (`{ \"name\": <a short name>, \"description\": <one sentence> }`), `roles` (one `{ \"role\": <the Role's id>, \"counterpart\": <text> }` per Role) and `relations` (one `{ \"relation\": <the relation's id>, \"counterpart\": <text> }` per relation and higher-order relation), or `none` (<one sentence>) alone",
-    "refusal": "a record leaving a Role, a relation or the apex without a counterpart, naming it; a counterpart for an id the structure does not carry; a key the shape does not declare; `none` with no reason or beside a mapping. The next round receives the refused record beside its refusal, both verbatim.",
-    "governing": "SPEC-draft-pipeline, the Analogy Mapping; kogaki#1778"
+    "governing": "SPEC-draft-pipeline, the Analogy Mapping; kogaki#1778",
+    "prompt_file": "paragraph-plan/analogy-mapping"
   },
   "paragraph_plan_unit": {
     "id": "paragraph_plan_unit",
@@ -103,7 +101,16 @@
       }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
+      "move": [
+        "id",
+        "figure",
+        "continues_from",
+        "description",
+        "evidence",
+        "before",
+        "after",
+        "after_segment"
+      ],
       "leg": [
         "reaches_target",
         "opens_section",
@@ -141,7 +148,16 @@
       }
     },
     "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
+      "move": [
+        "id",
+        "figure",
+        "continues_from",
+        "description",
+        "evidence",
+        "before",
+        "after",
+        "after_segment"
+      ],
       "leg": [
         "reaches_target",
         "claims",
@@ -167,21 +183,14 @@
         "paragraphs.paragraph_waypoints"
       ]
     },
-    "shared_text_file": "prompts/paragraph-plan",
-    "axes_file": "src/paragraph-plan-axes.json",
     "note": "The second call of every round (kogaki#1375), run by the supervisor's judge phase once `validateParagraphPlanUnit` has passed the first call's record. `src/paragraph-plan.mjs` renders this row through `judgePrompt` up to the input marker; `paragraphPlanJudgePrompt` appends the Leg's input and `paragraphPlanJudgeVerdict` reads the answer. A `does-not-fit` on any paragraph is a refusal of the round, and its sentence is put into the next round's first call.",
-    "judgment_point": "judge the Waypoints of ONE Leg, `leg_you_must_judge` in the input, one verdict per paragraph against the paragraph Move bound to the Leg, whose `takes`, `leaves`, `segments` and `breaks` ride on the Leg as `bound_move` beside its `text`, its `prior_knowledge` and `the_reader_has_been_told`, by these criteria:\n{{axes}}\n{{shared:operation_is_performed}} {{shared:manner_is_not_content}} {{shared:join_is_a_type}} {{shared:cast_is_a_set}} {{shared:takes_and_leaves}} Verdict `fits` only where every criterion holds and `does-not-fit` where any does not, with one sentence `why` naming the criterion and the Waypoint, term or join it fails. The Move's `takes`, `leaves`, `breaks` and `segments`, each Segment's `operation` and `relation`, the Leg's `text` and `the_reader_has_been_told`, and each paragraph's `join`, `point`, `performs` and `cast` are what you judge, never what your record states.",
-    "input_shape": "ONE verdict record AT THE RECORD'S OWN ROOT -- `version` \"1\", the `leg_id` of the Leg in the input, and `verdicts`, one per paragraph in order: `{ \"paragraph\": <its 1-based number>, \"verdict\": \"fits\" | \"does-not-fit\", \"why\": <one sentence> }` -- and where the Leg carries `mapping`, each verdict also carries `expressed`, one row per entry of `mapping.roles` and then of `mapping.relations`, in their order: `{ \"role\": <its id>, \"waypoint\": <the 1-based number of the paragraph's Waypoint naming its counterpart, or null> }` or `{ \"relation\": <its id>, \"waypoint\": <the 1-based number of the Waypoint stating it, or null> }` (kogaki#1811)",
-    "refusal": "a record carrying no `verdicts` array, or naming another leg_id; a verdict outside the closed set; a paragraph carrying no verdict, or two, or verdicts out of order; a `why` under four words; under `mapping`, a verdict whose `expressed` does not carry one row per Role and relation in order, or a `waypoint` that is neither null nor the number of one of the paragraph's Waypoints (kogaki#1811) -- each of these is this judge's own malformed output, and the same prompt is asked again. `does-not-fit` is a verdict, not malformed output: the round is refused with it and the plan is generated again, as it is by an `expressed` row whose `waypoint` is null, refused naming the Role or relation and its expression (kogaki#1811). The next round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
-    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage; kogaki#1375"
+    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage; kogaki#1375",
+    "prompt_file": "paragraph-plan/paragraph-plan-judge-unit"
   },
   "paragraph_plan_site_unit": {
     "id": "paragraph_plan_site_unit",
-    "shared_text_file": "prompts/paragraph-plan",
     "note": "The site call (kogaki#1642): asked for ONE paragraph after a refusal named it, by the supervisor's site loop, never for the whole Leg. `paragraphPlanSitePrompt` renders this row up to the input marker and appends the site's input; `validateParagraphPlanSite` reads the answer.",
-    "judgment_point": "repair the ONE paragraph a refusal named, `paragraph_you_must_plan` in the input, and only it, taking these steps:\n- READ: Read every entry of `refused_here` and the refusal beside it, and change what each refusal names.\n- REPAIR: Read `repair`: under `modify_points` change only the Waypoints it names and keep every other point of `paragraph_as_it_stands` as it stands; under `rewrite_all_points` write every point again. Under `modify_points` you may answer `arm`: `rewrite_all_points` at the root where the named points cannot be repaired alone.\n- WRITE: `purpose`, `rationale` and every `point` describe the paragraph and its reader, and carry no word of the refusal, the attempt, the shape of the record or any rule by name.\n- HOLD: Write the paragraph's Waypoints under the Leg's `bound_move`, one per Segment in its order, and name no Move, since the Move is the Leg's.\n- BESIDE: Read `paragraphs_beside`, the Waypoints of the paragraphs before and after this one, and restate none of them.\n- KEEP: Carry `re_activations_this_paragraph_carries` on the paragraph unless a refusal names them.\n{{shared:operation_is_performed}} {{shared:manner_is_not_content}} {{shared:join_is_a_type}} {{shared:cast_is_a_set}} {{shared:takes_and_leaves}} {{shared:analogue_is_the_mapping}} An answer that repeats a refused paragraph, or restates a refused paragraph's Waypoints word for word in order under any other change, is refused before it is judged. Word choice, reference and sentence shape beyond `cast` are not planned here; they stay with the Writer.",
-    "input_shape": "ONE paragraph AT THE RECORD'S OWN ROOT, the paragraph-level Leg schema (kogaki#1639) of `paragraph_plan_unit`'s `paragraphs` entry: `{ \"paragraph\": <the input's number>, \"materials\": [...], \"purpose\": ..., \"depends_on\": [...], \"rationale\": ..., \"re-activate\": [...], \"join\": <one word, on every paragraph after the first>, \"paragraph_waypoints\": [...] }`, with `\"arm\": \"rewrite_all_points\"` only where `repair` names `modify_points` -- no `move`, nothing of another paragraph and nothing of another Leg",
-    "refusal": "a paragraph numbered for another paragraph; a paragraph carrying `move`, by name (kogaki#1777); a paragraph the Leg call's paragraph rules refuse; a paragraph repeating a refused one -- after a judge's refusal the same `paragraph_waypoints` and `join`, after a validator's the same paragraph whole -- refused as a repeat; Waypoints whose `point` or `performs` text equals a refused paragraph's in order, refused as a restatement naming the unchanged points (kogaki#1651); a `purpose` or `rationale` carrying `refus`, `attempt`, `kogaki#` or a backticked field name, naming the field. Each refusal spends this paragraph's round and is put into the next site call's `refused_here` beside the answer it refused.",
-    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage, the site retry; kogaki#1642"
+    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage, the site retry; kogaki#1642",
+    "prompt_file": "paragraph-plan/paragraph-plan-site-unit"
   }
 }

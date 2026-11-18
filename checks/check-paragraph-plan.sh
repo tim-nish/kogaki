@@ -966,22 +966,17 @@ for (const [label, bad, want] of [
       if (!/[.]$/.test(c.text) || /[.;!?]\s/.test(c.text) || n > bound.words_max) fails.push(`(s) the ${key} prompt's ${c.name} is not one sentence within ${bound.words_max} words (${n})`);
     }
   }
-  const grown = (edit) => { const t = JSON.parse(JSON.stringify(table)); edit(t); return criteriaFailures(t).join("; "); };
-  const line = (t, name, f) => {
-    const row = t.paragraph_plan_judge_unit;
-    if (row.axes_file) { row.judgment_point = row.judgment_point.replace("{{axes}}", axes.map((a) => `- ${a.id}: ${a.sentence}`).join("\n")); delete row.axes_file; }
-    const jp = row.judgment_point;
-    const at = jp.indexOf(`\n- ${name}: `) + 1;
-    const end = jp.indexOf("\n", at);
-    t.paragraph_plan_judge_unit.judgment_point = jp.slice(0, at) + f(jp.slice(at, end)) + jp.slice(end);
-  };
-  for (const [what, edit, want] of [
-    ["a second sentence", (t) => line(t, axes[0].id, (l) => `${l} As on one run, a restated operation does not fit.`), `${axes[0].id} is not one sentence`],
-    ["an Issue number", (t) => line(t, axes[axes.length - 1].id, (l) => l.replace(/[.]$/, " (kogaki#1477).")), `${axes[axes.length - 1].id} carries an Issue number`],
-    ["a word over the bound", (t) => { t.criteria.words_max = 20; }, "over the bound of 20"],
-    ["a criterion the registry does not name", (t) => line(t, axes[axes.length - 1].id, (l) => `${l}\n- SEVENTH: The join is judged.`), '"SEVENTH"]'],
-    ["text around the criteria", (t) => { t.paragraph_plan_judge_unit.judgment_point += " Judge carefully.".repeat(300); }, "rendered judgment point runs"]]) {
-    const why = grown(edit);
+  // A criterion line is a line of the judge's prompt file (kogaki#1862): a row grown there is rendered from a copy of src/ and prompts/.
+  const JP = "prompts/paragraph-plan/paragraph-plan-judge-unit.prompt", jpText = readFileSync(JP, "utf8");
+  const grown = async (edit, fileEdit) => { const t = JSON.parse(JSON.stringify(table)); if (edit) edit(t); const run = fileEdit ? (await treeWith(repo, { [JP]: fileEdit(jpText) })("src/paragraph-plan.mjs")).criteriaFailures : criteriaFailures; const why = run(t).join("; "); removeTrees(); return why; };
+  const line = (name, f) => (jp) => { const at = jp.indexOf(`\n- ${name}: `) + 1; const end = jp.indexOf("\n", at); return jp.slice(0, at) + f(jp.slice(at, end)) + jp.slice(end); };
+  for (const [what, edit, fileEdit, want] of [
+    ["a second sentence", null, line(axes[0].id, (l) => `${l} As on one run, a restated operation does not fit.`), `${axes[0].id} is not one sentence`],
+    ["an Issue number", null, line(axes[axes.length - 1].id, (l) => l.replace(/[.]$/, " (kogaki#1477).")), `${axes[axes.length - 1].id} carries an Issue number`],
+    ["a word over the bound", (t) => { t.criteria.words_max = 20; }, null, "over the bound of 20"],
+    ["a criterion the registry does not name", null, line(axes[axes.length - 1].id, (l) => `${l}\n- SEVENTH: The join is judged.`), '"SEVENTH"]'],
+    ["text around the criteria", null, (jp) => jp.replace("\nREQUIRED RECORD SHAPE: ", `${" Judge carefully.".repeat(300)}\nREQUIRED RECORD SHAPE: `), "rendered judgment point runs"]]) {
+    const why = await grown(edit, fileEdit);
     if (!why.includes(want)) fails.push(`(s) a judge row grown by ${what} is not refused naming it: ${why || "no refusal"}`);
   }
   // A SHARED PASSAGE IS A FILE UNDER prompts/paragraph-plan/ (kogaki#1855): grown in a copy of src/ and prompts/.

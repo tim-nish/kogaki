@@ -18,7 +18,8 @@ import {
 } from "../compose.mjs";
 import { PLAN_SCHEMA_KEYS, RETIRED_PLAN_KEYS, paragraphSchemaRefusal } from "../compose/record.mjs";
 import { correspondenceVocabularyFailures } from "../structure-mapping-playground/rbs.mjs";
-import { judgePrompt, sharedTextOf } from "../workflow/judge.mjs";
+import { judgePrompt, passagesOf } from "../workflow/judge.mjs";
+import { promptFileSource } from "../prompt-file.mjs";
 import { bindFlow } from "../workflow/run-record.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
 import { FLOW, NO_PARAGRAPH_MOVE_FITS, PARAGRAPH_MOVE_ROLES, PARAGRAPH_PLAN_AXES } from "./stage.mjs";
@@ -68,9 +69,7 @@ export function criteriaFailures(table) {
   if (!Number.isInteger(pointMax) || pointMax <= 0)
     return ["src/paragraph-plan-workflow.json's `criteria` declares no positive `point_words_max`"];
   const fails = [];
-  for (const [name, text] of Object.entries(
-    sharedTextOf({ id: "criteria", ...table.paragraph_plan_judge_unit }) || {},
-  )) {
+  for (const [name, text] of Object.entries(passagesOf({ id: "criteria", ...table.paragraph_plan_judge_unit }))) {
     if (!oneSentence(String(text))) fails.push(`shared text ${name} is not one sentence`);
   }
   const named = {
@@ -99,11 +98,27 @@ export function criteriaFailures(table) {
 
 // ---------------------------------------------------------------------------
 // THE JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): src/paragraph-plan-axes.json
-// holds one sentence per axis, each with a defect and a clean fixture and the bench run
-// that kept it. The judge row renders them through `{{axes}}`; what follows reads the file
-// for `start`, the bench and checks/check-paragraph-plan-axes.sh alike.
+// holds each axis's id with a defect and a clean fixture and the bench run that kept it; what
+// follows reads the file for `start`, the bench and checks/check-paragraph-plan-axes.sh alike.
+// Each axis is given its sentence by `axisSentence`, and a file carrying one is refused (kogaki#1862).
 export function readAxes(path = PARAGRAPH_PLAN_AXES) {
-  return JSON.parse(readFileSync(path, "utf8"));
+  const registry = JSON.parse(readFileSync(path, "utf8"));
+  const held = (registry.axes || []).find((a) => Object.hasOwn(a, "sentence"));
+  if (held)
+    throw new Error(
+      `${path}: axis ${held.id} carries \`sentence\`; an axis's sentence is its line of prompts/${JUDGE_PROMPT_FILE}.prompt (kogaki#1862)`,
+    );
+  const source = promptFileSource(JUDGE_PROMPT_FILE);
+  return { ...registry, axes: (registry.axes || []).map((a) => ({ ...a, sentence: axisSentence(a.id, source) })) };
+}
+
+// AN AXIS'S SENTENCE IS ITS LINE OF THE JUDGE'S PROMPT FILE (kogaki#1862): `- <id>: <sentence>`, or null.
+export const JUDGE_PROMPT_FILE = "paragraph-plan/paragraph-plan-judge-unit";
+
+export function axisSentence(id, source = promptFileSource(JUDGE_PROMPT_FILE)) {
+  const lead = `- ${id}: `;
+  const line = source.split("\n").find((l) => l.startsWith(lead));
+  return line === undefined ? null : line.slice(lead.length);
 }
 
 // ONE RESPONSIBILITY, ONE SENTENCE: no `;`, `:` or ` — `, and no second finite clause

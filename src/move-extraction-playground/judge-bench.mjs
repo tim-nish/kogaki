@@ -16,8 +16,10 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
+import { promptFilePath } from "../prompt-file.mjs";
+import { JUDGE_PROMPT_FILE } from "../paragraph-plan/axes.mjs";
 import {
   PARAGRAPH_PLAN_TABLE,
   PARAGRAPH_PLAN_AXES,
@@ -57,9 +59,9 @@ function fail(msg) {
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 
 // The row's prompt head with every axis of the registry benched, and with one axis's line taken out.
-export function benchHeads(axis, registryPath = PARAGRAPH_PLAN_AXES) {
-  const table = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
-  const row = { id: "paragraph_plan_judge_unit", ...table.paragraph_plan_judge_unit, axes_file: registryPath };
+export function benchHeads(axis) {
+  const table = readRowTable(PARAGRAPH_PLAN_TABLE);
+  const row = { id: "paragraph_plan_judge_unit", ...table.paragraph_plan_judge_unit };
   const held = bindFlow({ lane: "paragraph-plan", label: "ParagraphPlan" });
   let withAxis;
   try {
@@ -163,7 +165,7 @@ export function keeps(retention, r, draws) {
 
 export async function bench({ axisIds, draws, out, parallel, registryPath }) {
   const registry = readAxes(registryPath);
-  const table = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+  const table = readRowTable(PARAGRAPH_PLAN_TABLE);
   const ctx = {
     binary: resolveJudgeBinary(String(process.env.KOGAKI_JUDGE_CLI || table.judge.command), process.env.PATH).path,
     model: String(settingValue(table.judge.model)),
@@ -182,7 +184,7 @@ export async function bench({ axisIds, draws, out, parallel, registryPath }) {
   for (const id of axisIds) {
     const axis = registry.axes.find((a) => a.id === id);
     if (!axis) throw new Error(`src/paragraph-plan-axes.json declares no axis ${JSON.stringify(id)}`);
-    const heads = benchHeads(axis, registryPath);
+    const heads = benchHeads(axis);
     const tally = { with: { defect: [], clean: [] }, without: { defect: [], clean: [] } };
     tallies.set(id, tally);
     for (const arm of ["with", "without"]) {
@@ -268,7 +270,14 @@ export function recordBench(report, registryPath) {
   };
   for (const a of registry.axes) for (const n of [...a.fixtures.defect, ...a.fixtures.clean]) reach(n);
   for (const n of Object.keys(registry.records)) if (!reached.has(n)) delete registry.records[n];
-  writeJson(registryPath, registry);
+  writeJson(registryPath, {
+    ...registry,
+    axes: registry.axes.map((a) => Object.fromEntries(Object.entries(a).filter(([k]) => k !== "sentence"))),
+  });
+  // A removed axis leaves the judge's prompt file with its line (kogaki#1862).
+  const prompt = promptFilePath(JUDGE_PROMPT_FILE);
+  const lines = readFileSync(prompt, "utf8").split("\n");
+  writeFileSync(prompt, lines.filter((l) => !removed.some((id) => l.startsWith(`- ${id}: `))).join("\n"));
   return removed;
 }
 

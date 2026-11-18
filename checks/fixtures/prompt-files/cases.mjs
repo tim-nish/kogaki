@@ -237,3 +237,68 @@ export function writerBriefRecord(c) {
 }
 
 export const savedPrompt = (name) => readFileSync(join(HERE, `${name}.txt`), "utf8");
+
+// The twenty-nine workflow-table rows whose instruction is a file under prompts/ (kogaki#1862): each rendered from
+// ROW_INPUT and ROW_HISTORY and compared with the text saved before the move, `rows/<folder>/<file>.txt`.
+const TABLE_FOLDERS = {
+  "src/brief-workflow.json": "brief",
+  "src/paragraph-plan-workflow.json": "paragraph-plan",
+  "src/terrain-workflow.json": "terrain",
+  "src/structure-mapping-playground/playground-workflow.json": "structure-mapping-playground",
+  "src/move-extraction-playground/extraction-workflow.json": "move-extraction-playground",
+  "src/leg-planning-playground/workflow.json": "leg-planning-playground",
+};
+const TABLE_ROWS = {
+  "src/brief-workflow.json": [
+    "read_structure",
+    "apex",
+    "compose_path",
+    "review_path",
+    "leg_sections",
+    "review_path_unit",
+    "defined_terms_unit",
+    "thesis_bound_unit",
+    "renderings_unit",
+  ],
+  "src/paragraph-plan-workflow.json": ["analogy_mapping", "paragraph_plan_judge_unit", "paragraph_plan_site_unit"],
+  "src/terrain-workflow.json": ["J2_subdivision", "thesis_candidates", "J3_neighborhood"],
+  "src/structure-mapping-playground/playground-workflow.json": [
+    "smp_leg_unit",
+    "sme_map_roles",
+    "smp_bind_move",
+    "smp_correspondence",
+    "smp_read_move",
+    "smp_pair_roles",
+    "smp_rank_senses",
+    "smp_name_senses",
+    "smp_join_senses",
+  ],
+  "src/move-extraction-playground/extraction-workflow.json": [
+    "extraction_unit",
+    "content_bound_unit",
+    "constraints_unit",
+    "leg_path_unit",
+  ],
+  "src/leg-planning-playground/workflow.json": ["sme_read_set"],
+};
+export const ROWS = Object.entries(TABLE_ROWS).flatMap(([table, ids]) =>
+  ids.map((id) => ({ table, id, file: `${TABLE_FOLDERS[table]}/${id.toLowerCase().replace(/_/g, "-")}` })),
+);
+export const ROW_INPUT = { groups: [{ name: "g1" }, { name: "g2" }], fixture: "prompt-files" };
+export const ROW_HISTORY = [{ answer: { version: "1" }, refusal: "the record names no group", reach: "part" }];
+export const ROW_FLOW = { lane: "brief", label: "Prompt-file fixture" };
+export const savedRow = (file) => readFileSync(join(HERE, "rows", `${file}.txt`), "utf8");
+// A row's render with each schema text it shows verbatim cut to one line naming the file, so a schema edit leaves the
+// saved text standing.
+export function withoutSchemaText(text, row) {
+  const files = Array.isArray(row.schema_file) ? row.schema_file : row.schema_file ? [row.schema_file] : [];
+  let out = text;
+  for (const f of files) {
+    const whole = readFileSync(f, "utf8");
+    const shown = Array.isArray(row.schema_blocks)
+      ? JSON.stringify(Object.fromEntries(row.schema_blocks.map((b) => [b, JSON.parse(whole)[b]])), null, 2)
+      : whole;
+    out = out.split(shown).join(`<the text of ${f}>`);
+  }
+  return out;
+}

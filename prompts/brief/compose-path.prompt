@@ -1,0 +1,17 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: derive ONE READER PATH for this Brief from its RelationalStructure (kogaki#1775, owner decision 2026-11-10): the Legs are derived by the runner with no Call, one per relation and higher-order relation the apex reaches, the apex's own included, each higher-order relation after the ids it relates; a Leg's `text` is its relation's `holds` with each Role named. The Brief carries no Waypoint, no Round and no Move; the one Call is the `leg_sections` row's, which groups the Legs into Sections.
+REQUIRED RECORD SHAPE: no Call composes the Legs: the Harness derives them from the Brief's adopted `structure` (`structureLegs`, src/compose/structure.mjs), each Leg's `opens_section` from the `leg_sections` row below, and writes ONE Candidate, `{ candidate_id, legs, reasoning }`, onto which nothing of a Move or a Waypoint is written.
+WHAT IS REFUSED: derived Legs that leave a reached relation with no Leg, serve an id outside the reach, or mark a Leg other than the apex's `reaches_target` (`pathReachRefusal`), and a `leg_sections` answer its row refuses twice. The next Round of that row receives the refused record beside its refusal, both verbatim (kogaki#1438).
+
+{{> judge-schema}}
+
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

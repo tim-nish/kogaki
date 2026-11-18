@@ -12,10 +12,10 @@
 // supervisor (src/workflow/detached-job.mjs) with the Brief's bounds. It changes no
 // production executable.
 //
-// THE ROW IS AUTHORED, ITS POINT TEXT ITS OWN (kogaki#1775). `leg_path_unit` carries the point
-// span inline and is its origin since the Brief's `lpp_waypoints` row left; the Mapping
-// Playground's `smp_leg_unit` copies it from here (`resolvedRow`, src/workflow/copies.mjs). `diff`
-// prints each copy a row carries and whether it resolves. `derivedRow` stays for a row that still copies a
+// THE ROW IS AUTHORED (kogaki#1775), ITS INSTRUCTION A PROMPT FILE (kogaki#1862). The point span is the shared
+// passage `prompts/move-extraction-playground/_each-waypoint-is-a-point.prompt`, which `leg_path_unit`'s and the
+// Mapping Playground's `smp_leg_unit`'s prompt files both name. `diff` prints the passages each row's prompt file
+// names. `derivedRow` stays for a row that still copies a
 // whole production row with `substitutions`; the Mapping Playground's short Trial plans with the production row unchanged (kogaki#1784).
 //
 // THE VALIDATOR IS PRODUCTION'S, IMPORTED: `validateLegs` — which runs `waypointsRefusal` over
@@ -89,9 +89,8 @@ import {
   wordsOf,
   wordForms,
 } from "../compose.mjs";
-import { resolvedRow } from "../workflow/copies.mjs";
-import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { judgePrompt, passagesOf, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
+import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, legParagraphs, awaitJob, lastRefusal, writeJson } from "./extract.mjs";
 
@@ -633,12 +632,12 @@ export function runLegBrief({
   if (terms) fail(TERMS_RETIRED);
   const { paragraphs, extractions } = material;
   const name = slug || material.passage;
-  const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const table = readRowTable(EXTRACTION_TABLE);
   const rows = {};
   for (const key of ROWS) {
-    const d = resolvedRow(table, key);
-    if (d.error) fail(`src/move-extraction-playground/extraction-workflow.json: ${d.error}. Nothing was started.`);
-    rows[key] = d.row;
+    if (!table[key])
+      fail(`src/move-extraction-playground/extraction-workflow.json declares no \`${key}\` row. Nothing was started.`);
+    rows[key] = { id: key, ...table[key] };
   }
   const audiencePath = resolve(REPO, audience || String(settingValue({ setting: "brief.audience_file" })));
   const persona = readerPersona(audiencePath);
@@ -787,20 +786,17 @@ function composeLegs({
   return { brief: briefPath, runDir };
 }
 
-// WHAT THE ROWS COPY FROM PRODUCTION, printed (kogaki#1768): per row, each copy it declares —
-// the production row and the span's opening and closing words — and whether it resolves.
+// WHAT THE ROWS SHARE, printed (kogaki#1768, kogaki#1862): per row, its prompt file and each shared passage it names.
 export function rowsDiffText(table) {
   const L = [];
   for (const key of ROWS) {
-    const row = table[key] || {};
-    L.push(`${key} — authored here, its copies resolved from production`);
-    for (const [name, c] of Object.entries(row.copies || {})) {
-      L.push(
-        `  {{copy:${name}}} — ${c.file} row ${c.row}, field ${c.field}, from ${JSON.stringify(c.opens)} through ${JSON.stringify(c.closes)}`,
-      );
+    const row = table[key];
+    if (!row || !row.prompt_file) {
+      L.push(`${key} — REFUSED: the table declares no \`${key}\` row naming a prompt file`, "");
+      continue;
     }
-    const d = resolvedRow(table, key);
-    L.push(d.error ? `  REFUSED: ${d.error}` : "  every copy resolves against the production text");
+    L.push(`${key} — authored in prompts/${row.prompt_file}.prompt`);
+    for (const name of Object.keys(passagesOf({ id: key, ...row }))) L.push(`  shares the passage ${name}`);
     L.push("");
   }
   return L.join("\n");
@@ -829,7 +825,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (args.terms !== undefined) fail(TERMS_RETIRED);
   if (args.moves !== undefined || args.ingest !== undefined) fail(MOVES_RETIRED);
   if (args._cmd === "diff") {
-    const text = rowsDiffText(JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8")));
+    const text = rowsDiffText(readRowTable(EXTRACTION_TABLE));
     process.stdout.write(`${text}\n`);
     if (text.includes("REFUSED:")) process.exitCode = 1;
   } else if (args._cmd === "run" && str("extractions") && str("out")) {

@@ -41,11 +41,6 @@
   ],
   "governing_text": "SPEC-draft-pipeline, the durable home and the entry point; the control plane is the pattern this table is an instance of",
   "licensed_by": "kogaki#1742 -- owner requirement 2026-11-08: an existing `theses/<slug>` is classified at `enter` by its Thesis and its Strands' hashes; the same Thesis waits at the conditional `HOME_COLLISION` gate (replace archives at `mint`, keep drops the candidate), and a different Thesis takes the first free name. This carrier holds the CURRENT Brief control plane only. It is not a version ledger: superseded states and the history of past amendments live in git and in the issues. A change is licensed by an issue, settled by a dated owner decision where it is a decision rather than a transcription, landed here, and recorded by bumping `version` and replacing this line with the issue that licensed it.",
-  "shared_text_note": "ONE CRITERION, WRITTEN ONCE (kogaki#1452): where the `review_path` state and its `review_path_unit` carry one criterion it is written here, both `judgment_point` strings name it as `{{shared:<name>}}`, and `judgePrompt` (src/workflow/judge.mjs) substitutes it. checks/check-schema-binds.sh refuses a sentence one row carries with words changed from another's.",
-  "shared_text": {
-    "review_areas": "the six review areas `src/review.mjs` declares in REVIEW_AREAS, as JUDGMENT and never as a verdict -- rationale_stands, entailment, prohibitions, semantic_economy, arc_integrity and evaluation_levels",
-    "claim_register": "one judged entry per Leg -- whether any claim line on that Leg, an entry of its `claims`, uses a term the input's `defined_terms` lists in the sense this article gives it, which the article does not introduce (kogaki#1768). `holds` where none does; `fails`, naming the word, where one does. The Persona's `prior_knowledge` grants no word and is not in the input."
-  },
   "the_executor_is_not_a_second_one": "THIS TABLE IS EXECUTED BY THE SHARED EXECUTOR, `src/workflow/executor.mjs` (kogaki#1108; named here by kogaki#1741). `runWorkflow(binding, ...)` takes a flow binding -- a lane, a label, a start line, this table's path, a run-workspace opener, and the two maps a state id is looked up in -- and runs the SAME `cmdRun` every flow runs. A second executor would be a second implementation of `the re-entrant executor`, and two implementations of one contract drift in exactly the clauses nobody reads twice. So `src/brief.mjs` composes the binding and calls that entry; it reimplements no loop, no wait, no capture read and no judge invocation.",
   "state_kinds": {
     "compute": "Runs, writes no owner artifact, does not stop.",
@@ -62,9 +57,7 @@
     "retries": "Required on every state whose `kind` is `judgment`, and absent otherwise. The number of times the executor RE-ASKS the judge after a response its own refusals rejected; 0 means the first refusal is final. Declared PER STATE because the states differ in how much a re-ask can plausibly repair.",
     "schema_file": "Optional on a state whose `kind` is `judgment`, and absent otherwise. Names the file -- OR THE ORDERED LIST OF FILES -- in this repository carrying the SHAPE of the elements the state's record is built from; the executor renders each one into the judge's prompt VERBATIM, above the input marker and in the order declared. A state that names a file which does not exist REFUSES by name -- a declared shape the judge is never shown is the prose-only prompt wearing a declaration. THE SECOND READER IS WHAT MAKES IT WORTH DECLARING: `src/leg-schema.json` is read here and by `validateLegs` in src/compose.mjs, so the text the Model composes against and the text the refusal enforces are one file and cannot disagree (kogaki#1108). A LIST RATHER THAN ONE FILE BECAUSE A RECORD HAS MORE THAN ONE ELEMENT KIND (kogaki#1126): `compose_path` composes Candidates whose entries are Legs, and the two shapes are declared by two files with two validators -- `src/candidate-schema.json` read by this state's own refusals and `src/leg-schema.json` read by `validateLegs`. Folding both into one file would give one of the two validators a text it does not enforce, which is the disagreement this row exists to prevent. A bare string stays admissible and means the one-element list.",
     "grammar_surface": "NOT A FIELD OF THIS TABLE, and the absence is declared rather than left to read as an omission. In Terrain's own table it names the `report-format.json` surface whose line_class allowlist governs a writing state's render, because every Terrain owner artifact is a rendering under that grammar. The Brief is not: `theses/<slug>/brief.yaml` is ONE YAML RECORD (kogaki#1328), composed by `composeBrief` and filled by `fillBrief` and `fillSlot` against TYPED SLOTS -- keys reading `null` until adoption -- and its refusals are slot and key refusals rather than line-class ones. Declaring an inapplicable surface here would be coverage in name only, so `counted_baseline.grammared_writing_states` is 0 and the derivation agrees with it.",
-    "judgment_point": "Required on every state whose `kind` is `judgment`. The one sentence the judge is told its judgment is FOR, rendered at the head of its prompt.",
-    "input_shape": "Required on every state whose `kind` is `judgment`. One sentence naming the shape of the RECORD the judge must return. It describes; `schema_file` and the state's own validator bind.",
-    "refusal": "Required on every state whose `kind` is `judgment`. What this state refuses, in the judge's own reading. The validator is the authority; this is what the judge is told before it answers.",
+    "prompt_file": "Required on every state whose `kind` is `judgment`. Names the file under prompts/, without its `.prompt`, that holds the judge's instruction (kogaki#1862). A state carrying `judgment_point`, `input_shape` or `refusal` is refused when the table is read.",
     "owner_supplies": "Required on every state whose `kind` is `wait`. What the owner's answer at that gate supplies to the run.",
     "does": "Required on every state whose `kind` is `compute`, `write` or `terminal`. What the state does, and the runtime case it binds.",
     "renders_above_question": "WHAT RENDERS ABOVE THIS WAIT'S QUESTION, declared here rather than left to a sentence in a skill file (owner decision 2026-09-12, \"screen prose is a table row\"; built at PR #1109 round 1). The value is the key under which the gate composer carries the reading -- one of `GATE_CALL_READING_KEYS` in src/workflow/gate.mjs, which `composeGateCall` puts INSIDE the question text and therefore inside the bytes the open-gate hook compares. THE EMPTY STRING IS A DECLARATION AND NOT AN ABSENCE: it would mean the wait renders nothing above its question. CANDIDATE_SELECTION renders `excluded_candidates` -- one plain line per Candidate the compose job or the path review left out, naming it and the Leg that did not fit or the review that did not finish (kogaki#1307) -- and nothing when none was left out, because the offered Candidates ARE the options and a summary above them would be a second reading of the same thing (kogaki#1276). `checks/check-brief-compose.sh` case (ak) binds CANDIDATE_SELECTION's row to the key its option composer actually fills, so a declaration that stops matching the rendering is red rather than decorative."
@@ -93,26 +86,22 @@
     {
       "id": "read_structure",
       "kind": "judgment",
-      "judgment_point": "read the claims in the input, `claims`, each with its `id`, as ONE set of relations among Roles, read for the Persona in `persona`. For each Role, give it a `name`, one short snake_case word, and define it in one or two sentences, as its `context`, as a kind of thing in the world of the Persona: an abstraction a claim's object is one instance of, never that object itself, written in the third person and naming no reader, writer or Persona. Name, as its `attributes`, the one-place predicates the claims state of that Role's object, each one short phrase in the claims' own words, or an empty list where they state none, and, as its `claims`, the ids of the claims its text is read from. Name each relation among Roles as one claim states it, as its `holds`: one sentence stating the relation over the Roles, naming none of the claims' objects and giving it a `name`, one short snake_case word, and writing each Role it relates as `{<name>}`, that Role's name in braces, at least once, with `between` naming the Roles it relates by their names and `from` naming the ONE claim id that states it. Every claim states at least one relation. Then name the relations among those relations the claims turn on, as `higher_order`, one or more, each with a `name`, one short snake_case word, `relates` naming by their names two or more relations or higher-order relations it relates, never itself through another, `holds` stating it over the same Roles, each written as `{<name>}`, and `from` naming the claim ids whose text states that connection. Every higher-order relation names in `from` the claim ids whose text states it: a connection no claim states is not written here, since the apex of each connected part of the structure is composed after this reading (kogaki#1768). Then record, as `considered`, every connection you weighed (kogaki#1817): one row per set of two or more relations or higher-order relations you considered connecting, with `relations` naming them by their names, `criterion` naming the claim ids whose text states or fails to state that connection, `verdict` -- `connected` where you wrote a higher-order relation relating exactly those, `not_connected` where you did not -- and `why`, one sentence giving the reason. Every higher-order relation has its `connected` row, and every relation stands in at least one row, so a relation you left unconnected carries a `not_connected` row saying why. Write no `id`: every element's id is minted after this reading (kogaki#1772). Write no `attains_thesis`, no `reach` and no `unreached`. Answer the RelationalStructure record and nothing else.",
-      "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `roles` -- a non-empty list of `{ \"name\": <one short snake_case word, unique in the record>, \"context\": <one or two sentences>, \"attributes\": [<one short phrase of the claims>, ...], \"claims\": [<one or more claim ids>] }`; `relations` -- a non-empty list of `{ \"name\": <one short snake_case word, unique in the record>, \"between\": [<two or more Role names>], \"holds\": <one sentence>, \"from\": <one claim id> }`; `higher_order` -- a non-empty list of `{ \"name\": <one short snake_case word, unique in the record>, \"relates\": [<two or more relation or higher-order relation names>], \"holds\": <one sentence>, \"from\": [<one or more claim ids that state it>] }`; `considered` -- a list of `{ \"relations\": [<two or more relation or higher-order relation names>], \"criterion\": [<one or more claim ids>], \"verdict\": \"connected\" | \"not_connected\", \"why\": <one sentence> }`. No element carries an `id`: the runner mints `r_<n>`, `c_<n>` and `h_<n>` after the reading (kogaki#1772).",
-      "refusal": "a key the record, a Role, a relation or a higher-order relation does not declare, or a declared key missing; an element carrying `id`; a `name` that is not one snake_case word or is repeated, or a reference naming nothing; a Role whose `claims` names no claim of the input, and a Role in no relation, refused naming the Role; a relation whose `from` is not one claim id, and a relation whose `holds` does not carry `{<name>}` for a Role its `between` names, refused naming the relation; a `reach` or `unreached` written on the record; a higher-order relation relating fewer than two relations, or a name that is no relation's or higher-order relation's, or relating itself through another, refused naming it; a higher-order relation whose `from` is empty or names no claim, refused naming it; a `considered` row naming fewer than two relations or a name that is no relation's, a `criterion` naming no claim, a `verdict` other than `connected` or `not_connected`, or an empty `why`, refused naming the row; a `connected` row no higher-order relation relates exactly, and a `not_connected` row one does; a higher-order relation with no `connected` row, and a relation in no row, refused naming it; and an `attains_thesis` written on the record. A claim no relation is `from` is not refused: it is listed as unreached. The refusal is put back into your next round verbatim with your answer.",
       "retries": 1,
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1764, kogaki#1766, kogaki#1768"
+      "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1764, kogaki#1766, kogaki#1768",
+      "prompt_file": "brief/read-structure"
     },
     {
       "id": "apex",
       "kind": "judgment",
-      "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. compose ONE APEX for EACH connected component of the RelationalStructure in the input, `components` -- each one a higher-order relation connects and with two or more top-level relations, since a component no higher-order relation connects is not a Thesis candidate and a component with one top carries that top as its apex (kogaki#1773): each component lists its relations and higher-order relations with their `name` and their `holds` in Role names, its `top` -- the higher-order relations no other relates, or its relations where it has none -- and the claims it is read from, `claims`. The apex is the Thesis an article built on that component alone argues: one sentence, in the claims' own words and naming the claims' objects -- never over Role ids, so it carries no `{<id>}` -- stating the connection the component's top-level relations together make, which no single claim states. `component` names the component's id, `name` is one short snake_case word that no Role, relation or higher-order relation of the components carries, `relates` names exactly the component's `top` ids, and the apex carries no `id`, which is minted when it is adopted, and no `from`: the apex is the one connection no claim states (kogaki#1772). Answer the apex record and nothing else.",
-      "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly `apexes` -- a list of `{ \"component\": <a component id of the input>, \"name\": <one short snake_case word, no name of the structure>, \"relates\": [<the component's `top` ids>], \"holds\": <one sentence, the Thesis> }`, one per component of the input.",
-      "refusal": "a key the record or an apex does not declare, or a declared key missing; an apex naming a component the input does not carry, or two apexes naming one; an apex carrying `id` or `from`; a `name` that is not one snake_case word or is already a name of the structure; `relates` other than exactly the component's `top`, refused naming the component; a `holds` that is empty or carries `{<id>}`; and a component carrying no apex. The refusal is put back into your next round verbatim with your answer.",
       "retries": 2,
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1768, kogaki#1773"
+      "governing": "SPEC-draft-pipeline, the Brief's structure stage; kogaki#1768, kogaki#1773",
+      "prompt_file": "brief/apex"
     },
     {
       "id": "HOME_COLLISION",
@@ -173,21 +162,19 @@
         ]
       },
       "kind": "judgment",
-      "judgment_point": "derive ONE READER PATH for this Brief from its RelationalStructure (kogaki#1775, owner decision 2026-11-10): the Legs are derived by the runner with no Call, one per relation and higher-order relation the apex reaches, the apex's own included, each higher-order relation after the ids it relates; a Leg's `text` is its relation's `holds` with each Role named. The Brief carries no Waypoint, no Round and no Move; the one Call is the `leg_sections` row's, which groups the Legs into Sections.",
       "reader_file": {
         "setting": "brief.audience_file"
       },
       "reader_file_note": "THE AUDIENCE (kogaki#1370, owner decision 2026-10-13): one owner-authored file under audiences/ with three keys -- `persona`, who is read to, `register`, how they are addressed, and `language`. THE PERSONA (kogaki#1216) holds two fields -- `reader` and `prior_knowledge` -- and nothing about attitude, trust or the reader's question. The `register` is read by the Leg Packet alone. This row NAMES the file through the setting `brief.audience_file` in `kogaki.settings.json` (kogaki#1307), and every reader resolves it there; `read_structure` and `apex` read its `persona` (kogaki#1768), and this state its `language`. No per-article selection.",
-      "input_shape": "no Call composes the Legs: the Harness derives them from the Brief's adopted `structure` (`structureLegs`, src/compose/structure.mjs), each Leg's `opens_section` from the `leg_sections` row below, and writes ONE Candidate, `{ candidate_id, legs, reasoning }`, onto which nothing of a Move or a Waypoint is written.",
       "schema_file": [
         "src/leg-schema.json"
       ],
-      "refusal": "derived Legs that leave a reached relation with no Leg, serve an id outside the reach, or mark a Leg other than the apex's `reaches_target` (`pathReachRefusal`), and a `leg_sections` answer its row refuses twice. The next Round of that row receives the refused record beside its refusal, both verbatim (kogaki#1438).",
       "retries": 2,
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "SPEC-draft-pipeline, the Leg's shape and the claims rule"
+      "governing": "SPEC-draft-pipeline, the Leg's shape and the claims rule",
+      "prompt_file": "brief/compose-path"
     },
     {
       "id": "review_path",
@@ -208,11 +195,7 @@
           "waypoints.case"
         ]
       },
-      "shared_text_file": "src/brief-workflow.json",
       "kind": "judgment",
-      "judgment_point": "review each composed Candidate against {{shared:review_areas}}. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1). The `discharge` item is RETIRED (kogaki#1699) with the Obligations ledger, as is the `question_chain` item (kogaki#1325); a record carrying either is refused by name. AND, for every Candidate, run the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331, owner decision 2026-10-10): {{shared:claim_register}} This is judgment, never a mechanical word list -- the vocabulary a claim may use is read, not matched against a list. THE STRUCTURE'S REACH (kogaki#1775): the input carries the Brief's RelationalStructure, `structure`, and each Leg names in `relation` the relation or higher-order relation it serves and says it in `text`, so `entailment` and `arc_integrity` read the order -- whether each higher-order relation's Leg stands where the relations it relates can be followed into it -- and `rationale_stands` reads each Leg's `text` against the relation it serves, since no Leg states a rationale. One Leg per relation the apex reaches, the apex's Leg marked, is refused before this review is asked.",
-      "input_shape": "an object keyed by `candidate_id`, each value an object carrying one prose entry per review area, NO verdict-shaped field among them, plus `claim_register` (an array, one entry per Leg in Leg order, each `{ leg_id, verdict, word? }`), PLUS the input's own top-level `defined_terms` (the terms the Brief classifies `defined`) the claim register is judged against -- not per-Candidate, because the list is the Brief's, written once at mint (kogaki#1331)",
-      "refusal": "a Candidate with no review entry; a verdict-shaped field among the six prose areas -- `verdict`, `pass`, `score` and kin, or any non-string value -- because nothing there becomes a lint; a `question_chain` (retired, kogaki#1325) or a `discharge` (retired, kogaki#1699) carried at all; a `claim_register` absent, not an array, or not carrying exactly one entry per the Candidate's own Legs, in Leg order; an entry whose `verdict` is outside the closed set `holds`/`fails`; a `fails` entry naming no `word`. The next Round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
       "retries": 2,
       "writes": null,
       "conditional": false,
@@ -229,7 +212,8 @@
         "heartbeat_ms": 10000,
         "note": "A DETACHED JOB, ONE UNIT PER CANDIDATE (kogaki#1301), split the way `compose_path` was split at kogaki#1193: the single call over every Candidate ran past `timeout_s` on 2026-10-07, on three Candidates of 14 Legs, once kogaki#1276, #1281 and #1283 had each widened it. Every item this state judges is per Candidate, so each unit's prompt carries its own Candidate, the Brief's `defined_terms` and `review_areas`, and nothing of the other Candidates; it is rendered from the `review_path_unit` row below this table's `states`. The units run under the same supervisor, classification and retry rules as the reader-path job's, with `validateReviewPathUnit` (src/brief.mjs) as the declared validator and `claim_register` as the array every unit's record must carry, and its bounds are the same two settings, `brief.call_limit_s` and `brief.unit_rounds` in `kogaki.settings.json` (kogaki#1355); a unit makes one call per Round. THE ASSEMBLED RECORD KEEPS THIS ROW'S `input_shape`, an object keyed by `candidate_id`, so `attach_review` and CANDIDATE_SELECTION read it unchanged; a Candidate whose unit did not end `done` is not offered and is named above the Candidate question, down to one Candidate. The job's files sit in a `review-path/` directory beneath the run directory, so its record never overwrites the reader-path job's."
       },
-      "governing": "SPEC-draft-pipeline, the judgment rule"
+      "governing": "SPEC-draft-pipeline, the judgment rule",
+      "prompt_file": "brief/review-path"
     },
     {
       "id": "attach_review",
@@ -282,11 +266,9 @@
   "leg_sections": {
     "id": "leg_sections",
     "note": "NOT A STATE OF THIS FLOW (kogaki#1768): the one Call inside `compose_path`, after the Legs are derived (kogaki#1775). The derived Legs carry no `opens_section`, and this row writes it.",
-    "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. group the derived Legs in the input, `legs`, into the Sections of the finished article, under the Section grouping. Each Leg is given by its `leg_id`, the relation or higher-order relation it serves, `relation`, and what it says, `text`. THE FIRST LEG OPENS A SECTION. A Leg opens a Section where the reader's question changes -- where its `text` turns to matter the Legs before it in the current Section did not state -- and continues the current Section otherwise; a higher-order relation's Leg continues the Section of the relations it relates. Two adjacent Sections holding exactly one Leg each are not written: merge them. For each Leg that opens a Section write its heading, `opens_section`: one plain sentence or phrase stating where the Section's last claims leave the reader, in everyday words, so a reader can skip directly to any Section and still understand its heading -- never a title, and never a term the article has not put in front of the reader. Answer the Sections record and nothing else.",
-    "input_shape": "ONE record AT THE RECORD'S OWN ROOT carrying exactly `sections` -- a list of `{ \"leg_id\": <the id of a Leg that opens a Section>, \"opens_section\": <one plain sentence or phrase> }`, in Leg order, its first entry the first Leg.",
-    "refusal": "a key the record or an entry does not declare, or a declared key missing; an entry naming no Leg of the input, two entries naming one Leg, or entries out of Leg order; an empty `opens_section`; and the Section grouping's own refusals over the Legs with the headings in place -- the first Leg not opening a Section, and two adjacent one-Leg Sections -- each refused naming the Leg. The refusal is put back into your next round verbatim with your answer.",
     "retries": 2,
-    "governing": "SPEC-draft-pipeline, the Section grouping; kogaki#1768"
+    "governing": "SPEC-draft-pipeline, the Section grouping; kogaki#1768",
+    "prompt_file": "brief/leg-sections"
   },
   "review_path_unit": {
     "id": "review_path_unit",
@@ -307,12 +289,9 @@
         "waypoints.case"
       ]
     },
-    "shared_text_file": "src/brief-workflow.json",
     "note": "NOT A STATE OF THIS FLOW (kogaki#1301), on the ground `leg_sections` above states for itself: the path-review Detached Job's units run inside `review_path`'s own in-process code, never as a separately-executed flow state. `src/brief.mjs`'s `review_path` handler reads this row and renders each unit's prompt through the SAME `judgePrompt` renderer every judgment state uses.",
-    "judgment_point": "review ONE composed Candidate -- `candidate_you_must_review` in the input -- against {{shared:review_areas}}; the areas ride in the input under `review_areas`. The `discharge` item (kogaki#1699) and the `question_chain` item (kogaki#1325) are retired, and a record carrying either is refused by name. AND the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331): {{shared:claim_register}} THE STRUCTURE'S REACH (kogaki#1775): the input carries the Brief's RelationalStructure, `structure`, and each Leg names in `relation` the relation or higher-order relation it serves and says it in `text`, so `entailment` and `arc_integrity` read the order -- whether each higher-order relation's Leg stands where the relations it relates can be followed into it -- and `rationale_stands` reads each Leg's `text` against the relation it serves, since no Leg states a rationale. One Leg per relation the apex reaches, the apex's Leg marked, is refused before this review is asked.",
-    "input_shape": "a BARE review entry AT THE RECORD'S OWN ROOT -- no wrapping `candidate_id` key, since this ask names exactly one Candidate and the Harness keys the entry by the Candidate it handed this unit -- carrying one prose entry per review area, NO verdict-shaped field among them, and `claim_register` (an array, one entry per Leg in Leg order, each `{ leg_id, verdict, word? }`)",
-    "refusal": "a verdict-shaped field among the six prose areas -- `verdict`, `pass`, `score` and kin, or any non-string value; a `question_chain` (retired, kogaki#1325) or a `discharge` (retired, kogaki#1699) carried at all; a `claim_register` absent, not an array, or not carrying exactly one entry per the Candidate's own Legs, in Leg order; an entry whose `verdict` is outside the closed set `holds`/`fails`; a `fails` entry naming no `word` -- each refused by `attachReview` over this unit's one Candidate, applied at the unit's own classification so the unit's next Round can fire on it. The next Round receives the refused record beside its refusal, both verbatim (kogaki#1438).",
-    "governing": "SPEC-draft-pipeline, the judgment rule; kogaki#1301"
+    "governing": "SPEC-draft-pipeline, the judgment rule; kogaki#1301",
+    "prompt_file": "brief/review-path-unit"
   },
   "defined_terms_unit": {
     "id": "defined_terms_unit",
@@ -333,15 +312,13 @@
       ]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1331, owner decision 2026-10-10). The Brief's Defined Terms are written ONCE, by the mint, so the judgment that classifies them is asked from inside the `mint` state's renderer, before the Brief exists, and its record is what the mint writes as `defined_terms`. It is a row rather than a state for the reason the two unit rows above are: it is one judged record inside an act the flow already has, and a state of its own would be a second writer of a field the owner ruled is written once. Composition is its one consumer; nothing of it reaches the Packet.",
-    "judgment_point": "list EVERY NOUN of the adopted Thesis and of each Strand claim in the input -- `thesis` and `strand_claims` -- and classify each `defined` or `ordinary`. A term is one or more words exactly as they occur in that text, in the form an `introduces` entry's `term` takes (so `non-member fallback` is one term). `defined` means this article uses the word in a sense it gives it -- a CI-specific or article-specific sense the reader does not already hold -- EVEN WHEN THE WORD IS EVERYDAY ENGLISH: `check`, `guard`, `list` or `pass` used in a CI sense is `defined`. `ordinary` means the reader already holds the sense the article uses. The test is on the sense, never on whether the word is common.",
-    "input_shape": "ONE record AT ITS OWN ROOT -- `version` \"1\" and `defined_terms`, a list of `{ term, class }` entries, as src/candidate-schema.json's `defined_terms_record` declares",
     "schema_file": "src/candidate-schema.json",
     "schema_blocks": [
       "defined_terms_record"
     ],
-    "refusal": "a record whose `version` is not \"1\"; `defined_terms` not a list; an entry that is not a `{ term, class }` map, carries any other key, carries no term, or a class outside `defined`, `ordinary`; a term listed twice; a term that occurs whole-word in neither the Thesis nor any Strand claim. The next Call receives the refused record beside its refusal, both verbatim (kogaki#1438).",
     "retries": 2,
-    "governing": "SPEC-draft-pipeline, the durable home and the entry point; kogaki#1331"
+    "governing": "SPEC-draft-pipeline, the durable home and the entry point; kogaki#1331",
+    "prompt_file": "brief/defined-terms-unit"
   },
   "thesis_bound_unit": {
     "id": "thesis_bound_unit",
@@ -350,11 +327,9 @@
     "thesis_words": {
       "setting": "brief.thesis_words"
     },
-    "judgment_point": "THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. Each entry of `theses` in the input is one Thesis candidate whose sentence, `thesis`, is longer than `thesis_words` words, beside `attains`, the part of the structure it is the Thesis of: its relations and higher-order relations with their `holds`, its `top` and the claims it is read from. Rewrite each Thesis as ONE sentence of at most `thesis_words` words that states the same connection `attains` makes, in the claims' own words and naming the claims' objects -- never over Role ids, so it carries no `{<id>}` -- dropping no part of that connection and adding nothing the structure does not state. Answer the record and nothing else.",
-    "input_shape": "ONE record AT ITS OWN ROOT carrying exactly `theses` -- a list of `{ \"candidate\": <a `candidate` id of the input>, \"thesis\": <one sentence of at most `thesis_words` words> }`, one per entry of the input's `theses`.",
-    "refusal": "a key the record or an entry does not declare, or a declared key missing; an entry naming no candidate of the input, or naming one twice; a candidate of the input with no entry; a `thesis` that is empty or carries `{<id>}`; and a `thesis` still longer than `thesis_words` words, refused naming its length. The row declares no re-ask, so a refusal stops the run.",
     "retries": 0,
-    "governing": "SPEC-draft-pipeline, the structure-first Brief; kogaki#1773"
+    "governing": "SPEC-draft-pipeline, the structure-first Brief; kogaki#1773",
+    "prompt_file": "brief/thesis-bound-unit"
   },
   "renderings_unit": {
     "id": "renderings_unit",
@@ -375,15 +350,13 @@
       ]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1494, owner decision 2026-10-21). The renderings record is composed ONCE, inside the `compose_path` state's renderer before its job starts (kogaki#1768), so it stands before the Waypoints are composed -- the owner placed the terminology mapping table at or before the Candidate stage. It is a row rather than a state for the reason `defined_terms_unit` is: one judged record inside an act the flow already has. Its consumers are the Path Review, whose `recoverability` entry the Harness computes under it from each Candidate's claims and points (src/compose.mjs `recoverabilityOf`) and attaches beside the judged review, never asked of the judge; and adoption, which writes it into the Brief as `renderings` and refuses an `introduces` entry carrying a term it renders.",
-    "judgment_point": "list the terms of the Strand claims in the input -- `strand_claims` -- that THIS ARTICLE WILL NOT KEEP, each with the plain phrase the article uses in its place. A Strand carries the source's own technical terms and expressions; a term the article keeps is used as served and has no entry, and a term the adopted Thesis -- `thesis`, the article's title -- carries is always kept. A term is one or more words exactly as they occur in a claim, in the form an `introduces` entry's `term` takes. `as` is written in `language`, the article's one language. The Brief's Defined Terms ride in `defined_terms`: a term classified `defined` is one the article gives a sense, and a term the article keeps to define is not rendered. An empty list is an answer: the article keeps every served word.",
-    "input_shape": "ONE record AT ITS OWN ROOT -- `version` \"1\" and `renderings`, a list of `{ term, as }` entries, as src/candidate-schema.json's `renderings_record` declares",
     "schema_file": "src/candidate-schema.json",
     "schema_blocks": [
       "renderings_record"
     ],
-    "refusal": "a record whose `version` is not \"1\"; `renderings` not a list; an entry that is not a `{ term, as }` map, carries any other key, carries no term or no `as`, or renders a term as itself; a term listed twice; a term that occurs whole-word in no Strand claim; a term the Thesis carries. The next Call receives the refused record beside its refusal, both verbatim (kogaki#1438).",
     "retries": 2,
-    "governing": "SPEC-draft-pipeline, the renderings record and recoverability; kogaki#1494"
+    "governing": "SPEC-draft-pipeline, the renderings record and recoverability; kogaki#1494",
+    "prompt_file": "brief/renderings-unit"
   },
   "counted_baseline": {
     "waits": 3,

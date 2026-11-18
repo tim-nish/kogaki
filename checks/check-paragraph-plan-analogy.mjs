@@ -41,7 +41,7 @@ writeFileSync(
   mapperSettings,
   JSON.stringify({ ...settings, paragraph_plan: { ...settings.paragraph_plan, mapper: true } }),
 );
-const ANALOGUE = JSON.parse(readFileSync("src/paragraph-plan-axes.json", "utf8")).axes.find((a) => a.id === "ANALOGUE");
+const ANALOGUE = (await imp("src/paragraph-plan/axes.mjs")).readAxes().axes.find((a) => a.id === "ANALOGUE");
 
 // ---- the Move library: pa leaves a carry, pb takes one, p1 carries none ----
 const moves = join(root, "moves");

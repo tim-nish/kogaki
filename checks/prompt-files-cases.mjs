@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -37,21 +37,11 @@ const srcFiles = walk(join(REPO, "src"), () => true).map((f) => ({
   text: readFileSync(f, "utf8"),
 }));
 const programs = srcFiles.filter((s) => /\.(mjs|json)$/.test(s.path));
-const snake = (n) => n.replace(/-/g, "_");
 for (const f of files) {
   cases++;
   const byProgram = programs.some((s) => s.text.includes(`"${f.name}"`) || s.text.includes(`"prompts/${f.name}"`));
   const byPrompt = f.passage !== null && files.some((o) => o.text.includes(`{{> ${f.passage}}}`));
-  const folder = f.name.slice(0, f.name.lastIndexOf("/") + 1);
-  const leaf = f.passage === null ? "" : f.passage.slice(folder.length);
-  const byRow =
-    f.passage !== null &&
-    programs.some(
-      (s) =>
-        s.text.includes(`"shared_text_file": "prompts/${folder.replace(/\/$/, "")}"`) &&
-        s.text.includes(`{{shared:${snake(leaf)}}}`),
-    );
-  if (!byProgram && !byPrompt && !byRow) fails.push(`(b) ${f.path} is named by no row, no prompt file and no program`);
+  if (!byProgram && !byPrompt) fails.push(`(b) ${f.path} is named by no row, no prompt file and no program`);
 }
 
 const MIN_LINE = 40;
@@ -120,6 +110,76 @@ same("plan-leg-under-a-move-table", () =>
   ),
 );
 
+// (d) EVERY TABLE ROW RENDERS AS SAVED BEFORE ITS MOVE (kogaki#1862), its schema text cut as the save cut it.
+bindFlow(C.ROW_FLOW);
+for (const r of C.ROWS) {
+  const t = JSON.parse(readFileSync(r.table, "utf8"));
+  const row = (t.states || []).find((s) => s && s.id === r.id) || { id: r.id, ...t[r.id] };
+  cases++;
+  let got;
+  try {
+    got = C.withoutSchemaText(judgePrompt(row, JSON.stringify(C.ROW_INPUT, null, 2), C.ROW_INPUT, C.ROW_HISTORY), row);
+  } catch (e) {
+    fails.push(`(d) the ${r.file} row did not render: ${e.message}`);
+    continue;
+  }
+  const want = C.savedRow(r.file);
+  if (got === want) continue;
+  let i = 0;
+  while (got[i] === want[i]) i++;
+  fails.push(
+    `(d) the ${r.file} row differs from its saved text at byte ${i}: saved ${JSON.stringify(want.slice(i, i + 60))}, rendered ${JSON.stringify(got.slice(i, i + 60))}`,
+  );
+}
+
+// (f) A TABLE WHOSE ROW CARRIES ITS INSTRUCTION IS REFUSED WHEN READ (kogaki#1862), naming the row and the key; the six
+// tables as they stand are read clean.
+const { instructionKeyRefusal } = await imp("src/workflow/run-record.mjs");
+for (const table of [...new Set(C.ROWS.map((r) => r.table))]) {
+  cases++;
+  const t = JSON.parse(readFileSync(table, "utf8"));
+  const clean = instructionKeyRefusal(t, table);
+  if (clean) fails.push(`(f) ${table} is refused as it stands: ${clean}`);
+  const r = C.ROWS.find((x) => x.table === table);
+  const row = (t.states || []).find((s) => s && s.id === r.id) || t[r.id];
+  for (const key of ["judgment_point", "input_shape", "refusal"]) {
+    cases++;
+    const why =
+      instructionKeyRefusal(
+        {
+          ...t,
+          ...(t.states ? {} : { [r.id]: { ...row, [key]: "x" } }),
+          ...(t.states ? { states: t.states.map((s) => (s === row ? { ...s, [key]: "x" } : s)) } : {}),
+        },
+        table,
+      ) || "";
+    if (!why.includes(`\`${r.id}\``) || !why.includes(`\`${key}\``))
+      fails.push(
+        `(f) ${table} with \`${key}\` added to \`${r.id}\` is not refused naming both: ${why || "no refusal"}`,
+      );
+  }
+}
+
+// (g) AN AXIS'S SENTENCE IS ITS LINE OF THE JUDGE'S PROMPT FILE (kogaki#1862): a registry carrying one is refused when
+// read, naming the axis.
+{
+  cases++;
+  const { readAxes } = await imp("src/paragraph-plan/axes.mjs");
+  const held = JSON.parse(readFileSync("src/paragraph-plan-axes.json", "utf8"));
+  held.axes[0].sentence = "The run holds.";
+  const dir = mkdtempSync(join(tmpdir(), "prompt-files-axes-"));
+  writeFileSync(join(dir, "axes.json"), JSON.stringify(held));
+  let why = "";
+  try {
+    readAxes(join(dir, "axes.json"));
+  } catch (e) {
+    why = e.message;
+  }
+  rmSync(dir, { recursive: true, force: true });
+  if (!why.includes(`axis ${held.axes[0].id} carries \`sentence\``))
+    fails.push(`(g) a registry carrying a sentence is not refused naming the axis: ${why || "no refusal"}`);
+}
+
 // (e) ONE SENTENCE, ONE JOB (kogaki#1858): every sentence line of each listed prompt file passes `axisSentenceRefusal`.
 // A file joins the list when an Issue rewrites it.
 const ONE_SENTENCE_FILES = ["prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt"];
@@ -182,5 +242,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6} saved cases`,
+  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6 + C.ROWS.length} saved cases`,
 );

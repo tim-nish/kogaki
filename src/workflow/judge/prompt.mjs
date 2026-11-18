@@ -2,10 +2,10 @@
 // its text. Cut from src/workflow/judge.mjs along its headed sections (kogaki#1800); the design and
 // its rulings are stated at the entry and in the Issues each block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): see `src/SPEC-REFERENCES.md`.
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { REPO, fail, flow } from "../run-record.mjs";
-import { renderPromptFile } from "../../prompt-file.mjs";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { INSTRUCTION_KEYS, REPO, fail, flow } from "../run-record.mjs";
+import { promptFileSource, renderPromptFile } from "../../prompt-file.mjs";
 
 // Everything after this line in a judge prompt is the input file, verbatim.
 export const JUDGE_INPUT_MARKER = "----- INPUT (JSON) -----";
@@ -191,108 +191,96 @@ function judgeRecordExample(st, input) {
   return out;
 }
 
-// SHARED TEXT (kogaki#1452): a criterion two rows of one table must say identically is
-// written ONCE, under the table's `shared_text`, and each row's text names it as
-// `{{shared:<name>}}`. The row declares the table it reads that text from in
-// `shared_text_file`, because this renderer is handed the row and never the table.
-// An unknown name, or a reference with no file declared, fails rather than rendering
-// the token: a criterion the model never sees is a criterion nobody enforces.
-export const SHARED_TEXT_TOKEN = /\{\{shared:([A-Za-z0-9_]+)\}\}/g;
-export const SHARED_TEXT_FIELDS = Object.freeze(["judgment_point", "input_shape", "refusal"]);
+// A ROW'S INSTRUCTION IS ITS PROMPT FILE (kogaki#1862): a row carrying one of these keys is refused, naming the key.
+export { INSTRUCTION_KEYS } from "../run-record.mjs";
 
-export function sharedTextOf(st) {
-  const refs = SHARED_TEXT_FIELDS.some(
-    (f) => typeof st[f] === "string" && new RegExp(SHARED_TEXT_TOKEN.source).test(st[f]),
+function refuseInstruction(row) {
+  const key = INSTRUCTION_KEYS.find((k) => Object.hasOwn(row, k));
+  if (key)
+    fail(`${row.id}: the row carries \`${key}\`; its instruction is its prompt file under prompts/ (kogaki#1862).`);
+  if (!row.prompt_file) fail(`${row.id}: the row names no \`prompt_file\` under prompts/ (kogaki#1862).`);
+}
+
+// The shared passages a row's prompt file names, outside the judge's own, by name with `_` for `-`: kogaki#1862.
+export function passagesOf(row) {
+  const source = promptFileSource(String(row.prompt_file));
+  const names = [...source.matchAll(/\{\{> ([\w/-]+)\}\}/g)].map((m) => m[1]).filter((n) => !n.startsWith("judge-"));
+  return Object.fromEntries(
+    [...new Set(names)].map((n) => [
+      n.slice(n.lastIndexOf("/") + 1).replace(/-/g, "_"),
+      renderPromptFile(passagePath(n), {}),
+    ]),
   );
-  if (!st.shared_text_file) {
-    if (refs)
-      fail(`${st.id}: the row names shared text and declares no \`shared_text_file\` to read it from (kogaki#1452).`);
-    return null;
-  }
-  const sp = join(REPO, String(st.shared_text_file));
-  if (!existsSync(sp))
-    fail(`${st.id}: \`shared_text_file\` ${JSON.stringify(st.shared_text_file)} names no file (kogaki#1452).`);
-  // A FOLDER UNDER prompts/ (kogaki#1855): `{{shared:<name>}}` is its file `_<name>.prompt`, underscores as hyphens.
-  if (String(st.shared_text_file).startsWith("prompts/") && statSync(sp).isDirectory()) {
-    const passages = readdirSync(sp).filter((f) => f.startsWith("_") && f.endsWith(".prompt"));
-    return Object.fromEntries(
-      passages.map((f) => [
-        f.slice(1, -".prompt".length).replace(/-/g, "_"),
-        readFileSync(join(sp, f), "utf8").replace(/\n$/, ""),
-      ]),
+}
+
+const passagePath = (name) => {
+  const at = name.lastIndexOf("/") + 1;
+  return `${name.slice(0, at)}_${name.slice(at)}`;
+};
+
+// The values of the schema passages (kogaki#1108, kogaki#1126, kogaki#1307): one file, whole or by its named blocks.
+function schemaValues(st) {
+  if (!st.schema_file) return {};
+  const files = Array.isArray(st.schema_file) ? st.schema_file : [st.schema_file];
+  if (files.length !== 1)
+    fail(`${st.id}: a prompt file shows one schema file, and this row declares ${files.length} (kogaki#1862).`);
+  const declared = String(files[0]);
+  const sp = join(REPO, declared);
+  if (!existsSync(sp)) {
+    fail(
+      `${st.id}: the table declares \`schema_file\` ${JSON.stringify(declared)} and no such file ` +
+        `exists. A judgment state that names a shape the judge is never shown is the prose-only prompt ` +
+        `wearing a declaration (kogaki#1108).`,
     );
   }
-  const shared = JSON.parse(readFileSync(sp, "utf8")).shared_text;
-  if (!shared || typeof shared !== "object") {
-    fail(`${st.id}: ${st.shared_text_file} declares no \`shared_text\` block (kogaki#1452).`);
+  if (!Array.isArray(st.schema_blocks)) return { schema_path: declared, schema_text: readFileSync(sp, "utf8") };
+  const blocks = st.schema_blocks.map(String);
+  const whole = JSON.parse(readFileSync(sp, "utf8"));
+  const missing = blocks.filter((b) => !(b in whole));
+  if (missing.length) {
+    fail(
+      `${st.id}: \`schema_blocks\` names ${JSON.stringify(missing)}, which ${declared} does not declare (kogaki#1307).`,
+    );
   }
-  return shared;
+  return {
+    schema_path: declared,
+    schema_blocks: blocks.join(", "),
+    schema_text: JSON.stringify(Object.fromEntries(blocks.map((b) => [b, whole[b]])), null, 2),
+  };
 }
 
-// THE AXES (kogaki#1533): a row whose criteria are a registry of one-sentence axes names
-// that file in `axes_file`, and `{{axes}}` in its judgment point renders one
-// `- <ID>: <sentence>` line per axis, in the registry's order. The criteria are written once,
-// beside the fixtures and the bench run that justify each; a row naming the file without the
-// token, or the token without the file, fails rather than rendering a judge with no criteria.
-export const AXES_TOKEN = "{{axes}}";
-
-export function axesOf(axesFile) {
-  const p = resolve(REPO, String(axesFile));
-  if (!existsSync(p)) fail(`\`axes_file\` ${JSON.stringify(axesFile)} names no file (kogaki#1533).`);
-  const axes = JSON.parse(readFileSync(p, "utf8")).axes;
-  if (!Array.isArray(axes) || !axes.length) fail(`${axesFile} declares no \`axes\` (kogaki#1533).`);
-  return axes.map((a) => ({ id: String(a.id), sentence: String(a.sentence) }));
+// A row declaring a schema or a record example whose prompt file does not show it is refused: kogaki#1862.
+function refuseUnshown(st, values) {
+  const source = promptFileSource(String(st.prompt_file));
+  const shows = (n) => source.includes(`{{> ${n}}}`);
+  if (values.schema_text !== undefined && !shows(values.schema_blocks ? "judge-schema-blocks" : "judge-schema"))
+    fail(
+      `${st.id}: the row declares \`schema_file\` and prompts/${st.prompt_file}.prompt does not show it (kogaki#1862).`,
+    );
+  if (values.record_example !== undefined && !shows("judge-record-example"))
+    fail(
+      `${st.id}: the row declares \`record_example\` and prompts/${st.prompt_file}.prompt does not show it (kogaki#1862).`,
+    );
 }
 
-function withAxes(st) {
-  const jp = typeof st.judgment_point === "string" ? st.judgment_point : "";
-  const named = jp.includes(AXES_TOKEN);
-  if (!st.axes_file && !named) return st;
-  if (!st.axes_file)
-    fail(`${st.id}: the judgment point names ${AXES_TOKEN} and the row declares no \`axes_file\` (kogaki#1533).`);
-  if (!named)
-    fail(`${st.id}: the row declares \`axes_file\` and its judgment point carries no ${AXES_TOKEN} (kogaki#1533).`);
-  const lines = axesOf(st.axes_file)
-    .map((a) => `- ${a.id}: ${a.sentence}`)
-    .join("\n");
-  // The rendered row drops `axes_file`, so a row rendered twice renders the same text.
-  const { axes_file: _, ...rest } = st;
-  return { ...rest, judgment_point: jp.replace(AXES_TOKEN, () => lines) };
-}
-
-// The row with its axes rendered and every `{{shared:<name>}}` in its three prompt fields
-// replaced by the text the table declares once. Exported so a check reads the same text the
-// model is shown.
-export function withSharedText(row) {
-  if (row.prompt_file) return withPromptFileText(row);
-  const st = withAxes(row);
-  const shared = sharedTextOf(st);
-  if (!shared) return st;
-  const out = { ...st };
-  for (const f of SHARED_TEXT_FIELDS) {
-    if (typeof st[f] !== "string") continue;
-    out[f] = st[f].replace(SHARED_TEXT_TOKEN, (_, name) => {
-      if (typeof shared[name] !== "string") {
-        fail(
-          `${st.id}: \`${f}\` names shared text ${JSON.stringify(name)}, which ${st.shared_text_file} does not declare (kogaki#1452).`,
-        );
-      }
-      return shared[name];
-    });
-  }
-  return out;
-}
-
-// A row carrying `prompt_file` (kogaki#1855): its three texts read from that file, each shared passage written in --
-// each the text after its label up to the next label, and the refusal up to the shared passage `judge-closing`.
+// The row with its three texts read from its prompt file: each the text after its label, the refusal up to the first
+// passage after it. Exported so a check reads the same text the model is shown.
 const PROMPT_FILE_LABELS = [
   ["judgment_point", "JUDGMENT POINT: "],
   ["input_shape", "\nREQUIRED RECORD SHAPE: "],
   ["refusal", "\nWHAT IS REFUSED: "],
 ];
-function withPromptFileText(row) {
-  const text = renderPromptFile(String(row.prompt_file), { flow_label: "", row_id: String(row.id), input: "" });
-  const closing = text.lastIndexOf(`\n\n${renderPromptFile("_judge-closing", {})}`);
+const AFTER_REFUSAL = ["_judge-schema", "_judge-schema-blocks", "_judge-record-example", "_judge-closing"];
+const BLANK = { schema_path: "", schema_text: "", schema_blocks: "", record_example: "" };
+
+export function withPromptText(row) {
+  refuseInstruction(row);
+  const text = renderPromptFile(String(row.prompt_file), {
+    ...BLANK,
+    flow_label: "",
+    row_id: String(row.id),
+    input: "",
+  });
   const at = PROMPT_FILE_LABELS.map(([field, label]) => {
     const i = text.indexOf(label);
     if (i < 0)
@@ -301,98 +289,36 @@ function withPromptFileText(row) {
       );
     return i + label.length;
   });
-  if (closing < 0)
+  const ends = AFTER_REFUSAL.map((p) => text.indexOf(`\n\n${renderPromptFile(p, BLANK).split("\n")[0]}`, at[2])).filter(
+    (i) => i >= 0,
+  );
+  if (!ends.length)
     fail(`${row.id}: prompts/${row.prompt_file}.prompt does not name the shared passage judge-closing (kogaki#1855).`);
-  const ends = [at[1] - PROMPT_FILE_LABELS[1][1].length, at[2] - PROMPT_FILE_LABELS[2][1].length, closing];
-  return { ...row, ...Object.fromEntries(PROMPT_FILE_LABELS.map(([field], i) => [field, text.slice(at[i], ends[i])])) };
+  const bounds = [at[1] - PROMPT_FILE_LABELS[1][1].length, at[2] - PROMPT_FILE_LABELS[2][1].length, Math.min(...ends)];
+  return {
+    ...row,
+    ...Object.fromEntries(PROMPT_FILE_LABELS.map(([field], i) => [field, text.slice(at[i], bounds[i])])),
+  };
 }
 
-// The prompt is composed FROM THE TABLE (judgment point, input shape, refusal text).
-// COMPOSED PER CALL (kogaki#1059): `lastRefusal` -- the Call history, as
-// `judgeRefusalBlock` takes it -- makes each re-ask a different ask.
-// EXPORTED FOR THE DETACHED JOB (kogaki#1193): unit prompts use this one renderer.
+// The prompt is the row's prompt file, rendered per call (kogaki#1855, kogaki#1862): its schema and record example are
+// values of the file's passages, and `lastRefusal` -- the Call history, as `judgeRefusalBlock` takes it -- makes each
+// re-ask a different ask. EXPORTED FOR THE DETACHED JOB (kogaki#1193): unit prompts use this one renderer.
 export function judgePrompt(row, inputText, input, lastRefusal) {
+  refuseInstruction(row);
   const asked = Array.isArray(lastRefusal) ? lastRefusal.length : lastRefusal;
-  const head = { flow_label: flow().label, row_id: row.id };
-  // A ROW CARRYING `prompt_file` IS THAT FILE (kogaki#1855): rendered through it and nothing else.
-  if (row.prompt_file) {
-    const reask = asked ? reaskValues(historyList(lastRefusal)) : {};
-    return renderPromptFile(String(row.prompt_file), { ...head, ...reask, input: inputText });
-  }
-  const st = withSharedText(row);
-  const L = [];
-  L.push(withoutLineEnd(renderPromptFile("_judge-opening", head)));
-  L.push("");
-  L.push(`JUDGMENT POINT: ${st.judgment_point || st.id}`);
-  L.push(`REQUIRED RECORD SHAPE: ${st.input_shape || "the typed record this state declares"}`);
-  if (st.refusal) L.push(`WHAT IS REFUSED: ${st.refusal}`);
-  // THE DECLARED SCHEMA, RENDERED VERBATIM (kogaki#1108). The validator reads its field
-  // set from the same file, so the prompt and the refusal cannot disagree.
-  // It stands ABOVE the input marker; everything past the marker is the composed input.
-  // ONE ROW, ONE OR MANY FILES (kogaki#1126): each file whole, in order; a bare string
-  // is the one-element list, so every pre-#1126 row reads unchanged.
-  // Never fold two schemas into one file.
-  // `schema_blocks` (kogaki#1307) names the top-level blocks of a ONE-file row to render,
-  // each verbatim, for a row asking for one part of a file that also declares a shape this
-  // judge is never asked for -- the per-unit Move-fit judge answers ONE specialization
-  // record, and the file's `set` envelope is the adoption-level carrier, not its answer.
-  const blocks = Array.isArray(st.schema_blocks) ? st.schema_blocks.map(String) : null;
-  if (blocks && Array.isArray(st.schema_file)) {
-    fail(`${st.id}: \`schema_blocks\` names blocks of ONE schema file, and this row declares several (kogaki#1307).`);
-  }
-  for (const declared of Array.isArray(st.schema_file) ? st.schema_file : st.schema_file ? [st.schema_file] : []) {
-    const sp = join(REPO, String(declared));
-    if (!existsSync(sp)) {
-      fail(
-        `${st.id}: the table declares \`schema_file\` ${JSON.stringify(declared)} and no such file ` +
-          `exists. A judgment state that names a shape the judge is never shown is the prose-only prompt ` +
-          `wearing a declaration (kogaki#1108).`,
-      );
-    }
-    L.push("");
-    if (blocks) {
-      const whole = JSON.parse(readFileSync(sp, "utf8"));
-      const missing = blocks.filter((b) => !(b in whole));
-      if (missing.length) {
-        fail(
-          `${st.id}: \`schema_blocks\` names ${JSON.stringify(missing)}, which ${declared} does not declare (kogaki#1307).`,
-        );
-      }
-      L.push(
-        `THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- the blocks ${blocks.join(", ")} of ${declared}, verbatim.`,
-      );
-      L.push("Every field they declare, and what each one means. The refusals that judge your answer read");
-      L.push("their field set from these same blocks, so what you are asked for and what is checked are one");
-      L.push("text. Read them before composing.");
-      L.push(JSON.stringify(Object.fromEntries(blocks.map((b) => [b, whole[b]])), null, 2));
-      continue;
-    }
-    L.push(`THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- ${declared}, verbatim.`);
-    L.push("Every field it declares, and what each one means. The refusals that judge your answer read");
-    L.push("their field set from this same file, so what you are asked for and what is checked are one");
-    L.push("text. Read it before composing.");
-    L.push(readFileSync(sp, "utf8"));
-  }
-  const example = judgeRecordExample(st, input);
-  if (example) {
-    L.push("");
-    L.push("THE LITERAL RECORD SHAPE, filled from THIS run's own composed input. Answer with a record");
-    L.push("of exactly this shape: the same keys, the same nesting, and the same group names, with");
-    L.push("each placeholder replaced by your judgment. The sentence above DESCRIBES the record; this");
-    L.push("is the record.");
-    L.push(JSON.stringify(example, null, 2));
-  }
-  L.push("");
-  L.push(withoutLineEnd(renderPromptFile("_judge-closing", {})));
-  if (asked) {
-    L.push(judgeRefusalBlock(lastRefusal));
-  }
-  L.push("");
-  // THE MARKER IS PART OF THE CONTRACT, not decoration. Everything after it is
-  // the input file verbatim, so a reader — the judge, or a fixture stub standing
-  // in for one — can find the input by position rather than by scanning for a
-  // brace that the state's own `input_shape` text might also contain.
-  L.push(JUDGE_INPUT_MARKER);
-  L.push(inputText);
-  return L.join("\n");
+  const example = judgeRecordExample(row, input);
+  const values = {
+    ...schemaValues(row),
+    ...(example ? { record_example: JSON.stringify(example, null, 2) } : {}),
+  };
+  refuseUnshown(row, values);
+  const reask = asked ? reaskValues(historyList(lastRefusal)) : {};
+  return renderPromptFile(String(row.prompt_file), {
+    flow_label: flow().label,
+    row_id: row.id,
+    ...values,
+    ...reask,
+    input: inputText,
+  });
 }

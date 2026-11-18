@@ -421,12 +421,38 @@ export function completeState(rec, stateId, advancedBy) {
   });
 }
 
+// A ROW'S INSTRUCTION IS ITS PROMPT FILE (kogaki#1862): a table whose row carries one of these keys is refused when it
+// is read, naming the row and the key.
+export const INSTRUCTION_KEYS = Object.freeze(["judgment_point", "input_shape", "refusal"]);
+
+export function instructionKeyRefusal(table, path) {
+  const rows = [
+    ...(Array.isArray(table.states) ? table.states.map((s) => [s && s.id, s]) : []),
+    ...Object.entries(table).filter(([k]) => k !== "states"),
+  ];
+  for (const [id, row] of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const key = INSTRUCTION_KEYS.find((k) => Object.hasOwn(row, k));
+    if (key)
+      return `workflow table ${path}: the row \`${id}\` carries \`${key}\`; a row's instruction is its prompt file under prompts/ (kogaki#1862).`;
+  }
+  return null;
+}
+
+// A workflow table, read: refused where a row carries its instruction (kogaki#1862).
+export function readRowTable(path) {
+  const table = readJson(path);
+  const why = instructionKeyRefusal(table, path);
+  if (why) fail(why);
+  return table;
+}
+
 // Structural validation only. This reads the table's FORM — ids present and
 // unique, kinds interpretable, a write naming an artifact, a terminal
 // existing. It judges no semantic contract, because the workflow table makes the table
 // authoritative over sequencing and "authoritative over NOTHING ELSE".
 export function loadWorkflowTable(path) {
-  const table = readJson(path);
+  const table = readRowTable(path);
   if (!Array.isArray(table.states) || table.states.length === 0) {
     fail(
       `workflow table ${path} declares no states. The workflow table makes this artifact authoritative over sequencing; an empty array is not a flow.`,

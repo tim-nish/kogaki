@@ -405,7 +405,7 @@ process.stdin.on("end", () => {
   // The run record binds no default lane (kogaki#1741): a Brief row renders under the Brief's flow.
   (await import("./src/workflow/run-record.mjs")).bindFlow((await import("./src/brief/job-verbs.mjs")).BRIEF_FLOW);
   const { readCallRecord, RETIRED_NAMES } = await import("./src/workflow/call-record.mjs");
-  const { WAYPOINT_ROW: unitRow } = await import("./checks/fixtures/brief-reader-path-job/waypoint-unit.mjs"); // a fixture row: the Brief asks no Waypoint Call (kogaki#1775)
+  const unitRow = { id: "review_path_unit", ...JSON.parse(readFileSync("src/brief-workflow.json", "utf8")).review_path_unit }; // a Brief unit row (kogaki#1862)
   const input = { state: "compose_path", unit_number: 1, fixture: "RECORD_ONCE" };
   const inputText = JSON.stringify(input, null, 2);
   const first = judgePrompt(unitRow, inputText, input, null);

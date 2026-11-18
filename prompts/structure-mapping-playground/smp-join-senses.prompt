@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: for each entry of `rows` in the input, a pair of sentences of `sentences` and one Sense of `senses` with the sentence that plays its part, give a joining word or phrase that says that Sense, in the language the sentences are written in, as `word`, and the second sentence of the pair with its own joining word taken off, as `second`. Change the ending of `second` only where the Sense cannot be said otherwise, and change no other word. Where the second sentence as written already says that Sense, answer its own joining word as `word`.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly one key: `rows` -- one `{ "pair": [k, k+1], "sense", "played_by", "word": <a joining word or phrase>, "second": <the second sentence> }` per entry of the input's `rows`, in order, repeating its `pair`, `sense` and `played_by`.
+WHAT IS REFUSED: a key the record or a row does not declare, or a declared key missing; a `rows` list that is not one entry per input row; a row that does not repeat its input row's `pair`, `sense` and `played_by`; and an empty `word` or `second`. Each refusal names the row. The first refusal is put back into your next round verbatim with your answer; a second stops the run.
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

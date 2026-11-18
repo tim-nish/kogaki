@@ -134,8 +134,6 @@
     {
       "id": "J2_subdivision",
       "kind": "judgment",
-      "judgment_point": "GroupClaim composition and semantic subdivision, ONE PER-GROUP CALL (kogaki#1172): every group's claim and its SubGroups are judged together, over that group's own material alone.",
-      "input_shape": "typed per-group record, judged: true, one entry per composed group, carrying the judge pin, a `claim` -- the GroupClaim, one sentence, no citation -- and the SubGroups; each SubGroup carries a `coherence` label from the closed set tight | related | loose | other and a `coherence_why` sentence",
       "per_group": true,
       "limits": "subdivision",
       "record_example": {
@@ -161,11 +159,11 @@
         }
       },
       "retries": 2,
-      "refusal": "a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (semantic subdivision)",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "GroupClaim-first rendering, semantic subdivision, measurement before offering, the report identity, the open questions"
+      "governing": "GroupClaim-first rendering, semantic subdivision, measurement before offering, the report identity, the open questions",
+      "prompt_file": "terrain/j2-subdivision"
     },
     {
       "id": "cotag_groups",
@@ -190,15 +188,13 @@
     {
       "id": "thesis_candidates",
       "kind": "judgment",
-      "judgment_point": "Thesis-candidate composition (the Thesis candidates)",
-      "input_shape": "typed array of {claim, strands} objects, exactly `limits.thesis_candidates` of them, each combining 2 to 8 LessonDisplayIDs THIS report renders",
       "retries": 2,
-      "refusal": "a count other than the declared limit, a claim spanning more than one line, a strand list outside 2 to 8, a strand no entered Group or SubGroup carries, and a repeated strand are each refused",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
       "governing": "the Thesis candidates, the neighborhood section's shape",
-      "ordering": "AHEAD OF J3_neighborhood, and that is this row's whole reason for existing at this position (kogaki#861, owner ruling 2026-09-05). The neighborhood judgment names, per candidate, the Thesis candidate it serves; a target can only be refused against a candidate set that already exists, so the ids are FIXED here and J3 reads them. The alternative — one judgment composing candidates and neighborhood together — was declined: the model would supply the list and the targets into it in the same act, and nothing outside that act could refuse a target naming a candidate the same record invented."
+      "ordering": "AHEAD OF J3_neighborhood, and that is this row's whole reason for existing at this position (kogaki#861, owner ruling 2026-09-05). The neighborhood judgment names, per candidate, the Thesis candidate it serves; a target can only be refused against a candidate set that already exists, so the ids are FIXED here and J3 reads them. The alternative — one judgment composing candidates and neighborhood together — was declined: the model would supply the list and the targets into it in the same act, and nothing outside that act could refuse a target naming a candidate the same record invented.",
+      "prompt_file": "terrain/thesis-candidates"
     },
     {
       "id": "neighborhood_input",
@@ -212,14 +208,12 @@
     {
       "id": "J3_neighborhood",
       "kind": "judgment",
-      "judgment_point": "provenance-neighborhood recommendation",
-      "input_shape": "typed record keyed by candidate slug, each carrying one free-form claim, one level from the harness-fixed set, and one target naming the Thesis candidate it serves and its role for that candidate",
       "retries": 2,
-      "refusal": "a level outside the closed set, a level with no claim, a judgment with no target, a target that is not a TC id, a target naming a Thesis candidate the thesis_candidates state did not compose, and a key no mechanical candidate carries are each refused, naming the offending slug",
       "writes": null,
       "conditional": false,
       "renders_gate_declaration": false,
-      "governing": "the neighborhood section's shape"
+      "governing": "the neighborhood section's shape",
+      "prompt_file": "terrain/j3-neighborhood"
     },
     {
       "id": "full_report",

@@ -41,7 +41,7 @@ import {
   readerPathJobPath,
   startDetachedJobSupervisor,
 } from "../workflow/detached-job.mjs";
-import { judgePrompt, judgeSettings, settingValue } from "../workflow/judge.mjs";
+import { judgePrompt, judgeSettings, settingValue, withPromptText } from "../workflow/judge.mjs";
 import { JudgmentRefusal, relFromRepo } from "../workflow/run-record.mjs";
 import {
   classifyHomes,
@@ -94,7 +94,7 @@ async function judgeRenderings(rec, st, table, args, { record, thesis, language 
     try {
       r = readJson(p);
     } catch (e) {
-      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${withPromptText(row).input_shape}`);
     }
     if (!r || r.version !== "1") {
       refuseJudgment(
@@ -182,7 +182,7 @@ async function finishReaderPath(rec, st, table, args, { structure, language }) {
     try {
       r = readJson(p);
     } catch (e) {
-      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${withPromptText(row).input_shape}`);
     }
     const out = applyLegSections(derived, r);
     if (out.error) refuseJudgment(out.error);
@@ -277,7 +277,7 @@ async function boundTheses(rec, table, args, { candidates, connected, language, 
     try {
       r = readJson(p);
     } catch (e) {
-      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+      refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${withPromptText(row).input_shape}`);
     }
     const bad = thesisBoundRefusal(r, over, bound);
     if (bad) refuseJudgment(bad);
@@ -339,7 +339,7 @@ export const STATE_WORK = {
       try {
         r = readJson(p);
       } catch (e) {
-        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`);
+        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${withPromptText(st).input_shape}`);
       }
       const m = mintStructure(r);
       if (m.text) refuseJudgment(m.text);
@@ -399,7 +399,7 @@ export const STATE_WORK = {
         try {
           r = readJson(p);
         } catch (e) {
-          refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${st.input_shape}`);
+          refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${withPromptText(st).input_shape}`);
         }
         const v = validateApex(r, multi, state.structure);
         if (v.text) refuseJudgment(v.text);
@@ -453,7 +453,7 @@ export const STATE_WORK = {
       try {
         r = readJson(p);
       } catch (e) {
-        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${row.input_shape}`);
+        refuseJudgment(`the record at ${p} is not JSON (${e.message}); ${withPromptText(row).input_shape}`);
       }
       if (!r || r.version !== "1") {
         refuseJudgment(

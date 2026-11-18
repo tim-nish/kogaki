@@ -18,11 +18,10 @@ import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, legRecord, briefRecordText } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, awaitJob, lastRefusal, writeJson } from "../move-extraction-playground/extract.mjs";
 import { completedLeg, legAsText } from "../move-extraction-playground/leg-brief.mjs";
-import { resolvedRow } from "../workflow/copies.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../move-extraction-playground/leg-run.mjs";
 import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
@@ -189,7 +188,7 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
   const m = mapperRow(playground, mapper);
   if (m.error) fail(`${m.error}. Nothing was started.`);
   const { persona } = audienceOf(audience);
-  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const extraction = readRowTable(EXTRACTION_TABLE);
   const dir = resolve(out);
   const r = runRow({
     dir,
@@ -212,10 +211,10 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
 
 export function composeTrialBrief({ strandFile, structureFile, out, slug, audience }) {
   const { strand, structure } = readInputs(strandFile, structureFile);
-  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
-  const playground = JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
-  const lr = resolvedRow(playground, "smp_leg_unit");
-  if (lr.error) fail(`${lr.error}. Nothing was started.`);
+  const extraction = readRowTable(EXTRACTION_TABLE);
+  const playground = readRowTable(join(REPO, PLAYGROUND_TABLE));
+  if (!playground.smp_leg_unit) fail("the table declares no `smp_leg_unit` row. Nothing was started.");
+  const lr = { row: { id: "smp_leg_unit", ...playground.smp_leg_unit } };
   const { audiencePath, persona } = audienceOf(audience);
   const lang = audienceLanguage(audiencePath);
   if (lang.error) fail(`${lang.error} Nothing was started.`);
