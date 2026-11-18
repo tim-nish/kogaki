@@ -634,6 +634,23 @@ ok(
       ]),
   `(i) the paragraph record is not one paragraph under the named Move, each Point serving the Leg's Lessons with an empty cast: ${JSON.stringify(tParagraphs)}`,
 );
+// The Writer is handed the plan and no Point (kogaki#1859): the Arguments, the CentralClaim and one part per Segment.
+const tWriter = ((ti.seen.find((x) => x.stage === "writer") || {}).prompt || "").split("\n");
+ok(
+  [
+    "- Argument 1. The installer writes the copy.",
+    "- Argument 2. The copy overwrites any edit.",
+    "- CentralClaim. The copy is the installer's.",
+    "1. Argument 1.",
+    "2. Argument 2. Sense Concession, to part 1.",
+    "3. CentralClaim. Sense Cause, to part 2.",
+  ].every((l) => tWriter.includes(l)),
+  `(i) the writer's stdin does not hold the Leg's Arguments, its CentralClaim and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(- |\d+\. )/.test(l)))}`,
+);
+ok(
+  !tWriter.some((l) => l.includes("PW-") || l.includes("*Serves:*") || l.includes("voiced as the parties' own words")),
+  "(i) the writer's stdin carries a Point, a Serves line or a Segment's manner",
+);
 const tGround = ti.seen.find((x) => x.stage === "grounding");
 ok(
   tGround && tGround.prompt.includes('"genericity"') && !tGround.prompt.includes("names the two parts"),

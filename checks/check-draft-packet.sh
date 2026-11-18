@@ -1,46 +1,32 @@
 #!/usr/bin/env bash
-# check-draft-packet — the rendered Leg Packet carries the Opens-from line as
-# one relation word and tells the Writer to realise it with a connective or
-# clause, or with nothing, never as a proposition of its own (kogaki#1447,
-# kogaki#1477).
+# check-draft-packet — the rendered Leg Packet hands the Writer a plan and no
+# Point (kogaki#1859).
 #
-# THE OWNER'S DECISION THIS NOW HOLDS (2026-10-20, kogaki#1477): "I think
-# redefining Join as a relationship type is probably the right direction." On
-# the 2026-10-19 Move-Extraction Playground run every paragraph after the first opened on its
-# join sentence paraphrased as a clause, because a sentence the Writer must
-# realise in its own text is content to the Writer.
-#
-# THE DECISION IT HELD BEFORE (2026-10-19, kogaki#1447): "A join is a connection and
-# nothing more ... the Writer realises it inside the first sentence rather than
-# as a sentence of its own." On 2026-10-19 paragraph 2 of the attack-defense
-# Move-Extraction Playground run opened on its plan's join rendered nearly whole, because
-# `prompts/draft/write-leg.prompt` said the opening realises the line "in a
-# connective, a clause or a sentence of your choosing", guarded only by "it is
-# not copied".
+# THE OWNER'S DECISION THIS HOLDS (2026-11-18, kogaki#1859): "Points must not be
+# passed to the Writer. Points are for debugging." The Packet's first block is
+# the plan of the paragraph: the Leg's Arguments and CentralClaim, read from the
+# Brief's `structure` at the Leg's `relation`, and, under a Move table, one part
+# per Segment. Nothing of a ParagraphPlan paragraph is printed.
 #
 # WHAT THIS COVERS, over a Packet rendered by `renderPacket` (src/draft.mjs)
 # from a fixture Brief record of one Leg, its `text` and no Brief Waypoint
 # (kogaki#1775), beside the two paragraphs a ParagraphPlan gives it, the second
 # carrying the join `consequence` (kogaki#1777):
-#   (a) the rendered Packet's Opens-from paragraph -- from "An *Opens from*
-#       line" to the blank line -- carries "a connective or clause", "`none`
-#       adds nothing" and "Never state the relation as a proposition of its
-#       own", and does not carry "or a sentence of your choosing", read as word
-#       sequences so a rewrap of the template changes nothing; and nowhere in
-#       the Packet is a sentence offered as the opening's form;
-#   (b) the join renders as its `*Opens from:*` line under the second
-#       paragraph's line, so the paragraph (a) reads is the one governing a line the
-#       Packet actually carries;
-#   (c) THE COUNTERFACTUALS: the same render over the template as it stood
-#       before kogaki#1447, and as it stood before kogaki#1477, is each refused
-#       by the same predicate, so (a) is not passing vacuously.
-#   (d) A `performs` WAYPOINT RENDERS AS AN OPERATION LINE
-#       (kogaki#1448): in the same Packet, a first paragraph whose
-#       Waypoints are a `performs` entry and a `point` entry renders the first
-#       as `1. *<operation>*` under its paragraph's line -- italic, with no point
-#       and no `*Serves:*` -- and the second in the point form; the template's
-#       waypoints block tells the Writer such a line is performed in the
-#       paragraph's own words and states no proposition;
+#   (a) THE PACKET CARRIES NO POINT: the rendered Packet holds none of the
+#       plan's points, no `*Serves:*`, no `*Opens from:*` and no `*Cast:*`, and
+#       its plan block opens with the six fixed sentences;
+#   (b) THE POINTS DO NOT CHANGE THE PACKET: two renderings of the Leg, from two
+#       plans that differ only in their Points -- the point text, a `performs`
+#       entry, a cast, a judge's forced mark and a join -- are equal byte for
+#       byte;
+#   (c) THE PLAN BLOCK READS THE BRIEF'S STRUCTURE: with a `structure` on the
+#       Brief and a `relation` on the Leg, the plan block lists the Arguments as
+#       `- Argument <k>. <sentence>` and the CentralClaim as
+#       `- CentralClaim. <sentence>`, each sentence `legSentences` gives, and
+#       carries no parts list; with `segments` on the Leg it lists one part per
+#       Segment, `Argument <k>`, `CentralClaim` or `Neither`, and its Sense and
+#       the earlier parts it names; with no `structure` it says the claims are
+#       the whole plan and lists no Argument;
 #   (e) `node src/draft.mjs resolve` over the fixture Brief with a
 #       ParagraphPlan file beside it accepts a paragraph carrying a
 #       `performs` entry beside a `point` entry, and refuses one none of whose
@@ -52,22 +38,15 @@
 #       any case; the same render from a copy of that Audience with the
 #       pre-kogaki#1488 Voice paragraph restored is refused by the same
 #       predicate, so the absence is not vacuous.
-#   (g) THE PERFORMS INSTRUCTION IS EIGHT NAMED CRITERIA (kogaki#1555,
-#       kogaki#1592, replacing kogaki#1492's appended sentence): the waypoints
-#       block of the Packet (d) renders carries the eight `- <NAME>: <sentence>` lines
-#       verbatim and none of the sentences of the paragraph they replaced, and
-#       the same render from the template with that paragraph restored is
-#       refused by the same predicate, so the lines are read from the Packet.
-#   (h) A REGISTER RULE YIELDS TO A PLANNED LINE (kogaki#1493): in the Write
-#       block of the Packet rendered from `audiences/dev-to-zenn.md`, the
+#   (h) A REGISTER RULE YIELDS TO THE PLAN (kogaki#1493, kogaki#1859): in the
+#       Write block of the Packet rendered from `audiences/dev-to-zenn.md`, the
 #       precedence paragraph -- from "**What the register below governs.**" to
-#       the blank line -- carries "the line holds and the rule yields" and
+#       the blank line -- carries "the plan holds and the rule yields" and
 #       stands before the register's first rule, "**Sentences:**"; and the
 #       Packet rendered from an Audience whose `register` is one unrelated
 #       sentence carries the same paragraph, byte for byte, before that
 #       sentence, so the paragraph is the template's and no Audience edit
-#       removes it. Whether the Writer yields is the prose's, and no judge
-#       reads it, by the owner's ruling.
+#       removes it.
 #   (i) A LEG INTRODUCES NO TERM (kogaki#1768, retiring kogaki#1491's crossing
 #       line): a Brief whose Leg carries `introduces` is refused naming the
 #       field, and the fixture Leg renders a Packet whose crossing block carries
@@ -87,47 +66,28 @@
 #       the same predicate, so the absences are not vacuous.
 #   (k) THE RENDERER REFUSES A TEMPLATE THAT BREAKS THE CRITERIA BOUND
 #       (kogaki#1555): the shipped template passes `templateCriteriaFailures`
-#       under src/draft-workflow.json's `criteria`; and a template whose
-#       NO CLAIM line runs to `words_max` words, and one whose sentence carries
-#       each of `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that
-#       line -- every member of the family the guard states, not the one case
-#       that prompted it.
+#       under src/draft-workflow.json's `criteria`; and a template given a
+#       criterion line that runs to `words_max` words, or one carrying each of
+#       `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that line.
 #   (l) NO SEGMENT FIELD REACHES THE PACKET (kogaki#1585, owner decision
 #       2026-10-25): a ParagraphPlan written by `paragraphPlanRecord` from
 #       Waypoints that carry their Segment's `manner` -- a `point`
 #       one and a `performs` one -- holds no `manner`, and the Packet
-#       `node src/draft.mjs resolve` renders from it carries both
-#       Waypoints' lines -- read first, so the absence is read over a Packet
-#       known to hold them -- and neither a Manner label nor the manner's
-#       text; and the same plan file with the `manner` written back onto a
-#       Waypoint is refused at resolve, naming that
-#       Waypoint, so the absence is not the reader passing over the key.
-#
-#   (n) EACH INDENTED LINE IS RENDERED AS THE SENTENCES IT IS (kogaki#1694,
-#       owner decision 2026-11-06): the waypoints header of the Packet (a)
-#       renders -- from "## The waypoints" to the first italic rule -- carries
-#       the three sentences of the rule as word sequences and neither retired
-#       sentence; the same render from the template with the pre-kogaki#1694
-#       sentences restored is refused by the same predicate, so (n) is not
-#       passing vacuously.
-#
-#   (o) THE CAST RENDERS AS ITS TRUE KEYS (kogaki#1695, owner decision
-#       2026-11-06): a ParagraphPlan whose first point carries
-#       `cast: { plain: true, terse: true }` and whose second carries `{}`
-#       renders, at `node src/draft.mjs resolve`, `*Cast:* terse, plain` on
-#       the line beneath the first point -- the keys in CAST_KEYS order, not
-#       the map's -- and no other `*Cast:*` line; the Packet's cast paragraph
-#       names every key of CAST_KEYS with its definition and carries "never
-#       as a sentence or clause of its own"; and the same plan with
+#       `node src/draft.mjs resolve` renders from it carries its plan block and
+#       neither a Manner label, the manner's text nor either Waypoint; and the
+#       same plan file with the `manner` written back onto a Waypoint is
+#       refused at resolve, naming that Waypoint.
+#   (m) THE PACKET CARRIES NOTHING OF THE PARAGRAPH'S SCHEMA (kogaki#1639).
+#   (o) A CAST KEY OUTSIDE THE SET IS REFUSED (kogaki#1695): a plan with
 #       `cast: { brief: true }` is refused at resolve naming `brief`.
+#   (p) A PLAN WITH A MAPPING RECORD STILL HANDS NO POINT (kogaki#1735,
+#       kogaki#1859): resolve renders the Packet, which carries none of the
+#       structure's `holds` in the table's expressions, no planned point and
+#       not the Leg's text.
 #
-# NOT COVERED, stated rather than implied: whether a Writer obeys the
-# paragraph is the written prose's, and the review item `opens-from-copied`
-# (checks/check-review-draft.sh) is what reads that. The rest of the Packet's
-# layout is held by checks/check-brief-compose.sh and
-# checks/check-paragraph-plan.sh (n).
-# AND (k) a judge-forced Waypoint renders its mark on a line of its own beneath it,
-#   read back by forcedMarksOf, and the template says nothing of it (kogaki#1649).
+# NOT COVERED, stated rather than implied: whether a Writer obeys the plan
+# is the written prose's. The rest of the Packet's layout is held by
+# checks/check-brief-compose.sh and checks/check-paragraph-plan.sh.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -140,11 +100,10 @@ import { pathToFileURL } from "node:url";
 
 const fails = [];
 const repo = resolve(".");
-const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragraphPlanRecordText, CAST_KEYS } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
+const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragraphPlanRecordText } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { readBrief, renderPacket, sectionsOf, sectionOfLeg } =
   await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
-const { templateCriteriaFailures, forcedMarksOf } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
-const [OPENS_FROM_LABEL, CAST_LABEL] = ["*Opens from:*", "*Cast:*"]; // the labels of prompts/draft/write-leg.prompt (kogaki#1855)
+const { templateCriteriaFailures } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
 const WRITER_PROMPT_FILE = join("prompts", "draft", "write-leg.prompt");
 const renderPacketWith = async (text) => (await treeWith(repo, { [WRITER_PROMPT_FILE]: text })("src/draft.mjs")).renderPacket;
 const { treeWith, removeTrees } = await import(pathToFileURL(join(repo, "checks", "fixtures", "tree-copy.mjs")).href);
@@ -189,114 +148,110 @@ const render = async (templateText) => {
     section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
 };
 const flat = (s) => String(s).replace(/\s+/g, " ");
-const opensFromParagraph = (packet) => {
-  const i = packet.indexOf("An *Opens from* line");
-  if (i === -1) return null;
-  const end = packet.indexOf("\n\n", i);
-  return flat(packet.slice(i, end === -1 ? undefined : end));
+const PLAN_HEAD = [
+  "This block is a plan.",
+  "It is not a draft of the paragraph.",
+  "Each sentence in it only says what is meant.",
+  "None of its wording is kept.",
+  "You choose every word of the paragraph.",
+  "One thing keeps one name through the whole paragraph.",
+];
+const planBlock = (packet) => {
+  const i = packet.indexOf("## The plan of this paragraph\n");
+  const end = packet.indexOf("## The claims this Leg asserts", i);
+  return i === -1 || end === -1 ? null : packet.slice(i, end);
 };
-// THE PREDICATE (a) and (c) share: the paragraph names the realisations a relation word admits,
-// forbids stating it as a proposition, and offers no sentence.
-const realisedInsideFirstSentence = (packet) => {
-  const p = opensFromParagraph(packet);
-  if (p === null) return "the Packet carries no Opens-from paragraph";
-  for (const want of ["a connective or clause", "`none` adds nothing", "Never state the relation as a proposition of its own"]) {
-    if (!p.includes(want)) return `the Opens-from paragraph does not carry "${want}": ${p}`;
-  }
-  if (p.includes("or a sentence of your choosing")) return `the Opens-from paragraph still carries "or a sentence of your choosing": ${p}`;
-  if (flat(packet).includes("or a sentence of your choosing")) return "the Packet still offers a sentence of the Writer's choosing as the opening's form";
-  return null;
-};
+const PERFORMS = "flags the case as hard and announces a simplification by way of a pair of cases.";
 
 const template = readFileSync(WRITER_PROMPT_FILE, "utf8");
 const r = await render();
 if (r.error) fails.push(`(a) the fixture Packet did not render: ${r.error}`);
 else {
-  // (a) the shipped template.
-  const why = realisedInsideFirstSentence(r.packet);
-  if (why) fails.push(`(a) ${why}`);
-  // (b) the line the paragraph governs is in the Packet, under the second paragraph's line.
-  const lines = r.packet.split("\n");
-  const at = lines.findIndex((l) => l.startsWith(`2. ${LEG_TEXT}`));
-  if (at === -1 || lines[at + 1] !== `   ${OPENS_FROM_LABEL} ${JOIN}`) {
-    fails.push(`(b) the join does not render as its Opens-from line under the second paragraph: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 2))}`);
+  // (a) no Point, no Serves, no Opens from, no Cast; the plan block's fixed sentences.
+  for (const pw of PARAS.flatMap((p) => p.paragraph_waypoints.map((w) => w.point))) {
+    if (r.packet.includes(pw)) fails.push(`(a) the Packet carries the planned point ${JSON.stringify(pw)}`);
   }
-  if (lines.filter((l) => l.includes(OPENS_FROM_LABEL)).length !== 1) fails.push("(b) the Packet carries an Opens-from line other than the second paragraph's");
+  for (const label of ["*Serves:*", "*Opens from:*", "*Cast:*", "waypoint"]) {
+    if (r.packet.includes(label)) fails.push(`(a) the Packet carries ${JSON.stringify(label)}`);
+  }
+  const block = planBlock(r.packet);
+  if (block === null) fails.push("(a) the Packet carries no plan block before the claims block");
+  else {
+    const lines = block.split("\n");
+    for (const want of PLAN_HEAD) if (!lines.includes(want)) fails.push(`(a) the plan block does not carry ${JSON.stringify(want)}`);
+  }
 }
 
-// (c) the counterfactuals: the template as it stood before kogaki#1447, and before kogaki#1477,
-// is each refused.
-const OPENS_FROM_HEAD = "An *Opens from* line under a numbered line states how that paragraph's first\n"
-  + "point follows from the paragraph before it. ";
-for (const [label, para] of [
-  ["kogaki#1447", OPENS_FROM_HEAD + "The paragraph's opening realises\nit, in a connective, a clause or a sentence of your "
-    + "choosing and wording, under\nthe Referents rule of the register. It is not a point of its own, it is not\ncopied, and it is not announced."],
-  ["kogaki#1477", OPENS_FROM_HEAD + "The paragraph's opening realises\nthat connection inside its first sentence, in that "
-    + "sentence's connective or\nclause, in wording of your choosing and under the Referents rule of the\nregister: never as a sentence "
-    + "of its own and never in the line's words. The\nline is a connection and nothing more. It is not a point of its own, it is not\n"
-    + "copied, and it is not announced."]]) {
-  const before = template.replace(/An \*Opens from\* line under a numbered line[\s\S]*?\n\n/, para + "\n\n");
-  if (before === template) { fails.push(`(c) the fixture could not rebuild the pre-${label} Opens-from paragraph from the template`); continue; }
-  const old = await render(before);
-  if (old.error) fails.push(`(c) the pre-${label} Packet did not render: ${old.error}`);
-  else if (realisedInsideFirstSentence(old.packet) === null) fails.push(`(c) the pre-${label} Opens-from paragraph passed the predicate (a) applies`);
-}
-
-// (d) a performs Waypoint renders as an operation line, with no point and no Serves.
-const PERFORMS = "flags the case as hard and announces a simplification by way of a pair of cases.";
-const CRITERIA = [
-  "- ITALIC IS AN OPERATION: An indented italic line names an operation on the reader's reading.",
-  "- NOT A POINT: An italic line states no point.",
-  "- IN PLACE: The paragraph performs it at the italic line's place among the points.",
-  "- OWN WORDS: The paragraph performs it in its own words.",
-  "- NO CLAIM: The sentence that performs it states no proposition.",
-  "- NO VERDICT: The sentence that performs it passes no judgment on the material.",
-  "- NO ANTICIPATION: The sentence that performs it names nothing of what follows.",
-  "- NO REASON: The sentence that performs it gives no reason for the operation.",
-];
-// The paragraph the eight lines replaced (kogaki#1448, kogaki#1492), one sentence per entry.
-const REPLACED = [
-  "An indented line in italics, with no claim beside it, is not a point.",
-  "It names an operation the paragraph performs on the reader's reading at that place -- announcing what follows, flagging that the material is hard, signalling a turn.",
-  "Perform it in the paragraph's own words, in its place among the points.",
-  "It asserts nothing: it adds no claim, no cause and no verdict, and it does not anticipate what a later point establishes.",
-  "It brings in no part of the subject that the paragraph's points do not give: no reason for the operation, and nothing of what follows beyond the operation's name.",
-  "A concession that the matter is complex says that and no more; an announcement of a simplification names that a simplification follows and nothing of its content.",
-];
-// THE PREDICATE (g) and its counterfactual share.
-const carriesCriteria = (packet) => {
-  const i = packet.indexOf("## The waypoints this Leg takes the reader through");
-  if (i === -1) return "the Packet carries no waypoints block";
-  const lines = packet.slice(i).split("\n");
-  for (const c of CRITERIA) if (!lines.includes(c)) return `the waypoints block does not carry the criterion line ${JSON.stringify(c)}`;
-  for (const s of REPLACED) if (flat(packet).includes(s)) return `the Packet still carries the replaced sentence ${JSON.stringify(s)}`;
-  return null;
-};
+// (b) two plans differing only in their Points render one Packet.
 {
-  const l = withParas(brief.legs[0], PARAS.map((p, i) => (i === 0
-    ? { ...p, paragraph_waypoints: [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], cast: {} }] } : p)));
+  const other = PARAS.map((p, i) => ({
+    ...p,
+    ...(i === 1 ? { join: "contrast" } : {}),
+    paragraph_waypoints: [
+      { performs: PERFORMS },
+      { point: `OTHER-${i + 1} a different point.`, serves: ["L1"], cast: { terse: true }, forced_by: ["PERFORMS IS BARE"] },
+    ],
+  }));
+  const l = withParas(brief.legs[0], other);
   const r2 = renderPacket({ brief, leg: l, priorSections: [],
     section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
-  if (r2.error) fails.push(`(d) the fixture Packet with a performs Waypoint did not render: ${r2.error}`);
-  else {
-    const lines = r2.packet.split("\n");
-    const at = lines.findIndex((x) => x.startsWith(`1. ${LEG_TEXT}`));
-    if (at === -1 || lines[at + 1] !== `   1. *${PERFORMS}*` || !lines[at + 2].startsWith("   2. PW-1-2 the installer writes the copy. *Serves:* ")) {
-      fails.push(`(d) the performs Waypoint does not render as an italic operation line with no Serves under its paragraph: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 3))}`);
-    }
-    if (lines.some((x) => x.includes(PERFORMS) && x.includes("*Serves:*"))) fails.push("(d) the performs line carries a *Serves:*");
-    const block = r2.packet.slice(r2.packet.indexOf("## The waypoints this Leg takes the reader through")).split("\n");
-    if (!block.includes(CRITERIA[0]) || !block.includes(CRITERIA[3]) || !block.includes(CRITERIA[4])) {
-      fails.push("(d) the Packet's waypoints block does not tell the Writer an italic line is performed in the paragraph's own words and states no proposition");
-    }
-    // (g) the eight criterion lines verbatim, none of the replaced sentences; the restored paragraph is refused.
-    const why = carriesCriteria(r2.packet);
-    if (why) fails.push(`(g) ${why}`);
-    const restored = template.replace(CRITERIA.join("\n"), REPLACED.join(" "));
-    const r0 = restored === template ? { error: "the fixture could not restore the replaced paragraph in the template" } : (await renderPacketWith(restored))({ brief, leg: l, priorSections: [],
+  if (r2.error || r.error) fails.push(`(b) a Packet did not render: ${r2.error || r.error}`);
+  else if (r2.packet !== r.packet) {
+    let k = 0;
+    while (r2.packet[k] === r.packet[k]) k++;
+    fails.push(`(b) two plans differing only in their Points render two Packets, apart at byte ${k}: ${JSON.stringify(r2.packet.slice(k, k + 80))}`);
+  }
+}
+
+// (c) the plan block reads the Brief's structure at the Leg's relation, and the Leg's segments.
+{
+  const STRUCTURE = {
+    roles: [
+      { id: "kit", name: "the kit", context: "The files the installer copies.", attributes: [] },
+      { id: "tree", name: "the consumer's tree", context: "The directory the copy lands in.", attributes: [] },
+    ],
+    relations: [
+      { id: "writes", name: "writes", between: ["kit", "tree"], holds: "The installer writes {kit} into {tree}." },
+      { id: "overwrites", name: "overwrites", between: ["kit", "tree"], holds: "The next run overwrites an edit to {kit} in {tree}." },
+    ],
+    higher_order: [{ id: "lost", name: "lost", relates: ["writes", "overwrites"], holds: "An edit to {kit} in {tree} is lost." }],
+  };
+  const ARGS = ["The installer writes the kit into the consumer's tree.", "The next run overwrites an edit to the kit in the consumer's tree."];
+  const CENTRAL = "An edit to the kit in the consumer's tree is lost.";
+  const sBrief = { ...brief, record: { ...brief.record, structure: STRUCTURE } };
+  const renderLeg = (extra) => {
+    const l = withParas({ ...brief.legs[0], ...extra });
+    return renderPacket({ brief: sBrief, leg: l, priorSections: [],
       section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
-    if (r0.error) fails.push(`(g) the Packet rendered from the restored paragraph did not render: ${r0.error}`);
-    else if (carriesCriteria(r0.packet) === null) fails.push("(g) the restored paragraph passed the predicate (g) applies");
+  };
+  const said = [...ARGS.map((a, k) => `- Argument ${k + 1}. ${a}`), `- CentralClaim. ${CENTRAL}`];
+  const plain = renderLeg({ relation: "lost" });
+  if (plain.error) fails.push(`(c) the Packet with a structure did not render: ${plain.error}`);
+  else {
+    const lines = (planBlock(plain.packet) || "").split("\n");
+    for (const want of said) if (!lines.includes(want)) fails.push(`(c) the plan block does not carry ${JSON.stringify(want)}`);
+    if (lines.includes("### The parts of the paragraph, in order")) fails.push("(c) a Leg with no segments renders a parts list");
+    if (lines.includes("The claims below are the whole plan of this paragraph.")) fails.push("(c) a Leg with a structure says the claims are the whole plan");
+  }
+  const parted = renderLeg({ relation: "lost", segments: [
+    { bind: 1, discourse_relation: null },
+    { bind: null, discourse_relation: { sense: "elaboration", to: [1] } },
+    { bind: 2, discourse_relation: { sense: "contrast", to: [1, 2] } },
+    { bind: 3 },
+  ] });
+  if (parted.error) fails.push(`(c) the Packet with segments did not render: ${parted.error}`);
+  else {
+    const lines = (planBlock(parted.packet) || "").split("\n");
+    const parts = ["1. Argument 1.", "2. Neither. Sense elaboration, to part 1.", "3. Argument 2. Sense contrast, to part 1, part 2.", "4. CentralClaim."];
+    const at = lines.indexOf("### The parts of the paragraph, in order");
+    if (at === -1) fails.push("(c) a Leg with segments renders no parts list");
+    for (const want of [...said, ...parts]) if (!lines.includes(want)) fails.push(`(c) the plan block does not carry ${JSON.stringify(want)}`);
+    if (at !== -1 && lines.indexOf(parts[0]) < at) fails.push("(c) the parts do not stand under the parts heading");
+  }
+  if (!r.error) {
+    const lines = (planBlock(r.packet) || "").split("\n");
+    if (!lines.includes("The claims below are the whole plan of this paragraph.")) fails.push("(c) a Brief with no structure does not say the claims are the whole plan");
+    if (lines.some((x) => x.startsWith("- Argument ") || x.startsWith("- CentralClaim."))) fails.push("(c) a Brief with no structure lists an Argument or a CentralClaim");
   }
 }
 
@@ -307,14 +262,15 @@ const carriesCriteria = (packet) => {
   if (!Number.isInteger(wordsMax)) fails.push("(k) src/draft-workflow.json declares no integer `criteria.words_max`");
   const shippedFails = templateCriteriaFailures(template);
   if (shippedFails.length) fails.push(`(k) the shipped template fails the criteria bound: ${shippedFails.join("; ")}`);
-  const target = CRITERIA[4];
+  // The shipped template carries no criterion line since kogaki#1859, so each fixture adds one.
+  const target = "- NO CLAIM: The sentence that performs it states no proposition.";
   const pad = Array.from({ length: Math.max(0, (wordsMax || 0) - target.slice(2).split(/\s+/).length) }, () => "really").join(" ");
   for (const [label, broken] of [
     [`over words_max`, target.replace(" states no proposition.", ` states ${pad} no proposition.`)],
     ["carrying `; `", target.replace(" proposition.", " proposition; it adds no cause.")],
     ["carrying `: `", target.replace(" proposition.", " proposition: no cause either.")],
     ["carrying ` -- `", target.replace(" proposition.", " proposition -- and no cause.")]]) {
-    const fixture = template.replace(target, broken);
+    const fixture = template.replace("## The claims this Leg asserts", `${broken}\n\n## The claims this Leg asserts`);
     if (fixture === template) { fails.push(`(k) the fixture could not write the criterion line ${label}`); continue; }
     const line = fixture.split("\n").indexOf(broken) + 1;
     const b = (await renderPacketWith(fixture))({ brief, leg: withParas(brief.legs[0]), priorSections: [],
@@ -369,10 +325,9 @@ const carriesCriteria = (packet) => {
   if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(l) resolve did not render the Packet from the plan: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
   else {
     const packet = readFileSync(packetPath, "utf8");
-    if (!packet.includes(`   1. *${PERFORMS}*`) || !packet.includes("   2. PW-1-2 the installer writes the copy. *Serves:* ")) {
-      fails.push("(l) the Packet does not carry the performs and point Waypoints' lines, so the absence below reads nothing");
-    } else if (packet.includes("Manner:") || packet.includes(MANNER)) {
-      fails.push("(l) the Packet rendered from the plan carries a Manner label or the Segment's manner");
+    if (planBlock(packet) === null) fails.push("(l) the Packet carries no plan block, so the absence below reads nothing");
+    for (const bad of ["Manner:", MANNER, PERFORMS, "PW-1-2"]) {
+      if (packet.includes(bad)) fails.push(`(l) the Packet rendered from the plan carries ${JSON.stringify(bad)}`);
     }
   }
   writeFileSync(planPath, planText.replace("- point: PW-1-2 the installer writes the copy.\n", `- point: PW-1-2 the installer writes the copy.\n            manner: ${MANNER}\n`));
@@ -413,7 +368,7 @@ const carriesCriteria = (packet) => {
   if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(m) resolve did not render the Packet from the schema-bearing plan: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
   else {
     const packet = readFileSync(packetPath, "utf8");
-    if (!packet.includes("PW-1-1") || !packet.includes("PW-2-1")) fails.push("(m) the Packet does not carry the plan's Waypoints, so the absence below reads nothing");
+    if (planBlock(packet) === null) fails.push("(m) the Packet carries no plan block, so the absence below reads nothing");
     for (const word of ["move", "reader_state_after", "rationale", "depends_on", "reader_state_before", "re-activate", "materials"]) {
       if (new RegExp(`(^|[^A-Za-z_])${word}([^A-Za-z_]|$)`).test(packet)) fails.push(`(m) the Packet carries the field name \`${word}\``);
     }
@@ -481,7 +436,7 @@ const precedence = (packet, firstRule) => {
   if (i === -1) return { error: `the Write block carries no "${PRECEDENCE_HEAD}" paragraph` };
   const end = w.indexOf("\n\n", i);
   const para = w.slice(i, end === -1 ? undefined : end);
-  if (!flat(para).includes("the line holds and the rule yields")) return { error: `the precedence paragraph does not carry "the line holds and the rule yields": ${flat(para)}` };
+  if (!flat(para).includes("the plan holds and the rule yields")) return { error: `the precedence paragraph does not carry "the plan holds and the rule yields": ${flat(para)}` };
   const at = w.indexOf(firstRule);
   if (at === -1) return { error: `the Write block does not carry the register's first rule ${JSON.stringify(firstRule)}` };
   if (at < i + para.length) return { error: `the register's first rule ${JSON.stringify(firstRule)} does not follow the precedence paragraph` };
@@ -601,64 +556,7 @@ if (!r.error) {
   }
 }
 
-// (k) A FORCED WAYPOINT CARRIES ITS MARK ON A LINE OF ITS OWN, AND THE WRITER'S
-// INSTRUCTIONS SAY NOTHING OF IT (kogaki#1649).
-{
-  const forcedLeg = withParas(brief.legs[0], [{ ...PARAS[0], paragraph_waypoints: [
-    { point: "The forced point.", serves: ["L1"], cast: {}, forced_by: ["PERFORMS IS BARE"] },
-    { point: "The unforced point.", serves: ["L1"], cast: {} }] }]);
-  const fr = renderPacket({ brief, leg: forcedLeg, priorSections: [],
-    section: sectionOfLeg(brief.legs).get(forcedLeg.leg_id), sections: sectionsOf(brief.legs) });
-  const block = fr.error ? "" : fr.packet;
-  if (fr.error) fails.push(`(k) the Packet with a forced Waypoint did not render: ${fr.error}`);
-  const lines = block.split("\n");
-  const at = lines.findIndex((l) => l.includes("The forced point."));
-  if (at === -1 || lines[at + 1] !== "      <!-- forced by: PERFORMS IS BARE -->") {
-    fails.push(`(k) the forced Waypoint is not followed by its mark line: ${JSON.stringify(lines.slice(Math.max(at, 0), at + 2))}`);
-  }
-  if (lines.filter((l) => l.includes("forced by")).length !== 1) fails.push(`(k) not exactly one mark line in the Packet: ${JSON.stringify(lines.filter((l) => l.includes("forced")))}`);
-  if (!r.error && /forced/i.test(r.packet)) fails.push("(k) a Packet with no forced Waypoint mentions the mark; the Writer's instructions carry nothing of it");
-  if (JSON.stringify(forcedMarksOf(block)) !== JSON.stringify([{ paragraph: 1, axes: ["PERFORMS IS BARE"] }])) {
-    fails.push(`(k) the mark does not read back as paragraph 1 forced by PERFORMS IS BARE: ${JSON.stringify(forcedMarksOf(block))}`);
-  }
-}
-
-// (n) each indented line is rendered as the sentences it is, and the paragraph adds none (kogaki#1694).
-{
-  const NEW_RULE = [
-    "Each indented line is rendered as the sentences it is, in their order, and the paragraph is those sentences joined: the register may change a connective or a reference between them, and changes nothing else.",
-    "The paragraph adds no sentence that no indented line carries.",
-    "No line is announced to the reader."];
-  const RETIRED = ["as many sentences as it needs", "its wording is yours"];
-  const waypointsHeader = (packet) => {
-    const i = packet.indexOf("## The waypoints");
-    const end = packet.indexOf("- ITALIC IS AN OPERATION", i);
-    return i === -1 || end === -1 ? null : flat(packet.slice(i, end));
-  };
-  const rendersAsTheSentences = (packet) => {
-    const h = waypointsHeader(packet);
-    if (h === null) return "the Packet carries no waypoints header ending at the first italic rule";
-    for (const want of NEW_RULE) if (!h.includes(want)) return `the waypoints header does not carry "${want}": ${h}`;
-    for (const gone of RETIRED) if (h.includes(gone)) return `the waypoints header still carries "${gone}": ${h}`;
-    return null;
-  };
-  if (r.error) fails.push("(n) the fixture Packet did not render, so the header reads nothing");
-  else {
-    const why = rendersAsTheSentences(r.packet);
-    if (why) fails.push(`(n) ${why}`);
-  }
-  const before = template.replace(/claim it serves\. Each indented line[\s\S]*?announced to the reader\.\n/,
-    "claim it serves: they are not one sentence each, and the paragraph expresses\nthem in as many sentences as it needs.\n"
-    + "The point is not quoted: its wording is yours, and no line here is copied or\nannounced to the reader.\n");
-  if (before === template) fails.push("(n) the fixture could not rebuild the pre-kogaki#1694 waypoints header from the template");
-  else {
-    const old = await render(before);
-    if (old.error) fails.push(`(n) the pre-kogaki#1694 Packet did not render: ${old.error}`);
-    else if (rendersAsTheSentences(old.packet) === null) fails.push("(n) the pre-kogaki#1694 template passed the predicate (n) applies");
-  }
-}
-
-// (o) the cast renders as its true keys, and a key outside the set is refused (kogaki#1695).
+// (o) a cast key outside the set is refused (kogaki#1695).
 {
   const root = mkdtempSync(join(tmpdir(), "draft-packet-cast-"));
   const dir = join(root, "theses", "packet-brief");
@@ -671,26 +569,6 @@ if (!r.error) {
       [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] }));
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
     { encoding: "utf8", timeout: 120000 });
-  writeFileSync(planPath, plan({ plain: true, terse: true }));
-  const ok = resolveIn("ws");
-  const packetPath = join(root, "ws", "packet-brief", "packets", "s1.md");
-  if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(o) resolve did not render the Packet from a plan carrying a cast: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
-  else {
-    const packet = readFileSync(packetPath, "utf8");
-    const lines = packet.split("\n");
-    const at = lines.findIndex((l) => l.includes("PW-1-1 the installer writes the copy."));
-    if (at === -1 || lines[at + 1] !== `      ${CAST_LABEL} terse, plain`) {
-      fails.push(`(o) the line beneath the first point is not \`${CAST_LABEL} terse, plain\`: ${JSON.stringify(lines.slice(at, at + 2))}`);
-    }
-    if (lines.filter((l) => l.includes(CAST_LABEL)).length !== 1) fails.push(`(o) the Packet does not carry exactly one ${CAST_LABEL} line, so the \`{}\` point renders one`);
-    const i = packet.indexOf("A *Cast* line");
-    const end = i === -1 ? -1 : packet.indexOf("\n1. ", i);
-    const para = i === -1 ? "" : flat(packet.slice(i, end === -1 ? undefined : end));
-    if (!para.includes("never as a sentence or clause of its own")) fails.push(`(o) the Packet's cast paragraph does not carry "never as a sentence or clause of its own": ${para.slice(0, 300)}`);
-    for (const [k, d] of Object.entries(CAST_KEYS)) {
-      if (!para.includes(`- ${k}: ${d}.`)) fails.push(`(o) the Packet's cast paragraph does not name \`${k}\` with its definition`);
-    }
-  }
   writeFileSync(planPath, plan({ brief: true }));
   const outside = resolveIn("ws-brief");
   if (outside.status === 0 || !(outside.stderr || "").includes("cast key `brief`")) {
@@ -698,9 +576,7 @@ if (!r.error) {
   }
 }
 
-// (p) a plan with a Mapping Record renders each paragraph's line as its Leg's structure's holds sentences in
-// the Leg's table's expressions and carries no word of the Leg's text; a Leg without a table, or a placeholder
-// its table gives no expression, is refused naming the Leg (kogaki#1735, kogaki#1777).
+// (p) a plan with a Mapping Record still hands the Writer no point and no `holds` in the table's expressions (kogaki#1859).
 {
   const root = mkdtempSync(join(tmpdir(), "draft-packet-mapped-"));
   const dir = join(root, "theses", "packet-brief");
@@ -727,18 +603,7 @@ if (!r.error) {
   if (ok.status !== 0 || !existsSync(packetPath)) fails.push(`(p) resolve did not render the Packet from a plan with a Mapping Record: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
   else {
     const packet = readFileSync(packetPath, "utf8");
-    const line = "The staked net was woven against the fish sizes its mesh fits alone. What the staked net holds stops at the fish sizes its mesh fits.";
-    for (const n of [1, 2]) if (!packet.split("\n").includes(`${n}. ${line} *Serves:* ${C1}`)) fails.push(`(p) the Packet does not carry paragraph ${n}'s line ${JSON.stringify(line)}`);
-    for (const pt of [LEG_TEXT, ...POINTS]) if (packet.includes(pt)) fails.push(`(p) the Packet carries the Leg's text or a planned point ${JSON.stringify(pt)}`);
-  }
-  const none = resolveWith("ws-none", [{ leg_id: "s1", structure }]);
-  const rendered = (ws) => existsSync(join(root, ws, "packet-brief", "packets", "s1.md"));
-  if (rendered("ws-none") || !(none.stderr || "").includes("Leg s1: the Mapping Record carries no table for this Leg")) {
-    fails.push(`(p) resolve did not refuse a Leg with no table naming the Leg: ${(none.stderr || none.stdout || "").slice(0, 400)}`);
-  }
-  const bare = resolveWith("ws-bare", [{ leg_id: "s1", structure, table: table({ net: "the staked net", sizes: null }) }]);
-  if (rendered("ws-bare") || !(bare.stderr || "").includes("Leg s1: the `holds` placeholder {sizes} names a Role its table gives no expression for")) {
-    fails.push(`(p) resolve did not refuse a placeholder with no expression naming the Leg and the Role: ${(bare.stderr || bare.stdout || "").slice(0, 400)}`);
+    for (const pt of [LEG_TEXT, "the staked net", "PW-1-1", "PW-2-1"]) if (packet.includes(pt)) fails.push(`(p) the Packet carries the Leg's text, an expression or a planned point ${JSON.stringify(pt)}`);
   }
 }
 
@@ -747,5 +612,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet's Opens-from paragraph says the relation word is realised with a connective or clause or with nothing, that `none` adds nothing, and never as a proposition of its own, and offers no sentence of the Writer's choosing; the join renders as its one-word Opens-from line under its paragraph; and the pre-kogaki#1447 and pre-kogaki#1477 wordings are each refused by the same predicate (kogaki#1447, kogaki#1477); a performs Waypoint renders as an italic operation line with no Serves under its paragraph, the template tells the Writer it asserts nothing, and resolve accepts it beside a point entry and refuses a paragraph with no point entry (kogaki#1448); the Write block rendered from the Audience carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the performs instruction is the eight named criterion lines and none of the paragraph they replaced, read from the rendered Packet, and the restored paragraph is refused (kogaki#1555, kogaki#1592); the precedence paragraph saying the line holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); the crossing block carries an introduced term with its meaning and neither kind word nor any instruction to present it as a name (kogaki#1491, kogaki#1529); a Leg party to an Obligation row renders a Packet carrying no Obligations block, no Promise or Keeps line and none of the row's words, and the restored block is refused (kogaki#1584); the Packet keeps the round trip's recoverability sentence and carries neither \"concede it explicitly\" nor \"Honor the rows\", and the pre-kogaki#1496 wording is refused (kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a ParagraphPlan written from Waypoints carrying their Segment's manner holds none, its Packet carries their lines and no Manner label, and a plan file carrying one is refused at resolve naming the Waypoint (kogaki#1585); a plan whose every entry carries the paragraph's schema renders a Packet with no move, reader_state_after, rationale or depends_on text and none of their values, and a plan missing a field or writing reader_state_before is refused at resolve naming the Leg and the paragraph (kogaki#1639); a judge-forced Waypoint carries its mark on a line of its own beneath it, the unforced one none, and the template says nothing of it (kogaki#1649); the waypoints header renders each indented line as the sentences it is and adds none, and the pre-kogaki#1694 header is refused (kogaki#1694); a cast renders as its true keys in the set's order on the line beneath its point, an empty cast renders none, the cast paragraph names the nine keys and says a cast is never a sentence or clause of its own, and a key outside the set is refused naming it (kogaki#1695); a plan with a Mapping Record renders each paragraph's line as its Leg's holds sentences in the Leg's table's expressions and carries no word of the Leg's text, and a Leg with no table or a placeholder with no expression is refused naming the Leg (kogaki#1735, kogaki#1777).");
+console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; two plans differing only in their Points render one Packet byte for byte; the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment where the Leg carries segments, and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); resolve accepts a performs entry beside a point entry and refuses a paragraph with no point entry (kogaki#1448); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan written from manner-bearing Waypoints holds no manner and a plan file carrying one is refused at resolve (kogaki#1585); a plan carrying the paragraph's schema renders none of it, and a missing or retired field is refused at resolve (kogaki#1639); a cast key outside the set is refused (kogaki#1695); a plan with a Mapping Record renders no expression and no point (kogaki#1735, kogaki#1859).");
 JS

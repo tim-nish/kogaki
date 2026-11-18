@@ -80,8 +80,7 @@ function packetBullet(text, label) {
   return null;
 }
 
-// A `- item` list read out of a bullet value — or a numbered `1. item` list,
-// which is how the waypoints block renders its points in route order
+// A `- item` list read out of a bullet value — or a numbered `1. item` list
 // (kogaki#1326) — with the stated-absence forms
 // answering as the empty list. `already knows` renders each entry as
 // `term — anchor (introduced at <leg>)`; only the term is the join key, and the
@@ -181,49 +180,6 @@ const PACKET_READERS = {
     const b = packetBlock(t, spec.heading, { after: wordSequence(spec.after_words) });
     if (b === null) return null;
     return PACKET_ABSENCE.test(b) ? "" : b;
-  },
-  // ONE LABELLED LINE PER PARAGRAPH, NUMBERED BY ITS PARAGRAPH (kogaki#1447). The
-  // waypoints block renders the ParagraphPlan's join as an indented `*Opens from:*` line
-  // under its numbered Brief Waypoint, and `heading_list` drops it because it is no list
-  // item. This reads each such line under the numbered line it sits beneath, so an entry
-  // names the paragraph it opens; a block carrying none answers the empty list.
-  labelled_lines: (t, spec) => {
-    const block = packetBlock(t, spec.heading);
-    if (block === null) return null;
-    const out = [];
-    let n = null;
-    for (const l of block.split("\n")) {
-      const top = l.match(/^(\d+)\.\s/);
-      if (top) {
-        n = Number(top[1]);
-        continue;
-      }
-      const line = l.trim();
-      if (n !== null && line.startsWith(spec.label)) {
-        out.push(spec.entry.split("{n}").join(String(n)).split("{line}").join(line.slice(spec.label.length).trim()));
-      }
-    }
-    return out;
-  },
-  // ONE ITALIC SUB-LINE PER `performs` WAYPOINT, NUMBERED BY ITS PARAGRAPH
-  // (kogaki#1556). The renderer writes the entry as the indented `<j>. *<operation>*` and
-  // nothing after it (kogaki#1585); this reads that line whole under the numbered line it
-  // sits beneath, and a block carrying none answers the empty list.
-  italic_lines: (t, spec) => {
-    const block = packetBlock(t, spec.heading);
-    if (block === null) return null;
-    const out = [];
-    let n = null;
-    for (const l of block.split("\n")) {
-      const top = l.match(/^(\d+)\.\s/);
-      if (top) {
-        n = Number(top[1]);
-        continue;
-      }
-      const m = l.match(/^\s+\d+\.\s+\*([^*]+)\*\s*$/);
-      if (n !== null && m) out.push(spec.entry.split("{n}").join(String(n)).split("{line}").join(m[1].trim()));
-    }
-    return out;
   },
   paragraph: (t, spec) => {
     const i = t.indexOf(spec.opens_with);

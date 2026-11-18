@@ -30,7 +30,7 @@
 #   (e) every Harness path and subcommand `.claude/skills/paragraph-plan/SKILL.md`
 #       names exists.
 #   (g) a bound Move carrying three `segments` yields three Waypoints under each
-#       paragraph, rendered as three indented lines under the paragraph's line.
+#       paragraph, and the Packet rendered from them carries none (kogaki#1859).
 #   (h) the plan prompt carries every Segment's number, `operation`, `relation` and
 #       `manner` as separate fields and states an `operation` is performed on the
 #       Leg's `text`; a Waypoint restating a Segment's `operation` is refused by the
@@ -44,8 +44,8 @@
 #   (m) the plan reader and the plan call's validator refuse a missing, empty or
 #       misplaced join, a sentence and a word outside the set, by name; the Brief's
 #       Waypoint rule refuses `join`.
-#   (n) `waypointLines` renders one numbered line per paragraph, the Opens-from line
-#       beneath it and its Waypoints after; the template carries the instruction.
+#   (n) the join stays in the plan file and reaches no Packet: a Packet rendered
+#       from a paragraph carrying a join carries no Opens-from line (kogaki#1859).
 #   (o) and (q) the plan row's ORDER, DIVIDE, EXPLAIN, CONSISTENT and NO NEW FACT
 #       read against the Leg's `text` (kogaki#1446, kogaki#1632, kogaki#1777).
 #   (p) a Segment acting on the reading carries a `performs` Waypoint, which the
@@ -56,7 +56,8 @@
 #       `takes` against what the reader has been told (kogaki#1701, kogaki#1777).
 #   (s) both rows are named one-sentence criteria under the workflow file's bound,
 #       the judge's from the axis registry (kogaki#1511, kogaki#1533).
-#   (t) a Segment's `manner` reaches the plan call and nothing written from it (kogaki#1585).
+#   (t) a Segment's `manner` reaches the plan call and nothing written from it (kogaki#1585),
+#       and the Packet carries neither the manner nor the Waypoints (kogaki#1859).
 #   (u) what a Leg's Move takes up is met by what the Legs before it state, derived
 #       from the Leg order (`toldBefore`), and by the Persona's prior knowledge;
 #       its Roles come from the Brief's structure (`legRoles`); the retired reader
@@ -106,17 +107,13 @@ const { parseYaml, stringifyYaml } = await imp("src/yaml.mjs");
 const { JOIN_TYPES, CAST_KEYS, PLAN_SCHEMA_KEYS } = await imp("src/compose/record.mjs");
 const { renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
 const { treeWith, removeTrees } = await imp("checks/fixtures/tree-copy.mjs");
-// THE WAYPOINT LINES THE WRITER IS SHOWN (kogaki#1855): the numbered lines of the Packet's waypoints block,
-// rendered through prompts/draft/write-leg.prompt over a one-Leg Brief.
-const WRITER_PROMPT_FILE = "prompts/draft/write-leg.prompt";
-const waypointLines = (leg) => {
+// THE PACKET THE WRITER IS SHOWN, rendered through prompts/draft/write-leg.prompt over a one-Leg Brief;
+// it carries no Waypoint since kogaki#1859.
+const packetOf = (leg) => {
   const l = { leg_id: "s1", ...leg };
   const brief = { record: { compose_path: "audiences/dev-to-zenn.md" }, legs: [l], strands: [] };
   const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
-  if (r.error) return `(no Packet: ${r.error})`;
-  const block = r.packet.slice(r.packet.indexOf("## The waypoints this Leg takes the reader through"), r.packet.indexOf("\n## The claims this Leg asserts"));
-  const lines = block.split("\n");
-  return lines.slice(lines.findIndex((x) => /^1\. /.test(x))).join("\n").replace(/\n+$/, "");
+  return r.error ? null : r.packet;
 };
 const { JUDGE_INPUT_MARKER } = await imp("src/workflow/judge.mjs");
 const BOUND = 2;
@@ -562,7 +559,7 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
 }
 
 // (g) a bound Move carrying three `segments` yields three Waypoints under each paragraph, and the
-// rendered Packet carries the three indented lines under the paragraph's line.
+// rendered Packet carries none of them (kogaki#1859).
 {
   const r = runStage("segments3", legs, "segments3");
   finished("(g)", r);
@@ -570,18 +567,11 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   const first = rec ? rec.legs.find((l) => l.leg_id === "s1").paragraphs[0] : null;
   if (!first || first.paragraph_waypoints.length !== 3) fails.push(`(g) the ParagraphPlan file does not carry three Waypoints under s1's first paragraph: ${JSON.stringify(first)}`);
   else {
-    const rendered = waypointLines({ text: S1_TEXT, claims: legs[0].claims, paragraphs: [first] }) || "";
-    const indented = rendered.split("\n").filter((l) => l.startsWith("   "));
-    if (indented.length !== 3 || ![1, 2, 3].every((n) => rendered.includes(`PW-s1-1-${n}`)) || !rendered.startsWith(`1. ${S1_TEXT} *Serves:* ${C1}`)) {
-      fails.push(`(g) the rendered Packet does not carry the paragraph's line and three indented Waypoints under it: ${JSON.stringify(rendered)}`);
+    const packet = packetOf({ text: S1_TEXT, claims: legs[0].claims, paragraphs: [first] });
+    if (packet === null) fails.push("(g) the Packet did not render from the plan's paragraph");
+    else if ([1, 2, 3].some((n) => packet.includes(`PW-s1-1-${n}`)) || packet.includes("*Serves:*")) {
+      fails.push("(g) the rendered Packet carries a Waypoint of the plan or a Serves line");
     }
-  }
-  const flatHeader = readFileSync(WRITER_PROMPT_FILE, "utf8").replace(/\s+/g, " ");
-  if (!flatHeader.includes("rendered as the sentences it is") || !flatHeader.includes("adds no sentence that no indented line carries")) {
-    fails.push("(g) prompts/draft/write-leg.prompt's waypoints header does not state that each line is rendered as the sentences it is and none is added");
-  }
-  for (const retired of ["as many sentences as it needs", "its wording is yours"]) {
-    if (flatHeader.includes(retired)) fails.push(`(g) prompts/draft/write-leg.prompt's waypoints header still carries the retired "${retired}"`);
   }
 }
 
@@ -804,26 +794,14 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   }
 }
 
-// (n) THE JOIN REACHES THE WRITER (kogaki#1411): one numbered line per paragraph, its Opens-from line
-// beneath it and before its Waypoints; a paragraph without a join renders none.
+// (n) THE JOIN STAYS IN THE PLAN FILE AND REACHES NO PACKET (kogaki#1411, kogaki#1859).
 {
-  const rendered = waypointLines({ text: S1_TEXT, claims: legs[0].claims, paragraphs: [
+  const packet = packetOf({ text: S1_TEXT, claims: legs[0].claims, paragraphs: [
     { materials: ["L1"], paragraph_waypoints: [{ point: "PW-1-1.", serves: ["L1"], cast: {} }] },
-    { materials: ["L1", "L2"], join: "contrast", paragraph_waypoints: [{ point: "PW-2-1.", serves: ["L1", "L2"], cast: {} }] }] }) || "";
-  const lines = rendered.split("\n");
-  const want = [`1. ${S1_TEXT}`, "   1. PW-1-1.", `2. ${S1_TEXT}`, "   *Opens from:* contrast", "   1. PW-2-1."];
-  if (lines.length !== want.length || !want.every((w, i) => lines[i].startsWith(w))) {
-    fails.push(`(n) waypointLines does not render one line per paragraph, its Opens-from line under it and before its Waypoints: ${JSON.stringify(rendered)}`);
-  }
-  const t = readFileSync(WRITER_PROMPT_FILE, "utf8");
-  const block = t.slice(t.indexOf("## The waypoints this Leg takes the reader through"), t.indexOf("{{#each waypoints.paragraphs}}"));
-  if (!block.includes("An *Opens from* line under a numbered line carries one word")
-    || !block.includes("`none` adds nothing.") || !block.includes("The word is not copied and not announced.")) {
-    fails.push("(n) prompts/draft/write-leg.prompt's waypoints block does not carry the Opens-from instruction");
-  }
-  const comment = t.slice(t.indexOf("NO MOVE REACHES THE PACKET"), t.indexOf("--}}", t.indexOf("NO MOVE REACHES THE PACKET")));
-  if (!comment.includes("is the ParagraphPlan's join, one word of a closed set of")) {
-    fails.push("(n) prompts/draft/write-leg.prompt's Move-boundary comment does not say the join is a ParagraphPlan relation word carrying nothing of a Move");
+    { materials: ["L1", "L2"], join: "contrast", paragraph_waypoints: [{ point: "PW-2-1.", serves: ["L1", "L2"], cast: {} }] }] });
+  if (packet === null) fails.push("(n) the Packet did not render from a paragraph carrying a join");
+  else if (packet.includes("Opens from") || packet.includes("PW-1-1.") || packet.includes("PW-2-1.")) {
+    fails.push("(n) the Packet rendered from a paragraph carrying a join carries an Opens-from line or a Waypoint");
   }
 }
 
@@ -864,11 +842,11 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
   if (!onPoint.includes("Waypoint 2 carries `manner`")) fails.push(`(t) the plan reader did not refuse a manner on a point Waypoint, naming it: ${onPoint || "no refusal"}`);
   const onPerforms = paragraphPlanShapeRefusal(record([{ point: "a point.", serves: ["L1"], cast: {} }, { performs: "turns.", manner: MANNER }]), "plan.yaml", legs) || "";
   if (!onPerforms.includes("Waypoint 2 carries `performs` beside `manner`")) fails.push(`(t) the plan reader did not refuse a manner on a performs Waypoint, naming it: ${onPerforms || "no refusal"}`);
-  const rendered = waypointLines({ text: S1_TEXT, claims: legs[0].claims, paragraphs: [{ materials: ["L1"],
-    paragraph_waypoints: [{ point: "PW-1-1.", serves: ["L1"], manner: MANNER, cast: {} }, { performs: "turns.", manner: MANNER }] }] }) || "";
-  const lines = rendered.split("\n");
-  if (!(lines[1] || "").startsWith("   1. PW-1-1.") || lines[2] !== "   2. *turns.*" || rendered.includes("Manner:") || rendered.includes(MANNER)) {
-    fails.push(`(t) waypointLines renders a Waypoint's manner: ${JSON.stringify(rendered)}`);
+  const packet = packetOf({ text: S1_TEXT, claims: legs[0].claims, paragraphs: [{ materials: ["L1"],
+    paragraph_waypoints: [{ point: "PW-1-1.", serves: ["L1"], manner: MANNER, cast: {} }, { performs: "turns.", manner: MANNER }] }] });
+  if (packet === null) fails.push("(t) the Packet did not render from manner-bearing Waypoints");
+  else if (["PW-1-1.", "*turns.*", "Manner:", MANNER].some((x) => packet.includes(x))) {
+    fails.push("(t) the Packet carries a Waypoint or a Waypoint's manner");
   }
 }
 
@@ -932,10 +910,12 @@ for (const [tag, name, movesDir, id] of [["(c)", "broken", movesNoOrder, "p3"], 
     || pl.prior_knowledge !== "knows what an installer is." || "waypoints" in pl || "stands_to_be_taken_up" in pl || "leaves_for_next_leg" in pl) {
     fails.push(`(u) planLeg does not hand a Leg what the Legs before it state and the Persona's prior knowledge, reading no Move of a Leg's and handing no leaves_for_next_leg (kogaki#1853): ${JSON.stringify(pl)}`);
   }
-  // NO RECORD REACHES THE PACKET (kogaki#1584): the template's waypoints block names no Promise or Keeps line.
-  const t = readFileSync(WRITER_PROMPT_FILE, "utf8");
-  const block = t.slice(t.indexOf("## The waypoints this Leg takes the reader through"), t.indexOf("\n## The claims this Leg asserts"));
-  if (block.includes("*Promise:*") || block.includes("*Keeps:*")) fails.push("(u) prompts/draft/write-leg.prompt's waypoints block still names a Promise or Keeps line");
+  // NO RECORD REACHES THE PACKET (kogaki#1584): the template's plan block names no Promise or Keeps line.
+  const t = readFileSync("prompts/draft/write-leg.prompt", "utf8");
+  const at = t.indexOf("## The plan of this paragraph");
+  const block = at === -1 ? null : t.slice(at, t.indexOf("\n## The claims this Leg asserts", at));
+  if (block === null) fails.push("(u) prompts/draft/write-leg.prompt carries no plan block");
+  else if (block.includes("*Promise:*") || block.includes("*Keeps:*")) fails.push("(u) prompts/draft/write-leg.prompt's plan block still names a Promise or Keeps line");
 }
 
 // (d) A Brief whose Leg carries `waypoints`, or no `text`, is refused at start by name (kogaki#1777).
@@ -1116,7 +1096,7 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read and rendered as its Opens-from line (kogaki#1411, kogaki#1477); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure and makes no grounding call, and the judge names the Waypoint that carries each Role and relation (kogaki#1734, kogaki#1811, kogaki#1812); the skill names only entry points the Harness has.");
+console.log("ok: check-paragraph-plan — the stage writes paragraph-plan.yaml beside the Brief, each Leg its one bound Move's id and at most brief.paragraphs_per_leg paragraphs, each paragraph its schema, its join and its Waypoints and nothing else of the Move, no reader state and no ledger (kogaki#1639, kogaki#1701, kogaki#1777); the plan call is handed the Leg's text and Claims, what the Legs before it state derived from the Leg order, the Persona's prior knowledge and the paragraph bound, and the judge the bound Move's takes, leaves, segments and breaks beside them; a judge refusal is repaired at its paragraph under the Leg's Move, and a Leg no Move fits is asked again whole and stops naming the Leg; a Move with no segments stops the stage by name (kogaki#1412); the Move record is read as YAML (kogaki#1413) and admitted by the ingest (kogaki#1418); a Brief whose Leg carries waypoints or no text is refused at start; the join is a typed relation read at every read, kept in the plan file and reaching no Packet (kogaki#1411, kogaki#1477, kogaki#1859); performs, cast and manner are read as their rules state (kogaki#1448, kogaki#1485, kogaki#1585, kogaki#1695); a Waypoint performs its own Segment's operation (kogaki#1605); both rows are named one-sentence criteria under the bound (kogaki#1511, kogaki#1533); every design refusal, a paragraph naming a Move and a Leg over the bound among them, is refused by name at every read; and with the Mapper on, a Leg reads one structure and makes no grounding call, and the judge names the Waypoint that carries each Role and relation (kogaki#1734, kogaki#1811, kogaki#1812); the skill names only entry points the Harness has.");
 JS
 # (z) THE EXPRESSED ROWS, READ BACK (kogaki#1811): a null row refuses its paragraph by name, a missing or out-of-range one is malformed, and no mapping asks for none.
 node --input-type=module - <<'JS' || exit 1

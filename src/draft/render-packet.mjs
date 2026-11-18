@@ -10,7 +10,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseReactivateEntry, parseIntroducesEntry, readerProse, audienceLanguage } from "../compose.mjs";
-import { CAST_KEYS } from "../compose/record.mjs";
 import { parseTermsYaml, sha256 as sha256Terms, DEFAULT_TERMS_PATH } from "../lint-ja.mjs";
 import { sha256, readerTargetCase } from "./brief-reader.mjs";
 import { renderPromptFile } from "../prompt-file.mjs";
@@ -22,7 +21,7 @@ import {
   personaPriorKnowledge,
 } from "./journeys.mjs";
 import { sectionPlacement, priorProseInSection } from "./packet.mjs";
-import { higherOrderOf, firstPoint } from "../structure-mapping-playground/structure.mjs";
+import { legSentences } from "../structure-mapping-playground/move-structure.mjs";
 import {
   REALIZATION_LANGUAGES,
   langOf,
@@ -33,75 +32,37 @@ import {
   sectionOfLeg,
 } from "./workspace.mjs";
 
-// The waypoints block's lines (kogaki#1311, kogaki#1326; the Leg as unit, kogaki#1777): a NUMBERED
-// list, one per paragraph of the ParagraphPlan, `<i>. <text> *Serves:* <claim>[; <claim>]` -- the
-// Leg's `text`, its relation's `holds`, or, where the plan names a Mapping Record, its structure's
-// `holds` sentences in its table's expressions, by the Trial's own function (kogaki#1735) -- each
-// Strand of the paragraph's `materials` resolved to this Leg's claim. Beneath each, an
-// indented `*Opens from:* <join>` line where the paragraph carries a join (kogaki#1411) -- one
-// relation word of its closed set (kogaki#1477) -- then its Waypoints as a numbered sub-list
-// (kogaki#1375) -- a `point` as `<j>. <point> *Serves:* <claim>`, a `performs` entry as the italic
-// `<j>. *<operation>*` with no point and no Serves (kogaki#1448); no Segment field rides on it
-// (kogaki#1585). Under a point whose `cast` sets any key, one further indented `*Cast:* <keys>` line, the true keys in
-// CAST_KEYS order (kogaki#1695). No Obligation row and no line derived from one is rendered: the ledger is the Plan's
-// (kogaki#1584). Nothing else of a Move is rendered; a missing plan refuses at the realization entry (`loadBrief`), not here.
-export function waypointValues(leg) {
-  const ps = leg.paragraphs || [];
-  if (!ps.length) return null;
-  const byStrand = new Map((leg.claims || []).map((g) => [g.strand, String(g.proposition).trim()]));
-  const serves = (ids) => listOf((ids || []).map((x) => ({ text: byStrand.get(x) ?? x })));
-  const head = leg.mapping ? firstPoint(leg.mapping.structure, leg.mapping.table) : String(leg.text ?? "").trim();
-  const point = (p, j) => {
-    const cast = Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
-    return {
-      number: j + 1,
-      ...(Object.hasOwn(p, "performs")
-        ? { operation: true, performs: String(p.performs).trim() }
-        : { point: String(p.point).trim(), serves: serves(p.serves) }),
-      ...(cast.length ? { cast: listOf(cast.map((key) => ({ key }))) } : {}),
-      ...(Array.isArray(p.forced_by) && p.forced_by.length
-        ? { forced_by: listOf(p.forced_by.map((axis) => ({ axis }))) }
-        : {}),
-    };
+// THE PLAN BLOCK (kogaki#1859): the Leg's Arguments and CentralClaim, `legSentences` at the Leg's `relation` in the
+// Brief's `structure`, and one part per Segment where the Leg carries `segments` -- each `{ bind, discourse_relation }`,
+// `bind` naming entry k of those sentences. Null where the Brief carries no `structure` or the Leg names no relation.
+export function planValues(structure, leg) {
+  if (!structure || typeof leg.relation !== "string") return null;
+  const whole = {
+    roles: structure.roles || [],
+    relations: structure.relations || [],
+    higher_order: structure.higher_order || [],
   };
-  return {
-    paragraphs: ps.map((w, i) => ({
+  if (![...whole.relations, ...whole.higher_order].some((r) => r.id === leg.relation)) return null;
+  const sentences = legSentences(whole, leg.relation);
+  const label = (s) => (s.kind === "CentralClaim" ? "CentralClaim" : `Argument ${s.number}`);
+  const segments = (leg.segments || []).map((g, i) => {
+    const b = Number.isInteger(g.bind) ? sentences[g.bind - 1] : null;
+    const r = g.discourse_relation;
+    return {
       number: i + 1,
-      head,
-      serves: serves(w.materials),
-      ...(typeof w.join === "string" && w.join.trim() !== "" ? { join: w.join.trim() } : {}),
-      points: (w.paragraph_waypoints || []).map(point),
-    })),
+      ...(b ? { bound: label(b) } : {}),
+      ...(r ? { sense: r.sense, to: listOf(r.to.map((number) => ({ number }))) } : {}),
+    };
+  });
+  return {
+    arguments: sentences.slice(0, -1).map((s) => ({ number: s.number, sentence: s.sentence })),
+    central_claim: sentences[sentences.length - 1].sentence,
+    ...(segments.length ? { segments } : {}),
   };
 }
 
 // A list whose items but the last carry `more`, so the file writes what stands between two items.
 export const listOf = (items) => items.map((item, i) => (i < items.length - 1 ? { ...item, more: true } : item));
-
-// THE MAPPED LINE'S REFUSAL (kogaki#1735): a Leg of a plan with a Mapping Record whose record carries
-// no structure or no table, or a `holds` placeholder naming a Role its table gives no expression; null when none.
-const PLACEHOLDER = /\{([^{}\s]+)\}/g;
-export function mappedLineRefusal(leg) {
-  if (!leg.mapping) return null;
-  const at = `Leg ${leg.leg_id}`;
-  const { structure, table } = leg.mapping;
-  if (!structure)
-    return `${at}: the Mapping Record carries no structure for this Leg — run /paragraph-plan on this Brief again (kogaki#1735)`;
-  if (!table)
-    return `${at}: the Mapping Record carries no table for this Leg — run /paragraph-plan on this Brief again (kogaki#1735)`;
-  const expressed = new Set(
-    (table.correspondences || [])
-      .filter((c) => typeof c.expression === "string" && c.expression.trim() !== "")
-      .map((c) => c.role),
-  );
-  for (const e of [...(structure.relations || []), ...(higherOrderOf(structure) || [])]) {
-    for (const [, id] of String(e.holds).matchAll(PLACEHOLDER)) {
-      if (!expressed.has(id))
-        return `${at}: the \`holds\` placeholder {${id}} names a Role its table gives no expression for (kogaki#1735)`;
-    }
-  }
-  return null;
-}
 
 // kogaki#1649: a judge-forced Waypoint's mark, an HTML comment on a line of its own beneath it,
 // written by prompts/draft/write-leg.prompt.
@@ -234,16 +195,15 @@ export function renderPacket({
       : personaPath;
   if (language.error) missing.push(`the Audience's language (${language.error})`);
 
-  const unmapped = mappedLineRefusal(leg);
-  if (unmapped) return { error: unmapped };
   // THE JOURNEY A LEG DRAWS ON (kogaki#1111) as its served TEXT, the address beside it (kogaki#1250); a caller
   // that skipped resolution gets the same `need()` refusal as any absent block.
+  const plan = planValues(brief.record?.structure ?? null, leg);
   const journeys = leg.journeys || [];
   const unresolved = journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === "");
   if (unresolved) need(`${leg.leg_id}'s Journey text`, null);
   const values = {
-    // THE ROUTE (kogaki#1311, kogaki#1326, kogaki#1777); a Leg with no paragraph never reaches here.
-    waypoints: need(`${leg.leg_id}'s waypoints`, waypointValues(leg)),
+    // THE PLAN (kogaki#1859): no Point of the ParagraphPlan is handed to the Writer.
+    ...(plan ? { plan } : {}),
     claims: claimTexts.length ? { lines: claimTexts } : {},
     journeys:
       journeys.length && !unresolved

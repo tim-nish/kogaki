@@ -492,11 +492,15 @@ function waypointsStage({ dir, env, cli, leg, structure, tables, move, contract,
 }
 
 // THE PARAGRAPHS: one Packet over a one-Leg Brief whose Leg carries its paragraphs, and the writer called once (kogaki#1784).
-export function shortPacket({ leg, paragraphs, audiencePath }) {
+// On the Brief-Leg route the Brief's `structure` and the Leg's `relation` give the plan block, and under a Move table its
+// `segments` give the parts (kogaki#1859); no Point reaches the Packet.
+export function shortPacket({ leg, paragraphs, audiencePath, structure = null, relation = null, segments = null }) {
   const serves = leg.claims.map((g) => g.strand);
   const packetLeg = {
     ...leg,
     move: paragraphs[0].move,
+    ...(relation ? { relation } : {}),
+    ...(segments ? { segments } : {}),
     paragraphs: paragraphs.map((p, i) => ({
       paragraph: i + 1,
       materials: serves,
@@ -504,7 +508,11 @@ export function shortPacket({ leg, paragraphs, audiencePath }) {
       paragraph_waypoints: p.paragraph_waypoints,
     })),
   };
-  const brief = { record: { compose_path: relFromRepo(audiencePath) }, legs: [packetLeg], strands: [] };
+  const brief = {
+    record: { compose_path: relFromRepo(audiencePath), ...(structure ? { structure } : {}) },
+    legs: [packetLeg],
+    strands: [],
+  };
   return renderPacket({
     brief,
     leg: packetLeg,
@@ -514,8 +522,8 @@ export function shortPacket({ leg, paragraphs, audiencePath }) {
   });
 }
 
-function writeStage({ dir, env, cli, leg, paragraphs, audiencePath, paragraphPath }) {
-  const p = shortPacket({ leg, paragraphs, audiencePath });
+function writeStage({ dir, env, cli, leg, paragraphs, audiencePath, paragraphPath, plan = {} }) {
+  const p = shortPacket({ leg, paragraphs, audiencePath, ...plan });
   if (p.error) return { stopped: p.error };
   const packetPath = join(dir, PACKET_FILE);
   writeFileSync(packetPath, p.packet);
@@ -1205,7 +1213,16 @@ export function runMoveTrial({
     return { value: listed, refusals };
   }
   stage("write", (d, env) => {
-    const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath });
+    const plan = {
+      structure,
+      relation: b.leg.relation,
+      ...(moveTableRecord
+        ? {
+            segments: moveTableRecord.segments.map((g) => ({ bind: g.bind, discourse_relation: g.discourse_relation })),
+          }
+        : {}),
+    };
+    const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath, plan });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
     return r;
   });

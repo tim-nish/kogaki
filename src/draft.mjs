@@ -41,7 +41,7 @@ import {
   journeyProseFromShardLines,
 } from "./draft/journeys.mjs";
 import { figureFormFor, renderFigureInput, figureRecordRefusal } from "./draft/packet.mjs";
-import { waypointValues, renderPacket, renderAndStorePacket } from "./draft/render-packet.mjs";
+import { planValues, renderPacket, renderAndStorePacket } from "./draft/render-packet.mjs";
 import {
   workspaceFor,
   enterWorkspace,
@@ -69,7 +69,7 @@ export {
   journeyTextFromSurvey,
   journeyResolutionRefusal,
   journeyProseFromShardLines,
-  waypointValues,
+  planValues,
   renderPacket,
 };
 

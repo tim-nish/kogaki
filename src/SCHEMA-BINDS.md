@@ -44,18 +44,18 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## leg -- the Brief's Leg
 
-| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:waypoints | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:waypoints | review:introduces | review:already-knows | review:attribute-leak |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `leg_id` | unread | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |  |  |
-| `relation` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |  |  |
-| `reaches_target` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |  |  |
-| `text` | unread | unread | unread | unread | unread | content | excluded | unread | content |  |  |  |  | excluded |  |  | excluded |
-| `claims` | unread | excluded | excluded | unread | unread | structural | unread | content | content | content |  |  | excluded |  |  |  |  |
-| `waypoints` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |
-| `opens_section` | unread | unread | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |  |  |
-| `waypoints.point` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |
-| `waypoints.serves` | unread | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |  |  |
-| `waypoints.case` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |  |  |
+| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:plan | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:introduces | review:already-knows |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `leg_id` | unread | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |
+| `relation` | unread | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |
+| `reaches_target` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |
+| `text` | unread | unread | unread | unread | unread | content | excluded | unread |  |  |  |  |  |  |  |
+| `claims` | unread | excluded | excluded | unread | unread | structural | unread | content |  | content |  |  | excluded |  |  |
+| `waypoints` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
+| `opens_section` | unread | unread | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |
+| `waypoints.point` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
+| `waypoints.serves` | unread | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |
+| `waypoints.case` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
 - `review_path` is src/brief-workflow.json `review_path`.
@@ -65,41 +65,36 @@ it does not read, and empty where the stage does not read the schema at all.
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `leg_path_unit` is src/move-extraction-playground/extraction-workflow.json `leg_path_unit`.
-- `packet:waypoints` is prompts/draft/write-leg.prompt value `waypoints`.
+- `packet:plan` is prompts/draft/write-leg.prompt value `plan`.
 - `packet:claims` is prompts/draft/write-leg.prompt value `claims`.
 - `packet:section_placement` is prompts/draft/write-leg.prompt value `section_placement`.
 - `packet:reader_target_line` is prompts/draft/write-leg.prompt value `reader_target_line`.
 - `review:claims` is src/review-items.json item `claims`.
-- `review:waypoints` is src/review-items.json item `waypoints`.
 - `review:introduces` is src/review-items.json item `introduces`.
 - `review:already-knows` is src/review-items.json item `already-knows`.
-- `review:attribute-leak` is src/review-items.json item `attribute-leak`.
 
 ## paragraph_plan -- the ParagraphPlan record
 
-| field | paragraph_plan_unit | paragraph_plan_judge_unit | packet:waypoints | review:opens-from-copied | review:performs |
-|---|---|---|---|---|---|
-| `version` | copied | unread |  |  |  |
-| `leg_id` | copied | unread |  |  |  |
-| `move` | copied | unread |  |  |  |
-| `rationale` | content | unread |  |  |  |
-| `paragraphs` | content | unread |  |  |  |
-| `paragraphs.paragraph` | copied | unread |  |  |  |
-| `paragraphs.materials` | copied | unread |  |  |  |
-| `paragraphs.purpose` | content | unread |  |  |  |
-| `paragraphs.depends_on` | content | unread |  |  |  |
-| `paragraphs.rationale` | content | unread |  |  |  |
-| `paragraphs.re-activate` | content | unread |  |  |  |
-| `paragraphs.journeys` | copied | unread |  |  |  |
-| `paragraphs.join` | content | excluded | operation | excluded |  |
-| `paragraphs.paragraph_waypoints` | content | unread |  |  |  |
-| `paragraph_waypoints.point` | content | excluded | content |  |  |
-| `paragraph_waypoints.serves` | copied | unread |  |  |  |
-| `paragraph_waypoints.performs` | content | excluded | operation |  | excluded |
-| `paragraph_waypoints.cast` | content | excluded | operation |  |  |
+| field | paragraph_plan_unit | paragraph_plan_judge_unit |
+|---|---|---|
+| `version` | copied | unread |
+| `leg_id` | copied | unread |
+| `move` | copied | unread |
+| `rationale` | content | unread |
+| `paragraphs` | content | unread |
+| `paragraphs.paragraph` | copied | unread |
+| `paragraphs.materials` | copied | unread |
+| `paragraphs.purpose` | content | unread |
+| `paragraphs.depends_on` | content | unread |
+| `paragraphs.rationale` | content | unread |
+| `paragraphs.re-activate` | content | unread |
+| `paragraphs.journeys` | copied | unread |
+| `paragraphs.join` | content | excluded |
+| `paragraphs.paragraph_waypoints` | content | unread |
+| `paragraph_waypoints.point` | content | excluded |
+| `paragraph_waypoints.serves` | copied | unread |
+| `paragraph_waypoints.performs` | content | excluded |
+| `paragraph_waypoints.cast` | content | excluded |
 
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
 - `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
-- `packet:waypoints` is prompts/draft/write-leg.prompt value `waypoints`.
-- `review:opens-from-copied` is src/review-items.json item `opens-from-copied`.
-- `review:performs` is src/review-items.json item `performs`.

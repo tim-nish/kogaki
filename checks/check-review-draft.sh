@@ -1,58 +1,36 @@
 #!/usr/bin/env bash
-# check-review-draft — /review-draft reads each paragraph's opening sentence
-# against the Packet's Opens-from line, and an opening that narrates its
-# connection fails naming its paragraph (kogaki#1447, kogaki#1477).
+# check-review-draft — /review-draft reads no block the Packet no longer
+# carries (kogaki#1859).
 #
-# THE DEFECT THIS HOLDS: on 2026-10-19 paragraph 2 of the attack-defense
-# Move-Extraction Playground run opened on its plan's join rendered nearly whole, and no review item
-# read the opening against the line: the Packet's "it is not copied" was the
-# only guard, and nothing checked it. The item `opens-from-copied`
-# (src/review-items.json) is that check, judged and best-effort. Since
-# kogaki#1477 the line is one relation word, and the item asks whether the
-# opening NARRATES the connection as a proposition -- says something was left
-# open, is owed, or is now taken up -- instead of marking it.
+# THE DECISION THIS HOLDS (2026-11-18, kogaki#1859): no Point reaches the
+# Writer, so the Packet carries no waypoints block, no Opens-from line and no
+# italic operation line. The four review items that compared the prose with
+# them -- `waypoints`, `attribute-leak`, `opens-from-copied` and `performs` --
+# and the three `packet_blocks` entries they read -- `waypoints`, `opens_from`
+# and `performs` -- leave src/review-items.json with them.
 #
 # WHAT THIS COVERS, driven through `buildJoin` (src/review-draft.mjs) over a
 # fixture Draft whose trace names a Packet rendered by `renderPacket`
-# (src/draft.mjs) from a fixture Brief record and its Leg's paragraphs, the second carrying
-# the join `consequence`, and whose paragraph 2 opens by narrating it:
-#   (a) the item owes exactly ONE pair for the Leg -- paragraph 2's, the one
-#       paragraph after the first that carries an Opens-from line -- and the
-#       join Packet rendered for it carries the line, named as paragraph 2's,
-#       on the declared side and paragraph 2's own first sentence on the
-#       reverse side;
-#   (b) the item's question asks whether the opening narrates the connection
-#       as a proposition, and a `fails` verdict on the narrating opening fails
-#       the item's row, best-effort, the row's evidence naming paragraph 2 by
-#       the declared entry -- the Harness's naming, not the judge's sentence;
-#   (c) a paragraph 2 opening on a bare connective is paired the same way and
-#       a `holds` verdict holds its row with no evidence (the control that
-#       stops (b) passing on any verdict);
-#   (d) a Packet whose paragraphs carry no join owes no pair and holds by
-#       the item's stated absence.
-# AND THE `performs` ITEM (kogaki#1556), one pair per italic line of the
-# waypoints block, the passage as reverse side:
-#   (e) a performing sentence adding "is worth defining in its own right" fails
-#       `performs` under a `fails` verdict, the evidence naming paragraph 1; the
-#       italic line the Packet renders is `<j>. *<operation>*` with nothing after
-#       it and is read whole, and a line carrying anything after the italic
-#       operation is no `performs` line, owing no pair (kogaki#1585: no tail rides
-#       on it, so none is stripped);
-#   (f) the sentence reduced to the operation holds with no evidence;
+# (src/draft.mjs) from a fixture Brief record and its Leg's paragraphs, the
+# second carrying the join `consequence` and the first a `performs` entry:
+#   (a) src/review-items.json declares none of the four items and none of the
+#       three blocks, and every block an item names is a block `packet_blocks`
+#       declares;
+#   (b) every item the table declares reads its declared side from the
+#       rendered Packet without a Packet-gap refusal, and the Join rows name
+#       none of the four items;
 #   (g) the `promise-kept` item and its `keeps` block are retired with the
 #       Packet line they read: src/review-items.json declares neither
 #       (kogaki#1584);
-#   (h) a Leg with no italic line holds by `when_declared_absent`.
-# AND (i) review.md's closing Forced paragraphs list names the paragraph and axis a Packet
-#   marks, with no finding, and `_None._` where no Packet carries a mark (kogaki#1649).
+#   (i) review.md's closing Forced paragraphs list reads `_None._` over a
+#       Packet rendered from a plan whose Waypoint carries `forced_by`, since
+#       the Packet carries no Point and so no mark (kogaki#1649, kogaki#1859).
 # AND (j) the `defined-term-order` item is retired (kogaki#1842): a Draft whose
 #   Brief classes a term `defined` and whose prose uses it is reviewed with no
 #   `defined-term-order` row, by checks/fixtures/review-draft/defined-term-order.mjs.
 #
-# NOT COVERED, stated rather than implied: whether a LIVE judge answers
-# `fails` on a copied opening is the model's judgment, never asserted here;
-# the fixture supplies the verdict. The Packet's own Opens-from paragraph is
-# checks/check-draft-packet.sh's.
+# NOT COVERED, stated rather than implied: what a LIVE judge answers on any
+# remaining item is the model's judgment, never asserted here.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -120,133 +98,60 @@ const fixture = (name, packet, para2, para1 = PARA1) => {
 };
 
 const table = readItems();
-const item = table.items.find((i) => i.id === "opens-from-copied");
-if (!item) fails.push("(a) src/review-items.json declares no `opens-from-copied` item");
-else {
-  if (item.class !== "best-effort" || item.mode === "mechanical") fails.push(`(a) the item is not judged and best-effort: class ${item.class}, mode ${item.mode}`);
-  const only = { ...table, items: [item] };
-  const narrated = fixture("narrated", packetFor(JOIN), NARRATED);
-  const first = buildJoin(narrated.draft, narrated.run, only, narrated.dir, { pass: 1 });
-
-  // (a) one pair, paragraph 2's, with the line and the sentence on their sides.
-  if (first.owed.length !== 1) fails.push(`(a) the item owes ${first.owed.length} pair(s) for a Leg with one Opens-from line, not one`);
-  else {
-    const pkt = readFileSync(first.owed[0].packet, "utf8");
-    if (!pkt.includes(`paragraph 2 opens from: ${JOIN}`)) fails.push("(a) the join Packet's declared side does not carry the Opens-from line named as paragraph 2's");
-    if (!pkt.includes(`paragraph 2 of the passage opens on this sentence: ${NARRATED}`)) fails.push("(a) the join Packet's reverse side is not paragraph 2's own first sentence");
-    if (pkt.includes(`opens on this sentence: ${PARA1.split(". ")[0]}`)) fails.push("(a) the join Packet pairs paragraph 1, which carries no Opens-from line");
-  }
-
-  // (b) the question asks about narration, and a `fails` verdict on the narrating opening fails
-  // the row with evidence naming paragraph 2.
-  if (!item.question.includes("narrate the connection as a proposition")) fails.push("(b) the item's question does not ask whether the opening narrates the connection as a proposition (kogaki#1477)");
-  const key = first.owed[0] && first.owed[0].key;
-  narrated.run.verdicts = { [key]: { verdict: "fails", reason: "the opening says what was left open is now taken up.", model: "fixture" } };
-  const failed = buildJoin(narrated.draft, narrated.run, only, narrated.dir, { pass: 1 });
-  const row = failed.results.find((r) => r.item === "opens-from-copied");
-  if (!row || row.verdict !== "fails" || row.class !== "best-effort") fails.push(`(b) a fails verdict did not fail the best-effort row: ${JSON.stringify(row)}`);
-  else if (!(row.evidence || []).some((e) => String(e).startsWith("paragraph 2 opens from:"))) fails.push(`(b) the failing row's evidence does not name paragraph 2: ${JSON.stringify(row.evidence)}`);
-
-  // (c) the control: an opening on a bare connective is paired the same way, and `holds` holds
-  // it with no evidence.
-  const marked = fixture("connective", packetFor(JOIN), CONNECTIVE);
-  const owedC = buildJoin(marked.draft, marked.run, only, marked.dir, { pass: 1 });
-  const keyC = owedC.owed[0] && owedC.owed[0].key;
-  if (!keyC || !readFileSync(owedC.owed[0].packet, "utf8").includes(`opens on this sentence: ${CONNECTIVE}`)) {
-    fails.push("(c) the bare-connective opening is not paired against its Opens-from line");
-  }
-  marked.run.verdicts = { [keyC]: { verdict: "holds", reason: "the relation is marked by a connective on the way to the point.", model: "fixture" } };
-  const held = buildJoin(marked.draft, marked.run, only, marked.dir, { pass: 1 });
-  const hrow = held.results.find((r) => r.item === "opens-from-copied");
-  if (!hrow || hrow.verdict !== "holds" || hrow.evidence) fails.push(`(c) a holds verdict did not hold the row without evidence: ${JSON.stringify(hrow)}`);
-
-  // (d) no join, no pair: the stated absence.
-  const none = fixture("no-join", packetFor(null), PARA2_OWN);
-  const nj = buildJoin(none.draft, none.run, only, none.dir, { pass: 1 });
-  const nrow = nj.results.find((r) => r.item === "opens-from-copied");
-  if (nj.owed.length !== 0 || !nrow || nrow.verdict !== "holds" || nrow.reason !== item.when_declared_absent.sentence) {
-    fails.push(`(d) a Packet with no Opens-from line did not hold by the stated absence: owed ${nj.owed.length}, ${JSON.stringify(nrow)}`);
+const GONE_ITEMS = ["waypoints", "attribute-leak", "opens-from-copied", "performs"];
+const GONE_BLOCKS = ["waypoints", "opens_from", "performs"];
+// (a) the four items and the three blocks are gone, and every named block is declared.
+for (const id of GONE_ITEMS) if (table.items.some((i) => i.id === id)) fails.push(`(a) src/review-items.json still declares the item \`${id}\``);
+for (const b of GONE_BLOCKS) if (Object.hasOwn(table.packet_blocks || {}, b)) fails.push(`(a) src/review-items.json still declares the Packet block \`${b}\``);
+for (const it of table.items) {
+  for (const b of [it.declared_block, ...(it.also_declared_blocks || [])].filter(Boolean)) {
+    if (!Object.hasOwn(table.packet_blocks || {}, b)) fails.push(`(a) the item \`${it.id}\` names the Packet block \`${b}\`, which \`packet_blocks\` does not declare`);
   }
 }
-
-// (e)-(h) THE PERFORMS ITEM (kogaki#1556), over a Packet whose first paragraph carries one
-// `performs` Waypoint.
-const OPERATION = "announce that a definition follows";
-const packetWith = ({ performs = false } = {}) => {
-  const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
-    paragraph_waypoints: [{ point, serves: ["L1"], cast: {} },
-      ...(i === 0 && performs ? [{ performs: OPERATION }] : [])] })) };
-  const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
-  if (r.error) fails.push(`fixture: the Packet did not render: ${r.error}`);
-  return r.packet || "";
-};
-const ADDS = "The installer copies the kit into the consumer's tree. The copy, defined next, is worth defining in its own right.";
-const BARE = "The installer copies the kit into the consumer's tree. The copy is defined next.";
-const rowOf = (out, id) => out.results.find((r) => r.item === id);
-const judge = (fx, only, verdict, reason) => {
-  const owed = buildJoin(fx.draft, fx.run, only, fx.dir, { pass: 1 });
-  fx.run.verdicts = Object.fromEntries(owed.owed.map((o) => [o.key, { verdict, reason, model: "fixture" }]));
-  return { owed, judged: buildJoin(fx.draft, fx.run, only, fx.dir, { pass: 1 }) };
-};
-const performs = table.items.find((i) => i.id === "performs");
 if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.packet_blocks || {}, "keeps")) {
   fails.push("(g) src/review-items.json still declares the retired `promise-kept` item or its `keeps` block");
 }
-if (!performs) fails.push("(e) src/review-items.json declares no `performs` item");
-else {
-  const onlyP = { ...table, items: [performs] };
-  // (e) a performing sentence adding to its operation: one pair, the italic line on the declared
-  // side, and a fails verdict fails the row with evidence naming the paragraph.
-  const adds = judge(fixture("performs-adds", packetWith({ performs: true }), PARA2_OWN, ADDS), onlyP,
-    "fails", "the sentence adds that the copy is worth defining in its own right.");
-  if (adds.owed.owed.length !== 1) fails.push(`(e) the performs item owes ${adds.owed.owed.length} pair(s) for one italic line, not one`);
-  else if (!readFileSync(adds.owed.owed[0].packet, "utf8").includes(`paragraph 1 performs: ${OPERATION}`)) fails.push("(e) the performs Packet's declared side does not carry the italic line named as paragraph 1's");
-  const addsPacket = packetWith({ performs: true });
-  const italic = addsPacket.split("\n").find((l) => /^   \d+\. \*/.test(l)) || "";
-  if (!/^   \d+\. \*[^*]+\*$/.test(italic) || !italic.includes(OPERATION)) fails.push(`(e) the Packet does not render the performs Waypoint as an italic line with nothing after it: ${JSON.stringify(italic)}`);
-  const tailed = judge(fixture("performs-tailed", addsPacket.replace(italic, `${italic} and more`), PARA2_OWN, ADDS), onlyP,
-    "holds", "the sentence announces the definition and adds nothing.");
-  if (tailed.owed.owed.length !== 0) fails.push(`(e) an italic line carrying text after the operation was read as a performs line: owed ${tailed.owed.owed.length}`);
-  const prow = rowOf(adds.judged, "performs");
-  if (!prow || prow.verdict !== "fails" || !(prow.evidence || []).some((e) => String(e).startsWith("paragraph 1 performs:"))) fails.push(`(e) a fails verdict did not fail the performs row naming paragraph 1: ${JSON.stringify(prow)}`);
-  // (f) the control: the sentence reduced to the operation holds with no evidence.
-  const bare = judge(fixture("performs-bare", packetWith({ performs: true }), PARA2_OWN, BARE), onlyP,
-    "holds", "the sentence announces the definition and adds nothing.");
-  const brow = rowOf(bare.judged, "performs");
-  if (bare.owed.owed.length !== 1 || !brow || brow.verdict !== "holds" || brow.evidence) fails.push(`(f) the bare performing sentence did not hold without evidence: ${JSON.stringify(brow)}`);
-  // (h) a Leg with no italic line holds by the stated absence, owing no pair.
-  for (const it of [performs]) {
-    const fx = fixture(`neither-${it.id}`, packetWith(), PARA2_OWN);
-    const out = buildJoin(fx.draft, fx.run, { ...table, items: [it] }, fx.dir, { pass: 1 });
-    const r = rowOf(out, it.id);
-    if (out.owed.length !== 0 || !r || r.verdict !== "holds" || r.reason !== it.when_declared_absent.sentence) fails.push(`(h) a Leg with neither line did not hold \`${it.id}\` by the stated absence: owed ${out.owed.length}, ${JSON.stringify(r)}`);
+// (b) the whole table over a Packet rendered from a plan carrying a join and a performs entry.
+{
+  const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"], ...(i === 1 ? { join: JOIN } : {}),
+    paragraph_waypoints: [...(i === 0 ? [{ performs: "announce that a definition follows" }] : []), { point, serves: ["L1"], cast: {} }] })) };
+  const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  if (r.error) fails.push(`(b) the fixture Packet did not render: ${r.error}`);
+  else {
+    const fx = fixture("whole-table", r.packet, PARA2_OWN);
+    let out = null;
+    try {
+      out = buildJoin(fx.draft, fx.run, table, fx.dir, { pass: 1 });
+    } catch (e) {
+      fails.push(`(b) the Join over the whole table refused: ${e.message}`);
+    }
+    if (out) {
+      if (!(out.results || []).length && !(out.owed || []).length) fails.push("(b) the Join over the whole table returned no row and owed no pair, so the absence below reads nothing");
+      const named = [...(out.results || []).map((x) => x.item), ...(out.owed || []).map((x) => x.item)].filter((x) => GONE_ITEMS.includes(x));
+      if (named.length) fails.push(`(b) the Join names a retired item: ${JSON.stringify(named)}`);
+    }
   }
 }
 
-// (i) review.md CLOSES WITH THE FORCED PARAGRAPHS, READ FROM THE PACKET ALONE (kogaki#1649).
+// (i) review.md's Forced paragraphs list reads `_None._`: the Packet carries no Point, so no mark (kogaki#1649, kogaki#1859).
 {
-  const leg = (forced) => ({ ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
-    paragraph_waypoints: [{ point, serves: ["L1"], ...(forced && i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) });
+  const leg = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
+    paragraph_waypoints: [{ point, serves: ["L1"], ...(i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) };
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
-  for (const [name, forced] of [["forced", true], ["plain", false]]) {
-    const r = renderPacket({ brief, leg: leg(forced), priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
-    if (r.error) fails.push(`(i) the ${name} fixture Packet did not render: ${r.error}`);
-    writeFileSync(join(dir, "packets", `${name}.md`), r.packet || "");
-  }
-  const got = forcedParagraphLines([{ leg_id: "s1", packet: "packets/forced.md" }], dir);
-  if (got[0] !== "## Forced paragraphs" || !got.includes("- `s1`, paragraph 1 — PERFORMS IS BARE") || got.some((l) => /fail|finding/i.test(l))) {
-    fails.push(`(i) the Forced paragraphs section does not name Leg s1, paragraph 1 and PERFORMS IS BARE as a list with no finding: ${JSON.stringify(got)}`);
-  }
-  const none = forcedParagraphLines([{ leg_id: "s1", packet: "packets/plain.md" }], dir);
-  if (!none.includes("_None._") || none.some((l) => l.startsWith("- "))) fails.push(`(i) a Packet with no mark lists a forced paragraph: ${JSON.stringify(none)}`);
+  const r = renderPacket({ brief, leg, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
+  if (r.error) fails.push(`(i) the forced fixture Packet did not render: ${r.error}`);
+  writeFileSync(join(dir, "packets", "forced.md"), r.packet || "");
+  if (/forced/i.test(r.packet || "")) fails.push("(i) the Packet rendered from a forced Waypoint carries a mark");
+  const none = forcedParagraphLines([{ leg_id: "s1", packet: "packets/forced.md" }], dir);
+  if (!none.includes("_None._") || none.some((x) => x.startsWith("- "))) fails.push(`(i) a Packet with no mark lists a forced paragraph: ${JSON.stringify(none)}`);
 }
 
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — the judged best-effort item opens-from-copied owes one pair per paragraph carrying an Opens-from line, pairing the line, named by its paragraph, with that paragraph's own first sentence; it asks whether the opening narrates the connection as a proposition, a fails verdict on a narrating opening fails the row with evidence naming the paragraph, an opening on a bare connective holds under a holds verdict, and a Packet with no Opens-from line holds by the stated absence (kogaki#1447, kogaki#1477); the performs item owes one pair per italic line, fails naming the paragraph, holds the bare performing sentence, and holds by the stated absence on a Leg carrying no such line (kogaki#1556); the promise-kept item and its keeps block are retired (kogaki#1584); the performs line is read whole, and an italic line carrying text after its operation owes no pair (kogaki#1585).; review.md closes with a Forced paragraphs list naming each paragraph a Packet marks and its axes, with no finding (kogaki#1649)");
+console.log("ok: check-review-draft — src/review-items.json declares none of the waypoints, attribute-leak, opens-from-copied and performs items and none of the waypoints, opens_from and performs blocks, and every block an item names is declared; the whole table reads a Packet rendered from a plan carrying a join and a performs entry with no Packet-gap refusal and no retired row (kogaki#1859); the promise-kept item and its keeps block are retired (kogaki#1584); review.md's Forced paragraphs list reads _None._ over a Packet rendered from a forced Waypoint (kogaki#1649, kogaki#1859)");
 JS
 status=$?
 node checks/fixtures/review-draft/defined-term-order.mjs || status=1

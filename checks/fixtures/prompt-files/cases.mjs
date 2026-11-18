@@ -137,27 +137,6 @@ export const WRITER_CASES = {
     },
     prior: [{ leg_id: "s1", text: "The installer puts a copy of the kit in your tree." }],
   },
-  "write-leg-join-cast-operation": {
-    legs: [
-      { leg_id: "s1", text: "The installer copies the kit.", claims: [claim("L1", "the installer copies the kit.")] },
-    ],
-    leg: "s1",
-    extra: {
-      paragraphs: [
-        paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"], { cast: { terse: true, dated: true } })]),
-        paragraph(
-          2,
-          ["L1"],
-          [
-            { performs: "the reader is asked to recall the first run" },
-            point("The copy is the consumer's own file.", ["L1"], { forced_by: ["TAKEN"] }),
-          ],
-          "consequence",
-        ),
-      ],
-    },
-    prior: [],
-  },
   "write-leg-follows-the-reader-target": {
     legs: [
       {

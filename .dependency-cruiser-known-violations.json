@@ -2,8 +2,8 @@
   {
     "type": "dependency",
     "from": "src/draft/render-packet.mjs",
-    "to": "src/structure-mapping-playground/structure.mjs",
-    "unresolvedTo": "../structure-mapping-playground/structure.mjs",
+    "to": "src/structure-mapping-playground/move-structure.mjs",
+    "unresolvedTo": "../structure-mapping-playground/move-structure.mjs",
     "dependencyTypes": [
       "local",
       "import"
