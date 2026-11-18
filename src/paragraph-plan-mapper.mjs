@@ -9,10 +9,10 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //   The Call Record
 //       specs/spec-draft-pipeline/SPEC.md
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { judgePrompt, refusalReach } from "./workflow/judge.mjs";
-import { REPO, bindFlow } from "./workflow/run-record.mjs";
+import { bindFlow, readRowTable } from "./workflow/run-record.mjs";
 import { writeCallRecord, tableRecord } from "./workflow/call-record.mjs";
 import { mapperInput, validateMapperAnswer, MAPPER_CALLS } from "./structure-mapping-playground/sme.mjs";
 import { PLAYGROUND_TABLE } from "./structure-mapping-playground/trial.mjs";
@@ -36,7 +36,7 @@ export class ParagraphPlanMapper {
   constructor(inputs, ctx) {
     this.inputs = inputs;
     this.ctx = ctx;
-    this.table = JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
+    this.table = readRowTable(PLAYGROUND_TABLE);
     this.units = new Map();
   }
 

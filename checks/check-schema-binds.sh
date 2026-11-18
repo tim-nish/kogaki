@@ -25,8 +25,8 @@
 #       hold has a sentence of that text naming the field as not stated;
 #   (b) no `judgment_point` carries a sentence another row of the same table
 #       carries with words changed -- such a criterion is written once as a
-#       shared passage under prompts/, and every `{{shared:<name>}}` and every
-#       passage mark of a prompt file is proven to reach the prompt by
+#       shared passage under prompts/, and every passage mark of a
+#       prompt file is proven to reach the prompt by
 #       rendering the row through `judgePrompt` (a row carrying `prompt_file`
 #       is read through `withPromptText`, kogaki#1855, kogaki#1862);
 #   (c) src/draft-workflow.json's `binds` and the review items' `binds` name

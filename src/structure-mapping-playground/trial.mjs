@@ -184,7 +184,7 @@ function audienceOf(audience) {
 // written as the Trial's structure file.
 export function mapStructure({ strandFile, mapper, out, structureOut, audience }) {
   const strand = readStrand(strandFile);
-  const playground = JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
+  const playground = readRowTable(PLAYGROUND_TABLE);
   const m = mapperRow(playground, mapper);
   if (m.error) fail(`${m.error}. Nothing was started.`);
   const { persona } = audienceOf(audience);
@@ -315,7 +315,7 @@ export function runTrial({
   let strand;
   if (mapper) {
     strand = readStrand(strandFile);
-    const m = mapperRow(JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8")), mapper);
+    const m = mapperRow(readRowTable(PLAYGROUND_TABLE), mapper);
     if (m.error) fail(`${m.error}. Nothing was started.`);
   } else ({ strand } = readInputs(strandFile, givenStructure));
   const structureFile = mapper ? join(outDir, STRUCTURE_FILE) : resolve(givenStructure);

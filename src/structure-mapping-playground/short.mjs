@@ -96,7 +96,7 @@ function fail(msg) {
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(path), sha256: sha256(path) } : null);
-const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
+const readTable = () => readRowTable(PLAYGROUND_TABLE);
 
 // ---------------------------------------------------------------------------
 // THE ONE LEG (kogaki#1681, kogaki#1700, kogaki#1784): its one claim is the proposition, in the Brief's form, and its `text` the
