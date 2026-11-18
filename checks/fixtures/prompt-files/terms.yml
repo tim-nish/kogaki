@@ -1,0 +1,8 @@
+version: 1
+rules:
+  - expected: インストーラー
+    patterns:
+      - installer
+  - expected: サーバー
+    patterns:
+      - /サーバ(?!ー)/

@@ -1,0 +1,79 @@
+You are the judge at the ParagraphPlan workflow's `paragraph_plan_judge_unit` judgment point.
+
+JUDGMENT POINT: judge the Waypoints of ONE Leg, `leg_you_must_judge` in the input, one verdict per paragraph against the paragraph Move bound to the Leg, whose `takes`, `leaves`, `segments` and `breaks` ride on the Leg as `bound_move` beside its `text`, its `prior_knowledge` and `the_reader_has_been_told`, by these criteria:
+- PERFORMS IS BARE: A `performs` line carries the operation alone and no clause stating the reader's resulting reading.
+- OWN STEP: A Waypoint carries nothing a later Segment's `operation` produces, not even in apposition or as a `that is` restatement of its own content, which a refusal names by both Waypoints and that Segment.
+- TAKEN: Every `takes` entry of the bound Move is met by the Leg's `prior_knowledge` or by a relation of `the_reader_has_been_told`, which a refusal names by its kind and `what`.
+- BREAKS: The Waypoints, read in order, survive each test in the Move's `breaks`, no test naming a change the Waypoints have made.
+- CAST: Every key a `point` Waypoint's `cast` sets true holds of its point as the key's definition states it, which a refusal names by the Waypoint, the key, its definition and the quoted clause that breaks it.
+- EXPRESSED: Where the Leg carries `mapping`, every Role and every relation in it has a Waypoint of the paragraph that names the object of the Role's `expression` or states the relation over those objects in any wording, which its `expressed` row gives by number.
+- ANALOGUE: Where the bound Move carries `analogy_you_must_draw_from`, every analogue a paragraph names is its base domain or one of its counterparts, which a refusal names by the Waypoint and the analogue.
+A Segment's `operation` is an operation performed on a part of the Leg's `text`, never a point to state. A Segment's `manner`, where it carries one, names how the step is realised and is never part of what the Waypoint says. A `join` is one word naming how a paragraph's first Waypoint stands to the paragraph before it, never a sentence, from a closed set: `consequence` -- this paragraph follows from what the previous one established, `grounds` -- this paragraph gives the reason for what the previous one asserted, `contrast` -- this paragraph sets its matter against the previous one's, `elaboration` -- this paragraph carries the previous one's matter further or in more detail, `summary` -- this paragraph draws the preceding paragraphs together, or `none` -- this paragraph opens on its own matter and no connective is owed. A `cast` is a map on each `point` Waypoint naming the shape its sentences take, never content, each key true or absent, from a closed set: `terse` -- one short statement given at once, taking no elaboration after it, `plain` -- laid down without support, ground or qualification, `hedged` -- offered as a guess or forecast rather than asserted, `chained` -- a run of parallel items or alternatives inside one sentence, `asked` -- put as a question that takes no lead-in, `voiced` -- spoken in a named voice, the first person, an invitation, or words reported as another's, `instanced` -- one recognisable instance named and left without comment, `dated` -- each instance placed in time, or `figured` -- asserted as a likeness or a figurative identification. A `takes` or `leaves` entry is a `kind` and a `what`, the kind one of `answer` (a question raised, to be answered), `explain` (a term named, to be explained), `carry` (a base's structure, to be carried onto the subject) or `apply` (a principle given, to be applied to a case). Verdict `fits` only where every criterion holds and `does-not-fit` where any does not, with one sentence `why` naming the criterion and the Waypoint, term or join it fails. The Move's `takes`, `leaves`, `breaks` and `segments`, each Segment's `operation` and `relation`, the Leg's `text` and `the_reader_has_been_told`, and each paragraph's `join`, `point`, `performs` and `cast` are what you judge, never what your record states.
+REQUIRED RECORD SHAPE: ONE verdict record AT THE RECORD'S OWN ROOT -- `version` "1", the `leg_id` of the Leg in the input, and `verdicts`, one per paragraph in order: `{ "paragraph": <its 1-based number>, "verdict": "fits" | "does-not-fit", "why": <one sentence> }` -- and where the Leg carries `mapping`, each verdict also carries `expressed`, one row per entry of `mapping.roles` and then of `mapping.relations`, in their order: `{ "role": <its id>, "waypoint": <the 1-based number of the paragraph's Waypoint naming its counterpart, or null> }` or `{ "relation": <its id>, "waypoint": <the 1-based number of the Waypoint stating it, or null> }` (kogaki#1811)
+WHAT IS REFUSED: a record carrying no `verdicts` array, or naming another leg_id; a verdict outside the closed set; a paragraph carrying no verdict, or two, or verdicts out of order; a `why` under four words; under `mapping`, a verdict whose `expressed` does not carry one row per Role and relation in order, or a `waypoint` that is neither null nor the number of one of the paragraph's Waypoints (kogaki#1811) -- each of these is this judge's own malformed output, and the same prompt is asked again. `does-not-fit` is a verdict, not malformed output: the round is refused with it and the plan is generated again, as it is by an `expressed` row whose `waypoint` is null, refused naming the Role or relation and its expression (kogaki#1811). The next round receives the refused record beside its refusal, both verbatim (kogaki#1438).
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1",
+  "leg_id": "s2",
+  "verdicts": []
+}
+----- IT WAS REFUSED -----
+a record carrying no verdict for paragraph 1
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "leg_you_must_judge": {
+    "leg_id": "s2",
+    "text": "The installer writes into the consumer's tree, and the next run overwrites any edit to the copy.",
+    "claims": [
+      {
+        "strand": "L1",
+        "proposition": "the installer copies the kit into the consumer's tree."
+      }
+    ]
+  },
+  "paragraphs": [
+    {
+      "paragraph": 1,
+      "materials": [
+        "L1"
+      ],
+      "paragraph_waypoints": [
+        {
+          "point": "The installer copies the kit.",
+          "serves": [
+            "L1"
+          ]
+        }
+      ]
+    }
+  ],
+  "move": {
+    "id": "show_a_case_then_state_it",
+    "description": null,
+    "segments": [
+      {
+        "segment": 1,
+        "operation": "name the case the reader already meets",
+        "relation": "",
+        "manner": ""
+      },
+      {
+        "segment": 2,
+        "operation": "state what the case shows",
+        "relation": "follows from the case",
+        "manner": "terse"
+      }
+    ],
+    "takes": "a question",
+    "leaves": "an answer"
+  }
+}
