@@ -28,10 +28,8 @@ const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragra
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "draft-plan-pin-"));
 
-// The stub writer answers with the plan the check last wrote, read from a file beside it: the Packet carries
-// no Point since kogaki#1859, so the Draft says which plan was current when each paragraph was written.
-const writer = join(root, "stub-writer.mjs");
-const phasePath = join(root, "phase");
+// The stub writer answers with the plan the check last wrote to `phase` (the Packet carries no Point, kogaki#1859).
+const writer = join(root, "stub-writer.mjs"), phasePath = join(root, "phase");
 writeFileSync(writer, `#!/usr/bin/env node
 import { readFileSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("stub-writer 1.0"); process.exit(0); }
