@@ -1,0 +1,32 @@
+You are the judge at the Prompt-file fixture workflow's `review_path` judgment point.
+
+JUDGMENT POINT: review each composed Candidate against the six review areas `src/review.mjs` declares in REVIEW_AREAS, as JUDGMENT and never as a verdict -- rationale_stands, entailment, prohibitions, semantic_economy, arc_integrity and evaluation_levels. The areas ride in the input below under `review_areas`, read from that same constant; this sentence names them because it is rendered at the head of the prompt and a head that named a different set than the input would tell the judge two things (PR #1109 round 1). The `discharge` item is RETIRED (kogaki#1699) with the Obligations ledger, as is the `question_chain` item (kogaki#1325); a record carrying either is refused by name. AND, for every Candidate, run the CLAIM REGISTER (kogaki#1281, narrowed by kogaki#1331, owner decision 2026-10-10): one judged entry per Leg -- whether any claim line on that Leg, an entry of its `claims`, uses a term the input's `defined_terms` lists in the sense this article gives it, which the article does not introduce (kogaki#1768). `holds` where none does; `fails`, naming the word, where one does. The Persona's `prior_knowledge` grants no word and is not in the input. This is judgment, never a mechanical word list -- the vocabulary a claim may use is read, not matched against a list. THE STRUCTURE'S REACH (kogaki#1775): the input carries the Brief's RelationalStructure, `structure`, and each Leg names in `relation` the relation or higher-order relation it serves and says it in `text`, so `entailment` and `arc_integrity` read the order -- whether each higher-order relation's Leg stands where the relations it relates can be followed into it -- and `rationale_stands` reads each Leg's `text` against the relation it serves, since no Leg states a rationale. One Leg per relation the apex reaches, the apex's Leg marked, is refused before this review is asked.
+REQUIRED RECORD SHAPE: an object keyed by `candidate_id`, each value an object carrying one prose entry per review area, NO verdict-shaped field among them, plus `claim_register` (an array, one entry per Leg in Leg order, each `{ leg_id, verdict, word? }`), PLUS the input's own top-level `defined_terms` (the terms the Brief classifies `defined`) the claim register is judged against -- not per-Candidate, because the list is the Brief's, written once at mint (kogaki#1331)
+WHAT IS REFUSED: a Candidate with no review entry; a verdict-shaped field among the six prose areas -- `verdict`, `pass`, `score` and kin, or any non-string value -- because nothing there becomes a lint; a `question_chain` (retired, kogaki#1325) or a `discharge` (retired, kogaki#1699) carried at all; a `claim_register` absent, not an array, or not carrying exactly one entry per the Candidate's own Legs, in Leg order; an entry whose `verdict` is outside the closed set `holds`/`fails`; a `fails` entry naming no `word`. The next Round receives the refused record beside its refusal, both verbatim (kogaki#1438).
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

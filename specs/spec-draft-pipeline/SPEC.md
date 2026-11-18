@@ -4205,11 +4205,10 @@ read from the plan's run as the ParagraphPlanPlayground reads it. A `no_paragrap
 refusal stops the Trial as a stage stop, naming the Leg and the Waypoint; it
 does not refuse the Waypoints or the Legs.
 
-**A copy is read, never restated.** A `{{copy:<name>}}` token in a row of
-`src/leg-planning-playground/workflow.json` is replaced at run time by the text its
-`copies.<name>` entry names in another table, from its `opens` words
-through the first `closes` words after them. A copy whose words that table
-no longer carries refuses the Trial before any Call.
+**A row's instruction is a prompt file.** Each row of
+`src/leg-planning-playground/workflow.json` names its instruction as a file
+under `prompts/` (kogaki#1862), and a passage two rows share is one file
+both name.
 
 **Records and Rounds.** Every Call writes a Call Record under
 `<out>/calls/<row>/<n>/`. A Round is one Submission at a stage and the

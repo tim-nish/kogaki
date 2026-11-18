@@ -1,0 +1,79 @@
+You are the judge at the Prompt-file fixture workflow's `J2_subdivision` judgment point.
+
+JUDGMENT POINT: GroupClaim composition and semantic subdivision, ONE PER-GROUP CALL (kogaki#1172): every group's claim and its SubGroups are judged together, over that group's own material alone.
+REQUIRED RECORD SHAPE: typed per-group record, judged: true, one entry per composed group, carrying the judge pin, a `claim` -- the GroupClaim, one sentence, no citation -- and the SubGroups; each SubGroup carries a `coherence` label from the closed set tight | related | loose | other and a `coherence_why` sentence
+WHAT IS REFUSED: a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (semantic subdivision)
+
+THE LITERAL RECORD SHAPE, filled from THIS run's own composed input. Answer with a record
+of exactly this shape: the same keys, the same nesting, and the same group names, with
+each placeholder replaced by your judgment. The sentence above DESCRIBES the record; this
+is the record.
+{
+  "g1": {
+    "judged": true,
+    "claim": "<the GroupClaim for this group, composed from this group's members in `material` -- one sentence, no citation>",
+    "subgroups": [
+      {
+        "name": "<a SubGroup name>",
+        "claim": "<the SubGroupClaim, composed from this SubGroup's members in `material` -- one sentence, no citation>",
+        "members": [
+          "<ids drawn from this group's `members` in `groups[0]`, and from nowhere else>"
+        ],
+        "verdicts": {
+          "coherence": "<tight | related | loose | other>",
+          "coherence_why": "<one sentence: why this SubGroup holds together at that label>",
+          "trails_into_enumeration": false,
+          "true_of_every_member": true,
+          "legible_at_a_glance": true
+        }
+      }
+    ]
+  },
+  "g2": {
+    "judged": true,
+    "claim": "<the GroupClaim for this group, composed from this group's members in `material` -- one sentence, no citation>",
+    "subgroups": [
+      {
+        "name": "<a SubGroup name>",
+        "claim": "<the SubGroupClaim, composed from this SubGroup's members in `material` -- one sentence, no citation>",
+        "members": [
+          "<ids drawn from this group's `members` in `groups[0]`, and from nowhere else>"
+        ],
+        "verdicts": {
+          "coherence": "<tight | related | loose | other>",
+          "coherence_why": "<one sentence: why this SubGroup holds together at that label>",
+          "trails_into_enumeration": false,
+          "true_of_every_member": true,
+          "legible_at_a_glance": true
+        }
+      }
+    ]
+  }
+}
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

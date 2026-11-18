@@ -1,0 +1,38 @@
+You are the judge at the Prompt-file fixture workflow's `renderings_unit` judgment point.
+
+JUDGMENT POINT: list the terms of the Strand claims in the input -- `strand_claims` -- that THIS ARTICLE WILL NOT KEEP, each with the plain phrase the article uses in its place. A Strand carries the source's own technical terms and expressions; a term the article keeps is used as served and has no entry, and a term the adopted Thesis -- `thesis`, the article's title -- carries is always kept. A term is one or more words exactly as they occur in a claim, in the form an `introduces` entry's `term` takes. `as` is written in `language`, the article's one language. The Brief's Defined Terms ride in `defined_terms`: a term classified `defined` is one the article gives a sense, and a term the article keeps to define is not rendered. An empty list is an answer: the article keeps every served word.
+REQUIRED RECORD SHAPE: ONE record AT ITS OWN ROOT -- `version` "1" and `renderings`, a list of `{ term, as }` entries, as src/candidate-schema.json's `renderings_record` declares
+WHAT IS REFUSED: a record whose `version` is not "1"; `renderings` not a list; an entry that is not a `{ term, as }` map, carries any other key, carries no term or no `as`, or renders a term as itself; a term listed twice; a term that occurs whole-word in no Strand claim; a term the Thesis carries. The next Call receives the refused record beside its refusal, both verbatim (kogaki#1438).
+
+THE SCHEMA THE ELEMENTS OF YOUR RECORD ARE FILLED AGAINST -- the blocks renderings_record of src/candidate-schema.json, verbatim.
+Every field they declare, and what each one means. The refusals that judge your answer read
+their field set from these same blocks, so what you are asked for and what is checked are one
+text. Read them before composing.
+<the text of src/candidate-schema.json>
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

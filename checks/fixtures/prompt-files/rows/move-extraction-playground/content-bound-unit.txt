@@ -1,0 +1,32 @@
+You are the judge at the Prompt-file fixture workflow's `content_bound_unit` judgment point.
+
+JUDGMENT POINT: judge, for EACH Segment in `segments` in the input, whether its `content` clause is BOUND to its `sentence`: whether the sentence's proposition can be reproduced from the clause alone. A clause is bound where every definite reference in it -- a phrase such as "the strongest one", "two of the countries", "this distinction", "that place" -- resolves to one of `subject_nouns` or to words of its own sentence, AND it states the sentence's proposition rather than describing the sentence's act. A clause that replaces a name the sentence gives with a description the reader cannot resolve is unbound; a clause that says what the sentence does ("the distinction matters for understanding where one country stands") in place of what it says is unbound. Judge each Segment over its own sentence and clause; you are given no other text and must infer none. Each `why` is a single line of no more than twelve words, and where `bound` is false it quotes the unresolved reference in double quotes, exactly as the clause writes it.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT: `{ "verdicts": [ { "bound": <true|false>, "why": <one line of at most twelve words> }, ... ] }`, one verdict per entry of `segments`, in their order. Where `bound` is false, `why` carries the unresolved reference in double quotes, copied exactly from that Segment's `content` clause. No other key. Every string is one line.
+WHAT IS REFUSED: a key the answer does not declare; `verdicts` missing, or not one verdict per Segment; a verdict carrying a key other than `bound` and `why`; `bound` not true or false; `why` missing, more than one line, or over twelve words; a `why` beside `bound` false that quotes no phrase of that Segment's `content` clause in double quotes. Each refusal names the Segment, and is put back into your next round verbatim.
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

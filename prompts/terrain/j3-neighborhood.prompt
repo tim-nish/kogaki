@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: provenance-neighborhood recommendation
+REQUIRED RECORD SHAPE: typed record keyed by candidate slug, each carrying one free-form claim, one level from the harness-fixed set, and one target naming the Thesis candidate it serves and its role for that candidate
+WHAT IS REFUSED: a level outside the closed set, a level with no claim, a judgment with no target, a target that is not a TC id, a target naming a Thesis candidate the thesis_candidates state did not compose, and a key no mechanical candidate carries are each refused, naming the offending slug
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

@@ -1,0 +1,32 @@
+You are the judge at the Prompt-file fixture workflow's `sme_map_roles` judgment point.
+
+JUDGMENT POINT: read the proposition in the input, `proposition`, as a relation among Roles. For each Role, define it in one or two sentences, as its `context`, as a kind of thing in the world of the Persona in `persona`: an abstraction the proposition's object is one instance of, never that object itself, written in the third person and naming no reader, writer or Persona. Name, as its `attributes`, the one-place predicates the proposition states of that Role's object, each one short phrase in the proposition's own words, or an empty list where it states none. Name each relation among Roles as the proposition states it, as its `holds`: one sentence stating the relation over the Roles, naming none of the proposition's objects and writing each Role it relates as `{<id>}`, that Role's id in braces, at least once, with `between` naming the Roles it relates. Name the one relation among those relations the proposition turns on, as `higher_order`, with `relates` naming the relations it relates and `holds` stating it over the same Roles, each written as `{<id>}`. Answer the RelationalStructure record and nothing else.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly these keys: `strand` -- the input's `strand`, verbatim; `roles` -- a non-empty list of `{ "id": <a short unique id>, "context": <one or two sentences>, "attributes": [<one short phrase of the proposition>, ...] }`; `relations` -- a non-empty list of `{ "id": <a short unique id, no Role's>, "between": [<two or more Role ids>], "holds": <one sentence> }`; and `higher_order` -- `{ "relates": [<two or more relation ids>], "holds": <one sentence> }`.
+WHAT IS REFUSED: a key the record, a Role, a relation or `higher_order` does not declare, or a declared key missing; an id that is empty, repeated, or names nothing; a `strand` that is not the input's; and a Role without `attributes`, refused naming the Role, an `attributes` that is not a list, refused naming the Role, or an entry that is empty, not text or repeated within the Role, refused naming the Role and the index; a `context` carrying `reader`, `you`, `must hold`, `must come to`, `Persona` or `writer` as a word, refused naming the Role and the word; and a relation's `holds` not carrying `{<id>}` for a Role its `between` names, refused naming the relation and the Role, or a `higher_order` `holds` carrying none of the Roles its relations relate. The first refusal is put back into your next round verbatim with your answer; a second ends the Trial.
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

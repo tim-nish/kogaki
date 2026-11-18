@@ -1,0 +1,32 @@
+You are the judge at the Prompt-file fixture workflow's `J3_neighborhood` judgment point.
+
+JUDGMENT POINT: provenance-neighborhood recommendation
+REQUIRED RECORD SHAPE: typed record keyed by candidate slug, each carrying one free-form claim, one level from the harness-fixed set, and one target naming the Thesis candidate it serves and its role for that candidate
+WHAT IS REFUSED: a level outside the closed set, a level with no claim, a judgment with no target, a target that is not a TC id, a target naming a Thesis candidate the thesis_candidates state did not compose, and a key no mechanical candidate carries are each refused, naming the offending slug
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

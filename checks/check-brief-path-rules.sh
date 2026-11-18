@@ -335,7 +335,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
   const bare = compose.waypointsRefusal([{ point: "This case follows." }], "a Waypoint list", null, null, { paragraph: true });
   if (bare) fails.push(`(az) waypointsRefusal without Claim text applied the read-alone rule: ${bare}`);
   const row = JSON.parse(readFileSync("src/move-extraction-playground/extraction-workflow.json", "utf8")).leg_path_unit;
-  if (!row || !row.judgment_point.includes("A WAYPOINT'S POINT IS READ ALONE (kogaki#1449)")) {
+  if (!row || !(await import("./src/workflow/judge.mjs")).withPromptText({ id: "leg_path_unit", ...row }).judgment_point.includes("A WAYPOINT'S POINT IS READ ALONE (kogaki#1449)")) {
     fails.push("(az) the Move-Extraction Playground's leg_path_unit row does not state the read-alone rule in its judgment point");
   }
 }

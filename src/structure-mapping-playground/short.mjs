@@ -17,7 +17,7 @@ import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { readerPersona, personaPriorKnowledgeLine, loadMoveContracts, readMoveRecord } from "../compose.mjs";
 import { judgePrompt, refusalReach, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../move-extraction-playground/leg-run.mjs";
 import {
   planLeg,
@@ -96,7 +96,7 @@ function fail(msg) {
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(path), sha256: sha256(path) } : null);
-const readTable = () => JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"));
+const readTable = () => readRowTable(PLAYGROUND_TABLE);
 
 // ---------------------------------------------------------------------------
 // THE ONE LEG (kogaki#1681, kogaki#1700, kogaki#1784): its one claim is the proposition, in the Brief's form, and its `text` the
@@ -253,7 +253,7 @@ export function retriedCall({
   cli = null,
   tables = [PLAYGROUND_TABLE],
 }) {
-  const extraction = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const extraction = readRowTable(EXTRACTION_TABLE);
   const history = [];
   for (let n = 1; n <= MAPPER_CALLS; n++) {
     const held = bindFlow(FLOW);
@@ -476,7 +476,7 @@ export function shortPlanRefusal(answer, { input, tables, move, told, libraryDir
 }
 
 function waypointsStage({ dir, env, cli, leg, structure, tables, move, contract, persona, analogy, told, libraryDir }) {
-  const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+  const plan = readRowTable(PARAGRAPH_PLAN_TABLE);
   const input = shortPlanInput({ leg, structure, tables, move, contract, persona, analogy });
   const r = retriedCall({
     dir,
@@ -1142,7 +1142,7 @@ export function runMoveTrial({
     return { value: t, refusals: r.refusals };
   });
   const paragraphs = stage("waypoints", (d, env) => {
-    const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
+    const plan = readRowTable(PARAGRAPH_PLAN_TABLE);
     if (moveTableRecord) return tablePointsStage({ d, env, cli, plan, leg, structure, relationId: b.leg.relation });
     const input = {
       ...shortPlanInput({

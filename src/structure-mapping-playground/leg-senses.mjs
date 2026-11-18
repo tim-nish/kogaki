@@ -15,7 +15,7 @@ import { join, resolve, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO, relFromRepo } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo, readRowTable } from "../workflow/run-record.mjs";
 import { installRecorder, stageEnv, declaredCommand } from "../move-extraction-playground/leg-run.mjs";
 import { callDir, CALL_FILES, cliRecord } from "../workflow/call-record.mjs";
 import { parseYaml } from "../yaml.mjs";
@@ -310,7 +310,7 @@ export function readInputs({ brief, leg, out, moveEdges }) {
   };
 }
 
-const playgroundRow = (id) => ({ id, ...JSON.parse(readFileSync(join(REPO, PLAYGROUND_TABLE), "utf8"))[id] });
+const playgroundRow = (id) => ({ id, ...readRowTable(PLAYGROUND_TABLE)[id] });
 const promptOf = (dir, unit) => {
   const p = join(callDir(dir, unit, 1), CALL_FILES.prompt);
   return existsSync(p) ? readFileSync(p, "utf8") : null;

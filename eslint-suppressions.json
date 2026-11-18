@@ -169,11 +169,6 @@
       "count": 1
     }
   },
-  "src/workflow/judge/prompt.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/workflow/strands.mjs": {
     "no-unused-vars": {
       "count": 1

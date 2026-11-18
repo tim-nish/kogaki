@@ -84,7 +84,7 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 const repo = resolve(".");
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
 const LB = await imp("src/move-extraction-playground/leg-brief.mjs");
-const { resolvedRow } = await imp("src/workflow/copies.mjs");
+const { withPromptText, passagesOf } = await imp("src/workflow/judge.mjs");
 const { parseBriefRecord, briefLegs } = await imp("src/compose.mjs");
 const { readAdoptedBrief, paragraphPlanRecord, paragraphPlanRecordText, paragraphPlanPathFor } = await imp("src/paragraph-plan.mjs");
 const root = mkdtempSync(join(tmpdir(), "move-extraction-playground-leg-brief-"));
@@ -196,11 +196,7 @@ else {
     ok(existsSync(join(d, "answer.json")), `(c) ${sub}/answer.json was not written`);
     const a = existsSync(join(d, "rounds.json")) ? JSON.parse(readFileSync(join(d, "rounds.json"), "utf8")) : {};
     ok(a.rounds === rounds, `(c) ${sub}/rounds.json records ${a.rounds} round(s), not ${rounds}`);
-    const resolved = resolvedRow(table, key);
-    ok(!resolved.error && prompt.includes(`JUDGMENT POINT: ${resolved.row.judgment_point}`), `(d) ${sub}/prompt.md does not carry the row's judgment point with its copies resolved: ${resolved.error || ""}`);
-    for (const [name, c] of Object.entries(table[key].copies || {})) {
-      ok(prompt.includes(c.opens) && !prompt.includes(`{{copy:${name}}}`), `(d) ${sub}/prompt.md does not carry the copied production span ${JSON.stringify(c.opens)}`);
-    }
+    ok(prompt.includes(`JUDGMENT POINT: ${withPromptText({ id: key, ...table[key] }).judgment_point}`), `(d) ${sub}/prompt.md does not carry the judgment point of the row's prompt file`);
   }
   const lp = existsSync(join(runDir, "leg-path", "rounds.json")) ? JSON.parse(readFileSync(join(runDir, "leg-path", "rounds.json"), "utf8")) : {};
   ok(Array.isArray(lp.refusals) && lp.refusals.length === 1 && /carries `reader_state_after` — the Leg's reader states are retired \(kogaki#1699\)/.test(lp.refusals[0]),
@@ -255,21 +251,18 @@ else {
   ok(!analysis.some((c) => /`proposition`[^;]*written from/.test(c)), `(h) the Leg call's instruction still writes a \`proposition\` from \`what_it_does\`: ${JSON.stringify(analysis)}`);
 }
 const diff = spawnSync(process.execPath, ["src/move-extraction-playground/leg-brief.mjs", "diff"], { encoding: "utf8" });
-ok(diff.status === 0 && (diff.stdout.match(/every copy resolves against the production text/g) || []).length === 1 && !diff.stdout.includes("leg_reader_start_unit"),
+ok(diff.status === 0 && (diff.stdout.match(/shares the passage each_waypoint_is_a_point/g) || []).length === 1 && !diff.stdout.includes("leg_reader_start_unit"),
   `(d) \`leg-brief.mjs diff\` does not apply the one Leg row cleanly: ${diff.stdout}${diff.stderr}`);
 {
-  // THE POINT SPAN'S ORIGIN IS `leg_path_unit` ITSELF since the Brief's `lpp_waypoints` row left
-  // (kogaki#1775): the row carries the span and no copy, and the Mapping Playground's
-  // `smp_leg_unit` copies it from here -- a copy naming a span this row no longer carries refuses.
+  // THE POINT SPAN IS ONE SHARED PASSAGE (kogaki#1862): `leg_path_unit`'s and the Mapping Playground's `smp_leg_unit`'s
+  // prompt files both name it, and neither row carries a copy.
   const table = JSON.parse(readFileSync(join(repo, "src", "move-extraction-playground", "extraction-workflow.json"), "utf8"));
-  ok(!table.leg_path_unit.copies && table.leg_path_unit.judgment_point.includes("EACH WAYPOINT IS A POINT (kogaki#1326):"),
-    "(d) leg_path_unit does not carry the point span itself with no copy (kogaki#1775)");
   const playground = JSON.parse(readFileSync(join(repo, "src", "structure-mapping-playground", "playground-workflow.json"), "utf8"));
-  ok(!resolvedRow(playground, "smp_leg_unit").error, `(d) smp_leg_unit's copy of the point span does not resolve: ${resolvedRow(playground, "smp_leg_unit").error}`);
-  playground.smp_leg_unit.copies.point.opens = "a span production never carried";
-  const d = resolvedRow(playground, "smp_leg_unit");
-  ok(/`smp_leg_unit`'s copy `point`: src\/move-extraction-playground\/extraction-workflow.json's `leg_path_unit.judgment_point` no longer carries "a span production never carried"/.test(d.error || ""),
-    `(d) a copy naming an absent span was not refused by name: ${d.error}`);
+  for (const [t, key] of [[table, "leg_path_unit"], [playground, "smp_leg_unit"]]) {
+    const row = { id: key, ...t[key] };
+    ok(!row.copies && Object.hasOwn(passagesOf(row), "each_waypoint_is_a_point") && withPromptText(row).judgment_point.includes("EACH WAYPOINT IS A POINT (kogaki#1326):"),
+      `(d) ${key}'s prompt file does not name the shared point passage, or the row still carries a copy (kogaki#1862)`);
+  }
 }
 
 // (e) --tools ""

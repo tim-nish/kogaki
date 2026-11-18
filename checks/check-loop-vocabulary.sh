@@ -42,11 +42,11 @@ const ALLOWED = [
   // The names a run or a settings file written before the rename carries, read where the new name is absent.
   ["src/workflow/call-record.mjs", 'dir: "attempts"'], ["src/workflow/call-record.mjs", 'records: "attempt_records"'], ["src/workflow/call-record.mjs", 'firstCallS: "attempt_1_s"'], ["src/workflow/call-record.mjs", 'unitBound: "unit_attempts"'], ["src/workflow/call-record.mjs", 'count: "attempts"'], ["src/workflow/call-record.mjs", 'roundsFile: "attempts.json"'],
   ["src/workflow/judge.mjs", '"brief.unit_attempts": "brief.unit_rounds"'], ["src/workflow/judge.mjs", '"paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions"'],
-  // The word the ParagraphPlan's prose validator refuses in a model's answer, and the instruction naming it.
+  // The word the ParagraphPlan's prose validator refuses in a model's answer, and the instruction naming it, as the saved render of its prompt file holds it (kogaki#1862).
   ["src/paragraph-plan/site-retry.mjs", "/\\w*attempt\\w*/i"],
   ["src/paragraph-plan/site-retry.mjs", "carries no word of the refusal, the attempt,"],
-  ["src/paragraph-plan-workflow.json", "carrying `refus`, `attempt`, `kogaki#`"],
-  ["src/paragraph-plan-workflow.json", "carry no word of the refusal, the attempt, the shape"],
+  ["checks/fixtures/prompt-files/rows/paragraph-plan/paragraph-plan-site-unit.txt", "carrying `refus`, `attempt`, `kogaki#`"],
+  ["checks/fixtures/prompt-files/rows/paragraph-plan/paragraph-plan-site-unit.txt", "carry no word of the refusal, the attempt, the shape"],
   // The run history quoted in Terrain's judge note: the attempts of runs, never the loop's own names.
   ["src/terrain-workflow.json", "two of three attempts exceeded it"],
   ["src/terrain-workflow.json", "a first-attempt-clean advance cost"],

@@ -1,0 +1,39 @@
+You are the judge at the Prompt-file fixture workflow's `paragraph_plan_site_unit` judgment point.
+
+JUDGMENT POINT: repair the ONE paragraph a refusal named, `paragraph_you_must_plan` in the input, and only it, taking these steps:
+- READ: Read every entry of `refused_here` and the refusal beside it, and change what each refusal names.
+- REPAIR: Read `repair`: under `modify_points` change only the Waypoints it names and keep every other point of `paragraph_as_it_stands` as it stands; under `rewrite_all_points` write every point again. Under `modify_points` you may answer `arm`: `rewrite_all_points` at the root where the named points cannot be repaired alone.
+- WRITE: `purpose`, `rationale` and every `point` describe the paragraph and its reader, and carry no word of the refusal, the attempt, the shape of the record or any rule by name.
+- HOLD: Write the paragraph's Waypoints under the Leg's `bound_move`, one per Segment in its order, and name no Move, since the Move is the Leg's.
+- BESIDE: Read `paragraphs_beside`, the Waypoints of the paragraphs before and after this one, and restate none of them.
+- KEEP: Carry `re_activations_this_paragraph_carries` on the paragraph unless a refusal names them.
+A Segment's `operation` is an operation performed on a part of the Leg's `text`, never a point to state. A Segment's `manner`, where it carries one, names how the step is realised and is never part of what the Waypoint says. A `join` is one word naming how a paragraph's first Waypoint stands to the paragraph before it, never a sentence, from a closed set: `consequence` -- this paragraph follows from what the previous one established, `grounds` -- this paragraph gives the reason for what the previous one asserted, `contrast` -- this paragraph sets its matter against the previous one's, `elaboration` -- this paragraph carries the previous one's matter further or in more detail, `summary` -- this paragraph draws the preceding paragraphs together, or `none` -- this paragraph opens on its own matter and no connective is owed. A `cast` is a map on each `point` Waypoint naming the shape its sentences take, never content, each key true or absent, from a closed set: `terse` -- one short statement given at once, taking no elaboration after it, `plain` -- laid down without support, ground or qualification, `hedged` -- offered as a guess or forecast rather than asserted, `chained` -- a run of parallel items or alternatives inside one sentence, `asked` -- put as a question that takes no lead-in, `voiced` -- spoken in a named voice, the first person, an invitation, or words reported as another's, `instanced` -- one recognisable instance named and left without comment, `dated` -- each instance placed in time, or `figured` -- asserted as a likeness or a figurative identification. A `takes` or `leaves` entry is a `kind` and a `what`, the kind one of `answer` (a question raised, to be answered), `explain` (a term named, to be explained), `carry` (a base's structure, to be carried onto the subject) or `apply` (a principle given, to be applied to a case). Where the input carries `analogy_you_must_draw_from`, every analogue a paragraph names is that base domain or one of its counterparts, and a paragraph naming any other analogue does not fit. An answer that repeats a refused paragraph, or restates a refused paragraph's Waypoints word for word in order under any other change, is refused before it is judged. Word choice, reference and sentence shape beyond `cast` are not planned here; they stay with the Writer.
+REQUIRED RECORD SHAPE: ONE paragraph AT THE RECORD'S OWN ROOT, the paragraph-level Leg schema (kogaki#1639) of `paragraph_plan_unit`'s `paragraphs` entry: `{ "paragraph": <the input's number>, "materials": [...], "purpose": ..., "depends_on": [...], "rationale": ..., "re-activate": [...], "join": <one word, on every paragraph after the first>, "paragraph_waypoints": [...] }`, with `"arm": "rewrite_all_points"` only where `repair` names `modify_points` -- no `move`, nothing of another paragraph and nothing of another Leg
+WHAT IS REFUSED: a paragraph numbered for another paragraph; a paragraph carrying `move`, by name (kogaki#1777); a paragraph the Leg call's paragraph rules refuse; a paragraph repeating a refused one -- after a judge's refusal the same `paragraph_waypoints` and `join`, after a validator's the same paragraph whole -- refused as a repeat; Waypoints whose `point` or `performs` text equals a refused paragraph's in order, refused as a restatement naming the unchanged points (kogaki#1651); a `purpose` or `rationale` carrying `refus`, `attempt`, `kogaki#` or a backticked field name, naming the field. Each refusal spends this paragraph's round and is put into the next site call's `refused_here` beside the answer it refused.
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

@@ -1,4 +1,4 @@
-{{!-- ONE CRITERION, WRITTEN ONCE (kogaki#1452): where the planner row and the judge row carry one criterion, it is written here and both `judgment_point` strings name it as `{{shared:<name>}}`; `judgePrompt` (src/workflow/judge.mjs) substitutes it, and checks/check-schema-binds.sh refuses a sentence one row carries with words changed from another's. The `relation` gap of kogaki#1446 sat in exactly such a difference. --}}
+{{!-- ONE CRITERION, WRITTEN ONCE (kogaki#1452): where the planner and the judge carry one criterion, it is one shared passage under prompts/paragraph-plan/ that both prompt files name (kogaki#1862), and checks/check-schema-binds.sh refuses a sentence one row carries with words changed from another's. The `relation` gap of kogaki#1446 sat in exactly such a difference. --}}
 {{> judge-opening}}
 
 JUDGMENT POINT: plan the paragraphs of ONE Leg, `leg_you_must_plan` in the input, from four inputs and nothing else (`leg_you_must_plan`, `paragraphs_at_most`, `paragraph_moves_you_may_bind` and `persona`), taking these steps:

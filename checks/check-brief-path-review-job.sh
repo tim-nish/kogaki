@@ -237,7 +237,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     || job.absolute_limit_s !== undefined) {
     fails.push(`(x5) review_path's job does not name the settings brief.call_limit_s and brief.unit_rounds alone: ${JSON.stringify(job)}`);
   }
-  if (!briefTable.review_path_unit || !/ONE CANDIDATE|ONE composed Candidate/.test(briefTable.review_path_unit.judgment_point || "")) fails.push("(x5) src/brief-workflow.json declares no review_path_unit row for one Candidate");
+  if (!briefTable.review_path_unit || !/ONE CANDIDATE|ONE composed Candidate/.test((await import("./src/workflow/judge.mjs")).withPromptText({ id: "review_path_unit", ...briefTable.review_path_unit }).judgment_point)) fails.push("(x5) src/brief-workflow.json declares no review_path_unit row for one Candidate");
   if (!/no synchronous judgment state follows the jobs/.test(briefTable.judge.note || "")) fails.push("(x5) the judge note does not state that no synchronous judgment follows the jobs");
 }
 

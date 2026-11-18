@@ -68,7 +68,7 @@ try { prompt = renderRowHead({ id: "paragraph_plan_judge_unit", ...table.paragra
 const got = criteriaOf(prompt).map((c) => `${c.name}: ${c.text}`);
 const want = registry.axes.map((a) => `${a.id}: ${a.sentence}`);
 if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`(b) the rendered judge prompt carries ${JSON.stringify(got)}, not the registry's axes`);
-if (/\n- [A-Z]/.test(table.paragraph_plan_judge_unit.judgment_point)) fails.push("(b) the judge row's own text writes a criterion line");
+if (JSON.parse(readFileSync("src/paragraph-plan-axes.json", "utf8")).axes.some((a) => Object.hasOwn(a, "sentence"))) fails.push("(b) src/paragraph-plan-axes.json holds a `sentence` (kogaki#1862)");
 if (Object.hasOwn(table.criteria || {}, "paragraph_plan_judge_unit")) fails.push("(b) the workflow table's `criteria` names judge criteria of its own");
 
 // (c) the validator counts what the judge no longer judges.
@@ -110,7 +110,7 @@ const spec = readFileSync("specs/spec-draft-pipeline/SPEC.md", "utf8");
 const briefRows = JSON.parse(readFileSync("src/brief-workflow.json", "utf8"));
 const legPoint = briefRows.lpp_grounded ? briefRows.lpp_grounded.judgment_point : "";
 const legItems = (point) => [...point.matchAll(/\b([A-Z][A-Z ]+[A-Z]): /g)].map((m) => m[1]);
-const sharedIds = (row) => [...row.judgment_point.matchAll(/\{\{shared:([a-z_]+)\}\}/g)].map((m) => m[1]);
+const sharedIds = ((p) => (row) => Object.keys(p({ id: "paragraph_plan_judge_unit", ...row })))((await imp("src/workflow/judge.mjs")).passagesOf);
 const STANDINGS = { shared: [true, true], "Leg only": [true, false], "paragraph only": [false, true] };
 const cell = (t) => { const v = t.trim(); return v === "—" ? null : v.replace(/^`|`$/g, ""); };
 function tableFailures(text, paragraphIds, legList) {
@@ -180,8 +180,8 @@ cases++;
 // (d) the bench, over a scratch axis added to a copy of the registry and a fake judge that refuses
 // its defect only where the prompt carries the axis line: kept with its rates; over a judge blind
 // to it, removed with the record only it named.
-const tmp = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-"));
-const fake = join(tmp, "fake-judge.mjs");
+const tmp = mkdtempSync(join(tmpdir(), "paragraph-plan-axes-")), JP = "prompts/paragraph-plan/paragraph-plan-judge-unit.prompt"; // the scratch axis's sentence is a line of the judge's prompt file (kogaki#1862)
+const { treeWith, removeTrees } = await imp("checks/fixtures/tree-copy.mjs"), withLine = (t) => t.replace(/^(- [A-Z ]+: .*\n)(?!- )/m, "$1- SCRATCH AXIS: The join is judged.\n"), fake = join(tmp, "fake-judge.mjs");
 writeFileSync(fake, `#!/usr/bin/env node
 if (process.argv.includes("--version")) { console.log("fake 1"); process.exit(0); }
 let s = ""; process.stdin.on("data", (b) => { s += b; }).on("end", () => {
@@ -193,24 +193,24 @@ let s = ""; process.stdin.on("data", (b) => { s += b; }).on("end", () => {
   process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({ version: "1", leg_id: leg.leg_id, verdicts }) }) + "\\n");
 });
 `, { mode: 0o755 });
-const benchOnce = (sees, label) => {
+const benchOnce = async (sees, label) => {
   const reg = join(tmp, `${label}.json`);
-  const scratch = structuredClone(registry);
+  const scratch = JSON.parse(readFileSync("src/paragraph-plan-axes.json", "utf8")), root = (await treeWith(REPO, { [JP]: withLine(readFileSync(JP, "utf8")), "kogaki.settings.json": readFileSync("kogaki.settings.json", "utf8") })("src/workflow/run-record.mjs")).REPO;
   scratch.records["scratch-two"] = { from: "leg3-clean", edit: { move_takes: [] } };
   const base = structuredClone(scratch.records["leg3-clean"].input);
   base.leg_you_must_judge.paragraphs.push({ paragraph: 2, join: "elaboration", paragraph_waypoints: base.leg_you_must_judge.paragraphs[0].paragraph_waypoints });
   scratch.records["scratch-two"] = { input: base };
   scratch.records["scratch-join"] = { from: "scratch-two", at_paragraph: 2, edit: { paragraph: 2, join: "consequence" } };
-  scratch.axes.push({ id: "SCRATCH AXIS", sentence: "The join is judged.", fixtures: { defect: ["scratch-join"], clean: ["scratch-two"] } });
+  scratch.axes.push({ id: "SCRATCH AXIS", fixtures: { defect: ["scratch-join"], clean: ["scratch-two"] } });
   writeFileSync(reg, JSON.stringify(scratch, null, 2));
   const out = join(tmp, label);
-  const r = spawnSync("node", ["src/move-extraction-playground/judge-bench.mjs", "--axis", "SCRATCH AXIS", "--draws", "5", "--out", out, "--registry", reg, "--record"],
+  const r = spawnSync("node", [join(root, "src/move-extraction-playground/judge-bench.mjs"), "--axis", "SCRATCH AXIS", "--draws", "5", "--out", out, "--registry", reg, "--record"],
     { encoding: "utf8", env: { ...process.env, KOGAKI_JUDGE_CLI: fake, FAKE_SEES: sees === "silent" ? "silent" : sees ? "1" : "0" } });
   return { r, bench: existsSync(join(out, "bench.json")) ? JSON.parse(readFileSync(join(out, "bench.json"), "utf8")) : null,
-    after: JSON.parse(readFileSync(reg, "utf8")) };
+    after: JSON.parse(readFileSync(reg, "utf8")), prompt: readFileSync(join(root, JP), "utf8") };
 };
 cases++;
-const seen = benchOnce(true, "sees");
+const seen = await benchOnce(true, "sees");
 const rates = seen.bench && seen.bench.axes["SCRATCH AXIS"] ? seen.bench.axes["SCRATCH AXIS"].rates : null;
 if (!rates || rates.defect_refused_with !== 1 || rates.defect_refused_without !== 0 || rates.clean_passed_with !== 1 || rates.clean_passed_without !== 1) {
   fails.push(`(d1) the bench over a scratch axis did not write its rates: ${JSON.stringify(rates)} ${seen.r.stderr || ""}`);
@@ -218,18 +218,18 @@ if (!rates || rates.defect_refused_with !== 1 || rates.defect_refused_without !=
 const kept = seen.after.axes.find((a) => a.id === "SCRATCH AXIS");
 if (!kept || !kept.justified_by || kept.justified_by.rates.defect_refused_with !== 1) fails.push("(d1) a kept axis's justified_by was not recorded");
 cases++;
-const blind = benchOnce(false, "blind");
+const blind = await benchOnce(false, "blind");
 if (!blind.bench || blind.bench.axes["SCRATCH AXIS"].kept !== false) fails.push("(d2) an axis whose defect is not refused with it was graded kept");
-if (blind.after.axes.some((a) => a.id === "SCRATCH AXIS") || Object.hasOwn(blind.after.records, "scratch-join")
+if (blind.after.axes.some((a) => a.id === "SCRATCH AXIS") || blind.prompt.includes("- SCRATCH AXIS: ") || Object.hasOwn(blind.after.records, "scratch-join")
     || !Object.hasOwn(blind.after.records, "leg3-clean")) {
   fails.push("(d2) an axis the rule does not keep was not removed with only the record it alone named");
 }
 cases++;
-const silent = benchOnce("silent", "silent");
+const silent = await benchOnce("silent", "silent");
 if (!silent.bench || silent.bench.axes["SCRATCH AXIS"].measured !== false || !silent.after.axes.some((a) => a.id === "SCRATCH AXIS")) {
   fails.push("(d3) an axis whose bench calls were never read was removed, or not reported as unmeasured");
 }
-rmSync(tmp, { recursive: true, force: true });
+rmSync(tmp, { recursive: true, force: true }); removeTrees();
 rmSync(lib, { recursive: true, force: true });
 
 console.log(`fixture cases run: ${cases}`);

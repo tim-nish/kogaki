@@ -1,0 +1,32 @@
+You are the judge at the Prompt-file fixture workflow's `leg_sections` judgment point.
+
+JUDGMENT POINT: THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. group the derived Legs in the input, `legs`, into the Sections of the finished article, under the Section grouping. Each Leg is given by its `leg_id`, the relation or higher-order relation it serves, `relation`, and what it says, `text`. THE FIRST LEG OPENS A SECTION. A Leg opens a Section where the reader's question changes -- where its `text` turns to matter the Legs before it in the current Section did not state -- and continues the current Section otherwise; a higher-order relation's Leg continues the Section of the relations it relates. Two adjacent Sections holding exactly one Leg each are not written: merge them. For each Leg that opens a Section write its heading, `opens_section`: one plain sentence or phrase stating where the Section's last claims leave the reader, in everyday words, so a reader can skip directly to any Section and still understand its heading -- never a title, and never a term the article has not put in front of the reader. Answer the Sections record and nothing else.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly `sections` -- a list of `{ "leg_id": <the id of a Leg that opens a Section>, "opens_section": <one plain sentence or phrase> }`, in Leg order, its first entry the first Leg.
+WHAT IS REFUSED: a key the record or an entry does not declare, or a declared key missing; an entry naming no Leg of the input, two entries naming one Leg, or entries out of Leg order; an empty `opens_section`; and the Section grouping's own refusals over the Legs with the headings in place -- the first Leg not opening a Section, and two adjacent one-Leg Sections -- each refused naming the Leg. The refusal is put back into your next round verbatim with your answer.
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

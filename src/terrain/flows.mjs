@@ -16,7 +16,7 @@ import {
 import { readSubdivisionEntry } from "./report.mjs";
 import { composeSubdivisionRecord, resolveReportTargets, subdivisionRules } from "./subdivide.mjs";
 import { NO_DISPLAY_ID, cmdSurvey, displayIdOf, renderTagDisplay, tagRow } from "./survey.mjs";
-import { judgedRecordPath } from "../workflow/judge.mjs";
+import { judgedRecordPath, withPromptText } from "../workflow/judge.mjs";
 import { REPO, REPORT_FORMAT, fail, flow, readJson, relFromRepo, repoRoot } from "../workflow/run-record.mjs";
 
 // The path the table declares for the artifact a write state names. Read from
@@ -181,9 +181,7 @@ export const STATE_WORK = {
     const validate = (p) => {
       const raw = readJson(p);
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        fail(
-          `${st.id} refuses a bare array or non-object --subdivisions record; ${st.input_shape || "one typed entry per composed group"}.`,
-        );
+        fail(`${st.id} refuses a bare array or non-object --subdivisions record; ${withPromptText(st).input_shape}.`);
       }
       // Each entry is read by the EXISTING validator, which carries the judged
       // flag, the judge pin and the coherence rules (semantic subdivision, measurement before offering, the report identity).

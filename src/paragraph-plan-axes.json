@@ -1,7 +1,7 @@
 {
   "version": 1,
   "note": [
-    "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis, rendered in this order into `paragraph_plan_judge_unit` by its `{{axes}}` token (src/workflow/judge.mjs).",
+    "THE PARAGRAPHPLAN JUDGE'S AXES (kogaki#1533, owner decision 2026-10-23): one responsibility and one sentence per axis. Each axis's sentence is its line `- <id>: <sentence>` of prompts/paragraph-plan/paragraph-plan-judge-unit.prompt, in this order, read by `axisSentence` in src/paragraph-plan/axes.mjs (kogaki#1862).",
     "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, one Leg under its one bound Move (kogaki#1777), or `from` another record with one `edit`: a Waypoint replaced (`paragraph`, `waypoint`, `to`), a `join` replaced (`paragraph`, `join`), or the bound Move's `takes` or `leaves` replaced (`move_takes` or `move_leaves`) (kogaki#1701). `at_paragraph` names the paragraph a defect sits on.",
     "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/move-extraction-playground/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
@@ -946,10 +946,13 @@
   "axes": [
     {
       "id": "PERFORMS IS BARE",
-      "sentence": "A `performs` line carries the operation alone and no clause stating the reader's resulting reading.",
       "fixtures": {
-        "defect": ["performs-states-reading"],
-        "clean": ["leg3-wp3-clean"]
+        "defect": [
+          "performs-states-reading"
+        ],
+        "clean": [
+          "leg3-wp3-clean"
+        ]
       },
       "justified_by": {
         "date": "2026-10-23",
@@ -966,10 +969,13 @@
     },
     {
       "id": "OWN STEP",
-      "sentence": "A Waypoint carries nothing a later Segment's `operation` produces, not even in apposition or as a `that is` restatement of its own content, which a refusal names by both Waypoints and that Segment.",
       "fixtures": {
-        "defect": ["leg4-run"],
-        "clean": ["leg4-own-step"]
+        "defect": [
+          "leg4-run"
+        ],
+        "clean": [
+          "leg4-own-step"
+        ]
       },
       "justified_by": {
         "date": "2026-10-25",
@@ -986,10 +992,13 @@
     },
     {
       "id": "TAKEN",
-      "sentence": "Every `takes` entry of the bound Move is met by the Leg's `prior_knowledge` or by a relation of `the_reader_has_been_told`, which a refusal names by its kind and `what`.",
       "fixtures": {
-        "defect": ["taken-unmet"],
-        "clean": ["leg3-clean"]
+        "defect": [
+          "taken-unmet"
+        ],
+        "clean": [
+          "leg3-clean"
+        ]
       },
       "justified_by": {
         "date": "2026-11-06",
@@ -1006,10 +1015,13 @@
     },
     {
       "id": "BREAKS",
-      "sentence": "The Waypoints, read in order, survive each test in the Move's `breaks`, no test naming a change the Waypoints have made.",
       "fixtures": {
-        "defect": ["g1-defines-first"],
-        "clean": ["g1-clean"]
+        "defect": [
+          "g1-defines-first"
+        ],
+        "clean": [
+          "g1-clean"
+        ]
       },
       "justified_by": {
         "date": "2026-11-02",
@@ -1026,10 +1038,13 @@
     },
     {
       "id": "CAST",
-      "sentence": "Every key a `point` Waypoint's `cast` sets true holds of its point as the key's definition states it, which a refusal names by the Waypoint, the key, its definition and the quoted clause that breaks it.",
       "fixtures": {
-        "defect": ["cast-terse-elaborates"],
-        "clean": ["cast-terse-clean"]
+        "defect": [
+          "cast-terse-elaborates"
+        ],
+        "clean": [
+          "cast-terse-clean"
+        ]
       },
       "justified_by": {
         "date": "2026-11-11",
@@ -1045,7 +1060,6 @@
     },
     {
       "id": "EXPRESSED",
-      "sentence": "Where the Leg carries `mapping`, every Role and every relation in it has a Waypoint of the paragraph that names the object of the Role's `expression` or states the relation over those objects in any wording, which its `expressed` row gives by number.",
       "fixtures": {
         "defect": [
           "expressed-no-counterpart"
@@ -1070,10 +1084,13 @@
     },
     {
       "id": "ANALOGUE",
-      "sentence": "Where the bound Move carries `analogy_you_must_draw_from`, every analogue a paragraph names is its base domain or one of its counterparts, which a refusal names by the Waypoint and the analogue.",
       "fixtures": {
-        "defect": ["analogue-outside"],
-        "clean": ["analogue-clean"]
+        "defect": [
+          "analogue-outside"
+        ],
+        "clean": [
+          "analogue-clean"
+        ]
       },
       "justified_by": {
         "date": "2026-11-11",

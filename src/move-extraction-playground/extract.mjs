@@ -52,7 +52,7 @@ import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { methodWordRefusal } from "../compose/leg-schema.mjs";
 import { MOVE_CONSTRAINT_KINDS, moveConstraintsRefusal } from "../move-validate.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
-import { REPO, relFromRepo, bindFlow } from "../workflow/run-record.mjs";
+import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { enterRun, RUNS_ROOT } from "../runs.mjs";
 import {
   startDetachedJobSupervisor,
@@ -1051,7 +1051,7 @@ export function runExtractor(legPath, { out, passage = null, audience = null, re
   const legs = legsOf([].concat(legPath), passage);
   const units = legs.flatMap((leg, k) => leg.paragraphs.map((_, i) => ({ leg, k, i })));
   const total = units.length;
-  const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const table = readRowTable(EXTRACTION_TABLE);
   const row =
     table.extraction_unit ||
     fail(
@@ -1292,7 +1292,7 @@ export function runConstraintsRejudge(
     fail(`the library at ${dir} cannot be read (${e.message})`);
   }
   if (!names.length) fail(`the library at ${dir} carries no .yaml record — there is nothing to re-judge`);
-  const table = JSON.parse(readFileSync(EXTRACTION_TABLE, "utf8"));
+  const table = readRowTable(EXTRACTION_TABLE);
   const row =
     table.constraints_unit ||
     fail(

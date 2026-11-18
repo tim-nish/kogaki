@@ -110,3 +110,13 @@ export function renderPromptFile(name, values) {
     throw new Error(`prompts/${name}.prompt: ${e.message}`, { cause: e });
   }
 }
+
+/** The path of a file under prompts/. @param {string} name @returns {string} */
+export const promptFilePath = (name) => join(PROMPTS, `${name}.prompt`);
+
+/** The text of a file under prompts/, its marks unrendered. @param {string} name @returns {string} */
+export function promptFileSource(name) {
+  const file = promptFilePath(name);
+  if (!existsSync(file)) throw new Error(`prompts/${name}.prompt: no such prompt file`);
+  return fileText(file);
+}

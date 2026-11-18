@@ -1,0 +1,5 @@
+THE LITERAL RECORD SHAPE, filled from THIS run's own composed input. Answer with a record
+of exactly this shape: the same keys, the same nesting, and the same group names, with
+each placeholder replaced by your judgment. The sentence above DESCRIBES the record; this
+is the record.
+{{record_example}}

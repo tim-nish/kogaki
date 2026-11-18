@@ -1,0 +1,32 @@
+You are the judge at the Prompt-file fixture workflow's `smp_rank_senses` judgment point.
+
+JUDGMENT POINT: read the sentences in the input, `sentences`, which are the sentences of one paragraph in order, numbered from 1. For EACH pair of neighbouring sentences, (1, 2), (2, 3) and so on to the last, give the THREE Senses of `senses` that fit best between the two sentences as they are written, the best first: exactly three for each pair, all different. For each of the three, say whether you judge that it really holds between the two sentences (`holds`: true) or is only the nearest remaining candidate (`holds`: false). Where a Sense name ends in a part word, say which of the two sentences plays that part (`played_by`: that sentence's number); where a Sense has no part word, answer `played_by`: null. Judge only from the sentences as written, including their joining words. Add no fact.
+REQUIRED RECORD SHAPE: ONE record AT THE RECORD'S OWN ROOT carrying exactly one key: `pairs` -- one entry per pair of neighbouring sentences, in order, each `{ "pair": [k, k+1], "senses": [ three of { "sense": <a name of `senses`, with its part word where it has one>, "played_by": <k or k+1, or null>, "holds": true | false } ] }`.
+WHAT IS REFUSED: a key the record, a pair or a Sense does not declare, or a declared key missing; a `pairs` list that is not one entry per neighbouring pair in order; a `senses` list that is not exactly three; a `sense` that is not a name of `senses`, written with its part word where it has one; a `played_by` that is not one of the pair's two numbers where the Sense has a part word, or not null where it has none; a `holds` that is not true or false; and two of a pair's three that are the same once a reason or result part played by the earlier sentence is read as its opposite played by the later one. Each refusal names the place. The first refusal is put back into your next round verbatim with your answer; a second stops the run.
+
+Your INPUT is the JSON below the marker, and it is the whole of what you may judge over.
+Answer with the typed record and NOTHING else -- no prose, no fences, no commentary.
+
+----- YOUR PREVIOUS ANSWER (call 1) -----
+{
+  "version": "1"
+}
+----- IT WAS REFUSED -----
+the record names no group
+
+Those are your previous answers and the refusal each one raised, verbatim. Answer again
+with the whole record. Keep every part the refusal did not name, and change the parts it
+did. The input below is unchanged.
+
+----- INPUT (JSON) -----
+{
+  "groups": [
+    {
+      "name": "g1"
+    },
+    {
+      "name": "g2"
+    }
+  ],
+  "fixture": "prompt-files"
+}

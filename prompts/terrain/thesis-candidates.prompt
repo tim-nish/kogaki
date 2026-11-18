@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: Thesis-candidate composition (the Thesis candidates)
+REQUIRED RECORD SHAPE: typed array of {claim, strands} objects, exactly `limits.thesis_candidates` of them, each combining 2 to 8 LessonDisplayIDs THIS report renders
+WHAT IS REFUSED: a count other than the declared limit, a claim spanning more than one line, a strand list outside 2 to 8, a strand no entered Group or SubGroup carries, and a repeated strand are each refused
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

@@ -1,0 +1,14 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: THE ARTICLE'S LANGUAGE (kogaki#1417): `language` in the input is the one language the article is written in, declared by the Audience file; write every proposition you compose in it, and keep in English only the keys and ids the record's shape fixes. Each entry of `theses` in the input is one Thesis candidate whose sentence, `thesis`, is longer than `thesis_words` words, beside `attains`, the part of the structure it is the Thesis of: its relations and higher-order relations with their `holds`, its `top` and the claims it is read from. Rewrite each Thesis as ONE sentence of at most `thesis_words` words that states the same connection `attains` makes, in the claims' own words and naming the claims' objects -- never over Role ids, so it carries no `{<id>}` -- dropping no part of that connection and adding nothing the structure does not state. Answer the record and nothing else.
+REQUIRED RECORD SHAPE: ONE record AT ITS OWN ROOT carrying exactly `theses` -- a list of `{ "candidate": <a `candidate` id of the input>, "thesis": <one sentence of at most `thesis_words` words> }`, one per entry of the input's `theses`.
+WHAT IS REFUSED: a key the record or an entry does not declare, or a declared key missing; an entry naming no candidate of the input, or naming one twice; a candidate of the input with no entry; a `thesis` that is empty or carries `{<id>}`; and a `thesis` still longer than `thesis_words` words, refused naming its length. The row declares no re-ask, so a refusal stops the run.
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

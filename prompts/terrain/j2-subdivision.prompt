@@ -1,0 +1,17 @@
+{{> judge-opening}}
+
+JUDGMENT POINT: GroupClaim composition and semantic subdivision, ONE PER-GROUP CALL (kogaki#1172): every group's claim and its SubGroups are judged together, over that group's own material alone.
+REQUIRED RECORD SHAPE: typed per-group record, judged: true, one entry per composed group, carrying the judge pin, a `claim` -- the GroupClaim, one sentence, no citation -- and the SubGroups; each SubGroup carries a `coherence` label from the closed set tight | related | loose | other and a `coherence_why` sentence
+WHAT IS REFUSED: a missing group entry, a bare array, or an absent judge pin is refused; a SubGroup whose `coherence` is outside the closed set, or that carries no `coherence_why`, is refused — the label is the judge's and is never defaulted here; and a judged-EMPTY outcome for a group at or above the split threshold is refused, because at that size WHETHER to split is the engine's decision rather than the judge's (semantic subdivision)
+
+{{> judge-record-example}}
+
+
+{{> judge-closing}}
+{{#if history}}
+
+{{> judge-reask}}
+{{/if}}
+
+----- INPUT (JSON) -----
+{{input}}

@@ -25,18 +25,15 @@ import { judgePrompt } from "./judge/prompt.mjs";
 export { COHERENCE_LABELS, RESIDUAL_LABEL, subdivisionLimits } from "./judge/limits.mjs";
 export { JUDGE_INVOCATIONS, ensureJudgeBinary, resolveJudgeBinary } from "./judge/binary.mjs";
 export {
-  AXES_TOKEN,
+  INSTRUCTION_KEYS,
   JUDGE_INPUT_MARKER,
   REFUSAL_REACHES,
-  SHARED_TEXT_FIELDS,
-  SHARED_TEXT_TOKEN,
-  axesOf,
   judgePrompt,
   judgeRefusalBlock,
+  passagesOf,
   readJudgePrompt,
   refusalReach,
-  sharedTextOf,
-  withSharedText,
+  withPromptText,
 } from "./judge/prompt.mjs";
 
 // ---- THE JUDGE CALL ITSELF (kogaki#1030 item 1). ---------------------------
