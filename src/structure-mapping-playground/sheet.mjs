@@ -381,35 +381,37 @@ function moveSegmentsSection(record, route, paragraphs) {
   );
 }
 
-// UNDER A MOVE TABLE (kogaki#1840): the move structure is a count of Roles and the Relations R1 to Rn, and per Segment the
-// table's own fields, each Relation beside the Leg relation the Harness gave it; no operation and no Unmatched table.
+// UNDER A MOVE TABLE (kogaki#1840, kogaki#1858): the move structure is a count of Bind targets, and per Segment the
+// table's own fields, each Bind target beside the Argument or CentralClaim the Harness gave it; no operation and no
+// Unmatched table.
 function tableStructureSection(ms) {
   if (!ms) return none("The Move table was not read.");
-  return `<p>${esc(ms.roles)} Roles; Relations ${esc(ms.relations.map((r) => r.id).join(", "))}</p>`;
+  return `<p>${esc(ms.binds)} Bind targets</p>`;
 }
 
 function tableSegmentsSection(route, paragraphs) {
   const { move, table, pairing } = route;
   if (!pairing) return none("The Move table was not paired, so no Segment is shown.");
-  const given = new Map(pairing.relation_pairs.map((p) => [p.move_relation, p.leg_relation]));
+  const given = new Map(pairing.binds.map((p) => [p.bind, p]));
   const ps = paragraphs || [];
   const rows = table.segments.map((sg, i) => {
-    const states = sg.states.map((n) => `R${n} → ${esc(given.get(`R${n}`))}`);
+    const g = sg.bind === null ? null : given.get(sg.bind);
+    const bind = g ? `${esc(sg.bind)} → ${esc(g.kind)} ${esc(g.leg)}` : "none";
     const dr = sg.discourse_relation;
     const points = ps
       .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
       .filter(([, w]) => w)
       .map(([k, w]) => `Paragraph ${k}: ${esc(Object.hasOwn(w, "performs") ? w.performs : w.point)}`);
     return (
-      `<tr><td>${i + 1}</td><td>${states.join("<br>") || "none"}</td>` +
+      `<tr><td>${i + 1}</td><td>${bind}</td>` +
       `<td>own ${esc(sg.domain.own)} · apart ${esc(sg.domain.apart)}</td><td>${esc(sg.genericity)}</td>` +
-      `<td>${dr ? `${esc(dr.label)} → ${esc(dr.to.join(", "))}` : "none"}</td><td>${esc(sg.manner || "")}</td>` +
+      `<td>${dr ? `${esc(dr.sense)} → ${esc(dr.to.join(", "))}` : "none"}</td><td>${esc(sg.manner || "")}</td>` +
       `<td>${points.length ? points.join("<br>") : '<span class="muted">the plan wrote no Waypoint for this Segment</span>'}</td></tr>`
     );
   });
   return (
-    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>states</th><th>domain</th><th>genericity</th>` +
-    `<th>discourse relation</th><th>manner</th><th>Waypoints</th></tr></thead><tbody>` +
+    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>bind</th><th>domain</th><th>genericity</th>` +
+    `<th>Sense</th><th>manner</th><th>Waypoints</th></tr></thead><tbody>` +
     rows.join("") +
     "</tbody></table>"
   );

@@ -21,7 +21,7 @@ import { callDir, CALL_FILES, cliRecord } from "../workflow/call-record.mjs";
 import { parseYaml } from "../yaml.mjs";
 import { retriedCall } from "./short.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR } from "./trial.mjs";
-import { readBriefLeg } from "./move-structure.mjs";
+import { readBriefLeg, legSentences } from "./move-structure.mjs";
 import {
   READINGS,
   JOIN_ROW,
@@ -33,6 +33,8 @@ import {
 } from "./move-senses.mjs";
 import { renderLegSensesSheet } from "./leg-senses-sheet.mjs";
 
+export { legSentences };
+
 export const NAME_ROW = "smp_name_senses";
 export const RUN_FILE = "leg-senses-run.json";
 export const COUNTS_FILE = "counts.json";
@@ -40,7 +42,6 @@ export const COMPARISON_FILE = "comparison.json";
 export const SHEET_FILE = "sheet.html";
 export const FLAGS = ["brief", "leg", "out"];
 export const CANDIDATES_SETTING = "paragraph_plan.leg_edge_candidates";
-const CENTRAL = "CentralClaim";
 const USAGE =
   "usage: node src/structure-mapping-playground/leg-senses.mjs read --brief <Brief file> --leg <leg_id> " +
   "[--move-edges <file>] --out <dir under runs/structure-mapping-playground/>";
@@ -65,25 +66,6 @@ export function pairsOf(count) {
   const out = [];
   for (let i = 1; i <= count; i++) for (let j = i + 1; j <= count; j++) out.push([i, j]);
   return out;
-}
-
-// ---------------------------------------------------------------------------
-// THE SENTENCES, read from the Brief with no model call: the Arguments in the order the relation lists them, then
-// the CentralClaim. A relation's text is its `holds` with each `{<Role id>}` written as the Role's `name`; a Role's
-// text is its `context`.
-
-export function legSentences(structure, relationId) {
-  const roles = new Map(structure.roles.map((r) => [r.id, r]));
-  const relations = new Map([...structure.relations, ...structure.higher_order].map((r) => [r.id, r]));
-  const named = (holds) => holds.replace(/\{([^{}]+)\}/g, (m, id) => (roles.has(id) ? roles.get(id).name : m));
-  const central = relations.get(relationId);
-  const args = Object.hasOwn(central, "relates")
-    ? central.relates.map((id) => ({ id, sentence: named(relations.get(id).holds) }))
-    : central.between.map((id) => ({ id, sentence: roles.get(id).context }));
-  return [
-    ...args.map((a, k) => ({ number: k + 1, id: a.id, kind: "Argument", sentence: a.sentence })),
-    { number: args.length + 1, id: relationId, kind: CENTRAL, sentence: named(central.holds) },
-  ];
 }
 
 // ---------------------------------------------------------------------------

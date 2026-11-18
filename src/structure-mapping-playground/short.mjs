@@ -48,14 +48,7 @@ import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE 
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
-import {
-  readMoveTable,
-  tableMoveStructure,
-  pairInOrder,
-  tablePlanMove,
-  tableSegments,
-  TABLE_MOVE_ID,
-} from "./move-table.mjs";
+import { readMoveTable, tableMoveStructure, pairInOrder, tablePointsInput, tableSegments } from "./move-table.mjs";
 
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
@@ -940,17 +933,29 @@ export function pairedPlanRow(plan, promptFile = PAIRED_PLAN_FILE) {
   return { id: PLAN_ROW, ...plan[PLAN_ROW], prompt_file: promptFile };
 }
 
-// Under a Move table the plan call is offered the Move as `move`; the Harness writes the named Move's id back (kogaki#1840).
-function tablePlanRefusal(answer, moveId, refusalOf) {
-  if (isMap(answer) && typeof answer.move === "string") {
-    if (answer.move !== TABLE_MOVE_ID)
-      return {
-        group: "plan",
-        text: `the answer binds ${JSON.stringify(answer.move)}, and the one Move offered is "${TABLE_MOVE_ID}"`,
-      };
-    answer.move = moveId;
+// THE POINTS CALL'S ANSWER under a Move table (kogaki#1858): `points`, one `{ segment, point }` per Segment in order,
+// refused naming the place, or null.
+export function tablePointsRefusal(answer, segmentCount) {
+  const refuse = (text) => ({ group: "plan", text });
+  if (!isMap(answer)) return refuse("the answer is not one record");
+  const extra = Object.keys(answer).find((k) => k !== "points");
+  if (extra !== undefined) return refuse(`the record carries \`${extra}\`, and it holds \`points\` and no other key`);
+  if (!Array.isArray(answer.points)) return refuse("the record's `points` is not a list");
+  if (answer.points.length !== segmentCount)
+    return refuse(
+      `\`points\` carries ${answer.points.length} entries, and the Move has ${segmentCount} Segments — one entry per Segment, in order`,
+    );
+  for (const [i, p] of answer.points.entries()) {
+    const at = `points[${i}]`;
+    if (!isMap(p)) return refuse(`${at} is not a map`);
+    const third = Object.keys(p).find((k) => k !== "segment" && k !== "point");
+    if (third !== undefined)
+      return refuse(`${at} carries \`${third}\`, and an entry holds \`segment\` and \`point\` alone`);
+    if (p.segment !== i + 1)
+      return refuse(`${at}'s \`segment\` is ${JSON.stringify(p.segment)}, and its place is ${i + 1}`);
+    if (typeof p.point !== "string" || !p.point.trim()) return refuse(`${at}'s \`point\` is not one non-empty text`);
   }
-  return refusalOf(answer);
+  return null;
 }
 
 export function runMoveTrial({
@@ -980,7 +985,7 @@ export function runMoveTrial({
       `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
     );
   const tablePath = moveTable ? resolve(moveTable) : null;
-  const t = tablePath ? readMoveTable(tablePath, contract.segments.length, b.structure, legId) : null;
+  const t = tablePath ? readMoveTable(tablePath, contract.segments.length, b.structure, legId, b.leg.relation) : null;
   if (t && t.error) fail(`${t.error}. Nothing was started.`);
   const moveTableRecord = t ? t.table : null;
   const table = readTable();
@@ -1093,7 +1098,7 @@ export function runMoveTrial({
   });
   const pairing = stage(MOVE_STAGES[1], (d, env) => {
     if (moveTableRecord) {
-      const written = pairInOrder(moveTableRecord, structure);
+      const written = pairInOrder(structure, b.leg.relation);
       writeYaml(PAIRING_FILE, "pairing", written);
       return { value: written };
     }
@@ -1134,39 +1139,59 @@ export function runMoveTrial({
   });
   const paragraphs = stage("waypoints", (d, env) => {
     const plan = JSON.parse(readFileSync(PARAGRAPH_PLAN_TABLE, "utf8"));
-    const composed = shortPlanInput({
-      leg,
-      structure,
-      tables: tables.tables,
-      move: moveTableRecord ? TABLE_MOVE_ID : moveId,
-      contract,
-      persona,
-      analogy: { none: OWN_ANALOGY_REASON },
-    });
+    if (moveTableRecord) return tablePointsStage({ d, env, cli, plan, leg, structure, relationId: b.leg.relation });
     const input = {
-      ...composed,
-      ...(moveTableRecord ? { paragraph_moves_you_may_bind: [tablePlanMove(moveTableRecord)] } : {}),
+      ...shortPlanInput({
+        leg,
+        structure,
+        tables: tables.tables,
+        move: moveId,
+        contract,
+        persona,
+        analogy: { none: OWN_ANALOGY_REASON },
+      }),
       move_structure: moveStructure,
       pairing,
     };
-    const refusalOf = (answer) =>
-      shortPlanRefusal(answer, { input, tables: tables.tables, move: moveId, told: OWN, libraryDir });
     const r = retriedCall({
       dir: d,
       env,
       cli,
-      row: pairedPlanRow(plan, moveTableRecord ? TABLE_PLAN_FILE : PAIRED_PLAN_FILE),
+      row: pairedPlanRow(plan, PAIRED_PLAN_FILE),
       input,
       tables: [PARAGRAPH_PLAN_TABLE, PLAYGROUND_TABLE],
-      refusalOf: moveTableRecord ? (answer) => tablePlanRefusal(answer, moveId, refusalOf) : refusalOf,
-      validator: moveTableRecord ? "tablePlanRefusal" : "shortPlanRefusal",
+      refusalOf: (answer) =>
+        shortPlanRefusal(answer, { input, tables: tables.tables, move: moveId, told: OWN, libraryDir }),
+      validator: "shortPlanRefusal",
     });
     if (r.stopped) return r;
+    return recordParagraphs(r.answer.paragraphs, r.answer.rationale, r.refusals);
+  });
+  // Under a Move table (kogaki#1858) the call writes one Point per Segment, and the Harness writes the one paragraph
+  // record: every Point serves every Lesson of the Leg and has an empty `cast`.
+  function tablePointsStage({ d, env, cli, plan, leg, structure, relationId }) {
+    const input = tablePointsInput(leg.leg_id, structure, relationId, moveTableRecord);
+    const r = retriedCall({
+      dir: d,
+      env,
+      cli,
+      row: pairedPlanRow(plan, TABLE_PLAN_FILE),
+      input,
+      tables: [PARAGRAPH_PLAN_TABLE, PLAYGROUND_TABLE],
+      refusalOf: (answer) => tablePointsRefusal(answer, input.segments.length),
+      validator: "tablePointsRefusal",
+    });
+    if (r.stopped) return r;
+    const serves = leg.claims.map((c) => c.strand);
+    const waypoints = r.answer.points.map((p) => ({ point: p.point.trim(), serves: [...serves], cast: {} }));
+    return recordParagraphs([{ paragraph_waypoints: waypoints }], null, r.refusals);
+  }
+  function recordParagraphs(written, rationale, refusals) {
     const leaves = bindingLeaves(contract, OWN, null);
-    const listed = r.answer.paragraphs.map((e, i) => ({
+    const listed = written.map((e, i) => ({
       move: moveId,
       binding_rationale: record.bind.binding_rationale,
-      leaves: i === r.answer.paragraphs.length - 1 ? leaves : [],
+      leaves: i === written.length - 1 ? leaves : [],
       ...(typeof e.join === "string" ? { join: e.join } : {}),
       paragraph_waypoints: e.paragraph_waypoints,
     }));
@@ -1174,11 +1199,11 @@ export function runMoveTrial({
       bindPath,
       stringifyYaml({ move: moveId, binding_rationale: record.bind.binding_rationale, paragraphs: listed }),
     );
-    record.bind = { ...record.bind, plan_rationale: r.answer.rationale, paragraphs: listed, ...fileRecord(bindPath) };
+    record.bind = { ...record.bind, plan_rationale: rationale, paragraphs: listed, ...fileRecord(bindPath) };
     writeFileSync(rbsPath, stringifyYaml({ ...tables, bindings: listed }));
     record.rbs = { variant: RBS_COMPOSED, ...fileRecord(rbsPath) };
-    return { value: listed, refusals: r.refusals };
-  });
+    return { value: listed, refusals };
+  }
   stage("write", (d, env) => {
     const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);

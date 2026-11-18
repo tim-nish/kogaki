@@ -1,5 +1,5 @@
-// The short Trial's Move table (kogaki#1840): a Move written by hand as a count of Roles, a count of numbered Relations
-// and, per Segment, what it states and how; read, refused naming the place, and paired with a Leg in order by the Harness.
+// The short Trial's Move table (kogaki#1840, kogaki#1858): a Move written by hand as a count of Bind targets and, per
+// Segment, the Bind target it is given and how; read, refused naming the place, and paired with a Leg in order by the Harness.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -10,29 +10,30 @@
 //
 import { readFileSync } from "node:fs";
 import { parseYaml } from "../yaml.mjs";
+import { legSentences } from "./move-structure.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
-const isCount = (v) => Number.isInteger(v) && v > 0;
-const TABLE_KEYS = ["roles", "relations", "segments"];
-const SEGMENT_KEYS = ["states", "domain", "genericity", "discourse_relation"];
+const TABLE_KEYS = ["binds", "segments"];
+const SEGMENT_KEYS = ["bind", "domain", "genericity", "discourse_relation"];
 const SEGMENT_OPTIONAL = ["manner"];
 const DOMAIN_KEYS = ["own", "apart"];
-const DISCOURSE_KEYS = ["label", "to"];
+const DISCOURSE_KEYS = ["sense", "to"];
+// The keys a table carried before kogaki#1858, each refused by name.
+const RETIRED_KEYS = ["states", "relations", "roles", "label"];
+export const MAX_BINDS = 3;
 export const GENERICITY = ["generic", "particular"];
-// The one Move the plan call is offered with a table: no name of the library's reaches it.
-export const TABLE_MOVE_ID = "move";
 
 function keysRefusal(obj, required, optional, at) {
   if (!isMap(obj)) return `${at} is not a map`;
+  const retired = Object.keys(obj).find((k) => RETIRED_KEYS.includes(k));
+  if (retired) return `${at} carries \`${retired}\`, a key the Move table no longer declares`;
   const extra = Object.keys(obj).find((k) => !required.includes(k) && !optional.includes(k));
   if (extra)
     return `${at} carries \`${extra}\`, which the table does not declare — it carries ${[...required, ...optional].join(", ")}`;
   const missing = required.find((k) => !Object.hasOwn(obj, k));
   return missing ? `${at} carries no \`${missing}\`` : null;
 }
-
-const relationId = (n) => `R${n}`;
 
 // The table's Segments, each as its number and the table's fields.
 export function tableSegments(table) {
@@ -43,23 +44,24 @@ export function tableSegments(table) {
 export function validateMoveTable(table, segmentCount) {
   const top = keysRefusal(table, TABLE_KEYS, [], "the Move table");
   if (top) return top;
-  for (const k of ["roles", "relations"])
-    if (!isCount(table[k]))
-      return `the Move table's \`${k}\` is ${JSON.stringify(table[k])}, not a whole number above 0`;
+  if (!Number.isInteger(table.binds) || table.binds < 1 || table.binds > MAX_BINDS)
+    return `the Move table's \`binds\` is ${JSON.stringify(table.binds)}, not a whole number from 1 to ${MAX_BINDS}`;
   if (!Array.isArray(table.segments)) return "the Move table's `segments` is not a list";
   if (table.segments.length !== segmentCount)
     return `the Move table's \`segments\` carries ${table.segments.length} entries, and the named Move has ${segmentCount} Segments — one entry per Segment, in order`;
-  const stated = new Set();
+  const given = new Map();
   for (const [i, s] of table.segments.entries()) {
     const n = i + 1;
     const at = `Segment ${n}`;
     const bad = keysRefusal(s, SEGMENT_KEYS, SEGMENT_OPTIONAL, at);
     if (bad) return bad;
-    if (!Array.isArray(s.states)) return `${at}'s \`states\` is not a list`;
-    const stray = s.states.find((x) => !Number.isInteger(x) || x < 1 || x > table.relations);
-    if (stray !== undefined)
-      return `${at}'s \`states\` names ${JSON.stringify(stray)}, outside the Relations 1 to ${table.relations}`;
-    s.states.forEach((x) => stated.add(x));
+    if (s.bind !== null) {
+      if (!Number.isInteger(s.bind) || s.bind < 1 || s.bind > table.binds)
+        return `${at}'s \`bind\` is ${JSON.stringify(s.bind)}, neither null nor one Bind target from 1 to ${table.binds}`;
+      if (given.has(s.bind))
+        return `${at}'s \`bind\` is ${s.bind}, which Segment ${given.get(s.bind)} is already given — each Bind target is given to one Segment`;
+      given.set(s.bind, n);
+    }
     const d = keysRefusal(s.domain, DOMAIN_KEYS, [], `${at}'s \`domain\``);
     if (d) return d;
     for (const k of DOMAIN_KEYS)
@@ -75,7 +77,7 @@ export function validateMoveTable(table, segmentCount) {
     if (r !== null) {
       const rb = keysRefusal(r, DISCOURSE_KEYS, [], `${at}'s \`discourse_relation\``);
       if (rb) return rb;
-      if (!isText(r.label)) return `${at}'s \`discourse_relation.label\` is not one non-empty text`;
+      if (!isText(r.sense)) return `${at}'s \`discourse_relation.sense\` is not one non-empty text`;
       if (!Array.isArray(r.to) || !r.to.length)
         return `${at}'s \`discourse_relation.to\` is not a list of Segment numbers`;
       const late = r.to.find((x) => !Number.isInteger(x) || x < 1 || x >= n);
@@ -84,67 +86,66 @@ export function validateMoveTable(table, segmentCount) {
     }
     if (Object.hasOwn(s, "manner") && !isText(s.manner)) return `${at}'s \`manner\` is not one non-empty sentence`;
   }
-  for (let k = 1; k <= table.relations; k++)
-    if (!stated.has(k)) return `Relation ${k} is stated by no Segment — every Relation of the table is stated by one`;
+  for (let k = 1; k <= table.binds; k++)
+    if (!given.has(k))
+      return `Bind target ${k} is given to no Segment — every Bind target of the table is given to one`;
   return null;
 }
 
-const legRelationsOf = (legStructure) => [...(legStructure.relations || []), ...(legStructure.higher_order || [])];
-
-// THE TABLE AGAINST THE LEG: its counts against the Leg's structure, naming both numbers, or null.
-export function tableLegRefusal(table, legStructure, legId) {
-  const relations = legRelationsOf(legStructure).length;
-  if (table.relations !== relations)
-    return `the Move table states ${table.relations} Relations, and the Leg ${legId}'s structure holds ${relations} relations and higher-order relations`;
-  const roles = (legStructure.roles || []).length;
-  if (table.roles !== roles)
-    return `the Move table needs ${table.roles} Roles, and the Leg ${legId}'s structure holds ${roles} Roles`;
+// THE TABLE AGAINST THE LEG: `binds` against the Leg's Arguments and CentralClaim, naming both numbers, or null.
+export function tableLegRefusal(table, legStructure, legId, relationId) {
+  const n = legSentences(legStructure, relationId).length;
+  if (table.binds !== n)
+    return `the Move table's \`binds\` is ${table.binds}, and the Leg ${legId} has ${n} Arguments and CentralClaim`;
   return null;
 }
 
 // The table file read and refused: `{ table, error: null }`, or `{ table: null, error }`.
-export function readMoveTable(path, segmentCount, legStructure, legId) {
+export function readMoveTable(path, segmentCount, legStructure, legId, relationId) {
   let table;
   try {
     table = parseYaml(readFileSync(path, "utf8"), path);
   } catch (e) {
     return { table: null, error: `the Move table cannot be read (${e.message})` };
   }
-  const bad = validateMoveTable(table, segmentCount) || tableLegRefusal(table, legStructure, legId);
+  const bad = validateMoveTable(table, segmentCount) || tableLegRefusal(table, legStructure, legId, relationId);
   return bad ? { table: null, error: bad } : { table, error: null };
 }
 
-// THE MOVE STRUCTURE THE TABLE GIVES: the Relations as R1 to Rn with no `holds`, the number of Roles, and per Segment
-// what it states.
+// THE MOVE STRUCTURE THE TABLE GIVES: the number of Bind targets, and per Segment the one it is given.
 export function tableMoveStructure(table) {
   return {
-    roles: table.roles,
-    relations: Array.from({ length: table.relations }, (_, k) => ({ id: relationId(k + 1) })),
-    segments: table.segments.map((s, i) => ({ segment: i + 1, states: s.states.map(relationId) })),
+    binds: table.binds,
+    segments: table.segments.map((s, i) => ({ segment: i + 1, bind: s.bind })),
   };
 }
 
-// THE PAIRING IN ORDER: the Leg's relations, then its higher-order relations, the k-th given to Rk. No Role is paired.
-export function pairInOrder(table, legStructure) {
-  const legRelations = legRelationsOf(legStructure);
+// THE PAIRING IN ORDER: Bind target k is given entry k of `legSentences`, the Arguments and then the CentralClaim.
+export function pairInOrder(legStructure, relationId) {
   return {
-    role_pairs: [],
-    relation_pairs: Array.from({ length: table.relations }, (_, k) => ({
-      move_relation: relationId(k + 1),
-      leg_relation: legRelations[k].id,
-    })),
+    binds: legSentences(legStructure, relationId).map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })),
   };
 }
 
-// The Move the plan call is offered: no name, no `breaks`, no `operation` — the table's Segments alone.
-export function tablePlanMove(table) {
+// THE POINTS CALL'S INPUT (kogaki#1858): the Leg's Arguments and CentralClaim with their sentences, and per Segment
+// what is bound to it and its Sense.
+export function tablePointsInput(legId, legStructure, relationId, table) {
+  const sentences = legSentences(legStructure, relationId);
+  const central = sentences[sentences.length - 1];
   return {
-    id: TABLE_MOVE_ID,
-    takes: [],
-    leaves: [],
-    before: null,
-    after: null,
-    breaks: [],
-    segments: tableSegments(table),
+    leg: {
+      leg_id: legId,
+      arguments: sentences.slice(0, -1).map((s) => ({ id: s.id, sentence: s.sentence })),
+      central_claim: { id: central.id, sentence: central.sentence },
+    },
+    segments: table.segments.map((s, i) => {
+      const b = s.bind === null ? null : sentences[s.bind - 1];
+      const r = s.discourse_relation;
+      return {
+        segment: i + 1,
+        bound: b ? { kind: b.kind, id: b.id } : null,
+        sense: r ? { sense: r.sense, to: [...r.to] } : null,
+      };
+    }),
   };
 }

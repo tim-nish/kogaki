@@ -1,26 +1,25 @@
-roles: 3
-relations: 3
+binds: 3
 segments:
-  - states: [1]
+  - bind: 1
     domain:
       own: true
       apart: false
     genericity: generic
     discourse_relation: null
-  - states: [2]
+  - bind: 2
     domain:
       own: true
       apart: false
     genericity: generic
     discourse_relation:
-      label: Concession
+      sense: Concession
       to: [1]
-  - states: [3]
+  - bind: 3
     domain:
       own: true
       apart: false
     genericity: generic
     discourse_relation:
-      label: Cause
+      sense: Cause
       to: [2]
     manner: the reckoning is voiced as the parties' own words rather than described from outside
