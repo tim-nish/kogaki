@@ -141,11 +141,10 @@ for (const r of C.ROWS) {
 
 // (h) EVERY PROGRAM'S CALL TEXT RENDERS AS SAVED BEFORE ITS SENTENCES MOVED (kogaki#1863): four programs, the Draft
 // review and the two Python tools, from the fixed inputs of checks/fixtures/prompt-files/programs.mjs.
-let programCases = 0;
+const P = await imp("checks/fixtures/prompt-files/programs.mjs");
+const programTexts = await P.programTexts(imp);
 {
-  const P = await imp("checks/fixtures/prompt-files/programs.mjs");
-  const texts = await P.programTexts(imp);
-  programCases = texts.size;
+  const texts = programTexts;
   const saved = readdirSync(P.PROGRAMS_DIR).filter((n) => n.endsWith(".txt"));
   if (saved.length !== texts.size)
     fails.push(`(h) ${saved.length} saved program text(s) for ${texts.size} case(s) -- each case has one saved file`);
@@ -277,5 +276,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6 + C.ROWS.length + programCases} saved cases`,
+  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6 + C.ROWS.length + programTexts.size} saved cases`,
 );
