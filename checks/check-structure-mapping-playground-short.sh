@@ -190,7 +190,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         depends_on: [], "re-activate": [], rationale: "it is paragraph " + (i + 1) + " of the Trial.",
         paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({
           point: n === 0 ? "PW-" + (i + 1) + "-1 " + exprs(i).join(" and ") + " hold together." : "PW-" + (i + 1) + "-" + (n + 1) + " the paragraph makes its point.",
-          serves: leg.claims.map((g) => g.strand), cast: i === 0 && n === 0 ? { terse: true } : {} })) })) }, "waypoints");
+          cast: i === 0 && n === 0 ? { terse: true } : {} })) })) }, "waypoints");
   }
   if (process.env.SMP_WRITE_REFUSE) return out("refusal: the first paragraph cannot be written.", "writer");
   return out("WRITTEN the crew, its list and the room left off.", "writer");

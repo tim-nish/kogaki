@@ -54,7 +54,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `waypoints` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
 | `opens_section` | unread | unread | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |
 | `waypoints.point` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
-| `waypoints.serves` | unread | unread | unread | unread | unread | unread | unread | copied |  |  |  |  |  |  |  |
 | `waypoints.case` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
@@ -92,7 +91,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `paragraphs.join` | content | excluded |
 | `paragraphs.paragraph_waypoints` | content | unread |
 | `paragraph_waypoints.point` | content | excluded |
-| `paragraph_waypoints.serves` | copied | unread |
 | `paragraph_waypoints.performs` | content | excluded |
 | `paragraph_waypoints.cast` | content | excluded |
 

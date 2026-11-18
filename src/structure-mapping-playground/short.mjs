@@ -495,7 +495,7 @@ function waypointsStage({ dir, env, cli, leg, structure, tables, move, contract,
 // On the Brief-Leg route the Brief's `structure` and the Leg's `relation` give the plan block, and under a Move table its
 // `segments` give the parts (kogaki#1859); no Point reaches the Packet.
 export function shortPacket({ leg, paragraphs, audiencePath, structure = null, relation = null, segments = null }) {
-  const serves = leg.claims.map((g) => g.strand);
+  const materials = leg.claims.map((g) => g.strand);
   const packetLeg = {
     ...leg,
     move: paragraphs[0].move,
@@ -503,7 +503,7 @@ export function shortPacket({ leg, paragraphs, audiencePath, structure = null, r
     ...(segments ? { segments } : {}),
     paragraphs: paragraphs.map((p, i) => ({
       paragraph: i + 1,
-      materials: serves,
+      materials,
       ...(typeof p.join === "string" ? { join: p.join } : {}),
       paragraph_waypoints: p.paragraph_waypoints,
     })),
@@ -837,11 +837,7 @@ export function runShortTrial({
   const paragraphs = stage("waypoints", (d, env) => {
     let listed;
     if (owned) {
-      const serves = leg.claims.map((g) => g.strand);
-      const all = [
-        suppliedEntry(owned.record, serves),
-        ...projectionsOf(owned.record).map((p) => suppliedEntry(p, serves)),
-      ];
+      const all = [suppliedEntry(owned.record), ...projectionsOf(owned.record).map((p) => suppliedEntry(p))];
       const library = loadMoveContracts(libraryDir);
       const owner = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
       listed = all.map((e) => ({
@@ -1176,7 +1172,7 @@ export function runMoveTrial({
     return recordParagraphs(r.answer.paragraphs, r.answer.rationale, r.refusals);
   });
   // Under a Move table (kogaki#1858) the call writes one Point per Segment, and the Harness writes the one paragraph
-  // record: every Point serves every Lesson of the Leg and has an empty `cast`.
+  // record: every Point has an empty `cast`.
   function tablePointsStage({ d, env, cli, plan, leg, structure, relationId }) {
     const input = tablePointsInput(leg.leg_id, structure, relationId, moveTableRecord);
     const r = retriedCall({
@@ -1190,8 +1186,7 @@ export function runMoveTrial({
       validator: "tablePointsRefusal",
     });
     if (r.stopped) return r;
-    const serves = leg.claims.map((c) => c.strand);
-    const waypoints = r.answer.points.map((p) => ({ point: p.point.trim(), serves: [...serves], cast: {} }));
+    const waypoints = r.answer.points.map((p) => ({ point: p.point.trim(), cast: {} }));
     return recordParagraphs([{ paragraph_waypoints: waypoints }], null, r.refusals);
   }
   function recordParagraphs(written, rationale, refusals) {

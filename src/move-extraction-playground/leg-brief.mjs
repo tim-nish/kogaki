@@ -41,8 +41,8 @@
 // `brief.json` records `anchored: true`, which is what the sheet's Brief badge reads.
 //
 // THE CLAIM REACHES ITS POINTS (kogaki#1547). After the recoverability criterion, every content
-// word of a Claim's `proposition` — `recoverabilityOf`'s own word test — is in a `point` of a Brief
-// Waypoint serving that Claim's strand; the first that is in none
+// word of Claim N's `proposition` — `recoverabilityOf`'s own word test — is in the `point` of Brief
+// Waypoint N, which stands for that Claim by its place (kogaki#1861); the first that is in none
 // refuses the Round (`claimCoverageRefusal`). The plan judge reads the point, never the Claim.
 //
 // THE TERMS FILE IS RETIRED (kogaki#1529; kogaki#1498 before it), and a Leg carries no
@@ -273,11 +273,30 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
     );
   }
   const material = Object.fromEntries(segments.map((cs, i) => [`L${offset + i + 1}`, cs.join("\n")]));
-  const [v] = recoverabilityOf([leg], { material, renderings: [] });
-  if (!v || v.verdict !== "fails") return null;
+  // Brief Waypoint N stands for the Claim of paragraph N by its place (kogaki#1861), so each is read against that
+  // paragraph's material alone.
+  const waypoints = Array.isArray(leg.waypoints) ? leg.waypoints : [];
+  const parts = [
+    { leg: { ...leg, waypoints: [] }, place: null },
+    ...waypoints.map((w, j) => ({
+      leg: { leg_id: leg.leg_id, waypoints: [w], materials: [`L${offset + j + 1}`] },
+      place: j,
+    })),
+  ];
+  let v = null;
+  let place = null;
+  for (const part of parts) {
+    const [r] = recoverabilityOf([part.leg], { material, renderings: [] });
+    if (r && r.verdict === "fails") {
+      v = part.place === null ? r : { ...r, field: r.field.replace(/^waypoints\[0\]/, `waypoints[${part.place}]`) };
+      place = part.place;
+      break;
+    }
+  }
+  if (!v) return null;
   const m = /^(claims|waypoints)\[(\d+)\]/.exec(v.field) || [];
-  const item = m[1] ? leg[m[1]][Number(m[2])] : null;
-  const ids = !item ? [] : m[1] === "claims" ? [item.strand] : item.serves;
+  const item = m[1] === "claims" ? leg.claims[Number(m[2])] : null;
+  const ids = m[1] === "claims" ? (item ? [item.strand] : []) : place === null ? [] : [`L${offset + place + 1}`];
   const where = ids
     .map((id) => Number(String(id).replace(/^L/, "")) - offset)
     .filter((k) => k >= 1 && k <= n)
@@ -298,9 +317,7 @@ export function anchoredRefusal(leg, segments, n, offset = 0) {
 export function claimCoverageRefusal(leg, at = "leg 1") {
   const formsOf = (texts) => new Set(texts.flatMap((t) => wordsOf(t)).flatMap((w) => [...wordForms(w)]));
   for (const [i, g] of leg.claims.entries()) {
-    const serving = leg.waypoints
-      .map((w, j) => [j + 1, w])
-      .filter(([, w]) => isMap(w) && Array.isArray(w.serves) && w.serves.includes(g.strand));
+    const serving = leg.waypoints.map((w, j) => [j + 1, w]).filter(([j, w]) => isMap(w) && j === i + 1);
     const allowed = formsOf(serving.map(([, w]) => String(w.point ?? "")));
     const word = wordsOf(g.proposition).find(
       (w) => !FUNCTION_WORDS.has(w) && !/^[\p{N}]+$/u.test(w) && ![...wordForms(w)].some((f) => allowed.has(f)),
@@ -308,11 +325,11 @@ export function claimCoverageRefusal(leg, at = "leg 1") {
     if (!word) continue;
     const read = serving.length
       ? serving.map(([j]) => `waypoint ${j}`).join(" and ")
-      : "no Brief Waypoint, since none serves it";
+      : "no Brief Waypoint, since none stands at its place";
     return (
-      `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Brief Waypoints ` +
-      `serving ${g.strand} (read: ${read}) — a Brief Waypoint's point carries every content word of ` +
-      "the Claim it serves, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)"
+      `${at}: Claim ${i + 1} (${g.strand}) carries "${word}" in its \`proposition\`, which is in no \`point\` of the Brief Waypoint ` +
+      `standing for it by its place (read: ${read}) — a Brief Waypoint's point carries every content word of ` +
+      "the Claim it stands for, since the ParagraphPlan is judged against the point and the Writer reads the Claim (kogaki#1547)"
     );
   }
   return null;
@@ -360,13 +377,6 @@ export function validateLegPathUnit(record, inputs) {
     return {
       error: `${at}: carries ${Array.isArray(leg.waypoints) ? leg.waypoints.length : "no"} Brief Waypoint(s) for the original Leg's ${n} paragraph(s) — one Brief Waypoint per paragraph, in order`,
     };
-  }
-  for (const [i, w] of leg.waypoints.entries()) {
-    if (isMap(w) && Array.isArray(w.serves) && !w.serves.includes(`L${o + i + 1}`)) {
-      return {
-        error: `${at}: waypoint ${i + 1} serves ${JSON.stringify(w.serves)} and not L${o + i + 1} — Brief Waypoint N serves the Claim of paragraph N`,
-      };
-    }
   }
   if ((inputs.taken_leg_ids || []).includes(leg.leg_id)) {
     return {

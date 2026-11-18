@@ -169,7 +169,6 @@
           "waypoints",
           "opens_section",
           "waypoints.point",
-          "waypoints.serves",
           "waypoints.case"
         ]
       },
@@ -206,7 +205,6 @@
           "opens_section",
           "waypoints",
           "waypoints.point",
-          "waypoints.serves",
           "waypoints.case"
         ]
       },
@@ -306,7 +304,6 @@
         "relation",
         "waypoints",
         "waypoints.point",
-        "waypoints.serves",
         "waypoints.case"
       ]
     },
@@ -330,7 +327,6 @@
         "waypoints",
         "opens_section",
         "waypoints.point",
-        "waypoints.serves",
         "waypoints.case",
         "relation",
         "text"
@@ -373,7 +369,6 @@
         "waypoints",
         "opens_section",
         "waypoints.point",
-        "waypoints.serves",
         "waypoints.case",
         "relation",
         "text"

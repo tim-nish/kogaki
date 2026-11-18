@@ -278,8 +278,8 @@ function unrecoveredWord(text, allowed) {
 // `{ leg_id, verdict: "fails", field, word }` naming the first claim or point
 // carrying a word its material does not recover. `material` maps a Strand id
 // (`L<n>`) to its served text; a claim reads its own Strand's, a waypoint the
-// Strands it `serves`, and either falls back to the Leg's `materials` where
-// those name none. `renderings` is the record's entries.
+// Strands of every Claim of its Leg (kogaki#1861), and either falls back to the
+// Leg's `materials` where those name none. `renderings` is the record's entries.
 export function recoverabilityOf(legs, { material = {}, renderings = [] } = {}) {
   const textOf = (ids) =>
     ids
@@ -294,6 +294,9 @@ export function recoverabilityOf(legs, { material = {}, renderings = [] } = {}) 
       if (!e.error) introducedSoFar.push(e.term);
     }
     const legMaterial = textOf(Array.isArray(s.materials) ? s.materials : []);
+    const claimStrands = (Array.isArray(s.claims) ? s.claims : [])
+      .map((g) => g && g.strand)
+      .filter((x) => typeof x === "string");
     const allowedFor = (texts) => {
       const own = texts.length ? texts : legMaterial;
       const rendered = renderings.filter((r) => own.some((t) => wholeWordMatch(r.term, t))).map((r) => r.as);
@@ -308,7 +311,7 @@ export function recoverabilityOf(legs, { material = {}, renderings = [] } = {}) 
       ...(Array.isArray(s.waypoints) ? s.waypoints : []).map((w, j) => [
         `waypoints[${j}].point`,
         w && w.point,
-        textOf(w && Array.isArray(w.serves) ? w.serves : []),
+        textOf(claimStrands),
       ]),
     ];
     let entry = { leg_id: s.leg_id, verdict: "holds" };

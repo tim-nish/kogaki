@@ -27,12 +27,7 @@ const oneLineText = (v) =>
     .replace(/\s*\n\s*/g, " ")
     .trim();
 const cell = (v) => oneLineText(v ?? "").replace(/\|/g, "\\|");
-const paragraphWaypointText = (p) =>
-  !p
-    ? ""
-    : Object.hasOwn(p, "performs")
-      ? `performs: ${p.performs}`
-      : `${p.point} (serves ${(p.serves || []).join(", ")})`;
+const paragraphWaypointText = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `performs: ${p.performs}` : p.point);
 
 function viewRun(runDir, briefSha) {
   let start;

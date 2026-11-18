@@ -194,13 +194,13 @@ export function validateRbsTable(record, _proposition, { movesDir = "moves", str
 }
 
 // The binding the owner supplied, as the `bind` stage's entry, or null where the table carries none.
-export function suppliedEntry(record, serves) {
+export function suppliedEntry(record) {
   if (!record || !Object.hasOwn(record, "move")) return null;
   return {
     waypoint: 1,
     move: record.move,
     binding_rationale: Object.hasOwn(record, "binding_rationale") ? String(record.binding_rationale).trim() : null,
-    paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim(), serves: [...serves] })),
+    paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim() })),
   };
 }
 

@@ -83,7 +83,7 @@ const inputs = { movesDir: lib, bound: 2, legs: [{ leg_id: "v1", text: "A relati
 const paragraph = (pws, n = 1) => ({ paragraph: n, materials: ["L1"], purpose: "brings the reader to the point.",
   depends_on: [], rationale: "the Move carries this point", "re-activate": [], ...(n > 1 ? { join: "elaboration" } : {}), paragraph_waypoints: pws });
 const plan = (pws) => ({ version: "1", leg_id: "v1", move: moveId, rationale: "the Move carries the relation", paragraphs: [paragraph(pws)] });
-const pw = (i) => ({ point: `Part ${i} of the point.`, serves: ["L1"], cast: {} });
+const pw = (i) => ({ point: `Part ${i} of the point.`, cast: {} });
 const parts = (n) => Array.from({ length: n }, (_, i) => pw(i + 1));
 cases++;
 const ok = validateParagraphPlanUnit(plan(parts(segments)), inputs, "leg-1");
@@ -95,7 +95,7 @@ if (!short.includes("Leg v1, paragraph 1") || !short.includes(`${segments - 1} W
 }
 cases++;
 const both = parts(segments);
-both[1] = { performs: "Puts the question to the reader.", point: "Part 2 of the point.", serves: ["L1"] };
+both[1] = { performs: "Puts the question to the reader.", point: "Part 2 of the point." };
 const two = validateParagraphPlanUnit(plan(both), inputs, "leg-1").error || "";
 if (!two.includes("Leg v1, paragraph 1") || !two.includes("Waypoint 2 carries `performs` beside")) {
   fails.push(`(c2) a paragraph carrying both performs and point is not refused naming it: ${two || "no refusal"}`);

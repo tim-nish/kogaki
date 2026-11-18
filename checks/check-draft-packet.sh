@@ -132,7 +132,7 @@ const LEG_TEXT = "The installer writes into the consumer's tree, and the next ru
 const leg = { leg_id: "s1", text: LEG_TEXT, claims: [{ strand: "L1", proposition: C1 }] };
 const POINTS = ["The installer writes into the consumer's tree.", "The next run overwrites any edit to the copy."];
 // The Leg as loadBrief hands it to the renderer: its paragraphs beside it.
-const PARAS = planEntry("s1", POINTS.map((p, i) => [{ point: `PW-${i + 1}-1 ${p}`, serves: ["L1"], cast: {} }]), ENTRIES(2), [null, JOIN]).paragraphs;
+const PARAS = planEntry("s1", POINTS.map((p, i) => [{ point: `PW-${i + 1}-1 ${p}`, cast: {} }]), ENTRIES(2), [null, JOIN]).paragraphs;
 const withParas = (l, paragraphs = PARAS) => ({ ...l, paragraphs });
 const text = briefRecordText({
   slug: "packet-brief", compose_path: "audiences/dev-to-zenn.md",
@@ -189,7 +189,7 @@ else {
     ...(i === 1 ? { join: "contrast" } : {}),
     paragraph_waypoints: [
       { performs: PERFORMS },
-      { point: `OTHER-${i + 1} a different point.`, serves: ["L1"], cast: { terse: true }, forced_by: ["PERFORMS IS BARE"] },
+      { point: `OTHER-${i + 1} a different point.`, cast: { terse: true }, forced_by: ["PERFORMS IS BARE"] },
     ],
   }));
   const l = withParas(brief.legs[0], other);
@@ -289,12 +289,12 @@ else {
     const briefPath = join(dir, "brief.yaml");
     writeFileSync(briefPath, text);
     writeFileSync(join(dir, "paragraph-plan.yaml"), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-      legs: [planEntry("s1", [first, [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]],
+      legs: [planEntry("s1", [first, [{ point: "PW-2-1 the next run overwrites the edit.", cast: {} }]],
         ENTRIES(2), [null, JOIN])] })));
     return spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, name, "ws")],
       { encoding: "utf8", timeout: 120000 });
   };
-  const ok = resolveWith("mixed", [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], cast: {} }]);
+  const ok = resolveWith("mixed", [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", cast: {} }]);
   if (ok.status !== 0) fails.push(`(e) resolve refused a paragraph carrying a performs entry beside a point entry: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
   const none = resolveWith("no-point", [{ performs: PERFORMS }]);
   const rendered = (ws) => existsSync(join(root, ws, "packet-brief", "packets", "s1.md"));
@@ -314,8 +314,8 @@ else {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const planText = paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [planEntry("s1", [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", serves: ["L1"], manner: MANNER, cast: {} }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] }));
+    legs: [planEntry("s1", [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", manner: MANNER, cast: {} }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", cast: {} }]], ENTRIES(2), [null, JOIN])] }));
   writeFileSync(planPath, planText);
   if (/\bmanner\b/.test(planText) || planText.includes(MANNER)) fails.push(`(l) the ParagraphPlan written from manner-bearing Waypoints carries a manner: ${planText}`);
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
@@ -354,8 +354,8 @@ else {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const plan = (entries) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [planEntry("s1", [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"], cast: {} }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], entries, [null, JOIN])] }));
+    legs: [planEntry("s1", [[{ point: "PW-1-1 the installer writes the copy.", cast: {} }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", cast: {} }]], entries, [null, JOIN])] }));
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
     { encoding: "utf8", timeout: 120000 });
   const full = plan(ENTRIES(2));
@@ -565,8 +565,8 @@ if (!r.error) {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const plan = (cast) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [planEntry("s1", [[{ point: "PW-1-1 the installer writes the copy.", serves: ["L1"], cast }],
-      [{ point: "PW-2-1 the next run overwrites the edit.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] }));
+    legs: [planEntry("s1", [[{ point: "PW-1-1 the installer writes the copy.", cast }],
+      [{ point: "PW-2-1 the next run overwrites the edit.", cast: {} }]], ENTRIES(2), [null, JOIN])] }));
   const resolveIn = (ws) => spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)],
     { encoding: "utf8", timeout: 120000 });
   writeFileSync(planPath, plan({ brief: true }));
@@ -594,8 +594,8 @@ if (!r.error) {
   const resolveWith = (ws, entries) => {
     const mapping = writeMappingRecord(mappingDirFor(planPath), entries);
     writeFileSync(planPath, paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, mapping,
-      legs: [planEntry("s1", [[{ point: "PW-1-1 the staked net holds the fish.", serves: ["L1"], cast: {} }],
-        [{ point: "PW-2-1 the net lets the rest pass.", serves: ["L1"], cast: {} }]], ENTRIES(2), [null, JOIN])] })));
+      legs: [planEntry("s1", [[{ point: "PW-1-1 the staked net holds the fish.", cast: {} }],
+        [{ point: "PW-2-1 the net lets the rest pass.", cast: {} }]], ENTRIES(2), [null, JOIN])] })));
     return spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, ws)], { encoding: "utf8", timeout: 120000 });
   };
   const ok = resolveWith("ws", [{ leg_id: "s1", structure, table: table(FULL) }]);

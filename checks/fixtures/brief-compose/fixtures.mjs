@@ -46,7 +46,7 @@ export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
   const legOf = (leg_id, extra = {}) => ({
     leg_id,
     claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
-    waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
     ...extra,
   });
   const legs = [
@@ -109,7 +109,7 @@ export const START_1276 = "knowledge: before\nquestion: holds: none";
 export const leg1276 = (legId, extra) => ({
   leg_id: legId,
   claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
-  waypoints: [{ point: `the paragraph establishes what ${legId} claims`, serves: ["L1"], case: "own" }],
+  waypoints: [{ point: `the paragraph establishes what ${legId} claims`, case: "own" }],
   ...extra,
 });
 // One Reader Path (kogaki#1768): no `characteristic` or `reader_experience`, which are retired.

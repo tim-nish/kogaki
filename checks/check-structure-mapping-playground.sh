@@ -103,7 +103,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     // (c) the first Leg answer's point 1 carries "rule", a word of the proposition and of the crew's context.
     return out({ legs: [{ leg_id: "crew-leg",
       claims: x.claims.map((g) => ({ type: "strand", strand: g.claim_strand, proposition: g.holds })),
-      waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), serves: [g.claim_strand], case: "own" })) }] }, "brief");
+      waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), case: "own" })) }] }, "brief");
   }
   if (prompt.includes('"leg_you_must_judge"')) {
     const leg = body("leg_you_must_judge").leg_you_must_judge;
@@ -121,7 +121,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, move: m.id, rationale: "its Segments carry the Leg's relation.",
       paragraphs: [{ paragraph: 1, materials: serves, purpose: "PURPOSE-1 brings the reader to the point.",
         depends_on: [], introduces: [], "re-activate": [], rationale: "its Segments carry the Leg's relation this far.",
-        paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-1-" + (n + 1) + " the paragraph makes its point.", serves, cast: {} })) }] }, "plan");
+        paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-1-" + (n + 1) + " the paragraph makes its point.", cast: {} })) }] }, "plan");
   }
   return out(["WRITTEN-1 the crew and its list.", "WRITTEN-2 the room left off.", "WRITTEN-3 what stays dusty."].join("\\n\\n"), "writer");
 });

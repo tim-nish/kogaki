@@ -47,7 +47,7 @@ mkdirSync(join(run, "mapping"), { recursive: true });
 
 const M1 = "set_a_second_instance_beside_the_first";
 const M2 = "carry_a_worked_case_onto_the_wider_scale";
-const pw = (...points) => points.map((point) => ({ point, serves: ["L1"], cast: {} }));
+const pw = (...points) => points.map((point) => ({ point, cast: {} }));
 // THE LEG AS UNIT (kogaki#1777): a Leg's answer binds one Move and writes its paragraphs.
 const para = (paragraph, points, extra = {}) => ({
   paragraph,
@@ -664,7 +664,7 @@ ok(
     leg_id: id,
     move,
     purpose: `The purpose of ${id}.`,
-    waypoints: [{ point: `The point of ${id}.`, serves: ["L1"], case: "own" }],
+    waypoints: [{ point: `The point of ${id}.`, case: "own" }],
     claims: [],
   });
   const cand = (move2) => ({ candidate_id: "B", legs: [bleg("leg1", M1), bleg("leg2", move2)] });

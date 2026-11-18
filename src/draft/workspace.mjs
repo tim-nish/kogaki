@@ -123,7 +123,7 @@ export function loadBrief(args) {
   // the Brief, naming the Brief's path and content hash, and /draft reads it here. A
   // missing file, and one made from a different Brief, are refused naming both files;
   // the Brief itself names nothing downstream. The file holds each Leg's paragraphs, each
-  // with its `join` and its Waypoints, `point` and `serves` or `performs` alone (kogaki#1448),
+  // with its `join` and its Waypoints, `point` and `cast` or `performs` alone (kogaki#1448),
   // and NOTHING OF A MOVE but its id, so this read opens no Move file either.
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);

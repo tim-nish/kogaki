@@ -378,7 +378,7 @@ function paragraphFailures(e, i, leg, prior, contract, moveId, atP) {
   // THE JOIN, BY THE PLAN READER'S OWN RULE (kogaki#1411): so the file this stage writes is
   // one /draft reads. Whether it takes up what the previous paragraph left is the judge's.
   add(joinRefusal(e, i, atP));
-  add(paragraphWaypointsRefusal(e.paragraph_waypoints, e.materials, atP));
+  add(paragraphWaypointsRefusal(e.paragraph_waypoints, atP));
   return out;
 }
 

@@ -22,7 +22,7 @@ const { validateLegs, readerTargetLegRefusal, legRecord } = compose;
 const fails = [];
 const REACHES_TARGET_LINE = "This Leg reaches the Reader target.";
 const CLOSING_LEG_LINE = "This Leg follows the Reader target: introduce nothing, raise nothing, and move only what the reader asks, expects or trusts.";
-const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, serves: ["L1"], cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
+const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_waypoints: [{ point: `the paragraph establishes what ${leg.leg_id} claims`, cast: {} }] }] }); // one planned paragraph per Leg (kogaki#1777)
 
 // (a) a retired record key is refused by name (kogaki#1699).
 {
@@ -108,7 +108,7 @@ const planned = (leg) => ({ ...leg, paragraphs: [{ materials: ["L1"], paragraph_
 // kogaki#1768, and on no Leg before it; the closing-Leg line reaches no Packet of a Brief.
 {
   const legOf = (leg_id, extra = {}) => ({
-    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, serves: ["L1"], case: "own" }],
+    leg_id, claims: [{ strand: "L1", proposition: `claim of ${leg_id}` }], waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
     ...extra,
   });
   const marked = legRecord(legOf("s2", { reaches_target: true }));

@@ -71,20 +71,16 @@
               "paragraph": 1,
               "paragraph_waypoints": [
                 {
-                  "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not.",
-                  "serves": ["L2"]
+                  "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not."
                 },
                 {
-                  "point": "The same arms buildup is feared in one situation and not feared in another.",
-                  "serves": ["L2"]
+                  "point": "The same arms buildup is feared in one situation and not feared in another."
                 },
                 {
-                  "point": "The split matters for understanding where the strongest power stands in the world.",
-                  "serves": ["L2"]
+                  "point": "The split matters for understanding where the strongest power stands in the world."
                 },
                 {
-                  "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
-                  "serves": ["L2"]
+                  "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not."
                 }
               ]
             }
@@ -152,12 +148,10 @@
                   "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises."
                 },
                 {
-                  "point": "Mainly two factors decide how readily the security dilemma arises.",
-                  "serves": ["L3"]
+                  "point": "Mainly two factors decide how readily the security dilemma arises."
                 },
                 {
-                  "point": "The two factors are offense-defense advantage and offense-defense distinguishability.",
-                  "serves": ["L3"]
+                  "point": "The two factors are offense-defense advantage and offense-defense distinguishability."
                 }
               ]
             }
@@ -214,16 +208,13 @@
               "paragraph": 1,
               "paragraph_waypoints": [
                 {
-                  "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all, grades cases between those in which that intent is plain and those in which it cannot be made out.",
-                  "serves": ["L15"]
+                  "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, that is, how clearly the other side's intent can be recognised at all, grades cases between those in which that intent is plain and those in which it cannot be made out."
                 },
                 {
-                  "point": "Put plainly, the measure is simply how clear the other side's intent is.",
-                  "serves": ["L15"]
+                  "point": "Put plainly, the measure is simply how clear the other side's intent is."
                 },
                 {
-                  "point": "The clearer the other side's intent, the less likely war becomes, and the vaguer it is, the likelier war becomes.",
-                  "serves": ["L15"]
+                  "point": "The clearer the other side's intent, the less likely war becomes, and the vaguer it is, the likelier war becomes."
                 }
               ]
             }
@@ -239,8 +230,7 @@
         "paragraph": 1,
         "waypoint": 1,
         "to": {
-          "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, grades cases between those in which that intent is plain and those in which it cannot be made out.",
-          "serves": ["L15"]
+          "point": "Attack-defence distinguishability, meaning how clearly the other side's action can be told to intend attack rather than defence, grades cases between those in which that intent is plain and those in which it cannot be made out."
         }
       }
     },
@@ -288,20 +278,16 @@
               "paragraph": 1,
               "paragraph_waypoints": [
                 {
-                  "point": "A set of automatic rules can be written with every care and still never act on an entire kind of action.",
-                  "serves": ["L1"]
+                  "point": "A set of automatic rules can be written with every care and still never act on an entire kind of action."
                 },
                 {
-                  "point": "The instance that makes this plainest is a set of rules that runs on every write to a record and not once on that record's deletion, such a set being a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and a write and a deletion each being an action, one thing done in a system of a kind that can be named.",
-                  "serves": ["L1"]
+                  "point": "The instance that makes this plainest is a set of rules that runs on every write to a record and not once on that record's deletion, such a set being a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and a write and a deletion each being an action, one thing done in a system of a kind that can be named."
                 },
                 {
-                  "point": "That instance is put together out of nothing unusual, an ordinary set of rules and two ordinary actions, and what it makes plain is that the care taken in writing the rules decided nothing about the kind of action they passed over.",
-                  "serves": ["L1"]
+                  "point": "That instance is put together out of nothing unusual, an ordinary set of rules and two ordinary actions, and what it makes plain is that the care taken in writing the rules decided nothing about the kind of action they passed over."
                 },
                 {
-                  "point": "The same instance also accounts for a second matter, why deleting that record raises no warning at all, since nothing in the set was ever set up to notice a deletion.",
-                  "serves": ["L1"]
+                  "point": "The same instance also accounts for a second matter, why deleting that record raises no warning at all, since nothing in the set was ever set up to notice a deletion."
                 }
               ]
             }
@@ -317,8 +303,7 @@
         "paragraph": 1,
         "waypoint": 1,
         "to": {
-          "point": "A set of automatic rules is a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and such a set can be written with every care and still never act on an entire kind of action.",
-          "serves": ["L1"]
+          "point": "A set of automatic rules is a standing arrangement in a system that acts by itself whenever an action of a kind it was set up for happens, and such a set can be written with every care and still never act on an entire kind of action."
         }
       }
     },
@@ -383,31 +368,26 @@
               "paragraph_waypoints": [
                 {
                   "point": "Which single thing decides whether a standing set of automatic rules does anything at all about something that happens?",
-                  "serves": ["L1"],
                   "cast": {
                     "asked": true
                   }
                 },
                 {
                   "point": "It is the kind the happening belongs to.",
-                  "serves": ["L1"],
                   "cast": {
                     "terse": true
                   }
                 },
                 {
                   "point": "A home burglar alarm is wired against certain kinds of opening at an entry point of the house.",
-                  "serves": ["L1"],
                   "cast": {}
                 },
                 {
                   "point": "So every kind of opening at an entry point of the house falls on one side of that wiring or the other, and an upstairs window of an unwired kind can stand open the whole night with the alarm quiet, because that opening fits none of the patterns the alarm was given and is therefore no concern of its.",
-                  "serves": ["L1", "L2"],
                   "cast": {}
                 },
                 {
                   "point": "Of everything that could be said about such an arrangement, the line between the kinds it was signed up against and the kinds it was not is the most important thing about it.",
-                  "serves": ["L1", "L2"],
                   "cast": {
                     "plain": true
                   }
@@ -427,7 +407,6 @@
         "waypoint": 2,
         "to": {
           "point": "It is the kind the happening belongs to: such rules act on a happening only when it falls under a kind they were signed up against.",
-          "serves": ["L1"],
           "cast": {
             "terse": true
           }
@@ -509,41 +488,24 @@
               "paragraph_waypoints": [
                 {
                   "point": "The question is which single thing settles whether a set of automatic rules responds at all to something that happens.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "The answer is the kind of the occurrence: such a set notices an occurrence only when it falls under a kind that set was registered against.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {
                     "terse": true
                   }
                 },
                 {
                   "point": "A home burglar alarm is wired against only some kinds of opening at an entry point of the house, and against the rest it is not wired at all.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "An upstairs window of a kind the alarm was never wired against can stand open all night with nothing happening, because that opening matches no pattern the alarm holds and so is none of its business.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "Of everything that could be said about such an arrangement, the division between the kinds it was registered against and the kinds it was not is the one that matters most, since it fixes both what the arrangement notices and what it passes over entirely.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {
                     "plain": true
                   }
@@ -629,43 +591,26 @@
               "paragraph_waypoints": [
                 {
                   "point": "Which single thing decides whether a standing set of automatic rules does anything at all about something that happens?",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {
                     "asked": true
                   }
                 },
                 {
                   "point": "It is the kind the happening belongs to: such rules act on a happening only when it falls under a kind they were signed up against.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {
                     "terse": true
                   }
                 },
                 {
                   "point": "A home burglar alarm is wired against certain kinds of opening at an entry point of the house, and against every other kind of opening at an entry point of the house it is not wired at all.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "So every kind of opening at an entry point of the house falls on one side of that wiring or the other, and an upstairs window of an unwired kind can stand open the whole night with the alarm quiet, because that opening fits none of the patterns the alarm was given and is therefore no concern of its.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "Of everything that could be said about such an arrangement, the line between the kinds it was signed up against and the kinds it was not is the most important thing about it, settling alike what it responds to and what it lets pass with no notice taken.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {
                     "plain": true
                   }
@@ -751,43 +696,26 @@
               "paragraph_waypoints": [
                 {
                   "point": "What is the one thing that settles whether a standing set of automatic rules reacts to a given happening or lets it go by?",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {
                     "asked": true
                   }
                 },
                 {
                   "point": "The kind the happening belongs to settles it: such rules reach a happening only if its kind is one they were enrolled against.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {
                     "terse": true
                   }
                 },
                 {
                   "point": "A home burglar alarm is wired against some kinds of opening at an entry point of the house and left unwired against all the others.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "Every kind of opening at an entry point of the house therefore sits on one side of that wiring or the other, and an upstairs window of an unwired kind may stay open till morning with the alarm silent throughout, since that opening answers to no pattern the alarm holds and is nothing to it.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "Among everything there is to say about such an arrangement, the split between the kinds it was enrolled against and the kinds it was not ranks first in importance, fixing what it reacts to and equally what goes by unremarked.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {
                     "plain": true
                   }
@@ -874,41 +802,24 @@
               "paragraph_waypoints": [
                 {
                   "point": "The question is which single thing settles whether a set of automatic rules responds at all to something that happens.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "The answer is the kind of the occurrence: such a set notices an occurrence only when it falls under a kind that set was registered against.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {
                     "terse": true
                   }
                 },
                 {
                   "point": "Such a set of rules is registered against some kinds of happening, and against the rest it is not registered at all.",
-                  "serves": [
-                    "L1"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "A happening of a kind the set was never registered against can go by with nothing done, because it matches no pattern the set holds and so is none of its business.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {}
                 },
                 {
                   "point": "Of everything that could be said about such an arrangement, the division between the kinds it was registered against and the kinds it was not is the one that matters most, since it fixes both what the arrangement notices and what it passes over entirely.",
-                  "serves": [
-                    "L1",
-                    "L2"
-                  ],
                   "cast": {
                     "plain": true
                   }
@@ -1002,20 +913,16 @@
               "paragraph": 1,
               "paragraph_waypoints": [
                 {
-                  "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not.",
-                  "serves": ["L2"]
+                  "point": "The security dilemma — the trap in which one state's build-up for its own protection makes a neighbour fear attack and build up in turn — splits into cases where the dilemma arises easily and cases where it does not."
                 },
                 {
-                  "point": "Like a new fence, read as a guard against thieves on a quiet street and as a line drawn against the neighbour on a feuding one, the same arms buildup is feared in one situation and not feared in another.",
-                  "serves": ["L2"]
+                  "point": "Like a new fence, read as a guard against thieves on a quiet street and as a line drawn against the neighbour on a feuding one, the same arms buildup is feared in one situation and not feared in another."
                 },
                 {
-                  "point": "The split matters for understanding where the strongest power stands in the world.",
-                  "serves": ["L2"]
+                  "point": "The split matters for understanding where the strongest power stands in the world."
                 },
                 {
-                  "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not.",
-                  "serves": ["L2"]
+                  "point": "Two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not."
                 }
               ]
             }
@@ -1031,8 +938,7 @@
         "paragraph": 1,
         "waypoint": 2,
         "to": {
-          "point": "Like a chess opening, read as solid play by one player and as an attack by another, the same arms buildup is feared in one situation and not feared in another.",
-          "serves": ["L2"]
+          "point": "Like a chess opening, read as solid play by one player and as an attack by another, the same arms buildup is feared in one situation and not feared in another."
         }
       }
     }

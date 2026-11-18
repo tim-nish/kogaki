@@ -98,7 +98,6 @@
         "paragraphs.join": "content",
         "paragraphs.paragraph_waypoints": "content",
         "paragraph_waypoints.point": "content",
-        "paragraph_waypoints.serves": "copied",
         "paragraph_waypoints.cast": "content",
         "paragraph_waypoints.performs": "content"
       }
@@ -111,7 +110,6 @@
         "relation",
         "waypoints",
         "waypoints.point",
-        "waypoints.serves",
         "waypoints.case"
       ]
     },
@@ -150,7 +148,6 @@
         "waypoints",
         "opens_section",
         "waypoints.point",
-        "waypoints.serves",
         "waypoints.case",
         "relation"
       ],
@@ -167,8 +164,7 @@
         "paragraphs.rationale",
         "paragraphs.re-activate",
         "paragraphs.journeys",
-        "paragraphs.paragraph_waypoints",
-        "paragraph_waypoints.serves"
+        "paragraphs.paragraph_waypoints"
       ]
     },
     "shared_text_file": "prompts/paragraph-plan",

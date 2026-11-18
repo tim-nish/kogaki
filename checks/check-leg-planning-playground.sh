@@ -138,7 +138,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         const serves = (leg.claims || []).map((g) => g.strand);
         return { version: "1", leg_id: leg.leg_id, move: m.id, rationale: "its Segments carry the Leg's relation.",
           paragraphs: [{ paragraph: 1, materials: serves, purpose: "PURPOSE brings the reader to the relation.", depends_on: [], introduces: [], "re-activate": [],
-            rationale: "one paragraph carries the relation.", paragraph_waypoints: (m.segments.length ? m.segments : [0]).map((_, n) => ({ point: "PW-" + leg.leg_id + "-" + (n + 1) + " the step toward the relation.", serves, cast: {} })) }] };
+            rationale: "one paragraph carries the relation.", paragraph_waypoints: (m.segments.length ? m.segments : [0]).map((_, n) => ({ point: "PW-" + leg.leg_id + "-" + (n + 1) + " the step toward the relation.", cast: {} })) }] };
       })();
     writeSync(1, JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   }

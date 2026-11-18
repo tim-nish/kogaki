@@ -136,7 +136,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (prompt.includes('"paragraph_you_must_plan"')) {
     const site = body("paragraph_you_must_plan"), e = site.refused_here[site.refused_here.length - 1].entry;
     appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: site.paragraph_you_must_plan.leg_id }) + "\\n");
-    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.paragraph_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", serves: [...e.paragraph_waypoints[0].serves], cast: {} }] });
+    out({ ...e, paragraph_waypoints: [{ point: "PW-" + site.paragraph_you_must_plan.leg_id + " rewritten " + site.refused_here.length + ".", cast: {} }] });
   }
   const leg = body("leg_you_must_plan").leg_you_must_plan;
   appendFileSync(dir + "/prompts.jsonl", JSON.stringify({ call: "plan", leg: leg.leg_id }) + "\\n");
@@ -145,7 +145,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     paragraphs: [{ paragraph: 1, materials: ["L1"], purpose: "PURPOSE-" + leg.leg_id + " brings the reader to the point.",
       depends_on: [], rationale: "its before holds the state and its after reaches the next point.",
       "re-activate": [],
-      paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", serves: ["L1"], cast: {} }] }] });
+      paragraph_waypoints: [{ point: "PW-" + leg.leg_id + " the paragraph establishes its point.", cast: {} }] }] });
 });
 `);
 chmodSync(judge, 0o755);
@@ -313,7 +313,7 @@ if (resumedRun && existsSync(resumedRun.planPath)) {
   for (const l of legs) if (!out.includes(`## Leg ${l.leg_id}`) || !out.includes(`- **Text:** ${l.text}`)) fails.push(`(e) the view does not print Leg ${l.leg_id} with its text`);
   const s2 = out.slice(out.indexOf("## Leg s2"), out.indexOf("## Leg s3"));
   const want = ["- **Move:** `p1`", "- **Move takes:** explain: MOVE-TAKES what the copy is.",
-    "| 1 | states the point once, plainly. |  |  | PW-s2 the paragraph establishes its point. (serves L1) |",
+    "| 1 | states the point once, plainly. |  |  | PW-s2 the paragraph establishes its point. |",
     "- **Move leaves:** answer: MOVE-LEAVES whose copy it is?"];
   for (const w of want) if (!s2.includes(w)) fails.push(`(e) the view's Leg s2 lacks ${JSON.stringify(w)}: ${s2.slice(0, 900)}`);
   if (s2.indexOf("Move takes") > s2.indexOf("Move leaves") || s2.indexOf("Move leaves") > s2.indexOf("### Paragraph 1") || s2.indexOf("### Paragraph 1") > s2.indexOf("| 1 |")) fails.push("(e) the view's lines are not in the stated order");

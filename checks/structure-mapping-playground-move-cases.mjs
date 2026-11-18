@@ -239,7 +239,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     return out({ version: "1", leg_id: leg.leg_id, move: leg.move, rationale: "the Move's Segments carry the Leg.",
       paragraphs: [{ paragraph: 1, materials: serves, purpose: "states the Leg.", depends_on: [], "re-activate": [],
         rationale: "it is the one paragraph of this Leg.",
-        paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", serves, cast: {} })) }] }, "waypoints");
+        paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", cast: {} })) }] }, "waypoints");
   }
   return out("WRITTEN the installer and the copied kit.", "writer");
 });
@@ -402,10 +402,7 @@ const flat = writeBrief(
     LEGS.map((l) => ({ ...l, relation: undefined })),
   ),
 );
-const wp = writeBrief(
-  "waypoints",
-  briefOf(STRUCTURE, [{ ...LEGS[0], waypoints: [{ point: "a point.", serves: ["L1"] }] }, LEGS[1]]),
-);
+const wp = writeBrief("waypoints", briefOf(STRUCTURE, [{ ...LEGS[0], waypoints: [{ point: "a point." }] }, LEGS[1]]));
 for (const [name, args, want] of [
   ["no-structure", ["--brief", flat, "--leg", "s1", "--move", MOVE, "--library", library], "carries no `structure`"],
   ["leg-waypoints", ["--brief", wp, "--leg", "s1", "--move", MOVE, "--library", library], "waypoints"],
@@ -626,13 +623,15 @@ const tParagraphs = (trec.bind && trec.bind.paragraphs) || [];
 ok(
   tParagraphs.length === 1 &&
     tParagraphs[0].move === MOVE &&
-    JSON.stringify(tParagraphs[0].paragraph_waypoints.map((w) => [w.point.slice(0, 4), w.serves, w.cast])) ===
+    JSON.stringify(
+      tParagraphs[0].paragraph_waypoints.map((w) => [w.point.slice(0, 4), Object.hasOwn(w, "serves"), w.cast]),
+    ) ===
       JSON.stringify([
-        ["PW-1", ["L1"], {}],
-        ["PW-2", ["L1"], {}],
-        ["PW-3", ["L1"], {}],
+        ["PW-1", false, {}],
+        ["PW-2", false, {}],
+        ["PW-3", false, {}],
       ]),
-  `(i) the paragraph record is not one paragraph under the named Move, each Point serving the Leg's Lessons with an empty cast: ${JSON.stringify(tParagraphs)}`,
+  `(i) the paragraph record is not one paragraph under the named Move, each Point carrying no serves and an empty cast: ${JSON.stringify(tParagraphs)}`,
 );
 // The Writer is handed the plan and no Point (kogaki#1859): the Arguments, the CentralClaim and one part per Segment.
 const tWriter = ((ti.seen.find((x) => x.stage === "writer") || {}).prompt || "").split("\n");
