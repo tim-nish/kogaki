@@ -141,6 +141,84 @@ export const WRITER_CASES = {
     },
     prior: [],
   },
+  "write-leg-follows-the-reader-target": {
+    legs: [
+      {
+        leg_id: "s1",
+        text: "The installer copies the kit.",
+        claims: [claim("L1", "the installer copies the kit.")],
+        reaches_target: true,
+      },
+      {
+        leg_id: "s2",
+        text: "The kit is edited at its source.",
+        claims: [claim("L1", "the kit is edited at its source.")],
+      },
+    ],
+    leg: "s2",
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The kit is edited at its source.", ["L1"])])] },
+    prior: [],
+  },
+  "write-leg-opens-a-headed-section-alone": {
+    legs: [
+      {
+        leg_id: "s1",
+        text: "The installer copies the kit.",
+        claims: [claim("L1", "the installer copies the kit.")],
+        opens_section: "Where the copy lives",
+      },
+      {
+        leg_id: "s2",
+        text: "The kit is edited at its source.",
+        claims: [claim("L1", "the kit is edited at its source.")],
+        opens_section: "Where the kit is edited",
+      },
+    ],
+    leg: "s1",
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    prior: [],
+  },
+  "write-leg-opens-a-headed-section-before-one-more": {
+    legs: [
+      {
+        leg_id: "s1",
+        text: "The installer copies the kit.",
+        claims: [claim("L1", "the installer copies the kit.")],
+        opens_section: "Where the copy lives",
+      },
+      {
+        leg_id: "s2",
+        text: "The kit is edited at its source.",
+        claims: [claim("L1", "the kit is edited at its source.")],
+      },
+    ],
+    leg: "s1",
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    prior: [],
+  },
+  "write-leg-opens-a-headed-section-before-two-more": {
+    legs: [
+      {
+        leg_id: "s1",
+        text: "The installer copies the kit.",
+        claims: [claim("L1", "the installer copies the kit.")],
+        opens_section: "Where the copy lives",
+      },
+      {
+        leg_id: "s2",
+        text: "The kit is edited at its source.",
+        claims: [claim("L1", "the kit is edited at its source.")],
+      },
+      {
+        leg_id: "s3",
+        text: "The next run leaves the source alone.",
+        claims: [claim("L1", "the next run leaves the source alone.")],
+      },
+    ],
+    leg: "s1",
+    extra: { paragraphs: [paragraph(1, ["L1"], [point("The installer copies the kit.", ["L1"])])] },
+    prior: [],
+  },
   "write-leg-japanese": {
     legs: [
       { leg_id: "s1", text: "The installer copies the kit.", claims: [claim("L1", "the installer copies the kit.")] },
