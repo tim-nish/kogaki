@@ -776,7 +776,9 @@ export function runShortTrial({
       writeFileSync(analogyPath, stringifyYaml({ analogy: shortAnalogy(structure, rbsTables.tables, told) }));
       record.analogy = fileRecord(analogyPath);
       const move = moves[moves.length - 1];
-      const leaves = bindingLeaves(contracts.get(move), OWN, null);
+      // `contracts` is set inside the `bind` stage, which has run when `rbsTables` is set.
+      const bound = /** @type {Map<string, any> | null} */ (contracts);
+      const leaves = bindingLeaves(bound ? bound.get(move) : null, OWN, null);
       const count = told === APART ? 2 : 1;
       record.bind = { ...record.bind, move };
       listed = Array.from({ length: count }, (_, i) => ({
