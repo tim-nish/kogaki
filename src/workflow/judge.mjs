@@ -51,7 +51,6 @@ const SETTINGS_FILE = "kogaki.settings.json";
 // A settings file still carrying a renamed key is refused naming both names, as a missing key is.
 export const RENAMED_SETTINGS = {
   "brief.unit_attempts": "brief.unit_rounds",
-  "paragraph_plan.leg_attempts": "paragraph_plan.leg_revisions",
 };
 
 function settingsPath() {

@@ -1,1 +1,0 @@
-A Segment's `operation` is an operation performed on a part of the Leg's `text`, never a point to state.

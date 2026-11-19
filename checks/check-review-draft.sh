@@ -22,9 +22,6 @@
 #   (g) the `promise-kept` item and its `keeps` block are retired with the
 #       Packet line they read: src/review-items.json declares neither
 #       (kogaki#1584);
-#   (i) review.md's closing Forced paragraphs list reads `_None._` over a
-#       Packet rendered from a plan whose Waypoint carries `forced_by`, since
-#       the Packet carries no Point and so no mark (kogaki#1649, kogaki#1859).
 # AND (j) the `defined-term-order` item is retired (kogaki#1842): a Draft whose
 #   Brief classes a term `defined` and whose prose uses it is reviewed with no
 #   `defined-term-order` row, by checks/fixtures/review-draft/defined-term-order.mjs.
@@ -46,7 +43,6 @@ const repo = resolve(".");
 const { legRecord, briefRecordText, readerStateMap } = await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
 const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 const { readDraft, readItems, buildJoin } = await import(pathToFileURL(join(repo, "src", "review-draft.mjs")).href);
-const { forcedParagraphLines } = await import(pathToFileURL(join(repo, "src", "review-draft", "close.mjs")).href);
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "review-draft-"));
 
@@ -133,25 +129,11 @@ if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.pack
   }
 }
 
-// (i) review.md's Forced paragraphs list reads `_None._`: the Packet carries no Point, so no mark (kogaki#1649, kogaki#1859).
-{
-  const leg = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
-    paragraph_waypoints: [{ point, ...(i === 0 ? { forced_by: ["CAST"] } : {}), cast: {} }] })) };
-  const dir = join(root, "forced");
-  mkdirSync(join(dir, "packets"), { recursive: true });
-  const r = renderPacket({ brief, leg, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
-  if (r.error) fails.push(`(i) the forced fixture Packet did not render: ${r.error}`);
-  writeFileSync(join(dir, "packets", "forced.md"), r.packet || "");
-  if (/forced/i.test(r.packet || "")) fails.push("(i) the Packet rendered from a forced Waypoint carries a mark");
-  const none = forcedParagraphLines([{ leg_id: "s1", packet: "packets/forced.md" }], dir);
-  if (!none.includes("_None._") || none.some((x) => x.startsWith("- "))) fails.push(`(i) a Packet with no mark lists a forced paragraph: ${JSON.stringify(none)}`);
-}
-
 if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — src/review-items.json declares none of the waypoints, attribute-leak, opens-from-copied and performs items and none of the waypoints, opens_from and performs blocks, and every block an item names is declared; the whole table reads a Packet rendered from a plan carrying a join with no Packet-gap refusal and no retired row (kogaki#1859); the promise-kept item and its keeps block are retired (kogaki#1584); review.md's Forced paragraphs list reads _None._ over a Packet rendered from a forced Waypoint (kogaki#1649, kogaki#1859)");
+console.log("ok: check-review-draft — src/review-items.json declares none of the waypoints, attribute-leak, opens-from-copied and performs items and none of the waypoints, opens_from and performs blocks, and every block an item names is declared; the whole table reads a Packet rendered from a plan carrying a join with no Packet-gap refusal and no retired row (kogaki#1859); the promise-kept item and its keeps block are retired (kogaki#1584)");
 JS
 status=$?
 node checks/fixtures/review-draft/defined-term-order.mjs || status=1

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// ParagraphPlan — the stage that generates Waypoints after the Brief
-// (kogaki#1375, owner decision 2026-10-14).
+// ParagraphPlan — the stage after the Brief that fits each Leg to one Move and writes its Segments
+// (kogaki#1375, kogaki#1865, kogaki#1876).
 //
 // WHAT IT IS. The Brief's Reader Path plans an article down to Legs: one per relation the
 // Thesis reaches (kogaki#1775). This stage plans each Leg under one Move (kogaki#1865, kogaki#1876)
@@ -35,11 +35,9 @@ import {
   paragraphPlanRecord,
   paragraphPlanRecordText,
   paragraphPlanShapeRefusal,
-  paragraphWaypointsRefusal,
   readParagraphPlanBeside,
   sha256,
 } from "./compose.mjs";
-import { paragraphSchemaRefusal } from "./compose/record.mjs";
 import { relFromRepo } from "./workflow/run-record.mjs";
 import { jobHeartbeatMs, readReaderPathJob, readerPathJobPath } from "./workflow/detached-job.mjs";
 import { readAdoptedBrief } from "./paragraph-plan/brief.mjs";
@@ -49,9 +47,6 @@ import { DONE_FILE, PARAGRAPH_PLAN_AWAIT_S, PARAGRAPH_PLAN_STILL_RUNNING_LINE, f
 import { paragraphPlanView } from "./paragraph-plan/view.mjs";
 export {
   PARAGRAPH_PLAN_TABLE,
-  PARAGRAPH_PLAN_AXES,
-  NO_PARAGRAPH_MOVE_FITS,
-  PARAGRAPH_MOVE_ROLES,
   PARAGRAPH_PLAN_AWAIT_S,
   PARAGRAPH_PLAN_STILL_RUNNING_LINE,
 } from "./paragraph-plan/stage.mjs";
@@ -63,30 +58,7 @@ export {
   legRoles,
   planLegOptions,
   segmentsForPlanCall,
-  paragraphPlanUnitInput,
-  renderRowHead,
 } from "./paragraph-plan/units.mjs";
-export {
-  criteriaOf,
-  criteriaFailures,
-  readAxes,
-  axisSentenceRefusal,
-  axisRecord,
-  axesFailures,
-  paragraphPlanUnitPrompt,
-  boundMoveContract,
-  validateParagraphPlanUnit,
-  legStrand,
-  mappingStatePath,
-  readMappingState,
-  noParagraphMoveFitsRefusal,
-  paragraphPlanJudgeInput,
-  paragraphPlanJudgePrompt,
-  PARAGRAPH_PLAN_VERDICTS,
-  BINDING_AXES,
-  paragraphPlanJudgeVerdict,
-  judgeSiteRefusal,
-} from "./paragraph-plan/axes.mjs";
 export { NAME_ROW, READINGS, chooseMove, compareMove, countPairs, fittedSegments } from "./paragraph-plan/senses.mjs";
 export { ParagraphPlanLegSteps, validateParagraphPlanLeg } from "./paragraph-plan/steps.mjs";
 export { latestRunDir, startParagraphPlan } from "./paragraph-plan/run-dir.mjs";
@@ -109,8 +81,6 @@ export {
   paragraphPlanRecordText,
   readParagraphPlanBeside,
   paragraphPlanShapeRefusal,
-  paragraphWaypointsRefusal,
-  paragraphSchemaRefusal,
 };
 
 function sleepSync(ms) {

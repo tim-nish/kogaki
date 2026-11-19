@@ -6,7 +6,7 @@
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import { chosenJudged, evidenceLines, findingEvidencePaths, forcedParagraphLines } from "./close.mjs";
+import { chosenJudged, evidenceLines, findingEvidencePaths } from "./close.mjs";
 import {
   correctFigure,
   correctionEvidence,
@@ -1073,7 +1073,6 @@ export function cmdClose(args) {
     }
     lines.push("");
   }
-  lines.push(...forcedParagraphLines(run.legs, dirname(resolve(draftPath))));
 
   // A trailing newline, like every other write in this file: `review.md` is
   // repo-visible and committed, so without one it lands as a no-final-newline

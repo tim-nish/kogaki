@@ -1,13 +1,8 @@
-// paragraph-plan/units — one job unit per Leg: the Leg's plan input, its told-before terms and its Segments. Cut from src/paragraph-plan.mjs along its headed
+// paragraph-plan/units — one job unit per Leg: the Leg as a step reads it, its told-before terms and its Roles. Cut from src/paragraph-plan.mjs along its headed
 // sections (kogaki#1792); the design and its rulings are stated at the entry and in the Issues each
 // block below names.
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
-import { personaPriorKnowledgeLine } from "../compose.mjs";
-import { judgePrompt } from "../workflow/judge.mjs";
-import { bindFlow } from "../workflow/run-record.mjs";
-import { FLOW } from "./stage.mjs";
-
 // ---------------------------------------------------------------------------
 // ONE UNIT PER LEG. The unit's id is `leg-<n>`, its place in the Reader Path, so a file
 // name never carries a Leg id; `inputs.legs` is the Legs in that order.
@@ -15,20 +10,13 @@ import { FLOW } from "./stage.mjs";
 export function unitIdFor(i) {
   return `leg-${i + 1}`;
 }
-export function legForUnit(inputs, unitId) {
-  const m = /^leg-(\d+)$/.exec(String(unitId));
-  const leg = m ? (inputs.legs || [])[Number(m[1]) - 1] : null;
-  if (!leg) throw new Error(`the ParagraphPlan job has no Leg for unit ${JSON.stringify(unitId)}`);
-  return leg;
-}
 
 // WHAT A UNIT IS HANDED ABOUT ITS LEG (kogaki#1777): the Leg's `text`, its relation's `holds` with each
 // Role named; its relation's id; its Claims, each Strand id beside the proposition it is `from`; the Roles
 // the relation stands between, each with its `context`; the Persona's prior-knowledge line; and what the
 // Legs before it state, `the_reader_has_been_told` (`toldBefore`). Its Journeys, `{strand, use}`, ride for
 // a paragraph to place (kogaki#1639). What its Move leaves and no later paragraph takes up is left for the
-// next Leg, and nothing hands the Leg a list of it (kogaki#1853). Kept small and plain
-// so the validator and the judge read the same Leg the prompt showed. `opts` is
+// next Leg, and nothing hands the Leg a list of it (kogaki#1853). `opts` is
 // `{ told, roles, priorKnowledge }`.
 export function planLeg(leg, opts = {}) {
   return {
@@ -87,18 +75,9 @@ export function planLegOptions(legs, structure, priorKnowledge) {
   }));
 }
 
-// EVERY SEGMENT REACHES THE PLAN CALL WHOLE, AS ITS THREE FIELDS (kogaki#1414, reverting the
-// withholding of kogaki#1403; `manner` from kogaki#1510, which reaches this call and nothing
-// written from it, kogaki#1585). A Segment is `operation`, the step's
-// operation written subject-free, `relation`, its relation to the Segment before it, in prose
-// -- no label set -- and `manner`, the local realisation the step takes, empty on most. The
-// Move record carries `segments` as a list of maps in that shape (kogaki#1413); this numbers
-// each one into `{ segment, operation, relation, manner }`, `relation` empty on Segment 1 and
-// `manner` empty where the Move gives none, so the planner reads the fields apart and by
-// position. kogaki#1403 withheld the description because the planner read it as content; the plan
-// row now says an `operation` is an operation to perform and never a point to state, and the judge
-// checks each Waypoint against its own Segment, so the leak is refused where it happens rather than
-// by blinding the planner (kogaki#1414). `before`, `after` and `breaks` are untouched.
+// A MOVE'S SEGMENTS AS THE CALLS THAT READ A MOVE ARE HANDED THEM (kogaki#1884): each numbered into
+// `{ segment, operation, relation, manner }`, `relation` empty on Segment 1 and `manner` empty where the Move
+// gives none. The Structure-Mapping Playground's short Trial is its reader (src/structure-mapping-playground/short.mjs).
 export function segmentsForPlanCall(segments) {
   if (!Array.isArray(segments) || !segments.length) return segments;
   return segments.map((s, i) => ({
@@ -107,25 +86,4 @@ export function segmentsForPlanCall(segments) {
     relation: String(s.relation ?? "").trim(),
     manner: String(s.manner ?? "").trim(),
   }));
-}
-
-// Each bindable Move carries its `takes` and `leaves` on its contract (kogaki#1701), and the
-// input names the bound on the Leg's paragraphs (kogaki#1777). A Leg introduces no term
-// (kogaki#1768), so the input carries no list of terms (kogaki#1841).
-export function paragraphPlanUnitInput(leg, moves, persona, bound) {
-  return {
-    leg_you_must_plan: leg,
-    paragraphs_at_most: bound,
-    paragraph_moves_you_may_bind: moves.map((m) => ({ ...m, segments: segmentsForPlanCall(m.segments) })),
-    persona: { reader: persona.reader, prior_knowledge: personaPriorKnowledgeLine(persona) },
-  };
-}
-
-export function renderRowHead(row) {
-  const held = bindFlow(FLOW);
-  try {
-    return judgePrompt(row, "", null, null);
-  } finally {
-    bindFlow(held);
-  }
 }

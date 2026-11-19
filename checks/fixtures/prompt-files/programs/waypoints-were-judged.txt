@@ -1,4 +1,0 @@
-THE WAYPOINTS WERE JUDGED, AND THESE DO NOT FIT THE MOVE BOUND TO THEIR LEG:
-Leg s2, paragraph 1: the judge wrote: "the paragraph states no point of Segment two"
-Leg s2, paragraph 2: the judge wrote: "the join restates the first Waypoint"
-Generate the Waypoints again so that the bound Move's takes are each met by what the reader has been told when the Leg begins, they follow the Move's order (its segments), each perform its own Segment's operation and stand in that Segment's relation, and survive each of its breaks, or bind another Move; and write each join so that it takes up what the previous paragraph leaves, restates no Waypoint, names no noun phrase of either paragraph's Waypoints, brings no case, example or term of its own and states no effect on the reader.

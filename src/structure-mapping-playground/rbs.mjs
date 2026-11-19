@@ -187,29 +187,3 @@ export function suppliedEntry(record) {
     binding_rationale: Object.hasOwn(record, "binding_rationale") ? String(record.binding_rationale).trim() : null,
   };
 }
-
-// THE CORRESPONDENCE VOCABULARY'S LEXICAL HALF (kogaki#1700, kogaki#1709, kogaki#1811): a Role id appears in no point outside
-// an expression of the paragraph's own table or of `priorTables`, the tables of the cases already told. Whether a point names a
-// Role's counterpart is a sense judgment, the ParagraphPlan judge's EXPRESSED axis (src/paragraph-plan-axes.json). Every
-// failure is returned, never the first (kogaki#1813).
-const lower = (t) => String(t).toLowerCase();
-const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-export function correspondenceVocabularyFailures(points, table, priorTables = [], paragraph = 1) {
-  const texts = (points || []).map((p) => (p && typeof p.point === "string" ? p.point : ""));
-  const failures = [];
-  const expressions = [table, ...priorTables]
-    .flatMap((t) => t.correspondences)
-    .map((c) => lower(String(c.expression).trim()))
-    .sort((a, b) => b.length - a.length);
-  for (const [i, t] of texts.entries()) {
-    let rest = lower(t);
-    for (const e of expressions) rest = rest.split(e).join(" ");
-    for (const id of table.correspondences.map((c) => String(c.role))) {
-      if (new RegExp(`(^|[^a-z0-9_])${escapeRe(lower(id))}($|[^a-z0-9_])`).test(rest))
-        failures.push(
-          `Paragraph ${paragraph}'s point ${i + 1} carries the Role id "${id}" — a point says the structure in the Correspondence expressions`,
-        );
-    }
-  }
-  return failures;
-}

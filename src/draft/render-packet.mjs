@@ -63,29 +63,6 @@ export function planValues(structure, leg) {
 // A list whose items but the last carry `more`, so the file writes what stands between two items.
 export const listOf = (items) => items.map((item, i) => (i < items.length - 1 ? { ...item, more: true } : item));
 
-// kogaki#1649: a judge-forced Waypoint's mark, an HTML comment on a line of its own beneath it,
-// written by prompts/draft/write-leg.prompt.
-const FORCED_MARK = /^\s+<!-- forced by: (.+) -->$/;
-
-// kogaki#1649: the marks a Packet carries, one row per paragraph, its axes in the order first marked.
-export function forcedMarksOf(packet) {
-  const out = [];
-  let n = null;
-  for (const l of String(packet).split("\n")) {
-    const top = l.match(/^(\d+)\.\s/);
-    if (top) {
-      n = Number(top[1]);
-      continue;
-    }
-    const m = l.match(FORCED_MARK);
-    if (!m || n === null) continue;
-    let row = out.find((r) => r.paragraph === n);
-    if (!row) out.push((row = { paragraph: n, axes: [] }));
-    for (const a of m[1].split(", ")) if (!row.axes.includes(a)) row.axes.push(a);
-  }
-  return out;
-}
-
 // The performs criteria bound (kogaki#1555).
 const DRAFT_TABLE = join(dirname(fileURLToPath(import.meta.url)), "..", "draft-workflow.json");
 const CRITERION_LINE = /^- ([A-Z][A-Z ]*[A-Z]): (.+)$/;

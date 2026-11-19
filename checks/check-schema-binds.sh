@@ -16,8 +16,8 @@
 # WHAT IT ASSERTS, over the tree:
 #   (a) src/binds-schema.json declares the five holds, one sentence each, and
 #       the field sets it leans on are still named where they are declared;
-#       every row of src/brief-workflow.json, src/paragraph-plan-workflow.json
-#       and src/move-extraction-playground/extraction-workflow.json that carries `binds`
+#       every row of src/brief-workflow.json and
+#       src/move-extraction-playground/extraction-workflow.json that carries `binds`
 #       declares an entry, or a `binds_unread` name, for every field of each
 #       schema it reads, and a row rendering src/leg-schema.json carries
 #       `binds.leg`; each bound field is named in the text `judgePrompt`
@@ -73,7 +73,6 @@ const { MOVE_CARRIED_FIELDS } = await imp("src/compose.mjs");
 
 const TABLES = Object.freeze([
   "src/brief-workflow.json",
-  "src/paragraph-plan-workflow.json",
   "src/move-extraction-playground/extraction-workflow.json",
 ]);
 const BINDS_SCHEMA = "src/binds-schema.json";
@@ -99,7 +98,6 @@ function schemaFields(decl = readJson(BINDS_SCHEMA)) {
     ...Object.keys(leg.fields), ...Object.keys(leg.derived),
     ...Object.keys(leg.waypoint.fields).map((k) => `waypoints.${k}`),
   ];
-  out.paragraph_plan = [...decl.schemas.paragraph_plan.fields];
   return out;
 }
 
@@ -116,13 +114,6 @@ function schemaDeclarationFailures(decl = readJson(BINDS_SCHEMA)) {
   const shape = String(readJson("moves/ROLES.json").shapes.segments);
   for (const k of decl.schemas.move.list_fields.segments.keys) {
     if (!shape.includes(`\`${k}\``)) fails.push(`${BINDS_SCHEMA}: Segment key \`${k}\` is not named by moves/ROLES.json \`shapes.segments\``);
-  }
-  const planShape = String(withPromptText({ id: "paragraph_plan_unit", ...readJson("src/paragraph-plan-workflow.json").paragraph_plan_unit }).input_shape);
-  for (const f of decl.schemas.paragraph_plan.fields) {
-    const leaf = f.split(".").pop();
-    if (!planShape.includes(`\`${leaf}\``) && !planShape.includes(`"${leaf}"`)) {
-      fails.push(`${BINDS_SCHEMA}: ParagraphPlan field \`${f}\` is not named by paragraph_plan_unit's \`input_shape\``);
-    }
   }
   return fails;
 }

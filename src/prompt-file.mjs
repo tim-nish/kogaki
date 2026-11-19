@@ -120,3 +120,24 @@ export function promptFileSource(name) {
   if (!existsSync(file)) throw new Error(`prompts/${name}.prompt: no such prompt file`);
   return fileText(file);
 }
+
+// One sentence: it ends at its only full stop.
+const oneSentence = (text) => /[.]$/.test(text) && !/[.;!?]\s/.test(text);
+
+// ONE RESPONSIBILITY, ONE SENTENCE (kogaki#1858): no `;`, `:` or ` — `, and no second finite clause
+// joined by "and". Declared limit: the clause test is lexical -- `and` followed within
+// two words by a verb from `AND_CLAUSE_VERBS`, or `, and` anywhere.
+const AND_CLAUSE_VERBS =
+  "is|are|was|were|has|have|holds?|states?|carries|carry|gives?|leaves?|runs?|bears?|stands?|survives?|performs?|names?|says?|takes?";
+const AND_CLAUSE = new RegExp(`,\\s*and\\b|\\band\\s+(?:\\S+\\s+){0,2}(?:${AND_CLAUSE_VERBS})\\b`, "i");
+
+/** Why a line of a prompt file is not one sentence with one job, or null. @param {string} sentence @returns {string | null} */
+export function sentenceRefusal(sentence) {
+  const t = String(sentence || "").trim();
+  if (!t) return "carries no sentence";
+  if (/[;:]/.test(t)) return "carries `;` or `:`";
+  if (t.includes(" — ")) return "carries ` — `";
+  if (!oneSentence(t)) return "is not one sentence";
+  if (AND_CLAUSE.test(t)) return 'joins a second clause with "and"';
+  return null;
+}

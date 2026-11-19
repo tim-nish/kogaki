@@ -75,15 +75,11 @@
   },
   "src/workflow/detached-job.mjs": {
     "TS2339": 1,
-    "TS2345": 1,
     "TS2353": 1
   },
   "src/workflow/detached-job/job-state.mjs": {
     "TS2339": 6,
     "TS2353": 1
-  },
-  "src/workflow/detached-job/units.mjs": {
-    "TS2367": 1
   },
   "src/workflow/judge/binary.mjs": {
     "TS2339": 1

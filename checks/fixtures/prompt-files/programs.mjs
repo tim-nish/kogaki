@@ -100,22 +100,6 @@ export async function programTexts(imp) {
   });
   out.set("record-skeleton", withoutSchemaText(X.extractionUnitPrompt(row, input), row));
 
-  const { paragraphPlanJudgeVerdict } = await imp("src/paragraph-plan/axes.mjs");
-  const judged = paragraphPlanJudgeVerdict(
-    {
-      version: "1",
-      leg_id: "s2",
-      verdicts: [
-        { paragraph: 1, verdict: "does-not-fit", why: "the paragraph states no point of Segment two" },
-        { paragraph: 2, verdict: "does-not-fit", why: "the join restates the first Waypoint" },
-      ],
-    },
-    { paragraphs: [{ paragraph_waypoints: [{}] }, { paragraph_waypoints: [{}] }] },
-    { legs: [{ leg_id: "s2" }] },
-    "leg-1",
-  );
-  out.set("waypoints-were-judged", judged.refusal);
-
   const J = await imp("src/review-draft/join.mjs");
   const items = JSON.parse(readFileSync("src/review-items.json", "utf8")).items;
   const QUESTIONED = items.filter((i) => QUESTIONED_ITEMS.includes(i.id));
