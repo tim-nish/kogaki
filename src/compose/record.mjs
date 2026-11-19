@@ -17,7 +17,6 @@ import { relFromRepo } from "../workflow/run-record.mjs";
 import { settingValue } from "../workflow/judge.mjs";
 import { READER_STATE_DIMENSIONS, readerStateDimensionLine, waypointsRefusal } from "./leg-schema.mjs";
 import { parseReactivateEntry } from "./sections.mjs";
-import { mappingShapeRefusal, mappingRecordRefusal } from "./mapping-record.mjs";
 
 // ---- THE BRIEF IS ONE YAML RECORD (kogaki#1328, owner decision 2026-10-10) ----
 //
@@ -120,82 +119,46 @@ export function paragraphPlanPathFor(briefPath) {
 // ---------------------------------------------------------------------------
 // THE PARAGRAPHPLAN FILE — its one writer and its one reader.
 //
-// One YAML record: `version`, `brief` (the Brief's path and content hash), and `legs`, one
-// per Leg in order. THE LEG IS THE UNIT (kogaki#1777, owner decision 2026-11-10): each Leg
-// entry carries the one Move bound to the Leg (`move`, an id and nothing else of the Move)
-// and its `paragraphs`, at most `brief.paragraphs_per_leg`. Each paragraph carries the Leg
-// schema at the paragraph scale -- `materials`, `purpose`, `depends_on`, `rationale`,
-// `re-activate` -- beside its `join` and its Waypoints
-// (`point` and `cast`), one per Segment of the Leg's Move. It carries no reader state and no Obligations ledger (kogaki#1701): what a Leg takes
-// up and leaves is its bound Move's `takes` and `leaves`.
+// One YAML record: `version` "2", `brief` (the Brief's path and content hash), and `legs`, one per Leg in order
+// (kogaki#1865, owner decision 2026-11-19). Each Leg entry carries the Move taken for the Leg (`move`), the two
+// numbers of its fit (`fit`: `met` and `compared`), the Move's Segments fitted to the Leg (`segments`, each `bind`,
+// the number of the Leg's sentence given to it or null, and `edges`, copied from the Move file) and, where the Points
+// call's answer was not refused, `points`. Nothing ties the plan to the Move after it is written: a person may change
+// a Leg's `segments`, and /draft reads what stands there.
 
 const PLAN_HEADER = [
-  "The paragraph plan for one article: the paragraph-level Reader Path. Under every Leg of the Brief named below,",
-  "the one Move bound to the Leg (its id and nothing else of the Move) and the Leg's paragraphs: for each, the",
-  "Strands it stands on, what it does to the reader, the earlier paragraphs it stands on, why it comes here, the",
-  "what it re-activates, and its Waypoints -- the points the paragraph makes, in order, each",
-  "one per Segment of the bound Move. What a Leg takes up and leaves is its bound Move's",
-  "`takes` and `leaves`, never written here. Above the Legs, the one base domain every analogy in the article draws",
-  "from, with a counterpart for each Role and relation, or none and why.",
+  "The paragraph plan for one article. Under every Leg of the Brief named below: the Move taken for the Leg,",
+  "how well the Leg met its Edges (`fit`), the Move's Segments fitted to the Leg -- for each, the number of the",
+  "Leg's sentence bound to it or null, and its Edges -- and the Points written for them, which are debugging",
+  "information and reach no Writer. A Leg no Move fitted carries no Move and no Segments.",
   "/paragraph-plan writes it from the Brief; /draft reads it beside the Brief and refuses it when the Brief has",
   "changed since.",
 ].join(" ");
 
-// `legs[i]` is `{ leg_id, move, move_forced_by?, paragraphs }`, each paragraph the entry the
-// stage's validator passed: its schema fields, its `join` where it carries one (kogaki#1411) and
-// its `paragraph_waypoints`.
 export const oneLine = (s) =>
   String(s)
     .replace(/\s*\n\s*/g, " ")
     .trim();
-// kogaki#1649: a judge-forced mark is a non-empty list of axis ids, written by the site loop and never by a planner.
-const marked = (v) => Array.isArray(v) && v.length > 0;
-const FORCED_MARK_KEYS = ["forced_by", "move_forced_by"];
-function forcedMarkRefusal(v, at, key) {
-  if (v === undefined) return null;
-  return marked(v) && v.every((x) => typeof x === "string" && x.trim() !== "")
-    ? null
-    : `${at} carries \`${key}\` that is not a non-empty list of axis ids (kogaki#1649)`;
-}
-const unmarked = (o) =>
-  o && typeof o === "object" && !Array.isArray(o)
-    ? Object.fromEntries(Object.entries(o).filter(([k]) => !FORCED_MARK_KEYS.includes(k)))
-    : o;
 
-// ONE PARAGRAPH AS THE FILE WRITES IT: its schema fields, its join and its Waypoints.
-function paragraphRecord(e, n) {
-  const strings = (v) => (Array.isArray(v) ? v.map((x) => oneLine(x)) : []);
-  const schema = {};
-  if (Array.isArray(e.materials)) schema.materials = e.materials.map(String);
-  if (typeof e.purpose === "string") schema.purpose = oneLine(e.purpose);
-  if (Array.isArray(e.depends_on)) schema.depends_on = [...e.depends_on];
-  if (typeof e.rationale === "string") schema.rationale = oneLine(e.rationale);
-  if (Array.isArray(e["re-activate"])) schema["re-activate"] = strings(e["re-activate"]);
+// `legs[i]` is `{ leg_id, move?, fit?, segments?, points? }`, as `/paragraph-plan`'s Leg steps wrote it.
+export function paragraphPlanRecord({ briefPath, briefText, legs }) {
   return {
-    paragraph: n,
-    ...schema,
-    ...(typeof e.join === "string" ? { join: oneLine(e.join) } : {}),
-    paragraph_waypoints: (e.paragraph_waypoints || []).map((p) => ({
-      point: oneLine(p.point),
-      ...(p.cast && typeof p.cast === "object" ? { cast: { ...p.cast } } : {}),
-      ...(marked(p.forced_by) ? { forced_by: p.forced_by.map(String) } : {}),
-    })),
-  };
-}
-
-// `mapping`, where given, is the Mapping Record the plan names by path and digest (kogaki#1733).
-// `analogy` is the run's Analogy Mapping, or `{ none }`, written before the Legs (kogaki#1778).
-export function paragraphPlanRecord({ briefPath, briefText, legs, mapping = null, analogy = null }) {
-  return {
-    version: "1",
+    version: "2",
     brief: { path: relFromRepo(resolve(briefPath)), sha256: sha256(briefText) },
-    ...(analogy ? { analogy } : {}),
-    ...(mapping ? { mapping } : {}),
     legs: legs.map((l) => ({
       leg_id: l.leg_id,
-      move: l.move,
-      ...(marked(l.move_forced_by) ? { move_forced_by: l.move_forced_by.map(String) } : {}),
-      paragraphs: (l.paragraphs || []).map((e, i) => paragraphRecord(e, i + 1)),
+      ...(l.move ? { move: l.move, fit: { met: l.fit.met, compared: l.fit.compared } } : {}),
+      ...(Array.isArray(l.segments)
+        ? {
+            segments: l.segments.map((g) => ({
+              bind: g.bind,
+              edges: (g.edges || []).map((e) => ({ ...e, to: [...e.to] })),
+            })),
+          }
+        : {}),
+      ...(Array.isArray(l.points)
+        ? { points: l.points.map((p) => ({ segment: p.segment, point: oneLine(p.point) })) }
+        : {}),
     })),
   };
 }
@@ -204,14 +167,16 @@ export function paragraphPlanRecordText(record) {
   return stringifyYaml(record, { width: 120, header: PLAN_HEADER });
 }
 
-const PLAN_KEYS = ["version", "brief", "analogy", "mapping", "legs"];
+const PLAN_KEYS = ["version", "brief", "legs"];
 const PLAN_BRIEF_KEYS = ["path", "sha256"];
-const PLAN_LEG_KEYS = ["leg_id", "move", "move_forced_by", "paragraphs"];
+export const PLAN_LEG_KEYS = ["leg_id", "move", "fit", "segments", "points"];
+// THE KEYS THAT LEFT THE RECORD (kogaki#1865): a file carrying one was written before the stage chose a Move by its
+// Edges, and is refused naming the key.
+export const LEFT_PLAN_KEYS = Object.freeze(["paragraphs", "move_forced_by", "analogy", "mapping"]);
 // THE PARAGRAPH'S SCHEMA (kogaki#1639): the Leg schema minus `opens_section`, `reaches_target`,
 // `names`, `figure`, `figure_roles` and `bridges`, which have no paragraph counterpart, and minus
 // `move`, which the Leg binds once for all its paragraphs (kogaki#1777).
 export const PLAN_SCHEMA_KEYS = ["materials", "purpose", "depends_on", "rationale", "re-activate"];
-const PLAN_PARAGRAPH_KEYS = ["paragraph", ...PLAN_SCHEMA_KEYS, "join", "paragraph_waypoints"];
 // THE BOUND ON A LEG'S PARAGRAPHS (kogaki#1777): `brief.paragraphs_per_leg` in kogaki.settings.json.
 export const PARAGRAPHS_PER_LEG_SETTING = "brief.paragraphs_per_leg";
 export function paragraphsPerLeg() {
@@ -255,31 +220,6 @@ export function retiredPlanKeyRefusal(obj, at) {
   if (k === undefined) return null;
   return `${at} carries \`${k}\`, ${RETIRED_KEY_REASONS[k] ?? RETIRED_PLAN_REASON}`;
 }
-// THE ANALOGY MAPPING AS THE FILE CARRIES IT (kogaki#1778): a base domain with its Role and relation
-// counterparts, or `none` with its reason. A string to refuse with, or null.
-const ANALOGY_KEYS = ["base_domain", "roles", "relations"];
-export function analogyShapeRefusal(analogy, at) {
-  const text = (v) => typeof v === "string" && v.trim() !== "";
-  const map = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
-  if (!map(analogy)) return `${at} carries an \`analogy\` that is not a record (kogaki#1778)`;
-  if (Object.hasOwn(analogy, "none")) {
-    return Object.keys(analogy).length === 1 && text(analogy.none)
-      ? null
-      : `${at}'s \`analogy\` answers \`none\` with no reason, or beside a mapping (kogaki#1778)`;
-  }
-  const extra = undeclaredKey(analogy, ANALOGY_KEYS);
-  if (extra) return `${at}'s \`analogy\` carries \`${extra}\`, which it does not declare (kogaki#1778)`;
-  const b = analogy.base_domain;
-  if (!map(b) || !text(b.name) || !text(b.description))
-    return `${at}'s \`analogy.base_domain\` is not a \`{ name, description }\` pair (kogaki#1778)`;
-  const pairs = (list, k) => Array.isArray(list) && list.every((x) => map(x) && text(x[k]) && text(x.counterpart));
-  if (!pairs(analogy.roles, "role"))
-    return `${at}'s \`analogy.roles\` are not \`{ role, counterpart }\` pairs (kogaki#1778)`;
-  if (!pairs(analogy.relations, "relation"))
-    return `${at}'s \`analogy.relations\` are not \`{ relation, counterpart }\` pairs (kogaki#1778)`;
-  return null;
-}
-
 const PARAGRAPH_WAYPOINT_KEYS = ["point", "cast"];
 
 export function undeclaredKey(obj, allowed) {
@@ -289,14 +229,10 @@ export function undeclaredKey(obj, allowed) {
 // The Strand ids a Leg's Claims name, in order: what a paragraph of the Leg may stand on.
 export const legStrandIds = (leg) => (Array.isArray(leg && leg.claims) ? leg.claims : []).map((g) => String(g.strand));
 
-// THE READ /draft MAKES (kogaki#1375). `briefPath` and `briefText` are the Brief /draft
-// was handed, `legs` its parsed Legs. Returns `{ path, record, paragraphs, ... }` —
-// `paragraphs` a Map from leg_id to the Leg's paragraphs as the file carries them, each with
-// its `join` where it has one (kogaki#1411), `record` the whole record as read — or
-// `{ error }`, naming both files where the two disagree. OPENS NO MOVE FILE AND NO LIBRARY
-// (kogaki#1311): the record carries a Move's id and nothing else of it, and this read holds
-// the id to its shape; whether it names a Move in a library is refused where a library is
-// open -- the plan call's validator and the Move-Extraction Playground.
+// THE READ /draft MAKES (kogaki#1375, kogaki#1865). `briefPath` and `briefText` are the Brief /draft was handed,
+// `legs` its parsed Legs. Returns `{ path, record, segments }` -- `segments` a Map from leg_id to the Leg's Segments as
+// the file carries them, none for a Leg no Move fitted -- or `{ error }`, naming both files where the two disagree.
+// OPENS NO MOVE FILE AND NO LIBRARY: the plan carries the Segments it was fitted with, and /draft reads what stands.
 export function readParagraphPlanBeside(briefPath, briefText, legs) {
   const path = paragraphPlanPathFor(briefPath);
   const rel = relFromRepo(path);
@@ -304,8 +240,8 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
   if (!existsSync(path)) {
     return {
       error:
-        `the Brief at ${briefRel} has no ParagraphPlan file beside it (${rel}) — /draft renders each Leg's ` +
-        `paragraphs from that file, and /paragraph-plan writes it from the adopted Brief: run ` +
+        `the Brief at ${briefRel} has no ParagraphPlan file beside it (${rel}) — /draft renders each Leg ` +
+        `from that file, and /paragraph-plan writes it from the adopted Brief: run ` +
         `\`node src/paragraph-plan.mjs start --brief ${briefRel}\` first (kogaki#1375)`,
     };
   }
@@ -326,16 +262,8 @@ export function readParagraphPlanBeside(briefPath, briefText, legs) {
         `the plan was made, so run /paragraph-plan on this Brief again (kogaki#1375)`,
     };
   }
-  // THE MAPPING RECORD (kogaki#1733): a plan naming one is read only while the record on disk
-  // is the one it names; a plan written before the record existed names none.
-  let mappingSha = null;
-  if (record.mapping) {
-    const m = mappingRecordRefusal(record.mapping, path, rel);
-    if (m.error) return { error: m.error };
-    mappingSha = m.sha256;
-  }
-  const paragraphs = new Map(record.legs.map((l) => [l.leg_id, l.paragraphs]));
-  return { path, record, paragraphs, mappingSha };
+  const segments = new Map(record.legs.map((l) => [l.leg_id, l.segments || null]));
+  return { path, record, segments };
 }
 
 // ONE PARAGRAPH'S SCHEMA, by the Leg schema's own rules at the paragraph scale (kogaki#1639).
@@ -399,35 +327,28 @@ export function paragraphSchemaRefusal(w, j, leg, entries, at) {
   return null;
 }
 
-// The record's shape against the Brief's Legs: every key declared, one entry per Leg in order,
-// each naming its one bound Move and carrying from one paragraph to `brief.paragraphs_per_leg`
-// (kogaki#1777), every paragraph carrying its schema (`paragraphSchemaRefusal`), and every
-// Waypoint shaped as `paragraphWaypointsRefusal` reads it. A key outside those is refused by name: the file
-// holds the bound Move's id and nothing else of the Move (kogaki#1639). `library`, where
-// given, is the Set of Move ids a `move` may name; `bound` is the paragraph bound, the
-// setting's where none is handed.
-export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, bound = null } = {}) {
-  if (!record || typeof record !== "object" || Array.isArray(record))
-    return `the ParagraphPlan file ${rel} is not a YAML map`;
+// The record's shape against the Brief's Legs (kogaki#1865): every key declared, one entry per Leg in order, each
+// carrying `move`, `fit` and `segments` together or none of them, and `points` only beside them. A key that left the
+// record is refused naming it. Returns a string to refuse with, or null.
+const isMap = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+const count = (v) => Number.isInteger(v) && v >= 0;
+const AGAIN = "run /paragraph-plan on this Brief again";
+export function paragraphPlanShapeRefusal(record, rel, legs) {
+  if (!isMap(record)) return `the ParagraphPlan file ${rel} is not a YAML map`;
+  const left = LEFT_PLAN_KEYS.find((k) => Object.hasOwn(record, k));
+  if (left)
+    return `the ParagraphPlan file ${rel} carries \`${left}\`, which left the record when the stage came to choose a Move by its Edges (kogaki#1865) — ${AGAIN}`;
   const k0 = undeclaredKey(record, PLAN_KEYS);
   if (k0)
     return `the ParagraphPlan file ${rel} carries \`${k0}\`, which a ParagraphPlan record does not declare (kogaki#1375)`;
-  if (String(record.version) !== "1")
-    return `the ParagraphPlan file ${rel} carries version ${JSON.stringify(record.version)}, not "1"`;
+  if (String(record.version) !== "2")
+    return `the ParagraphPlan file ${rel} carries version ${JSON.stringify(record.version)}, not "2" — ${AGAIN}`;
   const b = record.brief;
-  if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.path !== "string" || typeof b.sha256 !== "string") {
+  if (!isMap(b) || typeof b.path !== "string" || typeof b.sha256 !== "string") {
     return `the ParagraphPlan file ${rel} names no Brief — \`brief\` carries the \`path\` and the \`sha256\` of the Brief it was made from`;
   }
   const kb = undeclaredKey(b, PLAN_BRIEF_KEYS);
   if (kb) return `the ParagraphPlan file ${rel} carries \`brief.${kb}\`, which a ParagraphPlan record does not declare`;
-  if (Object.hasOwn(record, "analogy")) {
-    const a = analogyShapeRefusal(record.analogy, `the ParagraphPlan file ${rel}`);
-    if (a) return a;
-  }
-  if (Object.hasOwn(record, "mapping")) {
-    const m = mappingShapeRefusal(record.mapping, rel);
-    if (m) return m;
-  }
   if (
     !Array.isArray(record.legs) ||
     record.legs.length !== legs.length ||
@@ -438,58 +359,59 @@ export function paragraphPlanShapeRefusal(record, rel, legs, { library = null, b
       `and the Brief's Reader Path is ${JSON.stringify(legs.map((l) => l.leg_id))} — one entry per Leg, in order`
     );
   }
-  const max = bound ?? paragraphsPerLeg();
   for (const [i, l] of record.legs.entries()) {
-    const leg = legs[i];
-    const at = `the ParagraphPlan file ${rel}, leg ${leg.leg_id}`;
-    const retiredLeg = retiredPlanKeyRefusal(l, at);
-    if (retiredLeg) return retiredLeg;
-    if (Object.hasOwn(l, "waypoints")) {
-      return (
-        `${at} carries \`waypoints\` — the Leg is the unit (kogaki#1777): it binds one \`move\` ` +
-        "and carries its `paragraphs`; run /paragraph-plan on this Brief again"
-      );
-    }
-    const kl = undeclaredKey(l, PLAN_LEG_KEYS);
-    if (kl) return `${at} carries \`${kl}\`, which a ParagraphPlan record does not declare`;
-    if (typeof l.move !== "string" || l.move.trim() === "") {
-      return `${at} carries no \`move\` — a Leg names the one Move bound to it by id, and nothing else of the Move (kogaki#1777)`;
-    }
-    if (library && !library.has(l.move))
-      return `${at} binds move ${JSON.stringify(l.move)}, which names no Move in the library (kogaki#1639)`;
-    const badMove = forcedMarkRefusal(l.move_forced_by, at, "move_forced_by");
-    if (badMove) return badMove;
-    if (!Array.isArray(l.paragraphs)) return `${at} carries no \`paragraphs\` list (kogaki#1777)`;
-    const count = paragraphCountRefusal(l.paragraphs.length, max, at);
-    if (count) return count;
-    for (const [j, w] of l.paragraphs.entries()) {
-      const atW = `${at}, paragraph ${j + 1}`;
-      if (!w || typeof w !== "object" || Array.isArray(w)) return `${atW} is not a map`;
-      const retiredW = retiredPlanKeyRefusal(w, atW);
-      if (retiredW) return retiredW;
-      if (Object.hasOwn(w, "move")) return paragraphSchemaRefusal(w, j, leg, l.paragraphs.slice(0, j), atW);
-      const kw = undeclaredKey(w, PLAN_PARAGRAPH_KEYS);
-      if (kw)
-        return (
-          `${atW} carries \`${kw}\`, which a ParagraphPlan record does not declare — the file holds the bound Move's id ` +
-          "and nothing else of the Move: no Segment and no Move field (kogaki#1375, kogaki#1639)"
-        );
-      if (w.paragraph !== j + 1)
-        return `${atW} is numbered ${JSON.stringify(w.paragraph)} — paragraphs are numbered in order from 1`;
-      const schema = paragraphSchemaRefusal(w, j, leg, l.paragraphs.slice(0, j), atW);
-      if (schema) return schema;
-      const badJoin = joinRefusal(w, j, atW);
-      if (badJoin) return badJoin;
-      const badMark = (Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints : [])
-        .map((p, k) => forcedMarkRefusal(p && p.forced_by, `${atW}, Waypoint ${k + 1}`, "forced_by"))
-        .find(Boolean);
-      if (badMark) return badMark;
-      const pws = Array.isArray(w.paragraph_waypoints) ? w.paragraph_waypoints.map(unmarked) : w.paragraph_waypoints;
-      const bad = paragraphWaypointsRefusal(pws, atW);
-      if (bad) return bad;
-    }
+    const at = `the ParagraphPlan file ${rel}, leg ${legs[i].leg_id}`;
+    const bad = planLegRefusal(l, at);
+    if (bad) return bad;
   }
   return null;
+}
+
+// ONE LEG ENTRY: a string to refuse with, or null.
+function planLegRefusal(l, at) {
+  const left = LEFT_PLAN_KEYS.find((k) => Object.hasOwn(l, k));
+  if (left)
+    return `${at} carries \`${left}\`, which left the record when the stage came to choose a Move by its Edges (kogaki#1865) — ${AGAIN}`;
+  const retired = retiredPlanKeyRefusal(l, at);
+  if (retired) return retired;
+  const kl = undeclaredKey(l, PLAN_LEG_KEYS);
+  if (kl) return `${at} carries \`${kl}\`, which a ParagraphPlan record does not declare`;
+  const fitted = ["move", "fit", "segments"].filter((k) => Object.hasOwn(l, k));
+  if (!fitted.length)
+    return Object.hasOwn(l, "points") ? `${at} carries \`points\` and no Move — Points are written under a Move` : null;
+  if (fitted.length < 3)
+    return `${at} carries ${fitted.map((k) => `\`${k}\``).join(" and ")} alone — a Leg a Move fitted carries \`move\`, \`fit\` and \`segments\` together`;
+  if (typeof l.move !== "string" || l.move.trim() === "") return `${at}'s \`move\` is not a Move's id`;
+  if (!isMap(l.fit) || undeclaredKey(l.fit, ["met", "compared"]) || !count(l.fit.met) || !count(l.fit.compared))
+    return `${at}'s \`fit\` is not \`{ met, compared }\`, two counts`;
+  if (l.fit.met > l.fit.compared) return `${at}'s \`fit\` meets more Edges than it compares`;
+  if (!Array.isArray(l.segments) || !l.segments.length) return `${at}'s \`segments\` is not a list of Segments`;
+  for (const [k, g] of l.segments.entries()) {
+    const atS = `${at}, Segment ${k + 1}`;
+    if (!isMap(g) || undeclaredKey(g, ["bind", "edges"])) return `${atS} is not \`{ bind, edges }\``;
+    if (g.bind !== null && !(Number.isInteger(g.bind) && g.bind >= 1))
+      return `${atS}'s \`bind\` is not a sentence number or null`;
+    if (!Array.isArray(g.edges)) return `${atS}'s \`edges\` is not a list`;
+    for (const [j, e] of g.edges.entries()) {
+      const atE = `${atS}, Edge ${j + 1}`;
+      if (!isMap(e) || undeclaredKey(e, ["sense", "to", "hypophora"])) return `${atE} is not \`{ sense, to }\``;
+      if (e.sense !== null && (typeof e.sense !== "string" || !e.sense.trim()))
+        return `${atE}'s \`sense\` is not a Sense or null`;
+      if (
+        !Array.isArray(e.to) ||
+        !e.to.length ||
+        e.to.some((t) => !Number.isInteger(t) || t < 1 || t > l.segments.length)
+      )
+        return `${atE}'s \`to\` does not name Segments of this Leg`;
+    }
+  }
+  if (!Object.hasOwn(l, "points")) return null;
+  if (!Array.isArray(l.points) || l.points.length !== l.segments.length)
+    return `${at}'s \`points\` is not one entry per Segment`;
+  const p = l.points.findIndex(
+    (x, k) => !isMap(x) || undeclaredKey(x, ["segment", "point"]) || x.segment !== k + 1 || typeof x.point !== "string",
+  );
+  return p < 0 ? null : `${at}'s \`points\` entry ${p + 1} is not \`{ segment, point }\` in order`;
 }
 
 // THE JOIN IS A TYPED RELATION (kogaki#1477, owner decision 2026-10-20). Every paragraph of a

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # check-structure-mapping-playground -- one command runs a Trial of the Structure-Mapping Playground, end to end through `node src/structure-mapping-playground/trial.mjs run` with ONE fake model binary (`KOGAKI_JUDGE_CLI`) answering every stage (kogaki#1664, kogaki#1665):
-#   (a) the run exits 0 with every stage `done`, and each model stage's `calls.jsonl` holds the calls the binary saw.
+#   (a) the run stops at its paragraph-plan stage, naming the Brief's missing `structure` (kogaki#1865: a Leg's Senses are read between the sentences of its relation in the Brief's `structure`, and this Trial's Brief carries none), with `brief` done, `draft` not run and no model call made after the Brief; the brief stage's `calls.jsonl` holds the calls the binary saw.
 #   (b) a structure whose `context` shares a word with the `proposition:` ("rule") is accepted, and the main run is over it (kogaki#1707).
 #   (c) a Leg `point` sharing such a word ("rule") is accepted on the first Round (kogaki#1707).
-#   (d) the Writer's recorded stdin equals the Packet file byte for byte.
+#   (d) RETIRED at kogaki#1865: the Writer's recorded stdin equalled the Packet; no Trial of this route reaches the Writer since the stage needs a `structure` on the Brief.
 #   (e) the repository's `moves/` and `theses/` are unchanged.
 #   (f) `trial.json` carries the Trial record's fields, and `reading.md` exists and is empty under its header.
 #   (g) a run without `--structure` refuses naming the flag.
-#   (h) a `--mapper sme_map_roles` Trial over a valid answer exits 0, writes `structure.yaml`, and records the variant.
+#   (h) a `--mapper sme_map_roles` Trial over a valid answer writes `structure.yaml`, records the variant, and stops at paragraph-plan as (a) does.
 #   (i) a Mapper answering a `context` that shares a word with the proposition is accepted, and the Trial runs on (kogaki#1707).
 #   (j) `--structure` with `--mapper` is refused naming both.
 #   (k) the composed `brief.yaml` carries one Leg with no `introduces`, an empty `defined_terms`, no `reader_start`, `reader_target`, `obligations` or Leg reader state; the Leg call is handed `persona_prior_knowledge`, and no Reader start call is made (kogaki#1699).
@@ -36,12 +36,6 @@ const { spliceConstraints } = await import(pathToFileURL(join(repo, "src/move-ex
 const { validateStructure, parseProposition } = await import(pathToFileURL(join(repo, "src/structure-mapping-playground/structure.mjs")).href);
 const { validateCorrespondenceTable } = await import(pathToFileURL(join(repo, "src/structure-mapping-playground/rbs.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "structure-mapping-playground-"));
-// THE MAPPER IS OFF IN THIS MEMBER (kogaki#1734): its fake answers the plan and judge calls alone;
-// checks/check-paragraph-plan.sh case (z) runs the Mapper.
-const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
-noMapper.paragraph_plan.mapper = false;
-process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
-writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 const trials = join(repo, "runs", "structure-mapping-playground");
 mkdirSync(trials, { recursive: true });
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -105,24 +99,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
       claims: x.claims.map((g) => ({ type: "strand", strand: g.claim_strand, proposition: g.holds })),
       waypoints: x.claims.map((g, i) => ({ point: g.holds + (i === 0 && !retried ? " The crew arrives with a rule." : ""), case: "own" })) }] }, "brief");
   }
-  if (prompt.includes('"leg_you_must_judge"')) {
-    const leg = body("leg_you_must_judge").leg_you_must_judge;
-    return out({ version: "1", leg_id: leg.leg_id, verdicts: leg.paragraphs.map((p) => ({ paragraph: p.paragraph, verdict: "fits", why: "they begin at before and end at after." })) }, "plan");
-  }
-  if (prompt.includes('"paragraph_you_must_plan"')) {
-    const refused = body("paragraph_you_must_plan").refused_here.map((h) => h.entry).filter(Boolean);
-    return out(refused[refused.length - 1], "plan");
-  }
-  if (prompt.includes('"leg_you_must_plan"')) {
-    const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
-    const m = bindable[0];
-    // THE LEG AS UNIT (kogaki#1777): one Move for the Leg, one paragraph, one Waypoint per Segment.
-    const serves = leg.claims.map((g) => g.strand);
-    return out({ version: "1", leg_id: leg.leg_id, move: m.id, rationale: "its Segments carry the Leg's relation.",
-      paragraphs: [{ paragraph: 1, materials: serves, purpose: "PURPOSE-1 brings the reader to the point.",
-        depends_on: [], introduces: [], "re-activate": [], rationale: "its Segments carry the Leg's relation this far.",
-        paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({ point: "PW-1-" + (n + 1) + " the paragraph makes its point.", cast: {} })) }] }, "plan");
-  }
   return out(["WRITTEN-1 the crew and its list.", "WRITTEN-2 the room left off.", "WRITTEN-3 what stays dusty."].join("\\n\\n"), "writer");
 });
 `);
@@ -161,19 +137,22 @@ const outDir = mkdtempSync(join(trials, "check-"));
 const out = join(outDir, "trial");
 
 const r = trial(["--strand", strand, "--structure", ruleStructure, "--out", out]);
-ok(r.status === 0, `(a) the run exited ${r.status}: ${r.stdout}${r.stderr}`);
+const STOPS = "carries no `structure`, and each Leg's Senses are read between the sentences of its relation";
+const STAGES_STOPPED = "brief:done,paragraph-plan:stopped,draft:not run";
+ok(r.status === 1 && r.stdout.includes(STOPS), `(a) the run did not stop naming the Brief's missing structure: ${r.status} ${r.stdout}${r.stderr}`);
 const record = existsSync(join(out, "trial.json")) ? JSON.parse(readFileSync(join(out, "trial.json"), "utf8")) : null;
 const seen = existsSync(join(root, "seen.jsonl")) ? readFileSync(join(root, "seen.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
 const calls = (stage) => { const p = join(out, stage, "calls.jsonl"); return existsSync(p) ? readFileSync(p, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []; };
 if (!record) fails.push("(f) the run wrote no trial.json");
 else {
-  // (a) every stage done, every call through the recorder
-  ok(record.stages.map((s) => `${s.stage}:${s.state}`).join(",") === "brief:done,paragraph-plan:done,draft:done",
-    `(a) the stages are not all done: ${JSON.stringify(record.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
-  for (const [stage, kind, n] of [["brief", "brief", 1], ["paragraph-plan", "plan", null], ["draft", "writer", 1]]) {
+  // (a) the Brief done and the stage stopped, every call through the recorder
+  ok(record.stages.map((s) => `${s.stage}:${s.state}`).join(",") === STAGES_STOPPED,
+    `(a) the stages are not brief done and paragraph-plan stopped: ${JSON.stringify(record.stages.map((s) => [s.stage, s.state, s.stopped]))}`);
+  ok(seen.every((s) => s.stage === "brief"), `(a) a model call was made after the Brief: ${seen.map((s) => s.stage)}`);
+  for (const [stage, kind, n] of [["brief", "brief", 1]]) {
     const cs = calls(stage);
     const fake = seen.filter((s) => s.stage === kind);
-    ok(n === null ? cs.length >= 2 : cs.length === n, `(a) ${stage}/calls.jsonl records ${cs.length} call(s)`);
+    ok(cs.length === n, `(a) ${stage}/calls.jsonl records ${cs.length} call(s)`);
     ok(cs.length === fake.length && cs.every((c, i) => c.stdin === fake[i].prompt && c.stdout === fake[i].answer),
       `(a) ${stage}'s recorded calls are not the calls the model binary saw`);
   }
@@ -181,21 +160,15 @@ else {
   const att = existsSync(join(out, "brief", "leg", "rounds.json")) ? JSON.parse(readFileSync(join(out, "brief", "leg", "rounds.json"), "utf8")) : {};
   ok(att.rounds === 1 && !(att.refusals || []).length && calls("brief").some((c) => c.stdout.includes("The crew arrives with a rule.")),
     `(c) the Leg round carrying "rule" was not accepted on the first round: ${JSON.stringify(att)}`);
-  // (d) the Writer's prompt is the Packet
-  const draftStage = record.stages.find((s) => s.stage === "draft") || {};
-  const packet = draftStage.packet && existsSync(join(repo, draftStage.packet)) ? readFileSync(join(repo, draftStage.packet), "utf8") : null;
-  const w = calls("draft");
-  ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(d) the Writer's recorded stdin is not the Packet byte for byte");
   // (f) the Trial record and the owner's reading file
   ok(record.strand && record.strand.cite === CITE && record.strand.sha256 === sha(strand), "(f) trial.json's strand is not the strand file's cite and sha256");
   ok(record.structure && record.structure.sha256 === sha(ruleStructure) && record.structure.author === "owner" && typeof record.structure.path === "string",
     "(f) trial.json's structure does not carry its path, sha256 and author: owner");
   ok(record.mapper === "owner-authored", "(f) trial.json's mapper is not owner-authored");
-  for (const k of ["brief", "plan", "draft"]) {
-    const f = record[k];
-    ok(f && existsSync(join(repo, f.path)) && f.sha256 === sha(join(repo, f.path)), `(f) trial.json's ${k} does not name a file with its sha256`);
-  }
-  ok(record.stages.every((s) => s.calls === null || existsSync(join(repo, s.calls))) && record.stages.every((s) => typeof s.state === "string"),
+  const f = record.brief;
+  ok(f && existsSync(join(repo, f.path)) && f.sha256 === sha(join(repo, f.path)), "(f) trial.json's brief does not name a file with its sha256");
+  ok(record.plan === null && record.draft === null, "(f) trial.json names a plan or a draft the stopped Trial did not write");
+  ok(record.stages.every((s) => (s.state === "not run" && !("calls" in s)) || s.calls === null || existsSync(join(repo, s.calls))) && record.stages.every((s) => typeof s.state === "string"),
     "(f) a stage carries no state or names a calls.jsonl that does not exist");
   ok(record.reading && readFileSync(join(repo, record.reading), "utf8") === `# Reading of Trial ${record.trial}\n`,
     "(f) reading.md is not empty under its header naming the Trial");
@@ -235,20 +208,20 @@ const mapperTrial = (name, answer, extra = []) => {
   return { res, o, rec };
 };
 const h = mapperTrial("mapped", mapped("A cleaning crew arrives at a house with a written list of rooms."));
-ok(h.res.status === 0, `(h) the --mapper run exited ${h.res.status}: ${h.res.stdout}${h.res.stderr}`);
+ok(h.res.status === 1 && h.res.stdout.includes(STOPS), `(h) the --mapper run did not stop as (a) does: ${h.res.status} ${h.res.stdout}${h.res.stderr}`);
 ok(existsSync(join(h.o, "structure.yaml")), "(h) the --mapper run wrote no structure.yaml");
 ok(h.rec && h.rec.mapper && h.rec.mapper.variant === "sme_map_roles" && /^[0-9a-f]{64}$/.test(String(h.rec.mapper.prompt_sha256))
   && existsSync(join(h.o, "reading", "job", "prompt.md")) && h.rec.mapper.prompt_sha256 === sha(join(h.o, "reading", "job", "prompt.md")),
   `(h) trial.json's mapper does not carry the variant and its prompt's sha256: ${JSON.stringify(h.rec && h.rec.mapper)}`);
 ok(h.rec && h.rec.structure && h.rec.structure.author === "mapper" && existsSync(join(h.o, "structure.yaml")) && h.rec.structure.sha256 === sha(join(h.o, "structure.yaml")),
   `(h) trial.json's structure is not the mapped file with author: mapper: ${JSON.stringify(h.rec && h.rec.structure)}`);
-ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "reading:done,brief:done,paragraph-plan:done,draft:done",
-  `(h) the --mapper run's stages are not all done: ${JSON.stringify(h.rec && h.rec.stages.map((x) => [x.stage, x.state, x.stopped]))}`);
+ok(h.rec && h.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === `reading:done,${STAGES_STOPPED}`,
+  `(h) the --mapper run's stages are not reading and brief done and paragraph-plan stopped: ${JSON.stringify(h.rec && h.rec.stages.map((x) => [x.stage, x.state, x.stopped]))}`);
 
 // (i) an answer whose context shares a word with the proposition is accepted at the reading stage, and the Trial runs on
 const i = mapperTrial("mapped-rule", mapped("A cleaning crew arrives with a rule about which rooms to clean."));
 const iAtt = existsSync(join(i.o, "reading", "job", "rounds.json")) ? JSON.parse(readFileSync(join(i.o, "reading", "job", "rounds.json"), "utf8")) : {};
-ok(i.res.status === 0 && i.rec && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === "reading:done,brief:done,paragraph-plan:done,draft:done"
+ok(i.res.status === 1 && i.rec && i.rec.stages.map((x) => `${x.stage}:${x.state}`).join(",") === `reading:done,${STAGES_STOPPED}`
   && iAtt.rounds === 1 && existsSync(join(i.o, "structure.yaml")),
   `(i) the Mapper answering "rule" was not accepted at the reading stage: ${i.res.status} ${JSON.stringify(i.rec && i.rec.stopped)} ${JSON.stringify(iAtt)}`);
 

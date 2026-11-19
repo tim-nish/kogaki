@@ -8,13 +8,14 @@
 # `resolve` is refused naming both hashes; (d) `resolve` then says the plan moved, drops the
 # carried entries and renders G1's Packet, `section` renders the next Leg's, and the emitted
 # Draft is written from the new plan alone; (e) an entry without plan_sha256 is refused as
-# unrecorded; (f) a plan's Mapping Record digest rides into run.json and each Packet entry, and
-# an edited, added or removed record file is refused naming it; (g) `sheet.mjs leg` renders it.
+# unrecorded; (f) since kogaki#1865 no Mapping Record digest rides into run.json or a Packet entry, and
+# a plan naming one is refused naming `mapping`; (g) `sheet.mjs leg`, a Playground's, still renders a
+# Mapping Record beside a plan file written before kogaki#1865.
 set -u
 cd "$(dirname "$0")/.."
 
 node --input-type=module - <<'JS'
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, chmodSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, chmodSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -23,8 +24,9 @@ import { pathToFileURL } from "node:url";
 
 const fails = [];
 const repo = resolve(".");
-const { legRecord, briefRecordText, readerStateMap, paragraphPlanRecord, paragraphPlanRecordText, writeMappingRecord } =
+const { legRecord, briefRecordText, paragraphPlanRecord, paragraphPlanRecordText, writeMappingRecord } =
   await import(pathToFileURL(join(repo, "src", "compose.mjs")).href);
+const { stringifyYaml } = await import(pathToFileURL(join(repo, "src", "yaml.mjs")).href);
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "draft-plan-pin-"));
 
@@ -54,13 +56,11 @@ mkdirSync(dir, { recursive: true });
 const briefPath = join(dir, "brief.yaml");
 writeFileSync(briefPath, briefText);
 const planPath = join(dir, "paragraph-plan.yaml");
-// The Leg binds one Move for its paragraphs (kogaki#1777).
+// Each Leg carries the Move taken, its fit, one Segment and its Point (kogaki#1865).
 const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";
-const entry = (id) => ({ materials: ["L1"], purpose: `purpose of ${id}'s paragraph.`,
-  depends_on: [], rationale: `rationale for ${id}'s paragraph.`, "re-activate": [] });
-const planText = (mark, mapping = null) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText, mapping,
-  legs: legs.map((l) => ({ leg_id: l.leg_id, move: MOVE, paragraphs: [{ ...entry(l.leg_id),
-    paragraph_waypoints: [{ point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.`, cast: {} }] }] })) }));
+const planText = (mark) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText,
+  legs: legs.map((l) => ({ leg_id: l.leg_id, move: MOVE, fit: { met: 0, compared: 0 }, segments: [{ bind: null, edges: [] }],
+    points: [{ segment: 1, point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.` }] })) }));
 
 const wsRoot = join(root, "ws");
 const ws = join(wsRoot, "plan-pin");
@@ -83,6 +83,8 @@ if (ok("(a) resolve", draft("resolve")) && ok("(a) section G1", draft("section",
   const rec = runJson();
   if (rec.plan?.path !== planPath || rec.plan?.sha256 !== A) fails.push(`(a) run.json does not carry plan {path, sha256} for the plan as read: ${JSON.stringify(rec.plan)}`);
   for (const id of ["G1", "G2"]) if (rec.packets?.[id]?.plan_sha256 !== A) fails.push(`(a) packets.${id} does not carry the plan's plan_sha256: ${JSON.stringify(rec.packets?.[id])}`);
+  // (f) no Mapping Record pin rides into the run record or a Packet entry (kogaki#1865).
+  if ("mapping_sha256" in (rec.plan || {}) || ["G1", "G2"].some((id) => "mapping_sha256" in (rec.packets?.[id] || {}))) fails.push(`(f) run.json still carries a mapping_sha256: ${JSON.stringify(rec)}`);
   const t = draftText();
   if (!t.includes(`\nplan_pin: sha256:${A}\n`)) fails.push("(a) the Draft's frontmatter does not carry plan_pin equal to the plan file's hash");
   const rows = traceRows(t);
@@ -144,48 +146,29 @@ const B = sha(beta);
   if (r.status === 0 || !r.stderr.includes("that no run record accounts for")) fails.push(`(e) a Packet entry without plan_sha256 was not refused as unrecorded: ${said(r)}`);
 }
 
-// (f) the plan names a Mapping Record; its digest rides into run.json and each Packet entry, and an edited file is refused.
-const mappingDir = join(dir, "mapping");
-const FIXTURE_STRUCTURE = { roles: [{ id: "gate", context: "A fixed check that admits some things.", attributes: [] }],
-  relations: [{ id: "admits", between: ["gate"], holds: "{gate} admits what it was set for." }],
-  higher_order: { relates: ["admits"], holds: "{gate} admits nothing else." } };
-const fixtureRecord = (id) => ({ leg_id: id, structure: FIXTURE_STRUCTURE,
-  table: { move: MOVE, case: id === "G1" ? "apart" : "own", base: { domain: "a turnstile" }, correspondences: [{ role: "gate", expression: "the turnstile" }] } });
-const mapping = writeMappingRecord(mappingDir, legs.map((l) => fixtureRecord(l.leg_id)));
-const tablePath = join(mappingDir, "G1", "table.yaml");
-writeFileSync(planPath, planText("gamma", mapping));
+// (f) a plan naming a Mapping Record is refused by name: it was written before kogaki#1865.
 {
+  const current = readFileSync(planPath, "utf8");
+  writeFileSync(planPath, current.replace(/^legs:/m, "mapping:\n  path: mapping\nlegs:"));
   const r = draft("resolve");
-  if (ok("(f) resolve", r)) {
-    const rec = runJson();
-    if (rec.plan?.mapping_sha256 !== mapping.sha256) fails.push(`(f) run.json does not carry the Mapping Record's digest: ${JSON.stringify(rec.plan)}`);
-    if (rec.packets?.G1?.mapping_sha256 !== mapping.sha256) fails.push(`(f) packets.G1 does not carry mapping_sha256: ${JSON.stringify(rec.packets?.G1)}`);
-  }
-  const table = readFileSync(tablePath, "utf8");
-  writeFileSync(tablePath, table.replace("a turnstile", "a toll gate"));
-  const e = draft("resolve");
-  if (e.status === 0 || !e.stderr.includes("mapping/G1/table.yaml has changed since the ParagraphPlan file")) {
-    fails.push(`(f) resolve over an edited Mapping Record file was not refused naming the file: ${said(e)}`);
-  }
-  writeFileSync(tablePath, table);
-  // The whole family the refusal promises, not only the edit that prompted it: an added file and a gone one.
-  const stray = join(mappingDir, "G3", "table.yaml");
-  mkdirSync(join(stray, ".."), { recursive: true });
-  writeFileSync(stray, table);
-  const a = draft("resolve");
-  if (a.status === 0 || !a.stderr.includes("mapping/G3/table.yaml is not one the ParagraphPlan file")) fails.push(`(f) resolve over an added record file was not refused naming it: ${said(a)}`);
-  rmSync(join(mappingDir, "G3"), { recursive: true });
-  const structurePath = join(mappingDir, "G1", "structure.yaml");
-  const structure = readFileSync(structurePath, "utf8");
-  rmSync(structurePath);
-  const g = draft("resolve");
-  if (g.status === 0 || !g.stderr.includes("mapping/G1/structure.yaml, which the ParagraphPlan file")) fails.push(`(f) resolve over a removed record file was not refused naming it: ${said(g)}`);
-  writeFileSync(structurePath, structure);
+  if (r.status === 0 || !r.stderr.includes("carries `mapping`") || !r.stderr.includes("run /paragraph-plan on this Brief again")) fails.push(`(f) resolve over a plan naming a Mapping Record was not refused naming \`mapping\`: ${said(r)}`);
+  writeFileSync(planPath, current);
 }
 
-// (g) the sheet's `leg` mode renders the Leg's structure, Mapping Table, binding with case and Waypoints.
+// (g) the sheet's `leg` mode, a Playground's, renders a Mapping Record beside a plan file written before kogaki#1865.
 {
-  const r = spawnSync(process.execPath, ["src/structure-mapping-playground/sheet.mjs", "leg", "--plan", planPath, "--leg", "G1"], { encoding: "utf8" });
+  const old = join(root, "theses", "plan-pin-v1");
+  mkdirSync(old, { recursive: true });
+  const oldPlan = join(old, "paragraph-plan.yaml");
+  const FIXTURE_STRUCTURE = { roles: [{ id: "gate", context: "A fixed check that admits some things.", attributes: [] }],
+    relations: [{ id: "admits", between: ["gate"], holds: "{gate} admits what it was set for." }],
+    higher_order: { relates: ["admits"], holds: "{gate} admits nothing else." } };
+  const mapping = writeMappingRecord(join(old, "mapping"), [{ leg_id: "G1", structure: FIXTURE_STRUCTURE,
+    table: { move: MOVE, case: "apart", base: { domain: "a turnstile" }, correspondences: [{ role: "gate", expression: "the turnstile" }] } }]);
+  writeFileSync(oldPlan, stringifyYaml({ version: "1", brief: { path: "b", sha256: "s" }, mapping, legs: [{ leg_id: "G1", move: MOVE,
+    paragraphs: [{ paragraph: 1, materials: ["L1"], purpose: "p.", depends_on: [], rationale: "r.", "re-activate": [],
+      paragraph_waypoints: [{ point: "PLANMARK-gamma the paragraph G1 plans.", cast: {} }] }] }] }));
+  const r = spawnSync(process.execPath, ["src/structure-mapping-playground/sheet.mjs", "leg", "--plan", oldPlan, "--leg", "G1"], { encoding: "utf8" });
   const want = ["Mapping Record — Leg G1", "<caption>Paragraph 1", "the turnstile", "a turnstile", "apart", "PLANMARK-gamma"];
   const missing = want.filter((w) => !(r.stdout || "").includes(w));
   if (r.status !== 0 || missing.length) fails.push(`(g) sheet.mjs leg did not render the Leg's record (missing ${missing.join(", ")}): ${said(r)}`);
@@ -195,5 +178,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-plan-pin — run.json names the ParagraphPlan and each Packet entry the plan it was rendered from, and the Draft carries plan_pin and each trace row plan_sha; an unchanged plan carries the Packets and refuses nothing; a plan rewritten under the same Brief is refused at section naming both hashes, and resolve then says so, drops the carried entries and walks the path again so the Draft is written from the new plan; an entry without plan_sha256 is refused as unrecorded (kogaki#1645); a plan naming a Mapping Record records its digest and an edited, added or removed record file is refused naming the file, and the sheet's leg mode renders the Leg's record (kogaki#1733).");
+console.log("ok: check-draft-plan-pin — run.json names the ParagraphPlan and each Packet entry the plan it was rendered from, and the Draft carries plan_pin and each trace row plan_sha; an unchanged plan carries the Packets and refuses nothing; a plan rewritten under the same Brief is refused at section naming both hashes, and resolve then says so, drops the carried entries and walks the path again so the Draft is written from the new plan; an entry without plan_sha256 is refused as unrecorded (kogaki#1645); no Mapping Record digest is recorded and a plan naming one is refused by name (kogaki#1865), and the sheet's leg mode renders a Mapping Record beside a plan written before it (kogaki#1733).");
 JS

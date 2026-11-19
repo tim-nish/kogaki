@@ -14,12 +14,7 @@
       }
     },
     "binds_unread": {
-      "leg": [
-        "relation",
-        "reaches_target",
-        "opens_section",
-        "text"
-      ]
+      "leg": ["relation", "reaches_target", "opens_section", "text"]
     },
     "note": "The one Leg of a Trial's Brief (kogaki#1664), rebuilt to the Leg with no Move (kogaki#1768). AUTHORED HERE, its point text COPIED from the Move-Extraction Playground's `leg_path_unit` row through `copies` (kogaki#1775).",
     "schema_file": "src/leg-schema.json",
@@ -92,17 +87,6 @@
       "senses": "part"
     },
     "prompt_file": "structure-mapping-playground/smp-rank-senses"
-  },
-  "smp_name_senses": {
-    "id": "smp_name_senses",
-    "note": "A Leg's Senses (kogaki#1849): one of the five readings of a Leg's sentences, its Arguments and its CentralClaim. Validated by `nameRefusal` of leg-senses.mjs. Under the Mapper's one-retry bound; a reading refused twice stops the run. A changed wording is a second row and a second run, never an edit of this row.",
-    "governing": "specs/spec-draft-pipeline/SPEC.md, A Leg's Senses; kogaki#1849",
-    "refusal_reach": {
-      "shape": "part",
-      "pairs": "part",
-      "senses": "part"
-    },
-    "prompt_file": "structure-mapping-playground/smp-name-senses"
   },
   "smp_join_senses": {
     "id": "smp_join_senses",

@@ -1,8 +1,0 @@
-The copy is the installer's.
-The Claims it is read from:
-- L1: the installer copies the kit.
-The Roles it stands between:
-- installer: the program that writes the copy
-- copy: the files in the tree
-What the Legs before it state:
-- s1: The kit ships in one tree.

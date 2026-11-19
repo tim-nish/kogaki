@@ -124,7 +124,7 @@ A part's Sense names how the part stands to the earlier parts listed after it.
 No Sense is named to the reader.
 
 {{#each plan.segments}}
-{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#if sense}} Sense {{sense}}, to {{#each to}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
+{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each edges}} Sense {{sense}}, to {{#each to}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/each}}
 {{/each}}
 {{/if}}
 {{else}}

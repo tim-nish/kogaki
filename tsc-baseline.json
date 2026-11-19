@@ -38,9 +38,6 @@
   "src/structure-mapping-playground/trial.mjs": {
     "TS2339": 1
   },
-  "src/paragraph-plan-mapper.mjs": {
-    "TS2339": 2
-  },
   "src/move-extraction-playground/extract.mjs": {
     "TS2339": 3,
     "TS2353": 1

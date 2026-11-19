@@ -2445,248 +2445,166 @@ the Leg's line range must exclude it. What no carrier holds: why the
 transcription is a fixed function rather than a judgment, and why the figure's
 lines are recorded beside the prose's rather than inside them.
 
-### 4.19 The ParagraphPlan stage — Waypoints, after the Brief (kogaki#1375)
+### 4.19 The ParagraphPlan stage — a Move chosen by its Edges (kogaki#1375, kogaki#1865)
 
-**SUPERSEDED IN PART BY §4.22 (kogaki#1768, owner ruling 2026-11-10).** What a Leg's Move leaves and no later paragraph of the Leg takes up is left for the next Leg, and nothing checks whether a later Leg takes it up (kogaki#1853). A Leg introduces no term: the ledger `terms_this_leg_introduces` is empty, and a Brief Waypoint's `carries` rides into the plan input where the Brief carries a `structure`. The text below is kept as the record of the Brief before the structure-first rebuild. **THE LEG IS THE UNIT (kogaki#1777, owner design 2026-11-10).** The Brief ends at Legs and carries no Waypoint (§4.22, kogaki#1775), so this stage takes one Brief Leg as its unit: it binds ONE paragraph Move to the Leg and writes the Leg's paragraphs, at most `brief.paragraphs_per_leg` of them (`kogaki.settings.json`, 2), each a list of Waypoints one per Segment of that Move. What the Legs before a Leg state is derived from the Leg order, never read from a reader state. `/paragraph-plan` refuses a Brief whose Leg carries `waypoints` or no `text`, naming the Leg. Where a passage below still speaks of a Brief Waypoint's binding, its site or its point, read the Leg's binding, the paragraph, and the Leg's `text`; the paragraphs this rewrite replaces say so.
+**REWRITTEN AT kogaki#1865 (maintainer, 2026-11-19).** "Writing the Leg is the
+first priority. Move fitting is a secondary or tertiary objective."
+"ParagraphPlan should select the Move with the highest degree of fit and fit it
+to the Leg." "Once ParagraphPlan has been matched with a Move, it is no longer
+tied to that Move in any way." "Points are now merely debugging information and
+have nothing to do with production, so the process ends once the Plan has been
+created and Points have been generated once." The stage this section described
+before — a plan call and a judge call per Round, the site retry, the Analogy
+Mapping and the Mapper — left production with this rewrite; its text stands in
+the repository's history.
 
 **What it is.** The Brief's Reader Path plans an article down to Legs, each
-saying its relation's `holds` as its `text` (§4.22). **ParagraphPlan** refines
-that document plan one level down, to paragraphs: for every Leg the Composer
-binds one paragraph Move and writes the Leg's paragraphs and their
-**Waypoints**, through the same kind of feedback loop as the Brief's, and hands
-them to the Packet through a planning record, never directly (owner decision
-2026-10-14; the Leg as unit, kogaki#1777). A Waypoint is a claim matching one
-Segment of the Move bound to its Leg, and only this stage writes Waypoints. One
-Leg may take more than one paragraph — an Analogy Move presents the analogue
-first and a second paragraph carries the inference back to the relation — and
-the Brief manages neither the paragraph count nor the reader state between
-Legs. It is its own stage after the Brief, with its own
-owner command `/paragraph-plan` (`.claude/skills/paragraph-plan/SKILL.md`), its
-own module `src/paragraph-plan.mjs` and its own workflow rows
+naming the relation of the Brief's `structure` it says (§4.22). ParagraphPlan
+gives each Leg one paragraph Move, fitted to the Leg's sentences, and hands the
+fitted Segments to the Packet through a planning record. It is its own stage
+after the Brief, with its own owner command `/paragraph-plan`
+(`.claude/skills/paragraph-plan/SKILL.md`), its own module
+`src/paragraph-plan.mjs` and its own workflow rows
 (`src/paragraph-plan-workflow.json`), and it runs on an adopted Brief before
 `/draft`: `/terrain → /brief → /paragraph-plan → /draft`.
 
-**It is not Reiter and Dale's microplanning.** It refines the document plan
-down to paragraphs; word choice, reference and sentence shape stay inside the
-one Writer call.
+**One unit per Leg.** `/paragraph-plan` keeps one job unit for each Leg, in the
+order of the Reader Path, on the shared supervisor
+(`src/workflow/detached-job.mjs`). A unit takes three steps in order and then
+ends:
 
-**The Move boundary, moved.** Move information may be used up to
-Waypoint generation and nowhere after it. This stage is the last reader of a
-paragraph Move: it binds one and builds from its Segments, or its `technique`
-where the Move carries none, and what it writes for the Packet holds nothing
-of a Move but the bound Move's id, which the Packet never renders
-(kogaki#1639). The 2026-10-09 boundary ("Information
-that belongs to Move has responsibility only up to CandidatePath creation")
-holds for the Leg Move; the paragraph Move's responsibility ends here, and the
-Writer never reads a Move (2026-10-12).
+1. it reads the Leg's Senses (§4.19.1);
+2. it chooses a Move and fits it to the Leg, by code (§4.19.2);
+3. it makes one call that writes Points (§4.19.3).
 
-**And its converse: the Brief selects Moves and composes Waypoints, and hands
-everything else forward as material** (kogaki#1496, owner decision 2026-10-21:
-"Brief is responsible for Move selection and Waypoint creation, but has no
-authority to add explanatory prose outside the Move"). The boundary above says
-how far a Move reaches; this says what else may fix a paragraph's structure,
-and the answer is nothing beside the Waypoints and the italic lines.
-Everything else the Brief hands the Writer arrives as **material** — a term
-with its meaning, a claim as a restatement, a Journey as its served text — and
-never as an instruction on what to add or how to present it. A line that asks
-the Writer for a sentence the plan does not carry competes with the plan, the
-way the retired Voice paragraph's hedge did (kogaki#1488), and the paragraph
-it touches is rebuilt around it while the Move's Segments are still honoured.
-A concern the Brief has about the prose acts through Move selection, the
-waypoints it composes and the noun phrases inside them.
+The stage makes no plan call, no judge call, no site call, no analogy call and
+none of the Mapper's calls. A Leg's death or refusal ends that Leg alone: its
+siblings run to their end and are kept in the run directory, and a later run of
+the same Brief, handed that run, plans only the Legs it did not finish
+(kogaki#1641). The plan file is written once every Leg is done.
 
-Every block of the Leg Packet (§4.14), sorted under that rule:
+**What it reads.** An adopted Brief whose record carries a `structure`, each Leg
+naming a relation of it; a Brief with no `structure`, or a Leg naming a
+relation it does not hold, is refused at `start` with nothing started. A Leg's
+sentences are its Arguments in the order its relation lists them, then its
+CentralClaim, as `legSentences` (`src/paragraph-plan/senses.mjs`) gives them. A
+Move library in which every Move file's Segments carry `bind` and `edges`; a
+file without them is refused at `start`, naming it. The setting
+`paragraph_plan.leg_edge_candidates` of `kogaki.settings.json`. No program of
+the stage reads `operation`, `relation`, `manner`, `takes`, `leaves` or `breaks`
+from a Move file.
 
-| Packet block | sorted as |
-|---|---|
-| the plan of this paragraph: the Leg's Arguments and CentralClaim, and one part per Segment under a Move table | **structure** — the plan; the only lines that fix what a paragraph says and in what order; no Point of the ParagraphPlan renders (§4.14, kogaki#1859) |
-| the claims this Leg asserts | material — each claim as its proposition |
-| the Journey material | material — the served text, edited, never a claim to recover |
-| the Section, and the reader-target line | material — where the Leg sits and whether it may still introduce anything |
-| what crosses into this Leg | material — a term with its meaning, a claim as its restatement, a Journey as its served text |
-| the article so far | material — the prose already recorded |
-| Write: budget, heading, language, the reader's own world, the register | how sentences read inside the plan, never what they add; the register yields to a planned line (kogaki#1493) |
-| Write: the round trip | each claim recoverable from what is written; a loss the Writer cannot restore is a refusal, never a concession the plan does not carry (kogaki#1496 retired "concede it explicitly in the prose") |
-| Write: when a step cannot be performed | the refusal — the one exit, and it is not prose |
+**The plan file.** `paragraph-plan.yaml`, beside the Brief, carries `version`
+("2"), `brief` (its path and sha256) and `legs`. An entry of `legs` carries
+these keys and no other (`PLAN_LEG_KEYS` in `src/compose/record.mjs`):
 
-A Packet line added later is sorted into this table in the act that adds it,
-and a line sorted as anything but structure that asks the Writer to add a
-sentence is the defect this paragraph names.
+- `leg_id`;
+- `move`, the id of the Move taken. It records where the Segments came from;
+  no step opens the Move file again;
+- `fit`, `{ met, compared }`, the two numbers of §4.19.2 for the Move and the
+  filling taken;
+- `segments`, one entry per Segment of the Move, in order, each `{ bind, edges }`:
+  `bind` the number of the Leg's sentence the filling gives the Segment, or
+  null, and `edges` copied from the Move file;
+- `points`, a list of `{ segment, point }`, where the Points answer was not
+  refused.
 
-**`case` is the Mapper's** (kogaki#1732, kogaki#1777). The Brief carries no
-Brief Waypoint, so no `case` rides on the plan call's input; a case, where one
-is recorded, is the Leg's Mapping Table's (§4.19.2). The Packet never renders it
-to the Writer.
+A Leg no Move file is a candidate for carries `leg_id` alone. `move`, `fit` and
+`segments` stand together, and `points` stand under a Move. The keys
+`paragraphs`, `move_forced_by`, `analogy` and `mapping` left the record:
+`readParagraphPlanBeside` refuses a file carrying one, naming the key and saying
+to run `/paragraph-plan` on the Brief again. Nothing ties the plan to the Move
+after it is written: a person may change a Leg's `segments` in the file, and
+`/draft` reads what stands there.
 
-**The Analogy Mapping comes first (kogaki#1778).** Before the first Leg unit the
-stage chooses one base domain for the whole article from the Brief's `structure`;
-§4.19.5 states the step, its record and the constraint it puts on analogy Moves.
+**What the Writer is handed.** `/draft` puts each Leg's `segments` on the Leg
+(`src/draft/workspace.mjs`), and `planValues` (`src/draft/render-packet.mjs`)
+lists one part per Segment, what is bound to it, and every Edge whose `sense`
+is not null with the earlier parts it names; an Edge whose `sense` is null, and
+`hypophora`, are not handed on. No Point reaches the Writer (kogaki#1859). The
+Packet and `/draft`'s run record carry the plan file's sha256; the Mapping
+Record's pin left them.
 
-**The loop.** One Detached Job unit per Leg, in Reader Path order, on the shared
-supervisor (`src/workflow/detached-job.mjs`), each prompt rendered by the shared
-`judgePrompt`. Each Round makes two Calls (§4.19.4 names the loop's parts):
+**What a run says.** `await` prints, per Leg, the Move taken and its fit
+(`Leg <id>: Move <m>, <met> of <compared> compared Edge(s) met`), and a note
+where a Leg's plan carries no Move or no Points. A Leg whose reading is refused
+twice ends `refused`; a call that dies ends its Leg `died`; the stop lines name
+the Leg, the kept Legs, and that the next run plans the unfinished Legs only.
 
-1. `paragraph_plan_unit` binds ONE paragraph Move from `moves/` to the Leg — a
-   Move whose `takes` entries are each met, the kinds as words and the `what`
-   by sense (kogaki#1701), by the Leg's `prior_knowledge` (the Persona's line)
-   or by a relation of its `the_reader_has_been_told`, and whose Segments can
-   carry the Leg's `text`, or `move: null` with a `rationale` naming the entry
-   no Move could take up — and writes the Leg's `paragraphs`, one or more and
-   never more than `paragraphs_at_most` (`brief.paragraphs_per_leg`), each
-   shaped whole by the bound Move's Segments, a later paragraph only where the
-   one before cannot carry the rest of the Leg's `text`. Each paragraph's
-   Waypoints are one per Segment of the bound Move, in the Move's order, or,
-   where the Move carries no Segments, the points its `technique` gives. Its
-   inputs are the Leg (`leg_you_must_plan`: its `text`, `claims`,
-   `prior_knowledge`, `the_reader_has_been_told` and `leaves_for_next_leg`),
-   `paragraphs_at_most`, the bindable Moves, the Audience's `persona` and the
-   Leg's `introduces`, and nothing else. Every `leaves` entry of the bound
-   Move is taken up by a later paragraph of the Leg or is among what the Leg
-   leaves, and a `carry` one paragraph leaves is taken up by the next (its
-   LEAVE line). A Leg no Move fits refuses the unit as
-   `no_paragraph_move_fits`, naming the Leg; there is no fallback paragraph
-   shape. The validator refuses a plan with more paragraphs than the bound,
-   naming the Leg, and a paragraph carrying `move`, since the Move is the
-   Leg's.
-2. `paragraph_plan_judge_unit` judges the Leg's paragraphs against the bound
-   Move, one verdict per paragraph: whether every `takes` entry of the Move is
-   met by the Leg's `prior_knowledge` or what the reader has been told;
-   whether every `leaves` entry is taken up by a later paragraph of the Leg or
-   is among what the Leg leaves; whether, read in order, the Waypoints follow
-   the Move's order as its Segments give it; and whether they survive each
-   test in the Move's `breaks`. A `does-not-fit` on any of the four refuses the
-   Submission. The four are the judge's axes TAKEN, LEFT, OWN STEP and BREAKS
-   (kogaki#1701), a TAKEN or LEFT refusal naming the entry by its kind and
-   `what`; the bound Move's `takes`, `leaves`, `segments` and `breaks` ride on
-   the Leg in the judge's input as `bound_move`, beside its `text`,
-   `prior_knowledge` and `the_reader_has_been_told`.
+**The view.** `node src/paragraph-plan.mjs view --plan <paragraph-plan.yaml>
+[--run <dir>]` shows, per Leg, its text, the Move taken, the two numbers of
+`fit`, and a table of each Segment with the sentence bound to it, its Edges and
+its Point; with a run, the refusals the Leg met. It writes nothing.
 
-**What the reader has been told is derived (kogaki#1777).** For Leg n the stage
-hands the plan call, the site and suffix calls and the judge
-`the_reader_has_been_told`: one `{ leg_id, text }` per Leg 1 to n-1, in Reader
-Path order (`toldBefore`). It reads no reader-state field of the Brief and
-writes none; the first Leg's list is empty, and the Persona's prior knowledge
-rides beside it as `prior_knowledge`.
+**What left production at kogaki#1865.** The rows `paragraph_plan_site_unit`
+and `analogy_mapping` and their prompt files; `src/paragraph-plan/site-retry.mjs`,
+`src/paragraph-plan/selection-input.mjs` and `src/paragraph-plan-mapper.mjs`;
+`checks/check-paragraph-plan-site-retry.sh`; the settings
+`paragraph_plan.leg_revisions` and `paragraph_plan.mapper`. The rows
+`paragraph_plan_unit` and `paragraph_plan_judge_unit`, the setting
+`brief.paragraphs_per_leg` and `src/paragraph-plan-analogy.mjs` stay, since a
+Playground reads them; the stage calls none of them.
 
-1. `paragraph_plan_unit` binds one paragraph Move from `moves/` to each Brief
-   Waypoint — a Move whose `takes` entries are each met by an entry standing
-   to be taken up when the Brief Waypoint begins, the kinds as words and the
-   `what` by sense (kogaki#1701), and whose Segments can carry the Brief
-   Waypoint's `point`, or `move: null` with a `rationale` naming the entry
-   no Move could take up — and generates the Waypoints of the one paragraph
-   carrying that Brief Waypoint: one per Segment of the bound Move, in the
-   Move's order, or, where the Move carries no Segments, the points its
-   `technique` gives — the Leg composer's own rule (§4.1) — from four inputs
-   and nothing else: the Brief Waypoint's own `point`, the bound
-   Move's Segments or `technique`, the Audience's `persona`, and the Leg's
-   `introduces`, each term with its meaning. Every `leaves` entry of a bound
-   Move is taken up by a later paragraph of the Leg or is among what the Leg
-   leaves, and a `carry` one paragraph leaves is taken up by the next (its
-   LEAVE line). A Brief
-   Waypoint no Move fits refuses the unit as
-   `no_paragraph_move_fits`, naming the Leg and the Waypoint; there is no
-   fallback paragraph shape.
-2. `paragraph_plan_judge_unit` judges the generated Waypoints against
-   the bound Move, the four things the Leg judge judges (§4.12.2, owner
-   decision 2026-10-14: "I had assumed that ParagraphPlan would use the same
-   generation and validation conditions as Brief Waypoint generation"): whether
-   every `takes` entry of the Move is met by an entry standing to be taken up;
-   whether every `leaves` entry is taken up by a later paragraph of the Leg or
-   is among what the Leg leaves; whether, read in order, they follow the
-   Move's order as its Segments give it; and whether they survive each test in
-   the Move's `breaks`. A `does-not-fit` on any of the four refuses the
-   Submission. The four are the judge's axes TAKEN, LEFT, OWN STEP and BREAKS
-   (kogaki#1701), a TAKEN or LEFT refusal naming the entry by its kind and
-   `what`; what stands to be taken up and the Move's `takes` and `leaves`
-   ride on each entry in the judge's input, and the criteria table below
-   names each axis beside its Leg counterpart (kogaki#1647).
+#### 4.19.1 Reading the Leg's Senses (kogaki#1849, kogaki#1865)
 
-   **Status (kogaki#1701).** PRECONDITION, POSTCONDITION and PROMISE KEPT are
-   retired: TAKEN takes PRECONDITION's place, and LEFT takes the place of
-   POSTCONDITION and PROMISE KEPT. Each carries its `defect` and `clean`
-   fixtures under the registry's retention rule.
+The reading is the one the Structure-Mapping Playground made first (§4.20.4).
+Five calls of the row `paragraph_plan_name_senses`
+(`prompts/paragraph-plan/name-senses.prompt`), each handed the Leg's numbered
+sentences and the list of Senses (`src/paragraph-plan/pdtb3-senses.json`), name
+for each pair of sentences every Sense that holds. An answer is checked by
+`nameRefusal`; one refused is asked again once, and a reading refused twice
+stops the Leg. `countPairs` counts the five answers, and the first
+`paragraph_plan.leg_edge_candidates` Senses of each pair are its Edge
+candidates. Each call is a Call Record under the Leg's unit,
+`<unit>/reading-<k>`.
 
-**A refusal is repaired at the paragraph it names (kogaki#1642, owner decision
-2026-10-31; the Leg as unit, kogaki#1777).** A Leg's refused record stands, and
-each refused paragraph is asked again on its own, never another Leg, by five
-rules:
+#### 4.19.2 Choosing the Move and fitting it (kogaki#1865)
 
-1. **The retry is scoped to the site.** A refusal that names a paragraph — the
-   judge's verdict on it, or the validator's on it — asks again for that
-   paragraph alone (`paragraph_you_must_plan`), handed the paragraph, its
-   refusal verbatim, the Leg's `text` and `the_reader_has_been_told`, the Leg's
-   `bound_move`, and the paragraphs beside it (`paragraphs_beside`). A refusal
-   naming no paragraph asks the Leg's call again.
-2. **The site retry holds the Move.** The Move is the Leg's, held at every
-   paragraph: a site answer carrying `move` is refused naming the field, and
-   the site writes the paragraph's Waypoints under the Leg's `bound_move`. A
-   judge's refusal on TAKEN or LEFT refuses the binding itself, so it reopens
-   the WHOLE Leg: the suffix call plans the Leg again from paragraph 1 and may
-   rebind the Move, and the judge reads every paragraph it wrote. A suffix
-   call from a later paragraph keeps the standing Move, and an answer
-   changing it is refused naming the Move the Leg keeps. A BREAKS refusal is a
-   refusal of the Waypoints and holds the Move, as every other refusal does
-   (kogaki#1647, kogaki#1701).
-3. **An identical answer is refused before the judge.** A site answer that
-   repeats a refused paragraph — after a judge's refusal, the same Waypoints
-   and join; after the validator's, the same whole paragraph — is refused with
-   `the answer repeats the refused paragraph n; the refusal asked for a change
-   at that paragraph`, spending a Round.
-4. **The budget belongs to the Leg.** Each paragraph gets `brief.unit_rounds`
-   Rounds, the Leg's first Call counting at each, and every Revision of the Leg
-   together — site retries and suffix calls alike — is bounded by
-   `paragraph_plan.leg_revisions` (`kogaki.settings.json`). Spending either stops the
-   stage naming the Leg, the paragraph, its first refusal and its last. The
-   judge then judges the paragraphs that changed and the join of the paragraph
-   after each, never again the paragraphs it already passed.
-5. **No fallback.** A spent budget stops, as below; nothing composes a default
-   paragraph and nothing re-plans the Brief.
+The choice is made by code, with no model call (`chooseMove`,
+`src/paragraph-plan/senses.mjs`).
 
-1. **The retry is scoped to the site.** A refusal that names a Brief Waypoint —
-   the judge's verdict on its entry or join, or the validator's on its entry —
-   asks again for that entry alone, handed the entry, its refusal verbatim, the
-   Brief Waypoint's point and next point, what stands to be taken up when it
-   begins, and the entries that stand beside it. A refusal naming no Brief Waypoint asks the Leg's call again.
-2. **The first site retry holds the binding.** The site's first retry keeps
-   the refused entry's `move` fixed and re-plans its Waypoints only;
-   an answer changing it is refused naming the field. A later retry may rebind
-   the Move, and when it does on a Brief Waypoint before the last, the entries
-   after it are composed again by one call that is handed the standing entries
-   before them and what they leave. A judge's refusal on TAKEN or LEFT refuses
-   the binding itself, so its first retry holds nothing: `fixed` is null and
-   the retry may rebind; a BREAKS refusal is a refusal of the
-   Waypoints and holds the Move, as every other refusal does (kogaki#1647,
-   kogaki#1701).
-3. **An identical answer is refused before the judge.** A site answer that
-   repeats a refused entry — after a judge's refusal, the same `move`,
-   Waypoints and join; after the validator's, the same
-   whole entry — is refused with `the answer repeats the refused entry at Brief
-   Waypoint n; the refusal asked for a change at that site`, spending a
-   Round; a `move: null` answer naming only Moves already rejected at the
-   site is the same repeat. The site's later calls are handed the Moves
-   rejected there.
-4. **The budget belongs to the site, under a Leg ceiling.** Each Brief Waypoint
-   gets `brief.unit_rounds` Rounds, the Leg's first Call counting at each,
-   and every Revision of the Leg together is bounded by
-   `paragraph_plan.leg_revisions` (`kogaki.settings.json`). Spending either
-   stops the stage naming the Brief Waypoint, its first refusal and its last.
-   The judge then judges the entries that changed and the join of the entry
-   after each, never again the entries it already passed.
-5. **No fallback.** A spent budget stops, as below; nothing composes a default
-   entry and nothing re-plans the Brief.
+- A Move file is a candidate for a Leg when it has no more Bind targets than the
+  Leg has sentences.
+- A filling gives each Bind target of the Move a different sentence of the Leg.
+  Every filling of every candidate is tried.
+- An Edge is compared when its `sense` is not null, its own Segment is bound and
+  the Segment it points to is bound. An entry of `edges` that points to several
+  Segments is one Edge for each of them.
+- A compared Edge is met under a filling when the Edge candidates of the two
+  sentences hold its Sense, the Segment carrying the Edge playing the Sense's
+  part (`compareMove`).
+- A Move's count under a filling is the number of its compared Edges met. The
+  filling with the highest count is the Move's filling; among fillings of one
+  count, the first tried is taken.
+- The stage takes the Move with the highest count; among Moves of one count, the
+  one with fewer compared Edges; among those, the one whose id comes first in
+  alphabetical order. A count of 0 is taken where no Move has a higher one.
+- Where no Move file is a candidate, the Leg's plan carries no `move` and no
+  `segments`, no Points call is made, and the run names the Leg. Since a Move
+  file carries at most three Bind targets and a Leg at least three sentences,
+  this does not arise over a valid library.
 
-The supervisor carries this as the job table's `site_retry` option, naming the
-declaring module's site and suffix prompts and validators; the Brief's compose
-job declares none and is unchanged. Without a site, a refused Submission is
-asked again with the refusal text verbatim until
-`brief.unit_rounds` is spent; a Call is bounded by `brief.call_limit_s`;
-there is no limit on the whole job — the Brief's own settings and rules, read
-by name. A unit that spends its Rounds stops the stage naming the Leg and the
-paragraph, writing nothing and leaving the Brief unchanged, and the work resumes
-from the same Brief by running `/paragraph-plan` again; the Reader Path is not
-composed again. **A bound paragraph Move that does not fill a role the stage
-needs (`breaks`, or `segments`) is a fatal stop naming the Move and the
-role**, never a default.
+The fitted Segments are `fittedSegments`: each Segment's `bind` is the sentence
+the filling gives its Bind target, and its `edges` are the Move's.
+
+#### 4.19.3 The Points call (kogaki#1865)
+
+One call per Leg, by the row `paragraph_plan_points`, whose prompt file is
+`prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt`. Its
+input (`pointsInput`, `src/paragraph-plan/units.mjs`) is the Leg's Arguments
+and CentralClaim with their sentences and, per Segment, what is bound to it and
+one Sense: that of the Segment's first entry in `edges` whose `sense` is not
+null. `tablePointsRefusal` checks the answer; an answer refused is not asked
+again, the Leg's plan carries no `points`, and the run says so. The Call Record
+is `<unit>/points`. Points are debugging information: no Point reaches the
+Writer. The Structure-Mapping Playground's short Trial makes its own Points
+call by the same row.
+
+#### 4.19.4 The ParagraphPlanPlayground (kogaki#1752, kogaki#1756, kogaki#1762, kogaki#1831)
+
+**Since kogaki#1865** the ParagraphPlan stage makes no plan or judge call, so a run it writes holds no Round this page reads. The page stays for the runs written before it and for the Playgrounds that write Rounds.
+
+**The judge row the Playgrounds keep (kogaki#1865).** The stage no longer calls `paragraph_plan_judge_unit`; the judge bench of the Move-Extraction Playground does, and the table below, kept from the stage this section replaced, is the criteria that row judges.
 
 **The criteria table: what the Leg judge and the ParagraphPlan judge each hold
 (kogaki#1647, owner decision 2026-11-02; kogaki#1768, owner ruling
@@ -2715,456 +2633,6 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Cast held | paragraph only | — | `CAST` | a `cast` is set on a Waypoint, and only a Waypoint realises a Segment's `manner`, so each key it sets is held to its definition there (kogaki#1695, kogaki#1816) | criterion |
 | Cast is a set | paragraph only | — | `cast_is_a_set` | the closed set of cast keys and their definitions is written once for the paragraph rows, the planner's that sets them and the judge's that holds a point to them (kogaki#1695, kogaki#1816) | wording |
 | Counterparts expressed | paragraph only | — | `EXPRESSED` | a Waypoint names a Role's counterpart or states a relation in its own wording, which only a judge reads by sense, and only a Leg the Mapper grounded carries a table (kogaki#1811) | criterion |
-
-`checks/check-paragraph-plan-axes.sh` holds the table to both judges: every
-Paragraph cell is an axis or a shared criterion the judge row names, every
-Leg cell is an item of the Leg judge's list, and an axis, shared criterion or
-list item the table does not carry fails, naming it. The assertion is dropped
-with the table if the table is ever folded into the judge files themselves.
-
-**The Legs are independent (kogaki#1641, owner decision 2026-10-31).** A
-ParagraphPlan is designed for one Leg alone: Leg G1's ParagraphPlan is
-responsible for taking up what stands when G1 begins and leaving what G1's
-bound Move leaves, and for nothing outside G1, and a failure in one Leg's
-ParagraphPlan carries no shared responsibility with another Leg's. What stands
-when G1 begins is derived from the Leg order alone (kogaki#1777), so no Leg's
-unit waits on another's. Three rules follow, and nothing crosses a Leg:
-
-1. **A Leg's death ends that Leg alone.** The job table sets `unit_isolation`,
-   and under it the shared supervisor records a died unit `died` with its
-   failure block while its siblings run on; the job's state is reduced from the
-   finished units once none is running — `done` only when every Leg is `done`,
-   otherwise the worst Leg state, `died` before `refused`. This narrows
-   kogaki#1273's sibling kill — a system failure ends every unit on the tick it
-   is seen — to the Brief's compose job, where it stands unchanged; the owner's
-   stop and the supervisor's own stall still end every unit on their tick,
-   being facts about the job rather than a Leg.
-2. **A finished Leg is kept the tick its judge passes it.** A unit ending
-   `done` writes its candidate and its verdict beside the job record on that
-   tick, so a later death or stop cannot lose it.
-3. **A resume plans only the Legs the latest run did not finish.** A run over
-   the same Brief by content hash and the same Move library carries every Leg
-   the latest run recorded `done` — its files copied, its row written `done`
-   with `carried_from` naming that run — and spawns a unit for the other Legs
-   only; a run over a changed Brief, or after the plan file was written,
-   carries nothing. The plan file is still written whole, so `/draft`'s reader
-   is unchanged, and the stop lines name the Legs kept and the Legs the next
-   run plans.
-
-> **Status (kogaki#1497, owner decision 2026-10-21):** the plan call reads
-> the Leg's `introduces` as its fourth input, each term with its meaning
-> read by `introducedMeaning`, the rule the Packet's crossing line reads
-> (`null` where the Leg gives none, and the planner then gives it in its own
-> words; an established term's `source` never rides), beside the persona. Where a Brief Waypoint's `point` is the first in
-> the Leg to use an introduced term, the planner binds a fitting Move with a
-> Segment whose `does` defines or names, and the Waypoint on that
-> Segment carries the term with its meaning in its noun phrase; where no
-> fitting Move has such a Segment, the Waypoint that first uses the
-> term carries its meaning in apposition, in the planner's words. A `coined`
-> and an `established` term are treated alike. The judge's FIFTH gains the
-> complement: a Waypoint that first uses an introduced term and
-> gives no meaning for it does not fit, naming the term; the judge reads
-> whether a meaning is given, never whether it matches the input's.
-> `checks/check-paragraph-plan.sh` (r) carries both.
-
-> **Status (kogaki#1648, owner decision 2026-11-02):** a Leg's `introduces`
-> is the reader-knowledge ledger, and the Brief's `defined_terms` selects the
-> coined subset of it. An `introduces` entry whose `term` `defined_terms`
-> classifies `defined` is coined; every other entry is a referent. Only the
-> coined subset is placed and judged. The plan call is handed
-> `terms_this_leg_coins` beside `terms_this_leg_introduces`, which keeps the
-> whole ledger. BIND binds, at the Brief Waypoint that first uses a coined
-> term, a Move carrying a Segment whose `operation` defines, names or grounds
-> a term. The validator refuses an entry that introduces a coined term under
-> a Move with no such Segment, naming the term and the Move. TERMS assigns
-> each coined term to exactly one entry and a referent to none: a referent is
-> handled by a Move's Segments, without a definition. The judge is handed
-> `terms_this_leg_coins` alone, and TERM MEANING reads "a term the Leg
-> coins". A referent still owes a `re-activate` line where a later paragraph
-> uses it. This narrows the kogaki#1497 status above, under which every
-> introduced term was placed and judged.
-
-> **Status (kogaki#1663, owner decisions 2026-11-03 and 2026-11-04):** the
-> kogaki#1648 coined-term clause, the TERM MEANING axis and the validator
-> refusing a coined term under a Move with no defining Segment are retired,
-> and so is the trajectory clause "its `after` toward the next Brief
-> Waypoint's point". The owner's rulings are the ground: introducing a term
-> is a means and never an objective of an article, so the `defined_terms` →
-> `introduces` → coined-term chain is to be redesigned under
-> Structure-Mapping rather than patched, and the production pipeline may be
-> modified while a commit restores it. A paragraph Move is bound on
-> non-contradiction over the dimensions its `before` declares (item 1 of
-> the loop above), never on an exact match of reader states. The connection
-> between consecutive paragraphs is the `join` (the join rule below) and the
-> bound Move's own Segments; no rule requires a Move's `before` to equal the
-> previous Move's `after`. `defined_terms` and `introduces` stay where they
-> are until the redesign: the plan call is handed `terms_this_leg_introduces`
-> alone, and a paragraph names a term in its `introduces` only where it gives
-> the meaning, no term in two.
-
-> **Status (kogaki#1841, owner decision 2026-11-13):** since kogaki#1768 a
-> Leg introduces no term, so the plan call is handed no
-> `terms_this_leg_introduces`, the TERMS step is deleted, a plan paragraph
-> carries no `introduces` and one carrying it is refused by name, and a
-> paragraph's `re-activate` takes the claim form alone.
-
-> **Status (kogaki#1533, owner decision 2026-10-23):** the judge no longer
-> judges the four things above, the FIFTH, the SEVENTH, or any criterion
-> written here. Its criteria are the axes `src/paragraph-plan-axes.json`
-> keeps, rendered in order into `paragraph_plan_judge_unit`: one sentence
-> and one responsibility each, an axis kept only where an ablation bench run
-> (`src/move-extraction-playground/judge-bench.mjs`) shows its defect fixture refused with
-> it and rarely without it, and its clean fixture passed, at the rates the
-> file's `retention` names. Two axes were kept then:
-> PERFORMS IS BARE and TERM MEANING, the first retired by kogaki#1864 and the
-> second by kogaki#1663. The two countable rules are refusals of
-> the plan-record validator (`src/paragraph-plan.mjs`), not of the judge: the
-> Waypoint count equals the bound Move's Segment count, and every
-> entry carries `point` and `cast` and no other key.
-> `checks/check-paragraph-plan-axes.sh` carries the registry.
-
-**A Leg is at most `brief.paragraphs_per_leg` paragraphs, and a Waypoint is one
-Segment of the Leg's bound Move (kogaki#1777, replacing "a Brief Waypoint is one
-paragraph").** A Waypoint has the shape of a claim: `point`, the proposition its
-paragraph makes, and `cast`; it names no Strand, and a Waypoint carrying
-`serves` is refused by name (kogaki#1861) — the Strands a paragraph stands on
-are its `materials`. Each paragraph writes one Waypoint per Segment of the
-bound Move, in the Move's order, or, where the Move carries no Segments, the
-points its `technique` gives. A Segment's `operation`,
-`relation` and `manner` are inputs to the ParagraphPlan call and are copied onto
-no Waypoint; a Move is an input to the Composer and to nothing else
-(kogaki#1585, owner decision 2026-10-25).
-
-**Two contributions, not one (kogaki#1403).** The Leg's `text` and its Claims
-hold the facts; the bound Move supplies the order and the shape of the
-Waypoints that carry them. A Segment reaches the plan call as its number, its
-function (raises | advances | settles) and its relation to the Segment before
-it — never its description, the Extractor's analysis of the original
-paragraph's technique, written for a reader of the Move and not for the planner.
-The `technique` fallback is unaffected, since it is the Move's only order where
-`segments` is empty, and `before`, `after` and `breaks` are unaffected.
-
-**A Waypoint explains its Leg's text and adds nothing to it (kogaki#1632, owner
-decision 2026-10-28; the Leg as unit, kogaki#1777).** Each Waypoint is the step
-toward the Leg's `text` that its Segment's `operation` names, and the Waypoints
-together carry the explanation of that text and the logical progression toward
-it, in the planner's own words and examples — an illustration such as airport
-security screening or a dispute between neighbours may explain a technical
-relation. A Waypoint is refused where it contradicts the Leg's `text` or breaks
-the progression toward it, where it states or implies a claim about the
-article's subject the Leg's `text` and its Claims do not make, or where it
-states a Segment's `operation` or `relation` as content; a Segment's `relation`
-is carried by the order of the Waypoints alone. Given the text "X is too
-complex", "X is far from simple" is accepted and "X is too complex and therefore
-should be eliminated" is refused. One that states what the paragraph does to its
-reader — announcing, defining rather than arguing, closing a list, leaving
-nothing open — is refused rather than accepted as a stylistic variant.
-
-> **Status (kogaki#1533, owner decision 2026-10-23):** no judge axis
-> carries this refusal; the judge judges only the axes
-> `src/paragraph-plan-axes.json` keeps (the Status block under the judge
-> clause above).
-
-**The ParagraphPlan file is the paragraph-level Reader Path** (kogaki#1639,
-owner decision 2026-10-31; the Leg as unit, kogaki#1777).
-`theses/<slug>/paragraph-plan.yaml`, beside the Brief, one YAML record:
-`version`; `brief`, the `path` and `sha256` of the Brief it was made from;
-`mapping` where a Mapping Record was written (§4.19.2); and `legs`, one entry per
-Leg in order, each carrying `leg_id`, `move` — the id of the paragraph Move the
-Leg binds, and nothing else of the Move — `move_forced_by` where the judge
-forced a rebinding, and `paragraphs`, at most `brief.paragraphs_per_leg`, in
-order. **Every paragraph carries the Leg schema at the paragraph scale**, beside
-its `paragraph` number, its `join` and its `paragraph_waypoints` (`point` and
-`cast`), and carries no `move`:
-
-| field | the paragraph's |
-|---|---|
-| `materials` | the Strand ids it stands on, Strands of the Leg's Claims |
-| `purpose` | what it does to the reader |
-| `depends_on` | the earlier paragraphs of its Leg it stands on, by paragraph number; may be empty |
-| `rationale` | why it comes here rather than earlier or later |
-| `introduces` | the terms of the Leg's `introduces` it introduces, each `{term, meaning}`; may be empty |
-| `re-activate` | `<paragraph> term <term>` and `<paragraph> claim <Strand id> as <sentence>` lines over earlier paragraphs of its Leg; may be empty |
-| `journeys` | optional: the Leg's Journeys it places, as the Leg carries them |
-
-**A paragraph carries no reader state and no Obligations ledger**
-(kogaki#1701): what it takes up and leaves is its bound Move's `takes` and
-`leaves`, and a record carrying `obligations`, or an entry carrying
-`reader_state_before`, `reader_state_after`, `obligations` or `discharges`, is
-refused naming the key. **No term of the Leg's `introduces` is introduced by
-two of its paragraphs** (kogaki#1663). Every read of the
-file — the stage's own validator, `/draft`'s and the Move-Extraction Playground's — refuses by
-name, naming the Leg and the paragraph: a key outside the schema; a Leg with
-more paragraphs than `brief.paragraphs_per_leg`; a paragraph carrying `move`; a Leg's `move`
-naming no Move in a library the reader holds open (`/draft` opens no Move,
-kogaki#1311, so that one refusal is the validator's and the Move-Extraction Playground's); a
-term the Leg does not introduce, or a Leg term introduced by two; a `depends_on` or `re-activate` reference to the paragraph itself, a
-later one or another Leg; a material outside the Leg's Claims; a retired
-key. The planner's retired `why` is the entry's `rationale`. The run directory
-holds no bindings record: the file is the record of which Move was bound to
-which Leg. A plan written before kogaki#1777, one entry per Brief Waypoint, is
-refused naming the Leg and the relaunch.
-
-> **Withdrawn (kogaki#1639, 2026-10-31):** the clause "It holds no Move id, no
-> Segment and no Move field; a key outside those is refused by name", and the
-> run directory's `paragraph-plan-bindings.json` as the record of the binding.
-> The clause came from kogaki#1375's Design, not from the owner's decision of
-> 2026-10-14, which bounded Move *information* — a Segment, a Move field —
-> and not the Move's id. The id is the paragraph's binding, as a Leg's `move`
-> is, and the Packet still renders none of it.
-
-**The stage never writes the Brief, and the Brief names nothing
-downstream**: the ParagraphPlan file names the Brief, not the reverse.
-`/draft` reads the file beside the Brief and refuses a missing one or one whose
-Brief hash is not the Brief's (§4.14). Its writer and reader
-(`paragraphPlanRecord`, `readParagraphPlanBeside`) live in `src/compose.mjs`,
-shared code, since two commands touch the file and a command module never
-imports another's (kogaki#1302).
-
-**A Packet is a rendering of the plan at a hash (kogaki#1645)**, exactly as the
-plan is a rendering of the Brief at a hash. The hash is the sha256 of the plan
-file's text as `/draft` read it, and three records carry it: the run record's
-`plan` (`{path, sha256}`, beside `brief` and `brief_sha`), each Packet entry's
-`plan_sha256`, and the CanonicalDraft's `plan_pin` with a `plan_sha` on each
-`trace` row. `resolve` carries the previous run's Packet entries only where both
-the Brief's hash and the plan's equal the recorded ones; where the plan moved it
-says so, drops them, and **renders every Packet again**: a Leg owes its Packet
-when its section is missing or no recorded Packet for it was rendered from the
-current plan, so a moved plan walks the path from the first Leg as a first run
-does, and an unchanged one keeps the unrealized-first rule. `section` refuses a
-Packet whose recorded plan hash is not the current one, naming both, and a
-Packet entry with no plan hash is refused as unrecorded. On 2026-11-01 a
-rewritten plan under an unchanged Brief realized a Draft from the old Packets,
-because the run record carried them on the Brief's hash alone.
-
-**The join is a typed relation (kogaki#1477, owner decision 2026-10-20).**
-Every paragraph of a Leg after the first carries a `join`, and the first
-carries none: the connection between Legs is the Brief's (kogaki#1282). A join
-is **one word from a closed set**, never a sentence:
-
-| word | this paragraph's first point, against the paragraph before it |
-|---|---|
-| `consequence` | follows from what the previous one established |
-| `grounds` | gives the reason for what the previous one asserted |
-| `contrast` | sets its matter against the previous one's |
-| `elaboration` | carries the previous one's matter further or in more detail |
-| `summary` | draws the preceding paragraphs together |
-| `none` | opens on its own matter, and no connective is owed |
-
-The set is Halliday and Hasan's conjunctive classes (additive, adversative,
-causal, temporal) laid over the top-level senses of the Penn Discourse
-TreeBank (expansion, comparison, contingency, temporal), cut to the relations a
-paragraph opening realises as a connective; temporal is omitted because the
-plan's order already carries it. The planner chooses the word as the one the
-paragraph's first Waypoint bears toward the paragraph before it, under the
-Leg's bound Move (kogaki#1777); the judge's SEVENTH
-asks whether the type is one that `after` admits and the first
-Waypoint bears, and admits `none` and `contrast` where the paragraph defers
-what the `after` leaves open — a paragraph may answer a question later than
-the reader raised it. The plan reader and the plan call's validator
-(`joinRefusal`) refuse a sentence, an empty value and a word outside the set by
-name. The join stays in the ParagraphPlan and reaches no Packet (kogaki#1859);
-until then the Packet rendered it as one word beneath its paragraph's line.
-**Why a word and not a sentence**: the join was one sentence
-(kogaki#1411), and it was then the one plan field whose reader was the Writer; a
-sentence the Writer must realise in its own text is content to the Writer, and
-on the 2026-10-19 Move-Extraction Playground run every paragraph after the first opened on its
-join paraphrased as a clause. A Segment's `relation` stays prose, because the
-planner consumes it and it never reaches the Writer.
-
-> **Status (kogaki#1533, owner decision 2026-10-23):** no judge axis
-> carries the SEVENTH; the judge judges only the axes
-> `src/paragraph-plan-axes.json` keeps (the Status block under the judge
-> clause above).
-
-**The cast is a closed map (kogaki#1695, owner decision 2026-11-06).** Every
-Waypoint carries `cast`, a map whose keys come from a closed
-set and whose values are booleans; `{}` is the form for no constraint. Operation and Strand together give
-a Waypoint; Manner and Strand together give a constraint on it, which
-belongs to the Plan and is not the Move's `manner` even where its words
-coincide. The set, `CAST_KEYS` in `src/compose/record.mjs`:
-
-| key | the sentences of the point |
-|---|---|
-| `terse` | one short statement given at once, taking no elaboration after it |
-| `plain` | laid down without support, ground or qualification |
-| `hedged` | offered as a guess or forecast rather than asserted |
-| `chained` | a run of parallel items or alternatives inside one sentence |
-| `asked` | put as a question that takes no lead-in |
-| `voiced` | spoken in a named voice, the first person, an invitation, or words reported as another's |
-| `instanced` | one recognisable instance named and left without comment |
-| `dated` | each instance placed in time |
-| `figured` | asserted as a likeness or a figurative identification |
-
-The planner sets true each key its Segment's `manner` bears, and no key where
-the Segment carries no `manner`; the manner's words stay out of the point.
-The plan reader and the plan call's validator (`castRefusal`) refuse a
-Waypoint with no `cast`, a `cast` that is not a map, a key outside
-the set and a value that is not a boolean, each by name. The Packet renders the true keys, in the set's
-order, as one indented `*Cast:* <keys>` line under the point, and no line where
-none is true; the Writer realises it in the form of that point's sentences,
-never as a sentence or clause of its own. **Why a closed set**: a model cannot
-be relied on to keep a constraint apart from content, which is why the join
-became one word (kogaki#1477). The key is `terse`, not `brief`, which collides
-with the Brief. No judge axis reads `cast`; the owner's reading is the
-judgment, as for the join since kogaki#1533.
-
-**What has been told, and what a Leg leaves** (kogaki#1701, kogaki#1777, kogaki#1853). The
-plan call is handed, beside the Leg, what the reader has been told when it
-begins: `the_reader_has_been_told`, one `{ leg_id, text }` per earlier Leg in
-Reader Path order, derived from the Leg order and never read from a reader
-state, with the Persona's prior-knowledge line as `prior_knowledge`; the site
-and suffix calls and the judge are handed the same. The LEAVE line lets the
-bound Move's `leaves` pass on: an entry is taken up by a later paragraph of the
-Leg or left for the next Leg, and a `carry` one paragraph leaves is taken up by
-the next. What a Leg's Move leaves and no later paragraph of the Leg takes up is
-left for the next Leg, and nothing checks whether a later Leg takes it up; no
-call is handed a list of it. Whether a `takes` entry is met is judged by sense,
-never compared verbatim, and is the judge's TAKEN; the plan file records none of
-it. A Leg naming a Move the library does not hold stops the stage at `start`,
-naming the Leg and the Move. The Obligations ledger this replaced is retired (§5.2).
-
-**The Audience.** Waypoint generation reads the Audience's `persona`;
-the Packet reads its `register`, which says nothing about paragraph structure.
-
-`checks/check-paragraph-plan.sh` carries the stage end to end over a fake judge;
-`checks/check-draft-packet.sh` carries `/draft`'s read.
-
-`necessity:` §4.1 says what a Brief Waypoint is and §4.14 what the Packet renders
-from it; neither says where a paragraph's point comes from, which stage may
-read a paragraph Move, or what file carries the plan between the Brief and the
-Packet. kogaki#1359 answered by copying the bound Move's Segments onto the
-Brief and rendering them for the writer, which broke the 2026-10-09 and
-2026-10-12 boundaries; this section is the carrier of the answer that replaced
-it.
-
-#### 4.19.1 The selection input record and the View (kogaki#1650)
-
-The owner decided on 2026-11-01 that ParagraphPlan is viewed from the Brief:
-what selection compared is stored in the run in a form a reader can address,
-and one command joins the Brief, the Move and the plan for each Leg.
-
-**The input record.** Beside the job's units file, which keeps each Leg's
-rendered prompt as one string, the run directory holds one
-`paragraph-plan-input-<unit>.json` per Leg, `<unit>` being the Leg's unit id
-(`leg-1`, `leg-2`, ...). It carries `leg_id`, `unit`, `plan_call` and
-`site_calls` (kogaki#1777). `plan_call` is the Leg as the plan call was handed
-it: `text`, `claims`, `the_reader_has_been_told`, `paragraphs_at_most` and
-`paragraph_moves_you_may_bind`, the last as Move ids. Each `site_calls` row is one site call, appended when the call is asked:
-`paragraph`, `retry`, `text`, `the_reader_has_been_told`, `bound_move` (the
-Leg's Move id) and `refused_here`. The prompt
-string is unchanged and carries the same values; the record is what a reader
-addresses. A Leg carried from a prior run carries that run's record.
-
-**The View.** `node src/paragraph-plan.mjs view --plan
-theses/<slug>/paragraph-plan.yaml [--run <dir>] [--moves-dir <dir>]` prints
-Markdown to stdout and writes nothing. For each Leg, in order, it prints the
-Leg's `text` from the Brief, the Leg's bound Move with its `takes` and
-`leaves`, and, for each paragraph, one table row per Segment (operation,
-relation, manner) with the Waypoint that stands on it (kogaki#1701,
-kogaki#1777). With `--run` it adds each refusal the Leg's paragraphs met in that
-run and the judge axes the refusal names, a refusal naming no paragraph under
-the Leg, and reads the Move library the run's start record names. It reads the
-plan, the Brief the plan names, the Move library and, with `--run`, the run's
-job and start records. It refuses a plan whose Brief hash differs from the
-Brief's, with the refusal `/draft` gives, and a run made from a different Brief.
-
-The View is a rendering. No stage reads its output, and nothing it prints is
-written to any record.
-
-#### 4.19.2 The Mapping Record (kogaki#1733)
-
-The owner asked on 2026-11-07 that the structure and the Mapping Table each
-paragraph was planned from be kept for later debugging: "There is an RBS for
-each Paragraph, correct? Where is that information retained? I think we need
-to preserve it for later debugging."
-
-**The record.** `/paragraph-plan` writes `theses/<slug>/mapping/` beside the
-plan, in the same act that writes the plan. Under it, one directory per Leg
-(kogaki#1777): `<leg_id>/structure.yaml` holds the Leg's RelationalStructure,
-and `<leg_id>/table.yaml` holds the Mapping Table of the Move bound to the Leg,
-as `{ move, base, correspondences }`, with `case` where one is recorded. The
-shapes are the Trial's (§4.20). The record is
-the settled result; the Call Records (kogaki#1717) are how it was reached
-and stay in the run directory. The stage replaces the record whole on every
-write. With the Mapper off (§4.19.3), the record holds no file.
-
-**The plan names it.** `paragraph-plan.yaml` carries `mapping: { path,
-sha256, files }`. `files` holds one `{ path, sha256 }` per record file in path
-order, and `sha256` is the digest of one `<sha256>  <path>` line per file. An
-empty record has the digest of the empty text. A missing `mapping/` directory
-reads as the empty record, since git keeps no empty directory.
-
-**`/draft` refuses a changed record.** `resolve` and every later act read the
-record beside the plan and refuse a file whose hash differs, a file the plan
-does not name, and a named file that is gone. Each refusal names the file. The
-run record's `plan` and each Packet entry carry `mapping_sha256`, and a Packet
-is not current when its `plan_sha256` or its `mapping_sha256` differs. A plan
-written before this record existed names none, and `/draft` reads it as
-before.
-
-**The sheet.** `node src/structure-mapping-playground/sheet.mjs leg --plan
-theses/<slug>/paragraph-plan.yaml --leg <leg_id> [--run <dir>] [--moves-dir
-<dir>] [--out <file>]` renders one Leg's record in the Trial sheet's layout:
-the Leg's one binding with its `case`, its Mapping Table and its structure,
-then, for each paragraph, the Segments with the Waypoints and their Cast
-(kogaki#1777).
-With `--run` it lists the Call Records of the Leg's job unit. It prints
-HTML to stdout, or writes `--out`, and writes nothing else.
-
-#### 4.19.3 The Mapper in ParagraphPlan (kogaki#1734)
-
-**What it is.** The Mapper reads the Leg's structure (kogaki#1721). Inside
-each Leg's job unit, `/paragraph-plan` runs reading, bind, then the Waypoints,
-once per Leg (kogaki#1777). The Leg's table is written by the program, and no
-grounding call is made (kogaki#1812). ParagraphPlan binds the Leg's Move and
-writes the Waypoints. The setting `paragraph_plan.mapper` in
-`kogaki.settings.json` turns the Mapper on; it is `true`.
-
-**Reading.** Before the bind call, the unit runs the `sme_map_roles` row once
-on the Leg. Its proposition is the Leg's `text`, its relation's `holds` with
-each Role named; the Claims it is `from`; the Roles it stands between, each with
-its `context`; and what the Legs before it state, as what the reader has been
-told. It reads no reader-state field. The cites of the Strands the Leg's Claims
-serve are its strand.
-
-**Bind.** The `paragraph_plan_unit` call binds one Move to the Leg. The Leg in
-its input carries its structure: the Roles with their `context` and
-`attributes`, the relations and the higher-order relation. The row's MAP
-criterion says the Move's Segments carry the structure's relations and then its
-higher-order relation. Its Waypoints are kept only where the Leg has no table.
-
-**The table.** The Leg's table is the Analogy Mapping's projection onto the
-Roles the Leg carries: the base domain, and the counterpart of each of those
-Roles as its expression, under the Leg's bound Move. A mapping recorded `none`,
-or one naming none of the Leg's Roles, gives the Leg no table, and the bind
-call's Waypoints stand.
-
-**The Waypoints.** A second `paragraph_plan_unit` call writes the Leg's
-paragraphs. The Leg in its input carries its bound Move, its table and its
-structure, and the MAP criterion says to keep that Move and name each Role's
-counterpart, by the sense of its expression in any wording, with no Role id in
-any Waypoint. `validateParagraphPlanUnit` then refuses a plan whose Move is not
-the one the table was written for, and runs `correspondenceVocabularyRefusal`
-over each paragraph's Waypoints against the Leg's table, which refuses a Role id
-outside an expression, naming the Leg, the paragraph, the Role and the Role's
-expression. Whether a Waypoint names a counterpart is a sense judgment, never a
-string match (kogaki#1811): the judge is handed the table's Roles with their
-expressions and the structure's relations as `mapping`, judges them on the
-EXPRESSED axis, and its verdict carries one `expressed` row per Role and
-relation naming the Waypoint that carries it. A row naming no Waypoint refuses
-the paragraph, naming the Role or relation and its expression, and the site
-retry runs as before.
-
-**Bounds and records.** Reading keeps the Trial's call bound,
-`MAPPER_CALLS`, and its refusal groups and reaches (kogaki#1708). Each Call
-writes its Call Record (§4.12.2) under the Leg's unit, in
-`calls/<unit>/reading/`. The job report lists
-them, and `replay` re-runs one. A refusal past the bound stops the unit, naming
-the Leg and the stage. The structure and table settled are written to the
-Mapping Record (§4.19.2) with the plan.
-
-#### 4.19.4 The ParagraphPlanPlayground (kogaki#1752, kogaki#1756, kogaki#1762, kogaki#1831)
 
 The owner asked on 2026-11-08 that every Submission's Points stay visible
 whether the Judge passed or refused them, and on 2026-11-09 that the loop be
@@ -3336,56 +2804,14 @@ other: `Leg's text`, `Structure`, `Round n`, `Binding`, `Submission`,
 `Brief Waypoints`, `Case`, `Roles`, `Relations`. The list is
 `TABLE_HEADINGS` in the sheet, and `checks/check-paragraph-plan-playground.mjs` reads it.
 
-#### 4.19.5 The Analogy Mapping (kogaki#1778)
+#### 4.19.5 The Analogy Mapping — left production (kogaki#1778, kogaki#1865)
 
-**One analogy per article (owner decision 2026-11-10).** An analogy chosen
-inside one Leg's unit is invisible to the next, so an article could liken
-its subject to one thing in its first paragraph and to another in its third.
-Before its first Leg unit the stage therefore runs one judgment,
-`analogy_mapping` (`src/paragraph-plan-workflow.json`), handed the Brief's
-`structure` and the Persona: its Roles, the relations and higher-order
-relations the structure reaches, and the apex (`attains_thesis`). It answers
-one base domain — a short `name` and a one-sentence `description` — with a
-counterpart in the base domain for every Role id and for every reached
-relation and higher-order relation, or `none` with one sentence saying why no
-base domain the reader holds fits. The systematicity criterion is that the
-base domain carries the apex's higher-order relation and not only a Leg's.
-
-**The step is a one-unit Detached Job** in the run directory's `analogy/`, on
-the shared supervisor, and `validateAnalogyMapping`
-(`src/paragraph-plan-analogy.mjs`) reads the answer back. A mapping leaving a
-Role, a reached relation or the apex without a counterpart is refused naming
-it, and the refusal is put into the next round verbatim until
-`brief.unit_rounds` is spent; a mapping still refused then stops the stage
-before any Leg is planned, naming the refusal, and writes nothing. `start`
-launches the step and `await` starts the Leg job once the mapping is
-resolved. A Brief carrying no `structure` has no system to map: its mapping
-is `none` with that reason, and no call is made. A Leg a prior run kept is
-carried only with that run's mapping, which is carried with it.
-
-**The record.** `paragraph-plan.yaml` carries the mapping under `analogy`,
-after `brief` and before the Legs: `base_domain`, `roles` (one
-`{ role, counterpart }` per Role) and `relations` (one
-`{ relation, counterpart }` per reached relation and higher-order relation),
-or `none` alone. The Brief carries nothing of it: correcting an analogy that
-reads badly is this stage's work and never rewrites the Brief.
-
-**Every example draws from it** (kogaki#1812). Every example a paragraph
-draws, an analogy or a literal similarity alike, draws from the mapping: its
-base domain, its Role counterparts and its relation counterparts. Every Leg's
-Waypoints call, fit judge and site call is handed the mapping as
-`analogy_you_must_draw_from`, whatever Move the Leg binds, and the fit judge's
-axis `ANALOGUE` refuses a paragraph naming any analogue but the base domain
-and its counterparts, naming the Waypoint and the analogue. A Role's own
-`attributes` stay what a paragraph says of the subject itself, since the
-mapping governs examples only. A mapping recorded `none` constrains nothing.
-
-**Open, and not decided here.** Whether an example is later classified as an
-analogy or a literal similarity is left open. While every example draws from
-the one mapping, no classification is needed.
-
-**Not scheduled.** A Judge over the choice of base domain is noted here and
-not scheduled.
+**LEFT PRODUCTION AT kogaki#1865.** The ParagraphPlan stage makes no analogy
+call, and the row `analogy_mapping` with its prompt file are deleted. A plan
+file carrying `analogy` is refused by name (§4.19). `src/paragraph-plan-analogy.mjs`
+stays, read by the ParagraphPlanPlayground and the Structure-Mapping
+Playground's short Trial over runs written before kogaki#1865; its check is
+`checks/check-paragraph-plan-analogy.mjs`.
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 
@@ -3488,7 +2914,7 @@ result. A criterion of correctness is derived from those readings later, and
 no score is kept until then.
 
 **The shared shapes (kogaki#1733).** A Trial's `structure.yaml` and each
-table of its `rbs.yaml` are the shapes the Mapping Record of §4.19.2 keeps.
+table of its `rbs.yaml` are the shapes the Mapping Record kept (`src/compose/mapping-record.mjs`; it left the plan at kogaki#1865).
 `validateStructure` reads a structure and `validateCorrespondenceTable` reads
 a table in both places, and a record `table.yaml` carries its `move` and
 `case` beside the table.
@@ -3982,7 +3408,7 @@ one Segment, a paragraph whose sentence count is not the Move's Segment count,
 and an `--out` outside the Playground's runs or already holding a run.
 
 **The readings.** The 22 Senses, each with its meaning and its part words, are
-`src/structure-mapping-playground/pdtb3-senses.json`. Five calls of the
+`src/paragraph-plan/pdtb3-senses.json`. Five calls of the
 Playground row `smp_rank_senses`, each handed the numbered sentences and that
 list, give per pair the three Senses that fit best, best first, each with
 `played_by` and `holds`; an answer is refused naming the place, and a reading

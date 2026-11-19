@@ -5,8 +5,8 @@
 #   (a) a claims file of a thesis and three claims, with a valid structure answer, writes structure.yaml, legs.yaml,
 #       trial.json and sheet.html, its one Call under calls/sme_read_set/1/, trial.json carrying each file's sha256; no
 #       `lpp_waypoints`, `lpp_grounded`, `lpp_legs` or `reader_path_fit_unit` Call is made, and the paragraph-plan stage
-#       runs /paragraph-plan over the five Legs, one unit each, one Move bound per Leg, and is recorded done with each
-#       Leg's paragraph passed (kogaki#1777).
+#       runs /paragraph-plan over the five Legs, one unit each, five Sense readings and one Points Call per Leg, and is
+#       recorded done with the Move each Leg's unit chose (kogaki#1777, kogaki#1865).
 #   (b) a `proposition:` line is refused naming `claim`, a second `thesis:` and a `cite:` with no `claim:` naming the line,
 #       and nothing is written.
 
@@ -67,13 +67,7 @@ const { mintStructure, validateReadSet, withReach } = await load("src/compose/st
 const { LPP_PARTS, LPP_HEADINGS } = await load("src/brief-plan-playground/sheet.mjs");
 const { briefLegs } = await load("src/compose/record.mjs");
 const root = mkdtempSync(join(tmpdir(), "leg-planning-playground-"));
-// THE MAPPER IS OFF IN THIS MEMBER: the fake answers ParagraphPlan's plan and judge calls alone, as
-// checks/check-structure-mapping-playground.sh does; checks/check-paragraph-plan.sh case (z) runs the Mapper.
 process.env.KOGAKI_JOB_HEARTBEAT_MS = "100";
-const noMapper = JSON.parse(readFileSync("kogaki.settings.json", "utf8"));
-noMapper.paragraph_plan.mapper = false;
-process.env.KOGAKI_SETTINGS = join(root, "settings-no-mapper.json");
-writeFileSync(process.env.KOGAKI_SETTINGS, JSON.stringify(noMapper));
 const trials = join(repo, "runs", "leg-planning-playground");
 mkdirSync(trials, { recursive: true });
 const outDir = mkdtempSync(join(trials, "check-"));
@@ -117,29 +111,19 @@ const dir = process.env.LPP_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const at = (row) => prompt.includes("\\\`" + row + "\\\` judgment point");
-  // THE TRIAL ASKS THE STRUCTURE (kogaki#1775), and /paragraph-plan its Analogy Mapping (kogaki#1778), plan and
-  // judge Calls (kogaki#1777): every other row is logged and exits 5.
-  const stage = at("analogy_mapping") ? "analogy" : at("sme_read_set") ? "structure" : at("lpp_waypoints") ? "waypoints" : at("lpp_grounded") ? "grounded"
-    : at("lpp_legs") ? "legs" : at("reader_path_fit_unit") ? "fit"
-    : prompt.includes('"leg_you_must_judge"') ? "judge" : prompt.includes('"leg_you_must_plan"') ? "plan" : "unknown";
+  // THE TRIAL ASKS THE STRUCTURE (kogaki#1775), and /paragraph-plan its Sense readings and Points (kogaki#1865):
+  // every other row is logged and exits 5.
+  const stage = at("paragraph_plan_name_senses") ? "senses" : at("paragraph_plan_points") ? "points" : at("sme_read_set") ? "structure"
+    : at("lpp_waypoints") ? "waypoints" : at("lpp_grounded") ? "grounded" : at("lpp_legs") ? "legs" : at("reader_path_fit_unit") ? "fit" : "unknown";
   const input = () => { const m = "----- INPUT (JSON) -----"; return JSON.parse(prompt.slice(prompt.lastIndexOf(m) + m.length)); };
-  if (stage === "analogy") {
-    appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
-    writeSync(1, JSON.stringify({ type: "result", result: JSON.stringify({ version: "1", none: "no base domain the fixture reader holds carries the system." }) }) + "\\n"); process.exit(0);
-  }
-  if (stage === "plan" || stage === "judge") {
+  if (stage === "senses" || stage === "points") {
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
     const x = input();
-    const r = stage === "judge"
-      ? { version: "1", leg_id: x.leg_you_must_judge.leg_id, verdicts: x.leg_you_must_judge.paragraphs.map((p) => ({ paragraph: p.paragraph, verdict: "fits", why: "its Waypoints carry the relation." })) }
-      : (() => {
-        const leg = x.leg_you_must_plan;
-        const m = x.paragraph_moves_you_may_bind[0];
-        const serves = (leg.claims || []).map((g) => g.strand);
-        return { version: "1", leg_id: leg.leg_id, move: m.id, rationale: "its Segments carry the Leg's relation.",
-          paragraphs: [{ paragraph: 1, materials: serves, purpose: "PURPOSE brings the reader to the relation.", depends_on: [], introduces: [], "re-activate": [],
-            rationale: "one paragraph carries the relation.", paragraph_waypoints: (m.segments.length ? m.segments : [0]).map((_, n) => ({ point: "PW-" + leg.leg_id + "-" + (n + 1) + " the step toward the relation.", cast: {} })) }] };
-      })();
+    const n = stage === "senses" ? x.sentences.length : 0;
+    const pairs = [];
+    for (let i = 1; i <= n; i++) for (let j = i + 1; j <= n; j++) pairs.push({ pair: [i, j], senses: [{ sense: "Conjunction", played_by: null }] });
+    const r = stage === "senses" ? { pairs }
+      : { points: x.segments.map((g) => ({ segment: g.segment, point: "PW-" + x.leg.leg_id + "-" + g.segment + " the step toward the relation." })) };
     writeSync(1, JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
   }
   if (stage !== "structure") { appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n"); process.exit(5); }
@@ -181,8 +165,8 @@ for (const f of ["structure.yaml", "legs.yaml", "trial.json", "sheet.html"]) ok(
 ok(!existsSync(join(a.o, "waypoints.yaml")), "(a) the Trial still writes waypoints.yaml");
 ok(existsSync(join(a.o, "calls", "sme_read_set", "1", "prompt.md")) && existsSync(join(a.o, "calls", "sme_read_set", "1", "answer.json")), "(a) no Call Record at calls/sme_read_set/1/");
 ok(JSON.stringify(existsSync(join(a.o, "calls")) ? readdirSync(join(a.o, "calls")) : []) === '["sme_read_set"]', `(a) the Trial made a Call other than sme_read_set: ${existsSync(join(a.o, "calls")) ? readdirSync(join(a.o, "calls")) : []}`);
-ok(a.seen.every((x) => ["structure", "analogy", "plan", "judge"].includes(x.stage)), `(a) the fake model was asked a row the Trial no longer asks: ${JSON.stringify([...new Set(a.seen.map((x) => x.stage))])}`);
-ok(a.seen.filter((x) => x.stage === "plan").length === 5, `(a) /paragraph-plan did not make one plan Call per Leg: ${a.seen.filter((x) => x.stage === "plan").length}`);
+ok(a.seen.every((x) => ["structure", "senses", "points"].includes(x.stage)), `(a) the fake model was asked a row the Trial no longer asks: ${JSON.stringify([...new Set(a.seen.map((x) => x.stage))])}`);
+ok(a.seen.filter((x) => x.stage === "senses").length === 25 && a.seen.filter((x) => x.stage === "points").length === 5, `(a) /paragraph-plan did not make five readings and one Points Call per Leg: ${a.seen.map((x) => x.stage)}`);
 ok(ta.claims && ta.claims.sha256 === sha(claimsFile), "(a) trial.json does not carry the claims file's sha256");
 ok(ta.library && /^[0-9a-f]{64}$/.test(ta.library.sha256 || ""), "(a) trial.json does not carry the library's sha256");
 ok(JSON.stringify(ta.stages.map((x) => x.stage)) === '["structure","legs","paragraph-plan"]', `(a) trial.json's stages are not structure, legs, paragraph-plan: ${JSON.stringify(ta.stages.map((x) => x.stage))}`);
@@ -195,8 +179,8 @@ ok(ta.sheet && ta.sheet.sha256 === sha(join(a.o, "sheet.html")), "(a) trial.json
   const pp = ta.stages.find((x) => x.stage === "paragraph-plan") || {};
   const rows = pp.paragraphs || [];
   ok(pp.state === "done" && pp.plan && existsSync(join(repo, pp.plan.path || "")), `(a) the paragraph-plan stage is not recorded done with its plan file: ${JSON.stringify(pp).slice(0, 400)}`);
-  ok(JSON.stringify(rows.map((x) => `${x.leg_id}:${x.paragraph}`)) === JSON.stringify(WANT.map(([id]) => `${id}:1`)) && rows.every((x) => typeof x.move === "string" && /^passed in Round 1$/.test(x.verdict)),
-    `(a) the stage does not record each Leg's one paragraph passed under its Move: ${JSON.stringify(rows.map((x) => [x.leg_id, x.paragraph, x.move, x.verdict]))}`);
+  ok(JSON.stringify(rows.map((x) => `${x.leg_id}:${x.paragraph}`)) === JSON.stringify(WANT.map(([id]) => `${id}:1`)) && rows.every((x) => typeof x.move === "string" && /^chosen, \d+ of \d+ compared Edge\(s\) met$/.test(x.verdict)),
+    `(a) the stage does not record the Move each Leg's unit chose: ${JSON.stringify(rows.map((x) => [x.leg_id, x.paragraph, x.move, x.verdict]))}`);
 }
 
 // (b) the claims file's refusals: nothing is written

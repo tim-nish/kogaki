@@ -23,10 +23,18 @@ import { MOVE_RECORD_EXT } from "../compose/render.mjs";
 import { retriedCall } from "./short.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR } from "./trial.mjs";
 import { renderSensesSheet } from "./senses-sheet.mjs";
+import {
+  SENSES_FILE,
+  READINGS,
+  loadSenses,
+  senseNames,
+  sensesText,
+  canonicalAnswer,
+} from "../paragraph-plan/senses.mjs";
 
-export const SENSES_FILE = "src/structure-mapping-playground/pdtb3-senses.json";
-// The number of ranked readings is fixed and has no flag (kogaki#1847).
-export const READINGS = 5;
+// The list of Senses and its names are production's (kogaki#1865), read from src/paragraph-plan/senses.mjs.
+export { SENSES_FILE, READINGS, loadSenses, senseNames, sensesText, canonicalAnswer };
+
 export const RANK_ROW = "smp_rank_senses";
 export const JOIN_ROW = "smp_join_senses";
 export const RUN_FILE = "senses-run.json";
@@ -52,47 +60,6 @@ function keysRefusal(obj, keys, at) {
   return missing ? `${at} carries no \`${missing}\`` : null;
 }
 
-// ---------------------------------------------------------------------------
-// THE LIST OF SENSES, read from pdtb3-senses.json: what a reading is handed and what the sheet shows.
-
-export function loadSenses() {
-  return JSON.parse(readFileSync(join(REPO, SENSES_FILE), "utf8")).senses;
-}
-
-// Every name a reading may answer, in the list's order: `{ name, sense, part, plays, meaning, opposite, order }`.
-export function senseNames(senses) {
-  const out = [];
-  for (const s of senses) {
-    if (!s.parts.length) out.push({ name: s.sense, sense: s.sense, part: null, meaning: s.meaning, order: out.length });
-    for (const p of s.parts)
-      out.push({
-        name: `${s.sense}.${p.part}`,
-        sense: s.sense,
-        part: p.part,
-        plays: p.plays,
-        meaning: s.meaning,
-        opposite: s.opposite && s.opposite.includes(p.part) ? s.opposite.find((x) => x !== p.part) : null,
-        order: out.length,
-      });
-  }
-  return new Map(out.map((n) => [n.name, n]));
-}
-
-// One line per Sense, as the session's readings were given the list (kogaki#1847).
-export function sensesText(senses) {
-  return senses.map((s) => {
-    const names = s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`).join(" / ") : s.sense;
-    const parts = s.parts.length ? s.parts.map((p) => `${p.part}: ${p.plays}`).join(" ") : "No part.";
-    return `${names}: ${s.meaning} ${parts}`;
-  });
-}
-
-// ONE SPELLING PER ANSWER: an opposite part played by the earlier sentence is its opposite played by the later one.
-export function canonicalAnswer({ sense, played_by: by }, pair, names) {
-  const n = names.get(sense);
-  if (n && n.opposite && by === pair[0]) return { sense: `${n.sense}.${n.opposite}`, played_by: pair[1] };
-  return { sense, played_by: by };
-}
 const answerKey = (a) => `${a.sense}|${a.played_by}`;
 
 // ---------------------------------------------------------------------------

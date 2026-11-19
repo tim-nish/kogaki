@@ -175,7 +175,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   const marker = "----- INPUT (JSON) -----";
   const input = JSON.parse(prompt.slice(prompt.lastIndexOf(marker) + marker.length));
   const row = (id) => prompt.includes("\\\`" + id + "\\\` judgment point");
-  if (row("smp_name_senses")) {
+  if (row("paragraph_plan_name_senses")) {
     const list = JSON.parse(readFileSync(process.env.SMP_NAME_ANSWERS, "utf8"));
     let n = 0; try { n = readFileSync(dir + "/seen.jsonl", "utf8").split("\\n").filter(Boolean).filter((l) => JSON.parse(l).stage === "name").length; } catch {}
     return out(list[Math.min(n, list.length - 1)], "name");
@@ -252,7 +252,7 @@ ok(
 );
 ok(rec.leg_edge_candidates === 3, `(a) the run record does not carry leg_edge_candidates: ${rec.leg_edge_candidates}`);
 ok(
-  [1, 2, 3, 4, 5].every((k) => existsSync(a.at(`reading-${k}/calls/smp_name_senses/1/prompt.md`))) &&
+  [1, 2, 3, 4, 5].every((k) => existsSync(a.at(`reading-${k}/calls/paragraph_plan_name_senses/1/prompt.md`))) &&
     existsSync(a.at("join/calls/smp_join_senses/1/prompt.md")),
   "(a) a Call Record is missing",
 );
@@ -263,7 +263,7 @@ ok(
     firstPrompt.includes(`"sentence": "${SENTENCES[1]}"`) &&
     firstPrompt.includes("Concession.Denier: a causal relation expected") &&
     !firstPrompt.includes('"kind"'),
-  "(a) the reading call is not the smp_name_senses row handed the numbered sentences alone and the list of Senses",
+  "(a) the reading call is not the paragraph_plan_name_senses row handed the numbered sentences alone and the list of Senses",
 );
 const joinInput = a.seen[5] ? a.seen[5].prompt : "";
 ok(

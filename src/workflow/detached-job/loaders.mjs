@@ -83,7 +83,8 @@ export async function loadReaderPathFitJudge(declared) {
 
 // THE DECLARED MAPPER (kogaki#1734), on the validator's own terms: the units file names the module, the
 // class it exports and its inputs, and this file stays ignorant of structures and tables. The class answers
-// `begin`, `bound`, `answered` and `grounded` with an act: `{ call }`, `{ compose }`, `{ proceed }` or `{ stopped }`.
+// `begin`, `bound`, `answered` and `grounded` with an act: `{ call }`, `{ compose }`, `{ proceed }`, `{ done }`
+// (the unit's record, written by the class with no compose call, kogaki#1865) or `{ stopped }`.
 export async function loadMapper(declared, ctx) {
   if (declared === undefined || declared === null) return null;
   if (typeof declared !== "object" || !declared.module || !declared.export) {
@@ -95,4 +96,4 @@ export async function loadMapper(declared, ctx) {
     throw new Error(`${declared.module} exports no class named ${JSON.stringify(declared.export)}.`);
   return new Mapper(declared.inputs || {}, ctx);
 }
-export const MAPPER_PHASES = ["reading", "grounding"];
+export const MAPPER_PHASES = ["reading", "grounding", "points"];

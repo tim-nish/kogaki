@@ -100,22 +100,6 @@ export async function programTexts(imp) {
   });
   out.set("record-skeleton", withoutSchemaText(X.extractionUnitPrompt(row, input), row));
 
-  const { ParagraphPlanMapper } = await imp("src/paragraph-plan-mapper.mjs");
-  const proposition = (leg) => ParagraphPlanMapper.prototype.proposition.call(null, leg);
-  out.set(
-    "proposition",
-    proposition({
-      text: "The copy is the installer's.",
-      claims: [{ strand: "L1", proposition: "the installer copies the kit." }],
-      roles: [
-        { name: "installer", context: "the program that writes the copy" },
-        { id: "copy", context: "the files in the tree" },
-      ],
-      the_reader_has_been_told: [{ leg_id: "s1", text: "The kit ships in one tree." }],
-    }),
-  );
-  out.set("proposition-text-alone", proposition({ text: "The copy is the installer's.", claims: [] }));
-
   const { paragraphPlanJudgeVerdict } = await imp("src/paragraph-plan/axes.mjs");
   const judged = paragraphPlanJudgeVerdict(
     {

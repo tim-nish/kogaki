@@ -295,9 +295,12 @@ export async function cmdJobSupervise(args) {
       spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     unitsRunning = new Map();
     // THE MAPPER'S ACT, CARRIED OUT: a reading call spawned, the plan call spawned over the
-    // input the Mapper composed, or the unit ended naming the Leg, the Brief Waypoint and the stage.
+    // input the Mapper composed, the unit ended `done` on the record the Mapper wrote (kogaki#1865),
+    // or the unit ended naming the Leg, the Brief Waypoint and the stage.
     const mapperAct = (u, act, flag, bytes = 0, stdoutPath = readerPathUnitStdoutPath(dir, u.id)) => {
       const st = S.get(u.id);
+      if (act.done)
+        return { row: endUnit(u, { status: "done", candidate: act.done }, bytes, stdoutPath), progressed: false };
       if (act.stopped) {
         st.refusals.push({ refusal: act.stopped });
         return {

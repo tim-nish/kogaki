@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "governing_text": "ParagraphPlan refines the document plan down to paragraphs: after the Brief, the Composer binds one Move to each Leg and generates the Leg's paragraphs and their Waypoints through the same kind of feedback loop as the Brief's, and hands them to the Packet through a planning record, never directly. Move information may be used up to Waypoint generation and nowhere after it. It is not Reiter and Dale's microplanning: word choice, reference and sentence shape stay inside the one Writer call. [implemented-against: specs/spec-draft-pipeline/SPEC.md \"The ParagraphPlan stage\", copied 2026-11-11]",
-  "licensed_by": "kogaki#1375 -- owner decision 2026-10-14: Waypoint generation is its own stage after the Brief, named ParagraphPlan, with its own file and command; the ParagraphPlan file names the Brief it was made from and the Brief names nothing downstream; retries and limits follow the Brief's rules, `brief.call_limit_s` per call and `brief.unit_rounds` per unit, with no limit on the whole job. The Leg is the unit, with at most `brief.paragraphs_per_leg` paragraphs per Leg (kogaki#1777, owner decision 2026-11-10).",
+  "governing_text": "ParagraphPlan refines the document plan down to paragraphs: after the Brief, for each Leg it reads the Leg's Senses, chooses by code the Move whose Edges the Leg meets best and fits it to the Leg, and makes one call that writes Points, and it hands the Leg's Segments to the Packet through a planning record, never directly. The plan is tied to the Move by nothing after it is written. Points are debugging information and reach no Writer. It is not Reiter and Dale's microplanning: word choice, reference and sentence shape stay inside the one Writer call. [implemented-against: specs/spec-draft-pipeline/SPEC.md \"The ParagraphPlan stage\", copied 2026-11-19]",
+  "licensed_by": "kogaki#1375 -- owner decision 2026-10-14: Waypoint generation is its own stage after the Brief, named ParagraphPlan, with its own file and command; the ParagraphPlan file names the Brief it was made from and the Brief names nothing downstream; limits follow the Brief's rules, `brief.call_limit_s` per call, with no limit on the whole job. kogaki#1865 -- owner decision 2026-11-19: ParagraphPlan selects the Move with the highest degree of fit and fits it to the Leg, is tied to that Move in no way after, and ends once the Plan is made and Points are generated once; no plan call, judge call, site call, analogy call or Mapper runs.",
   "criteria": {
     "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's judgment point, in its prompt file, is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict, each shared block one sentence; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. The judge row's criteria are not written here: they are the axes of src/paragraph-plan-axes.json, written as lines of its prompt file in the registry's order (kogaki#1533, kogaki#1862). `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names, `words_max` per criterion and `point_words_max` over the whole rendered judgment point, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
     "paragraph_plan_unit": [
@@ -37,31 +37,9 @@
       "setting": "brief.unit_rounds"
     },
     "unit_isolation": true,
-    "mapper": {
-      "setting": "paragraph_plan.mapper"
-    },
     "stall_s": 90,
     "heartbeat_ms": 10000,
-    "note": "ONE JOB UNIT PER LEG, in Reader Path order, and the two bounds are the Brief's own settings (kogaki#1375): a call running past `brief.call_limit_s` is stopped and spends one round, a refused answer spends one, an unreadable answer is asked again without spending one, and a unit that has spent `brief.unit_rounds` stops naming its Leg and the paragraph its last refusal named. There is no limit on the whole job. Each round makes two calls: `paragraph_plan_unit` binds one paragraph Move to the Leg and writes its paragraphs, at most `brief.paragraphs_per_leg` (kogaki#1777), and `paragraph_plan_judge_unit` judges them against the bound Move. A refusal of the whole Leg is put back into the next round's prompt verbatim; a refusal naming a paragraph is retried at that paragraph alone (`site_retry`, kogaki#1642). THE LEGS ARE INDEPENDENT (kogaki#1641, owner decision 2026-10-31): `unit_isolation` tells the shared supervisor that one Leg's death ends that Leg alone, its siblings finishing on their own merits; a finished Leg is kept in the run directory the tick its judge passes it; and a later run on the same Brief carries every kept Leg and plans only the Legs left unfinished.",
-    "site_retry": {
-      "module": "src/paragraph-plan.mjs",
-      "site_prompt_export": "paragraphPlanSitePrompt",
-      "site_validator_export": "validateParagraphPlanSite",
-      "suffix_prompt_export": "paragraphPlanSuffixPrompt",
-      "suffix_validator_export": "validateParagraphPlanSuffix",
-      "mark_export": "paragraphPlanForcedMark",
-      "repair_export": "paragraphPlanSiteRepair",
-      "leg_revisions": {
-        "setting": "paragraph_plan.leg_revisions"
-      },
-      "note": "THE RETRY IS SCOPED TO THE PARAGRAPH THE REFUSAL NAMED (kogaki#1642, owner decision 2026-10-31). A judge's `does-not-fit` or a validator refusal naming one paragraph keeps the round's record as the Leg's standing record and asks `paragraph_plan_site_unit` for that one paragraph; the paragraphs the judge passed are not composed again. The Leg's Move is held at every site (kogaki#1777); a judge refusal on the binding axis `TAKEN` refuses the Leg's Move, and the whole Leg is composed again by `paragraph_plan_unit`, which may bind another Move. An answer repeating a refused paragraph at the site is refused before the judge. The judge is then asked for the changed paragraphs and the join after them, its other verdicts carried. `brief.unit_rounds` is read per site, the Leg call's first round counting at every site, and `leg_revisions` bounds the site retries of one Leg. The supervisor runs the loop (src/workflow/site-retry.mjs) when a job declares it; the Brief's jobs declare none."
-    }
-  },
-  "analogy_mapping": {
-    "id": "analogy_mapping",
-    "note": "THE OPENING STEP (kogaki#1778, owner decision 2026-11-10): one call before the first Leg unit, over the Brief's `structure` and the Persona, run as a one-unit Detached Job in the run directory's `analogy/`; `validateAnalogyMapping` (src/paragraph-plan-analogy.mjs) reads the answer back, a refusal is put into the next round verbatim until `brief.unit_rounds` is spent, and the mapping is written at the top of `paragraph-plan.yaml` under `analogy`. Every Leg bound to an analogy Move (one whose `takes` or `leaves` carries a `carry` entry) is handed it; a Leg bound to no analogy Move reads nothing of it.",
-    "governing": "SPEC-draft-pipeline, the Analogy Mapping; kogaki#1778",
-    "prompt_file": "paragraph-plan/analogy-mapping"
+    "note": "ONE JOB UNIT PER LEG, in Reader Path order (kogaki#1375, kogaki#1865). A unit takes three steps and ends: five calls of `paragraph_plan_name_senses` read the Leg's Senses, an answer refused being asked again once and a reading refused twice stopping the Leg; the Move is chosen and fitted by code with no call; and one call of `paragraph_plan_points` writes Points, a refused answer leaving the Leg without `points` and never asked again. A call running past `brief.call_limit_s` is stopped and counts as a refused answer. There is no limit on the whole job. THE LEGS ARE INDEPENDENT (kogaki#1641, owner decision 2026-10-31): `unit_isolation` tells the shared supervisor that one Leg's death ends that Leg alone, its siblings finishing on their own merits; a finished Leg is kept in the run directory; and a later run on the same Brief carries every kept Leg and plans only the Legs left unfinished."
   },
   "paragraph_plan_unit": {
     "id": "paragraph_plan_unit",
@@ -100,26 +78,10 @@
       }
     },
     "binds_unread": {
-      "move": [
-        "id",
-        "figure",
-        "continues_from",
-        "description",
-        "evidence",
-        "before",
-        "after",
-        "after_segment"
-      ],
-      "leg": [
-        "reaches_target",
-        "opens_section",
-        "relation",
-        "waypoints",
-        "waypoints.point",
-        "waypoints.case"
-      ]
+      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
+      "leg": ["reaches_target", "opens_section", "relation", "waypoints", "waypoints.point", "waypoints.case"]
     },
-    "note": "The first call of every round (kogaki#1375). It carries the second-pass judgment kogaki#1359 put inside the compose job, moved out of it: the Move binding is judged here, after the Brief is adopted, and its result never reaches the Brief. The Leg is the unit (kogaki#1777): one Move per Leg, and its paragraphs. `src/paragraph-plan.mjs` renders this row through the shared `judgePrompt` renderer up to the input marker and appends one Leg's own input below it; `validateParagraphPlanUnit` reads the answer.",
+    "note": "Read by the Structure-Mapping Playground's short Trial alone since kogaki#1865: `/paragraph-plan` makes no plan call. The Playground renders it through the shared `judgePrompt` renderer and `validateParagraphPlanUnit` reads the answer.",
     "prompt_file": "paragraph-plan/plan-leg",
     "governing": "SPEC-draft-pipeline, the ParagraphPlan stage and the Move boundary; kogaki#1375"
   },
@@ -146,16 +108,7 @@
       }
     },
     "binds_unread": {
-      "move": [
-        "id",
-        "figure",
-        "continues_from",
-        "description",
-        "evidence",
-        "before",
-        "after",
-        "after_segment"
-      ],
+      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
       "leg": [
         "reaches_target",
         "claims",
@@ -181,14 +134,25 @@
         "paragraphs.paragraph_waypoints"
       ]
     },
-    "note": "The second call of every round (kogaki#1375), run by the supervisor's judge phase once `validateParagraphPlanUnit` has passed the first call's record. `src/paragraph-plan.mjs` renders this row through `judgePrompt` up to the input marker; `paragraphPlanJudgePrompt` appends the Leg's input and `paragraphPlanJudgeVerdict` reads the answer. A `does-not-fit` on any paragraph is a refusal of the round, and its sentence is put into the next round's first call.",
+    "note": "Read by the Move-Extraction Playground's judge bench alone since kogaki#1865: `/paragraph-plan` makes no judge call. `src/paragraph-plan.mjs` renders this row through `judgePrompt` up to the input marker; `paragraphPlanJudgePrompt` appends the Leg's input and `paragraphPlanJudgeVerdict` reads the answer.",
     "governing": "SPEC-draft-pipeline, the ParagraphPlan stage; kogaki#1375",
     "prompt_file": "paragraph-plan/paragraph-plan-judge-unit"
   },
-  "paragraph_plan_site_unit": {
-    "id": "paragraph_plan_site_unit",
-    "note": "The site call (kogaki#1642): asked for ONE paragraph after a refusal named it, by the supervisor's site loop, never for the whole Leg. `paragraphPlanSitePrompt` renders this row up to the input marker and appends the site's input; `validateParagraphPlanSite` reads the answer.",
-    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage, the site retry; kogaki#1642",
-    "prompt_file": "paragraph-plan/paragraph-plan-site-unit"
+  "paragraph_plan_name_senses": {
+    "id": "paragraph_plan_name_senses",
+    "note": "A Leg's Senses (kogaki#1849, kogaki#1865): one of the five readings of a Leg's sentences, its Arguments and its CentralClaim, made by `/paragraph-plan` for every Leg and by the Structure-Mapping Playground's `leg-senses.mjs`. Validated by `nameRefusal` of src/paragraph-plan/senses.mjs. An answer refused is asked again once; a reading refused twice stops the Leg. A changed wording is a second row and a second run, never an edit of this row.",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, the ParagraphPlan stage and A Leg's Senses; kogaki#1849, kogaki#1865",
+    "refusal_reach": {
+      "shape": "part",
+      "pairs": "part",
+      "senses": "part"
+    },
+    "prompt_file": "paragraph-plan/name-senses"
+  },
+  "paragraph_plan_points": {
+    "id": "paragraph_plan_points",
+    "note": "The Points call (kogaki#1858, kogaki#1865): one call per Leg after the Move is chosen and fitted, handed the Leg's Arguments and CentralClaim with their sentences and, per Segment, what is bound to it and the Sense of its first Edge that has one (`pointsInput`). `tablePointsRefusal` reads the answer; a refused answer is not asked again, and the Leg's plan then carries no `points`. Points are debugging information and reach no Writer. The Structure-Mapping Playground's short Trial makes its own Points call by this row.",
+    "governing": "specs/spec-draft-pipeline/SPEC.md, the ParagraphPlan stage; kogaki#1858, kogaki#1865",
+    "prompt_file": "structure-mapping-playground/plan-leg-under-a-move-table"
   }
 }
