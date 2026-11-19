@@ -1,0 +1,29 @@
+{
+  "brief": {
+    "leg": "L4",
+    "path": "theses/what-automatic-rule-registered-against/brief.yaml",
+    "sha256": "583fb3ed581bd98d369f1229d3e9f02ba9fdf449c59629b1d3e32fd1f703937a"
+  },
+  "sentences": [
+    {
+      "number": 1,
+      "id": "c_2",
+      "kind": "Argument",
+      "sentence": "A guard enforces the rules on a request only where that request is written in the one action_kind its pattern recognises."
+    },
+    {
+      "number": 2,
+      "id": "c_3",
+      "kind": "Argument",
+      "sentence": "A guard does nothing at all about a request written in a shape that does not match its pattern, which is why that request is not its business."
+    },
+    {
+      "number": 3,
+      "id": "h_1",
+      "kind": "CentralClaim",
+      "sentence": "The same pattern that makes a guard enforce the rules on a request of its one recognised action_kind is what makes it do nothing at all about every request written otherwise."
+    }
+  ],
+  "leg_edge_candidates": 3,
+  "state": "finished"
+}

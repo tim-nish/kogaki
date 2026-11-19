@@ -676,6 +676,97 @@ ok(
   `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim, the table's fields and the Points: ${tRows.join(" | ")}`,
 );
 
+// (i) under `--leg-senses` (kogaki#1875): a finished reading of the same Leg, recorded in trial.json and shown directly after
+// the Segments, one row per pair; with no reading the section holds the one sentence.
+const { NO_READING } = await imp("src/structure-mapping-playground/leg-senses-section.mjs");
+const { relFromRepo } = await imp("src/workflow/run-record.mjs");
+const { legSentences, pairsOf } = await imp("src/paragraph-plan/senses.mjs");
+const tLegs = (html) => (html.match(/<section class="card" id="leg-senses">([\s\S]*?)<\/section>/) || [])[1] || "";
+ok(
+  tLegs(tSheet).includes(NO_READING) && trec.leg_senses === null,
+  "(i) a run with no reading does not show the one sentence",
+);
+const readingDir = join(root, "reading");
+mkdirSync(readingDir);
+const tSentences = legSentences(STRUCTURE, "h_1");
+writeFileSync(
+  join(readingDir, "leg-senses-run.json"),
+  JSON.stringify({ brief: { leg: "s2", path: relFromRepo(tableBrief) }, sentences: tSentences, state: "finished" }),
+);
+writeFileSync(
+  join(readingDir, "counts.json"),
+  JSON.stringify({
+    pairs: pairsOf(tSentences.length).map((pair) => ({
+      pair,
+      answers: [{ sense: "Contrast", played_by: null, named: 4, place_sum: 4, candidate: true }],
+    })),
+  }),
+);
+const tl = run("table-leg-senses", [...TABLE_ROUTE, "--move-table", TABLE_FIXTURE, "--leg-senses", readingDir], {
+  SMP_TABLE: JSON.stringify(TABLE_H1),
+});
+const tlSheet = existsSync(join(tl.o, "sheet.html")) ? readFileSync(join(tl.o, "sheet.html"), "utf8") : "";
+const tlIds = [...tlSheet.matchAll(/<section class="card" id="([^"]+)"/g)].map((m) => m[1]);
+const tlRows = tLegs(tlSheet).split("<tr>").slice(2);
+ok(
+  tl.res.status === 0 &&
+    (tl.rec || {}).leg_senses === relFromRepo(readingDir) &&
+    tlIds[tlIds.indexOf("segments") + 1] === "leg-senses" &&
+    tlRows.length === 3 &&
+    tlRows[0].includes("named 4 of 5") &&
+    tlRows[0].includes("Segment 2: Concession → Segment 1 · ") &&
+    tlRows[0].includes("not among the candidates"),
+  `(i) a run under --leg-senses does not record the folder and show one row per pair after the Segments: ${tl.said} ${tLegs(tlSheet)}`,
+);
+
+// (i) the saved reading of 2026-11-16 (kogaki#1875): the two Arguments' row shows Contrast named 5 of 5 and Conjunction named
+// 2 of 5, and Segment 3's Edge Conjunction among the candidates; a reading of another Leg is refused naming the flag and
+// the folder before any call, with nothing written.
+{
+  const L = await imp("src/structure-mapping-playground/leg-senses-section.mjs");
+  const READING = "checks/fixtures/leg-senses/trial-reading";
+  const BRIEF = "theses/what-automatic-rule-registered-against/brief.yaml";
+  const MOVE_ID = "build_the_familiar_side_of_a_contrast_up_to_its_principle";
+  const xTable = parseYaml(readFileSync(join(READING, "move-table.yaml"), "utf8"), "move-table");
+  const x = L.readLegSensesFolder(READING, resolve(repo, BRIEF), "L4");
+  ok(x.reading && x.reading.pairs.length === 3, `(i) the saved reading was not read: ${JSON.stringify(x.error)}`);
+  const pairing = { binds: x.reading.sentences.map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })) };
+  const edges = x.reading ? L.trialEdges(L.edgeSegments(null, xTable), x.reading, pairing) : [];
+  const args = (L.legSensesSection(x.reading, edges).split("<tr>")[2] || "").split("</tr>")[0];
+  ok(
+    args.includes("Argument 1, c_2") &&
+      args.includes("Argument 2, c_3") &&
+      args.includes("<b>Contrast</b>") &&
+      args.includes("named 5 of 5") &&
+      args.includes("<b>Conjunction</b>") &&
+      args.includes("named 2 of 5") &&
+      args.includes("Segment 3: Conjunction → Segment 2 · among the candidates, named 2 of 5"),
+    `(i) the two Arguments' row does not show Contrast 5 of 5, Conjunction 2 of 5 and Segment 3's Edge among the candidates: ${args}`,
+  );
+  const xr = run("other-leg", ["--brief", BRIEF, "--leg", "L1", "--move", MOVE_ID, "--leg-senses", READING]);
+  ok(
+    xr.res.status === 1 &&
+      xr.said.includes(`\`--leg-senses ${READING}\``) &&
+      xr.said.includes("Leg L4") &&
+      xr.said.includes("Nothing was started") &&
+      !existsSync(xr.o) &&
+      !xr.seen.length,
+    `(i) a reading of another Leg was not refused before any call, naming the flag and the folder: ${xr.said}`,
+  );
+  const alone = run("leg-senses-alone", ["--leg-senses", READING]);
+  ok(
+    alone.res.status === 1 &&
+      alone.said.includes("is a flag of a Trial that takes its Leg from a Brief") &&
+      !existsSync(alone.o),
+    `(i) --leg-senses without --brief, --leg and --move was not refused: ${alone.said}`,
+  );
+  const unfinished = run("leg-senses-unfinished", [...TABLE_ROUTE, "--leg-senses", "checks/fixtures/leg-senses"]);
+  ok(
+    unfinished.res.status === 1 && unfinished.said.includes("whose `state` is `finished`") && !existsSync(unfinished.o),
+    `(i) a folder holding no finished reading was not refused: ${unfinished.said}`,
+  );
+}
+
 // (j) the table refused before anything is started, by name, nothing written
 const fixtureTable = parseYaml(readFileSync(TABLE_FIXTURE, "utf8"), TABLE_FIXTURE);
 const tableFile = (name, f) => {
