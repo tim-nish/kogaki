@@ -2,7 +2,7 @@
 # check-brief-reader-path-job — the Detached Job that replaced the reader-path
 # step's synchronous judge call (kogaki#1193): the structural unit
 # classification (b), the job-level reduction (c), (d1)-(d11) as a real -- (d11) over the
-# compose unit's Waypoint validator, a fixture specimen since kogaki#1775 --
+# fixture record unit's validator, checks/fixtures/brief-reader-path-job/record-unit.mjs (kogaki#1884) --
 # `job-supervise` child records it against a FAKE judge, a refused unit's
 # Call Records (d12, kogaki#1717), the six terminal states (a), and the
 # Stop arm's own bound (i).
@@ -315,25 +315,15 @@ const fails = [];
 
 // (d11) kogaki#1240: A DECLARED VALIDATOR REACHES UNIT CLASSIFICATION, loaded exactly as
 // `job-supervise` loads it (through its `module`/`export`/`inputs` declaration). The
-// validator is the fixture specimen of the Waypoint validator the Brief retired (kogaki#1775);
-// what is held is the supervisor's loading and classification, which `review_path` and
-// /paragraph-plan still run. A record whose second Waypoint carries no `carries` is refused on
-// the VALIDATOR'S text, naming `carries`, and gets the one re-ask (kogaki#1203) and
-// refused-twice-is-terminal (kogaki#1204) treatment a parse failure does.
+// validator is the fixture record unit's (checks/fixtures/brief-reader-path-job/record-unit.mjs,
+// kogaki#1884); what is held is the supervisor's loading and classification. A record whose
+// second row carries no `roles` is refused on the VALIDATOR'S text, naming `roles`, and gets the
+// one re-ask (kogaki#1203) and refused-twice-is-terminal (kogaki#1204) treatment a parse failure does.
 {
-  const structure = {
-    roles: [{ id: "rules", context: "A set of checks that runs on its own.", attributes: [], claims: ["c1", "c2"] },
-      { id: "walk", context: "The files a tool visits.", attributes: [], claims: ["c1", "c2"] }],
-    relations: [{ id: "p1", between: ["rules", "walk"], holds: "{rules} applies only to what {walk} visits.", from: "c1" },
-      { id: "p2", between: ["walk", "rules"], holds: "{walk} is all {rules} ever reads.", from: "c2" }],
-    higher_order: [{ id: "h1", relates: ["p1", "p2"], holds: "Because {rules} reads only {walk}, nothing else is checked.", from: [] }],
-    attains_thesis: "h1",
-  };
-  const goodRecord = { waypoints: [{ point: "The rules apply only to the files the walk visits.", carries: ["p1"] },
-    { point: "The walk is all the rules read, so nothing else is checked.", carries: ["p2", "h1"] }] };
-  const missingCarriesRecord = { waypoints: [goodRecord.waypoints[0], { point: goodRecord.waypoints[1].point }] };
+  const goodRecord = { rows: [{ relation: "p1", roles: ["rules", "walk"] }, { relation: "p2", roles: ["walk", "rules"] }] };
+  const missingRolesRecord = { rows: [goodRecord.rows[0], { relation: "p2" }] };
 
-  const legValidator = { module: "checks/fixtures/brief-reader-path-job/waypoint-unit.mjs", export: "validateFixtureWaypoints", inputs: { structure } };
+  const legValidator = { module: "checks/fixtures/brief-reader-path-job/record-unit.mjs", export: "validateFixtureRecord", inputs: {} };
 
   const fakeJudgeLeg = join(scratch, "fake-judge-leg.mjs");
   writeFileSync(fakeJudgeLeg, `#!/usr/bin/env node
@@ -349,24 +339,24 @@ process.stdin.on("end", () => {
     process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify(candidate) }) + "\\n");
     process.exit(0);
   };
-  if (prompt.startsWith("ONCE_MISSING")) { write(retried ? ${JSON.stringify(goodRecord)} : ${JSON.stringify(missingCarriesRecord)}); return; }
-  write(${JSON.stringify(missingCarriesRecord)});
+  if (prompt.startsWith("ONCE_MISSING")) { write(retried ? ${JSON.stringify(goodRecord)} : ${JSON.stringify(missingRolesRecord)}); return; }
+  write(${JSON.stringify(missingRolesRecord)});
 });
 `);
   chmodSync(fakeJudgeLeg, 0o755);
 
   function superviseLegSync(dir, unitId, prompt) {
     const unitsPath = join(dir, "units.json");
-    writeFileSync(unitsPath, JSON.stringify({ units: [{ id: unitId, prompt }], validator: legValidator, record_array: "waypoints" }, null, 2));
+    writeFileSync(unitsPath, JSON.stringify({ units: [{ id: unitId, prompt }], validator: legValidator, record_array: "rows" }, null, 2));
     const args = ["src/workflow/job-supervise.mjs", "--run", dir, "--units", unitsPath,
       "--command", fakeJudgeLeg, "--model", "m", "--output-format", "json",
       "--call-limit-s", "100", "--unit-rounds", "2", "--stall-s", "100", "--heartbeat-ms", "250"];
     return spawnSync(process.execPath, args, { cwd: root, timeout: 15000, encoding: "utf8" });
   }
 
-  // (d11a) refused once on the Waypoint shape, repaired on the retried prompt --
+  // (d11a) refused once on the row shape, repaired on the retried prompt --
   // the job ends `done`, and the unit's own row still names the Round
-  // count and the FIRST refusal's text, naming `carries`.
+  // count and the FIRST refusal's text, naming `roles`.
   {
     const dir = mkNewRun();
     superviseLegSync(dir, "c1", "ONCE_MISSING");
@@ -375,8 +365,8 @@ process.stdin.on("end", () => {
     if (!rec || rec.state !== "done" || rec.failure) {
       fails.push(`(d11a) a unit refused once on the Leg shape and repaired on retry did not end the job \`done\`: ${JSON.stringify(rec)}`);
     }
-    if (!row || row.rounds !== 2 || !row.first_refusal || !row.first_refusal.includes("`carries`")) {
-      fails.push(`(d11a) the repaired unit's row does not carry two rounds and the first refusal naming \`carries\`: ${JSON.stringify(row)}`);
+    if (!row || row.rounds !== 2 || !row.first_refusal || !row.first_refusal.includes("`roles`")) {
+      fails.push(`(d11a) the repaired unit's row does not carry two rounds and the first refusal naming \`roles\`: ${JSON.stringify(row)}`);
     }
   }
 
@@ -389,8 +379,8 @@ process.stdin.on("end", () => {
     superviseLegSync(dir, "c1", "ALWAYS_MISSING");
     const rec = readRecord(dir);
     if (!rec || rec.state !== "refused" || !rec.failure || rec.failure.unit !== "c1"
-      || !rec.failure.stderr_tail || !rec.failure.stderr_tail.includes("`carries`")) {
-      fails.push(`(d11b) a unit refused twice on the Waypoint shape did not end the job \`refused\`, naming the unit and the \`carries\` refusal: ${JSON.stringify(rec)}`);
+      || !rec.failure.stderr_tail || !rec.failure.stderr_tail.includes("`roles`")) {
+      fails.push(`(d11b) a unit refused twice on the row shape did not end the job \`refused\`, naming the unit and the \`roles\` refusal: ${JSON.stringify(rec)}`);
     }
   }
 }

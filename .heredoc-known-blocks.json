@@ -20,7 +20,6 @@
   {"file": "checks/check-structure-mapping-playground-short.sh", "interpreter": "node", "lines": 827},
   {"file": "checks/check-structure-mapping-playground.sh", "interpreter": "node", "lines": 288},
   {"file": "checks/check-move-library.sh", "interpreter": "node", "lines": 230},
-  {"file": "checks/check-paragraph-plan-axes.sh", "interpreter": "node", "lines": 223},
   {"file": "checks/check-move-extraction-playground-extract.sh", "interpreter": "node", "lines": 871},
   {"file": "checks/check-move-extraction-playground-leg-brief.sh", "interpreter": "node", "lines": 372},
   {"file": "checks/check-move-extraction-playground-leg-run.sh", "interpreter": "node", "lines": 1007},

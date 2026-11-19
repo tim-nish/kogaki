@@ -1,26 +1,7 @@
 {
   "version": 1,
   "governing_text": "ParagraphPlan refines the document plan down to paragraphs: after the Brief, for each Leg it reads the Leg's Senses, and chooses by code the Move whose Edges the Leg meets best and fits it to the Leg, and it hands the Leg's Segments to the Packet through a planning record, never directly. The plan file names no Move. It is not Reiter and Dale's microplanning: word choice, reference and sentence shape stay inside the one Writer call. [implemented-against: specs/spec-draft-pipeline/SPEC.md \"The ParagraphPlan stage\", copied 2026-11-19]",
-  "licensed_by": "kogaki#1375 -- owner decision 2026-10-14: Waypoint generation is its own stage after the Brief, named ParagraphPlan, with its own file and command; the ParagraphPlan file names the Brief it was made from and the Brief names nothing downstream; limits follow the Brief's rules, `brief.call_limit_s` per call, with no limit on the whole job. kogaki#1865 -- owner decision 2026-11-19: ParagraphPlan selects the Move with the highest degree of fit and fits it to the Leg, is tied to that Move in no way after, and ends once the Plan is made and Points are generated once; no plan call, judge call, site call, analogy call or Mapper runs.",
-  "criteria": {
-    "note": "THE ROWS ARE NAMED CRITERIA UNDER A BOUND (kogaki#1511, owner decision 2026-10-22). Each row's judgment point, in its prompt file, is one lead line, then one line per criterion or step as `- <NAME>: <one sentence>`, then the shared text and the verdict, each shared block one sentence; a criterion carries no example, no run date and no Issue number, and a pointer rides beside it as its own line. The judge row's criteria are not written here: they are the axes of src/paragraph-plan-axes.json, written as lines of its prompt file in the registry's order (kogaki#1533, kogaki#1862). `criteriaFailures` in src/paragraph-plan.mjs reads the rendered rows against the names, `words_max` per criterion and `point_words_max` over the whole rendered judgment point, `start` refuses a row that fails, and checks/check-paragraph-plan.sh case (s) asserts the same. A change to either row names the criterion it changes and shows its text after the change, in its Issue.",
-    "paragraph_plan_unit": [
-      "BIND",
-      "PARAGRAPHS",
-      "MAP",
-      "DIVIDE",
-      "EXPLAIN",
-      "CONSISTENT",
-      "NO NEW FACT",
-      "ORDER",
-      "FORM",
-      "JOIN",
-      "CAST",
-      "LEAVE"
-    ],
-    "words_max": 75,
-    "point_words_max": 860
-  },
+  "licensed_by": "kogaki#1375 -- owner decision 2026-10-14: the planning stage after the Brief is its own stage, named ParagraphPlan, with its own file and command; the ParagraphPlan file names the Brief it was made from and the Brief names nothing downstream; limits follow the Brief's rules, `brief.call_limit_s` per call, with no limit on the whole job. kogaki#1865 -- owner decision 2026-11-19: ParagraphPlan selects the Move with the highest degree of fit and fits it to the Leg, is tied to that Move in no way after, and ends once the Plan is made and Points are generated once; no plan call, judge call, site call, analogy call or Mapper runs.",
   "judge": {
     "command": "claude",
     "model": {
@@ -40,103 +21,6 @@
     "stall_s": 90,
     "heartbeat_ms": 10000,
     "note": "ONE JOB UNIT PER LEG, in Reader Path order (kogaki#1375, kogaki#1865). A unit takes two steps and ends (kogaki#1876): five calls of `paragraph_plan_name_senses` read the Leg's Senses, an answer refused being asked again once and a reading refused twice stopping the Leg; and the Move is chosen and fitted by code with no call. A call running past `brief.call_limit_s` is stopped and counts as a refused answer. There is no limit on the whole job. THE LEGS ARE INDEPENDENT (kogaki#1641, owner decision 2026-10-31): `unit_isolation` tells the shared supervisor that one Leg's death ends that Leg alone, its siblings finishing on their own merits; a finished Leg is kept in the run directory; and a later run on the same Brief carries every kept Leg and plans only the Legs left unfinished."
-  },
-  "paragraph_plan_unit": {
-    "id": "paragraph_plan_unit",
-    "binds": {
-      "move": {
-        "takes": "structural",
-        "leaves": "structural",
-        "breaks": "structural",
-        "segments": "structural",
-        "segments.operation": "operation",
-        "segments.relation": "structural",
-        "segments.manner": "excluded"
-      },
-      "leg": {
-        "leg_id": "copied",
-        "text": "content",
-        "claims": "structural"
-      },
-      "paragraph_plan": {
-        "version": "copied",
-        "leg_id": "copied",
-        "move": "copied",
-        "rationale": "content",
-        "paragraphs": "content",
-        "paragraphs.paragraph": "copied",
-        "paragraphs.materials": "copied",
-        "paragraphs.purpose": "content",
-        "paragraphs.depends_on": "content",
-        "paragraphs.rationale": "content",
-        "paragraphs.re-activate": "content",
-        "paragraphs.journeys": "copied",
-        "paragraphs.join": "content",
-        "paragraphs.paragraph_waypoints": "content",
-        "paragraph_waypoints.point": "content",
-        "paragraph_waypoints.cast": "content"
-      }
-    },
-    "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
-      "leg": ["reaches_target", "opens_section", "relation", "waypoints", "waypoints.point", "waypoints.case"]
-    },
-    "note": "Read by the Structure-Mapping Playground's short Trial alone since kogaki#1865: `/paragraph-plan` makes no plan call. The Playground renders it through the shared `judgePrompt` renderer and `validateParagraphPlanUnit` reads the answer.",
-    "prompt_file": "paragraph-plan/plan-leg",
-    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage and the Move boundary; kogaki#1375"
-  },
-  "paragraph_plan_judge_unit": {
-    "id": "paragraph_plan_judge_unit",
-    "binds": {
-      "move": {
-        "takes": "excluded",
-        "leaves": "excluded",
-        "breaks": "excluded",
-        "segments": "excluded",
-        "segments.operation": "excluded",
-        "segments.relation": "excluded",
-        "segments.manner": "excluded"
-      },
-      "leg": {
-        "leg_id": "copied",
-        "text": "excluded"
-      },
-      "paragraph_plan": {
-        "paragraphs.join": "excluded",
-        "paragraph_waypoints.point": "excluded",
-        "paragraph_waypoints.cast": "excluded"
-      }
-    },
-    "binds_unread": {
-      "move": ["id", "figure", "continues_from", "description", "evidence", "before", "after", "after_segment"],
-      "leg": [
-        "reaches_target",
-        "claims",
-        "waypoints",
-        "opens_section",
-        "waypoints.point",
-        "waypoints.case",
-        "relation"
-      ],
-      "paragraph_plan": [
-        "version",
-        "leg_id",
-        "move",
-        "rationale",
-        "paragraphs",
-        "paragraphs.paragraph",
-        "paragraphs.materials",
-        "paragraphs.purpose",
-        "paragraphs.depends_on",
-        "paragraphs.rationale",
-        "paragraphs.re-activate",
-        "paragraphs.journeys",
-        "paragraphs.paragraph_waypoints"
-      ]
-    },
-    "note": "Read by the Move-Extraction Playground's judge bench alone since kogaki#1865: `/paragraph-plan` makes no judge call. `src/paragraph-plan.mjs` renders this row through `judgePrompt` up to the input marker; `paragraphPlanJudgePrompt` appends the Leg's input and `paragraphPlanJudgeVerdict` reads the answer.",
-    "governing": "SPEC-draft-pipeline, the ParagraphPlan stage; kogaki#1375",
-    "prompt_file": "paragraph-plan/paragraph-plan-judge-unit"
   },
   "paragraph_plan_name_senses": {
     "id": "paragraph_plan_name_senses",

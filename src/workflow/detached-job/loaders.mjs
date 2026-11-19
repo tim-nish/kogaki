@@ -35,7 +35,6 @@ export async function loadReaderPathUnitValidator(declared) {
   // plain string-or-falsy refusal regardless of which declared validator
   // supplied it. The unit's own id rides as the third argument (kogaki#1301),
   // so a job whose units each judge a different subject can resolve which one.
-  // A refusal naming its sites rides as `{ text, sites }` for a job's site loop (kogaki#1642).
   // A refusal's group and reach: kogaki#1708.
   const reaches = declared.refusal_reach;
   return (candidate, unitId) => {
@@ -46,7 +45,7 @@ export async function loadReaderPathUnitValidator(declared) {
       return { text: g.text, group: g.group, reach: g.reach, ...(g.undeclared ? { undeclared: true } : {}) };
     }
     if (!r || !r.error) return null;
-    return Array.isArray(r.sites) && r.sites.length ? { text: r.error, sites: r.sites } : r.error;
+    return r.error;
   };
 }
 

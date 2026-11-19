@@ -8,14 +8,6 @@ import { join } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 
 export const PARAGRAPH_PLAN_TABLE = join(REPO, "src", "paragraph-plan-workflow.json");
-export const PARAGRAPH_PLAN_AXES = join(REPO, "src", "paragraph-plan-axes.json");
-export const NO_PARAGRAPH_MOVE_FITS = "no_paragraph_move_fits";
-// THE ROLES A BOUND PARAGRAPH MOVE MUST FILL (kogaki#1378): `breaks` to judge the
-// Waypoints survive, and `segments` to order them by -- the Move's whole structure, with no
-// fallback: `technique` is retired (kogaki#1412) and a Move without `segments` is refused at the
-// Adapter. A bound Move missing one is a fatal stop, never a default. Its `takes` and `leaves`,
-// required of every Move at the Adapter (kogaki#1698), are what it is bound and judged by (kogaki#1701).
-export const PARAGRAPH_MOVE_ROLES = ["segments", "breaks"];
 // The run directory's own files, beside the supervisor's. THE BINDINGS RECORD IS RETIRED
 // (kogaki#1639): the plan file carries each paragraph's bound Move id and `rationale`, so the
 // run directory holds no `paragraph-plan-bindings.json`.

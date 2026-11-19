@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
@@ -13,7 +13,7 @@ const walk = (dir, keep) =>
   );
 const posix = (p) => p.split(sep).join("/");
 
-const { renderPromptFile } = await imp("src/prompt-file.mjs");
+const { renderPromptFile, sentenceRefusal } = await imp("src/prompt-file.mjs");
 const files = walk(join(REPO, "prompts"), (n) => n.endsWith(".prompt")).map((f) => {
   const rel = posix(relative(join(REPO, "prompts"), f)).slice(0, -".prompt".length);
   const at = rel.lastIndexOf("/") + 1;
@@ -71,7 +71,6 @@ for (const f of files) {
 const C = await imp("checks/fixtures/prompt-files/cases.mjs");
 const { judgePrompt } = await imp("src/workflow/judge.mjs");
 const { bindFlow } = await imp("src/workflow/run-record.mjs");
-const { FLOW } = await imp("src/paragraph-plan/stage.mjs");
 const { briefRecordText, legRecord } = await imp("src/compose.mjs");
 const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
 const { renderAndStorePacket } = await imp("src/draft/render-packet.mjs");
@@ -92,22 +91,6 @@ const same = (name, render) => {
     `(d) the ${name} prompt differs from its saved text at byte ${i}: saved ${JSON.stringify(want.slice(i, i + 60))}, rendered ${JSON.stringify(String(got).slice(i, i + 60))}`,
   );
 };
-
-const plan = JSON.parse(readFileSync("src/paragraph-plan-workflow.json", "utf8"));
-const inputText = JSON.stringify(C.PLAN_INPUT, null, 2);
-const planRow = { id: "paragraph_plan_unit", ...plan.paragraph_plan_unit };
-bindFlow(FLOW);
-same("plan-leg-first-ask", () => judgePrompt(planRow, inputText, C.PLAN_INPUT, null));
-same("plan-leg-reask-part", () => judgePrompt(planRow, inputText, C.PLAN_INPUT, C.PLAN_HISTORY.part));
-same("plan-leg-reask-record", () => judgePrompt(planRow, inputText, C.PLAN_INPUT, C.PLAN_HISTORY.record));
-same("judge-unit-reask", () =>
-  judgePrompt(
-    { id: "paragraph_plan_judge_unit", ...plan.paragraph_plan_judge_unit },
-    JSON.stringify(C.JUDGE_INPUT, null, 2),
-    C.JUDGE_INPUT,
-    C.JUDGE_HISTORY,
-  ),
-);
 
 // (d) EVERY TABLE ROW RENDERS AS SAVED BEFORE ITS MOVE (kogaki#1862), its schema text cut as the save cut it.
 bindFlow(C.ROW_FLOW);
@@ -131,7 +114,7 @@ for (const r of C.ROWS) {
   );
 }
 
-// (h) EVERY PROGRAM'S CALL TEXT RENDERS AS SAVED BEFORE ITS SENTENCES MOVED (kogaki#1863): four programs, the Draft
+// (h) EVERY PROGRAM'S CALL TEXT RENDERS AS SAVED BEFORE ITS SENTENCES MOVED (kogaki#1863): three programs, the Draft
 // review and the two Python tools, from the fixed inputs of checks/fixtures/prompt-files/programs.mjs.
 const P = await imp("checks/fixtures/prompt-files/programs.mjs");
 const programTexts = await P.programTexts(imp);
@@ -186,31 +169,10 @@ for (const table of [...new Set(C.ROWS.map((r) => r.table))]) {
   }
 }
 
-// (g) AN AXIS'S SENTENCE IS ITS LINE OF THE JUDGE'S PROMPT FILE (kogaki#1862): a registry carrying one is refused when
-// read, naming the axis.
-{
-  cases++;
-  const { readAxes } = await imp("src/paragraph-plan/axes.mjs");
-  const held = JSON.parse(readFileSync("src/paragraph-plan-axes.json", "utf8"));
-  held.axes[0].sentence = "The run holds.";
-  const dir = mkdtempSync(join(tmpdir(), "prompt-files-axes-"));
-  writeFileSync(join(dir, "axes.json"), JSON.stringify(held));
-  let why = "";
-  try {
-    readAxes(join(dir, "axes.json"));
-  } catch (e) {
-    why = e.message;
-  }
-  rmSync(dir, { recursive: true, force: true });
-  if (!why.includes(`axis ${held.axes[0].id} carries \`sentence\``))
-    fails.push(`(g) a registry carrying a sentence is not refused naming the axis: ${why || "no refusal"}`);
-}
-
-// (e) ONE SENTENCE, ONE JOB (kogaki#1858): every sentence line of each listed prompt file passes `axisSentenceRefusal`.
+// (e) ONE SENTENCE, ONE JOB (kogaki#1858): every sentence line of each listed prompt file passes `sentenceRefusal` (src/prompt-file.mjs).
 // A file joins the list when an Issue rewrites it, and the list is empty since kogaki#1876.
 const ONE_SENTENCE_FILES = [];
 const LABEL = /^(JUDGMENT POINT|REQUIRED RECORD SHAPE|WHAT IS REFUSED): /;
-const { axisSentenceRefusal } = await imp("src/paragraph-plan/axes.mjs");
 for (const path of ONE_SENTENCE_FILES) {
   cases++;
   const lines = readFileSync(path, "utf8").split("\n");
@@ -220,7 +182,7 @@ for (const path of ONE_SENTENCE_FILES) {
     const mark = /^\{\{[^{}]*\}\}$/.test(line);
     const heading = /^[A-Z ]+$/.test(line);
     if (!line || mark || heading) continue;
-    const why = axisSentenceRefusal(line.replace(LABEL, ""));
+    const why = sentenceRefusal(line.replace(LABEL, ""));
     if (why) fails.push(`(e) ${path} line ${i + 1} ${why}: ${JSON.stringify(line)}`);
   }
 }
@@ -268,5 +230,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 5 + C.ROWS.length + programTexts.size} saved cases`,
+  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + C.ROWS.length + programTexts.size} saved cases`,
 );

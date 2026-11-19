@@ -86,7 +86,7 @@ opened here.
 NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25).
 
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per
-rendered block, the hold of src/binds-schema.json each Brief or ParagraphPlan
+rendered block, the hold of src/binds-schema.json each Brief
 field it renders is held to; checks/check-schema-binds.sh reads it and
 src/SCHEMA-BINDS.md renders it beside the workflow rows.
 

@@ -6,56 +6,6 @@ const HERE = join("checks", "fixtures", "prompt-files");
 export const AUDIENCE = join(HERE, "audience.yaml");
 export const TERMS = join(HERE, "terms.yml");
 
-const SEGMENTS = [
-  { segment: 1, operation: "name the case the reader already meets", relation: "", manner: "" },
-  { segment: 2, operation: "state what the case shows", relation: "follows from the case", manner: "terse" },
-];
-const MOVE = {
-  id: "show_a_case_then_state_it",
-  description: null,
-  segments: SEGMENTS,
-  takes: "a question",
-  leaves: "an answer",
-};
-const LEG = {
-  leg_id: "s2",
-  text: "The installer writes into the consumer's tree, and the next run overwrites any edit to the copy.",
-  claims: [{ strand: "L1", proposition: "the installer copies the kit into the consumer's tree." }],
-};
-export const PLAN_INPUT = {
-  leg_you_must_plan: LEG,
-  paragraphs_at_most: 2,
-  paragraph_moves_you_may_bind: [MOVE],
-  persona: { reader: "An ordinary person with no specialized knowledge", prior_knowledge: "(none declared)" },
-};
-const ANSWER = {
-  version: "1",
-  leg_id: "s2",
-  move: MOVE.id,
-  rationale: "The Leg shows one case and states it.",
-  paragraphs: [
-    {
-      paragraph: 1,
-      materials: ["L1"],
-      paragraph_waypoints: [{ point: "The installer copies the kit." }],
-    },
-  ],
-};
-export const PLAN_HISTORY = {
-  part: [{ answer: ANSWER, refusal: "paragraph 1: the Waypoint states no point of Segment 2", reach: "part" }],
-  record: [{ answer: ANSWER, refusal: "the record binds a Move whose takes the Leg does not hold", reach: "record" }],
-};
-export const PLAYGROUND_TABLE = { paired: "smp_paired_plan", table: "smp_table_plan" };
-
-export const JUDGE_INPUT = { leg_you_must_judge: LEG, paragraphs: ANSWER.paragraphs, move: MOVE };
-export const JUDGE_HISTORY = [
-  {
-    answer: { version: "1", leg_id: "s2", verdicts: [] },
-    refusal: "a record carrying no verdict for paragraph 1",
-    reach: "part",
-  },
-];
-
 const STRANDS = [
   { id: "L1", slug: "first-strand", cite: `coding::lesson/first-strand@${"0".repeat(64)}` },
   {
@@ -243,7 +193,7 @@ const TABLE_ROWS = {
     "thesis_bound_unit",
     "renderings_unit",
   ],
-  "src/paragraph-plan-workflow.json": ["paragraph_plan_judge_unit", "paragraph_plan_name_senses"],
+  "src/paragraph-plan-workflow.json": ["paragraph_plan_name_senses"],
   "src/terrain-workflow.json": ["J2_subdivision", "thesis_candidates", "J3_neighborhood"],
   "src/structure-mapping-playground/playground-workflow.json": [
     "sme_map_roles",

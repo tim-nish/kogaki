@@ -1,70 +1,29 @@
-// The ParagraphPlanPlayground (kogaki#1756, kogaki#1758, kogaki#1762): one Leg of a ParagraphPlan run, or
-// one Candidate of a Brief compose run, read from the run directory alone, one block per Round, every Round of a
-// sheet holding the same blocks in the same order.
+// The ParagraphPlanPlayground (kogaki#1762, kogaki#1884): one Candidate of a Brief compose run, read from the run
+// directory alone, one block per Round, every Round holding the same blocks in the same order.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
 //
 // THE NAMES THIS FILE USES, and the spec each one names:
-//   The ParagraphPlanPlayground, Round, Submission, Comment, Binding, Call, the Call Record,
-//   the Mapping Record, the Candidate sheet
+//   The ParagraphPlanPlayground, Round, Submission, Comment, Call, the Call Record, the Candidate sheet
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { relFromRepo, REPO } from "../workflow/run-record.mjs";
 import { callRows, callsRoot, readCallRecord, firstCallSecondsOf } from "../workflow/call-record.mjs";
 import { readReaderPathJob, readerPathJobPath } from "../workflow/detached-job.mjs";
-import { readJudgePrompt } from "../workflow/judge.mjs";
-import { readMappingState, unitIdFor } from "../paragraph-plan.mjs";
-import { moveContract, CAST_KEYS } from "../compose.mjs";
 import { proofSheetCss } from "../structure-mapping-playground/sheet.mjs";
 import { movePassage, NO_RECORD } from "./provenance.mjs";
-import { readAnalogy, ANALOGY_DIR, ANALOGY_UNIT } from "../paragraph-plan-analogy.mjs";
-import { refusalFindings, repairsPath } from "../paragraph-plan/findings.mjs";
 
-// The run's start record, written by /paragraph-plan beside the job record.
-export const START_FILE = "paragraph-plan-start.json";
-export const STATUS_TAGS = ["passed", "refused", "stopped", "not reached"];
 // THE ONLY HEADINGS A TABLE ON THE SHEET STANDS UNDER (specs/spec-draft-pipeline/SPEC.md §"The ParagraphPlanPlayground").
-export const TABLE_HEADINGS = [
-  "Leg's text",
-  "Structure",
-  "Round n",
-  "Binding",
-  "Submission",
-  "Comment",
-  "Calls",
-  "Candidate <id>",
-  "Leg",
-  "Move",
-  "Purpose",
-  "Brief Waypoints",
-  "Case",
-  "Roles",
-  "Relations",
-];
-export const ROUND_BLOCKS = ["Binding", "Submission", "Comment", "Calls"];
+export const TABLE_HEADINGS = ["Submission", "Comment", "Calls"];
 export const CANDIDATE_ROUND_BLOCKS = ["Submission", "Comment", "Calls"];
-export const ROUND_DEFINITION =
-  "A Round is one Submission at one paragraph of the Leg, the Judge's verdict on it and, where the verdict " +
-  "refuses it, the Comment it drew. A Call is one model call under this Leg's unit: bind, write, judge, site retry, " +
-  "suffix, reading or grounding.";
 export const CANDIDATE_ROUND_DEFINITION =
   "A Round is one Candidate composed by one compose Call, the Judge's fit verdict on each of its " +
   "Legs and, where a Leg does not fit its Move, the Comment it drew. A Call is one model call under this unit: compose or judge.";
-export const NO_TABLE = "no Mapping Table was grounded for this Move";
-export const NO_ANALOGY = "No Analogy Mapping was written for this run.";
-// The three files of a Call Record each Round links (kogaki#1814).
-export const CALL_LINKS = ["prompt.md", "input.json", "answer.json"];
 export { NO_RECORD };
-// The validator a refusal record names, else the one the declaring module runs at that phase.
-const PHASE_VALIDATORS = {
-  compose: "validateParagraphPlanUnit",
-  site: "validateParagraphPlanSite",
-  suffix: "validateParagraphPlanSuffix",
-};
 const ACCENT =
   ':root[data-theme="dark"]{--accent:#e0a458;--off:#3d2c14}h1,h2{color:var(--accent)}' +
   ".tag{display:inline-block;padding:1px 8px;border-radius:4px;font-weight:600}" +
@@ -83,28 +42,12 @@ const part = (id, title, body) => `<section class="card" id="${id}"><h2>${esc(ti
 const none = (what) => `<p class="muted">${esc(what)}</p>`;
 const line = (text, cls = "line") => `<p class="${cls}">${esc(text)}</p>`;
 const tag = (t, text = t) => `<span class="tag tag-${t.replace(/ /g, "-")}">${esc(text)}</span>`;
-const pointText = (p) => (!p ? "" : String(p.point ?? ""));
 const heading = (name) => {
   if (!TABLE_HEADINGS.includes(name))
     throw new Error(`the ParagraphPlanPlayground has no heading ${JSON.stringify(name)}`);
   return `<h4 class="th">${esc(name)}</h4>`;
 };
 const link = (outDir, path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
-const fileLink = (path, text) => `<a href="${esc(pathToFileURL(path).href)}">${esc(text)}</a>`;
-
-// A CALL'S FILES AND RATIONALE (kogaki#1814): its prompt, input and answer as `file://` links, and the rationale its
-// answer carries, so a defect can be traced to the Call it entered at.
-function callFilesHtml(dir) {
-  if (!dir) return "";
-  const files = CALL_LINKS.map((f) => (existsSync(join(dir, f)) ? fileLink(join(dir, f), f) : esc(`no ${f}`))).join(
-    " ",
-  );
-  const rec = readCallRecord(dir);
-  const a = rec.answer;
-  const why = a && typeof a === "object" && typeof a.rationale === "string" ? a.rationale : null;
-  return `<p class="line">files: ${files}</p>` + line(`rationale: ${why ?? "the answer carries none"}`);
-}
-const callHtml = (c) => line(`${c.label}: ${c.kind}`) + callFilesHtml(c.dir);
 
 function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -122,206 +65,8 @@ export function unitStatus(job, unit) {
   return unit.status === "running" && !pidAlive(job.supervisor_pid) ? "stopped" : unit.status;
 }
 
-// The paragraphs a refusal text names, in the `Leg <id>, paragraph <n>` or leading `paragraph <n>` form (kogaki#1777).
-export function namedParagraphs(text) {
-  return [...new Set([...String(text).matchAll(/(?:^|Leg [^,\s]+, )paragraph (\d+)/gm)].map((m) => Number(m[1])))];
-}
-
-// A refusal record's text at paragraph `n`: a judge's per-site text where it carries one, else the whole text.
-function refusalAt(refusal, n) {
-  if (!refusal) return null;
-  const sites = Array.isArray(refusal.sites) ? refusal.sites : null;
-  if (sites && sites.length) {
-    const hit = sites.find((x) => (x && typeof x === "object" ? Number(x.site ?? x.paragraph) : Number(x)) === n);
-    if (!hit) return null;
-    return typeof hit === "object" && hit.refusal ? String(hit.refusal) : String(refusal.text);
-  }
-  return namedParagraphs(refusal.text).includes(n) ? String(refusal.text) : null;
-}
-
+const roundHead = (number) => `<h3 class="round">Round ${number}</h3>`;
 const isStopped = (rec) => Boolean(rec.refusal && /\bper-call limit\b/.test(String(rec.refusal.text)));
-
-// THE UNIT'S CALLS, oldest first, each with its kind, the paragraphs its answer carries by number, each with the
-// Leg's Move it was written under (kogaki#1777), a judge's verdicts and its refusal record. A suffix Call's
-// paragraphs run from the first after those that stand.
-export function unitCalls(runDir, unitId, { mapped = false } = {}) {
-  const calls = callRows(callsRoot(runDir))
-    .filter((r) => r.unit === unitId)
-    .map((r) => {
-      const rec = readCallRecord(r.dir);
-      const phase = rec.row && rec.row.phase;
-      const a = rec.answer;
-      const input = readJudgePrompt(rec.prompt).input || {};
-      const entries = new Map();
-      const verdicts = new Map();
-      const site = input.paragraph_you_must_plan ? Number(input.paragraph_you_must_plan.paragraph) : null;
-      if (phase === "fit") {
-        for (const v of a && Array.isArray(a.verdicts) ? a.verdicts : []) verdicts.set(Number(v.paragraph), v);
-      } else if (a && Array.isArray(a.paragraphs)) {
-        const from =
-          phase === "suffix"
-            ? (Array.isArray(input.paragraphs_that_stand) ? input.paragraphs_that_stand.length : 0) + 1
-            : 1;
-        a.paragraphs.forEach((e, i) => {
-          if (e && typeof e === "object") entries.set(from + i, { ...e, move: a.move ?? null });
-        });
-      } else if (a && typeof a === "object" && site !== null) {
-        entries.set(site, { ...a, move: (input.bound_move && input.bound_move.id) ?? null });
-      }
-      const tabled = Boolean(input.leg_you_must_plan && Object.hasOwn(input.leg_you_must_plan, "table"));
-      const kind = isStopped(rec)
-        ? "stopped"
-        : phase === "fit"
-          ? "judge"
-          : phase === "site"
-            ? "site retry"
-            : phase === "suffix"
-              ? "suffix"
-              : mapped && !tabled
-                ? "bind"
-                : "write";
-      return { n: r.n, dir: r.dir, phase, kind, site, refusal: rec.refusal, entries, verdicts };
-    });
-  // A bind Call whose paragraphs the Judge read (kogaki#1837): the Call after it is the Judge's, no write Call
-  // having written inside a Mapping Table between them.
-  calls.forEach((c, i) => {
-    c.judged = c.kind === "bind" && Boolean(calls[i + 1]) && calls[i + 1].phase === "fit";
-  });
-  return calls;
-}
-
-// THE ROUNDS AT PARAGRAPH `n`, read from the Call Records alone. A write, site retry or suffix Call whose answer
-// carries this paragraph, or whose refusal names it, opens a Round; a validator's refusal is that Round's
-// Comment, and the next judge Call naming this paragraph gives the open Round its verdict. A bind Call opens one
-// only where the Judge read its paragraphs (kogaki#1837), and a stopped Call opens none. A suffix Call is the whole Leg's reopening from a paragraph on (kogaki#1777).
-export function roundsAt(calls, n, status) {
-  const rounds = [];
-  for (const c of calls) {
-    if (c.phase === "fit") {
-      const v = c.verdicts.get(n);
-      const open = rounds[rounds.length - 1];
-      if (!v || !open || open.verdict) continue;
-      open.verdict = { kind: "judge", record: v };
-      open.calls.push({ label: `Call ${c.n}`, kind: c.kind, dir: c.dir });
-      open.comment = {
-        text: (v.verdict !== "fits" && refusalAt(c.refusal, n)) || String(v.why ?? ""),
-        source: "the Judge",
-      };
-      continue;
-    }
-    if (c.kind !== "write" && c.kind !== "site retry" && c.kind !== "suffix" && !c.judged) continue;
-    if (c.kind === "site retry" && c.site !== n) continue;
-    const entry = c.entries.get(n) ?? null;
-    const text = refusalAt(c.refusal, n);
-    if (!entry && text === null) continue;
-    const prev = rounds[rounds.length - 1];
-    if (prev && !prev.verdict)
-      prev.verdict = {
-        kind: "not judged",
-        reason: `Call ${c.n} wrote the next Submission before the Judge read this one.`,
-      };
-    const round = {
-      number: rounds.length + 1,
-      entry,
-      call: c,
-      calls: [{ label: `Call ${c.n}`, kind: c.kind, dir: c.dir }],
-      verdict: null,
-      comment: null,
-    };
-    if (text !== null) {
-      round.verdict = { kind: "refused before the Judge" };
-      round.comment = {
-        text,
-        source: (c.refusal && c.refusal.validator) || PHASE_VALIDATORS[c.phase] || "the validator",
-      };
-    }
-    rounds.push(round);
-  }
-  const last = rounds[rounds.length - 1];
-  if (last && !last.verdict) {
-    last.verdict = {
-      kind: "not judged",
-      reason:
-        status === "done"
-          ? "No judge Call of this unit names this paragraph."
-          : status === "running"
-            ? "The Judge has not read this Submission yet."
-            : "The unit stopped before the Judge read this Submission.",
-    };
-  }
-  return rounds;
-}
-
-// The paragraphs of a Leg's unit: as many as any of its Calls or its candidate carries, at least one.
-export function paragraphCount(calls, unit) {
-  const candidate =
-    unit && unit.candidate && Array.isArray(unit.candidate.paragraphs) ? unit.candidate.paragraphs.length : 0;
-  return Math.max(
-    1,
-    candidate,
-    ...calls.flatMap((c) => [...c.entries.keys()]),
-    ...calls.flatMap((c) => (c.refusal ? namedParagraphs(c.refusal.text) : [])),
-  );
-}
-
-// THE LOCATIONS A COMMENT NAMES: Waypoints, by `Waypoint n`, `point n` or a quotation of one
-// whole point (a quoted expression inside a point names none); and Segments, by `Segment n`.
-export function namedLocations(text, entry) {
-  const t = String(text);
-  const nums = (re) => [...t.matchAll(re)].map((m) => Number(m[1]));
-  const waypoints = [...nums(/(?<!Brief |[Ll]eg [^,\s]+, )\bWaypoint (\d+)\b/g), ...nums(/\bpoint (\d+)\b/g)];
-  const points = (entry && entry.paragraph_waypoints) || [];
-  const quoted = [...t.matchAll(/"([^"]{12,})"/g)].map((m) => m[1]);
-  points.forEach((p, i) => {
-    const s = pointText(p).trim();
-    if (s && quoted.some((q) => q.trim() === s)) waypoints.push(i + 1);
-  });
-  const sorted = (xs) => [...new Set(xs)].filter((k) => k >= 1).sort((a, b) => a - b);
-  return { waypoints: sorted(waypoints), segments: sorted(nums(/\bSegment (\d+)\b/g)) };
-}
-
-const namesLine = ({ waypoints, segments }) =>
-  [...waypoints.map((k) => `Waypoint ${k}`), ...segments.map((k) => `Segment ${k}`)].join(", ") || "none named";
-
-// The status line of a paragraph, and its tag.
-export function paragraphStatus(status, n, lastNamed, rounds) {
-  const last = rounds[rounds.length - 1];
-  if (!last) return { tag: "not reached", text: "not reached" };
-  const k = last.number;
-  const stopped = status === "refused" || status === "died" || status === "stopped";
-  if (last.verdict.kind === "judge" && last.verdict.record.verdict === "fits")
-    return { tag: "passed", text: `passed in Round ${k}` };
-  if (status === "done") return { tag: "passed", text: `passed in Round ${k}` };
-  if (stopped && (lastNamed.includes(n) || last.verdict.kind === "not judged"))
-    return { tag: "stopped", text: `stopped after Round ${k}` };
-  if (last.verdict.kind === "not judged") return { tag: "not reached", text: `Round ${k} awaits the Judge` };
-  return { tag: "refused", text: `refused through Round ${k}` };
-}
-
-// The Segments table of one Submission, with no caption; a named Waypoint's row and a named Segment's
-// operation cell highlighted.
-function submissionTable(library, entry, named) {
-  const c = moveContract(entry.move, resolve(REPO, library));
-  const segments = c.error ? [] : c.segments;
-  const points = entry.paragraph_waypoints || [];
-  const castOf = (p) => Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
-  const pointCell = (p) => (!p ? "" : esc(p.point));
-  const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
-  const rows = new Set(named.waypoints);
-  const cells = new Set(named.segments);
-  return (
-    (c.error ? line(c.error, "stop") : "") +
-    "<table><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th><th>cast</th></tr></thead><tbody>" +
-    Array.from(
-      { length: Math.max(segments.length, points.length) },
-      (_, i) =>
-        `<tr${rows.has(i + 1) ? ' class="named"' : ""}><td>${i + 1}</td>` +
-        `<td${cells.has(i + 1) ? ' class="named"' : ""}>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td><td>${field(segments[i], "manner")}</td>` +
-        `<td>${pointCell(points[i])}</td><td>${points[i] ? esc(castOf(points[i]).join(", ")) : ""}</td></tr>`,
-    ).join("") +
-    "</tbody></table>"
-  );
-}
 
 // THE MOVE LINE: the id linking to its file in the library, and its Corpus passage where an extraction record on
 // this machine names the Move (kogaki#1762).
@@ -340,199 +85,6 @@ function moveLine(move, { library, outDir, corpusDir }, unchanged = false) {
         ? `${link(outDir, p.file, `${relFromRepo(p.file)}:${p.line}`)} ${esc(`lines ${p.span.first}–${p.span.last}`)}`
         : esc(`${relFromRepo(p.file)} holds no paragraph ${p.paragraph}`);
   return `${moveHead(move, { library, outDir }, unchanged)}<p class="line">passage: ${passage}</p>`;
-}
-
-// The Binding of a Round: the Leg's Move, `join`, and the Leg's Mapping Table where it was grounded for that Move.
-function bindingOf(round, n, calls, mapping, groundingCalls) {
-  const move = round.entry ? (round.entry.move ?? null) : null;
-  const table = mapping ? mapping.table || null : null;
-  const grounded = Boolean(table && move && table.move === move);
-  const binder =
-    round.call.kind === "write" && !mapping
-      ? null
-      : [...calls]
-          .reverse()
-          .find(
-            (c) => c.kind === "bind" && c.n < round.call.n && [...c.entries.values()].some((e) => e.move === move),
-          ) || null;
-  return {
-    move,
-    // THE JOIN KEY'S PRESENCE (kogaki#1814): an absent key and a key valued `none` are two different answers.
-    joinKey: Boolean(round.entry && Object.hasOwn(round.entry, "join")),
-    join: round.entry && Object.hasOwn(round.entry, "join") ? String(round.entry.join) : "absent",
-    table: grounded ? table : null,
-    bindCall: binder ? { label: `Call ${binder.n}`, kind: binder.kind, dir: binder.dir } : null,
-    groundedBy: grounded ? groundingCalls : [],
-  };
-}
-
-// ONE STRUCTURE TABLE: Role, Abstract, Attribute, and the Expression the Mapping Table grounds for each Role, under
-// the `Base:` line; the Expression column empty, under the line saying so, where no table was grounded.
-function structureTable(structure, table) {
-  const expr = new Map(((table && table.correspondences) || []).map((x) => [x.role, x.expression]));
-  const roles = (structure && structure.roles) || [];
-  return (
-    (table ? line(`Base: ${(table.base && table.base.domain) ?? ""}`) : line(NO_TABLE, "line stop")) +
-    "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th><th>Expression</th></tr></thead><tbody>" +
-    roles
-      .map(
-        (r) =>
-          `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td><td>${esc(expr.get(r.id) ?? "")}</td></tr>`,
-      )
-      .join("") +
-    "</tbody></table>"
-  );
-}
-
-const structureAt = (mapping) => (mapping && mapping.structure) || null;
-
-// The Comment block, one labelled line each: the verdict, each failure of the text verbatim (kogaki#1813), its source
-// and the locations it names.
-export function commentHtml(verdict, comment, named) {
-  const v =
-    verdict.kind === "judge"
-      ? `verdict: ${verdict.record.verdict}`
-      : verdict.kind === "not judged"
-        ? `not judged: ${verdict.reason}`
-        : "refused before the Judge";
-  if (!comment) return line(v);
-  return (
-    line(v) +
-    String(comment.text)
-      .split("\n")
-      .filter((t) => t.trim() !== "")
-      .map((t) => line(`why: ${t}`, "line refusal"))
-      .join("") +
-    line(`source: ${comment.source}`) +
-    line(`names: ${namesLine(named)}`)
-  );
-}
-
-// THE REPAIRS OF ONE UNIT (kogaki#1815), as the site loop wrote them before each retry, oldest first.
-export function unitRepairs(runDir, unitId) {
-  const path = repairsPath(runDir);
-  if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => JSON.parse(l))
-    .filter((r) => r.unit === unitId);
-}
-
-// A REFUSED ROUND'S FINDINGS, EACH WITH ITS CLASS, AND THE REPAIR ITS RETRY WAS MADE UNDER, WITH ITS ARM AND GROUNDS.
-export function repairHtml(round, n, repairs) {
-  if (!round.comment || (round.verdict.kind === "judge" && round.verdict.record.verdict === "fits")) return "";
-  const text = String(round.comment.text);
-  const rows = (repairs || []).filter(
-    (r) => r.site === n && r.refusal && (text.includes(String(r.refusal)) || String(r.refusal).includes(text)),
-  );
-  const findings = rows.length ? rows[0].findings || [] : refusalFindings(text, { paragraph: n });
-  const where = (f) => (f.site && f.site.waypoint ? `Waypoint ${f.site.waypoint}, ` : "");
-  return (
-    findings.map((f) => line(`finding: ${f.class} — ${where(f)}${f.criterion}: ${f.evidence}`)).join("") +
-    (rows.length
-      ? rows
-          .map((r) =>
-            line(
-              `repair: ${r.arm}${r.waypoints ? ` (Waypoint ${r.waypoints.join(", ")})` : ""}, chosen by the ${r.chosen_by} — ${r.grounds}`,
-            ),
-          )
-          .join("")
-      : line("repair: none written — no retry followed this Round, or it ran before Repairs were recorded"))
-  );
-}
-
-const roundHead = (number) => `<h3 class="round">Round ${number}</h3>`;
-
-function roundHtml(round, n, ctx) {
-  const { library, calls, mapping, groundingCalls, held, firstMove, outDir, corpusDir, repairs } = ctx;
-  const b = bindingOf(round, n, calls, mapping, groundingCalls);
-  const same = held && held.binding.move === b.move && held.binding.join === b.join && held.binding.table === b.table;
-  // EVERY ROUND NAMES ITS MOVE (kogaki#1814), `(unchanged)` where it is the first Round's.
-  const unchanged = round.number > 1 && b.move !== null && b.move === firstMove;
-  const binding = same
-    ? moveHead(b.move, { library, outDir }, unchanged) + line(`Binding of Round ${held.number} holds`)
-    : moveLine(b.move, { library, outDir, corpusDir }, unchanged) +
-      line(`join key: ${b.joinKey ? "present" : "absent"}`) +
-      line(`join: ${b.join}`) +
-      structureTable(structureAt(mapping), b.table);
-  const named = round.comment ? namedLocations(round.comment.text, round.entry) : { waypoints: [], segments: [] };
-  const submission = round.entry
-    ? submissionTable(library, round.entry, named)
-    : none(`No Submission was read from Call ${round.call.n}: its answer did not parse.`);
-  const roundCalls = [...round.calls, ...(b.bindCall ? [b.bindCall] : []), ...(b.table ? b.groundedBy : [])];
-  return {
-    binding: b,
-    same,
-    html:
-      roundHead(round.number) +
-      heading("Binding") +
-      binding +
-      heading("Submission") +
-      submission +
-      heading("Comment") +
-      commentHtml(round.verdict, round.comment, named) +
-      repairHtml(round, n, repairs) +
-      heading("Calls") +
-      roundCalls.map(callHtml).join(""),
-  };
-}
-
-// THE ANALOGY MAPPING PART (kogaki#1814): the base domain the run's opening Call chose, a counterpart per Role and
-// per relation, and that Call's input and files.
-function analogyHtml(runDir) {
-  const a = readAnalogy(runDir);
-  const rows = callRows(callsRoot(join(runDir, ANALOGY_DIR))).filter((r) => r.unit === ANALOGY_UNIT);
-  if (!a && !rows.length) return none(NO_ANALOGY);
-  const last = rows.length ? rows[rows.length - 1] : null;
-  const input = last ? readCallRecord(last.dir).input : null;
-  const roles = (input && input.structure && input.structure.roles) || [];
-  const nameOf = (id) => (roles.find((r) => r && r.id === id) || {}).name ?? "";
-  const mapped =
-    !a || typeof a !== "object"
-      ? none(NO_ANALOGY)
-      : Object.hasOwn(a, "none")
-        ? line(`none: ${a.none}`)
-        : line(`Base domain: ${(a.base_domain && a.base_domain.name) ?? ""}`) +
-          line(String((a.base_domain && a.base_domain.description) ?? "")) +
-          heading("Roles") +
-          "<table><thead><tr><th>Role</th><th>name</th><th>counterpart</th></tr></thead><tbody>" +
-          (a.roles || [])
-            .map((x) => `<tr><td>${esc(x.role)}</td><td>${esc(nameOf(x.role))}</td><td>${esc(x.counterpart)}</td></tr>`)
-            .join("") +
-          "</tbody></table>" +
-          heading("Relations") +
-          "<table><thead><tr><th>relation</th><th>counterpart</th></tr></thead><tbody>" +
-          (a.relations || [])
-            .map((x) => `<tr><td>${esc(x.relation)}</td><td>${esc(x.counterpart)}</td></tr>`)
-            .join("") +
-          "</tbody></table>";
-  const disclosure = input
-    ? `<details><summary>the Call's input: structure and persona</summary><pre>${esc(
-        JSON.stringify({ structure: input.structure ?? null, persona: input.persona ?? null }, null, 2),
-      )}</pre></details>`
-    : "";
-  return (
-    mapped +
-    disclosure +
-    rows.map((r) => callHtml({ label: `analogy Call ${r.n}`, kind: "analogy", dir: r.dir })).join("")
-  );
-}
-
-function structureHtml(mapping) {
-  const structure = structureAt(mapping);
-  if (!structure) return none("No structure was read for this Leg.");
-  return (
-    heading("Structure") +
-    "<table><thead><tr><th>Role</th><th>Abstract</th><th>Attribute</th></tr></thead><tbody>" +
-    (structure.roles || [])
-      .map(
-        (r) =>
-          `<tr><td>${esc(r.id)}</td><td>${esc(r.context)}</td><td>${esc((r.attributes || []).join(", "))}</td></tr>`,
-      )
-      .join("") +
-    "</tbody></table>"
-  );
 }
 
 function callList(runDir, unitId, outDir, calls) {
@@ -555,7 +107,7 @@ function callList(runDir, unitId, outDir, calls) {
 }
 
 // THE BAND a unit's section opens on: its status, its Calls by kind, its first Call's seconds, the Round definition
-// and its stop in full. Shared by the Leg sheet and the Candidate sheet.
+// and its stop in full.
 function bandHtml({ unitId, status, calls, unit, definition, stop, extra = "" }) {
   const kinds = [...new Set(calls.map((c) => c.kind))].map((k) => `${k} ${calls.filter((c) => c.kind === k).length}`);
   const firstS = firstCallSecondsOf(unit);
@@ -579,125 +131,6 @@ const page = (title, body) =>
   `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<title>ParagraphPlanPlayground — ${esc(title)}</title><style>${proofSheetCss()}\n${ACCENT}</style></head><body>` +
   `<h1>ParagraphPlanPlayground — ${esc(title)}</h1>${body}</body></html>\n`;
-
-export function renderFlp({ runDir, legId, movesDir = null, outDir = process.cwd(), corpusDir = null }) {
-  const startPath = join(runDir, START_FILE);
-  if (!existsSync(startPath))
-    return { error: `the run directory ${relFromRepo(runDir)} holds no start record ${START_FILE}` };
-  if (!existsSync(readerPathJobPath(runDir)))
-    return {
-      error: `the run directory ${relFromRepo(runDir)} holds no job record ${relative(runDir, readerPathJobPath(runDir))}`,
-    };
-  const start = JSON.parse(readFileSync(startPath, "utf8"));
-  const job = readReaderPathJob(runDir);
-  const legs = Array.isArray(start.legs) ? start.legs : [];
-  const li = legs.findIndex((l) => l && l.leg_id === legId);
-  if (li === -1)
-    return {
-      error: `the start record of ${relFromRepo(runDir)} carries no Leg ${legId} — it carries ${legs.map((l) => l && l.leg_id).join(", ")}`,
-    };
-  const leg = legs[li];
-  const unitId = unitIdFor(li);
-  const unit = (job.units || []).find((u) => u.id === unitId);
-  const status = unitStatus(job, unit);
-  const library = movesDir || start.moves_dir || "moves";
-  const mapping = readMappingState(runDir, unitId);
-  const calls = unitCalls(runDir, unitId, { mapped: Boolean(mapping) });
-  const repairs = unitRepairs(runDir, unitId);
-  const stop = unitStop(unit, status);
-  const count = paragraphCount(calls, unit);
-  const numbers = Array.from({ length: count }, (_, k) => k + 1);
-  const lastRefused = [...calls].reverse().find((c) => c.refusal);
-  const lastNamed = stop
-    ? namedParagraphs(stop)
-    : lastRefused
-      ? numbers.filter((n) => refusalAt(lastRefused.refusal, n) !== null)
-      : [];
-  // A refusal only the job record carries — every one, in a run made before kogaki#1756 — is placed on no Call.
-  const onRecords = new Set(
-    calls.flatMap((c) =>
-      c.refusal
-        ? [
-            String(c.refusal.text),
-            ...(c.refusal.sites || []).filter((x) => x && x.refusal).map((x) => String(x.refusal)),
-          ]
-        : [],
-    ),
-  );
-  const unplaced = ((unit && unit.refusals) || []).map(String).filter((t) => !onRecords.has(t) && t !== stop);
-  const legWide = calls.filter((c) => c.refusal && !numbers.some((n) => refusalAt(c.refusal, n) !== null));
-  // THE LEG, once (kogaki#1777): its text, the case its Mapping Table was grounded under, and its structure.
-  const legHead =
-    heading("Leg's text") +
-    line(String(leg.text ?? "")) +
-    line(`case: ${(mapping && mapping.table && mapping.table.case) ?? "none"}`) +
-    structureHtml(mapping);
-  const band = bandHtml({
-    unitId,
-    status,
-    calls,
-    unit,
-    definition: ROUND_DEFINITION,
-    stop,
-    extra:
-      legHead +
-      (legWide.length
-        ? line("Refusals naming no paragraph:") +
-          legWide.map((c) => line(`Call ${c.n}, ${c.kind}: ${c.refusal.text}`, "stop refusal")).join("")
-        : "") +
-      (unplaced.length
-        ? line("unplaced — on the job record and on no Call Record:") +
-          unplaced.map((t) => line(t, "stop refusal")).join("")
-        : ""),
-  });
-  const statuses = [];
-  const groundingCalls = callRows(callsRoot(runDir))
-    .filter((r) => r.unit === `${unitId}/grounding`)
-    .map((r) => ({ label: `grounding Call ${r.n}`, kind: "grounding", dir: r.dir }));
-  const body = numbers
-    .map((n) => {
-      const rounds = roundsAt(calls, n, status);
-      const st = paragraphStatus(status, n, lastNamed, rounds);
-      statuses.push(st.tag);
-      let held = null;
-      const firstMove = rounds.length && rounds[0].entry ? (rounds[0].entry.move ?? null) : null;
-      const roundsHtml = rounds
-        .map((round) => {
-          const r = roundHtml(round, n, {
-            library,
-            calls,
-            mapping,
-            groundingCalls,
-            held,
-            firstMove,
-            outDir,
-            corpusDir,
-            repairs,
-          });
-          if (!r.same) held = { number: round.number, binding: r.binding };
-          return r.html;
-        })
-        .join("");
-      return part(
-        `paragraph-${n}`,
-        `Paragraph ${n}`,
-        `<p class="line">${tag(st.tag, st.text)}</p>` +
-          (rounds.length ? roundsHtml : none("No Submission was written for this paragraph.")),
-      );
-    })
-    .join("");
-  const html = page(
-    `Leg ${legId}`,
-    line(`run: ${relFromRepo(runDir)}`, "meta") +
-      line(`job: ${job.state}`, "meta") +
-      line(`Brief: ${start.brief}`, "meta") +
-      part("analogy", "Analogy Mapping", analogyHtml(runDir)) +
-      band +
-      body +
-      part("calls", "Calls", callList(runDir, unitId, outDir, calls)),
-  );
-  return { html, status, tags: statuses, paragraphs: count };
-}
 
 // THE CANDIDATE SHEET (kogaki#1762): one compose unit of a Brief run. A compose Call opens a Round; the fit Call
 // that follows it gives every Leg its verdict and is the Round's Comment; a compose Call with no fit Call after it
@@ -760,13 +193,12 @@ function candidateRoundHtml(round, ctx) {
     ? none(
         `no Submission: ${round.compose.refusal ? round.compose.refusal.text : "the compose Call's answer did not parse"}`,
       )
-    : "<table><thead><tr><th>Leg</th><th>Move</th><th>Purpose</th><th>Brief Waypoints</th><th>Case</th></tr></thead><tbody>" +
+    : "<table><thead><tr><th>Leg</th><th>Move</th><th>Purpose</th></tr></thead><tbody>" +
       legs
         .map(
           (l) =>
             `<tr${refused.has(String(l.leg_id)) ? ' class="named"' : ""}><td>${esc(l.leg_id)}</td><td>${moveLine(l.move, { library, outDir, corpusDir })}</td>` +
-            `<td>${esc(l.purpose)}</td><td>${(l.waypoints || []).map((w) => `<p>${esc(w.point)}</p>`).join("")}</td>` +
-            `<td>${(l.waypoints || []).map((w) => `<p>${esc(w.case ?? "")}</p>`).join("")}</td></tr>`,
+            `<td>${esc(l.purpose)}</td></tr>`,
         )
         .join("") +
       "</tbody></table>";
@@ -839,24 +271,20 @@ function argsOf(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = argsOf(process.argv.slice(2));
   const usage =
-    "usage: node src/paragraph-plan-playground/sheet.mjs leg --run <ParagraphPlan run directory> --leg <leg_id> [--moves-dir <dir>] [--out <run>/paragraph-plan-playground/<leg_id>.html]\n" +
-    "       node src/paragraph-plan-playground/sheet.mjs candidate --run <Brief run directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]";
+    "usage: node src/paragraph-plan-playground/sheet.mjs candidate --run <Brief run directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]";
   const mode = args._[0];
-  if (!args.run || !((mode === "leg" && args.leg) || (mode === "candidate" && args.unit))) {
+  if (mode !== "candidate" || !args.run || !args.unit) {
     process.stderr.write(`${usage}\n`);
     process.exit(2);
   }
   const out = args.out ? resolve(args.out) : null;
   const outDir = out ? resolve(out, "..") : process.cwd();
-  const r =
-    mode === "leg"
-      ? renderFlp({ runDir: resolve(args.run), legId: args.leg, movesDir: args["moves-dir"] || null, outDir })
-      : renderCandidate({
-          runDir: resolve(args.run),
-          unitId: args.unit,
-          movesDir: args["moves-dir"] || "moves",
-          outDir,
-        });
+  const r = renderCandidate({
+    runDir: resolve(args.run),
+    unitId: args.unit,
+    movesDir: args["moves-dir"] || "moves",
+    outDir,
+  });
   if (r.error) {
     process.stderr.write(`paragraph-plan-playground: ${r.error}\n`);
     process.exit(1);

@@ -44,17 +44,6 @@ export function readerPathUnitRetryPrompt(firstPrompt, history) {
   return firstPrompt.slice(0, at) + block + "\n" + firstPrompt.slice(at);
 }
 
-// A JUDGE'S REFUSAL, AS THE SITE LOOP READS IT (kogaki#1642, kogaki#1777): one failure per site it
-// names, or, where it names none, one failure refusing the record whole.
-export function judgedSites(failure) {
-  const named = (failure.move_fit || []).map((f) => ({
-    ...f,
-    site: f.site ?? f.waypoint ?? null,
-    refusal: f.refusal || f.why,
-  }));
-  return named.length ? named : [{ site: null, refusal: failure.stderr_tail }];
-}
-
 // THE SENTENCE AT THE HEAD OF EVERY JOB UNIT PROMPT (kogaki#1307). A headless session
 // spawned with `--tools ""` that reads a repository path in its prompt may answer with a
 // tool call written as text -- the malformed output of run brief-2026-10-08T02-55-02-626Z.
@@ -165,6 +154,7 @@ export function spawnDetachedJobUnit(command, argv, input, onBytes, env, stdoutF
 // end because a `stream-json` transcript carries many other line types
 // (`system`, `assistant`, …) before the one that terminates it. Unwrapping
 // `result` mirrors the same envelope `judgeRecordFrom` reads.
+/** @param {string} stdout @param {string | false} [recordArray] */
 function readerPathUnitRecord(stdout, recordArray = "legs") {
   const lines = String(stdout == null ? "" : stdout)
     .split("\n")
@@ -253,6 +243,7 @@ export const SCHEMA_REFUSAL = "schema refusal";
 // with this class: a time bound, never a system failure.
 export const CALL_TIME_LIMIT = "call time limit";
 
+/** @param {any} out @param {any} validate @param {string | false} [recordArray] @param {string | null} [unitId] */
 export function classifyDetachedJobUnit(out, validate, recordArray = "legs", unitId = null) {
   if (out.error) {
     return {
@@ -306,7 +297,6 @@ export function classifyDetachedJobUnit(out, validate, recordArray = "legs", uni
           stderr_tail: readerPathBytes(String(text), 4000),
           bytes_written: out.bytes,
           ended_at: out.endedAt,
-          ...(typeof refusal === "object" ? { sites: refusal.sites } : {}),
           ...(typeof refusal === "object" && refusal.reach
             ? { group: refusal.group, reach: refusal.reach, ...(refusal.undeclared ? { undeclared: true } : {}) }
             : {}),

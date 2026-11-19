@@ -1465,12 +1465,8 @@ starts:
   stays beneath it as the no-progress guard.
 - `brief.unit_rounds` — how many Rounds a unit gets, the first included (the
   Round is defined at §4.19.4). A compose unit makes two calls per Round
-  (compose, then fit); a review unit makes one. A job that declares
-  `site_retry` — the ParagraphPlan's (§4.19, kogaki#1642) — reads it **per Brief
-  Waypoint**: each site the unit's first call counted at gets that many
-  Rounds, and `paragraph_plan.leg_revisions` bounds every Revision of the Leg
-  together. The Brief's compose job declares none and
-  reads it per unit, as below.
+  (compose, then fit); a review unit makes one. Every job reads it per unit,
+  as below.
 
 What spends a Round: a **schema refusal** — the validator's, or the fit
 judge's — is asked again with the refusal spliced in verbatim, until the
@@ -1523,11 +1519,7 @@ It holds:
 - `answer.raw` — stdout, verbatim;
 - `answer.json` — the parsed record, absent where parsing failed;
 - `refusal.json` — `{ group, reach, text, validator, sites }`, or `null` where
-  the answer passed; `validator` names the function that raised it. A
-  refusal the ParagraphPlan site loop raises against a site or suffix call's
-  answer, after that call's record is written, is written into the same
-  `refusal.json` with its Brief Waypoint as `sites`, by `pinCallRefusal`,
-  which fills only a `null` (kogaki#1756).
+  the answer passed; `validator` names the function that raised it.
 
 One writer, `writeCallRecord` in `src/workflow/call-record.mjs`, is
 called from three places, and `readCallRecord` reads a directory back:
@@ -2546,10 +2538,16 @@ with no `segments` shows the line `- **Segments:** none`. It writes nothing.
 and `analogy_mapping` and their prompt files; `src/paragraph-plan/site-retry.mjs`,
 `src/paragraph-plan/selection-input.mjs` and `src/paragraph-plan-mapper.mjs`;
 `checks/check-paragraph-plan-site-retry.sh`; the settings
-`paragraph_plan.leg_revisions` and `paragraph_plan.mapper`. The rows
-`paragraph_plan_unit` and `paragraph_plan_judge_unit`, the setting
-`brief.paragraphs_per_leg` and `src/paragraph-plan-analogy.mjs` stay, since a
-Playground reads them; the stage calls none of them.
+`paragraph_plan.leg_revisions` and `paragraph_plan.mapper`.
+
+**What left Kogaki at kogaki#1884.** The rows `paragraph_plan_unit` and
+`paragraph_plan_judge_unit` with their prompt files, the setting
+`brief.paragraphs_per_leg`, `src/paragraph-plan-analogy.mjs`, the older plan
+record's validator and the judge's code (`src/paragraph-plan/axes.mjs`,
+`src/paragraph-plan/findings.mjs`, `src/paragraph-plan-axes.json`), the retry
+of single entries in the job supervisor (`src/workflow/site-retry.mjs`), and
+the judge bench. A plan file written by the older code is refused naming the
+key it carries, and is made again by `/paragraph-plan`.
 
 #### 4.19.1 Reading the Leg's Senses (kogaki#1849, kogaki#1865)
 
@@ -2602,171 +2600,39 @@ from the short Trial of the Structure-Mapping Playground (§4.20), which sent
 the same prompt file. A unit writes five Call Records, `<unit>/reading-<k>`,
 and no sixth.
 
-#### 4.19.4 The ParagraphPlanPlayground (kogaki#1752, kogaki#1756, kogaki#1762, kogaki#1831)
+#### 4.19.4 The ParagraphPlanPlayground (kogaki#1762, kogaki#1884)
 
-**Since kogaki#1865** the ParagraphPlan stage makes no plan or judge call, so a run it writes holds no Round this page reads. The page stays for the runs written before it and for the Playgrounds that write Rounds.
+**Since kogaki#1884** the page renders one Candidate of a Brief compose run
+and nothing else. Its Leg sheet, which rendered the texts, the judge's answers
+and the repairs of a Leg of a plan run made by the older code, is removed with
+that code (§4.19): `node src/paragraph-plan-playground/sheet.mjs leg` prints the
+usage line and exits with status 2, and a run directory the older code wrote is
+not rewritten and not deleted. It is a playground: it may import production
+files and the Trial sheet's helpers, and the Leg-Planning Playground's sheet
+imports its Round blocks and the Move's Corpus passage reader.
 
-**The judge row the Playgrounds keep (kogaki#1865).** The stage no longer calls `paragraph_plan_judge_unit`; the judge bench of the Move-Extraction Playground does, and the table below, kept from the stage this section replaced, is the criteria that row judges.
+**The Candidate sheet.** `node src/paragraph-plan-playground/sheet.mjs candidate --run <Brief run
+directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]` renders
+one compose unit of a Brief run from its job record and Call Records,
+refusing a directory with no job record and a unit the record does not carry,
+naming the units it does. One section, `Candidate <id>`, with the band
+(status, Call count by `compose`, `judge` and `stopped`, the first Call's
+seconds, the stop in full) and one `Round n` per compose Call, each holding
+exactly these blocks, a Round being one Candidate composed by one compose Call, the
+Judge's fit verdict on each of its Legs and, where a Leg does not fit its
+Move, the Comment it drew:
+   - `Submission`: the Reader Path as a table headed `Leg`, `Move` and
+     `Purpose`, the Move linked to `moves/<id>.yaml` and to its Corpus passage
+     at `<path>:<line>` with the span `lines a–b` (else `no extraction record
+     on this machine names this Move`), or `no Submission: <the Call's
+     refusal>`.
+   - `Comment`: one row per Leg with its verdict (`consistent`,
+     `contradicts`, `cannot-determine`), `why` and `source`, a Leg the Judge
+     refused highlighted in the Submission above; or `not judged: <reason>`.
+   - `Calls`: the compose and fit Calls this Round is read from.
 
-**The criteria table: what the Leg judge and the ParagraphPlan judge each hold
-(kogaki#1647, owner decision 2026-11-02; kogaki#1768, owner ruling
-2026-11-10).** A Move is bound once, at the paragraph, so the Move criteria
-are the paragraph's alone, and every difference between the two judges is
-stated here with its reason. **The Leg judge is retired (kogaki#1775, owner
-design 2026-11-10)**: a Leg's text is its relation's `holds`, derived with no
-Call, so nothing is left for a Leg judge to hold and the Leg column carries
-no criterion — its `Grounded` row went with `lpp_grounded`. The Leg column
-stays so that a later Leg criterion has a place to be stated; the Paragraph column names an axis of `src/paragraph-plan-axes.json` or a
-shared criterion of `src/paragraph-plan-workflow.json`. `binds` says which
-half of the row is load-bearing: `criterion` where any wording that keeps the
-criterion would do, `wording` where the present sentence is what was kept,
-by a bench run or by the shared-text rule (kogaki#1452).
-
-| criterion | standing | Leg | Paragraph | reason | binds |
-|---|---|---|---|---|---|
-| Takes met | paragraph only | — | `TAKEN` | the Move the ParagraphPlan binds to the Leg has its `takes` met by the Leg's `prior_knowledge` or a relation of `the_reader_has_been_told`, what the Legs before it state, derived from the Leg order; the Brief binds no Move, so the Brief's Leg has no `takes` (kogaki#1699, kogaki#1701, kogaki#1768, kogaki#1777) | criterion |
-| Segment order | paragraph only | — | `OWN STEP` | a Waypoint is one Segment of the Leg's bound Move, so it carries nothing a later Segment produces; a Leg's `text` is its relation's `holds` and follows no Move's order (kogaki#1768, kogaki#1777) | wording |
-| Breaks | paragraph only | — | `BREAKS` | a test names a change to a Move's points, and only the ParagraphPlan binds a Move (kogaki#1768, kogaki#1777) | criterion |
-| Operation performed | paragraph only | — | `operation_is_performed` | a Segment's operation is performed only where a Waypoint is that Segment, and a Leg's `text` is no Segment | wording |
-| Manner not content | paragraph only | — | `manner_is_not_content` | a manner realises one Segment, and only a Waypoint realises one | wording |
-| Constraint kinds | paragraph only | — | `takes_and_leaves` | the four kinds are written once for the paragraph rows, which read `takes` and `leaves` beside the Segments (kogaki#1701) | wording |
-| Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through the relations their texts state (kogaki#1699, kogaki#1768, kogaki#1777) | wording |
-| One analogy | paragraph only | — | `ANALOGUE` | every example a paragraph draws comes from the one Analogy Mapping chosen before the first Leg, and only the ParagraphPlan's Legs are handed it (kogaki#1778, kogaki#1812) | criterion |
-| Cast held | paragraph only | — | `CAST` | a `cast` is set on a Waypoint, and only a Waypoint realises a Segment's `manner`, so each key it sets is held to its definition there (kogaki#1695, kogaki#1816) | criterion |
-| Cast is a set | paragraph only | — | `cast_is_a_set` | the closed set of cast keys and their definitions is written once for the paragraph rows, the planner's that sets them and the judge's that holds a point to them (kogaki#1695, kogaki#1816) | wording |
-| Counterparts expressed | paragraph only | — | `EXPRESSED` | a Waypoint names a Role's counterpart or states a relation in its own wording, which only a judge reads by sense, and only a Leg the Mapper grounded carries a table (kogaki#1811) | criterion |
-
-The owner asked on 2026-11-08 that every Submission's Points stay visible
-whether the Judge passed or refused them, and on 2026-11-09 that the loop be
-read in the owner's own words: Points, then the Judge, then the Comment, then
-the next Points (kogaki#1758). On 2026-11-12 the owner named the page a
-ParagraphPlan run writes per Leg the ParagraphPlanPlayground, and kept the
-feedback loop as the format it displays (kogaki#1831).
-
-**The feedback loop.** Each of its parts is defined here, once, and every
-section of this spec, the ParagraphPlanPlayground and `kogaki.settings.json`
-uses it in this sense.
-
-| Term | Means |
-|---|---|
-| **Round** | one Submission at one paragraph of a Leg, the Verdict on it and, where the Verdict refuses it, the Comment. Numbered 1, 2, 3 at the paragraph. |
-| **Submission** | the Waypoints written for one paragraph under the Leg's Binding, with their `join`, as handed to the Judge or refused before it. |
-| **Revision** | the Submission of Round n+1: a Submission that answers a Comment. |
-| **Verdict** | the Judge's result on a Submission: `fits` or `does-not-fit` with the Judge's `why`; or `refused before the Judge` where a validator refused the Submission; or `not judged` with the reason, where the unit stopped before the Judge ran. It is rendered inside the Comment block, never as a block of its own. |
-| **Comment** | one block per Round: the Verdict; the Judge's or the validator's text verbatim (`why`); its source; and the Waypoints and Segments the text names (`Waypoint n`, `point n`, `Segment n`), highlighted in the Submission above. The next Round's Call is handed the text. |
-| **Binding** | the Move the Leg's Submission is written under, with the Mapping Table grounded for it. Only a suffix Call rebinds (kogaki#1777); its Round carries a new Binding, and a Binding with no Mapping Table grounded for its Move says so. |
-| **Call** | one model call under a unit: bind, write, judge, site retry, suffix, reading, grounding. Its record is the Call Record, under `calls/` in the run directory (§4.12.2). |
-
-A validator's text is a Comment as the Judge's is: the Call that writes a
-Revision is handed both, verbatim, in one refusal block of its prompt, and
-answers them the same way. A refusal that is not about a Submission — the
-per-Call limit, an answer that could not be read — is a Call's refusal and
-opens no Round.
-
-**The loop.**
-
-```
-Binding → Submission (Round 1) → Judge → Verdict
-                                          fits          → the paragraph passed in Round 1
-                                          does-not-fit  → Comment → Submission (Round 2) → Judge → …
-```
-
-- A Round belongs to one paragraph. The Judge reads the Leg in one Call and
-  returns one Verdict per paragraph; that Verdict is the open Round's Verdict
-  there. A paragraph the Judge does not name again keeps its last Verdict and
-  has no further Round.
-- A validator's refusal at a paragraph (schema, Mapping Table vocabulary, a
-  repeated paragraph) is a Round whose Verdict is `refused before the Judge`
-  and whose Comment is the validator's text, so no Submission vanishes from the
-  sheet.
-- A site retry holds the Leg's Move, so its Round keeps the Binding before it.
-  A suffix Call reopens the Leg from a paragraph on and opens a Round at every
-  paragraph it writes; where it rebinds the Move, that Round opens a new
-  Binding, and where no grounding Call ran for that Move, the Binding reads `no
-  Mapping Table was grounded for this Move`, inside that Round and nowhere else
-  (kogaki#1777).
-- The reading and grounding Calls, and a Call stopped at the per-Call limit,
-  are Calls and never numbered Rounds. A bind Call followed by a Call that
-  writes inside a Mapping Table is one too. They appear in the Calls list and,
-  for the bind and grounding Calls, in the Calls block of the Round whose
-  Binding they produced.
-- A bind Call whose paragraphs the Judge read opens a Round at each paragraph
-  it carries, as a write Call does (kogaki#1837). That is the bind Call the
-  next Call of the same unit judges: the bound Move took no Mapping Table, so
-  no second Call wrote the Waypoints and the bind Call's own are the Leg's
-  first Submission.
-- Every Round renders the same blocks in the same order, each filled or
-  carrying the reason it is empty.
-
-**What it reads.** `node src/paragraph-plan-playground/sheet.mjs leg --run <ParagraphPlan run
-directory> --leg <leg_id> [--moves-dir <dir>] [--out <file>]` reads the run's
-start record, its job record, the Leg unit's mapping state and its Call
-Records. It needs no `paragraph-plan.yaml`, and reads nothing under
-`theses/`. It refuses a directory with no start record or no job record,
-naming the file, and a `--leg` the start record does not carry, naming the
-Legs it does. It prints HTML to stdout, or writes `--out`, and writes nothing
-else; a Leg's page is written to
-`<run>/paragraph-plan-playground/<leg_id>.html`. It is a playground: it may import production files and the Trial
-sheet's helpers, and nothing imports it. One Leg per sheet.
-
-**A Call's kind** is read from its Call Record: `stopped` where its refusal is
-the per-Call limit; `judge`, `site retry` and `suffix` from the row's phase;
-and, for the Leg Call, `write` where its input carries a Mapping Table, or
-the Mapper is off, and `bind` where it does not.
-
-**The Analogy Mapping part** opens the sheet (kogaki#1814): the base domain
-the run's opening Call chose, as `Base domain: <name>` and its description; a
-`Roles` table of Role, name and counterpart; a `Relations` table of relation
-and counterpart; the Call's input, its structure and persona, under a
-disclosure; and that Call with its files and rationale as a Round's `Calls`
-lists them. A run with no Analogy Call reads `No Analogy Mapping was written
-for this run.`
-
-**The Leg band.** Each field on its own line: the unit's status (`done`,
-`refused`, `died`, or `running`, read as `stopped` when its supervisor is
-gone), the Call count by kind, the first Call's seconds, and the definition
-of a Round and a Call in the words above. Then the unit's stop in full; every
-Call's refusal that names no paragraph, with its Call; and, as `unplaced`,
-every refusal the job record carries that no Call Record does, as in a run
-made before kogaki#1756. The band also holds the Leg, once (kogaki#1777):
-`Leg's text`, then `case: <case|none>` on its own line, then `Structure`, the
-reading Call's Role, Abstract and Attribute.
-
-**Each paragraph** of the Leg, as many as any of its Calls or its candidate
-carries, in this order, each field on its own line and no field joined to
-another on one line:
-
-1. The status line, one line: `passed in Round n`; `refused through Round n`;
-   `stopped after Round n`; or `not reached`. The unit's stop text stands in
-   the Leg band only. A sheet read while the unit still runs shows `Round n
-   awaits the Judge` where its last Submission has no Verdict yet.
-2. `Round n`, for n = 1 …, the heading being the two words and the number and
-   nothing else, each Round holding exactly these blocks under these
-   headings:
-   - `Binding`: `Move: <id>`, the id linking to `moves/<id>.yaml` and, where
-     an extraction record names the Move, to its Corpus passage at
-     `<path>:<line>` with the span `lines a–b` (else `no extraction record on
-     this machine names this Move`), the id followed by `(unchanged)` in a
-     later Round whose Move is the first Round's; `join key: present|absent`;
-     `join: <word>`, or `join: absent` where the paragraph carries no `join`
-     key, so a key valued `none` and an absent key read apart (kogaki#1814);
-     then one `Structure`
-     table headed `Role`, `Abstract`, `Attribute`, `Expression` under a
-     `Base: <domain>` line, the last column and the line read from the Mapping
-     Table grounded for this Move, or empty under `no Mapping Table was
-     grounded for this Move`. A later Round that keeps it reads its `Move:`
-     line and then `Binding of Round m holds`.
-   - `Submission`: the Segments table (operation, relation, manner, point,
-     cast), with no caption. The Move's name appears in the Binding block
-     only.
-   - `Comment`: `verdict: fits|does-not-fit`, `not judged: <reason>` or
-     `refused before the Judge`; `why`; `source`; `names`. It is shown once,
-     here, and never again under Round n+1 as what that Round answered.
-   - `Calls`: the write, site retry or suffix Call, the judge Call, the bind
-     Call and the grounding Call this Round is read from, each followed by
-     `files:`, linking its `prompt.md`, `input.json` and `answer.json` as
-     `file://` paths, and by `rationale:`, the rationale its answer carries
-     or `the answer carries none` (kogaki#1814).
+**The Calls list.** `Calls`, at the end: every Call Record under the unit,
+with its kind, its refusal's first line and links to its files.
 
 **The Move's Corpus passage** is read by `src/paragraph-plan-playground/provenance.mjs` from the
 extraction records on this machine — every `extractions.json` under
@@ -2777,43 +2643,16 @@ paragraphs are the blank-line-separated blocks under `## Passage`, or the
 whole file where it has no such heading. It never reads a Move file, and the
 sheet renders without it where `corpus/` is absent.
 
-**The Candidate sheet.** `node src/paragraph-plan-playground/sheet.mjs candidate --run <Brief run
-directory> --unit <candidate-N> [--moves-dir <dir>] [--out <file>]` renders
-one compose unit of a Brief run from its job record and Call Records,
-refusing a directory with no job record and a unit the record does not carry,
-naming the units it does. One section, `Candidate <id>`, with the band
-(status, Call count by `compose`, `judge` and `stopped`, the first Call's
-seconds, the stop in full) and one `Round n` per compose Call, each holding
-exactly these blocks:
-   - `Submission`: the Reader Path as a table headed `Leg`, `Move`,
-     `Purpose`, `Brief Waypoints`, `Case`, the Move linked as above, or `no
-     Submission: <the Call's refusal>`.
-   - `Comment`: one row per Leg with its verdict (`consistent`,
-     `contradicts`, `cannot-determine`), `why` and `source`, a Leg the Judge
-     refused highlighted in the Submission above; or `not judged: <reason>`.
-   - `Calls`: the compose and fit Calls this Round is read from.
-
-The Leg sheet and the Candidate sheet share the Round heading, the band and
-`TABLE_HEADINGS`.
-
-**The Calls list.** `Calls`, at the end: every Call Record under the unit, the
-Leg's one reading and one grounding Call included, with its kind, its refusal's
-first line and links to its files.
-
 **Headings.** Every table stands under one heading from this list, and no
-other: `Leg's text`, `Structure`, `Round n`, `Binding`, `Submission`,
-`Comment`, `Calls`, `Candidate <id>`, `Leg`, `Move`, `Purpose`,
-`Brief Waypoints`, `Case`, `Roles`, `Relations`. The list is
-`TABLE_HEADINGS` in the sheet, and `checks/check-paragraph-plan-playground.mjs` reads it.
+other: `Submission`, `Comment`, `Calls`. The list is `TABLE_HEADINGS` in the
+sheet, and the sheet refuses any other.
 
-#### 4.19.5 The Analogy Mapping — left production (kogaki#1778, kogaki#1865)
+#### 4.19.5 The Analogy Mapping — removed (kogaki#1778, kogaki#1865, kogaki#1884)
 
-**LEFT PRODUCTION AT kogaki#1865.** The ParagraphPlan stage makes no analogy
-call, and the row `analogy_mapping` with its prompt file are deleted. A plan
-file carrying `analogy` is refused by name (§4.19). `src/paragraph-plan-analogy.mjs`
-stays, read by the ParagraphPlanPlayground and the Structure-Mapping
-Playground's short Trial over runs written before kogaki#1865; its check is
-`checks/check-paragraph-plan-analogy.mjs`.
+**REMOVED AT kogaki#1884.** The ParagraphPlan stage made no analogy call since
+kogaki#1865, and the row `analogy_mapping` with its prompt file were deleted
+then. `src/paragraph-plan-analogy.mjs` and its check are removed with the
+older plan code. A plan file carrying `analogy` is refused by name (§4.19).
 
 ### 4.20 The Structure-Mapping Playground (kogaki#1664)
 

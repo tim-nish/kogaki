@@ -143,14 +143,6 @@ process.stdin.on("end", () => {
     }) }) + "\\n");
     process.exit(0);
   }
-  // The retired compose unit's Waypoint record at the record's root (kogaki#1768), the shape the fixture specimen's \`lpp_waypoints\` row states (kogaki#1775).
-  if (prompt.startsWith("BARE_WAYPOINTS")) {
-    process.stdout.write(JSON.stringify({ type: "result", result: JSON.stringify({
-      waypoints: [{ point: "The rules apply only to the files the walk visits.", carries: ["p1"] },
-        { point: "The walk is all the rules read, so nothing else is checked.", carries: ["p2", "h1"] }],
-    }) }) + "\\n");
-    process.exit(0);
-  }
   if (prompt === "FAIL_EXIT") { process.stderr.write("fake judge refused on purpose\\n"); process.exit(3); }
   // startsWith, not ===: a retried unit's prompt is this token plus the
   // refusal block appended (kogaki#1203), so the SAME structural refusal

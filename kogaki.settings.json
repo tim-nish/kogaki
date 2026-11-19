@@ -12,9 +12,7 @@
     "audience_file": "audiences/dev-to-zenn.md",
     "audience_file_means": "The Audience file the Brief composes for. Its `persona` key says who the reader is and what they already know; its `register` key says how the prose addresses them.",
     "thesis_words": 30,
-    "thesis_words_means": "The longest a Thesis may be, in words. A Thesis composed longer than this is rewritten once to fit before the Thesis question is shown, and the Brief stops, naming the length, if the rewrite is still too long. Words are counted between spaces.",
-    "paragraphs_per_leg": 2,
-    "paragraphs_per_leg_means": "The most paragraphs the Structure-Mapping Playground's short Trial plans for its one Leg under the plan row it reads. /paragraph-plan writes no paragraphs since kogaki#1865 and reads no value here. Two is enough for a Leg whose Move first presents an analogue and then carries the inference back."
+    "thesis_words_means": "The longest a Thesis may be, in words. A Thesis composed longer than this is rewritten once to fit before the Thesis question is shown, and the Brief stops, naming the length, if the rewrite is still too long. Words are counted between spaces."
   },
   "paragraph_plan": {
     "leg_edge_candidates": 3,

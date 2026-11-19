@@ -20,49 +20,45 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## move -- the Move record
 
-| field | paragraph_plan_unit | paragraph_plan_judge_unit | extraction_unit |
-|---|---|---|---|
-| `id` | unread | unread | unread |
-| `takes` | structural | excluded | content |
-| `leaves` | structural | excluded | content |
-| `before` | unread | unread | unread |
-| `after` | unread | unread | unread |
-| `breaks` | structural | excluded | content |
-| `segments` | structural | excluded | content |
-| `figure` | unread | unread | unread |
-| `continues_from` | unread | unread | unread |
-| `after_segment` | unread | unread | unread |
-| `description` | unread | unread | content |
-| `evidence` | unread | unread | unread |
-| `segments.operation` | operation | excluded | content |
-| `segments.relation` | structural | excluded | content |
-| `segments.manner` | excluded | excluded | content |
+| field | extraction_unit |
+|---|---|
+| `id` | unread |
+| `takes` | content |
+| `leaves` | content |
+| `before` | unread |
+| `after` | unread |
+| `breaks` | content |
+| `segments` | content |
+| `figure` | unread |
+| `continues_from` | unread |
+| `after_segment` | unread |
+| `description` | content |
+| `evidence` | unread |
+| `segments.operation` | content |
+| `segments.relation` | content |
+| `segments.manner` | content |
 
-- `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
-- `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `extraction_unit` is src/move-extraction-playground/extraction-workflow.json `extraction_unit`.
 
 ## leg -- the Brief's Leg
 
-| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | paragraph_plan_unit | paragraph_plan_judge_unit | leg_path_unit | packet:plan | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:introduces | review:already-knows |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `leg_id` | unread | copied | copied | unread | unread | copied | copied | content |  |  |  |  |  |  |  |
-| `relation` | unread | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |
-| `reaches_target` | unread | unread | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |
-| `text` | unread | unread | unread | unread | unread | content | excluded | unread |  |  |  |  |  |  |  |
-| `claims` | unread | excluded | excluded | unread | unread | structural | unread | content |  | content |  |  | excluded |  |  |
-| `waypoints` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
-| `opens_section` | unread | unread | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |
-| `waypoints.point` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
-| `waypoints.case` | unread | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
+| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | leg_path_unit | packet:plan | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:introduces | review:already-knows |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `leg_id` | unread | copied | copied | unread | unread | content |  |  |  |  |  |  |  |
+| `relation` | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |
+| `reaches_target` | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |
+| `text` | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |
+| `claims` | unread | excluded | excluded | unread | unread | content |  | content |  |  | excluded |  |  |
+| `waypoints` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
+| `opens_section` | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |
+| `waypoints.point` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
+| `waypoints.case` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
 - `review_path` is src/brief-workflow.json `review_path`.
 - `review_path_unit` is src/brief-workflow.json `review_path_unit`.
 - `defined_terms_unit` is src/brief-workflow.json `defined_terms_unit`.
 - `renderings_unit` is src/brief-workflow.json `renderings_unit`.
-- `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
-- `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.
 - `leg_path_unit` is src/move-extraction-playground/extraction-workflow.json `leg_path_unit`.
 - `packet:plan` is prompts/draft/write-leg.prompt value `plan`.
 - `packet:claims` is prompts/draft/write-leg.prompt value `claims`.
@@ -71,27 +67,3 @@ it does not read, and empty where the stage does not read the schema at all.
 - `review:claims` is src/review-items.json item `claims`.
 - `review:introduces` is src/review-items.json item `introduces`.
 - `review:already-knows` is src/review-items.json item `already-knows`.
-
-## paragraph_plan -- the ParagraphPlan record
-
-| field | paragraph_plan_unit | paragraph_plan_judge_unit |
-|---|---|---|
-| `version` | copied | unread |
-| `leg_id` | copied | unread |
-| `move` | copied | unread |
-| `rationale` | content | unread |
-| `paragraphs` | content | unread |
-| `paragraphs.paragraph` | copied | unread |
-| `paragraphs.materials` | copied | unread |
-| `paragraphs.purpose` | content | unread |
-| `paragraphs.depends_on` | content | unread |
-| `paragraphs.rationale` | content | unread |
-| `paragraphs.re-activate` | content | unread |
-| `paragraphs.journeys` | copied | unread |
-| `paragraphs.join` | content | excluded |
-| `paragraphs.paragraph_waypoints` | content | unread |
-| `paragraph_waypoints.point` | content | excluded |
-| `paragraph_waypoints.cast` | content | excluded |
-
-- `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.
-- `paragraph_plan_judge_unit` is src/paragraph-plan-workflow.json `paragraph_plan_judge_unit`.

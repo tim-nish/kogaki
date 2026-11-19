@@ -6,14 +6,12 @@ import { spawn } from "node:child_process";
 import { writeFileSync, appendFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { REPO, fail, readJson } from "./run-record.mjs";
-import { loadSiteRetry, SiteLoop } from "./site-retry.mjs";
-import { writeCallRecord, pinCallRefusal, cliRecord, tableRecord } from "./call-record.mjs";
+import { writeCallRecord, cliRecord, tableRecord } from "./call-record.mjs";
 import {
   CALL_TIME_LIMIT,
   SCHEMA_REFUSAL,
   classifyDetachedJobUnit,
   classifyFitJudgeCall,
-  judgedSites,
   readerPathUnitCandidatePath,
   readerPathUnitFitStdoutPath,
   readerPathUnitRetryPrompt,
@@ -158,7 +156,6 @@ export async function cmdJobSupervise(args) {
       : declared.units || fail("the units file at " + unitsPath + " carries no `units` array.");
     const validate = await loadReaderPathUnitValidator(declared.validator);
     const fit = await loadReaderPathFitJudge(declared.fit_judge);
-    const siteRetry = await loadSiteRetry(declared.site_retry);
     const recordArray =
       declared.record_array === false
         ? false
@@ -207,12 +204,7 @@ export async function cmdJobSupervise(args) {
       const t = readJson(resolve(REPO, String(r.table)));
       return { phase, row: { id: r.id, ...(t[r.id] || {}) }, tables: [tableRecord(r.table)] };
     };
-    const validatorName = (phase) =>
-      phase === "fit"
-        ? declared.fit_judge.verdict_export
-        : phase === "compose"
-          ? declared.validator.export
-          : declared.site_retry[`${phase}_validator_export`];
+    const validatorName = (phase) => (phase === "fit" ? declared.fit_judge.verdict_export : declared.validator.export);
     const recordCall = (u, sp, cls) => {
       const st = S.get(u.id);
       st.calls += 1;
@@ -225,7 +217,7 @@ export async function cmdJobSupervise(args) {
               reach: f.reach ?? null,
               text: f.stderr_tail ?? f.class ?? cls.status,
               validator: cls.status === "refused" && f.class === SCHEMA_REFUSAL ? validatorName(sp.phase) : null,
-              sites: f.sites || (f.move_fit && f.move_fit.length ? f.move_fit : null),
+              sites: f.move_fit && f.move_fit.length ? f.move_fit : null,
             };
       const answer = sp.phase === "fit" ? (cls.specialization ?? undefined) : (cls.candidate ?? undefined);
       const dirOf = writeCallRecord(dir, u.id, st.calls, {
@@ -264,9 +256,7 @@ export async function cmdJobSupervise(args) {
           refusals: [],
           timedOut: [],
           round1S: undefined,
-          loop: null,
           callPrompt: null,
-          scope: null,
           roundStartedAt: startedAt,
           callStartedAt: startedAt,
           final: null,
@@ -287,9 +277,6 @@ export async function cmdJobSupervise(args) {
       spawnCall(u, S.get(u.id).prompt, "compose", readerPathUnitStdoutPath(dir, u.id), flag);
     const spawnFit = (u, flag) =>
       spawnCall(u, S.get(u.id).fitPrompt, "fit", readerPathUnitFitStdoutPath(dir, u.id), flag);
-    // A SITE OR SUFFIX CALL (kogaki#1642) writes beside the unit's own call, in its stdout file.
-    const spawnSite = (u, flag) =>
-      spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
     // A MAPPER'S CALL (kogaki#1734) writes beside the unit's own call; its Call Record is the Mapper's.
     const spawnMapperCall = (u, flag) =>
       spawnCall(u, S.get(u.id).callPrompt, S.get(u.id).phase, readerPathUnitStdoutPath(dir, u.id), flag);
@@ -456,7 +443,8 @@ export async function cmdJobSupervise(args) {
       S.get(u.id).phase === "fit" ? readerPathUnitFitStdoutPath(dir, u.id) : readerPathUnitStdoutPath(dir, u.id);
     const respawnCall = (u) => {
       const phase = S.get(u.id).phase;
-      const sp = phase === "compose" ? spawnCompose(u, "a") : phase === "fit" ? spawnFit(u, "a") : spawnSite(u, "a");
+      const sp =
+        phase === "compose" ? spawnCompose(u, "a") : phase === "fit" ? spawnFit(u, "a") : spawnMapperCall(u, "a");
       unitsRunning.set(u.id, sp);
       S.get(u.id).callStartedAt = Date.now();
       return sp;
@@ -482,11 +470,6 @@ export async function cmdJobSupervise(args) {
         failure: { stderr_tail: `the ${st.phase} call ran past the ${callLimitS}s per-call limit` },
       });
       const stdoutPath = callStdoutPath(u);
-      // INSIDE A SITE LOOP the killed call is that site's refusal, or a judgment asked again.
-      if (st.loop) {
-        const text = `the ${st.phase} call ran past the ${callLimitS}s per-call limit`;
-        return siteAct(u, st.phase === "fit" ? st.loop.judged([], text) : st.loop.answered(null, text), sp, stdoutPath);
-      }
       if (st.rounds < unitRounds) {
         beginNextRound(st, Date.now());
         try {
@@ -513,68 +496,6 @@ export async function cmdJobSupervise(args) {
       };
     };
 
-    // THE SITE LOOP'S NEXT ACT, CARRIED OUT (kogaki#1642): a site, suffix or judge call
-    // spawned, or the unit ended `done` on the standing record or `refused` naming the site.
-    const siteAct = (u, act, sp, stdoutPath, specialization = null) => {
-      const st = S.get(u.id);
-      for (const refusal of st.loop.drain()) st.refusals.push({ refusal });
-      for (const r of st.loop.drainRaised()) pinCallRefusal(dir, u.id, st.calls, r);
-      if (act.done) {
-        st.composed = act.done;
-        return {
-          row: endUnit(
-            u,
-            { status: "done", candidate: act.done, ...(specialization ? { specialization } : {}) },
-            sp.out.bytes,
-            stdoutPath,
-          ),
-          progressed: false,
-        };
-      }
-      if (act.refused) {
-        st.composed = st.loop.standing;
-        st.refusals.push({ refusal: act.refused });
-        return {
-          row: endUnit(
-            u,
-            {
-              status: "refused",
-              failure: { class: SCHEMA_REFUSAL, stderr_tail: act.refused, bytes_written: sp.out.bytes },
-            },
-            sp.out.bytes,
-            stdoutPath,
-          ),
-          progressed: false,
-        };
-      }
-      if (act.kind === "judge") {
-        st.malformedThisRound = 0;
-        st.callStartedAt = Date.now();
-        st.phase = "fit";
-        st.composed = st.loop.standing;
-        st.scope = act.scope;
-        st.fitPrompt = withNoToolsSentence(fit.prompt(st.composed, u.id, act.scope));
-        unitsRunning.set(u.id, spawnFit(u, "a"));
-        return { row: runningRow(u, 0), progressed: true };
-      }
-      // EVERY PLANNING CALL IS A ROUND ON THE ROW: a site or suffix call counts as the whole
-      // call did, so `rounds` is the number of records asked for and the Move-Extraction Playground's blocks.
-      beginNextRound(st, Date.now());
-      st.phase = act.kind;
-      st.callPrompt = withNoToolsSentence(act.prompt);
-      const label =
-        act.kind === "site"
-          ? `site retry at Waypoint ${act.site}`
-          : `the entries from Waypoint ${act.ctx.from} composed again`;
-      try {
-        appendFileSync(readerPathUnitStdoutPath(dir, u.id), `\n----- ${label} -----\n`);
-      } catch {
-        /* best-effort */
-      }
-      unitsRunning.set(u.id, spawnSite(u, "a"));
-      return { row: runningRow(u, 0), progressed: true };
-    };
-
     // ONE FINISHED CALL OF ONE UNIT, ANSWERED (kogaki#1307, Rounds counted by
     // kogaki#1355). Returns the row while the unit is still working, and sets `st.final`
     // once it has ended.
@@ -599,8 +520,8 @@ export async function cmdJobSupervise(args) {
         st.phase === "compose"
           ? classifyDetachedJobUnit(sp.out, validate, recordArray, u.id)
           : st.phase === "fit"
-            ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id, st.scope)
-            : classifyDetachedJobUnit(sp.out, null, st.phase === "suffix" ? recordArray : false, u.id);
+            ? classifyFitJudgeCall(sp.out, fit, st.composed, u.id)
+            : classifyDetachedJobUnit(sp.out, null, false, u.id);
       recordCall(u, sp, cls);
       const stdoutPath = callStdoutPath(u);
       const endedAt = Date.parse(sp.out.endedAt) || Date.now();
@@ -629,36 +550,6 @@ export async function cmdJobSupervise(args) {
         };
         st.refusals.push({ refusal: cls.failure.stderr_tail });
         return { row: endUnit(u, cls, sp.out.bytes, stdoutPath), progressed: false };
-      }
-      // INSIDE A SITE LOOP every answered call is the loop's to read (kogaki#1642).
-      if (st.loop && cls.status !== "died") {
-        if (st.phase !== "fit") return siteAct(u, st.loop.answered(cls.candidate), sp, stdoutPath);
-        return siteAct(
-          u,
-          st.loop.judged(cls.status === "refused" ? judgedSites(cls.failure) : []),
-          sp,
-          stdoutPath,
-          cls.specialization,
-        );
-      }
-      // A REFUSAL NAMING ITS SITES OPENS THE LOOP, where the job declares one (kogaki#1642): the
-      // refused record stands, and only the Brief Waypoints it names are asked again.
-      if (
-        siteRetry &&
-        cls.status === "refused" &&
-        cls.failure.class === SCHEMA_REFUSAL &&
-        (!mapper || mapper.grounded(u.id))
-      ) {
-        const sites =
-          st.phase === "compose"
-            ? (cls.failure.sites || []).map((n) => ({ site: n, refusal: cls.failure.stderr_tail }))
-            : judgedSites(cls.failure);
-        if (sites.length) {
-          st.loop = new SiteLoop(siteRetry, u.id, unitRounds);
-          const standing = st.phase === "compose" ? cls.candidate : st.composed;
-          st.refusals.push({ answer: standing, refusal: cls.failure.stderr_tail });
-          return siteAct(u, st.loop.open(standing, sites, { byJudge: st.phase === "fit" }), sp, stdoutPath);
-        }
       }
       // THE BIND CALL'S RECORD IS GROUNDED FIRST, where the job declares a Mapper (kogaki#1734).
       if (cls.status === "done" && st.phase === "compose" && mapper) {
@@ -884,7 +775,6 @@ export function startDetachedJobSupervisor(dir, opts) {
         units,
         validator,
         ...(opts.fitJudge ? { fit_judge: opts.fitJudge } : {}),
-        ...(opts.siteRetry ? { site_retry: opts.siteRetry } : {}),
         ...(opts.mapper ? { mapper: opts.mapper } : {}),
         ...(opts.recordArray || opts.recordArray === false ? { record_array: opts.recordArray } : {}),
         ...(unitIsolation ? { unit_isolation: true } : {}),
