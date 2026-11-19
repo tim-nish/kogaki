@@ -72,7 +72,8 @@
 
 #   (r) a writer stop leaves no `paragraph.md`.
 #   (s) the one-map `higher_order` and a list of one pass and render as `h1`; a two-entry list is refused naming the count, and a
-#       list entry with a duplicate id or an unknown relation is refused naming its index (kogaki#1678, kogaki#1685).
+#       list entry with a duplicate id or an unknown relation is refused naming its index (kogaki#1678, kogaki#1685); a
+#       higher-order relation relating three relations and a relation naming three Roles are refused (kogaki#1874).
 #   (t) a proposition file with text below its two lines is refused naming that text, a line above them is refused naming that
 #       line, a second `proposition:` line is refused, a `claim:` line is refused naming
 #       `proposition`, `--strand` is refused naming `--proposition`, and the Mapper's recorded stdin carries no rendering (kogaki#1685).
@@ -478,7 +479,7 @@ const unprojectedFile = join(root, "rbs-unprojected.yaml");
 writeFileSync(unprojectedFile, stringifyYaml(owned));
 const wide = join(root, "structure-wide.yaml");
 const PASSED = { id: "passed", between: ["crew", "room"], holds: "{crew} goes past {room} nobody wrote down." };
-const HIGHER = [{ id: "h1", relates: ["cleans", "missed", "passed"], holds: "Because {crew} follows {list}, it goes past what {list} leaves out." }];
+const HIGHER = [{ id: "h1", relates: ["cleans", "passed"], holds: "Because {crew} follows {list}, it goes past what {list} leaves out." }];
 writeFileSync(wide, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], relations: [...mapped.relations, PASSED], higher_order: HIGHER }));
 const j = run("owned", ["--structure", wide, "--rbs-file", ownedFile]);
 const jCalls = ["bind", "grounding", "waypoints", "write"].flatMap((st) => j.calls(st));
@@ -630,11 +631,11 @@ ok(allMapRows.length > 0 && allMapRows.every((x) => !mapped.roles.some((r) => x[
   `(f) an Abstract cell of a Mapping Table opens on a Role id (kogaki#1716): ${allMapRows.map((x) => x[2]).join(" / ")}`);
 const struct = section(jSheet, "structure");
 const elRows = [...struct.matchAll(/<tr><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
-const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...[...mapped.relations, PASSED].map((r) => [r.id, "relation"]),
-  ["h1", "higher-order"]];
+const wantEls = [...mapped.roles.map((r) => [r.id, "Role"]), [LONE.id, "Role unreached"], ...[mapped.relations[0], PASSED].map((r) => [r.id, "relation"]),
+  [mapped.relations[1].id, "relation unreached"], ["h1", "higher-order"]];
 const category = (c) => c.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 ok(elRows.length === wantEls.length && wantEls.every(([id, cat]) => elRows.some((x) => x[1] === id && category(x[2]) === cat)),
-  `(f) the Structure table is not one row per element with its category, the lone Role unreached and h1's relations reached: ${elRows.map((x) => `${x[1]}:${category(x[2])}`).join(" / ")}`);
+  `(f) the Structure table is not one row per element with its category, the lone Role and the relation h1 does not relate unreached and h1's two relations reached: ${elRows.map((x) => `${x[1]}:${category(x[2])}`).join(" / ")}`);
 const graph = (/<div class="mermaid">([\s\S]*?)<\/div>/.exec(struct) || [])[1] || "";
 const INIT = esc('%%{init: {"flowchart": {"curve": "linear"}}}%%');
 const subAt = ["Higher-order relations", "Relations", "Roles"].map((t) => graph.indexOf(`[&quot;${t}&quot;]`));
@@ -752,6 +753,12 @@ ok(s0.error && s0.error.includes("carries 2 entries") && s0.error.includes("a pr
   `(s) a two-entry higher_order was not refused naming the count: ${JSON.stringify(s0)}`);
 const s1 = listed([{ ...HIGHER[0], id: "cleans" }]);
 ok(s1.error && s1.error.startsWith("higher_order[0]'s `id`"), `(s) a duplicate higher-order id was not refused naming its index: ${JSON.stringify(s1)}`);
+const s3 = listed([{ ...HIGHER[0], relates: ["cleans", "missed", "passed"] }]);
+ok(s3.error && s3.error === "higher_order[0]'s `relates` does not name exactly two relations",
+  `(s) a higher-order relation relating three relations was not refused (kogaki#1874): ${JSON.stringify(s3)}`);
+const s4 = validateStructure({ ...mapped, relations: [{ ...mapped.relations[0], between: ["crew", "list", "room"], holds: "{crew} cleans each {room} {list} names." }, mapped.relations[1]] }, propositionRec);
+ok(s4.error && s4.error === "relations[0]'s `between` does not name exactly two Roles",
+  `(s) a relation naming three Roles was not refused (kogaki#1874): ${JSON.stringify(s4)}`);
 const s2 = listed([{ ...HIGHER[0], relates: ["missed", "nowhere"] }]);
 ok(s2.error && s2.error.startsWith("higher_order[0]'s `relates`") && s2.error.includes('"nowhere"'),
   `(s) an unknown relation in a higher-order entry was not refused naming its index: ${JSON.stringify(s2)}`);
