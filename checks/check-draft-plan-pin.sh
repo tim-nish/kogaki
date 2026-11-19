@@ -55,7 +55,7 @@ const briefPath = join(dir, "brief.yaml");
 writeFileSync(briefPath, briefText);
 const planPath = join(dir, "paragraph-plan.yaml");
 // The Leg binds one Move for its paragraphs (kogaki#1777).
-const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
+const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";
 const entry = (id) => ({ materials: ["L1"], purpose: `purpose of ${id}'s paragraph.`,
   depends_on: [], rationale: `rationale for ${id}'s paragraph.`, "re-activate": [] });
 const planText = (mark, mapping = null) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText, mapping,

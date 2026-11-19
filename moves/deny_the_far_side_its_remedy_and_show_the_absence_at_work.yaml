@@ -25,21 +25,40 @@ breaks:
     — the contrast with the first half collapses into a matter of degree
 segments:
   - operation: poses a question about what obtains in a broader setting
+    bind: null
+    edges: []
   - operation: >-
       denies that the mechanism the first setting relied on operates in this one
     relation: answers the question just posed, and answers it in the negative
+    bind: 1
+    edges:
+      - sense: FrameSetting
+        to: [1]
+        hypophora: true
   - operation: gives as the reason that nothing holds that role in this setting
     relation: >-
       supplies the ground for the denial just made, turning a report of what
       does not happen into an account of why
     manner: a brief denial in one clause, set down and left without elaboration
+    bind: 2
+    edges:
+      - sense: Cause.Reason
+        to: [2]
   - operation: gives one concrete instance and names how it ended
     relation: >-
       makes concrete, as a single instance, the general reason just given
+    bind: null
+    edges:
+      - sense: Instantiation.Instance
+        to: [3]
   - operation: adds that those placed to step in objected and did nothing
     relation: >-
       closes the instance by naming what the others in it did and did not do,
       shutting off the obvious objection
+    bind: null
+    edges:
+      - sense: Conjunction
+        to: [4]
 takes:
   - kind: carry
     what: An account established in one case, to be carried onto a wider setting

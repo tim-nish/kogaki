@@ -763,6 +763,23 @@ A record is refused, naming `segments`, where the Extraction carries no
 section 3 to copy from, or where the model's own record already carried a
 `segments` value that disagrees with the copy.
 
+**A Segment's `bind` and `edges` (kogaki#1871).** Every Move file under
+`moves/` carries both on every Segment. `bind` is null, or the number of a
+Bind target of the Move from 1 to 3. Bind targets are numbered from 1 in the
+order in which their first Segments stand. `edges` lists the Segment's Edges.
+An Edge keeps one `sense` and names in `to` the earlier Segments it points to.
+It carries `hypophora: true` where the earlier Segment puts a question that
+this Segment answers. A `sense` is a name of the list of Senses (§4.20.3),
+written with its part, or one of Kogaki's own, `MetaDiscourse` and
+`FrameSetting`. It is null only beside `hypophora: true`. The first Segment
+carries no Edge, and every later Segment carries at least one.
+`validateMoveRecord` refuses a record that carries the two fields on some of
+its Segments and not on all, and it refuses each value outside this shape,
+naming the Segment and the field. A record that carries neither field is
+admitted by `validateMoveRecord`, and `checks/check-move-library.sh` refuses it
+under `moves/`. A Move file whose Edges are not yet written stands under
+`graveyard/moves/`, which no stage reads.
+
 **Subject-independence is the default for every field (owner ruling,
 2026-09-23: "a fundamental principle of the design from the beginning").** No
 field is written with the text's own subject as its grammatical subject unless

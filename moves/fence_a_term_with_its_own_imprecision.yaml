@@ -23,37 +23,67 @@ segments:
   - operation: >-
       defines a term by naming the capacity it stands for and restating that
       capacity in everyday words
+    bind: 1
+    edges: []
   - operation: >-
       concedes that the quantity just defined cannot be measured exactly
     relation: >-
       qualifies the definition just given, before anything is built on it
+    bind: 2
+    edges:
+      - sense: Conjunction
+        to: [1]
   - operation: >-
       grants that the obvious indicators are good ones while denying that they
       settle the quantity on their own
     relation: >-
       specifies the imprecision just conceded by naming where the reader would
       have looked for exactness
+    bind: null
+    edges:
+      - sense: Level-of-detail.Detail
+        to: [2]
   - operation: >-
       sets out a case in which the leading indicator points one way and the
       overall judgment does not follow
     relation: illustrates the denial just made with a single case
+    bind: null
+    edges:
+      - sense: Instantiation.Instance
+        to: [2]
   - operation: >-
       explains the case by listing the further respects in which the comparison
       runs the other way
     relation: gives the reason the case just set out comes out as it does
+    bind: null
+    edges:
+      - sense: Cause.Reason
+        to: [4]
   - operation: >-
       turns back from the concession to affirm that the rough distinction holds
       in fact
     relation: >-
       checks the qualification before the reader takes it as a retraction
+    bind: 3
+    edges:
+      - sense: Concession.Denier
+        to: [2]
   - operation: names the two ends of the distinction with an instance of each
     relation: >-
       supplies the uncontested cases that carry the affirmation just made
     manner: a brief direct statement, left without support
+    bind: null
+    edges:
+      - sense: Instantiation.Instance
+        to: [6]
   - operation: fixes the term's sense at the level of rough magnitude
     relation: >-
       settles the definition that the preceding qualification and affirmation
       have bracketed from both sides
+    bind: 1
+    edges:
+      - sense: Cause+Belief.Result
+        to: [6]
 takes:
   - kind: explain
     what: a term named, to be explained by naming the capacity it stands for

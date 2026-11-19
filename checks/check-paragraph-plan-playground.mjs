@@ -45,7 +45,7 @@ const root = mkdtempSync(join(tmpdir(), "paragraph-plan-playground-"));
 const run = join(root, "run");
 mkdirSync(join(run, "mapping"), { recursive: true });
 
-const M1 = "set_a_second_instance_beside_the_first";
+const M1 = "derive_a_universal_tendency_from_an_absent_protector";
 const M2 = "carry_a_worked_case_onto_the_wider_scale";
 const pw = (...points) => points.map((point) => ({ point, cast: {} }));
 // THE LEG AS UNIT (kogaki#1777): a Leg's answer binds one Move and writes its paragraphs.

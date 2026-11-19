@@ -30,6 +30,10 @@
 #       `.md` file there but `INDEX.md` is refused (kogaki#1522). A `.md`
 #       record is refused at every read and listed nowhere, so one left behind
 #       is dead text no other assertion here would see.
+#   (e) every Segment of every `moves/*.yaml` carries `bind` and `edges`, and
+#       every `sense` that is not null is a name of the list of Senses, written
+#       with its part, or one of Kogaki's own (kogaki#1871). This assertion and
+#       its fixtures (c10) stand in `checks/move-library-cases.mjs`.
 #
 # THE FIXTURE PASS RUNS ON EVERY INVOCATION, not behind a flag: a predicate
 # that silently stopped discriminating would otherwise report a clean library,
@@ -286,3 +290,21 @@ if (fails.length) {
 }
 console.log("check-move-library: PASS");
 JS
+RC=$?
+[[ $RC -eq 0 ]] || exit $RC
+
+OUT=$(node checks/move-library-cases.mjs 2>&1); RC=$?
+printf '%s\n' "$OUT"
+[[ $RC -eq 0 ]] || { echo "FAIL: the cases on a Segment's bind and edges did not run clean"; exit 1; }
+FLOOR=$(node -e 'console.log(require("./checks/registry.json").checks.find((m) => m.id === "move-library").admission.case_floor)') || { echo "FAIL: could not read case_floor for move-library from checks/registry.json"; exit 1; }
+N=$(sed -n 's/^move-library: \([0-9][0-9]*\) case(s) pass.*/\1/p' <<<"$OUT")
+[[ -n "$N" ]] || { echo "FAIL: no case count readable from the pass's output -- an unreadable floor is not a pass"; exit 1; }
+if (( N < FLOOR )); then
+  echo "FAIL: the pass reported $N case(s) against a declared case_floor of $FLOOR -- cases were LOST"
+  exit 1
+fi
+if (( N > FLOOR )); then
+  echo "FAIL: the pass reported $N case(s) against a declared case_floor of $FLOOR -- cases were ADDED and the floor was not advanced. Set case_floor to $N for 'move-library' in checks/registry.json, in this commit"
+  exit 1
+fi
+echo "ok: check-move-library ran ${N} case(s) clean, exactly at its floor of ${FLOOR}"

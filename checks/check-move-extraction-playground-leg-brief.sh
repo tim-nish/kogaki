@@ -173,7 +173,7 @@ else {
   ok(!pp.error, `(b) /paragraph-plan refused the Brief: ${pp.error}`);
   // ONE MOVE PER LEG and its paragraphs, each carrying the paragraph's schema (kogaki#1639, kogaki#1777); a later
   // paragraph's join is one relation word (kogaki#1477).
-  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, move: "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first",
+  const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, move: "deny_the_far_side_its_remedy_and_show_the_absence_at_work",
     paragraphs: [1, 2].map((n) => ({ materials: (l.claims || []).map((g) => g.strand), purpose: `brings the reader to paragraph ${n}'s step.`,
       depends_on: n > 1 ? [n - 1] : [], rationale: "its Segments carry the Leg's text this far.", introduces: [], "re-activate": [],
       ...(n > 1 ? { join: "consequence" } : {}),
