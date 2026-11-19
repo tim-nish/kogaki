@@ -32,9 +32,10 @@ import {
   sectionOfLeg,
 } from "./workspace.mjs";
 
-// THE PLAN BLOCK (kogaki#1859): the Leg's Arguments and CentralClaim, `legSentences` at the Leg's `relation` in the
-// Brief's `structure`, and one part per Segment where the Leg carries `segments` -- each `{ bind, discourse_relation }`,
-// `bind` naming entry k of those sentences. Null where the Brief carries no `structure` or the Leg names no relation.
+// THE PLAN BLOCK (kogaki#1859, kogaki#1865): the Leg's Arguments and CentralClaim, `legSentences` at the Leg's
+// `relation` in the Brief's `structure`, and one part per Segment where the Leg carries `segments` -- each
+// `{ bind, edges }`, `bind` naming entry k of those sentences. An Edge whose `sense` is null is not handed on, nor is
+// `hypophora`. Null where the Brief carries no `structure` or the Leg names no relation.
 export function planValues(structure, leg) {
   if (!structure || typeof leg.relation !== "string") return null;
   const whole = {
@@ -47,12 +48,10 @@ export function planValues(structure, leg) {
   const label = (s) => (s.kind === "CentralClaim" ? "CentralClaim" : `Argument ${s.number}`);
   const segments = (leg.segments || []).map((g, i) => {
     const b = Number.isInteger(g.bind) ? sentences[g.bind - 1] : null;
-    const r = g.discourse_relation;
-    return {
-      number: i + 1,
-      ...(b ? { bound: label(b) } : {}),
-      ...(r ? { sense: r.sense, to: listOf(r.to.map((number) => ({ number }))) } : {}),
-    };
+    const edges = (g.edges || [])
+      .filter((e) => e.sense !== null && e.sense !== undefined)
+      .map((e) => ({ sense: e.sense, to: listOf(e.to.map((number) => ({ number }))) }));
+    return { number: i + 1, ...(b ? { bound: label(b) } : {}), edges };
   });
   return {
     arguments: sentences.slice(0, -1).map((s) => ({ number: s.number, sentence: s.sentence })),
@@ -356,7 +355,6 @@ export function renderAndStorePacket(brief, id, args, ws) {
         path: out,
         sha256: sha,
         plan_sha256: brief.paragraphPlan?.sha256 ?? null,
-        mapping_sha256: brief.paragraphPlan?.mapping_sha256 ?? null,
       },
     };
     writeFileSync(runFile, JSON.stringify(rec, null, 2) + "\n");

@@ -11,8 +11,6 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readParagraphPlanBeside } from "../compose.mjs";
-import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
-import { parseYaml } from "../yaml.mjs";
 import { renderFigure } from "../render-figure.mjs";
 import { enterRun, laneDir } from "../runs.mjs";
 import { fail, argString, readBrief, sha256 } from "./brief-reader.mjs";
@@ -118,41 +116,26 @@ export function loadBrief(args) {
       );
     }
   }
-  // THE PARAGRAPHS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375,
-  // owner decision 2026-10-14): `/paragraph-plan` writes `paragraph-plan.yaml` next to
-  // the Brief, naming the Brief's path and content hash, and /draft reads it here. A
-  // missing file, and one made from a different Brief, are refused naming both files;
-  // the Brief itself names nothing downstream. The file holds each Leg's paragraphs, each
-  // with its `join` and its Waypoints, `point` and `cast`,
-  // and NOTHING OF A MOVE but its id, so this read opens no Move file either.
+  // EACH LEG'S SEGMENTS COME FROM THE PARAGRAPHPLAN FILE BESIDE THE BRIEF (kogaki#1375, kogaki#1865):
+  // `/paragraph-plan` writes `paragraph-plan.yaml` next to the Brief, naming the Brief's path and content hash, and
+  // /draft reads it here. A missing file, and one made from a different Brief, are refused naming both files; the
+  // Brief itself names nothing downstream. The file holds each Leg's Segments, each its `bind` and its `edges`, and
+  // this read opens no Move file: /draft reads the Segments that stand in the plan.
   const plan = readParagraphPlanBeside(path, text, brief.legs);
   if (plan.error) fail(plan.error);
-  // ...AND, WHERE THE PLAN NAMES A MAPPING RECORD, EACH LEG'S STRUCTURE AND TABLE (kogaki#1735, kogaki#1777),
-  // carried on the Leg; no line of the Writer prompt is built from them (kogaki#1859).
-  const mapped = plan.mappingSha !== null && plan.record.mapping.files.length ? mappingDirFor(plan.path) : null;
   const legs = brief.legs.map((leg) => {
-    const mapping = mapped ? legMapping(mapped, leg) : null;
-    return { ...leg, ...(mapping ? { mapping } : {}), paragraphs: plan.paragraphs.get(leg.leg_id) };
+    const segments = plan.segments.get(leg.leg_id);
+    return { ...leg, ...(segments ? { segments } : {}) };
   });
   // A PACKET IS A RENDERING OF THE PLAN AT A HASH (kogaki#1645): the hash of the plan file's
   // text as read, which the run record, each Packet entry and the Draft carry.
   const planSha = sha256(readFileSync(plan.path, "utf8"));
-  // ...AND OF THE MAPPING RECORD AT ITS DIGEST (kogaki#1733), null where the plan names none.
   return {
     ...brief,
     legs,
     path: resolve(path),
-    paragraphPlan: { path: plan.path, sha256: planSha, mapping_sha256: plan.mappingSha },
+    paragraphPlan: { path: plan.path, sha256: planSha },
   };
-}
-
-// One Leg's `{ structure, table }` from the Mapping Record, either null where its file is absent.
-function legMapping(dir, leg) {
-  const read = (file) => {
-    const p = join(dir, String(leg.leg_id), file);
-    return existsSync(p) ? parseYaml(readFileSync(p, "utf8"), p) : null;
-  };
-  return { structure: read(STRUCTURE_FILE), table: read(TABLE_FILE) };
 }
 
 // the Section grouping's SECTION GROUPING, derived from the Brief and from nothing

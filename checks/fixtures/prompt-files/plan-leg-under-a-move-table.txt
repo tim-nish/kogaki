@@ -1,4 +1,4 @@
-You are the judge at the Structure-Mapping Playground workflow's `paragraph_plan_unit` judgment point.
+You are the judge at the ParagraphPlan workflow's `paragraph_plan_points` judgment point.
 
 JUDGMENT POINT: Write the Points of one Leg under one Move.
 The Leg is `leg` in the input.

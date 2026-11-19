@@ -25,6 +25,8 @@ import {
   validateParagraphPlanUnit,
   segmentsForPlanCall,
   PARAGRAPH_PLAN_TABLE,
+  POINTS_ROW,
+  tablePointsRefusal,
 } from "../paragraph-plan.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
 import { paragraphsPerLeg } from "../compose/record.mjs";
@@ -69,7 +71,6 @@ export const LEG_STRUCTURE_FILE = "leg-structure.yaml";
 const READ_MOVE_ROW = "smp_read_move";
 const PAIR_ROW = "smp_pair_roles";
 const PAIRED_PLAN_FILE = "structure-mapping-playground/plan-leg-paired";
-const TABLE_PLAN_FILE = "structure-mapping-playground/plan-leg-under-a-move-table";
 const LEG_ID = "smp";
 const BIND_ROW = "smp_bind_move";
 const CORRESPONDENCE_ROW = "smp_correspondence";
@@ -937,30 +938,8 @@ export function pairedPlanRow(plan, promptFile = PAIRED_PLAN_FILE) {
   return { id: PLAN_ROW, ...plan[PLAN_ROW], prompt_file: promptFile };
 }
 
-// THE POINTS CALL'S ANSWER under a Move table (kogaki#1858): `points`, one `{ segment, point }` per Segment in order,
-// refused naming the place, or null.
-export function tablePointsRefusal(answer, segmentCount) {
-  const refuse = (text) => ({ group: "plan", text });
-  if (!isMap(answer)) return refuse("the answer is not one record");
-  const extra = Object.keys(answer).find((k) => k !== "points");
-  if (extra !== undefined) return refuse(`the record carries \`${extra}\`, and it holds \`points\` and no other key`);
-  if (!Array.isArray(answer.points)) return refuse("the record's `points` is not a list");
-  if (answer.points.length !== segmentCount)
-    return refuse(
-      `\`points\` carries ${answer.points.length} entries, and the Move has ${segmentCount} Segments — one entry per Segment, in order`,
-    );
-  for (const [i, p] of answer.points.entries()) {
-    const at = `points[${i}]`;
-    if (!isMap(p)) return refuse(`${at} is not a map`);
-    const third = Object.keys(p).find((k) => k !== "segment" && k !== "point");
-    if (third !== undefined)
-      return refuse(`${at} carries \`${third}\`, and an entry holds \`segment\` and \`point\` alone`);
-    if (p.segment !== i + 1)
-      return refuse(`${at}'s \`segment\` is ${JSON.stringify(p.segment)}, and its place is ${i + 1}`);
-    if (typeof p.point !== "string" || !p.point.trim()) return refuse(`${at}'s \`point\` is not one non-empty text`);
-  }
-  return null;
-}
+// THE POINTS CALL'S ANSWER under a Move table (kogaki#1858): read by production's `tablePointsRefusal` since kogaki#1865.
+export { tablePointsRefusal };
 
 export function runMoveTrial({
   brief,
@@ -1179,9 +1158,9 @@ export function runMoveTrial({
       dir: d,
       env,
       cli,
-      row: pairedPlanRow(plan, TABLE_PLAN_FILE),
+      row: { id: POINTS_ROW, ...plan[POINTS_ROW] },
       input,
-      tables: [PARAGRAPH_PLAN_TABLE, PLAYGROUND_TABLE],
+      tables: [PARAGRAPH_PLAN_TABLE],
       refusalOf: (answer) => tablePointsRefusal(answer, input.segments.length),
       validator: "tablePointsRefusal",
     });
@@ -1213,7 +1192,11 @@ export function runMoveTrial({
       relation: b.leg.relation,
       ...(moveTableRecord
         ? {
-            segments: moveTableRecord.segments.map((g) => ({ bind: g.bind, discourse_relation: g.discourse_relation })),
+            // Each Segment's one `discourse_relation` is one entry of `edges` (kogaki#1865).
+            segments: moveTableRecord.segments.map((g) => ({
+              bind: g.bind,
+              edges: g.discourse_relation ? [g.discourse_relation] : [],
+            })),
           }
         : {}),
     };

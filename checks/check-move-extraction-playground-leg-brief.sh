@@ -171,13 +171,9 @@ else {
   // (b) /paragraph-plan's own read, and /draft resolve with a plan written by the stage's writer
   const pp = readAdoptedBrief(briefPath);
   ok(!pp.error, `(b) /paragraph-plan refused the Brief: ${pp.error}`);
-  // ONE MOVE PER LEG and its paragraphs, each carrying the paragraph's schema (kogaki#1639, kogaki#1777); a later
-  // paragraph's join is one relation word (kogaki#1477).
+  // ONE MOVE PER LEG, its fit, its Segments and their Points (kogaki#1865).
   const planLegs = briefLegs(rec).map((l) => ({ leg_id: l.leg_id, move: "deny_the_far_side_its_remedy_and_show_the_absence_at_work",
-    paragraphs: [1, 2].map((n) => ({ materials: (l.claims || []).map((g) => g.strand), purpose: `brings the reader to paragraph ${n}'s step.`,
-      depends_on: n > 1 ? [n - 1] : [], rationale: "its Segments carry the Leg's text this far.", introduces: [], "re-activate": [],
-      ...(n > 1 ? { join: "consequence" } : {}),
-      paragraph_waypoints: [{ point: `Paragraph ${n}.`, cast: {} }] })) }));
+    fit: { met: 0, compared: 0 }, segments: [{ bind: null, edges: [] }], points: [{ segment: 1, point: `Leg ${l.leg_id}.` }] }));
   writeFileSync(paragraphPlanPathFor(briefPath), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text, legs: planLegs })));
   const dr = spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, "ws")], { encoding: "utf8", timeout: 120000 });
   ok(dr.status === 0, `(b) /draft resolve refused the Brief: ${(dr.stderr || dr.stdout || "").slice(0, 600)}`);

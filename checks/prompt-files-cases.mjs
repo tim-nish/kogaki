@@ -109,16 +109,17 @@ same("judge-unit-reask", () =>
     C.JUDGE_HISTORY,
   ),
 );
-bindFlow({ lane: "brief", label: "Structure-Mapping Playground" });
-same("plan-leg-paired", () => judgePrompt(pairedPlanRow(plan), inputText, C.PLAN_INPUT, null));
+// The Points call as /paragraph-plan makes it (kogaki#1865), by the row `paragraph_plan_points`.
 same("plan-leg-under-a-move-table", () =>
   judgePrompt(
-    pairedPlanRow(plan, "structure-mapping-playground/plan-leg-under-a-move-table"),
+    { id: "paragraph_plan_points", ...plan.paragraph_plan_points },
     JSON.stringify(C.POINTS_INPUT, null, 2),
     C.POINTS_INPUT,
     null,
   ),
 );
+bindFlow({ lane: "brief", label: "Structure-Mapping Playground" });
+same("plan-leg-paired", () => judgePrompt(pairedPlanRow(plan), inputText, C.PLAN_INPUT, null));
 
 // (d) EVERY TABLE ROW RENDERS AS SAVED BEFORE ITS MOVE (kogaki#1862), its schema text cut as the save cut it.
 bindFlow(C.ROW_FLOW);

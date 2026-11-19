@@ -188,10 +188,12 @@ function moveLine(move, libraryDir, outDir) {
   return `<p class="line">${link(outDir, join(libraryDir, `${move}.yaml`), move)}</p><p class="line">passage: ${passage}</p>`;
 }
 
-// One Leg of the `Legs` part (kogaki#1775): the relation it serves and its `text`, then the paragraphs the plan wrote
-// under it, each with the Move the Leg binds (kogaki#1777) and its Waypoints.
+// One Leg of the `Legs` part (kogaki#1775): the relation it serves and its `text`, then the paragraph the plan wrote
+// under it, with the Move the Leg took and its Points (kogaki#1865), one per Segment.
 function legHtml(leg, structure, planLeg, bindings, libraryDir, outDir) {
-  const rows = ((planLeg && planLeg.paragraphs) || []).map((entry, k) => {
+  const written =
+    planLeg && planLeg.move ? [{ paragraph_waypoints: (planLeg.points || []).map((p) => ({ point: p.point })) }] : [];
+  const rows = written.map((entry, k) => {
     const b = bindings.find((x) => x.leg_id === leg.leg_id && x.paragraph === k + 1) || null;
     const move = (planLeg && planLeg.move) || (b && b.move);
     const pws =

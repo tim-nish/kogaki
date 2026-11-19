@@ -8,8 +8,8 @@ const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
 const { validateMoveRecord, MOVE_OWN_SENSES } = await imp("src/compose/moves.mjs");
 const SENSES = [
-  ...JSON.parse(readFileSync(join(REPO, "src/structure-mapping-playground/pdtb3-senses.json"), "utf8")).senses.flatMap(
-    (s) => (s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`) : [s.sense]),
+  ...JSON.parse(readFileSync(join(REPO, "src/paragraph-plan/pdtb3-senses.json"), "utf8")).senses.flatMap((s) =>
+    s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`) : [s.sense],
   ),
   ...MOVE_OWN_SENSES,
 ];

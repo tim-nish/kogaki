@@ -228,7 +228,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (row("smp_read_move")) return out(nth("read", process.env.SMP_READ_ANSWERS), "read");
   if (row("smp_pair_roles")) return out(nth("pair", process.env.SMP_PAIR_ANSWERS), "pair");
   if (row("smp_correspondence")) return out(JSON.parse(process.env.SMP_TABLE), "grounding");
-  if (row("paragraph_plan_unit") && prompt.includes('"central_claim"')) {
+  if (row("paragraph_plan_points")) {
     const input = JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
     return out({ points: input.segments.map((g) => ({ segment: g.segment, point: "PW-" + g.segment + " the installer writes the copied kit." })) }, "waypoints");
   }
@@ -587,7 +587,7 @@ const tPlan = ti.seen.find((x) => x.stage === "waypoints");
 const tPrompt = (tPlan && tPlan.prompt) || "";
 ok(tPrompt.includes(TABLE_SENTENCE), "(i) the Points call does not carry the Move-table prompt's sentence");
 ok(!tPrompt.includes(PAIRED_SENTENCE), "(i) the plan call carries the smp_paired_plan sentence beside the table's");
-const tInputPath = join(callDir(join(ti.o, "waypoints"), "paragraph_plan_unit", 1), CALL_FILES.input);
+const tInputPath = join(callDir(join(ti.o, "waypoints"), "paragraph_plan_points", 1), CALL_FILES.input);
 const tInput = existsSync(tInputPath) ? JSON.parse(readFileSync(tInputPath, "utf8")) : {};
 ok(
   JSON.stringify(tInput) ===

@@ -3,35 +3,18 @@
 // (kogaki#1375, owner decision 2026-10-14).
 //
 // WHAT IT IS. The Brief's Reader Path plans an article down to Legs: one per relation the
-// Thesis reaches, each carrying its relation's `holds` as `text` and no Waypoint (kogaki#1775).
-// This stage plans each Leg down to paragraphs. THE LEG IS THE UNIT (kogaki#1777, owner decision
-// 2026-11-10): for every Leg it binds one paragraph Move and writes the Leg's paragraphs, at most
-// `brief.paragraphs_per_leg`, each a list of Waypoints, one per Segment of the bound Move, and it
-// hands them to the Packet through one planning record, `theses/<slug>/paragraph-plan.yaml`. Only
-// this stage writes Waypoints. It is NOT Reiter and Dale's microplanning: word choice, reference
+// Thesis reaches (kogaki#1775). This stage plans each Leg under one Move (kogaki#1865, owner decision
+// 2026-11-19) and hands the result to the Packet through one planning record,
+// `theses/<slug>/paragraph-plan.yaml`. It is NOT Reiter and Dale's microplanning: word choice, reference
 // and sentence shape stay inside the one Writer call. [see: SPEC-draft-pipeline "the ParagraphPlan stage"]
 //
-// THE MOVE BOUNDARY. Move information may be used up to Waypoint generation and nowhere after
-// it. Each Leg entry of the file carries the bound Move's id (`move`, an id and nothing else of
-// the Move) and its paragraphs, each the paragraph-level Leg schema (kogaki#1639) -- `materials`,
-// `purpose`, `depends_on`, `rationale`, `re-activate` -- beside its `join`
-// (kogaki#1411, kogaki#1477) and its Waypoints, each `point` and `cast`. No Segment and no Move field reaches the file, it carries no reader state and no
-// Obligations ledger (kogaki#1701), and the plan file is the record of the binding. The stage never
-// writes the Brief, and the Brief names nothing downstream: the ParagraphPlan file names the Brief
-// it was made from, by path and content hash.
-//
-// WHAT PRECEDES A LEG IS DERIVED (kogaki#1777): Leg n is handed the relations Legs 1 to n-1 state,
-// read from the Leg order, as what the reader has been told; no state field is read or written.
-//
-// THE LOOP. One Detached Job unit per Leg, in Reader Path order, on the shared supervisor
-// (src/workflow/detached-job.mjs). Each Round is two headless calls: `paragraph_plan_unit` binds a
-// Move to the Leg and writes its paragraphs, and `paragraph_plan_judge_unit` judges them against the
-// bound Move's `takes`, `leaves`, order (`segments`) and `breaks` (kogaki#1378, kogaki#1701). A
-// refusal of either is put back into the next Round's prompt verbatim, until `brief.unit_rounds` is
-// spent; a refusal naming a paragraph is retried at that paragraph alone (kogaki#1642); a call is
-// bounded by `brief.call_limit_s`; there is no limit on the whole job. A Leg that spends its Rounds
-// stops the stage naming the Leg and the paragraph, the Brief untouched, and the work resumes from
-// the same Brief by running this stage again -- the Reader Path is not composed again.
+// THE THREE STEPS, one Detached Job unit per Leg on the shared supervisor (src/workflow/detached-job.mjs),
+// run by `ParagraphPlanLegSteps` (src/paragraph-plan/steps.mjs): five calls of `paragraph_plan_name_senses`
+// read the Leg's Senses, an answer refused being asked again once; the Move whose Edges the Leg meets best
+// is chosen and fitted by code (src/paragraph-plan/senses.mjs); one call of `paragraph_plan_points` writes
+// Points, never asked again. The Leg's entry of the file carries `move`, `fit`, `segments` and `points`;
+// nothing ties the plan to the Move after it is written, and Points reach no Writer. The stage never writes
+// the Brief, and the Brief names nothing downstream: the plan file names the Brief by path and content hash.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
@@ -60,17 +43,9 @@ import {
 import { paragraphSchemaRefusal } from "./compose/record.mjs";
 import { relFromRepo } from "./workflow/run-record.mjs";
 import { jobHeartbeatMs, readReaderPathJob, readerPathJobPath } from "./workflow/detached-job.mjs";
-import { readAnalogy } from "./paragraph-plan-analogy.mjs";
 import { readAdoptedBrief } from "./paragraph-plan/brief.mjs";
 import { finishParagraphPlan, jobStatusLines } from "./paragraph-plan/job-end.mjs";
-import {
-  analogyDir,
-  finishAnalogyJob,
-  latestRunDir,
-  slugOf,
-  startParagraphPlan,
-  supervisorAlive,
-} from "./paragraph-plan/run-dir.mjs";
+import { latestRunDir, slugOf, startParagraphPlan, supervisorAlive } from "./paragraph-plan/run-dir.mjs";
 import { DONE_FILE, PARAGRAPH_PLAN_AWAIT_S, PARAGRAPH_PLAN_STILL_RUNNING_LINE, fail } from "./paragraph-plan/stage.mjs";
 import { paragraphPlanView } from "./paragraph-plan/view.mjs";
 export {
@@ -91,6 +66,9 @@ export {
   segmentsForPlanCall,
   paragraphPlanUnitInput,
   renderRowHead,
+  POINTS_ROW,
+  pointsInput,
+  tablePointsRefusal,
 } from "./paragraph-plan/units.mjs";
 export {
   criteriaOf,
@@ -113,36 +91,14 @@ export {
   paragraphPlanJudgeVerdict,
   judgeSiteRefusal,
 } from "./paragraph-plan/axes.mjs";
-export {
-  siteRepeatRefusal,
-  repeatsRefusedEntry,
-  paragraphPointsText,
-  restatedPoints,
-  siteRestatementRefusal,
-  paragraphsBeside,
-  repairProse,
-  paragraphPlanForcedMark,
-  paragraphPlanCollisions,
-  paragraphPlanSiteInput,
-  paragraphPlanSitePrompt,
-  paragraphPlanSiteRepair,
-  validateParagraphPlanSite,
-  paragraphPlanSuffixInput,
-  paragraphPlanSuffixPrompt,
-  validateParagraphPlanSuffix,
-} from "./paragraph-plan/site-retry.mjs";
-export {
-  PARAGRAPH_PLAN_INPUT_PREFIX,
-  paragraphPlanInputPath,
-  planCallInputRow,
-  siteCallInputRow,
-} from "./paragraph-plan/selection-input.mjs";
-export { latestRunDir, startParagraphPlan, analogyDir } from "./paragraph-plan/run-dir.mjs";
+export { NAME_ROW, READINGS, chooseMove, compareMove, countPairs, fittedSegments } from "./paragraph-plan/senses.mjs";
+export { ParagraphPlanLegSteps, validateParagraphPlanLeg } from "./paragraph-plan/steps.mjs";
+export { latestRunDir, startParagraphPlan } from "./paragraph-plan/run-dir.mjs";
 export {
   jobStatusLines,
+  legLines,
   stoppedParagraphs,
   stopLines,
-  mappingEntries,
   finishParagraphPlan,
 } from "./paragraph-plan/job-end.mjs";
 export { legRefusals, paragraphPlanView } from "./paragraph-plan/view.mjs";
@@ -186,32 +142,6 @@ export function awaitParagraphPlan(dir, waitS = PARAGRAPH_PLAN_AWAIT_S) {
     return 0;
   }
   const until = Date.now() + waitS * 1000;
-  // THE OPENING STEP FIRST (kogaki#1778): while the Analogy Mapping runs there is no Leg job to poll.
-  while (!readAnalogy(dir)) {
-    const a = readReaderPathJob(analogyDir(dir));
-    if (a && a.state === "running") {
-      if (!supervisorAlive(a.supervisor_pid)) {
-        console.log(
-          `ParagraphPlan stopped: the Analogy Mapping's supervisor (pid ${a.supervisor_pid}) is gone while its record still reads running.`,
-        );
-        return 1;
-      }
-      if (Date.now() >= until) {
-        console.log(
-          `ParagraphPlan job at ${relFromRepo(dir)} — choosing the Analogy Mapping before the first Leg, round ${(a.units[0] || {}).rounds || 1}.`,
-        );
-        console.log(PARAGRAPH_PLAN_STILL_RUNNING_LINE);
-        return 0;
-      }
-      sleepSync(Math.min(jobHeartbeatMs(), Math.max(0, until - Date.now())));
-      continue;
-    }
-    const r = finishAnalogyJob(dir);
-    if (r.stopped) {
-      for (const l of r.stopped) console.log(l);
-      return 1;
-    }
-  }
   let job = readReaderPathJob(dir);
   for (;;) {
     if (!job) {
@@ -237,6 +167,7 @@ export function awaitParagraphPlan(dir, waitS = PARAGRAPH_PLAN_AWAIT_S) {
   const r = finishParagraphPlan(dir);
   if (r.written) {
     console.log(`ParagraphPlan written: ${relFromRepo(r.written)}`);
+    for (const l of r.notes || []) console.log(`  ${l}`);
     return 0;
   }
   for (const l of r.stopped) console.log(l);
@@ -267,7 +198,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       fail("view needs --plan <path to theses/<slug>/paragraph-plan.yaml>");
     const v = paragraphPlanView(resolve(args.plan), {
       runDir: typeof args.run === "string" ? resolve(args.run) : null,
-      movesDir: typeof args["moves-dir"] === "string" ? args["moves-dir"] : null,
     });
     if (v.error) fail(v.error);
     console.log(v.lines.join("\n"));
@@ -294,7 +224,7 @@ function runStageCommand(args) {
       });
       console.log(
         `ParagraphPlan job started at ${relFromRepo(readerPathJobPath(dir))}, ` +
-          `${readAnalogy(dir) ? "" : "the Analogy Mapping first, then "}one unit per Leg — run ` +
+          `one unit per Leg — run ` +
           `\`node src/paragraph-plan.mjs await --brief ${briefPath}\` to poll it.`,
       );
       break;
@@ -302,13 +232,6 @@ function runStageCommand(args) {
     case "status": {
       const dir = runDirFor(args, briefPath);
       const job = readReaderPathJob(dir);
-      const opening = readAnalogy(dir) ? null : readReaderPathJob(analogyDir(dir));
-      if (opening) {
-        console.log(
-          `ParagraphPlan job at ${relFromRepo(dir)} — the Analogy Mapping, ${opening.state}, before the first Leg.`,
-        );
-        break;
-      }
       if (!job) fail(`no job record at ${relFromRepo(dir)}`);
       for (const l of jobStatusLines(dir, job)) console.log(l);
       break;
@@ -321,7 +244,7 @@ function runStageCommand(args) {
     }
     default:
       fail(
-        "usage: node src/paragraph-plan.mjs start|status|await --brief <theses/<slug>/brief.yaml> | view --plan <theses/<slug>/paragraph-plan.yaml> [--run <dir>] [--moves-dir <dir>]",
+        "usage: node src/paragraph-plan.mjs start|status|await --brief <theses/<slug>/brief.yaml> [--moves-dir <dir>] | view --plan <theses/<slug>/paragraph-plan.yaml> [--run <dir>]",
       );
   }
 }

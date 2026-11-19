@@ -6,12 +6,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { paragraphPlanPathFor, paragraphPlanRecord, paragraphPlanRecordText, sha256 } from "../compose.mjs";
-import { mappingDirFor, writeMappingRecord } from "../compose/mapping-record.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
-import { readReaderPathJob, readerPathJobBounds, readerPathJobPath } from "../workflow/detached-job.mjs";
-import { readAnalogy } from "../paragraph-plan-analogy.mjs";
-import { readAxes, readMappingState } from "./axes.mjs";
-import { paragraphPlanCollisions } from "./site-retry.mjs";
+import { readReaderPathJob, readerPathJobPath } from "../workflow/detached-job.mjs";
 import { DONE_FILE, START_FILE, writeJson } from "./stage.mjs";
 import { unitIdFor } from "./units.mjs";
 
@@ -20,30 +16,30 @@ import { unitIdFor } from "./units.mjs";
 // the binding too (kogaki#1639); any Leg not done stops the stage naming the Leg and the
 // paragraph, and writes nothing beside the Brief.
 
+// The status lines (kogaki#1865): per Leg its unit, the step it is in, and, once done, what its record says.
+const STEP = { reading: "reading the Senses", points: "writing Points" };
 export function jobStatusLines(dir, job, now = Date.now()) {
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
-  let bounds = null;
-  try {
-    bounds = readerPathJobBounds(job);
-  } catch {
-    bounds = null;
-  }
   const lines = [
     `ParagraphPlan job at ${relFromRepo(readerPathJobPath(dir))} — ${job.state}, elapsed ${Math.floor((now - startedAt) / 1000)}s; ` +
-      `each Leg gets up to ${bounds ? bounds.unitRounds : "?"} rounds of at most ${bounds ? `${bounds.callLimitS}s` : "?"} per call:`,
+      `each Leg reads its Senses, takes the Move that fits it best and writes Points once:`,
   ];
   for (const u of job.units || []) {
-    const phase =
-      u.phase === "fit"
-        ? "judge"
-        : u.phase === "site"
-          ? "site retry"
-          : ["reading", "grounding"].includes(u.phase)
-            ? u.phase
-            : "plan";
-    lines.push(`  unit ${u.id}: round ${u.rounds || 1}, ${phase}, ${u.status}, ${u.bytes || 0} byte(s)`);
+    lines.push(
+      `  unit ${u.id}: ${STEP[u.phase] || u.phase || "reading the Senses"}, ${u.status}, ${u.bytes || 0} byte(s)`,
+    );
+    if (u.status === "done" && u.candidate) lines.push(...legLines(u.candidate).map((l) => `    ${l}`));
   }
   return lines;
+}
+
+// What one finished Leg's record says: the Move taken and its fit, or why it carries none, and why it carries no Points.
+export function legLines(candidate) {
+  const c = candidate || {};
+  return [
+    ...(c.move ? [`Leg ${c.leg_id}: Move ${c.move}, ${c.fit.met} of ${c.fit.compared} compared Edge(s) met`] : []),
+    ...(typeof c.note === "string" ? [c.note] : []),
+  ];
 }
 
 // The paragraphs a stopped unit's refusals name, read off the refusal text the validator
@@ -108,22 +104,6 @@ export function stopLines(start, job) {
   return lines;
 }
 
-// The Mapping Record's entries from each unit's mapping state (kogaki#1734): one per Leg, its
-// structure read and its table grounded.
-export function mappingEntries(dir, legs) {
-  return legs.flatMap((leg, i) => {
-    const state = readMappingState(dir, unitIdFor(i));
-    if (!state || (!state.structure && !state.table)) return [];
-    return [
-      {
-        leg_id: leg.leg_id,
-        ...(state.structure ? { structure: state.structure } : {}),
-        ...(state.table ? { table: state.table } : {}),
-      },
-    ];
-  });
-}
-
 // Finish a terminal job. Returns `{ written }` or `{ stopped: lines }`.
 export function finishParagraphPlan(dir) {
   const start = JSON.parse(readFileSync(join(dir, START_FILE), "utf8"));
@@ -144,28 +124,19 @@ export function finishParagraphPlan(dir) {
       ],
     };
   }
-  // EACH LEG'S MOVE AND PARAGRAPHS RIDE INTO THE FILE (kogaki#1639, kogaki#1777): the bound Move's id
-  // and each paragraph's schema fields, exactly as the validator passed them; the file is the record of
-  // the binding.
-  const legs = start.legs.map((leg, i) => ({
-    leg_id: leg.leg_id,
-    move: units[i].candidate.move,
-    ...(units[i].candidate.move_forced_by ? { move_forced_by: units[i].candidate.move_forced_by } : {}),
-    paragraphs: units[i].candidate.paragraphs,
-  }));
-  // THE MAPPING RECORD IS WRITTEN WITH THE PLAN (kogaki#1733), and the plan names it by path and
-  // digest: each Leg's structure read and table grounded (kogaki#1734).
-  const planPath = paragraphPlanPathFor(briefPath);
-  const mapping = writeMappingRecord(mappingDirFor(planPath), mappingEntries(dir, start.legs));
-  const record = paragraphPlanRecord({ briefPath, briefText, analogy: readAnalogy(dir), legs, mapping });
-  writeFileSync(planPath, paragraphPlanRecordText(record));
-  writeJson(join(dir, DONE_FILE), {
-    written: relFromRepo(planPath),
-    at: new Date().toISOString(),
-    collisions: paragraphPlanCollisions(
-      record.legs,
-      readAxes().axes.map((a) => String(a.id)),
-    ),
+  // EACH LEG'S RECORD RIDES INTO THE FILE (kogaki#1865): the Move taken, its fit, the fitted Segments and the Points,
+  // where each was written; the note beside it is the status line's alone.
+  const legs = start.legs.map((leg, i) => {
+    const c = units[i].candidate;
+    return {
+      leg_id: leg.leg_id,
+      ...(c.move ? { move: c.move, fit: c.fit, segments: c.segments } : {}),
+      ...(Array.isArray(c.points) ? { points: c.points } : {}),
+    };
   });
-  return { written: planPath };
+  const planPath = paragraphPlanPathFor(briefPath);
+  const record = paragraphPlanRecord({ briefPath, briefText, legs });
+  writeFileSync(planPath, paragraphPlanRecordText(record));
+  writeJson(join(dir, DONE_FILE), { written: relFromRepo(planPath), at: new Date().toISOString() });
+  return { written: planPath, notes: units.flatMap((u) => legLines(u.candidate)) };
 }

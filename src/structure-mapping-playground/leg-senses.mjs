@@ -21,27 +21,33 @@ import { callDir, CALL_FILES, cliRecord } from "../workflow/call-record.mjs";
 import { parseYaml } from "../yaml.mjs";
 import { retriedCall } from "./short.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR } from "./trial.mjs";
-import { readBriefLeg, legSentences } from "./move-structure.mjs";
+import { readBriefLeg } from "./move-structure.mjs";
+import { JOIN_ROW, joinRefusal } from "./move-senses.mjs";
 import {
   READINGS,
-  JOIN_ROW,
+  NAME_ROW,
+  CANDIDATES_SETTING,
   loadSenses,
   senseNames,
   sensesText,
-  canonicalAnswer,
-  joinRefusal,
-} from "./move-senses.mjs";
+  legSentences,
+  pairsOf,
+  nameRefusal,
+  countPairs,
+  candidatesOf,
+  compareMove as compareEdges,
+} from "../paragraph-plan/senses.mjs";
+import { PARAGRAPH_PLAN_TABLE } from "../paragraph-plan/stage.mjs";
 import { renderLegSensesSheet } from "./leg-senses-sheet.mjs";
 
-export { legSentences };
-
-export const NAME_ROW = "smp_name_senses";
+// The counting, the check of a reading and the comparison are production's (kogaki#1865), read from
+// src/paragraph-plan/senses.mjs; the reading row is production's `paragraph_plan_name_senses`.
+export { legSentences, pairsOf, nameRefusal, countPairs, NAME_ROW, CANDIDATES_SETTING };
 export const RUN_FILE = "leg-senses-run.json";
 export const COUNTS_FILE = "counts.json";
 export const COMPARISON_FILE = "comparison.json";
 export const SHEET_FILE = "sheet.html";
 export const FLAGS = ["brief", "leg", "out"];
-export const CANDIDATES_SETTING = "paragraph_plan.leg_edge_candidates";
 const USAGE =
   "usage: node src/structure-mapping-playground/leg-senses.mjs read --brief <Brief file> --leg <leg_id> " +
   "[--move-edges <file>] --out <dir under runs/structure-mapping-playground/>";
@@ -50,8 +56,6 @@ const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const fileRecord = (path) => ({ path: relFromRepo(path), sha256: sha256(path) });
-const refuse = (group, text) => ({ group, text });
-const answerKey = (a) => `${a.sense}|${a.played_by}`;
 
 function keysRefusal(obj, keys, at) {
   if (!isMap(obj)) return `${at} is not a map`;
@@ -61,70 +65,8 @@ function keysRefusal(obj, keys, at) {
   return missing ? `${at} carries no \`${missing}\`` : null;
 }
 
-// Every pair of `count` sentences, in the order (1, 2), (1, 3) and so on.
-export function pairsOf(count) {
-  const out = [];
-  for (let i = 1; i <= count; i++) for (let j = i + 1; j <= count; j++) out.push([i, j]);
-  return out;
-}
-
 // ---------------------------------------------------------------------------
-// THE TWO VALIDATORS of this command, each refusal naming the place, or null.
-
-// The `smp_name_senses` answer: every Sense that holds, per pair, in order.
-export function nameRefusal(answer, sentenceCount, names) {
-  const top = keysRefusal(answer, ["pairs"], "the record");
-  if (top) return refuse("shape", top);
-  const pairs = pairsOf(sentenceCount);
-  if (!Array.isArray(answer.pairs)) return refuse("pairs", "the record's `pairs` is not a list");
-  if (answer.pairs.length !== pairs.length)
-    return refuse(
-      "pairs",
-      `\`pairs\` carries ${answer.pairs.length} entries, and ${sentenceCount} sentences have ${pairs.length} pairs — one entry per pair, in order`,
-    );
-  for (const [i, p] of answer.pairs.entries()) {
-    const at = `pairs[${i}]`;
-    const bad = keysRefusal(p, ["pair", "senses"], at);
-    if (bad) return refuse("pairs", bad);
-    const pair = pairs[i];
-    if (JSON.stringify(p.pair) !== JSON.stringify(pair))
-      return refuse(
-        "pairs",
-        `${at}.pair is ${JSON.stringify(p.pair)}, and the pair in that place is ${JSON.stringify(pair)}`,
-      );
-    if (!Array.isArray(p.senses)) return refuse("senses", `${at}.senses is not a list`);
-    const seen = new Map();
-    for (const [j, s] of p.senses.entries()) {
-      const sat = `${at}.senses[${j}]`;
-      const sb = keysRefusal(s, ["sense", "played_by"], sat);
-      if (sb) return refuse("senses", sb);
-      const n = names.get(s.sense);
-      if (!n)
-        return refuse(
-          "senses",
-          `${sat}.sense is ${JSON.stringify(s.sense)}, which is no name of \`senses\` — a Sense with a part word is written with it`,
-        );
-      if (n.part && !pair.includes(s.played_by))
-        return refuse(
-          "senses",
-          `${sat}.played_by is ${JSON.stringify(s.played_by)}, and ${s.sense} is played by one of the pair's sentences, ${pair[0]} or ${pair[1]}`,
-        );
-      if (!n.part && s.played_by !== null)
-        return refuse(
-          "senses",
-          `${sat}.played_by is ${JSON.stringify(s.played_by)}, and ${s.sense} has no part word: it is null`,
-        );
-      const key = answerKey(canonicalAnswer(s, pair, names));
-      if (seen.has(key))
-        return refuse(
-          "senses",
-          `${sat} says the same of the pair as ${at}.senses[${seen.get(key)}] — a pair's Senses are all different`,
-        );
-      seen.set(key, j);
-    }
-  }
-  return null;
-}
+// THE VALIDATOR of the Move's Edges file; a reading is checked by `nameRefusal` of src/paragraph-plan/senses.mjs.
 
 // The Move's Edges file, written by hand for one Move: refused naming the place, or null. A `bind` is a whole number
 // from 1 naming a Bind target, or null for a Segment with nothing bound.
@@ -162,102 +104,17 @@ export function moveEdgesRefusal(doc, names) {
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// THE COUNTING, by code with no model call.
-
-// Per pair, each different answer: in how many readings named, its places; in order, the first `keep` the candidates.
-export function countPairs(readings, sentenceCount, names, keep) {
-  return pairsOf(sentenceCount).map((pair, i) => {
-    const byKey = new Map();
-    for (const reading of readings)
-      reading.pairs[i].senses.forEach((s, place) => {
-        const c = canonicalAnswer(s, pair, names);
-        const key = answerKey(c);
-        if (!byKey.has(key)) byKey.set(key, { ...c, named: 0, place_sum: 0 });
-        const row = byKey.get(key);
-        row.named++;
-        row.place_sum += place + 1;
-      });
-    const answers = [...byKey.values()].sort(
-      (a, b) =>
-        b.named - a.named ||
-        a.place_sum - b.place_sum ||
-        names.get(a.sense).order - names.get(b.sense).order ||
-        a.played_by - b.played_by,
-    );
-    answers.forEach((a, k) => (a.candidate = k < keep));
-    return { pair, answers };
-  });
-}
-
-const candidatesOf = (p) =>
-  p.answers.filter((a) => a.candidate).map((a) => ({ sense: a.sense, played_by: a.played_by }));
-
 // The rows the joining call is handed: every Edge candidate of every pair, in order.
 export const joinRows = (counted) => counted.flatMap((p) => candidatesOf(p).map((a) => ({ pair: p.pair, ...a })));
 
-// ---------------------------------------------------------------------------
-// THE COMPARISON, by code with no model call: every filling of the Move's bound Segments by the Leg's sentences.
-
-// Every way of giving `bound` Bind targets different sentences of `sentenceCount`, in order.
-function fillingsOf(bound, sentenceCount) {
-  const out = [];
-  const walk = (taken) => {
-    if (taken.length === bound) return out.push([...taken]);
-    for (let n = 1; n <= sentenceCount; n++) if (!taken.includes(n)) walk([...taken, n]);
-  };
-  walk([]);
-  return out;
-}
-
+// THE COMPARISON of src/paragraph-plan/senses.mjs over the Edges file: each Segment's one `discourse_relation` is its
+// one entry of `edges` (kogaki#1865).
 export function compareMove(moveEdges, counted, sentenceCount, names) {
-  const segments = moveEdges.segments;
-  const boundCount = segments.filter((s) => s.bind !== null).length;
-  const isBound = (k) => segments[k - 1].bind !== null;
-  const related = segments.flatMap((s, k) =>
-    s.discourse_relation ? [{ segment: k + 1, sense: s.discourse_relation.sense, to: s.discourse_relation.to }] : [],
-  );
-  const compared = related.filter((e) => isBound(e.segment) && isBound(e.to[0]));
-  const not_compared = related.filter((e) => !(isBound(e.segment) && isBound(e.to[0])));
-  if (boundCount > sentenceCount)
-    return {
-      chosen: false,
-      fillings: [],
-      none: `the Move has ${boundCount} bound Segments and the Leg has ${sentenceCount} sentences, so there is no filling`,
-      not_compared,
-    };
-  const fillings = fillingsOf(boundCount, sentenceCount).map((taken) => {
-    const sentenceOf = (k) => taken[segments[k - 1].bind - 1];
-    const filling = Object.fromEntries(taken.map((n, b) => [b + 1, n]));
-    const centralAt = segments.findIndex((s) => s.bind !== null && taken[s.bind - 1] === sentenceCount);
-    const edges = compared.map((e) => {
-      const carrier = sentenceOf(e.segment);
-      const other = sentenceOf(e.to[0]);
-      const pair = [Math.min(carrier, other), Math.max(carrier, other)];
-      const wanted = canonicalAnswer(
-        { sense: e.sense, played_by: names.get(e.sense).part ? carrier : null },
-        pair,
-        names,
-      );
-      const candidates = candidatesOf(counted.find((p) => p.pair[0] === pair[0] && p.pair[1] === pair[1]));
-      const met = candidates.some((c) => answerKey(c) === answerKey(wanted));
-      return { ...e, pair, wanted, candidates, met };
-    });
-    return {
-      filling,
-      central_claim: centralAt < 0 ? null : centralAt + 1,
-      edges,
-      met: edges.length > 0 && edges.every((x) => x.met),
-    };
-  });
-  if (!compared.length)
-    return {
-      chosen: false,
-      fillings,
-      none: "none of the Move's Edges is compared, because each has a Segment with nothing bound at one end",
-      not_compared,
-    };
-  return { chosen: fillings.some((f) => f.met), fillings, none: null, not_compared };
+  const segments = moveEdges.segments.map((s) => ({
+    bind: s.bind,
+    edges: s.discourse_relation ? [{ sense: s.discourse_relation.sense, to: [...s.discourse_relation.to] }] : [],
+  }));
+  return compareEdges({ segments }, counted, sentenceCount, names);
 }
 
 // ---------------------------------------------------------------------------
@@ -311,6 +168,7 @@ export function readInputs({ brief, leg, out, moveEdges }) {
 }
 
 const playgroundRow = (id) => ({ id, ...readRowTable(PLAYGROUND_TABLE)[id] });
+const productionRow = (id) => ({ id, ...readRowTable(PARAGRAPH_PLAN_TABLE)[id] });
 const promptOf = (dir, unit) => {
   const p = join(callDir(dir, unit, 1), CALL_FILES.prompt);
   return existsSync(p) ? readFileSync(p, "utf8") : null;
@@ -343,10 +201,11 @@ export function readLegSenses(flags) {
   save();
   const numbered = sentences.map((s) => ({ number: s.number, sentence: s.sentence }));
   const listText = sensesText(senses);
-  const call = (name, row, input, refusalOf, validator) => {
+  const call = (name, row, input, refusalOf, validator, tables = [PLAYGROUND_TABLE]) => {
     const d = join(outDir, name);
     mkdirSync(d, { recursive: true });
-    const r = retriedCall({ dir: d, env: stageEnv(outDir, d, judge.path), cli, row, input, refusalOf, validator });
+    const env = stageEnv(outDir, d, judge.path);
+    const r = retriedCall({ dir: d, env, cli, row, input, refusalOf, validator, tables });
     record.calls.push({ call: name, state: r.stopped ? "stopped" : "done", refusals: r.refusals || [] });
     if (r.stopped) {
       record.state = "stopped";
@@ -355,7 +214,7 @@ export function readLegSenses(flags) {
     save();
     return { ...r, prompt: promptOf(d, row.id) };
   };
-  const nameRow = playgroundRow(NAME_ROW);
+  const nameRow = productionRow(NAME_ROW);
   const readings = [];
   let namePrompt = null;
   for (let k = 1; k <= READINGS; k++) {
@@ -365,6 +224,7 @@ export function readLegSenses(flags) {
       { sentences: numbered, senses: listText },
       (a) => nameRefusal(a, sentences.length, names),
       "nameRefusal",
+      [PARAGRAPH_PLAN_TABLE],
     );
     namePrompt ??= r.prompt;
     if (r.stopped) return { outDir, stopped: record.stopped };

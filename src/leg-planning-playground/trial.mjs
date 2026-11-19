@@ -22,17 +22,9 @@ import { judgePrompt, refusalReach, resolveJudgeBinary, settingValue } from "../
 import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { writeCallRecord, cliRecord, tableRecord } from "../workflow/call-record.mjs";
 import { readReaderPathJob } from "../workflow/detached-job.mjs";
-import { PARAGRAPH_PLAN_STILL_RUNNING_LINE, NO_PARAGRAPH_MOVE_FITS } from "../paragraph-plan.mjs";
+import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { MAPPER_CALLS } from "../structure-mapping-playground/sme.mjs";
-import {
-  unitCalls,
-  roundsAt,
-  unitStatus,
-  paragraphStatus,
-  namedParagraphs,
-  paragraphCount,
-} from "../paragraph-plan-playground/sheet.mjs";
 import { parseClaims, readerPathRefusal, COMPOSED_BY } from "./read-set.mjs";
 import { mintStructure, validateReadSet, withReach, structureLegs, pathReachRefusal } from "../compose/structure.mjs";
 import { renderLppSheet } from "../brief-plan-playground/sheet.mjs";
@@ -257,48 +249,23 @@ function planCommand(args) {
   };
 }
 
-// THE BINDING AND THE VERDICT AT EACH PARAGRAPH of each Leg, read from the plan's run as the ParagraphPlanPlayground reads it (kogaki#1777).
+// THE MOVE EACH LEG TOOK, read from the plan's run (kogaki#1865): one row per Leg the job ran, its one paragraph, the
+// Move its unit chose and the unit's end. The stage's steps are a Leg's own Call Records under the run directory.
 function planParagraphs(runDir, legs) {
   const job = readReaderPathJob(runDir) || { units: [] };
   return legs.flatMap((leg, i) => {
-    const unitId = `leg-${i + 1}`;
-    const unit = (job.units || []).find((u) => u.id === unitId);
-    const status = unitStatus(job, unit);
-    const calls = unitCalls(runDir, unitId);
-    if (!unit && !calls.length) return [];
-    const last =
-      unit && Array.isArray(unit.refusals) && unit.refusals.length ? unit.refusals[unit.refusals.length - 1] : "";
-    return Array.from({ length: paragraphCount(calls, unit) }, (_, k) => {
-      const n = k + 1;
-      const rounds = roundsAt(calls, n, status);
-      const r = rounds[rounds.length - 1];
-      const move = unit && unit.candidate ? unit.candidate.move : r && r.entry ? r.entry.move : null;
-      return {
-        leg_id: leg.leg_id,
-        paragraph: n,
-        move: typeof move === "string" ? move : null,
-        verdict: paragraphStatus(status, n, namedParagraphs(last), rounds).text,
-        rounds: rounds.map((x) => ({
-          round: x.number,
-          call: x.call ? relFromRepo(x.call.dir) : null,
-          verdict: x.verdict.kind === "judge" ? x.verdict.record.verdict : x.verdict.kind,
-          comment: x.comment ? x.comment.text : null,
-        })),
-      };
-    });
+    const unit = (job.units || []).find((u) => u.id === `leg-${i + 1}`);
+    if (!unit) return [];
+    const c = unit.candidate || null;
+    const move = c && typeof c.move === "string" ? c.move : null;
+    const verdict =
+      unit.status !== "done"
+        ? String(unit.status)
+        : move
+          ? `chosen, ${c.fit.met} of ${c.fit.compared} compared Edge(s) met`
+          : "no Move a candidate";
+    return [{ leg_id: leg.leg_id, paragraph: 1, move, verdict, rounds: [] }];
   });
-}
-
-// The Legs a unit's last `no_paragraph_move_fits` refusal names, or `null`.
-function noFitStop(runDir) {
-  const job = readReaderPathJob(runDir) || { units: [] };
-  for (const u of job.units || []) {
-    const last = Array.isArray(u.refusals) && u.refusals.length ? String(u.refusals[u.refusals.length - 1]) : "";
-    if (u.status === "done" || !last.includes(NO_PARAGRAPH_MOVE_FITS)) continue;
-    const at = [...last.matchAll(/^Leg (\S+) \(/gm)].map((m) => `Leg ${m[1]}`);
-    return `${NO_PARAGRAPH_MOVE_FITS} at ${at.join("; ") || u.id}`;
-  }
-  return null;
 }
 
 // STAGE 4: `/paragraph-plan` over the Legs, driven as the SMP Trial drives it (kogaki#1767).
@@ -314,7 +281,7 @@ function paragraphPlanStage({ outDir, legsPath, legsFile, slug, audiencePath, cl
   const ended = (line) => ({
     ...shown,
     paragraphs: planParagraphs(runDir, legsFile.reader_path),
-    stopped: noFitStop(runDir) || line,
+    stopped: line,
   });
   const s = pp("start");
   if (s.exit !== 0) return { ...shown, stopped: `\`paragraph-plan start\` exited ${s.exit}: ${s.line}` };

@@ -4,19 +4,17 @@
 // a `join` on the first paragraph and a Role id in a point, under a grounded Mapping Table:
 //   (a) `validateParagraphPlanUnit` refuses naming both, one line each, each naming paragraph 1,
 //       and carries both in `failures` with paragraph 1 as the one site;
-//   (b) the site call's `refused_here`, built from that refusal, carries both;
-//   (c) a site answer carrying both again is refused naming both;
 //   (e) the page renders each failure as its own `why:` line of the Round's Comment;
 //   (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it;
 //   (g) a paragraph carrying `journeys` is refused once by name, and (h) no `legschema().<key>` names an undeclared key (kogaki#1818).
-// Its (d), the missing expressions, went with the program's substring match (kogaki#1811).
+// Its (d), the missing expressions, went with the program's substring match (kogaki#1811); its (b) and (c), the site
+// call, went with src/paragraph-plan/site-retry.mjs (kogaki#1865).
 // Declared limit: whether a live planner repairs every failure it is handed is the model's.
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { validateParagraphPlanUnit, boundMoveContract } from "../src/paragraph-plan.mjs";
-import { paragraphPlanSiteInput, validateParagraphPlanSite } from "../src/paragraph-plan/site-retry.mjs";
 import { commentHtml } from "../src/paragraph-plan-playground/sheet.mjs";
 
 const repo = fileURLToPath(new URL("..", import.meta.url));
@@ -90,25 +88,6 @@ ok(
   `(a) the unit refusal does not carry both failures at paragraph 1: ${JSON.stringify({ failures: unit.failures, sites: unit.sites })}`,
 );
 
-// (b) the site call is handed both.
-const ctx = { site: 1, standing: record, history: [{ entry: paragraph, refusal: unit.error, by_judge: false }] };
-const handed = paragraphPlanSiteInput(ctx, inputs, "leg-1")
-  .refused_here.map((h) => h.refusal)
-  .join("\n");
-ok(handed.includes(JOIN) && handed.includes(ROLE), `(b) the site call's refused_here does not carry both: ${handed}`);
-
-// (c) a site answer carrying both again, under a changed purpose so it is no repeat, is refused naming both.
-const site = validateParagraphPlanSite(
-  { ...paragraph, purpose: "brings the reader to the watch." },
-  ctx,
-  inputs,
-  "leg-1",
-);
-ok(
-  String(site.error || "").includes(JOIN) && String(site.error || "").includes(ROLE),
-  `(c) the site refusal does not name both: ${site.error || "no refusal"}`,
-);
-
 // (f) one defect is one line: a paragraph carrying `move`, or a retired key, is refused once for it.
 for (const [key, value] of [
   ["move", moveId],
@@ -170,5 +149,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `ok: check-paragraph-plan-every-failure — ${cases} cases: a refusal names every failure over the paragraph, the site call is handed all of them, and the page renders each as its own Comment line (kogaki#1813); a paragraph carrying journeys is refused once by name, and no Leg schema reader names an undeclared key (kogaki#1818)`,
+  `ok: check-paragraph-plan-every-failure — ${cases} cases: a refusal names every failure over the paragraph, and the page renders each as its own Comment line (kogaki#1813); a paragraph carrying journeys is refused once by name, and no Leg schema reader names an undeclared key (kogaki#1818)`,
 );

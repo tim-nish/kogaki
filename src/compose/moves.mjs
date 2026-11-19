@@ -353,7 +353,7 @@ function figureBlockRefusal(block, at) {
 // `operation` (`does` until kogaki#1510), on every Segment after the first `relation`, and,
 // where the Extraction filled one, `manner` (kogaki#1510).
 export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner", "bind", "edges"]);
-// The Senses an Edge may keep beside the list of src/structure-mapping-playground/pdtb3-senses.json (kogaki#1871).
+// The Senses an Edge may keep beside the list of src/paragraph-plan/pdtb3-senses.json (kogaki#1871).
 export const MOVE_OWN_SENSES = Object.freeze(["MetaDiscourse", "FrameSetting"]);
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
@@ -413,18 +413,23 @@ function optionalRoleRefusal(role, field, v, at) {
   if (role === "segments") {
     if (!Array.isArray(v))
       return `${at}: \`${field}\` is not a list of Segments — one map per Segment carrying \`operation\`, \`relation\` and \`manner\` (kogaki#1414, kogaki#1413, kogaki#1510)`;
+    // A RECORD WHOSE SEGMENTS CARRY `bind` AND `edges` NEEDS NO `operation` OR `relation` (kogaki#1865): the two
+    // stay optional there, each held to its shape where it is written.
+    const edged = v.some((s) => isPlainMap(s) && (Object.hasOwn(s, "bind") || Object.hasOwn(s, "edges")));
     for (const [i, s] of v.entries()) {
       const atS = `${at}: \`${field}\` Segment ${i + 1}`;
       if (!isPlainMap(s)) return `${atS} is not a map`;
       const extra = Object.keys(s).find((k) => !SEGMENT_FIELDS.includes(k));
       if (extra)
         return `${atS} carries \`${extra}\` — a Segment carries ${SEGMENT_FIELDS.map((k) => `\`${k}\``).join(", ")} only`;
-      if (!oneLine(s.operation)) return `${atS} carries no one-line \`operation\``;
+      if (!oneLine(s.operation) && !(edged && s.operation === undefined))
+        return `${atS} carries no one-line \`operation\``;
       if (s.manner !== undefined && !oneLine(s.manner))
         return `${atS} carries a \`manner\` that is not one non-empty line — a Segment with no manner leaves the key out`;
       if (i === 0 && s.relation !== undefined)
         return `${atS} carries a \`relation\` — a Move carries no relation to what precedes it (kogaki#1411)`;
-      if (i > 0 && !oneLine(s.relation)) return `${atS} carries no one-line \`relation\` to the Segment before it`;
+      if (i > 0 && !oneLine(s.relation) && !(edged && s.relation === undefined))
+        return `${atS} carries no one-line \`relation\` to the Segment before it`;
     }
     return bindAndEdgesRefusal(v, at, field);
   }

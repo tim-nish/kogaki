@@ -238,7 +238,7 @@ export function writerBriefRecord(c) {
 
 export const savedPrompt = (name) => readFileSync(join(HERE, `${name}.txt`), "utf8");
 
-// The twenty-nine workflow-table rows whose instruction is a file under prompts/ (kogaki#1862): each rendered from
+// The twenty-seven workflow-table rows whose instruction is a file under prompts/ (kogaki#1862): each rendered from
 // ROW_INPUT and ROW_HISTORY and compared with the text saved before the move, `rows/<folder>/<file>.txt`.
 const TABLE_FOLDERS = {
   "src/brief-workflow.json": "brief",
@@ -260,7 +260,7 @@ const TABLE_ROWS = {
     "thesis_bound_unit",
     "renderings_unit",
   ],
-  "src/paragraph-plan-workflow.json": ["analogy_mapping", "paragraph_plan_judge_unit", "paragraph_plan_site_unit"],
+  "src/paragraph-plan-workflow.json": ["paragraph_plan_judge_unit", "paragraph_plan_name_senses"],
   "src/terrain-workflow.json": ["J2_subdivision", "thesis_candidates", "J3_neighborhood"],
   "src/structure-mapping-playground/playground-workflow.json": [
     "smp_leg_unit",
@@ -270,7 +270,6 @@ const TABLE_ROWS = {
     "smp_read_move",
     "smp_pair_roles",
     "smp_rank_senses",
-    "smp_name_senses",
     "smp_join_senses",
   ],
   "src/move-extraction-playground/extraction-workflow.json": [

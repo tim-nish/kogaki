@@ -1,33 +1,30 @@
-// paragraph-plan/view — the view: per Leg its text, its bound Move's takes and leaves, and its paragraphs' Waypoints beside their Segments. Cut from src/paragraph-plan.mjs along its headed
-// sections (kogaki#1792); the design and its rulings are stated at the entry and in the Issues each
-// block below names.
+// paragraph-plan/view — the view: per Leg the Move taken, its fit, and each Segment with what is bound to it, its
+// Edges and its Point (kogaki#1865). Cut from src/paragraph-plan.mjs along its headed sections (kogaki#1792).
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseYaml } from "../yaml.mjs";
-import { loadMoveContracts, paragraphPlanPathFor, readParagraphPlanBeside } from "../compose.mjs";
+import { paragraphPlanPathFor, readParagraphPlanBeside } from "../compose.mjs";
 import { REPO, relFromRepo } from "../workflow/run-record.mjs";
 import { readReaderPathJob } from "../workflow/detached-job.mjs";
-import { readAxes } from "./axes.mjs";
 import { readAdoptedBrief } from "./brief.mjs";
-import { escapeRe } from "./site-retry.mjs";
+import { legSentences } from "./senses.mjs";
 import { START_FILE } from "./stage.mjs";
 import { unitIdFor } from "./units.mjs";
 
 // ---------------------------------------------------------------------------
-// THE VIEW (kogaki#1650): per Leg, its text and the bound Move's takes and leaves; per paragraph, the
-// Move's Segments with each Waypoint beside its Segment (kogaki#1701); with a run, the refusals the Leg
-// and each paragraph met and the axes they name. A rendering that writes nothing; the plan is read
-// through /draft's own reader, so a moved Brief is refused alike.
-const constraintsText = (list) =>
-  Array.isArray(list) && list.length ? list.map((x) => `${x.kind}: ${oneLineText(x.what)}`).join("; ") : "(none)";
+// THE VIEW (kogaki#1650, kogaki#1865): per Leg, its text, the Move taken and the two numbers of `fit`; per Segment,
+// the Leg's sentence bound to it, its Edges and its Point; with a run, the refusals the Leg met. A rendering that
+// writes nothing; the plan is read through /draft's own reader, so a moved Brief is refused alike.
+export const escapeRe = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const oneLineText = (v) =>
   String(v)
     .replace(/\s*\n\s*/g, " ")
     .trim();
 const cell = (v) => oneLineText(v ?? "").replace(/\|/g, "\\|");
-const paragraphWaypointText = (p) => (!p ? "" : p.point);
+const edgesText = (edges) =>
+  (edges || []).map((e) => `${e.sense === null ? "(none)" : e.sense} to ${e.to.join(", ")}`).join("; ") || "(none)";
 
 function viewRun(runDir, briefSha) {
   let start;
@@ -48,11 +45,10 @@ function viewRun(runDir, briefSha) {
   return { start, job };
 }
 
-// The refusals of one Leg's unit, each with the paragraphs it names (none: the whole Leg) and the
-// judge axes it names. A refusal names its site as `Leg <id>, paragraph <n>` or opens with
-// `paragraph <n>:`.
+// The refusals of one Leg's unit, each with the paragraphs it names (none: the whole Leg) and the ids of `axisIds`
+// it names. A refusal names its site as `Leg <id>, paragraph <n>` or opens with `paragraph <n>:`.
 const REFUSAL_SITE = /(?:^|Leg [^,\s]+, )paragraph (\d+)/gi;
-export function legRefusals(job, unitId, axisIds) {
+export function legRefusals(job, unitId, axisIds = []) {
   const u = (job.units || []).find((x) => x.id === unitId);
   return ((u && u.refusals) || [])
     .map((r) => String(r))
@@ -62,9 +58,23 @@ export function legRefusals(job, unitId, axisIds) {
       axes: axisIds.filter((a) => new RegExp(`\\b${escapeRe(a)}\\b`).test(text)),
     }));
 }
-const refusalLine = (r) => `  - ${r.text} — axes: ${r.axes.length ? r.axes.join(", ") : "none named"}`;
 
-export function paragraphPlanView(planPath, { runDir = null, movesDir = null } = {}) {
+// The Leg's sentences, read from the Brief's `structure` at the Leg's relation; none where it carries none.
+function sentencesOf(brief, leg) {
+  const st = brief.record.structure;
+  try {
+    return st
+      ? legSentences(
+          { roles: st.roles || [], relations: st.relations || [], higher_order: st.higher_order || [] },
+          leg.relation,
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function paragraphPlanView(planPath, { runDir = null } = {}) {
   let record;
   try {
     record = parseYaml(readFileSync(planPath, "utf8"), planPath);
@@ -84,52 +94,34 @@ export function paragraphPlanView(planPath, { runDir = null, movesDir = null } =
   if (plan.error) return { error: plan.error };
   const run = runDir ? viewRun(runDir, plan.record.brief.sha256) : null;
   if (run && run.error) return { error: run.error };
-  const dirOfMoves = movesDir || (run && run.start.moves_dir) || "moves";
-  const library = loadMoveContracts(dirOfMoves);
-  if (library.error) return { error: library.error };
-  const moves = new Map(library.moves.map((m) => [m.id, m]));
-  const axisIds = (readAxes().axes || []).map((a) => a.id);
   const lines = [
     `# ParagraphPlan view: ${relFromRepo(resolve(planPath))}`,
     "",
-    `Brief: \`${plan.record.brief.path}\` (sha256 \`${plan.record.brief.sha256}\`). Move library: \`${dirOfMoves}\`. ` +
+    `Brief: \`${plan.record.brief.path}\` (sha256 \`${plan.record.brief.sha256}\`). ` +
       `Run: ${run ? `\`${relFromRepo(resolve(runDir))}\`` : "none given"}.`,
   ];
   for (const [li, leg] of brief.legs.entries()) {
     const entry = plan.record.legs[li];
-    const move = moves.get(entry.move);
-    const segments = (move && move.segments) || [];
-    const refusals = run ? legRefusals(run.job, unitIdFor(li), axisIds) : [];
-    lines.push(
-      "",
-      `## Leg ${leg.leg_id}`,
-      "",
-      `- **Text:** ${oneLineText(leg.text)}`,
-      `- **Move:** \`${entry.move}\`${move ? "" : ` — not in the Move library at ${dirOfMoves}`}`,
-      `- **Move takes:** ${move ? constraintsText(move.takes) : "(not read)"}`,
-      `- **Move leaves:** ${move ? constraintsText(move.leaves) : "(not read)"}`,
-    );
-    const legWide = refusals.filter((r) => !r.paragraphs.length);
-    if (legWide.length) lines.push("", "Refusals in this run naming no paragraph:", ...legWide.map(refusalLine));
-    for (const [i, e] of entry.paragraphs.entries()) {
-      const pws = e.paragraph_waypoints || [];
+    lines.push("", `## Leg ${leg.leg_id}`, "", `- **Text:** ${oneLineText(leg.text)}`);
+    if (!entry.move) lines.push("- **Move:** none — no Move file was a candidate for this Leg");
+    else {
       lines.push(
-        "",
-        `### Paragraph ${i + 1}`,
-        "",
-        "| Segment | Operation | Relation | Manner | Waypoint |",
-        "|---|---|---|---|---|",
+        `- **Move:** \`${entry.move}\``,
+        `- **Fit:** ${entry.fit.met} of ${entry.fit.compared} compared Edge(s) met`,
       );
-      for (let k = 0; k < Math.max(segments.length, pws.length); k++) {
-        const g = segments[k] || {};
-        lines.push(
-          `| ${k < segments.length ? k + 1 : "—"} | ${cell(g.operation)} | ${cell(g.relation)} | ${cell(g.manner)} | ${cell(paragraphWaypointText(pws[k]))} |`,
-        );
+      const sentences = sentencesOf(brief, leg);
+      const points = new Map((entry.points || []).map((p) => [p.segment, p.point]));
+      lines.push("", "| Segment | Bound | Edges | Point |", "|---|---|---|---|");
+      for (const [k, g] of entry.segments.entries()) {
+        const s = g.bind === null ? null : sentences[g.bind - 1];
+        const bound = g.bind === null ? "Neither" : s ? `${g.bind}. ${s.sentence}` : `sentence ${g.bind}`;
+        lines.push(`| ${k + 1} | ${cell(bound)} | ${cell(edgesText(g.edges))} | ${cell(points.get(k + 1) ?? "")} |`);
       }
-      if (run) {
-        const met = refusals.filter((r) => r.paragraphs.includes(i + 1));
-        lines.push("", `- **Refusals in this run:** ${met.length ? "" : "none"}`, ...met.map(refusalLine));
-      }
+      if (!entry.points) lines.push("", "- **Points:** none — the Points answer was refused");
+    }
+    if (run) {
+      const met = legRefusals(run.job, unitIdFor(li));
+      lines.push("", `- **Refusals in this run:** ${met.length ? "" : "none"}`, ...met.map((r) => `  - ${r.text}`));
     }
   }
   return { lines };
