@@ -196,7 +196,7 @@ function legHtml(leg, structure, planLeg, bindings, libraryDir, outDir) {
     const move = (planLeg && planLeg.move) || (b && b.move);
     const pws =
       (entry.paragraph_waypoints || [])
-        .map((pw, i) => line(`${i + 1}. ${pw.performs !== undefined ? `performs: ${pw.performs}` : pw.point}`))
+        .map((pw, i) => line(`${i + 1}. ${pw.point}`))
         .join("") || none("no Waypoints");
     return row([
       String(k + 1),

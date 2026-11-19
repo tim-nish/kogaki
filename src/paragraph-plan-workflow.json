@@ -96,8 +96,7 @@
         "paragraphs.join": "content",
         "paragraphs.paragraph_waypoints": "content",
         "paragraph_waypoints.point": "content",
-        "paragraph_waypoints.cast": "content",
-        "paragraph_waypoints.performs": "content"
+        "paragraph_waypoints.cast": "content"
       }
     },
     "binds_unread": {
@@ -143,7 +142,6 @@
       "paragraph_plan": {
         "paragraphs.join": "excluded",
         "paragraph_waypoints.point": "excluded",
-        "paragraph_waypoints.performs": "excluded",
         "paragraph_waypoints.cast": "excluded"
       }
     },

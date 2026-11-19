@@ -91,7 +91,6 @@ it does not read, and empty where the stage does not read the schema at all.
 | `paragraphs.join` | content | excluded |
 | `paragraphs.paragraph_waypoints` | content | unread |
 | `paragraph_waypoints.point` | content | excluded |
-| `paragraph_waypoints.performs` | content | excluded |
 | `paragraph_waypoints.cast` | content | excluded |
 
 - `paragraph_plan_unit` is src/paragraph-plan-workflow.json `paragraph_plan_unit`.

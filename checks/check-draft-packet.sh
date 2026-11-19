@@ -16,9 +16,9 @@
 #       plan's points, no `*Serves:*`, no `*Opens from:*` and no `*Cast:*`, and
 #       its plan block opens with the six fixed sentences;
 #   (b) THE POINTS DO NOT CHANGE THE PACKET: two renderings of the Leg, from two
-#       plans that differ only in their Points -- the point text, a `performs`
-#       entry, a cast, a judge's forced mark and a join -- are equal byte for
-#       byte;
+#       plans that differ only in their Points -- the point text, the number
+#       of Points, a cast, a judge's forced mark and a join -- are equal byte
+#       for byte;
 #   (c) THE PLAN BLOCK READS THE BRIEF'S STRUCTURE: with a `structure` on the
 #       Brief and a `relation` on the Leg, the plan block lists the Arguments as
 #       `- Argument <k>. <sentence>` and the CentralClaim as
@@ -27,10 +27,6 @@
 #       Segment, `Argument <k>`, `CentralClaim` or `Neither`, and its Sense and
 #       the earlier parts it names; with no `structure` it says the claims are
 #       the whole plan and lists no Argument;
-#   (e) `node src/draft.mjs resolve` over the fixture Brief with a
-#       ParagraphPlan file beside it accepts a paragraph carrying a
-#       `performs` entry beside a `point` entry, and refuses one none of whose
-#       Waypoints carries a `point`, by name (kogaki#1448).
 #   (f) THE REGISTER CARRIES NO VOICE RULE (kogaki#1488): the Write block of
 #       the Packet rendered from `audiences/dev-to-zenn.md` -- from `## Write`
 #       to the next `## ` heading -- carries the Audience's Referents rule, so
@@ -71,8 +67,8 @@
 #       `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that line.
 #   (l) NO SEGMENT FIELD REACHES THE PACKET (kogaki#1585, owner decision
 #       2026-10-25): a ParagraphPlan written by `paragraphPlanRecord` from
-#       Waypoints that carry their Segment's `manner` -- a `point`
-#       one and a `performs` one -- holds no `manner`, and the Packet
+#       Waypoints that carry their Segment's `manner` -- two `point`
+#       ones -- holds no `manner`, and the Packet
 #       `node src/draft.mjs resolve` renders from it carries its plan block and
 #       neither a Manner label, the manner's text nor either Waypoint; and the
 #       same plan file with the `manner` written back onto a Waypoint is
@@ -161,7 +157,6 @@ const planBlock = (packet) => {
   const end = packet.indexOf("## The claims this Leg asserts", i);
   return i === -1 || end === -1 ? null : packet.slice(i, end);
 };
-const PERFORMS = "flags the case as hard and announces a simplification by way of a pair of cases.";
 
 const template = readFileSync(WRITER_PROMPT_FILE, "utf8");
 const r = await render();
@@ -188,8 +183,8 @@ else {
     ...p,
     ...(i === 1 ? { join: "contrast" } : {}),
     paragraph_waypoints: [
-      { performs: PERFORMS },
-      { point: `OTHER-${i + 1} a different point.`, cast: { terse: true }, forced_by: ["PERFORMS IS BARE"] },
+      { point: `OTHER-${i + 1}-1 an added point.`, cast: {} },
+      { point: `OTHER-${i + 1} a different point.`, cast: { terse: true }, forced_by: ["CAST"] },
     ],
   }));
   const l = withParas(brief.legs[0], other);
@@ -280,29 +275,6 @@ else {
   }
 }
 
-// (e) resolve reads a performs entry beside a point entry, and refuses a paragraph with no point entry.
-{
-  const root = mkdtempSync(join(tmpdir(), "draft-packet-"));
-  const resolveWith = (name, first) => {
-    const dir = join(root, name, "theses", "packet-brief");
-    mkdirSync(dir, { recursive: true });
-    const briefPath = join(dir, "brief.yaml");
-    writeFileSync(briefPath, text);
-    writeFileSync(join(dir, "paragraph-plan.yaml"), paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-      legs: [planEntry("s1", [first, [{ point: "PW-2-1 the next run overwrites the edit.", cast: {} }]],
-        ENTRIES(2), [null, JOIN])] })));
-    return spawnSync(process.execPath, ["src/draft.mjs", "resolve", "--brief", briefPath, "--workspace", join(root, name, "ws")],
-      { encoding: "utf8", timeout: 120000 });
-  };
-  const ok = resolveWith("mixed", [{ performs: PERFORMS }, { point: "PW-1-2 the installer writes the copy.", cast: {} }]);
-  if (ok.status !== 0) fails.push(`(e) resolve refused a paragraph carrying a performs entry beside a point entry: ${(ok.stderr || ok.stdout || "").slice(0, 400)}`);
-  const none = resolveWith("no-point", [{ performs: PERFORMS }]);
-  const rendered = (ws) => existsSync(join(root, ws, "packet-brief", "packets", "s1.md"));
-  if (rendered("ws-none") || !(none.stderr || "").includes("none of its Waypoints carries a `point`")) {
-    fails.push(`(e) resolve did not refuse a paragraph none of whose Waypoints carries a point, by name: ${(none.stderr || none.stdout || "").slice(0, 400)}`);
-  }
-}
-
 // (l) no Segment field reaches the Packet: the plan written from manner-bearing Waypoints
 // holds none, its Packet renders the lines with no Manner label, and a manner written back is refused.
 {
@@ -314,7 +286,7 @@ else {
   writeFileSync(briefPath, text);
   const planPath = join(dir, "paragraph-plan.yaml");
   const planText = paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText: text,
-    legs: [planEntry("s1", [[{ performs: PERFORMS, manner: MANNER }, { point: "PW-1-2 the installer writes the copy.", manner: MANNER, cast: {} }],
+    legs: [planEntry("s1", [[{ point: "PW-1-1 the copy is written.", manner: MANNER, cast: {} }, { point: "PW-1-2 the installer writes the copy.", manner: MANNER, cast: {} }],
       [{ point: "PW-2-1 the next run overwrites the edit.", cast: {} }]], ENTRIES(2), [null, JOIN])] }));
   writeFileSync(planPath, planText);
   if (/\bmanner\b/.test(planText) || planText.includes(MANNER)) fails.push(`(l) the ParagraphPlan written from manner-bearing Waypoints carries a manner: ${planText}`);
@@ -326,7 +298,7 @@ else {
   else {
     const packet = readFileSync(packetPath, "utf8");
     if (planBlock(packet) === null) fails.push("(l) the Packet carries no plan block, so the absence below reads nothing");
-    for (const bad of ["Manner:", MANNER, PERFORMS, "PW-1-2"]) {
+    for (const bad of ["Manner:", MANNER, "PW-1-1", "PW-1-2"]) {
       if (packet.includes(bad)) fails.push(`(l) the Packet rendered from the plan carries ${JSON.stringify(bad)}`);
     }
   }
@@ -612,5 +584,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; two plans differing only in their Points render one Packet byte for byte; the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment where the Leg carries segments, and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); resolve accepts a performs entry beside a point entry and refuses a paragraph with no point entry (kogaki#1448); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan written from manner-bearing Waypoints holds no manner and a plan file carrying one is refused at resolve (kogaki#1585); a plan carrying the paragraph's schema renders none of it, and a missing or retired field is refused at resolve (kogaki#1639); a cast key outside the set is refused (kogaki#1695); a plan with a Mapping Record renders no expression and no point (kogaki#1735, kogaki#1859).");
+console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; two plans differing only in their Points render one Packet byte for byte; the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment where the Leg carries segments, and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan written from manner-bearing Waypoints holds no manner and a plan file carrying one is refused at resolve (kogaki#1585); a plan carrying the paragraph's schema renders none of it, and a missing or retired field is refused at resolve (kogaki#1639); a cast key outside the set is refused (kogaki#1695); a plan with a Mapping Record renders no expression and no point (kogaki#1735, kogaki#1859).");
 JS

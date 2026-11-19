@@ -4,7 +4,7 @@
 # axis is one sentence with one responsibility, a defect and a clean fixture and a
 # `justified_by` bench run; (b) the judge prompt carries every axis in order and the table
 # writes no criterion of its own; (c) the validator refuses a Waypoint count off
-# the bound Move's Segments, and a paragraph carrying both `performs` and `point`; (d) the bench
+# the bound Move's Segments, and a Waypoint carrying `performs` (kogaki#1864); (d) the bench
 # records or removes a scratch axis over a fake judge, leaving an unread one as it was;
 # (e) the criteria table of the spec's ParagraphPlan stage carries every criterion of both
 # judges and no other, and the judge is handed the Leg's one bound Move's `takes` and `leaves`
@@ -94,11 +94,11 @@ if (!short.includes("Leg v1, paragraph 1") || !short.includes(`${segments - 1} W
   fails.push(`(c1) a paragraph one Waypoint short of its Move's Segments is not refused naming the paragraph: ${short || "no refusal"}`);
 }
 cases++;
-const both = parts(segments);
-both[1] = { performs: "Puts the question to the reader.", point: "Part 2 of the point." };
-const two = validateParagraphPlanUnit(plan(both), inputs, "leg-1").error || "";
-if (!two.includes("Leg v1, paragraph 1") || !two.includes("Waypoint 2 carries `performs` beside")) {
-  fails.push(`(c2) a paragraph carrying both performs and point is not refused naming it: ${two || "no refusal"}`);
+const withPerforms = parts(segments);
+withPerforms[1] = { performs: "Puts the question to the reader." };
+const two = validateParagraphPlanUnit(plan(withPerforms), inputs, "leg-1").error || "";
+if (!two.includes("Leg v1, paragraph 1") || !two.includes("Waypoint 2 carries `performs`")) {
+  fails.push(`(c2) a Waypoint carrying performs is not refused naming performs (kogaki#1864): ${two || "no refusal"}`);
 }
 
 // (e) THE CRITERIA TABLE (kogaki#1647, kogaki#1768): every Paragraph cell is an axis or a shared
@@ -237,5 +237,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-paragraph-plan-axes -- every judge axis is one sentence with a defect and a clean fixture and the bench run that kept it, the judge prompt renders exactly the registry's axes, the validator refuses a Waypoint count off the bound Move's Segments and a paragraph carrying both performs and point, the bench writes an axis's rates and records or removes it, the criteria table carries every criterion of both judges and no other, and the judge is handed the Leg's bound Move's takes and leaves beside what the Legs before it state");
+console.log("ok: check-paragraph-plan-axes -- every judge axis is one sentence with a defect and a clean fixture and the bench run that kept it, the judge prompt renders exactly the registry's axes, the validator refuses a Waypoint count off the bound Move's Segments and a Waypoint carrying performs, the bench writes an axis's rates and records or removes it, the criteria table carries every criterion of both judges and no other, and the judge is handed the Leg's bound Move's takes and leaves beside what the Legs before it state");
 JS

@@ -83,7 +83,7 @@ const part = (id, title, body) => `<section class="card" id="${id}"><h2>${esc(ti
 const none = (what) => `<p class="muted">${esc(what)}</p>`;
 const line = (text, cls = "line") => `<p class="${cls}">${esc(text)}</p>`;
 const tag = (t, text = t) => `<span class="tag tag-${t.replace(/ /g, "-")}">${esc(text)}</span>`;
-const pointText = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `performs: ${p.performs}` : String(p.point ?? ""));
+const pointText = (p) => (!p ? "" : String(p.point ?? ""));
 const heading = (name) => {
   if (!TABLE_HEADINGS.includes(name))
     throw new Error(`the ParagraphPlanPlayground has no heading ${JSON.stringify(name)}`);
@@ -305,7 +305,7 @@ function submissionTable(library, entry, named) {
   const segments = c.error ? [] : c.segments;
   const points = entry.paragraph_waypoints || [];
   const castOf = (p) => Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
-  const pointCell = (p) => (!p ? "" : Object.hasOwn(p, "performs") ? `<i>${esc(p.performs)}</i>` : esc(p.point));
+  const pointCell = (p) => (!p ? "" : esc(p.point));
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   const rows = new Set(named.waypoints);
   const cells = new Set(named.segments);

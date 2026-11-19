@@ -83,10 +83,8 @@ export const unitRefusals = (r, job, legId) => {
   return u && Array.isArray(u.refusals) ? u.refusals : [];
 };
 
-// A Waypoint as a list item: a `point` entry as its text, a `performs` entry as its
-// text in italics, as the Packet renders it (kogaki#1448), so no item is empty (kogaki#1479).
-export const pwItem = (p) =>
-  p && Object.hasOwn(p, "performs") ? `<li><i>${esc(p.performs)}</i></li>` : `<li>${esc((p && p.point) || "")}</li>`;
+// A Waypoint as a list item: its `point` as its text (kogaki#1479).
+export const pwItem = (p) => `<li>${esc((p && p.point) || "")}</li>`;
 
 // A Round block's anchor id, inside its details as `prowBlock`'s is, so the review block's
 // refused-rounds table can link to it (kogaki#1487).

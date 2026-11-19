@@ -5,7 +5,7 @@
     "Each axis carries `fixtures`: at least one `defect` record that violates this axis and no other, and one `clean` record, each naming a record under `records`. A record is a judge input whole, one Leg under its one bound Move (kogaki#1777), or `from` another record with one `edit`: a Waypoint replaced (`paragraph`, `waypoint`, `to`), a `join` replaced (`paragraph`, `join`), or the bound Move's `takes` or `leaves` replaced (`move_takes` or `move_leaves`) (kogaki#1701). `at_paragraph` names the paragraph a defect sits on.",
     "THE RETENTION RULE: an axis is kept where, over at least `retention.draws_min` draws of `node src/move-extraction-playground/judge-bench.mjs --axis <id>`, its defect records are refused in at least `defect_refused_with_min` of the draws with the axis and in at most `defect_refused_without_max` without it, and its clean record passes in at least `clean_passed_with_min` with it; an axis failing the rule is removed. Rates are fractions of the draws.",
     "`justified_by` records the bench run that kept the axis: its date, its run directory and its rates. `judge-bench.mjs --record` writes it, or removes the axis that fails the rule; checks/check-paragraph-plan-axes.sh refuses an axis without it.",
-    "Countable rules are not axes: the Waypoint count against the bound Move's Segments and the one-of `performs` and `point` are refusals of the plan-record validator (src/paragraph-plan.mjs)."
+    "Countable rules are not axes: the Waypoint count against the bound Move's Segments and a Waypoint's keys are refusals of the plan-record validator (src/paragraph-plan.mjs)."
   ],
   "retention": {
     "draws_min": 5,
@@ -85,89 +85,6 @@
               ]
             }
           ]
-        }
-      }
-    },
-    "leg3-wp3-clean": {
-      "source": "corpus/p1329 Leg 3, Move-Extraction Playground run of 2026-10-23T08-28, the second judge call, verbatim; each bound Move's `takes` and `leaves` and each entry's `stands_to_be_taken_up` written for kogaki#1701 from the reader states the record carried before it, the run predating them; Brief Waypoint 3 cut for kogaki#1777 to one Leg under one bound Move: the Brief Waypoint's point stands as the Leg's text, the Brief Waypoints before it as what the reader has been told, and its Waypoints as the Leg's one paragraph",
-      "input": {
-        "leg_you_must_judge": {
-          "leg_id": "leg-1",
-          "text": "Two factors, offense-defense advantage and offense-defense distinguishability, are mainly what decides how readily the security dilemma arises.",
-          "prior_knowledge": "no specialized grasp of the subject, only loose impressions picked up from the news",
-          "the_reader_has_been_told": [
-            {
-              "leg_id": "L1",
-              "text": "A state is by nature interested in protecting itself, so the standing declaration that a war being started is a war of defence is literally true of a state's motive, and any state fears a neighbour's rapid build-up — as in the present relation between China and Japan, with China's build-up for its own protection, Japan's fear of attack, and Japan's answering build-up."
-            },
-            {
-              "leg_id": "L2",
-              "text": "The same arms buildup is feared in one situation and not feared in another, so the security dilemma splits into cases where the dilemma arises easily and cases where the dilemma does not, and the split matters for understanding where the strongest power stands in the world: two large powers sit where the dilemma arises easily, while the strongest power sits where the dilemma does not."
-            }
-          ],
-          "bound_move": {
-            "takes": [
-              {
-                "kind": "answer",
-                "what": "what puts one position where the effect arises readily and another where it does not"
-              }
-            ],
-            "leaves": [
-              {
-                "kind": "explain",
-                "what": "what each of the named causes means and how it does its deciding",
-                "segment": 3
-              }
-            ],
-            "segments": [
-              {
-                "operation": "puts the open point to the reader as a direct question in the reader's own voice"
-              },
-              {
-                "operation": "announces that the answer consists of a fixed small number of items without yet naming them",
-                "relation": "answers the question just asked only as far as its size, holding its content back"
-              },
-              {
-                "operation": "fills the announced count by naming each item",
-                "relation": "supplies the names the preceding step had withheld",
-                "manner": "a bare naming, each item given with no definition and left for later"
-              }
-            ],
-            "breaks": [
-              "drop the direct question and open straight on the count — the reader is handed an answer to a question they were never shown holding, so the count reads as arbitrary",
-              "name the items in the same sentence that announces their number — the beat in which the answer's shape is fixed before its content is lost, and the names arrive unsorted",
-              "define each named item here rather than leaving it — the step stops being a frame the reader can hold and becomes the explanation itself, leaving nothing to follow forward",
-              "replace the fixed small count with an open-ended set — the reader can no longer hold the whole answer at once, and stops expecting each part to be taken up in turn"
-            ]
-          },
-          "paragraphs": [
-            {
-              "paragraph": 1,
-              "paragraph_waypoints": [
-                {
-                  "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises."
-                },
-                {
-                  "point": "Mainly two factors decide how readily the security dilemma arises."
-                },
-                {
-                  "point": "The two factors are offense-defense advantage and offense-defense distinguishability."
-                }
-              ]
-            }
-          ]
-        }
-      }
-    },
-    "performs-states-reading": {
-      "source": "constructed: the performs line adds the reader's resulting reading",
-      "from": "leg3-wp3-clean",
-      "at_paragraph": 1,
-      "edit": {
-        "paragraph": 1,
-        "waypoint": 1,
-        "to": {
-          "performs": "Puts to the reader, in the reader's own voice, the direct question of what decides how readily the security dilemma arises, so that the reader now wants the deciding factors named."
         }
       }
     },
@@ -944,29 +861,6 @@
     }
   },
   "axes": [
-    {
-      "id": "PERFORMS IS BARE",
-      "fixtures": {
-        "defect": [
-          "performs-states-reading"
-        ],
-        "clean": [
-          "leg3-wp3-clean"
-        ]
-      },
-      "justified_by": {
-        "date": "2026-10-23",
-        "run": "runs/judge-bench/2026-10-23-all-5",
-        "draws": 5,
-        "rates": {
-          "defect_refused_with": 1,
-          "defect_refused_without": 0,
-          "clean_passed_with": 1,
-          "clean_passed_without": 1
-        }
-      },
-      "reshaped": "kogaki#1777: the fixtures were cut to one Leg under one bound Move; the rates in `justified_by` are the bench run over the earlier shape, and a bench run over this one is owed"
-    },
     {
       "id": "OWN STEP",
       "fixtures": {
