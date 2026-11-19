@@ -7,7 +7,7 @@ const REPO = process.cwd();
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
 const { validateMoveRecord } = await imp("src/compose/moves.mjs");
-const { loadSenses, sensesText } = await imp("src/paragraph-plan/senses.mjs");
+const { loadSenses, loadOwnSenses, sensesText } = await imp("src/paragraph-plan/senses.mjs");
 const SENSES_FILE = JSON.parse(readFileSync(join(REPO, "src/paragraph-plan/senses.json"), "utf8"));
 const SENSES = [
   ...SENSES_FILE.senses.flatMap((s) => (s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`) : [s.sense])),
@@ -91,9 +91,9 @@ ok(
   `(c10e) an Edge that points to its own Segment is not refused naming the Segment: ${refusal(second([{ sense: "Cause.Reason", to: [2] }]))}`,
 );
 
-// (c11) every entry of the file's `own` carries exactly `sense`, `meaning` and `parts`, its `meaning` one non-empty
-// line (kogaki#1881).
-for (const [i, s] of SENSES_FILE.own.entries())
+// (c11) every entry of the file's `own`, as `loadOwnSenses` returns it, carries exactly `sense`, `meaning` and
+// `parts`, its `meaning` one non-empty line (kogaki#1881).
+for (const [i, s] of loadOwnSenses().entries())
   ok(
     s !== null &&
       typeof s === "object" &&
