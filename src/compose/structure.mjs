@@ -153,8 +153,8 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
       idNameRefusal("relations", r, i, names);
     if (b) return shape(b);
     const at = named("relations", r);
-    if (!Array.isArray(r.between) || r.between.length < 2 || r.between.some((x) => !roleIds.has(x))) {
-      return shape(`${at}'s \`between\` does not name two or more Roles`);
+    if (!Array.isArray(r.between) || r.between.length !== 2 || r.between.some((x) => !roleIds.has(x))) {
+      return shape(`${at}'s \`between\` does not name exactly two Roles`);
     }
     if (!claimIds.has(r.from)) return shape(`${at}'s \`from\` ${JSON.stringify(r.from)} is not one claim id`);
     if (!isText(r.holds)) return shape(`${at}'s \`holds\` is empty`);
@@ -184,6 +184,7 @@ export function validateReadSet(record, claims, { thesis = true, considered = fa
   for (const h of higher) {
     const at = named("higher_order", h);
     if (!Array.isArray(h.relates) || h.relates.length < 2) return shape(`${at} relates fewer than two relations`);
+    if (h.id !== apexId && h.relates.length !== 2) return shape(`${at} does not relate exactly two relations`);
     const stray = h.relates.find((x) => !relationIds.has(x) && !higherIds.has(x));
     if (stray !== undefined)
       return shape(`${at} relates ${JSON.stringify(stray)}, which names no relation or higher-order relation`);

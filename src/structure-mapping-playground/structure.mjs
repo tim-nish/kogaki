@@ -139,8 +139,8 @@ export function validateStructure(record, proposition) {
     const b = keysRefusal(r, ["id", "between", "holds"], at);
     if (b) return { group: "shape", error: b };
     if (!isText(r.id) || ids.has(r.id)) return { group: "shape", error: `${at}'s \`id\` is empty or not unique` };
-    if (!Array.isArray(r.between) || r.between.length < 2)
-      return { group: "shape", error: `${at}'s \`between\` names fewer than two Roles` };
+    if (!Array.isArray(r.between) || r.between.length !== 2)
+      return { group: "shape", error: `${at}'s \`between\` does not name exactly two Roles` };
     const stray = r.between.find((x) => !roleIds.has(x));
     if (stray !== undefined)
       return { group: "shape", error: `${at}'s \`between\` names ${JSON.stringify(stray)}, which is no Role's id` };
@@ -182,8 +182,8 @@ export function validateStructure(record, proposition) {
           "higher_order is read as `h1`, which a Role or relation already names: rename that element or write higher_order as a list",
       };
     if (!isText(h.id) || ids.has(h.id)) return { group: "shape", error: `${at}'s \`id\` is empty or not unique` };
-    if (!Array.isArray(h.relates) || h.relates.length < 2)
-      return { group: "shape", error: `${at}'s \`relates\` names fewer than two relations` };
+    if (!Array.isArray(h.relates) || h.relates.length !== 2)
+      return { group: "shape", error: `${at}'s \`relates\` does not name exactly two relations` };
     const stray = h.relates.find((x) => !relationIds.has(x));
     if (stray !== undefined)
       return { group: "shape", error: `${at}'s \`relates\` names ${JSON.stringify(stray)}, which is no relation's id` };

@@ -3542,8 +3542,9 @@ undeclared or missing key, and a written `reach` or `unreached`; an id out of
 the convention below, and a `name` missing, not one snake_case word, or
 repeated; a Role whose `claims` names no claim, and a Role in no relation; a
 relation whose `from` is not one claim id, or whose `holds` writes no
-`{<id>}` for a Role its `between` names; a higher-order relation relating fewer than two
-relations or higher-order relations, or an unknown id, or relating itself
+`{<id>}` for a Role its `between` names, or whose `between` does not name
+exactly two Roles; a higher-order relation other than the apex not relating
+exactly two relations or higher-order relations, or an unknown id, or relating itself
 through another; and an `attains_thesis` absent or naming no higher-order
 relation. A refusal is handed back verbatim with the answer, under the
 Mapper's bound, `MAPPER_CALLS`.
@@ -3735,9 +3736,9 @@ or the apex's Leg last, that statement is superseded by items 6–7 and
 2. `read_structure` reads every settled Strand's claim into ONE
    RelationalStructure (`validateReadSet` with `thesis: false`,
    `src/compose/structure.mjs`): Roles, relations each stated by one claim,
-   and higher-order relations each relating two or more relations or
-   higher-order relations. A settled Strand carrying no served claim refuses
-   the state by name.
+   each naming exactly two Roles, and higher-order relations each relating
+   exactly two relations or higher-order relations (kogaki#1874). A settled
+   Strand carrying no served claim refuses the state by name.
 3. `apex` splits the structure into its connected components. Only a
    component a higher-order relation connects is a Thesis candidate
    (kogaki#1773); a component of ordinary relations alone is recorded on the

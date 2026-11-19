@@ -11,7 +11,8 @@
 #       and nothing is written.
 
 #   (c) validateReadSet refuses a non-apex higher-order relation with no `from` or a `from` naming no claim, a Role in no
-#       relation, a higher-order relation relating one relation, one relating itself through another, a written `reach` and
+#       relation, a higher-order relation relating one relation, a relation naming three Roles and a non-apex higher-order
+#       relation relating three (kogaki#1874), one relating itself through another, a written `reach` and
 #       a missing `attains_thesis`, naming each; the apex with no `from` and a higher-order relation relating a
 #       higher-order relation pass; a refused first answer is handed back and the second is read. The ids are minted
 #       (kogaki#1772): an answer writing an `id` is refused, every element carries its `name` and the id `r_<n>`, `c_<n>`
@@ -203,6 +204,8 @@ const refusals = [
   ["a written reach", without((s) => { s.reach = ["h2"]; }), "reach"],
   ["a Role in no relation", without((s) => { s.roles.push({ name: "idle", context: "A thing nothing relates.", attributes: [], claims: ["c1"] }); }), "\"idle\""],
   ["a higher-order relation relating one relation", without((s) => { s.higher_order[0].relates = ["p1"]; }), "\"h1\""],
+  ["a relation naming three Roles", without((s) => { s.relations[0].between = ["rules", "walk", "file"]; }), "\"p1\" (c_1)'s `between` does not name exactly two Roles"],
+  ["a non-apex higher-order relation relating three", without((s) => { s.higher_order[0].relates = ["p1", "p2", "p3"]; }), "\"h1\" (h_1) does not relate exactly two relations"],
   ["a missing attains_thesis", without((s) => { delete s.attains_thesis; }), "attains_thesis"],
   ["an answer writing an id", without((s) => { s.relations[1].id = "c_2"; }), "relations[1]"],
   ["an apex carrying from", without((s) => { s.higher_order[1].from = []; }), "the apex, higher_order[1]"]];
