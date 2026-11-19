@@ -5,8 +5,8 @@
 //   (c) the flags; (d) the Brief, Leg and Move refused by value with nothing written;
 //   (e) `validateMoveStructure` and (f) `validatePairing`, each refusal by name, a null not refused;
 //   (g) the Leg's structure; (h) the plan call's inputs, an unchanged production row, moves/ and theses/;
-//   (i) the Move table route (kogaki#1840, kogaki#1858) run to the end; (j) the table and its flag refused by name, nothing
-//   written; (k) the Points answer's validator under a Move table, each refusal by name.
+//   (i) the Move table route (kogaki#1840, kogaki#1858) run to the end, with no call between grounding and the writer
+//   (kogaki#1876); (j) the table and its flag refused by name, nothing written. Case (k) went with its call (kogaki#1876).
 import {
   mkdtempSync,
   mkdirSync,
@@ -228,10 +228,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   if (row("smp_read_move")) return out(nth("read", process.env.SMP_READ_ANSWERS), "read");
   if (row("smp_pair_roles")) return out(nth("pair", process.env.SMP_PAIR_ANSWERS), "pair");
   if (row("smp_correspondence")) return out(JSON.parse(process.env.SMP_TABLE), "grounding");
-  if (row("paragraph_plan_points")) {
-    const input = JSON.parse(prompt.slice(prompt.lastIndexOf("----- INPUT (JSON) -----") + "----- INPUT (JSON) -----".length));
-    return out({ points: input.segments.map((g) => ({ segment: g.segment, point: "PW-" + g.segment + " the installer writes the copied kit." })) }, "waypoints");
-  }
   if (row("paragraph_plan_unit")) {
     const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
     const m = bindable.find((x) => x.id === leg.move);
@@ -525,10 +521,8 @@ ok(sha(PLAN_TABLE) === planTableSha, `(h) ${PLAN_TABLE} changed`);
 ok(snapshot() === before, "(h) a file under moves/ or theses/ changed");
 
 // (i) the Move table (kogaki#1840, kogaki#1858): read by hand-written table, its Bind targets given the Leg's Arguments and
-// CentralClaim in order by the Harness, and one Point written per Segment
-const { callDir, CALL_FILES } = await imp("src/workflow/call-record.mjs");
+// CentralClaim in order by the Harness, and no call made between grounding and the writer (kogaki#1876)
 const TABLE_FIXTURE = "checks/fixtures/move-table/grant_the_rule_then_withdraw_its_enforcer.yaml";
-const TABLE_SENTENCE = "A Point tells what its Segment's Sense requires.";
 const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
 const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
 const TABLE_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", MOVE, "--library", library];
@@ -539,13 +533,14 @@ const tYaml = (f) => (existsSync(join(ti.o, f)) ? parseYaml(readFileSync(join(ti
 ok(ti.res.status === 0, `(i) the table run exited ${ti.res.status}: ${ti.said}`);
 ok(
   JSON.stringify((trec.stages || []).map((s) => `${s.stage}:${s.state}`)) ===
-    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "waypoints:done", "write:done"]),
-  `(i) the table run's stages are not the route's five, all done: ${JSON.stringify(trec.stages)}`,
+    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "write:done"]),
+  `(i) the table run's stages are not move-reading, pairing, grounding and write, all done: ${JSON.stringify(trec.stages)}`,
 );
 ok(
-  JSON.stringify(ti.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "waypoints", "writer"]),
-  `(i) the table run called the model at move-reading or pairing: ${ti.seen.map((x) => x.stage)}`,
+  JSON.stringify(ti.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "writer"]),
+  `(i) the table run made a call beside grounding and the writer: ${ti.seen.map((x) => x.stage)}`,
 );
+ok(!existsSync(join(ti.o, "waypoints")), "(i) the table run wrote a `waypoints` stage directory");
 ok(
   (trec.stages || [])
     .filter((s) => s.stage === "move-reading" || s.stage === "pairing")
@@ -581,57 +576,12 @@ ok(
 );
 ok(
   ["rbs.yaml", "bind.yaml", "paragraph.md", "sheet.html"].every((f) => existsSync(join(ti.o, f))),
-  "(i) the table run did not write its Mapping Table, Waypoints, paragraph and sheet",
+  "(i) the table run did not write its Mapping Table, paragraph record, paragraph and sheet",
 );
-const tPlan = ti.seen.find((x) => x.stage === "waypoints");
-const tPrompt = (tPlan && tPlan.prompt) || "";
-ok(tPrompt.includes(TABLE_SENTENCE), "(i) the Points call does not carry the Move-table prompt's sentence");
-ok(!tPrompt.includes(PAIRED_SENTENCE), "(i) the plan call carries the smp_paired_plan sentence beside the table's");
-const tInputPath = join(callDir(join(ti.o, "waypoints"), "paragraph_plan_points", 1), CALL_FILES.input);
-const tInput = existsSync(tInputPath) ? JSON.parse(readFileSync(tInputPath, "utf8")) : {};
-ok(
-  JSON.stringify(tInput) ===
-    JSON.stringify({
-      leg: {
-        leg_id: "s2",
-        arguments: [
-          { id: "c_1", sentence: "The installer writes the copy." },
-          { id: "c_2", sentence: "The copy overwrites any edit." },
-        ],
-        central_claim: { id: "h_1", sentence: "The copy is the installer's." },
-      },
-      segments: [
-        { segment: 1, bound: { kind: "Argument", id: "c_1" }, sense: null },
-        { segment: 2, bound: { kind: "Argument", id: "c_2" }, sense: { sense: "Concession", to: [1] } },
-        { segment: 3, bound: { kind: "CentralClaim", id: "h_1" }, sense: { sense: "Cause", to: [2] } },
-      ],
-    }),
-  `(i) the Points call's recorded input is not the Leg's Arguments and CentralClaim and each Segment's bound and Sense: ${JSON.stringify(tInput)}`,
-);
-for (const [label, text] of [
-  ["the Move's name", MOVE],
-  ["`breaks` prose", "breaks if the point is dropped"],
-  ["`operation` prose", "names the two parts"],
-  ["`relation` prose", "follows from the step before"],
-  ["a Role's context", "the program that copies the kit"],
-])
-  ok(
-    !JSON.stringify(tInput).includes(text) && !tPrompt.includes(`"${text}`),
-    `(i) the Points call's input carries ${label}`,
-  );
 const tParagraphs = (trec.bind && trec.bind.paragraphs) || [];
 ok(
-  tParagraphs.length === 1 &&
-    tParagraphs[0].move === MOVE &&
-    JSON.stringify(
-      tParagraphs[0].paragraph_waypoints.map((w) => [w.point.slice(0, 4), Object.hasOwn(w, "serves"), w.cast]),
-    ) ===
-      JSON.stringify([
-        ["PW-1", false, {}],
-        ["PW-2", false, {}],
-        ["PW-3", false, {}],
-      ]),
-  `(i) the paragraph record is not one paragraph under the named Move, each Point carrying no serves and an empty cast: ${JSON.stringify(tParagraphs)}`,
+  tParagraphs.length === 1 && tParagraphs[0].move === MOVE && !Object.hasOwn(tParagraphs[0], "paragraph_waypoints"),
+  `(i) the paragraph record is not one paragraph under the named Move with no \`paragraph_waypoints\`: ${JSON.stringify(tParagraphs)}`,
 );
 // The Writer is handed the plan and no Point (kogaki#1859): the Arguments, the CentralClaim and one part per Segment.
 const tWriter = ((ti.seen.find((x) => x.stage === "writer") || {}).prompt || "").split("\n");
@@ -658,12 +608,11 @@ ok(
 const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
 const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
 ok(
-  /<th>#<\/th><th>bind<\/th><th>domain<\/th><th>genericity<\/th><th>Sense<\/th><th>manner<\/th><th>Waypoints<\/th>/.test(
-    tSegs,
-  ) &&
+  /<th>#<\/th><th>bind<\/th><th>domain<\/th><th>genericity<\/th><th>Sense<\/th><th>manner<\/th><\/tr>/.test(tSegs) &&
     !tSegs.includes("operation") &&
-    !tSegs.includes("Unmatched"),
-  "(i) the sheet's Segments table is not the table route's columns, with no operation and no Unmatched table",
+    !tSegs.includes("Unmatched") &&
+    !tSegs.includes("Waypoint"),
+  "(i) the sheet's Segments table is not the table route's columns, with no operation, no Unmatched table and no Waypoints column",
 );
 const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
 ok(
@@ -671,9 +620,8 @@ ok(
     tRows[0].includes("1 → Argument c_1") &&
     tRows[2].includes("3 → CentralClaim h_1") &&
     tRows[1].includes("Concession → 1") &&
-    tRows[2].includes("own words") &&
-    tRows[0].includes("PW-1"),
-  `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim, the table's fields and the Points: ${tRows.join(" | ")}`,
+    tRows[2].includes("own words"),
+  `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim and the table's fields: ${tRows.join(" | ")}`,
 );
 
 // (i) under `--leg-senses` (kogaki#1875): a finished reading of the same Leg, recorded in trial.json and shown directly after
@@ -876,35 +824,8 @@ for (const [name, args, want] of [
 }
 ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
 
-// (k) the Points answer under a Move table (kogaki#1858), each refusal by name, a whole answer not refused
-const { tablePointsRefusal } = await imp("src/structure-mapping-playground/short.mjs");
-const POINTS = { points: [1, 2, 3].map((n) => ({ segment: n, point: `point ${n}` })) };
-const pt = (f) => {
-  const x = structuredClone(POINTS);
-  f(x);
-  return x;
-};
-ok(
-  tablePointsRefusal(POINTS, 3) === null,
-  `(k) a whole Points answer was refused: ${JSON.stringify(tablePointsRefusal(POINTS, 3))}`,
-);
-for (const [label, answer, want] of [
-  [
-    "a key beside points",
-    pt((x) => (x.paragraphs = [])),
-    "carries `paragraphs`, and it holds `points` and no other key",
-  ],
-  ["a short list", pt((x) => x.points.pop()), "`points` carries 2 entries, and the Move has 3 Segments"],
-  ["a Segment out of place", pt((x) => (x.points[1].segment = 3)), "points[1]'s `segment` is 3, and its place is 2"],
-  ["an empty point", pt((x) => (x.points[2].point = " ")), "points[2]'s `point` is not one non-empty text"],
-  ["a third key", pt((x) => (x.points[0].serves = ["L1"])), "points[0] carries `serves`"],
-]) {
-  const r = tablePointsRefusal(answer, 3);
-  ok(r && r.text.includes(want), `(k) ${label} was not refused naming ${want}: ${JSON.stringify(r)}`);
-}
-
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(k)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j)`);

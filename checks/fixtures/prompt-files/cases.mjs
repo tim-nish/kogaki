@@ -45,23 +45,6 @@ export const PLAN_HISTORY = {
   part: [{ answer: ANSWER, refusal: "paragraph 1: the Waypoint states no point of Segment 2", reach: "part" }],
   record: [{ answer: ANSWER, refusal: "the record binds a Move whose takes the Leg does not hold", reach: "record" }],
 };
-// The Points call under a Move table (kogaki#1858): one Leg's Arguments and CentralClaim, and per Segment what is bound
-// to it and its Sense.
-export const POINTS_INPUT = {
-  leg: {
-    leg_id: "s2",
-    arguments: [
-      { id: "c_1", sentence: "The installer writes the copy." },
-      { id: "c_2", sentence: "The copy overwrites any edit." },
-    ],
-    central_claim: { id: "h_1", sentence: "The copy is the installer's." },
-  },
-  segments: [
-    { segment: 1, bound: { kind: "Argument", id: "c_1" }, sense: null },
-    { segment: 2, bound: null, sense: { sense: "Concession", to: [1] } },
-    { segment: 3, bound: { kind: "CentralClaim", id: "h_1" }, sense: { sense: "Cause", to: [2] } },
-  ],
-};
 export const PLAYGROUND_TABLE = { paired: "smp_paired_plan", table: "smp_table_plan" };
 
 export const JUDGE_INPUT = { leg_you_must_judge: LEG, paragraphs: ANSWER.paragraphs, move: MOVE };

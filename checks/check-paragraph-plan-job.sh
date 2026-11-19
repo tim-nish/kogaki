@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-paragraph-plan-job -- a ParagraphPlan job keeps every finished Leg (kogaki#1641, owner decision 2026-10-31):
 # a Leg's death or refusal ends that Leg alone, and a resume plans only the Legs the latest run of the same Brief did
-# not finish; each Leg's three steps are one unit (kogaki#1865). The cases are checks/paragraph-plan-job-cases.mjs,
+# not finish; each Leg's two steps are one unit (kogaki#1865, kogaki#1876). The cases are checks/paragraph-plan-job-cases.mjs,
 # driven end to end through `node src/paragraph-plan.mjs start|await` with one fake model binary that records every
 # call; this member compares their count with its `case_floor` in both directions (kogaki#661, kogaki#970).
 set -u

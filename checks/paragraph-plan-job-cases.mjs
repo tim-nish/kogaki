@@ -1,11 +1,11 @@
 // The cases of checks/check-paragraph-plan-job.sh: a ParagraphPlan job keeps every finished Leg (kogaki#1641, owner
-// decision 2026-10-31), each Leg's three steps run as one unit (kogaki#1865). Driven end to end through
+// decision 2026-10-31), each Leg's two steps run as one unit (kogaki#1865, kogaki#1876). Driven end to end through
 // `node src/paragraph-plan.mjs start|await` over the shared fixture, checks/fixtures/paragraph-plan/stage.mjs:
 // (a) one Leg's call dies, its sibling finishes and is kept; (b) one Leg's reading is refused twice, its sibling is
 // kept; (c) a run handed (b) as its prior run plans the refused Leg alone and writes the plan file whole; (d) a run
-// over a changed Brief, and (d2) one after a written plan, carry nothing; (f) the job report lists each Leg's
-// reading and Points Call Records; (g) a fresh job writes the current record names only.
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+// over a changed Brief, and (d2) one after a written plan, carry nothing; (f) the job report lists each Leg's five
+// reading Call Records and no sixth; (g) a fresh job writes the current record names only.
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -85,7 +85,7 @@ const c = runStage("ok", { brief: b.brief, priorRun: b.dir });
   const j = jobOf(c);
   ok(c.wait.status === 0 && c.plan, `(c) the resume did not finish: ${c.out}`);
   ok(
-    c.calls.length === 6 && c.calls.every((x) => x.leg === "s2"),
+    c.calls.length === 5 && c.calls.every((x) => x.leg === "s2"),
     `(c) the resume did not plan the unfinished Leg alone: ${JSON.stringify(c.calls)}`,
   );
   const u1 = unit(j, "leg-1") || {};
@@ -103,7 +103,9 @@ const c = runStage("ok", { brief: b.brief, priorRun: b.dir });
     `(c) the start record does not name the carried Leg: ${JSON.stringify(start.carried)}`,
   );
   ok(
-    c.plan && c.plan.legs.map((l) => l.leg_id).join() === "s1,s2" && c.plan.legs.every((l) => l.move && l.points),
+    c.plan &&
+      c.plan.legs.map((l) => l.leg_id).join() === "s1,s2" &&
+      c.plan.legs.every((l) => Object.keys(l).sort().join() === "leg_id,segments"),
     `(c) the plan file does not carry every Leg whole: ${JSON.stringify(c.plan)}`,
   );
 }
@@ -119,21 +121,34 @@ const c = runStage("ok", { brief: b.brief, priorRun: b.dir });
     ),
   );
   const d = runStage("ok", { brief: other, priorRun: b.dir });
-  ok(d.calls.length === 12, `(d) a run over a changed Brief did not plan every Leg: ${d.calls.length} calls, ${d.out}`);
+  ok(d.calls.length === 10, `(d) a run over a changed Brief did not plan every Leg: ${d.calls.length} calls, ${d.out}`);
   ok(!(jobOf(d).units || []).some((u) => u.carried_from), "(d) a run over a changed Brief carried a Leg");
   const d2 = runStage("ok", { brief: c.brief, priorRun: c.dir });
-  ok(d2.calls.length === 12, `(d2) a run after a written plan did not plan every Leg: ${d2.calls.length} calls`);
+  ok(d2.calls.length === 10, `(d2) a run after a written plan did not plan every Leg: ${d2.calls.length} calls`);
   ok(!(jobOf(d2).units || []).some((u) => u.carried_from), "(d2) a run after a written plan carried a Leg");
 }
 
-// (f) THE JOB REPORT LISTS EACH LEG'S CALL RECORDS: five readings and one Points call, under the Leg's unit.
+// (f) THE JOB REPORT LISTS EACH LEG'S CALL RECORDS: five readings and no sixth call, under the Leg's unit; the unit
+// ends once the Move is fitted, its record carrying the Move, its fit and the Segments.
 {
   const out = spawnSync(process.execPath, ["src/workflow/job-report.mjs", c.dir], { encoding: "utf8" }).stdout || "";
-  const want = [1, 2, 3, 4, 5].map((k) => `unit leg-2/reading-${k}:`).concat("unit leg-2/points:");
+  const want = [1, 2, 3, 4, 5].map((k) => `unit leg-2/reading-${k}:`);
   const missing = want.filter((w) => !out.includes(w));
   ok(
-    !missing.length && (out.match(/call \d+ —/g) || []).length === 6,
-    `(f) the job report does not list the Leg's Call Records (missing ${missing.join(", ")}): ${out}`,
+    !missing.length && (out.match(/call \d+ —/g) || []).length === 5,
+    `(f) the job report does not list the Leg's five Call Records and no other (missing ${missing.join(", ")}): ${out}`,
+  );
+  const recorded = readdirSync(join(c.dir, "calls", "leg-2"))
+    .sort()
+    .join();
+  ok(
+    recorded === "reading-1,reading-2,reading-3,reading-4,reading-5",
+    `(f) the Leg's unit wrote a Call Record beside its five readings: ${recorded}`,
+  );
+  const ended = (unit(jobOf(c), "leg-2") || {}).candidate || {};
+  ok(
+    Object.keys(ended).sort().join() === "fit,leg_id,move,segments",
+    `(f) the unit's record is not the Leg's id, the Move, its fit and the Segments: ${JSON.stringify(ended)}`,
   );
   const refused =
     spawnSync(process.execPath, ["src/workflow/job-report.mjs", b.dir], { encoding: "utf8" }).stdout || "";
@@ -150,7 +165,7 @@ const c = runStage("ok", { brief: b.brief, priorRun: b.dir });
   const retired = Object.values(RETIRED_NAMES);
   ok(
     !existsSync(join(c.dir, RETIRED_NAMES.dir)) &&
-      existsSync(join(c.dir, "calls", "leg-2", "points", "1")) &&
+      existsSync(join(c.dir, "calls", "leg-2", "reading-5", "1")) &&
       Number.isInteger(j.unit_rounds) &&
       [j, ...(j.units || [])].every((o) => !Object.keys(o).some((k) => retired.includes(k))),
     `(g) a fresh ParagraphPlan job wrote a retired name, or not calls/ and unit_rounds: ${JSON.stringify(j).slice(0, 800)}`,

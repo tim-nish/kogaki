@@ -11,14 +11,10 @@
 # WHAT THIS COVERS, over a Packet rendered by `renderPacket` (src/draft.mjs)
 # from a fixture Brief record of one Leg, its `text` and no Brief Waypoint
 # (kogaki#1775), and from the fixture Brief of checks/fixtures/paragraph-plan/stage.mjs, whose Legs
-# name relations of its `structure`, beside a ParagraphPlan file of the form kogaki#1865 writes:
+# name relations of its `structure`, beside a ParagraphPlan file of the form kogaki#1876 writes:
 #   (a) THE PACKET CARRIES NO POINT: the rendered Packet holds no `*Serves:*`,
 #       no `*Opens from:*` and no `*Cast:*`, and its plan block opens with the
 #       six fixed sentences;
-#   (b) THE POINTS DO NOT CHANGE THE PACKET: `node src/draft.mjs resolve` over
-#       two plan files that differ only in their Points -- the point texts, and
-#       no `points` at all -- renders one Packet byte for byte, carrying no
-#       point text and not the Move's id;
 #   (c) THE PLAN BLOCK READS THE BRIEF'S STRUCTURE: with a `structure` on the
 #       Brief and a `relation` on the Leg, the plan block lists the Arguments as
 #       `- Argument <k>. <sentence>` and the CentralClaim as
@@ -71,13 +67,14 @@
 #       listing one part per Segment of the Leg with every non-null-sense
 #       Edge; the same file with a Leg's `paragraphs` written back is refused
 #       naming `paragraphs`.
-#   (m) A LEG A MOVE FITTED CARRIES `move`, `fit` AND `segments` TOGETHER
-#       (kogaki#1865): a plan Leg without its `fit` is refused at resolve
-#       naming the Leg, and one carrying `points` and no Move is refused.
+#   (m) A LEG CARRIES `leg_id` AND `segments` ALONE (kogaki#1876): a plan Leg
+#       carrying `move`, `fit` or `points` is refused at resolve naming the
+#       Leg and the key.
 #   (o) A KEY OUTSIDE THE SET IS REFUSED: a plan Leg carrying `cast` is
 #       refused at resolve naming `cast`.
 #   RETIRED at kogaki#1865: the cases of the paragraph's schema, a Waypoint's
 #   `manner` and `cast`, and the Mapping Record's (p), with the fields.
+#   RETIRED at kogaki#1876: case (b), with the plan file's `points`.
 #
 # NOT COVERED, stated rather than implied: whether a Writer obeys the plan
 # is the written prose's. The rest of the Packet's layout is held by
@@ -154,7 +151,6 @@ else {
 }
 
 // (b) and (l): plan files of the stage fixture's Brief, rendered through `resolve`.
-const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";
 const SEGS = [{ bind: 1, edges: [] }, { bind: null, edges: [{ sense: "Conjunction", to: [1] }] },
   { bind: 2, edges: [{ sense: "Contrast", to: [1, 2] }, { sense: "Cause", to: [2] }] },
   { bind: 3, edges: [{ sense: null, to: [3], hypophora: true }] }];
@@ -166,9 +162,8 @@ mkdirSync(sDir, { recursive: true });
 const sBriefPath = join(sDir, "brief.yaml"), sPlanPath = join(sDir, "paragraph-plan.yaml");
 const sText = STAGE.briefOf(STAGE.STRUCTURE);
 writeFileSync(sBriefPath, sText);
-const sPlan = (points) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath: sBriefPath, briefText: sText,
-  legs: STAGE.LEGS.map((l) => ({ leg_id: l.leg_id, move: MOVE, fit: { met: 1, compared: 2 }, segments: SEGS,
-    ...(points ? { points: SEGS.map((_, k) => ({ segment: k + 1, point: `${points}-${l.leg_id}-${k + 1} a planned point.` })) } : {}) })) }));
+const sPlan = () => paragraphPlanRecordText(paragraphPlanRecord({ briefPath: sBriefPath, briefText: sText,
+  legs: STAGE.LEGS.map((l) => ({ leg_id: l.leg_id, segments: SEGS })) }));
 let sN = 0;
 const sResolve = (planText) => {
   writeFileSync(sPlanPath, planText);
@@ -178,26 +173,24 @@ const sResolve = (planText) => {
   return { out, said: (out.stderr || out.stdout || "").slice(0, 400), packet: out.status === 0 && existsSync(at) ? readFileSync(at, "utf8") : null };
 };
 {
-  const one = sResolve(sPlan("PWA")), two = sResolve(sPlan(null));
-  if (one.packet === null || two.packet === null) fails.push(`(b) resolve did not render the Packets: ${one.said} ${two.said}`);
+  const one = sResolve(sPlan());
+  if (one.packet === null) fails.push(`(l) resolve did not render the Packet: ${one.said}`);
   else {
-    if (one.packet !== two.packet) fails.push("(b) two plans differing only in their Points render two Packets");
-    for (const bad of ["PWA-", MOVE]) if (one.packet.includes(bad)) fails.push(`(b) the Packet carries ${JSON.stringify(bad)}`);
     // (l) the Writer's text lists one part per Segment with every non-null-sense Edge.
     const lines = (planBlock(one.packet) || "").split("\n");
     for (const want of WANT_PARTS) if (!lines.includes(want)) fails.push(`(l) the Packet does not list the part ${JSON.stringify(want)}`);
     if (lines.some((x) => /null|hypophora/.test(x))) fails.push("(l) the Packet hands on an Edge whose Sense is null");
   }
-  const back = sResolve(sPlan("PWA").replace(/^( +)move: /m, "$1paragraphs: []\n$1move: "));
+  const withKey = (text) => sResolve(sPlan().replace(/^( +)segments:/m, `$1${text}\n$1segments:`));
+  const back = withKey("paragraphs: []");
   if (back.out.status === 0 || !back.said.includes("carries `paragraphs`, which left the record")) fails.push(`(l) a plan Leg carrying \`paragraphs\` was not refused by name: ${back.said}`);
-  // (m) `move`, `fit` and `segments` stand together, and Points stand under a Move.
-  const noFit = sResolve(sPlan("PWA").replace(/^ +fit:\n( +(met|compared): \d+\n)+/m, ""));
-  if (noFit.out.status === 0 || !noFit.said.includes("leg s1") || !noFit.said.includes("carries `move` and `segments` alone")) fails.push(`(m) a plan Leg without its fit was not refused naming the Leg: ${noFit.said}`);
-  const bare = sResolve(paragraphPlanRecordText(paragraphPlanRecord({ briefPath: sBriefPath, briefText: sText,
-    legs: STAGE.LEGS.map((l) => ({ leg_id: l.leg_id, points: [{ segment: 1, point: "a point." }] })) })));
-  if (bare.out.status === 0 || !bare.said.includes("carries `points` and no Move")) fails.push(`(m) a plan Leg carrying points and no Move was not refused: ${bare.said}`);
+  // (m) a plan Leg carries `leg_id` and `segments` alone: `move`, `fit` and `points` are each refused by name.
+  for (const [key, text] of [["move", "move: z_fewer"], ["fit", "fit: {}"], ["points", "points: []"]]) {
+    const r = withKey(text);
+    if (r.out.status === 0 || !r.said.includes("leg s1") || !r.said.includes(`carries \`${key}\`, which a ParagraphPlan record does not declare`)) fails.push(`(m) a plan Leg carrying \`${key}\` was not refused naming the Leg and the key: ${r.said}`);
+  }
   // (o) a key outside the set is refused by name.
-  const cast = sResolve(sPlan("PWA").replace(/^( +)move: /m, "$1cast: {}\n$1move: "));
+  const cast = withKey("cast: {}");
   if (cast.out.status === 0 || !cast.said.includes("carries `cast`")) fails.push(`(o) a plan Leg carrying \`cast\` was not refused naming it: ${cast.said}`);
 }
 
@@ -441,5 +434,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; two plans differing only in their Points render one Packet byte for byte through resolve; the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment with every Edge whose Sense is not null where the Leg carries segments (kogaki#1865), and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan Leg carrying `paragraphs`, `points` with no Move, `move` without `fit`, or `cast` is refused at resolve naming it (kogaki#1865).");
+console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; a plan Leg carrying move, fit or points is refused by name at resolve (kogaki#1876); the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment with every Edge whose Sense is not null where the Leg carries segments (kogaki#1865), and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan Leg carrying `paragraphs`, `points` with no Move, `move` without `fit`, or `cast` is refused at resolve naming it (kogaki#1865).");
 JS

@@ -5,7 +5,7 @@
 #   (a) a claims file of a thesis and three claims, with a valid structure answer, writes structure.yaml, legs.yaml,
 #       trial.json and sheet.html, its one Call under calls/sme_read_set/1/, trial.json carrying each file's sha256; no
 #       `lpp_waypoints`, `lpp_grounded`, `lpp_legs` or `reader_path_fit_unit` Call is made, and the paragraph-plan stage
-#       runs /paragraph-plan over the five Legs, one unit each, five Sense readings and one Points Call per Leg, and is
+#       runs /paragraph-plan over the five Legs, one unit each, five Sense readings per Leg and no other Call (kogaki#1876), and is
 #       recorded done with the Move each Leg's unit chose (kogaki#1777, kogaki#1865).
 #   (b) a `proposition:` line is refused naming `claim`, a second `thesis:` and a `cite:` with no `claim:` naming the line,
 #       and nothing is written.
@@ -112,20 +112,17 @@ const dir = process.env.LPP_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const at = (row) => prompt.includes("\\\`" + row + "\\\` judgment point");
-  // THE TRIAL ASKS THE STRUCTURE (kogaki#1775), and /paragraph-plan its Sense readings and Points (kogaki#1865):
+  // THE TRIAL ASKS THE STRUCTURE (kogaki#1775), and /paragraph-plan its Sense readings (kogaki#1865, kogaki#1876):
   // every other row is logged and exits 5.
-  const stage = at("paragraph_plan_name_senses") ? "senses" : at("paragraph_plan_points") ? "points" : at("sme_read_set") ? "structure"
+  const stage = at("paragraph_plan_name_senses") ? "senses" : at("sme_read_set") ? "structure"
     : at("lpp_waypoints") ? "waypoints" : at("lpp_grounded") ? "grounded" : at("lpp_legs") ? "legs" : at("reader_path_fit_unit") ? "fit" : "unknown";
   const input = () => { const m = "----- INPUT (JSON) -----"; return JSON.parse(prompt.slice(prompt.lastIndexOf(m) + m.length)); };
-  if (stage === "senses" || stage === "points") {
+  if (stage === "senses") {
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
-    const x = input();
-    const n = stage === "senses" ? x.sentences.length : 0;
+    const n = input().sentences.length;
     const pairs = [];
     for (let i = 1; i <= n; i++) for (let j = i + 1; j <= n; j++) pairs.push({ pair: [i, j], senses: [{ sense: "Conjunction", played_by: null }] });
-    const r = stage === "senses" ? { pairs }
-      : { points: x.segments.map((g) => ({ segment: g.segment, point: "PW-" + x.leg.leg_id + "-" + g.segment + " the step toward the relation." })) };
-    writeSync(1, JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n"); process.exit(0);
+    writeSync(1, JSON.stringify({ type: "result", result: JSON.stringify({ pairs }) }) + "\\n"); process.exit(0);
   }
   if (stage !== "structure") { appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n"); process.exit(5); }
   let n = 0; try { n = readFileSync(dir + "/seen.jsonl", "utf8").split("\\n").filter(Boolean).filter((l) => JSON.parse(l).stage === stage).length; } catch {}
@@ -166,8 +163,8 @@ for (const f of ["structure.yaml", "legs.yaml", "trial.json", "sheet.html"]) ok(
 ok(!existsSync(join(a.o, "waypoints.yaml")), "(a) the Trial still writes waypoints.yaml");
 ok(existsSync(join(a.o, "calls", "sme_read_set", "1", "prompt.md")) && existsSync(join(a.o, "calls", "sme_read_set", "1", "answer.json")), "(a) no Call Record at calls/sme_read_set/1/");
 ok(JSON.stringify(existsSync(join(a.o, "calls")) ? readdirSync(join(a.o, "calls")) : []) === '["sme_read_set"]', `(a) the Trial made a Call other than sme_read_set: ${existsSync(join(a.o, "calls")) ? readdirSync(join(a.o, "calls")) : []}`);
-ok(a.seen.every((x) => ["structure", "senses", "points"].includes(x.stage)), `(a) the fake model was asked a row the Trial no longer asks: ${JSON.stringify([...new Set(a.seen.map((x) => x.stage))])}`);
-ok(a.seen.filter((x) => x.stage === "senses").length === 25 && a.seen.filter((x) => x.stage === "points").length === 5, `(a) /paragraph-plan did not make five readings and one Points Call per Leg: ${a.seen.map((x) => x.stage)}`);
+ok(a.seen.every((x) => ["structure", "senses"].includes(x.stage)), `(a) the fake model was asked a row the Trial no longer asks: ${JSON.stringify([...new Set(a.seen.map((x) => x.stage))])}`);
+ok(a.seen.filter((x) => x.stage === "senses").length === 25 && a.seen.length === 26, `(a) /paragraph-plan did not make five readings per Leg and no other Call: ${a.seen.map((x) => x.stage)}`);
 ok(ta.claims && ta.claims.sha256 === sha(claimsFile), "(a) trial.json does not carry the claims file's sha256");
 ok(ta.library && /^[0-9a-f]{64}$/.test(ta.library.sha256 || ""), "(a) trial.json does not carry the library's sha256");
 ok(JSON.stringify(ta.stages.map((x) => x.stage)) === '["structure","legs","paragraph-plan"]', `(a) trial.json's stages are not structure, legs, paragraph-plan: ${JSON.stringify(ta.stages.map((x) => x.stage))}`);

@@ -25,8 +25,6 @@ import {
   validateParagraphPlanUnit,
   segmentsForPlanCall,
   PARAGRAPH_PLAN_TABLE,
-  POINTS_ROW,
-  tablePointsRefusal,
 } from "../paragraph-plan.mjs";
 import { withAnalogy } from "../paragraph-plan-analogy.mjs";
 import { paragraphsPerLeg } from "../compose/record.mjs";
@@ -50,7 +48,7 @@ import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE 
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
-import { readMoveTable, tableMoveStructure, pairInOrder, tablePointsInput, tableSegments } from "./move-table.mjs";
+import { readMoveTable, tableMoveStructure, pairInOrder, tableSegments } from "./move-table.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 
 export const RBS_FILE = "rbs.yaml";
@@ -507,7 +505,7 @@ export function shortPacket({ leg, paragraphs, audiencePath, structure = null, r
       paragraph: i + 1,
       materials,
       ...(typeof p.join === "string" ? { join: p.join } : {}),
-      paragraph_waypoints: p.paragraph_waypoints,
+      ...(p.paragraph_waypoints ? { paragraph_waypoints: p.paragraph_waypoints } : {}),
     })),
   };
   const brief = {
@@ -939,9 +937,6 @@ export function pairedPlanRow(plan, promptFile = PAIRED_PLAN_FILE) {
   return { id: PLAN_ROW, ...plan[PLAN_ROW], prompt_file: promptFile };
 }
 
-// THE POINTS CALL'S ANSWER under a Move table (kogaki#1858): read by production's `tablePointsRefusal` since kogaki#1865.
-export { tablePointsRefusal };
-
 export function runMoveTrial({
   brief,
   leg: legId,
@@ -1126,9 +1121,14 @@ export function runMoveTrial({
     record.rbs = { variant: RBS_COMPOSED, ...fileRecord(rbsPath) };
     return { value: t, refusals: r.refusals };
   });
-  const paragraphs = stage("waypoints", (d, env) => {
+  // Under a Move table the `waypoints` stage is not run (kogaki#1876): the Harness writes the one paragraph record.
+  const paragraphs = !moveTableRecord
+    ? stage("waypoints", planStage)
+    : record.stopped
+      ? null
+      : recordParagraphs([{}], null, []).value;
+  function planStage(d, env) {
     const plan = readRowTable(PARAGRAPH_PLAN_TABLE);
-    if (moveTableRecord) return tablePointsStage({ d, env, cli, plan, leg, structure, relationId: b.leg.relation });
     const input = {
       ...shortPlanInput({
         leg,
@@ -1155,24 +1155,6 @@ export function runMoveTrial({
     });
     if (r.stopped) return r;
     return recordParagraphs(r.answer.paragraphs, r.answer.rationale, r.refusals);
-  });
-  // Under a Move table (kogaki#1858) the call writes one Point per Segment, and the Harness writes the one paragraph
-  // record: every Point has an empty `cast`.
-  function tablePointsStage({ d, env, cli, plan, leg, structure, relationId }) {
-    const input = tablePointsInput(leg.leg_id, structure, relationId, moveTableRecord);
-    const r = retriedCall({
-      dir: d,
-      env,
-      cli,
-      row: { id: POINTS_ROW, ...plan[POINTS_ROW] },
-      input,
-      tables: [PARAGRAPH_PLAN_TABLE],
-      refusalOf: (answer) => tablePointsRefusal(answer, input.segments.length),
-      validator: "tablePointsRefusal",
-    });
-    if (r.stopped) return r;
-    const waypoints = r.answer.points.map((p) => ({ point: p.point.trim(), cast: {} }));
-    return recordParagraphs([{ paragraph_waypoints: waypoints }], null, r.refusals);
   }
   function recordParagraphs(written, rationale, refusals) {
     const leaves = bindingLeaves(contract, OWN, null);
@@ -1181,7 +1163,7 @@ export function runMoveTrial({
       binding_rationale: record.bind.binding_rationale,
       leaves: i === written.length - 1 ? leaves : [],
       ...(typeof e.join === "string" ? { join: e.join } : {}),
-      paragraph_waypoints: e.paragraph_waypoints,
+      ...(e.paragraph_waypoints ? { paragraph_waypoints: e.paragraph_waypoints } : {}),
     }));
     writeFileSync(
       bindPath,

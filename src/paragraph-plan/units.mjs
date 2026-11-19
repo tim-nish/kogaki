@@ -121,59 +121,6 @@ export function paragraphPlanUnitInput(leg, moves, persona, bound) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// THE POINTS CALL (kogaki#1858, kogaki#1865): one call per Leg after its Move is fitted, by the row `paragraph_plan_points`.
-// Points are debugging information and reach no Writer.
-export const POINTS_ROW = "paragraph_plan_points";
-
-// Its input: the Leg's Arguments and CentralClaim with their sentences (`legSentences`), and per Segment what is bound
-// to it and the Sense of its first entry of `edges` that has one. A Segment is `{ bind, edges }`, `bind` the number
-// of the Leg's sentence it is given, or null.
-export function pointsInput(legId, sentences, segments) {
-  const central = sentences[sentences.length - 1];
-  return {
-    leg: {
-      leg_id: legId,
-      arguments: sentences.slice(0, -1).map((s) => ({ id: s.id, sentence: s.sentence })),
-      central_claim: { id: central.id, sentence: central.sentence },
-    },
-    segments: segments.map((s, i) => {
-      const b = s.bind === null ? null : sentences[s.bind - 1];
-      const e = (s.edges || []).find((x) => x.sense !== null);
-      return {
-        segment: i + 1,
-        bound: b ? { kind: b.kind, id: b.id } : null,
-        sense: e ? { sense: e.sense, to: [...e.to] } : null,
-      };
-    }),
-  };
-}
-
-// Its answer: `points`, one `{ segment, point }` per Segment in order, refused naming the place, or null.
-export function tablePointsRefusal(answer, segmentCount) {
-  const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
-  const refuse = (text) => ({ group: "plan", text });
-  if (!isMap(answer)) return refuse("the answer is not one record");
-  const extra = Object.keys(answer).find((k) => k !== "points");
-  if (extra !== undefined) return refuse(`the record carries \`${extra}\`, and it holds \`points\` and no other key`);
-  if (!Array.isArray(answer.points)) return refuse("the record's `points` is not a list");
-  if (answer.points.length !== segmentCount)
-    return refuse(
-      `\`points\` carries ${answer.points.length} entries, and the Move has ${segmentCount} Segments — one entry per Segment, in order`,
-    );
-  for (const [i, p] of answer.points.entries()) {
-    const at = `points[${i}]`;
-    if (!isMap(p)) return refuse(`${at} is not a map`);
-    const third = Object.keys(p).find((k) => k !== "segment" && k !== "point");
-    if (third !== undefined)
-      return refuse(`${at} carries \`${third}\`, and an entry holds \`segment\` and \`point\` alone`);
-    if (p.segment !== i + 1)
-      return refuse(`${at}'s \`segment\` is ${JSON.stringify(p.segment)}, and its place is ${i + 1}`);
-    if (typeof p.point !== "string" || !p.point.trim()) return refuse(`${at}'s \`point\` is not one non-empty text`);
-  }
-  return null;
-}
-
 export function renderRowHead(row) {
   const held = bindFlow(FLOW);
   try {

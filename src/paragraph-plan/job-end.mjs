@@ -17,12 +17,12 @@ import { unitIdFor } from "./units.mjs";
 // paragraph, and writes nothing beside the Brief.
 
 // The status lines (kogaki#1865): per Leg its unit, the step it is in, and, once done, what its record says.
-const STEP = { reading: "reading the Senses", points: "writing Points" };
+const STEP = { reading: "reading the Senses" };
 export function jobStatusLines(dir, job, now = Date.now()) {
   const startedAt = Date.parse(job.started_at || job.updated_at || new Date(now).toISOString());
   const lines = [
     `ParagraphPlan job at ${relFromRepo(readerPathJobPath(dir))} — ${job.state}, elapsed ${Math.floor((now - startedAt) / 1000)}s; ` +
-      `each Leg reads its Senses, takes the Move that fits it best and writes Points once:`,
+      `each Leg reads its Senses and takes the Move that fits it best:`,
   ];
   for (const u of job.units || []) {
     lines.push(
@@ -33,7 +33,7 @@ export function jobStatusLines(dir, job, now = Date.now()) {
   return lines;
 }
 
-// What one finished Leg's record says: the Move taken and its fit, or why it carries none, and why it carries no Points.
+// What one finished Leg's record says: the Move taken and its fit, or why it carries none.
 export function legLines(candidate) {
   const c = candidate || {};
   return [
@@ -124,15 +124,10 @@ export function finishParagraphPlan(dir) {
       ],
     };
   }
-  // EACH LEG'S RECORD RIDES INTO THE FILE (kogaki#1865): the Move taken, its fit, the fitted Segments and the Points,
-  // where each was written; the note beside it is the status line's alone.
+  // THE LEG'S SEGMENTS RIDE INTO THE FILE, and nothing else of the job's record does (kogaki#1876).
   const legs = start.legs.map((leg, i) => {
     const c = units[i].candidate;
-    return {
-      leg_id: leg.leg_id,
-      ...(c.move ? { move: c.move, fit: c.fit, segments: c.segments } : {}),
-      ...(Array.isArray(c.points) ? { points: c.points } : {}),
-    };
+    return { leg_id: leg.leg_id, ...(Array.isArray(c.segments) ? { segments: c.segments } : {}) };
   });
   const planPath = paragraphPlanPathFor(briefPath);
   const record = paragraphPlanRecord({ briefPath, briefText, legs });

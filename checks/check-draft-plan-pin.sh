@@ -56,11 +56,11 @@ mkdirSync(dir, { recursive: true });
 const briefPath = join(dir, "brief.yaml");
 writeFileSync(briefPath, briefText);
 const planPath = join(dir, "paragraph-plan.yaml");
-// Each Leg carries the Move taken, its fit, one Segment and its Point (kogaki#1865).
+// Each Leg carries two Segments, and the two plans differ by the Sense of one Edge (kogaki#1876).
 const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";
+const SENSE = { alpha: "Conjunction", beta: "Contrast" };
 const planText = (mark) => paragraphPlanRecordText(paragraphPlanRecord({ briefPath, briefText,
-  legs: legs.map((l) => ({ leg_id: l.leg_id, move: MOVE, fit: { met: 0, compared: 0 }, segments: [{ bind: null, edges: [] }],
-    points: [{ segment: 1, point: `PLANMARK-${mark} the paragraph ${l.leg_id} plans.` }] })) }));
+  legs: legs.map((l) => ({ leg_id: l.leg_id, segments: [{ bind: null, edges: [] }, { bind: null, edges: [{ sense: SENSE[mark], to: [1] }] }] })) }));
 
 const wsRoot = join(root, "ws");
 const ws = join(wsRoot, "plan-pin");

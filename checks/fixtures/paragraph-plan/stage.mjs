@@ -1,8 +1,8 @@
 // The ParagraphPlan stage's fixture (kogaki#1865), shared by checks/paragraph-plan-cases.mjs and
 // checks/paragraph-plan-job-cases.mjs: a Brief of two Legs over a `structure`, Move libraries whose Segments carry
 // `bind` and `edges`, and one fake model binary that records every call by its row and answers by a mode file.
-// A mode is `ok`, `refuse-once`, `refuse-twice` or `points-refused` for every Leg, or `refuse-twice:<leg>` or
-// `die:<leg>` for that Leg alone.
+// A mode is `ok`, `refuse-once` or `refuse-twice` for every Leg, or `refuse-twice:<leg>` or `die:<leg>` for that
+// Leg alone (kogaki#1876).
 import { mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -130,7 +130,7 @@ export function makeFixture(root) {
     const input = JSON.parse(prompt.slice(prompt.lastIndexOf(marker) + marker.length));
     const row = (prompt.match(/workflow's \\\`([a-z_]+)\\\` judgment point/) || [])[1] || "none";
     const seen = existsSync(dir + "/calls.jsonl") ? readFileSync(dir + "/calls.jsonl", "utf8").split("\\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
-    const legOf = input.leg ? input.leg.leg_id : JSON.parse(readFileSync(dir + "/firsts.json", "utf8"))[input.sentences[0].sentence];
+    const legOf = JSON.parse(readFileSync(dir + "/firsts.json", "utf8"))[input.sentences[0].sentence];
     appendFileSync(dir + "/calls.jsonl", JSON.stringify({ row, leg: legOf }) + "\\n");
     const [mode, only] = readFileSync(dir + "/mode", "utf8").trim().split(":");
     const here = !only || only === legOf;
@@ -140,13 +140,9 @@ export function makeFixture(root) {
       const pairs = [];
       for (let i = 1; i <= n; i++) for (let j = i + 1; j <= n; j++) pairs.push({ pair: [i, j], senses: [{ sense: "Conjunction", played_by: null }] });
       const before = seen.filter((s) => s.row === row && s.leg === legOf).length;
+      if (mode === "die" && here) { process.stderr.write("FAKE-DIED"); process.exit(2); }
       if (here && ((mode === "refuse-once" && before === 0) || mode === "refuse-twice")) return out({ pairs: [] });
       return out({ pairs });
-    }
-    if (row === "paragraph_plan_points") {
-      if (mode === "points-refused") return out({ points: [] });
-      if (mode === "die" && here) { process.stderr.write("FAKE-DIED"); process.exit(2); }
-      return out({ points: input.segments.map((s) => ({ segment: s.segment, point: "POINT-" + input.leg.leg_id + "-" + s.segment })) });
     }
     return out({});
   });
