@@ -576,7 +576,8 @@ function readbackStage({ dir, env, cli, leg, paragraphs, audiencePath, plan, rec
   const prompt = RB.readbackPrompt(cut.block);
   const w = writerSettings();
   const call = oneCall({ env, model: w.model, outputFormat: w.output_format, timeoutS: w.timeout_s, input: prompt });
-  const a = call.stopped ? { refusal: call.stopped } : RB.readbackAnswer(call.text);
+  const said = /** @type {{ stopped?: string, text?: string }} */ (call);
+  const a = said.stopped ? { refusal: said.stopped } : RB.readbackAnswer(said.text);
   const refusal = a.refusal || RB.readbackRefusal(a.record, lines.length);
   recordCall(dir, RB.READBACK_STAGE, 1, {
     env,
@@ -586,11 +587,11 @@ function readbackStage({ dir, env, cli, leg, paragraphs, audiencePath, plan, rec
     input: { plan: cut.block },
     row: { id: RB.READBACK_STAGE, ...writerRowOf(w), prompt_file: RB.READBACK_PROMPT },
     tables: [DRAFT_TABLE],
-    answer: call.stopped ? undefined : String(call.text),
+    answer: said.stopped ? undefined : String(said.text),
     refusal: refusal && { text: refusal, validator: a.refusal ? "readbackAnswer" : "readbackRefusal" },
   });
   if (refusal) {
-    record.readback = { plan: lines, refusal, answer: call.stopped ? null : String(call.text) };
+    record.readback = { plan: lines, refusal, answer: said.stopped ? null : String(said.text) };
     return { refusal };
   }
   const path = join(dirname(dir), RB.READBACK_FILE);
