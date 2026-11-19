@@ -11,7 +11,7 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { join, resolve, basename, relative, sep } from "node:path";
+import { join, resolve, basename, relative, sep, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -58,6 +58,7 @@ import {
 } from "./move-structure.mjs";
 import { bindTargetsOf } from "../paragraph-plan/senses.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
+import * as RB from "./readback.mjs";
 
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
@@ -562,6 +563,40 @@ function writeStage({ dir, env, cli, leg, paragraphs, audiencePath, paragraphPat
   if (why) return { stopped: why[0], packet: relFromRepo(packetPath) };
   writeFileSync(paragraphPath, String(call.text).trim() + "\n");
   return { packet: relFromRepo(packetPath) };
+}
+
+// THE `readback` STAGE (kogaki#1882): one call with the Writer's settings over the Writer's plan block. A refused answer
+// is recorded and does not stop the Trial; `writeStage` is handed nothing of it.
+function readbackStage({ dir, env, cli, leg, paragraphs, audiencePath, plan, record }) {
+  const p = shortPacket({ leg, paragraphs, audiencePath, ...plan });
+  if (p.error) return { stopped: p.error };
+  const cut = RB.planBlock(p.packet);
+  if (cut.error) return { stopped: cut.error };
+  const lines = RB.partLines(cut.block);
+  const prompt = RB.readbackPrompt(cut.block);
+  const w = writerSettings();
+  const call = oneCall({ env, model: w.model, outputFormat: w.output_format, timeoutS: w.timeout_s, input: prompt });
+  const a = call.stopped ? { refusal: call.stopped } : RB.readbackAnswer(call.text);
+  const refusal = a.refusal || RB.readbackRefusal(a.record, lines.length);
+  recordCall(dir, RB.READBACK_STAGE, 1, {
+    env,
+    cli,
+    call,
+    prompt,
+    input: { plan: cut.block },
+    row: { id: RB.READBACK_STAGE, ...writerRowOf(w), prompt_file: RB.READBACK_PROMPT },
+    tables: [DRAFT_TABLE],
+    answer: call.stopped ? undefined : String(call.text),
+    refusal: refusal && { text: refusal, validator: a.refusal ? "readbackAnswer" : "readbackRefusal" },
+  });
+  if (refusal) {
+    record.readback = { plan: lines, refusal, answer: call.stopped ? null : String(call.text) };
+    return { refusal };
+  }
+  const path = join(dirname(dir), RB.READBACK_FILE);
+  writeFileSync(path, JSON.stringify(a.record, null, 2) + "\n");
+  record.readback = { plan: lines, ...fileRecord(path) };
+  return {};
 }
 
 // ---------------------------------------------------------------------------
@@ -1197,12 +1232,12 @@ export function runMoveTrial({
     record.rbs = { variant: RBS_COMPOSED, ...fileRecord(rbsPath) };
     return { value: listed, refusals };
   }
+  const plan = { structure, relation: b.leg.relation, ...(segments ? { segments } : {}) };
+  if (segments)
+    stage(RB.READBACK_STAGE, (d, env) =>
+      readbackStage({ dir: d, env, cli, leg, paragraphs, audiencePath, plan, record }),
+    );
   stage("write", (d, env) => {
-    const plan = {
-      structure,
-      relation: b.leg.relation,
-      ...(segments ? { segments } : {}),
-    };
     const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath, plan });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
     return r;

@@ -6,9 +6,9 @@
 //   (e) `validateMoveStructure` and (f) `validatePairing`, each refusal by name, a null not refused;
 //   (g) the Leg's structure; (h) the plan call's inputs, an unchanged production row, moves/ and theses/;
 //   (i) the route under `--move-edges` (kogaki#1880), the Move's Bind targets and Edges read from its Move file, run to
-//   the end with no call between grounding and the writer (kogaki#1876); (j) a Move with no `bind` and `edges`, a Move
-//   whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing written. Case (k)
-//   went with its call (kogaki#1876).
+//   the end with no call between grounding and the writer but the readback (kogaki#1876); (j) a Move with no `bind` and
+//   `edges`, a Move whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing
+//   written. Case (k) went with its call (kogaki#1876). (l) the `readback` stage under `--move-edges` (kogaki#1882).
 import {
   mkdtempSync,
   mkdirSync,
@@ -211,7 +211,7 @@ const dir = process.env.SMP_FIXTURE_DIR;
 const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end", () => {
   const prompt = Buffer.concat(c).toString("utf8");
   const out = (r, stage) => {
-    const answer = stage === "writer" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n";
+    const answer = stage === "writer" || stage === "readback" ? r : JSON.stringify({ type: "result", result: JSON.stringify(r) }) + "\\n";
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt }) + "\\n");
     writeSync(1, answer); process.exit(0);
   };
@@ -242,6 +242,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
         rationale: "it is the one paragraph of this Leg.",
         paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", cast: {} })) }] }, "waypoints");
   }
+  if (prompt.startsWith("# Read back the plan of one paragraph")) return out(process.env.SMP_READBACK, "readback");
   return out("WRITTEN the installer and the copied kit.", "writer");
 });
 `,
@@ -262,6 +263,7 @@ const run = (name, args, extraEnv = {}) => {
       SMP_READ_ANSWERS: answers(`read-${name}`, [MOVE_STRUCTURE]),
       SMP_PAIR_ANSWERS: answers(`pair-${name}`, [PAIRING]),
       SMP_TABLE: JSON.stringify(TABLE),
+      SMP_READBACK: JSON.stringify(READBACK),
       ...extraEnv,
     },
     timeout: 300000,
@@ -274,6 +276,22 @@ const run = (name, args, extraEnv = {}) => {
         .map((l) => JSON.parse(l))
     : [];
   return { res, o, rec, seen, said: `${res.stdout}${res.stderr}` };
+};
+// The readback of the three parts of the edged Move (kogaki#1882): its first part told nothing.
+const READBACK = {
+  parts: [
+    { part: 1, readback: null, sample: null },
+    {
+      part: 2,
+      readback: "Say that the copy overwrites any edit, against part 1.",
+      sample: "Yet the copy overwrites any edit.",
+    },
+    {
+      part: 3,
+      readback: "Say the copy is the installer's, as what follows from part 2.",
+      sample: "So the copy is the installer's.",
+    },
+  ],
 };
 const ROUTE = ["--brief", brief, "--leg", "s1", "--move", MOVE, "--library", library];
 
@@ -537,12 +555,12 @@ const tYaml = (f) => (existsSync(join(ti.o, f)) ? parseYaml(readFileSync(join(ti
 ok(ti.res.status === 0, `(i) the --move-edges run exited ${ti.res.status}: ${ti.said}`);
 ok(
   JSON.stringify((trec.stages || []).map((s) => `${s.stage}:${s.state}`)) ===
-    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "write:done"]),
-  `(i) the --move-edges run's stages are not move-reading, pairing, grounding and write, all done: ${JSON.stringify(trec.stages)}`,
+    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "readback:done", "write:done"]),
+  `(i) the --move-edges run's stages are not move-reading, pairing, grounding, readback and write, all done: ${JSON.stringify(trec.stages)}`,
 );
 ok(
-  JSON.stringify(ti.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "writer"]),
-  `(i) the --move-edges run made a call beside grounding and the writer: ${ti.seen.map((x) => x.stage)}`,
+  JSON.stringify(ti.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "readback", "writer"]),
+  `(i) the --move-edges run made a call beside grounding, the readback and the writer: ${ti.seen.map((x) => x.stage)}`,
 );
 ok(!existsSync(join(ti.o, "waypoints")), "(i) the --move-edges run wrote a `waypoints` stage directory");
 ok(
@@ -750,8 +768,69 @@ for (const [name, args, want] of [
 }
 ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
 
+// (l) the `readback` stage under `--move-edges` (kogaki#1882): one call, readback.json and one row per Segment on the sheet;
+// the Writer's input unchanged by its answer; a refused answer shown and the writer run; a null readback two empty cells.
+{
+  const section = (o) => {
+    const f = join(o, "sheet.html");
+    const html = existsSync(f) ? readFileSync(f, "utf8") : "";
+    return (html.match(/<section class="card" id="readback">([\s\S]*?)<\/section>/) || [])[1] || "";
+  };
+  const rowsOf = (html) => ((html.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
+  const written = existsSync(join(ti.o, "readback.json"))
+    ? JSON.parse(readFileSync(join(ti.o, "readback.json"), "utf8"))
+    : null;
+  const lRows = rowsOf(section(ti.o));
+  ok(
+    ti.seen.filter((x) => x.stage === "readback").length === 1 &&
+      JSON.stringify(written) === JSON.stringify(READBACK) &&
+      trec.readback &&
+      trec.readback.path &&
+      trec.readback.path.endsWith("readback.json") &&
+      lRows.length === 3 &&
+      lRows[1].includes("<td>2. Argument 2. Sense Concession.Denier, to part 1.</td>") &&
+      lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`),
+    `(l) the readback stage did not make one call, write readback.json and show one row per Segment: ${JSON.stringify(trec.readback)} ${lRows.length}`,
+  );
+  const other = {
+    parts: READBACK.parts.map((p) =>
+      p.readback ? { ...p, readback: "Another reading.", sample: "Another sentence." } : p,
+    ),
+  };
+  const tj = run("readback-other", [...EDGES_ROUTE, "--move-edges"], {
+    SMP_TABLE: JSON.stringify(TABLE_H1),
+    SMP_READBACK: JSON.stringify(other),
+  });
+  const writerOf = (r) => (r.seen.find((x) => x.stage === "writer") || {}).prompt;
+  ok(
+    tj.res.status === 0 && writerOf(tj) !== undefined && writerOf(tj) === writerOf(ti),
+    "(l) the Writer's input differs between two Trials whose readback answered differently",
+  );
+  const tr = run("readback-refused", [...EDGES_ROUTE, "--move-edges"], {
+    SMP_TABLE: JSON.stringify(TABLE_H1),
+    SMP_READBACK: "NOT A RECORD",
+  });
+  const rStages = ((tr.rec || {}).stages || []).map((x) => `${x.stage}:${x.state}`);
+  const rSection = section(tr.o);
+  ok(
+    tr.res.status === 0 &&
+      rStages.join() === "move-reading:done,pairing:done,grounding:done,readback:done,write:done" &&
+      existsSync(join(tr.o, "paragraph.md")) &&
+      !existsSync(join(tr.o, "readback.json")) &&
+      tr.rec.readback.refusal.includes("not one JSON record") &&
+      rSection.includes("refused") &&
+      rSection.includes("NOT A RECORD") &&
+      !rSection.includes("<table>"),
+    `(l) a refused readback did not leave the writer running and show the refusal with no table: ${rStages} ${rSection}`,
+  );
+  ok(
+    lRows.length > 0 && lRows[0].includes("<td>1. Argument 1.</td><td></td><td></td>"),
+    `(l) a Segment with a null readback does not show two empty cells: ${lRows[0]}`,
+  );
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j), (l)`);

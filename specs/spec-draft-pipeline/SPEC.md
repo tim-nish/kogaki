@@ -3370,7 +3370,8 @@ for each Segment, its number, its `bind` and its `edges` in place of its
 `operation`, `relation` and `manner`, and `write` hands the Writer each
 Segment's `bind` and `edges` as the Move file holds them, every Edge of a
 Segment included. The `waypoints` stage is not run (kogaki#1876): no call is
-made between `grounding` and `write`, and the Harness writes one paragraph
+made between `grounding` and `write` but the readback below (kogaki#1882), and
+the Harness writes one paragraph
 record under the named Move, with no `paragraph_waypoints`. `trial.json`
 records `move_edges: true` and no path of a second file. The sheet's
 `Segments` table then shows per Segment its number, its `bind` beside the
@@ -3399,6 +3400,29 @@ as `compareMove` of `src/paragraph-plan/senses.mjs` decides for the filling the
 pairing in order gives. An Edge with nothing bound at one end is not shown.
 With no flag the section holds the one sentence "No reading of the Leg's Senses
 was given to this Trial." and the usage line of `leg-senses.mjs read`.
+
+**A Readback and a Sample for each Segment** (kogaki#1882). Under
+`--move-edges` the Trial runs one stage more, `readback`, after `grounding` and
+before `write`. A *Readback* is what the Model says, in its own words, that the
+plan tells the Writer to do in one part; a part the plan tells nothing has
+none. A *Sample* is the one sentence the Model writes for that part alone,
+following its Readback; a part with no Readback has none. The stage builds the
+Writer's input with `shortPacket` as `write` does, cuts out its plan block,
+from the line "## The plan of this paragraph" up to the line before the next
+line that begins with "## ", and stops the Trial naming that heading where the
+block is not found. It makes one call with the Writer's model and settings,
+`writerSettings`, over `prompts/structure-mapping-playground/read-back-parts.prompt`.
+`readbackRefusal` of `src/structure-mapping-playground/readback.mjs` refuses an
+answer that is not the record `{ parts }`, a `parts` list that is not one entry
+per part in order, a `readback` or `sample` that is neither one non-empty text
+nor null, and a `sample` where the `readback` is null. A passed answer is
+written to `readback.json` in the Trial's folder and recorded in `trial.json`;
+a refused one is recorded there with the answer as given, and `write` runs. The
+Writer is handed nothing of the stage. The sheet's section `Readback and
+Sample` follows `The Leg's Senses` directly: one row per Segment with its
+number, its line of the plan as the Writer was handed it, its Readback and its
+Sample, the last two empty where the Readback is null; for a refused answer it
+holds the refusal and the answer and no table.
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.

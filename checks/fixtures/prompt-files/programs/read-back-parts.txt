@@ -1,0 +1,30 @@
+# Read back the plan of one paragraph
+
+Below is the plan a writer is handed for one paragraph.
+You do not write the paragraph.
+For each part of the plan you answer two things.
+
+The first is the readback.
+The readback says, in your own words, what the plan tells the writer to do in that part.
+It says what the part must say.
+It says how the part must stand to each earlier part it points to.
+It uses no Sense name.
+In place of the name it says what you take the Sense to mean.
+Where the plan tells the writer nothing for a part, the readback is null.
+
+The second is the sample.
+The sample is the one sentence you would write for that part.
+It follows your readback and nothing else.
+Where the readback is null, the sample is null.
+
+Answer as exactly this JSON record and nothing else:
+{ "parts": [ { "part": <number>, "readback": <text or null>, "sample": <one sentence or null> } ] }
+The record holds one entry for each part, in order.
+
+----- THE PLAN -----
+## The plan of this paragraph
+
+THE PLAN.
+
+1. Argument 1.
+2. Neither. Sense Equivalence, to part 1.
