@@ -60,7 +60,7 @@ segments:
     bind: 3
     edges:
       - sense: Level-of-detail.Detail
-        to: [4, 3, 2]
+        to: [3, 2]
 takes:
   - kind: apply
     what: a division of cases given before, one part of it taken up here
