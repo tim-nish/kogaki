@@ -99,37 +99,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/structure-mapping-playground/structure.mjs",
-    "to": "src/move-extraction-playground/leg-brief.mjs",
-    "unresolvedTo": "../move-extraction-playground/leg-brief.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "src/structure-mapping-playground/trial.mjs",
     "to": "src/move-extraction-playground/extract.mjs",
     "unresolvedTo": "../move-extraction-playground/extract.mjs",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "bench-reached-from-outside"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/structure-mapping-playground/trial.mjs",
-    "to": "src/move-extraction-playground/leg-brief.mjs",
-    "unresolvedTo": "../move-extraction-playground/leg-brief.mjs",
     "dependencyTypes": [
       "local",
       "import"

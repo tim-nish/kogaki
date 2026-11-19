@@ -246,7 +246,6 @@ const TABLE_ROWS = {
   "src/paragraph-plan-workflow.json": ["paragraph_plan_judge_unit", "paragraph_plan_name_senses"],
   "src/terrain-workflow.json": ["J2_subdivision", "thesis_candidates", "J3_neighborhood"],
   "src/structure-mapping-playground/playground-workflow.json": [
-    "smp_leg_unit",
     "sme_map_roles",
     "smp_bind_move",
     "smp_correspondence",

@@ -85,11 +85,6 @@
       "count": 4
     }
   },
-  "src/structure-mapping-playground/trial.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/project.mjs": {
     "no-useless-assignment": {
       "count": 1

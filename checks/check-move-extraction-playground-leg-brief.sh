@@ -22,8 +22,8 @@
 #       Reader start call is made, and the Leg call is handed the Persona's prior knowledge.
 #   (d) the rendered prompt carries the row's judgment point, which holds the point span
 #       itself since the Brief's `lpp_waypoints` row left (kogaki#1775) — no copy token left —
-#       and `leg-brief.mjs diff` applies the row cleanly; the Mapping Playground's copy of the
-#       span resolves, and a copy naming a span this row no longer carries refuses naming it.
+#       and `leg-brief.mjs diff` applies the row cleanly, and the row's prompt file names the
+#       shared point passage (kogaki#1862).
 #   (e) every call ran with `--tools ""`, on the shared supervisor.
 #   (f) the validators refuse by name: a Leg carrying `move` (a Leg binds no Move, kogaki#1768), a Brief Waypoint count other
 #       than the paragraph count, Claim N not naming L<N>, a Brief Waypoint carrying the
@@ -250,11 +250,9 @@ const diff = spawnSync(process.execPath, ["src/move-extraction-playground/leg-br
 ok(diff.status === 0 && (diff.stdout.match(/shares the passage each_waypoint_is_a_point/g) || []).length === 1 && !diff.stdout.includes("leg_reader_start_unit"),
   `(d) \`leg-brief.mjs diff\` does not apply the one Leg row cleanly: ${diff.stdout}${diff.stderr}`);
 {
-  // THE POINT SPAN IS ONE SHARED PASSAGE (kogaki#1862): `leg_path_unit`'s and the Mapping Playground's `smp_leg_unit`'s
-  // prompt files both name it, and neither row carries a copy.
+  // THE POINT SPAN IS ONE SHARED PASSAGE (kogaki#1862): `leg_path_unit`'s prompt file names it, and the row carries no copy.
   const table = JSON.parse(readFileSync(join(repo, "src", "move-extraction-playground", "extraction-workflow.json"), "utf8"));
-  const playground = JSON.parse(readFileSync(join(repo, "src", "structure-mapping-playground", "playground-workflow.json"), "utf8"));
-  for (const [t, key] of [[table, "leg_path_unit"], [playground, "smp_leg_unit"]]) {
+  for (const [t, key] of [[table, "leg_path_unit"]]) {
     const row = { id: key, ...t[key] };
     ok(!row.copies && Object.hasOwn(passagesOf(row), "each_waypoint_is_a_point") && withPromptText(row).judgment_point.includes("EACH WAYPOINT IS A POINT (kogaki#1326):"),
       `(d) ${key}'s prompt file does not name the shared point passage, or the row still carries a copy (kogaki#1862)`);
