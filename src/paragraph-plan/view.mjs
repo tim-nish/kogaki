@@ -1,5 +1,5 @@
-// paragraph-plan/view — the view: per Leg the Move taken, its fit, and each Segment with what is bound to it, its
-// Edges and its Point (kogaki#1865). Cut from src/paragraph-plan.mjs along its headed sections (kogaki#1792).
+// paragraph-plan/view — the view: per Leg each Segment with what is bound to it and its Edges (kogaki#1865,
+// kogaki#1876). Cut from src/paragraph-plan.mjs along its headed sections (kogaki#1792).
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982): the rule lives in
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { readFileSync } from "node:fs";
@@ -14,9 +14,9 @@ import { START_FILE } from "./stage.mjs";
 import { unitIdFor } from "./units.mjs";
 
 // ---------------------------------------------------------------------------
-// THE VIEW (kogaki#1650, kogaki#1865): per Leg, its text, the Move taken and the two numbers of `fit`; per Segment,
-// the Leg's sentence bound to it, its Edges and its Point; with a run, the refusals the Leg met. A rendering that
-// writes nothing; the plan is read through /draft's own reader, so a moved Brief is refused alike.
+// THE VIEW (kogaki#1650, kogaki#1876): per Leg, its text; per Segment, the Leg's sentence bound to it and its Edges;
+// with a run, the refusals the Leg met. A rendering that writes nothing; the plan is read through /draft's own
+// reader, so a moved Brief is refused alike.
 export const escapeRe = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const oneLineText = (v) =>
   String(v)
@@ -103,21 +103,15 @@ export function paragraphPlanView(planPath, { runDir = null } = {}) {
   for (const [li, leg] of brief.legs.entries()) {
     const entry = plan.record.legs[li];
     lines.push("", `## Leg ${leg.leg_id}`, "", `- **Text:** ${oneLineText(leg.text)}`);
-    if (!entry.move) lines.push("- **Move:** none — no Move file was a candidate for this Leg");
+    if (!entry.segments) lines.push("- **Segments:** none");
     else {
-      lines.push(
-        `- **Move:** \`${entry.move}\``,
-        `- **Fit:** ${entry.fit.met} of ${entry.fit.compared} compared Edge(s) met`,
-      );
       const sentences = sentencesOf(brief, leg);
-      const points = new Map((entry.points || []).map((p) => [p.segment, p.point]));
-      lines.push("", "| Segment | Bound | Edges | Point |", "|---|---|---|---|");
+      lines.push("", "| Segment | Bound | Edges |", "|---|---|---|");
       for (const [k, g] of entry.segments.entries()) {
         const s = g.bind === null ? null : sentences[g.bind - 1];
         const bound = g.bind === null ? "Neither" : s ? `${g.bind}. ${s.sentence}` : `sentence ${g.bind}`;
-        lines.push(`| ${k + 1} | ${cell(bound)} | ${cell(edgesText(g.edges))} | ${cell(points.get(k + 1) ?? "")} |`);
+        lines.push(`| ${k + 1} | ${cell(bound)} | ${cell(edgesText(g.edges))} |`);
       }
-      if (!entry.points) lines.push("", "- **Points:** none — the Points answer was refused");
     }
     if (run) {
       const met = legRefusals(run.job, unitIdFor(li));

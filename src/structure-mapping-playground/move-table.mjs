@@ -126,26 +126,3 @@ export function pairInOrder(legStructure, relationId) {
     binds: legSentences(legStructure, relationId).map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })),
   };
 }
-
-// THE POINTS CALL'S INPUT (kogaki#1858): the Leg's Arguments and CentralClaim with their sentences, and per Segment
-// what is bound to it and its Sense.
-export function tablePointsInput(legId, legStructure, relationId, table) {
-  const sentences = legSentences(legStructure, relationId);
-  const central = sentences[sentences.length - 1];
-  return {
-    leg: {
-      leg_id: legId,
-      arguments: sentences.slice(0, -1).map((s) => ({ id: s.id, sentence: s.sentence })),
-      central_claim: { id: central.id, sentence: central.sentence },
-    },
-    segments: table.segments.map((s, i) => {
-      const b = s.bind === null ? null : sentences[s.bind - 1];
-      const r = s.discourse_relation;
-      return {
-        segment: i + 1,
-        bound: b ? { kind: b.kind, id: b.id } : null,
-        sense: r ? { sense: r.sense, to: [...r.to] } : null,
-      };
-    }),
-  };
-}

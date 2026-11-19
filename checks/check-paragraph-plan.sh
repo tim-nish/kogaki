@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# check-paragraph-plan -- the ParagraphPlan stage takes three steps per Leg and ends (kogaki#1865, owner decision
-# 2026-11-19): five readings of the Leg's Senses, the Move chosen and fitted by code, and one call that writes Points.
+# check-paragraph-plan -- the ParagraphPlan stage takes two steps per Leg and ends (kogaki#1865, kogaki#1876):
+# five readings of the Leg's Senses, and the Move chosen and fitted by code.
 # The cases are checks/paragraph-plan-cases.mjs, driven end to end through `node src/paragraph-plan.mjs start|await`
 # with one fake model binary that records every call; this member compares their count with its `case_floor` in
 # both directions (kogaki#661, kogaki#970).

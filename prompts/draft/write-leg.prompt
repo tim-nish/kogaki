@@ -81,8 +81,8 @@ where the category's own block opens, never as a label attached to each item.
 
 THE PLAN BLOCK HOLDS THE LEG'S ARGUMENTS AND CENTRALCLAIM (kogaki#1859, owner
 decision 2026-11-18), read from the Brief's `structure` at the Leg's
-`relation`, and, under a Move table, one part per Segment. No Point of the
-ParagraphPlan reaches the Packet, and no Move file is opened here.
+`relation`, and, under a Move table, one part per Segment. No Move file is
+opened here.
 NO OBLIGATION ROW REACHES THE PACKET (kogaki#1584, owner decision 2026-10-25).
 
 WHAT EACH BLOCK HOLDS A FIELD TO (kogaki#1452). The line below declares, per

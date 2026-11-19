@@ -386,29 +386,23 @@ function tableStructureSection(ms) {
   return `<p>${esc(ms.binds)} Bind targets</p>`;
 }
 
-function tableSegmentsSection(route, paragraphs) {
+function tableSegmentsSection(route) {
   const { move, table, pairing } = route;
   if (!pairing) return none("The Move table was not paired, so no Segment is shown.");
   const given = new Map(pairing.binds.map((p) => [p.bind, p]));
-  const ps = paragraphs || [];
   const rows = table.segments.map((sg, i) => {
     const g = sg.bind === null ? null : given.get(sg.bind);
     const bind = g ? `${esc(sg.bind)} → ${esc(g.kind)} ${esc(g.leg)}` : "none";
     const dr = sg.discourse_relation;
-    const points = ps
-      .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
-      .filter(([, w]) => w)
-      .map(([k, w]) => `Paragraph ${k}: ${esc(w.point)}`);
     return (
       `<tr><td>${i + 1}</td><td>${bind}</td>` +
       `<td>own ${esc(sg.domain.own)} · apart ${esc(sg.domain.apart)}</td><td>${esc(sg.genericity)}</td>` +
-      `<td>${dr ? `${esc(dr.sense)} → ${esc(dr.to.join(", "))}` : "none"}</td><td>${esc(sg.manner || "")}</td>` +
-      `<td>${points.length ? points.join("<br>") : '<span class="muted">the plan wrote no Waypoint for this Segment</span>'}</td></tr>`
+      `<td>${dr ? `${esc(dr.sense)} → ${esc(dr.to.join(", "))}` : "none"}</td><td>${esc(sg.manner || "")}</td></tr>`
     );
   });
   return (
     `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>bind</th><th>domain</th><th>genericity</th>` +
-    `<th>Sense</th><th>manner</th><th>Waypoints</th></tr></thead><tbody>` +
+    `<th>Sense</th><th>manner</th></tr></thead><tbody>` +
     rows.join("") +
     "</tbody></table>"
   );
@@ -456,7 +450,7 @@ export function renderShortSheet({
     `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}` +
     (moveRoute && moveRoute.table
       ? part("move-structure", "Move structure", tableStructureSection(moveRoute.moveStructure)) +
-        part("segments", "Segments", tableSegmentsSection(moveRoute, paragraphs))
+        part("segments", "Segments", tableSegmentsSection(moveRoute))
       : moveRoute
         ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
           part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))

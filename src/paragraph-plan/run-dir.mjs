@@ -20,7 +20,7 @@ import { enterRun, laneDir } from "../runs.mjs";
 import { audiencePathOf, readAdoptedBrief } from "./brief.mjs";
 import { CANDIDATES_SETTING, NAME_ROW, legSentences } from "./senses.mjs";
 import { DONE_FILE, PARAGRAPH_PLAN_TABLE, START_FILE, fail, writeJson } from "./stage.mjs";
-import { POINTS_ROW, planLeg, planLegOptions, unitIdFor } from "./units.mjs";
+import { planLeg, planLegOptions, unitIdFor } from "./units.mjs";
 
 // ---------------------------------------------------------------------------
 // THE RUN DIRECTORY. In the Brief's lane, under the Brief's slug and the start instant,
@@ -96,7 +96,7 @@ function carriedUnits(source, dir, { briefSha, movesDir, legs }) {
         status: "done",
         bytes: u.bytes || 0,
         rounds: u.rounds || 1,
-        phase: u.phase || "points",
+        phase: u.phase || "reading",
         candidate: u.candidate,
         ...(copied ? { candidate_file: to } : {}),
         carried_from: relFromRepo(resolve(source)),
@@ -128,7 +128,7 @@ function sentencesOfLegs(brief) {
 }
 
 // START: read the adopted Brief, the Move library and the Audience's persona, and hand one unit per Leg to the shared
-// supervisor, each unit's three steps run by `ParagraphPlanLegSteps` (src/paragraph-plan/steps.mjs, kogaki#1865).
+// supervisor, each unit's two steps run by `ParagraphPlanLegSteps` (src/paragraph-plan/steps.mjs, kogaki#1876).
 // Returns the run directory. `priorRun` names the run whose finished Legs are carried; it is the latest run of the
 // same Brief unless handed in (a fixture's run directories live outside the lane).
 export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves", priorRun = undefined } = {}) {
@@ -147,8 +147,7 @@ export function startParagraphPlan(briefPath, { runDir = null, movesDir = "moves
     }
   }
   const table = loadTable();
-  for (const id of [NAME_ROW, POINTS_ROW])
-    if (!table[id]) fail(`src/paragraph-plan-workflow.json declares no ${id} row. Nothing was started.`);
+  if (!table[NAME_ROW]) fail(`src/paragraph-plan-workflow.json declares no ${NAME_ROW} row. Nothing was started.`);
   const library = loadMoveContracts(movesDir);
   if (library.error) fail(library.error);
   if (!library.moves.length)

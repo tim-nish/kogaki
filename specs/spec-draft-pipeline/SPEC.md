@@ -1844,9 +1844,8 @@ CentralClaim, each as the one sentence `legSentences` gives
 Segment: `Argument <k>`, `CentralClaim` or `Neither`, and the Segment's Sense
 with the earlier parts it names. Otherwise it says the claims below are the
 whole plan. No Point, no `*Serves:*` tail, no join, no cast and no operation
-line renders, and a Mapping Record no longer changes any line: two plans that
-differ only in their Points render one Packet byte for byte. The ParagraphPlan
-is still read and still holds the Points. What this section says of the
+line renders, and a Mapping Record no longer changes any line. Since
+kogaki#1876 the ParagraphPlan file holds no Point. What this section says of the
 waypoints block, its Waypoints and their *Opens from*, *Cast* and italic lines
 describes the Packet before kogaki#1859. `checks/check-draft-packet.sh`
 carries the plan block.
@@ -2458,6 +2457,12 @@ before — a plan call and a judge call per Round, the site retry, the Analogy
 Mapping and the Mapper — left production with this rewrite; its text stands in
 the repository's history.
 
+**AMENDED AT kogaki#1876 (maintainer, 2026-11-19).** "a Move must not appear
+anywhere after it has been used as input to the Plan. This applies even within
+the Plan file itself." "Remove both Waypoints and Points from the implementation
+and from the records." The call that wrote one text for each Segment left the
+stage, and the plan file holds each Leg's Segments and nothing else.
+
 **What it is.** The Brief's Reader Path plans an article down to Legs, each
 naming the relation of the Brief's `structure` it says (§4.22). ParagraphPlan
 gives each Leg one paragraph Move, fitted to the Leg's sentences, and hands the
@@ -2470,12 +2475,16 @@ after the Brief, with its own owner command `/paragraph-plan`
 
 **One unit per Leg.** `/paragraph-plan` keeps one job unit for each Leg, in the
 order of the Reader Path, on the shared supervisor
-(`src/workflow/detached-job.mjs`). A unit takes three steps in order and then
+(`src/workflow/detached-job.mjs`). A unit takes two steps in order and then
 ends:
 
 1. it reads the Leg's Senses (§4.19.1);
-2. it chooses a Move and fits it to the Leg, by code (§4.19.2);
-3. it makes one call that writes Points (§4.19.3).
+2. it chooses a Move and fits it to the Leg, by code (§4.19.2).
+
+The unit's own record of the Leg, kept in the run directory, holds `leg_id`,
+`move`, `fit` (`{ met, compared }`, the two numbers of §4.19.2), `segments` and,
+where there is one, `note`. The run directory is the log of how the plan was
+made, and `/draft` does not read it.
 
 The stage makes no plan call, no judge call, no site call, no analogy call and
 none of the Mapper's calls. A Leg's death or refusal ends that Leg alone: its
@@ -2499,42 +2508,37 @@ from a Move file.
 these keys and no other (`PLAN_LEG_KEYS` in `src/compose/record.mjs`):
 
 - `leg_id`;
-- `move`, the id of the Move taken. It records where the Segments came from;
-  no step opens the Move file again;
-- `fit`, `{ met, compared }`, the two numbers of §4.19.2 for the Move and the
-  filling taken;
-- `segments`, one entry per Segment of the Move, in order, each `{ bind, edges }`:
-  `bind` the number of the Leg's sentence the filling gives the Segment, or
-  null, and `edges` copied from the Move file;
-- `points`, a list of `{ segment, point }`, where the Points answer was not
-  refused.
+- `segments`, where a Move was fitted: one entry per Segment, in order, each
+  `{ bind, edges }`: `bind` the number of the Leg's sentence the filling gives
+  the Segment, or null, and `edges` as the fitted Move carried them.
 
-A Leg no Move file is a candidate for carries `leg_id` alone. `move`, `fit` and
-`segments` stand together, and `points` stand under a Move. The keys
-`paragraphs`, `move_forced_by`, `analogy` and `mapping` left the record:
+A Leg no Move file is a candidate for carries `leg_id` alone. The file names no
+Move. A Leg entry carrying `move`, `fit` or `points` is refused as a key the
+record does not declare, naming the key (kogaki#1876), so a file written before
+that change is made again by `/paragraph-plan`. The keys `paragraphs`,
+`move_forced_by`, `analogy` and `mapping` left the record:
 `readParagraphPlanBeside` refuses a file carrying one, naming the key and saying
-to run `/paragraph-plan` on the Brief again. Nothing ties the plan to the Move
-after it is written: a person may change a Leg's `segments` in the file, and
-`/draft` reads what stands there.
+to run `/paragraph-plan` on the Brief again. A person may change a Leg's
+`segments` in the file, and `/draft` reads what stands there.
 
 **What the Writer is handed.** `/draft` puts each Leg's `segments` on the Leg
 (`src/draft/workspace.mjs`), and `planValues` (`src/draft/render-packet.mjs`)
 lists one part per Segment, what is bound to it, and every Edge whose `sense`
 is not null with the earlier parts it names; an Edge whose `sense` is null, and
-`hypophora`, are not handed on. No Point reaches the Writer (kogaki#1859). The
+`hypophora`, are not handed on. The
 Packet and `/draft`'s run record carry the plan file's sha256; the Mapping
 Record's pin left them.
 
 **What a run says.** `await` prints, per Leg, the Move taken and its fit
-(`Leg <id>: Move <m>, <met> of <compared> compared Edge(s) met`), and a note
-where a Leg's plan carries no Move or no Points. A Leg whose reading is refused
+(`Leg <id>: Move <m>, <met> of <compared> compared Edge(s) met`), read from the
+unit's own record, and a note where no Move was a candidate. A Leg whose reading is refused
 twice ends `refused`; a call that dies ends its Leg `died`; the stop lines name
 the Leg, the kept Legs, and that the next run plans the unfinished Legs only.
 
 **The view.** `node src/paragraph-plan.mjs view --plan <paragraph-plan.yaml>
-[--run <dir>]` shows, per Leg, its text, the Move taken, the two numbers of
-`fit`, and a table of each Segment with the sentence bound to it, its Edges and
-its Point; with a run, the refusals the Leg met. It writes nothing.
+[--run <dir>]` shows, per Leg, its text and a table of each Segment with the
+sentence bound to it and its Edges; with a run, the refusals the Leg met. A Leg
+with no `segments` shows the line `- **Segments:** none`. It writes nothing.
 
 **What left production at kogaki#1865.** The rows `paragraph_plan_site_unit`
 and `analogy_mapping` and their prompt files; `src/paragraph-plan/site-retry.mjs`,
@@ -2579,26 +2583,22 @@ The choice is made by code, with no model call (`chooseMove`,
 - The stage takes the Move with the highest count; among Moves of one count, the
   one with fewer compared Edges; among those, the one whose id comes first in
   alphabetical order. A count of 0 is taken where no Move has a higher one.
-- Where no Move file is a candidate, the Leg's plan carries no `move` and no
-  `segments`, no Points call is made, and the run names the Leg. Since a Move
+- Where no Move file is a candidate, the Leg's plan carries no
+  `segments`, and the run names the Leg. Since a Move
   file carries at most three Bind targets and a Leg at least three sentences,
   this does not arise over a valid library.
 
 The fitted Segments are `fittedSegments`: each Segment's `bind` is the sentence
 the filling gives its Bind target, and its `edges` are the Move's.
 
-#### 4.19.3 The Points call (kogaki#1865)
+#### 4.19.3 The call that wrote one text for each Segment, removed (kogaki#1876)
 
-One call per Leg, by the row `paragraph_plan_points`, whose prompt file is
-`prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt`. Its
-input (`pointsInput`, `src/paragraph-plan/units.mjs`) is the Leg's Arguments
-and CentralClaim with their sentences and, per Segment, what is bound to it and
-one Sense: that of the Segment's first entry in `edges` whose `sense` is not
-null. `tablePointsRefusal` checks the answer; an answer refused is not asked
-again, the Leg's plan carries no `points`, and the run says so. The Call Record
-is `<unit>/points`. Points are debugging information: no Point reaches the
-Writer. The Structure-Mapping Playground's short Trial makes its own Points
-call by the same row.
+From kogaki#1865 to kogaki#1876 a third step made one call per Leg, by a row of
+`src/paragraph-plan-workflow.json`, and the plan file kept its answer. The row,
+its prompt file, its input and its validator are removed, from the stage and
+from the short Trial of the Structure-Mapping Playground (§4.20), which sent
+the same prompt file. A unit writes five Call Records, `<unit>/reading-<k>`,
+and no sixth.
 
 #### 4.19.4 The ParagraphPlanPlayground (kogaki#1752, kogaki#1756, kogaki#1762, kogaki#1831)
 
@@ -3371,16 +3371,12 @@ call: the move structure is `binds` and each Segment's `bind`, and Bind target
 CentralClaim, as `src/structure-mapping-playground/leg-senses.mjs` lists them;
 the pairing is `binds`, one `{ bind, kind, leg }` each. `grounding` is handed
 the table's Segments in place of their `operation`, `relation` and `manner`.
-`waypoints` is rendered from
-`prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt` and
-handed only the Leg's Arguments and CentralClaim with their sentences and,
-per Segment, what is `bound` to it and its `sense`; its answer is `points`,
-one `{ segment, point }` per Segment. The Harness writes one paragraph under
-the named Move from it, each Point serving every Lesson of the Leg with an
-empty `cast`. The sheet's `Segments` table then shows per Segment its `bind`
-beside the Argument or CentralClaim it was given, its `domain`, `genericity`,
-Sense, `manner` and Waypoints, with no operation column and no Unmatched
-table.
+The `waypoints` stage is not run (kogaki#1876): no call is made between
+`grounding` and `write`, and the Harness writes one paragraph record under the
+named Move, with no `paragraph_waypoints`. The sheet's `Segments` table then
+shows per Segment its `bind` beside the Argument or CentralClaim it was given,
+its `domain`, `genericity`, Sense and `manner`, with no operation column, no
+Waypoints column and no Unmatched table.
 
 **A reading of the Leg's Senses on the sheet** (kogaki#1875). The Brief-Leg
 route takes one more flag, `--leg-senses <folder>`, naming a folder that

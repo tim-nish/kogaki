@@ -1,11 +1,11 @@
-// The cases of checks/check-paragraph-plan.sh (kogaki#1865), each stated in that member's `contract`, driven end to
-// end through `node src/paragraph-plan.mjs start|await` over a Brief with a `structure`, a scratch Move library and a
-// fake model binary recording every call: (a) a run to the end, five `paragraph_plan_name_senses` calls and one
-// `paragraph_plan_points` call per Leg and no other, the plan `version` "2" with `move`, `fit`, `segments` and
-// `points`; (b) of two Moves with the same count the one with fewer compared Edges taken; (c) a reading refused once
-// asked again, twice stopping the Leg; (d) a refused Points answer not asked again; (e) a Leg no Move is a candidate
-// for; (f) `readParagraphPlanBeside` refusing the keys that left the record by name; (g) `chooseMove` by itself;
-// (h) what `start` refuses; (i) the view; (j) `validateMoveRecord` beside `bind` and `edges`; (k) SKILL.md's paths.
+// The cases of checks/check-paragraph-plan.sh (kogaki#1865, kogaki#1876), each stated in that member's `contract`,
+// driven end to end through `node src/paragraph-plan.mjs start|await` over a Brief with a `structure`, a scratch Move
+// library and a fake model binary recording every call: (a) a run to the end, five `paragraph_plan_name_senses` calls
+// per Leg and no other, the plan `version` "2" with `leg_id` and `segments` on each Leg and no Move's id in the file;
+// (b) of two Moves with the same count the one with fewer compared Edges taken; (c) a reading refused once asked
+// again, twice stopping the Leg; (e) a Leg no Move is a candidate for; (f) `readParagraphPlanBeside` refusing the keys
+// that left the record by name; (g) `chooseMove` by itself; (h) what `start` refuses; (i) the view; (j)
+// `validateMoveRecord` beside `bind` and `edges`; (k) SKILL.md's paths. Case (d) went with its call (kogaki#1876).
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -25,6 +25,7 @@ const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 const { readParagraphPlanBeside, validateMoveRecord } = await imp("src/compose.mjs");
 const P = await imp("src/paragraph-plan.mjs");
 const S = await imp("src/paragraph-plan/senses.mjs");
+const { readReaderPathJob } = await imp("src/workflow/detached-job.mjs");
 const root = mkdtempSync(join(tmpdir(), "paragraph-plan-"));
 const names = S.senseNames(S.loadSenses());
 
@@ -42,29 +43,25 @@ ok(a.wait.status === 0, `(a) the stage did not finish: ${a.out}`);
 ok(a.plan && String(a.plan.version) === "2", `(a) the plan file is not version "2": ${JSON.stringify(a.plan)}`);
 const legsA = (a.plan && a.plan.legs) || [];
 ok(
-  legsA.length === 2 && legsA.every((l) => l.move && l.fit && Array.isArray(l.segments) && Array.isArray(l.points)),
-  `(a) a Leg of the plan lacks move, fit, segments or points: ${JSON.stringify(legsA)}`,
+  legsA.length === 2 && legsA.every((l) => Array.isArray(l.segments)),
+  `(a) a Leg of the plan lacks segments: ${JSON.stringify(legsA)}`,
 );
 ok(
-  legsA.every((l) => Object.keys(l).every((k) => ["leg_id", "move", "fit", "segments", "points"].includes(k))),
-  `(a) a Leg of the plan carries a key outside leg_id, move, fit, segments and points: ${JSON.stringify(legsA)}`,
+  legsA.every((l) => Object.keys(l).sort().join() === "leg_id,segments"),
+  `(a) a Leg of the plan carries a key beside leg_id and segments: ${JSON.stringify(legsA)}`,
 );
 for (const id of ["s1", "s2"]) {
-  const points = a.calls.filter((c) => c.row === "paragraph_plan_points" && c.leg === id).length;
-  ok(points === 1, `(a) Leg ${id} made ${points} Points call(s), not one`);
+  const readings = a.calls.filter((c) => c.row === "paragraph_plan_name_senses" && c.leg === id).length;
+  ok(readings === 5, `(a) Leg ${id} made ${readings} reading call(s), not five`);
 }
-const names5 = a.calls.filter((c) => c.row === "paragraph_plan_name_senses").length;
-ok(names5 === 10, `(a) the two Legs made ${names5} reading call(s), not five each`);
 ok(
-  a.calls.every((c) => ["paragraph_plan_name_senses", "paragraph_plan_points"].includes(c.row)),
+  a.calls.every((c) => c.row === "paragraph_plan_name_senses"),
   `(a) a call by another row was made: ${JSON.stringify([...new Set(a.calls.map((c) => c.row))])}`,
 );
-ok(a.calls.length === 12, `(a) the stage made ${a.calls.length} calls, not six per Leg`);
+ok(a.calls.length === 10, `(a) the stage made ${a.calls.length} calls, not five per Leg`);
 ok(a.briefSame, "(a) the Brief changed under the stage");
-ok(
-  legsA.length === 2 && legsA[0].points.map((p) => p.point).join(",") === "POINT-s1-1,POINT-s1-2,POINT-s1-3",
-  `(a) Leg s1's Points are not the answer's, in order: ${JSON.stringify(legsA[0] && legsA[0].points)}`,
-);
+const planTextA = existsSync(a.planPath) ? readFileSync(a.planPath, "utf8") : "";
+ok(planTextA !== "" && !/z_fewer|a_more/.test(planTextA), `(a) the plan file holds a Move's id: ${planTextA}`);
 ok(
   legsA.length === 2 &&
     JSON.stringify(legsA[0].segments) ===
@@ -81,16 +78,18 @@ ok(
   `(a) /draft's reader refused the plan: ${draftRead.error}`,
 );
 ok(/Move z_fewer, 1 of 1 compared Edge\(s\) met/.test(a.out), `(a) the await output names no Move and fit: ${a.out}`);
-// (b) the tie: z_fewer and a_more both meet one Edge; z_fewer compares one, a_more two.
+// (b) the tie: z_fewer and a_more both meet one Edge; z_fewer compares one, a_more two. The Move taken and its fit
+// are read from the job's own record of each Leg in the run directory.
+const takenA = ((readReaderPathJob(a.dir) || {}).units || []).map((u) => u.candidate || {});
 ok(
-  legsA.every((l) => l.move === "z_fewer" && l.fit.met === 1 && l.fit.compared === 1),
-  `(b) of two Moves with the same count the one with fewer compared Edges was not taken: ${JSON.stringify(legsA.map((l) => [l.move, l.fit]))}`,
+  takenA.length === 2 && takenA.every((c) => c.move === "z_fewer" && c.fit.met === 1 && c.fit.compared === 1),
+  `(b) of two Moves with the same count the one with fewer compared Edges was not taken: ${JSON.stringify(takenA.map((c) => [c.move, c.fit]))}`,
 );
 
 // (c) A READING REFUSED ONCE IS ASKED AGAIN; TWICE, THE LEG STOPS.
 const c1 = runStage("refuse-once");
 ok(
-  c1.wait.status === 0 && c1.plan && c1.plan.legs.every((l) => l.move),
+  c1.wait.status === 0 && c1.plan && c1.plan.legs.every((l) => Array.isArray(l.segments)),
   `(c) a reading refused once did not finish: ${c1.out}`,
 );
 ok(
@@ -108,29 +107,13 @@ ok(
   `(c) a Leg went on after its reading was refused twice: ${JSON.stringify(c2.calls)}`,
 );
 
-// (d) A REFUSED POINTS ANSWER IS NOT ASKED AGAIN.
-const d = runStage("points-refused");
-ok(d.wait.status === 0 && d.plan, `(d) a refused Points answer stopped the stage: ${d.out}`);
-ok(
-  d.plan && d.plan.legs.every((l) => l.move && !Object.hasOwn(l, "points")),
-  `(d) a Leg carries points: ${JSON.stringify(d.plan)}`,
-);
-ok(
-  d.calls.filter((c) => c.row === "paragraph_plan_points").length === 2,
-  "(d) a refused Points answer was asked again",
-);
-ok(
-  /Leg s1: the Points answer was refused/.test(d.out),
-  `(d) the status line does not say the Points were refused: ${d.out}`,
-);
-
 const pairs3 = (senses) => [
   { pair: [1, 2], senses },
   { pair: [1, 3], senses },
   { pair: [2, 3], senses },
 ];
 // (e) NO MOVE IS A CANDIDATE: a Brief's Leg has three sentences or more and a Move file three Bind targets or fewer,
-// so the Leg steps are handed a Move of four directly; the unit ends with no Move, no Segments and no Points call.
+// so the Leg steps are handed a Move of four directly; the unit ends with no Move and no Segments.
 {
   const steps = new P.ParagraphPlanLegSteps(
     {
@@ -221,13 +204,13 @@ ok(
 const view = P.paragraphPlanView(a.planPath, { runDir: a.dir });
 const viewText = view.lines ? view.lines.join("\n") : view.error;
 ok(
-  /\*\*Move:\*\* `z_fewer`/.test(viewText) && /1 of 1 compared Edge/.test(viewText),
-  `(i) the view shows no Move or fit: ${viewText}`,
+  !/z_fewer/.test(viewText) && !/compared Edge/.test(viewText) && !/Point/.test(viewText),
+  `(i) the view shows a Move, a fit or a Point column: ${viewText}`,
 );
 ok(
-  /\| 2 \| 2\. The guard starts|\| 2 \| 2\. /.test(viewText) &&
-    /Conjunction to 1/.test(viewText) &&
-    /POINT-s1-2/.test(viewText),
+  /\| Segment \| Bound \| Edges \|/.test(viewText) &&
+    /\| 2 \| 2\. /.test(viewText) &&
+    /Conjunction to 1/.test(viewText),
   `(i) the view shows no Segment row: ${viewText}`,
 );
 

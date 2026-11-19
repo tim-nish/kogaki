@@ -58,7 +58,6 @@ export const LPP_COLUMNS = [
   "stated by",
   "paragraph",
   "paragraph Move",
-  "Waypoints",
   "verdict",
   "Leg",
   "The Brief",
@@ -188,20 +187,15 @@ function moveLine(move, libraryDir, outDir) {
   return `<p class="line">${link(outDir, join(libraryDir, `${move}.yaml`), move)}</p><p class="line">passage: ${passage}</p>`;
 }
 
-// One Leg of the `Legs` part (kogaki#1775): the relation it serves and its `text`, then the paragraph the plan wrote
-// under it, with the Move the Leg took and its Points (kogaki#1865), one per Segment.
+// One Leg of the `Legs` part (kogaki#1775): the relation it serves and its `text`, then one row where the plan file
+// carries the Leg's `segments` (kogaki#1876), with the Move the run's own record names.
 function legHtml(leg, structure, planLeg, bindings, libraryDir, outDir) {
-  const written =
-    planLeg && planLeg.move ? [{ paragraph_waypoints: (planLeg.points || []).map((p) => ({ point: p.point })) }] : [];
-  const rows = written.map((entry, k) => {
+  const written = planLeg && Array.isArray(planLeg.segments) ? [planLeg] : [];
+  const rows = written.map((_, k) => {
     const b = bindings.find((x) => x.leg_id === leg.leg_id && x.paragraph === k + 1) || null;
-    const move = (planLeg && planLeg.move) || (b && b.move);
-    const pws =
-      (entry.paragraph_waypoints || []).map((pw, i) => line(`${i + 1}. ${pw.point}`)).join("") || none("no Waypoints");
     return row([
       String(k + 1),
-      move ? moveLine(move, libraryDir, outDir) : none("no Move bound"),
-      pws,
+      b && b.move ? moveLine(b.move, libraryDir, outDir) : none("no Move bound"),
       esc(b ? b.verdict : "not reached"),
     ]);
   });
@@ -209,7 +203,7 @@ function legHtml(leg, structure, planLeg, bindings, libraryDir, outDir) {
     heading(3, `Leg ${leg.leg_id}`) +
     line(`serves ${elementLabel(structure, leg.relation)}${leg.reaches_target ? " (reaches the target)" : ""}`) +
     line(leg.text) +
-    (rows.length ? table(["paragraph", "paragraph Move", "Waypoints", "verdict"], rows) : none("no paragraph planned"))
+    (rows.length ? table(["paragraph", "paragraph Move", "verdict"], rows) : none("no paragraph planned"))
   );
 }
 

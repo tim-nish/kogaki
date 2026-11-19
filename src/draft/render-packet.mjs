@@ -201,7 +201,6 @@ export function renderPacket({
   const unresolved = journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === "");
   if (unresolved) need(`${leg.leg_id}'s Journey text`, null);
   const values = {
-    // THE PLAN (kogaki#1859): no Point of the ParagraphPlan is handed to the Writer.
     ...(plan ? { plan } : {}),
     claims: claimTexts.length ? { lines: claimTexts } : {},
     journeys:

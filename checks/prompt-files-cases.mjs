@@ -109,15 +109,6 @@ same("judge-unit-reask", () =>
     C.JUDGE_HISTORY,
   ),
 );
-// The Points call as /paragraph-plan makes it (kogaki#1865), by the row `paragraph_plan_points`.
-same("plan-leg-under-a-move-table", () =>
-  judgePrompt(
-    { id: "paragraph_plan_points", ...plan.paragraph_plan_points },
-    JSON.stringify(C.POINTS_INPUT, null, 2),
-    C.POINTS_INPUT,
-    null,
-  ),
-);
 bindFlow({ lane: "brief", label: "Structure-Mapping Playground" });
 same("plan-leg-paired", () => judgePrompt(pairedPlanRow(plan), inputText, C.PLAN_INPUT, null));
 
@@ -219,8 +210,8 @@ for (const table of [...new Set(C.ROWS.map((r) => r.table))]) {
 }
 
 // (e) ONE SENTENCE, ONE JOB (kogaki#1858): every sentence line of each listed prompt file passes `axisSentenceRefusal`.
-// A file joins the list when an Issue rewrites it.
-const ONE_SENTENCE_FILES = ["prompts/structure-mapping-playground/plan-leg-under-a-move-table.prompt"];
+// A file joins the list when an Issue rewrites it, and the list is empty since kogaki#1876.
+const ONE_SENTENCE_FILES = [];
 const LABEL = /^(JUDGMENT POINT|REQUIRED RECORD SHAPE|WHAT IS REFUSED): /;
 const { axisSentenceRefusal } = await imp("src/paragraph-plan/axes.mjs");
 for (const path of ONE_SENTENCE_FILES) {
@@ -280,5 +271,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log(
-  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 6 + C.ROWS.length + programTexts.size} saved cases`,
+  `prompt-files: ${cases} case(s) pass, over ${files.length} prompt files and ${Object.keys(C.WRITER_CASES).length + 5 + C.ROWS.length + programTexts.size} saved cases`,
 );

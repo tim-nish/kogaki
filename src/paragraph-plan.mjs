@@ -3,18 +3,17 @@
 // (kogaki#1375, owner decision 2026-10-14).
 //
 // WHAT IT IS. The Brief's Reader Path plans an article down to Legs: one per relation the
-// Thesis reaches (kogaki#1775). This stage plans each Leg under one Move (kogaki#1865, owner decision
-// 2026-11-19) and hands the result to the Packet through one planning record,
+// Thesis reaches (kogaki#1775). This stage plans each Leg under one Move (kogaki#1865, kogaki#1876)
+// and hands the Leg's Segments to the Packet through one planning record,
 // `theses/<slug>/paragraph-plan.yaml`. It is NOT Reiter and Dale's microplanning: word choice, reference
 // and sentence shape stay inside the one Writer call. [see: SPEC-draft-pipeline "the ParagraphPlan stage"]
 //
-// THE THREE STEPS, one Detached Job unit per Leg on the shared supervisor (src/workflow/detached-job.mjs),
+// THE TWO STEPS, one Detached Job unit per Leg on the shared supervisor (src/workflow/detached-job.mjs),
 // run by `ParagraphPlanLegSteps` (src/paragraph-plan/steps.mjs): five calls of `paragraph_plan_name_senses`
 // read the Leg's Senses, an answer refused being asked again once; the Move whose Edges the Leg meets best
-// is chosen and fitted by code (src/paragraph-plan/senses.mjs); one call of `paragraph_plan_points` writes
-// Points, never asked again. The Leg's entry of the file carries `move`, `fit`, `segments` and `points`;
-// nothing ties the plan to the Move after it is written, and Points reach no Writer. The stage never writes
-// the Brief, and the Brief names nothing downstream: the plan file names the Brief by path and content hash.
+// is chosen and fitted by code (src/paragraph-plan/senses.mjs). The Leg's entry of the file carries `leg_id`
+// and `segments` and names no Move. The stage never writes the Brief, and the Brief names nothing
+// downstream: the plan file names the Brief by path and content hash.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902; one carrier, kogaki#982).
 // The rule these entries are written under -- what a copy is, what the two
@@ -66,9 +65,6 @@ export {
   segmentsForPlanCall,
   paragraphPlanUnitInput,
   renderRowHead,
-  POINTS_ROW,
-  pointsInput,
-  tablePointsRefusal,
 } from "./paragraph-plan/units.mjs";
 export {
   criteriaOf,
