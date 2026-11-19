@@ -47,8 +47,16 @@ import { EXTRACTION_TABLE } from "../move-extraction-playground/extract.mjs";
 import { PLAYGROUND_TABLE, TRIALS_DIR, TRIAL_FILE, READING_FILE, STRUCTURE_FILE } from "./trial.mjs";
 import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
-import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
-import { readMoveTable, tableMoveStructure, pairInOrder, tableSegments } from "./move-table.mjs";
+import {
+  readBriefLeg,
+  validateMoveStructure,
+  validatePairing,
+  unmatchedOf,
+  legSentences,
+  edgesMoveStructure,
+  pairInOrder,
+} from "./move-structure.mjs";
+import { bindTargetsOf } from "../paragraph-plan/senses.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 
 export const RBS_FILE = "rbs.yaml";
@@ -63,7 +71,9 @@ export const SHORT_STAGES = ["reading", "bind", "grounding", "waypoints", "write
 // The Brief-Leg route (kogaki#1830): a Leg of an adopted Brief under a named Move.
 export const MOVE_STAGES = ["move-reading", "pairing", "grounding", "waypoints", "write"];
 export const MOVE_ROUTE_FLAGS = ["brief", "leg", "move"];
-export const MOVE_TABLE_FLAG = "move-table";
+// A Move's Bind targets and Edges are read from its Move file (kogaki#1880); `--move-table` is refused by name.
+export const MOVE_EDGES_FLAG = "move-edges";
+export const RETIRED_MOVE_TABLE_FLAG = "move-table";
 export const MOVE_STRUCTURE_FILE = "move-structure.yaml";
 export const PAIRING_FILE = "pairing.yaml";
 export const LEG_STRUCTURE_FILE = "leg-structure.yaml";
@@ -86,7 +96,7 @@ const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const USAGE =
   "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
-  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-table <file>] [--leg-senses <folder>] " +
+  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-edges] [--leg-senses <folder>] " +
   "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
@@ -492,8 +502,8 @@ function waypointsStage({ dir, env, cli, leg, structure, tables, move, contract,
 }
 
 // THE PARAGRAPHS: one Packet over a one-Leg Brief whose Leg carries its paragraphs, and the writer called once (kogaki#1784).
-// On the Brief-Leg route the Brief's `structure` and the Leg's `relation` give the plan block, and under a Move table its
-// `segments` give the parts (kogaki#1859); no Point reaches the Packet.
+// On the Brief-Leg route the Brief's `structure` and the Leg's `relation` give the plan block, and under `--move-edges` its
+// `segments` give the parts (kogaki#1859, kogaki#1880); no Point reaches the Packet.
 export function shortPacket({ leg, paragraphs, audiencePath, structure = null, relation = null, segments = null }) {
   const materials = leg.claims.map((g) => g.strand);
   const packetLeg = {
@@ -941,7 +951,7 @@ export function runMoveTrial({
   brief,
   leg: legId,
   move: moveId,
-  moveTable = null,
+  moveEdges = false,
   legSenses = null,
   out,
   audience = null,
@@ -967,10 +977,20 @@ export function runMoveTrial({
     fail(
       `--move ${JSON.stringify(moveId)} names no Move of the library ${relFromRepo(libraryDir)}. Nothing was started.`,
     );
-  const tablePath = moveTable ? resolve(moveTable) : null;
-  const t = tablePath ? readMoveTable(tablePath, contract.segments.length, b.structure, legId, b.leg.relation) : null;
-  if (t && t.error) fail(`${t.error}. Nothing was started.`);
-  const moveTableRecord = t ? t.table : null;
+  // Under `--move-edges` each Segment's `bind` and `edges`, as the Move file holds them (kogaki#1880).
+  if (moveEdges && !contract.segments.every((s) => Array.isArray(s.edges)))
+    fail(
+      `the Move ${moveId} carries no \`bind\` and \`edges\` on its Segments, and \`--${MOVE_EDGES_FLAG}\` reads them from the Move file. Nothing was started.`,
+    );
+  const segments = moveEdges ? edgeSegments(contract) : null;
+  if (segments) {
+    const targets = bindTargetsOf(contract);
+    const sentences = legSentences(b.structure, b.leg.relation).length;
+    if (targets !== sentences)
+      fail(
+        `the Move ${moveId} has ${targets} Bind targets, and the Leg ${legId} has ${sentences} Arguments and CentralClaim. Nothing was started.`,
+      );
+  }
   const table = readTable();
   const audiencePath = audience ? resolve(REPO, audience) : audiencePathOf(b.record);
   const persona = readerPersona(audiencePath);
@@ -1002,7 +1022,7 @@ export function runMoveTrial({
     brief: { ...fileRecord(briefPath), leg: leg.leg_id, relation: b.leg.relation },
     proposition: { proposition: leg.text },
     structure: { ...fileRecord(structurePath), author: "brief" },
-    move_table: tablePath ? fileRecord(tablePath) : null,
+    move_edges: segments !== null,
     leg_senses: ls ? ls.reading.path : null,
     move_structure: { path: null, sha256: null },
     pairing: { path: null, sha256: null },
@@ -1060,10 +1080,10 @@ export function runMoveTrial({
   };
   save();
   const segmentCount = contract.segments.length;
-  // Under a Move table the Harness writes the move structure and the pairing, and neither stage calls the model (kogaki#1840).
+  // Under `--move-edges` the Harness writes the move structure and the pairing, and neither stage calls the model (kogaki#1880).
   const moveStructure = stage(MOVE_STAGES[0], (d, env) => {
-    if (moveTableRecord) {
-      const written = tableMoveStructure(moveTableRecord);
+    if (segments) {
+      const written = edgesMoveStructure(segments);
       writeYaml(MOVE_STRUCTURE_FILE, "move_structure", written);
       return { value: written };
     }
@@ -1081,7 +1101,7 @@ export function runMoveTrial({
     return { value: r.answer, refusals: r.refusals };
   });
   const pairing = stage(MOVE_STAGES[1], (d, env) => {
-    if (moveTableRecord) {
+    if (segments) {
       const written = pairInOrder(structure, b.leg.relation);
       writeYaml(PAIRING_FILE, "pairing", written);
       return { value: written };
@@ -1106,8 +1126,11 @@ export function runMoveTrial({
       env,
       cli,
       row: playgroundRow(table, CORRESPONDENCE_ROW),
-      input: moveTableRecord
-        ? { ...correspondenceInput(structure, persona, contract, OWN), segments: tableSegments(moveTableRecord) }
+      input: segments
+        ? {
+            ...correspondenceInput(structure, persona, contract, OWN),
+            segments: segments.map((g, i) => ({ segment: i + 1, bind: g.bind, edges: g.edges })),
+          }
         : correspondenceInput(structure, persona, contract, OWN),
       refusalOf: (answer) => correspondenceRefusal(answer, structure),
       validator: "correspondenceRefusal",
@@ -1121,8 +1144,8 @@ export function runMoveTrial({
     record.rbs = { variant: RBS_COMPOSED, ...fileRecord(rbsPath) };
     return { value: t, refusals: r.refusals };
   });
-  // Under a Move table the `waypoints` stage is not run (kogaki#1876): the Harness writes the one paragraph record.
-  const paragraphs = !moveTableRecord
+  // Under `--move-edges` the `waypoints` stage is not run (kogaki#1876): the Harness writes the one paragraph record.
+  const paragraphs = !segments
     ? stage("waypoints", planStage)
     : record.stopped
       ? null
@@ -1178,15 +1201,7 @@ export function runMoveTrial({
     const plan = {
       structure,
       relation: b.leg.relation,
-      ...(moveTableRecord
-        ? {
-            // Each Segment's one `discourse_relation` is one entry of `edges` (kogaki#1865).
-            segments: moveTableRecord.segments.map((g) => ({
-              bind: g.bind,
-              edges: g.discourse_relation ? [g.discourse_relation] : [],
-            })),
-          }
-        : {}),
+      ...(segments ? { segments } : {}),
     };
     const r = writeStage({ dir: d, env, cli, leg, paragraphs, audiencePath, paragraphPath, plan });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);
@@ -1208,15 +1223,11 @@ export function runMoveTrial({
         move: moveId,
         moveStructure,
         pairing,
-        table: moveTableRecord,
+        segments,
         legSenses: ls
           ? {
               reading: ls.reading,
-              edges: trialEdges(
-                edgeSegments(contract, moveTableRecord),
-                ls.reading,
-                pairInOrder(structure, b.leg.relation),
-              ),
+              edges: trialEdges(edgeSegments(contract), ls.reading, pairInOrder(structure, b.leg.relation)),
             }
           : null,
       },
@@ -1247,13 +1258,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (args._cmd !== "run") fail(USAGE);
   // THE BRIEF-LEG ROUTE (kogaki#1830): its three flags together, and none of the first route's.
   const given = MOVE_ROUTE_FLAGS.filter((k) => Object.hasOwn(args, k));
-  // The Move table (kogaki#1840) is a flag of the Brief-Leg route alone, and takes a file.
-  if (Object.hasOwn(args, MOVE_TABLE_FLAG) && !given.length)
+  // The Move table is retired (kogaki#1880): a Move's Bind targets and Edges are read from its Move file.
+  if (Object.hasOwn(args, RETIRED_MOVE_TABLE_FLAG))
     fail(
-      `\`--${MOVE_TABLE_FLAG}\` is a flag of the Brief-Leg route: it is given with --brief, --leg and --move. Nothing was started. ${USAGE}`,
+      `\`--${RETIRED_MOVE_TABLE_FLAG}\` is retired: a Move's Edges are read from the Move file under \`--${MOVE_EDGES_FLAG}\` (kogaki#1880). Nothing was started. ${USAGE}`,
     );
-  if (Object.hasOwn(args, MOVE_TABLE_FLAG) && !str(MOVE_TABLE_FLAG))
-    fail(`\`--${MOVE_TABLE_FLAG}\` takes a file. Nothing was started. ${USAGE}`);
+  // `--move-edges` is a flag of the Brief-Leg route alone, and takes no value.
+  if (Object.hasOwn(args, MOVE_EDGES_FLAG) && !given.length)
+    fail(
+      `\`--${MOVE_EDGES_FLAG}\` is a flag of the Brief-Leg route: it is given with --brief, --leg and --move. Nothing was started. ${USAGE}`,
+    );
+  if (Object.hasOwn(args, MOVE_EDGES_FLAG) && args[MOVE_EDGES_FLAG] !== true)
+    fail(`\`--${MOVE_EDGES_FLAG}\` takes no value. Nothing was started. ${USAGE}`);
   // A reading of the Leg's Senses (kogaki#1875) is a flag of the Brief-Leg route alone, and takes a folder.
   if (Object.hasOwn(args, LEG_SENSES_FLAG) && !given.length)
     fail(
@@ -1277,7 +1293,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       brief: str("brief"),
       leg: str("leg"),
       move: str("move"),
-      moveTable: str(MOVE_TABLE_FLAG),
+      moveEdges: args[MOVE_EDGES_FLAG] === true,
       legSenses: str(LEG_SENSES_FLAG),
       out: str("out"),
       audience: str("audience"),

@@ -9,6 +9,7 @@
 //       specs/spec-draft-pipeline/SPEC.md
 //
 import { readAdoptedBrief } from "../paragraph-plan/brief.mjs";
+import { legSentences, bindTargetsOf } from "../paragraph-plan/senses.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -297,4 +298,22 @@ export function pairedWith(id, moveStructure, pairing) {
 
 // ---------------------------------------------------------------------------
 // THE SENTENCES are production's (kogaki#1865): `legSentences` of src/paragraph-plan/senses.mjs.
-export { legSentences } from "../paragraph-plan/senses.mjs";
+export { legSentences };
+
+// ---------------------------------------------------------------------------
+// UNDER `--move-edges` (kogaki#1880): the Move's Segments, each carrying `bind` and `edges` as its Move file holds them.
+
+// THE MOVE STRUCTURE THE MOVE FILE GIVES: the number of its Bind targets, and per Segment the one it is given.
+export function edgesMoveStructure(segments) {
+  return {
+    binds: bindTargetsOf({ segments }),
+    segments: segments.map((s, i) => ({ segment: i + 1, bind: s.bind })),
+  };
+}
+
+// THE PAIRING IN ORDER: Bind target k is given entry k of `legSentences`, the Arguments and then the CentralClaim.
+export function pairInOrder(legStructure, relationId) {
+  return {
+    binds: legSentences(legStructure, relationId).map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })),
+  };
+}

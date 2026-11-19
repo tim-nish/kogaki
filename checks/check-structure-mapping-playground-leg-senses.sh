@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-structure-mapping-playground-leg-senses -- a Leg's Senses (kogaki#1849): a Leg's Arguments and CentralClaim read
-# five times for every Sense that holds between each pair, counted into Edge candidates, joined, compared with a Move's
-# Edges file, and shown on a sheet. The cases are checks/structure-mapping-playground-leg-senses-cases.mjs, driven with
+# five times for every Sense that holds between each pair, counted into Edge candidates, joined, compared with the Edges
+# of a Move of moves/ (kogaki#1880), and shown on a sheet. The cases are checks/structure-mapping-playground-leg-senses-cases.mjs, driven with
 # one fake model binary as the Playground's other checks drive theirs; this member compares their count with its
 # `case_floor` in both directions (kogaki#661, kogaki#970).
 set -u

@@ -20,7 +20,7 @@ export const RUN_FILE = "leg-senses-run.json";
 export const COUNTS_FILE = "counts.json";
 export const LEG_SENSES_USAGE =
   "usage: node src/structure-mapping-playground/leg-senses.mjs read --brief <Brief file> --leg <leg_id> " +
-  "[--move-edges <file>] --out <dir under runs/structure-mapping-playground/>";
+  "[--move <Move id>] --out <dir under runs/structure-mapping-playground/>";
 export const LEG_SENSES_FLAG = "leg-senses";
 export const NO_READING = "No reading of the Leg's Senses was given to this Trial.";
 
@@ -50,14 +50,8 @@ export function readLegSensesFolder(folder, briefPath, legId) {
   return { reading: { path: relFromRepo(dir), sentences: run.sentences, pairs: counts.pairs } };
 }
 
-// The Move's Segments as `compareMove` takes them: each Segment's `bind` and `edges`, from the Move table's one
-// `discourse_relation` where a table is given and from the Move file otherwise.
-export function edgeSegments(contract, table) {
-  if (table)
-    return table.segments.map((s) => ({
-      bind: s.bind,
-      edges: s.discourse_relation ? [{ sense: s.discourse_relation.sense, to: [...s.discourse_relation.to] }] : [],
-    }));
+// The Move's Segments as `compareMove` takes them: each Segment's `bind` and `edges`, from the Move file (kogaki#1880).
+export function edgeSegments(contract) {
   return contract.segments.map((s) => ({ bind: s.bind ?? null, edges: s.edges || [] }));
 }
 

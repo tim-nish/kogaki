@@ -1,5 +1,5 @@
 // The sheet of a Leg's Senses (kogaki#1849): one page in plain words, asking the reader whether each Edge candidate
-// holds between its two sentences, and, where a Move's Edges file was given, reporting whether the Move's Edges are met
+// holds between its two sentences, and, where a Move of moves/ was named, reporting whether the Move's Edges are met
 // under each filling of its bound Segments (kogaki#1851).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
@@ -89,8 +89,8 @@ function notComparedList(comparison, segments) {
   return `<p>Edges not compared, under any filling:</p><ul>${lines}</ul>`;
 }
 
-function comparisonSection(comparison, sentences, moveEdges) {
-  const segments = moveEdges.segments;
+function comparisonSection(comparison, sentences, move) {
+  const segments = move.segments;
   const bound = segments.filter((s) => s.bind !== null).length;
   const verdict = comparison.chosen
     ? "The Move can be chosen for this Leg: at least one filling meets every Edge compared."
@@ -142,7 +142,7 @@ export function renderLegSensesSheet({
   sentences,
   counted,
   comparison,
-  moveEdges,
+  move,
   joins,
   readings,
   prompts,
@@ -160,7 +160,7 @@ export function renderLegSensesSheet({
     `<h1>A Leg's Senses — ${esc(legId)}</h1>${opening}` +
     part("sentences", "The sentences", `<table><tbody>${sentenceRows}</tbody></table>`) +
     part("pairs", "Senses per pair of sentences", counted.map((p) => pairTable(p, ctx)).join("")) +
-    (comparison ? part("comparison", "The Move's Edges", comparisonSection(comparison, sentences, moveEdges)) : "") +
+    (comparison ? part("comparison", "The Move's Edges", comparisonSection(comparison, sentences, move)) : "") +
     part("folded", "Readings", foldedSection(readings, prompts)) +
     "</body></html>\n"
   );

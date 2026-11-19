@@ -378,31 +378,29 @@ function moveSegmentsSection(record, route, paragraphs) {
   );
 }
 
-// UNDER A MOVE TABLE (kogaki#1840, kogaki#1858): the move structure is a count of Bind targets, and per Segment the
-// table's own fields, each Bind target beside the Argument or CentralClaim the Harness gave it; no operation and no
-// Unmatched table.
-function tableStructureSection(ms) {
-  if (!ms) return none("The Move table was not read.");
+// UNDER `--move-edges` (kogaki#1880): the move structure is a count of Bind targets, and per Segment its Bind target
+// beside the Argument or CentralClaim the Harness gave it and its Edges, as the Move file holds them; no operation and
+// no Unmatched table.
+function edgesStructureSection(ms) {
+  if (!ms) return none("The Move's Bind targets were not read.");
   return `<p>${esc(ms.binds)} Bind targets</p>`;
 }
 
-function tableSegmentsSection(route) {
-  const { move, table, pairing } = route;
-  if (!pairing) return none("The Move table was not paired, so no Segment is shown.");
+const edgeText = (e) =>
+  `${[e.sense, e.hypophora ? "Hypophora" : null].filter(Boolean).join(" · ")} → ${e.to.join(", ")}`;
+
+function edgesSegmentsSection(route) {
+  const { move, segments, pairing } = route;
+  if (!pairing) return none("The Move's Bind targets were not paired, so no Segment is shown.");
   const given = new Map(pairing.binds.map((p) => [p.bind, p]));
-  const rows = table.segments.map((sg, i) => {
+  const rows = segments.map((sg, i) => {
     const g = sg.bind === null ? null : given.get(sg.bind);
     const bind = g ? `${esc(sg.bind)} → ${esc(g.kind)} ${esc(g.leg)}` : "none";
-    const dr = sg.discourse_relation;
-    return (
-      `<tr><td>${i + 1}</td><td>${bind}</td>` +
-      `<td>own ${esc(sg.domain.own)} · apart ${esc(sg.domain.apart)}</td><td>${esc(sg.genericity)}</td>` +
-      `<td>${dr ? `${esc(dr.sense)} → ${esc(dr.to.join(", "))}` : "none"}</td><td>${esc(sg.manner || "")}</td></tr>`
-    );
+    const edges = sg.edges.map((e) => esc(edgeText(e))).join("<br>");
+    return `<tr><td>${i + 1}</td><td>${bind}</td><td>${edges || "none"}</td></tr>`;
   });
   return (
-    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>bind</th><th>domain</th><th>genericity</th>` +
-    `<th>Sense</th><th>manner</th></tr></thead><tbody>` +
+    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>bind</th><th>Edges</th></tr></thead><tbody>` +
     rows.join("") +
     "</tbody></table>"
   );
@@ -448,9 +446,9 @@ export function renderShortSheet({
     `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>Playground short Trial ${esc(record.trial)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>` +
     `<h1>Structure-Mapping Playground — short Trial ${esc(record.trial)}</h1>${stages}` +
-    (moveRoute && moveRoute.table
-      ? part("move-structure", "Move structure", tableStructureSection(moveRoute.moveStructure)) +
-        part("segments", "Segments", tableSegmentsSection(moveRoute))
+    (moveRoute && moveRoute.segments
+      ? part("move-structure", "Move structure", edgesStructureSection(moveRoute.moveStructure)) +
+        part("segments", "Segments", edgesSegmentsSection(moveRoute))
       : moveRoute
         ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
           part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))

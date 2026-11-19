@@ -1842,7 +1842,7 @@ keeps one name through the paragraph. Where the Brief carries a `structure`
 and the Leg names a `relation`, it then lists the Leg's Arguments and its
 CentralClaim, each as the one sentence `legSentences` gives
 (`src/structure-mapping-playground/move-structure.mjs`). Where the Leg carries
-`segments` (the short Trial under a Move table, §4.20), it lists one part per
+`segments` (the short Trial under `--move-edges`, §4.20), it lists one part per
 Segment: `Argument <k>`, `CentralClaim` or `Neither`, and the Segment's Sense
 with the earlier parts it names. Otherwise it says the claims below are the
 whole plan. No Point, no `*Serves:*` tail, no join, no cast and no operation
@@ -3352,33 +3352,32 @@ opens with `Move structure` and `Segments`: per
 Segment its operation, what it states and what each is paired with or
 `unmatched`, and the Waypoints written for it.
 
-**A Move written as a table** (kogaki#1840, kogaki#1858). The Brief-Leg route
-takes one more flag, `--move-table <file>`, given only beside `--brief`,
-`--leg` and `--move`; alone it is refused naming the flag. The file is written
-by hand for the named Move and carries exactly `binds`, the number of Bind
-targets from 1 to 3, and `segments`, one entry per Segment of the named Move
-in order, each with `bind` (one Bind target number, or null), `domain` (`own`
-and `apart`, each true or false), `genericity` (`generic` or `particular`),
-`discourse_relation` (null, or a `sense` and `to`, earlier Segment numbers)
-and, where it has one, `manner`. Before anything is started the table is
-refused naming the place for a key it does not declare or a missing one, the
-retired keys `states`, `relations`, `roles` and `label` each by name, a
-`segments` list that is not one entry per Segment, a `bind` out of range, a
-Bind target given to no Segment or to two, a `discourse_relation` naming its
-own or a later Segment, `domain.apart` true or `genericity` `particular`, and
-a `binds` other than the number of the Leg's Arguments and CentralClaim,
-naming both numbers. With a table, `move-reading` and `pairing` make no model
-call: the move structure is `binds` and each Segment's `bind`, and Bind target
-`k` is given entry `k` of the Leg's Arguments in order and then its
-CentralClaim, as `src/structure-mapping-playground/leg-senses.mjs` lists them;
-the pairing is `binds`, one `{ bind, kind, leg }` each. `grounding` is handed
-the table's Segments in place of their `operation`, `relation` and `manner`.
-The `waypoints` stage is not run (kogaki#1876): no call is made between
-`grounding` and `write`, and the Harness writes one paragraph record under the
-named Move, with no `paragraph_waypoints`. The sheet's `Segments` table then
-shows per Segment its `bind` beside the Argument or CentralClaim it was given,
-its `domain`, `genericity`, Sense and `manner`, with no operation column, no
-Waypoints column and no Unmatched table.
+**A Move's Bind targets and Edges read from its Move file** (kogaki#1840,
+kogaki#1858, kogaki#1880). The Brief-Leg route takes one more flag,
+`--move-edges`, which takes no value and is given only beside `--brief`,
+`--leg` and `--move`; alone, or with a value, it is refused naming the flag.
+Under it each Segment's `bind` and `edges` are read from the Move file that
+`--move` names, as `loadMoveContracts` reads it. Before any call the Trial is
+refused naming the Move where its Segments carry no `bind` and `edges`, and
+where the number of its Bind targets, `bindTargetsOf` of
+`src/paragraph-plan/senses.mjs`, is not the number of the Leg's Arguments and
+CentralClaim, naming both numbers. `move-reading` and `pairing` then make no
+model call: the move structure is the number of Bind targets and each
+Segment's `bind`, and Bind target `k` is given entry `k` of the Leg's
+Arguments in order and then its CentralClaim, as `legSentences` lists them;
+the pairing is `binds`, one `{ bind, kind, leg }` each. `grounding` is handed,
+for each Segment, its number, its `bind` and its `edges` in place of its
+`operation`, `relation` and `manner`, and `write` hands the Writer each
+Segment's `bind` and `edges` as the Move file holds them, every Edge of a
+Segment included. The `waypoints` stage is not run (kogaki#1876): no call is
+made between `grounding` and `write`, and the Harness writes one paragraph
+record under the named Move, with no `paragraph_waypoints`. `trial.json`
+records `move_edges: true` and no path of a second file. The sheet's
+`Segments` table then shows per Segment its number, its `bind` beside the
+Argument or CentralClaim it was given, and its Edges, each as its Sense and the
+Segments it points to, with no operation column, no Waypoints column and no
+Unmatched table. The flag `--move-table`, which took a Move written by hand as
+a second file, is refused by name before anything is started.
 
 **A reading of the Leg's Senses on the sheet** (kogaki#1875). The Brief-Leg
 route takes one more flag, `--leg-senses <folder>`, naming a folder that
@@ -3393,8 +3392,8 @@ of `counts.json`, naming each sentence by its kind, number and id with its
 sentence; every answer in the stored order with its meaning from
 `src/paragraph-plan/senses.json`, the sentence playing its part where it
 has one, `named N of 5`, and `not a candidate` where it is not kept; and each
-Edge of the Move, from the Move table where one is given and from the Move file
-otherwise, that joins two Segments bound to that pair, with its Segment, its
+Edge of the Move, read from its Move file (kogaki#1880), that joins two
+Segments bound to that pair, with its Segment, its
 Sense and `among the candidates, named N of 5` or `not among the candidates`,
 as `compareMove` of `src/paragraph-plan/senses.mjs` decides for the filling the
 pairing in order gives. An Edge with nothing bound at one end is not shown.
@@ -3462,15 +3461,16 @@ can be chosen for the Leg where its Edges are met by them. This is the
 Playground step: nothing in production and no file under `moves/` changes.
 
 **The command.** `node src/structure-mapping-playground/leg-senses.mjs read
---brief <Brief file> --leg <leg_id> [--move-edges <file>] --out <dir under
+--brief <Brief file> --leg <leg_id> [--move <Move id>] --out <dir under
 runs/structure-mapping-playground/>`. The Leg and its structure are read by
 `readBriefLeg` of `move-structure.mjs`. The sentences are the Arguments in the
 order the relation lists them, then the CentralClaim, numbered from 1. A
 relation gives its `holds`, each `{<Role id>}` written as the Role's `name`; a
 Role gives its `context`. Before any model call it refuses, writing nothing: a
 missing flag or one with no value, a Brief or Leg `readBriefLeg` refuses, a
-Move's Edges file that is absent or refused, and an `--out` outside the
-Playground's runs or already holding a run.
+`--move` naming no Move of `moves/` or a Move whose Segments carry no `bind`
+and `edges`, the retired flag `--move-edges` by name, and an `--out` outside
+the Playground's runs or already holding a run.
 
 **The readings.** Five calls of the Playground row `smp_name_senses`, each
 handed the numbered sentences and the list of Senses of §4.20.3, name per
@@ -3485,31 +3485,30 @@ two sentences; it decides nothing.
 
 **The comparison** (kogaki#1851, owner design 2026-11-16: a Move does not say
 which Segment carries the CentralClaim, and a Segment may have nothing bound).
-A Move's Edges file is written by hand: `segments`, one per Segment in order,
-each with `bind` and `discourse_relation` (null, or `{ sense, rel_type: null,
-to: [<one other Segment>] }`). A `bind` is a whole number from 1 naming a Bind
-target of the Move, or null for a Segment with nothing bound; the bound
-Segments are numbered 1, 2 and so on in Segment order, so no two share a Bind
-target, and any other `bind` is refused naming the place. A *filling* gives
-each bound Segment a different one of the Leg's sentences, an Argument or the
-CentralClaim; every filling is tried, so the CentralClaim is tried on each
-bound Segment and on none. An Edge between two bound Segments falls on the
-pair of its own Segment's sentence and the sentence of the Segment in `to`,
-the Segment carrying it playing its part, and is met when that pair's Edge
-candidates hold the same answer in the one spelling. An Edge with a Segment
-with nothing bound at either end is compared under no filling and is listed
-once as not compared. The Move can be chosen when one filling meets every
-compared Edge; a Move none of whose Edges is compared cannot be chosen, and
-the comparison says why; a Move with more bound Segments than the Leg has
+The Move's Segments are read from its Move file under `moves/`, each with
+`bind` and `edges` as kogaki#1871 writes them, and handed to `compareMove` of
+`src/paragraph-plan/senses.mjs` unchanged (kogaki#1880). A `bind` names a Bind
+target of the Move, or is null for a Segment with nothing bound, and an Edge
+pointing to several Segments is one Edge per Segment it points to. A *filling*
+gives each bound Segment a different one of the Leg's sentences, an Argument
+or the CentralClaim; every filling is tried, so the CentralClaim is tried on
+each bound Segment and on none. An Edge between two bound Segments falls on
+the pair of its own Segment's sentence and the sentence of the Segment in
+`to`, the Segment carrying it playing its part, and is met when that pair's
+Edge candidates hold the same answer in the one spelling. An Edge with a
+Segment with nothing bound at either end is compared under no filling and is
+listed once as not compared. The Move can be chosen when one filling meets
+every compared Edge; a Move none of whose Edges is compared cannot be chosen,
+and the comparison says why; a Move with more bound Segments than the Leg has
 sentences has no filling. `comparison.json` holds per filling `filling` (each
-Bind target with the number of the sentence it is given), `central_claim`
-(the Segment given the CentralClaim, or null), `edges` and `met`, and the
-Edges not compared under `not_compared`, each `{ segment, sense, to }`.
+Bind target with the number of the sentence it is given), `central_claim` (the
+Segment given the CentralClaim, or null), `edges` and `met`, and the Edges not
+compared under `not_compared`, each `{ segment, sense, to }`.
 
 **What a run writes.** The Call Record of each call, `leg-senses-run.json`
-naming the Brief, the Leg and the Move's Edges file with their digests, the
-sentences, the setting and where the run stopped, `counts.json`,
-`comparison.json` where a Move's Edges file is given, and `sheet.html`: the
+naming the Brief and the Leg with its digest, `move`, the Move's id or null,
+the sentences, the setting and where the run stopped, `counts.json`,
+`comparison.json` where `--move` is given, and `sheet.html`: the
 sentences marked Argument or CentralClaim, one table per pair headed by the
 one thing it asks, whether each Sense shown holds, with each meaning, its part,
 its count and the two sentences joined, then the comparison, which asks
