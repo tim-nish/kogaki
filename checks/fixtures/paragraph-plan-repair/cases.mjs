@@ -117,7 +117,7 @@ export function flpRepairCase(fails) {
   const plan = (paragraphs) => ({
     version: "1",
     leg_id: "leg1",
-    move: "set_a_second_instance_beside_the_first",
+    move: "derive_a_universal_tendency_from_an_absent_protector",
     rationale: "the Move carries the Leg.",
     paragraphs,
   });

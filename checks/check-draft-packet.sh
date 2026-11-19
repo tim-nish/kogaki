@@ -111,7 +111,7 @@ const JOIN = "consequence";
 // before, a rationale, no term and no re-activation, and no reader state (kogaki#1701); the Leg
 // binds the one Move (any id the library holds -- /draft opens no Move, kogaki#1311) for all its
 // paragraphs (kogaki#1777). The texts are marked so (m) can read their absence from the Packet.
-const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
+const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";
 const ENTRY = (n, total, legId = "s1", serves = ["L1"]) => ({
   materials: [...serves],
   purpose: `PURPOSE-${n} brings the reader to the point.`,

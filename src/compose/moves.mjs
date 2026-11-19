@@ -352,7 +352,56 @@ function figureBlockRefusal(block, at) {
 // `breaks` a list of one-line prose tests, `segments` a list of maps carrying
 // `operation` (`does` until kogaki#1510), on every Segment after the first `relation`, and,
 // where the Extraction filled one, `manner` (kogaki#1510).
-export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner"]);
+export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner", "bind", "edges"]);
+// The Senses an Edge may keep beside the list of src/structure-mapping-playground/pdtb3-senses.json (kogaki#1871).
+export const MOVE_OWN_SENSES = Object.freeze(["MetaDiscourse", "FrameSetting"]);
+const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
+export const MOVE_BIND_MAX = 3;
+
+// A Segment's `bind` and `edges` (kogaki#1871): on every Segment of the record or on none, each refusal naming the
+// Segment and the field. `v` is the record's `segments`.
+function bindAndEdgesRefusal(v, at, field) {
+  const has = (s) => Object.hasOwn(s, "bind") || Object.hasOwn(s, "edges");
+  if (!v.some(has)) return null;
+  const targetOf = (k) => v[k - 1].bind;
+  let targets = 0;
+  for (const [i, s] of v.entries()) {
+    const atS = `${at}: \`${field}\` Segment ${i + 1}`;
+    if (!Object.hasOwn(s, "bind") || !Object.hasOwn(s, "edges"))
+      return `${atS} carries no \`${Object.hasOwn(s, "bind") ? "edges" : "bind"}\` — a record carries \`bind\` and \`edges\` on every Segment or on none`;
+    const b = s.bind;
+    if (b !== null && !(Number.isInteger(b) && b >= 1 && b <= MOVE_BIND_MAX))
+      return `${atS}: \`bind\` is neither null nor a whole number from 1 to ${MOVE_BIND_MAX}`;
+    if (b !== null && b > targets + 1)
+      return `${atS}: \`bind\` is ${b} and ${targets} Bind target(s) stand before it — Bind targets are numbered from 1 in the order their first Segments stand`;
+    if (b !== null && b === targets + 1) targets = b;
+    if (b !== null && i > 0 && v[i - 1].bind === b)
+      return `${atS}: \`bind\` is ${b}, the Bind target of the Segment before it`;
+    if (!Array.isArray(s.edges)) return `${atS}: \`edges\` is not a list`;
+    if (i === 0 && s.edges.length) return `${atS}: \`edges\` carries an entry — the first Segment carries no Edge`;
+    if (i > 0 && !s.edges.length) return `${atS}: \`edges\` is empty — every Segment after the first carries an Edge`;
+    for (const [j, e] of s.edges.entries()) {
+      const atE = `${atS}: \`edges\` entry ${j + 1}`;
+      if (!isPlainMap(e)) return `${atE} is not a map`;
+      const extra = Object.keys(e).find((k) => !EDGE_KEYS.includes(k));
+      if (extra)
+        return `${atE} carries \`${extra}\` — an Edge carries ${EDGE_KEYS.map((k) => `\`${k}\``).join(", ")} only`;
+      if (Object.hasOwn(e, "hypophora") && e.hypophora !== true) return `${atE}: \`hypophora\` is not true`;
+      const oneLine = typeof e.sense === "string" && e.sense.trim() !== "" && !/[\r\n]/.test(e.sense);
+      if (!oneLine && !(e.sense === null && e.hypophora === true))
+        return `${atE}: \`sense\` is not one non-empty line, and it is null only beside \`hypophora: true\``;
+      if (!Array.isArray(e.to) || !e.to.length) return `${atE}: \`to\` is not a list of one or more Segments`;
+      const off = e.to.find((k) => !(Number.isInteger(k) && k >= 1 && k <= i));
+      if (off !== undefined)
+        return `${atE}: \`to\` names ${JSON.stringify(off)} — an Edge points to a Segment before its own`;
+      const same = e.to.find((k) => b !== null && targetOf(k) === b);
+      if (same !== undefined)
+        return `${atE}: \`to\` names Segment ${same}, which has the same Bind target as this Segment`;
+    }
+  }
+  return null;
+}
+
 function optionalRoleRefusal(role, field, v, at) {
   const oneLine = (s) => typeof s === "string" && s.trim() !== "" && !/[\r\n]/.test(s);
   if (role === "tests") {
@@ -377,6 +426,7 @@ function optionalRoleRefusal(role, field, v, at) {
         return `${atS} carries a \`relation\` — a Move carries no relation to what precedes it (kogaki#1411)`;
       if (i > 0 && !oneLine(s.relation)) return `${atS} carries no one-line \`relation\` to the Segment before it`;
     }
+    return bindAndEdgesRefusal(v, at, field);
   }
   return null;
 }

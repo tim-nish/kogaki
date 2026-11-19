@@ -22,42 +22,77 @@ breaks:
     meets the abstraction before the case that would have made it their own
 segments:
   - operation: issues a brief invitation to imagine a situation
+    bind: null
+    edges: []
   - operation: >-
       poses a counterfactual that removes one standing feature of the present
       arrangement and asks what one would do in it
     relation: >-
       turns the open invitation just issued into one definite case and puts the
       case to the reader directly
+    bind: 1
+    edges:
+      - sense: MetaDiscourse
+        to: [1]
   - operation: >-
       names one concrete consequence that would follow in the imagined situation
     relation: >-
       begins filling in the case the question left empty, taking one consequence
       of it first
+    bind: null
+    edges:
+      - sense: Instantiation.Instance
+        to: [2]
   - operation: adds a further consequence of the same kind
     relation: >-
       repeats the construction of the step before it with a different instance,
       so the consequence reads as general rather than particular
+    bind: null
+    edges:
+      - sense: Conjunction
+        to: [3]
   - operation: states the worst outcome the imagined situation can reach
     relation: >-
       gathers the paired instances into a single limit, moving from losing
       things to not surviving
+    bind: 2
+    edges:
+      - sense: Cause.Result
+        to: [4]
+      - sense: Condition.Cond
+        to: [2]
   - operation: >-
       names the gravest instance that nothing would check, to show why the limit
       holds
     relation: >-
       supplies the ground for the limit the step before it had only asserted
+    bind: null
+    edges:
+      - sense: Cause.Reason
+        to: [5]
   - operation: >-
       states what one in that situation would do to provide for oneself, as a
       single course
     relation: >-
       turns from what the situation does to a person to what the person does
       about it, and answers the question put earlier
+    bind: 3
+    edges:
+      - sense: Cause.Result
+        to: [5]
+      - sense: Condition.Cond
+        to: [2]
+        hypophora: true
   - operation: >-
       gives concrete instances of the stated course and names what each would
       avert
     relation: >-
       makes the course just stated concrete, and its instances answer the
       consequences named earlier one for one
+    bind: null
+    edges:
+      - sense: Instantiation.Instance
+        to: [7]
 takes: []
 leaves:
   - kind: carry

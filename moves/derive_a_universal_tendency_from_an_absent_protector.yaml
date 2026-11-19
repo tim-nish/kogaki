@@ -22,6 +22,8 @@ segments:
   - operation: >-
       states that the absence of any outside provider of a good leaves each
       party to supply that good for itself
+    bind: 1
+    edges: []
   - operation: >-
       draws one consequence and presents it as a tendency holding of every party
       alike
@@ -29,6 +31,10 @@ segments:
       it takes the necessity established in the step before and names the
       behaviour that necessity produces everywhere
     manner: realised as one brief closing statement that takes no elaboration
+    bind: 2
+    edges:
+      - sense: Cause.Result
+        to: [1]
 takes: []
 leaves:
   - kind: apply

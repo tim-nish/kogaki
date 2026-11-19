@@ -23,16 +23,27 @@ breaks:
 segments:
   - operation: poses a question about why a condition persists
     manner: a single unframed question that takes no lead-in and no elaboration
+    bind: 1
+    edges: []
   - operation: grants that the question admits many answers
     relation: >-
       replies to the step before it not with an answer but with the admission
       that answers are many
+    bind: null
+    edges:
+      - sense: null
+        to: [1]
+        hypophora: true
   - operation: >-
       lists instances of what was granted in one run and carries the series out
       to its most abstract end
     relation: >-
       fills the general admission of the step before it with instances, widening
       as it goes
+    bind: null
+    edges:
+      - sense: Instantiation.Instance
+        to: [2]
 takes: []
 leaves:
   - kind: answer

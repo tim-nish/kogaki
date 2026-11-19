@@ -17,25 +17,43 @@ breaks:
     that the chain they just followed is the one being reused
 segments:
   - operation: states that a relation holds at a wider scale
+    bind: null
+    edges: []
   - operation: names an overriding aim held in common by the parties involved
     relation: >-
       supplies the shared aim on which the asserted relation at the wider scale
       rests
+    bind: 1
+    edges:
+      - sense: FrameSetting
+        to: [1]
   - operation: >-
       derives a requirement on each party from the absence of an external
       protector
     relation: >-
       turns the shared aim into what it forces on each party once nothing
       outside secures them
+    bind: null
+    edges:
+      - sense: Cause.Result
+        to: [2]
   - operation: >-
       states that the other parties answer the same move in kind until the
       measure evens out
     relation: >-
       turns the requirement just derived back against itself by granting the
       same move to the others
+    bind: 2
+    edges:
+      - sense: Asynchronous.Succession
+        to: [2]
   - operation: attaches a name to the condition just described
     relation: >-
       closes the sequence by labelling the condition the response arrives at
+    bind: 3
+    edges:
+      - sense: Equivalence
+        to: [4]
 takes:
   - kind: carry
     what: a relation established at a narrower scale, to be carried onto a wider one

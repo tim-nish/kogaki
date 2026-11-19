@@ -211,9 +211,9 @@ const before = snapshot();
 // carries the `takes` and `leaves` this check sets: MOVE leaves a `carry`, INFER takes one, PLAIN leaves an `apply`, and every other
 // record carries both lists empty, and no record the retired `obligation` (kogaki#1701), so the Trial reads every
 // other field of the library as written.
-const MOVE = "answer_a_posed_question_then_win_two_easy_assents_before_ranking_the_distinction_first";
+const MOVE = "deny_the_far_side_its_remedy_and_show_the_absence_at_work";
 const INFER = "build_the_familiar_side_of_a_contrast_up_to_its_principle";
-const PLAIN = "build_the_omitted_level_into_an_ordering_then_turn_it_on_the_accounts";
+const PLAIN = "undercut_the_remedy_by_granting_it_to_another";
 const CARRY_WHAT = "the structure the paragraph gave in a base of the reader's";
 const INFER_TAKES = "a structure given in a base, carried onto the subject";
 const PLAIN_LEAVES = "an ordering, given with its levels, to be put to work on cases";
