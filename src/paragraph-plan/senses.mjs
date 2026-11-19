@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO } from "../workflow/run-record.mjs";
 
-export const SENSES_FILE = "src/paragraph-plan/pdtb3-senses.json";
+export const SENSES_FILE = "src/paragraph-plan/senses.json";
 // The number of readings of a Leg is fixed and has no setting (kogaki#1847).
 export const READINGS = 5;
 export const NAME_ROW = "paragraph_plan_name_senses";
@@ -33,10 +33,17 @@ function keysRefusal(obj, keys, at) {
 }
 
 // ---------------------------------------------------------------------------
-// THE LIST OF SENSES, read from pdtb3-senses.json: what a reading is handed and what a sheet shows.
+// THE LIST OF SENSES, read from senses.json: `senses`, what a reading is handed and what a sheet shows, and `own`,
+// Kogaki's own Senses, which an Edge may keep and a reading is not handed (kogaki#1881).
+
+const readSensesFile = () => JSON.parse(readFileSync(join(REPO, SENSES_FILE), "utf8"));
 
 export function loadSenses() {
-  return JSON.parse(readFileSync(join(REPO, SENSES_FILE), "utf8")).senses;
+  return readSensesFile().senses;
+}
+
+export function loadOwnSenses() {
+  return readSensesFile().own;
 }
 
 // Every name a reading may answer, in the list's order: `{ name, sense, part, plays, meaning, opposite, order }`.

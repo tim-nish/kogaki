@@ -353,8 +353,6 @@ function figureBlockRefusal(block, at) {
 // `operation` (`does` until kogaki#1510), on every Segment after the first `relation`, and,
 // where the Extraction filled one, `manner` (kogaki#1510).
 export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner", "bind", "edges"]);
-// The Senses an Edge may keep beside the list of src/paragraph-plan/pdtb3-senses.json (kogaki#1871).
-export const MOVE_OWN_SENSES = Object.freeze(["MetaDiscourse", "FrameSetting"]);
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
 
