@@ -51,6 +51,7 @@ import { renderShortSheet } from "./sheet.mjs";
 import { audiencePathOf } from "../paragraph-plan/brief.mjs";
 import { readBriefLeg, validateMoveStructure, validatePairing, unmatchedOf } from "./move-structure.mjs";
 import { readMoveTable, tableMoveStructure, pairInOrder, tablePointsInput, tableSegments } from "./move-table.mjs";
+import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 
 export const RBS_FILE = "rbs.yaml";
 export const RBS_OWNER = "owner-authored";
@@ -87,7 +88,7 @@ const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
 const USAGE =
   "usage: node src/structure-mapping-playground/short.mjs run --proposition <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
   "--out <dir under runs/structure-mapping-playground/> (--compose | --rbs-file <file>) [--audience <audiences/<name>.md>] [--library <dir>]\n" +
-  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-table <file>] " +
+  "   or: node src/structure-mapping-playground/short.mjs run --brief <Brief file> --leg <leg_id> --move <Move id> [--move-table <file>] [--leg-senses <folder>] " +
   "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
 
 function fail(msg) {
@@ -946,6 +947,7 @@ export function runMoveTrial({
   leg: legId,
   move: moveId,
   moveTable = null,
+  legSenses = null,
   out,
   audience = null,
   library = null,
@@ -957,6 +959,9 @@ export function runMoveTrial({
   if (existsSync(join(outDir, TRIAL_FILE)))
     fail(`a Trial already exists at ${outDir}, and nothing was written over it. Nothing was started.`);
   const briefPath = resolve(brief);
+  // A finished reading of the same Brief's Leg, shown on the sheet with no model call (kogaki#1875).
+  const ls = legSenses ? readLegSensesFolder(legSenses, briefPath, legId) : null;
+  if (ls && ls.error) fail(`${ls.error}. Nothing was started.`);
   const b = readBriefLeg(briefPath, legId);
   if (b.error) fail(`${b.error}. Nothing was started.`);
   const libraryDir = resolve(REPO, library || "moves");
@@ -1003,6 +1008,7 @@ export function runMoveTrial({
     proposition: { proposition: leg.text },
     structure: { ...fileRecord(structurePath), author: "brief" },
     move_table: tablePath ? fileRecord(tablePath) : null,
+    leg_senses: ls ? ls.reading.path : null,
     move_structure: { path: null, sha256: null },
     pairing: { path: null, sha256: null },
     rbs: { variant: RBS_COMPOSED, path: null, sha256: null },
@@ -1216,7 +1222,22 @@ export function runMoveTrial({
       tables: tables ? tables.tables : null,
       paragraphs,
       paragraphPath,
-      moveRoute: { move: moveId, moveStructure, pairing, table: moveTableRecord },
+      moveRoute: {
+        move: moveId,
+        moveStructure,
+        pairing,
+        table: moveTableRecord,
+        legSenses: ls
+          ? {
+              reading: ls.reading,
+              edges: trialEdges(
+                edgeSegments(contract, moveTableRecord),
+                ls.reading,
+                pairInOrder(structure, b.leg.relation),
+              ),
+            }
+          : null,
+      },
     }),
   );
   return { outDir, stopped: record.stopped || null };
@@ -1251,6 +1272,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     );
   if (Object.hasOwn(args, MOVE_TABLE_FLAG) && !str(MOVE_TABLE_FLAG))
     fail(`\`--${MOVE_TABLE_FLAG}\` takes a file. Nothing was started. ${USAGE}`);
+  // A reading of the Leg's Senses (kogaki#1875) is a flag of the Brief-Leg route alone, and takes a folder.
+  if (Object.hasOwn(args, LEG_SENSES_FLAG) && !given.length)
+    fail(
+      `\`--${LEG_SENSES_FLAG} ${str(LEG_SENSES_FLAG) ?? ""}\` is a flag of a Trial that takes its Leg from a Brief: it is given with --brief, --leg and --move. Nothing was started. ${USAGE}`,
+    );
+  if (Object.hasOwn(args, LEG_SENSES_FLAG) && !str(LEG_SENSES_FLAG))
+    fail(`\`--${LEG_SENSES_FLAG}\` takes a folder. Nothing was started. ${USAGE}`);
   if (given.length) {
     const missing = MOVE_ROUTE_FLAGS.find((k) => !str(k));
     if (missing)
@@ -1268,6 +1296,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       leg: str("leg"),
       move: str("move"),
       moveTable: str(MOVE_TABLE_FLAG),
+      legSenses: str(LEG_SENSES_FLAG),
       out: str("out"),
       audience: str("audience"),
       library: str("library"),

@@ -3382,6 +3382,27 @@ beside the Argument or CentralClaim it was given, its `domain`, `genericity`,
 Sense, `manner` and Waypoints, with no operation column and no Unmatched
 table.
 
+**A reading of the Leg's Senses on the sheet** (kogaki#1875). The Brief-Leg
+route takes one more flag, `--leg-senses <folder>`, naming a folder that
+`leg-senses.mjs read` (§4.20.4) wrote; it adds no model call. Before anything
+is started the Trial is refused, naming the flag and the folder, where the flag
+is given without `--brief`, `--leg` and `--move`, where the folder holds no
+`leg-senses-run.json` whose `state` is `finished`, and where the Brief or the
+Leg that record names is not the Trial's. `trial.json` records the folder under
+`leg_senses`, or null. The sheet's section `The Leg's Senses` follows the
+`Segments` table directly: one row per pair of the Leg's sentences in the order
+of `counts.json`, naming each sentence by its kind, number and id with its
+sentence; every answer in the stored order with its meaning from
+`src/paragraph-plan/pdtb3-senses.json`, the sentence playing its part where it
+has one, `named N of 5`, and `not a candidate` where it is not kept; and each
+Edge of the Move, from the Move table where one is given and from the Move file
+otherwise, that joins two Segments bound to that pair, with its Segment, its
+Sense and `among the candidates, named N of 5` or `not among the candidates`,
+as `compareMove` of `src/paragraph-plan/senses.mjs` decides for the filling the
+pairing in order gives. An Edge with nothing bound at one end is not shown.
+With no flag the section holds the one sentence "No reading of the Leg's Senses
+was given to this Trial." and the usage line of `leg-senses.mjs read`.
+
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.
 

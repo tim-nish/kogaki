@@ -20,6 +20,7 @@ import { higherOrderOf } from "./structure.mjs";
 import { callRows, callsRoot, callRecordsOf } from "../workflow/call-record.mjs";
 import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
 import { pairedWith } from "./move-structure.mjs";
+import { legSensesSection } from "./leg-senses-section.mjs";
 
 const LEG_SHEET = join(REPO, "src", "move-extraction-playground", "leg-sheet.mjs");
 // The Move-Extraction Playground's stylesheet is its renderer's `CSS` constant, read from the source rather than copied.
@@ -413,6 +414,9 @@ function tableSegmentsSection(route, paragraphs) {
   );
 }
 
+// THE LEG'S SENSES (kogaki#1875), directly after the Move's Segments on the Brief-Leg route.
+const legSensesSectionOf = (ls) => (ls ? legSensesSection(ls.reading, ls.edges) : legSensesSection(null, []));
+
 export function renderShortSheet({
   outDir,
   record,
@@ -457,6 +461,7 @@ export function renderShortSheet({
         ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
           part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))
         : "") +
+    (moveRoute ? part("leg-senses", "The Leg's Senses", legSensesSectionOf(moveRoute.legSenses)) : "") +
     part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph) +
     (moveRoute ? "" : part("segments", "Segments", segmentsSection(record, paragraphs))) +
     part("bindings", "Bindings", bindingsSection(record, paragraphs)) +

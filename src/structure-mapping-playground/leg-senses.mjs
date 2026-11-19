@@ -39,18 +39,17 @@ import {
 } from "../paragraph-plan/senses.mjs";
 import { PARAGRAPH_PLAN_TABLE } from "../paragraph-plan/stage.mjs";
 import { renderLegSensesSheet } from "./leg-senses-sheet.mjs";
+import { RUN_FILE, COUNTS_FILE, LEG_SENSES_USAGE } from "./leg-senses-section.mjs";
 
 // The counting, the check of a reading and the comparison are production's (kogaki#1865), read from
 // src/paragraph-plan/senses.mjs; the reading row is production's `paragraph_plan_name_senses`.
 export { legSentences, pairsOf, nameRefusal, countPairs, NAME_ROW, CANDIDATES_SETTING };
-export const RUN_FILE = "leg-senses-run.json";
-export const COUNTS_FILE = "counts.json";
+// The run's files and usage line are held where the short Trial reads them (kogaki#1875).
+export { RUN_FILE, COUNTS_FILE };
 export const COMPARISON_FILE = "comparison.json";
 export const SHEET_FILE = "sheet.html";
 export const FLAGS = ["brief", "leg", "out"];
-const USAGE =
-  "usage: node src/structure-mapping-playground/leg-senses.mjs read --brief <Brief file> --leg <leg_id> " +
-  "[--move-edges <file>] --out <dir under runs/structure-mapping-playground/>";
+const USAGE = LEG_SENSES_USAGE;
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";

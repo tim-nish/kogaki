@@ -1,0 +1,61 @@
+{
+  "pairs": [
+    {
+      "pair": [1, 2],
+      "answers": [
+        {
+          "sense": "Contrast",
+          "played_by": null,
+          "named": 5,
+          "place_sum": 5,
+          "candidate": true
+        },
+        {
+          "sense": "Conjunction",
+          "played_by": null,
+          "named": 2,
+          "place_sum": 4,
+          "candidate": true
+        }
+      ]
+    },
+    {
+      "pair": [1, 3],
+      "answers": [
+        {
+          "sense": "Level-of-detail.Detail",
+          "played_by": 3,
+          "named": 5,
+          "place_sum": 5,
+          "candidate": true
+        },
+        {
+          "sense": "Cause.Reason",
+          "played_by": 3,
+          "named": 1,
+          "place_sum": 2,
+          "candidate": true
+        }
+      ]
+    },
+    {
+      "pair": [2, 3],
+      "answers": [
+        {
+          "sense": "Level-of-detail.Detail",
+          "played_by": 3,
+          "named": 5,
+          "place_sum": 5,
+          "candidate": true
+        },
+        {
+          "sense": "Cause.Reason",
+          "played_by": 3,
+          "named": 1,
+          "place_sum": 2,
+          "candidate": true
+        }
+      ]
+    }
+  ]
+}
