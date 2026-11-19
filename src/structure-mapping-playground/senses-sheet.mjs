@@ -64,16 +64,18 @@ function pairTable(p, { names, joins, sentences, readingCount }) {
 
 function edgesSection(counts) {
   if (!counts.segments) return `<p class="stop">${esc(counts.none)}.</p>`;
+  // One row for each Segment an Edge points to (kogaki#1880).
   const rows = counts.segments
-    .map((s) => {
+    .flatMap((s) => {
       const r = s.discourse_relation;
-      return `<tr><td>Segment ${s.segment}</td><td>${r ? `${esc(r.sense)} to Segment ${r.to.join(", ")}` : "no Edge"}</td></tr>`;
+      if (!r) return [`<tr><td>Segment ${s.segment}</td><td>no Edge</td></tr>`];
+      return r.to.map((to) => `<tr><td>Segment ${s.segment}</td><td>${esc(r.sense)} to Segment ${to}</td></tr>`);
     })
     .join("");
   return `<table><thead><tr><th>Segment</th><th>Edge</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// The Segments in a row, one arrow per Edge from the Segment carrying it to the Segment in `to`.
+// The Segments in a row, one arrow from the Segment carrying an Edge to each Segment in its `to`.
 function picture(counts, segmentCount) {
   const w = 120;
   const gap = 60;
@@ -87,15 +89,17 @@ function picture(counts, segmentCount) {
   ).join("");
   const arrows = (counts.segments || [])
     .filter((s) => s.discourse_relation)
-    .map((s) => {
-      const from = x(s.segment);
-      const to = x(s.discourse_relation.to[0]);
-      const mid = (from + to) / 2;
-      return (
-        `<path d="M ${from} 90 Q ${mid} 20 ${to} 90" fill="none" stroke="currentColor" marker-end="url(#head)"/>` +
-        `<text x="${mid}" y="45" text-anchor="middle" fill="currentColor">${esc(s.discourse_relation.sense)}</text>`
-      );
-    })
+    .flatMap((s) =>
+      s.discourse_relation.to.map((k) => {
+        const from = x(s.segment);
+        const to = x(k);
+        const mid = (from + to) / 2;
+        return (
+          `<path d="M ${from} 90 Q ${mid} 20 ${to} 90" fill="none" stroke="currentColor" marker-end="url(#head)"/>` +
+          `<text x="${mid}" y="45" text-anchor="middle" fill="currentColor">${esc(s.discourse_relation.sense)}</text>`
+        );
+      }),
+    )
     .join("");
   return (
     `<div class="picture"><svg viewBox="0 0 ${width} 140" width="${width}" role="img" aria-label="Segments and Edges">` +

@@ -5,8 +5,10 @@
 //   (c) the flags; (d) the Brief, Leg and Move refused by value with nothing written;
 //   (e) `validateMoveStructure` and (f) `validatePairing`, each refusal by name, a null not refused;
 //   (g) the Leg's structure; (h) the plan call's inputs, an unchanged production row, moves/ and theses/;
-//   (i) the Move table route (kogaki#1840, kogaki#1858) run to the end, with no call between grounding and the writer
-//   (kogaki#1876); (j) the table and its flag refused by name, nothing written. Case (k) went with its call (kogaki#1876).
+//   (i) the route under `--move-edges` (kogaki#1880), the Move's Bind targets and Edges read from its Move file, run to
+//   the end with no call between grounding and the writer (kogaki#1876); (j) a Move with no `bind` and `edges`, a Move
+//   whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing written. Case (k)
+//   went with its call (kogaki#1876).
 import {
   mkdtempSync,
   mkdirSync,
@@ -71,11 +73,14 @@ const snapshot = () => {
 };
 const before = snapshot();
 
-// ---- the Move library: one Move of three Segments ----
+// ---- the Move library: one Move of three Segments, and two Moves of moves/ whose Segments carry `bind` and `edges` ----
 const MOVE = "m3";
+const EDGED = "grant_the_rule_then_withdraw_its_enforcer";
+const TWO_TARGETS = "swap_the_question_for_a_narrower_one_and_name_its_hinge";
 const library = join(root, "moves");
 mkdirSync(library);
 writeFileSync(join(library, "ROLES.json"), readFileSync("moves/ROLES.json"));
+for (const id of [EDGED, TWO_TARGETS]) writeFileSync(join(library, `${id}.yaml`), readFileSync(`moves/${id}.yaml`));
 writeFileSync(
   join(library, `${MOVE}.yaml`),
   stringifyYaml({
@@ -520,27 +525,26 @@ ok(
 ok(sha(PLAN_TABLE) === planTableSha, `(h) ${PLAN_TABLE} changed`);
 ok(snapshot() === before, "(h) a file under moves/ or theses/ changed");
 
-// (i) the Move table (kogaki#1840, kogaki#1858): read by hand-written table, its Bind targets given the Leg's Arguments and
-// CentralClaim in order by the Harness, and no call made between grounding and the writer (kogaki#1876)
-const TABLE_FIXTURE = "checks/fixtures/move-table/grant_the_rule_then_withdraw_its_enforcer.yaml";
+// (i) under `--move-edges` (kogaki#1880): each Segment's `bind` and `edges` read from the Move file, its Bind targets given
+// the Leg's Arguments and CentralClaim in order by the Harness, and no call made between grounding and the writer (kogaki#1876)
 const LEG_H1 = { leg_id: "s2", relation: "h_1", text: "The copy is the installer's.", claims: LEGS[0].claims };
 const tableBrief = writeBrief("table-brief", briefOf(STRUCTURE, [LEGS[0], LEG_H1, { ...LEGS[1], leg_id: "s3" }]));
-const TABLE_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", MOVE, "--library", library];
+const EDGES_ROUTE = ["--brief", tableBrief, "--leg", "s2", "--move", EDGED, "--library", library];
 const TABLE_H1 = { ...TABLE, correspondences: [...TABLE.correspondences, { role: "r_3", expression: "an edit" }] };
-const ti = run("table", [...TABLE_ROUTE, "--move-table", TABLE_FIXTURE], { SMP_TABLE: JSON.stringify(TABLE_H1) });
+const ti = run("edges", [...EDGES_ROUTE, "--move-edges"], { SMP_TABLE: JSON.stringify(TABLE_H1) });
 const trec = ti.rec || {};
 const tYaml = (f) => (existsSync(join(ti.o, f)) ? parseYaml(readFileSync(join(ti.o, f), "utf8"), f) : null);
-ok(ti.res.status === 0, `(i) the table run exited ${ti.res.status}: ${ti.said}`);
+ok(ti.res.status === 0, `(i) the --move-edges run exited ${ti.res.status}: ${ti.said}`);
 ok(
   JSON.stringify((trec.stages || []).map((s) => `${s.stage}:${s.state}`)) ===
     JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "write:done"]),
-  `(i) the table run's stages are not move-reading, pairing, grounding and write, all done: ${JSON.stringify(trec.stages)}`,
+  `(i) the --move-edges run's stages are not move-reading, pairing, grounding and write, all done: ${JSON.stringify(trec.stages)}`,
 );
 ok(
   JSON.stringify(ti.seen.map((x) => x.stage)) === JSON.stringify(["grounding", "writer"]),
-  `(i) the table run made a call beside grounding and the writer: ${ti.seen.map((x) => x.stage)}`,
+  `(i) the --move-edges run made a call beside grounding and the writer: ${ti.seen.map((x) => x.stage)}`,
 );
-ok(!existsSync(join(ti.o, "waypoints")), "(i) the table run wrote a `waypoints` stage directory");
+ok(!existsSync(join(ti.o, "waypoints")), "(i) the --move-edges run wrote a `waypoints` stage directory");
 ok(
   (trec.stages || [])
     .filter((s) => s.stage === "move-reading" || s.stage === "pairing")
@@ -557,7 +561,7 @@ ok(
         { segment: 3, bind: 3 },
       ],
     }),
-  `(i) move-structure.yaml is not the table's: ${JSON.stringify(tYaml("move-structure.yaml"))}`,
+  `(i) move-structure.yaml is not the Move file's: ${JSON.stringify(tYaml("move-structure.yaml"))}`,
 );
 ok(
   JSON.stringify(tYaml("pairing.yaml")) ===
@@ -571,16 +575,16 @@ ok(
   `(i) pairing.yaml is not the Leg's Arguments then its CentralClaim, in order: ${JSON.stringify(tYaml("pairing.yaml"))}`,
 );
 ok(
-  trec.move_table && trec.move_table.sha256 === sha(TABLE_FIXTURE),
-  `(i) trial.json does not name the table: ${JSON.stringify(trec.move_table)}`,
+  trec.move_edges === true && !Object.hasOwn(trec, "move_table"),
+  `(i) trial.json does not record move_edges true and no second file: ${JSON.stringify(trec.move_edges)}`,
 );
 ok(
   ["rbs.yaml", "bind.yaml", "paragraph.md", "sheet.html"].every((f) => existsSync(join(ti.o, f))),
-  "(i) the table run did not write its Mapping Table, paragraph record, paragraph and sheet",
+  "(i) the --move-edges run did not write its Mapping Table, paragraph record, paragraph and sheet",
 );
 const tParagraphs = (trec.bind && trec.bind.paragraphs) || [];
 ok(
-  tParagraphs.length === 1 && tParagraphs[0].move === MOVE && !Object.hasOwn(tParagraphs[0], "paragraph_waypoints"),
+  tParagraphs.length === 1 && tParagraphs[0].move === EDGED && !Object.hasOwn(tParagraphs[0], "paragraph_waypoints"),
   `(i) the paragraph record is not one paragraph under the named Move with no \`paragraph_waypoints\`: ${JSON.stringify(tParagraphs)}`,
 );
 // The Writer is handed the plan and no Point (kogaki#1859): the Arguments, the CentralClaim and one part per Segment.
@@ -591,8 +595,8 @@ ok(
     "- Argument 2. The copy overwrites any edit.",
     "- CentralClaim. The copy is the installer's.",
     "1. Argument 1.",
-    "2. Argument 2. Sense Concession, to part 1.",
-    "3. CentralClaim. Sense Cause, to part 2.",
+    "2. Argument 2. Sense Concession.Denier, to part 1.",
+    "3. CentralClaim. Sense Cause.Result, to part 2.",
   ].every((l) => tWriter.includes(l)),
   `(i) the writer's stdin does not hold the Leg's Arguments, its CentralClaim and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(- |\d+\. )/.test(l)))}`,
 );
@@ -602,26 +606,30 @@ ok(
 );
 const tGround = ti.seen.find((x) => x.stage === "grounding");
 ok(
-  tGround && tGround.prompt.includes('"genericity"') && !tGround.prompt.includes("names the two parts"),
-  "(i) the grounding call is not handed the table's Segments in place of their operation",
+  tGround &&
+    tGround.prompt.includes('"edges"') &&
+    !tGround.prompt.includes('"genericity"') &&
+    !tGround.prompt.includes("grants that a prohibition"),
+  "(i) the grounding call is not handed each Segment's number, bind and edges in place of its operation",
 );
 const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
 const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
 ok(
-  /<th>#<\/th><th>bind<\/th><th>domain<\/th><th>genericity<\/th><th>Sense<\/th><th>manner<\/th><\/tr>/.test(tSegs) &&
+  /<th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
     !tSegs.includes("operation") &&
+    !tSegs.includes("genericity") &&
     !tSegs.includes("Unmatched") &&
     !tSegs.includes("Waypoint"),
-  "(i) the sheet's Segments table is not the table route's columns, with no operation, no Unmatched table and no Waypoints column",
+  "(i) the sheet's Segments table is not the three columns, with no operation, no Unmatched table and no Waypoints column",
 );
 const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
 ok(
   tRows.length === 3 &&
     tRows[0].includes("1 → Argument c_1") &&
     tRows[2].includes("3 → CentralClaim h_1") &&
-    tRows[1].includes("Concession → 1") &&
-    tRows[2].includes("own words"),
-  `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim and the table's fields: ${tRows.join(" | ")}`,
+    tRows[1].includes("Concession.Denier → 1") &&
+    tRows[2].includes("Cause.Result → 2"),
+  `(i) the Segments rows do not show each Bind target beside its Argument or CentralClaim and its Edges: ${tRows.join(" | ")}`,
 );
 
 // (i) under `--leg-senses` (kogaki#1875): a finished reading of the same Leg, recorded in trial.json and shown directly after
@@ -650,7 +658,7 @@ writeFileSync(
     })),
   }),
 );
-const tl = run("table-leg-senses", [...TABLE_ROUTE, "--move-table", TABLE_FIXTURE, "--leg-senses", readingDir], {
+const tl = run("edges-leg-senses", [...EDGES_ROUTE, "--move-edges", "--leg-senses", readingDir], {
   SMP_TABLE: JSON.stringify(TABLE_H1),
 });
 const tlSheet = existsSync(join(tl.o, "sheet.html")) ? readFileSync(join(tl.o, "sheet.html"), "utf8") : "";
@@ -662,24 +670,24 @@ ok(
     tlIds[tlIds.indexOf("segments") + 1] === "leg-senses" &&
     tlRows.length === 3 &&
     tlRows[0].includes("named 4 of 5") &&
-    tlRows[0].includes("Segment 2: Concession → Segment 1 · ") &&
+    tlRows[0].includes("Segment 2: Concession.Denier → Segment 1 · ") &&
     tlRows[0].includes("not among the candidates"),
   `(i) a run under --leg-senses does not record the folder and show one row per pair after the Segments: ${tl.said} ${tLegs(tlSheet)}`,
 );
 
 // (i) the saved reading of 2026-11-16 (kogaki#1875): the two Arguments' row shows Contrast named 5 of 5 and Conjunction named
-// 2 of 5, and Segment 3's Edge Conjunction among the candidates; a reading of another Leg is refused naming the flag and
-// the folder before any call, with nothing written.
+// 2 of 5, and Segment 3's Edge Conjunction, read from the Move file, among the candidates; a reading of another Leg is
+// refused naming the flag and the folder before any call, with nothing written.
 {
   const L = await imp("src/structure-mapping-playground/leg-senses-section.mjs");
   const READING = "checks/fixtures/leg-senses/trial-reading";
   const BRIEF = "theses/what-automatic-rule-registered-against/brief.yaml";
   const MOVE_ID = "build_the_familiar_side_of_a_contrast_up_to_its_principle";
-  const xTable = parseYaml(readFileSync(join(READING, "move-table.yaml"), "utf8"), "move-table");
+  const contract = parseYaml(readFileSync(`moves/${MOVE_ID}.yaml`, "utf8"), MOVE_ID);
   const x = L.readLegSensesFolder(READING, resolve(repo, BRIEF), "L4");
   ok(x.reading && x.reading.pairs.length === 3, `(i) the saved reading was not read: ${JSON.stringify(x.error)}`);
   const pairing = { binds: x.reading.sentences.map((s) => ({ bind: s.number, kind: s.kind, leg: s.id })) };
-  const edges = x.reading ? L.trialEdges(L.edgeSegments(null, xTable), x.reading, pairing) : [];
+  const edges = x.reading ? L.trialEdges(L.edgeSegments(contract), x.reading, pairing) : [];
   const args = (L.legSensesSection(x.reading, edges).split("<tr>")[2] || "").split("</tr>")[0];
   ok(
     args.includes("Argument 1, c_2") &&
@@ -708,117 +716,35 @@ ok(
       !existsSync(alone.o),
     `(i) --leg-senses without --brief, --leg and --move was not refused: ${alone.said}`,
   );
-  const unfinished = run("leg-senses-unfinished", [...TABLE_ROUTE, "--leg-senses", "checks/fixtures/leg-senses"]);
+  const unfinished = run("leg-senses-unfinished", [...EDGES_ROUTE, "--leg-senses", "checks/fixtures/leg-senses"]);
   ok(
     unfinished.res.status === 1 && unfinished.said.includes("whose `state` is `finished`") && !existsSync(unfinished.o),
     `(i) a folder holding no finished reading was not refused: ${unfinished.said}`,
   );
 }
 
-// (j) the table refused before anything is started, by name, nothing written
-const fixtureTable = parseYaml(readFileSync(TABLE_FIXTURE, "utf8"), TABLE_FIXTURE);
-const tableFile = (name, f) => {
-  const x = structuredClone(fixtureTable);
-  f(x);
-  const p = join(root, `table-${name}.yaml`);
-  writeFileSync(p, stringifyYaml(x));
-  return p;
-};
-for (const [name, file, args, want] of [
-  ["t-key", tableFile("key", (x) => (x.extra = 1)), TABLE_ROUTE, "`extra`, which the table does not declare"],
-  [
-    "t-missing",
-    tableFile("missing", (x) => delete x.segments[1].genericity),
-    TABLE_ROUTE,
-    "Segment 2 carries no `genericity`",
-  ],
-  ["t-count", tableFile("count", (x) => x.segments.pop()), TABLE_ROUTE, "carries 2 entries, and the named Move has 3"],
-  [
-    "t-range",
-    tableFile("range", (x) => (x.segments[0].bind = 4)),
-    TABLE_ROUTE,
-    "`bind` is 4, neither null nor one Bind target from 1 to 3",
-  ],
-  ["t-list", tableFile("list", (x) => (x.segments[0].bind = [1])), TABLE_ROUTE, "`bind` is [1], neither null"],
-  [
-    "t-unbound",
-    tableFile("unbound", (x) => (x.segments[2].bind = null)),
-    TABLE_ROUTE,
-    "Bind target 3 is given to no Segment",
-  ],
-  [
-    "t-twice",
-    tableFile("twice", (x) => (x.segments[2].bind = 2)),
-    TABLE_ROUTE,
-    "Segment 3's `bind` is 2, which Segment 2 is already given",
-  ],
-  ["t-binds", tableFile("binds", (x) => (x.binds = 4)), TABLE_ROUTE, "`binds` is 4, not a whole number from 1 to 3"],
-  [
-    "t-states",
-    tableFile("states", (x) => (x.segments[0].states = [1])),
-    TABLE_ROUTE,
-    "Segment 1 carries `states`, a key the Move table no longer declares",
-  ],
-  [
-    "t-relations-key",
-    tableFile("relations-key", (x) => (x.relations = 3)),
-    TABLE_ROUTE,
-    "the Move table carries `relations`, a key the Move table no longer declares",
-  ],
-  [
-    "t-roles-key",
-    tableFile("roles-key", (x) => (x.roles = 3)),
-    TABLE_ROUTE,
-    "the Move table carries `roles`, a key the Move table no longer declares",
-  ],
-  [
-    "t-label",
-    tableFile("label", (x) => (x.segments[1].discourse_relation.label = "Concession")),
-    TABLE_ROUTE,
-    "Segment 2's `discourse_relation` carries `label`, a key the Move table no longer declares",
-  ],
-  [
-    "t-to-self",
-    tableFile("self", (x) => (x.segments[1].discourse_relation.to = [2])),
-    TABLE_ROUTE,
-    "names 2, which is not a Segment before it",
-  ],
-  [
-    "t-to-later",
-    tableFile("later", (x) => (x.segments[1].discourse_relation.to = [3])),
-    TABLE_ROUTE,
-    "names 3, which is not a Segment before it",
-  ],
-  ["t-apart", tableFile("apart", (x) => (x.segments[0].domain.apart = true)), TABLE_ROUTE, "`domain.apart` is true"],
-  [
-    "t-particular",
-    tableFile("particular", (x) => (x.segments[2].genericity = "particular")),
-    TABLE_ROUTE,
-    "`genericity` is `particular`",
-  ],
-  [
-    "t-leg",
-    tableFile("leg", (x) => {
-      x.binds = 2;
-      x.segments[2].bind = null;
-    }),
-    TABLE_ROUTE,
-    "the Move table's `binds` is 2, and the Leg s2 has 3 Arguments and CentralClaim",
-  ],
-]) {
-  const r = run(name, [...args, "--move-table", file]);
-  ok(
-    r.res.status !== 0 && r.said.includes(want) && noWrite(r, name) && r.seen.length === 0,
-    `(j) ${name} was not refused naming ${want}: ${r.said}`,
-  );
-}
+// (j) refused before anything is started, by name, nothing written and no call made (kogaki#1880)
+const swapRoute = EDGES_ROUTE.map((x) => (x === EDGED ? TWO_TARGETS : x));
+const unedgedRoute = EDGES_ROUTE.map((x) => (x === EDGED ? MOVE : x));
 for (const [name, args, want] of [
-  ["t-alone", ["--move-table", TABLE_FIXTURE], "`--move-table` is a flag of the Brief-Leg route"],
-  ["t-empty", [...TABLE_ROUTE, "--move-table"], "`--move-table` takes a file"],
+  [
+    "e-unedged",
+    [...unedgedRoute, "--move-edges"],
+    `the Move ${MOVE} carries no \`bind\` and \`edges\` on its Segments`,
+  ],
+  [
+    "e-targets",
+    [...swapRoute, "--move-edges"],
+    `the Move ${TWO_TARGETS} has 2 Bind targets, and the Leg s2 has 3 Arguments and CentralClaim`,
+  ],
+  ["e-table", [...EDGES_ROUTE, "--move-table", "table.yaml"], "`--move-table` is retired"],
+  ["e-table-alone", ["--move-table", "table.yaml"], "`--move-table` is retired"],
+  ["e-alone", ["--move-edges"], "`--move-edges` is a flag of the Brief-Leg route"],
+  ["e-value", [...EDGES_ROUTE, "--move-edges", "edges.yaml"], "`--move-edges` takes no value"],
 ]) {
   const r = run(name, args);
   ok(
-    r.res.status !== 0 && r.said.includes(want) && noWrite(r, name),
+    r.res.status !== 0 && r.said.includes(want) && noWrite(r, name) && r.seen.length === 0,
     `(j) ${name} was not refused naming ${want}: ${r.said}`,
   );
 }

@@ -1,13 +1,13 @@
 // The cases of checks/check-structure-mapping-playground-leg-senses.sh (kogaki#1849), each stated in that member's
-// `contract` in checks/registry.json, over a fixture Brief and the Move's Edges file under checks/fixtures/leg-senses/:
+// `contract` in checks/registry.json, over a fixture Brief and two Moves of moves/ (kogaki#1880):
 //   (a) a run to the end: five reading calls, one joining call, the run record, the counts and the sheet;
 //   (b) each refusal before any model call, by name, with nothing written; (c) `nameRefusal`, each refusal by name;
 //   (d) a reading refused twice stops the run with no sheet; (e) the order of a pair's answers, the opposite part
-//   word rewritten, and a pair with no answer; (f) the setting keeping 3, and 5; (g) `moveEdgesRefusal`, each by
-//   name, a null bind read; (h) the comparison (kogaki#1851): every filling of the bound Segments, a filling meeting
+//   word rewritten, and a pair with no answer; (f) the setting keeping 3, and 5; (h) the comparison (kogaki#1851): every filling of the bound Segments, a filling meeting
 //   every compared Edge, none doing so, an Edge with a Segment with nothing bound not compared, a Move with no Edge
 //   compared, and more bound Segments than sentences;
-//   (i) the sheet's tables and what each asks; (j) moves/ and the plan table unchanged.
+//   (i) the sheet's tables and what each asks; (j) moves/ and the plan table unchanged. Case (g) went with the
+//   hand-written Edges file (kogaki#1880).
 import {
   mkdtempSync,
   mkdirSync,
@@ -34,7 +34,7 @@ const ok = (cond, msg) => {
   if (!cond) fails.push(msg);
 };
 const imp = (p) => import(pathToFileURL(join(repo, p)).href);
-const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
+const { parseYaml } = await imp("src/yaml.mjs");
 const { legRecord, briefRecordText } = await imp("src/compose.mjs");
 const M = await imp("src/structure-mapping-playground/move-senses.mjs");
 const L = await imp("src/structure-mapping-playground/leg-senses.mjs");
@@ -223,11 +223,15 @@ const run = (name, args, extraEnv = {}) => {
     : [];
   return { res, o, at, json, text, seen, said: `${res.stdout}${res.stderr}` };
 };
-const FIXTURE = "checks/fixtures/leg-senses/move-edges.yaml";
+// The Moves of moves/ the comparison is run with: every Segment bound, and the first Segment with nothing bound.
+const MOVE_ID = "grant_the_rule_then_withdraw_its_enforcer";
+const UNBOUND_ID = "swap_the_question_for_a_narrower_one_and_name_its_hinge";
+const segmentsOf = (id) =>
+  parseYaml(readFileSync(`moves/${id}.yaml`, "utf8"), id).segments.map((s) => ({ bind: s.bind, edges: s.edges }));
 const ARGS = ["--brief", brief, "--leg", "s2", "--out", "@out"];
-const withEdges = (file) => [...ARGS, "--move-edges", file];
+const withMove = (id) => [...ARGS, "--move", id];
 
-// (a) a run to the end, with no --move-edges
+// (a) a run to the end, with no --move
 const a = run("main", ARGS);
 const rec = a.json(L.RUN_FILE) || {};
 const counts = a.json(L.COUNTS_FILE) || { pairs: [] };
@@ -238,7 +242,7 @@ ok(
 );
 ok(rec.state === "finished" && rec.stopped === null, `(a) the run record does not say the run finished: ${rec.state}`);
 ok(
-  rec.brief && rec.brief.leg === "s2" && rec.brief.sha256 === sha(brief) && rec.move_edges === null,
+  rec.brief && rec.brief.leg === "s2" && rec.brief.sha256 === sha(brief) && rec.move === null,
   `(a) the run record does not name the Brief, its Leg and digest: ${JSON.stringify(rec.brief)}`,
 );
 ok(
@@ -272,7 +276,7 @@ ok(
 );
 ok(
   !existsSync(a.at(L.COMPARISON_FILE)) && rec.comparison === null && !a.text(L.SHEET_FILE).includes("The Move's Edges"),
-  "(a) a run with no --move-edges made a comparison or showed one",
+  "(a) a run with no --move made a comparison or showed one",
 );
 const roleLeg = L.legSentences(STRUCTURE, "c_1");
 ok(
@@ -300,7 +304,8 @@ const without = (flag) => {
 };
 for (const f of L.FLAGS) refusedRun(`no-${f}`, without(f), `\`--${f}\` is required`);
 refusedRun("no-value", [...without("leg"), "--leg"], "`--leg` is required and takes a value");
-refusedRun("edges-no-value", [...ARGS, "--move-edges"], "`--move-edges` takes a value");
+refusedRun("move-no-value", [...ARGS, "--move"], "`--move` takes a Move id");
+refusedRun("move-edges-retired", [...ARGS, "--move-edges", "edges.yaml"], "`--move-edges` is retired");
 refusedRun(
   "unknown-leg",
   ARGS.map((x) => (x === "s2" ? "s9" : x)),
@@ -311,12 +316,7 @@ refusedRun(
   ARGS.map((x) => (x === brief ? flat : x)),
   "carries no `structure`",
 );
-refusedRun("edges-absent", withEdges(join(root, "absent.yaml")), "names no file");
-refusedRun(
-  "edges-refused",
-  withEdges(writeFile("bad-edges.yaml", "segments:\n  - bind: Arg0\n    discourse_relation: null\n")),
-  'segments[0].bind is "Arg0"',
-);
+refusedRun("move-absent", withMove("no_such_move"), "--move no_such_move names no Move of moves/");
 const outside = run(
   "outside",
   ARGS.map((x) => (x === "@out" ? join(root, "elsewhere") : x)),
@@ -439,80 +439,9 @@ ok(
   "(f) a setting of 5 does not keep all five answers of the pair (1, 2)",
 );
 
-// (g) moveEdgesRefusal, each refusal by name
-const fixture = () => ({
-  segments: [
-    { bind: 1, discourse_relation: null },
-    { bind: 2, discourse_relation: { sense: "Concession.Denier", rel_type: null, to: [1] } },
-    { bind: 3, discourse_relation: { sense: "Cause.Result", rel_type: null, to: [2] } },
-  ],
-});
-const edgeCases = [
-  ["an undeclared key", (f) => (f.move = "m"), "the file carries `move`"],
-  ["a missing key", (f) => delete f.segments, "the file carries no `segments`"],
-  ["an undeclared Segment key", (f) => (f.segments[0].domain = "x"), "segments[0] carries `domain`"],
-  ["a missing Segment key", (f) => delete f.segments[1].bind, "segments[1] carries no `bind`"],
-  [
-    "the bind Arg1",
-    (f) => (f.segments[0].bind = "Arg1"),
-    'segments[0].bind is "Arg1", and a bind is a whole number from 1, or null',
-  ],
-  ["the bind CentralClaim", (f) => (f.segments[2].bind = "CentralClaim"), 'segments[2].bind is "CentralClaim"'],
-  ["an unknown bind", (f) => (f.segments[0].bind = "Topic"), 'segments[0].bind is "Topic"'],
-  ["a bind of 0", (f) => (f.segments[0].bind = 0), "segments[0].bind is 0, and a bind is a whole number from 1"],
-  ["a bind not whole", (f) => (f.segments[0].bind = 1.5), "segments[0].bind is 1.5, and a bind is a whole number"],
-  [
-    "two Segments with one bind",
-    (f) => (f.segments[1].bind = 1),
-    "segments[1].bind is 1, and the bound Segments are numbered 1, 2 and so on in Segment order: this one is 2",
-  ],
-  [
-    "bound Segments out of order",
-    (f) => ((f.segments[0].bind = 2), (f.segments[1].bind = 1)),
-    "segments[0].bind is 2, and the bound Segments are numbered 1, 2 and so on in Segment order: this one is 1",
-  ],
-  [
-    "bound Segments with a gap",
-    (f) => (f.segments[2].bind = 4),
-    "segments[2].bind is 4, and the bound Segments are numbered 1, 2 and so on in Segment order: this one is 3",
-  ],
-  [
-    "a number after a null not starting again from 1",
-    (f) => (f.segments[0].bind = null),
-    "segments[1].bind is 2, and the bound Segments are numbered 1, 2 and so on in Segment order: this one is 1",
-  ],
-  [
-    "an undeclared Edge key",
-    (f) => (f.segments[1].discourse_relation.manner = "x"),
-    "segments[1].discourse_relation carries `manner`",
-  ],
-  [
-    "an unknown Sense",
-    (f) => (f.segments[1].discourse_relation.sense = "Surprise"),
-    'segments[1].discourse_relation.sense is "Surprise"',
-  ],
-  ["a rel_type", (f) => (f.segments[1].discourse_relation.rel_type = "explicit"), 'rel_type is "explicit", not null'],
-  ["a to of two", (f) => (f.segments[2].discourse_relation.to = [1, 2]), "segments[2].discourse_relation.to is [1,2]"],
-  ["a to of its own", (f) => (f.segments[2].discourse_relation.to = [3]), "other than the Segment's own, 3"],
-  ["a to past the last", (f) => (f.segments[2].discourse_relation.to = [4]), "one Segment number from 1 to 3"],
-];
-for (const [what, mutate, want] of edgeCases) {
-  const f = fixture();
-  mutate(f);
-  const got = L.moveEdgesRefusal(f, names);
-  ok(got && got.includes(want), `(g) moveEdgesRefusal: ${what} is not refused naming ${JSON.stringify(want)}: ${got}`);
-}
-ok(L.moveEdgesRefusal(fixture(), names) === null, "(g) moveEdgesRefusal refuses the fixture's shape");
-const UNBOUND = "checks/fixtures/leg-senses/move-edges-unbound.yaml";
-const unboundDoc = parseYaml(readFileSync(UNBOUND, "utf8"), UNBOUND);
-ok(
-  L.moveEdgesRefusal(unboundDoc, names) === null && unboundDoc.segments[0].bind === null,
-  "(g) moveEdgesRefusal refuses a file with a null bind, whose Edge's to names that Segment",
-);
-
 // (h) the comparison: every filling of the bound Segments, the CentralClaim on each and on none; an Edge with a
 // Segment with nothing bound not compared; a Move with no Edge compared; more bound Segments than sentences
-const n = run("none", withEdges(FIXTURE));
+const n = run("none", withMove(MOVE_ID));
 const nc = n.json(L.COMPARISON_FILE) || { fillings: [] };
 const notMet = nc.fillings.map((f) => f.edges.filter((e) => !e.met).map((e) => `${e.segment}:${e.sense}`));
 ok(n.res.status === 0 && nc.chosen === false, `(h) the fixture's Move is not refused for the Leg: ${n.said}`);
@@ -538,24 +467,17 @@ ok(
   JSON.stringify(nc.not_compared) === "[]" && nc.none === null,
   `(h) a Move with every Segment bound lists an Edge not compared: ${JSON.stringify(nc.not_compared)}`,
 );
+ok((n.json(L.RUN_FILE) || {}).move === MOVE_ID, "(h) the run record does not name the Move");
+const metMove = {
+  segments: [
+    { bind: 1, edges: [{ sense: "Cause.Reason", to: [3] }] },
+    { bind: 2, edges: [{ sense: "Concession.Denier", to: [1] }] },
+    { bind: 3, edges: [] },
+  ],
+};
+const mc = L.compareMove(metMove, counts.pairs, 3, names);
 ok(
-  (n.json(L.RUN_FILE) || {}).move_edges.sha256 === sha(FIXTURE),
-  "(h) the run record does not name the Move's Edges file and its digest",
-);
-const metFile = writeFile(
-  "met-edges.yaml",
-  stringifyYaml({
-    segments: [
-      { bind: 1, discourse_relation: { sense: "Cause.Reason", rel_type: null, to: [3] } },
-      { bind: 2, discourse_relation: { sense: "Concession.Denier", rel_type: null, to: [1] } },
-      { bind: 3, discourse_relation: null },
-    ],
-  }),
-);
-const m = run("met", withEdges(metFile));
-const mc = m.json(L.COMPARISON_FILE) || { fillings: [] };
-ok(
-  m.res.status === 0 && mc.chosen === true && mc.fillings.filter((f) => f.met).length === 1,
+  mc.chosen === true && mc.fillings.filter((f) => f.met).length === 1,
   `(h) a Move one filling of which meets every Edge is not chosen: ${JSON.stringify(mc.fillings.map((f) => f.met))}`,
 );
 ok(
@@ -563,7 +485,7 @@ ok(
     JSON.stringify(mc.fillings[0].edges[0].wanted) === JSON.stringify({ sense: "Cause.Result", played_by: 3 }),
   "(h) an Edge is not compared in the one spelling",
 );
-const u = run("unbound", withEdges(UNBOUND));
+const u = run("unbound", withMove(UNBOUND_ID));
 const uc = u.json(L.COMPARISON_FILE) || { fillings: [], not_compared: [] };
 ok(
   u.res.status === 0 &&
@@ -579,25 +501,21 @@ ok(
   `(h) the fillings of a Move with a Segment with nothing bound are not every one, or none gives the CentralClaim to no Segment: ${JSON.stringify(uc.fillings.map((f) => [f.filling, f.central_claim]))}`,
 );
 ok(
-  JSON.stringify(uc.not_compared) === JSON.stringify([{ segment: 2, sense: "Conjunction", to: [1] }]) &&
+  JSON.stringify(uc.not_compared) === JSON.stringify([{ segment: 2, sense: "MetaDiscourse", to: [1] }]) &&
     uc.fillings.every((f) => f.edges.length === 1 && f.edges[0].segment === 3),
   `(h) an Edge with a Segment with nothing bound at one end is compared, or not listed once: ${JSON.stringify(uc.not_compared)}`,
 );
 ok(
-  uc.chosen === true && uc.fillings.filter((f) => f.met).length === 1 && uc.fillings[1].met === true,
+  uc.chosen === true && uc.fillings.filter((f) => f.met).length === 1 && uc.fillings[4].met === true,
   `(h) the compared Edge of the Move with a Segment with nothing bound is not met under the one filling: ${JSON.stringify(uc.fillings.map((f) => f.met))}`,
 );
-const noneCompared = L.compareMove(
-  {
-    segments: [
-      { bind: null, discourse_relation: null },
-      { bind: 1, discourse_relation: { sense: "Conjunction", rel_type: null, to: [1] } },
-    ],
-  },
-  counts.pairs,
-  3,
-  names,
-);
+const noneMove = {
+  segments: [
+    { bind: null, edges: [] },
+    { bind: 1, edges: [{ sense: "Conjunction", to: [1] }] },
+  ],
+};
+const noneCompared = L.compareMove(noneMove, counts.pairs, 3, names);
 ok(
   noneCompared.chosen === false &&
     noneCompared.fillings.length === 3 &&
@@ -606,12 +524,8 @@ ok(
     noneCompared.not_compared.length === 1,
   `(h) a Move none of whose Edges is compared is not reported as not to be chosen, with the reason: ${JSON.stringify(noneCompared)}`,
 );
-const more = L.compareMove(
-  { segments: [...fixture().segments, { bind: 4, discourse_relation: null }] },
-  counts.pairs,
-  3,
-  names,
-);
+const moreMove = { segments: [...segmentsOf(MOVE_ID), { bind: 4, edges: [] }] };
+const more = L.compareMove(moreMove, counts.pairs, 3, names);
 ok(
   more.chosen === false &&
     !more.fillings.length &&
@@ -664,40 +578,35 @@ ok(
   ),
   "(i) a filling's column does not name the sentence each bound Segment is given and the Segment stating the CentralClaim",
 );
-ok(m.text(L.SHEET_FILE).includes("The Move can be chosen for this Leg"), "(i) a chosen Move is not reported so");
 const usheet = u.text(L.SHEET_FILE);
 ok(
   usheet.includes("<td>Segment 2 = sentence 1, Segment 3 = sentence 2; no Segment states the CentralClaim</td>") &&
-    usheet.includes("<li>Segment 2: Conjunction to Segment 1 — Segment 1 has nothing bound</li>"),
+    usheet.includes("<li>Segment 2: MetaDiscourse to Segment 1 — Segment 1 has nothing bound</li>"),
   "(i) a filling giving the CentralClaim to no Segment, or an Edge not compared with its Segment with nothing bound, is not shown",
 );
-const sheetOf = (comparison, moveEdges) =>
+const sheetOf = (comparison, move) =>
   renderLegSensesSheet({
     brief: "b.yaml",
     legId: "s2",
     sentences: rec.sentences || [],
     counted: counts.pairs,
     comparison,
-    moveEdges,
+    move,
     joins: [],
     readings: [],
     prompts: [null, null],
     names,
     readingCount: 5,
   });
+ok(sheetOf(mc, metMove).includes("The Move can be chosen for this Leg"), "(i) a chosen Move is not reported so");
 ok(
-  sheetOf(more, { segments: [...fixture().segments, { bind: 4, discourse_relation: null }] }).includes(
-    "so there is no filling",
-  ),
+  sheetOf(more, moreMove).includes("so there is no filling"),
   "(i) a Move with no filling is not reported on the sheet",
 );
 ok(
-  sheetOf(noneCompared, {
-    segments: [
-      { bind: null, discourse_relation: null },
-      { bind: 1, discourse_relation: { sense: "Conjunction", rel_type: null, to: [1] } },
-    ],
-  }).includes("The Move cannot be chosen for this Leg: none of the Move's Edges is compared"),
+  sheetOf(noneCompared, noneMove).includes(
+    "The Move cannot be chosen for this Leg: none of the Move's Edges is compared",
+  ),
   "(i) a Move none of whose Edges is compared is not reported on the sheet with the reason",
 );
 ok(
