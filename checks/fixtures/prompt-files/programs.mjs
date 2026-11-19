@@ -183,5 +183,12 @@ export async function programTexts(imp) {
         "sys.stdout.write(a('THE DERIVATION.', [('first-slug', 'FIRST TEXT.'), ('second-slug', 'SECOND TEXT.')]))",
     ),
   );
+
+  // The short Trial's readback (kogaki#1882), over the plan block cut from a fixed Writer input.
+  const RB = await imp("src/structure-mapping-playground/readback.mjs");
+  const cut = RB.planBlock(
+    "# Write one Leg\n\n## The plan of this paragraph\n\nTHE PLAN.\n\n1. Argument 1.\n2. Neither. Sense Equivalence, to part 1.\n\n## The reader\n",
+  );
+  out.set("read-back-parts", RB.readbackPrompt(cut.block));
   return out;
 }

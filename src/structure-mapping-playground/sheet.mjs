@@ -389,6 +389,26 @@ function edgesSegmentsSection(route) {
   );
 }
 
+// THE READBACK AND SAMPLE (kogaki#1882): per Segment its line of the plan, its Readback and its Sample; a refused answer
+// shows the refusal and the answer as given.
+function readbackSection(rb) {
+  if (!rb) return none("The plan was not read back.");
+  if (rb.refusal)
+    return `<p class="stop">refused — ${esc(rb.refusal)}</p>` + (rb.answer === null ? "" : pre(rb.answer));
+  const at = resolve(REPO, rb.path);
+  const parts = existsSync(at) ? JSON.parse(readFileSync(at, "utf8")).parts : [];
+  const cell = (v) => (v === null || v === undefined ? "" : esc(v));
+  const rows = rb.plan.map((line, i) => {
+    const p = parts[i] || {};
+    return `<tr><td>${i + 1}</td><td>${esc(line)}</td><td>${cell(p.readback)}</td><td>${cell(p.sample)}</td></tr>`;
+  });
+  return (
+    "<table><thead><tr><th>#</th><th>plan</th><th>Readback</th><th>Sample</th></tr></thead><tbody>" +
+    rows.join("") +
+    "</tbody></table>"
+  );
+}
+
 // THE LEG'S SENSES (kogaki#1875), directly after the Move's Segments on the Brief-Leg route.
 const legSensesSectionOf = (ls) => (ls ? legSensesSection(ls.reading, ls.edges) : legSensesSection(null, []));
 
@@ -437,6 +457,7 @@ export function renderShortSheet({
           part("segments", "Segments", moveSegmentsSection(record, moveRoute))
         : "") +
     (moveRoute ? part("leg-senses", "The Leg's Senses", legSensesSectionOf(moveRoute.legSenses)) : "") +
+    (moveRoute && moveRoute.segments ? part("readback", "Readback and Sample", readbackSection(record.readback)) : "") +
     part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph) +
     (moveRoute ? "" : part("segments", "Segments", segmentsSection(record, paragraphs))) +
     part("bindings", "Bindings", bindingsSection(record, paragraphs)) +
