@@ -6,12 +6,12 @@ import { pathToFileURL } from "node:url";
 const REPO = process.cwd();
 const imp = (p) => import(pathToFileURL(join(REPO, p)).href);
 const { parseYaml } = await imp("src/yaml.mjs");
-const { validateMoveRecord, MOVE_OWN_SENSES } = await imp("src/compose/moves.mjs");
+const { validateMoveRecord } = await imp("src/compose/moves.mjs");
+const { loadSenses, sensesText } = await imp("src/paragraph-plan/senses.mjs");
+const SENSES_FILE = JSON.parse(readFileSync(join(REPO, "src/paragraph-plan/senses.json"), "utf8"));
 const SENSES = [
-  ...JSON.parse(readFileSync(join(REPO, "src/paragraph-plan/pdtb3-senses.json"), "utf8")).senses.flatMap((s) =>
-    s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`) : [s.sense],
-  ),
-  ...MOVE_OWN_SENSES,
+  ...SENSES_FILE.senses.flatMap((s) => (s.parts.length ? s.parts.map((p) => `${s.sense}.${p.part}`) : [s.sense])),
+  ...SENSES_FILE.own.map((s) => s.sense),
 ];
 const fails = [];
 let cases = 0;
@@ -91,6 +91,27 @@ ok(
   `(c10e) an Edge that points to its own Segment is not refused naming the Segment: ${refusal(second([{ sense: "Cause.Reason", to: [2] }]))}`,
 );
 
+// (c11) every entry of the file's `own` carries exactly `sense`, `meaning` and `parts`, its `meaning` one non-empty
+// line (kogaki#1881).
+for (const [i, s] of SENSES_FILE.own.entries())
+  ok(
+    s !== null &&
+      typeof s === "object" &&
+      JSON.stringify(Object.keys(s).sort()) === JSON.stringify(["meaning", "parts", "sense"]) &&
+      typeof s.meaning === "string" &&
+      s.meaning.trim() !== "" &&
+      !s.meaning.includes("\n"),
+    `(c11) \`own\` entry ${i + 1} does not carry exactly \`sense\`, \`meaning\` and \`parts\` with a one-line \`meaning\`: ${JSON.stringify(s)}`,
+  );
+
+// (c12) the text a reading is handed holds the 22 Senses of the manual and neither of Kogaki's own (kogaki#1881).
+const handed = sensesText(loadSenses());
+const ownNamed = SENSES_FILE.own.map((s) => s.sense).filter((n) => handed.some((l) => l.includes(n)));
+ok(
+  handed.length === 22 && ownNamed.length === 0,
+  `(c12) the text a reading is handed holds ${handed.length} entries and names ${ownNamed.join(", ") || "no own Sense"}`,
+);
+
 // (e) every Move file under `moves/` carries both fields on every Segment, with listed Senses.
 const names = readdirSync(LIB)
   .filter((n) => n.endsWith(".yaml"))
@@ -104,4 +125,4 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`move-library: ${cases} case(s) pass, (c10) and (e) over ${names.length} Move file(s)`);
+console.log(`move-library: ${cases} case(s) pass, (c10) to (c12) and (e) over ${names.length} Move file(s)`);

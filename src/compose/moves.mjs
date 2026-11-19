@@ -12,6 +12,7 @@ import { figureKinds } from "./figure.mjs";
 import { isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord } from "./render.mjs";
 import { oneLine } from "./record.mjs";
 import { moveConstraintsRefusal } from "../move-validate.mjs";
+import { loadOwnSenses } from "../paragraph-plan/senses.mjs";
 
 // ---- THE ADAPTER (kogaki#1349): Move field -> role, declared by the library ----
 //
@@ -353,8 +354,8 @@ function figureBlockRefusal(block, at) {
 // `operation` (`does` until kogaki#1510), on every Segment after the first `relation`, and,
 // where the Extraction filled one, `manner` (kogaki#1510).
 export const SEGMENT_FIELDS = Object.freeze(["operation", "relation", "manner", "bind", "edges"]);
-// The Senses an Edge may keep beside the list of src/paragraph-plan/pdtb3-senses.json (kogaki#1871).
-export const MOVE_OWN_SENSES = Object.freeze(["MetaDiscourse", "FrameSetting"]);
+// The Senses an Edge may keep beside the manual's, the names of `own` in src/paragraph-plan/senses.json (kogaki#1881).
+export const MOVE_OWN_SENSES = Object.freeze(loadOwnSenses().map((s) => s.sense));
 const EDGE_KEYS = Object.freeze(["sense", "to", "hypophora"]);
 export const MOVE_BIND_MAX = 3;
 

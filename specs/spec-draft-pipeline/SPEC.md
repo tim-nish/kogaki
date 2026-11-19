@@ -771,7 +771,9 @@ An Edge keeps one `sense` and names in `to` the earlier Segments it points to.
 It carries `hypophora: true` where the earlier Segment puts a question that
 this Segment answers. A `sense` is a name of the list of Senses (§4.20.3),
 written with its part, or one of Kogaki's own, `MetaDiscourse` and
-`FrameSetting`. It is null only beside `hypophora: true`. The first Segment
+`FrameSetting`, whose meanings stand in the `own` of
+`src/paragraph-plan/senses.json` (kogaki#1881). It is null only beside
+`hypophora: true`. The first Segment
 carries no Edge, and every later Segment carries at least one.
 `validateMoveRecord` refuses a record that carries the two fields on some of
 its Segments and not on all, and it refuses each value outside this shape,
@@ -2554,7 +2556,7 @@ Playground reads them; the stage calls none of them.
 The reading is the one the Structure-Mapping Playground made first (§4.20.4).
 Five calls of the row `paragraph_plan_name_senses`
 (`prompts/paragraph-plan/name-senses.prompt`), each handed the Leg's numbered
-sentences and the list of Senses (`src/paragraph-plan/pdtb3-senses.json`), name
+sentences and the list of Senses (`src/paragraph-plan/senses.json`), name
 for each pair of sentences every Sense that holds. An answer is checked by
 `nameRefusal`; one refused is asked again once, and a reading refused twice
 stops the Leg. `countPairs` counts the five answers, and the first
@@ -3389,7 +3391,7 @@ Leg that record names is not the Trial's. `trial.json` records the folder under
 `Segments` table directly: one row per pair of the Leg's sentences in the order
 of `counts.json`, naming each sentence by its kind, number and id with its
 sentence; every answer in the stored order with its meaning from
-`src/paragraph-plan/pdtb3-senses.json`, the sentence playing its part where it
+`src/paragraph-plan/senses.json`, the sentence playing its part where it
 has one, `named N of 5`, and `not a candidate` where it is not kept; and each
 Edge of the Move, from the Move table where one is given and from the Move file
 otherwise, that joins two Segments bound to that pair, with its Segment, its
@@ -3425,7 +3427,7 @@ one Segment, a paragraph whose sentence count is not the Move's Segment count,
 and an `--out` outside the Playground's runs or already holding a run.
 
 **The readings.** The 22 Senses, each with its meaning and its part words, are
-`src/paragraph-plan/pdtb3-senses.json`. Five calls of the
+the `senses` of `src/paragraph-plan/senses.json`. Five calls of the
 Playground row `smp_rank_senses`, each handed the numbered sentences and that
 list, give per pair the three Senses that fit best, best first, each with
 `played_by` and `holds`; an answer is refused naming the place, and a reading
