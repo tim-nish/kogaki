@@ -72,7 +72,6 @@ const C = await imp("checks/fixtures/prompt-files/cases.mjs");
 const { judgePrompt } = await imp("src/workflow/judge.mjs");
 const { bindFlow } = await imp("src/workflow/run-record.mjs");
 const { FLOW } = await imp("src/paragraph-plan/stage.mjs");
-const { pairedPlanRow } = await imp("src/structure-mapping-playground/short.mjs");
 const { briefRecordText, legRecord } = await imp("src/compose.mjs");
 const { readBrief, renderPacket, sectionsOf, sectionOfLeg } = await imp("src/draft.mjs");
 const { renderAndStorePacket } = await imp("src/draft/render-packet.mjs");
@@ -109,8 +108,6 @@ same("judge-unit-reask", () =>
     C.JUDGE_HISTORY,
   ),
 );
-bindFlow({ lane: "brief", label: "Structure-Mapping Playground" });
-same("plan-leg-paired", () => judgePrompt(pairedPlanRow(plan), inputText, C.PLAN_INPUT, null));
 
 // (d) EVERY TABLE ROW RENDERS AS SAVED BEFORE ITS MOVE (kogaki#1862), its schema text cut as the save cut it.
 bindFlow(C.ROW_FLOW);

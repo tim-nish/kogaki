@@ -13,10 +13,9 @@
 // production executable.
 //
 // THE ROW IS AUTHORED (kogaki#1775), ITS INSTRUCTION A PROMPT FILE (kogaki#1862). The point span is the shared
-// passage `prompts/move-extraction-playground/_each-waypoint-is-a-point.prompt`, which `leg_path_unit`'s and the
-// Mapping Playground's `smp_leg_unit`'s prompt files both name. `diff` prints the passages each row's prompt file
-// names. `derivedRow` stays for a row that still copies a
-// whole production row with `substitutions`; the Mapping Playground's short Trial plans with the production row unchanged (kogaki#1784).
+// passage `prompts/move-extraction-playground/_each-waypoint-is-a-point.prompt`, which `leg_path_unit`'s prompt file
+// names. `diff` prints the passages each row's prompt file names. `derivedRow` stays for a row that still copies a
+// whole production row with `substitutions`.
 //
 // THE VALIDATOR IS PRODUCTION'S, IMPORTED: `validateLegs` — which runs `waypointsRefusal` over
 // the Brief Waypoints — for the Leg. READER START IS RETIRED (kogaki#1699): no row authors one, the

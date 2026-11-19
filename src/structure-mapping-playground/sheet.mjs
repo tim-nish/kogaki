@@ -9,16 +9,14 @@
 //   The short Trial
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
-import { pathToFileURL } from "node:url";
-import { REPO, relFromRepo } from "../workflow/run-record.mjs";
+import { REPO } from "../workflow/run-record.mjs";
 import { stringifyYaml, parseYaml } from "../yaml.mjs";
 import { CALLS_FILE } from "../move-extraction-playground/leg-run.mjs";
-import { moveContract, loadMoveContracts, CAST_KEYS } from "../compose.mjs";
+import { moveContract, loadMoveContracts } from "../compose.mjs";
 import { higherOrderOf } from "./structure.mjs";
-import { callRows, callsRoot, callRecordsOf } from "../workflow/call-record.mjs";
-import { mappingDirFor, STRUCTURE_FILE, TABLE_FILE } from "../compose/mapping-record.mjs";
+import { callRows, callRecordsOf } from "../workflow/call-record.mjs";
 import { pairedWith } from "./move-structure.mjs";
 import { legSensesSection } from "./leg-senses-section.mjs";
 
@@ -156,26 +154,19 @@ function bindingTable(record, paragraphs, i, contracts) {
   );
 }
 
-// `marked` holds the point numbers a refusal named, highlighted for the ParagraphPlanPlayground (kogaki#1752).
-export function segmentsTable(record, entry, number, marked = new Set()) {
+export function segmentsTable(record, entry, number) {
   const c = moveContract(entry.move, resolve(REPO, record.library));
   const segments = c.error ? [] : c.segments;
-  const points = entry.paragraph_waypoints || [];
-  const n = Math.max(segments.length, points.length);
-  // kogaki#1695: a point's true cast keys ride beside it in a meta span, in CAST_KEYS order.
-  const castOf = (p) => Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
-  const pointCell = (p) =>
-    !p ? "" : esc(p.point) + (castOf(p).length ? ` <span class="meta">${esc(castOf(p).join(", "))}</span>` : "");
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   return (
     (c.error ? `<p class="stop">${esc(c.error)}</p>` : "") +
-    `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th><th>point</th></tr></thead><tbody>` +
-    Array.from(
-      { length: n },
-      (_, i) =>
-        `<tr${marked.has(i + 1) ? ' class="named"' : ""}><td>${i + 1}</td><td>${field(segments[i], "operation")}</td><td>${field(segments[i], "relation")}</td>` +
-        `<td>${field(segments[i], "manner")}</td><td>${pointCell(points[i])}</td></tr>`,
-    ).join("") +
+    `<table><caption>Paragraph ${number} <span class="meta">${esc(entry.move)}</span></caption><thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th></tr></thead><tbody>` +
+    segments
+      .map(
+        (sg, i) =>
+          `<tr><td>${i + 1}</td><td>${field(sg, "operation")}</td><td>${field(sg, "relation")}</td><td>${field(sg, "manner")}</td></tr>`,
+      )
+      .join("") +
     "</tbody></table>"
   );
 }
@@ -310,8 +301,8 @@ function analogySection(record) {
   );
 }
 
-// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1830): the Move's structure, then per Segment what it states, what each is paired
-// with, and the Waypoints the plan wrote for it.
+// THE BRIEF-LEG ROUTE'S PARTS (kogaki#1830): the Move's structure, then per Segment what it states and what each is paired
+// with.
 function moveStructureSection(ms) {
   if (!ms) return none("The Move was not read.");
   const list = (xs) => esc((xs || []).join(", "));
@@ -341,25 +332,17 @@ function moveStructureSection(ms) {
   );
 }
 
-function moveSegmentsSection(record, route, paragraphs) {
+function moveSegmentsSection(record, route) {
   const { move, moveStructure: ms, pairing } = route;
   const c = moveContract(move, resolve(REPO, record.library));
   if (c.error) return `<p class="stop">${esc(c.error)}</p>`;
   if (!ms || !pairing) return none("The Move was not read and paired, so no Segment is shown.");
-  const ps = paragraphs || [];
   const rows = c.segments.map((sg, i) => {
     const states = ((ms.segments[i] || {}).states || []).map((id) => {
       const to = pairedWith(id, ms, pairing);
       return `${esc(id)} → ${to === "unmatched" ? '<span class="stop">unmatched</span>' : esc(to)}`;
     });
-    const points = ps
-      .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
-      .filter(([, w]) => w)
-      .map(([k, w]) => `Paragraph ${k}: ${esc(w.point)}`);
-    return (
-      `<tr><td>${i + 1}</td><td>${esc(sg.operation || "")}</td><td>${states.join("<br>") || "none"}</td>` +
-      `<td>${points.length ? points.join("<br>") : '<span class="muted">the plan wrote no Waypoint for this Segment</span>'}</td></tr>`
-    );
+    return `<tr><td>${i + 1}</td><td>${esc(sg.operation || "")}</td><td>${states.join("<br>") || "none"}</td></tr>`;
   });
   const u = pairing.unmatched || {};
   const unmatched = [
@@ -371,7 +354,7 @@ function moveSegmentsSection(record, route, paragraphs) {
     .map(([k, v]) => `<tr><th>${k}</th><td>${esc((v || []).length ? v.join(", ") : "none")}</td></tr>`)
     .join("");
   return (
-    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>operation</th><th>states → paired with</th><th>Waypoints</th></tr></thead><tbody>` +
+    `<table><caption>${esc(move)}</caption><thead><tr><th>#</th><th>operation</th><th>states → paired with</th></tr></thead><tbody>` +
     rows.join("") +
     "</tbody></table>" +
     `<table><caption>Unmatched</caption><tbody>${unmatched}</tbody></table>`
@@ -471,7 +454,7 @@ export function renderShortSheet({
         part("segments", "Segments", edgesSegmentsSection(moveRoute))
       : moveRoute
         ? part("move-structure", "Move structure", moveStructureSection(moveRoute.moveStructure)) +
-          part("segments", "Segments", moveSegmentsSection(record, moveRoute, paragraphs))
+          part("segments", "Segments", moveSegmentsSection(record, moveRoute))
         : "") +
     (moveRoute ? part("leg-senses", "The Leg's Senses", legSensesSectionOf(moveRoute.legSenses)) : "") +
     (moveRoute && moveRoute.segments ? part("readback", "Readback and Sample", readbackSection(record.readback)) : "") +
@@ -485,135 +468,4 @@ export function renderShortSheet({
     part("calls", "Model calls", callsHtml) +
     "</body></html>\n"
   );
-}
-
-// ONE LEG'S MAPPING RECORD (kogaki#1733), in the short Trial sheet's layout: per Brief Waypoint its structure (an `apart`
-// successor shows its predecessor's), Mapping Table, binding with `case`, Waypoints with their Cast, and, with a
-// run, the Call Records of the Leg's job unit. Reads the plan and the record beside it; writes nothing but `out`.
-const readYamlAt = (path) => (existsSync(path) ? parseYaml(readFileSync(path, "utf8"), relFromRepo(path)) : null);
-
-// THE LEG'S ONE BINDING (kogaki#1777): the Leg binds one Move for all its paragraphs.
-function legBindingTable(leg, table, contracts) {
-  const c = contracts.get(leg.move);
-  const absent = [esc("not in the library")];
-  const told = table && table.case !== null && table.case !== undefined ? table.case : "none";
-  const rationale = (leg.paragraphs || []).map((p) => p && p.rationale).filter((x) => typeof x === "string");
-  return (
-    `<table><caption>Binding</caption><tbody>` +
-    labelledRow("Move", [esc(leg.move ?? "none")]) +
-    labelledRow("Case", [esc(told)]) +
-    labelledRow("Takes", c ? constraintRows(c.takes) : absent) +
-    labelledRow("Leaves", c ? constraintRows(c.leaves) : absent) +
-    labelledRow("Rationale", rationale.length ? rationale.map(esc) : [esc("none")]) +
-    "</tbody></table>"
-  );
-}
-
-function legCallRecords(runDir, unit, outDir) {
-  if (!runDir)
-    return none("No run was named: pass --run <the ParagraphPlan job's run directory> to list its Call Records.");
-  const rows = callRows(callsRoot(runDir)).filter((r) => r.unit === unit);
-  if (!rows.length) return none(`No Call Record of the unit ${unit} is under ${relFromRepo(runDir)}.`);
-  const link = (path, text) => `<a href="${esc(relative(outDir, path).split("\\").join("/"))}">${esc(text)}</a>`;
-  return (
-    `<table><caption>${esc(unit)}</caption><thead><tr><th>call</th><th>group</th><th>reach</th><th>refusal</th><th>files</th></tr></thead><tbody>` +
-    rows
-      .map(
-        (r) =>
-          `<tr><td>${r.n}</td><td>${esc(r.group ?? "")}</td><td>${esc(r.reach ?? "")}</td>` +
-          `<td>${r.refusal === null ? "passed" : esc(r.refusal)}</td><td>${r.files.map((f) => link(join(r.dir, f), f)).join(" ")}</td></tr>`,
-      )
-      .join("") +
-    "</tbody></table>"
-  );
-}
-
-export function renderLegSheet({ planPath, legId, runDir = null, movesDir = "moves", outDir = process.cwd() }) {
-  let plan;
-  try {
-    plan = parseYaml(readFileSync(planPath, "utf8"), relFromRepo(planPath));
-  } catch (e) {
-    return { error: `the ParagraphPlan file at ${planPath} cannot be read (${e.message})` };
-  }
-  const legs = Array.isArray(plan && plan.legs) ? plan.legs : [];
-  const i = legs.findIndex((l) => l && l.leg_id === legId);
-  if (i === -1)
-    return {
-      error: `the ParagraphPlan file ${relFromRepo(planPath)} carries no Leg ${legId} — it carries ${legs.map((l) => l && l.leg_id).join(", ")}`,
-    };
-  const dir = join(mappingDirFor(planPath), String(legId));
-  const library = loadMoveContracts(resolve(REPO, movesDir));
-  const contracts = new Map((library.error ? [] : library.moves).map((m) => [m.id, m]));
-  // THE LEG AS UNIT (kogaki#1777): one structure and one table per Leg, and its paragraphs' Waypoints
-  // under the one Move the Leg binds.
-  const leg = legs[i];
-  const structure = readYamlAt(join(dir, STRUCTURE_FILE));
-  const table = readYamlAt(join(dir, TABLE_FILE));
-  const paragraphs = Array.isArray(leg.paragraphs) ? leg.paragraphs : [];
-  const body =
-    part("bindings", "Binding", legBindingTable(leg, table, contracts)) +
-    part(
-      "mapping",
-      "Mapping",
-      table ? mappingTable(structure, table, 1) : none("No Mapping Table was recorded for this Leg."),
-    ) +
-    part(
-      "structure",
-      "Structure",
-      structure ? structureSection(structure) : none("No structure was recorded for this Leg."),
-    ) +
-    paragraphs
-      .map((p, k) =>
-        part(
-          `paragraph-${k + 1}`,
-          `Paragraph ${k + 1}`,
-          segmentsTable({ library: movesDir }, { ...p, move: leg.move }, k + 1),
-        ),
-      )
-      .join("");
-  const html =
-    `<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<title>Mapping Record ${esc(legId)}</title><style>${proofSheetCss()}\n${ACCENT}</style>${mermaidScript()}</head><body>` +
-    `<h1>Mapping Record — Leg ${esc(legId)}</h1><p class="meta">plan: ${esc(relFromRepo(planPath))} · record: ${esc(relFromRepo(dir))}</p>` +
-    (library.error ? `<p class="stop">${esc(library.error)}</p>` : "") +
-    body +
-    part("call-records", "Call Records", legCallRecords(runDir, `leg-${i + 1}`, outDir)) +
-    "</body></html>\n";
-  return { html };
-}
-
-function argsOf(argv) {
-  const args = { _: [] };
-  for (let k = 0; k < argv.length; k++) {
-    if (argv[k].startsWith("--") && argv[k + 1] !== undefined && !argv[k + 1].startsWith("--"))
-      args[argv[k].slice(2)] = argv[++k];
-    else args._.push(argv[k]);
-  }
-  return args;
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const args = argsOf(process.argv.slice(2));
-  const usage =
-    "usage: node src/structure-mapping-playground/sheet.mjs leg --plan theses/<slug>/paragraph-plan.yaml --leg <leg_id> [--run <dir>] [--moves-dir <dir>] [--out <file>]";
-  if (args._[0] !== "leg" || !args.plan || !args.leg) {
-    process.stderr.write(`${usage}\n`);
-    process.exit(2);
-  }
-  const out = args.out ? resolve(args.out) : null;
-  const r = renderLegSheet({
-    planPath: resolve(args.plan),
-    legId: args.leg,
-    runDir: args.run ? resolve(args.run) : null,
-    movesDir: args["moves-dir"] || "moves",
-    outDir: out ? resolve(out, "..") : process.cwd(),
-  });
-  if (r.error) {
-    process.stderr.write(`sheet: ${r.error}\n`);
-    process.exit(1);
-  }
-  if (out) {
-    writeFileSync(out, r.html);
-    process.stderr.write(`sheet: ${relFromRepo(out)}\n`);
-  } else process.stdout.write(r.html);
 }

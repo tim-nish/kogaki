@@ -1,31 +1,28 @@
 #!/usr/bin/env bash
 # check-structure-mapping-playground-short -- the short Trial (kogaki#1669), driven through `node src/structure-mapping-playground/short.mjs run` with ONE fake model binary:
 #   (a) the composed route (kogaki#1700), over a base Move leaving a `carry` and an inference Move taking one, exits 0 with the bind,
-#       two correspondence calls, the waypoints and the writer calls recorded, and its files and trial.json fields are written;
+#       two correspondence calls and the writer call recorded, no call of the row `paragraph_plan_unit` and no `waypoints`
+#       folder (kogaki#1883), and its files and trial.json fields are written;
 #       `rbs.yaml` carries `variant: composed`, two `tables` whose `move`s match the two bindings, each with its `base.domain` and one
 #       correspondence per Role, no root `base` or `correspondences`, and the two bindings; each Move's Calls are kept under
 #       `grounding/<move>/` (kogaki#1709); `analogy.yaml`, written before the Leg, is the base Move's table as the base domain
-#       and its counterparts (kogaki#1784); the waypoints call is the production `paragraph_plan_unit` row over ONE Leg, its
-#       `text` the structure in the inference table's expressions, bound to the inference Move with that table and handed the
-#       Analogy Mapping, with no Brief Waypoint and no `tables`; `bind.yaml`'s `paragraphs` has two entries under that one
-#       Move, and the sheet carries two Segments tables and two Binding tables. A base Move leaving no `carry` writes one
-#       correspondence call, one table, one paragraph under that Move, an Analogy Mapping of `none`, one binding and one `Base:` line.
+#       and its counterparts (kogaki#1784); `bind.yaml`'s `paragraphs` has two entries under the inference Move, each
+#       `{ move, binding_rationale, leaves }` and no other key, written by the Harness after `grounding` with no model call
+#       (kogaki#1883), and the sheet carries two Segments tables and two Binding tables. A base Move leaving no `carry` writes
+#       one correspondence call, one table, one paragraph record under that Move, an Analogy Mapping of `none`, one binding and
+#       one `Base:` line.
 
-#   (b) `--mapper sme_map_roles --compose` records six calls and `structure.author: mapper`.
+#   (b) `--mapper sme_map_roles --compose` records five calls and `structure.author: mapper`.
 #   (c) `--rbs` is refused naming `--compose` and `--rbs-file`, and a run with neither is refused naming both, with nothing written.
 
 #   (d) the `smp_bind_move` row's refusals by name: an id not in the library, an `inference_move` null under `case: apart`, one
 #       given under `case: own` (kogaki#1719), and an inference Move whose `takes` holds no `carry`, each with its group,
 #       `library`, `case` or `carry`; a first refusal reaches the second Call's stdin, and a second stops at `bind`. A
 #       `library` refusal is `record`: the second Call's stdin carries the `record` sentence and not the `part` one, and its
-#       answer is taken whole (kogaki#1708). A waypoints answer binding another Move stops at
-#       `waypoints` naming the Leg's Move; a Base or Inference Paragraph whose points carry no expression of a Role verbatim passes
-#       the waypoints stage, the program matching no expression (kogaki#1811); an Inference Paragraph's points may name the base
-#       table's expressions, and a Role id in them is refused naming the paragraph (kogaki#1709).
+#       answer is taken whole (kogaki#1708).
 
-#   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet carries no Waypoint, no `*Serves:*` and no
-#       `*Cast:*` line, though the fake waypoints answer sets `cast: { terse: true }` on the first Waypoint, and says the claims
-#       are the whole plan, since this route hands no Brief `structure` (kogaki#1859).
+#   (e) the writer's recorded stdin equals the Packet byte for byte, and the Packet carries no `*Serves:*` and no `*Cast:*`
+#       line, and says the claims are the whole plan, since this route hands no Brief `structure` (kogaki#1859).
 
 #   (f) the sheet (kogaki#1673, kogaki#1675), over a structure whose one higher-order relation is a list of one (kogaki#1678): its
 #       parts in order with no `strand` part, no `Writer input` and no `cols` div, and a `bindings` part after `segments` holding
@@ -33,25 +30,24 @@
 #       (kogaki#1682, kogaki#1687, kogaki#1700, kogaki#1699), and no `WBS` text (kogaki#1685); the Mapping part carries one Mapping
 #       Table per paragraph, each under its own `Base: <domain>` line and captioned `Paragraph <n>` with its Move (kogaki#1709),
 #       headed `Role`, `Abstract`, `Attribute`, `Correspondence` with no `Abstract` cell opening on a Role id (kogaki#1716), the
-#       fixture's attribute word in its Role's `Attribute` cell, and no kind word (kogaki#1693); and the Segments table's point
-#       cell carries its true cast keys in a `meta` span, on the one Waypoint whose cast sets one (kogaki#1695).
+#       fixture's attribute word in its Role's `Attribute` cell, and no kind word (kogaki#1693); and each Segments table's rows
+#       carry `#`, operation, relation and manner and no column of texts, on both routes (kogaki#1883).
 
 #   (g) an `expression` or a `role` sharing a word with the `proposition:` is accepted, in a table and in the owner's file, and
-#       against the guard-reach proposition "the openings the panel has been set to sound on" is accepted while Base Paragraph
-#       points carrying no expression of one Role are still refused naming the Role (kogaki#1707); a null `expression` is
+#       against the guard-reach proposition "the openings the panel has been set to sound on" is accepted (kogaki#1707); a null `expression` is
 #       refused on every table; a `role` naming no Role is refused
 #       naming the id, and a Role with other than one correspondence is refused naming the Role (kogaki#1688, kogaki#1693).
 #   (h) the repository's `moves/` and `theses/` are unchanged.
 #   (i) checks/check-structure-mapping-playground.sh still passes.
 
-#   (j) the `--rbs-file` route with `tables`, one per binding (kogaki#1709), `move`, `waypoints` and `projection`, giving each Role id
+#   (j) the `--rbs-file` route with `tables`, one per binding (kogaki#1709), `move` and `projection`, giving each Role id
 #       the expression `the crew's list` in the first table, exits 0 with
-#       one call, `bind.state: supplied`, `rbs.variant: owner-authored` and `rbs.source` the file (kogaki#1671, kogaki#1700), and
-#       its Packet carries none of the supplied points (kogaki#1859); a file
-#       without `projection` is refused naming `projection` (kogaki#1689).
+#       one call, `bind.state: supplied`, `rbs.variant: owner-authored` and `rbs.source` the file (kogaki#1671, kogaki#1700); a file
+#       without `projection` is refused naming `projection` (kogaki#1689); and a file carrying `waypoints`, at its root or in an
+#       entry of `projection`, is refused before any call naming the key, with nothing written (kogaki#1883).
 #   (k) `--rbs-file` with `--compose` is refused naming both flags.
-#   (l) a `base` carrying `kind` or without `domain`, a table carrying `pairs`, an unknown `move` and a wrong-length `waypoints`
-#       are each refused naming the field (kogaki#1693), and a supplied `point` carrying a claim word is accepted (kogaki#1707);
+#   (l) a `base` carrying `kind` or without `domain`, a table carrying `pairs` and an unknown `move` are each refused naming
+#       the field (kogaki#1693), and `waypoints` at the root is refused naming the key (kogaki#1883);
 #       a root `base` or `correspondences` is refused naming `tables`, in the validator and on `--rbs-file`, a `tables` entry
 #       whose `move` matches no binding is refused naming it, and a table count other than the bindings' is refused (kogaki#1709).
 
@@ -62,13 +58,14 @@
 #       `binding_rationale` (kogaki#1675, kogaki#1678, kogaki#1682, kogaki#1687, kogaki#1700).
 
 #   (o) a `projection` map and a list of one each exit 0 with one writer call, `bind.yaml`'s `paragraphs` has two entries, and
-#       the writer's stdin carries none of either binding's points and no `*Serves:*` line (kogaki#1859), one claim line equal to
+#       each paragraph record is `{ move, binding_rationale, leaves }`, the writer's stdin carries no `*Serves:*` line
+#       (kogaki#1859), one claim line equal to
 #       the proposition,
 #       no `{` left, and no article-so-far prose; a list of two
 #       writes three Segments tables (kogaki#1681, kogaki#1688).
-#   (p) a projecting point carrying a claim word passes, and `attribute_hits` and `Attribute words` appear in no file of the run.
-#   (q) a `projection` entry with a wrong-length `waypoints` or an unknown `move` is refused naming its index, and
-#       `projection` without the first binding is refused naming both.
+#   (p) a file with a projecting binding passes, and `attribute_hits` and `Attribute words` appear in no file of the run.
+#   (q) a `projection` entry with an unknown `move` or carrying `waypoints` is refused naming its index, and
+#       `projection` without the first binding is refused naming `move`.
 
 #   (r) a writer stop leaves no `paragraph.md`.
 #   (s) the one-map `higher_order` and a list of one pass and render as `h1`; a two-entry list is refused naming the count, and a
@@ -117,7 +114,6 @@ const { validateRbsTable, validateCorrespondenceTable } = await import(pathToFil
 const { validateStructure } = await import(pathToFileURL(join(repo, "src/structure-mapping-playground/structure.mjs")).href);
 const { moveContract } = await import(pathToFileURL(join(repo, "src/compose.mjs")).href);
 const { bindMoveRefusal, retriedCall, shortLeg, shortAnalogy, legCase } = await import(pathToFileURL(join(repo, "src/structure-mapping-playground/short.mjs")).href);
-const { correspondenceVocabularyRefusal } = await import(pathToFileURL(join(repo, "src/structure-mapping-playground/rbs.mjs")).href);
 const { readCallRecord } = await import(pathToFileURL(join(repo, "src/workflow/call-record.mjs")).href);
 const { relFromRepo } = await import(pathToFileURL(join(repo, "src/workflow/run-record.mjs")).href);
 const root = mkdtempSync(join(tmpdir(), "structure-mapping-playground-short-"));
@@ -140,8 +136,6 @@ const mapped = { strand: CITE,
 const structure = join(root, "structure.yaml");
 writeFileSync(structure, stringifyYaml(mapped));
 const ROLE_IDS = mapped.roles.map((r) => r.id);
-// The first Brief Waypoint's point (kogaki#1688).
-const pointOf = (holds, base) => holds.map((h) => h.replace(/\{([^{}\s]+)\}/g, (_, id) => base(id))).map((h) => h[0].toUpperCase() + h.slice(1)).join(" ");
 
 // ---- the one fake model binary ----
 const judge = join(root, "fake-model.mjs");
@@ -156,16 +150,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     appendFileSync(dir + "/seen.jsonl", JSON.stringify({ stage, prompt, answer }) + "\\n");
     writeSync(1, answer); process.exit(0);
   };
-  const body = (key) => {
-    const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at);
-    let depth = 0, str = false;
-    for (let k = open; k < prompt.length; k++) {
-      const ch = prompt[k];
-      if (str) { if (ch === "\\\\") k++; else if (ch === '"') str = false; continue; }
-      if (ch === '"') str = true; else if (ch === "{") depth++; else if (ch === "}" && --depth === 0) return JSON.parse(prompt.slice(open, k + 1));
-    }
-    return JSON.parse(prompt.slice(open));
-  };
   if (prompt.includes("\\\`sme_map_roles\\\` judgment point")) return out(JSON.parse(readFileSync(process.env.SMP_MAPPER_ANSWER, "utf8")), "reading");
   const nth = (stage, file) => {
     const answers = JSON.parse(readFileSync(file, "utf8"));
@@ -174,25 +158,6 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
   };
   if (prompt.includes("\\\`smp_bind_move\\\` judgment point")) return out(nth("bind", process.env.SMP_BIND_ANSWERS), "bind");
   if (prompt.includes("\\\`smp_correspondence\\\` judgment point")) return out(nth("grounding", process.env.SMP_CORR_ANSWERS), "grounding");
-  // THE PRODUCTION PLAN ROW (kogaki#1784): one Leg, one Move, its paragraphs; under a case apart the Base Paragraph speaks
-  // the Analogy Mapping's counterparts and the Inference Paragraph the Leg's own table.
-  if (prompt.includes("\\\`paragraph_plan_unit\\\` judgment point")) {
-    const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable, analogy_you_must_draw_from: analogy } = body("leg_you_must_plan");
-    const drop = [process.env.SMP_DROP_ROLE, process.env.SMP_DROP_ROLE_2];
-    const sets = analogy ? [analogy.roles.map((x) => ({ role: x.role, expression: x.counterpart })), leg.table.correspondences] : [leg.table.correspondences];
-    const count = Number(process.env.SMP_PARAGRAPHS || sets.length);
-    const exprs = (i) => sets[Math.min(i, sets.length - 1)].filter((c) => c.role !== drop[i]).map((c) => c.expression);
-    const m = bindable.find((x) => x.id === leg.move);
-    return out({ version: "1", leg_id: leg.leg_id, move: process.env.SMP_WRONG_MOVE || leg.move,
-      rationale: "the Leg's one Move carries the structure in its table.",
-      paragraphs: Array.from({ length: count }, (_, i) => ({ paragraph: i + 1, materials: leg.claims.map((g) => g.strand),
-        ...(i > 0 ? { join: "consequence" } : {}),
-        purpose: "brings the reader to the chart as the bound of the gardener.",
-        depends_on: [], "re-activate": [], rationale: "it is paragraph " + (i + 1) + " of the Trial.",
-        paragraph_waypoints: Array.from({ length: m.segments.length }, (_, n) => ({
-          point: n === 0 ? "PW-" + (i + 1) + "-1 " + exprs(i).join(" and ") + " hold together." : "PW-" + (i + 1) + "-" + (n + 1) + " the paragraph makes its point.",
-          cast: i === 0 && n === 0 ? { terse: true } : {} })) })) }, "waypoints");
-  }
   if (process.env.SMP_WRITE_REFUSE) return out("refusal: the first paragraph cannot be written.", "writer");
   return out("WRITTEN the crew, its list and the room left off.", "writer");
 });
@@ -261,16 +226,21 @@ const run = (name, args, extraEnv = {}) => {
 const stagesOf = (rec) => (rec ? rec.stages.map((s) => `${s.stage}:${s.state}`).join(",") : "no record");
 const fileOk = (f) => f && typeof f.path === "string" && existsSync(join(repo, f.path)) && f.sha256 === sha(join(repo, f.path));
 
-// (a) the composed route: bind, grounding, waypoints and write
-const STAGES = "bind:done,grounding:done,waypoints:done,write:done";
+// (a) the composed route: bind, grounding and write (kogaki#1883)
+const STAGES = "bind:done,grounding:done,write:done";
+// A paragraph record carries these keys and no other (kogaki#1883).
+const RECORD_KEYS = JSON.stringify(["move", "binding_rationale", "leaves"]);
+const recordKeys = (xs) => Array.isArray(xs) && xs.length > 0 && xs.every((x) => JSON.stringify(Object.keys(x)) === RECORD_KEYS);
 const a = run("composed", ["--structure", structure, "--compose"]);
 ok(a.res.status === 0, `(a) the run exited ${a.res.status}: ${a.res.stdout}${a.res.stderr}`);
 const rec = a.rec || {};
 ok(stagesOf(a.rec) === STAGES, `(a) the stages are not all done: ${JSON.stringify(rec.stages)}`);
-const recorded = ["bind", "grounding", "waypoints", "write"].flatMap((st) => a.calls(st));
-ok(recorded.length === 5 && a.seen.length === 5 && recorded.every((c, i) => c.stdin === a.seen[i].prompt && c.stdout === a.seen[i].answer)
-  && JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["bind", "grounding", "grounding", "waypoints", "writer"]),
-  `(a) the run did not record the bind, two correspondence, waypoints and writer calls the binary saw: ${recorded.length} recorded, ${a.seen.map((x) => x.stage)}`);
+const recorded = ["bind", "grounding", "write"].flatMap((st) => a.calls(st));
+ok(recorded.length === 4 && a.seen.length === 4 && recorded.every((c, i) => c.stdin === a.seen[i].prompt && c.stdout === a.seen[i].answer)
+  && JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["bind", "grounding", "grounding", "writer"]),
+  `(a) the run did not record the bind, two correspondence and writer calls the binary saw: ${recorded.length} recorded, ${a.seen.map((x) => x.stage)}`);
+ok(!existsSync(join(a.o, "waypoints")) && !a.seen.some((x) => x.prompt.includes("`paragraph_plan_unit`")),
+  "(a) the composed route wrote a `waypoints` folder or made a call with the row `paragraph_plan_unit` (kogaki#1883)");
 ok(rec.proposition && rec.proposition.cite === CITE && rec.proposition.proposition === PROPOSITION && rec.proposition.sha256 === sha(proposition)
   && !Object.hasOwn(rec, "strand"), `(a) trial.json's proposition is not the file's cite, sentence and sha256, or a strand key remains: ${JSON.stringify(rec.proposition)}`);
 ok(rec.structure && rec.structure.author === "owner" && rec.structure.sha256 === sha(structure) && rec.mapper === "owner-authored",
@@ -280,14 +250,15 @@ const rbs = existsSync(join(a.o, "rbs.yaml")) ? parseYaml(readFileSync(join(a.o,
 const TABLES = [{ move: MOVE, ...GARDEN }, { move: INFER, ...OWN }];
 ok(rbs.variant === "composed" && JSON.stringify(rbs.tables) === JSON.stringify(TABLES) && !Object.hasOwn(rbs, "base") && !Object.hasOwn(rbs, "correspondences")
   && Array.isArray(rbs.bindings) && rbs.bindings.length === 2 && rbs.bindings.every((x) => x.move === INFER)
-  && rbs.bindings.every((x) => x.paragraph_waypoints.length > 0) && !Object.hasOwn(rbs, "pairs") && !Object.hasOwn(rbs, "placeholder"),
+  && recordKeys(rbs.bindings) && !Object.hasOwn(rbs, "pairs") && !Object.hasOwn(rbs, "placeholder"),
   `(a) rbs.yaml is not variant composed with two tables and two paragraphs under the Leg's one Move: ${JSON.stringify(rbs)}`);
 // Call n of a row, under the stage's own directory (kogaki#1717).
 const callAt = (dir, row, n, file) => join(dir, "calls", row, String(n), file);
 ok([MOVE, INFER].every((m) => existsSync(callAt(join(a.o, "grounding", m), "smp_correspondence", 1, "prompt.md"))
   && existsSync(callAt(join(a.o, "grounding", m), "smp_correspondence", 1, "answer.json"))),
   "(a) the grounding stage does not keep each Move's call under grounding/<move>/");
-ok(rec.bind && rec.bind.author === "smp_bind_move" && rec.bind.base_move === MOVE && rec.bind.case === "apart" && rec.bind.inference_move === INFER && rec.bind.move === INFER && fileOk(rec.bind),
+ok(rec.bind && rec.bind.author === "smp_bind_move" && rec.bind.base_move === MOVE && rec.bind.case === "apart" && rec.bind.inference_move === INFER && rec.bind.move === INFER && fileOk(rec.bind)
+  && !Object.hasOwn(rec.bind, "plan_rationale"),
   `(a) trial.json's bind does not carry the bound Moves, the Leg's one Move and its file: ${JSON.stringify(rec.bind)}`);
 // the Analogy Mapping, written before the Leg (kogaki#1784): the base Move's table as the base domain
 const aAnalogy = existsSync(join(a.o, "analogy.yaml")) ? parseYaml(readFileSync(join(a.o, "analogy.yaml"), "utf8"), "analogy").analogy : {};
@@ -301,18 +272,6 @@ ok(rec.sheet && existsSync(join(repo, rec.sheet)), "(a) trial.json names no shee
 ok(rec.reading && readFileSync(join(repo, rec.reading), "utf8") === `# Reading of Trial ${rec.trial}\n`, "(a) reading.md is not empty under its header");
 ok(rec.stages && rec.stages.every((s) => s.calls === null || existsSync(join(repo, s.calls))), "(a) a stage names a calls.jsonl that does not exist");
 const inputOf = (stdin, key) => { const at = stdin.lastIndexOf(`"${key}"`); try { return JSON.parse(stdin.slice(stdin.lastIndexOf("{", at))); } catch { return null; } };
-const aWp = a.calls("waypoints");
-const aIn = aWp.length === 1 ? inputOf(aWp[0].stdin, "leg_you_must_plan") : null;
-const aLeg = aIn && aIn.leg_you_must_plan;
-const byOwn = new Map(OWN.correspondences.map((c) => [c.role, c.expression]));
-const SECOND = pointOf([...mapped.relations.map((x) => x.holds), mapped.higher_order.holds], (id) => byOwn.get(id));
-// the production plan row's input (kogaki#1784): one Leg, its text the subject's structure, its one Move and its own table,
-// and the Analogy Mapping; no Brief Waypoint and no `tables`
-ok(aWp.length === 1 && aWp[0].stdin.includes("`paragraph_plan_unit` judgment point") && aLeg && !Object.hasOwn(aLeg, "waypoints") && aLeg.text === SECOND
-  && aLeg.move === INFER && JSON.stringify(aLeg.table) === JSON.stringify(OWN) && aLeg.structure && aIn.paragraphs_at_most === 2
-  && !Object.hasOwn(aIn, "tables") && JSON.stringify(aIn.analogy_you_must_draw_from) === JSON.stringify(aAnalogy)
-  && JSON.stringify(aIn.paragraph_moves_you_may_bind.map((m) => m.id)) === JSON.stringify([INFER]),
-  `(a) the waypoints call's stdin is not the production row over one Leg bound to the inference Move, its own table and the Analogy Mapping: ${JSON.stringify(aLeg)}`);
 const aBindIn = a.calls("bind").length ? inputOf(a.calls("bind")[0].stdin, "structure") : null;
 const aMoveIn = aBindIn && (aBindIn.moves || []).find((m) => m.id === MOVE);
 ok(aBindIn && aBindIn.persona && aBindIn.persona.prior_knowledge && aMoveIn && typeof aMoveIn.description === "string"
@@ -320,37 +279,36 @@ ok(aBindIn && aBindIn.persona && aBindIn.persona.prior_knowledge && aMoveIn && t
   `(a) the bind call's stdin does not carry the structure, the Persona's line and each Move as { id, description, segments, takes, leaves }: ${JSON.stringify(aMoveIn)}`);
 const aBindYaml = existsSync(join(a.o, "bind.yaml")) ? parseYaml(readFileSync(join(a.o, "bind.yaml"), "utf8"), "bind") : {};
 ok(Array.isArray(aBindYaml.paragraphs) && aBindYaml.paragraphs.length === 2 && JSON.stringify(rec.bind.paragraphs) === JSON.stringify(aBindYaml.paragraphs)
-  && aBindYaml.paragraphs.every((e) => e.move === INFER && e.binding_rationale === RATIONALE && e.paragraph_waypoints.length > 0),
-  `(a) bind.yaml's paragraphs is not two entries of { move, binding_rationale, leaves, paragraph_waypoints }: ${JSON.stringify(aBindYaml.paragraphs)}`);
+  && recordKeys(aBindYaml.paragraphs) && aBindYaml.paragraphs.every((e) => e.move === INFER && e.binding_rationale === RATIONALE),
+  `(a) bind.yaml's paragraphs under apart is not two records of { move, binding_rationale, leaves } and no other key: ${JSON.stringify(aBindYaml.paragraphs)}`);
 // a base Move leaving no carry: one paragraph under it, one binding, and an Analogy Mapping of none
 const a1 = run("composed-alone", ["--structure", structure, "--compose"], { SMP_BIND_ANSWERS: answers("bind-alone", [ALONE]) });
-const a1Leg = a1.calls("waypoints").length ? (inputOf(a1.calls("waypoints")[0].stdin, "leg_you_must_plan") || {}).leg_you_must_plan : null;
 const a1Rbs = existsSync(join(a1.o, "rbs.yaml")) ? parseYaml(readFileSync(join(a1.o, "rbs.yaml"), "utf8"), "rbs") : {};
 const a1Sheet = existsSync(join(a1.o, "sheet.html")) ? readFileSync(join(a1.o, "sheet.html"), "utf8") : "";
-ok(a1.res.status === 0 && stagesOf(a1.rec) === STAGES && a1Leg && a1Leg.move === PLAIN && a1.rec.bind.move === PLAIN
-  && !Object.hasOwn((inputOf(a1.calls("waypoints")[0].stdin, "leg_you_must_plan") || {}), "analogy_you_must_draw_from")
+ok(a1.res.status === 0 && stagesOf(a1.rec) === STAGES && a1.rec.bind.move === PLAIN && recordKeys(a1.rec.bind.paragraphs)
+  && recordKeys(a1Rbs.bindings) && a1.rec.bind.paragraphs[0].move === PLAIN && !existsSync(join(a1.o, "waypoints"))
   && typeof (parseYaml(readFileSync(join(a1.o, "analogy.yaml"), "utf8"), "analogy").analogy || {}).none === "string"
   && a1.rec.bind.inference_move === null && a1.rec.bind.paragraphs.length === 1 && (a1Rbs.bindings || []).length === 1
   && a1.calls("grounding").length === 1 && (a1Rbs.tables || []).length === 1 && a1Rbs.tables[0].move === PLAIN
   && (a1Sheet.match(/<p class="meta">Base: /g) || []).length === 1
   && (a1Sheet.match(/<caption>Paragraph \d+ <span class="meta">[^<]*<\/span><\/caption><thead><tr><th>#/g) || []).length === 1 && (a1Sheet.match(/<caption>Binding \d+<\/caption>/g) || []).length === 1,
-  `(a) a base Move leaving no carry did not write one paragraph under it, one binding and no Analogy Mapping: ${a1.res.status} ${stagesOf(a1.rec)} ${JSON.stringify(a1Leg)} ${a1.res.stderr}`);
+  `(a) a base Move leaving no carry did not write one paragraph record under it, one binding and no Analogy Mapping: ${a1.res.status} ${stagesOf(a1.rec)} ${JSON.stringify(a1.rec && a1.rec.bind)} ${a1.res.stderr}`);
 
-// (e) the writer's stdin is the Packet; it carries no Waypoint, no Serves and no Cast line (kogaki#1859)
+// (e) the writer's stdin is the Packet; it carries no Serves and no Cast line (kogaki#1859)
 const w = a.calls("write");
 const packet = existsSync(join(a.o, "write", "packet.md")) ? readFileSync(join(a.o, "write", "packet.md"), "utf8") : null;
 ok(packet !== null && w.length === 1 && w[0].stdin === packet, "(e) the writer's recorded stdin is not the Packet byte for byte");
-ok(packet !== null && !packet.includes("PW-1-1") && !packet.includes("*Serves:*") && !packet.includes("*Cast:*")
+ok(packet !== null && !packet.includes("*Serves:*") && !packet.includes("*Cast:*")
   && packet.includes("\nThe claims below are the whole plan of this paragraph.\n"),
-  "(e) the Packet carries a Waypoint, a Serves or a Cast line, or does not say the claims are the whole plan");
+  "(e) the Packet carries a Serves or a Cast line, or does not say the claims are the whole plan");
 
 // (b) the Mapper route
 writeFileSync(join(root, "answer.json"), JSON.stringify(mapped));
 const b = run("mapped", ["--mapper", "sme_map_roles", "--compose"], { SMP_MAPPER_ANSWER: join(root, "answer.json") });
-const bCalls = ["reading", "bind", "grounding", "waypoints", "write"].flatMap((st) => b.calls(st));
-ok(b.res.status === 0 && stagesOf(b.rec) === `reading:done,${STAGES}` && bCalls.length === 6
+const bCalls = ["reading", "bind", "grounding", "write"].flatMap((st) => b.calls(st));
+ok(b.res.status === 0 && stagesOf(b.rec) === `reading:done,${STAGES}` && bCalls.length === 5
   && b.rec.structure.author === "mapper" && b.rec.mapper.variant === "sme_map_roles",
-  `(b) the --mapper run did not record six calls with structure.author: mapper: ${b.res.status} ${stagesOf(b.rec)} ${bCalls.length} ${b.res.stderr}`);
+  `(b) the --mapper run did not record five calls with structure.author: mapper: ${b.res.status} ${stagesOf(b.rec)} ${bCalls.length} ${b.res.stderr}`);
 
 // (c) `--rbs` is retired, and a Trial's route is exactly one of `--compose` and `--rbs-file`
 const c = run("retired-rbs", ["--structure", structure, "--rbs", "rbs_base"]);
@@ -390,7 +348,7 @@ ok(dr.res.status === 0 && drCalls.length === 2 && drCalls[1].stdin.includes('bas
   && drStage && JSON.stringify(drStage.refusals.map((x) => [x.group, x.reach])) === JSON.stringify([["library", "record"]]),
   `(d) a library refusal did not render the record sentence on call 2, or the second answer was not taken whole: ${dr.res.status} ${drCalls.length} ${dr.res.stderr}`);
 const dStop = run("bind-stop", ["--structure", structure, "--compose"], { SMP_BIND_ANSWERS: answers("bind-stop", [{ ...CARRYING, base_move: "no_such_move" }]) });
-ok(dStop.res.status !== 0 && stagesOf(dStop.rec) === "bind:stopped,grounding:not run,waypoints:not run,write:not run" && dStop.calls("bind").length === 2
+ok(dStop.res.status !== 0 && stagesOf(dStop.rec) === "bind:stopped,grounding:not run,write:not run" && dStop.calls("bind").length === 2
   && /^bind: /.test(String(dStop.rec.stopped)) && String(dStop.rec.stopped).includes('base_move "no_such_move"')
   && !existsSync(join(dStop.o, "rbs.yaml")) && existsSync(join(dStop.o, "sheet.html")),
   `(d) a second refused bind answer did not stop the Trial at bind: ${dStop.res.status} ${stagesOf(dStop.rec)} ${JSON.stringify(dStop.rec && dStop.rec.stopped)}`);
@@ -398,25 +356,6 @@ const dSheet = existsSync(join(dStop.o, "sheet.html")) ? readFileSync(join(dStop
 const dParagraph = (/<section class="card" id="proposition-paragraph">([\s\S]*?)<\/section>/.exec(dSheet) || [])[1] || "";
 ok(dStop.rec && dParagraph.includes(`stopped — ${dStop.rec.stopped}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")),
   `(d) the stopped Trial's Proposition and Paragraph part does not carry the stop reason: ${dParagraph}`);
-const dWrong = run("waypoints-wrong-move", ["--structure", structure, "--compose"], { SMP_WRONG_MOVE: PLAIN });
-ok(dWrong.res.status !== 0 && stagesOf(dWrong.rec) === "bind:done,grounding:done,waypoints:stopped,write:not run"
-  && String(dWrong.rec.stopped).includes(`the answer binds "${PLAIN}", and the Move bound to the Leg at \`bind\` is "${INFER}"`),
-  `(d) a waypoints answer binding another Move was not refused naming the Leg's Move: ${dWrong.res.status} ${stagesOf(dWrong.rec)} ${JSON.stringify(dWrong.rec && dWrong.rec.stopped)}`);
-const dDrop = run("waypoints-drop-role", ["--structure", structure, "--compose"], { SMP_DROP_ROLE: "list" });
-ok(dDrop.res.status === 0 && stagesOf(dDrop.rec) === STAGES,
-  `(d) a Base Paragraph whose points carry no expression of one Role verbatim was refused by the program: ${dDrop.res.status} ${stagesOf(dDrop.rec)} ${JSON.stringify(dDrop.rec && dDrop.rec.stopped)}`);
-const dDrop2 = run("waypoints-drop-role-inference", ["--structure", structure, "--compose"], { SMP_DROP_ROLE_2: "list" });
-ok(dDrop2.res.status === 0 && stagesOf(dDrop2.rec) === STAGES,
-  `(d) an Inference Paragraph whose points carry no expression of one Role of its own table verbatim was refused by the program: ${dDrop2.res.status} ${stagesOf(dDrop2.rec)} ${JSON.stringify(dDrop2.rec && dDrop2.rec.stopped)}`);
-const dId = correspondenceVocabularyRefusal([{ point: "The gardener and a flower bed follow the planting chart." }, { point: "The crew goes on." }], GARDEN);
-ok(dId && dId.includes('point 2 carries the Role id "crew"'), `(d) a Base Paragraph point carrying a Role id was not refused naming the point: ${dId}`);
-const OWN_ALL = "The automatic rule set covers the files the walker sees and passes a file left off the walk";
-ok(correspondenceVocabularyRefusal([{ point: `${OWN_ALL}, as the gardener passes a flower bed off the planting chart.` }], OWN, [GARDEN], 2) === null,
-  "(d) Inference Paragraph points carrying its own table's expressions and the base table's were refused");
-const dId2 = correspondenceVocabularyRefusal([{ point: `${OWN_ALL}.` }, { point: "The crew goes on." }], OWN, [GARDEN], 2);
-ok(dId2 && dId2.startsWith(`Paragraph 2's point 2 carries the Role id "crew"`), `(d) an Inference Paragraph point carrying a Role id was not refused naming the paragraph: ${dId2}`);
-ok(correspondenceVocabularyRefusal([{ point: "The reader is asked." }, { point: "The gardener tends a flower bed by the planting chart." }], GARDEN) === null,
-  "(d) Base Paragraph points carrying no Role id were refused");
 
 // (g) an expression sharing a word with the proposition is accepted (kogaki#1707); the Role rules hold on every table
 const BASES = { base: { domain: "a garden" }, correspondences: [{ role: "crew", expression: "the gardener" }, { role: "list", expression: "the chart the walker keeps" }, { role: "room", expression: "a bed" }] };
@@ -431,8 +370,6 @@ const GUARD_TABLE = { base: { domain: "a household alarm panel and the door and 
     { role: "list", expression: "the openings the panel has been set to sound on" }, { role: "happening", expression: "a back door being opened" }] };
 const gGuard = validateRbsTable({ tables: [{ move: MOVE, ...GUARD_TABLE }] }, GUARD);
 ok(!gGuard.error, `(g) "the openings the panel has been set to sound on" was refused against the guard-reach proposition: ${JSON.stringify(gGuard)}`);
-const gVocab = correspondenceVocabularyRefusal([{ point: "The sensors wired to the household alarm panel cover the openings the panel has been set to sound on." }], GUARD_TABLE);
-ok(gVocab === null, `(g) Base Paragraph points carrying no expression of the Role "happening" verbatim were refused by the program: ${gVocab}`);
 const gNull = gv({ ...BASES, correspondences: BASES.correspondences.map((c, i) => (i === 0 ? { ...c, expression: null } : { ...c, expression: "a bed" })) });
 ok(gNull.error && gNull.error.startsWith("correspondences[0].expression "),
   `(g) a null expression was not refused naming correspondences[0].expression: ${JSON.stringify(gNull)}`);
@@ -468,11 +405,10 @@ const PROJ_TABLE = { move: MOVE, base: { domain: "a walker listing a repository'
   correspondences: [...ROLE_IDS, LONE.id].map((id) => ({ role: id, expression: "the walker's file list" })) };
 const tablesFor = (n) => [OWNED_TABLE, ...Array.from({ length: n }, () => PROJ_TABLE)];
 const owned = { tables: tablesFor(0), move: MOVE,
-  binding_rationale: "RATIONALE the Move asks and answers, as the crew asks which room comes first.",
-  waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1, point: `OWNED-${n + 1} the crew keeps to its list.` })) };
-const PROJ = { move: MOVE, binding_rationale: "RATIONALE2 the Move carries the crew's list over to the walker.",
-  waypoints: Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1,
-    point: n === 0 ? "PROJ-1 the walker sees the files." : n === 1 ? "PROJ-2 a dusty file is never reached." : `PROJ-${n + 1} the rule set keeps to its list.` })) };
+  binding_rationale: "RATIONALE the Move asks and answers, as the crew asks which room comes first." };
+const PROJ = { move: MOVE, binding_rationale: "RATIONALE2 the Move carries the crew's list over to the walker." };
+// The texts a binding carried before kogaki#1883, one per Segment: no field of a binding now.
+const OLD_TEXTS = Array.from({ length: SEGMENTS }, (_, n) => ({ segment: n + 1, point: `OWNED-${n + 1} the crew keeps to its list.` }));
 const ownedFile = join(root, "rbs-owned.yaml");
 writeFileSync(ownedFile, stringifyYaml({ ...owned, tables: tablesFor(1), projection: PROJ }));
 const unprojectedFile = join(root, "rbs-unprojected.yaml");
@@ -482,13 +418,24 @@ const PASSED = { id: "passed", between: ["crew", "room"], holds: "{crew} goes pa
 const HIGHER = [{ id: "h1", relates: ["cleans", "passed"], holds: "Because {crew} follows {list}, it goes past what {list} leaves out." }];
 writeFileSync(wide, stringifyYaml({ ...mapped, roles: [...mapped.roles, LONE], relations: [...mapped.relations, PASSED], higher_order: HIGHER }));
 const j = run("owned", ["--structure", wide, "--rbs-file", ownedFile]);
-const jCalls = ["bind", "grounding", "waypoints", "write"].flatMap((st) => j.calls(st));
+const jCalls = ["bind", "grounding", "write"].flatMap((st) => j.calls(st));
 ok(j.res.status === 0 && stagesOf(j.rec) === STAGES && jCalls.length === 1 && j.seen.length === 1
   && j.rec.bind.state === "supplied" && j.rec.bind.author === "owner" && j.rec.bind.move === MOVE
   && j.rec.rbs.variant === "owner-authored" && fileOk(j.rec.rbs) && j.rec.rbs.source && j.rec.rbs.source.sha256 === sha(ownedFile),
   `(j) the --rbs-file run did not make one call with bind.state supplied: ${j.res.status} ${stagesOf(j.rec)} ${jCalls.length} ${JSON.stringify(j.rec && j.rec.bind)} ${j.res.stderr}`);
 const jPacket = existsSync(join(j.o, "write", "packet.md")) ? readFileSync(join(j.o, "write", "packet.md"), "utf8") : "";
-ok(jPacket !== "" && !jPacket.includes("OWNED-1 the crew") && !jPacket.includes(`OWNED-${SEGMENTS} the crew`), "(j) the Packet carries a supplied point");
+ok(jPacket !== "" && recordKeys(j.rec && j.rec.bind.paragraphs) && !existsSync(join(j.o, "waypoints")),
+  `(j) the owner's route wrote no Packet, a paragraph record other than { move, binding_rationale, leaves }, or a waypoints folder: ${JSON.stringify(j.rec && j.rec.bind)}`);
+// A file carrying `waypoints`, at its root or in an entry of `projection`, is refused before any call (kogaki#1883).
+for (const [name, file, at] of [["owned-texts-root", { ...owned, tables: tablesFor(1), waypoints: OLD_TEXTS, projection: PROJ }, "waypoints"],
+  ["owned-texts-projection", { ...owned, tables: tablesFor(1), projection: [{ ...PROJ, waypoints: OLD_TEXTS }] }, "projection[0].waypoints"]]) {
+  const f = join(root, `${name}.yaml`);
+  writeFileSync(f, stringifyYaml(file));
+  const x = run(name, ["--structure", wide, "--rbs-file", f]);
+  ok(x.res.status !== 0 && x.res.stderr.includes(`\`${at}\` is no field of a binding: a binding carries \`move\` and \`binding_rationale\``)
+    && x.seen.length === 0 && !existsSync(x.o),
+    `(j) a file carrying ${at} was not refused before any call naming the key: ${x.res.status} ${x.seen.length} ${x.res.stderr}`);
+}
 const jNo = run("owned-unprojected", ["--structure", wide, "--rbs-file", unprojectedFile]);
 ok(jNo.res.status !== 0 && jNo.res.stderr.includes("`projection`") && jNo.seen.length === 0 && !existsSync(jNo.o),
   `(j) an owner's file without projection was not refused naming projection: ${jNo.res.status} ${jNo.res.stderr}`);
@@ -528,10 +475,9 @@ const l1p = lv({ pairs: OWNED_TABLE.correspondences.map((c) => ({ base: c.expres
 ok(l1p.error && l1p.error.includes("`pairs`"), `(l) a table carrying pairs was not refused naming pairs: ${JSON.stringify(l1p)}`);
 const l2 = lv({ move: "no_such_move" });
 ok(l2.error && l2.error.startsWith("move "), `(l) a move naming no Move was not refused naming move: ${JSON.stringify(l2)}`);
-const l3 = lv({ waypoints: owned.waypoints.slice(1) });
-ok(l3.error && l3.error.startsWith("waypoints "), `(l) a waypoints list of the wrong length was not refused naming waypoints: ${JSON.stringify(l3)}`);
-const l4 = lv({ waypoints: owned.waypoints.map((w, n) => (n === 2 ? { ...w, point: "The walker sees a room." } : w)) });
-ok(!l4.error, `(l) a supplied point carrying a claim word was refused: ${JSON.stringify(l4)}`);
+const l3 = lv({ waypoints: OLD_TEXTS });
+ok(l3.error === "`waypoints` is no field of a binding: a binding carries `move` and `binding_rationale`",
+  `(l) a root waypoints was not refused naming the key (kogaki#1883): ${JSON.stringify(l3)}`);
 
 // (m) every Role carries its attributes; a root attributes is an undeclared key
 const propositionRec = { cite: CITE, proposition: PROPOSITION };
@@ -565,14 +511,17 @@ ok(!pp.includes('class="cols"') && pp.startsWith(`<h2>Proposition and Paragraph<
 ok(!sheet.includes("WBS") && !jSheet.includes("WBS"), "(f) a sheet still carries `WBS`");
 const segs = moveContract(MOVE, resolve(repo, library)).segments;
 const segTables = [...section(jSheet, "segments").matchAll(/<table><caption>Paragraph \d+ [\s\S]*?<\/table>/g)].map((x) => x[0]);
-const segRows = [...(segTables[0] || "").matchAll(/<tr><td>(\d+)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><td>([\s\S]*?)<\/td><\/tr>/g)];
+const SEG_ROW = /<tr><td>(\d+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/g;
+const segRows = [...(segTables[0] || "").matchAll(SEG_ROW)];
 ok(segRows.length === segs.length && segs.every((sg, n) => segRows[n][1] === String(n + 1) && segRows[n][2] === esc(sg.operation)
-  && segRows[n][3] === esc(sg.relation || "") && segRows[n][4] === esc(sg.manner || "") && segRows[n][5] === esc(owned.waypoints[n].point)),
-  `(f) the Segments table is not one row per Segment with its operation, relation, manner and point: ${segRows.length} rows for ${segs.length} segments`);
+  && segRows[n][3] === esc(sg.relation || "") && segRows[n][4] === esc(sg.manner || "")),
+  `(f) the Segments table is not one row per Segment with its operation, relation and manner: ${segRows.length} rows for ${segs.length} segments`);
+// No column of texts on either route (kogaki#1883): four headings, and every row four cells.
+const HEAD_ROW = "<thead><tr><th>#</th><th>operation</th><th>relation</th><th>manner</th></tr></thead>";
+ok([sheet, jSheet].every((h) => { const sg = section(h, "segments"); const rows = (sg.match(/<tr><td>/g) || []).length;
+  return rows > 0 && rows === [...sg.matchAll(SEG_ROW)].length && (sg.match(/<thead>/g) || []).length === (sg.match(new RegExp(HEAD_ROW, "g")) || []).length; }),
+  "(f) a Segments table carries a column beyond #, operation, relation and manner (kogaki#1883)");
 ok(!sheet.includes("serves L") && !jSheet.includes("serves L"), "(f) a sheet still carries `serves L`");
-ok(section(sheet, "segments").includes('<td>PW-1-1 the gardener and the planting chart and a flower bed hold together. <span class="meta">terse</span></td>')
-  && (section(sheet, "segments").match(/class="meta">terse</g) || []).length === 1,
-  "(f) the Segments table's point cell of the Waypoint whose cast sets `terse` does not carry it in a meta span, alone (kogaki#1695)");
 const tableOf = (html, caption) => [...html.matchAll(new RegExp(`<table><caption>${caption}</caption>([\\s\\S]*?)</table>`, "g"))].map((x) => x[1]);
 const rowOf = (table, label) => (new RegExp(`<th rowspan="\\d+">${label}</th>([\\s\\S]*?)(?=<tr><th |</tbody>)`).exec(table) || [])[1] || "";
 const labelsOf = (table) => [...table.matchAll(/<th rowspan="\d+">([\s\S]*?)<\/th>/g)].map((x) => x[1]);
@@ -674,20 +623,19 @@ const blockOf = (packet, heading) => { const at = packet.indexOf(heading); if (a
 const SO_FAR = "## The article so far, up to this Leg:";
 for (const [name, file] of [["projected", projFile], ["projected-list", listFile]]) {
   const o = run(name, ["--structure", wide, "--rbs-file", file]);
-  const oCalls = ["bind", "grounding", "waypoints", "write"].flatMap((st) => o.calls(st));
+  const oCalls = ["bind", "grounding", "write"].flatMap((st) => o.calls(st));
   ok(o.res.status === 0 && stagesOf(o.rec) === STAGES && oCalls.length === 1 && o.seen.length === 1,
     `(o) ${name}: the projecting run did not exit 0 with one writer call: ${o.res.status} ${stagesOf(o.rec)} ${oCalls.length} ${o.res.stderr}`);
   const oBind = existsSync(join(o.o, "bind.yaml")) ? parseYaml(readFileSync(join(o.o, "bind.yaml"), "utf8"), "bind") : {};
   ok(Array.isArray(oBind.paragraphs) && oBind.paragraphs.length === 2 && oBind.move === MOVE && oBind.binding_rationale === owned.binding_rationale
     && oBind.paragraphs[1].move === MOVE && oBind.paragraphs[1].binding_rationale === PROJ.binding_rationale
-    && oBind.paragraphs[1].paragraph_waypoints[0].point === PROJ.waypoints[0].point
+    && recordKeys(oBind.paragraphs)
     && JSON.stringify(o.rec && o.rec.bind.paragraphs) === JSON.stringify(oBind.paragraphs),
     `(o) ${name}: bind.yaml's paragraphs is not the two bindings in order: ${JSON.stringify(oBind.paragraphs)}`);
   const pk = existsSync(join(o.o, "write", "packet.md")) ? readFileSync(join(o.o, "write", "packet.md"), "utf8") : "";
   const w1 = o.calls("write");
   ok(w1.length === 1 && w1[0].stdin === pk, `(o) ${name}: the writer's stdin is not the Packet`);
-  ok(pk !== "" && !pk.includes("*Serves:*") && !pk.includes(owned.waypoints[0].point) && !pk.includes(PROJ.waypoints[0].point),
-    `(o) ${name}: the Packet carries a Serves line or a binding's point`);
+  ok(pk !== "" && !pk.includes("*Serves:*"), `(o) ${name}: the Packet carries a Serves line`);
   const claimLines = (blockOf(pk, "## The claims this Leg asserts") || "").split("\n").filter((l) => l.startsWith("- "));
   ok(JSON.stringify(claimLines) === JSON.stringify([`- ${PROPOSITION}`]), `(o) ${name}: the claims block is not the proposition alone: ${JSON.stringify(claimLines)}`);
   ok(!pk.includes("{"), `(o) ${name}: the Packet carries a Role id in braces`);
@@ -719,25 +667,26 @@ const o3Sheet = existsSync(join(o3.o, "sheet.html")) ? readFileSync(join(o3.o, "
 const o3Caps = tableOf(section(o3Sheet, "bindings"), "Binding \\d+");
 ok(o3.res.status === 0 && o3.seen.length === 1 && o3Caps.length === 3, `(o) a projection list of two did not exit 0 with three Binding tables: ${o3.res.status} ${o3Caps.length} ${o3.res.stderr}`);
 
-// (p) a projecting point carrying a claim word passes ("walker" in PROJ-1)
-ok(!validateRbsTable({ ...owned, tables: tablesFor(1), projection: [PROJ] }, PROPOSITION, { movesDir: resolve(repo, library) }).error, "(p) a projecting point carrying a claim word was refused");
+// (p) a file with a projecting binding passes
+ok(!validateRbsTable({ ...owned, tables: tablesFor(1), projection: [PROJ] }, PROPOSITION, { movesDir: resolve(repo, library) }).error, "(p) a file with a projecting binding was refused");
 
 // (q) a projecting binding's fields are refused naming its index
 const qv = (projection, base = owned) => validateRbsTable({ ...base, projection }, PROPOSITION, { movesDir: resolve(repo, library) });
-const q1 = qv([PROJ, { ...PROJ, waypoints: PROJ.waypoints.slice(1) }]);
-ok(q1.error && q1.error.startsWith("projection[1].waypoints "), `(q) a wrong-length projection[1].waypoints was not refused naming it: ${JSON.stringify(q1)}`);
+const q1 = qv([PROJ, { ...PROJ, waypoints: OLD_TEXTS }]);
+ok(q1.error === "`projection[1].waypoints` is no field of a binding: a binding carries `move` and `binding_rationale`",
+  `(q) projection[1] carrying waypoints was not refused naming its index (kogaki#1883): ${JSON.stringify(q1)}`);
 const q2 = qv([PROJ, { ...PROJ, move: "no_such_move" }]);
 ok(q2.error && q2.error.startsWith("projection[1].move "), `(q) an unknown projection[1].move was not refused naming it: ${JSON.stringify(q2)}`);
 const q2m = qv({ ...PROJ, move: "no_such_move" });
 ok(q2m.error && q2m.error.startsWith("projection[0].move "), `(q) an unknown move in a projection map was not refused naming index 0: ${JSON.stringify(q2m)}`);
-const { move: _m, waypoints: _w, ...unbound } = owned;
+const { move: _m, ...unbound } = owned;
 const q3 = qv(PROJ, unbound);
-ok(q3.error && q3.error.includes("`projection`") && q3.error.includes("`move`") && q3.error.includes("`waypoints`"),
-  `(q) projection without the first binding was not refused naming both: ${JSON.stringify(q3)}`);
+ok(q3.error && q3.error.includes("`projection`") && q3.error.includes("`move`") && !q3.error.includes("`waypoints`"),
+  `(q) projection without the first binding was not refused naming move: ${JSON.stringify(q3)}`);
 
 // (r) a writer stop leaves no paragraph.md
 const r = run("write-refused", ["--structure", wide, "--rbs-file", projFile], { SMP_WRITE_REFUSE: "1" });
-ok(r.res.status !== 0 && stagesOf(r.rec) === "bind:done,grounding:done,waypoints:done,write:stopped" && /^write: /.test(String(r.rec.stopped))
+ok(r.res.status !== 0 && stagesOf(r.rec) === "bind:done,grounding:done,write:stopped" && /^write: /.test(String(r.rec.stopped))
   && !existsSync(join(r.o, "paragraph.md")) && existsSync(join(r.o, "sheet.html")),
   `(r) a writer refusal did not stop at write with no paragraph.md: ${r.res.status} ${stagesOf(r.rec)} ${JSON.stringify(r.rec && r.rec.stopped)}`);
 
@@ -841,7 +790,7 @@ ok(u2Grounding.includes(`<tr><td>smp_correspondence</td><td>1</td><td>role</td><
   && u2Grounding.includes('refusal.json</a>') && u2Grounding.includes("<td>2</td><td></td><td></td><td>passed</td>"),
   `(u) the sheet's Call Records section does not list the refused grounding call with its group and reach: ${u2Grounding.slice(0, 600)}`);
 const u3 = run("corr-stop", ["--structure", structure, "--compose"], { SMP_CORR_ANSWERS: answers("corr-stop", [ROLED]) });
-ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,grounding:stopped,waypoints:not run,write:not run" && u3.calls("grounding").length === 2
+ok(u3.res.status !== 0 && stagesOf(u3.rec) === "bind:done,grounding:stopped,write:not run" && u3.calls("grounding").length === 2
   && /^grounding: /.test(String(u3.rec.stopped)) && String(u3.rec.stopped).includes('correspondences[0].role "nobody" names no Role') && !existsSync(join(u3.o, "rbs.yaml")),
   `(u) a second refusal did not stop the Trial at grounding: ${u3.res.status} ${stagesOf(u3.rec)} ${JSON.stringify(u3.rec && u3.rec.stopped)}`);
 const CORR_ROW = { ...JSON.parse(readFileSync(join(repo, "src/structure-mapping-playground/playground-workflow.json"), "utf8")).smp_correspondence, id: "smp_correspondence" };

@@ -1,5 +1,5 @@
-// The Structure-Mapping Playground's inputs, read and refused (kogaki#1664): the proposition file,
-// the owner-authored RelationalStructure, and the Trial's one Leg.
+// The Structure-Mapping Playground's inputs, read and refused (kogaki#1664): the proposition file and the owner-authored
+// RelationalStructure.
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -8,7 +8,6 @@
 //   The Structure-Mapping Playground
 //       specs/spec-draft-pipeline/SPEC.md
 //
-import { validateLegPathUnit } from "../move-extraction-playground/leg-brief.mjs";
 
 const isMap = (v) => v && typeof v === "object" && !Array.isArray(v);
 const isText = (v) => typeof v === "string" && v.trim() !== "";
@@ -198,47 +197,4 @@ export function validateStructure(record, proposition) {
     ids.add(h.id);
   }
   return {};
-}
-
-// The Leg's Claims, one per relation in order and then one per higher-order relation: each `holds`
-// sentence, with the `material` its Claim and point are recovered from.
-export function structureClaims(record) {
-  const role = new Map(record.roles.map((r) => [r.id, r.context]));
-  const relation = new Map(record.relations.map((r) => [r.id, r]));
-  const rows = record.relations.map((r) => ({
-    from: r.id,
-    holds: r.holds,
-    material: [r.holds, ...r.between.map((id) => role.get(id))],
-  }));
-  for (const h of higherOrderOf(record)) {
-    const under = h.relates.map((id) => relation.get(id));
-    rows.push({
-      from: h.id,
-      holds: h.holds,
-      material: [
-        h.holds,
-        ...under.map((r) => r.holds),
-        ...[...new Set(under.flatMap((r) => r.between))].map((id) => role.get(id)),
-      ],
-    });
-  }
-  return rows.map((r, i) => ({ claim_strand: `L${i + 1}`, ...r }));
-}
-
-// The Trial's Leg, refused or `{}`: the Trial's own conditions first, then the Move-Extraction Playground's own
-// validator over the Leg. `inputs` carries `holds` and `segments`.
-export function validateSmpLegUnit(record, inputs) {
-  const leg = isMap(record) && Array.isArray(record.legs) && record.legs.length === 1 ? record.legs[0] : null;
-  if (isMap(leg)) {
-    if ("introduces" in leg)
-      return { error: "leg 1 carries `introduces` — a Trial's Leg introduces no term (kogaki#1664)" };
-    for (const [i, g] of (Array.isArray(leg.claims) ? leg.claims : []).entries()) {
-      if (isMap(g) && inputs.holds[i] !== undefined && g.proposition !== inputs.holds[i]) {
-        return {
-          error: `leg 1: Claim ${i + 1}'s \`proposition\` is not entry ${i + 1}'s \`holds\` word for word: ${JSON.stringify(inputs.holds[i])}`,
-        };
-      }
-    }
-  }
-  return validateLegPathUnit(record, { paragraph_count: inputs.holds.length, segments: inputs.segments });
 }

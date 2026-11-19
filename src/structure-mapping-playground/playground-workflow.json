@@ -2,25 +2,6 @@
   "version": "1",
   "governing_text": "specs/spec-draft-pipeline/SPEC.md, The Structure-Mapping Playground",
   "licensed_by": "kogaki#1664",
-  "smp_leg_unit": {
-    "id": "smp_leg_unit",
-    "binds": {
-      "leg": {
-        "leg_id": "content",
-        "claims": "content",
-        "waypoints": "content",
-        "waypoints.point": "content",
-        "waypoints.case": "content"
-      }
-    },
-    "binds_unread": {
-      "leg": ["relation", "reaches_target", "opens_section", "text"]
-    },
-    "note": "The one Leg of a Trial's Brief (kogaki#1664), rebuilt to the Leg with no Move (kogaki#1768). AUTHORED HERE, its point text COPIED from the Move-Extraction Playground's `leg_path_unit` row through `copies` (kogaki#1775).",
-    "schema_file": "src/leg-schema.json",
-    "governing": "the Move-Extraction Playground's `leg_path_unit` row and its point text; kogaki#1664; kogaki#1768; kogaki#1775",
-    "prompt_file": "structure-mapping-playground/smp-leg-unit"
-  },
   "sme_map_roles": {
     "id": "sme_map_roles",
     "note": "The Mapper's structure reading (kogaki#1665, kogaki#1721): one call reads the proposition into a RelationalStructure for the Persona. A second variant is a second row and a second Trial, never an edit of this one.",

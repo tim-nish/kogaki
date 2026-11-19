@@ -1,6 +1,6 @@
 // The short Trial's correspondence table, refused or `{}` (kogaki#1669, kogaki#1671): one table per bound Move (kogaki#1709),
 // each its base (kogaki#1693) and correspondences, an owner-supplied binding of one Move, and the projecting bindings
-// (kogaki#1681); and the Correspondence vocabulary of each paragraph's points (kogaki#1700, kogaki#1709).
+// (kogaki#1681).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -24,31 +24,19 @@ function baseRefusal(base, at = "") {
   return null;
 }
 
-// A binding: `move` resolving in the library, and one `{ segment, point }` per segment, in order.
-// `at` prefixes every field it names.
+// A binding: `move` resolving in the library, and `binding_rationale` where given (kogaki#1883). `at` prefixes every field it names.
 function bindingRefusal(record, movesDir, at = "") {
   if (Object.hasOwn(record, "grounds"))
     return `${at}grounds is no field of a binding: why the Move was chosen is \`${at}binding_rationale\` (kogaki#1678)`;
+  if (Object.hasOwn(record, "waypoints"))
+    return `\`${at}waypoints\` is no field of a binding: a binding carries \`move\` and \`binding_rationale\``;
   if (Object.hasOwn(record, "binding_rationale") && !isText(record.binding_rationale)) {
     return `${at}binding_rationale is not one text — why the Move was chosen (kogaki#1675)`;
   }
-  const hasMove = Object.hasOwn(record, "move");
-  const hasWaypoints = Object.hasOwn(record, "waypoints");
-  if (!hasMove && !hasWaypoints) return null;
-  if (!hasMove || !hasWaypoints)
-    return `the correspondence table carries \`${at}${hasMove ? "move" : "waypoints"}\` without \`${at}${hasMove ? "waypoints" : "move"}\``;
+  if (!Object.hasOwn(record, "move")) return null;
   if (!isText(record.move)) return `${at}move is not one Move id`;
   const c = moveContract(record.move, movesDir);
   if (c.error) return `${at}move ${JSON.stringify(record.move)} names no Move of the library ${movesDir}: ${c.error}`;
-  const n = c.segments.length;
-  if (!Array.isArray(record.waypoints) || record.waypoints.length !== n) {
-    return `${at}waypoints carries ${Array.isArray(record.waypoints) ? record.waypoints.length : "no list of"} entries, and the Move ${record.move} has ${n} segments`;
-  }
-  for (const [i, w] of record.waypoints.entries()) {
-    const field = `${at}waypoints[${i}]`;
-    if (!isMap(w) || w.segment !== i + 1) return `${field} is not \`{ segment: ${i + 1}, point }\``;
-    if (!isText(w.point)) return `${field}.point is empty`;
-  }
   return null;
 }
 
@@ -63,18 +51,16 @@ function projectionRefusal(record, movesDir) {
   if (!Object.hasOwn(record, "projection")) return null;
   const list = projectionsOf(record);
   if (!list.length)
-    return "projection is an empty list: it carries one `{ move, waypoints, binding_rationale }` per further paragraph";
-  if (!Object.hasOwn(record, "move") || !Object.hasOwn(record, "waypoints")) {
-    return "the correspondence table carries `projection` without `move` and `waypoints`: a projecting paragraph projects what paragraph one's binding gave the reader";
+    return "projection is an empty list: it carries one `{ move, binding_rationale }` per further paragraph";
+  if (!Object.hasOwn(record, "move")) {
+    return "the correspondence table carries `projection` without `move`: a projecting paragraph projects what paragraph one's binding gave the reader";
   }
   for (const [i, p] of list.entries()) {
     const at = `projection[${i}].`;
-    if (!isMap(p)) return `projection[${i}] is not a \`{ move, waypoints, binding_rationale }\` map`;
-    if (!Object.hasOwn(p, "move") || !Object.hasOwn(p, "waypoints")) {
-      return `the correspondence table carries \`projection[${i}]\` without \`${at}${Object.hasOwn(p, "move") ? "waypoints" : "move"}\``;
-    }
+    if (!isMap(p)) return `projection[${i}] is not a \`{ move, binding_rationale }\` map`;
     const r = bindingRefusal(p, movesDir, at);
     if (r) return r;
+    if (!Object.hasOwn(p, "move")) return `the correspondence table carries \`projection[${i}]\` without \`${at}move\``;
   }
   return null;
 }
@@ -197,10 +183,8 @@ export function validateRbsTable(record, _proposition, { movesDir = "moves", str
 export function suppliedEntry(record) {
   if (!record || !Object.hasOwn(record, "move")) return null;
   return {
-    waypoint: 1,
     move: record.move,
     binding_rationale: Object.hasOwn(record, "binding_rationale") ? String(record.binding_rationale).trim() : null,
-    paragraph_waypoints: record.waypoints.map((w) => ({ point: String(w.point).trim() })),
   };
 }
 
@@ -228,10 +212,4 @@ export function correspondenceVocabularyFailures(points, table, priorTables = []
     }
   }
   return failures;
-}
-
-// The same failures as one refusal, one line each, or null where there are none.
-export function correspondenceVocabularyRefusal(points, table, priorTables = [], paragraph = 1) {
-  const failures = correspondenceVocabularyFailures(points, table, priorTables, paragraph);
-  return failures.length ? failures.join("\n") : null;
 }

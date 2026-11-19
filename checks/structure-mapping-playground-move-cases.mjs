@@ -1,10 +1,11 @@
 // The cases of checks/check-structure-mapping-playground-move.sh (kogaki#1830), each stated in that member's `contract` in
 // checks/registry.json, over a fixture Brief and a fixture Move library:
 //   (a) the route's stages and files, case own, no Analogy Mapping, a refused reading retried once;
-//   (b) the sheet's Segments rows: `unmatched`, `base`, the Unmatched table and a Segment with no Waypoint;
+//   (b) the sheet's Segments rows, three columns each: `unmatched`, `base` and the Unmatched table;
 //   (c) the flags; (d) the Brief, Leg and Move refused by value with nothing written;
 //   (e) `validateMoveStructure` and (f) `validatePairing`, each refusal by name, a null not refused;
-//   (g) the Leg's structure; (h) the plan call's inputs, an unchanged production row, moves/ and theses/;
+//   (g) the Leg's structure; (h) no call of the row `paragraph_plan_unit` (kogaki#1883), an unchanged production row,
+//   moves/ and theses/;
 //   (i) the route under `--move-edges` (kogaki#1880), the Move's Bind targets and Edges read from its Move file, run to
 //   the end with no call between grounding and the writer but the readback (kogaki#1876); (j) a Move with no `bind` and
 //   `edges`, a Move whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing
@@ -40,23 +41,12 @@ const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 const { validateMoveStructure, validatePairing, unmatchedOf, legStructureOf } = await imp(
   "src/structure-mapping-playground/move-structure.mjs",
 );
-const { renderShortSheet } = await imp("src/structure-mapping-playground/sheet.mjs");
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "structure-mapping-playground-move-"));
 const trials = join(repo, "runs", "structure-mapping-playground");
 mkdirSync(trials, { recursive: true });
 const PLAN_TABLE = "src/paragraph-plan-workflow.json";
 const planTableSha = sha(PLAN_TABLE);
-// THE SENTENCE EACH PLAYGROUND PLAN PROMPT ADDS (kogaki#1855): the last sentence of its prompt file's
-// rule paragraph, the one the two files do not share.
-const lastSentenceOf = (file) => {
-  const line = readFileSync(file, "utf8")
-    .split("\n")
-    .find((l) => l.startsWith("{{> paragraph-plan/"));
-  return line.slice(line.lastIndexOf(" they stay with the Writer. ") + " they stay with the Writer. ".length);
-};
-const PAIRED_SENTENCE = lastSentenceOf("prompts/structure-mapping-playground/plan-leg-paired.prompt");
-
 const snapshot = () => {
   const rows = [];
   const walk = (d) => {
@@ -155,7 +145,6 @@ const writeBrief = (name, text) => {
 };
 const brief = writeBrief("brief", briefOf(STRUCTURE, LEGS));
 
-const LEG_S1_STRUCTURE = legStructureOf(STRUCTURE, "c_1");
 // ---- the answers: the Move read whole, and its pairing with Leg s1 ----
 const MOVE_STRUCTURE = {
   roles: [
@@ -220,28 +209,10 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
     let n = 0; try { n = readFileSync(dir + "/seen.jsonl", "utf8").split("\\n").filter(Boolean).filter((l) => JSON.parse(l).stage === stage).length; } catch {}
     return list[Math.min(n, list.length - 1)];
   };
-  const body = (key) => {
-    const at = prompt.lastIndexOf('"' + key + '"'); const open = prompt.lastIndexOf("{", at);
-    let depth = 0, str = false;
-    for (let k = open; k < prompt.length; k++) {
-      const ch = prompt[k];
-      if (str) { if (ch === "\\\\") k++; else if (ch === '"') str = false; continue; }
-      if (ch === '"') str = true; else if (ch === "{") depth++; else if (ch === "}" && --depth === 0) return JSON.parse(prompt.slice(open, k + 1));
-    }
-  };
   const row = (id) => prompt.includes("\\\`" + id + "\\\` judgment point");
   if (row("smp_read_move")) return out(nth("read", process.env.SMP_READ_ANSWERS), "read");
   if (row("smp_pair_roles")) return out(nth("pair", process.env.SMP_PAIR_ANSWERS), "pair");
   if (row("smp_correspondence")) return out(JSON.parse(process.env.SMP_TABLE), "grounding");
-  if (row("paragraph_plan_unit")) {
-    const { leg_you_must_plan: leg, paragraph_moves_you_may_bind: bindable } = body("leg_you_must_plan");
-    const m = bindable.find((x) => x.id === leg.move);
-    const serves = leg.claims.map((g) => g.strand);
-    return out({ version: "1", leg_id: leg.leg_id, move: leg.move, rationale: "the Move's Segments carry the Leg.",
-      paragraphs: [{ paragraph: 1, materials: serves, purpose: "states the Leg.", depends_on: [], "re-activate": [],
-        rationale: "it is the one paragraph of this Leg.",
-        paragraph_waypoints: m.segments.map((_, n) => ({ point: "PW-" + (n + 1) + " the installer writes the copied kit.", cast: {} })) }] }, "waypoints");
-  }
   if (prompt.startsWith("# Read back the plan of one paragraph")) return out(process.env.SMP_READBACK, "readback");
   return out("WRITTEN the installer and the copied kit.", "writer");
 });
@@ -302,13 +273,12 @@ const rec = a.rec || {};
 ok(a.res.status === 0, `(a) the run exited ${a.res.status}: ${a.said}`);
 ok(
   JSON.stringify((rec.stages || []).map((s) => `${s.stage}:${s.state}`)) ===
-    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "waypoints:done", "write:done"]),
-  `(a) the stages are not the route's five, all done: ${JSON.stringify(rec.stages)}`,
+    JSON.stringify(["move-reading:done", "pairing:done", "grounding:done", "write:done"]),
+  `(a) the stages are not the route's four, all done (kogaki#1883): ${JSON.stringify(rec.stages)}`,
 );
 ok(
-  JSON.stringify(a.seen.map((x) => x.stage)) ===
-    JSON.stringify(["read", "read", "pair", "grounding", "waypoints", "writer"]),
-  `(a) the calls are not the refused and retried reading, the pairing, grounding, plan and writer: ${a.seen.map((x) => x.stage)}`,
+  JSON.stringify(a.seen.map((x) => x.stage)) === JSON.stringify(["read", "read", "pair", "grounding", "writer"]),
+  `(a) the calls are not the refused and retried reading, the pairing, grounding and writer: ${a.seen.map((x) => x.stage)}`,
 );
 ok(
   a.seen[1] && a.seen[1].prompt.includes("Segments — one entry per Segment"),
@@ -328,7 +298,17 @@ ok(
 const rbs = yamlAt("rbs.yaml") || {};
 ok(
   Array.isArray(rbs.tables) && rbs.tables.length === 1 && rbs.tables[0].move === MOVE && Array.isArray(rbs.bindings),
-  `(a) rbs.yaml is not the named Move's one Mapping Table with its Waypoints: ${JSON.stringify(rbs)}`,
+  `(a) rbs.yaml is not the named Move's one Mapping Table with its paragraph record: ${JSON.stringify(rbs)}`,
+);
+// The Harness writes one paragraph record naming the Move given, and no `waypoints` folder (kogaki#1883).
+const aParagraphs = (rec.bind && rec.bind.paragraphs) || [];
+ok(
+  aParagraphs.length === 1 &&
+    aParagraphs[0].move === MOVE &&
+    JSON.stringify(Object.keys(aParagraphs[0])) === JSON.stringify(["move", "binding_rationale", "leaves"]) &&
+    JSON.stringify(rbs.bindings) === JSON.stringify(aParagraphs) &&
+    !existsSync(join(a.o, "waypoints")),
+  `(a) the paragraph record is not one { move, binding_rationale, leaves } under the named Move, or a waypoints folder was written: ${JSON.stringify(aParagraphs)}`,
 );
 ok(
   existsSync(join(a.o, "bind.yaml")) && existsSync(join(a.o, "paragraph.md")),
@@ -357,13 +337,15 @@ const firstTable = (segs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "";
 const rows = firstTable.split("<tr>").slice(1);
 ok(rows.length === 3, `(b) the Segments table has ${rows.length} rows, and the Move has three Segments`);
 ok(
+  /<th>#<\/th><th>operation<\/th><th>states → paired with<\/th><\/tr>/.test(segs) &&
+    rows.every((r) => (r.match(/<td>/g) || []).length === 3),
+  `(b) a Segments row is not the three columns #, operation and states → paired with (kogaki#1883): ${rows[0]}`,
+);
+ok(
   rows[1] && /t3 → <span class="stop">unmatched<\/span>/.test(rows[1]) && !/t3/.test(rows[0] || ""),
   `(b) the Segment stating t3 does not read it unmatched: ${rows[1]}`,
 );
-ok(
-  rows[0] && rows[0].includes("t1 → r_1") && rows[0].includes("x1 → c_1") && rows[0].includes("PW-1"),
-  `(b) row 1 is not its pairs and Waypoint: ${rows[0]}`,
-);
+ok(rows[0] && rows[0].includes("t1 → r_1") && rows[0].includes("x1 → c_1"), `(b) row 1 is not its pairs: ${rows[0]}`);
 ok(rows[1] && rows[1].includes("b1 → base"), `(b) a base Role does not read base: ${rows[1]}`);
 ok(
   /Unmatched/.test(segs) && /t3/.test(segs.split("Unmatched")[1] || "") && /x2, y1/.test(segs),
@@ -374,22 +356,6 @@ ok(
     sheet.indexOf('id="move-structure"') < sheet.indexOf('id="segments"') &&
     sheet.indexOf('id="segments"') < sheet.indexOf('id="proposition-paragraph"'),
   "(b) Move structure and Segments do not stand above the paragraph",
-);
-// A Segment the plan wrote no Waypoint for says so, rendered from the run's own record with one Waypoint cut.
-const cut = (rec.bind.paragraphs || []).map((p) => ({ ...p, paragraph_waypoints: p.paragraph_waypoints.slice(0, 1) }));
-const cutSheet = renderShortSheet({
-  outDir: a.o,
-  record: rec,
-  proposition: { proposition: LEGS[0].text, cite: "fixture" },
-  structure: LEG_S1_STRUCTURE,
-  tables: rbs.tables,
-  paragraphs: cut,
-  paragraphPath: join(a.o, "paragraph.md"),
-  moveRoute: { move: MOVE, moveStructure: MOVE_STRUCTURE, pairing },
-});
-ok(
-  (cutSheet.match(/the plan wrote no Waypoint for this Segment/g) || []).length === 2,
-  "(b) the two Segments with no Waypoint do not say so",
 );
 
 // (c) the flags
@@ -531,14 +497,10 @@ const ids = (s) => [s.roles, s.relations, s.higher_order].map((l) => l.map((x) =
 ok(ids(LEG_S1) === "r_1,r_2 | c_1 | ", `(g) the Leg of c_1 reads ${ids(LEG_S1)}`);
 ok(ids(LEG_H2) === "r_1,r_2,r_3 | c_1,c_2 | h_1,h_2", `(g) the Leg of h_2 reads ${ids(LEG_H2)}`);
 
-// (h) the plan call's inputs, and nothing outside the run changed
-const plan = a.seen.find((x) => x.stage === "waypoints");
+// (h) no call of the row `paragraph_plan_unit` (kogaki#1883), and nothing outside the run changed
 ok(
-  plan &&
-    plan.prompt.includes('"move_structure"') &&
-    plan.prompt.includes('"pairing"') &&
-    plan.prompt.includes(PAIRED_SENTENCE),
-  "(h) the plan call's stdin does not carry move_structure, pairing and the smp_paired_plan sentence",
+  !a.seen.some((x) => x.prompt.includes("`paragraph_plan_unit`")),
+  "(h) the route made a call with the row `paragraph_plan_unit`",
 );
 ok(sha(PLAN_TABLE) === planTableSha, `(h) ${PLAN_TABLE} changed`);
 ok(snapshot() === before, "(h) a file under moves/ or theses/ changed");

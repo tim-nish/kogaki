@@ -2823,7 +2823,7 @@ introducing the WriterBasedStrand's compressed vocabulary, and that the
 mechanism for this is found by trials outside the production commands. The
 **Structure-Mapping Playground (SMP)** is where those trials run. One run of it
 is a **Trial**: `node src/structure-mapping-playground/trial.mjs run --strand <file>
---structure <file> --out <dir> [--audience <file>] [--library <dir>]`.
+--structure <file> --out <dir> [--audience <file>]`.
 
 **The terms**, as the owner set them on 2026-11-03 and 2026-11-04:
 
@@ -2850,8 +2850,7 @@ is a **Trial**: `node src/structure-mapping-playground/trial.mjs run --strand <f
   RBS). It is the `smp_correspondence` row, and its artifact is the
   `correspondence` table.
 
-**What a Trial holds fixed**: the Move library (`moves/`, or `--library`),
-`/paragraph-plan`, `/draft section`, and the Strand at its pin. The input is a
+**What a Trial holds fixed**: the Strand at its pin. The input is a
 **proposition file** (kogaki#1685): a `cite:` line and a `proposition:` line,
 and nothing else. The proposition is the one sentence the Leg asserts, a
 Strand's `proposition` as a Brief's Leg carries it; reducing a Strand to it is
@@ -2894,18 +2893,12 @@ these, no validator reads which words a `context`, a `holds` or a Brief Waypoint
 `point` uses (kogaki#1707): what each names is stated at its judgment point,
 and the owner reads it.
 
-**How the Brief is made.** The runner composes a one-Leg Brief from the
-structure. No Reader start is composed (kogaki#1699): the Leg call is handed
-the Persona's prior-knowledge line. The Leg comes from the `smp_leg_unit` row of
-`src/structure-mapping-playground/playground-workflow.json`, which is derived from the
-production `reader_path_unit` row by `copy_of` and `substitutions`. The Leg's
-Claims are the structure's `holds` sentences, word for word. The Leg carries
-no `introduces`, and the Brief's `defined_terms` is empty.
-
-**What a Trial records.** `<out>/trial.json` carries `strand` (its cite and
-the file's sha256), `structure` (its path, its sha256 and `author: owner`),
-`mapper: owner-authored`, the `brief`, `plan` and `draft` files with their
-sha256, each stage's state and its `calls.jsonl`, and `reading`, which names
+**What a Trial records.** A Trial ends after its structure is read
+(kogaki#1883): with `--structure` it runs no stage and makes no model call, and
+with `--mapper` it runs the one stage `reading` of §4.20.1. `<out>/trial.json`
+carries `strand` (its cite and the file's sha256), `structure` (its path, its
+sha256 and `author: owner`), `mapper: owner-authored`, each stage's state and
+its `calls.jsonl`, and `reading`, which names
 `<out>/reading.md`. Every model call goes through the Move-Extraction Playground's recorder.
 The runner writes `reading.md` once, empty under a header naming the Trial,
 and never writes it again: it is the owner's. A stage that stops ends the run
@@ -2928,7 +2921,7 @@ model call. A Trial runs it with `--mapper <variant>` in place of
 `--structure`: `node src/structure-mapping-playground/trial.mjs run --strand <file>
 --mapper sme_map_roles --out <dir>`. Giving both flags is refused, naming
 both. The Mapper's answer is written as `<out>/structure.yaml`, and the
-stages above run over it unchanged.
+Trial ends there (kogaki#1883).
 
 **The judgment point.** The `sme_map_roles` row reads the proposition file's
 `proposition:` and the Persona's prior-knowledge line, and no rendering. It
@@ -2958,9 +2951,8 @@ mapper`. The owner-authored route keeps `mapper: owner-authored`.
 
 **Shared with ParagraphPlan (kogaki#1734).** The Trial and ParagraphPlan
 share the `sme_map_roles` and `smp_correspondence` rows and their validators,
-`validateStructure`, `correspondenceRefusal` and
-`correspondenceVocabularyRefusal`. ParagraphPlan imports them and copies
-none.
+`validateStructure` and `correspondenceRefusal`. ParagraphPlan imports them
+and copies none.
 
 **A variant is a workflow row.** A variant is a row `sme_map_<variant>` of
 `src/structure-mapping-playground/playground-workflow.json`. A second variant is a
@@ -3015,12 +3007,11 @@ row per Leg.
 
 **The stages** (kogaki#1700, kogaki#1721), in order: `reading` (with
 `--mapper` only: the Mapper's structure reading of §4.20.1 under its one-retry
-bound), `bind`, `grounding`, `waypoints` and `write`. The order is the
-owner's of 2026-11-06: a Move is bound to the structure, the Correspondence
-column is filled under that Move's Segments, and the Waypoints are
-written from those expressions.
+bound), `bind`, `grounding` and `write` (kogaki#1883). The order is the
+owner's of 2026-11-06: a Move is bound to the structure, and the
+Correspondence column is filled under that Move's Segments.
 Choosing a base and judging its distance from the target are abstractions of
-the discussion, never steps. `--compose` runs the three middle stages as three
+the discussion, never steps. `--compose` runs the two middle stages as
 model calls. `--rbs-file <file>` supplies their results and makes none of
 them. A run with neither flag, or with both, is refused naming the two, and
 `--rbs` is refused naming them as well. A stage that stops ends the run there,
@@ -3038,9 +3029,9 @@ one per Move bound at `bind`, its `correspondences` one per Role in the
 structure's order (kogaki#1693). The root `base` and `correspondences` keys are
 retired: a table carrying either is refused naming `tables`. A `tables` entry
 whose `move` matches no binding is refused naming it, and a list that is not
-one table per binding in the bindings' order is refused. The `waypoints` stage
-adds `bindings`, each binding as `{ move, binding_rationale, leaves,
-paragraph_waypoints }` in order (kogaki#1700, kogaki#1719).
+one table per binding in the bindings' order is refused. After `grounding` the
+Harness adds `bindings`, each paragraph record as `{ move, binding_rationale,
+leaves }` in order (kogaki#1700, kogaki#1719, kogaki#1883).
 `role` is the id of the Role the correspondence maps (kogaki#1685,
 kogaki#1688). `expression` is the base text: a noun phrase naming the base's
 object that plays the Role. A table carrying `pairs` is refused naming the
@@ -3075,8 +3066,8 @@ declares the Base Paragraph's `case`: `own`, where the paragraph tells the
 proposition's own case, or `apart`, where it tells a case apart from the
 proposition's domain. A Move is neutral to the case (owner ruling,
 2026-11-07): the case is the one the Persona's prior knowledge and the Move's
-Segments make tellable, declared by the stage that composes the Waypoints and
-never read from the Move's `leaves`. Where the case is `apart`, it chooses one
+Segments make tellable, declared by this stage and never read from the
+Move's `leaves`. Where the case is `apart`, it chooses one
 Move for the Inference Paragraph whose `takes` holds a `carry`; where it is
 `own`, none. Its answer is `{ base_move, case, inference_move }`,
 `inference_move` null under `own`, and any other key is refused. The
@@ -3143,23 +3134,16 @@ table per binding of the file (kogaki#1709), and is refused together with
 owner-authored, path, sha256, source }`, `source` the owner's file with its
 sha256.
 
-**The `waypoints` row** (kogaki#1700, kogaki#1784). The composed route's
-`waypoints` stage is one call of the production row `paragraph_plan_unit`,
-unchanged; the derived row `smp_waypoints_unit` is retired. Its input is the
-one a grounded Leg's confined plan call receives (`paragraphPlanUnitInput`):
-the Leg, serving `L1`, its `text` the structure in the expressions of the
-Leg's own table (the last grounded), carrying `structure`, `move`, the Move
-`bind` bound to the Leg, and `table`; the bound Move alone as the Move it may
-bind; `paragraphs_at_most`; and, where the Move is an analogy Move,
-`analogy_you_must_draw_from`, the Trial's Analogy Mapping. The answer is a
-ParagraphPlan unit's record, validated by `validateParagraphPlanUnit`; an
-answer whose `move` differs from the Leg's is refused naming that Move; under
-`apart` the Leg is owed two paragraphs; and each paragraph keeps to its table
-(below). A refusal is put back into the next Call verbatim under the Mapper's
-one-retry bound, and a second stops the Trial at `waypoints`. There are no
-introduced terms. `bind.yaml` and the record's `bind.paragraphs` list every
-paragraph in order, each under the Leg's Move. No Brief is composed, and no
-Judge runs: the owner's reading is the judgment.
+**The paragraph records** (kogaki#1883). After `grounding`, where the Trial
+has not stopped, the Harness writes the paragraph records with no model call and
+no stage of its own, each `{ move, binding_rationale, leaves }`: on the composed
+route one where `bind` declared `own` and two where it declared `apart`, each
+naming the Leg's one Move, the last Move bound, which the record's `bind.move`
+names, with the Analogy Mapping written to `<out>/analogy.yaml` at the same
+place; on `--rbs-file` one per binding of the owner's file, in order; and on
+the Brief-Leg route one naming the Move `--move` gives. `bind.yaml` and the
+record's `bind.paragraphs` list every record in order. No Brief is composed,
+and no Judge runs: the owner's reading is the judgment.
 
 **What each binding leaves** (kogaki#1719, kogaki#1784). Each entry of
 `bind.yaml`'s `paragraphs`, and of the record's `bind.paragraphs`, carries
@@ -3169,27 +3153,13 @@ leaves nothing: the `carry` from the base onto the subject is made inside the
 Leg, named by the inference Move's `takes`, and no binding adds one. The library
 is unchanged.
 
-**The Correspondence vocabulary** (kogaki#1700, kogaki#1709, kogaki#1784). Each
-paragraph's Waypoints are confined to its own table: they say the
-structure in the objects of that table, each Role's counterpart named in one of
-them by the sense of its expression, and no Role id in any. Under `apart` the Base Paragraph's
-table is the base Move's, the Analogy Mapping's base domain, and the Inference
-Paragraph's is the Leg's own; under `own` every paragraph's is the Leg's own.
-The Inference Paragraph may also name the expressions of the base table where
-its Segment likens the subject to the case already told.
-`correspondenceVocabularyRefusal(points, table, priorTables)` in
-`src/structure-mapping-playground/rbs.mjs` runs over every paragraph, `priorTables` the
-tables before its own. It refuses where a point carries a Role id outside an
-expression of those tables, naming the paragraph and the point; it matches no
-expression, whose presence is a sense judgment (kogaki#1811).
-
 **The supplied binding** (kogaki#1671). The table may carry `move`, one Move id
-of the library, and `waypoints`, one `{ segment, point }` per segment of that
-Move in order, each `point` the segment expressed in the base's objects. With both present, the `bind` stage
-makes no model call: it records `bind: { state: supplied, author: owner, move,
-binding_rationale, path, sha256 }`, and the Waypoints are the `point`s in
-segment order. The `bind`, `grounding` and `waypoints` stages make no
-model call, and the Trial is then one writer call. An owner's file must also
+of the library. With it present, the `bind` stage makes no model call: it
+records `bind: { state: supplied, author: owner, move, binding_rationale, path,
+sha256 }`. The `bind` and `grounding` stages make no model call, and the Trial
+is then one writer call. A table carrying `waypoints`, at its root or in an
+entry of `projection`, is refused before any call naming the key: `waypoints`
+is no field of a binding (kogaki#1883). An owner's file must also
 carry `projection`, below, and one without it is refused naming `projection`:
 a Trial that never states the proposition has no reading (kogaki#1689).
 
@@ -3205,7 +3175,8 @@ composed route the sentence the Harness writes from the `bind` answer's `case` a
 `serves`, which the ParagraphPlan unit shape refuses (kogaki#1861).
 
 **The paragraph.** The `write` stage renders one Section Packet over a
-one-Leg Brief whose Leg carries its paragraphs, on both routes (kogaki#1784),
+one-Leg Brief whose Leg carries neither `move` nor `paragraphs`, on both routes
+(kogaki#1784, kogaki#1883),
 with the Persona from the audience file, and calls the writer of
 `src/draft-workflow.json` once with the Packet as its entire stdin. Each
 numbered line is the Leg's `text`. The paragraph is `<out>/paragraph.md`.
@@ -3225,8 +3196,8 @@ reason, kogaki#1784), `Structure` and `Model calls`, folded. The runner writes t
   the paragraph's place where the run stopped before it.
 - `Segments` is one table per binding, captioned `Paragraph N` with the
   bound Move's id in the caption's `meta` span, with one row per Segment of
-  that Move, read from the record's `library`: `#`, `operation`, `relation`,
-  `manner` and the `point` written for it. A Segment without `relation` or
+  that Move, read from the record's `library`: `#`, `operation`, `relation`
+  and `manner`, and no column of texts (kogaki#1883). A Segment without `relation` or
   `manner` has an empty cell.
 - `Bindings` is one two-column table per binding, in order, captioned
   `Binding N` with N its paragraph's number, one labelled row each
@@ -3286,11 +3257,11 @@ or projection is introduced: the Leg's claim and the ordinary binding carry
 it.
 
 **The `projection` field** (kogaki#1681). The table may carry `projection`, a
-list of `{ move, waypoints, binding_rationale }`, one per paragraph after the
+list of `{ move, binding_rationale }`, one per paragraph after the
 first, each validated as the first binding is, with each field named under
 `projection[<i>].`. A map is read as a list of one. A projecting paragraph
-uses the target's words. `projection` without the first binding's `move` and `waypoints` is
-refused naming both.
+uses the target's words. `projection` without the first binding's `move` is
+refused naming it.
 
 **One Leg, one Packet, one writer call** (kogaki#1681). A Trial is one Leg.
 Its one claim is the proposition, in the Brief's form `claims: [{ strand: L1,
@@ -3300,7 +3271,7 @@ its `text` is the structure in the objects of its own table, the last grounded
 Inference Move is bound and one where none is (kogaki#1700).
 No reader state is composed. `bind` writes `<out>/bind.yaml`
 with the first binding's fields and `paragraphs`, every binding in order as
-`{ move, binding_rationale, leaves, paragraph_waypoints }`. `write` renders one Packet
+`{ move, binding_rationale, leaves }`. `write` renders one Packet
 from the Leg, calls the writer once and writes its whole answer to
 `<out>/paragraph.md`.
 
@@ -3313,7 +3284,7 @@ so the text is the structure in the subject's expressions, and the base
 table's reading is the Analogy Mapping's base domain; the Leg's one claim stays
 the proposition (kogaki#1709). A `holds` without
 placeholders is used verbatim. The Packet renders the text as each paragraph's
-numbered line, and the `waypoints` call plans from it.
+numbered line.
 
 **The sheet, with `projection`.** The paragraph carries `paragraph.md`
 whole. `Segments` carries one Segments table and `Bindings` one `Binding`
@@ -3337,20 +3308,17 @@ The proposition is the Leg's `text`, and the Leg's structure is read from the
 Brief with no model call: the relation its `relation` names with the Roles of
 its `between`, or, for a higher-order relation, that relation, the relations
 it `relates` and their Roles. Its stages are `move-reading`, `pairing`,
-`grounding`, `waypoints` and `write`. `move-reading` (`smp_read_move`) reads
+`grounding` and `write` (kogaki#1883). `move-reading` (`smp_read_move`) reads
 the whole Move into Roles, each marked `source: target` or `source: base`,
 relations and higher-order relations, and only then records, per Segment in
 order, which of them that Segment `states`; nothing is created from one
 Segment. `pairing` (`smp_pair_roles`) pairs each `target` Role and each
 relation of the Move with one of the Leg's, or null, and the Harness writes
 what is left `unmatched`; nothing fills a null. `grounding` fills the Mapping
-Table for the named Move under case `own`, and no Analogy Mapping is written.
-`waypoints` is the production plan call handed `move_structure` and `pairing`,
-rendered from `prompts/structure-mapping-playground/plan-leg-paired.prompt`,
-which holds one sentence more than production's file (kogaki#1855). The sheet
-opens with `Move structure` and `Segments`: per
-Segment its operation, what it states and what each is paired with or
-`unmatched`, and the Waypoints written for it.
+Table for the named Move under case `own`, and no Analogy Mapping is written;
+no call is made between `grounding` and `write`. The sheet opens with
+`Move structure` and `Segments`: per Segment its operation, what it states and
+what each is paired with or `unmatched`.
 
 **A Move's Bind targets and Edges read from its Move file** (kogaki#1840,
 kogaki#1858, kogaki#1880). The Brief-Leg route takes one more flag,
@@ -3369,15 +3337,12 @@ the pairing is `binds`, one `{ bind, kind, leg }` each. `grounding` is handed,
 for each Segment, its number, its `bind` and its `edges` in place of its
 `operation`, `relation` and `manner`, and `write` hands the Writer each
 Segment's `bind` and `edges` as the Move file holds them, every Edge of a
-Segment included. The `waypoints` stage is not run (kogaki#1876): no call is
-made between `grounding` and `write` but the readback below (kogaki#1882), and
-the Harness writes one paragraph
-record under the named Move, with no `paragraph_waypoints`. `trial.json`
+Segment included. As without the flag, no call is made between `grounding`
+and `write` but the readback below (kogaki#1876, kogaki#1882, kogaki#1883). `trial.json`
 records `move_edges: true` and no path of a second file. The sheet's
 `Segments` table then shows per Segment its number, its `bind` beside the
 Argument or CentralClaim it was given, and its Edges, each as its Sense and the
-Segments it points to, with no operation column, no Waypoints column and no
-Unmatched table. The flag `--move-table`, which took a Move written by hand as
+Segments it points to, with no operation column and no Unmatched table. The flag `--move-table`, which took a Move written by hand as
 a second file, is refused by name before anything is started.
 
 **A reading of the Leg's Senses on the sheet** (kogaki#1875). The Brief-Leg

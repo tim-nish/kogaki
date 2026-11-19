@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Structure-Mapping Playground's Trial (kogaki#1664): a Strand and a RelationalStructure, owner-authored
-// or read by the Mapper (kogaki#1665), through a one-Leg Brief, `/paragraph-plan` and `/draft`, to a Trial record.
+// or read by the Mapper (kogaki#1665), into a Trial record; the Trial ends after its structure is read (kogaki#1883).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.
@@ -16,16 +16,14 @@ import { join, resolve, basename, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { readerPersona, personaPriorKnowledgeLine, audienceLanguage, legRecord, briefRecordText } from "../compose.mjs";
+import { readerPersona } from "../compose.mjs";
 import { judgePrompt, resolveJudgeBinary, settingValue } from "../workflow/judge.mjs";
 import { REPO, relFromRepo, bindFlow, readRowTable } from "../workflow/run-record.mjs";
 import { startDetachedJobSupervisor, READER_PATH_JOB_STALL_S, jobHeartbeatMs } from "../workflow/detached-job.mjs";
 import { EXTRACTION_TABLE, awaitJob, lastRefusal, writeJson } from "../move-extraction-playground/extract.mjs";
-import { completedLeg, legAsText } from "../move-extraction-playground/leg-brief.mjs";
 import { installRecorder, stageEnv, declaredCommand, CALLS_FILE } from "../move-extraction-playground/leg-run.mjs";
-import { PARAGRAPH_PLAN_STILL_RUNNING_LINE } from "../paragraph-plan.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
-import { parseProposition, validateStructure, structureClaims, higherOrderOf } from "./structure.mjs";
+import { parseProposition, validateStructure } from "./structure.mjs";
 import { mapperRow, mapperInput, MAPPER_CALLS } from "./sme.mjs";
 
 export const PLAYGROUND_TABLE = "src/structure-mapping-playground/playground-workflow.json";
@@ -34,12 +32,9 @@ export const TRIAL_FILE = "trial.json";
 export const READING_FILE = "reading.md";
 export const STRUCTURE_FILE = "structure.yaml";
 const FLOW = { lane: "brief", label: "Structure-Mapping Playground" };
-export const CONSTANT_COMMENT = "# TRIAL CONSTANT (kogaki#1664): not composed — the parser requires it.";
-const PLAN_AWAIT_S = 60;
-const PLAN_AWAITS_MAX = 60;
 const USAGE =
   "usage: node src/structure-mapping-playground/trial.mjs run --strand <file> (--structure <file> | --mapper <sme_map_<variant>>) " +
-  "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>] [--library <dir>]";
+  "--out <dir under runs/structure-mapping-playground/> [--audience <audiences/<name>.md>]";
 
 function fail(msg) {
   process.stderr.write(`trial: ${msg}\n`);
@@ -47,7 +42,6 @@ function fail(msg) {
 }
 
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
-const fileRecord = (path) => (path && existsSync(path) ? { path: relFromRepo(path), sha256: sha256(path) } : null);
 
 // The proposition file (kogaki#1685) and the structure, read and validated; a refusal ends the process before
 // anything is written.
@@ -77,7 +71,7 @@ function readInputs(strandFile, structureFile) {
 }
 
 // ---------------------------------------------------------------------------
-// THE BRIEF: the Reader start row and the Leg row, each one job on the shared supervisor.
+// THE MAPPER'S ROW, one job on the shared supervisor.
 
 function positiveSetting(job, key) {
   const n = Number(settingValue(job && job[key]));
@@ -119,45 +113,13 @@ function runRow({ dir, unitId, row, input, recordArray, validator, bounds }) {
         : "";
     return {
       stopped:
-        `the Trial's Brief stopped at \`${row.id}\`: the job ended ${job.state} after ${u.rounds || 1} round(s) — ` +
+        `the Mapper stopped at \`${row.id}\`: the job ended ${job.state} after ${u.rounds || 1} round(s) — ` +
         reach +
         String(lastRefusal(job)).split("\n").join(" "),
     };
   }
   writeJson(join(dir, "answer.json"), u.candidate);
   return { record: u.candidate };
-}
-
-// READER START IS RETIRED (kogaki#1699): the Trial's Brief carries no `reader_start`,
-// `reader_target`, `obligations` or `reader_state_after`.
-function trialBriefText({ slug, composePath, claims, leg, thesis }) {
-  const constants = {
-    strands: claims.map((c) => ({
-      id: c.claim_strand,
-      slug: `${slug}-${c.from}`,
-      cite: `mapping-playground::claim/${slug}-${c.from}`,
-    })),
-    thesis,
-    strand_coverage: [],
-    journey_coverage: [],
-    tradeoffs: {},
-    bridged: {},
-  };
-  const text = briefRecordText({
-    slug,
-    compose_path: composePath,
-    ...constants,
-    defined_terms: [],
-    reader_path: [completedLeg(leg)].map(legAsText).map(legRecord),
-  });
-  const keys = new Set(Object.keys(constants));
-  return text
-    .split("\n")
-    .flatMap((line) => {
-      const m = /^([a-z_]+):/.exec(line);
-      return m && keys.has(m[1]) ? [CONSTANT_COMMENT, line] : [line];
-    })
-    .join("\n");
 }
 
 function judgeBounds(extraction) {
@@ -204,62 +166,9 @@ export function mapStructure({ strandFile, mapper, out, structureOut, audience }
     },
     bounds: { ...judgeBounds(extraction), unitRounds: MAPPER_CALLS },
   });
-  if (r.stopped) return { stopped: r.stopped.replace("the Trial's Brief stopped", "the Mapper stopped") };
+  if (r.stopped) return r;
   writeFileSync(resolve(structureOut), stringifyYaml(r.record));
   return { structure: resolve(structureOut), prompt: join(dir, "prompt.md") };
-}
-
-export function composeTrialBrief({ strandFile, structureFile, out, slug, audience }) {
-  const { strand, structure } = readInputs(strandFile, structureFile);
-  const extraction = readRowTable(EXTRACTION_TABLE);
-  const playground = readRowTable(join(REPO, PLAYGROUND_TABLE));
-  if (!playground.smp_leg_unit) fail("the table declares no `smp_leg_unit` row. Nothing was started.");
-  const lr = { row: { id: "smp_leg_unit", ...playground.smp_leg_unit } };
-  const { audiencePath, persona } = audienceOf(audience);
-  const lang = audienceLanguage(audiencePath);
-  if (lang.error) fail(`${lang.error} Nothing was started.`);
-  const outDir = resolve(out);
-  const briefPath = join(outDir, "brief.yaml");
-  if (existsSync(briefPath))
-    fail(`a Brief already exists at ${briefPath}, and nothing was written over it. Nothing was started.`);
-  const bounds = judgeBounds(extraction);
-  mkdirSync(outDir, { recursive: true });
-  const { roles, relations, higher_order } = structure;
-  const priorKnowledge = personaPriorKnowledgeLine(persona);
-  const claims = structureClaims(structure);
-  const r2 = runRow({
-    dir: join(outDir, "leg"),
-    unitId: "leg",
-    row: lr.row,
-    recordArray: "legs",
-    input: {
-      persona_prior_knowledge: priorKnowledge,
-      language: lang.language,
-      leg_ids_already_carried: [],
-      structure: { roles, relations, higher_order },
-      claims,
-    },
-    validator: {
-      module: "src/structure-mapping-playground/structure.mjs",
-      export: "validateSmpLegUnit",
-      inputs: { holds: claims.map((c) => c.holds), segments: claims.map((c) => c.material) },
-    },
-    bounds,
-  });
-  if (r2.stopped) return { stopped: r2.stopped };
-  writeFileSync(
-    briefPath,
-    trialBriefText({
-      slug,
-      composePath: relFromRepo(audiencePath),
-      claims,
-      leg: r2.record.legs[0],
-      thesis: higherOrderOf(structure)
-        .map((h) => h.holds)
-        .join(" "),
-    }),
-  );
-  return { brief: briefPath };
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +212,6 @@ export function runTrial({
   mapper = null,
   out,
   audience = null,
-  library = null,
 }) {
   const outDir = resolve(out);
   const trials = resolve(REPO, TRIALS_DIR);
@@ -320,8 +228,6 @@ export function runTrial({
   } else ({ strand } = readInputs(strandFile, givenStructure));
   const structureFile = mapper ? join(outDir, STRUCTURE_FILE) : resolve(givenStructure);
   const audiencePath = audience || String(settingValue({ setting: "brief.audience_file" }));
-  const libraryDir = resolve(REPO, library || "moves");
-  if (!existsSync(libraryDir)) fail(`the library ${libraryDir} does not exist. Nothing was started.`);
   const realPath = resolveJudgeBinary(String(declaredCommand()), process.env.PATH).path;
   const slug = trialSlug(outDir);
   mkdirSync(outDir, { recursive: true });
@@ -336,12 +242,8 @@ export function runTrial({
       : { path: relFromRepo(structureFile), sha256: sha256(structureFile), author: "owner" },
     mapper: mapper ? { variant: mapper, prompt_sha256: null } : "owner-authored",
     audience: audiencePath,
-    library: relFromRepo(libraryDir),
     model_command: realPath,
     started_at: new Date().toISOString(),
-    brief: null,
-    plan: null,
-    draft: null,
     stages: [],
     reading: relFromRepo(reading),
   };
@@ -403,85 +305,6 @@ export function runTrial({
       return {};
     });
   }
-  const briefPath = join(outDir, "brief", "brief.yaml");
-  stage("brief", (d, env, log) => {
-    const c = runCommand(
-      d,
-      "compose",
-      [
-        process.execPath,
-        "src/structure-mapping-playground/trial.mjs",
-        "compose",
-        "--strand",
-        resolve(strandFile),
-        "--structure",
-        structureFile,
-        "--out",
-        d,
-        "--slug",
-        slug,
-        "--audience",
-        audiencePath,
-      ],
-      env,
-      log,
-    );
-    return c.exit === 0 && existsSync(briefPath) ? {} : { stopped: stopLine(c) };
-  });
-  const planPath = join(outDir, "brief", "paragraph-plan.yaml");
-  stage("paragraph-plan", (d, env, log) => {
-    const job = join(d, "job");
-    mkdirSync(job, { recursive: true });
-    const pp = (cmd, extra = []) =>
-      runCommand(
-        d,
-        `paragraph-plan ${cmd}`,
-        [
-          process.execPath,
-          "src/paragraph-plan.mjs",
-          cmd,
-          "--brief",
-          briefPath,
-          "--run-dir",
-          job,
-          "--moves-dir",
-          libraryDir,
-          ...extra,
-        ],
-        env,
-        log,
-      );
-    const s = pp("start");
-    if (s.exit !== 0) return { stopped: stopLine(s) };
-    for (let i = 0; i < PLAN_AWAITS_MAX; i++) {
-      const a = pp("await", ["--wait-s", String(PLAN_AWAIT_S)]);
-      if (a.exit !== 0) return { stopped: stopLine(a) };
-      if (!a.stdout.includes(PARAGRAPH_PLAN_STILL_RUNNING_LINE))
-        return existsSync(planPath) ? {} : { stopped: "the ParagraphPlan job ended and wrote no plan" };
-    }
-    return { stopped: `the ParagraphPlan job was still running after ${PLAN_AWAITS_MAX} awaits of ${PLAN_AWAIT_S}s` };
-  });
-  let sectionPath = null;
-  stage("draft", (d, env, log) => {
-    const dr = (cmd, extra = []) =>
-      runCommand(
-        d,
-        `draft ${cmd}`,
-        [process.execPath, "src/draft.mjs", cmd, "--brief", briefPath, "--workspace", d, ...extra],
-        env,
-        log,
-      );
-    const r = dr("resolve");
-    if (r.exit !== 0) return { stopped: stopLine(r) };
-    const legId = parseYaml(readFileSync(briefPath, "utf8"), briefPath).reader_path[0].leg_id;
-    const s = dr("section", ["--leg", legId]);
-    if (s.exit !== 0) return { stopped: stopLine(s), leg_id: legId };
-    sectionPath = join(d, slug, "sections", `${legId}.md`);
-    return { leg_id: legId, packet: relFromRepo(join(d, slug, "packets", `${legId}.md`)) };
-  });
-  record.brief = fileRecord(briefPath);
-  record.plan = fileRecord(planPath);
-  record.draft = fileRecord(sectionPath);
   record.finished_at = new Date().toISOString();
   save();
   return { outDir, stopped: record.stopped || null };
@@ -522,7 +345,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       mapper: str("mapper"),
       out: str("out"),
       audience: str("audience"),
-      library: str("library"),
     });
     console.log(`trial directory: ${r.outDir}`);
     if (r.stopped) {
@@ -542,19 +364,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(r.stopped);
       process.exitCode = 1;
     } else console.log(`structure written: ${r.structure}`);
-  } else if (args._cmd === "compose") {
-    need(["strand", "structure", "out", "slug", "audience"]);
-    const r = composeTrialBrief({
-      strandFile: str("strand"),
-      structureFile: str("structure"),
-      out: str("out"),
-      slug: str("slug"),
-      audience: str("audience"),
-    });
-    if (r.stopped) {
-      console.log(r.stopped);
-      process.exitCode = 1;
-    } else console.log(`Brief written: ${r.brief}`);
   } else {
     fail(USAGE);
   }
