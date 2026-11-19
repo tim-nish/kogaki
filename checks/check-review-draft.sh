@@ -12,7 +12,7 @@
 # WHAT THIS COVERS, driven through `buildJoin` (src/review-draft.mjs) over a
 # fixture Draft whose trace names a Packet rendered by `renderPacket`
 # (src/draft.mjs) from a fixture Brief record and its Leg's paragraphs, the
-# second carrying the join `consequence` and the first a `performs` entry:
+# second carrying the join `consequence`:
 #   (a) src/review-items.json declares none of the four items and none of the
 #       three blocks, and every block an item names is a block `packet_blocks`
 #       declares;
@@ -111,10 +111,10 @@ for (const it of table.items) {
 if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.packet_blocks || {}, "keeps")) {
   fails.push("(g) src/review-items.json still declares the retired `promise-kept` item or its `keeps` block");
 }
-// (b) the whole table over a Packet rendered from a plan carrying a join and a performs entry.
+// (b) the whole table over a Packet rendered from a plan carrying a join.
 {
   const l = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"], ...(i === 1 ? { join: JOIN } : {}),
-    paragraph_waypoints: [...(i === 0 ? [{ performs: "announce that a definition follows" }] : []), { point, cast: {} }] })) };
+    paragraph_waypoints: [{ point, cast: {} }] })) };
   const r = renderPacket({ brief, leg: l, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
   if (r.error) fails.push(`(b) the fixture Packet did not render: ${r.error}`);
   else {
@@ -136,7 +136,7 @@ if (table.items.some((i) => i.id === "promise-kept") || Object.hasOwn(table.pack
 // (i) review.md's Forced paragraphs list reads `_None._`: the Packet carries no Point, so no mark (kogaki#1649, kogaki#1859).
 {
   const leg = { ...brief.legs[0], paragraphs: POINTS.map((point, i) => ({ materials: ["L1"],
-    paragraph_waypoints: [{ point, ...(i === 0 ? { forced_by: ["PERFORMS IS BARE"] } : {}), cast: {} }] })) };
+    paragraph_waypoints: [{ point, ...(i === 0 ? { forced_by: ["CAST"] } : {}), cast: {} }] })) };
   const dir = join(root, "forced");
   mkdirSync(join(dir, "packets"), { recursive: true });
   const r = renderPacket({ brief, leg, priorSections: [], section: sectionOfLeg(brief.legs).get("s1"), sections: sectionsOf(brief.legs) });
@@ -151,7 +151,7 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-review-draft — src/review-items.json declares none of the waypoints, attribute-leak, opens-from-copied and performs items and none of the waypoints, opens_from and performs blocks, and every block an item names is declared; the whole table reads a Packet rendered from a plan carrying a join and a performs entry with no Packet-gap refusal and no retired row (kogaki#1859); the promise-kept item and its keeps block are retired (kogaki#1584); review.md's Forced paragraphs list reads _None._ over a Packet rendered from a forced Waypoint (kogaki#1649, kogaki#1859)");
+console.log("ok: check-review-draft — src/review-items.json declares none of the waypoints, attribute-leak, opens-from-copied and performs items and none of the waypoints, opens_from and performs blocks, and every block an item names is declared; the whole table reads a Packet rendered from a plan carrying a join with no Packet-gap refusal and no retired row (kogaki#1859); the promise-kept item and its keeps block are retired (kogaki#1584); review.md's Forced paragraphs list reads _None._ over a Packet rendered from a forced Waypoint (kogaki#1649, kogaki#1859)");
 JS
 status=$?
 node checks/fixtures/review-draft/defined-term-order.mjs || status=1

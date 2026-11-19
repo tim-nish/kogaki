@@ -414,7 +414,7 @@ ok(correspondenceVocabularyRefusal([{ point: `${OWN_ALL}, as the gardener passes
   "(d) Inference Paragraph points carrying its own table's expressions and the base table's were refused");
 const dId2 = correspondenceVocabularyRefusal([{ point: `${OWN_ALL}.` }, { point: "The crew goes on." }], OWN, [GARDEN], 2);
 ok(dId2 && dId2.startsWith(`Paragraph 2's point 2 carries the Role id "crew"`), `(d) an Inference Paragraph point carrying a Role id was not refused naming the paragraph: ${dId2}`);
-ok(correspondenceVocabularyRefusal([{ performs: "asks the reader" }, { point: "The gardener tends a flower bed by the planting chart." }], GARDEN) === null,
+ok(correspondenceVocabularyRefusal([{ point: "The reader is asked." }, { point: "The gardener tends a flower bed by the planting chart." }], GARDEN) === null,
   "(d) Base Paragraph points carrying no Role id were refused");
 
 // (g) an expression sharing a word with the proposition is accepted (kogaki#1707); the Role rules hold on every table

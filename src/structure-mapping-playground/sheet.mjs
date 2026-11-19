@@ -164,11 +164,7 @@ export function segmentsTable(record, entry, number, marked = new Set()) {
   // kogaki#1695: a point's true cast keys ride beside it in a meta span, in CAST_KEYS order.
   const castOf = (p) => Object.keys(CAST_KEYS).filter((k) => p.cast && p.cast[k] === true);
   const pointCell = (p) =>
-    !p
-      ? ""
-      : Object.hasOwn(p, "performs")
-        ? `<i>${esc(p.performs)}</i>`
-        : esc(p.point) + (castOf(p).length ? ` <span class="meta">${esc(castOf(p).join(", "))}</span>` : "");
+    !p ? "" : esc(p.point) + (castOf(p).length ? ` <span class="meta">${esc(castOf(p).join(", "))}</span>` : "");
   const field = (sg, k) => (sg && typeof sg[k] === "string" ? esc(sg[k]) : "");
   return (
     (c.error ? `<p class="stop">${esc(c.error)}</p>` : "") +
@@ -358,7 +354,7 @@ function moveSegmentsSection(record, route, paragraphs) {
     const points = ps
       .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
       .filter(([, w]) => w)
-      .map(([k, w]) => `Paragraph ${k}: ${esc(Object.hasOwn(w, "performs") ? w.performs : w.point)}`);
+      .map(([k, w]) => `Paragraph ${k}: ${esc(w.point)}`);
     return (
       `<tr><td>${i + 1}</td><td>${esc(sg.operation || "")}</td><td>${states.join("<br>") || "none"}</td>` +
       `<td>${points.length ? points.join("<br>") : '<span class="muted">the plan wrote no Waypoint for this Segment</span>'}</td></tr>`
@@ -401,7 +397,7 @@ function tableSegmentsSection(route, paragraphs) {
     const points = ps
       .map((p, k) => [k + 1, (p.paragraph_waypoints || [])[i]])
       .filter(([, w]) => w)
-      .map(([k, w]) => `Paragraph ${k}: ${esc(Object.hasOwn(w, "performs") ? w.performs : w.point)}`);
+      .map(([k, w]) => `Paragraph ${k}: ${esc(w.point)}`);
     return (
       `<tr><td>${i + 1}</td><td>${bind}</td>` +
       `<td>own ${esc(sg.domain.own)} · apart ${esc(sg.domain.apart)}</td><td>${esc(sg.genericity)}</td>` +

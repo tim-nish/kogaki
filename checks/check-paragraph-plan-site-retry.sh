@@ -273,7 +273,7 @@ export const judge = (i) => verdicts(i, () => false);`);
 {
   const r = run("s9", `export const site = (i, n) => { if (n > 1) return siteEntry(i, { tag: "-site" + n });
   const e = siteEntry(i, { rationale: "the paragraph begins where its neighbour leaves the reader." });
-  return { ...e, paragraph_waypoints: e.paragraph_waypoints.map((p) => ({ performs: p.point })) }; };
+  return { ...e, paragraph_waypoints: e.paragraph_waypoints.map((p) => ({ point: p.point, cast: { terse: true } })) }; };
 export const judge = (i, n, l) => verdicts(i, (w) => l === "s1" && n === 1 && w === 1);`);
   const sites = r.of("site");
   const want = `Leg s1, paragraph 1: ${siteRestatementRefusal(1, ["PW-s1-1 the paragraph makes its point."])}`;
@@ -308,13 +308,13 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
 {
   const r = run("s11", `export const site = (i) => siteEntry(i, { tag: "-site" });
 export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n === 1 && w === 1);
-  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "PERFORMS IS BARE fails: the performs line states the reading the reader then takes.";
+  for (const x of v.verdicts) if (x.verdict === "does-not-fit") x.why = "CAST fails: the point's sentences do not take the shape its cast sets.";
   return v; };`);
   const marks = (l, w) => { const e = pwOf(r.plan, l, w); return e ? e.paragraph_waypoints.map((p) => p.forced_by || null) : []; };
   if (!r.plan) fails.push(`(s11) no ParagraphPlan file was written: ${r.out.slice(0, 600)}`);
   else {
-    if (JSON.stringify(marks("s1", 1)) !== JSON.stringify([["PERFORMS IS BARE"]])) {
-      fails.push(`(s11) the rewritten Waypoint at Leg s1, paragraph 1 does not carry forced_by [PERFORMS IS BARE]: ${JSON.stringify(marks("s1", 1))}`);
+    if (JSON.stringify(marks("s1", 1)) !== JSON.stringify([["CAST"]])) {
+      fails.push(`(s11) the rewritten Waypoint at Leg s1, paragraph 1 does not carry forced_by [CAST]: ${JSON.stringify(marks("s1", 1))}`);
     }
     for (const [l, w] of [["s1", 2], ["s2", 1]]) {
       if (marks(l, w).some(Boolean)) fails.push(`(s11) Leg ${l}, paragraph ${w} passed on its first round and carries forced_by: ${JSON.stringify(marks(l, w))}`);
@@ -323,9 +323,9 @@ export const judge = (i, n, l) => { const v = verdicts(i, (w) => l === "s1" && n
   }
   const donePath = join(root, "s11", "run", "paragraph-plan-done.json");
   const c = existsSync(donePath) ? JSON.parse(readFileSync(donePath, "utf8")).collisions : null;
-  const row = c && c.rows.find((x) => x.axis === "PERFORMS IS BARE");
-  if (!row || row.entries !== 1 || c.total !== 1 || c.rows.some((x) => x.axis !== "PERFORMS IS BARE" && x.entries !== 0)) {
-    fails.push(`(s11) paragraph-plan-done.json does not count PERFORMS IS BARE at 1 and the total at 1: ${JSON.stringify(c)}`);
+  const row = c && c.rows.find((x) => x.axis === "CAST");
+  if (!row || row.entries !== 1 || c.total !== 1 || c.rows.some((x) => x.axis !== "CAST" && x.entries !== 0)) {
+    fails.push(`(s11) paragraph-plan-done.json does not count CAST at 1 and the total at 1: ${JSON.stringify(c)}`);
   }
 }
 

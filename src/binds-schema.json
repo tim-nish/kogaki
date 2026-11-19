@@ -48,7 +48,7 @@
         "paragraphs.depends_on", "paragraphs.rationale",
         "paragraphs.re-activate", "paragraphs.journeys", "paragraphs.join",
         "paragraphs.paragraph_waypoints",
-        "paragraph_waypoints.point", "paragraph_waypoints.performs", "paragraph_waypoints.cast"
+        "paragraph_waypoints.point", "paragraph_waypoints.cast"
       ]
     }
   }

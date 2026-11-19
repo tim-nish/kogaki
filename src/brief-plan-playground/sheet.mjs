@@ -195,9 +195,7 @@ function legHtml(leg, structure, planLeg, bindings, libraryDir, outDir) {
     const b = bindings.find((x) => x.leg_id === leg.leg_id && x.paragraph === k + 1) || null;
     const move = (planLeg && planLeg.move) || (b && b.move);
     const pws =
-      (entry.paragraph_waypoints || [])
-        .map((pw, i) => line(`${i + 1}. ${pw.performs !== undefined ? `performs: ${pw.performs}` : pw.point}`))
-        .join("") || none("no Waypoints");
+      (entry.paragraph_waypoints || []).map((pw, i) => line(`${i + 1}. ${pw.point}`)).join("") || none("no Waypoints");
     return row([
       String(k + 1),
       move ? moveLine(move, libraryDir, outDir) : none("no Move bound"),

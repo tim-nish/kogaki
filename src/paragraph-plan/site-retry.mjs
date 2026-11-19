@@ -61,14 +61,14 @@ export function repeatsRefusedEntry(answer, refused, byJudge) {
   );
 }
 
-// THE TEXT OF A PARAGRAPH'S WAYPOINTS, IN ORDER (kogaki#1651): each one's `point` or
-// `performs`, or the first sentence it carries under any other key, so a restatement under a
+// THE TEXT OF A PARAGRAPH'S WAYPOINTS, IN ORDER (kogaki#1651): each one's `point`, or the
+// first sentence it carries under any other key, so a restatement under a
 // changed shape still reads as the same text.
 export function paragraphPointsText(entry) {
   const pws = isMap(entry) && Array.isArray(entry.paragraph_waypoints) ? entry.paragraph_waypoints : [];
   return pws.map((pw) => {
     if (!isMap(pw)) return String(pw ?? "").trim();
-    const text = [pw.point, pw.performs, ...Object.values(pw)].find((v) => typeof v === "string" && v.trim() !== "");
+    const text = [pw.point, ...Object.values(pw)].find((v) => typeof v === "string" && v.trim() !== "");
     return text ? text.trim() : "";
   });
 }
@@ -102,7 +102,6 @@ const RECORD_FIELD_NAMES = new Set([
   ...UNIT_KEYS,
   ...UNIT_PARAGRAPH_KEYS,
   "point",
-  "performs",
   "paragraph_you_must_plan",
   "bound_move",
   "paragraphs_beside",

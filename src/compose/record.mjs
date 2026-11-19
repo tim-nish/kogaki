@@ -126,8 +126,7 @@ export function paragraphPlanPathFor(briefPath) {
 // and its `paragraphs`, at most `brief.paragraphs_per_leg`. Each paragraph carries the Leg
 // schema at the paragraph scale -- `materials`, `purpose`, `depends_on`, `rationale`,
 // `re-activate` -- beside its `join` and its Waypoints
-// (`point` and `cast`, or `performs` alone, kogaki#1448), one per Segment of the Leg's
-// Move. It carries no reader state and no Obligations ledger (kogaki#1701): what a Leg takes
+// (`point` and `cast`), one per Segment of the Leg's Move. It carries no reader state and no Obligations ledger (kogaki#1701): what a Leg takes
 // up and leaves is its bound Move's `takes` and `leaves`.
 
 const PLAN_HEADER = [
@@ -177,12 +176,8 @@ function paragraphRecord(e, n) {
     ...schema,
     ...(typeof e.join === "string" ? { join: oneLine(e.join) } : {}),
     paragraph_waypoints: (e.paragraph_waypoints || []).map((p) => ({
-      ...(Object.hasOwn(p, "performs")
-        ? { performs: oneLine(p.performs) }
-        : {
-            point: oneLine(p.point),
-            ...(p.cast && typeof p.cast === "object" ? { cast: { ...p.cast } } : {}),
-          }),
+      point: oneLine(p.point),
+      ...(p.cast && typeof p.cast === "object" ? { cast: { ...p.cast } } : {}),
       ...(marked(p.forced_by) ? { forced_by: p.forced_by.map(String) } : {}),
     })),
   };
@@ -286,12 +281,6 @@ export function analogyShapeRefusal(analogy, at) {
 }
 
 const PARAGRAPH_WAYPOINT_KEYS = ["point", "cast"];
-// THE PERFORMS FORM (kogaki#1448, owner decision 2026-10-19): a Waypoint for a
-// Segment that acts on the reader's reading -- announce, flag, concede difficulty, signal a
-// turn -- carries `performs`, the operation in the planner's words, in place of `point`:
-// such a Segment carries no part of the Leg's relation, and a point written for it
-// is invented content.
-const PERFORMS_WAYPOINT_KEYS = ["performs"];
 
 export function undeclaredKey(obj, allowed) {
   return Object.keys(obj).find((k) => !allowed.includes(k));
@@ -540,14 +529,8 @@ const CAST_SET = Object.keys(CAST_KEYS).join(", ");
 // ONE WAYPOINT'S CAST (kogaki#1695). `null` where it passes.
 export function castRefusal(p, at) {
   const has = Object.hasOwn(p, "cast");
-  if (Object.hasOwn(p, "performs")) {
-    return has
-      ? `${at} carries \`cast\` on a \`performs\` Waypoint — a cast is the shape of a point's sentences, ` +
-          "and a `performs` entry carries no point (kogaki#1695)"
-      : null;
-  }
   if (!has)
-    return `${at} carries no \`cast\` — every \`point\` Waypoint carries one, \`{}\` where its Segment sets no key of ${CAST_SET} (kogaki#1695)`;
+    return `${at} carries no \`cast\` — every Waypoint carries one, \`{}\` where its Segment sets no key of ${CAST_SET} (kogaki#1695)`;
   const c = p.cast;
   if (!c || typeof c !== "object" || Array.isArray(c))
     return `${at} carries a \`cast\` that is not a map of ${CAST_SET} to booleans (kogaki#1695)`;
@@ -594,49 +577,28 @@ export function joinRefusal(w, j, at) {
 }
 
 // ONE PARAGRAPH'S WAYPOINTS, by the Waypoints' own rule and with `point` and `cast` as their
-// only keys -- or `performs` alone (kogaki#1448); a paragraph none of whose Waypoints carries a
-// `point` is refused.
+// only keys. A Waypoint carrying `performs` is refused by name (kogaki#1864).
 export function paragraphWaypointsRefusal(pws, at) {
   if (Array.isArray(pws)) {
     for (const [i, p] of pws.entries()) {
       if (p && typeof p === "object" && !Array.isArray(p)) {
+        if (Object.hasOwn(p, "performs")) {
+          return (
+            `${at}: Waypoint ${i + 1} carries \`performs\` — a Waypoint carries \`point\` and \`cast\`, ` +
+            "and the `performs` form left the ParagraphPlan (kogaki#1864)"
+          );
+        }
         const badCast = castRefusal(p, `${at}: Waypoint ${i + 1}`);
         if (badCast) return badCast;
-        if (Object.hasOwn(p, "performs")) {
-          const k = undeclaredKey(p, PERFORMS_WAYPOINT_KEYS);
-          if (k) {
-            return (
-              `${at}: Waypoint ${i + 1} carries \`performs\` beside \`${k}\` — a \`performs\` Waypoint ` +
-              "carries its Segment's operation on the reader's reading in place of `point`, and nothing else (kogaki#1448)"
-            );
-          }
-          if (typeof p.performs !== "string" || p.performs.trim() === "") {
-            return (
-              `${at}: Waypoint ${i + 1} carries an empty \`performs\` — it names the operation its Segment ` +
-              "performs on the reader's reading, in one sentence (kogaki#1448)"
-            );
-          }
-          continue;
-        }
         const k = undeclaredKey(p, PARAGRAPH_WAYPOINT_KEYS);
         if (k) {
           return (
             `${at}: Waypoint ${i + 1} carries \`${k}\` — a Waypoint carries \`point\` and \`cast\`, ` +
-            "or `performs` alone, and nothing of a Move reaches past Waypoint generation (kogaki#1375, kogaki#1448)"
+            "and nothing of a Move reaches past Waypoint generation (kogaki#1375)"
           );
         }
       }
     }
-    const isPoint = (p) => !(p && typeof p === "object" && Object.hasOwn(p, "performs"));
-    const points = pws.filter(isPoint);
-    const ordinals = pws.map((p, i) => i + 1).filter((n) => isPoint(pws[n - 1]));
-    if (pws.length && !points.length) {
-      return (
-        `${at}: none of its Waypoints carries a \`point\` — a \`performs\` Waypoint carries no part ` +
-        "of the Leg's relation, so a paragraph carries at least one `point` Waypoint (kogaki#1448)"
-      );
-    }
-    return waypointsRefusal(points, `${at}'s Waypoints`, ordinals, null, { paragraph: true });
   }
   return waypointsRefusal(pws, `${at}'s Waypoints`, null, null, { paragraph: true });
 }

@@ -1849,17 +1849,10 @@ naming both files; it refuses a Brief whose waypoint carries `move` or
 `segments` by name (§4.1). `checks/check-draft-packet.sh` carries the
 rendering and every refusal.
 
-**A `performs` Waypoint renders as an italic operation line, and
-its realisation brings in nothing the points do not give** (kogaki#1448,
-kogaki#1492). The line names the operation alone and carries no Serves; the
-template tells the Writer to perform it in the paragraph's own words, to assert
-nothing, and to bring in no part of the subject that the paragraph's points do
-not give. No Segment, Extraction content or Move field reaches the Writer to
-fill it. *Status: a bound under test* (owner decision 2026-10-21): it is a
-sentence the Writer reads, with no judge behind it, adopted to observe whether
-the Writer's constraints were the cause. The case to re-read after the next run
-is the 2026-10-20 Leg run, paragraph 2, whose operation line was realised with
-a reason and a description of the cases that no point gave.
+**A Waypoint carrying `performs` is refused by name** (kogaki#1864, owner
+decision 2026-11-18). The `performs` form of kogaki#1448 left the ParagraphPlan
+with the mechanisms that depended on a Segment's `operation`; every Waypoint
+carries `point` and `cast`.
 
 **The Journey block renders material for a concrete example** (kogaki#1323,
 owner ruling 2026-10-10), in whatever form this Leg's waypoints need — one
@@ -2701,7 +2694,6 @@ by a bench run or by the shared-text rule (kogaki#1452).
 | Manner not content | paragraph only | — | `manner_is_not_content` | a manner realises one Segment, and only a Waypoint realises one | wording |
 | Constraint kinds | paragraph only | — | `takes_and_leaves` | the four kinds are written once for the paragraph rows, which read `takes` and `leaves` beside the Segments (kogaki#1701) | wording |
 | Join is a type | paragraph only | — | `join_is_a_type` | paragraphs join, and Legs meet through the relations their texts state (kogaki#1699, kogaki#1768, kogaki#1777) | wording |
-| Performs is bare | paragraph only | — | `PERFORMS IS BARE` | placement happens at the paragraph, and `performs` is a Waypoint's field | wording |
 | One analogy | paragraph only | — | `ANALOGUE` | every example a paragraph draws comes from the one Analogy Mapping chosen before the first Leg, and only the ParagraphPlan's Legs are handed it (kogaki#1778, kogaki#1812) | criterion |
 | Cast held | paragraph only | — | `CAST` | a `cast` is set on a Waypoint, and only a Waypoint realises a Segment's `manner`, so each key it sets is held to its definition there (kogaki#1695, kogaki#1816) | criterion |
 | Cast is a set | paragraph only | — | `cast_is_a_set` | the closed set of cast keys and their definitions is written once for the paragraph rows, the planner's that sets them and the judge's that holds a point to them (kogaki#1695, kogaki#1816) | wording |
@@ -2807,11 +2799,11 @@ unit waits on another's. Three rules follow, and nothing crosses a Leg:
 > (`src/move-extraction-playground/judge-bench.mjs`) shows its defect fixture refused with
 > it and rarely without it, and its clean fixture passed, at the rates the
 > file's `retention` names. Two axes were kept then:
-> PERFORMS IS BARE and TERM MEANING, the second retired by kogaki#1663. The
-> two countable rules are refusals of
+> PERFORMS IS BARE and TERM MEANING, the first retired by kogaki#1864 and the
+> second by kogaki#1663. The two countable rules are refusals of
 > the plan-record validator (`src/paragraph-plan.mjs`), not of the judge: the
 > Waypoint count equals the bound Move's Segment count, and every
-> entry carries exactly one of `performs` and `point`.
+> entry carries `point` and `cast` and no other key.
 > `checks/check-paragraph-plan-axes.sh` carries the registry.
 
 **A Leg is at most `brief.paragraphs_per_leg` paragraphs, and a Waypoint is one
@@ -2837,7 +2829,7 @@ The `technique` fallback is unaffected, since it is the Move's only order where
 
 **A Waypoint explains its Leg's text and adds nothing to it (kogaki#1632, owner
 decision 2026-10-28; the Leg as unit, kogaki#1777).** Each Waypoint is the step
-its Segment's `operation` performs toward the Leg's `text`, and the Waypoints
+toward the Leg's `text` that its Segment's `operation` names, and the Waypoints
 together carry the explanation of that text and the logical progression toward
 it, in the planner's own words and examples — an illustration such as airport
 security screening or a dispute between neighbours may explain a technical
@@ -2866,7 +2858,7 @@ Leg binds, and nothing else of the Move — `move_forced_by` where the judge
 forced a rebinding, and `paragraphs`, at most `brief.paragraphs_per_leg`, in
 order. **Every paragraph carries the Leg schema at the paragraph scale**, beside
 its `paragraph` number, its `join` and its `paragraph_waypoints` (`point` and
-`cast`, or `performs` alone), and carries no `move`:
+`cast`), and carries no `move`:
 
 | field | the paragraph's |
 |---|---|
@@ -2969,9 +2961,8 @@ planner consumes it and it never reaches the Writer.
 > clause above).
 
 **The cast is a closed map (kogaki#1695, owner decision 2026-11-06).** Every
-`point` Waypoint carries `cast`, a map whose keys come from a closed
-set and whose values are booleans; `{}` is the form for no constraint, and a
-`performs` Waypoint carries none. Operation and Strand together give
+Waypoint carries `cast`, a map whose keys come from a closed
+set and whose values are booleans; `{}` is the form for no constraint. Operation and Strand together give
 a Waypoint; Manner and Strand together give a constraint on it, which
 belongs to the Plan and is not the Move's `manner` even where its words
 coincide. The set, `CAST_KEYS` in `src/compose/record.mjs`:
@@ -2990,10 +2981,9 @@ coincide. The set, `CAST_KEYS` in `src/compose/record.mjs`:
 
 The planner sets true each key its Segment's `manner` bears, and no key where
 the Segment carries no `manner`; the manner's words stay out of the point.
-The plan reader and the plan call's validator (`castRefusal`) refuse a `point`
+The plan reader and the plan call's validator (`castRefusal`) refuse a
 Waypoint with no `cast`, a `cast` that is not a map, a key outside
-the set and a value that is not a boolean, each by name, and a `cast` on a
-`performs` Waypoint. The Packet renders the true keys, in the set's
+the set and a value that is not a boolean, each by name. The Packet renders the true keys, in the set's
 order, as one indented `*Cast:* <keys>` line under the point, and no line where
 none is true; the Writer realises it in the form of that point's sentences,
 never as a sentence or clause of its own. **Why a closed set**: a model cannot
