@@ -575,18 +575,24 @@ ok(
   tParagraphs.length === 1 && tParagraphs[0].move === EDGED && !Object.hasOwn(tParagraphs[0], "paragraph_waypoints"),
   `(i) the paragraph record is not one paragraph under the named Move with no \`paragraph_waypoints\`: ${JSON.stringify(tParagraphs)}`,
 );
-// The Writer is handed the plan and no Point (kogaki#1859): the Arguments, the CentralClaim and one part per Segment.
+// The Writer is handed the plan and no Point: the table of the Leg's structure, the symbols of its CentralClaim and
+// Arguments, and one part per Segment.
 const tWriter = ((ti.seen.find((x) => x.stage === "writer") || {}).prompt || "").split("\n");
 ok(
   [
-    "- Argument 1. The installer writes the copy.",
-    "- Argument 2. The copy overwrites any edit.",
-    "- CentralClaim. The copy is the installer's.",
-    "1. Argument 1. Pointed to by part 2.",
-    "2. Argument 2. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.",
-    "3. CentralClaim. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect.",
+    "| {r_1} | installer | Role |  | the program that copies the kit. |",
+    "| {r_2} | copy | Role |  | the files it writes. |",
+    "| {r_3} | edit | Role |  | a change the consumer makes. |",
+    "| {c_1} | writes | Relation | {r_1}, {r_2} | The {r_1} writes the {r_2}. |",
+    "| {c_2} | overwrites | Relation | {r_2}, {r_3} | The {r_2} overwrites any {r_3}. |",
+    "| {h_1} | ownership | HigherOrderRelation | {c_1}, {c_2} | The {r_2} is the {r_1}'s. |",
+    "The CentralClaim of this paragraph is {h_1}.",
+    "Its Arguments are {c_1}, {c_2}.",
+    "1. {c_1}. Pointed to by part 2.",
+    "2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.",
+    "3. {h_1}. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect.",
   ].every((l) => tWriter.includes(l)),
-  `(i) the writer's stdin does not hold the Leg's Arguments, its CentralClaim and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(- |\d+\. )/.test(l)))}`,
+  `(i) the writer's stdin does not hold the table of the Leg's structure, the symbols of its CentralClaim and Arguments and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(\| \{|The CentralClaim |Its Arguments |\d+\. )/.test(l)))}`,
 );
 ok(
   !tWriter.some((l) => l.includes("PW-") || l.includes("*Serves:*") || l.includes("voiced as the parties' own words")),
@@ -797,7 +803,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     ) &&
       lRows.length === 3 &&
       lRows[1].includes(
-        "<td>2</td><td>Concession.Denier → 1</td><td>2. Argument 2. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.</td>",
+        "<td>2</td><td>Concession.Denier → 1</td><td>2. {c_2}. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.</td>",
       ) &&
       lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`) &&
       lRows[0].startsWith("<td>1</td><td>none</td>"),
@@ -878,7 +884,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     `(l) a refused readback did not leave the writer running and show the refusal with no table: ${rStages} ${rSection}`,
   );
   ok(
-    lRows.length > 0 && lRows[0].includes("<td>1. Argument 1. Pointed to by part 2.</td><td></td><td></td>"),
+    lRows.length > 0 && lRows[0].includes("<td>1. {c_1}. Pointed to by part 2.</td><td></td><td></td>"),
     `(l) a Segment with a null readback does not show two empty cells: ${lRows[0]}`,
   );
 }
@@ -907,8 +913,19 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
   );
 }
 
+// (n) under a plan the Trial hands no claims block: neither input holds its heading, and each holds the plan's.
+{
+  const CLAIMS = "## The claims this Leg asserts";
+  const PLAN = "## The plan of this paragraph";
+  const inputs = [tWriter, tReadback.split("\n")];
+  ok(
+    inputs.every((lines) => lines.includes(PLAN) && !lines.some((l) => l.startsWith(CLAIMS))),
+    `(n) under a plan the Writer's input or the Readback call's input holds the heading "${CLAIMS}", or holds no plan block`,
+  );
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j), (l), (m)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j), (l)-(n)`);

@@ -1,27 +1,54 @@
 ## The plan of this paragraph
-
-This block is a plan.
-It is not a draft of the paragraph.
-Each sentence in it only says what is meant.
-None of its wording is kept.
-You choose every word of the paragraph.
-One thing keeps one name through the whole paragraph.
 {{#if plan}}
 
-### What the paragraph says
+### The structure the paragraph conveys
 
-{{#each plan.arguments}}
-- Argument {{number}}. {{sentence}}
+The table holds every thing this paragraph speaks of and how those things are joined.
+A symbol in braces stands for the row that carries it.
+A Role is a thing, and its sentence says what the thing is.
+A Relation joins the Roles in its Arguments column, and its sentence says how.
+A HigherOrderRelation joins the Relations in its Arguments column, and its sentence says how.
+
+| symbol | name | kind | Arguments | sentence |
+|---|---|---|---|---|
+{{#each plan.rows}}
+| {{symbol}} | {{name}} | {{kind}} | {{arguments}} | {{sentence}} |
 {{/each}}
-- CentralClaim. {{plan.central_claim}}
+
+The CentralClaim of this paragraph is {{plan.central_claim}}.
+Its Arguments are {{#each plan.arguments}}{{symbol}}{{#if more}}, {{/if}}{{/each}}.
+
+### How the paragraph uses the structure
+
+The paragraph gives the reader the CentralClaim.
+The CentralClaim is how its Arguments stand to each other, and the reader does not have that yet.
+
+The reader already knows every Argument.
+Bring an Argument back in the shortest form by which the reader recognises it.
+A reader who is told again in full what they know stops looking for what is new.
+Two forms do this.
+A short clause gives the Argument as the reason or the condition for what its sentence goes on to say.
+The weight of that sentence then falls on what follows the clause.
+A short noun phrase stands for the whole Argument.
+The sentence can then speak of the Argument as one thing and say something about it.
+
+Write the paragraph in words you choose for this reader.
+The sentences in the table are written to fix the structure exactly, and a reader hears them as a plan.
+A name in the table labels its row for the program that built the table.
+In the paragraph each thing gets the word this reader would use for it.
+One thing keeps one name through the whole paragraph.
+A reader takes a second name for a second thing.
 {{#if plan.segments}}
 
 ### The parts of the paragraph, in order
 
 Each part is about one sentence.
-A part that names an Argument says that Argument.
-A part that names the CentralClaim says the CentralClaim.
-A part that names neither adds no fact.
+A part about an Argument may be as short as a clause of the sentence beside it.
+A line opens with the symbol its part is about, or with Neither where the part is about no row of the table.
+A part about an Argument brings that Argument back in one of the two forms above.
+The part about the CentralClaim says what the CentralClaim's sentence in the table means.
+A part marked Neither works only with what the table holds.
+The table holds everything this paragraph tells the reader.
 A line may say how its part stands to an earlier part.
 It names that earlier part before the colon.
 The text after the colon speaks of two sentences only, this part and the part named before the colon.

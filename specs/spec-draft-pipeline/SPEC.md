@@ -1744,14 +1744,19 @@ Move file to render it.
 **The plan block is the Packet's first block**
 (kogaki#1859, owner decision 2026-11-18: "Points must not be passed to the
 Writer. Points are for debugging."). The Packet's first block is headed "The
-plan of this paragraph". It opens with six fixed sentences saying the block is
-a plan and not a draft, that none of its wording is kept, and that one thing
-keeps one name through the paragraph. Where the Brief carries a `structure`
-and the Leg names a `relation`, it then lists the Leg's Arguments and its
-CentralClaim, each as the one sentence `legSentences` gives
-(`src/structure-mapping-playground/move-structure.mjs`). Where the Leg carries
-`segments` (the short Trial under `--move-edges`, §4.20), it lists one part per
-Segment: `Argument <k>`, `CentralClaim` or `Neither`. After it, for each Edge
+plan of this paragraph". Where the Brief carries a `structure` and the Leg
+names a `relation`, it holds a table with one row for each Role, Relation and
+HigherOrderRelation the Leg's relation reaches, as `legRows` gives them
+(`src/sme/arguments.mjs`): its symbol in braces, its name, its kind, the
+symbols of its Arguments and its sentence with the braces kept. Two lines then
+name the symbol of the CentralClaim and the symbols of its Arguments, and a
+passage headed "How the paragraph uses the structure" says that the reader
+already knows every Argument and that the Writer chooses the paragraph's
+words. No Relation's sentence is written with a Role's name in place of its
+braces. Where the Leg carries `segments` (the short Trial under
+`--move-edges`, §4.20), it lists one part per Segment, each line opening with
+the symbol its part is about or with `Neither`, and under a plan that Trial
+hands the Writer no claims block. After that opening, for each Edge
 and each earlier part the Edge points to, the line carries `To part <n>:` and
 the text `src/sme/senses.json` holds for the Edge's Sense, its part word's text
 after `Here`, and, where the Edge carries Hypophora, that file's `hypophora`
