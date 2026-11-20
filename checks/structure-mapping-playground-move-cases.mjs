@@ -602,13 +602,23 @@ ok(
 );
 const tSheet = existsSync(join(ti.o, "sheet.html")) ? readFileSync(join(ti.o, "sheet.html"), "utf8") : "";
 const tSegs = (tSheet.match(/<section class="card" id="segments">([\s\S]*?)<\/section>/) || [])[1] || "";
+// The Move's own words on the sheet (kogaki#1913): its description above the table, each Segment's operation and relation
+// in a cell, and none of them handed to the Writer or the Readback call.
+const tMove = parseYaml(readFileSync("moves/grant_the_rule_then_withdraw_its_enforcer.yaml", "utf8"));
+const tWords = tMove.segments.flatMap((sg) => [sg.operation, sg.relation].filter((w) => typeof w === "string"));
 ok(
-  /<th>#<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
-    !tSegs.includes("operation") &&
+  tSegs.startsWith(`<h2>Segments</h2><p>${tMove.description}</p>`) &&
+    /<th>#<\/th><th>operation<\/th><th>relation<\/th><th>bind<\/th><th>Edges<\/th><\/tr>/.test(tSegs) &&
+    tWords.every((w) => tSegs.includes(`<td>${w}</td>`)) &&
     !tSegs.includes("genericity") &&
     !tSegs.includes("Unmatched") &&
     !tSegs.includes("Waypoint"),
-  "(i) the sheet's Segments table is not the three columns, with no operation, no Unmatched table and no Waypoints column",
+  "(i) the sheet's Segments section does not open with the Move's description and show the five columns with each operation and relation, or it holds genericity, an Unmatched table or a Waypoints column",
+);
+const tReadback = (ti.seen.find((x) => x.stage === "readback") || {}).prompt || "";
+ok(
+  [tMove.description, ...tWords].every((w) => !tWriter.join("\n").includes(w) && !tReadback.includes(w)),
+  "(i) the Writer's input or the Readback call's input holds the Move's description, an operation or a relation",
 );
 const tRows = ((tSegs.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
 ok(

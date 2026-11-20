@@ -119,9 +119,8 @@ export const RETIRED_MOVE_FIELDS = {
 // what some reader, or the person reading the library, has a use for.
 export const MOVE_CARRIED_FIELDS = ["description", "evidence"];
 
-// `description` is human-facing and maps no role (kogaki#1412): no prompt
-// renders it, and nothing reads it beyond its presence and this bound, which
-// `src/move-extraction-playground/extract.mjs`'s `DESCRIPTION_MAX` asks the Extractor to keep.
+// `description` is human-facing and maps no role (kogaki#1412): no prompt renders it. Beyond its presence and this
+// bound, it is read only by the short Trial's sheet under `--move-edges`, which shows it above the Segments table.
 export const MOVE_DESCRIPTION_MAX = 200;
 
 function moveRecordContract(record, moveId, path, movesDir) {
