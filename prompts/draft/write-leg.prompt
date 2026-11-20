@@ -120,11 +120,17 @@ Each part is about one sentence.
 A part that names an Argument says that Argument.
 A part that names the CentralClaim says the CentralClaim.
 A part that names neither adds no fact.
-A part's Sense names how the part stands to the earlier parts listed after it.
-No Sense is named to the reader.
+A line may say how its part stands to an earlier part.
+It names that earlier part before the colon.
+The text after the colon speaks of two sentences only, this part and the part named before the colon.
+In that text, "this sentence" is this part.
+In that text, "the sentence pointed to" is the part named before the colon.
+Where a line names several earlier parts, each text holds on its own for the part it names.
+It says nothing of how those earlier parts stand to each other.
+A part that later parts point to also does what each of their lines says of the sentence pointed to.
 
 {{#each plan.segments}}
-{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each edges}} Sense {{sense}}, to {{#each to}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/each}}
+{{number}}. {{#if bound}}{{bound}}{{else}}Neither{{/if}}.{{#each stands}} To part {{to}}: {{meaning}}{{#if plays}} Here {{plays}}{{/if}}{{/each}}{{#if pointed}} Pointed to by {{#each pointed}}part {{number}}{{#if more}}, {{/if}}{{/each}}.{{/if}}
 {{/each}}
 {{/if}}
 {{else}}

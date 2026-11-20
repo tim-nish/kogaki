@@ -43,6 +43,11 @@ export function loadOwnSenses() {
   return readSensesFile().own;
 }
 
+// The one text of Hypophora, which is no Sense: an Edge may carry it beside its Sense or with no Sense (kogaki#1901).
+export function loadHypophora() {
+  return readSensesFile().hypophora;
+}
+
 // Every name a reading may answer, in the list's order: `{ name, sense, part, plays, meaning, opposite, order }`.
 export function senseNames(senses) {
   const out = [];

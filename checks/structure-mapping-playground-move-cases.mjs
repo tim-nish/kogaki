@@ -581,9 +581,9 @@ ok(
     "- Argument 1. The installer writes the copy.",
     "- Argument 2. The copy overwrites any edit.",
     "- CentralClaim. The copy is the installer's.",
-    "1. Argument 1.",
-    "2. Argument 2. Sense Concession.Denier, to part 1.",
-    "3. CentralClaim. Sense Cause.Result, to part 2.",
+    "1. Argument 1. Pointed to by part 2.",
+    "2. Argument 2. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.",
+    "3. CentralClaim. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect.",
   ].every((l) => tWriter.includes(l)),
   `(i) the writer's stdin does not hold the Leg's Arguments, its CentralClaim and the three parts: ${JSON.stringify(tWriter.filter((l) => /^(- |\d+\. )/.test(l)))}`,
 );
@@ -758,7 +758,9 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
       trec.readback.path &&
       trec.readback.path.endsWith("readback.json") &&
       lRows.length === 3 &&
-      lRows[1].includes("<td>2. Argument 2. Sense Concession.Denier, to part 1.</td>") &&
+      lRows[1].includes(
+        "<td>2. Argument 2. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.</td>",
+      ) &&
       lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`),
     `(l) the readback stage did not make one call, write readback.json and show one row per Segment: ${JSON.stringify(trec.readback)} ${lRows.length}`,
   );
@@ -794,7 +796,7 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     `(l) a refused readback did not leave the writer running and show the refusal with no table: ${rStages} ${rSection}`,
   );
   ok(
-    lRows.length > 0 && lRows[0].includes("<td>1. Argument 1.</td><td></td><td></td>"),
+    lRows.length > 0 && lRows[0].includes("<td>1. Argument 1. Pointed to by part 2.</td><td></td><td></td>"),
     `(l) a Segment with a null readback does not show two empty cells: ${lRows[0]}`,
   );
 }

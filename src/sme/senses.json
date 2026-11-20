@@ -1,7 +1,7 @@
 {
   "version": "1",
   "licensed_by": "kogaki#1847",
-  "note": "`senses` holds the 22 Senses of the Penn Discourse Treebank 3 annotation manual, which a reading is handed, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847). `own` holds Kogaki's own Senses, which an Edge of a Move may keep and a reading is not handed (kogaki#1881).",
+  "note": "`senses` holds the 22 Senses of the Penn Discourse Treebank 3 annotation manual, which a reading is handed, in the order a reading is handed them and the sheet shows them. A Sense with `parts` is named `<sense>.<part>`; one without is named `<sense>`. `opposite` names the two part words that are each other's opposite, counted as one answer once rewritten to the later sentence (kogaki#1847). `own` holds Kogaki's own Senses, which an Edge of a Move may keep and a reading is not handed (kogaki#1881). `hypophora` holds the one text of Hypophora, which is no Sense: an Edge may carry it beside its Sense or with no Sense, and a reading is not handed it.",
   "senses": [
     {
       "sense": "Synchronous",
@@ -130,5 +130,8 @@
       "meaning": "the sentence pointed to says nothing about the subject, and only tells the reader what kind of sentence this sentence is.",
       "parts": []
     }
-  ]
+  ],
+  "hypophora": {
+    "meaning": "the sentence pointed to raises a question, and this sentence gives its answer."
+  }
 }

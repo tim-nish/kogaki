@@ -8,8 +8,6 @@ The first is the readback.
 The readback says, in your own words, what the plan tells the writer to do in that part.
 It says what the part must say.
 It says how the part must stand to each earlier part it points to.
-It uses no Sense name.
-In place of the name it says what you take the Sense to mean.
 Where the plan tells the writer nothing for a part, the readback is null.
 
 The second is the sample.

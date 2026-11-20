@@ -22,6 +22,7 @@ import {
 } from "./journeys.mjs";
 import { sectionPlacement, priorProseInSection } from "./packet.mjs";
 import { legSentences } from "../sme/arguments.mjs";
+import { SENSES_FILE, senseNames, loadSenses, loadOwnSenses, loadHypophora } from "../sme/edges.mjs";
 import {
   REALIZATION_LANGUAGES,
   langOf,
@@ -32,10 +33,12 @@ import {
   sectionOfLeg,
 } from "./workspace.mjs";
 
-// THE PLAN BLOCK (kogaki#1859, kogaki#1865): the Leg's Arguments and CentralClaim, `legSentences` at the Leg's
-// `relation` in the Brief's `structure`, and one part per Segment where the Leg carries `segments` -- each
-// `{ bind, edges }`, `bind` naming entry k of those sentences. An Edge whose `sense` is null is not handed on, nor is
-// `hypophora`. Null where the Brief carries no `structure` or the Leg names no relation.
+// THE PLAN BLOCK (kogaki#1859, kogaki#1865, kogaki#1901): the Leg's Arguments and CentralClaim, `legSentences` at
+// the Leg's `relation` in the Brief's `structure`, and one part per Segment where the Leg carries `segments` -- each
+// `{ bind, edges }`, `bind` naming entry k of those sentences. A part carries `stands`, the Senses file's texts toward
+// each part its Edges point to, and `pointed`, the later parts whose Edges point to it; no Sense name is handed on.
+// `{ error }` names a Sense the Senses file does not hold. Null where the Brief carries no `structure` or the Leg
+// names no relation.
 export function planValues(structure, leg) {
   if (!structure || typeof leg.relation !== "string") return null;
   const whole = {
@@ -46,12 +49,32 @@ export function planValues(structure, leg) {
   if (![...whole.relations, ...whole.higher_order].some((r) => r.id === leg.relation)) return null;
   const sentences = legSentences(whole, leg.relation);
   const label = (s) => (s.kind === "CentralClaim" ? "CentralClaim" : `Argument ${s.number}`);
-  const segments = (leg.segments || []).map((g, i) => {
+  const segs = leg.segments || [];
+  const names = senseNames([...loadSenses(), ...loadOwnSenses()]);
+  const hypophora = loadHypophora().meaning;
+  const unknown = segs
+    .flatMap((g) => g.edges || [])
+    .find((e) => e.sense !== null && e.sense !== undefined && !names.has(e.sense));
+  if (unknown)
+    return { error: `the text of the Sense ${JSON.stringify(unknown.sense)}, which ${SENSES_FILE} does not hold` };
+  const standsOf = (e) =>
+    e.to.flatMap((to) => {
+      const n = e.sense === null || e.sense === undefined ? null : names.get(e.sense);
+      return [
+        ...(n ? [{ to, meaning: n.meaning, ...(n.plays ? { plays: n.plays } : {}) }] : []),
+        ...(e.hypophora ? [{ to, meaning: hypophora }] : []),
+      ];
+    });
+  const stands = segs.map((g) => (g.edges || []).flatMap(standsOf));
+  const segments = segs.map((g, i) => {
     const b = Number.isInteger(g.bind) ? sentences[g.bind - 1] : null;
-    const edges = (g.edges || [])
-      .filter((e) => e.sense !== null && e.sense !== undefined)
-      .map((e) => ({ sense: e.sense, to: listOf(e.to.map((number) => ({ number }))) }));
-    return { number: i + 1, ...(b ? { bound: label(b) } : {}), edges };
+    const pointed = stands.flatMap((st, k) => (k > i && st.some((x) => x.to === i + 1) ? [{ number: k + 1 }] : []));
+    return {
+      number: i + 1,
+      ...(b ? { bound: label(b) } : {}),
+      stands: stands[i],
+      ...(pointed.length ? { pointed: listOf(pointed) } : {}),
+    };
   });
   return {
     arguments: sentences.slice(0, -1).map((s) => ({ number: s.number, sentence: s.sentence })),
@@ -174,11 +197,12 @@ export function renderPacket({
   // THE JOURNEY A LEG DRAWS ON (kogaki#1111) as its served TEXT, the address beside it (kogaki#1250); a caller
   // that skipped resolution gets the same `need()` refusal as any absent block.
   const plan = planValues(brief.record?.structure ?? null, leg);
+  if (plan?.error) missing.push(plan.error);
   const journeys = leg.journeys || [];
   const unresolved = journeys.some((j) => typeof j.resolvedText !== "string" || j.resolvedText.trim() === "");
   if (unresolved) need(`${leg.leg_id}'s Journey text`, null);
   const values = {
-    ...(plan ? { plan } : {}),
+    ...(plan && !plan.error ? { plan } : {}),
     claims: claimTexts.length ? { lines: claimTexts } : {},
     journeys:
       journeys.length && !unresolved
