@@ -4,9 +4,7 @@
 # was decomposed into left the implementation and the records, and nothing is renamed to keep it.
 # THE PREDICATE IS OVER THE WORD: `waypoint` in any case and with any ending, also inside a longer
 # name (`paragraph_waypoints`, `waypointsRefusal`). A hit is a failure, never a candidate.
-# ONE FILE IS LEFT OUT BY NAME: `src/candidate-schema.json`, whose text two calls of `/brief` are
-# sent; kogaki#1890 rewords it and removes this exception. This check's fixtures live outside the
-# scanned roots.
+# NO FILE IS LEFT OUT (kogaki#1890). This check's fixtures live outside the scanned roots.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -14,7 +12,6 @@ python3 - "$@" <<'PYX'
 import re, subprocess, sys
 
 RETIRED = re.compile(r"waypoint", re.IGNORECASE)
-LEFT_OUT = {"src/candidate-schema.json"}
 
 def hits(text):
     return [(i, l.strip()) for i, l in enumerate(text.splitlines(), 1) if RETIRED.search(l)]
@@ -44,9 +41,8 @@ print("ok: fixture pass (%d case(s)) — the retired-word predicate discriminate
 if "--self-test" in sys.argv:
     sys.exit(0)
 
-listed = subprocess.run(["git", "ls-files", "src/", "prompts/", "specs/spec-draft-pipeline/SPEC.md", ".claude/skills/"],
-                        capture_output=True, text=True, check=True).stdout.split()
-files = [f for f in listed if f not in LEFT_OUT]
+files = subprocess.run(["git", "ls-files", "src/", "prompts/", "specs/spec-draft-pipeline/SPEC.md", ".claude/skills/"],
+                       capture_output=True, text=True, check=True).stdout.split()
 failures, read, skipped = [], 0, []
 for f in files:
     try:
@@ -64,11 +60,11 @@ if failures:
         print("FAIL: %s:%d holds the retired word." % (f, n))
         print("      %s" % (l[:160],))
     print()
-    print("read: %d of %d file(s); left out by name: %s." % (read, len(files), ", ".join(sorted(LEFT_OUT))))
+    print("read: %d of %d file(s)." % (read, len(files)))
     print()
     print("The list of claims a Leg was decomposed into left Kogaki (kogaki#1885): remove what the line")
     print("describes, and do not keep it under another word.")
     sys.exit(1)
-print("ok: check-retired-waypoint-names — read %d file(s) under src/, prompts/ and .claude/skills/ and the draft-pipeline "
-      "spec, leaving out %s; none holds the retired word (kogaki#1885)" % (read, ", ".join(sorted(LEFT_OUT))))
+print("ok: check-retired-waypoint-names — read %d of %d file(s) under src/, prompts/ and .claude/skills/ and the "
+      "draft-pipeline spec; none holds the retired word (kogaki#1885, kogaki#1890)" % (read, len(files)))
 PYX

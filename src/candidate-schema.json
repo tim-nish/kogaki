@@ -128,7 +128,7 @@
   },
   "retired_fields": {
     "characteristic": "RETIRED (kogaki#1768, owner decision 2026-11-10) and REFUSED BY NAME where a Candidate carries it. It named a path's difference from its sibling Candidates, and one structure gives one Reader Path; the Candidate gate renders the path's Legs instead.",
-    "reader_experience": "RETIRED (kogaki#1768, owner decision 2026-11-10) and REFUSED BY NAME where a Candidate carries it. It stated what the reader goes through on one of two or three paths, and one structure gives one Reader Path; the Candidate gate renders the path's Legs and Brief Waypoints instead.",
+    "reader_experience": "RETIRED (kogaki#1768, owner decision 2026-11-10) and REFUSED BY NAME where a Candidate carries it. It stated what the reader goes through on one of two or three paths, and one structure gives one Reader Path; the Candidate gate renders the path's Legs instead.",
     "reader_target": "RETIRED (kogaki#1225, kogaki#1699) and REFUSED BY NAME where a Candidate carries it. The Brief's Reader target heading renders the Thesis, which the Leg marked `reaches_target` attains; no field authors it.",
     "reader_start": "RETIRED (kogaki#1699) and REFUSED BY NAME where a Candidate carries it. The first Leg's entry condition is the Persona's prior-knowledge line, which the Reader start heading renders.",
     "obligations": "RETIRED (kogaki#1699) and REFUSED BY NAME where a Candidate carries it. What a Leg takes up and leaves is its Move's `takes` and `leaves`, judged across the path; no field records it.",
@@ -187,20 +187,20 @@
         "caption": "The words this article gives a meaning to, and the words it uses as the reader already knows them. Written once, when the Brief was named; a word marked defined is used only after the paragraph that introduces it.",
         "entry_keys": ["term", "class"],
         "one_of": ["defined", "ordinary"],
-        "description": "Every noun of the Thesis and of each Strand's claim, one entry per term (one or more words, in the form an `introduces` entry's `term` takes), each with `class` `defined` -- used in a sense this article gives it -- or `ordinary` -- used in the sense the reader already holds. Written once by the mint and never again (kogaki#1331). Composition refuses a `defined` term in a claim, a waypoint's point or a heading before the Leg whose `introduces` carries it. It lives in the Brief and ends there: nothing of it reaches the Packet. A Brief minted before the field carries none and defines nothing."
+        "description": "Every noun of the Thesis and of each Strand's claim, one entry per term (one or more words, in the form an `introduces` entry's `term` takes), each with `class` `defined` -- used in a sense this article gives it -- or `ordinary` -- used in the sense the reader already holds. Written once by the mint and never again (kogaki#1331). Composition refuses a `defined` term in a claim or a heading before the Leg whose `introduces` carries it. It lives in the Brief and ends there: nothing of it reaches the Packet. A Brief minted before the field carries none and defines nothing."
       },
       "renderings": {
         "required": false,
         "filled_at": "compose_path",
         "caption": "The source's own words this article does not keep, each with the plain phrase it uses instead. A word not listed here keeps the source's wording.",
         "entry_keys": ["term", "as"],
-        "description": "The renderings record (kogaki#1494, owner decision 2026-10-21): one entry per term of the served material the article will not keep, `term` the served word and `as` the plain phrase the article uses in its place. Composed once at the start of the `compose_path` state, before the Brief Waypoints are composed (kogaki#1768), from the settled Strands and the Defined Terms (the `renderings_unit` row of src/brief-workflow.json); every reader-path unit composes under it and the Path Review judges each claim and point recoverable from its served material under it. Written into the Brief at adoption, beside the Reader Path composed under it; it is not a slot, so a Brief adopted before the field carries none and renders nothing. A term an `introduces` entry carries is refused here at adoption: `introduces` carries only terms the article keeps."
+        "description": "The renderings record (kogaki#1494, owner decision 2026-10-21): one entry per term of the served material the article will not keep, `term` the served word and `as` the plain phrase the article uses in its place. Composed once at the start of the `compose_path` state, from the settled Strands and the Defined Terms (the `renderings_unit` row of src/brief-workflow.json); every reader-path unit composes under it and the Path Review judges each claim recoverable from its served material under it. Written into the Brief at adoption, beside the Reader Path composed under it; it is not a slot, so a Brief adopted before the field carries none and renders nothing. A term an `introduces` entry carries is refused here at adoption: `introduces` carries only terms the article keeps."
       },
       "structure": {
         "required": false,
         "filled_at": "mint",
         "caption": "How the settled Strands' claims relate: the parts each claim plays, the relations among them, the relations among those relations, and the one connection none of them states, which is the Thesis.",
-        "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations`, `higher_order` with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Brief Waypoint of a Brief carrying it names in `carries` the relations its point states, and every Leg names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
+        "description": "The adopted RelationalStructure (kogaki#1768): `roles`, `relations`, `higher_order` with the adopted apex appended, `attains_thesis` naming the apex, and `reach` and `unreached` derived from it (src/compose/structure.mjs, `withApex`). Written at mint, beside the Thesis it is the apex of. Every Leg of a Brief carrying it names in `relation` the higher-order relation it serves. A Brief composed elsewhere carries none, and owes no `carries`."
       },
       "reader_path": {
         "required": true,
