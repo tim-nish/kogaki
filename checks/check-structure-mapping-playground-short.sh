@@ -492,19 +492,19 @@ ok(m3.error && m3.error.includes("carries `attributes`, which it does not declar
 const m4 = validateStructure(withRole(1, { ...mapped.roles[1], context: "The rules a household keeps about which doors stay locked." }), propositionRec);
 ok(!m4.error, `(m) a context carrying "rules" was refused: ${JSON.stringify(m4)}`);
 
-// (f) the sheet: dark, its eight sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
-const SECTIONS = ["Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Analogy Mapping", "Structure", "Call Records", "Model calls"];
-const PART_IDS = ["proposition-paragraph", "segments", "bindings", "mapping", "analogy", "structure", "call-records", "calls"];
+// (f) the sheet: dark, its nine sections in order, the proposition and cite line above the Paragraph, Segments, Bindings, Mapping and Structure
+const SECTIONS = ["Packet", "Proposition and Paragraph", "Segments", "Bindings", "Mapping", "Analogy Mapping", "Structure", "Call Records", "Model calls"];
+const PART_IDS = ["packet", "proposition-paragraph", "segments", "bindings", "mapping", "analogy", "structure", "call-records", "calls"];
 const partIds = (html) => [...html.matchAll(/<section class="card" id="([^"]+)">/g)].map((x) => x[1]);
 const sheet = rec.sheet && existsSync(join(repo, rec.sheet)) ? readFileSync(join(repo, rec.sheet), "utf8") : "";
 ok(/^<!doctype html><html data-theme="dark">/.test(sheet), "(f) sheet.html does not carry data-theme=\"dark\" on its root");
 const jSheet = existsSync(join(j.o, "sheet.html")) ? readFileSync(join(j.o, "sheet.html"), "utf8") : "";
 const h2s = [...jSheet.matchAll(/<h2>([\s\S]*?)<\/h2>/g)].map((x) => x[1]);
-ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the eight sections in order: ${JSON.stringify(h2s)}`);
+ok(JSON.stringify(h2s) === JSON.stringify(SECTIONS), `(f) sheet.html's h2s are not the nine sections in order: ${JSON.stringify(h2s)}`);
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const section = (html, id) => (new RegExp(`<section class="card" id="${id}">([\\s\\S]*?)<\\/section>`).exec(html) || [])[1] || "";
 ok(JSON.stringify(partIds(jSheet)) === JSON.stringify(PART_IDS) && !jSheet.includes("Writer input"),
-  `(f) sheet.html's parts are not the eight ids in order with no strand part and no Writer input: ${JSON.stringify(partIds(jSheet))}`);
+  `(f) sheet.html's parts are not the nine ids in order with no strand part and no Writer input: ${JSON.stringify(partIds(jSheet))}`);
 const pp = section(jSheet, "proposition-paragraph");
 ok(!pp.includes('class="cols"') && pp.startsWith(`<h2>Proposition and Paragraph</h2><p>${esc(PROPOSITION)}</p><p class="meta">cite: ${esc(CITE)}</p><div class="prose">WRITTEN the crew`),
   `(f) the proposition and its cite line do not stand above the full-width Paragraph with no cols div: ${pp}`);

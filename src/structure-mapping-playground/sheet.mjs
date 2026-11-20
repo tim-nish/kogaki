@@ -409,6 +409,14 @@ function readbackSection(rb) {
   );
 }
 
+// THE PACKET (kogaki#1897): the file the stage `write` recorded under `packet`, whole, in one fold that is not open.
+function packetSection(record) {
+  const w = record.stages.find((s) => s.stage === "write");
+  const path = w && w.packet ? resolve(REPO, w.packet) : null;
+  if (!path || !existsSync(path)) return none("No Packet was written.");
+  return `<details class="part"><summary>the Packet the Writer was handed</summary>${pre(readFileSync(path, "utf8"))}</details>`;
+}
+
 // THE LEG'S SENSES (kogaki#1875), directly after the Move's Segments on the Brief-Leg route.
 const legSensesSectionOf = (ls) => (ls ? legSensesSection(ls.reading, ls.edges) : legSensesSection(null, []));
 
@@ -458,6 +466,7 @@ export function renderShortSheet({
         : "") +
     (moveRoute ? part("leg-senses", "The Leg's Senses", legSensesSectionOf(moveRoute.legSenses)) : "") +
     (moveRoute && moveRoute.segments ? part("readback", "Readback and Sample", readbackSection(record.readback)) : "") +
+    part("packet", "Packet", packetSection(record)) +
     part("proposition-paragraph", "Proposition and Paragraph", propositionParagraph) +
     (moveRoute ? "" : part("segments", "Segments", segmentsSection(record, paragraphs))) +
     part("bindings", "Bindings", bindingsSection(record, paragraphs)) +

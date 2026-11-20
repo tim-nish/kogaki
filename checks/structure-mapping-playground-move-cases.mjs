@@ -799,8 +799,32 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
   );
 }
 
+// (m) the `packet` section under `--move-edges` (kogaki#1897): its heading and one fold that is not open, holding the
+// Packet; the section after `readback` and before `proposition-paragraph`.
+{
+  const f = join(ti.o, "sheet.html");
+  const html = existsSync(f) ? readFileSync(f, "utf8") : "";
+  const packet = (html.match(/<section class="card" id="packet">([\s\S]*?)<\/section>/) || [])[1] || "";
+  const lines = ((packet.match(/<pre>([\s\S]*?)<\/pre>/) || [])[1] || "").split("\n");
+  ok(
+    packet.startsWith(
+      '<h2>Packet</h2><details class="part"><summary>the Packet the Writer was handed</summary><pre>',
+    ) &&
+      (packet.match(/<details/g) || []).length === 1 &&
+      lines.includes("# Write one Leg") &&
+      lines.includes("## The plan of this paragraph"),
+    `(m) the packet section does not open with its heading and one closed fold holding the Packet: ${packet.slice(0, 200)}`,
+  );
+  const ids = [...html.matchAll(/<section class="card" id="([^"]+)">/g)].map((x) => x[1]);
+  const at = ids.indexOf("packet");
+  ok(
+    at > 0 && ids[at - 1] === "readback" && ids[at + 1] === "proposition-paragraph",
+    `(m) the packet section does not stand after readback and before proposition-paragraph: ${JSON.stringify(ids)}`,
+  );
+}
+
 if (fails.length) {
   for (const f of fails) console.log(`FAIL ${f}`);
   process.exit(1);
 }
-console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j), (l)`);
+console.log(`structure-mapping-playground-move: ${cases} case(s) pass, (a)-(j), (l), (m)`);

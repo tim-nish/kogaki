@@ -2897,10 +2897,11 @@ numbered line is the Leg's `text`. The paragraph is `<out>/paragraph.md`.
 `data-theme="dark"` fixed on its root and an accent of its own, so it is told
 from a Move-Extraction Playground at a glance. It opens on the comparison the owner reads
 (kogaki#1673). Its
-sections, in order (kogaki#1675, kogaki#1685, kogaki#1687): `Proposition and
+sections, in order (kogaki#1675, kogaki#1685, kogaki#1687, kogaki#1897): `Packet`, `Proposition and
 Paragraph`, `Segments`, `Bindings`, `Mapping`, `Analogy Mapping` (the
 Trial's `analogy.yaml`: the base domain and each counterpart, or `none` with its
 reason, kogaki#1784), `Structure` and `Model calls`, folded. The runner writes the sheet once and never reads it.
+`Packet` shows the Writer's whole input, the Packet file the stage `write` recorded, in one fold that is not open (kogaki#1897).
 
 - `Proposition and Paragraph` sets the proposition sentence on its own line,
   the proposition file's cite line under it in the `meta` style, and the
