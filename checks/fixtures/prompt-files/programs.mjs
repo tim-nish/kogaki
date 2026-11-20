@@ -172,18 +172,27 @@ export async function programTexts(imp) {
   const RB = await imp("src/structure-mapping-playground/readback.mjs");
   const { shortPacket } = await imp("src/structure-mapping-playground/short.mjs");
   const packed = shortPacket({
-    leg: { leg_id: "s1", text: "The installer writes the copy.", claims: [{ strand: "L1", proposition: "the installer copies the kit." }] },
+    leg: {
+      leg_id: "s1",
+      text: "The installer writes the copy.",
+      claims: [{ strand: "L1", proposition: "the installer copies the kit." }],
+    },
     audiencePath: AUDIENCE,
     structure: {
       roles: [
         { id: "r_1", name: "installer", context: "the program that copies the kit.", attributes: [], claims: ["L1"] },
         { id: "r_2", name: "copy", context: "the files it writes.", attributes: [], claims: ["L1"] },
       ],
-      relations: [{ id: "c_1", name: "writes", between: ["r_1", "r_2"], holds: "The {r_1} writes the {r_2}.", from: "L1" }],
+      relations: [
+        { id: "c_1", name: "writes", between: ["r_1", "r_2"], holds: "The {r_1} writes the {r_2}.", from: "L1" },
+      ],
       higher_order: [],
     },
     relation: "c_1",
-    segments: [{ bind: 1, edges: [] }, { bind: null, edges: [{ to: [1], sense: null, hypophora: true }] }],
+    segments: [
+      { bind: 1, edges: [] },
+      { bind: null, edges: [{ to: [1], sense: null, hypophora: true }] },
+    ],
   });
   out.set("read-back-parts", RB.readbackPrompt(packed.values));
   return out;
