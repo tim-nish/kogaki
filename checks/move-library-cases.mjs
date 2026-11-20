@@ -91,6 +91,13 @@ ok(
   `(c10e) an Edge that points to its own Segment is not refused naming the Segment: ${refusal(second([{ sense: "Cause.Reason", to: [2] }]))}`,
 );
 
+// (c10f) a record of one Segment with nothing bound and no Edge is refused naming Segment 1 (kogaki#1902).
+const LONE = { ...EDGED, segments: [{ ...EDGED.segments[0], bind: null, edges: [] }] };
+ok(
+  /`segments` Segment 1 has no Bind target, carries no Edge and no Edge points to it/.test(refusal(LONE)),
+  `(c10f) a lone Segment with nothing bound is not refused naming Segment 1: ${refusal(LONE)}`,
+);
+
 // (c11) every entry of the file's `own`, as `loadOwnSenses` returns it, carries exactly `sense`, `meaning` and
 // `parts`, its `meaning` one non-empty line (kogaki#1881).
 for (const [i, s] of loadOwnSenses().entries())

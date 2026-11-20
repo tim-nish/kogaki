@@ -233,6 +233,13 @@ export function paragraphPlanShapeRefusal(record, rel, legs) {
   return null;
 }
 
+// The number of the first Segment with nothing bound that stands at neither end of an Edge (kogaki#1902), or 0.
+export function looseSegment(segments) {
+  const pointed = new Set(segments.flatMap((s) => (Array.isArray(s.edges) ? s.edges : []).flatMap((e) => e.to)));
+  const i = segments.findIndex((s, k) => s.bind === null && !s.edges.length && !pointed.has(k + 1));
+  return i + 1;
+}
+
 // ONE LEG ENTRY: a string to refuse with, or null.
 function planLegRefusal(l, at) {
   const left = LEFT_PLAN_KEYS.find((k) => Object.hasOwn(l, k));
@@ -261,6 +268,9 @@ function planLegRefusal(l, at) {
         return `${atE}'s \`to\` does not name Segments of this Leg`;
     }
   }
+  const loose = looseSegment(l.segments);
+  if (loose)
+    return `${at}, Segment ${loose} has no \`bind\`, carries no Edge and no Edge points to it — every Segment has a sentence bound or stands at one end of an Edge`;
   return null;
 }
 

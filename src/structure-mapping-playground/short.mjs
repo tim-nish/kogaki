@@ -485,14 +485,18 @@ function writeStage({ dir, env, cli, leg, audiencePath, paragraphPath, plan = {}
 }
 
 // THE `readback` STAGE (kogaki#1882, kogaki#1904): one call with the Writer's settings over the Packet's passage, rendered
-// with the Writer's values. A refused answer is recorded and does not stop the Trial; `writeStage` is handed nothing of it.
-function readbackStage({ dir, env, cli, leg, audiencePath, plan, record }) {
+// with the Writer's values. A refused answer is recorded and does not stop the Trial; `writeStage` is handed nothing of
+// it. The debugging file (kogaki#1905) is written before the call and again after an answer `readbackRefusal` passes.
+function readbackStage({ dir, env, cli, leg, audiencePath, plan, move, record }) {
   const p = shortPacket({ leg, audiencePath, ...plan });
   if (p.error) return { stopped: p.error };
   const cut = RB.planBlock(p.packet);
   if (cut.error) return { stopped: cut.error };
   const lines = RB.partLines(cut.block);
   const prompt = RB.readbackPrompt(p.values);
+  const path = join(dirname(dir), RB.DEBUG_FILE);
+  const debug = RB.debugRecord(move, plan.segments, lines);
+  writeFileSync(path, JSON.stringify(debug, null, 2) + "\n");
   const w = writerSettings();
   const call = oneCall({ env, model: w.model, outputFormat: w.output_format, timeoutS: w.timeout_s, input: prompt });
   const said = /** @type {{ stopped?: string, text?: string }} */ (call);
@@ -510,11 +514,10 @@ function readbackStage({ dir, env, cli, leg, audiencePath, plan, record }) {
     refusal: refusal && { text: refusal, validator: a.refusal ? "readbackAnswer" : "readbackRefusal" },
   });
   if (refusal) {
-    record.readback = { plan: lines, refusal, answer: said.stopped ? null : String(said.text) };
+    record.readback = { plan: lines, refusal, answer: said.stopped ? null : String(said.text), ...fileRecord(path) };
     return { refusal };
   }
-  const path = join(dirname(dir), RB.READBACK_FILE);
-  writeFileSync(path, JSON.stringify(a.record, null, 2) + "\n");
+  writeFileSync(path, JSON.stringify(RB.withAnswer(debug, a.record), null, 2) + "\n");
   record.readback = { plan: lines, ...fileRecord(path) };
   return {};
 }
@@ -1045,7 +1048,9 @@ export function runMoveTrial({
   }
   const plan = { structure, relation: b.leg.relation, ...(segments ? { segments } : {}) };
   if (segments)
-    stage(RB.READBACK_STAGE, (d, env) => readbackStage({ dir: d, env, cli, leg, audiencePath, plan, record }));
+    stage(RB.READBACK_STAGE, (d, env) =>
+      readbackStage({ dir: d, env, cli, leg, audiencePath, plan, move: moveId, record }),
+    );
   stage("write", (d, env) => {
     const r = writeStage({ dir: d, env, cli, leg, audiencePath, paragraphPath, plan });
     if (!r.stopped) record.paragraph = fileRecord(paragraphPath);

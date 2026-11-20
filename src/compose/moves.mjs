@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { figureKinds } from "./figure.mjs";
 import { isPlainMap, moveStateLines, moveStateRefusal, readMoveRecord } from "./render.mjs";
-import { oneLine } from "./record.mjs";
+import { looseSegment, oneLine } from "./record.mjs";
 import { moveConstraintsRefusal } from "../move-validate.mjs";
 
 // ---- THE ADAPTER (kogaki#1349): Move field -> role, declared by the library ----
@@ -397,6 +397,9 @@ function bindAndEdgesRefusal(v, at, field) {
         return `${atE}: \`to\` names Segment ${same}, which has the same Bind target as this Segment`;
     }
   }
+  const loose = looseSegment(v);
+  if (loose)
+    return `${at}: \`${field}\` Segment ${loose} has no Bind target, carries no Edge and no Edge points to it — every Segment has a Bind target or stands at one end of an Edge`;
   return null;
 }
 
