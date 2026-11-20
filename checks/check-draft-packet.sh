@@ -40,7 +40,7 @@
 #       prose block of the Packet rendered from `audiences/dev-to-zenn.md`, the
 #       precedence paragraph -- from "**What the register below governs.**" to
 #       the blank line -- carries "the plan holds and the rule yields" and
-#       stands before the register's first rule, "**Sentences:**"; and the
+#       stands before the register's first rule, "**Sentences.**"; and the
 #       Packet rendered from an Audience whose `register` is one unrelated
 #       sentence carries the same paragraph, byte for byte, before that
 #       sentence, so the paragraph is the template's and no Audience edit
@@ -323,7 +323,7 @@ const precedence = (packet, firstRule) => {
 };
 let shipped = null;
 if (!r.error) {
-  const p = precedence(r.packet, "**Sentences:**");
+  const p = precedence(r.packet, "**Sentences.**");
   if (p.error) fails.push(`(h) ${p.error}`);
   else shipped = p.para;
 }
@@ -346,7 +346,7 @@ if (!r.error) {
       const p = precedence(o.packet, UNRELATED);
       if (p.error) fails.push(`(h) one-sentence Audience: ${p.error}`);
       else if (shipped !== null && p.para !== shipped) fails.push(`(h) the precedence paragraph changed with the Audience: ${flat(p.para)}`);
-      if (writeBlock(o.packet)?.includes("**Sentences:**")) fails.push("(h) the one-sentence Audience's Packet still carries the dev-to-zenn register");
+      if (writeBlock(o.packet)?.includes("**Sentences.**")) fails.push("(h) the one-sentence Audience's Packet still carries the dev-to-zenn register");
     }
   }
 }

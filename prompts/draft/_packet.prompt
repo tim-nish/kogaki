@@ -70,9 +70,8 @@ The claims below are the whole plan of this paragraph.
 
 ## The claims this Leg asserts
 
-Each line below is one claim, and every line is a claim of this Leg: none is
-subordinate to another. Your prose must assert nothing beyond them: these
-lines are the whole of what this Leg may assert.
+Each line below is one claim of this Leg, and the lines stand as equals.
+These lines are the whole of what this Leg asserts.
 
 {{#each claims.lines}}
 - {{text}}
@@ -144,9 +143,9 @@ This Leg follows the Reader target: introduce nothing, raise nothing, and move o
 {{/if}}
 
 **What the register below governs.** The register governs how sentences read.
-It changes nothing the plan above says.
+What the paragraph says comes from the plan above.
 Where a register rule and the plan conflict, the plan holds and the rule yields for that sentence.
-Do not return a refusal for such a conflict.
+Write that sentence as the plan has it and go on to the next.
 
 {{register}}
 {{#if language_block}}

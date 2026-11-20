@@ -6,9 +6,8 @@ The claims below are the whole plan of this paragraph.
 
 ## The claims this Leg asserts
 
-Each line below is one claim, and every line is a claim of this Leg: none is
-subordinate to another. Your prose must assert nothing beyond them: these
-lines are the whole of what this Leg may assert.
+Each line below is one claim of this Leg, and the lines stand as equals.
+These lines are the whole of what this Leg asserts.
 
 - the installer copies the kit.
 
@@ -19,25 +18,22 @@ lines are the whole of what this Leg may assert.
 **The reader's own world.** The reader has installed a program from a package manager.
 
 **What the register below governs.** The register governs how sentences read.
-It changes nothing the plan above says.
+What the paragraph says comes from the plan above.
 Where a register rule and the plan conflict, the plan holds and the rule yields for that sentence.
-Do not return a refusal for such a conflict.
+Write that sentence as the plan has it and go on to the next.
 
-**Sentences:** classic register, full clauses, a concrete subject acting,
-no unexplained term of art; not fragments, not runs of short sentences, not
-triads, not "not X, not Y" runs.
+**Sentences.** Classic register, in full clauses, each with a concrete subject that acts.
+A term of art is explained where it first appears.
+Sentences that belong together are joined into one, so that a short sentence stands among longer ones.
+A list holds as many items as the content has.
+A sentence says what a thing is and what it does.
 
-**Paragraphs.** A paragraph's
-first sentence names what it refers to in full: no "this", "that", "it",
-"these", "those" or a bare definite noun such as "the result" reaching
-back into an earlier paragraph. Inside a paragraph, reference is free.
+**Paragraphs.** A paragraph's first sentence names in full each thing it refers to.
+Inside a paragraph, reference is free.
 
-**Referents.** A referent is a case, example, file or person introduced in
-the Journey block; it may be named again, by name, in a later paragraph.
-Anything else the prose names — including something from the reader's own
-world — does not carry across a paragraph boundary and does not exist for
-later Legs. A comparison is not a referent:
-it explains a term once, and nothing later points back to it.
+**Referents.** A referent is a case, example, file or person introduced in the Journey block, and a later paragraph may name it again by its name.
+Every other thing the prose names, a thing from the reader's own world included, lives inside its own paragraph.
+A comparison explains a term once, in the place where it stands.
 
 ## Language block (lang: ja)
 
@@ -59,20 +55,15 @@ Prefer the plain verb over a noun phrase.
 
 ## Write
 
-Write the prose for this Leg and nothing else. No heading, no leg id, no
-label, no commentary about what you are doing.
+Your whole response is the prose of this Leg, from its first word to its last.
+A program stores the response as it stands, so every character of it reaches the reader.
 
-**The heading is not yours.** One heading is rendered per Section, by the
-Harness, from the title the Brief declared — never per Leg and never by you.
+**The heading comes from the Harness.** The Harness renders one heading for each Section, from the title the Brief declared.
 Prose that writes its own heading is refused when the Leg is recorded.
 
-**When a step cannot be performed.** If a part of the plan cannot be written from
-the material this Packet gives you, or material it should carry is
-missing, do not write around it and do not write a sentence telling the
-reader so. Return exactly this instead, as the whole of your response:
+**When a step cannot be performed.** Where a part of the plan cannot be written from the material this Packet gives you, or material it should carry is missing, return exactly this as the whole of your response:
 
     refusal: <reason>
 
-This ends the act as a refusal to the Harness, not as content: the Leg is not
-recorded, and it is not re-asked, because the input you were given would not
-change.
+The Harness reads that line as a stop.
+It records no Leg and asks for none again, because the input you were given would not change.
