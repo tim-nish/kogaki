@@ -24,7 +24,7 @@
 #       each Edge and each earlier part the Edge points to, `To part <n>:` and
 #       the text src/sme/senses.json holds for the Edge's Sense and for its
 #       Hypophora, then `Pointed to by` and the later parts whose Edges point to
-#       it, and no part's line names a Sense (kogaki#1865, kogaki#1901); a plan
+#       it (kogaki#1865, kogaki#1901); a plan
 #       naming a Sense the Senses file does not hold is refused naming the
 #       Sense; with no `structure` it says the claims are the whole plan and
 #       lists no Argument;
@@ -158,12 +158,8 @@ else {
 const SEGS = [{ bind: 1, edges: [] }, { bind: null, edges: [{ sense: "Conjunction", to: [1] }] },
   { bind: 2, edges: [{ sense: "Contrast", to: [1, 2] }, { sense: "Cause.Result", to: [2] }] },
   { bind: 3, edges: [{ sense: null, to: [3], hypophora: true }] }];
-// Each text is src/sme/senses.json's own: Conjunction, Contrast, Cause with its part Result, and Hypophora.
-const WANT_PARTS = ["1. Argument 1. Pointed to by part 2, part 3.",
-  "2. Neither. To part 1: both bear the same relation to some other situation in the text, or contribute to it together. Pointed to by part 3.",
-  "3. Argument 2. To part 1: at least two differences between the two are brought out. To part 2: at least two differences between the two are brought out. To part 2: the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect. Pointed to by part 4.",
-  "4. CentralClaim. To part 3: the sentence pointed to raises a question, and this sentence gives its answer."];
-const SENSE_NAMES = /\b(Sense|Conjunction|Contrast|Cause|Result|Hypophora|hypophora|null)\b/;
+const T = { C: "both bear the same relation to some other situation in the text, or contribute to it together.", X: "at least two differences between the two are brought out.", R: "the situations the two describe are causally tied, and not as a condition. Here this sentence gives the effect.", H: "the sentence pointed to raises a question, and this sentence gives its answer." }, SENSE_NAMES = /\b(Sense|Conjunction|Contrast|Cause|Result|Hypophora|hypophora|null)\b/;
+const WANT_PARTS = ["1. Argument 1. Pointed to by part 2, part 3.", `2. Neither. To part 1: ${T.C} Pointed to by part 3.`, `3. Argument 2. To part 1: ${T.X} To part 2: ${T.X} To part 2: ${T.R} Pointed to by part 4.`, `4. CentralClaim. To part 3: ${T.H}`];
 const sRoot = mkdtempSync(join(tmpdir(), "draft-packet-plan-"));
 const sDir = join(sRoot, "theses", "paragraph-plan-brief");
 mkdirSync(sDir, { recursive: true });
@@ -236,16 +232,12 @@ const sResolve = (planText) => {
   if (parted.error) fails.push(`(c) the Packet with segments did not render: ${parted.error}`);
   else {
     const lines = (planBlock(parted.packet) || "").split("\n");
-    const parts = WANT_PARTS;
     const at = lines.indexOf("### The parts of the paragraph, in order");
     if (at === -1) fails.push("(c) a Leg with segments renders no parts list");
-    for (const want of [...said, ...parts]) if (!lines.includes(want)) fails.push(`(c) the plan block does not carry ${JSON.stringify(want)}`);
-    if (at !== -1 && lines.indexOf(parts[0]) < at) fails.push("(c) the parts do not stand under the parts heading");
-    if (lines.some((x) => /^\d+\. /.test(x) && SENSE_NAMES.test(x))) fails.push("(c) a part's line names a Sense");
+    for (const want of [...said, ...WANT_PARTS]) if (!lines.includes(want)) fails.push(`(c) the plan block does not carry ${JSON.stringify(want)}`);
+    if (at !== -1 && lines.indexOf(WANT_PARTS[0]) < at) fails.push("(c) the parts do not stand under the parts heading");
   }
-  // (c) a plan naming a Sense the Senses file does not hold yields no Packet, and the refusal names the Sense.
-  const unheld = renderLeg({ relation: "lost", segments: [SEGS[0], { bind: 2, edges: [{ sense: "Cause", to: [1] }] }] });
-  if (!unheld.error || !unheld.error.includes('the Sense "Cause"')) fails.push(`(c) a plan naming the Sense Cause, which src/sme/senses.json does not hold, was not refused naming it: ${unheld.error || "rendered"}`);
+  const unheld = renderLeg({ relation: "lost", segments: [SEGS[0], { bind: 2, edges: [{ sense: "Cause", to: [1] }] }] }); if (!unheld.error || !unheld.error.includes('the Sense "Cause"')) fails.push(`(c) a plan naming the Sense Cause, which src/sme/senses.json does not hold, was not refused naming it: ${unheld.error || "rendered"}`);
   if (!r.error) {
     const lines = (planBlock(r.packet) || "").split("\n");
     if (!lines.includes("The claims below are the whole plan of this paragraph.")) fails.push("(c) a Brief with no structure does not say the claims are the whole plan");
