@@ -844,7 +844,10 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
       existsSync(join(tr.o, "paragraph.md")) &&
       !existsSync(join(tr.o, "readback.json")) &&
       JSON.stringify(debugOf(tr.o)) ===
-        JSON.stringify({ move: EDGED, parts: written.parts.map(({ readback, sample, ...p }) => p) }) &&
+        JSON.stringify({
+          move: EDGED,
+          parts: written.parts.map((p) => ({ part: p.part, line: p.line, bind: p.bind, edges: p.edges })),
+        }) &&
       tr.rec.readback.path.endsWith("packet-debug.json") &&
       tr.rec.readback.refusal.includes("not one JSON record") &&
       rSection.includes("refused") &&
