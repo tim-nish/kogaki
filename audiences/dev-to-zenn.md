@@ -6,18 +6,15 @@ persona:
   prior_knowledge: >-
 
 register: |
-  **Sentences:** classic register, full clauses, a concrete subject acting,
-  no unexplained term of art; not fragments, not runs of short sentences, not
-  triads, not "not X, not Y" runs.
+  **Sentences.** Classic register, in full clauses, each with a concrete subject that acts.
+  A term of art is explained where it first appears.
+  Sentences that belong together are joined into one, so that a short sentence stands among longer ones.
+  A list holds as many items as the content has.
+  A sentence says what a thing is and what it does.
 
-  **Paragraphs.** A paragraph's
-  first sentence names what it refers to in full: no "this", "that", "it",
-  "these", "those" or a bare definite noun such as "the result" reaching
-  back into an earlier paragraph. Inside a paragraph, reference is free.
+  **Paragraphs.** A paragraph's first sentence names in full each thing it refers to.
+  Inside a paragraph, reference is free.
 
-  **Referents.** A referent is a case, example, file or person introduced in
-  the Journey block; it may be named again, by name, in a later paragraph.
-  Anything else the prose names — including something from the reader's own
-  world — does not carry across a paragraph boundary and does not exist for
-  later Legs. A comparison is not a referent:
-  it explains a term once, and nothing later points back to it.
+  **Referents.** A referent is a case, example, file or person introduced in the Journey block, and a later paragraph may name it again by its name.
+  Every other thing the prose names, a thing from the reader's own world included, lives inside its own paragraph.
+  A comparison explains a term once, in the place where it stands.

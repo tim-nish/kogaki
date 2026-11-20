@@ -91,8 +91,8 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
         const rules = [
           // The paragraph-structure rule left the Persona (kogaki#1350: the Move
           // owns structure); the anaphora rule it kept stands in for it.
-          "first sentence names what it refers to in full",
-          "classic register, full clauses, a concrete subject acting",
+          "first sentence names in full each thing it refers to",
+          "Classic register, in full clauses, each with a concrete subject that acts",
           // The Referents rule moved into the Audience's `register`
           // (kogaki#1261) and was narrowed to Journey referents (kogaki#1322).
           "A referent is a case, example, file or person introduced in",

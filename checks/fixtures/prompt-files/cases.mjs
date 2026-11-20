@@ -159,6 +159,38 @@ export const WRITER_CASES = {
   },
 };
 
+// A Leg's plan for the first Writer case: a structure of two Roles and one Relation, and two parts with one Edge.
+export const PLAN_STRUCTURE = {
+  roles: [
+    { id: "kit", name: "the kit", context: "The files the installer copies.", attributes: [] },
+    { id: "tree", name: "the consumer's tree", context: "The directory the copy lands in.", attributes: [] },
+  ],
+  relations: [
+    { id: "writes", name: "writes", between: ["kit", "tree"], holds: "The installer writes {kit} into {tree}." },
+  ],
+  higher_order: [],
+};
+export const PLAN_PARTS = [
+  { bind: 1, edges: [] },
+  { bind: 3, edges: [{ sense: "Conjunction", to: [1] }] },
+];
+// The strings a Writer's input does not carry, read with each line break as a space: each says what to leave out, or
+// quotes a sample word.
+export const NOT_SAID = [
+  "nothing else",
+  "No heading",
+  "no label",
+  "never by you",
+  "do not write",
+  "Do not return",
+  "must assert nothing",
+  "not fragments",
+  "not triads",
+  '"this"',
+  '"the result"',
+  "not yours",
+];
+
 export function writerBriefRecord(c) {
   return {
     slug: "prompt-files",

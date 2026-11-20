@@ -838,8 +838,8 @@ which is why it read two ways across its life, sometimes as the Lesson's own
 Claim sentence and sometimes as prose already transformed for the Leg. The
 ground is held as an **address** in the Brief's Strands section and is **never
 copied**: the Leg Packet renders the Leg's claims and no Lesson text, which is
-what keeps *assert nothing beyond* checkable, and the Lesson's original Claim
-sentence stays at the pin.
+what keeps checkable that its claims are the whole of what the Leg asserts, and
+the Lesson's original Claim sentence stays at the pin.
 
 **The field belongs to the Brief because Document Planning is content
 determination.** Three mechanisms read the Brief's decision about what each Leg
@@ -1718,7 +1718,7 @@ out.
 **The Writer is asked to give no claim back** (kogaki#1911, maintainer ruling
 2026-11-20). No sentence of the Packet asks that a reader recover an Argument,
 the CentralClaim or a claim, and the write instruction holds no round trip. The
-claims block says only that the prose asserts nothing beyond its lines. Whether
+claims block says only that its lines are the whole of what the Leg asserts. Whether
 a reader finds each claim stays the Draft review's question.
 
 **No block lists what crosses into a Leg** (kogaki#1911). A Leg carries no

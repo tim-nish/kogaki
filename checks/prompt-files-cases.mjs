@@ -273,6 +273,43 @@ rmSync(scratch, { recursive: true, force: true });
   }
 }
 
+// (j) THE WRITER'S INPUT SAYS WHAT TO DO: under audiences/dev-to-zenn.md, the input of a Leg whose plan block holds the
+// table and the parts carries none of twelve strings that say what to leave out or quote a sample word.
+{
+  const c = C.WRITER_CASES["write-leg-opens-the-one-section"];
+  const r = C.writerBriefRecord(c);
+  const read = readBrief(
+    briefRecordText({
+      slug: r.slug,
+      compose_path: "audiences/dev-to-zenn.md",
+      strands: r.strands,
+      thesis: r.thesis,
+      reader_path: r.legs.map(legRecord),
+      strand_coverage: [],
+      journey_coverage: [],
+      tradeoffs: {},
+      bridged: {},
+    }),
+    briefPath,
+  );
+  const brief = { ...read, record: { ...read.record, structure: C.PLAN_STRUCTURE }, path: briefPath };
+  const leg = { ...brief.legs[0], ...c.extra, relation: "writes", segments: C.PLAN_PARTS };
+  const res = renderPacket({
+    brief,
+    leg,
+    priorSections: [],
+    section: sectionOfLeg(brief.legs).get(leg.leg_id),
+    sections: sectionsOf(brief.legs),
+  });
+  const flat = (res.packet || "").replace(/\n/g, " ");
+  const planned = flat.includes("| {writes} |") && flat.includes("### The parts of the paragraph, in order");
+  cases++;
+  if (res.error) fails.push(`(j) the Writer's input of a planned Leg did not render: ${res.error}`);
+  else if (!planned) fails.push("(j) the Writer's input of the fixture Leg holds no table and no parts");
+  else
+    for (const s of C.NOT_SAID) if (flat.includes(s)) fails.push(`(j) the Writer's input carries ${JSON.stringify(s)}`);
+}
+
 if (fails.length) {
   for (const f of fails) console.error(`FAIL ${f}`);
   process.exit(1);
