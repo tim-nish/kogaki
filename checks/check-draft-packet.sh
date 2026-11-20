@@ -28,15 +28,15 @@
 #       naming a Sense the Senses file does not hold is refused naming the
 #       Sense; with no `structure` it says the claims are the whole plan and
 #       lists no Argument;
-#   (f) THE REGISTER CARRIES NO VOICE RULE (kogaki#1488): the Write block of
-#       the Packet rendered from `audiences/dev-to-zenn.md` -- from `## Write`
-#       to the next `## ` heading -- carries the Audience's Referents rule, so
+#   (f) THE REGISTER CARRIES NO VOICE RULE (kogaki#1488): the prose block of
+#       the Packet rendered from `audiences/dev-to-zenn.md` -- from `## How the
+#       prose reads` to the next `## ` heading (kogaki#1904) -- carries the Audience's Referents rule, so
 #       the register reached it, and carries neither "voice" nor "hedge" in
 #       any case; the same render from a copy of that Audience with the
 #       pre-kogaki#1488 Voice paragraph restored is refused by the same
 #       predicate, so the absence is not vacuous.
 #   (h) A REGISTER RULE YIELDS TO THE PLAN (kogaki#1493, kogaki#1859): in the
-#       Write block of the Packet rendered from `audiences/dev-to-zenn.md`, the
+#       prose block of the Packet rendered from `audiences/dev-to-zenn.md`, the
 #       precedence paragraph -- from "**What the register below governs.**" to
 #       the blank line -- carries "the plan holds and the rule yields" and
 #       stands before the register's first rule, "**Sentences:**"; and the
@@ -58,14 +58,14 @@
 #       round trip's "Each claim above must be recoverable from what you
 #       write", and which nowhere carries "concede it explicitly" or "Honor
 #       the rows"; the same Packet with the retired Obligations block put
-#       back, and the render from the template with the pre-kogaki#1496
-#       honour line and round-trip paragraph restored, are each refused by
+#       back, and the render with the pre-kogaki#1496 honour line restored to the
+#       passage and round-trip paragraph to the Writer's file, are each refused by
 #       the same predicate, so the absences are not vacuous.
 #   (k) THE RENDERER REFUSES A TEMPLATE THAT BREAKS THE CRITERIA BOUND
-#       (kogaki#1555): the shipped template passes `templateCriteriaFailures`
-#       under src/draft-workflow.json's `criteria`; and a template given a
+#       (kogaki#1555): the Writer's file and the passage pass `templateCriteriaFailures`
+#       under src/draft-workflow.json's `criteria`; and a passage given a
 #       criterion line that runs to `words_max` words, or one carrying each of
-#       `; `, `: ` and ` -- `, each refuse at `renderPacket` naming that line.
+#       `; `, `: ` and ` -- `, each refuse at `renderPacket` naming file and line.
 #   (l) THE WRITER'S TEXT LISTS THE PLAN'S SEGMENTS (kogaki#1865): a plan file
 #       written by `paragraphPlanRecord` renders, through `resolve`, a Packet
 #       listing one part per Segment of the Leg with the Senses file's texts
@@ -99,8 +99,8 @@ const { legRecord, briefRecordText, paragraphPlanRecord, paragraphPlanRecordText
 const { readBrief, renderPacket, sectionsOf, sectionOfLeg } =
   await import(pathToFileURL(join(repo, "src", "draft.mjs")).href);
 const { templateCriteriaFailures } = await import(pathToFileURL(join(repo, "src", "draft", "render-packet.mjs")).href);
-const WRITER_PROMPT_FILE = join("prompts", "draft", "write-leg.prompt");
-const renderPacketWith = async (text) => (await treeWith(repo, { [WRITER_PROMPT_FILE]: text })("src/draft.mjs")).renderPacket;
+const [WRITER_PROMPT_FILE, PACKET_FILE] = [join("prompts", "draft", "write-leg.prompt"), join("prompts", "draft", "_packet.prompt")];
+const renderPacketWith = async (files) => (await treeWith(repo, files)("src/draft.mjs")).renderPacket;
 const { treeWith, removeTrees } = await import(pathToFileURL(join(repo, "checks", "fixtures", "tree-copy.mjs")).href);
 const STAGE = await import(pathToFileURL(join(repo, "checks", "fixtures", "paragraph-plan", "stage.mjs")).href);
 
@@ -119,7 +119,7 @@ const text = briefRecordText({
 const brief = readBrief(text, "theses/packet-brief/brief.yaml");
 const render = async (templateText) => {
   const l = asRead(brief.legs[0]);
-  const rp = templateText === undefined ? renderPacket : await renderPacketWith(templateText);
+  const rp = templateText === undefined ? renderPacket : await renderPacketWith({ [PACKET_FILE]: templateText });
   return rp({ brief, leg: l, priorSections: [],
     section: sectionOfLeg(brief.legs).get(l.leg_id), sections: sectionsOf(brief.legs) });
 };
@@ -138,7 +138,7 @@ const planBlock = (packet) => {
   return i === -1 || end === -1 ? null : packet.slice(i, end);
 };
 
-const template = readFileSync(WRITER_PROMPT_FILE, "utf8");
+const [template, passage] = [WRITER_PROMPT_FILE, PACKET_FILE].map((f) => readFileSync(f, "utf8"));
 const r = await render();
 if (r.error) fails.push(`(a) the fixture Packet did not render: ${r.error}`);
 else {
@@ -250,7 +250,7 @@ const sResolve = (planText) => {
   const table = JSON.parse(readFileSync("src/draft-workflow.json", "utf8"));
   const wordsMax = table.criteria?.words_max;
   if (!Number.isInteger(wordsMax)) fails.push("(k) src/draft-workflow.json declares no integer `criteria.words_max`");
-  const shippedFails = templateCriteriaFailures(template);
+  const shippedFails = [template, passage].flatMap((t) => templateCriteriaFailures(t));
   if (shippedFails.length) fails.push(`(k) the shipped template fails the criteria bound: ${shippedFails.join("; ")}`);
   // The shipped template carries no criterion line since kogaki#1859, so each fixture adds one.
   const target = "- NO CLAIM: The sentence that performs it states no proposition.";
@@ -260,28 +260,28 @@ const sResolve = (planText) => {
     ["carrying `; `", target.replace(" proposition.", " proposition; it adds no cause.")],
     ["carrying `: `", target.replace(" proposition.", " proposition: no cause either.")],
     ["carrying ` -- `", target.replace(" proposition.", " proposition -- and no cause.")]]) {
-    const fixture = template.replace("## The claims this Leg asserts", `${broken}\n\n## The claims this Leg asserts`);
-    if (fixture === template) { fails.push(`(k) the fixture could not write the criterion line ${label}`); continue; }
+    const fixture = passage.replace("## The claims this Leg asserts", `${broken}\n\n## The claims this Leg asserts`);
+    if (fixture === passage) { fails.push(`(k) the fixture could not write the criterion line ${label}`); continue; }
     const line = fixture.split("\n").indexOf(broken) + 1;
-    const b = (await renderPacketWith(fixture))({ brief, leg: asRead(brief.legs[0]), priorSections: [],
+    const b = (await renderPacketWith({ [PACKET_FILE]: fixture }))({ brief, leg: asRead(brief.legs[0]), priorSections: [],
       section: sectionOfLeg(brief.legs).get(brief.legs[0].leg_id), sections: sectionsOf(brief.legs) });
     if (!b.error) fails.push(`(k) the template whose criterion line is ${label} rendered a Packet`);
-    else if (!b.error.includes(`line ${line} \`${broken}\``)) fails.push(`(k) the refusal for the criterion line ${label} does not name the line: ${b.error}`);
+    else if (!b.error.includes(`${PACKET_FILE} line ${line} \`${broken}\``)) fails.push(`(k) the refusal for the criterion line ${label} does not name the line: ${b.error}`);
   }
 }
 
-// (f) the Write block rendered from the Audience carries no voice rule and no hedge (kogaki#1488).
-const writeBlock = (packet) => {
-  const i = packet.indexOf("\n## Write\n");
+// (f) the prose block rendered from the Audience carries no voice rule and no hedge (kogaki#1488, kogaki#1904).
+const writeBlock = (packet, head = "\n## How the prose reads\n") => {
+  const i = packet.indexOf(head);
   if (i === -1) return null;
   const end = packet.indexOf("\n## ", i + 1);
   return packet.slice(i, end === -1 ? undefined : end);
 };
 const carriesNoVoiceRule = (packet) => {
   const w = writeBlock(packet);
-  if (w === null) return "the Packet carries no Write block";
-  if (!w.includes("**Referents.**")) return "the Write block does not carry the Audience's Referents rule, so the register did not reach it";
-  for (const bad of [/voice/i, /hedge/i]) if (bad.test(w)) return `the Write block carries ${bad}: ${flat(w.slice(w.search(bad) - 80, w.search(bad) + 80))}`;
+  if (w === null) return "the Packet carries no prose block";
+  if (!w.includes("**Referents.**")) return "the prose block does not carry the Audience's Referents rule, so the register did not reach it";
+  for (const bad of [/voice/i, /hedge/i]) if (bad.test(w)) return `the prose block carries ${bad}: ${flat(w.slice(w.search(bad) - 80, w.search(bad) + 80))}`;
   return null;
 };
 if (!r.error) {
@@ -308,14 +308,14 @@ if (!r.error) {
 const PRECEDENCE_HEAD = "**What the register below governs.**";
 const precedence = (packet, firstRule) => {
   const w = writeBlock(packet);
-  if (w === null) return { error: "the Packet carries no Write block" };
+  if (w === null) return { error: "the Packet carries no prose block" };
   const i = w.indexOf(PRECEDENCE_HEAD);
-  if (i === -1) return { error: `the Write block carries no "${PRECEDENCE_HEAD}" paragraph` };
+  if (i === -1) return { error: `the prose block carries no "${PRECEDENCE_HEAD}" paragraph` };
   const end = w.indexOf("\n\n", i);
   const para = w.slice(i, end === -1 ? undefined : end);
   if (!flat(para).includes("the plan holds and the rule yields")) return { error: `the precedence paragraph does not carry "the plan holds and the rule yields": ${flat(para)}` };
   const at = w.indexOf(firstRule);
-  if (at === -1) return { error: `the Write block does not carry the register's first rule ${JSON.stringify(firstRule)}` };
+  if (at === -1) return { error: `the prose block does not carry the register's first rule ${JSON.stringify(firstRule)}` };
   if (at < i + para.length) return { error: `the register's first rule ${JSON.stringify(firstRule)} does not follow the precedence paragraph` };
   return { para };
 };
@@ -389,8 +389,8 @@ if (!r.error) {
   });
   const ledgered = readBrief(jTextWith(opened), "theses/packet-brief/brief.yaml");
   const jBrief = brief;
-  const jRender = async (templateText) => {
-    const rp = templateText === undefined ? renderPacket : await renderPacketWith(templateText);
+  const jRender = async (files) => {
+    const rp = files === undefined ? renderPacket : await renderPacketWith(files);
     return rp({ brief: jBrief, leg: asRead(jBrief.legs[0]), priorSections: [],
       section: sectionOfLeg(jBrief.legs).get(jBrief.legs[0].leg_id), sections: sectionsOf(jBrief.legs) });
   };
@@ -399,7 +399,7 @@ if (!r.error) {
     for (const bad of [RETIRED_HEADING, "*Promise:*", "*Keeps:*", ROW]) {
       if (packet.includes(bad)) return `the Packet carries "${bad}"`;
     }
-    const w = writeBlock(packet);
+    const w = writeBlock(packet, "\n## Write\n");
     if (w === null) return "the Packet carries no Write block";
     if (!flat(w).includes(RECOVERABLE)) return `the Write block does not carry "${RECOVERABLE}"`;
     for (const bad of ["concede it explicitly", "Honor the rows"]) {
@@ -419,12 +419,12 @@ if (!r.error) {
       if (restored === j.packet) fails.push("(j) the fixture could not put the retired Obligations block back");
       else if (asksNoUnplannedSentence(restored) === null) fails.push("(j) the Packet with the retired Obligations block passed the predicate (j) applies");
     }
-    const before = template
-      .replace("## The article so far", "Honor the rows below in the prose rather than restating them as fields.\n\n## The article so far")
-      .replace(/\*\*The round trip — claims only\.\*\*[\s\S]*?\n\n/, "**The round trip — claims only.** Each claim above must be recoverable from\n"
+    const before = {
+      [PACKET_FILE]: passage.replace("## The article so far", "Honor the rows below in the prose rather than restating them as fields.\n\n## The article so far"),
+      [WRITER_PROMPT_FILE]: template.replace(/\*\*The round trip — claims only\.\*\*[\s\S]*?\n\n/, "**The round trip — claims only.** Each claim above must be recoverable from\n"
         + "what you write. Where making one plain loses something, either restore the\nloss or **concede it explicitly in the prose**. "
-        + "A concession is part of the\noutput; a silent omission is not a simplification, it is a loss.\n\n");
-    if (!before.includes("Honor the rows") || !before.includes("concede it explicitly")) fails.push("(j) the fixture could not rebuild the pre-kogaki#1496 template");
+        + "A concession is part of the\noutput; a silent omission is not a simplification, it is a loss.\n\n") };
+    if (!before[PACKET_FILE].includes("Honor the rows") || !before[WRITER_PROMPT_FILE].includes("concede it explicitly")) fails.push("(j) the fixture could not rebuild the pre-kogaki#1496 template");
     else {
       const old = await jRender(before);
       if (old.error) fails.push(`(j) the pre-kogaki#1496 Packet did not render: ${old.error}`);
@@ -438,5 +438,5 @@ if (fails.length) {
   for (const f of fails) console.log(`FAIL: ${f}`);
   process.exit(1);
 }
-console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; a plan Leg carrying move, fit or points is refused by name at resolve (kogaki#1876); the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment with the Senses file's text toward each part an Edge points to, Hypophora's text and the later parts that point to it, and no Sense name, where the Leg carries segments, and a plan naming a Sense the file does not hold is refused naming it (kogaki#1865, kogaki#1901), and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the Write block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the shipped Writer prompt passes the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the line (kogaki#1555); a plan Leg carrying `paragraphs`, `points` with no Move, `move` without `fit`, or `cast` is refused at resolve naming it (kogaki#1865).");
+console.log("ok: check-draft-packet — the rendered Packet carries no planned point, no Serves, Opens-from or Cast line, and its plan block opens with its six fixed sentences; a plan Leg carrying move, fit or points is refused by name at resolve (kogaki#1876); the plan block lists the Arguments and the CentralClaim legSentences gives for the Leg's relation, one part per Segment with the Senses file's text toward each part an Edge points to, Hypophora's text and the later parts that point to it, and no Sense name, where the Leg carries segments, and a plan naming a Sense the file does not hold is refused naming it (kogaki#1865, kogaki#1901), and says the claims are the whole plan where the Brief carries no structure (kogaki#1859); the prose block carries its register with no voice rule and no hedge, and the pre-kogaki#1488 Voice paragraph is refused (kogaki#1488); the precedence paragraph saying the plan holds and the rule yields stands before the register's first rule, unchanged under an Audience whose register is one unrelated sentence (kogaki#1493); a Leg introduces no term (kogaki#1768); no Obligation row reaches the Packet and the pre-kogaki#1496 wording is refused (kogaki#1584, kogaki#1496); the Writer prompt and its passage pass the criteria bound, and a criterion line at words_max words or carrying `; `, `: ` or ` -- ` refuses at render naming the file and the line (kogaki#1555); a plan Leg carrying `paragraphs`, `points` with no Move, `move` without `fit`, or `cast` is refused at resolve naming it (kogaki#1865).");
 JS

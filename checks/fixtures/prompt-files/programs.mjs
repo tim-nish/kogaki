@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { withoutSchemaText } from "./cases.mjs";
+import { withoutSchemaText, AUDIENCE } from "./cases.mjs";
 
 export const PROGRAMS_DIR = join("checks", "fixtures", "prompt-files", "programs");
 export const savedProgram = (name) => readFileSync(join(PROGRAMS_DIR, `${name}.txt`), "utf8");
@@ -168,11 +168,32 @@ export async function programTexts(imp) {
     ),
   );
 
-  // The short Trial's readback (kogaki#1882), over the plan block cut from a fixed Writer input.
+  // The short Trial's readback (kogaki#1882, kogaki#1904), rendered with the values of a fixed Leg's Packet.
   const RB = await imp("src/structure-mapping-playground/readback.mjs");
-  const cut = RB.planBlock(
-    "# Write one Leg\n\n## The plan of this paragraph\n\nTHE PLAN.\n\n1. Argument 1. Pointed to by part 2.\n2. Neither. To part 1: both describe the same situation, from different perspectives.\n\n## The reader\n",
-  );
-  out.set("read-back-parts", RB.readbackPrompt(cut.block));
+  const { shortPacket } = await imp("src/structure-mapping-playground/short.mjs");
+  const packed = shortPacket({
+    leg: {
+      leg_id: "s1",
+      text: "The installer writes the copy.",
+      claims: [{ strand: "L1", proposition: "the installer copies the kit." }],
+    },
+    audiencePath: AUDIENCE,
+    structure: {
+      roles: [
+        { id: "r_1", name: "installer", context: "the program that copies the kit.", attributes: [], claims: ["L1"] },
+        { id: "r_2", name: "copy", context: "the files it writes.", attributes: [], claims: ["L1"] },
+      ],
+      relations: [
+        { id: "c_1", name: "writes", between: ["r_1", "r_2"], holds: "The {r_1} writes the {r_2}.", from: "L1" },
+      ],
+      higher_order: [],
+    },
+    relation: "c_1",
+    segments: [
+      { bind: 1, edges: [] },
+      { bind: null, edges: [{ to: [1], sense: null, hypophora: true }] },
+    ],
+  });
+  out.set("read-back-parts", RB.readbackPrompt(packed.values));
   return out;
 }

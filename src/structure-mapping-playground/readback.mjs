@@ -40,7 +40,8 @@ export const withAnswer = (debug, answer) => ({
   parts: debug.parts.map((p, i) => ({ ...p, readback: answer.parts[i].readback, sample: answer.parts[i].sample })),
 });
 
-export const readbackPrompt = (block) => renderPromptFile(READBACK_PROMPT, { plan: block });
+// The Readback's input renders the Packet's shared passage with the values the Writer's Packet rendered with (kogaki#1904).
+export const readbackPrompt = (values) => renderPromptFile(READBACK_PROMPT, values);
 
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const isMap = (v) => v !== null && typeof v === "object" && !Array.isArray(v);

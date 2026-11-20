@@ -279,7 +279,7 @@ export function packetPersonaPath(brief) {
 // prescribing an act of naming is a second structural authority beside the
 // bound Move's Segments. Every typed item renders
 // `- <term> — <meaning>` (kogaki#1571). A bare or anchored term renders as it
-// always did. The line's words stand in prompts/draft/write-leg.prompt (kogaki#1855).
+// always did. The line's words stand in prompts/draft/_packet.prompt (kogaki#1855).
 export function introducedEntry(raw) {
   const p = parseIntroducesEntry(raw);
   if (p.error || !p.typed) return { unread: typeof raw === "string" ? raw : JSON.stringify(raw) };

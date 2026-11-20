@@ -1,7 +1,113 @@
 # Read back the plan of one paragraph
 
-Below is the plan a writer is handed for one paragraph.
-You do not write the paragraph.
+## The plan of this paragraph
+
+This block is a plan.
+It is not a draft of the paragraph.
+Each sentence in it only says what is meant.
+None of its wording is kept.
+You choose every word of the paragraph.
+One thing keeps one name through the whole paragraph.
+
+### What the paragraph says
+
+- Argument 1. the program that copies the kit.
+- Argument 2. the files it writes.
+- CentralClaim. The installer writes the copy.
+
+The reader must be able to recover every Argument from the paragraph.
+The reader must be able to recover the CentralClaim from the paragraph.
+
+### The parts of the paragraph, in order
+
+Each part is about one sentence.
+A part that names an Argument says that Argument.
+A part that names the CentralClaim says the CentralClaim.
+A part that names neither adds no fact.
+A line may say how its part stands to an earlier part.
+It names that earlier part before the colon.
+The text after the colon speaks of two sentences only, this part and the part named before the colon.
+In that text, "this sentence" is this part.
+In that text, "the sentence pointed to" is the part named before the colon.
+Where a line names several earlier parts, each text holds on its own for the part it names.
+It says nothing of how those earlier parts stand to each other.
+A part that later parts point to also does what each of their lines says of the sentence pointed to.
+
+1. Argument 1. Pointed to by part 2.
+2. Neither. To part 1: the sentence pointed to raises a question, and this sentence gives its answer.
+
+## The claims this Leg asserts
+
+Each line below is one claim, and every line is a claim of this Leg: none is
+subordinate to another. Your prose must make every one of them recoverable,
+and must assert nothing beyond them: these lines are the whole of what this
+Leg may assert.
+
+- the installer copies the kit.
+
+## The Journey material this Leg edits — NOT a claim to recover
+
+(none — this Leg draws on no Journey material, and nothing here asks for any.)
+
+## The Section this Leg sits in
+
+A Section is a grouping of Legs under one heading — one promise to the reader
+that the question changes here. This Leg either opens a Section or continues
+one, and the line below says which. Where it continues, the heading is already
+on the page and you are writing further into it: do not restate the heading's
+claim, and do not open a new subject.
+
+- **This Leg OPENS the article's one Section.** This Brief declares no Section titles, so no heading is rendered above your prose.
+
+
+
+## What crosses into this Leg
+
+This is the whole of what you may speak of as already available: a term you
+introduce here, a term or claim re-activated from a Leg you depend on, or a
+re-activated Journey. Each line carries what crosses with it — a term with
+its meaning where the Brief gives one, a claim as a plain restatement, a Journey as its served text.
+Where a term comes from is the Brief's own record, not material for the prose.
+Nothing not listed here is material for this Leg: the reader may hold more, but what they
+hold and do not see below is not yours to speak of or rely on.
+
+(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)
+
+## The article so far, up to this Leg:
+
+(nothing yet — this Leg opens the Section, so its prose is the first in it.)
+
+## How the prose reads
+
+**Language.** Write this Leg in English.
+
+**The reader's own world.** The reader has installed a program from a package manager.
+
+**What the register below governs.** The register governs how sentences read.
+It changes nothing the plan above says.
+Where a register rule and the plan conflict, the plan holds and the rule yields for that sentence.
+Do not return a refusal for such a conflict.
+
+**Sentences:** classic register, full clauses, a concrete subject acting,
+no unexplained term of art; not fragments, not runs of short sentences, not
+triads, not "not X, not Y" runs.
+
+**Paragraphs.** A paragraph's
+first sentence names what it refers to in full: no "this", "that", "it",
+"these", "those" or a bare definite noun such as "the result" reaching
+back into an earlier paragraph. Inside a paragraph, reference is free.
+
+**Referents.** A referent is a case, example, file or person introduced in
+the Journey block; it may be named again, by name, in a later paragraph.
+Anything else the prose names — including something from the reader's own
+world — does not carry across a paragraph boundary and does not exist for
+later Legs. A comparison is not a referent:
+it explains a term once, and nothing later points back to it.
+
+## Read back
+
+Everything above is what a writer is handed for one paragraph.
+This call does not write the paragraph.
 For each part of the plan you answer two things.
 
 The first is the readback.
@@ -18,11 +124,3 @@ Where the readback is null, the sample is null.
 Answer as exactly this JSON record and nothing else:
 { "parts": [ { "part": <number>, "readback": <text or null>, "sample": <one sentence or null> } ] }
 The record holds one entry for each part, in order.
-
------ THE PLAN -----
-## The plan of this paragraph
-
-THE PLAN.
-
-1. Argument 1. Pointed to by part 2.
-2. Neither. To part 1: both describe the same situation, from different perspectives.

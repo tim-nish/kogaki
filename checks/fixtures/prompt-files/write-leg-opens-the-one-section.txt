@@ -52,16 +52,7 @@ hold and do not see below is not yours to speak of or rely on.
 
 (nothing yet — this Leg opens the Section, so its prose is the first in it.)
 
-## Write
-
-Write the prose for this Leg and nothing else. No heading, no leg id, no
-label, no commentary about what you are doing.
-
-**Budget.** 120 words. This is a ceiling, not a target — write what this Leg needs, up to it.
-
-**The heading is not yours.** One heading is rendered per Section, by the
-Harness, from the title the Brief declared — never per Leg and never by you.
-Prose that writes its own heading is refused when the Leg is recorded.
+## How the prose reads
 
 **Language.** Write this Leg in English.
 
@@ -87,6 +78,17 @@ Anything else the prose names — including something from the reader's own
 world — does not carry across a paragraph boundary and does not exist for
 later Legs. A comparison is not a referent:
 it explains a term once, and nothing later points back to it.
+
+## Write
+
+Write the prose for this Leg and nothing else. No heading, no leg id, no
+label, no commentary about what you are doing.
+
+**Budget.** 120 words. This is a ceiling, not a target — write what this Leg needs, up to it.
+
+**The heading is not yours.** One heading is rendered per Section, by the
+Harness, from the title the Brief declared — never per Leg and never by you.
+Prose that writes its own heading is refused when the Leg is recorded.
 
 **The round trip — claims only.** Each claim above must be recoverable from
 what you write. A silent omission is not a simplification, it is a loss.

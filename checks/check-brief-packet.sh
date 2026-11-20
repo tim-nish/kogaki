@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { readBrief, renderPacket, sectionsOf, sectionOfLeg,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal,
   journeyProseFromShardLines } from "./src/draft.mjs";
-// The stated absence prompts/draft/write-leg.prompt renders for a Persona with no prior knowledge (kogaki#1855).
+// The stated absence prompts/draft/_packet.prompt renders for a Persona with no prior knowledge (kogaki#1855).
 const READER_OWN_WORLD_ABSENT = "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260, fixtureLeg, structureOf } from "./checks/fixtures/brief-compose/fixtures.mjs";
@@ -339,14 +339,14 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
   };
   const render = (brief, leg) => renderPacket({ brief, leg: planned(leg), moveText, priorSections: [],
     ledgerRow: undefined, section: sectionOfLeg(brief.legs).get(leg.leg_id), sections: sectionsOf(brief.legs) });
-  const writeBlock = (packet) => packet.slice(packet.indexOf("\n## Write\n"));
+  const [writeBlock, proseBlock] = [(p) => p.slice(p.indexOf("\n## Write\n")), (p) => p.slice(p.indexOf("\n## How the prose reads\n"), p.indexOf("\n## Write\n"))];
   const block = (packet, from, to) => {
     const a = packet.indexOf(from);
     const b = packet.indexOf(to, a + from.length);
     return a === -1 ? "" : packet.slice(a, b === -1 ? packet.length : b);
   };
 
-  // (ab) two Personas, two Write blocks; one Brief, one Write block, the budget retired from the
+  // (ab) two Personas, two prose blocks and one Write block; one Brief, one Write block, the budget retired from the
   // Leg (kogaki#1768).
   {
     const legs = [legOf("s1"), legOf("s2", { reaches_target: true })];
@@ -364,18 +364,18 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
     const a = packetsOf(personaA);
     const b = packetsOf(personaB);
     if (a.s1 && b.s1) {
-      if (!writeBlock(a.s1).includes("Persona A's rule, verbatim.") || writeBlock(a.s1).includes("Persona B's rule")) fails.push("(ab) the Write block under Persona A does not carry Persona A's register alone");
-      if (!writeBlock(b.s1).includes("Persona B's rule, verbatim.") || writeBlock(b.s1).includes("Persona A's rule")) fails.push("(ab) the Write block under Persona B does not carry Persona B's register alone");
-      if (writeBlock(a.s1) === writeBlock(b.s1)) fails.push("(ab) the Write block did not differ between two Personas");
+      if (!proseBlock(a.s1).includes("Persona A's rule, verbatim.") || proseBlock(a.s1).includes("Persona B's rule")) fails.push("(ab) the prose block under Persona A does not carry Persona A's register alone");
+      if (!proseBlock(b.s1).includes("Persona B's rule, verbatim.") || proseBlock(b.s1).includes("Persona A's rule")) fails.push("(ab) the prose block under Persona B does not carry Persona B's register alone");
+      if (writeBlock(a.s1) !== writeBlock(b.s1)) fails.push("(ab) the Write block differs between two Personas");
     }
     if (a.s1 && a.s2 && writeBlock(a.s1) !== writeBlock(a.s2)) fails.push("(ab) the Write block differs across the Legs of one Brief, though no Leg carries a budget");
     const budgeted = validateLegs([legOf("s1", { budget: 120, reaches_target: true })]);
     if (!budgeted.error || !/carries `budget`, which is retired/.test(budgeted.error)) fails.push(`(ab) a Leg carrying budget was not refused by name: ${budgeted.error}`);
-    if (a.s1 && !writeBlock(a.s1).includes("**The reader's own world.** Holds nothing.")) fails.push("(ab) the Write block does not render the Persona's prior_knowledge verbatim");
+    if (a.s1 && !proseBlock(a.s1).includes("**The reader's own world.** Holds nothing.")) fails.push("(ab) the prose block does not render the Persona's prior_knowledge verbatim");
 
     // (ab) a Persona declaring no prior_knowledge renders the stated absence, never a refusal (kogaki#1285).
     const noKnowledge = packetsOf(personaNoKnowledge);
-    if (noKnowledge.s1 && !writeBlock(noKnowledge.s1).includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) a Persona with no prior_knowledge did not render the stated absence");
+    if (noKnowledge.s1 && !proseBlock(noKnowledge.s1).includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) a Persona with no prior_knowledge did not render the stated absence");
 
     const none = briefOf(legs, { compose_path: personaNone });
     const r = render(none, none.legs[0]);
@@ -394,7 +394,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
     if (rd.error) fails.push(`(ab) the Packet did not render from audiences/dev-to-zenn.md: ${rd.error}`);
     else {
       if (!rd.packet.includes("**Referents.**")) fails.push("(ab) the Packet does not carry audiences/dev-to-zenn.md's register");
-      if (!rd.packet.includes("**Language.** Write this Leg in English.")) fails.push("(ab) the Packet's Write block does not render audiences/dev-to-zenn.md's language");
+      if (!rd.packet.includes("**Language.** Write this Leg in English.")) fails.push("(ab) the Packet's prose block does not render audiences/dev-to-zenn.md's language");
       if (!rd.packet.includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) the Packet does not render audiences/dev-to-zenn.md's stated prior_knowledge absence");
       if (rd.packet.includes("as the Brief describes the reader at the outset")) fails.push("(ab) the Packet still carries the retired reader-description wording");
     }
@@ -492,7 +492,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
       const s2 = renderWithPrior(brief.legs[1], [{ leg_id: "s1", text: s1Prose }]);
       if (s2.error) fails.push(`(at) the Packet for s2 did not render: ${s2.error}`);
       else {
-        const prior = block(s2.packet, ARTICLE, "\n## Write");
+        const prior = block(s2.packet, ARTICLE, "\n## How the prose reads");
         if (prior.includes(s1Prose)) fails.push(`(at) a Section-opening Leg's Packet still carries an earlier Section's prose: ${JSON.stringify(prior)}`);
         if (!/nothing yet — this Leg opens the Section, so its prose is the first in it/.test(prior)) fails.push(`(at) a Section-opening Leg's Packet does not state the absence of its own Section's prose: ${JSON.stringify(prior)}`);
       }
@@ -500,7 +500,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
       const s3 = renderWithPrior(brief.legs[2], [{ leg_id: "s1", text: s1Prose }, { leg_id: "s2", text: s2Prose }]);
       if (s3.error) fails.push(`(at) the Packet for s3 did not render: ${s3.error}`);
       else {
-        const prior = block(s3.packet, ARTICLE, "\n## Write");
+        const prior = block(s3.packet, ARTICLE, "\n## How the prose reads");
         if (!prior.includes(s2Prose)) fails.push(`(at) a continuing Leg's Packet does not carry its own Section's prose so far: ${JSON.stringify(prior)}`);
         if (prior.includes(s1Prose)) fails.push(`(at) a continuing Leg's Packet still carries an earlier Section's prose: ${JSON.stringify(prior)}`);
       }

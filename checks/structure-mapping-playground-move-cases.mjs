@@ -812,6 +812,18 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
       }),
     `(l) debugRecord does not keep a null sense and a null bind, with \`hypophora\` only where the Edge carries it: ${JSON.stringify(alone)}`,
   );
+  const between = (text, close) => {
+    const ls = String(text || "").split("\n");
+    return ls.slice(1, ls.indexOf(close)).join("\n");
+  };
+  const rPrompt = (ti.seen.find((x) => x.stage === "readback") || {}).prompt;
+  const wPrompt = (ti.seen.find((x) => x.stage === "writer") || {}).prompt;
+  ok(
+    between(rPrompt, "## Read back") !== "" &&
+      between(rPrompt, "## Read back") === between(wPrompt, "## Write") &&
+      !String(rPrompt).split("\n").includes("----- THE PLAN -----"),
+    "(l) the Readback's input between its title and its closing section is not the Writer's between its title and its own",
+  );
   const other = {
     parts: READBACK.parts.map((p) =>
       p.readback ? { ...p, readback: "Another reading.", sample: "Another sentence." } : p,
