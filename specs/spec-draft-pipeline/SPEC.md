@@ -702,6 +702,8 @@ written with its part, or one of Kogaki's own, `MetaDiscourse` and
 `src/sme/senses.json` (kogaki#1881). It is null only beside
 `hypophora: true`. The first Segment
 carries no Edge, and every later Segment carries at least one.
+Every Segment has a Bind target or stands at one end of an Edge, and
+`validateMoveRecord` refuses a Segment with neither, naming it (kogaki#1902).
 `validateMoveRecord` refuses a record that carries the two fields on some of
 its Segments and not on all, and it refuses each value outside this shape,
 naming the Segment and the field. A record that carries neither field is
@@ -2401,7 +2403,9 @@ that change is made again by `/paragraph-plan`. The keys `paragraphs`,
 `move_forced_by`, `analogy` and `mapping` left the record:
 `readParagraphPlanBeside` refuses a file carrying one, naming the key and saying
 to run `/paragraph-plan` on the Brief again. A person may change a Leg's
-`segments` in the file, and `/draft` reads what stands there.
+`segments` in the file, and `/draft` reads what stands there. A Segment with a
+null `bind`, no Edge and no Edge pointing to it is refused by
+`readParagraphPlanBeside`, naming the Leg and the Segment (kogaki#1902).
 
 **What the Writer is handed.** `/draft` puts each Leg's `segments` on the Leg
 (`src/draft/workspace.mjs`), and `planValues` (`src/draft/render-packet.mjs`)

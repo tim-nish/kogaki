@@ -4,7 +4,7 @@
 // per Leg and no other, the plan `version` "2" with `leg_id` and `segments` on each Leg and no Move's id in the file;
 // (b) of two Moves with the same count the one with fewer compared Edges taken; (c) a reading refused once asked
 // again, twice stopping the Leg; (e) a Leg no Move is a candidate for; (f) `readParagraphPlanBeside` refusing the keys
-// that left the record by name; (g) `chooseMove` by itself; (h) what `start` refuses; (i) the view; (j)
+// that left the record by name, and (f2) a Segment with nothing bound at neither end of an Edge; (g) `chooseMove` by itself; (h) what `start` refuses; (i) the view; (j)
 // `validateMoveRecord` beside `bind` and `edges`; (k) SKILL.md's paths. Case (d) went with its call (kogaki#1876).
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -164,6 +164,27 @@ for (const [key, at] of [
     r.error && r.error.includes(`\`${key}\``) && r.error.includes("run /paragraph-plan on this Brief again"),
     `(f) a plan carrying \`${key}\` was not refused by name: ${r.error}`,
   );
+  writeFileSync(a.planPath, text);
+}
+
+// (f2) A SEGMENT WITH NOTHING BOUND AT NEITHER END OF AN EDGE (kogaki#1902): refused naming it, and read once a
+// further Segment's Edge points to it.
+{
+  const text = readFileSync(a.planPath, "utf8");
+  const rec = parseYaml(text, a.planPath);
+  const segs = rec.legs[0].segments;
+  segs.push({ bind: null, edges: [] });
+  const n = segs.length;
+  writeFileSync(a.planPath, stringifyYaml(rec));
+  const r1 = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
+  ok(
+    r1.error && r1.error.includes(`leg ${LEGS[0].leg_id}, Segment ${n} has no \`bind\`, carries no Edge`),
+    `(f2) a Segment with nothing bound at neither end of an Edge was not refused naming it: ${r1.error}`,
+  );
+  segs.push({ bind: null, edges: [{ sense: "Conjunction", to: [n] }] });
+  writeFileSync(a.planPath, stringifyYaml(rec));
+  const r2 = readParagraphPlanBeside(a.brief, readFileSync(a.brief, "utf8"), LEGS);
+  ok(!r2.error, `(f2) a Segment a later Edge points to was refused: ${r2.error}`);
   writeFileSync(a.planPath, text);
 }
 
