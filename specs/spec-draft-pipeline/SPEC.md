@@ -3084,9 +3084,13 @@ Segment's `bind` and `edges` as the Move file holds them, every Edge of a
 Segment included. As without the flag, no call is made between `grounding`
 and `write` but the readback below (kogaki#1876, kogaki#1882, kogaki#1883). `trial.json`
 records `move_edges: true` and no path of a second file. The sheet's
-`Segments` table then shows per Segment its number, its `bind` beside the
-Argument or CentralClaim it was given, and its Edges, each as its Sense and the
-Segments it points to, with no operation column and no Unmatched table. The flag `--move-table`, which took a Move written by hand as
+`Segments` section then opens with the Move's `description` as one paragraph,
+over a table of the columns `#`, `operation`, `relation`, `bind` and `Edges`
+(kogaki#1913): per Segment its number, its `operation` and `relation` as the
+Move file writes them, a cell empty where the file has none, its `bind` beside
+the Argument or CentralClaim it was given, and its Edges, each as its Sense and
+the Segments it points to, with no Unmatched table. The Move's words are read
+for the sheet alone, and no Model is handed them. The flag `--move-table`, which took a Move written by hand as
 a second file, is refused by name before anything is started.
 
 **A reading of the Leg's Senses on the sheet** (kogaki#1875). The Brief-Leg
