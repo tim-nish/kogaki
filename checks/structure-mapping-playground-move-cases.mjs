@@ -623,7 +623,8 @@ ok(
 // the Segments, one row per pair; with no reading the section holds the one sentence.
 const { NO_READING } = await imp("src/structure-mapping-playground/leg-senses-section.mjs");
 const { relFromRepo } = await imp("src/workflow/run-record.mjs");
-const { legSentences, pairsOf } = await imp("src/paragraph-plan/senses.mjs");
+const { pairsOf } = await imp("src/sme/edges.mjs");
+const { legSentences } = await imp("src/sme/arguments.mjs");
 const tLegs = (html) => (html.match(/<section class="card" id="leg-senses">([\s\S]*?)<\/section>/) || [])[1] || "";
 ok(
   tLegs(tSheet).includes(NO_READING) && trec.leg_senses === null,

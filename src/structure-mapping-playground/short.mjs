@@ -41,7 +41,7 @@ import {
   edgesMoveStructure,
   pairInOrder,
 } from "./move-structure.mjs";
-import { bindTargetsOf } from "../paragraph-plan/senses.mjs";
+import { bindTargetsOf } from "../paragraph-plan/move-choice.mjs";
 import { LEG_SENSES_FLAG, readLegSensesFolder, edgeSegments, trialEdges } from "./leg-senses-section.mjs";
 import * as RB from "./readback.mjs";
 

@@ -11,9 +11,6 @@
   "src/compose/leg-schema.mjs": {
     "TS2339": 1
   },
-  "src/compose/structure.mjs": {
-    "TS2769": 1
-  },
   "src/draft.mjs": {
     "TS18047": 1,
     "TS2339": 5
@@ -79,5 +76,8 @@
   },
   "src/workflow/replay.mjs": {
     "TS2339": 6
+  },
+  "src/sme/structure.mjs": {
+    "TS2769": 1
   }
 }

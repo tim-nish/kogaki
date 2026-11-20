@@ -34,7 +34,7 @@
 #       every `sense` that is not null is a name of the list of Senses, written
 #       with its part, or one of Kogaki's own (kogaki#1871). This assertion and
 #       its fixtures (c10) stand in `checks/move-library-cases.mjs`, which
-#       reads both lists from `src/paragraph-plan/senses.json` alone, and there
+#       reads both lists from `src/sme/senses.json` alone, and there
 #       (c11) every entry of its `own` carries exactly `sense`, `meaning` and
 #       `parts`, and (c12) the text a reading is handed holds the 22 of the
 #       manual and neither own name (kogaki#1881).

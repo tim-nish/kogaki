@@ -64,7 +64,7 @@ const repo = resolve(".");
 const load = (p) => import(pathToFileURL(join(repo, p)).href);
 const { parseYaml, stringifyYaml } = await load("src/yaml.mjs");
 const { readerPathRefusal } = await load("src/leg-planning-playground/read-set.mjs");
-const { mintStructure, validateReadSet, withReach } = await load("src/compose/structure.mjs");
+const { mintStructure, validateReadSet } = await load("src/sme/structure.mjs"); const { withReach } = await load("src/compose/structure.mjs");
 const { LPP_PARTS, LPP_HEADINGS } = await load("src/brief-plan-playground/sheet.mjs");
 const { briefLegs } = await load("src/compose/record.mjs");
 const root = mkdtempSync(join(tmpdir(), "leg-planning-playground-"));

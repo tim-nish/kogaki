@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { stringifyYaml, parseYaml } from "../../../src/yaml.mjs";
 import { legRecord, briefRecordText } from "../../../src/compose.mjs";
-import { legSentences } from "../../../src/paragraph-plan/senses.mjs";
+import { legSentences } from "../../../src/sme/arguments.mjs";
 
 // ---- the Brief: two Legs of three sentences each ----
 export const STRUCTURE = {

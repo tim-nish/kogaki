@@ -22,7 +22,7 @@ module.exports = {
       name: "shared-home-reaches-a-lane",
       comment: "A shared home serves every workflow and so reaches none of them (kogaki#1746).",
       severity: "error",
-      from: { path: "^src/(workflow/|compose/|[^/]+$)", pathNot: lane(ALL) },
+      from: { path: "^src/(workflow/|compose/|sme/|[^/]+$)", pathNot: lane(ALL) },
       to: { path: lane(ALL) },
     },
     {

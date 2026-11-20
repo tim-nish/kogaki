@@ -18,7 +18,8 @@ import {
 } from "../workflow/detached-job.mjs";
 import { enterRun, laneDir } from "../runs.mjs";
 import { audiencePathOf, readAdoptedBrief } from "./brief.mjs";
-import { CANDIDATES_SETTING, NAME_ROW, legSentences } from "./senses.mjs";
+import { CANDIDATES_SETTING, NAME_ROW } from "./move-choice.mjs";
+import { legSentences } from "../sme/arguments.mjs";
 import { DONE_FILE, PARAGRAPH_PLAN_TABLE, START_FILE, fail, writeJson } from "./stage.mjs";
 import { planLeg, planLegOptions, unitIdFor } from "./units.mjs";
 

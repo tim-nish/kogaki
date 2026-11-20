@@ -25,24 +25,22 @@ import { readBriefLeg } from "./move-structure.mjs";
 import { JOIN_ROW, joinRefusal } from "./move-senses.mjs";
 import {
   READINGS,
-  NAME_ROW,
-  CANDIDATES_SETTING,
   loadSenses,
   senseNames,
   sensesText,
-  legSentences,
   pairsOf,
   nameRefusal,
   countPairs,
   candidatesOf,
-  compareMove as compareEdges,
-} from "../paragraph-plan/senses.mjs";
+} from "../sme/edges.mjs";
+import { NAME_ROW, CANDIDATES_SETTING, compareMove as compareEdges } from "../paragraph-plan/move-choice.mjs";
+import { legSentences } from "../sme/arguments.mjs";
 import { PARAGRAPH_PLAN_TABLE } from "../paragraph-plan/stage.mjs";
 import { renderLegSensesSheet } from "./leg-senses-sheet.mjs";
 import { RUN_FILE, COUNTS_FILE, LEG_SENSES_USAGE } from "./leg-senses-section.mjs";
 
-// The counting, the check of a reading and the comparison are production's (kogaki#1865), read from
-// src/paragraph-plan/senses.mjs; the reading row is production's `paragraph_plan_name_senses`.
+// The counting and the check of a reading are the Engine's, read from src/sme/edges.mjs; the comparison is
+// production's (kogaki#1865), src/paragraph-plan/move-choice.mjs, as is the reading row `paragraph_plan_name_senses`.
 export { legSentences, pairsOf, nameRefusal, countPairs, NAME_ROW, CANDIDATES_SETTING };
 // The run's files and usage line are held where the short Trial reads them (kogaki#1875).
 export { RUN_FILE, COUNTS_FILE };
@@ -59,7 +57,7 @@ const MOVES_DIR = "moves";
 // The rows the joining call is handed: every Edge candidate of every pair, in order.
 export const joinRows = (counted) => counted.flatMap((p) => candidatesOf(p).map((a) => ({ pair: p.pair, ...a })));
 
-// THE COMPARISON of src/paragraph-plan/senses.mjs over the Move's Segments, as its Move file holds them (kogaki#1880).
+// THE COMPARISON of src/paragraph-plan/move-choice.mjs over the Move's Segments, as its Move file holds them (kogaki#1880).
 export function compareMove(move, counted, sentenceCount, names) {
   return compareEdges({ segments: move.segments }, counted, sentenceCount, names);
 }

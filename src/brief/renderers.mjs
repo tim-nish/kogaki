@@ -23,14 +23,13 @@ import { applyLegSections } from "../compose/sections.mjs";
 import {
   componentsOf,
   elementLabel,
-  mintStructure,
   partitionComponents,
   pathReachRefusal,
   readHolds,
   structureLegs,
   validateApex,
-  validateReadSet,
 } from "../compose/structure.mjs";
+import { mintStructure, validateReadSet } from "../sme/structure.mjs";
 import { REVIEW_AREAS, attachReview, cmdAttach } from "../review.mjs";
 import {
   DetachedJobStarted,

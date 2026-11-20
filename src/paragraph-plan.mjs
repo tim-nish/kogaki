@@ -11,7 +11,7 @@
 // THE TWO STEPS, one Detached Job unit per Leg on the shared supervisor (src/workflow/detached-job.mjs),
 // run by `ParagraphPlanLegSteps` (src/paragraph-plan/steps.mjs): five calls of `paragraph_plan_name_senses`
 // read the Leg's Senses, an answer refused being asked again once; the Move whose Edges the Leg meets best
-// is chosen and fitted by code (src/paragraph-plan/senses.mjs). The Leg's entry of the file carries `leg_id`
+// is chosen and fitted by code (src/paragraph-plan/move-choice.mjs). The Leg's entry of the file carries `leg_id`
 // and `segments` and names no Move. The stage never writes the Brief, and the Brief names nothing
 // downstream: the plan file names the Brief by path and content hash.
 //
@@ -59,7 +59,8 @@ export {
   planLegOptions,
   segmentsForPlanCall,
 } from "./paragraph-plan/units.mjs";
-export { NAME_ROW, READINGS, chooseMove, compareMove, countPairs, fittedSegments } from "./paragraph-plan/senses.mjs";
+export { NAME_ROW, chooseMove, compareMove, fittedSegments } from "./paragraph-plan/move-choice.mjs";
+export { READINGS, countPairs } from "./sme/edges.mjs";
 export { ParagraphPlanLegSteps, validateParagraphPlanLeg } from "./paragraph-plan/steps.mjs";
 export { latestRunDir, startParagraphPlan } from "./paragraph-plan/run-dir.mjs";
 export {

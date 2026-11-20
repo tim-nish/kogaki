@@ -588,6 +588,7 @@
         "src/compose.mjs",
         "src/compose/leg-schema.mjs",
         "src/compose/structure.mjs",
+        "src/sme/structure.mjs",
         "src/terrain-workflow.json",
         "src/workflow/detached-job.mjs",
         "src/workflow/gate.mjs",
@@ -643,8 +644,9 @@
       "covers": [
         "src/paragraph-plan.mjs",
         "src/paragraph-plan/",
+        "src/sme/",
         "src/paragraph-plan-workflow.json",
-        "prompts/paragraph-plan/name-senses.prompt",
+        "prompts/sme/name-senses.prompt",
         "src/compose.mjs",
         "src/compose/record.mjs",
         "src/workflow/detached-job.mjs",
@@ -660,7 +662,7 @@
         "runtime_ms_note": "RE-CHECKED at kogaki#1876 (2026-11-19) in a scratch copy: three plain serial runs of the member measured 3543, 3576 and 3458 ms with one fixture job fewer and five calls per Leg; 6500 stands. Before it: MOVED at kogaki#1865 (2026-11-19): 8600 -> 6500 with the cases rewritten for the three steps; three plain serial runs of checks/paragraph-plan-cases.mjs measured 4860, 4847 and 5022 ms (seven fixture jobs at a 100 ms heartbeat), and 6500 leaves headroom for peer-session load.",
         "case_floor_note": "LOWERED 46 -> 41 at kogaki#1876: the four cases of (d), a refused answer of the call that wrote one text for each Segment, go with that call; and (a)'s count of reading calls over both Legs is folded into its count for each Leg, which replaces the count of that call for each Leg. No case of a step that stays was dropped.",
         "efficacy": "case: checks/paragraph-plan-cases.mjs::(b) of two Moves with the same count the one with fewer compared Edges was not taken",
-        "efficacy_note": "mutation-verified at kogaki#1865 (2026-11-19): ordering the Moves of one count by MORE compared Edges in `chooseMove` (src/paragraph-plan/senses.mjs) turned (b) red, both Legs taking a_more, and (g) red on the same order; restored, the member returned to passing.",
+        "efficacy_note": "mutation-verified at kogaki#1865 (2026-11-19): ordering the Moves of one count by MORE compared Edges in `chooseMove` (src/paragraph-plan/move-choice.mjs) turned (b) red, both Legs taking a_more, and (g) red on the same order; restored, the member returned to passing.",
         "removal_signal": "a ruling retires the ParagraphPlan stage or replaces the choice of a Move by its Edges",
         "removal_instrument": "probe: ! test -f src/paragraph-plan.mjs"
       }
@@ -861,7 +863,7 @@
       "covers": [
         "src/structure-mapping-playground/move-senses.mjs",
         "src/structure-mapping-playground/senses-sheet.mjs",
-        "src/paragraph-plan/senses.json",
+        "src/sme/senses.json",
         "src/structure-mapping-playground/playground-workflow.json"
       ],
       "admission": {
@@ -904,6 +906,7 @@
       "file": "checks/check-leg-planning-playground.sh",
       "covers": [
         "src/compose/structure.mjs",
+        "src/sme/structure.mjs",
         "src/leg-planning-playground/read-set.mjs",
         "src/brief-plan-playground/sheet.mjs",
         "src/leg-planning-playground/trial.mjs",
@@ -981,7 +984,7 @@
       "covers": ["moves/"],
       "admission": {
         "contract": "Every committed `moves/*.yaml` record parses as the Brief's YAML reader (`src/yaml.mjs`) reads it, is admitted by the Adapter's own validator (`validateMoveRecord` in `src/compose.mjs`, the one `src/move-validate.mjs` and `tools/move_ingest.py` already run) against `moves/ROLES.json`, and carries its file stem as `id` (a); and `moves/INDEX.md` is byte-for-byte what `tools/move_ingest.py`'s own `write_index` regenerates from the records on disk, run over a copy of the library, so this member and the writer cannot drift (b). Before this member the library's contract was held by the writer alone: the ingest validates a record at the moment it writes it, and nothing ran the same predicate over records already on disk, so the four schema Issues of 2026-10-17 (kogaki#1411 to kogaki#1414) and the Adapter gate (kogaki#1418) left the 21 committed Leg Moves in a shape the Adapter refuses at every read with no check red. The fixture pass runs on every invocation, never behind a flag: (c1) a record carrying `technique` and no `segments`, (c2) a `before` written as one joined line, (c3) an `id` that is not the file stem, (c4) a stale INDEX, and (c5) one admitted record with a fresh INDEX as the control that stops the deny passing vacuously. Declared limit, stated in the file: it does not assert the ABSENCE of the retired `.md` record form, which kogaki#1415 removes.",
-        "license": "kogaki#1434 (owner decision 2026-10-18: a covering check over `moves/` rather than a change to admission, after #1423 left no registered member covering it); a Segment's `bind` and `edges` on every Move file under `moves/`, with its cases in `checks/move-library-cases.mjs`, kogaki#1871; the Senses an Edge may keep read from `src/paragraph-plan/senses.json` alone, its `own` entries' shape and the text a reading is handed, kogaki#1881",
+        "license": "kogaki#1434 (owner decision 2026-10-18: a covering check over `moves/` rather than a change to admission, after #1423 left no registered member covering it); a Segment's `bind` and `edges` on every Move file under `moves/`, with its cases in `checks/move-library-cases.mjs`, kogaki#1871; the Senses an Edge may keep read from `src/sme/senses.json` alone, its `own` entries' shape and the text a reading is handed, kogaki#1881",
         "case_floor": 9,
         "tier": "pre-push",
         "runtime_ms": 3700,
@@ -1016,7 +1019,7 @@
         "src/SCHEMA-BINDS.md",
         "src/brief-workflow.json",
         "src/paragraph-plan-workflow.json",
-        "prompts/paragraph-plan/",
+        "prompts/sme/",
         "src/move-extraction-playground/extraction-workflow.json",
         "prompts/draft/",
         "src/review-items.json",

@@ -12,7 +12,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { relFromRepo } from "../workflow/run-record.mjs";
-import { READINGS, loadSenses, senseNames, compareMove } from "../paragraph-plan/senses.mjs";
+import { READINGS, loadSenses, senseNames } from "../sme/edges.mjs";
+import { compareMove } from "../paragraph-plan/move-choice.mjs";
 
 // The reading's files and usage line, which `leg-senses.mjs` writes and prints; held here so the Trial reads them
 // without importing the command that imports the Trial.
