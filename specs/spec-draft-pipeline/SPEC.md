@@ -3117,14 +3117,23 @@ block is not found. It makes one call with the Writer's model and settings,
 `readbackRefusal` of `src/structure-mapping-playground/readback.mjs` refuses an
 answer that is not the record `{ parts }`, a `parts` list that is not one entry
 per part in order, a `readback` or `sample` that is neither one non-empty text
-nor null, and a `sample` where the `readback` is null. A passed answer is
-written to `readback.json` in the Trial's folder and recorded in `trial.json`;
-a refused one is recorded there with the answer as given, and `write` runs. The
-Writer is handed nothing of the stage. The sheet's section `Readback and
-Sample` follows `The Leg's Senses` directly: one row per Segment with its
-number, its line of the plan as the Writer was handed it, its Readback and its
-Sample, the last two empty where the Readback is null; for a refused answer it
-holds the refusal and the answer and no table.
+nor null, and a `sample` where the `readback` is null. Before the call the
+program writes `packet-debug.json` in the Trial's folder (kogaki#1905), which no
+Model reads: the Move's id as `move` and, per part, `part`, its line of the
+plan as `line`, the number of the Leg's sentence bound to it or null as `bind`,
+and its Edges as `edges`, each with `sense`, `to` and, only where the Edge
+carries it, `hypophora`. After an answer `readbackRefusal` passes, each part
+gains its `readback` and `sample` and the file is written again; after a
+refused answer it stays as the program wrote it. `trial.json` names the file
+either way, and a refused answer is recorded there with the answer as given,
+and `write` runs. The Writer is handed nothing of the stage. The sheet's
+section `Readback and Sample` follows `The Leg's Senses` directly: a table
+captioned with the Move's id, with the columns `#`, `Edges`, `plan`,
+`Readback` and `Sample`, one row per Segment with its number, its Edges as the
+section `Segments` writes them or "none", its line of the plan as the Writer
+was handed it, its Readback and its Sample, the last two empty where the
+Readback is null; for a refused answer it holds the refusal and the answer and
+no table.
 
 **The full Trial is kept.** The Trial of §4.20 stays as the later confirmation
 of a mapping that reads well on a short sheet.

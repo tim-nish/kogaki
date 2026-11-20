@@ -3,7 +3,7 @@
 import { renderPromptFile } from "../prompt-file.mjs";
 
 export const READBACK_STAGE = "readback";
-export const READBACK_FILE = "readback.json";
+export const DEBUG_FILE = "packet-debug.json";
 export const READBACK_PROMPT = "structure-mapping-playground/read-back-parts";
 export const PLAN_HEADING = "## The plan of this paragraph";
 
@@ -18,6 +18,27 @@ export function planBlock(packet) {
 
 // Each part's line of the plan, as the Writer is handed it, in order.
 export const partLines = (block) => block.split("\n").filter((l) => /^\d+\. /.test(l));
+
+// THE DEBUGGING FILE (kogaki#1905): what the program writes before the call, read by a person and by no Model.
+export const debugRecord = (move, segments, lines) => ({
+  move,
+  parts: segments.map((g, i) => ({
+    part: i + 1,
+    line: lines[i] ?? null,
+    bind: g.bind ?? null,
+    edges: g.edges.map((e) => ({
+      sense: e.sense ?? null,
+      to: e.to,
+      ...(Object.hasOwn(e, "hypophora") ? { hypophora: e.hypophora } : {}),
+    })),
+  })),
+});
+
+// Each part gains the `readback` and `sample` of an answer `readbackRefusal` passed.
+export const withAnswer = (debug, answer) => ({
+  ...debug,
+  parts: debug.parts.map((p, i) => ({ ...p, readback: answer.parts[i].readback, sample: answer.parts[i].sample })),
+});
 
 export const readbackPrompt = (block) => renderPromptFile(READBACK_PROMPT, { plan: block });
 

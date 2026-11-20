@@ -9,7 +9,7 @@
 //   (i) the route under `--move-edges` (kogaki#1880), the Move's Bind targets and Edges read from its Move file, run to
 //   the end with no call between grounding and the writer but the readback (kogaki#1876); (j) a Move with no `bind` and
 //   `edges`, a Move whose Bind targets are not the Leg's, `--move-table` and `--move-edges` refused by name, nothing
-//   written. Case (k) went with its call (kogaki#1876). (l) the `readback` stage under `--move-edges` (kogaki#1882).
+//   written. Case (k) went with its call (kogaki#1876). (l) the `readback` stage and its debugging file (kogaki#1905).
 import {
   mkdtempSync,
   mkdirSync,
@@ -41,6 +41,7 @@ const { stringifyYaml, parseYaml } = await imp("src/yaml.mjs");
 const { validateMoveStructure, validatePairing, unmatchedOf, legStructureOf } = await imp(
   "src/structure-mapping-playground/move-structure.mjs",
 );
+const { debugRecord } = await imp("src/structure-mapping-playground/readback.mjs");
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const root = mkdtempSync(join(tmpdir(), "structure-mapping-playground-move-"));
 const trials = join(repo, "runs", "structure-mapping-playground");
@@ -738,8 +739,9 @@ for (const [name, args, want] of [
 }
 ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
 
-// (l) the `readback` stage under `--move-edges` (kogaki#1882): one call, readback.json and one row per Segment on the sheet;
-// the Writer's input unchanged by its answer; a refused answer shown and the writer run; a null readback two empty cells.
+// (l) the `readback` stage under `--move-edges` (kogaki#1882): one call, packet-debug.json (kogaki#1905) and one row per
+// Segment on the sheet; the Writer's input unchanged by its answer; a refused answer shown and the writer run; a null
+// readback two empty cells.
 {
   const section = (o) => {
     const f = join(o, "sheet.html");
@@ -747,22 +749,68 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     return (html.match(/<section class="card" id="readback">([\s\S]*?)<\/section>/) || [])[1] || "";
   };
   const rowsOf = (html) => ((html.match(/<tbody>([\s\S]*?)<\/tbody>/) || [])[1] || "").split("<tr>").slice(1);
-  const written = existsSync(join(ti.o, "readback.json"))
-    ? JSON.parse(readFileSync(join(ti.o, "readback.json"), "utf8"))
-    : null;
-  const lRows = rowsOf(section(ti.o));
+  const debugOf = (o) =>
+    existsSync(join(o, "packet-debug.json")) ? JSON.parse(readFileSync(join(o, "packet-debug.json"), "utf8")) : null;
+  const written = debugOf(ti.o);
+  const lSection = section(ti.o);
+  const lRows = rowsOf(lSection);
   ok(
     ti.seen.filter((x) => x.stage === "readback").length === 1 &&
-      JSON.stringify(written) === JSON.stringify(READBACK) &&
+      written !== null &&
+      !existsSync(join(ti.o, "readback.json")) &&
       trec.readback &&
       trec.readback.path &&
-      trec.readback.path.endsWith("readback.json") &&
+      trec.readback.path.endsWith("packet-debug.json"),
+    `(l) the readback stage did not make one call, write packet-debug.json and no readback.json, and name it: ${JSON.stringify(trec.readback)}`,
+  );
+  ok(
+    written !== null &&
+      Object.keys(written).join() === "move,parts" &&
+      written.move === EDGED &&
+      written.parts.length === 3 &&
+      written.parts.every(
+        (p, i) =>
+          Object.keys(p).join() === "part,line,bind,edges,readback,sample" &&
+          p.part === i + 1 &&
+          p.line === trec.readback.plan[i] &&
+          p.bind === i + 1 &&
+          p.readback === READBACK.parts[i].readback &&
+          p.sample === READBACK.parts[i].sample,
+      ) &&
+      JSON.stringify(written.parts.map((p) => p.edges)) ===
+        JSON.stringify([[], [{ sense: "Concession.Denier", to: [1] }], [{ sense: "Cause.Result", to: [2] }]]),
+    `(l) packet-debug.json does not hold the Move's id and each part's line, bind, Edges, Readback and Sample: ${JSON.stringify(written)}`,
+  );
+  ok(
+    lSection.includes(
+      `<table><caption>${EDGED}</caption><thead><tr><th>#</th><th>Edges</th><th>plan</th><th>Readback</th><th>Sample</th></tr></thead>`,
+    ) &&
       lRows.length === 3 &&
       lRows[1].includes(
-        "<td>2. Argument 2. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.</td>",
+        "<td>2</td><td>Concession.Denier → 1</td><td>2. Argument 2. To part 1: a causal relation expected on the basis of one is cancelled or denied by the situation the other describes. Here this sentence denies the expectation. Pointed to by part 3.</td>",
       ) &&
-      lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`),
-    `(l) the readback stage did not make one call, write readback.json and show one row per Segment: ${JSON.stringify(trec.readback)} ${lRows.length}`,
+      lRows[1].includes(`<td>${READBACK.parts[1].readback}</td><td>${READBACK.parts[1].sample}</td>`) &&
+      lRows[0].startsWith("<td>1</td><td>none</td>"),
+    `(l) the sheet's readback table does not hold the Move's id, the five column heads and one row per part: ${lSection.slice(0, 400)}`,
+  );
+  const alone = debugRecord(
+    "m",
+    [
+      { bind: null, edges: [{ sense: null, hypophora: true, to: [2] }] },
+      { bind: 1, edges: [{ sense: "Contrast", to: [1] }] },
+    ],
+    ["1. a", "2. b"],
+  );
+  ok(
+    JSON.stringify(alone) ===
+      JSON.stringify({
+        move: "m",
+        parts: [
+          { part: 1, line: "1. a", bind: null, edges: [{ sense: null, to: [2], hypophora: true }] },
+          { part: 2, line: "2. b", bind: 1, edges: [{ sense: "Contrast", to: [1] }] },
+        ],
+      }),
+    `(l) debugRecord does not keep a null sense and a null bind, with \`hypophora\` only where the Edge carries it: ${JSON.stringify(alone)}`,
   );
   const other = {
     parts: READBACK.parts.map((p) =>
@@ -774,9 +822,15 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
     SMP_READBACK: JSON.stringify(other),
   });
   const writerOf = (r) => (r.seen.find((x) => x.stage === "writer") || {}).prompt;
+  const readbackOf = (r) => (r.seen.find((x) => x.stage === "readback") || {}).prompt || "";
+  const named = [EDGED, "Concession.Denier", "Cause.Result", "packet-debug.json"];
   ok(
-    tj.res.status === 0 && writerOf(tj) !== undefined && writerOf(tj) === writerOf(ti),
-    "(l) the Writer's input differs between two Trials whose readback answered differently",
+    tj.res.status === 0 &&
+      writerOf(tj) !== undefined &&
+      writerOf(tj) === writerOf(ti) &&
+      readbackOf(ti) !== "" &&
+      named.every((n) => !writerOf(ti).includes(n) && !readbackOf(ti).includes(n)),
+    "(l) the Writer's input differs between two Trials whose readback answered differently, or it or the Readback call's input names the Move, a Sense or the debugging file",
   );
   const tr = run("readback-refused", [...EDGES_ROUTE, "--move-edges"], {
     SMP_TABLE: JSON.stringify(TABLE_H1),
@@ -789,6 +843,9 @@ ok(snapshot() === before, "(j) a file under moves/ or theses/ changed");
       rStages.join() === "move-reading:done,pairing:done,grounding:done,readback:done,write:done" &&
       existsSync(join(tr.o, "paragraph.md")) &&
       !existsSync(join(tr.o, "readback.json")) &&
+      JSON.stringify(debugOf(tr.o)) ===
+        JSON.stringify({ move: EDGED, parts: written.parts.map(({ readback, sample, ...p }) => p) }) &&
+      tr.rec.readback.path.endsWith("packet-debug.json") &&
       tr.rec.readback.refusal.includes("not one JSON record") &&
       rSection.includes("refused") &&
       rSection.includes("NOT A RECORD") &&

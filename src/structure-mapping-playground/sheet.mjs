@@ -389,21 +389,26 @@ function edgesSegmentsSection(route) {
   );
 }
 
-// THE READBACK AND SAMPLE (kogaki#1882): per Segment its line of the plan, its Readback and its Sample; a refused answer
-// shows the refusal and the answer as given.
+// THE READBACK AND SAMPLE (kogaki#1882): per Segment its Edges (kogaki#1905), its line of the plan, its Readback and its
+// Sample, read from the debugging file; a refused answer shows the refusal and the answer as given.
 function readbackSection(rb) {
   if (!rb) return none("The plan was not read back.");
   if (rb.refusal)
     return `<p class="stop">refused — ${esc(rb.refusal)}</p>` + (rb.answer === null ? "" : pre(rb.answer));
   const at = resolve(REPO, rb.path);
-  const parts = existsSync(at) ? JSON.parse(readFileSync(at, "utf8")).parts : [];
+  const debug = existsSync(at) ? JSON.parse(readFileSync(at, "utf8")) : { move: "", parts: [] };
   const cell = (v) => (v === null || v === undefined ? "" : esc(v));
   const rows = rb.plan.map((line, i) => {
-    const p = parts[i] || {};
-    return `<tr><td>${i + 1}</td><td>${esc(line)}</td><td>${cell(p.readback)}</td><td>${cell(p.sample)}</td></tr>`;
+    const p = debug.parts[i] || {};
+    const edges = (p.edges || []).map((e) => esc(edgeText(e))).join("<br>");
+    return (
+      `<tr><td>${i + 1}</td><td>${edges || "none"}</td><td>${esc(line)}</td>` +
+      `<td>${cell(p.readback)}</td><td>${cell(p.sample)}</td></tr>`
+    );
   });
   return (
-    "<table><thead><tr><th>#</th><th>plan</th><th>Readback</th><th>Sample</th></tr></thead><tbody>" +
+    `<table><caption>${esc(debug.move)}</caption>` +
+    "<thead><tr><th>#</th><th>Edges</th><th>plan</th><th>Readback</th><th>Sample</th></tr></thead><tbody>" +
     rows.join("") +
     "</tbody></table>"
   );
