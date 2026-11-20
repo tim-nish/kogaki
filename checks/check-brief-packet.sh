@@ -2,8 +2,8 @@
 # check-brief-packet — the Packet side of Brief composition: the Leg's crossing
 # fields retired (kogaki#1768), Journey resolution, the writer's refusal form, the
 # introduces entry's shape and the Obligation record's retirement (kogaki#1699).
-#   (n)-(o)   re-activate retired at the Leg; every Packet states the absence
-#             under What crosses into this Leg (kogaki#1237, #1282, #1768).
+#   (n)-(o)   re-activate retired at the Leg; no Packet carries a block on
+#             what crosses into a Leg (kogaki#1237, #1282, #1768, #1911).
 #   (p)-(s)   Journey text resolution, writerRefusal, shard prose (kogaki#1250).
 #   (t)-(aa)  kogaki#1263's widenings and kogaki#1260's compose refusals, now
 #             refusals of the retired fields by name; (v) the record retired
@@ -22,7 +22,7 @@ import { readBrief, renderPacket, sectionsOf, sectionOfLeg,
   journeyTextFromSurvey, journeyResolutionRefusal, journeyIdentityKey, writerRefusal,
   journeyProseFromShardLines } from "./src/draft.mjs";
 // The stated absence prompts/draft/_packet.prompt renders for a Persona with no prior knowledge (kogaki#1855).
-const READER_OWN_WORLD_ABSENT = "(the Persona declares no prior knowledge; a referent comes from the Journey block alone)";
+const READER_OWN_WORLD = /The reader's own world|declares no prior knowledge/;
 import * as compose from "./src/compose.mjs";
 import { recordOf, briefOfRecord, PATH_1260, fixtureLeg, structureOf } from "./checks/fixtures/brief-compose/fixtures.mjs";
 const { legRecord } = compose;
@@ -57,9 +57,9 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
     packets[leg.leg_id] = r.packet;
   }
   for (const id of Object.keys(packets)) {
-    const m = packets[id].split("## What crosses into this Leg\n")[1];
-    const crosses = m ? m.split("\n## ")[0] : null;
-    if (crosses === null || !/nothing — this Leg introduces and re-activates nothing/.test(crosses)) fails.push(`(n) the Packet of ${id} does not render the stated absence under What crosses into this Leg: ${String(crosses).trim().slice(0, 160)}`);
+    const crossing = /What crosses into this Leg/.test(packets[id]);
+    const emptyText = /nothing — this Leg introduces and re-activates nothing/.test(packets[id]);
+    if (crossing || emptyText) fails.push(`(n) the Packet of ${id} still carries the crossing block (heading ${crossing}, empty text ${emptyText})`);
     if (/depends_on/.test(packets[id])) fails.push(`(n) depends_on reaches the Packet of ${id}`);
     if (/Already knows/.test(packets[id])) fails.push(`(n) the retired Already knows heading is still rendered in the Packet of ${id}`);
     if (/Held by the reader/.test(packets[id])) fails.push(`(n) the retired Held by the reader heading is still rendered in the Packet of ${id}`);
@@ -373,9 +373,9 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
     if (!budgeted.error || !/carries `budget`, which is retired/.test(budgeted.error)) fails.push(`(ab) a Leg carrying budget was not refused by name: ${budgeted.error}`);
     if (a.s1 && !proseBlock(a.s1).includes("**The reader's own world.** Holds nothing.")) fails.push("(ab) the prose block does not render the Persona's prior_knowledge verbatim");
 
-    // (ab) a Persona declaring no prior_knowledge renders the stated absence, never a refusal (kogaki#1285).
+    // (ab) a Persona declaring no prior_knowledge renders no line and no empty text, never a refusal (kogaki#1285, #1911).
     const noKnowledge = packetsOf(personaNoKnowledge);
-    if (noKnowledge.s1 && !proseBlock(noKnowledge.s1).includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) a Persona with no prior_knowledge did not render the stated absence");
+    if (noKnowledge.s1 && READER_OWN_WORLD.test(noKnowledge.s1)) fails.push("(ab) a Persona with no prior_knowledge still renders a reader's-own-world line or its empty text");
 
     const none = briefOf(legs, { compose_path: personaNone });
     const r = render(none, none.legs[0]);
@@ -395,7 +395,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
     else {
       if (!rd.packet.includes("**Referents.**")) fails.push("(ab) the Packet does not carry audiences/dev-to-zenn.md's register");
       if (!rd.packet.includes("**Language.** Write this Leg in English.")) fails.push("(ab) the Packet's prose block does not render audiences/dev-to-zenn.md's language");
-      if (!rd.packet.includes(READER_OWN_WORLD_ABSENT)) fails.push("(ab) the Packet does not render audiences/dev-to-zenn.md's stated prior_knowledge absence");
+      if (READER_OWN_WORLD.test(rd.packet)) fails.push("(ab) the Packet under audiences/dev-to-zenn.md renders a reader's-own-world line or its empty text");
       if (rd.packet.includes("as the Brief describes the reader at the outset")) fails.push("(ab) the Packet still carries the retired reader-description wording");
     }
   }
@@ -492,9 +492,9 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
       const s2 = renderWithPrior(brief.legs[1], [{ leg_id: "s1", text: s1Prose }]);
       if (s2.error) fails.push(`(at) the Packet for s2 did not render: ${s2.error}`);
       else {
-        const prior = block(s2.packet, ARTICLE, "\n## How the prose reads");
+        const prior = s2.packet.includes(ARTICLE) ? block(s2.packet, ARTICLE, "\n## How the prose reads") : "";
         if (prior.includes(s1Prose)) fails.push(`(at) a Section-opening Leg's Packet still carries an earlier Section's prose: ${JSON.stringify(prior)}`);
-        if (!/nothing yet — this Leg opens the Section, so its prose is the first in it/.test(prior)) fails.push(`(at) a Section-opening Leg's Packet does not state the absence of its own Section's prose: ${JSON.stringify(prior)}`);
+        if (s2.packet.includes(ARTICLE) || /nothing yet/.test(s2.packet)) fails.push(`(at) a Section-opening Leg's Packet carries an article-so-far block: ${JSON.stringify(prior)}`);
       }
       const s2Prose = "Section Two's own prose, as written so far.";
       const s3 = renderWithPrior(brief.legs[2], [{ leg_id: "s1", text: s1Prose }, { leg_id: "s2", text: s2Prose }]);
@@ -513,5 +513,5 @@ if (fails.length > 0) {
   for (const f of fails) console.log(`  - ${f}`);
   process.exit(1);
 }
-console.log("ok: check-brief-packet — re-activate, introduces, journeys, names and budget retired from the Leg and refused by name, every Packet of a Brief stating the crossing absence (kogaki#1237, kogaki#1282, kogaki#1768); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's schema widenings retired from the Leg schema and an introduces entry's shape as the ParagraphPlan carries it; and kogaki#1261's Packet rendering, a Brief carrying an Obligation record refused naming the key, the record retired from both schemas and the ledger refusal no longer exported (kogaki#1699), with a Persona lacking prior_knowledge as a stated absence and the article so far scoped to the current Section.");
+console.log("ok: check-brief-packet — re-activate, introduces, journeys, names and budget retired from the Leg and refused by name, no Packet of a Brief carrying the crossing block (kogaki#1237, kogaki#1282, kogaki#1768); a Journey's resolved text under the Journey block and an unresolved one refused by name (kogaki#1250); journeyTextFromSurvey/journeyResolutionRefusal, writerRefusal's first-line form, and journeyProseFromShardLines; kogaki#1263's schema widenings retired from the Leg schema and an introduces entry's shape as the ParagraphPlan carries it; and kogaki#1261's Packet rendering, a Brief carrying an Obligation record refused naming the key, the record retired from both schemas and the ledger refusal no longer exported (kogaki#1699), with a Persona lacking prior_knowledge rendering no line and the article so far scoped to the current Section and absent where it is empty.");
 JS

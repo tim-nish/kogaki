@@ -14,19 +14,18 @@ The claims below are the whole plan of this paragraph.
 ## The claims this Leg asserts
 
 Each line below is one claim, and every line is a claim of this Leg: none is
-subordinate to another. Your prose must make every one of them recoverable,
-and must assert nothing beyond them: these lines are the whole of what this
-Leg may assert.
+subordinate to another. Your prose must assert nothing beyond them: these
+lines are the whole of what this Leg may assert.
 
 - the next run overwrites an edit to the copy.
 
-## The Journey material this Leg edits — NOT a claim to recover
+## The Journey material this Leg edits
 
 Material for a concrete example serving this Leg — use as much or as little of it as the Leg needs, in any form, from one clause to several sentences. It is material, never a claim, and earns no paragraph of its own by being present.
 
 Material, not assertion. Each entry below names a Journey this Leg draws on, and its served prose, quoted in full. **Edit it for this Leg**: cut it, compress it, use as much or as little as it needs.
 
-Nothing here is a claim. The claims above are the whole of what this Leg asserts, and the round trip asks for those back and never for a fragment of a Journey. A Journey you use well may leave almost none of its original wording on the page.
+Nothing here is a claim. The claims above are the whole of what this Leg asserts. A Journey you use well may leave almost none of its original wording on the page.
 
 - **L2's Journey**. Served at `coding::journey/second-strand@2222222222222222222222222222222222222222222222222222222222222222`:
 
@@ -44,18 +43,6 @@ claim, and do not open a new subject.
 - **No new heading is rendered here.** Develop what the Section has established; a new subject belongs to a Leg that opens its own.
 
 This Leg reaches the Reader target.
-
-## What crosses into this Leg
-
-This is the whole of what you may speak of as already available: a term you
-introduce here, a term or claim re-activated from a Leg you depend on, or a
-re-activated Journey. Each line carries what crosses with it — a term with
-its meaning where the Brief gives one, a claim as a plain restatement, a Journey as its served text.
-Where a term comes from is the Brief's own record, not material for the prose.
-Nothing not listed here is material for this Leg: the reader may hold more, but what they
-hold and do not see below is not yours to speak of or rely on.
-
-- The installer puts a copy of the kit in the tree. (re-activated from s1, strand L1)
 
 ## The article so far, up to this Leg:
 
@@ -93,16 +80,9 @@ it explains a term once, and nothing later points back to it.
 Write the prose for this Leg and nothing else. No heading, no leg id, no
 label, no commentary about what you are doing.
 
-**Budget.** (none declared — no word bound applies to this Leg.)
-
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
-
-**The round trip — claims only.** Each claim above must be recoverable from
-what you write. A silent omission is not a simplification, it is a loss.
-Where making a claim plain loses something you cannot restore, answer it
-below, as a refusal.
 
 **When a step cannot be performed.** If a part of the plan cannot be written from
 the material this Packet gives you, or material it should carry is

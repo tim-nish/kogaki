@@ -14,43 +14,10 @@ The claims below are the whole plan of this paragraph.
 ## The claims this Leg asserts
 
 Each line below is one claim, and every line is a claim of this Leg: none is
-subordinate to another. Your prose must make every one of them recoverable,
-and must assert nothing beyond them: these lines are the whole of what this
-Leg may assert.
+subordinate to another. Your prose must assert nothing beyond them: these
+lines are the whole of what this Leg may assert.
 
 - the installer copies the kit.
-
-## The Journey material this Leg edits — NOT a claim to recover
-
-(none — this Leg draws on no Journey material, and nothing here asks for any.)
-
-## The Section this Leg sits in
-
-A Section is a grouping of Legs under one heading — one promise to the reader
-that the question changes here. This Leg either opens a Section or continues
-one, and the line below says which. Where it continues, the heading is already
-on the page and you are writing further into it: do not restate the heading's
-claim, and do not open a new subject.
-
-- **This Leg OPENS the article's one Section.** This Brief declares no Section titles, so no heading is rendered above your prose.
-
-
-
-## What crosses into this Leg
-
-This is the whole of what you may speak of as already available: a term you
-introduce here, a term or claim re-activated from a Leg you depend on, or a
-re-activated Journey. Each line carries what crosses with it — a term with
-its meaning where the Brief gives one, a claim as a plain restatement, a Journey as its served text.
-Where a term comes from is the Brief's own record, not material for the prose.
-Nothing not listed here is material for this Leg: the reader may hold more, but what they
-hold and do not see below is not yours to speak of or rely on.
-
-(nothing — this Leg introduces and re-activates nothing; speak of nothing as already available.)
-
-## The article so far, up to this Leg:
-
-(nothing yet — this Leg opens the Section, so its prose is the first in it.)
 
 ## How the prose reads
 
@@ -89,11 +56,6 @@ label, no commentary about what you are doing.
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
-
-**The round trip — claims only.** Each claim above must be recoverable from
-what you write. A silent omission is not a simplification, it is a loss.
-Where making a claim plain loses something you cannot restore, answer it
-below, as a refusal.
 
 **When a step cannot be performed.** If a part of the plan cannot be written from
 the material this Packet gives you, or material it should carry is

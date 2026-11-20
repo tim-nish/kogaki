@@ -200,9 +200,8 @@ export function figureRecordRefusal(record, leg, form, schema) {
 // write one.
 //
 // The untitled case is the pre-Section-grouping corpus, which derives one untitled
-// Section: it is STATED rather than left blank, for the same reason every other
-// absence in this renderer is stated — a hole in the model's whole world is not
-// a gap the model notices, it is a hole the model fills by invention.
+// Section: no Section block is rendered for it, since a block with nothing to
+// hold is absent (kogaki#1911).
 export function sectionPlacement(sec) {
   // DEFENSIVE ONLY (PR #844 round 1, finding 3): no Packet render reaches an underived Section.
   if (sec === undefined) return {};

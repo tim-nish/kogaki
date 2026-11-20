@@ -26,12 +26,11 @@ the Brief/Draft design record (kogaki#752).
 THE WRITE BLOCK'S READER-DEPENDENT RULES ARE THE AUDIENCE'S REGISTER
 (kogaki#1251 item 1, kogaki#1261, kogaki#1370). `{{register}}` is filled from
 the `register` key of the Audience file the Brief was composed for, so two
-Audiences render two Write blocks; the heading rule, the paragraph rule and
-the round trip stay here, identical for every Audience. `{{reader_own_world}}`
+Audiences render two Write blocks; the heading rule and the paragraph rule
+stay here, identical for every Audience. `{{reader_own_world}}`
 is HARNESS-OWNED, not the register (kogaki#1285): it renders the Audience's
-`persona.prior_knowledge` field verbatim, or a stated absence where the
-Persona declares none, before the register — so the Referents rule above can
-point at material the Packet actually carries.
+`persona.prior_knowledge` field verbatim before the register — so the
+Referents rule above can point at material the Packet actually carries.
 `{{language}}` is HARNESS-OWNED too (kogaki#1417): the Audience's `language`
 key, rendered as one line, so the writer is told the article's language rather
 than inferring it from the words its input happens to carry.
@@ -42,11 +41,11 @@ so no edit to an Audience file removes it: where a register rule and the plan
 conflict, the plan holds for that sentence, and the conflict is the Writer's
 to settle, never a refusal or a judge's stop.
 
-LEG LINKING IS DEFAULT-DENY (kogaki#1282, owner ruling 2026-10-06). Only what
-the Brief's `introduces` and `re-activate` explicitly admit crosses into this
-Leg's Packet; nothing else the reader holds does, and no sentence here is
-asked to "link" or "connect" across that boundary — connectedness comes from
-the crossing items being used, not from an instruction told to connect.
+NO BLOCK LISTS WHAT CROSSES INTO A LEG. A Leg carries no `introduces` and no `re-activate` since kogaki#1768.
+
+AN EMPTY BLOCK IS ABSENT. A block with nothing to hold renders neither its heading nor a text saying it is empty.
+
+NO DEMAND TO GIVE THE CLAIMS BACK IS MADE OF THE WRITER. The Draft review asks what a reader found.
 
 THIS FILE POINTS AT NO SPECIFICATION, and the prohibition is stated here
 WITHOUT WRITING THE SHAPE IT FORBIDS — a comment that spells out the pattern it
@@ -55,7 +54,7 @@ use-versus-mention defect this repository has recorded repeatedly. The check
 asserts the absence; this comment says why the absence is deliberate.
 
 Block order is fixed: the plan, the Leg's claims, the Journey material,
-the Leg's Section, ledger, the article so far, how the prose reads, instruction. Heavy prose late,
+the Leg's Section, the article so far, how the prose reads, instruction. Heavy prose late,
 instruction last. Every block opens with a fixed usage header saying what the
 block is FOR, because a block whose use is not stated gets used for whatever
 it resembles.
@@ -67,16 +66,16 @@ rendered into the Packet only where a sentence-level decision of the writer
 depends on it. The fixed-points block (Thesis, Reader start, Reader target)
 and the This Leg block (`purpose`, `reader_state_before`,
 `reader_state_after`) are retired on that ground — their operational content
-for the writer is already carried by the plan and the crossing block,
+for the writer is already carried by the plan,
 and review of the prose reads the reader states from the
 Brief, never the Packet. The reader-target line is the one piece of that
 retired block with a live sentence-level use — it says whether this Leg may
-still introduce or raise anything — so it moves into the Section block rather
-than leaving with the rest.
+still introduce or raise anything — so it stands as a paragraph of its own
+after the Section block rather than leaving with the rest (kogaki#1911).
 
 THE RELATIONS LAYER IS RETIRED (kogaki#1215; owner ruling 2026-09-28). The
-claims block and the crossing list below RENDER AS
-FLAT LISTS under their own headings, in ONE convention: every item is a `- `
+claims block RENDERS AS
+A FLAT LIST under its own heading, in ONE convention: every item is a `- `
 line at column zero, one line per item, no indentation carrying meaning, no
 `key:` prefix, and no relation between one item and another. No list sits
 under a bulleted field label. Where the realization of a whole schema category is
@@ -103,17 +102,14 @@ src/SCHEMA-BINDS.md renders it beside the workflow rows.
 
 Write the prose for this Leg and nothing else. No heading, no leg id, no
 label, no commentary about what you are doing.
+{{#if budget}}
 
-**Budget.** {{#if budget}}{{budget}} words. This is a ceiling, not a target — write what this Leg needs, up to it.{{else}}(none declared — no word bound applies to this Leg.){{/if}}
+**Budget.** {{budget}} words. This is a ceiling, not a target — write what this Leg needs, up to it.
+{{/if}}
 
 **The heading is not yours.** One heading is rendered per Section, by the
 Harness, from the title the Brief declared — never per Leg and never by you.
 Prose that writes its own heading is refused when the Leg is recorded.
-
-**The round trip — claims only.** Each claim above must be recoverable from
-what you write. A silent omission is not a simplification, it is a loss.
-Where making a claim plain loses something you cannot restore, answer it
-below, as a refusal.
 
 **When a step cannot be performed.** If a part of the plan cannot be written from
 the material this Packet gives you, or material it should carry is

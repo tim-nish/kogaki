@@ -1705,7 +1705,7 @@ than merely undocumented. The Packet stays the Writer's whole input; nothing
 is added to it.
 
 **Block order is fixed**, heavy prose late and the instruction last: global
-anchors → **the plan block** → the Leg's fields → the §4.13 ledger →
+anchors → **the plan block** → the Leg's fields →
 every previously realized Leg's prose in recorded order → how the prose
 reads (the language, the reader's own world and the register) → the write
 instruction. **Every block but the write instruction stands in one shared
@@ -1714,6 +1714,24 @@ file names it and adds the write instruction alone, and the Readback's prompt
 file (§ the short Trial) names the same passage and adds its own closing
 section, so the two calls read the same text up to what each is asked to put
 out.
+
+**The Writer is asked to give no claim back** (kogaki#1911, maintainer ruling
+2026-11-20). No sentence of the Packet asks that a reader recover an Argument,
+the CentralClaim or a claim, and the write instruction holds no round trip. The
+claims block says only that the prose asserts nothing beyond its lines. Whether
+a reader finds each claim stays the Draft review's question.
+
+**No block lists what crosses into a Leg** (kogaki#1911). A Leg carries no
+`introduces` and no `re-activate` since kogaki#1768, so that block was empty in
+every Packet; its heading, its explanation and its text for the empty case are
+gone.
+
+**An empty block is absent** (kogaki#1911). A block with nothing to hold renders
+neither its heading nor a text saying it is empty: the claims, the Journey
+material, the Section, the article so far, the reader's own world and the
+budget. The two Reader target lines stand as paragraphs of their own after the
+Section block. The Draft review reads a heading the Packet does not carry as
+"this Leg declares none"; a heading over nothing readable still stops it.
 
 **No Obligation row renders** (kogaki#1584, owner decision 2026-10-25): the
 Obligations ledger is retired at both scales (§5.2, kogaki#1701), and the
@@ -1785,7 +1803,7 @@ provenance reaching the write instruction and, from there, the prose.
 
 **Every block the template renders is a Harness contract; every rule of how
 the prose reads is the Audience's Register** (kogaki#1321, kogaki#1370). The
-heading rule, the budget, the round trip, the refusal form, the plan and
+heading rule, the budget, the refusal form, the plan and
 claims blocks, the Journey block and the reader's own world are fixed,
 identical for every Audience, because each changes model behaviour at
 generation and is this file's own concern. A rule that instead governs how

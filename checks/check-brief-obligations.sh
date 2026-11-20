@@ -150,7 +150,7 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
   }
   if (!carries("s3", REACHES_TARGET_LINE)) fails.push("(k) the Packet of the marked Leg does not carry the target line");
   if (Object.values(packets).some((p) => p.includes(CLOSING_LEG_LINE))) fails.push("(k) a Packet carries the closing-Leg line, though no Leg follows the mark");
-  if (packets.s3 && !/## The Section this Leg sits in[\s\S]*This Leg reaches the Reader target\.[\s\S]*## What crosses into this Leg/.test(packets.s3)) fails.push("(k) the target line is not rendered inside the `## The Section this Leg sits in` block");
+  if (packets.s3 && !/## The claims this Leg asserts[\s\S]*\n\nThis Leg reaches the Reader target\.\n\n## How the prose reads/.test(packets.s3)) fails.push("(k) the target line is not a paragraph of its own after the claims and directly before `## How the prose reads`");
 }
 
 // (r) an `introduces` entry carrying `kind` is refused; one carrying term and meaning is read.

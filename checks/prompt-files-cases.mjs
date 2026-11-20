@@ -225,6 +225,54 @@ for (const [name, c] of Object.entries(C.WRITER_CASES)) {
 }
 rmSync(scratch, { recursive: true, force: true });
 
+// (i) AN EMPTY BLOCK IS ABSENT (kogaki#1911): a Leg with no claim, no Journey, no Section title, no earlier prose and
+// no budget, under audiences/dev-to-zenn.md, renders none of those blocks or labels, nor the crossing heading, no
+// bracketed text saying a block is empty, and no two blank lines together.
+{
+  cases++;
+  const c = C.WRITER_CASES["write-leg-opens-the-one-section"];
+  const r = C.writerBriefRecord(c);
+  const text = briefRecordText({
+    slug: r.slug,
+    compose_path: "audiences/dev-to-zenn.md",
+    strands: r.strands,
+    thesis: r.thesis,
+    reader_path: r.legs.map(legRecord),
+    strand_coverage: [],
+    journey_coverage: [],
+    tradeoffs: {},
+    bridged: {},
+  });
+  const brief = readBrief(text, briefPath);
+  brief.path = briefPath;
+  const leg = { ...brief.legs[0], claims: [], journeys: [], paragraphs: c.extra.paragraphs };
+  delete leg.budget;
+  const res = renderPacket({
+    brief,
+    leg,
+    priorSections: [],
+    section: sectionOfLeg(brief.legs).get(leg.leg_id),
+    sections: sectionsOf(brief.legs),
+  });
+  const ABSENT = [
+    "## The claims this Leg asserts",
+    "## The Journey material this Leg edits",
+    "## The Section this Leg sits in",
+    "## The article so far, up to this Leg:",
+    "**The reader's own world.**",
+    "**Budget.**",
+    "What crosses into this Leg",
+  ];
+  if (res.error) fails.push(`(i) the Packet of an empty Leg did not render: ${res.error}`);
+  else {
+    for (const h of ABSENT)
+      if (res.packet.includes(h)) fails.push(`(i) the Packet of an empty Leg carries ${JSON.stringify(h)}`);
+    const said = res.packet.match(/^\((none|nothing|no )[^)]*\)/m);
+    if (said) fails.push(`(i) the Packet of an empty Leg says a block is empty: ${JSON.stringify(said[0])}`);
+    if (res.packet.includes("\n\n\n")) fails.push("(i) the Packet of an empty Leg carries two blank lines together");
+  }
+}
+
 if (fails.length) {
   for (const f of fails) console.error(`FAIL ${f}`);
   process.exit(1);

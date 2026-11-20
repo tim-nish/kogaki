@@ -48,15 +48,14 @@ function readItems() {
 // THE PACKET IS PARSED AS THE TEMPLATE WRITES IT, never as general markdown —
 // the same reading `readDraft` gives the trace, and for the same reason: a
 // second grammar can disagree with the writer about what was written. Every
-// block below is a form `prompts/draft/write-leg.prompt` renders, and a block that is
-// absent is a PACKET GAP rather than something to work around, per the owner's
-// 2026-09-04 closed-input ruling. The refusal names the block, the item that
-// needed it, and the file the gap is filed against.
+// block below is a form `prompts/draft/_packet.prompt` renders. A block with
+// nothing to hold is not rendered (kogaki#1911), so an absent block is the
+// answer "this Leg declares none"; a block that stands but yields nothing
+// readable is a PACKET GAP, per the owner's 2026-09-04 closed-input ruling.
+// The refusal names the block, the item that needed it, and the file the gap
+// is filed against.
 
-// The stated-absence forms the Packet renderer writes where a value is empty.
-// They are ANSWERS and not holes: a Packet saying "(nothing new)" has told the
-// comparison there is nothing to compare, which is different from a Packet that
-// never rendered the block at all.
+// The stated-absence forms a Packet rendered before kogaki#1911 holds where a value is empty.
 const PACKET_ABSENCE = /^\((none|nothing)\b/i;
 
 // A `- **label.** value` line, plus any continuation lines the renderer wrapped
@@ -154,13 +153,11 @@ const PACKET_READERS = {
   // prefix. The region runs from the heading to the next one; its fixed
   // instruction prose carries no `- ` line, so only the items are read.
   //
-  // A STATED ABSENCE IN THE REGION IS AN ANSWER — this Leg declares none (PR
-  // #895 round 1, finding 2): it is only a hole when the heading, and so the
-  // region, is absent altogether, or when the region carries neither an item
-  // nor an absence.
+  // AN ABSENT HEADING IS AN ANSWER — this Leg declares none (kogaki#1911). A
+  // region that stands and carries neither an item nor an absence is a hole.
   heading_list: (t, spec) => {
     const block = packetBlock(t, spec.heading);
-    if (block === null) return null;
+    if (block === null) return [];
     const items = bulletList(block, { termOnly: !!spec.term_only });
     if (items.length) return items;
     if (block.split("\n").some((l) => PACKET_ABSENCE.test(l.trim()))) return [];
@@ -178,12 +175,12 @@ const PACKET_READERS = {
   },
   block: (t, spec) => {
     const b = packetBlock(t, spec.heading, { after: wordSequence(spec.after_words) });
-    if (b === null) return null;
+    if (b === null) return "";
     return PACKET_ABSENCE.test(b) ? "" : b;
   },
   paragraph: (t, spec) => {
     const i = t.indexOf(spec.opens_with);
-    if (i === -1) return null;
+    if (i === -1) return "";
     const rest = t.slice(i);
     const end = rest.indexOf("\n\n");
     return (end === -1 ? rest : rest.slice(0, end)).trim();
