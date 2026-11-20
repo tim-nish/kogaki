@@ -433,9 +433,11 @@ export function correspondenceRefusal(answer, structure) {
 // route the Brief's `structure` and the Leg's `relation` give the plan block, and under `--move-edges` its `segments` give
 // the parts (kogaki#1859, kogaki#1880).
 export function shortPacket({ leg, audiencePath, structure = null, relation = null, segments = null }) {
+  // Under a plan the Trial hands the Writer no claims block: the table of the plan block holds the claim.
   const packetLeg = {
     ...leg,
     ...(relation ? { relation } : {}),
+    ...(structure && relation ? { claims: [] } : {}),
     ...(segments ? { segments } : {}),
   };
   const brief = {

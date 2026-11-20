@@ -100,8 +100,8 @@ const planned = (leg) => leg; // the Packet takes the Leg as the Brief reads it
         for (const rule of rules) {
           if (!packet.includes(rule)) fails.push(`(o) the Packet does not carry the Write rule verbatim: ${JSON.stringify(rule)}`);
         }
-        // THE PLAN BLOCK (kogaki#1859): it says its wording is not kept.
-        if (!packet.includes("## The plan of this paragraph\n") || !packet.includes("\nNone of its wording is kept.\n")) fails.push("(o) the Packet's plan block does not say none of its wording is kept");
+        // THE PLAN BLOCK: it says the Writer chooses the paragraph's words.
+        if (!packet.includes("## The plan of this paragraph\n") || !packet.includes("\nWrite the paragraph in words you choose for this reader.\n")) fails.push("(o) the Packet's plan block does not say the paragraph is written in words the Writer chooses");
       }
     }
   }

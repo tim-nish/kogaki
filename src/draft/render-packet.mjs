@@ -15,7 +15,7 @@ import { sha256, readerTargetCase } from "./brief-reader.mjs";
 import { renderPromptFile, promptFilePath } from "../prompt-file.mjs";
 import { resolveLegJourneys, packetPersonaPath, personaPriorKnowledge } from "./journeys.mjs";
 import { sectionPlacement, priorProseInSection } from "./packet.mjs";
-import { legSentences } from "../sme/arguments.mjs";
+import { legSentences, legRows } from "../sme/arguments.mjs";
 import { SENSES_FILE, senseNames, loadSenses, loadOwnSenses, loadHypophora } from "../sme/edges.mjs";
 import {
   REALIZATION_LANGUAGES,
@@ -27,12 +27,12 @@ import {
   sectionOfLeg,
 } from "./workspace.mjs";
 
-// THE PLAN BLOCK (kogaki#1859, kogaki#1865, kogaki#1901): the Leg's Arguments and CentralClaim, `legSentences` at
-// the Leg's `relation` in the Brief's `structure`, and one part per Segment where the Leg carries `segments` -- each
-// `{ bind, edges }`, `bind` naming entry k of those sentences. A part carries `stands`, the Senses file's texts toward
-// each part its Edges point to, and `pointed`, the later parts whose Edges point to it; no Sense name is handed on.
-// `{ error }` names a Sense the Senses file does not hold. Null where the Brief carries no `structure` or the Leg
-// names no relation.
+// THE PLAN BLOCK (kogaki#1859, kogaki#1865, kogaki#1901): `rows`, the Leg's structure as `legRows` reads it at the
+// Leg's `relation` in the Brief's `structure`, then the symbols of its CentralClaim and of its Arguments, and one part
+// per Segment where the Leg carries `segments` -- each `{ bind, edges }`, `bind` naming entry k of `legSentences`. A
+// part carries `bound`, the symbol of that entry, `stands`, the Senses file's texts toward each part its Edges point
+// to, and `pointed`, the later parts whose Edges point to it; no Sense name is handed on. `{ error }` names a Sense
+// the Senses file does not hold. Null where the Brief carries no `structure` or the Leg names no relation.
 export function planValues(structure, leg) {
   if (!structure || typeof leg.relation !== "string") return null;
   const whole = {
@@ -42,7 +42,7 @@ export function planValues(structure, leg) {
   };
   if (![...whole.relations, ...whole.higher_order].some((r) => r.id === leg.relation)) return null;
   const sentences = legSentences(whole, leg.relation);
-  const label = (s) => (s.kind === "CentralClaim" ? "CentralClaim" : `Argument ${s.number}`);
+  const label = (s) => `{${s.id}}`;
   const segs = leg.segments || [];
   const names = senseNames([...loadSenses(), ...loadOwnSenses()]);
   const hypophora = loadHypophora().meaning;
@@ -71,8 +71,9 @@ export function planValues(structure, leg) {
     };
   });
   return {
-    arguments: sentences.slice(0, -1).map((s) => ({ number: s.number, sentence: s.sentence })),
-    central_claim: sentences[sentences.length - 1].sentence,
+    rows: legRows(whole, leg.relation),
+    arguments: listOf(sentences.slice(0, -1).map((s) => ({ symbol: label(s) }))),
+    central_claim: label(sentences[sentences.length - 1]),
     ...(segments.length ? { segments } : {}),
   };
 }
