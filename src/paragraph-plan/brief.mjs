@@ -5,13 +5,19 @@
 // `src/SPEC-REFERENCES.md`. This module names no spec content, so its names table is empty.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { briefLegs, briefStructureRefusal, parseBriefRecord, unfilledSlots } from "../compose.mjs";
+import {
+  briefLegs,
+  briefStructureRefusal,
+  parseBriefRecord,
+  unfilledSlots,
+  undeclaredLegKeyRefusal,
+} from "../compose.mjs";
 import { settingValue } from "../workflow/judge.mjs";
 import { REPO } from "../workflow/run-record.mjs";
 
 // ---------------------------------------------------------------------------
 // THE BRIEF THIS STAGE READS. An adopted Brief — no slot awaiting composition — whose Legs each
-// carry their relation's `holds` as `text` and no Brief Waypoint (kogaki#1775, kogaki#1777).
+// carry their relation's `holds` as `text` (kogaki#1775, kogaki#1777).
 // Returns `{ text, record, legs }` or `{ error }`.
 export function readAdoptedBrief(briefPath) {
   let text;
@@ -33,16 +39,14 @@ export function readAdoptedBrief(briefPath) {
   const legs = briefLegs(parsed.record);
   if (!legs.length)
     return { error: `the Brief at ${briefPath} carries no Reader Path legs — there is nothing to plan` };
-  // THE LEG IS THE UNIT (kogaki#1777): a Leg is read by its `text` and never by a Brief Waypoint.
+  // A KEY THE LEG SCHEMA DOES NOT DECLARE IS REFUSED NAMING IT (kogaki#1885), before the Leg's `text` is read.
+  for (const [i, raw] of (parsed.record.reader_path || []).entries()) {
+    const bad = undeclaredLegKeyRefusal(raw, `the Brief at ${briefPath}, leg ${raw?.leg_id ?? i + 1}`);
+    if (bad) return { error: bad };
+  }
+  // THE LEG IS THE UNIT (kogaki#1777): a Leg is read by its `text`.
   for (const leg of legs) {
     const at = `the Brief at ${briefPath}, leg ${leg.leg_id}`;
-    if (Array.isArray(leg.waypoints) && (leg.waypoints.length || typeof leg.text === "string")) {
-      return {
-        error:
-          `${at} carries \`waypoints\` — /paragraph-plan takes the Leg as its unit and reads its \`text\`, never a ` +
-          "Brief Waypoint (kogaki#1777); compose the Brief again with /brief, whose Legs end at their relation's `holds` (kogaki#1775)",
-      };
-    }
     if (typeof leg.text !== "string" || leg.text.trim() === "") {
       return {
         error: `${at} carries no \`text\` — a Leg says its relation's \`holds\` in its \`text\`, which this stage plans (kogaki#1775, kogaki#1777)`,

@@ -247,8 +247,6 @@ ok(!readerPathRefusal(legsFile, MINTED).error, `(f) legs.yaml does not read as a
 for (const k of ["waypoints", "move", "purpose", "rationale", "introduces", "opens_section"]) {
   ok((legsFile.reader_path || []).every((l) => !Object.hasOwn(l, k)), `(f) a Leg of legs.yaml carries \`${k}\``);
 }
-ok(/carries `waypoints`/.test(readerPathRefusal({ ...legsFile, reader_path: legsFile.reader_path.map((l, i) => (i ? l : { ...l, waypoints: [{ point: "x" }] })) }, MINTED).error || ""),
-  "(f) a Leg carrying waypoints was not refused by name");
 
 // (g) the sheet
 const sheet = existsSync(join(a.o, "sheet.html")) ? readFileSync(join(a.o, "sheet.html"), "utf8") : "";
@@ -373,7 +371,7 @@ for (const [key, retire] of [["waypoints", (g) => ({ ...g, waypoints: [] })], ["
   const leg = kParsed.reader_path[1].leg_id;
   for (const args of [["show", "--brief", rBrief], ["brief", "--brief", rBrief, "--out", join(rRoot, "out")]]) {
     const r = sheetCmd(args);
-    ok(r.status === 1 && r.stderr.includes(`Leg ${leg} `) && r.stderr.includes(`\`${key}\``) && r.stderr.includes("kogaki#1775"),
+    ok(r.status === 1 && r.stderr.includes(`Leg ${leg}`) && r.stderr.includes(`\`${key}\``) && r.stderr.includes(key === "text" ? "kogaki#1775" : "which is not a Leg field"),
       `(l) ${args[0]} over a Leg retired by \`${key}\` is not refused naming ${leg} and the key: ${r.status} ${r.stderr}`);
   }
   ok(!existsSync(join(rRoot, "runs")) && !existsSync(join(rRoot, "out")), `(l) a Brief retired by \`${key}\` wrote a sheet`);

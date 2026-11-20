@@ -115,7 +115,7 @@ chmodSync(resumeJudge, 0o755);
   const now = new Date().toISOString();
   writeFileSync(join(dir, "reader-path-job.json"), JSON.stringify({
     started_at: now, last_progress_at: now, updated_at: now, call_limit_s: 900, unit_rounds: 3, supervisor_pid: null, state: "done",
-    units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { waypoints: [] } }],
+    units: [{ id: "reader-path", status: "done", bytes: 50, candidate: { legs: [] } }],
   }, null, 2) + "\n");
   writeFileSync(runRecordPath(dir), JSON.stringify({
     workflow: { path: "src/brief-workflow.json", version: null },

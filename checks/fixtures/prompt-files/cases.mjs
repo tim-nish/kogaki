@@ -208,7 +208,6 @@ const TABLE_ROWS = {
     "extraction_unit",
     "content_bound_unit",
     "constraints_unit",
-    "leg_path_unit",
   ],
   "src/leg-planning-playground/workflow.json": ["sme_read_set"],
 };

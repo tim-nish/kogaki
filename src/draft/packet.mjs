@@ -23,10 +23,7 @@ import { renderPromptFile } from "../prompt-file.mjs";
 // Packet carried the bound Move's `technique`, `question` and `breaks` until
 // this issue, and the writer instantiated the Move's general route alone —
 // the instantiation the 2026-10-05 and 2026-10-08 runs refused at Leg 2 and
-// Leg 4. The Leg now carries that instantiation itself, as `waypoints`
-// written at composition and judged there against the Move, and the Packet
-// renders the waypoints in the Move block's place. No Move file is opened
-// to render a Packet.
+// Leg 4. No Move file is opened to render a Packet.
 
 // ---------------------------------------------------------------------------
 // the figure record — its realization-side machinery (kogaki#878).

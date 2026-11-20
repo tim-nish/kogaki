@@ -49,7 +49,7 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
 
 
 // (j) RETIRED WITH ITS UNIT (kogaki#1775): the case held the compose unit's real row and
-// its real parser to one shape, and the Brief now asks no Waypoint Call, so no row is left
+// its real parser to one shape, and the Brief now derives its Legs with no Call, so no row is left
 // for the case to hold. What remains is that the retired rows are gone, so a later row
 // reaching the table under their names is seen.
 {
@@ -346,7 +346,7 @@ if (!JOB_UNIT_NO_TOOLS_SENTENCE) fails.push("(y0) the starter's units file carri
 {
   const one = {
     candidate_id: "reader-path",
-    legs: [{ leg_id: "s1", relation: "h1", reaches_target: true, claims: [], waypoints: [] }],
+    legs: [{ leg_id: "s1", relation: "h1", reaches_target: true, claims: [] }],
     review: { rationale_stands: "x", entailment: "x", prohibitions: "x", semantic_economy: "x", arc_integrity: "x", evaluation_levels: "x" },
     reasoning: { leg_validity: "x" },
   };

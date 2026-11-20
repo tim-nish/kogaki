@@ -42,24 +42,20 @@ it does not read, and empty where the stage does not read the schema at all.
 
 ## leg -- the Brief's Leg
 
-| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | leg_path_unit | packet:plan | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:introduces | review:already-knows |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `leg_id` | unread | copied | copied | unread | unread | content |  |  |  |  |  |  |  |
-| `relation` | unread | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |
-| `reaches_target` | unread | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |
-| `text` | unread | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |
-| `claims` | unread | excluded | excluded | unread | unread | content |  | content |  |  | excluded |  |  |
-| `waypoints` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
-| `opens_section` | unread | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |
-| `waypoints.point` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
-| `waypoints.case` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |  |
+| field | compose_path | review_path | review_path_unit | defined_terms_unit | renderings_unit | packet:plan | packet:claims | packet:section_placement | packet:reader_target_line | review:claims | review:introduces | review:already-knows |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `leg_id` | unread | copied | copied | unread | unread |  |  |  |  |  |  |  |
+| `relation` | unread | unread | unread | unread | unread | content |  |  |  |  |  |  |
+| `reaches_target` | unread | unread | unread | unread | unread |  |  |  | structural |  |  |  |
+| `text` | unread | unread | unread | unread | unread |  |  |  |  |  |  |  |
+| `claims` | unread | excluded | excluded | unread | unread |  | content |  |  | excluded |  |  |
+| `opens_section` | unread | unread | unread | unread | unread |  |  | structural |  |  |  |  |
 
 - `compose_path` is src/brief-workflow.json `compose_path`.
 - `review_path` is src/brief-workflow.json `review_path`.
 - `review_path_unit` is src/brief-workflow.json `review_path_unit`.
 - `defined_terms_unit` is src/brief-workflow.json `defined_terms_unit`.
 - `renderings_unit` is src/brief-workflow.json `renderings_unit`.
-- `leg_path_unit` is src/move-extraction-playground/extraction-workflow.json `leg_path_unit`.
 - `packet:plan` is prompts/draft/write-leg.prompt value `plan`.
 - `packet:claims` is prompts/draft/write-leg.prompt value `claims`.
 - `packet:section_placement` is prompts/draft/write-leg.prompt value `section_placement`.

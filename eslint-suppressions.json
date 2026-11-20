@@ -98,26 +98,8 @@
       "count": 1
     }
   },
-  "src/move-extraction-playground/leg-run.mjs": {
-    "no-useless-assignment": {
-      "count": 2
-    }
-  },
   "src/move-extraction-playground/leg-sheet/frame.mjs": {
     "no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/move-extraction-playground/leg-sheet/plan-card.mjs": {
-    "no-unused-vars": {
-      "count": 1
-    },
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "src/move-extraction-playground/leg-sheet/run-data.mjs": {
-    "no-useless-assignment": {
       "count": 1
     }
   },

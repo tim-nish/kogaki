@@ -42,19 +42,12 @@
     "TS2339": 3,
     "TS2353": 1
   },
-  "src/move-extraction-playground/leg-brief.mjs": {
-    "TS2339": 4,
-    "TS2345": 1,
-    "TS2554": 1
-  },
   "src/move-extraction-playground/leg-run.mjs": {
-    "TS2339": 1,
     "TS2345": 1,
-    "TS2349": 1,
-    "TS2554": 1
+    "TS2349": 1
   },
   "src/move-extraction-playground/leg-sheet/stage-cards.mjs": {
-    "TS2345": 6
+    "TS2345": 3
   },
   "src/review-draft/join.mjs": {
     "TS2339": 2

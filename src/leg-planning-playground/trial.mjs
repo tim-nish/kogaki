@@ -2,7 +2,7 @@
 // The Leg-Planning Playground's Trial (kogaki#1764): a claims file read into one RelationalStructure, the Legs derived
 // from it as the Brief derives them, one per relation the apex reaches with no Call and no Move (kogaki#1775), and
 // `/paragraph-plan` run over the Legs, every Call recorded and the chain rendered as one sheet. The ParagraphPlan takes
-// each Leg as its unit, binds one Move to it and writes its paragraphs' Waypoints (kogaki#1777).
+// each Leg as its unit and binds one Move to it (kogaki#1777).
 //
 // SPEC REFERENCES IN THIS FILE (kogaki#902). The rule these entries are written under lives in
 // `src/SPEC-REFERENCES.md` and is not restated here.

@@ -124,10 +124,7 @@ export function pathRefusal(key, at, specific) {
 // is. This set only routes which refusal speaks. `move` is no longer listed:
 // it is optional in the schema, and the exactly-one-of `move`/`no_move_fits`
 // refusal below speaks for it (kogaki#1276).
-// `waypoints` is listed for the reason `claims` is: its refusal names what a
-// waypoint is and which one failed, which the generic sentence cannot
-// (kogaki#1311).
-const BESPOKE_LEG_REFUSALS = new Set(["claims", "waypoints"]);
+const BESPOKE_LEG_REFUSALS = new Set(["claims"]);
 
 // The generic presence predicate for a required field, selected by the type
 // the schema declares. An unknown type is a LOUD failure rather than a silent
@@ -144,8 +141,6 @@ function legFieldPresent(decl, v) {
     case "array of claim":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
     case "array of journey":
-      return Array.isArray(v) && v.length >= (decl.min_length || 0);
-    case "array of waypoint":
       return Array.isArray(v) && v.length >= (decl.min_length || 0);
     default:
       return null;
@@ -168,122 +163,6 @@ export function budgetRefusal(budget, at) {
   if (budget === undefined) return null;
   if (typeof budget !== "number" || !Number.isInteger(budget) || budget <= 0) {
     return `${at}: budget, when present, is a positive whole number of words — it reads ${JSON.stringify(budget)}`;
-  }
-  return null;
-}
-
-// ---- the route a Leg takes its reader along (kogaki#1311) ----
-//
-// `waypoints` are the points the Leg's paragraphs make, composed from the Strands'
-// RelationalStructure (kogaki#1768). SHAPE ONLY: whether a point is grounded in the
-// relations it carries is the GROUNDED judgment's, the count the composer's. `claimStrands` is the Strand ids the Leg's claims
-// name. `ordinals` numbers a filtered list as its reader does (kogaki#1448);
-// `claimText` maps Strand ids to propositions and turns on the read-alone
-// rule and the method-verb rule, for Brief Waypoints at composition only
-// (kogaki#1449, kogaki#1554). `paragraph` marks a Waypoint list, which
-// carries no `case` (kogaki#1732). PURE, re-run by `src/draft.mjs` over a parsed Brief.
-export function waypointsRefusal(waypoints, at, ordinals = null, claimText = null, { paragraph = false } = {}) {
-  const def =
-    "a waypoint is a point its paragraph makes, carrying a `point` " +
-    "(the proposition the paragraph makes, in the article's subject, one sentence — never an effect on " +
-    "the reader)" +
-    (paragraph ? "" : " and `case` (`own` or `apart`: whose case the paragraph tells, kogaki#1732)") +
-    " — src/leg-schema.json, `waypoint` (kogaki#1326)";
-  if (!Array.isArray(waypoints) || waypoints.length === 0) {
-    return (
-      `${at}: carries no waypoints — every Leg carries an ordered, non-empty \`waypoints\` list, the points ` +
-      `its paragraphs make, in order (kogaki#1311, kogaki#1768). ${def}`
-    );
-  }
-  for (const [i, w] of waypoints.entries()) {
-    const nth = `waypoint ${ordinals ? ordinals[i] : i + 1}`;
-    if (!w || typeof w !== "object" || Array.isArray(w)) {
-      return `${at}: ${nth} is not a waypoint — ${def}`;
-    }
-    // THE EFFECT FORM IS RETIRED BY NAME (kogaki#1326, owner decision
-    // 2026-10-10): a waypoint saying what a step does to the reader was a
-    // stage direction the writer narrated, so a Leg still carrying it is
-    // refused rather than read as a waypoint with no point.
-    if (Object.hasOwn(w, "effect")) {
-      return (
-        `${at}: ${nth} carries \`effect\`, which is retired — a waypoint states the point its ` +
-        `paragraph makes, not an effect on the reader (kogaki#1326). ${def}`
-      );
-    }
-    // THE BOUND PARAGRAPH MOVE IS RETIRED FROM THE WAYPOINT BY NAME (kogaki#1375, owner
-    // decision 2026-10-14): Move information is used up to Waypoint generation
-    // and nowhere after it, so a Brief Waypoint carries `point` and `case` only. The
-    // ParagraphPlan stage binds a paragraph Move per Brief Waypoint and keeps which one in
-    // its own run directory; a Brief whose waypoint still carries either field is refused
-    // here, at every read, the way `effect` is.
-    for (const k of RETIRED_WAYPOINT_MOVE_FIELDS) {
-      if (Object.hasOwn(w, k)) {
-        return (
-          `${at}: ${nth} carries \`${k}\`, which is retired — a Brief Waypoint carries \`point\` ` +
-          `and \`case\` (and \`carries\` where the Brief carries a \`structure\`) only, and no Move information reaches the Brief: the paragraph Move is bound by /paragraph-plan, ` +
-          `after the Brief, and stays in that stage's run directory (kogaki#1375). ${def}`
-        );
-      }
-    }
-    // THE JOIN IS A PARAGRAPHPLAN OUTPUT, NEVER A BRIEF FIELD (kogaki#1411): it is written by
-    // /paragraph-plan into its own file beside the Brief, so a Brief whose waypoint carries
-    // one is refused here, at every read, the way `move` and `segments` are.
-    // SERVES IS RETIRED FROM THE WAYPOINT BY NAME (kogaki#1861, owner decision 2026-11-18).
-    if (Object.hasOwn(w, "serves")) {
-      return `${at}: ${nth} carries \`serves\`, which is retired — a waypoint names no Strand (kogaki#1861). ${def}`;
-    }
-    if (Object.hasOwn(w, "join")) {
-      return (
-        `${at}: ${nth} carries \`join\` — a join is written by /paragraph-plan into the ParagraphPlan file, ` +
-        `beside the Brief, and never on a Brief's Brief Waypoint: the relations layer between Brief Waypoints is ` +
-        `retired (kogaki#1215, kogaki#1411). ${def}`
-      );
-    }
-    if (typeof w.point !== "string" || w.point.trim() === "") {
-      return `${at}: ${nth} has an empty point — ${def}`;
-    }
-    // A BRIEF WAYPOINT RECORDS WHOSE CASE ITS PARAGRAPH TELLS (kogaki#1732, owner ruling 2026-11-07).
-    if (!paragraph && !WAYPOINT_CASES.includes(w.case)) {
-      return `${at}: ${nth} carries ${Object.hasOwn(w, "case") ? `case ${JSON.stringify(w.case)}` : "no `case`"} — ${CASE_DEF}`;
-    }
-    if (claimText) {
-      const bad = readAloneRefusal(w.point, Object.values(claimText).join(" "));
-      if (bad) return `${at}: ${nth}'s point ${bad}`;
-      const method = methodWordRefusal(w.point, `${at}: ${nth}'s point carries`);
-      if (method) return method;
-    }
-  }
-  if (!paragraph && waypoints[waypoints.length - 1].case === "apart") {
-    return (
-      `${at}: waypoint ${ordinals ? ordinals[waypoints.length - 1] : waypoints.length} is \`apart\` and ends the Leg — ` +
-      `the Brief Waypoint after an \`apart\` one carries its structure onto the subject, so a case apart is never ` +
-      `the last of its Leg (kogaki#1732)`
-    );
-  }
-  return null;
-}
-
-// A BRIEF WAYPOINT'S POINT IS READ ALONE (kogaki#1449, owner decision 2026-10-19): the
-// ParagraphPlan stage reads each Brief Waypoint by itself, and a context-dependent expression
-// in it is relied on as a fact. This is the mechanical half of the rule the `reader_path_unit`
-// row states: a point opening with a demonstrative or "it", or carrying "this <noun>" or
-// "these <noun>" whose noun is in no Claim of its Leg, is refused naming the word.
-// The rest of the rule — a bare definite noun, a term outside the Claim's material — is the
-// composer's to keep, stated in the row and never linted here.
-export const READ_ALONE_OPENERS = ["this", "that", "these", "those", "it"];
-function readAloneRefusal(point, claims) {
-  const ground =
-    "a Brief Waypoint is read alone by the ParagraphPlan stage, so its point names what it " +
-    "refers to in full and reaches to no other Brief Waypoint (kogaki#1449)";
-  const first = (point.trim().match(/^[A-Za-z]+/) || [""])[0];
-  if (READ_ALONE_OPENERS.includes(first.toLowerCase())) {
-    return `opens with ${JSON.stringify(first)} — ${ground}`;
-  }
-  const text = claims.toLowerCase();
-  for (const m of point.matchAll(/\b(this|these)\s+([A-Za-z][A-Za-z'-]*)/gi)) {
-    if (!text.includes(m[2].toLowerCase())) {
-      return `carries ${JSON.stringify(m[0])}, and ${JSON.stringify(m[2])} is in no Claim of the Leg — ${ground}`;
-    }
   }
   return null;
 }
@@ -322,18 +201,6 @@ export function methodWordRefusal(text, at) {
   }
   return null;
 }
-
-// THE TWO VALUES OF A BRIEF WAYPOINT'S `case` (kogaki#1732), and the sentence a refusal names
-// them in; the meaning is src/leg-schema.json's, `waypoint.fields.case`.
-export const WAYPOINT_CASES = ["own", "apart"];
-const CASE_DEF =
-  "every Brief Waypoint carries `case`, `own` (its paragraph tells the proposition's own case, in the " +
-  "subject's domain) or `apart` (its paragraph tells a case apart from the proposition's domain, in material the " +
-  "reader already holds) — src/leg-schema.json, `waypoint` (kogaki#1732)";
-
-// THE TWO WAYPOINT FIELDS #1359 ADDED AND #1375 RETIRED, refused by name in
-// `waypointsRefusal` above. Exported for the checks that build the refused case.
-export const RETIRED_WAYPOINT_MOVE_FIELDS = ["move", "segments"];
 
 // THE FIVE DIMENSIONS A PARAGRAPH'S READER STATE IS WRITTEN IN. The Leg's reader states are
 // retired (kogaki#1699); the ParagraphPlan's paragraph `reader_state_after` keeps this shape
@@ -391,27 +258,14 @@ export const RETIRED_LEG_MOVE_FIELDS = Object.freeze([
   "figure_roles",
 ]);
 const RETIRED_LEG_MOVE_REASON =
-  "a Leg binds no Move (kogaki#1768): its Waypoints are composed from the Strands' " +
-  "RelationalStructure and the paragraph Move is bound once, per Brief Waypoint, by /paragraph-plan";
+  "a Leg binds no Move (kogaki#1768): the Leg is one relation of the Brief's `structure`, " +
+  "and /paragraph-plan takes the Move that fits each Leg best";
 
 // THE LEG OF A BRIEF THAT CARRIES A `structure` (kogaki#1775): it names in `relation` the relation or higher-order
-// relation it serves and says it in `text`, and carries no `waypoints`, which only the ParagraphPlan writes. A Leg of a
-// Brief that carries none is refused carrying `relation`, `text` or a waypoint's `carries`. Returns an error string or null.
+// relation it serves and says it in `text`. A Leg of a Brief that carries none is refused. Returns an error string or null.
 function legStructureRefusal(s, at, structure) {
   if (!structure) {
-    for (const f of ["relation", "text"]) {
-      if (Object.hasOwn(s, f))
-        return `${at}: carries \`${f}\`, and the Brief carries no \`structure\` for it to name — a Leg names its relation only in a Brief /brief composed from a structure (kogaki#1775)`;
-    }
-    const w = (Array.isArray(s.waypoints) ? s.waypoints : []).findIndex(
-      (x) => x && typeof x === "object" && Object.hasOwn(x, "carries"),
-    );
-    if (w >= 0)
-      return `${at}: waypoint ${w + 1} carries \`carries\`, and the Brief carries no \`structure\` for it to name (kogaki#1775)`;
-    return null;
-  }
-  if (Object.hasOwn(s, "waypoints")) {
-    return `${at}: carries \`waypoints\` — the Brief ends at Legs: a Leg of a Brief that carries a \`structure\` carries no Waypoint, and only the ParagraphPlan writes them (kogaki#1775). Remove the field.`;
+    return `${at}: the Brief carries no \`structure\`, and a Leg names one relation of it (kogaki#1885)`;
   }
   const ids = new Set([
     ...(structure.relations || []).map((r) => r.id),
@@ -427,8 +281,7 @@ function legStructureRefusal(s, at, structure) {
 }
 
 // A RECORDED READER PATH AS ITS READERS AFTER ADOPTION READ IT (kogaki#1768): `/paragraph-plan` and `draft.mjs resolve`
-// read a Leg's `relation` and its waypoints' `carries` against a `structure` that is present. Their reading of the Leg
-// that carries no waypoints is kogaki#1777's. Returns an error string or null.
+// read a Leg's `relation` against a `structure` that is present. Returns an error string or null.
 function structureRefusal(s, at, structure) {
   const ids = structure
     ? new Set([...(structure.relations || []).map((r) => r.id), ...(structure.higher_order || []).map((h) => h.id)])
@@ -439,25 +292,20 @@ function structureRefusal(s, at, structure) {
   } else if (typeof s.relation !== "string" || !ids.has(s.relation)) {
     return `${at}: ${Object.hasOwn(s, "relation") ? `its \`relation\` ${JSON.stringify(s.relation)} names no relation or higher-order relation of the Brief's \`structure\`` : "carries no `relation`"} — each Leg names the relation it serves (kogaki#1768)`;
   }
-  for (const [i, w] of (Array.isArray(s.waypoints) ? s.waypoints : []).entries()) {
-    const nth = `waypoint ${i + 1}`;
-    if (!w || typeof w !== "object") continue;
-    if (!structure) {
-      if (Object.hasOwn(w, "carries"))
-        return `${at}: ${nth} carries \`carries\`, and the Brief carries no \`structure\` for it to name (kogaki#1768)`;
-      continue;
-    }
-    if (!Array.isArray(w.carries) || w.carries.length === 0)
-      return `${at}: ${nth} carries no \`carries\` — a waypoint of a Leg names the relation ids of the Brief's \`structure\` its point states (kogaki#1768)`;
-    const stray = w.carries.find((x) => !ids.has(x));
-    if (stray !== undefined)
-      return `${at}: ${nth} carries ${JSON.stringify(stray)}, which is no relation's or higher-order relation's id in the Brief's \`structure\` (kogaki#1768)`;
-  }
   return null;
 }
 
+// A LEG KEY src/leg-schema.json DOES NOT DECLARE (kogaki#1885): the first one in `raw`, refused naming it,
+// or null where every key is declared. One sentence for every reader of a stored Brief.
+export function undeclaredLegKeyRefusal(raw, at) {
+  const declared = legschema().fields;
+  const k = Object.keys(raw || {}).find((key) => !Object.hasOwn(declared, key));
+  if (k === undefined) return null;
+  return `${at}: carries \`${k}\`, which is not a Leg field (src/leg-schema.json) — a field nobody declared is refused rather than read`;
+}
+
 // THE SAME BINDING OVER A RECORDED READER PATH (kogaki#1768): the readers after adoption
-// (`/paragraph-plan`, `draft.mjs resolve`) check `carries` and `relation` only against a
+// (`/paragraph-plan`, `draft.mjs resolve`) check `relation` only against a
 // `structure` that is present. Returns the first refusal, naming the Leg, or null.
 export function briefStructureRefusal(legs, structure, at = "the Brief") {
   for (const [i, s] of (Array.isArray(legs) ? legs : []).entries()) {
@@ -574,19 +422,9 @@ export function validateLegs(legs, opts = {}) {
         byStrand.set(g.strand, g.proposition);
       }
     }
-    // THE LEG'S RELATION AND TEXT, OR ITS LEGACY ROUTE (kogaki#1311, kogaki#1775) — checked after the claims loop because
-    // a waypoint's point is read against the claims' text.
+    // THE LEG'S RELATION AND TEXT (kogaki#1775).
     {
-      const bad =
-        legStructureRefusal(s, at, structure) ||
-        (structure
-          ? null
-          : waypointsRefusal(
-              s.waypoints,
-              at,
-              null,
-              Object.fromEntries(s.claims.map((g) => [g.strand, g.proposition])),
-            ));
+      const bad = legStructureRefusal(s, at, structure);
       if (bad) return { error: bad };
     }
     seen.add(s.leg_id);

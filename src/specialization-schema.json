@@ -36,10 +36,7 @@
       "(kogaki#1276, owner decision 2026-10-05). Each Leg is judged against its",
       "Move's `takes`, `leaves`, `segments` and `breaks`: `consistent` only",
       "where each `takes` entry is met and each `leaves` entry taken up",
-      "(`taken` below, kogaki#1699), the Leg's",
-      "waypoints, read in order, specialize `segments` with each waypoint's",
-      "effect obtainable from the claim it serves, and the waypoints survive",
-      "each `breaks` test (kogaki#1311; the waypoint count is no criterion).",
+      "(`taken` below, kogaki#1699).",
       "A Candidate with any other",
       "verdict is not offered at the Candidate question, which names it and",
       "the Leg that failed. With none left, the Brief ends with no question."

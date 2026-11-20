@@ -37,7 +37,7 @@
     },
     "leg": {
       "names": "the Brief's Leg",
-      "fields_from": "src/leg-schema.json `fields` and `derived`, and each `waypoints` entry's keys from its `waypoint.fields`"
+      "fields_from": "src/leg-schema.json `fields` and `derived`"
     }
   }
 }

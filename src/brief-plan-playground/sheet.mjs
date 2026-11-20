@@ -21,6 +21,7 @@ import { proofSheetCss } from "../structure-mapping-playground/sheet.mjs";
 import { CANDIDATE_ROUND_BLOCKS } from "../paragraph-plan-playground/sheet.mjs";
 import { movePassage, NO_RECORD } from "../paragraph-plan-playground/provenance.mjs";
 import { elementLabel, readHolds } from "../compose/structure.mjs";
+import { undeclaredLegKeyRefusal } from "../compose/leg-schema.mjs";
 
 // THE SHEET'S PARTS, in order.
 export const LPP_PARTS = ["Claims", "Structure", "Legs", "Rounds", "The Brief's Legs"];
@@ -67,7 +68,7 @@ export const LPP_COLUMNS = [
   "why",
 ];
 // THE WORDS THE BRIEF SHEET NEVER PRINTS: the owner was never given their meaning (kogaki#1776).
-export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round", "Waypoint"];
+export const BRIEF_RETIRED_WORDS = ["Trial", "Move", "Round"];
 const ACCENT =
   ':root[data-theme="dark"]{--accent:#e0a458}h1,h2{color:var(--accent)}tr.named td{background:#4a3a12}tr.unreached td{opacity:.6}' +
   ".refusal{white-space:pre-wrap}.line{margin:.15em 0}.cols{display:grid;grid-template-columns:1fr 1fr;gap:1em}" +
@@ -287,10 +288,7 @@ function roundsPart(record, outDir) {
 }
 
 const legPoints = (leg) =>
-  `<p class="line">${esc(leg.move ? `Leg ${leg.leg_id} — ${leg.move}` : `Leg ${leg.leg_id}`)}</p>` +
-  (typeof leg.text === "string"
-    ? line(leg.text)
-    : (leg.waypoints || []).map((w, i) => line(`${i + 1}. ${w.point}`)).join(""));
+  `<p class="line">${esc(leg.move ? `Leg ${leg.leg_id} — ${leg.move}` : `Leg ${leg.leg_id}`)}</p>` + line(leg.text);
 
 function briefPart(briefLegs, legs) {
   const n = Math.max(briefLegs.length, (legs || []).length);
@@ -392,19 +390,13 @@ function unreachedIds(structure) {
   return left;
 }
 
-// A Leg of the shape before kogaki#1775: the first key, in this order, that marks it.
-function retiredLegKey(leg) {
-  if ("waypoints" in leg) return "waypoints";
-  if ("move" in leg) return "move";
-  return typeof leg.text === "string" ? null : "text";
-}
-
 export function renderBriefSheet({ brief, claims }) {
   for (const leg of brief.reader_path || []) {
-    const key = retiredLegKey(leg);
-    if (key)
+    const bad = undeclaredLegKeyRefusal(leg, `Leg ${leg.leg_id}`);
+    if (bad) throw new Error(bad);
+    if (typeof leg.text !== "string")
       throw new Error(
-        `Leg ${leg.leg_id} ${key === "text" ? "carries no `text`" : `carries \`${key}\``}: this Brief predates kogaki#1775; regenerate it with /brief`,
+        `Leg ${leg.leg_id} carries no \`text\`: this Brief predates kogaki#1775; regenerate it with /brief`,
       );
   }
   const structure = brief.structure;

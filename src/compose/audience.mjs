@@ -8,7 +8,7 @@
 //
 import { readFileSync } from "node:fs";
 import { parseYaml } from "../yaml.mjs";
-import { isPlainMap, loadMoveIds, resolveMoveIds } from "./render.mjs";
+import { isPlainMap, loadMoveIds } from "./render.mjs";
 import { moveContract } from "./moves.mjs";
 
 // THE AUDIENCE FILE (kogaki#1370, owner decision 2026-10-13): one
@@ -154,33 +154,4 @@ export function loadMoveContracts(movesDir = "moves") {
     moves.push(c);
   }
   return { moves };
-}
-
-// THE CONTRACTS OF THE MOVES A PATH ACTUALLY BINDS, one per Leg and in the
-// path's own order. `resolveMoveIds` is called FIRST and its refusal is
-// returned unchanged: a dangling id is a resolution fault with a refusal of
-// its own, and discovering it here would give it a second, worse wording.
-export function moveContractsForLegs(legs, movesDir = "moves") {
-  const resolved = resolveMoveIds(legs, movesDir);
-  if (resolved.error) return resolved;
-  const out = [];
-  for (const s of legs) {
-    const c = moveContract(s.move, movesDir);
-    if (c.error) return { error: `leg ${s.leg_id}: ${c.error}` };
-    // THE LEG'S WAYPOINTS RIDE BESIDE THE MOVE'S `segments` AND `breaks`
-    // (kogaki#1311, kogaki#1320): the fit judgment judges the waypoints
-    // against those two, so the input sets them side by side rather than
-    // leaving the judge to find them in the Leg array. `segments` is the
-    // Move's whole structure and is never null here (kogaki#1412).
-    out.push({
-      leg_id: s.leg_id,
-      move: s.move,
-      takes: c.takes,
-      leaves: c.leaves,
-      segments: c.segments,
-      breaks: c.breaks,
-      waypoints: s.waypoints,
-    });
-  }
-  return { contracts: out };
 }

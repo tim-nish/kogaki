@@ -14,7 +14,7 @@ import { wholeWordMatch } from "./sections.mjs";
 // every noun of the Thesis and of each Strand's claim, classified `defined`
 // (used in a sense this article gives it) or `ordinary` (the sense the reader
 // already holds) — and composition is its one consumer: a `defined` term may
-// not appear in a claim's proposition, a waypoint's point or an opens_section
+// not appear in a claim's proposition or an opens_section
 // before the Leg whose `introduces` carries it. The list lives in the Brief
 // and ends there; nothing below reaches the Packet. Which terms the composer
 // calls `ordinary` is its judgment and is not checked; the shape of each

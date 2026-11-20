@@ -531,7 +531,7 @@ export const STATE_WORK = {
       const r = attachReview(reviewed, review, {});
       if (r.error) fail(`${st.id}: ${r.error}`);
       // RECOVERABILITY, THE HARNESS'S OWN ENTRY (kogaki#1494): every claim's
-      // proposition and every waypoint's point read against its Strand's
+      // proposition read against its Strand's
       // served claim under the renderings record, one entry per Leg, naming
       // the first word nothing recovers. Computed here rather than asked of
       // the judge, and attached beside the judged review it rides with. A run

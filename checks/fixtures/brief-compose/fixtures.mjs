@@ -20,6 +20,7 @@ export const recordOf = (legs, keys = {}) => ({
   compose_path: "audiences/dev-to-zenn.md",
   strands: [{ id: "L1", slug: "first-strand", cite: "coding::lesson/first-strand@" + "0".repeat(64) }],
   thesis: "The fixture claim.",
+  structure: structureOf(legs),
   reader_path: legs.map(legRecord),
   strand_coverage: [],
   journey_coverage: [],
@@ -27,13 +28,28 @@ export const recordOf = (legs, keys = {}) => ({
   bridged: {},
   ...keys,
 });
-// THE DRAFT READS A LEG BY ITS TEXT (kogaki#1775, kogaki#1777): the compose-side fixtures below keep the
-// legacy Waypoint form `validateLegs` still admits without a structure, and a record handed to readBrief
-// is read with each Leg's first point as its text, the form the Draft's reader admits.
-export const legacyLegsToText = (legs) =>
-  (legs || []).map(({ waypoints, ...l }) => (l.text != null || !waypoints ? l : { ...l, text: waypoints[0].point }));
-export const briefOfRecord = (record, path = "fixture.yaml") =>
-  readBrief(briefRecordText({ ...record, reader_path: legacyLegsToText(record.reader_path) }), path);
+// A FIXTURE LEG IS ONE RELATION OF THE FIXTURE STRUCTURE (kogaki#1775, kogaki#1885): it names the
+// relation `c_<leg_id>` and says it in `text`. `structureOf` builds the structure those Legs name, one
+// relation for each Leg between the two fixture Roles, and marks the last Leg's relation as the apex.
+export const fixtureLeg = (leg_id, extra = {}) => ({
+  leg_id,
+  relation: `c_${leg_id}`,
+  text: `The paragraph establishes what ${leg_id} claims.`,
+  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
+  ...extra,
+});
+export const structureOf = (legs) => ({
+  roles: [
+    { id: "r_1", name: "claim", context: "What the fixture claims.", attributes: [], claims: ["L1"] },
+    { id: "r_2", name: "ground", context: "What the fixture claim stands on.", attributes: [], claims: ["L1"] },
+  ],
+  relations: (legs || [])
+    .filter((l) => l && typeof l.relation === "string")
+    .map((l) => ({ id: l.relation, name: l.relation, between: ["r_1", "r_2"], holds: l.text, from: "L1" })),
+  higher_order: [],
+  attains_thesis: ((legs || []).findLast((l) => l && typeof l.relation === "string") || {}).relation,
+});
+export const briefOfRecord = (record, path = "fixture.yaml") => readBrief(briefRecordText(record), path);
 
 export const READER_START =
   "knowledge: can read code and has used a CI system\nquestion: holds: none\ntrust: the default a peer's post gets";
@@ -41,18 +57,12 @@ export const READER_START =
 // THE FOUR kogaki#1260 FIXTURES share one minimal path: s1 opens the Section, s2
 // follows, s3 reaches the Reader target -- the last Leg, since kogaki#1768. Each fixture varies one field and asserts
 // on the ground named, never on a bare pass. A Leg binds no Move and introduces
-// no term (kogaki#1768), so it carries its id, claims, waypoints and placement.
+// no term (kogaki#1768), so it carries its id, relation, text, claims and placement.
 export const PATH_1260 = (s1extra = {}, s2extra = {}) => {
-  const legOf = (leg_id, extra = {}) => ({
-    leg_id,
-    claims: [{ type: "strand", strand: "L1", proposition: `claim of ${leg_id}` }],
-    waypoints: [{ point: `the paragraph establishes what ${leg_id} claims`, case: "own" }],
-    ...extra,
-  });
   const legs = [
-    legOf("s1", { opens_section: "A Section", ...s1extra }),
-    legOf("s2", s2extra),
-    legOf("s3", { reaches_target: true }),
+    fixtureLeg("s1", { opens_section: "A Section", ...s1extra }),
+    fixtureLeg("s2", s2extra),
+    fixtureLeg("s3", { reaches_target: true }),
   ];
   return legs;
 };
@@ -105,13 +115,8 @@ export function fitMoveLibrary() {
   return fitMoves;
 }
 export const START_1276 = "knowledge: before\nquestion: holds: none";
-// A Leg binds no Move (kogaki#1768): the fixture Leg carries its id, claims and waypoints.
-export const leg1276 = (legId, extra) => ({
-  leg_id: legId,
-  claims: [{ type: "strand", strand: "L1", proposition: `claim of ${legId}` }],
-  waypoints: [{ point: `the paragraph establishes what ${legId} claims`, case: "own" }],
-  ...extra,
-});
+// A Leg binds no Move (kogaki#1768): the fixture Leg carries its id, relation, text and claims.
+export const leg1276 = (legId, extra) => fixtureLeg(legId, extra);
 // One Reader Path (kogaki#1768): no `characteristic` or `reader_experience`, which are retired.
 export const cand1276 = (id, leg2Extra = {}) => ({
   candidate_id: id,

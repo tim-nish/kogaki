@@ -138,7 +138,7 @@ export function callWriter({ settings, act, legId, input, refuse }) {
     const text = writerText(r.stdout, settings.output_format);
     // THE WRITER'S OWN REFUSAL (kogaki#1250, owner ruling 2026-10-04). A
     // response opening with `refusal: <reason>` is the writer declaring that
-    // this waypoint cannot be reached from the material the Packet gave
+    // this Segment cannot be reached from the material the Packet gave
     // it, or that material is missing — the act's FAILURE, never content, and
     // never a sentence of meta-commentary reaching the Draft in its place.
     // Checked ahead of `refuse` (which judges prose actually written) and

@@ -277,7 +277,7 @@ export function packetPersonaPath(brief) {
 // kogaki#1529). A typed item renders the term and its meaning, and nothing on
 // how the prose presents it (kogaki#1491, owner decision 2026-10-21) -- a line
 // prescribing an act of naming is a second structural authority beside the
-// bound Move's Segments and the Waypoints. Every typed item renders
+// bound Move's Segments. Every typed item renders
 // `- <term> — <meaning>` (kogaki#1571). A bare or anchored term renders as it
 // always did. The line's words stand in prompts/draft/write-leg.prompt (kogaki#1855).
 export function introducedEntry(raw) {

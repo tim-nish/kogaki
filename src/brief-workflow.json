@@ -155,10 +155,7 @@
           "reaches_target",
           "text",
           "claims",
-          "waypoints",
-          "opens_section",
-          "waypoints.point",
-          "waypoints.case"
+          "opens_section"
         ]
       },
       "kind": "judgment",
@@ -189,10 +186,7 @@
           "relation",
           "reaches_target",
           "text",
-          "opens_section",
-          "waypoints",
-          "waypoints.point",
-          "waypoints.case"
+          "opens_section"
         ]
       },
       "kind": "judgment",
@@ -247,7 +241,7 @@
     {
       "id": "adopt_candidate",
       "kind": "write",
-      "does": "Writes the owner-adopted Reader Path into the Brief's sequence and fills its closing sections. Binds `src/assemble.mjs`'s `adopt-candidate` case. The closing summary discloses the structure's reach -- the relations and higher-order relations carried, the claims unreached -- and the GROUNDED Rounds the Waypoints took (kogaki#1768); no specialization record is read, since no Leg binds a Move.",
+      "does": "Writes the owner-adopted Reader Path into the Brief's sequence and fills its closing sections. Binds `src/assemble.mjs`'s `adopt-candidate` case. The closing summary discloses the structure's reach -- the relations and higher-order relations carried, the claims unreached (kogaki#1768); no specialization record is read, since no Leg binds a Move.",
       "writes": "brief",
       "conditional": false,
       "renders_gate_declaration": false,
@@ -283,10 +277,7 @@
         "reaches_target",
         "text",
         "opens_section",
-        "relation",
-        "waypoints",
-        "waypoints.point",
-        "waypoints.case"
+        "relation"
       ]
     },
     "note": "NOT A STATE OF THIS FLOW (kogaki#1301), on the ground `leg_sections` above states for itself: the path-review Detached Job's units run inside `review_path`'s own in-process code, never as a separately-executed flow state. `src/brief.mjs`'s `review_path` handler reads this row and renders each unit's prompt through the SAME `judgePrompt` renderer every judgment state uses.",
@@ -303,10 +294,7 @@
         "leg_id",
         "reaches_target",
         "claims",
-        "waypoints",
         "opens_section",
-        "waypoints.point",
-        "waypoints.case",
         "relation",
         "text"
       ]
@@ -341,15 +329,12 @@
         "leg_id",
         "reaches_target",
         "claims",
-        "waypoints",
         "opens_section",
-        "waypoints.point",
-        "waypoints.case",
         "relation",
         "text"
       ]
     },
-    "note": "NOT A STATE OF THIS FLOW (kogaki#1494, owner decision 2026-10-21). The renderings record is composed ONCE, inside the `compose_path` state's renderer before its job starts (kogaki#1768), so it stands before the Waypoints are composed -- the owner placed the terminology mapping table at or before the Candidate stage. It is a row rather than a state for the reason `defined_terms_unit` is: one judged record inside an act the flow already has. Its consumers are the Path Review, whose `recoverability` entry the Harness computes under it from each Candidate's claims and points (src/compose.mjs `recoverabilityOf`) and attaches beside the judged review, never asked of the judge; and adoption, which writes it into the Brief as `renderings` and refuses an `introduces` entry carrying a term it renders.",
+    "note": "NOT A STATE OF THIS FLOW (kogaki#1494, owner decision 2026-10-21). The renderings record is composed ONCE, inside the `compose_path` state's renderer before its job starts (kogaki#1768) -- the owner placed the terminology mapping table at or before the Candidate stage. It is a row rather than a state for the reason `defined_terms_unit` is: one judged record inside an act the flow already has. Its consumers are the Path Review, whose `recoverability` entry the Harness computes under it from each Candidate's claims and points (src/compose.mjs `recoverabilityOf`) and attaches beside the judged review, never asked of the judge; and adoption, which writes it into the Brief as `renderings` and refuses an `introduces` entry carrying a term it renders.",
     "schema_file": "src/candidate-schema.json",
     "schema_blocks": [
       "renderings_record"

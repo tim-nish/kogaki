@@ -945,9 +945,7 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-// Wait on one job until it is no longer running. Returns the job record. Exported for the
-// Leg Brief composer (src/move-extraction-playground/leg-brief.mjs, kogaki#1385), which runs its two rows
-// on the same supervisor.
+// Wait on one job until it is no longer running. Returns the job record.
 export function awaitJob(dir, heartbeatMs) {
   for (;;) {
     const job = readReaderPathJob(dir);

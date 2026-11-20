@@ -80,7 +80,7 @@ ok(ra.status === 0 && /^render: same$/m.test(ra.stdout) && rr && readFileSync(jo
   `(b) the render replay of call 1 did not report same against call 2's prompt: ${ra.status} ${ra.stdout}${ra.stderr}`);
 const job = join(root, "job");
 const FIRST = "You are running with no tools.\n\nCompose the record.\n";
-const REFUSAL = "legs[0].waypoints is empty";
+const REFUSAL = "legs[0].text is empty";
 const jobRecord = (n, prompt, refusal) => writeCallRecord(job, "u1", n, { prompt, argv: { argv: [], output_format: "stream-json" }, cli: null,
   input: null, row: { phase: "compose", row: null, tables: [] }, raw: "", answer: { legs: [] }, refusal });
 jobRecord(1, FIRST, { group: null, reach: null, text: REFUSAL, validator: "validateReaderPathUnit" });

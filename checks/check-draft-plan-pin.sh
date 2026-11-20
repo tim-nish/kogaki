@@ -39,7 +39,7 @@ const c = []; process.stdin.on("data", (d) => c.push(d)); process.stdin.on("end"
 `);
 chmodSync(writer, 0o755);
 
-// A Leg says its relation's `holds` as its `text` and carries no Brief Waypoint (kogaki#1775).
+// A Leg says its relation's `holds` as its `text` (kogaki#1775).
 const leg = (id) => ({ leg_id: id, text: `The relation ${id} says holds.`,
   claims: [{ strand: "L1", proposition: `the claim ${id} carries.` }] });
 const legs = [leg("G1"), leg("G2")];

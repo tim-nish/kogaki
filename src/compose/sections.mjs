@@ -214,8 +214,8 @@ export function targetLegIndex(legs) {
 // THE PARAGRAPH OBLIGATION RECORD (kogaki#1612, kogaki#1620; SPEC-draft-pipeline "Obligations").
 // The Leg-scale ledger is retired (kogaki#1699); the ParagraphPlan's Leg still carries these
 // records until the ParagraphPlan's Issue. An Obligation is `{opened_by, items}`: `opened_by`
-// the Brief Waypoint that opens the promise, and `items` `{item, closed_by, subitems?}` in the
-// order it names them -- `closed_by` the Brief Waypoint that explains the item, or `null` while it
+// the unit that opens the promise, and `items` `{item, closed_by, subitems?}` in the
+// order it names them -- `closed_by` the unit that explains the item, or `null` while it
 // is open, and `subitems` the `{item, closed_by}` parts it names, one level deep. `pos` maps a
 // unit to its place.
 // The retired keys are refused by name. Four of them are composed rather than spelled, so the

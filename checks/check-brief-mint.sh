@@ -32,7 +32,7 @@ import { findInternalVocabulary } from "./src/assemble.mjs";
 import { STATE_RETRY_GATE_ID } from "./src/workflow/gate.mjs";
 import { attachReview, claimRegisterRefusal, REVIEW_AREAS } from "./src/review.mjs";
 import * as compose from "./src/compose.mjs";
-import { recordOf, briefOfRecord } from "./checks/fixtures/brief-compose/fixtures.mjs";
+import { recordOf, briefOfRecord, fixtureLeg } from "./checks/fixtures/brief-compose/fixtures.mjs";
 // The Brief runtime is the entry and every module it was split into (kogaki#1466).
 const briefRuntimeText = () => ["src/brief.mjs", ...readdirSync("src/brief").filter((f) => f.endsWith(".mjs"))
   .map((f) => join("src/brief", f))].map((p) => readFileSync(p, "utf8")).join("\n");
@@ -130,7 +130,7 @@ const RETIRED_INPUT = ["external", "Authority"].join("");
   }
   // THE RECORD REQUIRES IT (kogaki#1328): a Brief record carrying no
   // compose_path is refused by the Draft's reader, naming the key.
-  const bare = recordOf([{ leg_id: "s1", claims: [{ strand: "L1", proposition: "c" }], waypoints: [{ point: "w" }] }]);
+  const bare = recordOf([fixtureLeg("s1")]);
   delete bare.compose_path;
   const noPath = briefOfRecord(bare, "bb.yaml");
   if (!noPath.refusals.some((r) => /`compose_path`/.test(r))) fails.push(`(bb) a Brief record with no compose_path was not refused naming the key: ${JSON.stringify(noPath.refusals)}`);
